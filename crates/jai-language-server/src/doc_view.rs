@@ -214,7 +214,11 @@ impl Session {
     /// The link whose label holds `byte`, with the declarations it leads to.
     fn link_at(&self, uri: &DocumentUri, byte: usize) -> Option<(Site, Vec<Decl>)> {
         let doc = self.document(uri).ok()?;
-        let site = docs::site_at(&doc.text, byte)?;
+        let site = doc
+            .sites()
+            .iter()
+            .find(|s| s.label.0 <= byte && byte <= s.label.1)?
+            .clone();
         let decls = self.resolve_sites(uri, std::slice::from_ref(&site)).pop()?;
         (!decls.is_empty()).then_some((site, decls))
     }
@@ -252,7 +256,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        let sites = docs::sites(&doc.text);
+        let sites = doc.sites().to_vec();
         let resolved = self.resolve_sites(uri, &sites);
         sites
             .into_iter()

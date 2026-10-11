@@ -34,10 +34,33 @@ impl Compiler {
                                     .any(|p| p.name.map(|pn| pn.name) == Some(n.name))
                         })
                     });
-                let (kept, consts) =
+                self.ide_note_bake_proc_args(def_scope, &lit.header, args);
+                let (kept, mut consts) =
                     self.bake_params(scope, def_scope, &params, &param_args, span)?;
                 let mut header = (*lit.header).clone();
                 header.params = kept;
+                // `#bake_constants f(T = float)` on `f :: (m: Matrix($T, $M, $N))`: the copy is
+                // still polymorphic over `M` and `N`, with `T` a constant its header names.
+                let bound: Vec<Sym> = poly_args
+                    .iter()
+                    .filter_map(|a| a.name)
+                    .map(|n| n.name)
+                    .collect();
+                let partial = !poly_args.is_empty() && poly_vars.iter().any(|v| !bound.contains(v));
+                if partial {
+                    for arg in &poly_args {
+                        let ty = self.eval_type(scope, &arg.value)?;
+                        consts.push((arg.name.unwrap().name, Value::Type(ty), TypeId::TYPE));
+                    }
+                    for t in header
+                        .params
+                        .iter_mut()
+                        .filter_map(|p| p.ty.as_mut())
+                        .chain(header.returns.iter_mut().filter_map(|r| r.ty.as_mut()))
+                    {
+                        unbind_poly(t, &bound);
+                    }
+                }
                 header.baked = true;
                 // The copy is a new procedure, not another export of the original.
                 header.flags.program_export = None;
@@ -47,7 +70,7 @@ impl Compiler {
                 });
                 let baked_scope = self.const_scope(def_scope, consts, span);
                 let baked = self.new_proc(name, lit, baked_scope, span);
-                if poly_args.is_empty() {
+                if poly_args.is_empty() || partial {
                     return Ok(Operand::Procs(vec![baked]));
                 }
                 let mut bindings = Vec::new();
@@ -65,6 +88,7 @@ impl Compiler {
                     (p.name, p.lit.clone())
                 };
                 let def_scope = self.poly_structs[ps.0 as usize].scope;
+                self.ide_note_bake_struct_args(ps, &lit.params, args);
                 let args: Vec<&ast::Arg> = args.iter().collect();
                 let (kept, consts) =
                     self.bake_params(scope, def_scope, &lit.params, &args, span)?;
@@ -184,5 +208,108 @@ impl Compiler {
             self.add_const(scope, name, span, value, ty);
         }
         scope
+    }
+
+    /// `#bake_arguments f(n = 1)`, `#bake_constants f(T = float)`: each `name` names a
+    /// parameter of `f` or one of its `$T`.
+    fn ide_note_bake_proc_args(
+        &mut self,
+        def_scope: ScopeId,
+        header: &ast::ProcHeader,
+        args: &[ast::Arg],
+    ) {
+        if self.ide.is_none() {
+            return;
+        }
+        let binders = self.poly_binders(header);
+        for arg in args {
+            let Some(name) = arg.name else {
+                continue;
+            };
+            let param = header
+                .params
+                .iter()
+                .find(|p| p.name.is_some_and(|n| n.name == name.name));
+            let (decl, ty) = match param {
+                Some(p) => {
+                    let ty =
+                        p.ty.as_ref()
+                            .filter(|t| !procs::has_poly(t))
+                            .and_then(|t| self.eval_type(def_scope, t).ok())
+                            .unwrap_or(TypeId::COMPILE_TIME);
+                    (p.name.unwrap().span, ty)
+                }
+                None => match binders.iter().find(|(n, _)| *n == name.name) {
+                    Some(&(_, at)) => (at, TypeId::TYPE),
+                    None => continue,
+                },
+            };
+            self.ide_note_named_field(name.span, name.name, decl, ty);
+        }
+    }
+
+    /// `#bake_arguments Matrix(M = 2)`: each `name` names a parameter of the struct.
+    fn ide_note_bake_struct_args(
+        &mut self,
+        ps: value::PolyStructId,
+        params: &[ast::Param],
+        args: &[ast::Arg],
+    ) {
+        if self.ide.is_none() {
+            return;
+        }
+        for arg in args {
+            let Some(name) = arg.name else {
+                continue;
+            };
+            let Some((i, decl)) = params
+                .iter()
+                .enumerate()
+                .find_map(|(i, p)| p.name.filter(|n| n.name == name.name).map(|n| (i, n.span)))
+            else {
+                continue;
+            };
+            let ty = self
+                .poly_struct_param_type(ps, i, None)
+                .unwrap_or(TypeId::COMPILE_TIME);
+            self.ide_note_named_field(name.span, name.name, decl, ty);
+        }
+    }
+}
+
+/// `$T` (and `$T/R`) in a type expression become plain `T`: `T` is bound elsewhere.
+fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
+    use ast::ExprKind as E;
+    match &mut expr.kind {
+        E::PolyVar {
+            name, ..
+        }
+        | E::PolyRestricted {
+            name, ..
+        } if names.contains(name) => expr.kind = E::Ident(*name),
+        E::Unary(_, e)
+        | E::TypeDirective {
+            ty: e, ..
+        } => unbind_poly(e, names),
+        E::ArrayType {
+            size,
+            elem,
+        } => {
+            if let ast::ArraySize::Fixed(n) = size {
+                unbind_poly(n, names);
+            }
+            unbind_poly(elem, names);
+        }
+        E::Call {
+            callee,
+            args,
+            ..
+        } => {
+            unbind_poly(callee, names);
+            for a in args {
+                unbind_poly(&mut a.value, names);
+            }
+        }
+        _ => {}
     }
 }

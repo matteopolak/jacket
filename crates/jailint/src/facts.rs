@@ -47,8 +47,15 @@ impl Facts {
             return None;
         }
         let wanted: HashSet<FileId> = files.iter().copied().collect();
+        // Sketches of polymorphic procedures nothing calls check them with stand-in types.
+        let mark = ide.sketch_from.unwrap_or(jaic::sema::ide::SketchMark {
+            refs: ide.refs.len(),
+            entities: compiler.entities.len(),
+            procs: compiler.procs.len(),
+        });
+        let refs = &ide.refs[..mark.refs];
         let mut idents: HashMap<Span, Vec<EntityId>> = HashMap::default();
-        for r in &ide.refs {
+        for r in refs {
             if r.decl || !wanted.contains(&r.span.file) {
                 continue;
             }
@@ -60,14 +67,14 @@ impl Facts {
             }
         }
         let mut locals: HashMap<Span, Vec<EntityId>> = HashMap::default();
-        for (i, e) in compiler.entities.iter().enumerate() {
+        for (i, e) in compiler.entities[..mark.entities].iter().enumerate() {
             if wanted.contains(&e.span.file) && matches!(e.kind, EntityKind::Local { .. }) {
                 locals.entry(e.span).or_default().push(EntityId(i as u32));
             }
         }
         let mut done: HashSet<Span> = HashSet::default();
         let mut failed: HashSet<Span> = HashSet::default();
-        for p in &compiler.procs {
+        for p in &compiler.procs[..mark.procs] {
             let Some(body) = &p.lit.body else {
                 continue;
             };
@@ -86,7 +93,7 @@ impl Facts {
         }
         let clean = done.difference(&failed).copied().collect();
         let mut procs_by_header: HashMap<Span, Vec<ProcId>> = HashMap::default();
-        for (i, p) in compiler.procs.iter().enumerate() {
+        for (i, p) in compiler.procs[..mark.procs].iter().enumerate() {
             if wanted.contains(&p.lit.header.span.file) {
                 procs_by_header
                     .entry(p.lit.header.span)
@@ -96,7 +103,7 @@ impl Facts {
         }
         let mut proc_uses: HashMap<ProcId, Vec<Span>> = HashMap::default();
         let mut proc_at: HashMap<Span, Vec<ProcId>> = HashMap::default();
-        for r in &ide.refs {
+        for r in refs {
             if r.decl {
                 continue;
             }

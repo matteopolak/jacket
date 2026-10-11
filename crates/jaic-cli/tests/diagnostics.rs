@@ -762,6 +762,39 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
 }
 
 #[test]
+fn missing_import_folder_names_its_path() {
+    let dir = scratch("missing-import-dir");
+    std::fs::create_dir_all(dir.join("empty")).unwrap();
+    for (source, expected) in [
+        (
+            "#import,dir \"gone\";",
+            "error: folder `gone` does not exist",
+        ),
+        ("#import,dir \"empty\";", "error: `empty` has no module.jai"),
+        (
+            "#import,file \"gone.jai\";",
+            "error: file `gone.jai` does not exist",
+        ),
+    ] {
+        let output = jaic_on(
+            &dir,
+            "i.jai",
+            &format!("{source}\nmain :: () {{}}\n"),
+            "check",
+            &[],
+        );
+        assert_eq!(output.status.code(), Some(1));
+        assert_in_order(
+            &stderr(&output),
+            &[
+                expected,
+                "help: `#import,file` and `#import,dir` paths are relative to the file that imports them",
+            ],
+        );
+    }
+}
+
+#[test]
 fn missing_load_file_says_where_it_looked() {
     let dir = scratch("missing-load");
     std::fs::write(dir.join("helper.jai"), "helper :: () {}\n").unwrap();

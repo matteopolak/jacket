@@ -349,12 +349,35 @@ impl Compiler {
 
     /// `#load` (or another read) of a file that is not there, with a close name if one is.
     fn unreadable_file(&self, path: &Path, span: Span) -> Diagnostic {
-        let shown = self.sources.snippet(span).trim_matches('"').to_string();
+        let snippet = self.sources.snippet(span);
+        // An `#import,file` or `#import,dir` span covers the directive, not only its path.
+        let import = snippet.starts_with("#import");
+        let shown = match snippet.split_once('"') {
+            Some((_, rest)) if import => rest.trim_end_matches([';', '"', ' ']).to_string(),
+            _ => snippet.trim_matches('"').to_string(),
+        };
         let shown = if shown.is_empty() || shown.contains('\n') {
             path.display().to_string()
         } else {
             shown
         };
+        let relative = if import {
+            "`#import,file` and `#import,dir` paths are relative to the file that imports them"
+        } else {
+            "`#load` paths are relative to the file that loads them"
+        };
+        if import && snippet.contains(",dir") {
+            let folder = path.parent().unwrap_or(Path::new("."));
+            let message = if self.fs.is_dir(folder) {
+                format!("`{shown}` has no module.jai")
+            } else {
+                format!("folder `{shown}` does not exist")
+            };
+            return Diagnostic::error(span, message)
+                .with_kind(DiagnosticKind::MissingFile)
+                .with_note(Span::NONE, format!("looked for {}", path.display()))
+                .with_help(relative);
+        }
         if self.fs.is_dir(path) {
             return Diagnostic::error(span, format!("`{shown}` is a directory, not a file"))
                 .with_help(
@@ -379,7 +402,7 @@ impl Compiler {
             d = d.with_help(format!("a file with a similar name exists: `{near}`"));
         }
         d.with_note(Span::NONE, format!("looked for {}", path.display()))
-            .with_help("`#load` paths are relative to the file that loads them")
+            .with_help(relative)
     }
 
     fn read_source(&mut self, path: &Path, span: Span) -> Result<FileId> {
@@ -1220,11 +1243,12 @@ impl Compiler {
             } => {
                 let taken =
                     self.eval_static_condition(file_scope_for_eval(self, scope, file_scope), cond)?;
-                let branch = if taken {
-                    then_branch
+                let (branch, skipped) = if taken {
+                    (then_branch, else_branch)
                 } else {
-                    else_branch
+                    (else_branch, then_branch)
                 };
+                self.ide_note_skipped(cond, skipped);
                 self.declare_stmts(scope, file_scope, branch, vis)?;
             }
             ast::StmtKind::StaticSwitch {

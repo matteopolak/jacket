@@ -138,6 +138,13 @@ main :: () {
     X, Y, Z :: #run triple();
     assert(X == 1 && Y == 2 && Z == 3, "#run keeps every value");
 
+    // decl.21: listed values go to the names in order.
+    A, B: int : 1, 2;
+    C, D :: "c", () -> int {
+        return 4;
+    };
+    assert(A == 1 && B == 2 && C == "c" && D() == 4, "listed constants");
+
     // decl.18: both #assert forms run at compile time (the file-level ones above held).
     #assert Count == 3 "local constant";
     #assert(Later == 2, "parenthesized form");

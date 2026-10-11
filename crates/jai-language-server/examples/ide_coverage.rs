@@ -1,6 +1,6 @@
 //! Which identifiers of a project get no hover or no go to definition from jailsp.
 //!
-//! `cargo run --release -p jai-language-server --example ide_coverage -- [--list] [--stdlib DIR] DIR...`
+//! `cargo run --release -p jai-language-server --example ide_coverage -- [--list] [--errors] [--stats] [--stdlib DIR] DIR...`
 //!
 //! Each DIR is opened as a workspace folder with all of its `.jai` files open, as an editor
 //! would. Every identifier and directive outside comments and strings is asked for hover, and
@@ -119,11 +119,16 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn position(text: &str, byte: usize) -> Position {
-    let before = &text[..byte];
-    let line = before.matches('\n').count();
-    let start = before.rfind('\n').map_or(0, |i| i + 1);
-    let character = text[start..byte].encode_utf16().count();
+/// Byte offsets where each line starts, for `position`.
+fn line_starts(text: &str) -> Vec<usize> {
+    std::iter::once(0)
+        .chain(text.match_indices('\n').map(|(i, _)| i + 1))
+        .collect()
+}
+
+fn position(text: &str, starts: &[usize], byte: usize) -> Position {
+    let line = starts.partition_point(|&s| s <= byte) - 1;
+    let character = text[starts[line]..byte].encode_utf16().count();
     Position {
         line: line as u32,
         character: character as u32,
@@ -152,12 +157,16 @@ fn role(tokens: &[jaic::lexer::Token], i: usize) -> Role {
 
 fn main() {
     let mut list = false;
+    let mut show_errors = false;
+    let mut stats = false;
     let mut stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut dirs = Vec::new();
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--list" => list = true,
+            "--errors" => show_errors = true,
+            "--stats" => stats = true,
             "--stdlib" => stdlib = PathBuf::from(args.next().expect("--stdlib DIR")),
             _ => dirs.push(PathBuf::from(arg)),
         }
@@ -174,15 +183,35 @@ fn main() {
             let Ok(text) = std::fs::read_to_string(path) else {
                 continue;
             };
-            let uri = DocumentUri::parse(&format!("file://{}", path.display())).unwrap();
+            // `16.4_check_#as.jai`: a `#` or `?` would start a fragment or query.
+            let encoded: String = path
+                .display()
+                .to_string()
+                .chars()
+                .map(|c| match c {
+                    '%' => "%25".into(),
+                    '#' => "%23".into(),
+                    '?' => "%3F".into(),
+                    ' ' => "%20".into(),
+                    c => c.to_string(),
+                })
+                .collect();
+            let uri = DocumentUri::parse(&format!("file://{encoded}")).unwrap();
             if session.open(uri.clone(), 1, text.clone()).is_ok() {
                 opened.push((path.clone(), uri, text));
             }
         }
         for (path, uri, text) in &opened {
-            let errored = session
+            let started = std::time::Instant::now();
+            let starts = line_starts(text);
+            let compiles = session.compile_counts().0;
+            let errors: Vec<_> = session
                 .diagnostics(uri)
-                .is_ok_and(|d| d.iter().any(|d| d.code == DiagnosticCode::Check));
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|d| d.code == DiagnosticCode::Check)
+                .collect();
+            let errored = !errors.is_empty();
             let Ok(tokens) = jaic::lexer::lex(jaic::source::FileId(0), text) else {
                 continue;
             };
@@ -206,7 +235,7 @@ fn main() {
                 };
                 idents += 1;
                 let start = token.span.start as usize;
-                let at = position(text, start + 1);
+                let at = position(text, &starts, start + 1);
                 let hover = session
                     .hover(uri, at)
                     .ok()
@@ -246,6 +275,23 @@ fn main() {
                     ""
                 },
             );
+            if stats {
+                println!(
+                    "  {} compiles, {} ms",
+                    session.compile_counts().0 - compiles,
+                    started.elapsed().as_millis()
+                );
+            }
+            if show_errors {
+                for e in &errors {
+                    let first = e.message.lines().next().unwrap_or_default();
+                    println!(
+                        "  {}:{} error: {first}",
+                        e.range.start.line + 1,
+                        e.range.start.character + 1
+                    );
+                }
+            }
             for g in &gaps {
                 if !g.hover {
                     *totals.entry((kind, g.role)).or_default() += 1;

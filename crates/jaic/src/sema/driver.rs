@@ -359,7 +359,7 @@ impl Compiler {
 
     /// Is `scope` part of a polymorphic instance (a struct's or a procedure's) or of a macro
     /// expansion? What is declared there is checked as that instance is used.
-    fn inside_instance(&self, mut scope: ScopeId) -> bool {
+    pub(super) fn inside_instance(&self, mut scope: ScopeId) -> bool {
         loop {
             let s = self.scope(scope);
             match s.kind {

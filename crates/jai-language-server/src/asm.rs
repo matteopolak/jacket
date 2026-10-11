@@ -502,6 +502,9 @@ impl Session {
         text: &str,
         byte: usize,
     ) -> Option<CompletionList> {
+        if !text.contains("#asm") {
+            return None;
+        }
         let code = code_only(text);
         let block = match locate(&code, byte)? {
             Place::Features(start) => {
@@ -692,6 +695,9 @@ impl Session {
 
     /// Hover on a mnemonic or a declared register inside an `#asm` block.
     pub(crate) fn asm_hover(&self, text: &str, byte: usize) -> Option<(usize, usize, HoverText)> {
+        if !text.contains("#asm") {
+            return None;
+        }
         let code = code_only(text);
         let Place::Body(block) = locate(&code, byte)? else {
             return None;
@@ -738,6 +744,9 @@ impl Session {
 
     /// The operand forms of the instruction whose operands are being typed.
     pub(crate) fn asm_signature_help(&self, text: &str, byte: usize) -> Option<SignatureHelp> {
+        if !text.contains("#asm") {
+            return None;
+        }
         let code = code_only(text);
         let Place::Body(block) = locate(&code, byte)? else {
             return None;

@@ -163,7 +163,7 @@ pub(crate) struct Sources<'a> {
 
 fn hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
-    let mut h = std::collections::hash_map::DefaultHasher::new();
+    let mut h = crate::fast_hash::FastHasher::default();
     text.hash(&mut h);
     h.finish()
 }

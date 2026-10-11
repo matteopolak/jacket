@@ -43,7 +43,7 @@ impl Compiler {
                 f.context = saved;
                 return result;
             }
-            self.check_stmt(f, scope, stmt)?;
+            self.check_block_stmt(f, scope, stmt)?;
         }
         Ok(())
     }
@@ -59,11 +59,94 @@ impl Compiler {
             if matches!(stmt.kind, S::PushContextDefer { .. }) {
                 return self.check_block_stmts(f, scope, &stmts[i..]);
             }
-            self.check_stmt(f, scope, stmt)?;
+            self.check_block_stmt(f, scope, stmt)?;
         }
         Ok(())
     }
 
+
+    /// A statement of a block. A sketch goes on past a statement it cannot check, for the
+    /// facts of the rest.
+    fn check_block_stmt(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
+        match self.check_stmt(f, scope, stmt) {
+            Err(_) if self.sketching() => {
+                self.sketch_reopen(f);
+                self.sketch_salvage(f, scope, stmt);
+                Ok(())
+            }
+            result => result,
+        }
+    }
+
+    /// After a `return` (or a failure that ended the block), give a sketch an unreachable
+    /// block to check the rest into.
+    fn sketch_reopen(&mut self, f: &mut FnCtx) {
+        if f.b.is_terminated() {
+            let rest = f.b.new_block();
+            f.b.switch_to(rest);
+        }
+    }
+
+    /// A statement of a sketch failed: check what it did not get to, for the facts, and
+    /// declare the names a declaration did not.
+    fn sketch_salvage(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) {
+        let checked = |c: &Self, e: &ast::Expr| {
+            c.ide
+                .as_ref()
+                .is_some_and(|ide| ide.sketch_tried.contains(&e.span))
+        };
+        // A condition that has a type was fine: the failure was in a body, which salvaged
+        // its own statements.
+        let typed = |c: &Self, e: &ast::Expr| {
+            c.ide
+                .as_ref()
+                .is_some_and(|ide| ide.sketch_types.contains_key(&e.span))
+        };
+        let check = |c: &mut Self, f: &mut FnCtx, e: &ast::Expr| {
+            if !checked(c, e) {
+                let _ = c.check_expr(f, scope, e, None);
+            }
+        };
+        match &stmt.kind {
+            S::Decl(decl) => {
+                decl.value
+                    .iter()
+                    .chain(&decl.extra_values)
+                    .for_each(|e| check(self, f, e));
+                self.ide_sketch_declare(f, scope, decl);
+            }
+            S::Expr(e) => check(self, f, e),
+            S::Assign {
+                lhs,
+                rhs,
+                ..
+            } => lhs.iter().chain(rhs).for_each(|e| check(self, f, e)),
+            S::Return {
+                values, ..
+            } => values.iter().for_each(|a| check(self, f, &a.value)),
+            S::If {
+                cond,
+                then_branch,
+                else_branch,
+            } if !typed(self, cond) => {
+                check(self, f, cond);
+                for branch in std::iter::once(then_branch).chain(else_branch) {
+                    self.sketch_reopen(f);
+                    let _ = self.check_scoped(f, scope, branch);
+                }
+            }
+            S::While {
+                cond,
+                body,
+                ..
+            } if !typed(self, cond) => {
+                check(self, f, cond);
+                self.sketch_reopen(f);
+                let _ = self.check_scoped(f, scope, body);
+            }
+            _ => {}
+        }
+    }
 
     /// The address of the context a `push_context` installs.
     fn push_context_addr(
@@ -341,8 +424,28 @@ impl Compiler {
                 then_branch,
                 else_branch,
             } => {
+                if self.sketching() {
+                    // Which branch a stand-in takes says nothing: a sketch checks both.
+                    let taken = self.body_static_condition(f, scope, cond).unwrap_or(true);
+                    let (first, second) = if taken {
+                        (then_branch, else_branch)
+                    } else {
+                        (else_branch, then_branch)
+                    };
+                    let _ = self.check_block_stmts(f, scope, first);
+                    self.sketch_reopen(f);
+                    return self.check_block_stmts(f, scope, second);
+                }
                 let taken = self.body_static_condition(f, scope, cond)?;
                 f.static_taken.insert(span, taken);
+                self.ide_note_skipped(
+                    cond,
+                    if taken {
+                        else_branch
+                    } else {
+                        then_branch
+                    },
+                );
                 self.check_block_stmts(
                     f,
                     scope,
@@ -364,7 +467,12 @@ impl Compiler {
                 message,
                 args,
             } => {
-                if !self.eval_static_condition(scope, cond)? {
+                // A sketch's stand-ins meet no condition.
+                let holds = self.eval_static_condition(scope, cond);
+                if self.sketching() {
+                    return Ok(());
+                }
+                if !holds? {
                     let msg = self.assert_message(scope, message.as_ref(), args)?;
                     return Err(Box::new(self.static_assert_failed(cond, span, msg)));
                 }
@@ -720,7 +828,7 @@ impl Compiler {
     }
 
     /// Whether `scope` itself already holds a runtime local called `name`.
-    fn declares_local(&self, scope: ScopeId, name: Sym) -> bool {
+    pub(super) fn declares_local(&self, scope: ScopeId, name: Sym) -> bool {
         self.scope(scope).names.get(&name).is_some_and(|ids| {
             ids.iter()
                 .any(|&e| matches!(self.entity(e).kind, EntityKind::Local { .. }))
@@ -2183,10 +2291,14 @@ impl Compiler {
         let op = self.check_expr(f, scope, c, None)?;
         let cty = op.ty();
         let target = self.types.pointee(cty).unwrap_or(cty);
-        let is_struct = matches!(
-            self.types.kind(self.types.repr_struct(target)),
-            TypeKind::Struct(_)
-        );
+        // A sketch's stand-in iterates like an array of stand-ins.
+        let stand_in_elem = (for_.iterator.is_none() && self.is_stand_in(cty))
+            .then(|| self.ide_stand_in_member(target, Sym::intern("[]"), c.span));
+        let is_struct = stand_in_elem.is_none()
+            && matches!(
+                self.types.kind(self.types.repr_struct(target)),
+                TypeKind::Struct(_)
+            );
         if for_.iterator.is_some() || is_struct {
             let procs = self.for_expansion_procs(scope, for_, &op, span)?;
             // `for_expansion :: (x: *T, ...)` iterates a struct value through its address.
@@ -2235,6 +2347,7 @@ impl Compiler {
                 .check_for_expansion(f, scope, for_, procs, leading, it_name, index_name, span);
         }
         let (elem, fixed) = match self.types.kind(self.types.repr(cty)).clone() {
+            _ if let Some(elem) = stand_in_elem => (elem, None),
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::Fixed(n),

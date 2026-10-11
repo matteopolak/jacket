@@ -31,11 +31,25 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
-        let result = self.check_expr_kind(f, scope, expr, expected);
+        if let Some(ide) = self.ide.as_mut()
+            && ide.sketching
+        {
+            ide.sketch_tried.insert(expr.span);
+        }
+        let mut result = self.check_expr_kind(f, scope, expr, expected);
+        if result.is_err()
+            && self.sketching()
+            && let Some(op) = self.ide_sketch_recover(f, scope, expr)
+        {
+            result = Ok(op);
+        }
         if self.ide.is_some()
             && let Ok(op) = &result
         {
             self.ide_note_expr(expr, op);
+            if self.sketching() {
+                self.ide_note_sketch_type(expr.span, op);
+            }
         }
         result
     }
@@ -1262,6 +1276,9 @@ impl Compiler {
 
     /// Convert a scalar value to a 0/1 `I8` condition.
     pub fn truthy(&mut self, f: &mut FnCtx, ty: TypeId, v: ir::Val, span: Span) -> Result<ir::Val> {
+        if self.is_stand_in(ty) {
+            return Ok(f.b.iconst(Ty::I8, 1));
+        }
         let Some(t) = self.ir_ty(ty) else {
             if ty == TypeId::STRING {
                 let count = f.b.load(Ty::I64, v);

@@ -8,6 +8,27 @@ use super::value::ProcId;
 use super::*;
 use crate::types::{ArrayKind, StructId, TypeKind};
 
+/// Lengths of `IdeFacts::refs`, `Compiler::entities` and `Compiler::procs` at a point.
+#[derive(Clone, Copy, Debug)]
+pub struct SketchMark {
+    pub refs: usize,
+    pub entities: usize,
+    pub procs: usize,
+}
+
+#[derive(Default)]
+struct RefIndex {
+    /// How many of `refs` are in the index. References are only pushed, or truncated away by
+    /// a sketch, so the index grows with them and starts over when they shrink.
+    built: usize,
+    /// Per file: indices into `refs` of spans up to `SHORT_REF` long, sorted by start, and of
+    /// the longer ones, which are few and checked one by one.
+    files: HashMap<FileId, (Vec<u32>, Vec<u32>)>,
+}
+
+/// Spans up to this many bytes are found by binary search; a lookup walks back at most this far.
+const SHORT_REF: u32 = 64;
+
 #[derive(Default)]
 pub struct IdeFacts {
     /// Files whose path starts with one of these are recorded.
@@ -31,6 +52,29 @@ pub struct IdeFacts {
     pub(super) type_names: HashMap<Span, EntityId>,
     /// Procedure type parameter names already recorded.
     pub(super) param_names: HashSet<Span>,
+    /// Where `ide_sketch_polymorphs` began: the refs, entities and procedures from there on
+    /// come from sketches with stand-in types, which lints skip.
+    pub sketch_from: Option<SketchMark>,
+    /// The stand-in types of sketches: anything may be done with a value of one (see
+    /// `ide_sketch`).
+    pub(super) stand_ins: HashSet<TypeId>,
+    /// The stand-in for member `name` of stand-in type `t`.
+    pub(super) stand_in_members: HashMap<(TypeId, Sym), TypeId>,
+    /// Macros (and instances of polymorphic ones) that were expanded somewhere.
+    pub(super) expanded_macros: HashSet<ProcId>,
+    /// The sketch's own instance is being made, which binds stand-ins.
+    pub(super) sketch_root: bool,
+    /// A sketch is being checked: an expression that fails on a stand-in becomes one.
+    pub(super) sketching: bool,
+    /// The type of each expression the current sketch checked.
+    pub(super) sketch_types: HashMap<Span, TypeId>,
+    /// Each expression the current sketch began to check, failed or not.
+    pub(super) sketch_tried: HashSet<Span>,
+    /// The code an `#if` on `OS` or `CPU` did not take: another target's compile has its facts.
+    pub skipped: Vec<Span>,
+    /// `refs` by file, sorted by start, for position lookups (`refs_at`). Built on first use
+    /// and again whenever `refs` has changed since (its length and buffer are the key).
+    by_position: std::cell::RefCell<RefIndex>,
     /// Lint mode (`jailint`): also record the facts below.
     pub lint: bool,
     /// Type of each checked expression of the recorded files, by span.
@@ -113,6 +157,67 @@ pub struct IdeCast {
 }
 
 impl IdeFacts {
+    /// The references whose span holds `offset` in `file`, in the order they were recorded.
+    pub fn refs_at(&self, file: FileId, offset: u32) -> Vec<&IdeRef> {
+        let mut index = self.by_position.borrow_mut();
+        if self.refs.len() < index.built {
+            *index = RefIndex::default();
+        }
+        if self.refs.len() > index.built {
+            let from = index.built;
+            let mut unsorted: Vec<FileId> = Vec::new();
+            for (i, r) in self.refs.iter().enumerate().skip(from) {
+                let (short, long) = index.files.entry(r.span.file).or_default();
+                if r.span.end.saturating_sub(r.span.start) > SHORT_REF {
+                    long.push(i as u32);
+                    continue;
+                }
+                if short
+                    .last()
+                    .is_some_and(|&j| self.refs[j as usize].span.start > r.span.start)
+                    && !unsorted.contains(&r.span.file)
+                {
+                    unsorted.push(r.span.file);
+                }
+                short.push(i as u32);
+            }
+            // Stable, so equal starts keep the order recorded; the list is two sorted runs.
+            for file in unsorted {
+                if let Some((short, _)) = index.files.get_mut(&file) {
+                    short.sort_by_key(|&i| self.refs[i as usize].span.start);
+                }
+            }
+            index.built = self.refs.len();
+        }
+        let Some((list, long)) = index.files.get(&file) else {
+            return Vec::new();
+        };
+        let holds = |i: u32| {
+            let span = self.refs[i as usize].span;
+            span.start <= offset && offset <= span.end
+        };
+        let past = list.partition_point(|&i| self.refs[i as usize].span.start <= offset);
+        let earliest = offset.saturating_sub(SHORT_REF);
+        let mut found: Vec<u32> = list[..past]
+            .iter()
+            .rev()
+            .take_while(|&&i| self.refs[i as usize].span.start >= earliest)
+            .copied()
+            .filter(|&i| holds(i))
+            .chain(long.iter().copied().filter(|&i| holds(i)))
+            .collect();
+        // In the order recorded, which breaks ties as a scan of `refs` would.
+        found.sort_unstable();
+        found.into_iter().map(|i| &self.refs[i as usize]).collect()
+    }
+
+    /// Drop the references recorded after the first `len`; use this, not `refs.truncate`,
+    /// so `refs_at`'s index does not keep the dropped ones.
+    pub fn truncate_refs(&mut self, len: usize) {
+        self.refs.truncate(len);
+        *self.by_position.get_mut() = RefIndex::default();
+    }
+
     pub fn new(roots: Vec<String>) -> Self {
         Self {
             roots,
@@ -402,6 +507,9 @@ impl Compiler {
         while i < self.procs.len() {
             let id = ProcId(i as u32);
             i += 1;
+            // `t: *Table` makes a procedure polymorphic, which is only known once names
+            // resolve (a compile that stopped early may not have asked yet).
+            let _ = self.refresh_implicit_poly(id);
             let p = self.proc(id);
             let span = p.span;
             if p.is_poly
@@ -417,6 +525,7 @@ impl Compiler {
             }
         }
         errors.extend(self.drain_bodies_lenient().map(|e| *e));
+        self.ide_note_bodiless();
         let mut failed: Vec<_> = self
             .lenient_failures_list()
             .into_iter()
@@ -425,6 +534,58 @@ impl Compiler {
         failed.sort_by_key(|e| (e.span.file.0, e.span.start));
         errors.extend(failed);
         errors
+    }
+
+    /// Procedures without a body (`#foreign`, `#elsewhere`, `#compiler`): no body declares
+    /// their parameters, so their names are recorded from the signature, as is the library
+    /// `#foreign` names.
+    fn ide_note_bodiless(&mut self) {
+        for i in 0..self.procs.len() {
+            let id = ProcId(i as u32);
+            let _ = self.refresh_implicit_poly(id);
+            let p = self.proc(id);
+            if p.is_poly || p.lit.body.is_some() {
+                continue;
+            }
+            let (span, scope, header) = (p.span, p.scope, p.lit.header.clone());
+            if !self.ide_wants(span.file) {
+                continue;
+            }
+            if let Ok(sig) = self.signature(id, span) {
+                for (param, sp) in header.params.iter().zip(&sig.params) {
+                    if let Some(name) = param.name.filter(|n| n.span.end > n.span.start) {
+                        self.ide_note_param_name(name.span, name.name, sp.ty);
+                    }
+                }
+            }
+            if let Some(lib) = header.foreign.as_ref().and_then(|f| f.library)
+                && let Ok(ids) = self.lookup(scope, lib.name)
+                && let [lib_id] = ids[..]
+                && let Some(ide) = self.ide.as_mut()
+            {
+                ide.refs.push(IdeRef {
+                    span: lib.span,
+                    what: IdeWhat::Entity(lib_id),
+                    ty: TypeId::VOID,
+                    decl: false,
+                });
+            }
+        }
+    }
+
+    /// `#if cond` skipped `branch`: when `cond` asks about the target, record where, so the
+    /// language server can ask a compile for another target about that code.
+    pub(super) fn ide_note_skipped(&mut self, cond: &ast::Expr, branch: &[ast::Stmt]) {
+        let (Some(first), Some(last)) = (branch.first(), branch.last()) else {
+            return;
+        };
+        if self.ide.is_none() || !self.ide_wants(first.span.file) || !names_target(cond) {
+            return;
+        }
+        let span = first.span.to(last.span);
+        if let Some(ide) = self.ide.as_mut() {
+            ide.skipped.push(span);
+        }
     }
 
     /// The innermost recorded scope at `offset` of `file` (else the file's own scope).
@@ -448,12 +609,12 @@ impl Compiler {
     /// The innermost recorded name at `offset` of `file`, and whether every record of that
     /// exact span agrees (a polymorphic body is checked once per instance).
     fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {
-        let refs = &self.ide.as_ref()?.refs;
-        let r = refs
+        let here = self.ide.as_ref()?.refs_at(file, offset);
+        let r = here
             .iter()
-            .filter(|r| r.span.file == file && r.span.start <= offset && offset <= r.span.end)
+            .copied()
             .min_by_key(|r| r.span.end - r.span.start)?;
-        let same = refs
+        let same = here
             .iter()
             .filter(|o| o.span == r.span)
             .all(|o| o.ty == r.ty && same_what(&o.what, &r.what));
@@ -1237,9 +1398,8 @@ impl Compiler {
             return vec![*decl];
         }
         let Some(r) = self.ide.as_ref().and_then(|ide| {
-            ide.refs
-                .iter()
-                .filter(|r| r.span.file == file && r.span.start <= offset && offset <= r.span.end)
+            ide.refs_at(file, offset)
+                .into_iter()
                 .min_by_key(|r| r.span.end - r.span.start)
                 .cloned()
         }) else {
@@ -2054,7 +2214,7 @@ fn same_what(a: &IdeWhat, b: &IdeWhat) -> bool {
 }
 
 /// Every expression of the parameter and return types of `header`, outermost first.
-fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast::Expr)) {
+pub(super) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast::Expr)) {
     fn walk(e: &ast::Expr, f: &mut dyn FnMut(&ast::Expr)) {
         use ast::ExprKind as E;
         f(e);
@@ -2091,5 +2251,16 @@ fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast::Expr)) {
         .chain(header.returns.iter().filter_map(|r| r.ty.as_ref()))
     {
         walk(t, f);
+    }
+}
+
+/// Does a condition mention `OS` or `CPU`?
+fn names_target(expr: &ast::Expr) -> bool {
+    use ast::ExprKind as E;
+    match &expr.kind {
+        E::Ident(name) => matches!(name.as_str(), "OS" | "CPU"),
+        E::Binary(_, a, b) => names_target(a) || names_target(b),
+        E::Unary(_, e) => names_target(e),
+        _ => false,
     }
 }

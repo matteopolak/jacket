@@ -1161,6 +1161,264 @@ fn names_from_a_using_parameter_hover_and_go_to_it() {
 /// Names that only the type checker can place: each hovers with its type and goes to its
 /// declaration (found by `examples/ide_coverage.rs`).
 #[test]
+fn a_polymorph_nothing_calls_hovers_with_its_parameters_as_types() {
+    let text = r#"Value :: struct { n: int; }
+convert :: (v: Value, $Target: Type) -> ok: bool, result: Target {
+    target: Target;
+    count := v.n + 1;
+    return count > 0, target;
+}
+first :: (items: [$N] $T) -> T {
+    out := items[0];
+    return out;
+}
+find :: (key: string) -> found := false, index: int = -1 {
+    return true, 0;
+}
+main :: () {
+    for < it_index: 0..3 {}
+}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let hover = |s: &mut Session, needle: &str, offset: usize| {
+        s.hover(&uri(), at(text, needle, 0, offset))
+            .unwrap()
+            .map(|h| h.contents.value)
+            .unwrap_or_default()
+    };
+    let mut wrong = Vec::new();
+    for (needle, offset, want) in [
+        ("target: Target", 1, "target: Target"),
+        ("count :=", 1, "count: s64"),
+        ("n + 1", 0, "n: s64"),
+        ("out :=", 1, "out: T"),
+        ("found :=", 1, "found: bool"),
+        ("index: int", 1, "index: s64"),
+        ("result: Target", 1, "result: Target"),
+    ] {
+        let got = hover(&mut s, needle, offset);
+        if !got.contains(want) {
+            wrong.push(format!("{needle}: {got:?}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+    assert_eq!(
+        s.definition(&uri(), at(text, "Target;", 0, 1))
+            .unwrap()
+            .first()
+            .map(|d| d.range.start),
+        Some(at(text, "Target: Type", 0, 0))
+    );
+    // The sketch's errors (`items[0]` of a stand-in `T` is fine, but nothing else is checked
+    // against real types) are not the program's.
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn a_sketch_carries_on_past_members_of_its_stand_ins() {
+    let text = r#"Matrix :: struct ($T: Type, $M: int, $N: int) { rows: [M] [N] T; }
+Counter :: struct { hits: int; }
+describe :: (x: $T, counter: *Counter) -> int {
+    label := x.label;
+    total := x.size * 2;
+    for item: x.items {
+        counter.hits += 1;
+    }
+    if x.ready {
+        counter.hits += 2;
+    }
+    #if OS == .WINDOWS {
+        windows_hits := counter.hits;
+    } else {
+        other_hits := counter.hits;
+    }
+    #assert size_of(T) == 4;
+    missing := x.size + nothing_here;
+    after := counter.hits;
+    return total;
+}
+trace :: (m: $M/Matrix) -> M.T {
+    first := m.rows[0][0];
+    return first;
+}
+bump :: (counter: *Counter) #expand {
+    bumped := counter.hits + 1;
+}
+main :: () {}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let hover = |s: &mut Session, needle: &str, offset: usize| {
+        s.hover(&uri(), at(text, needle, 0, offset))
+            .unwrap()
+            .map(|h| h.contents.value)
+            .unwrap_or_default()
+    };
+    let mut wrong = Vec::new();
+    for (needle, offset, want) in [
+        ("label :=", 1, "label: T.label"),
+        ("total :=", 1, "total: s64"),
+        ("item: x", 1, "item:"),
+        ("hits += 1", 0, "hits: s64"),
+        ("hits += 2", 0, "hits: s64"),
+        ("windows_hits", 1, "windows_hits: s64"),
+        ("other_hits", 1, "other_hits: s64"),
+        ("missing :=", 1, "missing:"),
+        ("after :=", 1, "after: s64"),
+        ("first :=", 1, "first:"),
+        ("bumped :=", 1, "bumped: s64"),
+    ] {
+        let got = hover(&mut s, needle, offset);
+        if !got.contains(want) {
+            wrong.push(format!("{needle}: {got:?}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+    assert_eq!(
+        s.definition(&uri(), at(text, "hits += 2", 0, 0))
+            .unwrap()
+            .first()
+            .map(|d| d.range.start),
+        Some(at(text, "hits: int", 0, 0))
+    );
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn baked_names_and_bare_polymorphic_struct_parameters_hover() {
+    let text = r#"Vector :: struct (T: Type, N: int) { x: T; #if N > 1 { y: T; } }
+Vec2 :: #bake_arguments Vector(N = 2);
+Vec2f :: Vec2(float32);
+scale :: (v: $T, by: int) -> T { return v * by; }
+double :: #bake_arguments scale(by = 2);
+twice :: #bake_constants scale(T = int);
+flatten :: (v: Vec2) -> Vec2f { return .{xx v.x, xx v.y}; }
+main :: () {}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let hover = |s: &mut Session, needle: &str, offset: usize| {
+        s.hover(&uri(), at(text, needle, 0, offset))
+            .unwrap()
+            .map(|h| h.contents.value)
+            .unwrap_or_default()
+    };
+    let mut wrong = Vec::new();
+    for (needle, offset, want) in [
+        ("N = 2", 0, "N: s64"),
+        ("by = 2", 0, "by: s64"),
+        ("T = int", 0, "T: Type"),
+        ("v.x", 0, "v:"),
+        ("x, xx", 0, "x:"),
+        ("y}", 0, "y:"),
+    ] {
+        let got = hover(&mut s, needle, offset);
+        if !got.contains(want) {
+            wrong.push(format!("{needle}: {got:?}"));
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+    for (needle, decl) in [
+        ("N = 2", "N: int"),
+        ("by = 2", "by: int"),
+        ("T = int", "$T"),
+    ] {
+        assert_eq!(
+            s.definition(&uri(), at(text, needle, 0, 0))
+                .unwrap()
+                .first()
+                .map(|d| d.range.start),
+            Some(at(
+                text,
+                decl,
+                0,
+                if decl == "$T" {
+                    1
+                } else {
+                    0
+                }
+            )),
+            "{needle}"
+        );
+    }
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn foreign_parameters_and_libraries_hover() {
+    let text = r#"libc :: #system_library "libc";
+length :: (text: *u8) -> u64 #foreign libc "strlen";
+main :: () {}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let hover = |s: &mut Session, needle: &str| {
+        s.hover(&uri(), at(text, needle, 0, 0))
+            .unwrap()
+            .map(|h| h.contents.value)
+            .unwrap_or_default()
+    };
+    assert!(hover(&mut s, "text:").contains("text: *u8"));
+    assert!(hover(&mut s, "libc \"strlen").contains("libc"));
+    assert_eq!(
+        s.definition(&uri(), at(text, "libc \"strlen", 0, 0))
+            .unwrap()
+            .first()
+            .map(|d| d.range.start),
+        Some(at(text, "libc ::", 0, 0))
+    );
+}
+
+#[test]
+fn code_another_target_compiles_hovers_and_goes_to_definition() {
+    let main = r#"#if OS == .WASM {
+    #load "web.jai";
+    scale :: (by: int) -> int { return by * web_factor(); }
+}
+main :: () {}
+"#;
+    let web_text = "web_factor :: () -> int { return 2; }\n";
+    let web = DocumentUri::parse("file:///lsp-features-test/web.jai").unwrap();
+    let mut s = session();
+    s.open(uri(), 1, main.into()).unwrap();
+    s.open(web.clone(), 1, web_text.into()).unwrap();
+    let shown = s
+        .hover(&uri(), at(main, "by *", 0, 0))
+        .unwrap()
+        .map(|h| h.contents.value)
+        .unwrap_or_default();
+    assert!(shown.contains("by: s64"), "{shown}");
+    let found = s.definition(&uri(), at(main, "web_factor", 0, 0)).unwrap();
+    assert_eq!(found.first().map(|d| d.uri.as_str()), Some(web.as_str()));
+    let shown = s
+        .hover(&web, at(web_text, "int", 0, 0))
+        .unwrap()
+        .map(|h| h.contents.value)
+        .unwrap_or_default();
+    assert!(shown.contains("int"), "{shown}");
+}
+
+#[test]
+fn a_failed_load_leaves_bare_polymorphic_struct_parameters_polymorphic() {
+    let text = r#"#load "missing.jai";
+Pair :: struct (T: Type) { a: T; b: T; }
+swap :: (p: *Pair) { p.a, p.b = p.b, p.a; }
+main :: () {}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    assert!(
+        diagnostics.iter().all(|d| d.range.start.line == 0),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn names_outside_plain_expressions_hover_and_go_to_their_declarations() {
     let text = r#"#import "Basic";
 Pair :: struct { first: int; second: int; }

@@ -191,7 +191,20 @@ impl Compiler {
         let Some(value) = &decl.value else {
             return err(decl.span, "constant declaration needs a value");
         };
-        let multiple = decl.names.len() > 1;
+        // `a, b :: 1, 2;` gives each name its own value.
+        let listed = 1 + decl.extra_values.len();
+        let value = match index {
+            _ if listed == 1 => value,
+            _ if listed != decl.names.len() => {
+                return err(
+                    decl.span,
+                    format!("{} names but {listed} values", decl.names.len()),
+                );
+            }
+            0 => value,
+            i => &decl.extra_values[i - 1],
+        };
+        let multiple = decl.names.len() > 1 && listed == 1;
         match &value.kind {
             // `a, b :: #run f();` takes one value each (below).
             _ if multiple => {}

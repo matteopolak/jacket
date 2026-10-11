@@ -430,7 +430,7 @@ A fix is a list of byte edits. Mark it `machine_applicable` only when applying i
 Gotchas:
 
 - Facts are recorded only for files under the root's directory (the `IdeFacts` prefix), so module files reached from a program are not linted from that program.
-- `ide_check_all` checks bodies nothing called. A body that failed in any polymorph instance is not clean.
+- `ide_check_all` checks bodies nothing called. A body that failed in any polymorph instance is not clean. The language server's sketches of uncalled polymorphs come after `IdeFacts::sketch_from`, and `Facts::collect` stops at that mark, so rules never see stand-in types.
 - Compile-time code runs in the sandbox. A metaprogram that needs a foreign call the sandbox lacks (running a process, `localtime`) stops there. Its root is reported with `-v`, and only what was compiled is linted.
 
 ## Configuration reference

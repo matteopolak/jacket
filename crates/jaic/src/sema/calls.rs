@@ -1483,7 +1483,7 @@ impl Compiler {
 
     /// The value of a defaulted baked parameter. A declared type naming earlier bindings
     /// (`$compare: (T, T) -> bool = ...`) is read in a scope holding them.
-    fn baked_default(
+    pub(super) fn baked_default(
         &mut self,
         def_scope: ScopeId,
         param: &ast::Param,
@@ -3054,6 +3054,9 @@ impl Compiler {
         let Some(body) = self.proc(proc).lit.body.clone() else {
             return err(span, "macro has no body");
         };
+        if let Some(ide) = self.ide.as_mut() {
+            ide.expanded_macros.insert(proc);
+        }
         if f.macros.len() > 64 {
             return err(span, "macro expansion is too deeply nested");
         }

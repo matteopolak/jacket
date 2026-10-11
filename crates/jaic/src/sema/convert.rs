@@ -21,6 +21,10 @@ impl Compiler {
         if from == to {
             return Some(EXACT);
         }
+        if self.is_stand_in(from) || self.is_stand_in(to) {
+            // A sketch's stand-in: anything converts, at the cost of the worst conversion.
+            return Some(TO_ANY);
+        }
         // A `void` variable boxes too; a call without a value is rejected by the caller.
         if to == TypeId::ANY && from != TypeId::COMPILE_TIME {
             return Some(TO_ANY);
@@ -226,6 +230,9 @@ impl Compiler {
             )
         {
             return Ok(op);
+        }
+        if self.is_stand_in(from) || self.is_stand_in(to) {
+            return Ok(self.ide_sketch_value(f, to, span));
         }
         // A one-character string constant is a `u8` (`case "'";` on a byte).
         if to == TypeId::U8

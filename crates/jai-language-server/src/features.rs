@@ -7,7 +7,7 @@ use crate::analysis::{DIRECTIVES, Span, TokenKind};
 use crate::hover::{Block, FormatRow, HoverText, Inline};
 use crate::links::{Link, LinkSource};
 use crate::semantic;
-use crate::session::{Session, contains, repair};
+use crate::session::{Session, contains};
 use crate::{
     CodeAction, CodeLens, Command, DocumentUri, Error, Expansion, FoldingRange, InlayHint,
     InlayHintKind, Location, Position, Range, SignatureHelp, SignatureInformation,
@@ -69,7 +69,7 @@ impl Session {
         query: impl FnOnce(&mut semantic::Analysis, FileId) -> T,
     ) -> Option<T> {
         let doc = self.document(uri).ok()?;
-        let probe = repair(&doc.text, None)?;
+        let probe = self.probe(uri, &doc.text, None)?;
         self.with_semantic(uri, &probe, |a, path| {
             let file = a.file(path)?;
             Some(query(a, file))
@@ -216,9 +216,8 @@ impl Session {
     ) -> Option<(usize, usize, HoverText)> {
         let analysis = self.analyses.get(uri)?;
         let doc = self.document(uri).ok()?;
-        let token = analysis.tokens.iter().find(|t| {
-            t.kind == TokenKind::Directive && t.span.start <= byte && byte <= t.span.end
-        })?;
+        let (_, token) = crate::session::tokens_at(&analysis.tokens, byte)
+            .find(|(_, t)| t.kind == TokenKind::Directive)?;
         let word = directive_at(&doc.text, token.span.start)?;
         let expansion = matches!(word, "insert" | "run" | "if" | "ifx" | "assert")
             .then(|| {
@@ -910,7 +909,7 @@ impl Session {
             Some(call) => (call.signatures, call.active),
             None => {
                 // The unfinished call's line is blanked; the callee is looked up in the scope.
-                let Some(probe) = repair(text, Some(byte)) else {
+                let Some(probe) = self.probe(uri, text, Some(byte)) else {
                     return Ok(None);
                 };
                 let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();

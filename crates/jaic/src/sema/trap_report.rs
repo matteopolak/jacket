@@ -5,7 +5,7 @@ use super::Compiler;
 use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
@@ -33,9 +33,8 @@ impl Compiler {
                 .position(|f| f.loc.is_some_and(|(id, l, _)| id == file.0 && l == *line))
         });
         let frames: Vec<&TrapFrame> = trap.frames.iter().skip(asserting.unwrap_or(0)).collect();
-        let library_roots = self.library_roots();
         let is_library = |loc: Option<(u32, u32, u32)>| {
-            loc.is_some_and(|(file, ..)| self.is_library_file(FileId(file), &library_roots))
+            loc.is_some_and(|(file, ..)| self.is_library_file(FileId(file)))
         };
         // The asserted condition: the first argument of the `assert(...)` call.
         let condition = trap
@@ -253,22 +252,27 @@ impl Compiler {
 
     /// The directories of the standard library its `module.jai` loads from
     /// beside it, canonical through the compiler's file system (the browser's is virtual).
-    fn library_roots(&self) -> Vec<PathBuf> {
-        let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent) else {
-            return Vec::new();
-        };
-        [stdlib.to_path_buf(), stdlib.join("prelude")]
-            .iter()
-            .map(|root| self.fs.canonical(root))
-            .collect()
-    }
-
-    fn is_library_file(&self, file: FileId, roots: &[PathBuf]) -> bool {
+    /// Whether `file` is in the stdlib or the prelude, worked out once per file.
+    fn is_library_file(&self, file: FileId) -> bool {
         if file.0 as usize >= self.sources.len() {
             return true;
         }
-        let path = self.fs.canonical(Path::new(&self.sources.get(file).path));
-        roots.iter().any(|root| path.starts_with(root))
+        if let Some(&known) = self.library_files.borrow().get(&file.0) {
+            return known;
+        }
+        let known = self
+            .options
+            .preload
+            .as_deref()
+            .and_then(Path::parent)
+            .is_some_and(|stdlib| {
+                let path = self.fs.canonical(Path::new(&self.sources.get(file).path));
+                [stdlib.to_path_buf(), stdlib.join("prelude")]
+                    .iter()
+                    .any(|root| path.starts_with(self.fs.canonical(root)))
+            });
+        self.library_files.borrow_mut().insert(file.0, known);
+        known
     }
 }
 
