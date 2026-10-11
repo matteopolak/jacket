@@ -2,14 +2,18 @@
 
 ## [Unreleased]
 
-### Added
+## [0.10.0] - 2026-10-11
 
-- A Neovim plugin (`editors/nvim`, mirrored to `matteopolak/jai.nvim`): `jailsp` through `vim.lsp.enable('jailsp')`, `jaifmt` formatting, a syntax file, `:Jai install` to download the toolchain, and `:checkhealth jai`. See [the Neovim plugin](docs/tools/neovim-plugin.md).
-- Doc comment links reach the fields and parameters of polymorphic structs (`[Ring.items]`, `[Ring.CAPACITY]`), even when the program never instantiates the struct.
-- The tour's basics and polymorphism stops show off doc comments: hover a procedure for its Markdown docs, and follow the links in them.
-- Jai code in doc comment fences is highlighted by the language server, so editors without a fence grammar colour it too.
+Jai now has a Neovim plugin, and doc comments behave in every popup while you type.
 
-### Fixed
+### Highlights
+
+- **Neovim plugin**: [jai.nvim](https://github.com/matteopolak/jai.nvim) sets up `jailsp`, `jaifmt` formatting, `jailint` and syntax highlighting, and can download the toolchain for you (`:Jai install`). Install it with `vim.pack.add({ 'https://github.com/matteopolak/jai.nvim' })` or lazy.nvim. See [the Neovim plugin](https://github.com/matteopolak/jai/blob/main/docs/tools/neovim-plugin.md).
+- Jai code in doc comment fences is highlighted by the language server, so every editor colours it.
+- Doc comment links reach the fields and parameters of polymorphic structs (`[Ring.items]`).
+- The playground tour shows off doc comments in its basics and polymorphism stops.
+
+### Fixes
 
 - Completion shows a declaration's whole doc comment after edits above it, instead of cutting it short.
 - Signature help shows docs, with working links, while the call is still unclosed.
