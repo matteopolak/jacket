@@ -441,11 +441,12 @@ impl Analysis {
                         );
                     }
                 }
-                StmtKind::StaticIf {
-                    then_branch,
-                    else_branch,
-                    ..
-                } => {
+                StmtKind::StaticIf(boxed) => {
+                    let jaic::ast::StaticIfStmt {
+                        then_branch,
+                        else_branch,
+                        ..
+                    } = &**boxed;
                     let mut inner = *private;
                     self.top_level(then_branch, scope, &mut inner, uri, index, context);
                     let mut inner = *private;
@@ -499,12 +500,11 @@ impl Analysis {
                 }
                 | ExprKind::Unary(jaic::ast::UnOp::Star, _),
             ) => SymbolKind::TypeAlias,
-            Some(ExprKind::UnknownDirective {
-                name, ..
-            }) if matches!(
-                name.name.as_str(),
-                "library" | "system_library" | "foreign_library" | "foreign_system_library"
-            ) =>
+            Some(ExprKind::UnknownDirective(directive))
+                if matches!(
+                    directive.name.name.as_str(),
+                    "library" | "system_library" | "foreign_library" | "foreign_system_library"
+                ) =>
             {
                 SymbolKind::Namespace
             }
@@ -638,11 +638,12 @@ impl Analysis {
                         }
                     }
                 }
-                StmtKind::StaticIf {
-                    then_branch,
-                    else_branch,
-                    ..
-                } => {
+                StmtKind::StaticIf(boxed) => {
+                    let jaic::ast::StaticIfStmt {
+                        then_branch,
+                        else_branch,
+                        ..
+                    } = &**boxed;
                     pending.extend(else_branch.iter().rev());
                     pending.extend(then_branch.iter().rev());
                 }
@@ -687,15 +688,11 @@ impl Analysis {
             StmtKind::Block(block) => {
                 self.statements(&block.stmts, span_of(stmt.span), parent, context);
             }
-            StmtKind::While {
-                body, ..
-            }
-            | StmtKind::Defer {
-                body, ..
-            }
-            | StmtKind::PushContext {
+            StmtKind::While(w) => self.nested(&w.body, parent, context),
+            StmtKind::Defer {
                 body, ..
             } => self.nested(body, parent, context),
+            StmtKind::PushContext(p) => self.nested(&p.body, parent, context),
             StmtKind::For(for_loop) => {
                 let span = span_of(stmt.span);
                 for name in [for_loop.it, for_loop.index].into_iter().flatten() {
@@ -714,9 +711,10 @@ impl Analysis {
                 }
                 self.nested(&for_loop.body, parent, context);
             }
-            StmtKind::Switch {
-                cases, ..
-            } => {
+            StmtKind::Switch(boxed) => {
+                let jaic::ast::SwitchStmt {
+                    cases, ..
+                } = &**boxed;
                 for case in cases {
                     self.statements(&case.body, span_of(case.span), parent, context);
                 }

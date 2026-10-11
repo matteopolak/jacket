@@ -47,7 +47,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let mut opaque: Vec<Span> = Vec::new();
         walk(&p.body.stmts, &mut |n, _| {
             if let Node::Expr(e) = n
-                && matches!(e.kind, E::Run { .. } | E::Code(_) | E::Insert { .. })
+                && matches!(e.kind, E::Run { .. } | E::Code(_) | E::Insert(_))
             {
                 opaque.push(e.span);
             }
@@ -143,14 +143,14 @@ fn plain(d: &Decl) -> bool {
         && !d.using
         && !d.as_
         && d.names.len() == 1
-        && d.extra_values.is_empty()
-        && d.existing.is_empty()
-        && d.backtick_names.is_empty()
+        && d.extra_values().is_empty()
+        && d.existing().is_empty()
+        && d.backtick_names().is_empty()
         && d.notes.is_empty()
-        && d.flags.is_empty()
-        && d.align.is_none()
-        && d.foreign.is_none()
-        && d.using_filter.is_none()
+        && d.flags().is_empty()
+        && d.align().is_none()
+        && d.foreign().is_none()
+        && d.using_filter().is_none()
 }
 
 fn local_types(cx: &Cx, ents: &[EntityId]) -> Option<Vec<TypeId>> {

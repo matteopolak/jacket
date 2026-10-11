@@ -39,12 +39,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         chain_conditions(cx, s, out);
                     }
                 }
-                S::Switch {
-                    cases, ..
-                }
-                | S::StaticSwitch {
-                    cases, ..
-                } => {
+                S::Switch(boxed) | S::StaticSwitch(boxed) => {
+                    let jaic::ast::SwitchStmt {
+                        cases, ..
+                    } = &**boxed;
                     let mut seen: Vec<String> = Vec::new();
                     for c in cases {
                         for v in &c.values {

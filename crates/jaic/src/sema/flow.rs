@@ -31,39 +31,34 @@ impl Compiler {
                         .as_ref()
                         .is_some_and(|e| self.stmt_returns(f, e))
             }
-            S::Switch {
-                cases,
-                complete,
-                ..
-            } => {
+            S::Switch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    cases,
+                    complete,
+                    ..
+                } = &**boxed;
                 !cases.is_empty()
                     && (*complete || cases.iter().any(|c| c.values.is_empty()))
                     && cases
                         .iter()
                         .all(|c| c.through || self.stmts_return(f, &c.body))
             }
-            S::While {
-                body, ..
+            S::While(w) => self.stmt_returns(f, &w.body),
+            S::PushContext(p) => self.stmt_returns(f, &p.body),
+            S::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    then_branch,
+                    else_branch,
+                    ..
+                } = &**boxed;
+                match f.static_taken.get(&stmt.span) {
+                    Some(true) => self.stmts_return(f, then_branch),
+                    Some(false) => self.stmts_return(f, else_branch),
+                    None => true,
+                }
             }
-            | S::PushContext {
-                body, ..
-            } => self.stmt_returns(f, body),
-            S::StaticIf {
-                then_branch,
-                else_branch,
-                ..
-            } => match f.static_taken.get(&stmt.span) {
-                Some(true) => self.stmts_return(f, then_branch),
-                Some(false) => self.stmts_return(f, else_branch),
-                None => true,
-            },
             // Chosen or generated at compile time: assume the best.
-            S::StaticSwitch {
-                ..
-            }
-            | S::Insert {
-                ..
-            } => true,
+            S::StaticSwitch(_) | S::Insert(_) => true,
             _ => false,
         }
     }
@@ -111,19 +106,16 @@ impl Compiler {
                     self.warn_unreachable_inside(f, e);
                 }
             }
-            S::While {
-                body, ..
-            }
-            | S::Defer {
-                body, ..
-            }
-            | S::PushContext {
+            S::While(w) => self.warn_unreachable_inside(f, &w.body),
+            S::Defer {
                 body, ..
             } => self.warn_unreachable_inside(f, body),
+            S::PushContext(p) => self.warn_unreachable_inside(f, &p.body),
             S::For(for_) => self.warn_unreachable_inside(f, &for_.body),
-            S::Switch {
-                cases, ..
-            } => {
+            S::Switch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    cases, ..
+                } = &**boxed;
                 // A case body is not a block of its own: what follows a `return` there is
                 // not reported, but the blocks inside it are looked at.
                 for case in cases {
@@ -132,15 +124,18 @@ impl Compiler {
                     }
                 }
             }
-            S::StaticIf {
-                then_branch,
-                else_branch,
-                ..
-            } => match f.static_taken.get(&stmt.span) {
-                Some(true) => self.warn_unreachable(f, then_branch),
-                Some(false) => self.warn_unreachable(f, else_branch),
-                None => {}
-            },
+            S::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    then_branch,
+                    else_branch,
+                    ..
+                } = &**boxed;
+                match f.static_taken.get(&stmt.span) {
+                    Some(true) => self.warn_unreachable(f, then_branch),
+                    Some(false) => self.warn_unreachable(f, else_branch),
+                    None => {}
+                }
+            }
             _ => {}
         }
     }
@@ -154,9 +149,7 @@ fn runs_in_order(stmt: &ast::Stmt) -> bool {
         S::Empty
         | S::Scope(_)
         | S::AddContext(_)
-        | S::ModuleParameters {
-            ..
-        }
+        | S::ModuleParameters(_)
         | S::Load {
             ..
         }

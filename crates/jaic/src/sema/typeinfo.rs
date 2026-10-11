@@ -727,7 +727,7 @@ impl Compiler {
             let ast::StmtKind::Decl(d) = &stmt.kind else {
                 continue;
             };
-            let Some(t) = &d.union_tag else {
+            let Some(t) = &d.union_tag() else {
                 continue;
             };
             // `.A` names a member of the tag's enum; `4`, `-12` or `u16` is a constant of

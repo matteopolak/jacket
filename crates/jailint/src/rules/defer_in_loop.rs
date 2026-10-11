@@ -37,9 +37,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             let body = match &loop_stmt.kind {
                 S::For(f) => &*f.body,
-                S::While {
-                    body, ..
-                } => &**body,
+                S::While(boxed) => {
+                    let jaic::ast::WhileStmt {
+                        body, ..
+                    } = &**boxed;
+                    &**body
+                }
                 _ => return true,
             };
             let list: &[Stmt] = match &body.kind {

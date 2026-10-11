@@ -547,7 +547,7 @@ impl Compiler {
                 // `#placeholder` without having looked it up this time (its body failed
                 // earlier and was parked): it gets another try once code stops coming.
                 let insert_waits =
-                    !self.placeholders_final && matches!(stmt.kind, ast::StmtKind::Insert { .. });
+                    !self.placeholders_final && matches!(stmt.kind, ast::StmtKind::Insert(_));
                 // Compile-time code that spent the whole budget fails the same way every time.
                 let spent = self.interp.block_budget == Some(0);
                 if result.is_err() && !spent && (insert_waits || self.waits_for_placeholder(misses))
@@ -584,13 +584,18 @@ impl Compiler {
             }
             // `#if OS == .MACOS` and `#if OS == { case .MACOS; ... }` alike.
             let plain = match &item.stmt.kind {
-                ast::StmtKind::StaticIf {
-                    cond, ..
-                } => plain_condition(cond),
-                ast::StmtKind::StaticSwitch {
-                    value,
-                    cases,
-                } => {
+                ast::StmtKind::StaticIf(boxed) => {
+                    let crate::ast::StaticIfStmt {
+                        cond, ..
+                    } = &**boxed;
+                    plain_condition(cond)
+                }
+                ast::StmtKind::StaticSwitch(boxed) => {
+                    let crate::ast::SwitchStmt {
+                        value,
+                        cases,
+                        ..
+                    } = &**boxed;
                     plain_condition(value)
                         && cases.iter().all(|c| c.values.iter().all(plain_condition))
                 }
@@ -632,13 +637,20 @@ impl Compiler {
     ) -> bool {
         let eval_scope = super::modules::file_scope_for_eval(self, scope, file_scope);
         match &stmt.kind {
-            ast::StmtKind::StaticIf {
-                cond, ..
-            } => self.eval_static_condition(eval_scope, cond).is_ok(),
-            ast::StmtKind::StaticSwitch {
-                value,
-                cases,
-            } => self.static_switch_case(eval_scope, value, cases).is_ok(),
+            ast::StmtKind::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    cond, ..
+                } = &**boxed;
+                self.eval_static_condition(eval_scope, cond).is_ok()
+            }
+            ast::StmtKind::StaticSwitch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    value,
+                    cases,
+                    ..
+                } = &**boxed;
+                self.static_switch_case(eval_scope, value, cases).is_ok()
+            }
             _ => false,
         }
     }

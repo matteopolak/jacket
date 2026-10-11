@@ -134,11 +134,12 @@ fn fits(value: &Expr, bits: u8) -> bool {
     };
     match &value.kind {
         E::Binary(BinOp::BitAnd, a, b) => {
-            matches!(b.kind, E::Int(m) if m < limit) || matches!(a.kind, E::Int(m) if m < limit)
+            matches!(b.kind, E::Int(m) if m.get() < limit)
+                || matches!(a.kind, E::Int(m) if m.get() < limit)
         }
-        E::Binary(BinOp::Rem, _, b) => matches!(b.kind, E::Int(m) if m <= limit),
+        E::Binary(BinOp::Rem, _, b) => matches!(b.kind, E::Int(m) if m.get() <= limit),
         E::Binary(BinOp::Shr, _, b) => {
-            matches!(b.kind, E::Int(s) if 64 - s.min(64) <= bits as u128)
+            matches!(b.kind, E::Int(s) if 64 - s.get().min(64) <= bits as u128)
         }
         _ => false,
     }

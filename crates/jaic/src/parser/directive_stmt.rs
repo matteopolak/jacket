@@ -1,7 +1,10 @@
 //! Directive statements: `#if`, `#import`, `#load`, `#run`, `#assert`, scope markers, ...
 use super::stmt::stmt;
 use super::{PResult, Parser};
-use crate::ast::{Decl, Expr, ExprKind, Ident, Import, ImportSource, ScopeKind, Stmt, StmtKind};
+use crate::ast::{
+    AssertStmt, Decl, DirectiveStmt, Expr, ExprKind, Ident, Import, ImportSource, InsertStmt,
+    ModuleParametersStmt, ScopeKind, StaticIfStmt, Stmt, StmtKind, SwitchStmt,
+};
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
@@ -93,10 +96,11 @@ impl Parser<'_> {
             self.bump();
             let cases = self.parse_cases()?;
             return Ok(stmt(
-                StmtKind::StaticSwitch {
+                StmtKind::StaticSwitch(Box::new(SwitchStmt {
                     value,
                     cases,
-                },
+                    complete: false,
+                })),
                 start.to(self.prev_span()),
             ));
         }
@@ -108,11 +112,11 @@ impl Parser<'_> {
             Vec::new()
         };
         Ok(stmt(
-            StmtKind::StaticIf {
+            StmtKind::StaticIf(Box::new(StaticIfStmt {
                 cond: value,
                 then_branch,
                 else_branch,
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }
@@ -191,7 +195,10 @@ impl Parser<'_> {
         let start = self.span();
         let run = self.parse_run_with(true)?;
         self.end_stmt("after `#run`")?;
-        Ok(stmt(StmtKind::Run(run), start.to(self.prev_span())))
+        Ok(stmt(
+            StmtKind::Run(Box::new(run)),
+            start.to(self.prev_span()),
+        ))
     }
 
     fn parse_insert_stmt(&mut self) -> PResult<Stmt> {
@@ -201,12 +208,12 @@ impl Parser<'_> {
         let value = self.parse_expr()?;
         self.end_stmt("after `#insert`")?;
         Ok(stmt(
-            StmtKind::Insert {
+            StmtKind::Insert(Box::new(InsertStmt {
                 value,
                 flags,
                 scope,
                 replacements,
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }
@@ -243,11 +250,11 @@ impl Parser<'_> {
             }
             self.expect(P::RParen, "after `#assert` message")?;
             return Ok(stmt(
-                StmtKind::Assert {
+                StmtKind::Assert(Box::new(AssertStmt {
                     cond,
                     message,
                     args,
-                },
+                })),
                 start.to(self.prev_span()),
             ));
         }
@@ -261,11 +268,11 @@ impl Parser<'_> {
             None
         };
         Ok(stmt(
-            StmtKind::Assert {
+            StmtKind::Assert(Box::new(AssertStmt {
                 cond,
                 message,
                 args: Vec::new(),
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }
@@ -308,11 +315,11 @@ impl Parser<'_> {
             None
         };
         Ok(stmt(
-            StmtKind::ModuleParameters {
+            StmtKind::ModuleParameters(Box::new(ModuleParametersStmt {
                 params,
                 runtime_params,
                 body,
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }
@@ -334,7 +341,10 @@ impl Parser<'_> {
         let start = self.bump();
         let target = self.parse_expr()?;
         self.end_stmt("after `#place`")?;
-        Ok(stmt(StmtKind::Place(target), start.to(self.prev_span())))
+        Ok(stmt(
+            StmtKind::Place(Box::new(target)),
+            start.to(self.prev_span()),
+        ))
     }
 
     fn parse_overlay(&mut self) -> PResult<Stmt> {
@@ -342,7 +352,7 @@ impl Parser<'_> {
         self.expect(P::LParen, "after `#overlay`")?;
         let target = self.parse_expr()?;
         let end = self.expect(P::RParen, "after the `#overlay` target")?;
-        Ok(stmt(StmtKind::Overlay(target), start.to(end)))
+        Ok(stmt(StmtKind::Overlay(Box::new(target)), start.to(end)))
     }
 
     /// `#no_reset x := 0;` / `#program_export f :: ...`: a flag in front of a declaration.
@@ -363,7 +373,7 @@ impl Parser<'_> {
         if let StmtKind::Decl(decl) = &mut declaration.kind
             && let Some(decl) = Rc::get_mut(decl)
         {
-            decl.flags.push(flag);
+            decl.rare_mut().flags.push(flag);
             if name == "program_export" {
                 mark_program_export(decl, export_name);
             }
@@ -398,11 +408,11 @@ impl Parser<'_> {
         }
         self.end_stmt("after the directive")?;
         Ok(stmt(
-            StmtKind::Directive {
+            StmtKind::Directive(Box::new(DirectiveStmt {
                 name,
                 flags,
                 args,
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }

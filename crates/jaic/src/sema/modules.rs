@@ -684,9 +684,7 @@ impl Compiler {
                         );
                     }
                 }
-                ast::StmtKind::StaticIf {
-                    ..
-                } => {
+                ast::StmtKind::StaticIf(_) => {
                     self.push_pending(
                         scope,
                         Pending {
@@ -739,13 +737,13 @@ impl Compiler {
                     }
                     // `L :: #library,link_always "x"` is linked even if nothing names it.
                     if let Some(ast::Expr {
-                        kind:
-                            ast::ExprKind::UnknownDirective {
-                                flags, ..
-                            },
+                        kind: ast::ExprKind::UnknownDirective(directive),
                         ..
                     }) = &decl.value
-                        && flags.iter().any(|f| f.name.as_str() == "link_always")
+                        && directive
+                            .flags
+                            .iter()
+                            .any(|f| f.name.as_str() == "link_always")
                     {
                         self.export_entities.push(id);
                     }
@@ -817,15 +815,15 @@ impl Compiler {
                         target,
                         Pending {
                             stmt: ast::Stmt {
-                                kind: ast::StmtKind::Using {
+                                kind: ast::StmtKind::Using(Box::new(ast::UsingStmt {
                                     value: ast::Expr {
                                         kind: ast::ExprKind::Ident(using_name.unwrap_or(name.name)),
                                         span: name.span,
                                     },
                                     filter: ast::UsingFilter::None,
-                                },
+                                })),
                                 span: stmt.span,
-                                notes: Vec::new(),
+                                notes: Default::default(),
                             },
                             exported,
                             file_scope,
@@ -888,15 +886,9 @@ impl Compiler {
                 let full = self.file_dir(file).join(&**path);
                 self.load_file(&full, module, *span)?;
             }
-            ast::StmtKind::StaticIf {
-                ..
-            }
-            | ast::StmtKind::StaticSwitch {
-                ..
-            }
-            | ast::StmtKind::Insert {
-                ..
-            } => {
+            ast::StmtKind::StaticIf(_)
+            | ast::StmtKind::StaticSwitch(_)
+            | ast::StmtKind::Insert(_) => {
                 self.push_pending(
                     target,
                     Pending {
@@ -907,14 +899,16 @@ impl Compiler {
                     },
                 );
             }
-            ast::StmtKind::Run(expr) => self.top_level_runs.push((expr.clone(), file_scope)),
-            ast::StmtKind::Assert {
-                cond,
-                message,
-                args,
-            } => self
-                .asserts
-                .push((cond.clone(), message.clone(), args.clone(), file_scope)),
+            ast::StmtKind::Run(expr) => self.top_level_runs.push(((**expr).clone(), file_scope)),
+            ast::StmtKind::Assert(boxed) => {
+                let crate::ast::AssertStmt {
+                    cond,
+                    message,
+                    args,
+                } = &**boxed;
+                self.asserts
+                    .push((cond.clone(), message.clone(), args.clone(), file_scope))
+            }
             ast::StmtKind::AddContext(decl) => {
                 self.add_contexts.push((decl.clone(), file_scope));
                 // Context already made (a `#run` needed it): extend it while its layout
@@ -932,11 +926,12 @@ impl Compiler {
                     }
                 }
             }
-            ast::StmtKind::ModuleParameters {
-                params,
-                runtime_params,
-                body,
-            } => {
+            ast::StmtKind::ModuleParameters(boxed) => {
+                let crate::ast::ModuleParametersStmt {
+                    params,
+                    runtime_params,
+                    body,
+                } = &**boxed;
                 let module = self.scope(scope).module;
                 for (position, param) in params.iter().chain(runtime_params).enumerate() {
                     self.declare_module_parameter(scope, module, position, param)?;
@@ -983,31 +978,32 @@ impl Compiler {
                     );
                 }
             }
-            ast::StmtKind::Directive {
-                name,
-                args,
-                ..
-            } if name.name.as_str() == "poke_name" => {
+            ast::StmtKind::Directive(directive) if directive.name.name.as_str() == "poke_name" => {
                 let [
                     module,
                     ast::Expr {
                         kind: ast::ExprKind::Ident(poked),
                         ..
                     },
-                ] = &args[..]
+                ] = &directive.args[..]
                 else {
                     return err(stmt.span, "#poke_name takes a module and a name");
                 };
                 self.pokes.push((module.clone(), *poked, file_scope));
             }
             // An unnamed `#library,link_always "c++";` is linked although nothing refers to it.
-            ast::StmtKind::Directive {
-                name,
-                flags,
-                args,
-            } if decls::is_library_directive(name.name.as_str())
-                && flags.iter().any(|f| f.name.as_str() == "link_always") =>
+            ast::StmtKind::Directive(directive)
+                if decls::is_library_directive(directive.name.name.as_str())
+                    && directive
+                        .flags
+                        .iter()
+                        .any(|f| f.name.as_str() == "link_always") =>
             {
+                let ast::DirectiveStmt {
+                    name,
+                    flags,
+                    args,
+                } = &**directive;
                 self.declare_library(
                     file_scope,
                     name.name.as_str(),
@@ -1016,25 +1012,23 @@ impl Compiler {
                     stmt.span,
                 )?;
             }
-            ast::StmtKind::Directive {
-                ..
-            }
-            | ast::StmtKind::Empty => {}
-            ast::StmtKind::Using {
-                value,
-                filter,
-            } => {
+            ast::StmtKind::Directive(_) | ast::StmtKind::Empty => {}
+            ast::StmtKind::Using(boxed) => {
+                let crate::ast::UsingStmt {
+                    value,
+                    filter,
+                } = &**boxed;
                 // `using Module;` / `using SomeStruct;` at file scope: resolved lazily.
                 self.push_pending(
                     target,
                     Pending {
                         stmt: ast::Stmt {
-                            kind: ast::StmtKind::Using {
+                            kind: ast::StmtKind::Using(Box::new(ast::UsingStmt {
                                 value: value.clone(),
                                 filter: filter.clone(),
-                            },
+                            })),
                             span: stmt.span,
-                            notes: Vec::new(),
+                            notes: Default::default(),
                         },
                         exported,
                         file_scope,
@@ -1090,20 +1084,12 @@ impl Compiler {
             // `X: $I/interface T = v` takes its type from the value.
             ty: param.ty.clone().filter(|t| !procs::has_poly(t)),
             value: param.default.clone(),
-            extra_values: Vec::new(),
-            existing: Vec::new(),
-            targets: Vec::new(),
-            using_filter: None,
-            foreign: None,
-            union_tag: None,
             using: false,
             as_: false,
             backtick: false,
-            backtick_names: Vec::new(),
-            align: None,
-            flags: Vec::new(),
-            notes: Vec::new(),
+            notes: ast::Notes::default(),
             span: param.span,
+            rare: None,
         });
         let id = self.add_entity(
             scope,
@@ -1179,7 +1165,7 @@ impl Compiler {
             // A scalar for a parameter with a written type (`DEFAULT_MSAA: s32 = 4`) takes
             // that type: it becomes the declaration's value instead of an untyped constant.
             let literal = match &value {
-                Value::Int(i) if *i >= 0 => Some(ast::ExprKind::Int(*i as u128)),
+                Value::Int(i) if *i >= 0 => Some(ast::ExprKind::Int(ast::Int128::new(*i as u128))),
                 Value::Bool(b) => Some(ast::ExprKind::Bool(*b)),
                 Value::Float(x) => Some(ast::ExprKind::Float(*x)),
                 Value::String(s) => Some(ast::ExprKind::Str(s.clone())),
@@ -1236,11 +1222,12 @@ impl Compiler {
             ast::ScopeKind::Module
         };
         match &stmt.kind {
-            ast::StmtKind::StaticIf {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
+            ast::StmtKind::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    cond,
+                    then_branch,
+                    else_branch,
+                } = &**boxed;
                 let taken =
                     self.eval_static_condition(file_scope_for_eval(self, scope, file_scope), cond)?;
                 let (branch, skipped) = if taken {
@@ -1251,26 +1238,30 @@ impl Compiler {
                 self.ide_note_skipped(cond, skipped);
                 self.declare_stmts(scope, file_scope, branch, vis)?;
             }
-            ast::StmtKind::StaticSwitch {
-                value,
-                cases,
-            } => {
+            ast::StmtKind::StaticSwitch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    value,
+                    cases,
+                    ..
+                } = &**boxed;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
                 if let Some(case) = self.static_switch_case(eval_scope, value, cases)? {
                     self.declare_stmts(scope, file_scope, &case.body, vis)?;
                 }
             }
-            ast::StmtKind::Insert {
-                value, ..
-            } => {
+            ast::StmtKind::Insert(boxed) => {
+                let crate::ast::InsertStmt {
+                    value, ..
+                } = &**boxed;
                 let stmts =
                     self.eval_insert_stmts(file_scope_for_eval(self, scope, file_scope), value)?;
                 self.declare_stmts(scope, file_scope, &stmts, vis)?;
             }
-            ast::StmtKind::Using {
-                value,
-                filter,
-            } => {
+            ast::StmtKind::Using(boxed) => {
+                let crate::ast::UsingStmt {
+                    value,
+                    filter,
+                } = &**boxed;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
                 let mut entry = self.using_target(eval_scope, value)?;
                 if let super::scope::UsingEntry::Module(_, slot) = &mut entry
@@ -1598,19 +1589,11 @@ fn const_alias(name: ast::Ident, value: ast::Expr) -> Rc<ast::Decl> {
         ty: None,
         span: value.span,
         value: Some(value),
-        extra_values: Vec::new(),
-        existing: Vec::new(),
-        targets: Vec::new(),
-        using_filter: None,
-        foreign: None,
-        union_tag: None,
         using: false,
         as_: false,
         backtick: false,
-        backtick_names: Vec::new(),
-        align: None,
-        flags: Vec::new(),
-        notes: Vec::new(),
+        notes: ast::Notes::default(),
+        rare: None,
     })
 }
 

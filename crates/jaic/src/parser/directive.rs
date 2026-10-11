@@ -1,7 +1,10 @@
 //! `#directive` expressions.
 use super::expr::mk;
 use super::{PResult, Parser};
-use crate::ast::{Block, CodeBody, Expr, ExprKind, Ident, RunBody, Stmt, StmtKind, TypeModifier};
+use crate::ast::{
+    Block, CodeBody, Expr, ExprKind, Ident, InsertExpr, Notes, RunBody, Stmt, StmtKind,
+    TypeModifier, UnknownDirective,
+};
 use crate::lexer::{P, Tok};
 use std::rc::Rc;
 
@@ -170,7 +173,7 @@ impl Parser<'_> {
                 Stmt {
                     kind: StmtKind::Case(Rc::new(case)),
                     span,
-                    notes: Vec::new(),
+                    notes: Notes::default(),
                 }
             } else if ["if", "while", "for", "return", "defer", "using"]
                 .iter()
@@ -210,12 +213,12 @@ impl Parser<'_> {
         let replacements = self.parse_insert_replacements()?;
         let value = self.parse_expr()?;
         let span = start.to(value.span);
-        let kind = ExprKind::Insert {
-            value: Box::new(value),
+        let kind = ExprKind::Insert(Box::new(InsertExpr {
+            value,
             flags,
-            scope: scope.map(Box::new),
+            scope,
             replacements,
-        };
+        }));
         Ok(mk(kind, span))
     }
 
@@ -263,12 +266,12 @@ impl Parser<'_> {
         };
         let span = start.to(self.prev_span());
         Ok(mk(
-            ExprKind::Block(Block {
+            ExprKind::Block(Box::new(Block {
                 stmts: vec![super::stmt::stmt(make(label), span)],
                 span,
                 no_abc: false,
                 no_aoc: false,
-            }),
+            })),
             span,
         ))
     }
@@ -278,12 +281,12 @@ impl Parser<'_> {
         let assert = self.parse_assert_core()?;
         let span = assert.span;
         Ok(mk(
-            ExprKind::Block(Block {
+            ExprKind::Block(Box::new(Block {
                 stmts: vec![assert],
                 span,
                 no_abc: false,
                 no_aoc: false,
-            }),
+            })),
             span,
         ))
     }
@@ -442,17 +445,17 @@ impl Parser<'_> {
         // `#jaic_type long_double`: a jaic extension type, named by a bare identifier.
         let jaic_type = sym.as_str() == "jaic_type" && matches!(self.tok(), Tok::Ident(_));
         let operand = if matches!(self.tok(), Tok::Str(_)) || jaic_type {
-            Some(Box::new(self.parse_primary()?))
+            Some(self.parse_primary()?)
         } else {
             None
         };
         let end = self.prev_span();
         Ok(mk(
-            ExprKind::UnknownDirective {
+            ExprKind::UnknownDirective(Box::new(UnknownDirective {
                 name,
                 flags,
                 operand,
-            },
+            })),
             start.to(end),
         ))
     }

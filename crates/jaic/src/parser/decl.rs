@@ -2,7 +2,8 @@
 use super::stmt::stmt;
 use super::{PResult, Parser};
 use crate::ast::{
-    AstId, Decl, DeclKind, Expr, ExprKind, Foreign, ForeignName, Ident, Stmt, StmtKind, UsingFilter,
+    AstId, Decl, DeclKind, DeclRare, Expr, ExprKind, Foreign, ForeignName, Ident, Notes, Stmt,
+    StmtKind, UsingFilter,
 };
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
@@ -166,7 +167,7 @@ impl Parser<'_> {
         match &mut declaration.kind {
             StmtKind::Decl(decl) if !matches!(filter, UsingFilter::None) => {
                 if let Some(decl) = Rc::get_mut(decl) {
-                    decl.using_filter = Some(filter);
+                    decl.rare_mut().using_filter = Some(filter);
                 }
             }
             // `using X :: #import "M"` (with or without a filter) imports the names too.
@@ -219,21 +220,19 @@ impl Parser<'_> {
             kind: DeclKind::Var,
             ty: None,
             value: None,
-            extra_values: Vec::new(),
-            existing,
-            targets,
-            foreign: None,
-            union_tag: None,
-            using_filter: None,
             using,
             as_,
             backtick: backtick && backtick_names.is_empty(),
-            backtick_names,
-            align: None,
-            flags: Vec::new(),
-            notes: Vec::new(),
+            notes: Notes::default(),
             span: start,
+            rare: None,
         };
+        decl.set_rare(DeclRare {
+            existing,
+            targets,
+            backtick_names,
+            ..DeclRare::default()
+        });
         match self.tok() {
             Tok::Punct(P::ColonColon) => {
                 self.bump();
@@ -247,7 +246,7 @@ impl Parser<'_> {
                 self.bump();
                 self.parse_decl_values(&mut decl)?;
             }
-            Tok::Punct(P::Eq) if !decl.existing.is_empty() => {
+            Tok::Punct(P::Eq) if !decl.existing().is_empty() => {
                 self.bump();
                 self.parse_decl_values(&mut decl)?;
             }
@@ -255,6 +254,7 @@ impl Parser<'_> {
         }
         self.parse_decl_suffix(&mut decl)?;
         decl.span = start.to(self.prev_span());
+        decl.trim_rare();
         let span = decl.span;
         Ok(stmt(StmtKind::Decl(Rc::new(decl)), span))
     }
@@ -391,7 +391,7 @@ impl Parser<'_> {
     fn parse_decl_values(&mut self, decl: &mut Decl) -> PResult<()> {
         decl.value = Some(self.parse_expr()?);
         while decl.names.len() > 1 && self.eat(P::Comma) {
-            decl.extra_values.push(self.parse_expr()?);
+            decl.rare_mut().extra_values.push(self.parse_expr()?);
         }
         Ok(())
     }
@@ -405,21 +405,22 @@ impl Parser<'_> {
                 Tok::Directive(_) if self.newline_before() => return Ok(()),
                 Tok::Directive(name) if name.as_str() == "align" => {
                     self.bump();
-                    decl.align = Some(self.parse_unary()?);
+                    decl.rare_mut().align = Some(self.parse_unary()?);
                 }
                 Tok::Directive(name) if name.as_str() == "elsewhere" => {
-                    decl.flags.push(Ident {
+                    decl.rare_mut().flags.push(Ident {
                         name: *name,
                         span: self.span(),
                     });
                     self.bump();
-                    decl.foreign = Some(self.parse_elsewhere_library()?.unwrap_or(Foreign {
-                        library: None,
-                        name: ForeignName::Default,
-                    }));
+                    decl.rare_mut().foreign =
+                        Some(self.parse_elsewhere_library()?.unwrap_or(Foreign {
+                            library: None,
+                            name: ForeignName::Default,
+                        }));
                 }
                 Tok::Directive(name) if DECL_FLAGS.contains(&name.as_str()) => {
-                    decl.flags.push(Ident {
+                    decl.rare_mut().flags.push(Ident {
                         name: *name,
                         span: self.span(),
                     });

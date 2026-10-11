@@ -1319,7 +1319,7 @@ impl Exporter<'_> {
             E::Ident(name) => return self.ident(*name, span),
             E::Int(v) => {
                 let mut rec = self.literal(span, 1);
-                rec.int("_s64", *v as i64).int("value_flags", 0x1);
+                rec.int("_s64", v.get() as i64).int("value_flags", 0x1);
                 rec
             }
             E::Char(v) => {
@@ -1367,7 +1367,7 @@ impl Exporter<'_> {
                 match &a.kind {
                     E::Int(v) => {
                         let mut rec = self.literal(span, 1);
-                        rec.int("_s64", (*v as i64).wrapping_neg())
+                        rec.int("_s64", (v.get() as i64).wrapping_neg())
                             .int("value_flags", 0x1);
                         rec
                     }
@@ -1582,9 +1582,10 @@ impl Exporter<'_> {
                 rec.ptr("expression", expr);
                 rec
             }
-            E::Insert {
-                value, ..
-            } => {
+            E::Insert(boxed) => {
+                let crate::ast::InsertExpr {
+                    value, ..
+                } = &**boxed;
                 let value = self.expr(value);
                 let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
                 rec.ptr("expression", value);
@@ -1862,15 +1863,20 @@ impl Exporter<'_> {
                     .ptr("else_block", else_block);
                 self.add(rec)
             }
-            S::Switch {
-                value,
-                cases,
-                complete,
-            } => self.switch(value, cases, 0x1 | ((*complete as i64) * 0x8), span),
-            S::StaticSwitch {
-                value,
-                cases,
-            } => {
+            S::Switch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    value,
+                    cases,
+                    complete,
+                } = &**boxed;
+                self.switch(value, cases, 0x1 | ((*complete as i64) * 0x8), span)
+            }
+            S::StaticSwitch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    value,
+                    cases,
+                    ..
+                } = &**boxed;
                 let scope = self.scope;
                 let accepted = self.c.as_deref_mut().and_then(|c| {
                     let case = c.static_switch_case(scope, value, cases).ok()??;
@@ -1878,11 +1884,12 @@ impl Exporter<'_> {
                 });
                 self.switch_accepting(value, cases, 0x1 | 0x4, accepted, span)
             }
-            S::StaticIf {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
+            S::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    cond,
+                    then_branch,
+                    else_branch,
+                } = &**boxed;
                 // Which branch the compiler took, where the condition is known here (it is in
                 // a procedure or a polymorph instance: `#if async` with `async` baked in).
                 let scope = self.scope;
@@ -1903,11 +1910,12 @@ impl Exporter<'_> {
                 }
                 self.add(rec)
             }
-            S::While {
-                cond,
-                body,
-                ..
-            } => {
+            S::While(boxed) => {
+                let crate::ast::WhileStmt {
+                    cond,
+                    body,
+                    ..
+                } = &**boxed;
                 let cond = self.expr(cond);
                 let block = self.stmt_block(body);
                 let mut rec = self.node("Code_While", node::WHILE, span);
@@ -1965,28 +1973,31 @@ impl Exporter<'_> {
                     .int("is_backticked", *backtick as i64);
                 self.add(rec)
             }
-            S::Using {
-                value, ..
-            } => {
+            S::Using(boxed) => {
+                let crate::ast::UsingStmt {
+                    value, ..
+                } = &**boxed;
                 let value = self.expr(value);
                 let mut rec = self.node("Code_Using", node::USING, span);
                 rec.ptr("expression", value);
                 self.add(rec)
             }
-            S::PushContext {
-                context,
-                body,
-                ..
-            } => {
+            S::PushContext(boxed) => {
+                let crate::ast::PushContextStmt {
+                    context,
+                    body,
+                    ..
+                } = &**boxed;
                 let context = self.expr(context);
                 let block = self.stmt_block(body);
                 let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context).ptr("block", block);
                 self.add(rec)
             }
-            S::Insert {
-                value, ..
-            } => {
+            S::Insert(boxed) => {
+                let crate::ast::InsertStmt {
+                    value, ..
+                } = &**boxed;
                 let value = self.expr(value);
                 let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
                 rec.ptr("expression", value);
@@ -1999,11 +2010,12 @@ impl Exporter<'_> {
                 self.add(rec)
             }
             S::Case(case) => self.case(case),
-            S::Assert {
-                cond,
-                message,
-                ..
-            } => {
+            S::Assert(boxed) => {
+                let crate::ast::AssertStmt {
+                    cond,
+                    message,
+                    ..
+                } = &**boxed;
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
                 let text = self
                     .c
@@ -2062,11 +2074,12 @@ impl Exporter<'_> {
                 rec.ptr("expression", decl);
                 self.add(rec)
             }
-            S::ModuleParameters {
-                params,
-                runtime_params,
-                body,
-            } => {
+            S::ModuleParameters(boxed) => {
+                let crate::ast::ModuleParametersStmt {
+                    params,
+                    runtime_params,
+                    body,
+                } = &**boxed;
                 let module = self.params_header(params, span);
                 let program = self.params_header(runtime_params, span);
                 let common = match body {
@@ -2187,11 +2200,11 @@ impl Exporter<'_> {
     /// identifiers for `=` targets) in `comma_separated_assignment`, the shared type and
     /// values in a nameless `declaration_properties`.
     fn compound_decl(&mut self, d: &ast::Decl) -> i64 {
-        let values = if d.extra_values.is_empty() {
+        let values = if d.extra_values().is_empty() {
             None
         } else {
             let mut ids = Vec::new();
-            for v in d.value.iter().chain(&d.extra_values) {
+            for v in d.value.iter().chain(d.extra_values()) {
                 let node = self.expr(v);
                 let mut a = Record::new("Code_Comma_Separated_Argument");
                 a.ptr("node", node);
@@ -2210,8 +2223,8 @@ impl Exporter<'_> {
         let mut arguments = Vec::new();
         let mut declared = Vec::new();
         for (i, n) in d.names.iter().enumerate() {
-            let assign = d.existing.get(i).copied().unwrap_or(false);
-            let target = if let Some(Some(place)) = d.targets.get(i) {
+            let assign = d.existing().get(i).copied().unwrap_or(false);
+            let target = if let Some(Some(place)) = d.targets().get(i) {
                 self.expr(place)
             } else if assign {
                 self.ident(n.name, n.span)
@@ -2295,7 +2308,7 @@ impl Exporter<'_> {
         let backticked = d.backtick
             || d.names
                 .iter()
-                .zip(&d.backtick_names)
+                .zip(d.backtick_names())
                 .any(|(n, &b)| b && n.name == name);
         if backticked {
             flags |= 0x200000; // HAS_SCOPE_MODIFIER
@@ -2495,20 +2508,12 @@ impl Exporter<'_> {
                 kind: ast::DeclKind::Var,
                 ty: param.ty.clone(),
                 value: param.default.clone(),
-                extra_values: Vec::new(),
-                existing: Vec::new(),
-                targets: Vec::new(),
                 using: param.using,
-                using_filter: None,
                 as_: false,
                 backtick: false,
-                backtick_names: Vec::new(),
-                align: None,
-                flags: Vec::new(),
-                foreign: None,
-                union_tag: None,
-                notes: param.notes.clone(),
+                notes: ast::Notes::new(param.notes.clone()),
                 span: param.span,
+                rare: None,
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
             let arg = self.decl(&decl, name, ty, None, false, 0);
@@ -2537,20 +2542,12 @@ impl Exporter<'_> {
                 kind: ast::DeclKind::Var,
                 ty: ret.ty.clone(),
                 value: ret.default.clone(),
-                extra_values: Vec::new(),
-                existing: Vec::new(),
-                targets: Vec::new(),
                 using: false,
-                using_filter: None,
                 as_: false,
                 backtick: false,
-                backtick_names: Vec::new(),
-                align: None,
-                flags: Vec::new(),
-                foreign: None,
-                union_tag: None,
-                notes: Vec::new(),
+                notes: ast::Notes::default(),
                 span: ret.span,
+                rare: None,
             };
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
             returns.push(self.decl(&decl, name, ty, None, false, 0));

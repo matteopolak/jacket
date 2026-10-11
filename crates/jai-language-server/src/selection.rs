@@ -32,12 +32,10 @@ fn around(text: &str, stmts: &[Stmt], byte: usize, out: &mut Vec<(usize, usize)>
                 add(stmt_extent(text, s));
                 match &s.kind {
                     S::Block(b) => inner(b, &mut add),
-                    S::Switch {
-                        cases, ..
-                    }
-                    | S::StaticSwitch {
-                        cases, ..
-                    } => {
+                    S::Switch(boxed) | S::StaticSwitch(boxed) => {
+                        let jaic::ast::SwitchStmt {
+                            cases, ..
+                        } = &**boxed;
                         for c in cases {
                             add((c.span.start as usize, c.span.end as usize));
                         }

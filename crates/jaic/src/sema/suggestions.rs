@@ -58,11 +58,12 @@ fn exports_name(text: &str, name: &str) -> bool {
                 false
             }
             StmtKind::Decl(decl) => *exported && decl.names.iter().any(|n| n.name.as_str() == name),
-            StmtKind::StaticIf {
-                then_branch,
-                else_branch,
-                ..
-            } => {
+            StmtKind::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    then_branch,
+                    else_branch,
+                    ..
+                } = &**boxed;
                 let (mut then_exported, mut else_exported) = (*exported, *exported);
                 declares(then_branch, name, &mut then_exported)
                     || declares(else_branch, name, &mut else_exported)

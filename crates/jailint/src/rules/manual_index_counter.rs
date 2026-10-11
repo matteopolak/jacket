@@ -46,7 +46,7 @@ fn counter(cx: &Cx, d: &Decl) -> Option<Sym> {
     }
     let name = d.names[0];
     match &d.value {
-        Some(v) if matches!(v.kind, E::Int(0)) => {}
+        Some(v) if matches!(v.kind, E::Int(n) if n.get() == 0) => {}
         _ => return None,
     }
     // An `s64`, as `it_index` is.
@@ -62,7 +62,7 @@ fn is_increment(s: &Stmt, n: Sym) -> bool {
     matches!(&s.kind, S::Assign { op: AssignOp::Op(BinOp::Add), lhs, rhs }
         if lhs.len() == 1 && rhs.len() == 1
             && matches!(lhs[0].kind, E::Ident(x) if x == n)
-            && matches!(rhs[0].kind, E::Int(1)))
+            && matches!(rhs[0].kind, E::Int(n) if n.get() == 1))
 }
 
 fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>) {
@@ -145,7 +145,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
                                 matches!(
                                     a,
                                     Node::Stmt(Stmt {
-                                        kind: S::For(_) | S::While { .. },
+                                        kind: S::For(_) | S::While(_),
                                         ..
                                     })
                                 )

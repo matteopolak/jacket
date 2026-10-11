@@ -42,6 +42,18 @@ let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagno
 - Procedure flag: `apply_directive_flag` in `procedure.rs`, plus a `ProcFlags` field, or add the name to `OTHER_FLAGS` to keep it by name only.
 - Declaration flag: `DECL_FLAGS` in `decl.rs`. Flags on the next line are not consumed; they start the next statement.
 
+## Node sizes
+
+The language server keeps the syntax tree of every compile alive, so the size of the nodes is a memory budget. On 64-bit targets `Expr` is 56 bytes (was 80), `Stmt` 88 (was 272), `Decl` 176 (was 640) and `Arg` 88 (was 152). A unit test in `ast.rs` (`node_sizes_stay_small`) holds those bounds. How they are met:
+
+- Rare, large payloads sit behind a `Box`: `ExprKind::Insert(Box<InsertExpr>)`, `UnknownDirective`, `Block`, and the `StmtKind` variants `Switch`, `StaticSwitch` (both `SwitchStmt`), `While`, `Using`, `PushContext`, `PushContextDefer`, `StaticIf`, `Insert`, `Assert`, `ModuleParameters`, `Directive`, `Run`, `Place` and `Overlay`. Match them as `StmtKind::While(w)` and read `w.cond`; a boxed payload cannot be destructured in the pattern. `If`, `Assign`, `Return`, `Defer`, `Block`, `Decl` and `Expr` stay inline.
+- `Decl` keeps the fields most declarations use (`names`, `ty`, `value`, the `using`/`as_`/`backtick` flags, `notes`) and moves the rest (`extra_values`, `existing`, `targets`, `using_filter`, `backtick_names`, `align`, `flags`, `foreign`, `union_tag`) into `rare: Option<Box<DeclRare>>`. Read them through the accessors (`decl.extra_values()`, `decl.align()`, ...), which return an empty slice or `None` when there is no box. The parser fills them with `rare_mut()` and ends a declaration with `trim_rare()`, so `rare` is `None` unless a field is really set; a hand-built `Decl` uses `rare: None` or `set_rare`.
+- `Stmt::notes` and `Decl::notes` are `Notes`, one nullable pointer that reads as a `[Note]` slice (`is_empty()`, `iter()`, `to_vec()`); `Notes::from(vec)` and `extend` build it.
+- `ExprKind::Int` holds an `Int128` (two `u64` words with `new`/`get`) so `ExprKind` needs 8-byte alignment instead of 16.
+- `Arg::target` is boxed (named arguments are common, `a[i] = x` targets in literals are not).
+
+When you add a field or variant, box it if it is rare or over about 32 bytes; do not raise the test's bounds. `Stmt` stays at 88 because `Assign` (an operator and two `Vec`s) is a little over what would let `StmtKind` fit in 56 bytes; boxing it would add an allocation to every assignment.
+
 Gotchas:
 
 - `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line right after `}`, so `Foo :: struct {}` followed by `*p = 1;` stays two statements.

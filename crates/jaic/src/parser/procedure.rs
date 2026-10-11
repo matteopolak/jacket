@@ -242,7 +242,7 @@ impl Parser<'_> {
         let body = if self.at(P::LBrace) {
             let block = self.parse_block()?;
             let span = block.span;
-            mk(ExprKind::Block(block), span)
+            mk(ExprKind::Block(Box::new(block)), span)
         } else {
             self.parse_expr()?
         };

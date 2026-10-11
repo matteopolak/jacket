@@ -71,7 +71,7 @@ impl Compiler {
                 name, ..
             } => self.check_ident(f, scope, *name, span),
             E::Int(v) => {
-                let v = *v as i128;
+                let v = v.get() as i128;
                 match expected.map(|t| self.types.repr(t)) {
                     Some(t) if self.types.is_float(t) => Ok(Operand::Const {
                         ty: t,
@@ -324,12 +324,13 @@ impl Compiler {
                     untyped: false,
                 })
             }
-            E::Insert {
-                value,
-                flags,
-                scope: target,
-                ..
-            } => {
+            E::Insert(boxed) => {
+                let crate::ast::InsertExpr {
+                    value,
+                    flags,
+                    scope: target,
+                    ..
+                } = &**boxed;
                 let (inserted, at) = self.eval_insert_expr(scope, value)?;
                 // `#insert,scope() code` resolves names at the insertion site.
                 let at = if target.is_none() && flags.iter().any(|fl| fl.name.as_str() == "scope") {
@@ -426,7 +427,7 @@ impl Compiler {
                     let bytes: Vec<u128> = elems
                         .iter()
                         .filter_map(|el| match el.kind {
-                            E::Int(v) => Some(v),
+                            E::Int(v) => Some(v.get()),
                             _ => None,
                         })
                         .collect();
@@ -464,23 +465,17 @@ impl Compiler {
                     untyped: false,
                 })
             }
-            E::UnknownDirective {
-                name, ..
-            } if name.name.as_str() == "Context" => Ok(Operand::Type(self.context_type(span)?)),
-            E::UnknownDirective {
-                name,
-                operand,
-                ..
-            } if name.name.as_str() == "jaic_type" => {
-                Ok(Operand::Type(self.jaic_type(operand.as_deref(), span)?))
+            E::UnknownDirective(d) if d.name.name.as_str() == "Context" => {
+                Ok(Operand::Type(self.context_type(span)?))
             }
-            E::UnknownDirective {
-                name, ..
-            } => err(
-                name.span,
+            E::UnknownDirective(d) if d.name.name.as_str() == "jaic_type" => {
+                Ok(Operand::Type(self.jaic_type(d.operand.as_ref(), span)?))
+            }
+            E::UnknownDirective(d) => err(
+                d.name.span,
                 format!(
                     "directive `#{}` is not supported in this position",
-                    name.name
+                    d.name.name
                 ),
             ),
             E::Asm(block) => self.check_asm(f, scope, block),

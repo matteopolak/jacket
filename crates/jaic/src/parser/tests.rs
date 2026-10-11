@@ -415,12 +415,12 @@ fn struct_body_forms() {
     assert_eq!(lit.body.len(), 9);
     assert!(matches!(&lit.body[0].kind, StmtKind::Decl(d) if d.using));
     assert!(matches!(&lit.body[1].kind, StmtKind::Decl(d) if d.using && d.as_));
-    assert!(matches!(&lit.body[3].kind, StmtKind::StaticIf { .. }));
+    assert!(matches!(&lit.body[3].kind, StmtKind::StaticIf(_)));
     assert!(matches!(&lit.body[4].kind, StmtKind::Place(_)));
     assert!(
         matches!(&lit.body[6].kind, StmtKind::Expr(Expr { kind: ExprKind::Struct(s), .. }) if s.kind == StructKind::Union)
     );
-    assert!(matches!(&lit.body[8].kind, StmtKind::Decl(d) if d.align.is_some()));
+    assert!(matches!(&lit.body[8].kind, StmtKind::Decl(d) if d.align().is_some()));
 }
 
 // rules: enum.17
@@ -453,7 +453,8 @@ fn tagged_unions() {
         panic!()
     };
     assert!(lit.tag.is_some());
-    let Some(ExprKind::InferredMember(tag)) = decl(&lit.body[1]).union_tag.clone().map(|t| t.kind)
+    let Some(ExprKind::InferredMember(tag)) =
+        decl(&lit.body[1]).union_tag().cloned().map(|t| t.kind)
     else {
         panic!()
     };
@@ -463,9 +464,9 @@ fn tagged_unions() {
     else {
         panic!()
     };
-    assert!(decl(&lit.body[0]).union_tag.is_some());
-    assert!(decl(&lit.body[1]).union_tag.is_none());
-    assert!(decl(&lit.body[2]).union_tag.is_some());
+    assert!(decl(&lit.body[0]).union_tag().is_some());
+    assert!(decl(&lit.body[1]).union_tag().is_none());
+    assert!(decl(&lit.body[2]).union_tag().is_some());
 }
 
 // -- expressions ----------------------------------------------------------------
@@ -520,7 +521,7 @@ fn grouped(expr: &str) -> String {
                 format!("({ty} {})", show(value))
             }
             ExprKind::Ident(name) => name.as_str().to_string(),
-            ExprKind::Int(v) => v.to_string(),
+            ExprKind::Int(v) => v.get().to_string(),
             ExprKind::Member(base, field) => format!("{}.{}", show(base), field.name.as_str()),
             other => format!("{other:?}"),
         }
@@ -873,30 +874,27 @@ fn inferred_members_and_directive_primaries() {
     ));
     assert!(matches!(
         value("L :: #system_library \"libc\";").kind,
-        ExprKind::UnknownDirective {
-            operand: Some(_),
-            ..
-        }
+        ExprKind::UnknownDirective(d) if d.operand.is_some()
     ));
     // Flags before the operand may be spaced out (Pixel_Maker's Metal bindings).
-    let ExprKind::UnknownDirective {
-        flags, ..
-    } = value("Metal :: #library, system, link_always \"Metal\";").kind
+    let ExprKind::UnknownDirective(directive) =
+        value("Metal :: #library, system, link_always \"Metal\";").kind
     else {
         panic!("expected #library");
     };
     assert_eq!(
-        flags.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(),
+        directive
+            .flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
         ["system", "link_always"]
     );
     assert!(matches!(value("x := `y;").kind, ExprKind::Backtick(_)));
-    let ExprKind::Insert {
-        scope, ..
-    } = value("x := #insert,scope(s) code;").kind
-    else {
+    let ExprKind::Insert(insert) = value("x := #insert,scope(s) code;").kind else {
         panic!()
     };
-    assert!(scope.is_some());
+    assert!(insert.scope.is_some());
 }
 
 #[test]
@@ -959,11 +957,11 @@ fn declaration_forms() {
 #[test]
 fn multiple_values_and_mixed_declarations() {
     let stmts = parse("a, b := 1, 2;\nx=, y := f();\nm:, n = g();\np, q:, r := h();");
-    assert_eq!(decl(&stmts[0]).extra_values.len(), 1);
-    assert_eq!(decl(&stmts[1]).existing, [true, false]);
-    assert_eq!(decl(&stmts[2]).existing, [false, true]);
+    assert_eq!(decl(&stmts[0]).extra_values().len(), 1);
+    assert_eq!(decl(&stmts[1]).existing(), [true, false]);
+    assert_eq!(decl(&stmts[2]).existing(), [false, true]);
     // `q:` in a declaration is redundant: every name is new.
-    assert!(decl(&stmts[3]).existing.iter().all(|&e| !e));
+    assert!(decl(&stmts[3]).existing().iter().all(|&e| !e));
 }
 
 // rules: decl.22
@@ -971,16 +969,16 @@ fn multiple_values_and_mixed_declarations() {
 fn mixed_declarations_assign_to_places() {
     let stmts = parse("ok:, t.str = f();\nt.items[i].*=, n := g();\na.b, c = h();");
     let first = decl(&stmts[0]);
-    assert_eq!(first.existing, [false, true]);
-    assert!(first.targets[0].is_none());
+    assert_eq!(first.existing(), [false, true]);
+    assert!(first.targets()[0].is_none());
     assert!(matches!(
-        first.targets[1].as_ref().map(|e| &e.kind),
+        first.targets()[1].as_ref().map(|e| &e.kind),
         Some(ExprKind::Member(..))
     ));
     assert_eq!(first.names[1].name.as_str(), "t");
     let second = decl(&stmts[1]);
-    assert_eq!(second.existing, [true, false]);
-    assert!(second.targets[0].is_some());
+    assert_eq!(second.existing(), [true, false]);
+    assert!(second.targets()[0].is_some());
     // Without a marker a list of places is a plain multiple assignment.
     assert!(matches!(stmts[2].kind, StmtKind::Assign { .. }));
     assert!(error("t.x:, b = f();").contains("only a name can be declared"));
@@ -990,11 +988,11 @@ fn mixed_declarations_assign_to_places() {
 fn declaration_flags_and_notes() {
     let stmts =
         parse("x: int #align 16; @Note\nF :: () {} @Public @Other\nG :: () {}\n#no_reset y := 1;");
-    assert!(decl(&stmts[0]).align.is_some());
+    assert!(decl(&stmts[0]).align().is_some());
     assert_eq!(decl(&stmts[0]).notes.len(), 1);
     assert_eq!(decl(&stmts[1]).notes.len(), 2);
     assert!(decl(&stmts[2]).notes.is_empty());
-    assert_eq!(decl(&stmts[3]).flags[0].name.as_str(), "no_reset");
+    assert_eq!(decl(&stmts[3]).flags()[0].name.as_str(), "no_reset");
 }
 
 #[test]
@@ -1045,20 +1043,17 @@ fn file_level_directives() {
     assert!(matches!(stmts[0].kind, StmtKind::Scope(ScopeKind::File)));
     assert!(matches!(stmts[3].kind, StmtKind::AddContext(_)));
     assert!(
-        matches!(&stmts[4].kind, StmtKind::ModuleParameters { params, runtime_params, .. } if params.len() == 1 && runtime_params.len() == 1)
+        matches!(&stmts[4].kind, StmtKind::ModuleParameters(m) if m.params.len() == 1 && m.runtime_params.len() == 1)
     );
     assert!(matches!(stmts[5].kind, StmtKind::Placeholder(_)));
     assert!(matches!(
         &stmts[6].kind,
-        StmtKind::Assert {
-            message: Some(_),
-            ..
-        }
+        StmtKind::Assert(a) if a.message.is_some()
     ));
     assert!(matches!(stmts[7].kind, StmtKind::Run(_)));
-    assert!(matches!(stmts[8].kind, StmtKind::Insert { .. }));
-    assert!(matches!(&stmts[9].kind, StmtKind::Directive { args, .. } if args.len() == 2));
-    assert!(matches!(stmts[10].kind, StmtKind::Directive { .. }));
+    assert!(matches!(stmts[8].kind, StmtKind::Insert(_)));
+    assert!(matches!(&stmts[9].kind, StmtKind::Directive(d) if d.args.len() == 2));
+    assert!(matches!(stmts[10].kind, StmtKind::Directive(_)));
 }
 
 #[test]
@@ -1066,24 +1061,18 @@ fn static_if_at_file_scope() {
     let stmts = parse(
         "#if A { x :: 1; y :: 2; } else #if B z :: 3; else { w :: 4; }\n#if C print(\"hi\");\n#if OS == { case .A; #load \"a.jai\"; case; #load \"b.jai\"; }\n#if #complete N == { case 1; a :: 1; case 2; a :: 2; }",
     );
-    let StmtKind::StaticIf {
-        then_branch,
-        else_branch,
-        ..
-    } = &stmts[0].kind
-    else {
+    let StmtKind::StaticIf(first) = &stmts[0].kind else {
         panic!()
     };
+    let (then_branch, else_branch) = (&first.then_branch, &first.else_branch);
     assert_eq!(then_branch.len(), 2);
     assert!(
-        matches!(&else_branch[0].kind, StmtKind::StaticIf { then_branch, else_branch, .. } if then_branch.len() == 1 && else_branch.len() == 1)
+        matches!(&else_branch[0].kind, StmtKind::StaticIf(i) if i.then_branch.len() == 1 && i.else_branch.len() == 1)
     );
-    assert!(
-        matches!(&stmts[1].kind, StmtKind::StaticIf { then_branch, .. } if then_branch.len() == 1)
-    );
-    assert!(matches!(&stmts[2].kind, StmtKind::StaticSwitch { cases, .. } if cases.len() == 2));
+    assert!(matches!(&stmts[1].kind, StmtKind::StaticIf(i) if i.then_branch.len() == 1));
+    assert!(matches!(&stmts[2].kind, StmtKind::StaticSwitch(s) if s.cases.len() == 2));
     // `#if #complete x == {}` (KodaJai) parses as a plain static switch.
-    assert!(matches!(&stmts[3].kind, StmtKind::StaticSwitch { cases, .. } if cases.len() == 2));
+    assert!(matches!(&stmts[3].kind, StmtKind::StaticSwitch(s) if s.cases.len() == 2));
 }
 
 // -- statements -----------------------------------------------------------------
@@ -1091,14 +1080,10 @@ fn static_if_at_file_scope() {
 #[test]
 fn switch_statements() {
     let stmts = body_of("if x == {\n case 1; a();\n case 2, 3; b(); #through;\n case; c();\n}");
-    let StmtKind::Switch {
-        cases,
-        complete,
-        ..
-    } = &stmts[0].kind
-    else {
+    let StmtKind::Switch(switch) = &stmts[0].kind else {
         panic!()
     };
+    let (cases, complete) = (&switch.cases, switch.complete);
     assert!(!complete);
     assert_eq!(cases.len(), 3);
     assert_eq!(cases[1].values.len(), 2);
@@ -1107,18 +1092,12 @@ fn switch_statements() {
     let stmts =
         body_of("if #complete x == { case .A; a(); }\nif x == #complete { case .A: { a(); } }");
     assert!(matches!(
-        stmts[0].kind,
-        StmtKind::Switch {
-            complete: true,
-            ..
-        }
+        &stmts[0].kind,
+        StmtKind::Switch(s) if s.complete
     ));
     assert!(matches!(
-        stmts[1].kind,
-        StmtKind::Switch {
-            complete: true,
-            ..
-        }
+        &stmts[1].kind,
+        StmtKind::Switch(s) if s.complete
     ));
 }
 
@@ -1177,13 +1156,10 @@ fn while_break_continue_remove() {
     );
     assert!(matches!(
         &stmts[0].kind,
-        StmtKind::While {
-            label: Some(_),
-            ..
-        }
+        StmtKind::While(w) if w.label.is_some()
     ));
     assert!(
-        matches!(&stmts[1].kind, StmtKind::While { label: None, body, .. } if matches!(body.kind, StmtKind::Continue(None)))
+        matches!(&stmts[1].kind, StmtKind::While(w) if w.label.is_none() && matches!(w.body.kind, StmtKind::Continue(None)))
     );
 }
 
@@ -1219,22 +1195,16 @@ fn return_defer_using_push_context() {
     ));
     assert!(matches!(
         &stmts[5].kind,
-        StmtKind::Using {
-            filter: UsingFilter::None,
-            ..
-        }
+        StmtKind::Using(u) if matches!(u.filter, UsingFilter::None)
     ));
     assert!(
-        matches!(&stmts[6].kind, StmtKind::Using { filter: UsingFilter::Only(names), .. } if names.len() == 2)
+        matches!(&stmts[6].kind, StmtKind::Using(u) if matches!(&u.filter, UsingFilter::Only(names) if names.len() == 2))
     );
     assert!(matches!(
         &stmts[7].kind,
-        StmtKind::Using {
-            filter: UsingFilter::Except(_),
-            ..
-        }
+        StmtKind::Using(u) if matches!(u.filter, UsingFilter::Except(_))
     ));
-    assert!(matches!(&stmts[8].kind, StmtKind::PushContext { .. }));
+    assert!(matches!(&stmts[8].kind, StmtKind::PushContext(_)));
 }
 
 #[test]

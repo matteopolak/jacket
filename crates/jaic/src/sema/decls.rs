@@ -192,7 +192,7 @@ impl Compiler {
             return err(decl.span, "constant declaration needs a value");
         };
         // `a, b :: 1, 2;` gives each name its own value.
-        let listed = 1 + decl.extra_values.len();
+        let listed = 1 + decl.extra_values().len();
         let value = match index {
             _ if listed == 1 => value,
             _ if listed != decl.names.len() => {
@@ -202,7 +202,7 @@ impl Compiler {
                 );
             }
             0 => value,
-            i => &decl.extra_values[i - 1],
+            i => &decl.extra_values()[i - 1],
         };
         let multiple = decl.names.len() > 1 && listed == 1;
         match &value.kind {
@@ -211,7 +211,7 @@ impl Compiler {
             ast::ExprKind::Proc(lit) => {
                 let proc = self.new_proc(name, lit.clone(), scope, value.span);
                 if !decl.notes.is_empty() {
-                    self.proc_decl_notes.insert(proc, decl.notes.clone());
+                    self.proc_decl_notes.insert(proc, decl.notes.to_vec());
                 }
                 return Ok(Resolved::Proc(proc));
             }
@@ -273,15 +273,15 @@ impl Compiler {
                     ty: TypeId::TYPE,
                 });
             }
-            ast::ExprKind::UnknownDirective {
-                name: directive,
-                flags,
-                operand,
-            } => {
+            ast::ExprKind::UnknownDirective(boxed) => {
+                let crate::ast::UnknownDirective {
+                    name: directive,
+                    flags,
+                    operand,
+                } = &**boxed;
                 let d = directive.name.as_str();
                 if is_library_directive(d) {
-                    let id =
-                        self.declare_library(scope, d, flags, operand.as_deref(), value.span)?;
+                    let id = self.declare_library(scope, d, flags, operand.as_ref(), value.span)?;
                     return Ok(Resolved::Library(id));
                 }
             }
@@ -408,13 +408,13 @@ impl Compiler {
             }
             (None, None) => return err(span, "global needs a type or initializer"),
         };
-        if let Some(foreign) = &decl.foreign {
+        if let Some(foreign) = &decl.foreign() {
             return self.foreign_global(scope, name, foreign, ty, span);
         }
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         let mut align = align;
-        if let Some(a) = &decl.align {
+        if let Some(a) = &decl.align() {
             let a = self.eval_int(scope, a)?;
             align = align.max(a as u64);
         }
@@ -428,7 +428,7 @@ impl Compiler {
             export: None,
         });
         self.debug_global(global, name, ty, span);
-        if decl.flags.iter().any(|f| f.name.as_str() == "no_reset") {
+        if decl.flags().iter().any(|f| f.name.as_str() == "no_reset") {
             self.no_reset_globals.push((global, ty));
         } else {
             self.program.reset_globals.push(global);

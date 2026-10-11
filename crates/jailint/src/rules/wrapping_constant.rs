@@ -182,7 +182,7 @@ fn wrap(value: i128, bits: u8, signed: bool) -> i128 {
 /// else, including `~` (whose untyped value is negative by design) and overflow.
 fn eval(e: &Expr) -> Option<i128> {
     Some(match &e.kind {
-        E::Int(v) => i128::try_from(*v).ok()?,
+        E::Int(v) => i128::try_from(v.get()).ok()?,
         E::Unary(UnOp::Neg, a) => eval(a)?.checked_neg()?,
         E::Unary(UnOp::Plus, a) => eval(a)?,
         E::Binary(op, a, b) => {

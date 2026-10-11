@@ -150,9 +150,7 @@ impl Compiler {
                         );
                     }
                 }
-                ast::StmtKind::StaticIf {
-                    ..
-                } => {
+                ast::StmtKind::StaticIf(_) => {
                     self.push_pending(
                         scope,
                         scope::Pending {
@@ -675,7 +673,7 @@ impl Compiler {
             if self.ide.is_some() {
                 for stmt in &src.lit.body {
                     if let ast::StmtKind::Decl(d) = &stmt.kind
-                        && let Some(t) = &d.union_tag
+                        && let Some(t) = &d.union_tag()
                         && let ast::ExprKind::InferredMember(m) = &t.kind
                     {
                         self.ide_note_member_use(m.span, tag_ty, m.name);
@@ -969,11 +967,12 @@ impl Compiler {
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
                     self.collect_decl_fields(scope, decl, out)?
                 }
-                ast::StmtKind::StaticIf {
-                    cond,
-                    then_branch,
-                    else_branch,
-                } => {
+                ast::StmtKind::StaticIf(boxed) => {
+                    let crate::ast::StaticIfStmt {
+                        cond,
+                        then_branch,
+                        else_branch,
+                    } = &**boxed;
                     let taken = self.eval_static_condition(scope, cond)?;
                     self.ide_note_skipped(
                         cond,
@@ -993,9 +992,10 @@ impl Compiler {
                         out,
                     )?;
                 }
-                ast::StmtKind::Insert {
-                    value, ..
-                } => {
+                ast::StmtKind::Insert(boxed) => {
+                    let crate::ast::InsertStmt {
+                        value, ..
+                    } = &**boxed;
                     let inserted = self.eval_insert_stmts(scope, value)?;
                     self.collect_fields(scope, &inserted, out)?;
                 }
@@ -1037,10 +1037,11 @@ impl Compiler {
                     }
                     _ => return err(e.span, "unexpected expression in struct body"),
                 },
-                ast::StmtKind::Using {
-                    value,
-                    filter,
-                } => {
+                ast::StmtKind::Using(boxed) => {
+                    let crate::ast::UsingStmt {
+                        value,
+                        filter,
+                    } = &**boxed;
                     // `using inner.member;` naming fields of this struct: an alias.
                     if let Some(path) = member_path(value)
                         && out.iter().any(
@@ -1097,7 +1098,7 @@ impl Compiler {
             }
             (None, None) => return err(decl.span, "field needs a type"),
         };
-        let align = match &decl.align {
+        let align = match &decl.align() {
             Some(a) => Some(self.eval_align(scope, a)?),
             None => None,
         };
@@ -1117,7 +1118,7 @@ impl Compiler {
                 init: decl.value.clone(),
                 scope,
                 align,
-                filter: decl.using_filter.clone(),
+                filter: decl.using_filter().cloned(),
             }));
         }
         Ok(())

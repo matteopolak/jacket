@@ -3,7 +3,8 @@ use std::rc::Rc;
 
 use super::{PResult, Parser};
 use crate::ast::{
-    AssignOp, BinOp, Block, Case, Expr, For, ForOver, Ident, Stmt, StmtKind, UsingFilter,
+    AssignOp, BinOp, Block, Case, Expr, For, ForOver, Ident, Notes, PushContextDeferStmt,
+    PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter, UsingStmt, WhileStmt,
 };
 use crate::lexer::{P, Tok};
 
@@ -53,7 +54,7 @@ pub(super) fn stmt(kind: StmtKind, span: crate::source::Span) -> Stmt {
     Stmt {
         kind,
         span,
-        notes: Vec::new(),
+        notes: Notes::default(),
     }
 }
 
@@ -289,7 +290,7 @@ impl Parser<'_> {
         if let StmtKind::Decl(decl) = &mut member.kind
             && let Some(decl) = std::rc::Rc::get_mut(decl)
         {
-            decl.union_tag = Some(tag);
+            decl.rare_mut().union_tag = Some(tag);
         }
         Ok(member)
     }
@@ -322,7 +323,7 @@ impl Parser<'_> {
         let span = start.to(self.prev_span());
         Ok(stmt(
             StmtKind::If {
-                cond,
+                cond: Box::new(cond),
                 then_branch,
                 else_branch,
             },
@@ -358,7 +359,7 @@ impl Parser<'_> {
             let span = start.to(self.prev_span());
             return Ok(stmt(
                 StmtKind::If {
-                    cond,
+                    cond: Box::new(cond),
                     then_branch: Box::new(then_branch),
                     else_branch: else_branch.map(Box::new),
                 },
@@ -421,11 +422,11 @@ impl Parser<'_> {
         let cases = self.parse_cases()?;
         let span = start.to(self.prev_span());
         Ok(stmt(
-            StmtKind::Switch {
+            StmtKind::Switch(Box::new(SwitchStmt {
                 value,
                 cases,
                 complete,
-            },
+            })),
             span,
         ))
     }
@@ -512,12 +513,12 @@ impl Parser<'_> {
         ));
         let span = start.to(self.prev_span());
         Ok(stmt(
-            StmtKind::While {
+            StmtKind::While(Box::new(WhileStmt {
                 label,
                 bind_label,
                 cond,
                 body,
-            },
+            })),
             span,
         ))
     }
@@ -688,11 +689,11 @@ impl Parser<'_> {
             let context = super::expr::mk(crate::ast::ExprKind::Context, start);
             let body = Box::new(self.parse_stmt()?);
             return Ok(stmt(
-                StmtKind::PushContext {
+                StmtKind::PushContext(Box::new(PushContextStmt {
                     context,
                     body,
                     bare: true,
-                },
+                })),
                 start.to(self.prev_span()),
             ));
         }
@@ -708,21 +709,21 @@ impl Parser<'_> {
             };
             self.end_stmt("after 'push_context,defer_pop'")?;
             return Ok(stmt(
-                StmtKind::PushContextDefer {
+                StmtKind::PushContextDefer(Box::new(PushContextDeferStmt {
                     context,
                     bare,
-                },
+                })),
                 start.to(self.prev_span()),
             ));
         }
         let context = self.parse_expr()?;
         let body = Box::new(self.parse_stmt()?);
         Ok(stmt(
-            StmtKind::PushContext {
+            StmtKind::PushContext(Box::new(PushContextStmt {
                 context,
                 body,
                 bare: false,
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }
@@ -749,10 +750,10 @@ impl Parser<'_> {
         let value = self.parse_expr()?;
         self.end_stmt("after `using`")?;
         Ok(stmt(
-            StmtKind::Using {
+            StmtKind::Using(Box::new(UsingStmt {
                 value,
                 filter,
-            },
+            })),
             start.to(self.prev_span()),
         ))
     }

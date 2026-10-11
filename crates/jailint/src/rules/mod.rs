@@ -285,9 +285,7 @@ pub(crate) fn place_use(node: &Expr, chain: &[Node<'_>]) -> PlaceUse {
                         }
                         _ => PlaceUse::Read,
                     },
-                    S::Using {
-                        value, ..
-                    } if value.span == cur.span => PlaceUse::Address,
+                    S::Using(using) if using.value.span == cur.span => PlaceUse::Address,
                     _ => PlaceUse::Read,
                 };
             }
@@ -332,7 +330,7 @@ pub(crate) fn same_pure(cx: &Cx, a: &Expr, b: &Expr) -> bool {
 /// An integer literal, possibly negated: its value.
 pub(crate) fn int_literal(e: &Expr) -> Option<i128> {
     match &e.kind {
-        E::Int(v) => i128::try_from(*v).ok(),
+        E::Int(v) => i128::try_from(v.get()).ok(),
         E::Unary(UnOp::Neg, inner) => int_literal(inner).map(|v| -v),
         E::Unary(UnOp::Plus, inner) => int_literal(inner),
         _ => None,
@@ -410,21 +408,20 @@ pub(crate) fn statement_lists<'a>(body: &'a [Stmt], f: &mut dyn FnMut(&'a [Stmt]
         if let Some(s) = n.stmt() {
             match &s.kind {
                 S::Block(b) => f(&b.stmts),
-                S::Switch {
-                    cases, ..
-                }
-                | S::StaticSwitch {
-                    cases, ..
-                } => {
+                S::Switch(boxed) | S::StaticSwitch(boxed) => {
+                    let jaic::ast::SwitchStmt {
+                        cases, ..
+                    } = &**boxed;
                     for c in cases {
                         f(&c.body);
                     }
                 }
-                S::StaticIf {
-                    then_branch,
-                    else_branch,
-                    ..
-                } => {
+                S::StaticIf(boxed) => {
+                    let jaic::ast::StaticIfStmt {
+                        then_branch,
+                        else_branch,
+                        ..
+                    } = &**boxed;
                     f(then_branch);
                     f(else_branch);
                 }

@@ -40,6 +40,70 @@ pub struct Note {
     pub span: Span,
 }
 
+/// The `@note` annotations of a statement or declaration. Nearly always empty, so it is a single
+/// pointer (null when empty) rather than a `Vec`'s three words; it reads as a `[Note]` slice.
+#[derive(Clone, Debug, Default, PartialEq)]
+// A `Box<[Note]>` would be two words; the `Box<Vec<_>>` is the thin pointer this type exists for.
+#[allow(clippy::box_collection)]
+pub struct Notes(Option<Box<Vec<Note>>>);
+
+impl Notes {
+    pub fn new(notes: Vec<Note>) -> Notes {
+        Notes::from(notes)
+    }
+
+    pub fn extend(&mut self, notes: impl IntoIterator<Item = Note>) {
+        let mut all = self.0.take().map_or_else(Vec::new, |notes| *notes);
+        all.extend(notes);
+        *self = Notes::from(all);
+    }
+}
+
+impl From<Vec<Note>> for Notes {
+    fn from(notes: Vec<Note>) -> Notes {
+        Notes(if notes.is_empty() {
+            None
+        } else {
+            Some(Box::new(notes))
+        })
+    }
+}
+
+impl std::ops::Deref for Notes {
+    type Target = [Note];
+
+    fn deref(&self) -> &[Note] {
+        match &self.0 {
+            Some(notes) => notes,
+            None => &[],
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Notes {
+    type Item = &'a Note;
+    type IntoIter = std::slice::Iter<'a, Note>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// An integer literal's magnitude. Stored as two `u64` words so that `ExprKind` needs only 8-byte
+/// alignment (a `u128` field would align every `Expr` to 16 bytes).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Int128([u64; 2]);
+
+impl Int128 {
+    pub fn new(value: u128) -> Int128 {
+        Int128([value as u64, (value >> 64) as u64])
+    }
+
+    pub fn get(self) -> u128 {
+        self.0[0] as u128 | (self.0[1] as u128) << 64
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Expressions
 // ---------------------------------------------------------------------------
@@ -92,7 +156,7 @@ pub struct Arg {
     /// `name = value` named argument / struct literal field.
     pub name: Option<Ident>,
     /// Non-identifier field target in a literal: `.{values[1] = 7, base.init = f}` (then `name` is `None`).
-    pub target: Option<Expr>,
+    pub target: Option<Box<Expr>>,
     /// Written after `,,` in a call: temporary context change (`f(x,, allocator = temp)`).
     pub context: bool,
     /// `..value` spreads an array into variadic arguments.
@@ -149,7 +213,7 @@ pub enum ExprKind {
         restriction: Box<Expr>,
         interface: bool,
     },
-    Int(u128),
+    Int(Int128),
     Float(f64),
     Str(Rc<[u8]>),
     Bool(bool),
@@ -208,7 +272,7 @@ pub enum ExprKind {
         body: Box<Expr>,
     },
     /// A block in value position: `#ifx c { ...; value } else { ... }`, lambda bodies.
-    Block(Block),
+    Block(Box<Block>),
     Struct(Rc<StructLit>),
     Enum(Rc<EnumLit>),
     TypeDirective {
@@ -224,12 +288,7 @@ pub enum ExprKind {
     Code(Rc<CodeBody>),
     /// `#insert expr` in expression position. `scope` is the `,scope(x)` operand;
     /// `replacements` are the `(remove = ..., break = ...)` arguments before the code.
-    Insert {
-        value: Box<Expr>,
-        flags: Vec<Ident>,
-        scope: Option<Box<Expr>>,
-        replacements: Vec<Arg>,
-    },
+    Insert(Box<InsertExpr>),
     /// `#char "x"`
     Char(u32),
     /// `#location(expr)` (`None` = location of the directive itself).
@@ -255,16 +314,29 @@ pub enum ExprKind {
     /// `#bytes "..."` or `#bytes .[...]`
     Bytes(Box<Expr>),
     /// `#placeholder`-style or unrecognized directive with an optional operand.
-    UnknownDirective {
-        name: Ident,
-        /// `#library,system,link_always "x"`: the comma flags.
-        flags: Vec<Ident>,
-        operand: Option<Box<Expr>>,
-    },
+    UnknownDirective(Box<UnknownDirective>),
     /// `` `x ``: refer to the macro caller's scope.
     Backtick(Box<Expr>),
     /// `#asm { ... }`: x64 instructions over Jai variables (lowered by `sema::asm`).
     Asm(Rc<AsmBlock>),
+}
+
+/// The payload of `ExprKind::Insert`, boxed because it is rare and large.
+#[derive(Clone, Debug)]
+pub struct InsertExpr {
+    pub value: Expr,
+    pub flags: Vec<Ident>,
+    pub scope: Option<Expr>,
+    pub replacements: Vec<Arg>,
+}
+
+/// The payload of `ExprKind::UnknownDirective`, boxed because it is rare and large.
+#[derive(Clone, Debug)]
+pub struct UnknownDirective {
+    pub name: Ident,
+    /// `#library,system,link_always "x"`: the comma flags.
+    pub flags: Vec<Ident>,
+    pub operand: Option<Expr>,
 }
 
 // ---------------------------------------------------------------------------
@@ -599,6 +671,20 @@ pub struct Decl {
     pub ty: Option<Expr>,
     /// `None` = default-initialize. `Some(Uninit)` = `---`.
     pub value: Option<Expr>,
+    pub using: bool,
+    /// `#as using` / `#as x: T` in struct bodies.
+    pub as_: bool,
+    /// `` `x := ... `` declares into the macro caller's scope.
+    pub backtick: bool,
+    pub notes: Notes,
+    pub span: Span,
+    /// The fields almost no declaration uses; see `DeclRare` and the accessors below.
+    pub rare: Option<Box<DeclRare>>,
+}
+
+/// The rarely used parts of a `Decl`, boxed so an ordinary declaration does not carry them.
+#[derive(Clone, Debug, Default)]
+pub struct DeclRare {
     /// Further values of `a, b := 1, 2;` (the first is in `value`).
     pub extra_values: Vec<Expr>,
     /// Mixed declare/assign lists, parallel to `names` (empty otherwise): `true` assigns to an
@@ -608,13 +694,8 @@ pub struct Decl {
     /// place assigned to; parallel to `names` (empty otherwise). Its `names` entry is the
     /// place's root variable, spanning the whole place.
     pub targets: Vec<Option<Expr>>,
-    pub using: bool,
     /// `using,except(x) name: T;`
     pub using_filter: Option<UsingFilter>,
-    /// `#as using` / `#as x: T` in struct bodies.
-    pub as_: bool,
-    /// `` `x := ... `` declares into the macro caller's scope.
-    pub backtick: bool,
     /// Per name of a list, `` a, `b := ... ``: which ones go to the caller's scope (empty = all
     /// follow `backtick`).
     pub backtick_names: Vec<bool>,
@@ -627,8 +708,79 @@ pub struct Decl {
     /// `.TAG ,, member: T;` in a tagged union body: the tag value selecting this member
     /// (an enum member, an integer such as `-12`, or a type such as `u16`).
     pub union_tag: Option<Expr>,
-    pub notes: Vec<Note>,
-    pub span: Span,
+}
+
+impl DeclRare {
+    fn is_empty(&self) -> bool {
+        self.extra_values.is_empty()
+            && self.existing.is_empty()
+            && self.targets.is_empty()
+            && self.using_filter.is_none()
+            && self.backtick_names.is_empty()
+            && self.align.is_none()
+            && self.flags.is_empty()
+            && self.foreign.is_none()
+            && self.union_tag.is_none()
+    }
+}
+
+impl Decl {
+    /// Sets the rare fields; `None` is stored when they are all empty.
+    pub fn set_rare(&mut self, rare: DeclRare) {
+        self.rare = if rare.is_empty() {
+            None
+        } else {
+            Some(Box::new(rare))
+        };
+    }
+
+    /// Drops the rare box when every field in it is empty.
+    pub fn trim_rare(&mut self) {
+        if self.rare.as_ref().is_some_and(|r| r.is_empty()) {
+            self.rare = None;
+        }
+    }
+
+    /// The rare fields for in-place edits (created empty on first use).
+    pub fn rare_mut(&mut self) -> &mut DeclRare {
+        self.rare.get_or_insert_with(Default::default)
+    }
+
+    pub fn extra_values(&self) -> &[Expr] {
+        self.rare.as_ref().map_or(&[], |r| &r.extra_values)
+    }
+
+    pub fn existing(&self) -> &[bool] {
+        self.rare.as_ref().map_or(&[], |r| &r.existing)
+    }
+
+    pub fn targets(&self) -> &[Option<Expr>] {
+        self.rare.as_ref().map_or(&[], |r| &r.targets)
+    }
+
+    pub fn using_filter(&self) -> Option<&UsingFilter> {
+        self.rare.as_ref().and_then(|r| r.using_filter.as_ref())
+    }
+
+    pub fn backtick_names(&self) -> &[bool] {
+        self.rare.as_ref().map_or(&[], |r| &r.backtick_names)
+    }
+
+    pub fn align(&self) -> Option<&Expr> {
+        self.rare.as_ref().and_then(|r| r.align.as_ref())
+    }
+
+    pub fn flags(&self) -> &[Ident] {
+        self.rare.as_ref().map_or(&[], |r| &r.flags)
+    }
+
+    pub fn foreign(&self) -> Option<&Foreign> {
+        self.rare.as_ref().and_then(|r| r.foreign.as_ref())
+    }
+
+    pub fn union_tag(&self) -> Option<&Expr> {
+        self.rare.as_ref().and_then(|r| r.union_tag.as_ref())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -730,28 +882,15 @@ pub enum StmtKind {
     },
     Block(Block),
     If {
-        cond: Expr,
+        cond: Box<Expr>,
         then_branch: Box<Stmt>,
         else_branch: Option<Box<Stmt>>,
     },
     /// `if x == { case ...; }`
-    Switch {
-        value: Expr,
-        cases: Vec<Case>,
-        complete: bool,
-    },
+    Switch(Box<SwitchStmt>),
     /// `#if x == { case ...; }`: only the matching case's statements are compiled.
-    StaticSwitch {
-        value: Expr,
-        cases: Vec<Case>,
-    },
-    While {
-        label: Option<Ident>,
-        /// `while name := cond`: `name` also holds the condition's value inside the loop.
-        bind_label: bool,
-        cond: Expr,
-        body: Box<Stmt>,
-    },
+    StaticSwitch(Box<SwitchStmt>),
+    While(Box<WhileStmt>),
     For(Box<For>),
     Break(Option<Ident>),
     Continue(Option<Ident>),
@@ -766,38 +905,16 @@ pub enum StmtKind {
         backtick: bool,
     },
     /// `using expr;` (filters: `using,only(a,b) x;`)
-    Using {
-        value: Expr,
-        filter: UsingFilter,
-    },
-    PushContext {
-        context: Expr,
-        body: Box<Stmt>,
-        /// No context was named (`push_context { }`): `context` is the current one, and a copy
-        /// of it is pushed (a default one where there is none).
-        bare: bool,
-    },
+    Using(Box<UsingStmt>),
+    PushContext(Box<PushContextStmt>),
     /// `#if cond { } else { }`, also at file and struct scope.
-    StaticIf {
-        cond: Expr,
-        then_branch: Vec<Stmt>,
-        else_branch: Vec<Stmt>,
-    },
+    StaticIf(Box<StaticIfStmt>),
     /// `#insert expr;` (flags e.g. `,scope(x)`).
-    Insert {
-        value: Expr,
-        flags: Vec<Ident>,
-        scope: Option<Expr>,
-        replacements: Vec<Arg>,
-    },
+    Insert(Box<InsertStmt>),
     /// `#assert cond "message";`, or `#assert(cond, "format %", args)`.
-    Assert {
-        cond: Expr,
-        message: Option<Expr>,
-        args: Vec<Expr>,
-    },
+    Assert(Box<AssertStmt>),
     /// Top-level `#run expr;`
-    Run(Expr),
+    Run(Box<Expr>),
     Import(Rc<Import>),
     /// `#load "file.jai";`
     Load {
@@ -808,31 +925,19 @@ pub enum StmtKind {
     /// `#add_context name: T = v;`
     AddContext(Rc<Decl>),
     /// `#module_parameters (A := 1) (B := 2);` second list = parameters visible to importers' runtime.
-    ModuleParameters {
-        params: Vec<Param>,
-        runtime_params: Vec<Param>,
-        body: Option<Block>,
-    },
+    ModuleParameters(Box<ModuleParametersStmt>),
     /// `#placeholder name;`
     Placeholder(Vec<Ident>),
     /// `#place field;` inside struct bodies.
-    Place(Expr),
+    Place(Box<Expr>),
     /// `#overlay(field)` prefix on the following struct member declaration.
-    Overlay(Expr),
+    Overlay(Box<Expr>),
     /// `#through;` (normally folded into `Case::through`).
     Through,
     /// `#program_export`-style top-level directives we keep for completeness.
-    Directive {
-        name: Ident,
-        flags: Vec<Ident>,
-        args: Vec<Expr>,
-    },
+    Directive(Box<DirectiveStmt>),
     /// `push_context,defer_pop ctx;`: push now, pop at the end of the scope.
-    PushContextDefer {
-        context: Expr,
-        /// `push_context,defer_pop;`: as `PushContext::bare`.
-        bare: bool,
-    },
+    PushContextDefer(Box<PushContextDeferStmt>),
     /// Empty statement (`;`).
     Empty,
     /// A lone `case x; ...` as the body of `#code case ...` (yield-jai builds switches
@@ -840,11 +945,89 @@ pub enum StmtKind {
     Case(Rc<Case>),
 }
 
+// The payloads below are boxed in `StmtKind` because they are rare and large: every `Stmt` pays
+// for its biggest inline variant, and the tree of every compile stays alive in the language server.
+
+/// A `switch` (`if x == { ... }`) or a `#if x == { ... }`; `complete` is always false for the latter.
+#[derive(Clone, Debug)]
+pub struct SwitchStmt {
+    pub value: Expr,
+    pub cases: Vec<Case>,
+    pub complete: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct WhileStmt {
+    pub label: Option<Ident>,
+    /// `while name := cond`: `name` also holds the condition's value inside the loop.
+    pub bind_label: bool,
+    pub cond: Expr,
+    pub body: Box<Stmt>,
+}
+
+#[derive(Clone, Debug)]
+pub struct UsingStmt {
+    pub value: Expr,
+    pub filter: UsingFilter,
+}
+
+#[derive(Clone, Debug)]
+pub struct PushContextStmt {
+    pub context: Expr,
+    pub body: Box<Stmt>,
+    /// No context was named (`push_context { }`): `context` is the current one, and a copy
+    /// of it is pushed (a default one where there is none).
+    pub bare: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct PushContextDeferStmt {
+    pub context: Expr,
+    /// `push_context,defer_pop;`: as `PushContextStmt::bare`.
+    pub bare: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct StaticIfStmt {
+    pub cond: Expr,
+    pub then_branch: Vec<Stmt>,
+    pub else_branch: Vec<Stmt>,
+}
+
+#[derive(Clone, Debug)]
+pub struct InsertStmt {
+    pub value: Expr,
+    pub flags: Vec<Ident>,
+    pub scope: Option<Expr>,
+    pub replacements: Vec<Arg>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AssertStmt {
+    pub cond: Expr,
+    pub message: Option<Expr>,
+    pub args: Vec<Expr>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleParametersStmt {
+    pub params: Vec<Param>,
+    pub runtime_params: Vec<Param>,
+    pub body: Option<Block>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DirectiveStmt {
+    pub name: Ident,
+    pub flags: Vec<Ident>,
+    pub args: Vec<Expr>,
+}
+
 #[derive(Clone, Debug)]
 pub struct Stmt {
     pub kind: StmtKind,
     pub span: Span,
-    pub notes: Vec<Note>,
+    pub notes: Notes,
 }
 
 /// A parsed file.
@@ -852,4 +1035,41 @@ pub struct Stmt {
 pub struct File {
     pub file: crate::source::FileId,
     pub stmts: Vec<Stmt>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::size_of;
+
+    /// The language server keeps the syntax tree of every file of a compile alive, so the size of
+    /// these nodes is a memory budget (a 132k-line project has about a million of them). Rare or
+    /// large payloads belong behind a `Box` (see `InsertStmt`, `DeclRare`), not inline. If a change
+    /// pushes a node over its bound, box the new field instead of raising the bound.
+    #[test]
+    fn node_sizes_stay_small() {
+        assert!(
+            size_of::<Expr>() <= 56,
+            "Expr is {} bytes",
+            size_of::<Expr>()
+        );
+        assert!(
+            size_of::<Stmt>() <= 88,
+            "Stmt is {} bytes",
+            size_of::<Stmt>()
+        );
+        assert!(
+            size_of::<Decl>() <= 176,
+            "Decl is {} bytes",
+            size_of::<Decl>()
+        );
+        assert!(size_of::<Arg>() <= 88, "Arg is {} bytes", size_of::<Arg>());
+    }
+
+    #[test]
+    fn int128_round_trips() {
+        for v in [0, 1, u64::MAX as u128, 1 << 64, u128::MAX] {
+            assert_eq!(Int128::new(v).get(), v);
+        }
+    }
 }

@@ -38,18 +38,19 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             || p.body
                 .stmts
                 .iter()
-                .any(|s| any_stmt(s, &mut |s| matches!(s.kind, S::Using { .. })));
+                .any(|s| any_stmt(s, &mut |s| matches!(s.kind, S::Using(_))));
         if has_using {
             continue;
         }
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt()
-                && let S::While {
+                && let S::While(w) = &s.kind
+                && !w.bind_label
+                && let jaic::ast::WhileStmt {
                     cond,
                     body,
-                    bind_label: false,
                     ..
-                } = &s.kind
+                } = &**w
                 && let Some(vars) = condition_vars(cx, cond)
                 && !vars.is_empty()
                 && !escapes(cx, body)
@@ -148,21 +149,13 @@ fn escapes(cx: &Cx, body: &jaic::ast::Stmt) -> bool {
             Node::Stmt(s) => {
                 if matches!(
                     s.kind,
-                    S::Break(_)
-                        | S::Return { .. }
-                        | S::Remove(_)
-                        | S::Insert { .. }
-                        | S::Using { .. }
+                    S::Break(_) | S::Return { .. } | S::Remove(_) | S::Insert(_) | S::Using(_)
                 ) {
                     found = true;
                 }
             }
             Node::Expr(e) => match &e.kind {
-                E::Insert {
-                    ..
-                }
-                | E::Asm(_)
-                | E::Backtick(_) => found = true,
+                E::Insert(_) | E::Asm(_) | E::Backtick(_) => found = true,
                 E::Call {
                     callee, ..
                 } => {

@@ -404,7 +404,7 @@ impl Parser<'_> {
             if simple {
                 name = Some(self.ident("as argument name")?);
             } else {
-                target = Some(self.parse_postfix(true)?);
+                target = Some(Box::new(self.parse_postfix(true)?));
             }
             self.bump();
             spread = self.eat(P::DotDot);
@@ -476,7 +476,7 @@ impl Parser<'_> {
         match self.tok().clone() {
             Tok::Int(v) => {
                 self.bump();
-                Ok(mk(ExprKind::Int(v), span))
+                Ok(mk(ExprKind::Int(crate::ast::Int128::new(v)), span))
             }
             Tok::Float(v) => {
                 self.bump();
@@ -588,7 +588,7 @@ impl Parser<'_> {
                     e
                 })?;
                 let span = block.span;
-                Ok(mk(ExprKind::Block(block), span))
+                Ok(mk(ExprKind::Block(Box::new(block)), span))
             }
             P::Uninit => {
                 self.bump();
@@ -821,7 +821,7 @@ impl Parser<'_> {
         if self.at(P::LBrace) {
             let block = self.parse_block()?;
             let span = block.span;
-            return Ok(mk(ExprKind::Block(block), span));
+            return Ok(mk(ExprKind::Block(Box::new(block)), span));
         }
         self.parse_expr()
     }

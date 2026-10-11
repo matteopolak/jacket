@@ -36,7 +36,7 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit
     let block = match &body.kind {
         E::Block(block) => {
             header.flags.lambda = ast::LambdaKind::Block;
-            block.clone()
+            (**block).clone()
         }
         _ => {
             header.flags.lambda = ast::LambdaKind::Expr;
@@ -53,7 +53,7 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit
                         backtick: false,
                     },
                     span: body.span,
-                    notes: Vec::new(),
+                    notes: Default::default(),
                 }],
                 span: body.span,
                 no_abc: false,

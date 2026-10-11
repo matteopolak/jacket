@@ -39,7 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 matches!(
                     a,
                     Node::Expr(Expr {
-                        kind: E::Run { .. } | E::Code(_) | E::Insert { .. },
+                        kind: E::Run { .. } | E::Code(_) | E::Insert(_),
                         ..
                     })
                 )
@@ -65,7 +65,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .iter()
                 .enumerate()
                 .map(|(j, name)| {
-                    d.existing.get(j) != Some(&true)
+                    d.existing().get(j) != Some(&true)
                         && !name.name.as_str().starts_with('_')
                         && cx.facts.locals.get(&name.span).is_some_and(|ents| {
                             !ents.iter().any(|&e| cx.compiler.is_used(e))
@@ -77,10 +77,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             // results can simply be left out (`a := f();`).
             let droppable_tail = !single
                 && d.value.is_some()
-                && d.extra_values.is_empty()
+                && d.extra_values().is_empty()
                 && d.ty.is_none()
-                && d.existing.is_empty()
-                && d.backtick_names.is_empty();
+                && d.existing().is_empty()
+                && d.backtick_names().is_empty();
             for (j, name) in d.names.iter().enumerate() {
                 if !unused[j] {
                     continue;
@@ -89,7 +89,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     None => true,
                     Some(v) => pure(v),
                 };
-                let (help, edits) = if single && pure && d.extra_values.is_empty() {
+                let (help, edits) = if single && pure && d.extra_values().is_empty() {
                     let (a, b) = cx.statement_removal(s.span);
                     (
                         "remove it".to_string(),
@@ -110,8 +110,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     )
                 } else if !single
                     && d.value.is_none()
-                    && d.existing.is_empty()
-                    && d.backtick_names.is_empty()
+                    && d.existing().is_empty()
+                    && d.backtick_names().is_empty()
                 {
                     // `a, b: T;`: drop the name from the list.
                     let (start, end) = if j > 0 {

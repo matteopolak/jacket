@@ -481,7 +481,7 @@ impl Compiler {
                 ast::CodeBody::Expr(e) => vec![ast::Stmt {
                     kind: ast::StmtKind::Expr(e.clone()),
                     span: e.span,
-                    notes: Vec::new(),
+                    notes: Default::default(),
                 }],
             }),
             Operand::Const {

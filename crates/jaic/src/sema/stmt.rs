@@ -31,11 +31,11 @@ impl Compiler {
             }
         }
         for (i, stmt) in stmts.iter().enumerate() {
-            if let S::PushContextDefer {
-                context,
-                bare,
-            } = &stmt.kind
-            {
+            if let S::PushContextDefer(defer) = &stmt.kind {
+                let ast::PushContextDeferStmt {
+                    context,
+                    bare,
+                } = &**defer;
                 // `push_context,defer_pop ctx;` holds for the rest of the block.
                 let addr = self.push_context_addr(f, scope, context, *bare, stmt.span)?;
                 let saved = f.context.replace(addr);
@@ -56,7 +56,7 @@ impl Compiler {
         stmts: &[ast::Stmt],
     ) -> Result<()> {
         for (i, stmt) in stmts.iter().enumerate() {
-            if matches!(stmt.kind, S::PushContextDefer { .. }) {
+            if matches!(stmt.kind, S::PushContextDefer(_)) {
                 return self.check_block_stmts(f, scope, &stmts[i..]);
             }
             self.check_block_stmt(f, scope, stmt)?;
@@ -111,7 +111,7 @@ impl Compiler {
             S::Decl(decl) => {
                 decl.value
                     .iter()
-                    .chain(&decl.extra_values)
+                    .chain(decl.extra_values())
                     .for_each(|e| check(self, f, e));
                 self.ide_sketch_declare(f, scope, decl);
             }
@@ -135,14 +135,10 @@ impl Compiler {
                     let _ = self.check_scoped(f, scope, branch);
                 }
             }
-            S::While {
-                cond,
-                body,
-                ..
-            } if !typed(self, cond) => {
-                check(self, f, cond);
+            S::While(w) if !typed(self, &w.cond) => {
+                check(self, f, &w.cond);
                 self.sketch_reopen(f);
-                let _ = self.check_scoped(f, scope, body);
+                let _ = self.check_scoped(f, scope, &w.body);
             }
             _ => {}
         }
@@ -312,31 +308,39 @@ impl Compiler {
                 then_branch,
                 else_branch,
             } => self.check_if(f, scope, cond, then_branch, else_branch.as_deref()),
-            S::Switch {
-                value,
-                cases,
-                complete,
-            } => self.check_switch(f, scope, value, cases, *complete, span),
-            S::StaticSwitch {
-                value,
-                cases,
-            } => match self.static_switch_case(scope, value, cases)? {
-                Some(case) => self.check_block_stmts(f, scope, &case.body),
-                None => Ok(()),
-            },
+            S::Switch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    value,
+                    cases,
+                    complete,
+                } = &**boxed;
+                self.check_switch(f, scope, value, cases, *complete, span)
+            }
+            S::StaticSwitch(boxed) => {
+                let crate::ast::SwitchStmt {
+                    value,
+                    cases,
+                    ..
+                } = &**boxed;
+                match self.static_switch_case(scope, value, cases)? {
+                    Some(case) => self.check_block_stmts(f, scope, &case.body),
+                    None => Ok(()),
+                }
+            }
             S::Overlay(_) => err(span, "`#overlay` is only allowed in a struct body"),
-            S::PushContextDefer {
-                ..
-            } => err(
+            S::PushContextDefer(_) => err(
                 span,
                 "push_context,defer_pop must be a statement of a block",
             ),
-            S::While {
-                label,
-                bind_label,
-                cond,
-                body,
-            } => self.check_while(f, scope, label.map(|l| l.name), *bind_label, cond, body),
+            S::While(boxed) => {
+                let crate::ast::WhileStmt {
+                    label,
+                    bind_label,
+                    cond,
+                    body,
+                } = &**boxed;
+                self.check_while(f, scope, label.map(|l| l.name), *bind_label, cond, body)
+            }
             S::For(for_) => self.check_for(f, scope, for_, span),
             S::Break(label) => {
                 if let Some(l) = label
@@ -404,26 +408,31 @@ impl Compiler {
                 }
                 Ok(())
             }
-            S::Using {
-                value,
-                filter,
-            } => self.check_using(f, scope, value, filter),
-            S::PushContext {
-                context,
-                body,
-                bare,
-            } => {
+            S::Using(boxed) => {
+                let crate::ast::UsingStmt {
+                    value,
+                    filter,
+                } = &**boxed;
+                self.check_using(f, scope, value, filter)
+            }
+            S::PushContext(boxed) => {
+                let crate::ast::PushContextStmt {
+                    context,
+                    body,
+                    bare,
+                } = &**boxed;
                 let addr = self.push_context_addr(f, scope, context, *bare, span)?;
                 let saved = f.context.replace(addr);
                 let result = self.check_scoped(f, scope, body);
                 f.context = saved;
                 result
             }
-            S::StaticIf {
-                cond,
-                then_branch,
-                else_branch,
-            } => {
+            S::StaticIf(boxed) => {
+                let crate::ast::StaticIfStmt {
+                    cond,
+                    then_branch,
+                    else_branch,
+                } = &**boxed;
                 if self.sketching() {
                     // Which branch a stand-in takes says nothing: a sketch checks both.
                     let taken = self.body_static_condition(f, scope, cond).unwrap_or(true);
@@ -456,17 +465,21 @@ impl Compiler {
                     },
                 )
             }
-            S::Insert {
-                value,
-                flags,
-                scope: target,
-                replacements,
-            } => self.check_insert(f, scope, value, flags, target.as_ref(), replacements, span),
-            S::Assert {
-                cond,
-                message,
-                args,
-            } => {
+            S::Insert(boxed) => {
+                let crate::ast::InsertStmt {
+                    value,
+                    flags,
+                    scope: target,
+                    replacements,
+                } = &**boxed;
+                self.check_insert(f, scope, value, flags, target.as_ref(), replacements, span)
+            }
+            S::Assert(boxed) => {
+                let crate::ast::AssertStmt {
+                    cond,
+                    message,
+                    args,
+                } = &**boxed;
                 // A sketch's stand-ins meet no condition.
                 let holds = self.eval_static_condition(scope, cond);
                 if self.sketching() {
@@ -499,16 +512,12 @@ impl Compiler {
                 ..
             } => err(span, "#load is only allowed at file scope"),
             S::AddContext(_) => err(span, "#add_context is only allowed at file scope"),
-            S::ModuleParameters {
-                ..
-            } => err(span, "#module_parameters is only allowed at file scope"),
+            S::ModuleParameters(_) => err(span, "#module_parameters is only allowed at file scope"),
             S::Placeholder(_)
             | S::Scope(_)
             | S::Place(_)
             | S::Through
-            | S::Directive {
-                ..
-            }
+            | S::Directive(_)
             | S::Empty => Ok(()),
         }
     }
@@ -572,10 +581,10 @@ impl Compiler {
                         self.hoist_body_imports(file_scope, std::slice::from_ref(e), true);
                     }
                 }
-                S::While {
-                    body, ..
+                S::While(w) => {
+                    self.hoist_body_imports(file_scope, std::slice::from_ref(&w.body), true)
                 }
-                | S::Defer {
+                S::Defer {
                     body, ..
                 } => self.hoist_body_imports(file_scope, std::slice::from_ref(body), true),
                 S::For(f) => {
@@ -628,9 +637,9 @@ impl Compiler {
         // Evaluate the initializers before the names come into scope.
         let mut values = self.check_decl_values(f, scope, decl, declared)?;
         values.resize(decl.names.len(), None);
-        let existing = |i: usize| decl.existing.get(i).copied().unwrap_or(false);
+        let existing = |i: usize| decl.existing().get(i).copied().unwrap_or(false);
         for (i, (name, value)) in decl.names.iter().zip(values).enumerate() {
-            let target = if decl.backtick_names.get(i).copied().unwrap_or(false) {
+            let target = if decl.backtick_names().get(i).copied().unwrap_or(false) {
                 f.macros.last().map_or(scope, |m| m.caller_scope)
             } else {
                 target
@@ -641,7 +650,7 @@ impl Compiler {
                     return err(name.span, "assignment needs a value");
                 };
                 // `ok:, t.str = f()` assigns to a member, index or dereference.
-                let place = match decl.targets.get(i) {
+                let place = match decl.targets().get(i) {
                     Some(Some(e)) => self.check_expr(f, scope, e, None)?,
                     _ => {
                         let place = self.check_ident(f, scope, name.name, name.span)?;
@@ -711,7 +720,7 @@ impl Compiler {
             self.local_decl_types.entry((decl.id, i)).or_insert(ty);
             let size = self.size_of(ty, span)?;
             let mut align = self.align_of(ty, span)?;
-            if let Some(a) = &decl.align {
+            if let Some(a) = &decl.align() {
                 align = align.max(self.eval_int(scope, a)? as u64);
             }
             let addr = f.b.alloca(size.max(1), align);
@@ -852,8 +861,9 @@ impl Compiler {
         if matches!(first.kind, E::Uninit) {
             return Ok(vec![None; names]);
         }
-        if !decl.extra_values.is_empty() {
-            let exprs: Vec<&ast::Expr> = std::iter::once(first).chain(&decl.extra_values).collect();
+        if !decl.extra_values().is_empty() {
+            let exprs: Vec<&ast::Expr> =
+                std::iter::once(first).chain(decl.extra_values()).collect();
             if exprs.len() != names {
                 return err(
                     decl.span,
@@ -863,7 +873,7 @@ impl Compiler {
             let mut values = Vec::new();
             for e in exprs {
                 let op = self.check_expr(f, scope, e, declared)?;
-                values.push(Some(if decl.existing.is_empty() {
+                values.push(Some(if decl.existing().is_empty() {
                     op
                 } else {
                     // Snapshot, so assigning to an earlier name cannot change a later value.

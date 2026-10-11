@@ -356,11 +356,7 @@ fn in_list(parents: &[Node<'_>]) -> bool {
         None => true,
         Some(Node::Stmt(s)) => matches!(
             s.kind,
-            S::Block(_)
-                | S::Switch { .. }
-                | S::StaticSwitch { .. }
-                | S::StaticIf { .. }
-                | S::Case(_)
+            S::Block(_) | S::Switch(_) | S::StaticSwitch(_) | S::StaticIf(_) | S::Case(_)
         ),
         Some(Node::Expr(e)) => matches!(e.kind, E::Block(_) | E::Run { .. } | E::Code(_)),
     }
@@ -374,7 +370,7 @@ fn plain_statement(s: &Stmt) -> bool {
             | S::Expr(_)
             | S::Assign { .. }
             | S::If { .. }
-            | S::Switch { .. }
+            | S::Switch(_)
             | S::Return { .. }
             | S::For(_)
     )
@@ -564,12 +560,12 @@ impl<'a> Cx<'a> {
             } if lhs.iter().any(|l| contains_range(self.ex(l), extent)) => {
                 return;
             }
-            S::Switch {
-                cases, ..
-            } if cases
-                .iter()
-                .flat_map(|c| &c.values)
-                .any(|v| contains_range(self.ex(v), extent)) =>
+            S::Switch(switch)
+                if switch
+                    .cases
+                    .iter()
+                    .flat_map(|c| &c.values)
+                    .any(|v| contains_range(self.ex(v), extent)) =>
             {
                 return;
             }
@@ -651,14 +647,14 @@ impl<'a> Cx<'a> {
         if d.names.len() != 1
             || d.kind != DeclKind::Var
             || d.ty.is_some()
-            || !d.extra_values.is_empty()
+            || !d.extra_values().is_empty()
             || d.using
             || d.backtick
             || d.as_
-            || d.align.is_some()
-            || !d.flags.is_empty()
+            || d.align().is_some()
+            || !d.flags().is_empty()
             || !d.notes.is_empty()
-            || !d.existing.is_empty()
+            || !d.existing().is_empty()
         {
             return;
         }
@@ -752,15 +748,10 @@ impl<'a> Cx<'a> {
     fn fill_switch(&self, out: &mut Vec<CodeAction>) {
         let Some(((stmt, value, cases), _)) = self.innermost(false, |n| {
             let s = n.stmt()?;
-            let S::Switch {
-                value,
-                cases,
-                ..
-            } = &s.kind
-            else {
+            let S::Switch(switch) = &s.kind else {
                 return None;
             };
-            Some(((s, value, cases), stmt_extent(self.text, s)))
+            Some(((s, &switch.value, &switch.cases), stmt_extent(self.text, s)))
         }) else {
             return;
         };
@@ -1018,8 +1009,8 @@ impl<'a> Cx<'a> {
             S::Decl(d)
                 if d.names.len() == 1
                     && d.kind == DeclKind::Var
-                    && d.extra_values.is_empty()
-                    && d.existing.is_empty()
+                    && d.extra_values().is_empty()
+                    && d.existing().is_empty()
                     && !d.using
                     && !d.backtick =>
             {
@@ -1276,12 +1267,13 @@ impl<'a> Cx<'a> {
                                 .as_ref()
                                 .and_then(|e| self.descend(std::slice::from_ref(e), visible))
                         }),
-                    S::While {
-                        bind_label,
-                        label,
-                        body,
-                        ..
-                    } => {
+                    S::While(boxed) => {
+                        let jaic::ast::WhileStmt {
+                            bind_label,
+                            label,
+                            body,
+                            ..
+                        } = &**boxed;
                         if *bind_label && let Some(l) = label {
                             visible.push(Local {
                                 name: l.name,
@@ -1301,16 +1293,21 @@ impl<'a> Cx<'a> {
                         }
                         self.descend(std::slice::from_ref(&f.body), visible)
                     }
-                    S::Switch {
-                        cases, ..
-                    } => cases.iter().find_map(|c| self.descend(&c.body, visible)),
-                    S::StaticIf {
-                        then_branch,
-                        else_branch,
-                        ..
-                    } => self
-                        .descend(then_branch, visible)
-                        .or_else(|| self.descend(else_branch, visible)),
+                    S::Switch(boxed) => {
+                        let jaic::ast::SwitchStmt {
+                            cases, ..
+                        } = &**boxed;
+                        cases.iter().find_map(|c| self.descend(&c.body, visible))
+                    }
+                    S::StaticIf(boxed) => {
+                        let jaic::ast::StaticIfStmt {
+                            then_branch,
+                            else_branch,
+                            ..
+                        } = &**boxed;
+                        self.descend(then_branch, visible)
+                            .or_else(|| self.descend(else_branch, visible))
+                    }
                     _ => None,
                 };
                 if found.is_none() {
@@ -1351,15 +1348,9 @@ impl<'a> Cx<'a> {
                     | S::Defer {
                         ..
                     }
-                    | S::Using {
-                        ..
-                    }
-                    | S::Insert {
-                        ..
-                    }
-                    | S::Directive {
-                        ..
-                    }
+                    | S::Using(_)
+                    | S::Insert(_)
+                    | S::Directive(_)
                     | S::Through
                     | S::Remove(_)
                     | S::AddContext(_)
@@ -1369,12 +1360,10 @@ impl<'a> Cx<'a> {
                     | S::Load {
                         ..
                     }
-                    | S::PushContextDefer {
-                        ..
-                    } => ok = false,
+                    | S::PushContextDefer(_) => ok = false,
                     S::Break(label) | S::Continue(label) => {
                         let inside = parents.iter().any(|p| {
-                            matches!(p.stmt().map(|s| &s.kind), Some(S::While { .. } | S::For(_)))
+                            matches!(p.stmt().map(|s| &s.kind), Some(S::While(_) | S::For(_)))
                         });
                         ok &= inside && label.is_none();
                     }
@@ -1382,9 +1371,9 @@ impl<'a> Cx<'a> {
                         if d.using
                             || d.backtick
                             || d.as_
-                            || !d.existing.is_empty()
-                            || !d.backtick_names.is_empty()
-                            || d.using_filter.is_some()
+                            || !d.existing().is_empty()
+                            || !d.backtick_names().is_empty()
+                            || d.using_filter().is_some()
                         {
                             ok = false;
                         }
@@ -1415,11 +1404,11 @@ impl<'a> Cx<'a> {
                             written.insert(r);
                         }
                     }
-                    S::While {
-                        bind_label: true,
-                        label: Some(l),
-                        ..
-                    } => declared.push(l.name),
+                    S::While(w) if w.bind_label => {
+                        if let Some(l) = w.label {
+                            declared.push(l.name);
+                        }
+                    }
                     _ => {}
                 },
                 Node::Expr(x) => match &x.kind {
@@ -1436,9 +1425,7 @@ impl<'a> Cx<'a> {
                     | E::Struct(_)
                     | E::Enum(_)
                     | E::Code(_)
-                    | E::Insert {
-                        ..
-                    }
+                    | E::Insert(_)
                     | E::Asm(_)
                     | E::Backtick(_)
                     | E::This
@@ -1618,7 +1605,7 @@ fn suggest_name(e: &Expr) -> String {
 fn has_call(e: &Expr) -> bool {
     let mut found = false;
     walk_expr(e, &mut |x| {
-        found |= matches!(x.kind, E::Call { .. } | E::Run { .. } | E::Insert { .. });
+        found |= matches!(x.kind, E::Call { .. } | E::Run { .. } | E::Insert(_));
     });
     found
 }

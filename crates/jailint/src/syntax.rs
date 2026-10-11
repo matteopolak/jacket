@@ -303,11 +303,12 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             if let Some(v) = &d.value {
                 e(v);
             }
-            for v in &d.extra_values {
+            for v in d.extra_values() {
                 e(v);
             }
         }
-        S::Expr(x) | S::Run(x) | S::Place(x) | S::Overlay(x) => e(x),
+        S::Expr(x) => e(x),
+        S::Run(x) | S::Place(x) | S::Overlay(x) => e(x),
         S::Assign {
             lhs,
             rhs,
@@ -329,15 +330,12 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 out.push(Node::Stmt(b));
             }
         }
-        S::Switch {
-            value,
-            cases,
-            ..
-        }
-        | S::StaticSwitch {
-            value,
-            cases,
-        } => {
+        S::Switch(boxed) | S::StaticSwitch(boxed) => {
+            let jaic::ast::SwitchStmt {
+                value,
+                cases,
+                ..
+            } = &**boxed;
             e(value);
             for c in cases {
                 for v in &c.values {
@@ -346,11 +344,12 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 stmts(&c.body, out);
             }
         }
-        S::While {
-            cond,
-            body,
-            ..
-        } => {
+        S::While(boxed) => {
+            let jaic::ast::WhileStmt {
+                cond,
+                body,
+                ..
+            } = &**boxed;
             e(cond);
             out.push(Node::Stmt(body));
         }
@@ -377,32 +376,38 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
         S::Defer {
             body, ..
         } => out.push(Node::Stmt(body)),
-        S::Using {
-            value, ..
-        } => e(value),
-        S::PushContext {
-            context,
-            body,
-            ..
-        } => {
+        S::Using(boxed) => {
+            let jaic::ast::UsingStmt {
+                value, ..
+            } = &**boxed;
+            e(value)
+        }
+        S::PushContext(boxed) => {
+            let jaic::ast::PushContextStmt {
+                context,
+                body,
+                ..
+            } = &**boxed;
             e(context);
             out.push(Node::Stmt(body));
         }
-        S::StaticIf {
-            cond,
-            then_branch,
-            else_branch,
-        } => {
+        S::StaticIf(boxed) => {
+            let jaic::ast::StaticIfStmt {
+                cond,
+                then_branch,
+                else_branch,
+            } = &**boxed;
             e(cond);
             stmts(then_branch, out);
             stmts(else_branch, out);
         }
-        S::Insert {
-            value,
-            scope,
-            replacements,
-            ..
-        } => {
+        S::Insert(boxed) => {
+            let jaic::ast::InsertStmt {
+                value,
+                scope,
+                replacements,
+                ..
+            } = &**boxed;
             e(value);
             if let Some(x) = scope {
                 e(x);
@@ -411,11 +416,12 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 e(&a.value);
             }
         }
-        S::Assert {
-            cond,
-            message,
-            args,
-        } => {
+        S::Assert(boxed) => {
+            let jaic::ast::AssertStmt {
+                cond,
+                message,
+                args,
+            } = &**boxed;
             e(cond);
             if let Some(m) = message {
                 e(m);
@@ -424,12 +430,16 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 e(x);
             }
         }
-        S::PushContextDefer {
-            context: x, ..
-        } => e(x),
-        S::Directive {
-            args, ..
-        } => {
+        S::PushContextDefer(boxed) => {
+            let jaic::ast::PushContextDeferStmt {
+                context: x, ..
+            } = &**boxed;
+            e(x)
+        }
+        S::Directive(boxed) => {
+            let jaic::ast::DirectiveStmt {
+                args, ..
+            } = &**boxed;
             for x in args {
                 e(x);
             }
@@ -543,12 +553,13 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             CodeBody::Expr(x) => e(x),
             CodeBody::Block(b) => stmts(&b.stmts, out),
         },
-        E::Insert {
-            value,
-            scope,
-            replacements,
-            ..
-        } => {
+        E::Insert(boxed) => {
+            let jaic::ast::InsertExpr {
+                value,
+                scope,
+                replacements,
+                ..
+            } = &**boxed;
             e(value);
             if let Some(s) = scope {
                 e(s);
@@ -558,9 +569,11 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             }
         }
         E::Location(Some(a)) | E::ProcedureName(Some(a)) => e(a),
-        E::UnknownDirective {
-            operand: Some(a), ..
-        } => e(a),
+        E::UnknownDirective(d) => {
+            if let Some(a) = &d.operand {
+                e(a);
+            }
+        }
         E::Asm(block) => {
             for item in &block.items {
                 if let AsmItem::Inst(inst) = item {

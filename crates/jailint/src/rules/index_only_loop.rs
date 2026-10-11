@@ -47,13 +47,13 @@ fn counted_array(f: &For) -> Option<(&Expr, &Expr, &Expr)> {
     let ForOver::Range(lo, hi) = &f.over else {
         return None;
     };
-    if !matches!(lo.kind, E::Int(0)) {
+    if !matches!(lo.kind, E::Int(n) if n.get() == 0) {
         return None;
     }
     let E::Binary(BinOp::Sub, count, one) = &hi.kind else {
         return None;
     };
-    if !matches!(one.kind, E::Int(1)) {
+    if !matches!(one.kind, E::Int(n) if n.get() == 1) {
         return None;
     }
     let E::Member(arr, member) = &count.kind else {
