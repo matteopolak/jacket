@@ -193,6 +193,8 @@ pub struct ForBody {
     pub scope: ScopeId,
     pub it_name: Sym,
     pub index_name: Sym,
+    /// Where the loop names `it_name` / `index_name`, when it renames them.
+    pub name_spans: [Option<Span>; 2],
     pub label: Option<Sym>,
 }
 

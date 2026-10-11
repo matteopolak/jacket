@@ -253,7 +253,7 @@ impl Compiler {
         }
     }
 
-    fn ide_snippet(&self, span: Span) -> &str {
+    pub(crate) fn ide_snippet(&self, span: Span) -> &str {
         let Some(file) = self.sources.try_get(span.file) else {
             return "";
         };
@@ -480,6 +480,7 @@ impl Compiler {
             }
         }
         out.sort_by_key(|a| a.span.start);
+        self.ide_note_named_args(chosen, slots, args);
         let Some(ide) = self.ide.as_mut() else {
             return;
         };
@@ -493,6 +494,71 @@ impl Compiler {
             ambiguous,
             args: out,
         });
+    }
+
+    /// Each `name = value` argument of a call to `chosen`: hovering `name` shows the
+    /// parameter and its type, and go to definition goes to the parameter.
+    fn ide_note_named_args(&mut self, chosen: ProcId, slots: &[Slot], args: &[CallArg]) {
+        let header = self.proc(chosen).lit.header.clone();
+        let sig = self.proc(chosen).sig.clone();
+        for (param, slot) in slots.iter().enumerate() {
+            let (Slot::Arg(a) | Slot::Spread(a)) = slot else {
+                continue;
+            };
+            let arg = &args[*a];
+            let Some(name) = arg.name else {
+                continue;
+            };
+            let Some(at) = self.ide_arg_name_span(arg.span, name) else {
+                continue;
+            };
+            let ty = sig
+                .as_ref()
+                .and_then(|s| s.params.get(param))
+                .map_or(TypeId::COMPILE_TIME, |p| p.ty);
+            let decl = header
+                .params
+                .get(param)
+                .and_then(|p| p.name)
+                .filter(|n| n.span.end > n.span.start)
+                .map(|n| n.span);
+            let Some(ide) = self.ide.as_mut() else {
+                return;
+            };
+            ide.refs.push(IdeRef {
+                span: at,
+                what: IdeWhat::Member(name),
+                ty,
+                decl: false,
+            });
+            if let Some(decl) = decl {
+                ide.member_uses.insert((at, decl));
+            }
+        }
+    }
+
+    /// The `name` of a `name = value` argument whose value (or whole argument) is at `span`.
+    fn ide_arg_name_span(&self, span: Span, name: Sym) -> Option<Span> {
+        let text = &self.sources.try_get(span.file)?.text;
+        let name = name.as_str();
+        let start = span.start as usize;
+        // The argument's span may start at the name or at the value.
+        if text.get(start..)?.starts_with(name)
+            && text[start + name.len()..].trim_start().starts_with('=')
+        {
+            return Some(Span {
+                file: span.file,
+                start: span.start,
+                end: (start + name.len()) as u32,
+            });
+        }
+        let before = text.get(..start)?.trim_end().strip_suffix('=')?.trim_end();
+        let at = before.strip_suffix(name).map(str::len)?;
+        Some(Span {
+            file: span.file,
+            start: at as u32,
+            end: (at + name.len()) as u32,
+        })
     }
 
     fn ide_wants_file(&mut self, file: FileId) -> bool {
@@ -579,7 +645,7 @@ impl Compiler {
             .iter()
             .map(|param| param.name.map(|n| n.name.to_string()).unwrap_or_default())
             .collect();
-        let head = self.ide_snippet(header.span);
+        let head = self.ide_header_text(p);
         let head = head.lines().next().unwrap_or("").trim();
         let head = head.trim_end_matches('{').trim_end();
         IdeSignature {

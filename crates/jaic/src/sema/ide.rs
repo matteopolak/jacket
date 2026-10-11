@@ -24,6 +24,13 @@ pub struct IdeFacts {
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the identifier being checked resolved to (set by `check_ident`).
     pub(super) last_entity: Option<EntityId>,
+    /// Field the identifier being checked reached through a `using` (set by `check_ident`).
+    pub(super) last_using_member: Option<Sym>,
+    /// Names of a type that is neither a struct nor an enum (a polymorph's `T`, an alias of a
+    /// builtin): the constant each resolved to, for go to definition.
+    pub(super) type_names: HashMap<Span, EntityId>,
+    /// Procedure type parameter names already recorded.
+    pub(super) param_names: HashSet<Span>,
     /// Lint mode (`jailint`): also record the facts below.
     pub lint: bool,
     /// Type of each checked expression of the recorded files, by span.
@@ -214,13 +221,26 @@ impl Compiler {
         let (span, what) = match &expr.kind {
             ast::ExprKind::Ident(_) => {
                 let entity = self.ide.as_mut().and_then(|i| i.last_entity.take());
+                let member = self.ide.as_mut().and_then(|i| i.last_using_member.take());
                 let what = match op {
-                    Operand::Type(t) => IdeWhat::Type(*t),
+                    Operand::Type(t) => {
+                        if let Some(e) = entity
+                            && !matches!(
+                                self.types.kind(*t),
+                                TypeKind::Struct(_) | TypeKind::Enum(_)
+                            )
+                            && let Some(ide) = self.ide.as_mut()
+                        {
+                            ide.type_names.insert(expr.span, e);
+                        }
+                        IdeWhat::Type(*t)
+                    }
                     Operand::Procs(p) => IdeWhat::Procs(p.clone()),
                     Operand::Module(m) => IdeWhat::Module(*m),
-                    _ => match entity {
-                        Some(e) => IdeWhat::Entity(e),
-                        None => return,
+                    _ => match (entity, member) {
+                        (Some(e), _) => IdeWhat::Entity(e),
+                        (None, Some(m)) => IdeWhat::Member(m),
+                        (None, None) => return,
                     },
                 };
                 (expr.span, what)
@@ -473,10 +493,7 @@ impl Compiler {
             // under the name used.
             IdeWhat::Procs(ps) => ps
                 .iter()
-                .map(|&p| {
-                    let header = self.sources.snippet(self.proc(p).lit.header.span);
-                    format!("{name} :: {}", clip(header))
-                })
+                .map(|&p| format!("{name} :: {}", clip(&self.ide_header_text(p))))
                 .collect::<Vec<_>>()
                 .join("\n"),
             IdeWhat::Module(m) => {
@@ -555,7 +572,17 @@ impl Compiler {
             .iter()
             .find(|(s, _)| s.file == file && s.start <= offset && offset <= s.end)
             .map(|(s, site)| (*s, *site))?;
-        let site = site?;
+        // A polymorphic struct's field: its declaration as written (`items: [N] T`).
+        let Some(site) = site else {
+            let file = &self.sources.try_get(span.file)?.text;
+            let rest = file.get(span.start as usize..)?;
+            let text = rest[..rest.find([';', '\n', '}']).unwrap_or(rest.len())].trim_end();
+            return Some(IdeHover {
+                span,
+                text: text.to_string(),
+                layout: None,
+            });
+        };
         let f = &self.types.struct_info(site.declaring).fields[site.field];
         let text = format!("{}: {}", f.name?, self.types.name(f.ty));
         Some(IdeHover {
@@ -852,6 +879,171 @@ impl Compiler {
         }
     }
 
+    /// The label of `break label` / `continue label`: the loop's name, an entity in `scope`.
+    pub(super) fn ide_note_label(&mut self, scope: ScopeId, label: ast::Ident) {
+        if !self.ide_wants(label.span.file) {
+            return;
+        }
+        let Ok(ids) = self.lookup(scope, label.name) else {
+            return;
+        };
+        let &[id] = ids.as_slice() else {
+            return;
+        };
+        let ty = match &self.entity(id).kind {
+            EntityKind::Local {
+                ty, ..
+            }
+            | EntityKind::Const {
+                ty, ..
+            } => *ty,
+            _ => return,
+        };
+        if let Some(ide) = self.ide.as_mut() {
+            ide.refs.push(IdeRef {
+                span: label.span,
+                what: IdeWhat::Entity(id),
+                ty,
+                decl: false,
+            });
+        }
+    }
+
+    /// `name` at `span` names the field declared at `decl` (`#place a`, `#overlay (a)`).
+    pub(super) fn ide_note_named_field(&mut self, span: Span, name: Sym, decl: Span, ty: TypeId) {
+        if !self.ide_wants(span.file) {
+            return;
+        }
+        let decl = self.ide_name_span(decl, name);
+        if let Some(ide) = self.ide.as_mut() {
+            ide.member_uses.insert((span, decl));
+        }
+        self.ide_note_member_ref(span, name, ty);
+    }
+
+    /// The name of a procedure type's parameter (`#type (a: int)`), once however often the
+    /// type is evaluated.
+    pub(super) fn ide_note_param_name(&mut self, span: Span, name: Sym, ty: TypeId) {
+        if self
+            .ide
+            .as_mut()
+            .is_some_and(|i| i.param_names.insert(span))
+        {
+            self.ide_note_member_ref(span, name, ty);
+        }
+    }
+
+    /// `name` at `span` names a member of type `ty` where nothing else records it for hover
+    /// (a field of a struct literal).
+    pub(super) fn ide_note_member_ref(&mut self, span: Span, name: Sym, ty: TypeId) {
+        if self.ide.is_none() || !self.ide_wants(span.file) {
+            return;
+        }
+        if let Some(ide) = self.ide.as_mut() {
+            ide.refs.push(IdeRef {
+                span,
+                what: IdeWhat::Member(name),
+                ty,
+                decl: false,
+            });
+        }
+    }
+
+    /// The `$T` binders of a procedure header: each name with the span of the name after the
+    /// `$` (its first binder when there are several).
+    pub(super) fn poly_binders(&self, header: &ast::ProcHeader) -> Vec<(Sym, Span)> {
+        let mut out: Vec<(Sym, Span)> = Vec::new();
+        for_header_types(header, &mut |e| {
+            if let ast::ExprKind::PolyVar {
+                name, ..
+            }
+            | ast::ExprKind::PolyRestricted {
+                name, ..
+            } = &e.kind
+                && !out.iter().any(|(n, _)| n == name)
+            {
+                out.push((*name, self.poly_name_span(e, *name)));
+            }
+        });
+        out
+    }
+
+    /// The name of `$T`, `$$T` or `$T/R` at `e`, after its `$`s.
+    fn poly_name_span(&self, e: &ast::Expr, name: Sym) -> Span {
+        let text = self.ide_snippet(e.span);
+        let skip = text.len() - text.trim_start_matches('$').len();
+        let start = e.span.start + skip as u32;
+        Span {
+            file: e.span.file,
+            start,
+            end: (start + name.as_str().len() as u32).min(e.span.end.max(start)),
+        }
+    }
+
+    /// The header of a polymorphic procedure was instantiated with `bound` (each `$T` and the
+    /// constant it became): its `$T`s and `T`s name those constants, and the name of a
+    /// restriction (`$T/Ring`) is looked up in `scope`.
+    pub(super) fn ide_note_poly_header(
+        &mut self,
+        header: &ast::ProcHeader,
+        bound: &[(Sym, EntityId)],
+        scope: ScopeId,
+    ) {
+        if !self.ide_wants(header.span.file) {
+            return;
+        }
+        let mut found: Vec<(Span, Sym, bool)> = Vec::new();
+        for_header_types(header, &mut |e| match &e.kind {
+            ast::ExprKind::Ident(name) => found.push((e.span, *name, false)),
+            ast::ExprKind::PolyVar {
+                name, ..
+            }
+            | ast::ExprKind::PolyRestricted {
+                name, ..
+            } => found.push((self.poly_name_span(e, *name), *name, true)),
+            _ => {}
+        });
+        for (span, name, binder) in found {
+            let what = match bound.iter().find(|(n, _)| *n == name) {
+                Some(&(_, id)) => IdeWhat::Entity(id),
+                // Only restrictions and other named types: types the header names elsewhere
+                // are recorded when the instance's signature is checked.
+                None if !binder => match self.lookup(scope, name) {
+                    Ok(ids) if ids.len() == 1 => IdeWhat::Entity(ids[0]),
+                    _ => continue,
+                },
+                None => continue,
+            };
+            let ty = match &what {
+                IdeWhat::Entity(e) => match &self.entity(*e).kind {
+                    EntityKind::Const {
+                        ty, ..
+                    } => *ty,
+                    _ => TypeId::TYPE,
+                },
+                _ => TypeId::TYPE,
+            };
+            if let Some(ide) = self.ide.as_mut() {
+                ide.refs.push(IdeRef {
+                    span,
+                    what,
+                    ty,
+                    decl: false,
+                });
+            }
+        }
+    }
+
+    /// A polymorphic procedure or macro nothing used is not checked: still name the types
+    /// its header mentions.
+    pub(super) fn ide_note_unchecked_header(&mut self, id: ProcId) {
+        let p = self.proc(id);
+        if p.instances.is_empty() {
+            let (header, scope) = (p.lit.header.clone(), p.scope);
+            self.ide_note_poly_header(&header, &[], scope);
+        }
+    }
+
     /// The enum members an inferred `.NAME` at `offset` can stand for, from the type its
     /// context expected (a variable's declared type, a parameter, the other side of `==`).
     pub fn ide_inferred_members(&mut self, file: FileId, offset: u32) -> Vec<IdeName> {
@@ -934,12 +1126,16 @@ impl Compiler {
 
     /// An enum member's declaration.
     pub(super) fn ide_note_enum_member(&mut self, e: crate::types::EnumId, name: Sym, span: Span) {
-        if self.ide.is_none() || !self.ide_wants(span.file) {
+        if self.ide.is_none() {
             return;
         }
+        // Every file's: a use in a recorded file can name a member declared in a module.
+        let wanted = self.ide_wants(span.file);
         if let Some(ide) = self.ide.as_mut() {
             ide.enum_decls.insert((e, name), span);
-            ide.member_uses.insert((span, span));
+            if wanted {
+                ide.member_uses.insert((span, span));
+            }
         }
     }
 
@@ -1076,7 +1272,11 @@ impl Compiler {
             },
             IdeWhat::Type(t) => match self.types.kind(*t) {
                 TypeKind::Struct(s) => vec![(self.types.struct_info(*s).span, name)],
-                _ => Vec::new(),
+                TypeKind::Enum(e) => vec![(self.types.enum_info(*e).span, name)],
+                _ => match self.ide.as_ref().and_then(|i| i.type_names.get(&r.span)) {
+                    Some(&e) => vec![(self.entity(e).span, name)],
+                    None => Vec::new(),
+                },
             },
             IdeWhat::Member(_) | IdeWhat::Module(_) => Vec::new(),
         };
@@ -1098,6 +1298,21 @@ impl Compiler {
                 let text = self.sources.snippet(s);
                 if let Some(at) = text.find(name.as_str())
                     && text[..at].trim().is_empty()
+                {
+                    return Span {
+                        file: s.file,
+                        start: s.start + at as u32,
+                        end: s.start + (at + name.len()) as u32,
+                    };
+                }
+                // A loop's span covers `for name: ...`: its `name :` inside.
+                let word = |c: char| c == '_' || c.is_alphanumeric();
+                if text.starts_with("for")
+                    && let Some((at, _)) = text.match_indices(name.as_str()).find(|&(at, _)| {
+                        text[at + name.len()..].trim_start().starts_with(':')
+                            && !text[..at].ends_with(word)
+                            && !text[at + name.len()..].starts_with(word)
+                    })
                 {
                     return Span {
                         file: s.file,
@@ -1224,10 +1439,43 @@ impl Compiler {
         out
     }
 
-    fn ide_proc_header(&self, p: ProcId) -> String {
-        let info = self.proc(p);
-        let header = self.sources.snippet(info.lit.header.span);
-        format!("{} :: {}", info.name, clip(header))
+    fn ide_proc_header(&self, name: Sym, p: ProcId) -> String {
+        format!("{name} :: {}", clip(&self.ide_header_text(p)))
+    }
+
+    /// A procedure's header as written, less the parameters `#bake_arguments` fixed.
+    pub(crate) fn ide_header_text(&self, p: ProcId) -> String {
+        let header = &self.proc(p).lit.header;
+        let text = self.ide_snippet(header.span);
+        if !header.baked {
+            return text.to_string();
+        }
+        // The parameter list is the first parenthesized group; the rest follows it.
+        let mut depth = 0;
+        let close = text.char_indices().find_map(|(i, c)| {
+            match c {
+                '(' => depth += 1,
+                ')' if depth == 1 => return Some(i),
+                ')' => depth -= 1,
+                _ => {}
+            }
+            None
+        });
+        let Some(close) = close else {
+            return text.to_string();
+        };
+        let open = text.find('(').unwrap_or(0);
+        let params: Vec<&str> = header
+            .params
+            .iter()
+            .map(|param| self.ide_snippet(param.span).trim())
+            .collect();
+        format!(
+            "{}({}){}",
+            &text[..open],
+            params.join(", "),
+            &text[close + 1..]
+        )
     }
 
     fn ide_type_hover(&self, name: &str, t: TypeId) -> String {
@@ -1308,10 +1556,10 @@ impl Compiler {
                 value: value::Value::Proc(p),
                 ..
             })
-            | Some(Resolved::Proc(p)) => self.ide_proc_header(p),
+            | Some(Resolved::Proc(p)) => self.ide_proc_header(name, p),
             Some(Resolved::ProcSet(ps)) => ps
                 .iter()
-                .map(|&p| self.ide_proc_header(p))
+                .map(|&p| self.ide_proc_header(self.proc(p).name, p))
                 .collect::<Vec<_>>()
                 .join("\n"),
             Some(Resolved::Const {
@@ -1385,10 +1633,9 @@ impl Compiler {
             EntityKind::Decl {
                 decl, ..
             } => match &e.state {
-                EntityState::Done(Resolved::Proc(p)) => (
-                    IdeKind::Function,
-                    clip(self.sources.snippet(self.proc(*p).lit.header.span)),
-                ),
+                EntityState::Done(Resolved::Proc(p)) => {
+                    (IdeKind::Function, clip(&self.ide_header_text(*p)))
+                }
                 EntityState::Done(Resolved::Global {
                     ty, ..
                 }) => (IdeKind::Variable, self.types.name(*ty)),
@@ -1803,5 +2050,46 @@ fn same_what(a: &IdeWhat, b: &IdeWhat) -> bool {
         (IdeWhat::Procs(x), IdeWhat::Procs(y)) => x == y,
         (IdeWhat::Module(x), IdeWhat::Module(y)) => x == y,
         _ => false,
+    }
+}
+
+/// Every expression of the parameter and return types of `header`, outermost first.
+fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast::Expr)) {
+    fn walk(e: &ast::Expr, f: &mut dyn FnMut(&ast::Expr)) {
+        use ast::ExprKind as E;
+        f(e);
+        match &e.kind {
+            E::Unary(_, x) => walk(x, f),
+            E::PolyRestricted {
+                restriction, ..
+            } => walk(restriction, f),
+            E::ArrayType {
+                size,
+                elem,
+            } => {
+                if let ast::ArraySize::Fixed(n) = size {
+                    walk(n, f);
+                }
+                walk(elem, f);
+            }
+            E::Call {
+                callee,
+                args,
+                ..
+            } => {
+                walk(callee, f);
+                args.iter().for_each(|a| walk(&a.value, f));
+            }
+            E::ProcType(h) => for_header_types(h, f),
+            _ => {}
+        }
+    }
+    for t in header
+        .params
+        .iter()
+        .filter_map(|p| p.ty.as_ref())
+        .chain(header.returns.iter().filter_map(|r| r.ty.as_ref()))
+    {
+        walk(t, f);
     }
 }

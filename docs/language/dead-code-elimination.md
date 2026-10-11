@@ -56,7 +56,7 @@ Compiled output contains only the functions that the program's exported entry po
 
 The first error ends compilation as usual. Declarations are visited in creation order, which follows source order within a file, so the reported error does not depend on hashing.
 
-Errors from this pass are ordinary compile errors. The language server publishes the first error of the program as a `jai-check` diagnostic (see [language server](../compiler/language-server.md)), so an unused procedure's error shows up in the editor.
+Errors from this pass are ordinary compile errors. The language server publishes the first error of the program as a `jaic` diagnostic with code `check` (see [language server](../compiler/language-server.md)), so an unused procedure's error shows up in the editor.
 
 ### Differences from Jai
 

@@ -133,6 +133,7 @@ Scripts, CI and project policies.
 - [Benchmarks and profiling](tools/benchmarks.md)
 - [Build storage and target directories](tools/build-storage.md)
 - [Compile-time benchmark](tools/compile-time-benchmark.md): wall time, peak RSS and phases of real projects, `--timings`
+- [IDE coverage](tools/ide-coverage.md): which identifiers of a project get no hover or go to definition from `jailsp`
 - [Language server benchmark](tools/lsp-benchmark.md): latency, CPU time and RSS of `jailsp` (or another server) on real and generated projects and very large files
 - [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`
 - [Continuous integration](tools/continuous-integration.md)

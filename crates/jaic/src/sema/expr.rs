@@ -590,13 +590,25 @@ impl Compiler {
     ) -> Result<Operand> {
         match self.lookup_full(scope, name)? {
             Found::Using(entry, member) => {
-                if let scope::UsingEntry::Place {
-                    entity, ..
-                } = &entry
-                {
-                    self.ide_note_use(*entity);
+                let place = match &entry {
+                    scope::UsingEntry::Place {
+                        entity,
+                        ty,
+                    } => {
+                        self.ide_note_use(*entity);
+                        Some(*ty)
+                    }
+                    _ => None,
+                };
+                let op = self.using_member(f, entry, member, span)?;
+                // `name` stands for `value.name`: hover and go to definition treat it as the field.
+                if let Some(ty) = place {
+                    self.ide_note_member_use(span, ty, member);
+                    if let Some(ide) = self.ide.as_mut() {
+                        ide.last_using_member = Some(member);
+                    }
                 }
-                self.using_member(f, entry, member, span)
+                Ok(op)
             }
             Found::Entities(ids) => {
                 if ids.is_empty() {
@@ -917,6 +929,11 @@ impl Compiler {
                 }
                 (None, None) => return err(p.span, "procedure type parameter needs a type"),
             };
+            if let Some(name) = &p.name
+                && self.ide.is_some()
+            {
+                self.ide_note_param_name(name.span, name.name, ty);
+            }
             if p.variadic {
                 if c_call {
                     c_varargs = true;

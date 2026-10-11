@@ -671,6 +671,18 @@ impl Compiler {
                 (None, Some(value)) => self.eval_const(src.scope, value, None)?.ty(),
                 (None, None) => return err(tag.span, "union tag needs a type"),
             };
+            // `.A ,, a: int;`: each member's tag value names a member of the tag's enum.
+            if self.ide.is_some() {
+                for stmt in &src.lit.body {
+                    if let ast::StmtKind::Decl(d) = &stmt.kind
+                        && let Some(t) = &d.union_tag
+                        && let ast::ExprKind::InferredMember(m) = &t.kind
+                    {
+                        self.ide_note_member_use(m.span, tag_ty, m.name);
+                        self.ide_note_member_ref(m.span, m.name, tag_ty);
+                    }
+                }
+            }
             let mut members = (*src.lit).clone();
             members.id = ast::AstId::fresh();
             members.tag = None;
@@ -725,6 +737,9 @@ impl Compiler {
                     let Some(f) = fields.iter().find(|f: &&Field| f.name == Some(name)) else {
                         return err(span, format!("no field named `{name}` before this point"));
                     };
+                    if self.ide.is_some() {
+                        self.ide_note_named_field(span, name, f.span, f.ty);
+                    }
                     if matches!(item, FieldItem::Place(..)) {
                         cursor = f.offset;
                     } else {
@@ -2090,6 +2105,7 @@ impl Compiler {
                 Some(n) => match self.find_member(ty, n.name, n.span)? {
                     Some(m) => {
                         self.ide_note_member_use(n.span, ty, n.name);
+                        self.ide_note_member_ref(n.span, n.name, m.1);
                         m
                     }
                     None => {

@@ -217,7 +217,7 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
     );
     assert_eq!(changed[0]["params"]["version"], 2);
     assert_eq!(changed[0]["params"]["diagnostics"][0]["severity"], 1);
-    assert_eq!(changed[0]["params"]["diagnostics"][0]["code"], "jai-parser");
+    assert_eq!(changed[0]["params"]["diagnostics"][0]["code"], "parser");
     assert!(
         !changed[0]["params"]["diagnostics"]
             .as_array()

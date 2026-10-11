@@ -812,7 +812,7 @@ impl JsonSession {
                         diagnostics: context
                             .diagnostics
                             .into_iter()
-                            .filter(|d| matches!(d.source.as_deref(), Some("jailint" | "jai")))
+                            .filter(|d| matches!(d.source.as_deref(), Some("jailint" | "jaic")))
                             .filter_map(|d| Some((d.code?.as_str()?.to_string(), d.range)))
                             .collect(),
                     };
@@ -1226,11 +1226,11 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticSeverity::Warning => 2,
     };
     let (code, source) = match diagnostic.code {
-        DiagnosticCode::Lexer => ("jai-lexer", "jai"),
-        DiagnosticCode::Parser => ("jai-parser", "jai"),
-        DiagnosticCode::Source => ("jai-source", "jai"),
-        DiagnosticCode::Limit => ("jai-limit", "jai"),
-        DiagnosticCode::Check => ("jai-check", "jai"),
+        DiagnosticCode::Lexer => ("lexer", "jaic"),
+        DiagnosticCode::Parser => ("parser", "jaic"),
+        DiagnosticCode::Source => ("source", "jaic"),
+        DiagnosticCode::Limit => ("limit", "jaic"),
+        DiagnosticCode::Check => ("check", "jaic"),
         DiagnosticCode::Lint(rule) => (rule, "jailint"),
     };
     let mut value = json!({

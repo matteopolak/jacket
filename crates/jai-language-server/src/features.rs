@@ -3,7 +3,7 @@
 //! hints, code actions, format strings, references, signature help, folding, code lenses and
 //! workspace symbols.
 use crate::MarkupKind;
-use crate::analysis::{Span, TokenKind};
+use crate::analysis::{DIRECTIVES, Span, TokenKind};
 use crate::hover::{Block, FormatRow, HoverText, Inline};
 use crate::links::{Link, LinkSource};
 use crate::semantic;
@@ -220,15 +220,64 @@ impl Session {
             t.kind == TokenKind::Directive && t.span.start <= byte && byte <= t.span.end
         })?;
         let word = directive_at(&doc.text, token.span.start)?;
-        if !matches!(word, "insert" | "run" | "if" | "ifx" | "assert") {
+        let expansion = matches!(word, "insert" | "run" | "if" | "ifx" | "assert")
+            .then(|| {
+                self.expansions(uri)
+                    .into_iter()
+                    .filter(|e| e.span.start as usize == token.span.start)
+                    .min_by_key(|e| e.span.end - e.span.start)
+            })
+            .flatten();
+        let text = match expansion {
+            Some(e) => self.describe(uri, &e),
+            // Any other directive (or one whose expansion was not recorded): what it is.
+            None => {
+                let (_, about) = DIRECTIVES.iter().find(|(name, _)| *name == word)?;
+                HoverText::new(vec![
+                    Block::Code(format!("#{word}")),
+                    Block::Para(vec![Inline::Text(format!("{about}."))]),
+                ])
+            }
+        };
+        Some((token.span.start, token.span.end, text))
+    }
+
+    /// Hover over a cast flag: `trunc` of `cast,trunc(u8) x` or `x.(u8, trunc)`.
+    pub(crate) fn cast_flag_hover(
+        &self,
+        text: &str,
+        byte: usize,
+    ) -> Option<(usize, usize, HoverText)> {
+        let word = |c: char| c.is_alphanumeric() || c == '_';
+        let start = text[..byte].rfind(|c: char| !word(c)).map_or(0, |i| i + 1);
+        let end = text[byte..]
+            .find(|c: char| !word(c))
+            .map_or(text.len(), |i| byte + i);
+        let flag = &text[start..end];
+        let about = match flag {
+            "trunc" | "truncate" => "keeps the low bits of a value too large for the target type",
+            "no_check" => "skips the check that the value fits the target type",
+            "force" => "reinterprets the bits as the target type, which has the same size",
+            _ => return None,
+        };
+        let before = text[..start].trim_end().strip_suffix(',')?.trim_end();
+        let after = text[end..].trim_start();
+        let chained = ["cast", "xx", "trunc", "truncate", "no_check", "force"]
+            .iter()
+            .any(|w| before.ends_with(w) && !before[..before.len() - w.len()].ends_with(word));
+        let line = text[..start].rfind('\n').map_or(0, |i| i + 1);
+        let in_dot_cast = after.starts_with([')', ',']) && text[line..start].contains(".(");
+        if !chained && !in_dot_cast {
             return None;
         }
-        let e = self
-            .expansions(uri)
-            .into_iter()
-            .filter(|e| e.span.start as usize == token.span.start)
-            .min_by_key(|e| e.span.end - e.span.start)?;
-        Some((token.span.start, token.span.end, self.describe(uri, &e)))
+        Some((
+            start,
+            end,
+            HoverText::new(vec![
+                Block::Code(format!("cast,{flag}")),
+                Block::Para(vec![Inline::Text(format!("Cast flag: {about}."))]),
+            ]),
+        ))
     }
 
     /// Hover inside an expansion's operand where no name is (an `#insert` string, say).
@@ -463,12 +512,20 @@ impl Session {
         let text = &doc.text;
         let mut fixes = self.import_actions(uri, start, end, context);
         fixes.extend(self.lint_actions(uri, start, end, context));
+        let switch_fixes = self.complete_switch_actions(uri, start, end, context);
+        let fixed_switch = !switch_fixes.is_empty();
+        fixes.extend(switch_fixes);
         if context
             .only
             .as_ref()
             .is_none_or(|only| only.iter().any(|k| k.starts_with("refactor")))
         {
-            fixes.extend(self.refactor_actions(uri, start, end));
+            // The quick fix already adds the cases of a switch with an error.
+            fixes.extend(
+                self.refactor_actions(uri, start, end)
+                    .into_iter()
+                    .filter(|a| !(fixed_switch && a.title.starts_with("Add missing cases"))),
+            );
         }
         let Some(e) = self
             .expansions(uri)
@@ -843,7 +900,7 @@ impl Session {
             .calls(uri)
             .into_iter()
             .find(|c| c.span.start as usize == callee_start && open < c.span.end as usize);
-        let (signatures, active) = match recorded {
+        let (mut signatures, active) = match recorded {
             Some(call) => (call.signatures, call.active),
             None => {
                 // The unfinished call's line is blanked; the callee is looked up in the scope.
@@ -877,6 +934,14 @@ impl Session {
                 }
             }
         };
+        // Under the name called: an alias or a `#bake_arguments` copy names the original.
+        if let Some(called) = chain.last() {
+            for sig in &mut signatures {
+                if let Some((_, head)) = sig.label.split_once(" :: ") {
+                    sig.label = format!("{called} :: {head}");
+                }
+            }
+        }
         let parameter = |sig: &jaic::sema::ide_meta::IdeSignature| -> usize {
             if let Some(name) = &named
                 && let Some(i) = sig.param_names.iter().position(|n| n == name)

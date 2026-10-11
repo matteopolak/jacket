@@ -1382,8 +1382,19 @@ impl Compiler {
         let parent = self.proc(id).scope;
         let module = self.scope(parent).module;
         let scope = self.new_scope(ScopeKind::Block, Some(parent), module, None);
+        let header = self.proc(id).lit.header.clone();
+        let binders = self.poly_binders(&header);
+        let mut bound = Vec::new();
         for (name, value, ty) in &bindings {
-            self.add_const(scope, *name, span, value.clone(), *ty);
+            // Declared at its `$T`, so go to definition from the body lands there.
+            let at = binders
+                .iter()
+                .find(|(n, _)| n == name)
+                .map_or(span, |&(_, s)| s);
+            bound.push((*name, self.add_const(scope, *name, at, value.clone(), *ty)));
+        }
+        if self.ide.is_some() {
+            self.ide_note_poly_header(&header, &bound, parent);
         }
         let p = self.proc(id);
         let (name, lit, pspan, is_macro) = (p.name, p.lit.clone(), p.span, p.is_macro);

@@ -48,6 +48,7 @@ fn new_header(start: crate::source::Span, inline: CallHintFlag) -> ProcHeader {
         notes: Vec::new(),
         span: start,
         operator: None,
+        baked: false,
     }
 }
 

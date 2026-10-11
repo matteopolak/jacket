@@ -1,6 +1,6 @@
 //! The "add `#import`" quick fix for a compile error's unknown name.
 //!
-//! When the type checker's error (`jai-check`) is an unknown identifier that a standard-library
+//! When the type checker's error (code `check`) is an unknown identifier that a standard-library
 //! module declares, the compiler lists the imports that would declare it, best first
 //! (`jaic::source::ImportSuggestion`, worked out with the error's "did you mean" help). Each one
 //! becomes a `quickfix` that inserts the import into the document the error is in: after its
@@ -20,7 +20,7 @@ use jaic::ast::{ImportSource, StmtKind};
 use jaic::source::{FileId, ImportSuggestion};
 
 /// The code of the type checker's diagnostic on the wire.
-pub const CHECK_CODE: &str = "jai-check";
+pub const CHECK_CODE: &str = "check";
 
 impl Session {
     /// One `quickfix` per import that would declare the unknown name of the compile error in

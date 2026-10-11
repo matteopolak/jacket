@@ -481,6 +481,8 @@ pub struct ProcHeader {
     pub span: Span,
     /// `operator +` style declarations: the operator text.
     pub operator: Option<Rc<str>>,
+    /// `#bake_arguments` removed parameters, so `span`'s text lists more than `params`.
+    pub baked: bool,
 }
 
 #[derive(Clone, Debug)]

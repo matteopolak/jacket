@@ -2106,6 +2106,7 @@ impl Exporter<'_> {
             notes: Vec::new(),
             span,
             operator: None,
+            baked: false,
         };
         let lit = ast::ProcLit {
             header: Rc::new(header),

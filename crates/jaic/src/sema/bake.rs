@@ -38,6 +38,7 @@ impl Compiler {
                     self.bake_params(scope, def_scope, &params, &param_args, span)?;
                 let mut header = (*lit.header).clone();
                 header.params = kept;
+                header.baked = true;
                 // The copy is a new procedure, not another export of the original.
                 header.flags.program_export = None;
                 let lit = Rc::new(ast::ProcLit {

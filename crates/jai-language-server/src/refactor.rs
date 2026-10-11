@@ -30,6 +30,53 @@ pub(crate) const INLINE: &str = "refactor.inline";
 pub(crate) const REWRITE: &str = "refactor.rewrite";
 
 impl Session {
+    /// "Add missing cases" as the preferred `quickfix` of a `#complete` switch's error, when the
+    /// error touches `start..end` (bytes) of `uri` or the client named it.
+    pub(crate) fn complete_switch_actions(
+        &self,
+        uri: &DocumentUri,
+        start: usize,
+        end: usize,
+        context: &crate::lints::ActionContext,
+    ) -> Vec<CodeAction> {
+        if !context.wants("quickfix") {
+            return Vec::new();
+        }
+        let Ok(doc) = self.document(uri) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for diagnostic in self.check_diagnostics(uri) {
+            if !diagnostic.message.starts_with("#complete switch on") {
+                continue;
+            }
+            let (Ok(a), Ok(b)) = (
+                doc.index.byte(&doc.text, diagnostic.range.start),
+                doc.index.byte(&doc.text, diagnostic.range.end),
+            ) else {
+                continue;
+            };
+            let named = context.diagnostics.iter().any(|(code, range)| {
+                code == crate::imports::CHECK_CODE && *range == diagnostic.range
+            });
+            if !named && !(a <= end && start <= b) {
+                continue;
+            }
+            // The error is on the switched value, which the refactoring reads as "in the switch".
+            let fill = self
+                .refactor_actions(uri, a, a)
+                .into_iter()
+                .find(|action| action.title.starts_with("Add missing cases"));
+            if let Some(mut fix) = fill {
+                fix.kind = Some("quickfix");
+                fix.is_preferred = true;
+                fix.diagnostics = vec![diagnostic];
+                out.push(fix);
+            }
+        }
+        out
+    }
+
     /// The refactorings that apply to the selection `start..end` (bytes) of `uri`.
     pub(crate) fn refactor_actions(
         &self,

@@ -93,13 +93,13 @@ time, since the numbers are wall time.
   seven other identifiers are tried (untimed) and the first that answers is used for the other hover metrics and
   for edit-then-hover; the Markdown says how many were tried (`hover_retries` in the JSON). A workload that still
   says `hover null` has no hoverable fact at any of them.
-- A numeric hover on a workload whose first diagnostics list `jai-check` errors may be an answer from
+- A numeric hover on a workload whose first diagnostics list `check` errors may be an answer from
   incomplete facts, and `hover null` in the Markdown means the server had no fact there. Corpus projects whose
   build is a metaprogram (Jails, chess-jai, Focus) are only partly checkable by the server, which is a property of
   the project and server, not of this script.
-- `jai-limit` diagnostics mean the syntax layer hit one of its safety caps (`Limits::tokens`, `Limits::rows`,
+- `limit` diagnostics mean the syntax layer hit one of its safety caps (`Limits::tokens`, `Limits::rows`,
   the nesting budget): symbols and syntax navigation are then empty or partial for that version. The caps are far
-  above the benchmark's files, so a `jai-limit` here is a regression.
+  above the benchmark's files, so a `limit` here is a regression.
 
 ## How to change it
 

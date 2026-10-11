@@ -683,8 +683,8 @@ def failure(error: Exception, oversize: bool) -> dict:
 
 
 def record_diagnostics(info: dict, items: list[dict]) -> None:
-    """How many diagnostics the first report had, by code: `jai-limit` means the server gave up on the
-    document's syntax layer, `jai-check` is a type-checker error (the facts may be incomplete)."""
+    """How many diagnostics the first report had, by code: code `limit` means the server gave up on the
+    document's syntax layer, `check` is a type-checker error (the facts may be incomplete)."""
     codes: dict[str, int] = {}
     for item in items:
         code = str(item.get('code'))
@@ -1083,8 +1083,8 @@ def markdown(report: dict, baseline: dict | None = None) -> str:
             lines.append('| ' + ' | '.join(cells) + ' |')
         lines.append('')
     lines += ['Metrics:', ''] + [f'- `{n}`: {label}' for n, label in METRICS.items()]
-    lines += ['', 'What the first diagnostics said (diagnostics by code; `jai-limit` = the syntax layer gave up on the '
-              'document, `jai-check` = type-checker errors, so later facts may be incomplete; hover null = no fact):', '']
+    lines += ['', 'What the first diagnostics said (diagnostics by code; `limit` = the syntax layer gave up on the '
+              'document, `check` = type-checker errors, so later facts may be incomplete; hover null = no fact):', '']
     for key, row in report['results'].items():
         info = row['info']
         if 'diagnostic_codes' in info:

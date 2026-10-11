@@ -242,6 +242,12 @@ impl Compiler {
             let Some((path, fty)) = self.find_member(ctx_ty, name, o.value.span)? else {
                 return err(o.value.span, format!("Context has no member `{name}`"));
             };
+            if let Some(n) = o.name
+                && self.ide.is_some()
+            {
+                self.ide_note_member_use(n.span, ctx_ty, name);
+                self.ide_note_member_ref(n.span, name, fty);
+            }
             let op = self.check_expr(f, scope, &o.value, Some(fty))?;
             let op = self.convert(f, op, fty, o.value.span)?;
             let (_, v) = self.rvalue(f, op, o.value.span)?;

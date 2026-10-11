@@ -391,6 +391,15 @@ impl Compiler {
     fn check_unreferenced_proc(&mut self, id: ProcId) -> Result<()> {
         let p = self.proc(id);
         if p.is_macro
+            && p.bindings.is_none()
+            && p.target.is_none()
+            && self.ide.is_some()
+            && self.checks_unreferenced_in(self.scope(p.scope).module)
+        {
+            self.ide_note_unchecked_header(id);
+        }
+        let p = self.proc(id);
+        if p.is_macro
             || p.bindings.is_some()
             || p.target.is_some()
             || p.body_state != procs::BodyState::NotNeeded
@@ -402,6 +411,9 @@ impl Compiler {
         let span = p.span;
         self.refresh_implicit_poly(id)?;
         if self.proc(id).is_poly {
+            if self.ide.is_some() {
+                self.ide_note_unchecked_header(id);
+            }
             return Ok(());
         }
         if self.proc(id).lit.body.is_none() {

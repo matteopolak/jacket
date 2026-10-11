@@ -50,7 +50,7 @@ Whole statements selected (the selection starts at the first statement and ends 
 
 ### Add missing cases and fields
 
-- **Cases**: `case .NAME;` for each enum member the switch does not name, in declaration order, before a `case;` default if there is one, else before the closing `}`. They have no body (a case that does nothing). Needs the enum type of the value from the compile; works with `#complete`.
+- **Cases**: `case .NAME;` for each enum member the switch does not name, in declaration order, before a `case;` default if there is one, else before the closing `}`. They have no body (a case that does nothing). Needs the enum type of the value from the compile; works with `#complete`. On a `#complete` switch's error (`#complete switch on Kind has no case for .NULL`) the same edit is the error's preferred `quickfix` (`Session::complete_switch_actions`), and the `refactor.rewrite` copy is left out of that request. The check reports the error only after it has checked the case bodies, so hover and inlay hints inside them still work.
 - **Fields**: `name = value` for each named field of a `Type.{...}` literal that is not there, with a value that suits the type (`0`, `0.0`, `false`, `""`, `null`, `.{}`, `.[]`, the first member of an enum, `---` otherwise). `using`, `#as` and overlaid fields are left out. Declined for literals with positional values (`Point.{1, 2}`) and for `.{...}` without a type. A literal on one line stays on one line (`Point.{ a = 1, b = 0 }`), a multi-line one gets one field per line at the indentation of the last field.
 
 ### `ifx` and `if`/`else`

@@ -680,3 +680,57 @@ fn offered_refactorings_always_parse() {
     }
     assert!(offered > 10, "{offered}");
 }
+
+const INCOMPLETE: &str = "#import \"Basic\";
+Kind :: enum { NOTHING; INDEX; NULL; }
+CHOICE :: Kind.NOTHING;
+main :: () {
+    if #complete CHOICE == {
+        case .NOTHING;
+            print(\"nothing\\n\");
+        case .INDEX;
+            three := int.[1, 2, 3];
+            index := three.count;
+            print(\"%\\n\", three[index]);
+    }
+}
+";
+
+#[test]
+fn an_incomplete_switch_keeps_types_and_offers_its_missing_cases() {
+    let s = open(INCOMPLETE);
+    let hover = s
+        .hover(&uri(), cursor(INCOMPLETE, "index :=", 1).start)
+        .unwrap()
+        .expect("hover")
+        .contents
+        .value;
+    assert_eq!(hover, "index: s64");
+    let end = position(INCOMPLETE, INCOMPLETE.len());
+    let hints = s
+        .inlay_hints(
+            &uri(),
+            Range {
+                start: position(INCOMPLETE, 0),
+                end,
+            },
+        )
+        .unwrap();
+    assert!(hints.iter().any(|h| h.label == ": s64"), "{hints:?}");
+    // On the error: a preferred quick fix, and no second copy among the refactorings.
+    let all = s
+        .code_actions(&uri(), cursor(INCOMPLETE, "CHOICE ==", 1))
+        .unwrap();
+    let fills: Vec<_> = all
+        .iter()
+        .filter(|a| a.title.starts_with("Add missing cases"))
+        .collect();
+    assert_eq!(fills.len(), 1, "{all:?}");
+    assert_eq!(fills[0].kind, Some("quickfix"));
+    assert!(fills[0].is_preferred);
+    assert_eq!(fills[0].diagnostics.len(), 1);
+    assert!(
+        apply(INCOMPLETE, fills[0])
+            .contains("            print(\"%\\n\", three[index]);\n        case .NULL;\n    }")
+    );
+}

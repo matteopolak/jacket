@@ -256,6 +256,11 @@ impl Compiler {
             } => self.check_while(f, scope, label.map(|l| l.name), *bind_label, cond, body),
             S::For(for_) => self.check_for(f, scope, for_, span),
             S::Break(label) => {
+                if let Some(l) = label
+                    && self.ide.is_some()
+                {
+                    self.ide_note_label(scope, *l);
+                }
                 let label = label.map(|l| l.name);
                 if self.try_insert_replacement(f, label, |r| &r.break_, span)? {
                     return Ok(());
@@ -263,6 +268,11 @@ impl Compiler {
                 self.check_break(f, label, true, span)
             }
             S::Continue(label) => {
+                if let Some(l) = label
+                    && self.ide.is_some()
+                {
+                    self.ide_note_label(scope, *l);
+                }
                 let label = label.map(|l| l.name);
                 if self.try_insert_replacement(f, label, |r| &r.continue_, span)? {
                     return Ok(());
@@ -270,6 +280,11 @@ impl Compiler {
                 self.check_break(f, label, false, span)
             }
             S::Remove(label) => {
+                if let Some(l) = label
+                    && self.ide.is_some()
+                {
+                    self.ide_note_label(scope, *l);
+                }
                 let label = label.map(|l| l.name);
                 if self.try_insert_replacement(f, label, |r| &r.remove, span)? {
                     return Ok(());
@@ -520,7 +535,17 @@ impl Compiler {
                 // `ok:, t.str = f()` assigns to a member, index or dereference.
                 let place = match decl.targets.get(i) {
                     Some(Some(e)) => self.check_expr(f, scope, e, None)?,
-                    _ => self.check_ident(f, scope, name.name, name.span)?,
+                    _ => {
+                        let place = self.check_ident(f, scope, name.name, name.span)?;
+                        if self.ide.is_some() {
+                            let expr = ast::Expr {
+                                kind: ast::ExprKind::Ident(name.name),
+                                span: name.span,
+                            };
+                            self.ide_note_expr(&expr, &place);
+                        }
+                        place
+                    }
                 };
                 let Operand::Place {
                     ty,
@@ -1574,15 +1599,21 @@ impl Compiler {
                 f.b.switch_to(next);
             }
         }
-        if complete {
-            self.check_switch_complete(vty, &covered, value.span)?;
-            if default == done && !f.type_only {
-                // Every member has a case, but the value may still be none of them (a cast, or
-                // uninitialized memory): stop rather than fall through silently.
-                if let Some(fail) = self.unmatched_switch_check(f, vty, val, value.span) {
-                    default = fail;
-                }
-            }
+        // A missing case is reported after the bodies are checked, so they still have types.
+        let missing = if complete {
+            self.check_switch_complete(vty, &covered, value.span)
+        } else {
+            Ok(())
+        };
+        // Every member has a case, but the value may still be none of them (a cast, or
+        // uninitialized memory): stop rather than fall through silently.
+        if complete
+            && missing.is_ok()
+            && default == done
+            && !f.type_only
+            && let Some(fail) = self.unmatched_switch_check(f, vty, val, value.span)
+        {
+            default = fail;
         }
         f.b.jump(default);
         for (i, case) in cases.iter().enumerate() {
@@ -1603,7 +1634,7 @@ impl Compiler {
             f.b.jump(next);
         }
         f.b.switch_to(done);
-        Ok(())
+        missing
     }
 
     /// A switch on a constant runs one case, but every case is still type-checked (only `#if`
@@ -1631,9 +1662,6 @@ impl Compiler {
                 }
             }
         }
-        if complete {
-            self.check_switch_complete(vty, &covered, value.span)?;
-        }
         let here = f.b.current;
         let dead = f.b.new_block();
         f.b.switch_to(dead);
@@ -1658,6 +1686,9 @@ impl Compiler {
             f.b.terminate(ir::Term::Unreachable);
         }
         f.b.switch_to(here);
+        if complete {
+            self.check_switch_complete(vty, &covered, value.span)?;
+        }
         Ok(())
     }
 
@@ -2439,6 +2470,7 @@ impl Compiler {
             scope: loop_scope,
             it_name,
             index_name,
+            name_spans: [for_.it.map(|i| i.span), for_.index.map(|i| i.span)],
             label: Some(it_name),
         });
         let result = self.call_procs(f, loop_scope, &procs, args, None, span);
@@ -2618,7 +2650,8 @@ impl Compiler {
         // originals are hidden from the body, so an enclosing `it_index` stays visible. The
         // aliases go away again afterwards: a macro may insert the body more than once.
         let mut hidden = Vec::new();
-        for (alias, original) in [(body.it_name, "it"), (body.index_name, "it_index")] {
+        let aliases = [(body.it_name, "it"), (body.index_name, "it_index")];
+        for ((alias, original), at) in aliases.into_iter().zip(body.name_spans) {
             if alias.as_str() == original {
                 continue;
             }
@@ -2631,7 +2664,11 @@ impl Compiler {
                 .unwrap_or_default();
             if let Some(&id) = ids.last() {
                 let kind = self.entity(id).kind.clone();
-                borrowed.push((alias, self.add_entity(body.scope, alias, span, kind, false)));
+                let alias_id = self.add_entity(body.scope, alias, at.unwrap_or(span), kind, false);
+                if at.is_some() && self.ide.is_some() {
+                    self.ide_note_entity(alias_id);
+                }
+                borrowed.push((alias, alias_id));
                 if let Some(names) = self.scope_mut(body.scope).names.get_mut(&original) {
                     names.retain(|&e| e != id);
                 }
