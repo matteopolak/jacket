@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-11
+
+Hover and go to definition now reach almost every name in a program, and every directive explains itself.
+
 ### Highlights
 
 - Hover and go to definition on more names: fields reached through a `using` parameter, named arguments, struct literal fields, `,,` context arguments, a polymorph's `$T` and its uses, `for name:` over a `for_expansion`, `break`/`continue` labels, `a=,` targets, procedure type parameters, tagged union tags and `#place`/`#overlay` targets. Enum names go to their declaration.
@@ -10,7 +14,7 @@
 
 ### Breaking changes
 
-- The language server's compile errors come from `jaic` with codes `check`, `parser`, `lexer`, `source` and `limit` (they were `jai` with `jai-check` and so on), so editors show `jaic(check)`.
+- The language server's compile errors come from `jaic` with codes `check`, `parser`, `lexer`, `source` and `limit` (they were `jai` with `jai-check` and so on), so editors show `jaic(check)`. Filters on the old source or codes need the new names.
 
 ### Fixes
 
