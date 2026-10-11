@@ -1516,7 +1516,7 @@ impl Compiler {
             self.lookup_full(scope, *last).ok()
         } else {
             match self.ide_receiver(scope, first) {
-                Some(IdeReceiver::Module(m)) => self.module_lookup(m, *last).ok(),
+                Some(IdeReceiver::Module(m)) => self.module_member_lookup(m, *last).ok(),
                 Some(IdeReceiver::Type(t) | IdeReceiver::Value(t)) => {
                     let member = self.ide_member_decl(t, *last);
                     if member.is_some() {
@@ -1979,7 +1979,7 @@ impl Compiler {
                         _ => IdeReceiver::Value(t),
                     }
                 }
-                IdeReceiver::Module(m) => match self.module_lookup(m, *name).ok()? {
+                IdeReceiver::Module(m) => match self.module_member_lookup(m, *name).ok()? {
                     Found::Entities(ids) => self.ide_entity_receiver(*ids.first()?)?,
                     Found::Using(entry, member) => match entry {
                         scope::UsingEntry::Place {

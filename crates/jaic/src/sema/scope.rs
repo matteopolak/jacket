@@ -548,11 +548,17 @@ impl Compiler {
                 // earlier and was parked): it gets another try once code stops coming.
                 let insert_waits =
                     !self.placeholders_final && matches!(stmt.kind, ast::StmtKind::Insert { .. });
-                if result.is_err() && (insert_waits || self.waits_for_placeholder(misses)) {
+                // Compile-time code that spent the whole budget fails the same way every time.
+                let spent = self.interp.block_budget == Some(0);
+                if result.is_err() && !spent && (insert_waits || self.waits_for_placeholder(misses))
+                {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
-                if reentrant && let Err(e) = result {
+                if reentrant
+                    && !spent
+                    && let Err(e) = result
+                {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     self.deferred_pending.push(scope);
                     self.deferred_errors.push(e);
@@ -908,6 +914,28 @@ impl Compiler {
             .filter(|&e| self.entity(e).name == name)
             .collect();
         Ok(Found::Entities(params))
+    }
+
+    /// `module.name` written out: the exported names, else a `#scope_module` one. Only
+    /// `#scope_file` names stay out of reach through the namespace.
+    pub fn module_member_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
+        let found = self.module_lookup(module, name)?;
+        if !matches!(&found, Found::Entities(ids) if ids.is_empty()) {
+            return Ok(found);
+        }
+        let scope = self.modules[module.0 as usize].scope;
+        let ids = self
+            .scope(scope)
+            .names
+            .get(&name)
+            .map(|ids| {
+                ids.iter()
+                    .copied()
+                    .filter(|&e| !self.entity(e).file_private)
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(Found::Entities(ids))
     }
 
     /// The exported `using` entry of `module` (or of a module it re-exports) whose type has

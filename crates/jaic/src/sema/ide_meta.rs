@@ -758,10 +758,12 @@ impl Compiler {
             }
         } else {
             match self.ide_receiver(scope, first) {
-                Some(super::ide::IdeReceiver::Module(m)) => match self.module_lookup(m, *last) {
-                    Ok(Found::Entities(ids)) => ids,
-                    _ => return Vec::new(),
-                },
+                Some(super::ide::IdeReceiver::Module(m)) => {
+                    match self.module_member_lookup(m, *last) {
+                        Ok(Found::Entities(ids)) => ids,
+                        _ => return Vec::new(),
+                    }
+                }
                 _ => return Vec::new(),
             }
         };

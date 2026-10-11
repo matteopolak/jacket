@@ -1857,19 +1857,6 @@
       }
     },
     {
-      "id": "rule-scope-2",
-      "source": "negative/rule-scope-2.jai",
-      "sha256": "55bd9da011fbf56bbc66600470dc40f9de65848c836fd2dab0708208afb86da6",
-      "suite": "negative",
-      "feature": "#scope_module name not visible to importers",
-      "kind": "negative",
-      "target": "host",
-      "dependencies": [],
-      "negative": {
-        "check": "has no exported member `module_only_value`"
-      }
-    },
-    {
       "id": "rule-scope-3",
       "source": "negative/rule-scope-3.jai",
       "sha256": "a5ae6c2d12fa9e6dcfb94a6768203440b908fd84167d3b5072bd5f36c9a23135",

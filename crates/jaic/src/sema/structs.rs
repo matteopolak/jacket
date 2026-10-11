@@ -1469,7 +1469,7 @@ impl Compiler {
         match base {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
             Operand::Module(m) => {
-                return match self.module_lookup(m, name)? {
+                return match self.module_member_lookup(m, name)? {
                     Found::Using(entry, member) => self.using_member(f, entry, member, span),
                     Found::Entities(ids) if ids.is_empty() => err(
                         span,

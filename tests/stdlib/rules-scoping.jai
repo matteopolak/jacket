@@ -53,8 +53,10 @@ main :: () {
     // scope.1: exported by default, both qualified and through using.
     assert(RS.exported_answer == 42 && exported_answer == 42, "scope.1");
 
-    // scope.2: module-scope names are visible in both files of the module.
+    // scope.2: module-scope names are visible in both files of the module, and through
+    // the module's name.
     assert(second_reads_module_value() == 101, "scope.2");
+    assert(RS.module_only_value == 100, "scope.2 qualified");
 
     // scope.3: each file has its own file-scope names; no clash.
     assert(first_total() == 100 + 101 + 3, "scope.3 first");
