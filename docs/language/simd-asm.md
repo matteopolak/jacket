@@ -6,7 +6,7 @@
 
 ## How it works
 
-Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
+Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, except that `syscall` reads the registers pinned to its arguments (Linux x86-64 hosts and targets only), and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
 
 ```jai
 x: s64 = 10;
@@ -31,7 +31,7 @@ The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160
 - Implicit registers are written as explicit operands: `div hi, lo, d`, `rep_movs.q di, si, c`, `cqo d, a`, `cmpxchg16b d, a, [mem], c, b` {#asm.15}. Division by zero or overflow traps {#asm.14}.
 - Feature modifiers after `#asm` (`AVX`, `AVX2`, `AVX512F`, `BMI2`, any name in `FEATURES` in `asm.rs`) only choose the default vector width and VEX zeroing of upper bytes {#asm.16}.
 - EVEX decorations: `[mem]!` broadcasts one element {#asm.17}; `v !z` / `!n` / `!d` / `!u` pick `cvtps2dq` rounding {#asm.18}; `dst: &* mask` and `& mask` zero or merge masked-off lanes {#asm.19}; a masked store writes only selected elements {#asm.20}. Mask registers (`omr`, `kmask`) are 8-byte locals; the `k*` instructions operate on them, and compares, `ptestm` and `pmov*2m` write them {#asm.21}.
-- Unsupported instructions are a compile error naming the instruction {#asm.22}. That includes x87 (Jai's `#asm` has none) {#asm.23}, `syscall`, `push`/`pop`, privileged instructions and some AVX-512 extensions (the list is in [jaic `#asm` blocks](../compiler/asm.md#not-supported), with the reason for each).
+- Unsupported instructions are a compile error naming the instruction {#asm.22}. That includes x87 (Jai's `#asm` has none) {#asm.23}, `push`/`pop`, privileged instructions and some AVX-512 extensions (the list is in [jaic `#asm` blocks](../compiler/asm.md#not-supported), with the reason for each).
 - F16C (`vcvtph2ps`, `vcvtps2ph` with its imm8 rounding mode), SHA (`sha1rnds4`, `sha1nexte`, `sha1msg1/2`, `sha256rnds2` with the implicit `xmm0` written as a last operand, `sha256msg1/2`) and GFNI (`gf2p8mulb`, `gf2p8affineqb`, `gf2p8affineinvqb`, legacy, VEX and masked EVEX forms) give the bits hardware gives {#asm.26}.
 - A floating-point variable is a vector register: `addss x, y`, `sqrtsd x, y` and the other vector instructions read and write it, and `movd`/`movq` move its bits to or from an integer variable {#asm.28}. An integer instruction (`add x, y`) cannot take one, and `.x/.y/.z` sizes only go with vector instructions; both are compile errors that say so {#asm.29}.
 - The SSE4.2 string compares `pcmpistri`, `pcmpestri`, `pcmpistrm` and `pcmpestrm` take the implicit registers as operands in the order `ecx` (or `xmm0`), then `eax`, `edx` for the explicit-length forms, the two strings and the control byte (`pcmpistri ecx, a, b, 0x0c`), and match the hardware for every control byte, flags included {#asm.30}. `mpsadbw` (SSE4.1 and AVX2) and the AVX-512 IFMA `pmadd52luq`/`pmadd52huq` are supported too {#asm.31}.

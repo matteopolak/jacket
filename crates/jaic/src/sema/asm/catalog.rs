@@ -176,7 +176,7 @@ const PATTERNS: &[&str] = &[
     "{imul,mul}",
     "{nop,mfence,lfence,sfence,pause,int3}",
     "{clc,stc,cmc}",
-    "{rdtsc,rdtscp,rdrand,rdseed,cpuid}",
+    "{rdtsc,rdtscp,rdrand,rdseed,cpuid,syscall}",
     "{movzx,movsx,movsxd}",
     "{set,cmov}{e,z,ne,nz,b,c,nae,ae,nb,nc,be,na,a,nbe,s,ns,o,no,l,nge,ge,nl,le,ng,g,nle,p,pe,np,po}",
     "lock_{add,sub,adc,sbb,and,or,xor,inc,dec,neg,not,xadd,xchg,cmpxchg,bts,btr,btc,cmpxchg8b,cmpxchg16b}",
@@ -331,6 +331,7 @@ fn core_feature(name: &str, kind: Kind) -> &'static str {
             Op::Cmovcc(_) => "CMOV",
             Op::Rdtsc => "TSC",
             Op::Rdtscp => "RDTSCP",
+            Op::Syscall => "SYSCALL_SYSRET",
             Op::Rdrand if name == "rdseed" => "RDSEED",
             Op::Rdrand => "RDRAND",
             Op::Nop if name == "sfence" => "SSE",
@@ -671,6 +672,7 @@ fn forms(name: &str, kind: Kind, vex: bool) -> Vec<String> {
             Op::Rdtscp => vec!["hi: gpr, lo: gpr, id: gpr"],
             Op::Rdrand => vec!["dst: gpr"],
             Op::Cpuid => vec!["a: gpr, b: gpr, c: gpr, d: gpr"],
+            Op::Syscall => vec!["rcx_out: gpr, r11_out: gpr, rax_inout: gpr"],
         },
         Kind::Scalar(op) => match op {
             XOp::Div(_) => vec![
@@ -1045,6 +1047,9 @@ fn describe_core(name: &str, op: Op) -> String {
         Op::Rdtscp => "Read the time-stamp counter into hi:lo, and the processor id (0 here).",
         Op::Rdrand if name == "rdseed" => "Store a random seed value; CF=1 on success.",
         Op::Rdrand => "Store a random value; CF=1 on success.",
+        Op::Syscall => {
+            "Linux x86-64 system call: rax is the number in and the raw result out, with arguments in the registers pinned to di, si, d, 10, 8 and 9; clobbers rcx and r11."
+        }
         Op::Cpuid => "Query the processor (every output reads 0 here: no features are reported).",
     };
     s.to_owned()

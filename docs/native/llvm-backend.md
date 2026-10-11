@@ -64,7 +64,7 @@ It applies (whatever `enable_split_modules` says) when `emit_objects` would use 
 - Globals are packed structs of byte runs and pointer relocations, with the IR alignment and `read_only` flag. `#program_export` names stay external; everything else is internal and suffixed with its index.
 - Foreign functions and variables are external declarations, de-duplicated by symbol. Every call is an indirect call with a function type built from the call's `Sig`, so one symbol can be called with several signatures.
 - `Conv::Jai` functions map parameters and scalar results one to one; several results become a struct return.
-- Intrinsics: `Memcpy` is `memmove`; `Memcmp` calls libc `memcmp` and normalises to -1/0/1; `CompilerWrite` calls `write(1|2, ...)`; `CompareAndSwap` is a seq_cst `cmpxchg` of the operand's width; `IsCompileTime` is 0; `CycleCounter` reads `cntvct_el0` on AArch64 and `rdtsc` on x86-64; `Fma` is `llvm.fma.f64`. `Loc` markers set the [debug location](debug-info.md).
+- Intrinsics: `Memcpy` is `memmove`; `Memcmp` calls libc `memcmp` and normalises to -1/0/1; `CompilerWrite` calls `write(1|2, ...)`; `CompareAndSwap` is a seq_cst `cmpxchg` of the operand's width; `IsCompileTime` is 0; `CycleCounter` reads `cntvct_el0` on AArch64 and `rdtsc` on x86-64; `Fma` is `llvm.fma.f64`; `Syscall` is inline asm `syscall` on x86-64 (an error elsewhere). `Loc` markers set the [debug location](debug-info.md).
 
 ### C ABI
 

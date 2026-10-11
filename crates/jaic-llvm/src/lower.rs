@@ -2594,6 +2594,31 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 };
                 Ok(vec![v.ok_or("cycle counter produced no value")?])
             }
+            Intrinsic::Syscall => {
+                if !matches!(self.arch, Arch::X86_64 | Arch::Win64) {
+                    return Err("`syscall` in #asm needs an x86-64 target".into());
+                }
+                let i64t = self.ctx.i64_type();
+                let ty = self.fn_type(Some(i64t.into()), &[i64t.into(); 7], false);
+                // rax = number; rdi, rsi, rdx, r10, r8, r9 = arguments; rcx and r11 are clobbered.
+                let asm = self.ctx.create_inline_asm(
+                    ty,
+                    "syscall".to_string(),
+                    "={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory},~{dirflag},~{fpsr},~{flags}"
+                        .to_string(),
+                    true,
+                    false,
+                    None,
+                    false,
+                );
+                let call_args = args
+                    .iter()
+                    .map(|&v| self.as_int(v).map(Into::into))
+                    .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
+                let v = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
+                    .ok_or("syscall produced no value")?;
+                Ok(vec![v])
+            }
             Intrinsic::Pause => {
                 let asm = match self.arch {
                     Arch::Aarch64 | Arch::Win64Arm => "yield",

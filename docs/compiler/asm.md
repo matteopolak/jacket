@@ -6,6 +6,23 @@ Jai's `#asm { ... }` inline assembly. jaic never emits machine code for it: each
 
 The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page is the reference.
 
+## `syscall`
+
+`syscall rcx_out:, r11_out:, rax_inout` is the Linux x86-64 system call (feature `SYSCALL_SYSRET`). It reads the number from the
+third operand and the arguments from the declared registers pinned to `di`, `si`, `d`, `10`, `8` and `9` (a register
+that is not pinned reads 0; a pin is `=== a`, `=== di`, `=== 10`, or `r10`), and lowers to `Intrinsic::Syscall` (seven `I64` in, one `I64` out: the kernel's raw result,
+`-errno` on failure). The result is written to the third operand and to the register pinned to `a`; `rcx_out` and
+`r11_out` read 0.
+
+- Native builds emit inline asm `syscall` with rax/rdi/rsi/rdx/r10/r8/r9 constraints and rcx/r11/memory clobbers on
+  x86-64 targets (`lower.rs`); other targets fail the build with "`syscall` in #asm needs an x86-64 target". The
+  system call numbers are the target OS's: only Linux's are meaningful.
+- The interpreter calls the host's `syscall(2)` on a Linux x86-64 host (`interp/native.rs::syscall`, errno turned back into
+  `-errno`); on any other host it traps with a runtime error. A host without native linking (the sandbox, `-os wasm`,
+  the browser) never makes the call and returns `-1` (`-EPERM`).
+- Gotcha: only declared `gpr`s record pins, since registers are otherwise not modelled; pinning a Jai variable
+  (`x === a` on a non-register) is ignored.
+
 ## How it works
 
 - **Parsing** (`parser/asm.rs`) is mnemonic-agnostic and produces `ast::AsmBlock` (`ExprKind::Asm`): feature
@@ -29,7 +46,8 @@ The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page
   bytes), `vec` (64 bytes; `xmm/ymm/zmm` by width), `str` (MMX, a `vec` used at 8 bytes), `omr`/`kmask` (an 8-byte
   op-mask). An inline declaration `name:` takes its class from the position: a gpr in scalar instructions, a `vec` in
   vector ones, an `omr` in `k*` instructions and as the destination of a compare-into-mask. Registers are not
-  modelled: `===` pins are parsed and ignored. A declared register's value only means something inside the block
+  modelled: `===` pins are parsed and ignored, except that `syscall` reads the declared `gpr`s pinned to its argument
+  registers (`asm_pins`). A declared register's value only means something inside the block
   that declares it; reload values in each block.
 - **Operation size**: explicit suffix (`.b/.w/.d/.q`, `.8/.16/.32/.64`, or `?T` / `?BITS`), else the size of the first
   Jai variable operand, else 64 bits. 32-bit writes zero-extend into a 64-bit destination; 8/16-bit writes merge.
@@ -100,7 +118,7 @@ tzcnt, bswap, mul, imul, div, idiv, cbw/cwde/cdqe, cwd/cdq/cqo, BMI1/2 (andn, be
 pext, shlx/shrx/sarx, rorx, mulx), adcx/adox, crc32 (`crc32d`/`crc32q`, CRC-32C), setcc, cmovcc, clc/stc/cmc,
 cld/std, lahf/sahf, xlat, movs/stos/lods/cmps/scas with `rep_`/`repe_`/`repz_`/`repne_`/`repnz_`, nop/pause/fences,
 prefetch*/clflush*/clwb/cldemote (no-ops that still evaluate the address), int3 (`int 3`), rdtsc/rdtscp (a monotonic
-counter), rdrand/rdseed, rdpid (0), cpuid and xgetbv (all outputs 0), stmxcsr (0x1f80), ldmxcsr (ignored).
+counter), `syscall` (see below), rdrand/rdseed, rdpid (0), cpuid and xgetbv (all outputs 0), stmxcsr (0x1f80), ldmxcsr (ignored).
 
 Op-mask: kmov, kand, kandn, kor, kxor, kxnor, knot, kadd, kshiftl, kshiftr, ktest, kortest (each with b/w/d/q), and
 kunpckbw/wd/dq.
@@ -149,9 +167,6 @@ Compile error `` unsupported #asm instruction `x` ``:
 
 - **x87** (`fld`, `fadd`, ...): Jai's `#asm` has no x87 instructions or registers (the `str` class is MMX), so there
   is nothing to accept.
-- `syscall`: the lowering has to run the same on every host, and the system call numbers and conventions differ by
-  OS and CPU (an arm64 Mac has no `syscall` to make), so it cannot be given one meaning. Use `Runtime_Support`/POSIX
-  procedures instead.
 - `push`/`pop`, `call`/`jmp`/`jcc`, `int n` other than 3: the stack pointer is not modelled and Jai `#asm` has no
   labels, so there is no control flow to express. Real programs use Jai control flow around the block.
 - I/O and privileged instructions: they fault outside ring 0.

@@ -15,6 +15,7 @@
 
 ### Fixes
 
+- `syscall` works in `#asm` blocks (`syscall rcx_out:, r11_out:, rax_inout`, with arguments in the registers pinned to `di`, `si`, `d`, `10`, `8` and `9`): compiled code makes the call on x86-64, `#run` makes it on a Linux x86-64 host, and the sandbox and the browser refuse it with `-EPERM`.
 - A loop value named `it_index` (`for < it_index: 0..n`, often in a `for_expansion`) no longer stops the compile with an internal error; naming a loop's value and index the same is an error.
 - Hovering a word right after a non-ASCII character no longer fails.
 - `#bake_constants` that fixes only some of a procedure's polymorphic types (`#bake_constants f(T = float32)` where `f` also has `$W`) makes a procedure that is still polymorphic in the rest, instead of failing.

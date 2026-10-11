@@ -94,6 +94,38 @@ mod sys {
     pub const RTLD_DEFAULT: *mut c_void = std::ptr::null_mut();
 }
 
+/// Make the Linux x86-64 system call `args[0]` with `args[1..7]` and return the kernel's raw
+/// result (`-errno` on failure). `None` on any other host.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+pub fn syscall(args: &[u64]) -> Option<i64> {
+    unsafe extern "C" {
+        fn syscall(number: i64, ...) -> i64;
+    }
+    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+    // SAFETY: the program asked for this system call; it is as unsafe as the `#asm` it wrote.
+    let ret = unsafe {
+        syscall(
+            arg(0) as i64,
+            arg(1),
+            arg(2),
+            arg(3),
+            arg(4),
+            arg(5),
+            arg(6),
+        )
+    };
+    if ret == -1 {
+        let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(1);
+        return Some(-i64::from(errno));
+    }
+    Some(ret)
+}
+
+#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+pub fn syscall(_args: &[u64]) -> Option<i64> {
+    None
+}
+
 impl Library {
     /// Open a library by Jai name (`"c"`, `"SDL2"`, `"libs/foo"`...).
     #[cfg(unix)]

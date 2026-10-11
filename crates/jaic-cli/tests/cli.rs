@@ -912,3 +912,115 @@ fn default_metaprogram_options() {
         .unwrap();
     assert!(String::from_utf8_lossy(&version.stdout).contains("beta"));
 }
+
+/// A Linux futex wrapper written with `#asm` `syscall` type-checks for x86-64 Linux, and the
+/// sandbox (`-os wasm`) never makes the call.
+#[test]
+fn asm_syscall_checks_and_sandbox_refuses_it() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-syscall");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("futex.jai");
+    std::fs::write(
+        &source,
+        r#"#import "Basic";
+SYS_futex :: 202;
+futex :: (futex_lock: *s32, op: s64, val: s64) -> s64 {
+    result: s64 = ---;
+    #asm SYSCALL_SYSRET {
+        mov.q call:     gpr === a, SYS_futex;
+        mov.q uaddr:    gpr === di, futex_lock;
+        mov.q futex_op: gpr === si, op;
+        mov.q value:    gpr === d, val;
+        mov.q timeout:  gpr === 10, 0;
+        syscall t1:, t2:, call;
+        mov result, call;
+    }
+    return result;
+}
+main :: () {
+    word: s32 = 1;
+    // Wait on a word that differs from the expected value: returns -EAGAIN without blocking.
+    r := futex(*word, 128, 0);
+    print("%\n", r);
+}
+"#,
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .arg("check")
+        .arg(&source)
+        .args(["-target", "x86_64-linux-gnu"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // The sandbox refuses the call with -EPERM instead of running it.
+    let output = Command::new(JAIC)
+        .arg("run")
+        .arg(&source)
+        .args(["-os", "wasm"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "-1\n");
+}
+
+/// On a Linux x86-64 host `syscall` really calls the kernel: `getpid` (39) is the process id,
+/// both in the interpreter and in compiled code.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn asm_syscall_getpid_matches_the_process_id() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-getpid");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("getpid.jai");
+    std::fs::write(
+        &source,
+        r#"#import "Basic";
+libc :: #system_library "libc";
+getpid :: () -> s32 #foreign libc;
+main :: () {
+    pid: s64 = ---;
+    #asm SYSCALL_SYSRET {
+        mov.q call: gpr === a, 39;
+        syscall t1:, t2:, call;
+        mov pid, call;
+    }
+    assert(pid == getpid(), "getpid via syscall");
+    print("%\n", pid == getpid());
+}
+"#,
+    )
+    .unwrap();
+    let output = Command::new(JAIC).arg("run").arg(&source).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "true\n");
+
+    let exe = dir.join("getpid");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .arg("-o")
+        .arg(&exe)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let output = Command::new(&exe).output().unwrap();
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "true\n");
+}

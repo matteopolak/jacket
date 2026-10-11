@@ -2107,6 +2107,18 @@ impl Interp {
             I::Fma => Rets::one(f64_of(a[0]).mul_add(f64_of(a[1]), f64_of(a[2])).to_bits()),
             I::ReturnAddress => Rets::one(0),
             I::CycleCounter => Rets::one(cycle_counter()),
+            I::Syscall => {
+                if !self.host.native_linking() {
+                    // The sandbox never runs a system call: EPERM.
+                    Rets::one(-1i64 as u64)
+                } else if let Some(ret) = native::syscall(a) {
+                    Rets::one(ret as u64)
+                } else {
+                    return self.trap(
+                        "a `syscall` runs only on a Linux x86-64 host (compile-time execution here cannot make system calls)",
+                    );
+                }
+            }
             I::Pause => {
                 if self.multi && self.host.cooperative_threads() {
                     self.inline_poll();

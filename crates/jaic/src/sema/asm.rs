@@ -10,7 +10,8 @@
 //!   immediates, `[base + index*scale +/- disp]` memory operands, and register
 //!   declarations (`tmp:` / `tmp: gpr === a`). A declared `gpr` is a 64-bit
 //!   local of the enclosing scope (blocks are not scopes), initialised to zero.
-//!   Register pinning is accepted and ignored: registers are not modeled.
+//!   Register pinning is accepted and ignored, except that `syscall` looks up the
+//!   declared `gpr` registers pinned to its argument registers.
 //! - The operation size is the `.b/.w/.d/.q` (or `.8/.16/.32/.64`, `?T`) suffix,
 //!   else the size of the first Jai variable operand, else 64 bits. As on
 //!   hardware, a 32-bit write zero-extends into a 64-bit register while 8- and
@@ -24,13 +25,17 @@
 //! - Division, string instructions, BMI1/BMI2, double shifts, CRC32 and the
 //!   other less common general-purpose instructions live in `asm/scalar.rs`;
 //!   mask-register (`omr`) instructions in `asm/mask.rs`.
-//! - Anything else (x87, privileged and I/O instructions, `syscall`, ...) is a
-//!   compile error naming the instruction.
+//! - `syscall` is the one place pins matter: it reads the number and arguments from the
+//!   registers pinned to `a`, `di`, `si`, `d`, `10`, `8` and `9` (unpinned ones read 0) and
+//!   lowers to `Intrinsic::Syscall`.
+//! - Anything else (x87, privileged and I/O instructions, ...) is a compile error naming the
+//!   instruction.
 use super::lower::{FnCtx, Operand};
 use super::scope::{EntityKind, Found};
 use super::*;
 use crate::ast::{
-    AsmBlock, AsmDecl, AsmInst, AsmItem, AsmMem, AsmOperand, AsmSize, CodeBody, Expr, ExprKind as E,
+    AsmBlock, AsmDecl, AsmInst, AsmItem, AsmMem, AsmOperand, AsmPin, AsmSize, CodeBody, Expr,
+    ExprKind as E,
 };
 use crate::ir::{BinOp, BlockId, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 
@@ -365,6 +370,7 @@ enum Op {
     Rdtscp,
     Rdrand,
     Cpuid,
+    Syscall,
 }
 
 fn lookup_cond(name: &str) -> Option<Cond> {
@@ -441,6 +447,7 @@ fn lookup_op(name: &str) -> Option<Op> {
         "rdtscp" => Op::Rdtscp,
         "rdrand" | "rdseed" => Op::Rdrand,
         "cpuid" => Op::Cpuid,
+        "syscall" => Op::Syscall,
         "movsxd" => Op::Movsx,
         _ => {
             if let Some(rest) = name.strip_prefix("set") {
@@ -683,6 +690,7 @@ impl Compiler {
                 .any(|f| f.name.as_str().starts_with(prefix))
         };
         let vex = has("AVX");
+        self.asm_pins.clear();
         let mut cx = AsmCtx {
             scope,
             flags: Flags::default(),
@@ -719,7 +727,17 @@ impl Compiler {
         }
         // `x === a` pins an existing variable.
         match self.lookup_full(cx.scope, decl.name.name)? {
-            Found::Entities(ids) if !ids.is_empty() => Ok(()),
+            Found::Entities(ids) if !ids.is_empty() => {
+                if let Some(&id) = ids.last()
+                    && self.asm_regs.get(&id) == Some(&AsmReg::Gpr)
+                    && let EntityKind::Local {
+                        addr, ..
+                    } = self.entity(id).kind
+                {
+                    self.asm_record_pin(decl, addr);
+                }
+                Ok(())
+            }
             _ => Err(Box::new(
                 Diagnostic::error(
                     decl.name.span,
@@ -730,6 +748,35 @@ impl Compiler {
                 }),
             )),
         }
+    }
+
+    /// Remember that the general-purpose register at `addr` is pinned as `decl` says.
+    fn asm_record_pin(&mut self, decl: &AsmDecl, addr: Val) {
+        let Some(pin) = decl.pin else {
+            return;
+        };
+        let reg = match pin {
+            AsmPin::Index(i) if i < 16 => i as u8,
+            AsmPin::Index(_) => return,
+            AsmPin::Name(name) => {
+                let name = name.name.as_str();
+                match name.strip_prefix('r').unwrap_or(name) {
+                    "a" | "ax" => 0,
+                    "c" | "cx" => 1,
+                    "d" | "dx" => 2,
+                    "b" | "bx" => 3,
+                    "sp" => 4,
+                    "bp" => 5,
+                    "si" => 6,
+                    "di" => 7,
+                    other => match other.parse::<u8>() {
+                        Ok(n) if (8..16).contains(&n) && name.starts_with('r') => n,
+                        _ => return,
+                    },
+                }
+            }
+        };
+        self.asm_pins.push((reg, addr));
     }
 
     /// Declare the register named by `decl` in the enclosing scope (reusing an earlier
@@ -757,10 +804,16 @@ impl Compiler {
                 addr, ..
             } = self.entity(existing).kind
         {
+            if kind == AsmReg::Gpr {
+                self.asm_record_pin(decl, addr);
+            }
             return Ok((kind, addr));
         }
         let addr = f.b.alloca(size, 8);
         f.b.zero(addr, size);
+        if kind == AsmReg::Gpr {
+            self.asm_record_pin(decl, addr);
+        }
         let depth = self.scope(cx.scope).proc_depth;
         let id = self.add_entity(
             cx.scope,
@@ -1303,6 +1356,29 @@ impl Compiler {
                 for &o in &opds {
                     let z = konst(f, Ty::I32, 0);
                     self.asm_write(f, o, Ty::I32, z, span)?;
+                }
+            }
+            Op::Syscall => {
+                // `syscall rcx_out, r11_out, rax_inout`: rax is the number in and the raw result
+                // out; rdi, rsi, rdx, r10, r8 and r9 are the pinned registers; rcx and r11 are
+                // clobbered (they read 0 afterwards).
+                want(3, 3)?;
+                let mut args = vec![self.asm_read(f, opds[2], Ty::I64, span)?];
+                for reg in [7u8, 6, 2, 10, 8, 9] {
+                    let pinned = self.asm_pins.iter().rev().find(|(r, _)| *r == reg);
+                    args.push(match pinned {
+                        Some(&(_, addr)) => f.b.load(Ty::I64, addr),
+                        None => konst(f, Ty::I64, 0),
+                    });
+                }
+                let ret = f.b.intrinsic(Intrinsic::Syscall, args, &[Ty::I64])[0];
+                for &o in &opds[..2] {
+                    let z = konst(f, Ty::I64, 0);
+                    self.asm_write(f, o, Ty::I64, z, span)?;
+                }
+                self.asm_write(f, opds[2], Ty::I64, ret, span)?;
+                if let Some(&(_, addr)) = self.asm_pins.iter().rev().find(|(r, _)| *r == 0) {
+                    f.b.store(Ty::I64, addr, ret);
                 }
             }
             Op::Mov => {

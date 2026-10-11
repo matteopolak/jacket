@@ -288,6 +288,11 @@ pub enum Intrinsic {
     /// Read the cycle counter (`rdtsc`).
     CycleCounter,
     Pause,
+    /// `(number, a1..a6) -> raw result`, all `I64`: a Linux x86-64 system call (`#asm` `syscall`).
+    /// The result is the kernel's raw return value, `-errno` on failure. Native code issues the
+    /// `syscall` instruction; the interpreter calls the host's `syscall` on Linux x86-64 and the
+    /// sandbox refuses it with `-EPERM`.
+    Syscall,
     /// Bit counting used by `#asm` lowering: (x, bits) -> count, same width as `x`.
     /// `Ctlz`/`Cttz` return `bits` for a zero input.
     Popcount,

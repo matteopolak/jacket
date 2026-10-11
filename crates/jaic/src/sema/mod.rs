@@ -486,6 +486,9 @@ pub struct Compiler {
     pub export_entities: Vec<EntityId>,
     /// Locals declared by `#asm` register declarations (`x: gpr`).
     pub asm_regs: HashMap<EntityId, asm::AsmReg>,
+    /// Pinned general-purpose registers of the `#asm` block being lowered: (register number in
+    /// x86 encoding order, address of its slot). Later pins of a register win.
+    pub asm_pins: Vec<(u8, ir::Val)>,
     /// Spin lock word shared by `lock_cmpxchg8b`/`lock_cmpxchg16b` in `#asm` blocks.
     pub asm_pair_lock: Option<ir::GlobalId>,
     /// The AES S-boxes used by `aesenc` & co. in `#asm` blocks.
@@ -644,6 +647,7 @@ impl Compiler {
             generic_struct_infos: HashMap::default(),
             export_entities: Vec::new(),
             asm_regs: HashMap::default(),
+            asm_pins: Vec::new(),
             asm_pair_lock: None,
             asm_aes_tables: None,
             export: code_export::ExportState::default(),
