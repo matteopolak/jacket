@@ -638,6 +638,22 @@
       }
     },
     {
+      "id": "bare-poly-struct-pointer",
+      "source": "positive/bare-poly-struct-pointer.jai",
+      "sha256": "1077a5945392a610eec2ff6cc90500159be938bf170644eba79a386f6bcde5dc",
+      "suite": "expanded",
+      "feature": "pointer to a polymorphic struct without arguments",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 17,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
       "id": "contextual-overload",
       "source": "positive/contextual-overload.jai",
       "sha256": "725e5451f14bfd274bb3546c3f74246d2760a1a9be5a3e02c0116ed044aeb23f",

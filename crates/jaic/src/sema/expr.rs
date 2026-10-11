@@ -1031,6 +1031,11 @@ impl Compiler {
                 let inner = self.check_expr(f, scope, a, None)?;
                 match inner {
                     Operand::Type(t) => Ok(Operand::Type(self.types.pointer(t))),
+                    // `*Dict` with the arguments left off: a pointer to the polymorphic struct.
+                    Operand::PolyStruct(ps) => {
+                        let t = self.poly_struct_type(ps);
+                        Ok(Operand::Type(self.types.pointer(t)))
+                    }
                     Operand::Place {
                         ty,
                         addr,

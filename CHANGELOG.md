@@ -24,6 +24,7 @@
 
 - `Process.init_named_pipe_pair` on Windows is covered by a runtime test that starts a child with the pipes as its standard input and output.
 - `MeowHash` on x64 is now bit-exact with Meow hash 0.5 (calico): the tail and length handling and the final mixing follow the published algorithm, and the test checks the official digests.
+- `*Name` for a polymorphic struct with its arguments left off (`-> *NSDictionary`, `f: (x: *void) -> *Dict`) is a pointer to the polymorphic struct instead of failing with "expected a type, found constant".
 - `syscall` works in `#asm` blocks (`syscall rcx_out:, r11_out:, rax_inout`, with arguments in the registers pinned to `di`, `si`, `d`, `10`, `8` and `9`): compiled code makes the call on x86-64, `#run` makes it on a Linux x86-64 host, and the sandbox and the browser refuse it with `-EPERM`.
 - A loop value named `it_index` (`for < it_index: 0..n`, often in a `for_expansion`) no longer stops the compile with an internal error; naming a loop's value and index the same is an error.
 - Hovering a word right after a non-ASCII character no longer fails.
