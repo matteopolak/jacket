@@ -37,10 +37,11 @@ async function format(source, { config, name = "main.jai" } = {}) {
 function native(source, config) {
   const args = ["--stdin"];
   if (config !== undefined) {
-    writeFileSync(path.join(scratch, "jaifmt.toml"), config);
-    args.push("--config", path.join(scratch, "jaifmt.toml"));
+    writeFileSync(path.join(scratch, "case.toml"), config);
+    args.push("--config", path.join(scratch, "case.toml"));
   }
-  return execFileSync(nativePath, args, { input: source, encoding: "utf8" });
+  // From scratch, so a config-less case does not pick up the repository's own jaifmt.toml.
+  return execFileSync(path.resolve(nativePath), args, { input: source, encoding: "utf8", cwd: scratch });
 }
 
 const cases = path.join(root, "stdlib/Extensions/Jai_Format/tests/cases");
