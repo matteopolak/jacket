@@ -35,6 +35,7 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
 
         equals := find_index_from_left(line, #char "=");
         if equals < 0 return false, tprint("line %: expected `key = value`", line_number);
+
         key := trim(slice(line, 0, equals));
         value := trim(slice(line, equals + 1, line.count - equals - 1));
 
@@ -85,6 +86,12 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
             case "blank_line_before_comments";
                 ok := parse_flag(value, *config.blank_line_before_comments);
                 if !ok return false, tprint("line %: blank_line_before_comments must be true or false", line_number);
+            case "blank_line_after_guards";
+                ok := parse_flag(value, *config.blank_line_after_guards);
+                if !ok return false, tprint("line %: blank_line_after_guards must be true or false", line_number);
+            case "blank_line_before_return";
+                ok := parse_flag(value, *config.blank_line_before_return);
+                if !ok return false, tprint("line %: blank_line_before_return must be true or false", line_number);
             case "ignore";
                 if !value.count || value[0] != #char "[" || value[value.count - 1] != #char "]" {
                     return false, tprint("line %: ignore must be an array of quoted globs on one line", line_number);
@@ -95,8 +102,10 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
                 while true {
                     items = trim(items);
                     if !items.count break;
+
                     glob, ok, after := parse_quoted_prefix(items);
                     if !ok return false, tprint("line %: ignore entries must be quoted strings", line_number);
+
                     array_add(*config.ignore, glob);
                     items = trim(after);
                     if items.count && items[0] == #char "," items = slice(items, 1, items.count - 1);
@@ -114,8 +123,10 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
 // A glob that matches a directory also ignores everything under it.
 is_ignored :: (config: Format_Config, path: string) -> bool {
     if !config.ignore.count || !config.root.count return false;
+
     root := config.root;
     if !begins_with(path, root) return false;
+
     relative := slice(path, root.count, path.count - root.count);
     while relative.count && relative[0] == #char "/" relative = slice(relative, 1, relative.count - 1);
 
@@ -187,6 +198,7 @@ strip_comment :: (line: string) -> string {
 
 parse_count :: (text: string, result: *int, low: int, high: int) -> bool {
     if !text.count return false;
+
     value := 0;
 
     for text {
@@ -197,7 +209,9 @@ parse_count :: (text: string, result: *int, low: int, high: int) -> bool {
     }
 
     if value < low return false;
+
     result.* = value;
+
     return true;
 }
 
@@ -223,8 +237,10 @@ parse_quoted :: (text: string) -> string, bool {
 
 parse_quoted_prefix :: (text: string) -> value: string, ok: bool, rest: string {
     if text.count < 2 || text[0] != #char "\"" return "", false, text;
+
     close := find_index_from_left(slice(text, 1, text.count - 1), #char "\"");
     if close < 0 return "", false, text;
+
     value := copy_string(slice(text, 1, close));
 
     return value, true, slice(text, close + 2, text.count - close - 2);

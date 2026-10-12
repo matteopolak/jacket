@@ -16,6 +16,7 @@
         if !started {
             error := cast(u32) Windows.GetLastError();
             if error == Windows.ERROR_BROKEN_PIPE return false, 0;
+
             assert(error == Windows.ERROR_IO_PENDING, "unexpected error %", error);
             transferred: s32;
             if !Windows.GetOverlappedResult(pipe.handle, pipe.overlapped, *transferred, 1) {
@@ -52,6 +53,7 @@
             ok, count := finish_io(pipe, started, amount);
 
             if !ok break;
+
             append(*builder, string.{ count, buffer.data });
         }
 

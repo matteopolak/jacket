@@ -320,6 +320,16 @@ pub enum Intrinsic {
     /// `(src) -> I64`; the payload is the width in bytes (16, 32 or 64). Bit i of the result is the
     /// top bit of byte i (`pmovmskb`).
     SignMask(u8),
+    /// `(fiber, stack: *u8, size: s64, entry, data)`: prepare the `Fiber_Context` at `fiber` so
+    /// that the first `FiberSwitch` to it calls the `#c_call` procedure `entry(data)` on the
+    /// `size` bytes of memory at `stack`. `entry` must never return.
+    FiberInit,
+    /// `(from, to)`: save the running fiber's registers and stack pointer in the `Fiber_Context`
+    /// at `from`, and continue the one at `to`. Returns when something switches back to `from`.
+    FiberSwitch,
+    /// `(fiber)`: the context at `fiber` will not be used again; release what the backend keeps
+    /// for it (nothing in native code).
+    FiberFree,
 }
 
 /// Operations on wide (`long double`) floats. `dst`, `a` and `b` are addresses of 16-byte

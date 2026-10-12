@@ -75,6 +75,7 @@ build_archive :: () -> string {
 
     put16(*b, comment.count);
     append(*b, comment);
+
     return builder_to_string(*b);
 }
 
@@ -85,10 +86,12 @@ main :: () -> s64 {
     archive := build_archive();
 
     if !write_entire_file(path, archive) return 1;
+
     defer file_delete(path);
 
     ok, dir := Zip.load_zip_directory(path);
     if !ok || dir.entries.count != 2 || dir.name != path return 2;
+
     first := dir.entries[0];
     second := dir.entries[1];
 
@@ -99,22 +102,27 @@ main :: () -> s64 {
     // Data starts after the 30-byte local header, the name and the local extra field.
     if first.chunk_offset != 30 + 5 + 3 return 7;
     if second.chunk_offset != 30 + 5 + 3 + 2 + 30 + 11 + 3 return 8;
+
     Zip.deinit(*dir);
     if dir.entries.count != 0 || dir.entries.data != null || dir.memory_block.count != 0 || dir.name.count != 0 return 9;
 
     // Keeping the file open: deinit must not touch the handle.
     ok, dir = Zip.load_zip_directory(path, close_file = false);
     if !ok return 10;
+
     handle := dir.file;
 
     Zip.deinit(*dir);
     if dir.file.handle != handle.handle return 11;
+
     // The handle still reads: the second entry's payload sits at its chunk offset.
     payload: [7] u8;
 
     if !file_set_position(dir.file, 30 + 5 + 3 + 2 + 30 + 11 + 3) return 14;
+
     read_ok, read_count := file_read(dir.file, payload.data, payload.count);
     if !read_ok || read_count != 7 || cast(string) payload != "buzzing" return 15;
+
     file_close(*dir.file);
     // Loading did not change the archive.
     unchanged, unchanged_ok := read_entire_file(path);
@@ -129,7 +137,9 @@ main :: () -> s64 {
 
     // Not an archive.
     if !write_entire_file(path, "plain text, no end record here at all") return 12;
+
     bad := Zip.load_zip_directory(path);
     if bad return 13;
+
     return 0;
 }

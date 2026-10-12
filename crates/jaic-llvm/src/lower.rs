@@ -2715,11 +2715,67 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     b.build_int_z_extend(flag, self.ctx.i8_type(), "")?.into(),
                 ])
             }
+            Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
+                if self.arch.is_wasm() => Err(
+                "fibers are not supported when compiling for WebAssembly: wasm code cannot switch stacks"
+                    .into(),
+            ),
+            // Native fibers hold nothing but their stacks, which the program owns.
+            Intrinsic::FiberFree => Ok(vec![]),
+            Intrinsic::FiberSwitch => {
+                let void = self.ctx.void_type();
+                let ty = void.fn_type(&[self.ptr_ty().into(), self.ptr_ty().into()], false);
+                let f = self.fiber_routine(jaic::fiber::SWITCH, ty)?;
+                b.build_call(f, &[ptr_arg(0)?.into(), ptr_arg(1)?.into()], "")?;
+                Ok(vec![])
+            }
+            Intrinsic::FiberInit => {
+                // (fiber, stack, size, entry, data): `prepare` lays out the first frame below the
+                // top of the stack; the context also records the stack's bounds, which Windows
+                // wants in the thread information block when it switches to the fiber.
+                let ptr = self.ptr_ty();
+                let ty = i64t.fn_type(&[i64t.into(), ptr.into(), ptr.into()], false);
+                let prepare = self.fiber_routine(jaic::fiber::PREPARE, ty)?;
+                let (fiber, stack, size) = (ptr_arg(0)?, ptr_arg(1)?, size_arg(2)?);
+                let low = b.build_ptr_to_int(stack, i64t, "")?;
+                let high = b.build_int_add(low, size, "")?;
+                let sp = basic(b.build_call(
+                    prepare,
+                    &[high.into(), ptr_arg(3)?.into(), ptr_arg(4)?.into()],
+                    "",
+                )?)
+                .ok_or("fiber prepare produced no value")?
+                .into_int_value();
+                for (offset, value) in [
+                    (jaic::fiber::SP, sp),
+                    (jaic::fiber::STACK_LOW, low),
+                    (jaic::fiber::STACK_HIGH, high),
+                    (jaic::fiber::STACK_DEALLOC, low),
+                ] {
+                    b.build_store(self.gep_const(fiber, offset)?, value)?;
+                }
+                Ok(vec![])
+            }
             Intrinsic::IsCompileTime => {
                 let ty = want.first().copied().unwrap_or(Ty::I8);
                 Ok(vec![self.ll(ty).into_int_type().const_zero().into()])
             }
         }
+    }
+
+    /// The fiber routine `name` (`jaic::fiber`), declared on first use. The assembly that defines
+    /// both routines goes into the module with the first one, with symbols local to the module.
+    fn fiber_routine(&self, name: &str, ty: FunctionType<'ctx>) -> R<FunctionValue<'ctx>> {
+        if let Some(f) = self.module.get_function(name) {
+            return Ok(f);
+        }
+        let triple = self.module.get_triple();
+        let triple = triple.as_str().to_string_lossy();
+        let macho = triple.contains("apple") || triple.contains("darwin");
+        let text =
+            jaic::fiber::module_asm(self.arch, macho).ok_or("fibers need a native target")?;
+        self.module.set_inline_assembly(&text);
+        Ok(self.module.add_function(name, ty, Some(Linkage::External)))
     }
 
     fn inline_asm(

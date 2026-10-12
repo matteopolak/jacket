@@ -2806,3 +2806,96 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
         }
     }
 }
+
+/// The fiber intrinsics (docs/compiler/fibers.md) switch stacks the same way in the interpreter
+/// and in native code, with and without optimization.
+#[test]
+fn fibers_switch_stacks_like_the_interpreter() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-switch");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/native/fibers/switch.jai");
+    let interpreted = Command::new(JAIC)
+        .arg("run")
+        .arg(&source)
+        .current_dir(source.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        interpreted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&interpreted.stderr)
+    );
+    let expected = String::from_utf8_lossy(&interpreted.stdout).into_owned();
+    assert!(expected.ends_with("ok\n"), "{expected}");
+    for (flag, name) in [("-O0", "switch-o0"), ("-O3", "switch-o3")] {
+        let exe = exe_path(&dir, name);
+        let build = Command::new(JAIC)
+            .arg("build")
+            .arg(&source)
+            .arg(flag)
+            .arg("-o")
+            .arg(&exe)
+            .current_dir(source.parent().unwrap())
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "{flag}: {}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let run = Command::new(&exe).output().unwrap();
+        assert!(run.status.success(), "{flag}");
+        assert_eq!(String::from_utf8_lossy(&run.stdout), expected, "{flag}");
+    }
+}
+
+/// A fiber that runs off its stack stops the program with a message naming the problem, and
+/// the interpreter reports its own stack limit.
+#[test]
+fn fiber_stack_overflow_names_the_problem() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-overflow");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/native/fibers/overflow.jai");
+    let native = build_and_run(&source, &dir, "overflow").unwrap();
+    assert!(!native.status.success());
+    #[cfg(unix)]
+    assert!(
+        String::from_utf8_lossy(&native.stderr).contains("fiber stack overflow"),
+        "{}",
+        String::from_utf8_lossy(&native.stderr)
+    );
+    let interpreted = Command::new(JAIC)
+        .arg("run")
+        .arg(&source)
+        .current_dir(source.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(!interpreted.status.success());
+    assert!(
+        String::from_utf8_lossy(&interpreted.stderr).contains("stack overflow"),
+        "{}",
+        String::from_utf8_lossy(&interpreted.stderr)
+    );
+}
+
+/// WebAssembly code cannot switch stacks: building says so.
+#[test]
+fn fibers_are_refused_for_wasm() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-wasm");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = repo_root().join("tests/native/fibers/switch.jai");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .args(["-os", "wasm", "-o"])
+        .arg(dir.join("switch.wasm"))
+        .current_dir(source.parent().unwrap())
+        .output()
+        .unwrap();
+    assert!(!build.status.success());
+    assert!(
+        String::from_utf8_lossy(&build.stderr).contains("cannot switch stacks"),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+}

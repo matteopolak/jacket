@@ -9,6 +9,7 @@ press :: (key: Input.Key_Code) -> Input.Event {
     event.type = .KEYBOARD;
     event.key_code = key;
     event.key_pressed = 1;
+
     return event;
 }
 

@@ -2461,6 +2461,9 @@ impl Compiler {
             "abs" | "fabs" => ir::Intrinsic::Fabs,
             "rdtsc" | "get_cpu_cycle_count" => ir::Intrinsic::CycleCounter,
             "pause" | "mm_pause" => ir::Intrinsic::Pause,
+            "fiber_init" => ir::Intrinsic::FiberInit,
+            "fiber_switch" => ir::Intrinsic::FiberSwitch,
+            "fiber_free" => ir::Intrinsic::FiberFree,
             "byte_lookup" | "sign_mask" => {
                 // The last parameter is the vector width in bytes; the IR op carries it.
                 let width = self.const_width_arg(f, slots, &args, name.as_str(), span)?;

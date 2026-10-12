@@ -69,6 +69,7 @@ power :: (base: int, $$exponent: int) -> result: int, baked: bool {
     #if is_constant(exponent) #assert(exponent >= 0);
     result := 1;
     for 1..exponent result *= base;
+
     return result, is_constant(exponent);
 }
 
@@ -90,9 +91,11 @@ tour_polymorphism :: () {
 
     recent: Ring(string, 3);
     for string.["one", "two", "three", "four", "five"] push(*recent, it);
+
     show_ring(recent);
     dice: Ring(int, 4);
     for 1..6 push(*dice, it * 11);
+
     show_ring(dice);
 
     ship := Ship.{ name = "Rocinante", x = 3, y = 4, cargo = 12 };

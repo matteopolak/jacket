@@ -159,6 +159,7 @@ main :: () {
     }
 
     if low != 0x9abc_def0 fail(13, "movq/movd");
+
     signs := float32.[-1, 2, -3, 4];
     pm := signs.data;
 
@@ -168,6 +169,7 @@ main :: () {
     }
 
     if mask != 0b0101 fail(14, "movmskps");
+
     one: float32 = 1.5;
     pone := *one;
     fill: [8] float32;

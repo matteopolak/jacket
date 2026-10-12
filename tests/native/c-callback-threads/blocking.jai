@@ -122,6 +122,7 @@ main :: () {
     sleep_milliseconds(50);
     total := 0;
     for 1..100000 total += it;
+
     flag = 1;
     thread_deinit(*worker);
     print("progress while a thread waits in C: % %\n", total, worker_result);

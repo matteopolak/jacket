@@ -29,8 +29,10 @@ main :: () {
     s := 0;
     for b s += it;
     if s != 6 exit(1);
+
     t := 0;
     for v, i: b t += v * i;
     if t != 8 exit(2);
+
     print("ok\n");
 }

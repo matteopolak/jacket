@@ -43,6 +43,7 @@ generate :: (cpu: type_of(Generate_Bindings_Options.cpu)) -> string {
         array_add(*opts.extra_clang_arguments, "-x", "objective-c");
         builder, ok := generate_bindings(opts);
         if !ok return "";
+
         return builder_to_string(*builder);
     } else {
         return "";

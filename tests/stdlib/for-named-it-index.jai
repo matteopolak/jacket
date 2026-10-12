@@ -16,9 +16,11 @@ for_expansion :: (c: Countdown, body: Code, flags: For_Flags) #expand {
 main :: () {
     seen: [..] int;
     for value: Countdown.{ 3 } array_add(*seen, value);
+
     assert(seen.count == 4 && seen[0] == 3 && seen[3] == 0);
 
     total := 0;
     for < it_index: 0..3 total += it_index;
+
     assert(total == 6);
 }

@@ -60,6 +60,7 @@ NO_RANGE :: Range.{};
 
 fail :: (state: *Parse_State, kind: Error_Kind, option: string, value: string, format: string, args: ..Any) {
     if state.error.kind != .NONE return;
+
     state.error.kind = kind;
     state.error.option = copy_string(option);
     state.error.value = copy_string(value);
@@ -90,6 +91,7 @@ run_command :: (handlers: *Command_Handlers, out: *void, set: *void, state: *Par
             }
 
             if !handlers.positional(out, set, state, token) return false;
+
             continue;
         }
 
@@ -127,6 +129,7 @@ run_command :: (handlers: *Command_Handlers, out: *void, set: *void, state: *Par
             }
 
             if outcome == .ERROR return false;
+
             continue;
         }
 
@@ -153,6 +156,7 @@ run_command :: (handlers: *Command_Handlers, out: *void, set: *void, state: *Par
 
             if outcome == .ERROR return false;
             if outcome == .DONE break;
+
             i += 1;
         }
     }
@@ -163,6 +167,7 @@ run_command :: (handlers: *Command_Handlers, out: *void, set: *void, state: *Par
 find_option :: (handlers: *Command_Handlers, out: *void, set: *void, state: *Parse_State, name: string, is_short: bool, rest: string, has_rest: bool) -> Outcome {
     outcome := handlers.option(out, set, state, name, is_short, rest, has_rest, false);
     if outcome != .NOT_FOUND return outcome;
+
     link := state.globals;
     while link {
         outcome = link.handle(link.out, link.set, state, name, is_short, rest, has_rest, true);
@@ -199,6 +204,7 @@ take_value :: (state: *Parse_State, display: string, rest: string, has_rest: boo
 
     value.* = state.argv[state.cursor];
     state.cursor += 1;
+
     return true;
 }
 
@@ -259,6 +265,7 @@ store_value :: (state: *Parse_State, display: string, text: string, dest: *$V, r
         }
 
         dest.* = number;
+
         return true;
     } else #if type_info(V).type == .FLOAT {
         number, ok, remainder := string_to_float64(text);
@@ -273,6 +280,7 @@ store_value :: (state: *Parse_State, display: string, text: string, dest: *$V, r
         }
 
         dest.* = cast(V) number;
+
         return true;
     } else {
         #assert false "Args: unsupported value type";
@@ -284,6 +292,7 @@ looks_like_integer :: (text: string) -> bool {
     if text.count && (text[0] == #char "-" || text[0] == #char "+") start = 1;
     if start >= text.count return false;
     for start..text.count - 1 if text[it] < #char "0" || text[it] > #char "9" return false;
+
     return true;
 }
 
@@ -315,12 +324,14 @@ closest :: (word: string, candidates: [] string) -> string {
     limit := max(1, word.count / 3);
     if word.count > 3 limit = max(limit, 2);
     if best_distance > limit return "";
+
     return best;
 }
 
 edit_distance :: (a: string, b: string) -> s64 {
     if !a.count return b.count;
     if !b.count return a.count;
+
     previous := NewArray(b.count + 1, s64,, temp);
     current := NewArray(b.count + 1, s64,, temp);
 
@@ -335,6 +346,7 @@ edit_distance :: (a: string, b: string) -> s64 {
 
             if current[j - 1] + 1 < best best = current[j - 1] + 1;
             if previous[j - 1] + cost < best best = previous[j - 1] + cost;
+
             current[j] = best;
         }
 

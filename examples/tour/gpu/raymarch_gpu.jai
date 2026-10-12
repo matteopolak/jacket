@@ -57,6 +57,7 @@ tour_gpu :: () {
 
     device := webgpu_request_device(instance, adapter);
     if !device return;
+
     queue := wgpuDeviceGetQueue(device);
 
     // The shader does its own gamma, so: not an sRGB format.
@@ -136,6 +137,7 @@ tour_gpu :: () {
 
         now := seconds_since_init();
         if !paused time += cast(float32) (now - last);
+
         last = now;
         aspect := cast(float32) width / cast(float32) max(height, 1);
         u := Gpu_Uniforms.{ time, aspect, palette, 0 };
@@ -210,6 +212,7 @@ Gpu_Uniforms :: struct {
 
 gpu_configure :: (surface: WGPUSurface, device: WGPUDevice, format: WGPUTextureFormat, width: s32, height: s32) {
     if width <= 0 || height <= 0 return;
+
     config: WGPUSurfaceConfiguration;
     config.device = device;
     config.format = format;

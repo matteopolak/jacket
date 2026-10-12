@@ -25,7 +25,9 @@ kinds :: (source: string) -> [..] Token_Type {
     result: [..] Token_Type;
 
     for tokens array_add(*result, it.type);
+
     array_free(tokens);
+
     return result;
 }
 
@@ -75,6 +77,7 @@ main :: () {
     tokens, lexer = lex("3.25 1e3 .5 1_000.5 2.5e-3 1e300 0.1");
     assert(tokens.count == 7);
     for tokens assert(it.type == .NUMBER && (it.value_flags & .FLOAT) != 0, "float token %", it_index);
+
     assert(tokens[0].float64_value == 3.25 && tokens[1].float64_value == 1000 && tokens[2].float64_value == 0.5);
     assert(tokens[3].float64_value == 1000.5, "underscores in a float literal: %", tokens[3].float64_value);
     assert(tokens[4].float64_value == 0.0025 && tokens[6].float64_value == 0.1);
@@ -161,6 +164,7 @@ main :: () {
 
     assert(third.ident_value.name == "c" && peek_next_token(*ring).ident_value.name == "a");
     for 0..8 eat_token(*ring);
+
     assert(get_last_token(*ring).ident_value.name == "i" && peek_next_token(*ring).ident_value.name == "j");
     seventh := peek_token(*ring, 1);
 

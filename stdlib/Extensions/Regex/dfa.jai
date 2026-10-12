@@ -117,26 +117,31 @@ dfa_init :: (d: *Dfa, program: *Program, reverse: bool, state_limit := DEFAULT_S
     d.classes = program.class_count;
     d.stride = program.class_count + 1;
     if d.unicode_word d.stride += program.class_count * CHARACTER_COLUMNS;
+
     d.byte_class = program.byte_class;
     d.state_limit = state_limit;
     for *d.starts it.* = UNKNOWN;
+
     init(*d.known, 64);
     d.mark_a = NewArray(program.insts.count, u32);
     d.mark_b = NewArray(program.insts.count, u32);
     // State 0 is dead: no instructions, every transition back to itself.
     add_state(d, 0, .[]);
     for 0..d.stride - 1 d.rows[it] = DEAD;
+
     d.trans = d.rows;
 }
 
 dfa_free :: (d: *Dfa) {
     if !d.program return;
+
     array_free(d.rows);
     array_free(d.lists);
     array_free(d.list_start);
     array_free(d.list_count);
     array_free(d.left);
     for d.known free(it_index);
+
     deinit(*d.known);
     array_free(d.resolved);
     array_free(d.next);
@@ -166,6 +171,7 @@ dfa_build_all :: (d: *Dfa) -> bool {
 
     if d.gave_up return false;
     for side: 0..5 dfa_skip(d, START_INDEX(side, false));
+
     return true;
 }
 
@@ -180,9 +186,11 @@ dfa_freeze :: (d: *Dfa) -> Dfa {
     out.byte_class = d.byte_class;
     trans := NewArray(d.rows.count, u32);
     for d.rows trans[it_index] = it;
+
     out.trans = trans;
     out.starts = d.starts;
     out.skips = d.skips;
+
     return out;
 }
 
@@ -202,11 +210,14 @@ dfa_start :: (d: *Dfa, side: int, anchored: bool) -> u32 {
     s := d.starts[index];
 
     if s != UNKNOWN || !d.program return s;
+
     d.next.count = 0;
     array_add(*d.next, ifx anchored then d.program.start else d.program.start_unanchored);
     s = state_for(d, side);
     if d.gave_up return UNKNOWN;
+
     d.starts[index] = s;
+
     return s;
 }
 
@@ -224,6 +235,7 @@ dfa_find_end :: (d: *Dfa, text: string, start: int, anchored: bool, earliest: bo
 
     s := dfa_start(d, side, anchored);
     if s == UNKNOWN return -1, true;
+
     skip: *Skip;
     skip_state := UNKNOWN;
 
@@ -282,6 +294,7 @@ dfa_find_end :: (d: *Dfa, text: string, start: int, anchored: bool, earliest: bo
     }
 
     if n & MATCH_BIT last = count;
+
     return last, false;
 }
 
@@ -297,6 +310,7 @@ dfa_find_start :: (d: *Dfa, text: string, bound: int, end: int) -> start: int, g
 
     s := dfa_start(d, side, true);
     if s == UNKNOWN return -1, true;
+
     last := -1;
     i := end;
 
@@ -317,8 +331,10 @@ dfa_find_start :: (d: *Dfa, text: string, bound: int, end: int) -> start: int, g
         }
 
         if n & MATCH_BIT last = i;
+
         n &= ~cast(u32) MATCH_BIT;
         if n == DEAD || i <= bound break;
+
         s = n;
         i -= 1;
     }
@@ -335,6 +351,7 @@ dfa_step_character :: (d: *Dfa, s: u32, text: string, at: int) -> u32 {
     n := d.trans[s + cast(u32) column];
 
     if n == UNKNOWN n = dfa_compute(d, s, column);
+
     return n;
 }
 
@@ -342,6 +359,7 @@ dfa_step_character :: (d: *Dfa, s: u32, text: string, at: int) -> u32 {
 dfa_skip :: (d: *Dfa, index: int) -> *Skip {
     skip := *d.skips[index];
     if skip.computed || !d.program return skip;
+
     skip.computed = true;
     s := d.starts[index];
     if s == UNKNOWN || s == DEAD || d.reverse return skip;
@@ -401,12 +419,15 @@ dfa_skip :: (d: *Dfa, index: int) -> *Skip {
     if !use_pair && !use_triple && best_share > SKIP_SHARE_LIMIT {
         skip.exact = false;
         if d.program.has_looks return skip;
+
         required, before, ok := required_bytes(d.program);
         if !ok return skip;
+
         skip.state = s;
         skip.kind = .REQUIRED;
         skip.set = make_set(required);
         skip.second = make_set(before);
+
         return skip;
     }
 
@@ -425,6 +446,7 @@ dfa_skip :: (d: *Dfa, index: int) -> *Skip {
         skip.set = make_set(sets[triple_a]);
         skip.second = make_set(sets[triple_b]);
         skip.third = make_set(sets[triple_c]);
+
         return skip;
     }
 
@@ -434,6 +456,7 @@ dfa_skip :: (d: *Dfa, index: int) -> *Skip {
         skip.gap = pair_b - pair_a;
         skip.set = make_set(sets[pair_a]);
         skip.second = make_set(sets[pair_b]);
+
         return skip;
     }
 
@@ -461,9 +484,11 @@ skip_to :: inline (skip: *Skip, text: string, i: int, fence: *int) -> int {
         if found < 0 return -1;
         // Walk back once per required byte: a second visit would go over the same bytes again.
         if found == fence.* return i;
+
         fence.* = found;
         at := found;
         while at > i && Byte_Search.contains(*skip.second, text[at - 1]) at -= 1;
+
         return at;
     }
 
@@ -486,8 +511,10 @@ skip_to :: inline (skip: *Skip, text: string, i: int, fence: *int) -> int {
         }
 
         if found < 0 return -1;
+
         candidate := found - skip.offset;
         if fits_checks(skip, text, candidate) return candidate;
+
         at = found + 1;
     }
 
@@ -535,12 +562,14 @@ fingerprint :: (program: *Program) -> sets: [..][256] bool, exact: bool {
         next.count = 0;
         // Everything reachable without a byte; a reachable match ends the fingerprint.
         for current array_add(*stack, it);
+
         consumers: [..] u32;
         consumers.allocator = temp;
 
         while stack.count {
             at := pop(*stack);
             if mark[at] == generation continue;
+
             mark[at] = generation;
             inst := *insts[at];
             if inst.kind == {
@@ -574,6 +603,7 @@ fingerprint :: (program: *Program) -> sets: [..][256] bool, exact: bool {
 
         if !next.count return sets, false;
         if next.count != 1 exact = false;
+
         array_add(*sets, set);
         current.count = 0;
         for next array_add(*current, it);
@@ -595,10 +625,13 @@ required_bytes :: (program: *Program) -> required: [256] bool, before: [256] boo
         required[b] = true;
         if b >= #char "a" && b <= #char "z" required[b - 32] = true;
         if b >= #char "A" && b <= #char "Z" continue; // tried with its lower case
+
         share := byte_share(required);
         if share >= best_share continue;
+
         before, ok := bytes_before(program, required);
         if !ok continue;
+
         best, best_before, best_share, found = required, before, share, true;
     }
 
@@ -621,6 +654,7 @@ bytes_before :: (program: *Program, required: [256] bool) -> [256] bool, ok: boo
     while stack.count {
         at := pop(*stack);
         if seen[at] continue;
+
         seen[at] = true;
         inst := *insts[at];
         if inst.kind == {
@@ -673,6 +707,7 @@ BYTE_SHARE :: #run -> [256] float64 {
         if b >= #char "0" && b <= #char "9" weight = 0.003;
         if b == #char "," || b == #char "." || b == #char "\n" weight = 0.01;
         if b == #char " " weight = 0.15;
+
         share[b] = weight;
     }
 
@@ -681,6 +716,7 @@ BYTE_SHARE :: #run -> [256] float64 {
     percent :: float64.[10, 7, 6.5, 6, 5.7, 5.6, 5, 5, 4.8, 3.5, 3.2, 2.3, 2.3, 2, 1.9, 1.8, 1.6, 1.6, 1.5, 1.2, 0.8, 0.6, 0.15, 0.15, 0.1, 0.07];
 
     for letters share[it] = percent[it_index] / 100;
+
     return share;
 };
 
@@ -725,11 +761,14 @@ add_state :: (d: *Dfa, side: u8, list: [] u32) -> u32 {
     array_add(*d.list_count, cast(u32) list.count);
     array_add(*d.left, side);
     for list array_add(*d.lists, it);
+
     old := d.rows.count;
 
     array_resize(*d.rows, old + d.stride, initialize = false);
     for old..d.rows.count - 1 d.rows[it] = UNKNOWN;
+
     d.trans = d.rows;
+
     return cast(u32) old;
 }
 
@@ -739,6 +778,7 @@ state_for :: (d: *Dfa, side: int) -> u32 {
     if d.next.count == 0 return DEAD;
     // Without looks, the byte before does not matter.
     if !d.program.has_looks side = 0;
+
     key := alloc_string(1 + d.next.count * 4);
     key[0] = cast(u8) side;
     memcpy(key.data + 1, d.next.data, d.next.count * 4);
@@ -756,6 +796,7 @@ state_for :: (d: *Dfa, side: int) -> u32 {
 
     s = add_state(d, cast(u8) side, d.next);
     table_add(*d.known, key, s);
+
     return s;
 }
 
@@ -786,6 +827,7 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
     left, right := behind, before_it;
 
     if d.reverse left, right = after_it, behind;
+
     here = ifx d.reverse then before_it else after_it;
 
     // A state holds where its threads continue; follow them now that the bytes on both sides
@@ -800,6 +842,7 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
         while d.stack.count {
             at := pop(*d.stack);
             if d.mark_a[at] == d.generation continue;
+
             d.mark_a[at] = d.generation;
             inst := *insts[at];
             if inst.kind == {
@@ -835,6 +878,7 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
             tr := *program.transitions[inst.next + t];
             if b < tr.lo || b > tr.hi continue;
             if d.mark_b[tr.next] == d.generation continue;
+
             d.mark_b[tr.next] = d.generation;
             array_add(*d.next, tr.next);
         }
@@ -844,7 +888,9 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
     if !end_of_text target = state_for(d, here);
     if d.gave_up return UNKNOWN;
     if matched target |= MATCH_BIT;
+
     d.rows[s + cast(u32) cls] = target;
     d.trans = d.rows;
+
     return target;
 }

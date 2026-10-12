@@ -38,5 +38,6 @@ main :: () -> s64 {
     Debugger.deinit(*report);
     Debugger.free(memory);
     Debugger.deinit_memory_debugger();
+
     return 0;
 }

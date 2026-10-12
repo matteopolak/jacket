@@ -82,7 +82,9 @@ hail :: (who: string, times := 1, ending := "!") -> string {
     push_allocator(temp);
     builder: String_Builder;
     for 1..times append(*builder, "Hey ");
+
     print_to_builder(*builder, "%%", who, ending);
+
     return builder_to_string(*builder);
 }
 

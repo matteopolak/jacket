@@ -85,6 +85,7 @@ build_and_generate :: () -> string {
     append(*checks, "#include \"msbits.h\"\n");
     for STRUCT_NAMES print_to_builder(*checks, "_Static_assert(sizeof(struct %) == %, \"%\");\n", it, EXPECTED_SIZES[it_index], it);
     if !write_entire_file(check_path, builder_to_string(*checks)) return "";
+
     result, output := run_command("clang", "-target", "x86_64-pc-windows-msvc", "-fsyntax-only", "-I", dir, check_path, capture_and_return_output = true);
     if result.exit_code != 0 return "";
 
@@ -99,6 +100,7 @@ build_and_generate :: () -> string {
     opts.generate_compile_time_struct_checks = true;
     builder, ok := generate_bindings(opts);
     if !ok return "";
+
     text := builder_to_string(*builder);
 
     // An explicit Windows target gives the same bindings.
@@ -109,6 +111,7 @@ build_and_generate :: () -> string {
     opts2.generate_compile_time_struct_checks = true;
     builder2, ok2 := generate_bindings(opts2);
     if !ok2 || builder_to_string(*builder2) != text return "";
+
     return text;
 }
 

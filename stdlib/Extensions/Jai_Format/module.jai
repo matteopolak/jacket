@@ -25,6 +25,8 @@ Format_Config :: struct {
     blank_lines_around_blocks := false; // in code blocks: a blank line before and after statements with a block body
     blank_line_between_cases := false; // in a switch: a blank line before a `case` that follows a multi-line arm
     blank_line_before_comments := false; // in code blocks: a blank line above a comment that follows code
+    blank_line_after_guards := false; // in code blocks: a blank line after a one-line `if`, `for` or `while`
+    blank_line_before_return := false; // in code blocks: a blank line above a `return`
     ignore: [..] string; // globs relative to `root`, for format_is_ignored
     root: string; // directory of the config file; set by whoever read it
 }

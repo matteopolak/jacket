@@ -30,10 +30,12 @@ main :: () {
 
     if tprint("%", a) != "12342345234" exit(1);
     if tprint("%", 5.97219e24) != "5972189887017193070000000" exit(2);
+
     big: float64 = 1e20;
     if tprint("%", big) != "100000000000000000000" exit(3);
     if tprint("%", 1e20) != "100000002004087734000" exit(5); // float32: 18 significant digits
     if tprint("%", h) != "3.141593" exit(4);
     if tprint("%", cast(float32) 1.0e39) != "Inf" exit(6); // an explicit cast rounds to infinity
+
     print("ok\n");
 }

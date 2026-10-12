@@ -78,5 +78,6 @@ main :: () -> s64 {
 
     if tprint("% %", anonymous, type_of(anonymous)) != "Q (anonymous enum)" return 22;
     if tprint("%", type_of(c_side)) != "procedure () #c_call" return 23;
+
     return 0;
 }

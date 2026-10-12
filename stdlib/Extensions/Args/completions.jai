@@ -42,9 +42,11 @@ walk_commands :: (spec: *Command_Spec, path: [] string, visits: *[..] Command_Vi
     visit.spec = spec;
     visit.path = path;
     for parents array_add(*visit.parents, it);
+
     array_add(visits, visit);
     inherited: [..] *Command_Spec;
     for parents array_add(*inherited, it);
+
     array_add(*inherited, spec);
 
     for *sub: spec.subcommands {
@@ -112,10 +114,12 @@ bash_script :: (root: *Command_Spec) -> string {
     for visit: visits {
         for option: accepted_options(visit) {
             if !takes_value(option) continue;
+
             spellings: [..] string;
 
             array_add(*spellings, tprint("--%", option.long));
             if option.short array_add(*spellings, tprint("-%", short_text(option.short)));
+
             print(*out, "        %:%)\n", command_key(root.name, visit.path), join(..spellings, "|"));
 
             if option.choices.count {
@@ -151,12 +155,14 @@ bash_script :: (root: *Command_Spec) -> string {
 
         subcommands: [..] string;
         for visit.spec.subcommands array_add(*subcommands, it.name);
+
         print(*out, "        %) words=\"%\"; subcommands=\"%\" ;;\n", command_key(root.name, visit.path), join(..words, " "), join(..subcommands, " "));
     }
 
     append(*out, "    esac\n\n    if [[ \"$cur\" == -* ]]; then\n        COMPREPLY=($(compgen -W \"$words\" -- \"$cur\"))\n");
     append(*out, "    elif [[ -n \"$subcommands\" ]]; then\n        COMPREPLY=($(compgen -W \"$subcommands\" -- \"$cur\"))\n    else\n        COMPREPLY=($(compgen -f -- \"$cur\"))\n    fi\n}\n\n");
     print(*out, "complete -F _% -o bashdefault -o default %\n", function, root.name);
+
     return builder_to_string(*out);
 }
 
@@ -167,6 +173,7 @@ zsh_text :: (text: string) -> string {
     escaped := replace(text, "'", "'\\''",, temp);
     escaped = replace(escaped, "[", "\\[",, temp);
     escaped = replace(escaped, "]", "\\]",, temp);
+
     return escaped;
 }
 
@@ -212,6 +219,7 @@ zsh_script :: (root: *Command_Spec) -> string {
         if visit.spec.subcommands.count {
             append(*out, "        '1: :->command' \\\n        '*:: :->arguments' && return\n    case $state in\n        command)\n            local -a commands\n            commands=(\n");
             for visit.spec.subcommands print(*out, "                '%:%'\n", it.name, replace(zsh_text(it.about), ":", "\\:",, temp));
+
             append(*out, "            )\n            _describe -t commands 'command' commands ;;\n        arguments)\n            case $line[1] in\n");
 
             for sub: visit.spec.subcommands {
@@ -228,6 +236,7 @@ zsh_script :: (root: *Command_Spec) -> string {
     }
 
     print(*out, "if [ \"$funcstack[1]\" = \"_%\" ]; then\n    _% \"$@\"\nelse\n    compdef _% %\nfi\n", function, function, function, root.name);
+
     return builder_to_string(*out);
 }
 
@@ -254,6 +263,7 @@ fish_script :: (root: *Command_Spec) -> string {
 
             print(*line, "complete -c %%", root.name, condition);
             if option.short print(*line, " -s %", short_text(option.short));
+
             print(*line, " -l %", option.long);
 
             if takes_value(option) {
@@ -263,6 +273,7 @@ fish_script :: (root: *Command_Spec) -> string {
             }
 
             if option.help.count print(*line, " -d '%'", single_quoted(option.help));
+
             print(*out, "%\n", builder_to_string(*line,, temp));
 
             if option.negatable {
@@ -307,8 +318,10 @@ powershell_script :: (root: *Command_Spec) -> string {
 
     for visit: visits {
         if !visit.path.count continue;
+
         parent_path: [..] string;
         for i: 0..visit.path.count - 2 array_add(*parent_path, visit.path[i]);
+
         parent_key := join(..parent_path, ";", before_first = true);
 
         print(*out, "            '%%;%' { $command = '%;%' }\n", root.name, parent_key, visit.path[visit.path.count - 1], root.name, join(..visit.path, ";"));
@@ -321,6 +334,7 @@ powershell_script :: (root: *Command_Spec) -> string {
     for visit: visits {
         for option: accepted_options(visit) {
             if !takes_value(option) || !option.choices.count continue;
+
             names: [..] string;
 
             array_add(*names, tprint("--%", option.long));
@@ -368,5 +382,6 @@ powershell_script :: (root: *Command_Spec) -> string {
     }
 
     append(*out, "    }\n\n    $completions | Where-Object { $_.CompletionText -like \"$wordToComplete*\" }\n}\n");
+
     return builder_to_string(*out);
 }

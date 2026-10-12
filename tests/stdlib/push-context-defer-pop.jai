@@ -15,6 +15,7 @@ main :: () {
     }
 
     if context.thread_index != before exit(3);
+
     print("ok\n");
 }
 

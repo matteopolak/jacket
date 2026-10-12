@@ -8,6 +8,7 @@ work :: (n: int) -> int {
     defer Iprof.zone_end();
     sum := 0;
     for 0..n - 1 sum += it * it;
+
     return sum;
 }
 

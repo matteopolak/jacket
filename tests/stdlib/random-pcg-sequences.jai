@@ -26,8 +26,10 @@ random_module :: () {
 
     R.random_seed(*state, 12345);
     for seeded assert(R.random_get(*state) == it, "seed 12345 draw %", it_index);
+
     R.random_seed(12345);
     for seeded assert(R.random_get() == it, "context seed 12345 draw %", it_index);
+
     R.random_seed(12345);
     floats := u32.[0x3f4ad250, 0x3b06eb01, 0x3e8acfa7];
     for floats {
@@ -108,8 +110,10 @@ pcg_module :: () {
 
     P.random_seed(*state, 42);
     for expected_42 assert(P.random_get(*state) == it, "pcg seed 42 draw %", it_index);
+
     P.random_seed(42);
     for expected_42 assert(P.random_get() == it, "pcg global seed 42 draw %", it_index);
+
     assert(P.pcg32_state == state, "the global and explicit states agree");
 
     // Bounded draws: every value in range, all of them hit, roughly uniformly.
@@ -130,6 +134,7 @@ pcg_module :: () {
     }
 
     for counts assert(it > DRAWS / 7 * 9 / 10 && it < DRAWS / 7 * 11 / 10, "value % drawn % times", it_index, it);
+
     P.random_seed(3);
     for 1..1000 assert(P.random_get_within_bound(10) < 10);
 

@@ -51,6 +51,7 @@ constant_wav :: (frames: int, value: s16) -> string {
     append(*builder, "data");
     u32le(*builder, frames * 2);
     for 1..frames u16le(*builder, cast(u16) value);
+
     return builder_to_string(*builder);
 }
 
@@ -98,6 +99,7 @@ temporary_storage_frames :: (data: *Sound_Data) {
     }
 
     for 57..59 stop_stream_abruptly(FIRST_ID + it);
+
     render(64);
 }
 

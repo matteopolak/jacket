@@ -26,6 +26,7 @@ main :: () {
     assert(big != null && cast(u64) big % 8 == 0);
     memset(big, 1, 100003);
     for 0..99 assert(first[it] == cast,trunc(u8) it, "earlier data survived");
+
     used, outband := calculate_used_memory(p);
 
     assert(used >= 2000 * 64 && outband == 1);

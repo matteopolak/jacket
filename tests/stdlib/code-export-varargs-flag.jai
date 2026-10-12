@@ -22,10 +22,12 @@ JAI
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
+
         tc := cast(*Message_Typechecked) message;
         for tc.procedure_headers {
             h := it.expression;
             if h.name != "say" && h.name != "gather" continue;
+
             assert(h.arguments.count == 2, "% has % arguments", h.name, h.arguments.count);
             first := h.arguments[0];
             last := h.arguments[1];

@@ -191,8 +191,10 @@ wasi_getenv :: (name: *u8) -> *u8 #c_call {
 wasi_clock_gettime :: (clock: s32, result: *Seconds_And_Nanoseconds) -> s32 #c_call {
     nanoseconds: u64;
     if wasi_clock_time_get(cast,no_check(u32) clock, 1, offset32(*nanoseconds)) != 0 return -1;
+
     result.seconds = cast(s64) (nanoseconds / 1_000_000_000);
     result.nanoseconds = cast(s64) (nanoseconds % 1_000_000_000);
+
     return 0;
 }
 
@@ -227,6 +229,7 @@ wasi_localtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time
 #program_export "gmtime_r"
 wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c_call {
     if !time || !result return null;
+
     seconds := time.*;
     days := seconds / 86400;
     second_of_day := seconds % 86400;
@@ -241,6 +244,7 @@ wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c
     cycles := shifted / 146097;
 
     if shifted < 0 && shifted % 146097 != 0 cycles -= 1;
+
     day_of_cycle := shifted - cycles * 146097;
     year_of_cycle := (day_of_cycle - day_of_cycle / 1460 + day_of_cycle / 36524 - day_of_cycle / 146096) / 365;
     day_of_year := day_of_cycle - (365 * year_of_cycle + year_of_cycle / 4 - year_of_cycle / 100);
@@ -250,13 +254,16 @@ wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c
     year := year_of_cycle + cycles * 400;
 
     if month <= 2 year += 1;
+
     leap := (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     days_before_month :: s64.[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
     day_in_year := days_before_month[month - 1] + day - 1;
 
     if leap && month > 2 day_in_year += 1;
+
     weekday := (days + 4) % 7; // 1970-01-01 was a Thursday.
     if weekday < 0 weekday += 7;
+
     result.* = .{};
     result.second = cast(s32) (second_of_day % 60);
     result.minute = cast(s32) (second_of_day / 60 % 60);
@@ -266,6 +273,7 @@ wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c
     result.years_since_1900 = cast,no_check(s32) (year - 1900);
     result.day_of_week = cast(s32) weekday;
     result.day_of_year = cast(s32) day_in_year;
+
     return result;
 }
 
@@ -431,13 +439,16 @@ environment_ready: bool;
 load_environment :: () #no_context {
     count, text_bytes: u32;
     if wasi_environ_sizes_get(offset32(*count), offset32(*text_bytes)) != 0 return;
+
     table := cast(*u64) heap_take(cast(u64) (count + 1) * 8);
     text := heap_take(cast(u64) text_bytes + 1);
 
     if !table || !text return;
     if wasi_environ_get(offset32(table), offset32(text)) != 0 return;
+
     offsets := cast(*u32) table;
     for < i: 0..cast(s64) count - 1 table[i] = cast(u64) offsets[i];
+
     table[count] = 0;
     environment = cast(**u8) table;
 }
@@ -542,18 +553,21 @@ heap_take :: (bytes: u64) -> *u8 #no_context {
 
         if pages < GROWTH_PAGES pages = GROWTH_PAGES;
         if memory_add_pages(0, pages) < 0 return null;
+
         heap_limit += cast(u64) pages * PAGE_BYTES;
     }
 
     result := cast(*u8) heap_cursor;
 
     heap_cursor += size;
+
     return result;
 }
 
 #program_export "malloc"
 wasi_malloc :: (size: u64) -> *void #c_call {
     if size > (cast(u64) 1 << 46) return null;
+
     class := class_for(size + TAG_BYTES);
     block := cast(*u8) free_by_class[class];
 
@@ -565,12 +579,14 @@ wasi_malloc :: (size: u64) -> *void #c_call {
     }
 
     (cast(*s64) block).* = class;
+
     return block + TAG_BYTES;
 }
 
 #program_export "free"
 wasi_free :: (memory: *void) #c_call {
     if !memory return;
+
     block := cast(*u8) memory - TAG_BYTES;
     class := (cast(*s64) block).*;
     entry := cast(*Free_Block) block;
@@ -591,19 +607,24 @@ wasi_realloc :: (memory: *void, size: u64) -> *void #c_call {
     room := (cast(u64) 1 << cast(u64) class) - TAG_BYTES;
 
     if size <= room return memory;
+
     moved := wasi_malloc(size);
     if !moved return null;
+
     memcpy(moved, memory, cast(s64) room);
     wasi_free(memory);
+
     return moved;
 }
 
 #program_export "calloc"
 wasi_calloc :: (count: u64, size: u64) -> *void #c_call {
     if size != 0 && count > 0xffff_ffff_ffff_ffff / size return null;
+
     total := count * size;
     memory := wasi_malloc(total);
 
     if memory memset(memory, 0, cast(s64) total);
+
     return memory;
 }

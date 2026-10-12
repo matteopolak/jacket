@@ -140,6 +140,7 @@ check_calendar_round_trips :: () {
         assert(c.hour == 12 && c.minute == 0 && c.second == 0 && c.millisecond == 0);
         assert(calendar_to_apollo(c) == t, "round trip failed on day %", it);
         if previous_weekday >= 0 assert(c.day_of_week_starting_at_0 == (previous_weekday + 1) % 7, "weekdays advance by one on day %", it);
+
         previous_weekday = c.day_of_week_starting_at_0;
 
         if c.day_of_month_starting_at_0 == 0 {
@@ -250,6 +251,7 @@ check_int128 :: () {
 
         if it % 3 == 0 v.high = 0;
         if !v continue;
+
         q, r, error := unsigned_divide_with_remainder(u, v);
 
         assert(!error);

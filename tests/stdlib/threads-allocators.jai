@@ -79,6 +79,7 @@ churn :: (thread: *Thread) -> s64 {
     }
 
     for blocks if it free(it, allocators[it_index]);
+
     return 0;
 }
 

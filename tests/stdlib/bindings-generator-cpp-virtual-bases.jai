@@ -63,6 +63,7 @@ build_and_generate :: () -> string {
     opts.generate_compile_time_struct_checks = true;
     builder, ok := generate_bindings(opts);
     if !ok return "";
+
     return builder_to_string(*builder);
 }
 

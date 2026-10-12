@@ -111,11 +111,13 @@ main :: () {
 
         assert(forward.count == 5 && forward[0] == #char "h" && forward[1] == 0xE9 && forward[2] == 0x20AC && forward[3] == 0x1F600 && forward[4] == #char "!", "forward %", forward);
         for indices assert(it == it_index, "index % is %", it_index, it);
+
         // The string itself is not consumed.
         assert(text.count == 11);
 
         backward: [..] u32;
         for <: utf8_iter * text array_add(*backward, it);
+
         assert(backward.count == 5, "% backwards", backward.count);
         for backward assert(it == forward[4 - it_index], "backward % is %", it_index, it);
 
@@ -130,6 +132,7 @@ main :: () {
         for: utf8_iter * empty count += 1;
 
         for <: utf8_iter * empty count += 1;
+
         assert(count == 0);
         // break leaves the loop early.
         count = 0;

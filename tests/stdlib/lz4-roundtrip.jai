@@ -14,8 +14,10 @@ compress :: (input: [] u8, level: s32) -> [] u8 {
 
     if level == 0 size = LZ4_compress_default(input.data, out.data, cast(s32) input.count, capacity);
     else size = LZ4_compress_HC(input.data, out.data, cast(s32) input.count, capacity, level);
+
     assert(size > 0, "compression produced % bytes", size);
     out.count = size;
+
     return out;
 }
 
@@ -23,11 +25,13 @@ round_trip :: (name: string, input: [] u8, expect_smaller: bool) {
     for level: s32.[0, 1, 9, 12] {
         packed := compress(input, level);
         if expect_smaller assert(packed.count < input.count / 2, "% at level %: % -> % bytes", name, level, input.count, packed.count);
+
         back := NewArray(input.count, u8);
         size := LZ4_decompress_safe(packed.data, back.data, cast(s32) packed.count, cast(s32) back.count);
 
         assert(size == input.count, "% at level %: decompressed % of % bytes", name, level, size, input.count);
         for i: 0..input.count - 1 assert(back[i] == input[i], "% at level %: byte % differs", name, level, i);
+
         array_free(packed);
         array_free(back);
     }
@@ -48,6 +52,7 @@ main :: () {
     phrase := "the quick brown fox jumps over the lazy dog; ";
 
     for 0..text.count - 1 text[it] = phrase[it % phrase.count];
+
     round_trip("text", text, true);
 
     // Pseudo-random bytes do not compress; the output still stays within the bound and round-trips.

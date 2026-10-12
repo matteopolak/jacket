@@ -106,6 +106,7 @@ main :: () {
     assert(contains(lines[1], "self ms") && contains(lines[1], "hier ms"), "%", text);
     leaf_line := "";
     for lines if ends_with(it, " leaf") leaf_line = it;
+
     assert(contains(leaf_line, " 7 "), "%", text);
 
     // CSV report.

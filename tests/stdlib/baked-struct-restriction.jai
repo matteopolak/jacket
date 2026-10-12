@@ -22,5 +22,6 @@ main :: () {
 
     if which(a) != 3 exit(1);
     if which(b) != 2 exit(2);
+
     print("ok\n");
 }

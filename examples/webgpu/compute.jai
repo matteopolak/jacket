@@ -32,8 +32,10 @@ main :: () {
     adapter := webgpu_request_adapter(instance);
 
     if !adapter exit(1);
+
     device := webgpu_request_device(instance, adapter);
     if !device exit(1);
+
     queue := wgpuDeviceGetQueue(device);
 
     wgsl: WGPUShaderSourceWGSL;
@@ -81,10 +83,12 @@ main :: () {
 
     // Waits for the GPU (and, in the browser, for the page) until the copy can be read.
     if !webgpu_map_buffer(instance, readback, .Read) exit(1);
+
     steps := cast(*u32) wgpuBufferGetConstMappedRange(readback, 0, SIZE);
     longest := 0;
 
     for 1..COUNT - 1 if steps[it] > steps[longest] longest = it;
+
     print("Below %, % takes the most Collatz steps: %.\n", COUNT + 1, longest + 1, steps[longest]);
     print("27 takes %.\n", steps[26]);
     wgpuBufferUnmap(readback);

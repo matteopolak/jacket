@@ -61,6 +61,7 @@ triangle_keys :: (indices: [] u32) -> [] u64 {
     }
 
     quick_sort(keys, (x: u64, y: u64) => (cast(s64) x - cast(s64) y));
+
     return keys;
 }
 
@@ -100,6 +101,7 @@ main :: () {
     assert(after.acmr < before.acmr, "ACMR %, was %", after.acmr, before.acmr);
     assert(after.acmr < 1.0, "a grid reaches an ACMR near 0.5, got %", after.acmr);
     for optimized assert(it < unique, "optimized index % out of range", it);
+
     after_keys := triangle_keys(optimized);
 
     assert(after_keys.count == before_keys.count);
@@ -156,6 +158,7 @@ main :: () {
     // The codec keeps the triangle order but may rotate the corners within a triangle.
     decoded_keys := triangle_keys(decoded);
     for before_keys assert(decoded_keys[it_index] == it, "index codec changed the triangles at %", it_index);
+
     corrupt := NewArray(cast(s64) encoded_size, u8);
 
     memcpy(corrupt.data, encoded.data, cast(s64) encoded_size);

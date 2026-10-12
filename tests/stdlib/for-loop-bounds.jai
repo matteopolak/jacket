@@ -28,6 +28,7 @@ check :: () -> bool {
     if count != 0 return false;
     for 7..7 count += 1;
     if count != 1 return false;
+
     total := 0;
     for < 1..4 total = total * 10 + it;
     if total != 4321 return false;
@@ -74,6 +75,7 @@ check :: () -> bool {
     }
 
     if visited != 4 return false;
+
     sum := 0;
 
     for values {
@@ -88,6 +90,7 @@ check :: () -> bool {
     target: [8] s16;
 
     for 0..7 source[it] = cast(s16) (it * 3 - 7);
+
     data := cast(*u8) source.data;
 
     for 0..7 {
@@ -100,6 +103,7 @@ check :: () -> bool {
     empty: [] int;
     for empty return false;
     for < empty return false;
+
     return true;
 }
 

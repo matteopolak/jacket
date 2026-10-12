@@ -53,6 +53,7 @@ tour_memory :: () {
         push_allocator(counting_allocator_proc, *counter);
         numbers: [..] int;
         for 1..100 array_add(*numbers, it);
+
         greeting := sprint("hello from %", "the context");
 
         free(greeting);

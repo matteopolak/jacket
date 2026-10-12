@@ -73,6 +73,7 @@ make_pk_i8x3 :: (seed: s32) -> pk_i8x3 #c_call {
     r.f0 = cast(s8) (seed + 1);
     r.f1 = cast(s8) (seed + 2);
     r.f2 = cast(s8) (seed + 3);
+
     return r;
 }
 
@@ -117,6 +118,7 @@ make_pk_i8i64x2 :: (seed: s32) -> pk_i8i64x2 #c_call {
     r.f0 = cast(s8) (seed + 1);
     r.f1 = cast(s64) (seed + 2);
     r.f2 = cast(s64) (seed + 3);
+
     return r;
 }
 
@@ -163,6 +165,7 @@ make_pk_f64x4 :: (seed: s32) -> pk_f64x4 #c_call {
     r.f1 = cast(float64) (seed + 2.5);
     r.f2 = cast(float64) (seed + 3.5);
     r.f3 = cast(float64) (seed + 4.5);
+
     return r;
 }
 
@@ -374,6 +377,7 @@ make_pk_i8f32x2 :: (seed: s32) -> pk_i8f32x2 #c_call {
     r.f0 = cast(s8) (seed + 1);
     r.f1 = cast(float32) (seed + 2.5);
     r.f2 = cast(float32) (seed + 3.5);
+
     return r;
 }
 
@@ -417,6 +421,7 @@ make_pk_ai32x2 :: (seed: s32) -> pk_ai32x2 #c_call {
     r.f0 = cast(s8) (seed + 1);
     r.f1[0] = cast(s32) (seed + 2);
     r.f1[1] = cast(s32) (seed + 3);
+
     return r;
 }
 

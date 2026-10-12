@@ -43,12 +43,14 @@ ONEPASS_STATIC_STATE_LIMIT :: 256;
 onepass_build :: (program: *Program, state_limit: int) -> OnePass {
     out: OnePass;
     if program.insts.count > 100_000 return out;
+
     b: Builder;
     b.program = program;
     b.stride = program.class_count;
     b.limit = state_limit;
     b.state_of = NewArray(program.insts.count, u32);
     for *b.state_of it.* = NO_EDGE;
+
     b.seen = NewArray(program.insts.count, u32);
     b.seen_need = NewArray(program.insts.count, u32);
     array_add(*b.updates, 0);
@@ -75,6 +77,7 @@ onepass_build :: (program: *Program, state_limit: int) -> OnePass {
     }
 
     if b.failed return out;
+
     out.ok = true;
     out.stride = b.stride;
     out.slot_count = program.slot_count;
@@ -82,15 +85,19 @@ onepass_build :: (program: *Program, state_limit: int) -> OnePass {
     out.byte_class = program.byte_class;
     out.trans = NewArray(b.trans.count, Edge);
     for b.trans out.trans[it_index] = it;
+
     out.finals = NewArray(b.finals.count, Edge);
     for b.finals out.finals[it_index] = it;
+
     out.updates = NewArray(b.updates.count, u32);
     for b.updates out.updates[it_index] = it;
+
     return out;
 }
 
 onepass_free :: (t: *OnePass) {
     if !t.ok return;
+
     array_free(t.trans);
     array_free(t.finals);
     array_free(t.updates);
@@ -102,6 +109,7 @@ onepass_free :: (t: *OnePass) {
 // the table finds no path that ends exactly at `e`.
 onepass_search :: (t: *OnePass, text: string, s: int, e: int, slots: [] int) -> bool {
     for *slots it.* = -1;
+
     state := t.start;
     pos := s;
 
@@ -110,6 +118,7 @@ onepass_search :: (t: *OnePass, text: string, s: int, e: int, slots: [] int) -> 
         if edge.next == NO_EDGE return false;
         if edge.need != 0 && !looks_hold(edge.need, text, pos) return false;
         if edge.updates != 0 apply_updates(t, edge.updates, pos, slots);
+
         state = cast(int) edge.next;
         pos += 1;
     }
@@ -118,6 +127,7 @@ onepass_search :: (t: *OnePass, text: string, s: int, e: int, slots: [] int) -> 
     if final.next == 0 return false;
     if final.need != 0 && !looks_hold(final.need, text, pos) return false;
     if final.updates != 0 apply_updates(t, final.updates, pos, slots);
+
     return true;
 }
 
@@ -168,6 +178,7 @@ state_for :: (b: *Builder, pc: u32) -> u32 {
 
     b.state_of[pc] = at;
     array_add(*b.entries, pc);
+
     return at;
 }
 
@@ -177,6 +188,7 @@ fill_state :: (b: *Builder, index: int) -> bool {
     row := index * b.stride;
 
     for 1..b.stride array_add(*b.trans, .{ NO_EDGE, 0, 0 });
+
     array_add(*b.finals, .{ 0, 0, 0 });
     if !explore(b, b.entries[index]) return false;
 
@@ -243,6 +255,7 @@ explore :: (b: *Builder, entry: u32) -> bool {
             if inst.kind == {
                 case .MATCH;
                     if guarded_match return false;
+
                     array_add(*b.leaves, .{ pc, intern_updates(b), need });
 
                     if need == 0 {
@@ -255,6 +268,7 @@ explore :: (b: *Builder, entry: u32) -> bool {
                     break;
                 case .RANGES;
                     if guarded_match return false;
+
                     array_add(*b.leaves, .{ pc, intern_updates(b), need });
                     break;
                 case .SPLIT;
@@ -278,6 +292,7 @@ explore :: (b: *Builder, entry: u32) -> bool {
 // Stores the current path's slots as a sorted list without repeats; returns its index.
 intern_updates :: (b: *Builder) -> u32 {
     if b.path.count == 0 return 0;
+
     list: [..] u32;
 
     defer array_free(list);
@@ -286,6 +301,7 @@ intern_updates :: (b: *Builder) -> u32 {
         at := 0;
         while at < list.count && list[at] < slot at += 1;
         if at < list.count && list[at] == slot continue;
+
         array_add(*list, slot);
         k := list.count - 1;
         while k > at {
@@ -300,6 +316,7 @@ intern_updates :: (b: *Builder) -> u32 {
 
     array_add(*b.updates, cast(u32) list.count);
     for list array_add(*b.updates, it);
+
     return index;
 }
 

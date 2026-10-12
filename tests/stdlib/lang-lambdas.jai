@@ -46,5 +46,6 @@ main :: () -> int {
 
     zero :: () => 1000;
     if zero() != 1000 return 12;
+
     return 0;
 }

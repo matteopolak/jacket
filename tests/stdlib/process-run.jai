@@ -256,6 +256,7 @@ helpers :: () {
 
     assert(words.count == expected.count, "% words", words.count);
     for expected assert(words[it_index] == it, "word % is '%', expected '%'", it_index, words[it_index], it);
+
     assert(break_command_into_strings("").count == 0);
     assert(break_command_into_strings("   \t\n").count == 0);
     escaped := break_command_into_strings("a\\\"b 'c\\d'");

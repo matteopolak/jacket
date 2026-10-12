@@ -36,6 +36,7 @@ make_pk_nested :: (seed: s32) -> pk_nested #c_call {
     r.f0 = cast(s8) (seed + 1);
     r.f1.f0 = cast(s8) (seed + 2);
     r.f1.f1 = cast(s32) (seed + 3);
+
     return r;
 }
 
@@ -197,6 +198,7 @@ make_big1k :: (seed: s32) -> big1k #c_call {
     r.f0[125] = cast(s64) (seed + 126);
     r.f0[126] = cast(s64) (seed + 127);
     r.f0[127] = cast(s64) (seed + 128);
+
     return r;
 }
 

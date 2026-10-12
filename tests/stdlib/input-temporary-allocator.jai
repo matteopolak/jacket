@@ -23,6 +23,7 @@ key_event :: (key: Input.Key_Code, pressed: bool) -> Input.Event {
     event.type = .KEYBOARD;
     event.key_code = key;
     event.key_pressed = xx pressed;
+
     return event;
 }
 
@@ -40,6 +41,7 @@ check_frame :: (frame: int) {
     expected_events := base + 4;
 
     if frame % 10 == 0 expected_events += 1;
+
     assert(Input.events_this_frame.count == expected_events, "frame %: % events", frame, Input.events_this_frame.count);
 
     if base {
@@ -88,6 +90,7 @@ main :: () {
         previous := window_for((frame + WINDOWS - 1) % WINDOWS);
 
         if frame > 0 Input.set_input_focus(previous, false);
+
         Input.set_input_focus(window, true);
         Input.queue_input_event(window, key_event(function_key(frame), true));
         text: Input.Event;

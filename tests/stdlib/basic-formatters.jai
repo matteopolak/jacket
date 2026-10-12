@@ -28,6 +28,7 @@ main :: () -> s64 {
     if tprint("%", legacy) != "-9223372036854775808" return 2;
     if tprint("%", formatInt(12034, minimum_digits = 7, digits_per_comma = 3, comma_string = ",")) != "0,012,034" return 3;
     if tprint("%", formatInt(255, base = 16, minimum_digits = 4)) != "00ff" return 4;
+
     big: u64 = 0xfedc_ba98_7654_3210;
     if tprint("%", formatInt(big, base = 16)) != "fedcba9876543210" return 19;
 
@@ -37,6 +38,7 @@ main :: () -> s64 {
     if legacy_float.value.type != type_info(float64) || legacy_float.mode != .DECIMAL return 5;
     if tprint("%", legacy_float) != "1.25" return 6;
     if tprint("%", formatFloat(number, width = 6, trailing_width = 2, zero_removal = .NO)) != "  1.25" return 7;
+
     negative_zero: float64 = -0.0;
     if tprint("%", formatFloat(negative_zero, trailing_width = 2, zero_removal = .NO)) != "-0.00" return 8;
 
@@ -46,6 +48,7 @@ main :: () -> s64 {
 
     if !member || member.offset_in_bytes == 0 || member.type != type_info(Formatter) return 9;
     if tprint("%", wrapped) != "view" return 10;
+
     direct := Formatter.{ value = text };
     if tprint("%", direct) != "view" return 11;
 
@@ -53,6 +56,7 @@ main :: () -> s64 {
     legacy_struct := formatStruct(sample);
 
     if legacy_struct.value.type != type_info(Sample_Record) || legacy_struct.use_long_form_if_more_than_this_many_members != 5 return 12;
+
     expected := "{3, \"x\"}";
     if tprint("%", legacy_struct) != expected || tprint("%", formatStruct(sample)) != expected return 13;
     if tprint("%2:%1:\%", "first", "second") != "second:first:%" return 14;
@@ -60,5 +64,6 @@ main :: () -> s64 {
     if tprint("%", cast(Sample_Flags) 0) != "0" return 16;
     if type_to_string(Procedure_Kind) != "procedure (s64) -> bool" return 17;
     if tprint("%", formatStruct(*sample)) != expected return 18;
+
     return 0;
 }

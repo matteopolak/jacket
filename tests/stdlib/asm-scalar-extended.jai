@@ -242,6 +242,7 @@ main :: () {
     {
         table: [256] u8;
         for 0..255 table[it] = cast(u8) (255 - it);
+
         t := table.data;
         al: u64 = 0xabcd_0010;
 
@@ -255,6 +256,7 @@ main :: () {
         dst: [64] u8;
 
         for 0..63 src[it] = cast(u8) (it * 3 + 1);
+
         di := dst.data;
         si := src.data;
         c: u64 = 5;
@@ -271,6 +273,7 @@ main :: () {
         // Overlapping backward copy (std) moves bytes 0..9 up by 3.
         buf: [16] u8;
         for 0..15 buf[it] = cast(u8) it;
+
         bd := buf.data + 12;
         bs := buf.data + 9;
         n: u64 = 10;
@@ -375,5 +378,6 @@ main :: () {
     }
 
     if failures exit(1);
+
     print("ok\n");
 }

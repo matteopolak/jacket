@@ -609,7 +609,7 @@ impl Interp {
         let id = {
             let mut s = shared.lock();
             let state = ExecState {
-                stack: vec![0u64; THREAD_STACK / 8].into_boxed_slice(),
+                stack: ValueStack::heap(THREAD_STACK / 8),
                 ..ExecState::default()
             };
             s.threads.push(GThread::new(false, Some(state)));

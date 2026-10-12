@@ -31,6 +31,7 @@ main :: () {
 
     assert(names.count == count, "one name per frame");
     for names assert(it.count > 0, "frames have names");
+
     Debug.free_backtrace(names);
     // More names asked for than frames given: only the frames are named.
     names = Debug.translate_symbols(array_view(frames, 0, count), count + 5);

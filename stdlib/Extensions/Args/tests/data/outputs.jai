@@ -19,6 +19,7 @@ tool_help_page :: (args: ..string) -> string {
 
     array_add(*argv, "tool");
     for args array_add(*argv, it);
+
     _, error := Args.try_parse(Tool, TOOL_HELP, argv);
 
     return error.text;
@@ -36,6 +37,7 @@ help_outputs :: () -> [] Named_Text {
     array_add(*list, .{ "OPTIONAL_HELP_TEXT", Args.help_text(Optional_Tool, OPTIONAL_HELP, "opt") });
     array_add(*list, .{ "TOOL_BUILD_HELP", tool_help_page("build", "--help") });
     array_add(*list, .{ "TOOL_REMOTE_HELP", tool_help_page("remote-add", "-h") });
+
     return list;
 }
 
@@ -50,5 +52,6 @@ completion_outputs :: () -> [] Named_Text {
     array_add(*list, .{ "TOOL_ZSH", Args.completions(Tool, TOOL_HELP, .ZSH, "tool") });
     array_add(*list, .{ "TOOL_FISH", Args.completions(Tool, TOOL_HELP, .FISH, "tool") });
     array_add(*list, .{ "TOOL_POWERSHELL", Args.completions(Tool, TOOL_HELP, .POWERSHELL, "tool") });
+
     return list;
 }

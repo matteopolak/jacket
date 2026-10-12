@@ -67,6 +67,7 @@ main :: () {
     assert(samples.count == SAMPLES_PER_FRAME, "% samples in the first block", samples.count);
     loudest: float;
     for 0..SAMPLES_PER_FRAME * 2 - 1 loudest = max(loudest, abs(samples.interleaved[it]));
+
     assert(loudest > 0.1 && loudest <= 1.0, "peak %", loudest);
 
     // Rewinding starts over: the same number of frames again.
@@ -97,6 +98,7 @@ main :: () {
     assert(create_with_filename("no-such-clip.mpg") == null);
     junk: [64] u8;
     for 0..63 junk[it] = cast,trunc(u8) (it * 7 + 3);
+
     not_mpeg := create_with_memory(junk, false);
 
     assert(not_mpeg == null || !has_headers(not_mpeg), "junk has no headers");

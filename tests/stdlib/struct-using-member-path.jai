@@ -22,6 +22,7 @@ main :: () -> s64 {
     t.texture.desc.width = 4;
     t.height = 7;
     if t.width != 4 || t.height != 7 || t.texture.desc.height != 7 return 1;
+
     return 0;
 }
 

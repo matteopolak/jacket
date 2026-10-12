@@ -58,10 +58,12 @@ generate :: (name: string, windows: bool) -> string {
     opts.generate_library_declarations = false;
     array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
     if windows opts.os = .WINDOWS;
+
     assert(generate_bindings(opts, output_path));
     text, ok := read_entire_file(output_path);
 
     assert(ok);
+
     return text;
 }
 

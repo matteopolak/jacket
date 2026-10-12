@@ -37,6 +37,7 @@ main :: () -> s64 {
     // Pointers print as bare hex with an underscore every four digits.
     p := cast(*void) 0x1234_5678_9abc;
     if tprint("%", p) != "1234_5678_9abc" return 2;
+
     q := cast(*void) 0xabc;
     if tprint("%", q) != "abc" return 3;
     if tprint("%", cast(*void) null) != "null" return 4;
@@ -58,9 +59,12 @@ main :: () -> s64 {
     member, offset := get_field(info, "y");
 
     if !member || offset != 16 return 8;
+
     member, offset = get_field(info, "z");
     if !member || offset != 0 return 9;
+
     member, offset = get_field(info, "nothing");
     if member || offset != 0 return 10;
+
     return 0;
 }

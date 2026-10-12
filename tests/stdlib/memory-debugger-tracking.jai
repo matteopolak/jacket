@@ -28,18 +28,22 @@ main :: () -> s64 {
 
     Basic.deinit(*report);
     if count != 2 || bytes != 40 return 1;
+
     Basic.this_allocation_is_not_a_leak(first);
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
     if count != 1 || bytes != 24 || report.marked_as_non_leak_allocations != 1 || report.marked_as_non_leak_bytes != 16 return 2;
+
     Basic.deinit(*report);
     replacement := Basic.realloc(second, 48, 24);
     if !replacement return 3;
+
     second = replacement;
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
     Basic.deinit(*report);
     if count != 1 || bytes != 48 return 4;
+
     Basic.free(first);
     Basic.free(second);
     parent := Basic.New(Node);
@@ -50,6 +54,7 @@ main :: () -> s64 {
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
     if count != 2 || bytes != size_of(Node) + 32 return 5;
+
     roots: s64;
     children: s64;
 
@@ -60,22 +65,27 @@ main :: () -> s64 {
 
     Basic.deinit(*report);
     if roots != 1 || children != 1 return 6;
+
     Basic.this_allocation_is_not_a_leak(parent);
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
     Basic.deinit(*report);
     if count != 0 || bytes != 0 return 7;
+
     Basic.this_allocation_does_not_propagate_leak_ownership(parent);
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
     Basic.deinit(*report);
     if count != 1 || bytes != 32 return 8;
+
     Basic.free(child);
     Basic.free(parent);
     report = Basic.make_leak_report(options);
     count, bytes = totals(report);
     Basic.deinit(*report);
     if count != 0 || bytes != 0 return 9;
+
     Basic.deinit_memory_debugger();
+
     return 0;
 }

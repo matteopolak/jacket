@@ -51,14 +51,17 @@ main :: () -> int {
     t := peek_next_token(*lexer);
     if t.type != .IDENT return 30;
     for 1..3 eat_token(*lexer); // s, :, =
+
     t = peek_next_token(*lexer);
     if t.type != .STRING || t.string_value != "q\n" return 31;
+
     set_input_from_string(*lexer, "\n  x");
     t = peek_next_token(*lexer);
     if t.type != .IDENT || t.l0 != 2 || t.c0 != 3 return 32;
 
     w: File_Watcher(void);
     if !init(*w, on_change, events_to_watch = .ADDED | .MODIFIED) return 40;
+
     add_change(*w, "a", .ADDED);
     add_change(*w, "b", .REMOVED);
     add_change(*w, "a", .MODIFIED | .REMOVED);
@@ -69,5 +72,6 @@ main :: () -> int {
     config.name_indentation = .RIGHT_JUSTIFIED;
     print_helper(*builder, config, 5, 4, "ab", "12", int);
     if builder_to_string(*builder) != "   ab = 12   (s64)\n" return 50;
+
     return 0;
 }

@@ -51,6 +51,7 @@ main :: () {
     before := ticks;
 
     for 1..3 webgpu_present(null);
+
     print("thread ran during frames: %\n", ticks > before);
     stop = true;
     thread_deinit(*counter);

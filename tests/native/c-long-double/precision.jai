@@ -22,8 +22,10 @@ random_value :: () -> Long_Double {
 
     if k > 0 for 1..k scale *= two;
     if k < 0 for 1..-k scale /= two;
+
     v := mantissa * scale / 3;
     if r & 0x100 v = -v;
+
     return v;
 }
 

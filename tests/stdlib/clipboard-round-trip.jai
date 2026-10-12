@@ -26,6 +26,7 @@ main :: () {
 
         os_clipboard_set_bitmap(1, 1, pixels.data, 4);
         print("ok\n");
+
         return;
     }
 
@@ -46,8 +47,10 @@ main :: () {
     // A 2x2 image in both pixel layouts the clipboard accepts. Publishing it replaces the text.
     rgba: [16] u8;
     for 0..15 rgba[it] = cast(u8) (it * 16);
+
     rgb: [12] u8;
     for 0..11 rgb[it] = cast(u8) (255 - it * 16);
+
     os_clipboard_set_text("replaced by the image");
     os_clipboard_set_bitmap(2, 2, rgba.data, 4);
     os_clipboard_set_bitmap(2, 2, rgb.data, 3, flip = true);

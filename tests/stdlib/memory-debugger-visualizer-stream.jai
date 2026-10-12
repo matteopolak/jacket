@@ -16,6 +16,7 @@ Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = OS 
         POSIX.shm_unlink(Basic.temp_c_string(name)); // a leftover from a crashed run
         created, reader := Channel.reader_create_channel(name, 1024 * 1024 - Channel.OFFSET_TO_MESSAGE_DATA);
         if !created return 20;
+
         defer Channel.reader_release_channel(*reader);
 
         // Connection attempts are rate-limited, and main already made one.
@@ -29,6 +30,7 @@ Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = OS 
             found, fatal, message := Channel.reader_poll_for_message(*reader);
             if fatal return 21;
             if !found break;
+
             tag := (cast(*Wire.Vis_Protocol_Tag) message.user_read_pointer).*;
             if tag == .RESET_AND_TELL_VERSION {
                 info := cast(*Wire.Memory_Debugger_Version_Info) message.user_read_pointer;
@@ -45,6 +47,7 @@ Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = OS 
         }
 
         if !saw_version || traces == 0 return 25;
+
         return 0;
     }
 }
@@ -52,6 +55,7 @@ Basic :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = OS 
 main :: () -> s64 {
     blocks: [8] *u8;
     for *blocks it.* = Basic.alloc(32 + it_index);
+
     result: s64;
 
     #if OS == .MACOS || OS == .LINUX {
@@ -61,5 +65,6 @@ main :: () -> s64 {
     }
 
     for blocks Basic.free(it);
+
     return result;
 }

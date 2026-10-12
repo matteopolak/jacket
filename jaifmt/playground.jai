@@ -26,12 +26,15 @@ main :: () -> int {
         }
 
         if directory == WORKSPACE break;
+
         directory = parent_directory(directory);
     }
 
     formatted, ok, error := format_source(source, config);
     if !ok return fail("%:%", TARGET, error);
+
     write_string(formatted);
+
     return 0;
 }
 

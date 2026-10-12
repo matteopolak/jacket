@@ -13,7 +13,9 @@ show :: ($args: ..Code) -> string #expand {
 
         append(*builder, "builder: String_Builder;\n");
         for args print_to_builder(*builder, "print_to_builder(*builder, \"%\", #insert args[%]);\n", "%", it_index);
+
         append(*builder, "return builder_to_string(*builder);\n");
+
         return builder_to_string(*builder);
     };
 }

@@ -30,6 +30,7 @@ JAI
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
+
         typechecked := cast(*Message_Typechecked) message;
         for typechecked.procedure_bodies {
             if it.expression.header.name == "never_called" unused_body = true;

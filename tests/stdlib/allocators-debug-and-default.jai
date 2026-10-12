@@ -36,6 +36,7 @@ check_default_allocator :: () {
         if size >= 64 assert(cast(u64) p % 64 == 0, "a % byte block at %", size, p);
         else assert(cast(u64) p % 16 == 0, "a % byte block at %", size, p);
         for i: 0..size - 1 p[i] = cast,trunc(u8) (i * 7);
+
         assert(a.proc(.IS_THIS_YOURS, 0, 0, p, null) != null);
         // Grow across the boundary and shrink back: contents survive each step.
         sizes := s64.[size + 1, size * 3 + 70, 40, 8];
@@ -46,9 +47,11 @@ check_default_allocator :: () {
 
             assert(q != null, "resize % -> %", kept, new_size);
             if new_size >= 64 assert(cast(u64) q % 64 == 0, "a resized % byte block at %", new_size, q);
+
             check := min(kept, new_size);
             for i: 0..check - 1 assert(q[i] == cast,trunc(u8) (i * 7), "byte % lost resizing % -> %", i, kept, new_size);
             if new_size > kept for i: kept..new_size - 1 q[i] = cast,trunc(u8) (i * 7);
+
             p = q;
             kept = new_size;
         }
@@ -66,6 +69,7 @@ check_default_allocator :: () {
     blocks: [100] *void;
 
     for *blocks it.* = alloc(16 + it_index * 13, heap);
+
     foreign := alloc(32, other);
 
     for blocks {
@@ -75,6 +79,7 @@ check_default_allocator :: () {
     }
 
     for blocks if it_index % 2 free(it, heap);
+
     destroy_heap(heap);
     assert(other.proc(.IS_THIS_YOURS, 0, 0, foreign, other.data) != null, "destroying one heap leaves another alone");
     free(foreign, other);
@@ -115,14 +120,17 @@ arena_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void
 
     if mode == .ALLOCATE || mode == .RESIZE {
         if arena.used + size + 16 > arena.memory.count return null;
+
         result := arena.memory.data + arena.used;
 
         arena.used += (size + 15) & ~15;
         if mode == .RESIZE && old_memory memcpy(result, old_memory, min(size, old_size));
+
         return result;
     }
 
     if mode == .FREE arena.frees += 1;
+
     return null;
 }
 
@@ -151,24 +159,29 @@ check_overwriting_allocator :: () {
 
     p := cast(*u8) alloc(40, debug);
     for 0..39 p[it] = cast(u8) it;
+
     // A resize copies, then overwrites and frees the old block.
     q := cast(*u8) realloc(p, 100, 40, debug);
 
     assert(q != p, "a resize moves");
     for 0..39 assert(q[it] == it, "byte % copied", it);
     for 0..39 assert(p[it] == 0xab, "the old block is overwritten: byte % is %", it, p[it]);
+
     assert(arena.frees == 1, "the old block went back to the base allocator");
     // A free overwrites the whole block.
     q[99] = 1;
     free(q, debug);
     for 0..99 assert(q[it] == 0xab, "freed byte % is %", it, q[it]);
+
     assert(arena.frees == 2);
     // Shrinking keeps the front.
     r := cast(*u8) alloc(16, debug);
     for 0..15 r[it] = 9;
+
     s := cast(*u8) realloc(r, 4, 16, debug);
     for 0..3 assert(s[it] == 9);
     for 0..15 assert(r[it] == 0xab);
+
     free(s, debug);
     free(null, debug);
 

@@ -51,6 +51,7 @@ digits :: (s: string) -> u64 {
 
 bench_static :: ($R: Type, id: string) {
     if !wanted(id) return;
+
     count := 0;
     best: float64 = 1.0e30;
 
@@ -69,6 +70,7 @@ bench_static :: ($R: Type, id: string) {
 
 bench_static_captures :: ($R: Type, id: string) {
     if !wanted(id) return;
+
     count := 0;
     check: u64;
     best: float64 = 1.0e30;
@@ -79,6 +81,7 @@ bench_static_captures :: ($R: Type, id: string) {
         sum: u64;
 
         for all sum += cast(u64) it.year + cast(u64) it.month + cast(u64) it.day;
+
         dt := now() - t;
 
         count = all.count;
@@ -92,6 +95,7 @@ bench_static_captures :: ($R: Type, id: string) {
 
 bench_runtime :: (pattern: string, id: string) {
     if !wanted(id) return;
+
     best_compile: float64 = 1.0e30;
 
     for 1..20 {
@@ -128,6 +132,7 @@ bench_runtime :: (pattern: string, id: string) {
 
 bench_runtime_captures :: (pattern: string, id: string) {
     if !wanted(id) return;
+
     best_compile: float64 = 1.0e30;
 
     for 1..20 {
@@ -177,6 +182,7 @@ main :: () {
 
     data, ok := read_entire_file(args[1]);
     if !ok exit(1);
+
     corpus = data;
     runs = cast(int) digits(args[2]);
     for 3..args.count - 1 array_add(*selected, args[it]);

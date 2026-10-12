@@ -84,6 +84,7 @@ type_label :: (info: *Type_Info) -> string {
 is_number :: (text: string) -> bool {
     start := 0;
     if text.count && text[0] == #char "-" start = 1;
+
     digits := 0;
     dots := 0;
 
@@ -106,6 +107,7 @@ classify_scalar :: (info: *Type_Info) -> Field_Kind {
         case .ENUM;
             enum_info := cast(*Type_Info_Enum) info;
             if enum_info.enum_type_flags & .FLAGS return .INVALID;
+
             return .ENUM;
         case; return .INVALID;
     }
@@ -333,6 +335,7 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
     // The selector's values and the subcommand fields name each other.
     for *selector: fields {
         if selector.kind != .SELECTOR continue;
+
         enum_info := cast(*Type_Info_Enum) selector.info;
         for value_name: enum_info.names {
             matched := false;
@@ -362,6 +365,7 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
 
     for *field: fields {
         if field.kind == .INVALID || field.positional || field.kind == .SELECTOR continue;
+
         longs: [..] string;
 
         array_add(*longs, field.long);
@@ -432,6 +436,7 @@ quote :: (text: string) -> string {
     }
 
     append(*builder, "\"");
+
     return builder_to_string(*builder,, temp);
 }
 
@@ -446,10 +451,12 @@ display_name :: (field: *Field) -> string {
 
 range_literal :: (field: *Field) -> string {
     if !field.has_range return "NO_RANGE";
+
     kind := ifx field.kind == .LIST then field.element_kind else field.kind;
     text := quote(tprint("%..%", field.range_lo, field.range_hi));
 
     if kind == .FLOAT return tprint("Range.{ present = true, flo = %, fhi = %, text = % }", field.range_lo, field.range_hi, text);
+
     return tprint("Range.{ present = true, lo = %, hi = %, text = % }", field.range_lo, field.range_hi, text);
 }
 
@@ -486,6 +493,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
 
         names: [..] string;
         for enum_info.names array_add(*names, kebab(it));
+
         print(*out, "store_enum_% :: (state: *Parse_State, display: string, text: string, dest: *%) -> bool {\n", field.name, element_text);
         append(*out, "    lowered := to_lower_copy(text,, temp);\n");
 
@@ -506,6 +514,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
     // One procedure per option.
     for *field: fields {
         if field.positional || field.kind == .SUBCOMMAND || field.kind == .SELECTOR || field.kind == .INVALID continue;
+
         print(*out, "opt_% :: (state: *Parse_State, out: *T, set: *Is_Set(T), display: string, is_short: bool, rest: string, has_rest: bool, negated: bool) -> Outcome {\n", field.name);
 
         if field.kind == .FLAG {
@@ -545,10 +554,12 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
         }
 
         if !has_any continue;
+
         append(*out, ifx pass == 0 then "    if is_short {\n        if name == {\n" else "    if !is_short {\n        if name == {\n");
 
         for *field: fields {
             if field.positional || field.kind == .SUBCOMMAND || field.kind == .SELECTOR || field.kind == .INVALID continue;
+
             guard := ifx field.global then "" else "if only_globals return .NOT_FOUND; ";
 
             if pass == 0 {
@@ -575,6 +586,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
 
     for *field: fields {
         if !field.positional || field.kind == .INVALID continue;
+
         display := quote(display_name(field));
 
         if field.kind == .LIST {
@@ -601,8 +613,10 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
 
         for *field: fields {
             if field.kind != .SUBCOMMAND continue;
+
             value_name: string;
             for enum_info.names if kebab(it) == kebab(field.name) value_name = it;
+
             print(*out, "        case %;\n", quote(field.long));
             print(*out, "            out.% = .%;\n            set.% = true;\n", selector.name, value_name, selector.name);
             append(*out, "            link := Global_Link.{ out = out_v, set = set_v, handle = h_option, next = state.globals };\n            state.globals = *link;\n");
@@ -622,6 +636,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
 
     for *field: fields {
         if !field.env.count || field.kind == .INVALID continue;
+
         print(*out, "    if !set.% {\n        env := environment_lookup(state, %);\n        if env.count {\n            value := env;\n", field.name, quote(field.env));
         display := quote(tprint("$%", field.env));
 
@@ -660,6 +675,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
     print(*out, "handlers.has_subcommands = %;\n", ifx selector then "true" else "false");
     print(*out, "handlers.has_version = %;\n", ifx has_version then "true" else "false");
     append(*out, "return run_command(*handlers, out, set, state);\n");
+
     return builder_to_string(*out);
 }
 
@@ -681,13 +697,16 @@ generate_description :: (analysis: *Analysis) -> string {
         if field.env.count print(*out, "    option.env = %;\n", quote(field.env));
         if field.value_name.count print(*out, "    option.value_name = %;\n", quote(field.value_name));
         if !field.hidden print(*out, "    option.help = help.%;\n", field.name);
+
         kind_name := "VALUE";
         if field.kind == .FLAG kind_name = "FLAG";
         else if field.kind == .COUNT kind_name = "COUNT";
         else if field.kind == .LIST kind_name = "LIST";
+
         print(*out, "    option.kind = .%;\n", kind_name);
         print(*out, "    option.required = %;\n    option.hidden = %;\n    option.global = %;\n", field.required, field.hidden, field.global);
         if field.kind == .FLAG && !field.positional print(*out, "    option.negatable = true;\n");
+
         enum_info: *Type_Info_Enum;
         if field.kind == .ENUM enum_info = cast(*Type_Info_Enum) field.info;
         if field.kind == .LIST && field.element_kind == .ENUM enum_info = cast(*Type_Info_Enum) field.element;
@@ -710,12 +729,14 @@ generate_description :: (analysis: *Analysis) -> string {
         }
 
         if field.has_range print(*out, "    option.range_text = %;\n", quote(tprint("%..%", field.range_lo, field.range_hi)));
+
         print(*out, "    array_add(*spec.%, option);\n}\n", ifx field.positional then "positionals" else "options");
     }
 
     selector: *Field;
     for *field: analysis.fields if field.kind == .SELECTOR selector = field;
     if selector print(*out, "spec.subcommand_required = %;\n", !selector.optional);
+
     return builder_to_string(*out);
 }
 

@@ -111,6 +111,7 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
     state.describe = describe_root;
     ok := parse_command(T, help, *state, *out, *set);
     if !ok finish_error(*state);
+
     return out, state.error, set;
 }
 
@@ -185,11 +186,13 @@ describe :: ($T: Type, $help: Help(T), program: string) -> Command_Spec {
 
 program_name :: (argv: [] string) -> string {
     if !argv.count return "program";
+
     name := argv[0];
     cut := find_index_of_any_from_right(name, "/\\");
 
     if cut >= 0 name = slice(name, cut + 1, name.count - cut - 1);
     if ends_with(name, ".exe") name = slice(name, 0, name.count - 4);
+
     return ifx name.count then name else "program";
 }
 
@@ -204,6 +207,7 @@ finish_error :: (state: *Parse_State) {
 
     array_add(*names, state.program);
     for state.path array_add(*names, it);
+
     error.command = join(..names, " ");
 
     if error.kind == .HELP {

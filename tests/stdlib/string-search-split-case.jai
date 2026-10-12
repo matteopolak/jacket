@@ -121,6 +121,7 @@ main :: () {
     assert(pieces.count == 5, "split count %", pieces.count);
     expected := string.["", "a", "", "b", ""];
     for expected assert(pieces[it_index] == it, "piece % is '%'", it_index, pieces[it_index]);
+
     joined := join(..pieces, separator = ",");
 
     assert(joined == ",a,,b,", "join(split(x)) == x: %", joined);

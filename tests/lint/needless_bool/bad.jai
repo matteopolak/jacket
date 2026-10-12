@@ -21,5 +21,6 @@ main :: () {
 
     if n > 3 flag = true;
     else flag = false;
+
     print("% % % % %\n", positive(n), small(n), even, odd, flag);
 }

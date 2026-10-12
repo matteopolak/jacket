@@ -45,6 +45,7 @@ layout_cases :: () -> bool {
 
     p0, p1, p2, p3 := G.get_quad(G.get_rect(0, 0, 2, 3));
     if p0.y != 0 || p2.y != 3 || p1.x != 2 || p3.x != 0 return false;
+
     return true;
 }
 

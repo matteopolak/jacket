@@ -48,8 +48,10 @@ to_string_view :: (s: string) -> WGPUStringView {
 to_string :: (view: WGPUStringView) -> string {
     if view.data == null return "";
     if view.length != WGPU_STRLEN return string.{ cast(s64) view.length, view.data };
+
     count := 0;
     while view.data[count] count += 1;
+
     return string.{ count, view.data };
 }
 
@@ -88,6 +90,7 @@ webgpu_request_adapter :: (instance: WGPUInstance, options: *WGPURequestAdapterO
     wgpuInstanceRequestAdapter(instance, options, info);
     webgpu_wait(instance, *state.done);
     if !state.result log_error("WebGPU: no adapter: %", message_text(*state.message));
+
     return cast(WGPUAdapter) state.result;
 }
 
@@ -120,6 +123,7 @@ webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descript
     wgpuAdapterRequestDevice(adapter, *desc, info);
     webgpu_wait(instance, *state.done);
     if !state.result log_error("WebGPU: no device: %", message_text(*state.message));
+
     return cast(WGPUDevice) state.result;
 }
 
@@ -140,6 +144,7 @@ webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapM
     info.userdata1 = *state;
     // wgpu-native rejects WGPU_WHOLE_MAP_SIZE ("must be multiple of 4"): pass the rest's size.
     if size == WGPU_WHOLE_MAP_SIZE size = wgpuBufferGetSize(buffer) - offset;
+
     wgpuBufferMapAsync(buffer, mode, offset, size, info);
     webgpu_wait(instance, *state.done);
 
@@ -167,6 +172,7 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
     info.userdata1 = *state;
     wgpuDevicePopErrorScope(device, info);
     webgpu_wait(instance, *state.done);
+
     return state.type, copy_temporary_string(message_text(*state.message));
 }
 
@@ -199,6 +205,7 @@ webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSu
         source: WGPUSurfaceSourceXlibWindow;
         source.display = webgpu_x11_display();
         if !source.display return null;
+
         source.window = cast(u64) window;
         desc.nextInChain = *source.chain;
     }
@@ -215,8 +222,10 @@ webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSu
 // webgpu_format_is_srgb). .Undefined when the surface reports no formats, or is null.
 webgpu_surface_format :: (surface: WGPUSurface, adapter: WGPUAdapter, srgb := false) -> WGPUTextureFormat {
     if !surface || !adapter return .Undefined;
+
     caps: WGPUSurfaceCapabilities;
     if wgpuSurfaceGetCapabilities(surface, adapter, *caps) != .Success || caps.formatCount == 0 return .Undefined;
+
     defer wgpuSurfaceCapabilitiesFreeMembers(caps);
 
     for 0..cast(s64) caps.formatCount - 1 {
@@ -245,6 +254,7 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
 
     // The ASTC sRGB formats are the odd values from ASTC4x4UnormSrgb on.
     if format >= .ASTC4x4UnormSrgb && format <= .ASTC12x12UnormSrgb return (cast(u32) format - cast(u32) WGPUTextureFormat.ASTC4x4UnormSrgb) % 2 == 0;
+
     return false;
 }
 
@@ -309,8 +319,10 @@ message_text :: (copy: *Message_Copy) -> string {
 to_string_c :: (view: WGPUStringView) -> string #c_call {
     if view.data == null return "";
     if view.length != WGPU_STRLEN return string.{ cast(s64) view.length, view.data };
+
     count := 0;
     while view.data[count] count += 1;
+
     return string.{ count, view.data };
 }
 

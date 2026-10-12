@@ -46,6 +46,7 @@ to_half :: (bits: u32, $mode: int) -> u16 {
 
     src[0] = bits;
     narrow8(src.data, dst.data, mode);
+
     return dst[0];
 }
 
@@ -55,6 +56,7 @@ to_single :: (h: u16) -> u32 {
 
     src[0] = h;
     widen8(src.data, dst.data);
+
     return dst[0];
 }
 
@@ -92,6 +94,7 @@ reference_half :: (bits: u32, mode: int) -> u16 {
     sign: u16 = ifx negative then cast(u16) 0x8000 else 0;
 
     if (bits & 0x7fff_ffff) == 0x7f80_0000 return sign | 0x7c00;
+
     a := cast(float64) float_of(bits & 0x7fff_ffff);
     lo: u16 = 0;
     hi: u16 = 0x7bff;
@@ -108,6 +111,7 @@ reference_half :: (bits: u32, mode: int) -> u16 {
 
     below := half_magnitude(lo);
     if below == a return sign | lo;
+
     above := half_magnitude(lo + 1);
     up := false;
 
@@ -121,6 +125,7 @@ reference_half :: (bits: u32, mode: int) -> u16 {
     }
 
     if up lo += 1;
+
     return sign | lo;
 }
 
@@ -190,6 +195,7 @@ check_f16c :: () {
 
     for base: 0..8191 {
         for j: 0..7 halves[j] = cast(u16) (base * 8 + j);
+
         widen8(halves.data, singles.data);
         fnv(*widened, cast(*u8) singles.data, 32);
         narrow8(singles.data, back.data, 0);
@@ -303,6 +309,7 @@ check_f16c :: () {
         fs: [8] float32;
 
         for *fs it.* = -1;
+
         ph, pf := hs.data, fs.data;
 
         #asm F16C {
@@ -313,6 +320,7 @@ check_f16c :: () {
         expect("cvtph2ps xmm", cast(u64) (fs[0] == 1 && fs[3] == 4 && fs[4] == -1), 1);
         hs2: [8] u16;
         for *hs2 it.* = 0xffff;
+
         ph2 := hs2.data;
 
         #asm F16C {
@@ -323,6 +331,7 @@ check_f16c :: () {
         expect("cvtps2ph m64", cast(u64) (hs2[0] == 0x3c00 && hs2[3] == 0x4400 && hs2[4] == 0xffff), 1);
         wide: [8] u32;
         for *wide it.* = 0xffff_ffff;
+
         pw := wide.data;
 
         #asm F16C, AVX {
@@ -339,8 +348,10 @@ check_f16c :: () {
     {
         fs: [16] float32;
         for 0..15 fs[it] = cast(float32) it;
+
         hs: [16] u16;
         for *hs it.* = 0xaaaa;
+
         sel: u64 = 0b1010_0000_0000_0101;
         pf, ph := fs.data, hs.data;
 
@@ -355,6 +366,7 @@ check_f16c :: () {
         expect("cvtps2ph masked store", cast(u64) good, 1);
         dst: [32] u16;
         for *dst it.* = 0x5555;
+
         pd := dst.data;
 
         #asm AVX512F {
@@ -375,6 +387,7 @@ check_f16c :: () {
         expect("cvtps2ph zero mask", cast(u64) (dst[1] == 0 && dst[2] == 0x4000), 1);
         back: [16] float32;
         for *back it.* = -1;
+
         pb := back.data;
 
         #asm AVX512F {
@@ -396,12 +409,16 @@ be32 :: (p: *u8) -> u32 {
 pad_message :: (text: string) -> [..] u32 {
     bytes: [..] u8;
     for text array_add(*bytes, it);
+
     array_add(*bytes, 0x80);
     while bytes.count % 64 != 56 array_add(*bytes, 0);
+
     bit_count := cast(u64) text.count * 8;
     for < 0..7 array_add(*bytes, cast,trunc(u8) (bit_count >> (it * 8)));
+
     words: [..] u32;
     for i: 0..bytes.count / 4 - 1 array_add(*words, be32(*bytes[4 * i]));
+
     return words;
 }
 
@@ -577,6 +594,7 @@ check_sha :: () {
     {
         wide: [8] u32;
         for *wide it.* = 0x0101_0101 * cast(u32) (it_index + 1);
+
         pw := wide.data;
 
         #asm SHA, AVX {
@@ -608,6 +626,7 @@ gf_reference_affine :: (matrix: u64, x: u8, c: u8) -> u8 {
         parity: u8 = 0;
 
         for 0..7 parity ^= (t >> it) & 1;
+
         r |= parity << i;
     }
 
@@ -657,6 +676,7 @@ check_gfni :: () {
 
     wrong = 0;
     for j: 0..15 if p[j] != gf_reference_mul(a[j], b[j]) wrong += 1;
+
     expect("gf2p8mulb legacy", cast(u64) wrong, 0);
 
     // Affine maps with pseudo-random matrices and constants.
@@ -731,6 +751,7 @@ check_gfni :: () {
     expect("sbox ff", sbox[0xff], 0x16);
     wrong = 0;
     for x: 1..255 if gf_reference_mul(cast(u8) x, inverse[x]) != 1 wrong += 1;
+
     expect("field inverse", cast(u64) (wrong + inverse[0]), 0);
 
     // EVEX: a merge-masked product and a zero-masked bit reversal (broadcast matrix).
@@ -781,6 +802,7 @@ check_gfni :: () {
             reversed: u8 = 0;
 
             for bit: 0..7 if (x >> bit) & 1 reversed |= cast,trunc(u8) (0x80 >> bit);
+
             want := ifx on != 0 then reversed else 0;
             if zr[it] != want wrong += 1;
         }
@@ -794,5 +816,6 @@ main :: () {
     check_sha();
     check_gfni();
     if failures exit(1);
+
     print("ok\n");
 }

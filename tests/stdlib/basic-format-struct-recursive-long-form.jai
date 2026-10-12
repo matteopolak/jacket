@@ -34,6 +34,7 @@ main :: () -> s64 {
 
     // The setting does not leak into later prints, nor into a short-form parent.
     if tprint("%", value) != "{{{1, 2}, 3}, 4}" return 4;
+
     short := formatStruct(value, use_long_form_if_more_than_this_many_members = 5);
     short.recursive_long_form_depth = -1;
     if tprint("%", short) != "{{{1, 2}, 3}, 4}" return 5;
@@ -41,5 +42,6 @@ main :: () -> s64 {
     named := all;
     named.draw_type_name = true;
     if tprint("%", named) != "Top{middle = Middle{leaf = Leaf{a = 1; b = 2; }; n = 3; }; m = 4; }" return 6;
+
     return 0;
 }

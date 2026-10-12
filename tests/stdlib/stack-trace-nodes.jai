@@ -37,5 +37,6 @@ main :: () -> s64 {
     if names[2] != "inner" || lines[2] != 27 return 4;
     if names[3] != "main" || lines[3] != 32 return 5;
     if depth_seen != 1 return 6;
+
     return 0;
 }

@@ -25,6 +25,7 @@ main :: () -> s64 {
     kind := type_of(Entity);
     if kind != Type return 1;
     if tprint("%", Entity) != "Entity" return 2;
+
     template := Entity;
     if template != Entity return 3;
     if template == Entity(int) return 4;
@@ -37,5 +38,6 @@ main :: () -> s64 {
 
     info := cast(*Type_Info_Procedure) type_of(other_poly);
     if info.argument_types.count != 2 || info.return_types.count != 2 return 10;
+
     return 0;
 }

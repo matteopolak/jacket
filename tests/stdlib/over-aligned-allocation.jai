@@ -38,12 +38,14 @@ check :: () -> string {
         if !aligned(lines[i]) return "New(Line)";
         if !aligned(pairs[i]) return "New(Two_Lines)";
         if !aligned(odds[i]) return "New(Odd)";
+
         lines[i].member = i;
         odds[i].value = i;
     }
 
     for i: 0..299 {
         if lines[i].member != i || odds[i].value != i return "contents";
+
         free(lines[i]);
         free(pairs[i]);
         free(odds[i]);
@@ -69,12 +71,14 @@ check :: () -> string {
         }
 
         for k: 0..start - 1 if (cast(*u8) block)[k] != 0x5a return "realloc contents";
+
         free(block);
     }
 
     // Arrays of over-aligned elements, fixed and growing.
     array := NewArray(37, Line);
     if !aligned(array.data) return "NewArray";
+
     array_free(array);
     growing: [..] Line;
 
@@ -84,6 +88,7 @@ check :: () -> string {
     }
 
     for growing if it.member != it_index return "array contents";
+
     array_reset(*growing);
 
     // Locals in the interpreter's frames, and a page-aligned one.
@@ -97,6 +102,7 @@ check :: () -> string {
 
     if !aligned(*local) return "local";
     if cast(u64) *page % 4096 return "page local";
+
     return "";
 }
 

@@ -50,15 +50,18 @@ quad_parts :: (low: u64, high: u64) -> Quad_Parts #no_context {
 
     if biased == 0 {
         if fraction == 0 && low == 0 return parts;
+
         parts.kind = .FINITE;
         parts.high = fraction;
         parts.exponent = QUAD_FORMAT.lowest_exponent;
+
         return parts;
     }
 
     parts.kind = .FINITE;
     parts.high = fraction | QUAD_IMPLICIT_HIGH;
     parts.exponent = biased - 16495;
+
     return parts;
 }
 
@@ -66,12 +69,14 @@ quad_parts :: (low: u64, high: u64) -> Quad_Parts #no_context {
 quad_from :: (rounded: Rounded) -> Quad #no_context {
     sign := ifx rounded.negative then SIGN_BIT else 0;
     if rounded.infinite return .{ 0, sign | QUAD_INFINITY_HIGH };
+
     high := rounded.high;
     low := rounded.low;
     exponent := rounded.exponent;
     length := bit_length(high, low);
 
     if length == 0 return .{ 0, sign };
+
     // Normalize to 113 bits unless that would go below the smallest exponent (subnormal).
     shift := QUAD_FORMAT.precision - length;
     room := exponent - QUAD_FORMAT.lowest_exponent;
@@ -84,6 +89,7 @@ quad_from :: (rounded: Rounded) -> Quad #no_context {
     }
 
     if bit_length(high, low) < QUAD_FORMAT.precision return .{ low, sign | high };
+
     return .{ low, sign | ((cast(u64) (exponent + 16495)) << 48) | (high & QUAD_FRACTION_HIGH) };
 }
 
@@ -144,6 +150,7 @@ quad_add :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_conte
     add_shifted(*right, b.high, b.low, b.exponent - base);
     negative, zero := combine(*left, a.negative, *right, b.negative);
     if zero return .{ 0, 0 };
+
     return quad_from(round_wide(*left, base, negative, QUAD_FORMAT));
 }
 
@@ -153,6 +160,7 @@ quad_multiply :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_
 
     if a.kind == .NAN return quiet(a_low, a_high);
     if b.kind == .NAN return quiet(b_low, b_high);
+
     negative := a.negative != b.negative;
     sign := ifx negative then SIGN_BIT else 0;
 
@@ -162,6 +170,7 @@ quad_multiply :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_
     }
 
     if a.kind == .ZERO || b.kind == .ZERO return .{ 0, sign };
+
     // (a.high:a.low) * (b.high:b.low) as four 64-bit products, each a 128-bit term.
     product: Wide;
     high, low := multiply_wide(a.low, b.low);
@@ -173,6 +182,7 @@ quad_multiply :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_
     add_shifted(*product, high, low, 64);
     high, low = multiply_wide(a.high, b.high);
     add_shifted(*product, high, low, 128);
+
     return quad_from(round_wide(*product, a.exponent + b.exponent, negative, QUAD_FORMAT));
 }
 
@@ -182,6 +192,7 @@ quad_divide :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_co
 
     if a.kind == .NAN return quiet(a_low, a_high);
     if b.kind == .NAN return quiet(b_low, b_high);
+
     negative := a.negative != b.negative;
     sign := ifx negative then SIGN_BIT else 0;
 
@@ -198,6 +209,7 @@ quad_divide :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_co
     }
 
     if a.kind == .ZERO return .{ 0, sign };
+
     // Both significands to exactly 113 bits, then 116 quotient bits by long division:
     // quotient = floor(dividend * 2^115 / divisor), between 2^114 and 2^116.
     a_shift := QUAD_FORMAT.precision - bit_length(a.high, a.low);
@@ -225,6 +237,7 @@ quad_divide :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> Quad #no_co
     // A nonzero remainder becomes one more low bit, below every bit that decides rounding.
     quotient_high, quotient_low = shift_left(quotient_high, quotient_low, 1);
     if remainder_high != 0 || remainder_low != 0 quotient_low |= 1;
+
     exponent := (a.exponent - a_shift) - (b.exponent - b_shift) - 116;
 
     return quad_from_exact(negative, quotient_high, quotient_low, exponent);
@@ -238,6 +251,7 @@ quad_compare :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> s32 #no_co
     if a.kind == .NAN || b.kind == .NAN return 2;
     if a.kind == .ZERO && b.kind == .ZERO return 0;
     if a.negative != b.negative return ifx a.negative then -1 else 1;
+
     // Same sign: the bit patterns order the magnitudes.
     a_magnitude := a_high & ~SIGN_BIT;
     b_magnitude := b_high & ~SIGN_BIT;
@@ -245,6 +259,7 @@ quad_compare :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> s32 #no_co
 
     if a_magnitude != b_magnitude order = ifx a_magnitude < b_magnitude then -1 else 1;
     else if a_low != b_low order = ifx a_low < b_low then -1 else 1;
+
     return ifx a.negative then -order else order;
 }
 
@@ -252,9 +267,11 @@ quad_compare :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> s32 #no_co
 quad_to_integer :: (low: u64, high: u64, minimum: s64, maximum: u64) -> negative: bool, magnitude: u64 #no_context {
     parts := quad_parts(low, high);
     if parts.kind == .NAN || parts.kind == .ZERO return false, 0;
+
     limit := ifx parts.negative then cast,no_check(u64) (-minimum) else maximum;
     if parts.kind == .INFINITE return parts.negative, limit;
     if parts.exponent + bit_length(parts.high, parts.low) > 64 return parts.negative, limit;
+
     value_high, value_low: u64;
 
     if parts.exponent >= 0 {
@@ -264,6 +281,7 @@ quad_to_integer :: (low: u64, high: u64, minimum: s64, maximum: u64) -> negative
     }
 
     if value_high != 0 || value_low > limit return parts.negative, limit;
+
     return parts.negative, value_low;
 }
 
@@ -383,6 +401,7 @@ narrow :: (low: u64, high: u64, format: Fused_Format) -> float64 #no_context {
     add_shifted(*value, parts.high, parts.low, 0);
     rounded := round_wide(*value, parts.exponent, parts.negative, format);
     if rounded.infinite return from_bits(sign | 0x7ff0_0000_0000_0000);
+
     return compose_float(parts.negative, rounded.low, rounded.exponent);
 }
 

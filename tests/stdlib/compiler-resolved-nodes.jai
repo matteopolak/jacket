@@ -25,6 +25,7 @@ returns_of :: ($call: Code) -> int #expand {
         assert(header.arguments.count == 1 && header.arguments[0].name == "a");
         assert(get_type(header.returns[0].type_inst.result) == int);
         assert(get_type(header.returns[1].type_inst.result) == bool);
+
         return header.returns.count;
     };
 }
@@ -114,6 +115,7 @@ JAI
             for typechecked.procedure_bodies {
                 body := it.expression;
                 if body.header.name != "value" || body.body_flags & .ALREADY_MODIFIED continue;
+
                 // Edit the call inside the compound declaration in place: pair(1) -> pair(42).
                 compound := cast(*Code_Compound_Declaration) body.block.statements[0];
                 call := cast(*Code_Procedure_Call) compound.declaration_properties.expression;

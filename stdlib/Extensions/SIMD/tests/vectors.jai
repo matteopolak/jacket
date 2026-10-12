@@ -29,6 +29,7 @@ making :: () {
 
     bytes: [20] u8;
     for 0..19 bytes[it] = cast(u8) it;
+
     same(load(u8x16, bytes.data + 3), .[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], "load from a pointer");
     same(load(u8x16, bytes, 4), .[4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "load from an array");
     same(load(u8x16, "abcdefghijklmnopq", 1), .[#char "b", #char "c", #char "d", #char "e", #char "f", #char "g", #char "h", #char "i", #char "j", #char "k", #char "l", #char "m", #char "n", #char "o", #char "p", #char "q"], "load from a string");

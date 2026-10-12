@@ -45,6 +45,7 @@ not_the_global :: (ident: *Code_Node) -> bool {
         for (cast(*Message_Typechecked) message).procedure_bodies {
             body := it.expression;
             if body.header.name != "value" continue;
+
             seen = true;
             statements := body.block.statements;
             // a := t.count;

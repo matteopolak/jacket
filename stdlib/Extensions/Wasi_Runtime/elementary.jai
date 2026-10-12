@@ -131,6 +131,7 @@ product_bits :: (words: *[PRODUCT_WORDS] u32, position: s64) -> u64 #no_context 
     for k: 0..63 {
         at := position + k;
         if at >= PRODUCT_WORDS * 32 break;
+
         word := words.*[PRODUCT_WORDS - 1 - at / 32];
         bit := cast(u64) ((word >> cast(u32) (at % 32)) & 1);
 
@@ -178,8 +179,10 @@ reduce :: (x: float64) -> Reduced #no_context {
     first := 0;
 
     if e >= 35 first = (e - 35) / 32 + 1;
+
     window: [WINDOW_WORDS] u32;
     for j: 0..WINDOW_WORDS - 1 window[j] = TWO_OVER_PI[first + j];
+
     // m * window, as PRODUCT_WORDS big-endian words.
     product: [PRODUCT_WORDS] u32;
     m_words: [2] u32;
@@ -262,8 +265,10 @@ cosine_kernel :: (head: float64, tail: float64) -> float64 #no_context {
 #program_export "sin"
 wasi_sin :: (x: float64) -> float64 #c_call {
     if !is_finite(x) return x - x; // NaN
+
     magnitude := ifx x < 0 then -x else x;
     if magnitude <= QUARTER_PI return sine_kernel(x, 0);
+
     r := reduce(magnitude);
     value: float64;
 
@@ -280,8 +285,10 @@ wasi_sin :: (x: float64) -> float64 #c_call {
 #program_export "cos"
 wasi_cos :: (x: float64) -> float64 #c_call {
     if !is_finite(x) return x - x;
+
     magnitude := ifx x < 0 then -x else x;
     if magnitude <= QUARTER_PI return cosine_kernel(magnitude, 0);
+
     r := reduce(magnitude);
     if r.quadrant == {
         case 0; return cosine_kernel(r.head, r.tail);
@@ -305,17 +312,20 @@ wasi_cosf :: (x: float32) -> float32 #c_call {
 #program_export "tan"
 wasi_tan :: (x: float64) -> float64 #c_call {
     if !is_finite(x) return x - x;
+
     magnitude := ifx x < 0 then -x else x;
     r: Reduced;
 
     if magnitude <= QUARTER_PI r.head = magnitude;
     else r = reduce(magnitude);
+
     sine := sine_pair(r.head, r.tail);
     cosine := cosine_pair(r.head, r.tail);
     value: float64;
 
     if (r.quadrant & 1) == 0 value = pair_round(pair_divide_pair(sine, cosine));
     else value = -pair_round(pair_divide_pair(cosine, sine));
+
     return ifx x < 0 then -value else value;
 }
 
@@ -429,8 +439,10 @@ wasi_exp2 :: (x: float64) -> float64 #c_call {
     if x != x return x;
     if x >= 1024 return from_bits(0x7ff0_0000_0000_0000);
     if x < -1075 return 0;
+
     whole := truncate(x);
     if whole == x return scale(1, cast(s64) whole);
+
     return exp_pair(pair_multiply_float(LN2, x));
 }
 
@@ -445,6 +457,7 @@ log_special :: (x: float64) -> result: float64, done: bool #no_context {
     if x == 0 return from_bits(0xfff0_0000_0000_0000), true; // -inf
     if x < 0 return (x - x) / (x - x), true; // NaN
     if !is_finite(x) return x, true;
+
     return 0, false;
 }
 
@@ -498,6 +511,7 @@ wasi_pow :: (x: float64, y: float64) -> float64 #c_call {
 
     if y == 0 || x == 1 return 1;
     if x != x || y != y return x + y;
+
     y_odd := is_odd_integer(y);
     magnitude := ifx x < 0 then -x else x;
 
@@ -513,6 +527,7 @@ wasi_pow :: (x: float64, y: float64) -> float64 #c_call {
         result := from_bits(ifx large then INFINITY else 0);
 
         if y_odd && (bits_of(x) & SIGN_BIT) != 0 result = -result;
+
         return result;
     }
 
@@ -589,12 +604,14 @@ first_quadrant_angle :: (y: Pair, x: Pair) -> Pair #no_context {
 #program_export "atan"
 wasi_atan :: (x: float64) -> float64 #c_call {
     if x != x return x;
+
     magnitude := ifx x < 0 then -x else x;
     angle: float64;
 
     if magnitude < 7.450580596923828e-09 return x; // x^3/3 is below half an ulp of x
     if magnitude > 1152921504606846976.0 angle = HALF_PI.head; // pi/2 - 1/x rounds to pi/2
     else angle = pair_round(first_quadrant_angle(.{ magnitude, 0 }, ONE_PAIR));
+
     return ifx x < 0 then -angle else angle;
 }
 
@@ -607,6 +624,7 @@ wasi_atanf :: (x: float32) -> float32 #c_call {
 #program_export "atan2"
 wasi_atan2 :: (y: float64, x: float64) -> float64 #c_call {
     if x != x || y != y return x + y;
+
     y_negative := (bits_of(y) & SIGN_BIT) != 0;
     x_negative := (bits_of(x) & SIGN_BIT) != 0;
     ay := ifx y_negative then -y else y;
@@ -634,6 +652,7 @@ wasi_atan2 :: (y: float64, x: float64) -> float64 #c_call {
 
             if larger > 3.273390607896142e+150 exponent = -600; // 2^500
             else if larger < 3.054936363499605e-151 exponent = 600; // 2^-500
+
             ay = scale(ay, exponent);
             ax = scale(ax, exponent);
             angle = first_quadrant_angle(.{ ay, 0 }, .{ ax, 0 });
@@ -660,9 +679,11 @@ cosine_from_sine :: (x: float64) -> Pair #no_context {
 #program_export "asin"
 wasi_asin :: (x: float64) -> float64 #c_call {
     if x != x return x;
+
     magnitude := ifx x < 0 then -x else x;
     if magnitude > 1 return (x - x) / (x - x);
     if magnitude < 7.450580596923828e-09 return x; // x^3/6 is below half an ulp of x
+
     angle := pair_round(first_quadrant_angle(.{ magnitude, 0 }, cosine_from_sine(magnitude)));
 
     return ifx x < 0 then -angle else angle;
@@ -676,10 +697,13 @@ wasi_asinf :: (x: float32) -> float32 #c_call {
 #program_export "acos"
 wasi_acos :: (x: float64) -> float64 #c_call {
     if x != x return x;
+
     magnitude := ifx x < 0 then -x else x;
     if magnitude > 1 return (x - x) / (x - x);
+
     angle := first_quadrant_angle(cosine_from_sine(magnitude), .{ magnitude, 0 });
     if x < 0 angle = pair_add(PI, pair_negate(angle));
+
     return pair_round(angle);
 }
 

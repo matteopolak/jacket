@@ -13,6 +13,7 @@ main :: () {
     view.count = 2;
     if view[1] != 2 exit(1);
     if past_view(view) != 3 exit(2);
+
     sum := 0;
 
     for 0..2 #no_abc {
@@ -41,7 +42,9 @@ main :: () {
     array_insert_at(*a, 2, 1);
     if a.count != 3 || a[1] != 2 || a[2] != 3 exit(4);
     if pop(*a) != 3 exit(5);
+
     array_unordered_remove_by_index(*a, 1);
     if a.count != 1 || a[0] != 1 exit(6);
+
     print("ok\n");
 }

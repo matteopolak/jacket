@@ -12,7 +12,9 @@ sum_codes :: ($args: ..Code) -> s64 #expand {
 
         append(*builder, "total := 0;\n");
         for args print_to_builder(*builder, "total += #insert args[%];\n", it_index);
+
         append(*builder, "return total;\n");
+
         return builder_to_string(*builder);
     };
 }

@@ -23,5 +23,6 @@ main :: () {
     };
 
     if total != 5 || g(4) != 8 exit(1);
+
     print("ok\n");
 }

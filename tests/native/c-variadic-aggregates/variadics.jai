@@ -54,6 +54,7 @@ make_i8x3 :: (seed: s32) -> i8x3 {
     r.f0 = cast(s8) (seed + 1);
     r.f1 = cast(s8) (seed + 2);
     r.f2 = cast(s8) (seed + 3);
+
     return r;
 }
 
@@ -75,6 +76,7 @@ make_i32x5 :: (seed: s32) -> i32x5 {
     r.f2 = cast(s32) (seed + 3);
     r.f3 = cast(s32) (seed + 4);
     r.f4 = cast(s32) (seed + 5);
+
     return r;
 }
 
@@ -92,6 +94,7 @@ make_i64x3 :: (seed: s32) -> i64x3 {
     r.f0 = cast(s64) (seed + 1);
     r.f1 = cast(s64) (seed + 2);
     r.f2 = cast(s64) (seed + 3);
+
     return r;
 }
 
@@ -124,6 +127,7 @@ make_f32x3 :: (seed: s32) -> f32x3 {
     r.f0 = cast(float32) (seed + 1.5);
     r.f1 = cast(float32) (seed + 2.5);
     r.f2 = cast(float32) (seed + 3.5);
+
     return r;
 }
 
@@ -143,6 +147,7 @@ make_f32x4 :: (seed: s32) -> f32x4 {
     r.f1 = cast(float32) (seed + 2.5);
     r.f2 = cast(float32) (seed + 3.5);
     r.f3 = cast(float32) (seed + 4.5);
+
     return r;
 }
 
@@ -177,6 +182,7 @@ make_f64x4 :: (seed: s32) -> f64x4 {
     r.f1 = cast(float64) (seed + 2.5);
     r.f2 = cast(float64) (seed + 3.5);
     r.f3 = cast(float64) (seed + 4.5);
+
     return r;
 }
 

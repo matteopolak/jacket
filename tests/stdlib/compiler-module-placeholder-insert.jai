@@ -30,6 +30,7 @@ JAI
 
     array_add(*paths, "modules");
     for options.import_path array_add(*paths, it);
+
     child.import_path = paths;
     child.output_type = .NO_OUTPUT;
     w := compiler_create_workspace("generated kinds");

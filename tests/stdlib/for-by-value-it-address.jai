@@ -28,10 +28,12 @@ main :: () {
 
     numbers := int.[1, 2, 3];
     for numbers reset(*it);
+
     assert(numbers[0] == 0 && numbers[1] == 0 && numbers[2] == 0);
 
     pointers: [3] *int;
     for numbers pointers[it_index] = *it;
     for pointers assert(it == *numbers[it_index]);
+
     print("ok\n");
 }

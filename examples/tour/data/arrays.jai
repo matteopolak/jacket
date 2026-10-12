@@ -4,6 +4,7 @@ tour_arrays :: () {
     // Fixed size: the count is part of the type and the data lives inline.
     squares: [8] int;
     for *squares it.* = it_index * it_index;
+
     print("squares:        %\n", squares);
 
     // An array literal. `.[ ]` infers its element type.
@@ -35,16 +36,19 @@ tour_arrays :: () {
 
     // `for <` walks backwards, `for *` gives pointers so you can change elements.
     for < words print("% ", it);
+
     print("\n");
     numbers: [..] int;
 
     defer array_free(numbers);
     array_add(*numbers, 4, 8, 15, 16, 23, 42);
     for *numbers it.* *= 10;
+
     print("times ten:      %\n", numbers);
 
     // `remove it` drops the current element mid-loop without skipping the next one.
     for numbers if it % 20 != 0 remove it;
+
     print("multiples of 20 (in some order): %\n", numbers);
 
     found, index := array_find(numbers, 160);
@@ -66,6 +70,7 @@ sieve_of_eratosthenes :: (limit: int) -> [..] int {
 
     for n: 2..limit - 1 {
         if composite[n] continue;
+
         array_add(*result, n);
         multiple := n * n;
         while multiple < limit {

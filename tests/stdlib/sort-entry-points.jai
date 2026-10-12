@@ -16,6 +16,7 @@ sorted :: (a: [] $T, f: (T, T) -> $R) -> bool {
 main :: () {
     values: [..] int;
     for 1..500 array_add(*values, cast(int) (random_get() % 1000));
+
     result := quick_sort(values, (a, b) => a - b);
 
     assert(result.data == values.data && sorted(values, (a: int, b: int) -> int {
@@ -27,6 +28,7 @@ main :: () {
 
     regions: [..] Region;
     for 0..40 array_add(*regions, .{ cast(s32) ((it * 37) % 41) });
+
     quick_sort(regions, (a, b) => (a.start - b.start));
     for 0..40 assert(regions[it].start == it);
 

@@ -5,8 +5,10 @@
 
 webgpu_metal_layer :: (window: Window_Type) -> *void {
     if !window return null;
+
     view := msg_ptr(window, sel("contentView"));
     if !view return null;
+
     layer_class := objc_getClass("CAMetalLayer");
     if !layer_class {
         log_error("WebGPU: CAMetalLayer is not available (QuartzCore is loaded with wgpu-native; create the instance first)");
@@ -18,6 +20,7 @@ webgpu_metal_layer :: (window: Window_Type) -> *void {
     msg_set_bool(view, sel("setWantsLayer:"), 1);
     msg_set_ptr(view, sel("setLayer:"), layer);
     msg_set_f64(layer, sel("setContentsScale:"), msg_f64(window, sel("backingScaleFactor")));
+
     return layer;
 }
 

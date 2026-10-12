@@ -20,6 +20,8 @@ sign_mask   :: (source: *u8, width: s64) -> u64 #intrinsic;
 
 `byte_lookup` is a byte table lookup. `table` is 16 bytes; `indices` and `dest` are `width` bytes, and every 16-byte block of `indices` looks up the same table. The result is the same on every target: `dest[i] = indices[i] < 16 ? table[indices[i]] : 0` for every index 0..255. `sign_mask` returns a `u64` whose bit `i` is the top bit of byte `i` of `source` (`width` bytes). `width` must be a compile-time constant 16, 32 or 64, else `` error: the `width` of `byte_lookup` must be a compile-time constant 16, 32 or 64 ``. The buffers need no alignment; `dest` may alias `indices`, but not `table`.
 
+Three more switch stacks for fibers: `fiber_init`, `fiber_switch` and `fiber_free`, declared by the module that uses them (see [fiber intrinsics](../compiler/fibers.md)).
+
 ## How it works
 
 `emit_intrinsic` in `sema/calls.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`, `byte_lookup` (`ir::Intrinsic::ByteLookup(width)`), `sign_mask` (`SignMask(width)`; the width is read from a constant argument by `const_width_arg`). Any other name is `` error: unknown intrinsic `frob` `` {#intrin.2}.

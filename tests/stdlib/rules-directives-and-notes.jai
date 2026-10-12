@@ -86,10 +86,12 @@ main :: () {
     reached := 0;
 
     if answer;
+
     reached += 1;
     ;;
     if !answer;
     else reached += 1;
+
     assert(reached == 2, "empty statements");
 
     print("ok\n");

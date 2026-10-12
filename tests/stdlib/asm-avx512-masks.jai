@@ -136,6 +136,7 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then X[it] * 2 else Y[it];
+
         check_s32("paddd merge", out, want);
 
         #asm AVX512F {
@@ -147,14 +148,18 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then X[it] + Y[it] else 0;
+
         check_s32("paddd zero", out, want);
         // A masked store only writes the selected lanes.
         for 0..15 out[it] = -1;
+
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; kmovw km:, mask; movdqu32 [po] &km, zx; }
         for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then X[it] else -1;
+
         check_s32("masked store", out, want);
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; kmovw km:, mask; blendmps bl: &km, zx, zy; movdqu32 [po], bl; }
         for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then Y[it] else X[it];
+
         check_s32("blendmps", out, want);
     }
 
@@ -173,6 +178,7 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx it < selected.count then selected[it] else 77;
+
         check_s32("pcompressd to memory", out, want);
 
         #asm AVX512F {
@@ -183,6 +189,7 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx it < selected.count then selected[it] else 0;
+
         check_s32("compressps zeroing", out, want);
 
         #asm AVX512F {
@@ -213,6 +220,7 @@ main :: () {
         }
 
         for 0..15 want[it] = X[it] ^ Y[it] ^ X[it];
+
         check_s32("pternlogd xor3", out, want);
 
         #asm AVX512F {
@@ -224,10 +232,12 @@ main :: () {
 
         // jailint: allow(identical_operands) the majority of (x, y, y), one term per pair
         for 0..15 want[it] = (X[it] & Y[it]) | (X[it] & Y[it]) | (Y[it] & Y[it]);
+
         check_s32("pternlogd majority", out, want);
 
         idx: [16] s32;
         for 0..15 idx[it] = xx ((it * 5 + 3) & 31);
+
         pi := idx.data;
 
         #asm AVX512F {
@@ -288,9 +298,11 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then -1 else 0;
+
         check_s32("pmovm2d", out, want);
         s: u64;
         for 0..15 if X[it] < 0 s |= (cast(u64) 1) << it;
+
         check("pmovd2m", m, s);
         t, tn: u64;
 
@@ -304,10 +316,12 @@ main :: () {
 
         e: u64;
         for 0..15 if X[it] & Y[it] e |= (cast(u64) 1) << it;
+
         check("ptestmd", t, e);
         check("ptestnmd", tn, ~e & 0xffff);
         #asm AVX512CD { kmovw kv:, mask; pbroadcastmw2d bm:, kv; movdqu32 [po], bm; }
         for 0..15 want[it] = xx mask;
+
         check_s32("pbroadcastmw2d", out, want);
     }
 
@@ -319,6 +333,7 @@ main :: () {
         big: [16] s32;
 
         for 0..15 big[it] = xx ((it - 8) * 40);
+
         pbig := big.data;
 
         #asm AVX512F {
@@ -355,6 +370,7 @@ main :: () {
 
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; valignd va:, zx, zy, 3; movdqu32 [po], va; }
         for 0..15 want[it] = ifx it + 3 < 16 then Y[it + 3] else X[it + 3 - 16];
+
         check_s32("valignd", out, want);
         #asm AVX512F { movdqu32 zx:, [px]; movdqu32 zy:, [py]; shufi32x4 sh:, zx, zy, 0b01_00_11_10; movdqu32 [po], sh; }
         chunks := int.[2, 3, 0, 1];
@@ -375,6 +391,7 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx it < 4 then Y[8 + it] else X[it];
+
         check_s32("extracti32x4/inserti32x4", out, want);
     }
 
@@ -382,10 +399,12 @@ main :: () {
     {
         table: [32] s32;
         for 0..31 table[it] = xx (1000 + it);
+
         pt := table.data;
         idx: [16] s32;
 
         for 0..15 idx[it] = xx (31 - it * 2);
+
         pi := idx.data;
         mask: u64 = 0xf0f0;
         left: u64;
@@ -400,6 +419,7 @@ main :: () {
         }
 
         for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then table[idx[it]] else Y[it];
+
         check_s32("pgatherdd &k", out, want);
         check("pgatherdd clears k", left, 0);
 
@@ -532,9 +552,11 @@ main :: () {
         }
 
         for 0..15 want[it] = X[it % 8];
+
         check_s32("broadcasti32x8", out, want);
         #asm AVX512DQ { broadcasti32x2 b2:, [py]; movdqu32 [po], b2; }
         for 0..15 want[it] = Y[it % 2];
+
         check_s32("broadcasti32x2", out, want);
         nt: u64;
         value: u64 = 0x1234_5678_9abc_def0;
@@ -545,5 +567,6 @@ main :: () {
     }
 
     if failures exit(1);
+
     print("ok\n");
 }

@@ -41,6 +41,7 @@ generate :: (strip: Strip_Flags, checks: bool) -> string {
     opts.generate_compile_time_struct_checks = checks;
     builder, ok := generate_bindings(opts);
     if !ok return "";
+
     return builder_to_string(*builder);
 }
 

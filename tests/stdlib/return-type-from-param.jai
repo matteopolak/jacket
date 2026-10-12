@@ -19,5 +19,6 @@ main :: () -> s64 {
 
     if p != *a || p.ref_count != 1 return 1;
     if twice(21) != 42 return 2;
+
     return 0;
 }

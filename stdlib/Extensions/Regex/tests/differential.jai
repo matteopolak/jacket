@@ -19,6 +19,7 @@ Case :: struct {
 describe :: (pattern: string, text: string) -> string {
     re, ok := Regex.compile(pattern);
     if !ok return "E";
+
     defer Regex.free_regex(*re);
     builder: String_Builder;
 
@@ -34,6 +35,7 @@ describe :: (pattern: string, text: string) -> string {
     }
 
     append(*builder, "|");
+
     return builder_to_string(*builder,, temp);
 }
 

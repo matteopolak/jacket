@@ -106,6 +106,7 @@ main :: () {
 
     if totals.errors exit(2);
     if options.check && totals.changed exit(1);
+
     exit(0);
 }
 
@@ -129,6 +130,7 @@ report_format_error :: (path: string, error: string) {
         digits := 0;
         while digits < rest.count && rest[digits] >= #char "0" && rest[digits] <= #char "9" digits += 1;
         if !digits || digits >= rest.count || rest[digits] != #char ":" break;
+
         place += digits + 1;
         rest = slice(rest, digits + 1, rest.count - digits - 1);
     }
@@ -186,6 +188,7 @@ trim_trailing_slashes :: (path: string) -> string {
 
 config_for :: (path: string, explicit_config: *Format_Config, totals: *Totals) -> *Format_Config {
     if explicit_config return explicit_config;
+
     config, ok, message := config_for_directory(parent_directory(path));
     if !ok {
         report_error(message);
@@ -214,6 +217,7 @@ collect_files :: (directory: string, explicit_config: *Format_Config, files: *[.
         }
 
         if !info.is_directory && !ends_with(info.short_name, ".jai") return;
+
         config := config_for(info.full_name, walk.explicit_config, walk.totals);
         if !config {
             info.descend_into_directory = false;
@@ -235,6 +239,7 @@ collect_files :: (directory: string, explicit_config: *Format_Config, files: *[.
 format_file :: (path: string, explicit_config: *Format_Config, options: Options, totals: *Totals) {
     config := config_for(path, explicit_config, totals);
     if !config return;
+
     source, ok := read_entire_file(path, log_errors = false);
     if !ok {
         report_error(tprint("could not read `%`", shown(path)), "check that the file is readable");
@@ -312,6 +317,7 @@ format_stdin :: (explicit_config: *Format_Config) -> int {
     }
 
     write_string(output);
+
     return 0;
 }
 
@@ -367,6 +373,7 @@ config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: 
     }
 
     array_add(*config_cache, entry);
+
     return entry.config, entry.ok, entry.error;
 }
 
@@ -375,10 +382,13 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
     text, read_ok := read_entire_file(path, log_errors = false);
 
     if !read_ok return config, false, sprint("could not read config `%`", shown(path));
+
     parsed, ok, message := parse_config(text);
     if !ok return config, false, sprint("in `%`, %", shown(path), message);
+
     config.* = parsed;
     config.root = copy_string(parent_directory(path));
+
     return config, true, "";
 }
 
@@ -386,9 +396,11 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
 parent_directory :: (path: string) -> string {
     end := path.count;
     while end > 1 && path[end - 1] == #char "/" end -= 1;
+
     slash := find_index_from_right(slice(path, 0, end), #char "/");
     if slash < 0 return "";
     if slash == 0 return "/";
+
     return slice(path, 0, slash);
 }
 

@@ -419,6 +419,7 @@ test_lea_memory :: () {
 
     array: [8] u32;
     for 0..7 array[it] = cast(u32) (it * 10);
+
     p := array.data;
     i: s64 = 3;
     v: u32 = ---;

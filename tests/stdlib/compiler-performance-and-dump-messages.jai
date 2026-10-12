@@ -51,6 +51,7 @@ collect :: (flags: Intercept_Flags) -> Seen {
     }
 
     compiler_end_intercept(w);
+
     return seen;
 }
 
@@ -113,6 +114,7 @@ check_dump :: (seen: Seen) {
     assert(polys.num_solves_invoked >= 3 && polys.num_solves_used >= 2 && polys.num_solves_used <= polys.num_solves_invoked);
     twice_record: *Polymorph_Report.Record;
     for *polys.records if it.source && it.source.name == "twice" twice_record = it;
+
     assert(twice_record != null, "twice is reported as a polymorphic procedure");
     // twice(20) and twice(1) share an instance; twice(2.5) makes another.
     assert(twice_record.num_call_sites == 3, "call sites: %", twice_record.num_call_sites);

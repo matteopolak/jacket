@@ -37,6 +37,7 @@ uncaptured_errors: s32;
 
 check :: (ok: bool, what: string, args: ..Any) {
     if ok return;
+
     failures += 1;
     print("FAIL: ");
     print(what, ..args);
@@ -130,6 +131,7 @@ main :: () {
     config.format = format;
     config.usage = .RenderAttachment;
     if readback config.usage |= .CopySrc;
+
     config.width = cast(u32) width;
     config.height = cast(u32) height;
     config.presentMode = .Fifo;
@@ -245,6 +247,7 @@ main :: () {
         wgpuRenderPassEncoderEnd(pass);
         wgpuRenderPassEncoderRelease(pass);
         if last && readback copy_texture_to_buffer(encoder, frame.texture, buffer, texture_width, texture_height, row_bytes);
+
         commands := wgpuCommandEncoderFinish(encoder, null);
 
         wgpuQueueSubmit(queue, 1, *commands);
@@ -276,6 +279,7 @@ main :: () {
 
     wgpuSurfaceUnconfigure(surface);
     if buffer wgpuBufferRelease(buffer);
+
     wgpuRenderPipelineRelease(pipeline);
     wgpuShaderModuleRelease(shader);
     wgpuQueueRelease(queue);
@@ -329,6 +333,7 @@ create_shader :: (device: WGPUDevice, code: string) -> WGPUShaderModule {
     wgsl.code = to_string_view(code);
     desc: WGPUShaderModuleDescriptor;
     desc.nextInChain = *wgsl.chain;
+
     return wgpuDeviceCreateShaderModule(device, *desc);
 }
 

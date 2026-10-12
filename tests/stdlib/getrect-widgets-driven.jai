@@ -102,6 +102,7 @@
         };
 
         result.immediate_flush = () {};
+
         return result;
     }
 
@@ -110,6 +111,7 @@
         event.type = .KEYBOARD;
         event.key_code = code;
         event.key_pressed = xx pressed;
+
         return event;
     }
 
@@ -132,6 +134,7 @@
         mouse = at;
         Input.input_per_frame_event_and_flag_update();
         for events Input.publish_input_event(it);
+
         now += 1.0 / 60;
         array_reset(*drawn_texts);
         GR.ui_per_frame_update(WINDOW, WIDTH, HEIGHT, now);
@@ -204,6 +207,7 @@
 
         GR.ui_deinit();
         if saved_clipboard.count os_clipboard_set_text(saved_clipboard);
+
         print("ok\n");
     }
 
@@ -607,6 +611,7 @@
         for 1..2 {
             if it == 1 begin_frame(center(area));
             else begin_frame(center(area), wheel(-120));
+
             state, inside := GR.begin_scrollable_region(area);
 
             assert(inside.w > 0 && inside.w < area.w && inside.h > 0, "scroll region inside %", inside);

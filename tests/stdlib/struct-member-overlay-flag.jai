@@ -23,6 +23,7 @@ main :: () {
 
     info := type_info(Pixel);
     for info.members if it.name == "after" assert(it.offset_in_bytes == 4);
+
     assert((flags_of(info, "rgba") & .OVERLAY) != 0);
     assert((flags_of(info, "r") & .OVERLAY) == 0);
     assert((flags_of(info, "after") & .OVERLAY) == 0);

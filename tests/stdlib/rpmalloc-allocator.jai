@@ -20,6 +20,7 @@ main :: () {
         assert(p != null, "alloc %", size);
         if size >= 64 assert(cast(u64) p % 64 == 0, "a % byte block at %", size, p);
         for i: 0..size - 1 p[i] = cast,trunc(u8) (i * 13);
+
         assert(a.proc(.IS_THIS_YOURS, 0, 0, p, a.data) != null);
 
         // Grow across size classes, then shrink: contents survive each step.
@@ -32,6 +33,7 @@ main :: () {
             check := min(kept, new_size);
             for i: 0..check - 1 assert(q[i] == cast,trunc(u8) (i * 13), "byte % lost resizing % -> %", i, kept, new_size);
             if new_size > kept for i: kept..new_size - 1 q[i] = cast,trunc(u8) (i * 13);
+
             p = q;
             kept = new_size;
         }
@@ -60,6 +62,7 @@ main :: () {
     // Threads each take a heap of their own and may free what another thread allocated.
     shared: [4] *u8;
     for *shared it.* = cast(*u8) alloc(256, a);
+
     workers: [4] Thread;
     for *workers {
         it.data = *shared[it_index];
@@ -68,11 +71,13 @@ main :: () {
             mine.data = mine.proc(.THREAD_START, 0, 0, null, null);
             slot := cast(**u8) t.data;
             for 0..255 slot.*[it] = cast,trunc(u8) it;
+
             fresh := cast(*u8) alloc(512, mine);
 
             memset(fresh, 7, 512);
             free(fresh, mine);
             mine.proc(.THREAD_STOP, 0, 0, null, mine.data);
+
             return 0;
         });
         thread_start(it);

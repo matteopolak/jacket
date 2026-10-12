@@ -43,6 +43,7 @@ make_nsmall :: (seed: s32) -> nsmall #c_call {
     r.f0.f0 = cast(s8) (seed + 1);
     r.f1.f0 = cast(s16) (seed + 2);
     r.f2.f0 = cast(s32) (seed + 3);
+
     return r;
 }
 
@@ -96,6 +97,7 @@ make_nbig :: (seed: s32) -> nbig #c_call {
     r.f0.f1 = cast(s64) (seed + 2);
     r.f1.f0 = cast(float64) (seed + 3.5);
     r.f1.f1 = cast(float64) (seed + 4.5);
+
     return r;
 }
 
@@ -433,6 +435,7 @@ make_pk_i8i16i8i32 :: (seed: s32) -> pk_i8i16i8i32 #c_call {
     r.f1 = cast(s16) (seed + 2);
     r.f2 = cast(s8) (seed + 3);
     r.f3 = cast(s32) (seed + 4);
+
     return r;
 }
 

@@ -127,6 +127,7 @@ main :: () {
 
         assert(table_ok && table.count == 3, "table of % entries", table.count);
         for string.["alpha", "beta", "gamma"] assert(Hash_Table.table_contains(*table, it), "table has %", it);
+
         assert(!Hash_Table.table_contains(*table, ""));
 
         // A version header can be required here too.

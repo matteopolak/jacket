@@ -173,6 +173,12 @@ Scripts, CI and project policies.
 - [VS Code extension](tools/vscode-extension.md): `editors/vscode`, grammar, language client, jaifmt formatting, toolchain download, packaging and publishing
 - [Neovim plugin](tools/neovim-plugin.md): `editors/nvim`, the `jailsp` config for `vim.lsp.enable`, jaifmt formatting, syntax file, toolchain download, tests and the `jai.nvim` mirror
 
+## Plans
+
+Agreed designs that are not built yet.
+
+- [Async IO, HTTP and JSON](plans/async-io.md): fibers over io_uring/epoll/kqueue/IOCP, typed JSON, and an HTTP server and client
+
 ## Language and library specifications
 
 - [Jai language guide](specs/jai/README.md)

@@ -63,6 +63,7 @@ shape_count :: (shape: Shape) -> s64 {
 expect_sorted :: (sorted: [] s64, original: [] s64, what: string, shape: Shape) {
     assert(sorted.count == original.count, "% on %: count", what, shape);
     for 1..sorted.count - 1 assert(sorted[it - 1] <= sorted[it], "% on %: out of order at %", what, shape, it);
+
     reference := array_copy(original,, temp);
 
     insertion_reference(reference);
@@ -104,6 +105,7 @@ check_sorts :: () {
         assert(returned.data == b.data && returned.count == b.count, "quick_sort returns its input");
         // Sorted by a descending key: reverse to compare.
         for 0..b.count / 2 - 1 Swap(*b[it], *b[b.count - 1 - it]);
+
         expect_sorted(b, original, "quick_sort by key", shape);
 
         c := array_copy(original,, temp);
@@ -149,6 +151,7 @@ check_sorts :: () {
 
     quick_sort(floats, compare_floats);
     for 1..floats.count - 1 assert(floats[it - 1] <= floats[it], "floats at %", it);
+
     words := string.["pear", "", "apple", "applesauce", "Zebra", "app"];
 
     quick_sort(words, compare_strings);
@@ -167,10 +170,12 @@ check_radix_sort :: () {
     for shape: enum_values_as_enum(Shape) {
         count := shape_count(shape);
         if count == 0 continue;
+
         input := make_input(shape, count);
         keys := NewArray(count, u32,, temp);
 
         for input keys[it_index] = cast(u32) (it + 60_000);
+
         reset(*sorter);
         sort(*sorter, keys);
         seen := NewArray(count, bool,, temp);
@@ -202,6 +207,7 @@ check_radix_sort :: () {
     array_add(*values, ..wide);
     reorder(*values, sorter);
     for 1..values.count - 1 assert(values[it - 1] <= values[it]);
+
     array_free(values);
 
     // Floats with negatives and both zeros.
@@ -217,6 +223,7 @@ check_hash_table :: () {
 
     defer deinit(*table);
     for 0..999 table_add(*table, it * 7919, it);
+
     assert(table.count == 1000);
 
     // Growing explicitly rehashes everything; asking for less than the load needs never shrinks it.
@@ -265,9 +272,11 @@ check_hash_table :: () {
     table_reset_keeping_memory(*table);
     assert(table.count == 0 && table.entries.data == data && table.allocated == allocated);
     for table assert(false, "an entry survived the reset: %", it);
+
     assert(!table_contains(*table, 7919));
     for 0..99 table_set(*table, it, -it);
     for 0..99 assert(table_find_pointer(*table, it).* == -it);
+
     assert(table.count == 100 && table.entries.data == data);
 }
 
@@ -278,6 +287,7 @@ check_bucket_array_indexing :: () {
     for 0..29 bucket_array_add(*array, it * it);
     // Indices run across buckets in insertion order while nothing has been removed.
     for 0..29 assert(array[it] == it * it, "index %", it);
+
     array[17] = -1;
     locator: Bucket_Locator = .{ bucket_index = 2, slot_index = 1 };
 
@@ -310,9 +320,11 @@ check_bit_array_edges :: () {
     set_all_bits(*bits);
     count := 0;
     for bits if it count += 1;
+
     assert(count == 129, "set_all_bits sets exactly count bits: %", count);
     toggle_all_bits(*bits);
     for bits assert(!it, "bit % after toggling all", it_index);
+
     bits[128] = true;
     last := -1;
     for: only_set bits last = it_index;
@@ -321,5 +333,6 @@ check_bit_array_edges :: () {
 
     empty := make_bit_array(0);
     for empty assert(false);
+
     deinit(*empty);
 }

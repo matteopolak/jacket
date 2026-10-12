@@ -41,8 +41,10 @@ errors :: () {
     // Deep nesting is refused rather than overflowing the stack.
     deep: String_Builder;
     for 1..300 append(*deep, "(");
+
     append(*deep, "a");
     for 1..300 append(*deep, ")");
+
     _, ok := Regex.compile(builder_to_string(*deep));
 
     check(!ok, "300 nested groups");
@@ -197,6 +199,7 @@ linear :: () {
     text: String_Builder;
 
     for 1..5000 append(*text, "a");
+
     check(!Regex.is_match(*re, builder_to_string(*text)), "(a*)*b on a long run of a");
     caps, found := Regex.captures(*re, "aaab");
 

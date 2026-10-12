@@ -66,6 +66,7 @@ main :: () {
 
     append(*long_text, "0.");
     for 1..400 append(*long_text, "3");
+
     long_value: float64;
     long_value, ok = string_to_float64(builder_to_string(*long_text));
     assert(ok && long_value == 1.0 / 3.0, "400 digits of 1/3: %", long_value);

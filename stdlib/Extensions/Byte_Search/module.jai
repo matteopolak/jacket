@@ -94,6 +94,7 @@ Byte_Set :: struct {
 make_byte_set :: (bytes: [] u8) -> Byte_Set {
     set: Byte_Set;
     for bytes set.bits[it >> 3] |= cast(u8) (1 << (it & 7));
+
     // Each high nibble in the set gets one of 8 bucket bits; a byte is in the set when the
     // bucket of its high nibble is among those listed for its low nibble.
     bucket: [16] int;
@@ -125,6 +126,7 @@ make_byte_set :: (bytes: [] u8) -> Byte_Set {
     for h: 0..15 {
         k := bucket[h];
         if k < 0 continue;
+
         pair := k / 8;
         bit := cast(u8) (1 << (k % 8));
 
@@ -168,6 +170,7 @@ find_pair :: (first: *Byte_Set, second: *Byte_Set, gap: int, text: string, start
     bounded := text;
     bounded.count -= gap;
     if first.single >= 0 && second.single >= 0 return pair_bytes_search(bounded, cast(u8) first.single, cast(u8) second.single, gap, start);
+
     return pair_search(bounded, first, second, gap, start);
 }
 
@@ -187,6 +190,7 @@ find_triple :: (first: *Byte_Set, second: *Byte_Set, third: *Byte_Set, gap_2: in
     bounded := text;
     bounded.count -= gap_3;
     if first.single >= 0 && second.single >= 0 && third.single >= 0 return triple_bytes_search(bounded, cast(u8) first.single, cast(u8) second.single, cast(u8) third.single, gap_2, gap_3, start);
+
     return triple_search(bounded, first, second, third, gap_2, gap_3, start);
 }
 
@@ -229,6 +233,7 @@ make_finder :: (needle: string) -> Finder {
     // The rarest byte, then the rarest at a different position.
     first := 0;
     for 1..needle.count - 1 if rarity(needle[it]) < rarity(needle[first]) first = it;
+
     second := -1;
 
     for 0..needle.count - 1 {
@@ -237,6 +242,7 @@ make_finder :: (needle: string) -> Finder {
     }
 
     if second < 0 second = first;
+
     finder.first_offset = min(first, second);
     finder.second_offset = max(first, second);
     finder.first_byte = needle[finder.first_offset];
@@ -244,6 +250,7 @@ make_finder :: (needle: string) -> Finder {
 
     finder.critical, finder.period, finder.periodic = factorize(needle, false);
     finder.reverse_critical, finder.reverse_period, finder.reverse_periodic = factorize(needle, true);
+
     return finder;
 }
 
@@ -326,6 +333,7 @@ find_last :: no_inline (finder: *Finder, text: string, end := -1) -> int {
                 candidate := base + top;
 
                 if memcmp(text.data + candidate, needle.data, needle.count) == 0 return candidate;
+
                 misses += 1;
                 bits &= ~((cast(u64) 1) << top);
             }
@@ -505,12 +513,14 @@ make_rarity :: () -> [256] u8 {
     for 0..255 table[it] = 10;
     for 0xC2..0xF4 table[it] = 40;
     for 0x80..0xBF table[it] = 60;
+
     table[0] = 30;
     // Punctuation and symbols.
     for #char "!"..#char "/" table[it] = 50;
     for #char ":"..#char "@" table[it] = 50;
     for #char "["..#char "`" table[it] = 45;
     for #char "{"..#char "~" table[it] = 40;
+
     table[#char "."] = 120;
     table[#char ","] = 120;
     table[#char "_"] = 90;
@@ -523,6 +533,7 @@ make_rarity :: () -> [256] u8 {
     table[#char "="] = 80;
     // Digits, 0 and 1 most of all.
     for #char "0"..#char "9" table[it] = 110;
+
     table[#char "0"] = 140;
     table[#char "1"] = 135;
     // Whitespace.
@@ -573,6 +584,7 @@ factorize :: (needle: string, backwards: bool) -> critical: int, period: int, pe
     }
 
     if !periodic period = max(critical, n - critical) + 1;
+
     return critical, period, periodic;
 }
 
@@ -639,6 +651,7 @@ two_way_forward :: (finder: *Finder, text: string, start: int) -> int {
         j := critical - 1;
         while j >= memory && needle[j] == text[pos + j] j -= 1;
         if j < memory return pos;
+
         pos += period;
         if finder.periodic memory = n - period;
     }
@@ -669,6 +682,7 @@ two_way_backward :: (finder: *Finder, text: string, last: int) -> int {
         j := critical - 1;
         while j >= memory && needle[n - 1 - j] == text[stop - 1 - j] j -= 1;
         if j < memory return stop - n;
+
         stop -= period;
         if finder.reverse_periodic memory = n - period;
     }

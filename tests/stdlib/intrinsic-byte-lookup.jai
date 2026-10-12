@@ -74,32 +74,40 @@ main :: () {
     // Reversed indices.
     rev: [32] u8;
     for 0..31 rev[it] = xx (15 - (it % 16));
+
     check_lookup32(*table, *rev);
 
     // Sign mask.
     v16: [16] u8;
     for 0..15 v16[it] = ifx it % 3 == 0 then 0x80 else xx it;
+
     want16: u64;
     for 0..15 if v16[it] & 0x80 want16 |= (cast(u64) 1) << it;
+
     got := sign_mask(v16.data, 16);
     if got != want16 fail("mask16", xx got, xx want16);
 
     v32: [32] u8;
     for 0..31 v32[it] = ifx it % 5 == 0 || it == 31 then 0xFF else xx it;
+
     want32: u64;
     for 0..31 if v32[it] & 0x80 want32 |= (cast(u64) 1) << it;
+
     got = sign_mask(v32.data, 32);
     if got != want32 fail("mask32", xx got, xx want32);
 
     v64: [64] u8;
     for 0..63 v64[it] = ifx it % 7 == 0 || it == 63 then 0x81 else xx it;
+
     want64: u64;
     for 0..63 if v64[it] & 0x80 want64 |= (cast(u64) 1) << it;
+
     got = sign_mask(v64.data, 64);
     if got != want64 fail("mask64", xx got, xx want64);
 
     zeros: [16] u8;
     if sign_mask(zeros.data, 16) != 0 fail("mask zero", 0, 0);
+
     ones: [16] u8;
     for 0..15 ones[it] = 0x80;
     if sign_mask(ones.data, 16) != 0xFFFF fail("mask ones", 0, 0);

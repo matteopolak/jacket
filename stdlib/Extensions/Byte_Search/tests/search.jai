@@ -18,6 +18,7 @@ check :: (condition: bool, what: string, loc := #caller_location) {
 
 naive_find :: (text: string, needle: string, start: int) -> int {
     if start < 0 start = 0;
+
     i := start;
     while i + needle.count <= text.count {
         if memcmp(text.data + i, needle.data, needle.count) == 0 return i;
@@ -29,6 +30,7 @@ naive_find :: (text: string, needle: string, start: int) -> int {
 
 naive_find_last :: (text: string, needle: string, end: int) -> int {
     if end < 0 || end > text.count end = text.count;
+
     i := end - needle.count;
     while i >= 0 {
         if memcmp(text.data + i, needle.data, needle.count) == 0 return i;
@@ -45,6 +47,7 @@ naive_find_any :: (text: string, set: [] u8, start: int) -> int {
 
 naive_find_last_any :: (text: string, set: [] u8, end: int) -> int {
     if end < 0 || end > text.count end = text.count;
+
     i := end - 1;
     while i >= 0 {
         for set if text[i] == it return i;
@@ -82,6 +85,7 @@ bytes :: () {
 
         expected := 0;
         for text if it == a expected += 1;
+
         check(Byte_Search.count(text, a) == expected, tprint("count % in %", a, text));
         reset_temporary_storage();
     }
@@ -209,6 +213,7 @@ substrings :: () {
         builder: String_Builder;
         builder.allocator = temp;
         for 1..2000 / unit.count append(*builder, unit);
+
         text := builder_to_string(*builder,, temp);
         finder := Byte_Search.make_finder(needle);
 

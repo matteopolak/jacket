@@ -39,6 +39,7 @@ generate :: () -> string {
     array_add(*opts.libnames, "liblongdouble");
     builder, ok := generate_bindings(opts);
     if !ok return "";
+
     return builder_to_string(*builder);
 }
 

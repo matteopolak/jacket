@@ -40,6 +40,7 @@ wasi_round :: (x: float64) -> float64 #c_call {
 
     if left >= 0.5 return whole + 1;
     if left <= -0.5 return whole - 1;
+
     return whole;
 }
 
@@ -93,12 +94,14 @@ add_shifted :: (into: *Wide, high: u64, low: u64, shift: s64) #no_context {
         piece := ifx i < 3 then pieces[i] else 0;
 
         if i >= 3 && carry == 0 break;
+
         before := into.*[limb + i];
         sum := before + piece;
         next_carry: u64 = ifx sum < before then 1 else 0;
         total := sum + carry;
 
         if total < sum next_carry = 1;
+
         into.*[limb + i] = total;
         carry = next_carry;
     }
@@ -123,6 +126,7 @@ subtract_wide :: (a: *Wide, b: *Wide) #no_context {
         next_borrow: u64 = ifx before < b.*[i] then 1 else 0;
 
         if difference < borrow next_borrow = 1;
+
         a.*[i] = difference - borrow;
         borrow = next_borrow;
     }
@@ -137,16 +141,19 @@ wide_bit :: (a: *Wide, position: s64) -> u64 #no_context {
 wide_bits :: (a: *Wide, position: s64) -> u64 #no_context {
     limb := position / 64;
     if limb >= LIMBS return 0;
+
     bit := cast(u64) (position % 64);
     result := a.*[limb] >> bit;
 
     if bit != 0 && limb + 1 < LIMBS result |= a.*[limb + 1] << (64 - bit);
+
     return result;
 }
 
 // Whether any bit of `a` below `position` is set.
 any_below :: (a: *Wide, position: s64) -> bool #no_context {
     if position <= 0 return false;
+
     limb := position / 64;
     if limb >= LIMBS {
         for a.* if it != 0 return true;
@@ -154,8 +161,10 @@ any_below :: (a: *Wide, position: s64) -> bool #no_context {
     }
 
     for i: 0..limb - 1 if a.*[i] != 0 return true;
+
     bit := cast(u64) (position % 64);
     if bit == 0 return false;
+
     return (a.*[limb] & ((ONE << bit) - 1)) != 0;
 }
 
@@ -163,6 +172,7 @@ any_below :: (a: *Wide, position: s64) -> bool #no_context {
 compose_float :: (negative: bool, significand: u64, exponent: s64) -> float64 #no_context {
     sign := ifx negative then SIGN_BIT else 0;
     if significand == 0 return from_bits(sign);
+
     m := significand;
     e := exponent;
 
@@ -172,6 +182,7 @@ compose_float :: (negative: bool, significand: u64, exponent: s64) -> float64 #n
     }
 
     if m < IMPLICIT_BIT return from_bits(sign | m); // subnormal: e == -1074
+
     return from_bits(sign | ((cast(u64) (e + 1075)) << 52) | (m & FRACTION_BITS));
 }
 
@@ -257,6 +268,7 @@ combine :: (a: *Wide, a_negative: bool, b: *Wide, b_negative: bool) -> negative:
 
     subtract_wide(b, a);
     a.* = b.*;
+
     return b_negative, false;
 }
 
@@ -266,9 +278,11 @@ round_wide :: (value: *Wide, base: s64, negative: bool, format: Fused_Format) ->
     result.negative = negative;
     top := highest_bit(value);
     if top < 0 return result;
+
     // The kept bits end at `lsb`, the exponent of the result's last significand bit.
     lsb := base + top - (format.precision - 1);
     if lsb < format.lowest_exponent lsb = format.lowest_exponent;
+
     drop := lsb - base;
     high, low: u64;
 
@@ -304,9 +318,11 @@ round_wide :: (value: *Wide, base: s64, negative: bool, format: Fused_Format) ->
 
     length := bit_length(high, low);
     if length > 0 && lsb + length - 1 > format.highest_exponent result.infinite = true;
+
     result.high = high;
     result.low = low;
     result.exponent = lsb;
+
     return result;
 }
 
@@ -314,6 +330,7 @@ fused :: (a: float64, b: float64, c: float64, format: Fused_Format) -> float64 #
     if !is_finite(a) || !is_finite(b) return a * b + c; // the product is exactly inf or NaN
     if !is_finite(c) return c; // finite + c
     if a == 0 || b == 0 return a * b + c; // exact: a zero product, then one rounding
+
     product_negative := ((bits_of(a) ^ bits_of(b)) & SIGN_BIT) != 0;
     addend_negative := (bits_of(c) & SIGN_BIT) != 0;
 
@@ -339,6 +356,7 @@ fused :: (a: float64, b: float64, c: float64, format: Fused_Format) -> float64 #
 
     rounded := round_wide(*product, base, negative, format);
     if rounded.infinite return from_bits((ifx negative then SIGN_BIT else 0) | 0x7ff0_0000_0000_0000);
+
     return compose_float(negative, rounded.low, rounded.exponent);
 }
 
@@ -454,6 +472,7 @@ wasi_fmaxf :: (a: float32, b: float32) -> float32 #c_call {
 wasi_fmod :: (x: float64, y: float64) -> float64 #c_call {
     if !is_finite(x) || y != y || y == 0 return (x * y) / (x * y); // NaN
     if !is_finite(y) || x == 0 return x;
+
     negative := (bits_of(x) & SIGN_BIT) != 0;
     mx, ex := split_float(x);
     my, ey := split_float(y);
@@ -469,6 +488,7 @@ wasi_fmod :: (x: float64, y: float64) -> float64 #c_call {
     }
 
     if ex < ey || (ex == ey && mx < my) return x; // |x| < |y|
+
     remainder := mx % my;
 
     for 1..ex - ey {
@@ -477,6 +497,7 @@ wasi_fmod :: (x: float64, y: float64) -> float64 #c_call {
     }
 
     if remainder == 0 return from_bits(ifx negative then SIGN_BIT else 0);
+
     value: Wide;
 
     add_shifted(*value, 0, remainder, 0);

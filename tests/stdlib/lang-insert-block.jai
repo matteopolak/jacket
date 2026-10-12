@@ -56,5 +56,6 @@ main :: () -> int {
 
     code := call_text(1);
     if type_of(code) != Code return 4;
+
     return 0;
 }

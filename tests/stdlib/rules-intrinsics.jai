@@ -43,6 +43,7 @@ main :: () {
 
     memset(a.data, 7, 8);
     for a assert(it == 7, "memset");
+
     memcpy(b.data, a.data, 8);
     assert(memcmp(a.data, b.data, 8) == 0, "memcmp equal");
     memset(b.data, 0, 8);
@@ -67,6 +68,7 @@ main :: () {
 
     set_proc(d.data, 3, 4);
     for d assert(it == 3, "memset through a value");
+
     copy_proc(c.data, d.data, 2);
     assert(c[0] == 3 && c[1] == 3 && c[2] == 7, "memcpy through a value");
     assert(cmp_proc(c.data, d.data, 2) == 0 && cmp_proc(c.data, d.data, 4) > 0, "memcmp through a value");

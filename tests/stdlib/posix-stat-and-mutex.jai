@@ -19,9 +19,11 @@ check :: () -> string {
 
     name := "posix-stat-and-mutex.tmp";
     if !write_entire_file(name, "twelve bytes") return "write_entire_file";
+
     defer file_delete(name);
     is_dir, ok = is_directory(name);
     if !ok || is_dir return "is_directory(file)";
+
     _, size, found := file_modtime_and_size(name);
     if !found || size != 12 return tprint("file size %", size);
 
@@ -32,6 +34,7 @@ check :: () -> string {
     unlock(*guarded.mutex);
     destroy(*guarded.mutex);
     if guarded.guard != 0x0123_4567_89ab_cdef return "mutex overwrote its neighbour";
+
     return "";
 }
 

@@ -11,6 +11,7 @@ main :: () {
 
     random_seed(7);
     for 0..999 array_add(*values, cast(int) (random_get() % 500));
+
     intro_sort(values, (a: int, b: int) -> int {
         return a - b;
     });
@@ -18,6 +19,7 @@ main :: () {
 
     items: [..] Item;
     for < 0..40 array_add(*items, .{ it });
+
     intro_sort(items, (a: $T, b: T) -> int {
         return ifx a.index < b.index then -1 else 1;
     });

@@ -23,7 +23,9 @@ main :: () {
     a := P.{ 1 };
     if !(a != .{ 2 }) exit(1);
     if a != .{ 1 } exit(2);
+
     t := current_time_monotonic();
     if t != t exit(3);
+
     print("ok\n");
 }

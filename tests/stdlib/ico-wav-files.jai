@@ -95,6 +95,7 @@ check_ico :: (ico: string, comp: int, expect_mask: bool, loc := #caller_location
 
         if expect_mask assert(mask_bit != 0, "transparent pixel masked at size %", size, loc = loc);
         else assert(mask_bit == 0, "opaque pixel unmasked at size %", size, loc = loc);
+
         expected_offset += bytes;
     }
 
@@ -180,6 +181,7 @@ wav_files :: () {
     append(*b, "data");
     put32(*b, 12);
     for 0..11 append(*b, cast(u8) (it * 3));
+
     bytes := builder_to_string(*b);
     riff := bytes.count - 8;
 

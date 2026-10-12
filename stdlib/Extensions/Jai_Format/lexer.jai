@@ -69,6 +69,7 @@ lex :: (src: string) -> Lex_Result {
     at: s64 = 0;
     // A UTF-8 byte order mark is not a token; the formatter copies it through.
     if src.count >= 3 && src[0] == 0xEF && src[1] == 0xBB && src[2] == 0xBF at = 3;
+
     // A `#!` line right at the start (`#!/usr/bin/env jai`) is a line comment to the formatter;
     // the compiler skips it.
     shebang_at := at;
@@ -126,9 +127,11 @@ lex :: (src: string) -> Lex_Result {
         c := src[at];
         if (c == #char "/" && peek(1) == #char "/") || (at == shebang_at && c == #char "#" && peek(1) == #char "!") {
             while at < src.count && src[at] != #char "\n" at += 1;
+
             // A carriage return belongs to the line break, not the comment.
             end := at;
             while end > tok.start && (src[end - 1] == #char "\r" || src[end - 1] == #char " " || src[end - 1] == #char "\t") end -= 1;
+
             tok.kind = .LINE_COMMENT;
             tok.end = end;
             at = end;
@@ -159,6 +162,7 @@ lex :: (src: string) -> Lex_Result {
                 skip := 1;
                 while at + skip < src.count && (src[at + skip] == #char " " || src[at + skip] == #char "\t") skip += 1;
                 if at + skip >= src.count || !is_ident_char(src[at + skip]) break;
+
                 at += skip;
                 lex_ident(src, *at);
             }
@@ -174,6 +178,7 @@ lex :: (src: string) -> Lex_Result {
 
             while true {
                 if at >= src.count fail("unterminated string", tok.start);
+
                 d := src[at];
                 if d == #char "\"" {
                     at += 1;
@@ -189,11 +194,13 @@ lex :: (src: string) -> Lex_Result {
             }
 
             if at > src.count fail("unterminated string", tok.start);
+
             tok.kind = .STRING;
             tok.end = at;
         } else if c == #char "#" && directive_follows(src, at) {
             at += 1;
             while at < src.count && (src[at] == #char " " || src[at] == #char "\t") at += 1;
+
             name_start := at;
 
             lex_ident(src, *at);
@@ -214,6 +221,7 @@ lex :: (src: string) -> Lex_Result {
 
                 while true {
                     if at >= src.count fail("unterminated note", tok.start);
+
                     d := src[at];
                     if d == #char "\"" {
                         at += 1;
@@ -265,6 +273,7 @@ lex :: (src: string) -> Lex_Result {
             }
 
             if !matched fail("unexpected character", at);
+
             tok.kind = .PUNCT;
             tok.end = at;
         }
@@ -344,6 +353,7 @@ lex_here_string :: (src: string, at: *s64) -> bool {
     while true {
         while i < src.count && (src[i] == #char " " || src[i] == #char "\t") i += 1;
         if i >= src.count || src[i] != #char "," break;
+
         i += 1;
         while i < src.count && (src[i] == #char " " || src[i] == #char "\t") i += 1;
 
@@ -357,15 +367,19 @@ lex_here_string :: (src: string, at: *s64) -> bool {
     tag_start := i;
 
     while i < src.count && is_ident_char(src[i]) i += 1;
+
     tag := slice(src, tag_start, i - tag_start);
     if !tag.count return false;
     while i < src.count && src[i] != #char "\n" i += 1;
+
     i += 1;
     while i < src.count {
         line_end := i;
         while line_end < src.count && src[line_end] != #char "\n" line_end += 1;
+
         indent := i;
         while indent < line_end && (src[indent] == #char " " || src[indent] == #char "\t") indent += 1;
+
         rest := slice(src, indent, line_end - indent);
         if begins_with(rest, tag) && (rest.count == tag.count || !is_ident_char(rest[tag.count])) {
             at.* = indent + tag.count;

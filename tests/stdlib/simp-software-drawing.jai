@@ -179,6 +179,7 @@ main :: () {
 
         S.bitmap_alloc(*source, 3, 2, .RGBA8);
         for *source.data it.* = cast(u8) (it_index * 10);
+
         png := tprint("%/pixels.png", SCRATCH);
 
         assert(S.bitmap_save(*source, png, true), "bitmap_save png");
@@ -198,6 +199,7 @@ main :: () {
         assert(S.bitmap_load(*loaded, png), "bitmap_load %", png);
         assert(loaded.width == 3 && loaded.height == 2 && loaded.format == .RGBA8, "loaded % x % %", loaded.width, loaded.height, loaded.format);
         for 0..source.data.count - 1 assert(loaded.data[it] == source.data[it], "png byte % is %, saved %", it, loaded.data[it], source.data[it]);
+
         bmp: S.Bitmap;
 
         assert(S.bitmap_load(*bmp, tprint("%/pixels.bmp", SCRATCH)) && bmp.width == 3 && bmp.height == 2);
@@ -224,6 +226,7 @@ main :: () {
         assert(!S.texture_load_from_memory(*file_texture, cast([] u8) "nope"));
 
         for extension: string.["png", "bmp", "tga", "jpg"] file_delete(tprint("%/pixels.%", SCRATCH, extension));
+
         S.deinit(*file_texture);
         S.deinit(*memory_texture);
         S.deinit(*source);
@@ -292,6 +295,7 @@ main :: () {
 
         cut := found.count - 1;
         while found[cut] != #char "/" cut -= 1;
+
         directory := string.{ cut, found.data };
         name := string.{ found.count - cut - 1, found.data + cut + 1 };
 

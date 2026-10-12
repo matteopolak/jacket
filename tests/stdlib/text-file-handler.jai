@@ -8,15 +8,20 @@ main :: () -> s64 {
 
         Handler.start_from_memory(*h, "short", "full/path.txt", text);
         if h.failed || h.version != 7 return 1;
+
         line, found := Handler.consume_next_line(*h);
         if !found || line != "alpha 1" || h.line_number != 4 return 2;
+
         left, right := Handler.break_by_spaces(line);
         if left != "alpha" || right != "1" return 3;
+
         line, found = Handler.consume_next_line(*h);
         if !found || line != "beta two words" || h.line_number != 5 return 4;
+
         // A lone "\r" ends a line too; "#" alone strips to blank and is skipped.
         line, found = Handler.consume_next_line(*h);
         if !found || line != "gamma" || h.line_number != 8 return 5;
+
         line, found = Handler.consume_next_line(*h);
         if found || line != "" return 6;
         if h.short_name != "short" || h.full_path != "full/path.txt" return 7;
@@ -32,6 +37,7 @@ main :: () -> s64 {
         h.comment_character = #char ";";
         Handler.start_from_memory(*h, "x", "x", "; note\nkey = value ; kept\n\nend");
         if h.failed || h.version != -1 return 10;
+
         expected :: string.["key = value ; kept", "", "end"];
         for expected {
             line, found := Handler.consume_next_line(*h);
@@ -45,12 +51,15 @@ main :: () -> s64 {
 
         Handler.start_from_memory(*h, "a", "a", "[x]\nrest");
         if !h.failed || h.version != -1 return 20;
+
         Handler.start_from_memory(*h, "b", "b", "[3]\n");
         if !h.failed || h.version != 3 return 21;
+
         fresh: Handler.Text_File_Handler;
 
         Handler.start_from_memory(*fresh, "c", "c", "# only comments\n\n");
         if !fresh.failed return 22;
+
         fresh = .{};
         Handler.start_from_memory(*fresh, "d", "d", "  [12]  # spaced\nx");
         if fresh.failed || fresh.version != 12 return 23;

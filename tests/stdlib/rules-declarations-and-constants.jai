@@ -97,6 +97,7 @@ main :: () {
     assert(info.members.count == 6, "four constants, then v and w");
     fields := 0;
     for info.members if !(it.flags & .CONSTANT) fields += 1;
+
     assert(fields == 2, "only v and w are fields");
     true_member := info.members[0];
 

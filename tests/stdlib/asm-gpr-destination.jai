@@ -12,6 +12,7 @@ main :: () {
     // Find the first byte equal to a needle, as a substring search does.
     bytes: [16] u8;
     for i: 0..15 bytes[i] = cast(u8) (#char "a" + i);
+
     needle: [16] u8;
 
     memset(needle.data, #char "f", 16);

@@ -55,6 +55,7 @@ color_enabled :: (stream: Stream) -> bool {
     if environment_set("NO_COLOR") return false;
     if forced("FORCE_COLOR") || forced("CLICOLOR_FORCE") return true;
     if environment_value("TERM") == "dumb" return false;
+
     return is_terminal(stream);
 }
 
@@ -84,6 +85,7 @@ positional_label :: (positional: Option_Spec) -> string {
     }
 
     if positional.required return tprint("<%>", name);
+
     return tprint("[%]", name);
 }
 
@@ -135,6 +137,7 @@ find_command :: (root: *Command_Spec, path: [] string) -> *Command_Spec {
         }
 
         if !found break;
+
         spec = found;
     }
 
@@ -189,6 +192,7 @@ notes_for :: (option: Option_Spec) -> string {
     if option.choices.count && option.kind != .FLAG print(*notes, " [possible values: %]", join(..option.choices, ", "));
     if option.range_text.count print(*notes, " [range: %]", option.range_text);
     if option.env.count print(*notes, " [env: %]", option.env);
+
     return builder_to_string(*notes,, temp);
 }
 
@@ -212,6 +216,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
 
     for spec.positionals {
         if it.hidden continue;
+
         array_add(*labels, positional_label(it));
         array_add(*widths, positional_label(it).count);
         array_add(*descriptions, tprint("%%", it.help, notes_for(it)));
@@ -220,6 +225,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
 
     shown: [..] Option_Spec;
     for spec.options array_add(*shown, it);
+
     // The `@global` options of the commands above are accepted here too.
     ancestor := root;
 
@@ -230,6 +236,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
 
     for shown {
         if it.hidden continue;
+
         array_add(*labels, option_label(it, color));
         array_add(*widths, label_width(it));
         array_add(*descriptions, tprint("%%", it.help, notes_for(it)));
@@ -283,6 +290,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
             if section == 0 && color paint(*out, true, ANSI_PLACEHOLDER, it);
             else append(*out, it);
             for 1..column - widths[it_index] + 2 append(*out, " ");
+
             append(*out, descriptions[it_index]);
             append(*out, "\n");
         }
@@ -303,6 +311,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
 //     For more information, run `jaifmt --help`.
 report :: (error: Error) {
     if error.kind == .NONE return;
+
     color := color_enabled(.ERROR);
     out: String_Builder;
 
@@ -320,5 +329,6 @@ report :: (error: Error) {
     }
 
     if error.command.count print(*out, "For more information, run `% --help`.\n", error.command);
+
     print("%", builder_to_string(*out,, temp), to_standard_error = true);
 }

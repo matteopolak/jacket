@@ -69,10 +69,12 @@ main :: () {
     // must.10: a polymorphic #discard parameter still infers its type from the argument.
     f := typed(cast(float64) 2.5);
     if type_of(f) != float64 || f != 0 exit(4);
+
     s := typed("text");
     if type_of(s) != string exit(5);
 
     // must.12: a discarded parameter's default value is not evaluated either.
     if with_default() != 1 || calls != 0 exit(6);
+
     print("ok\n");
 }

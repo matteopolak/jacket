@@ -53,6 +53,7 @@ pump :: (windows: [] Window_Type, seen: [] Seen, done: (seen: [] Seen) -> bool, 
         }
 
         if done(seen) return true;
+
         sleep_milliseconds(5);
     }
 
@@ -375,6 +376,7 @@ main :: () {
         serial := image.cursor_serial;
 
         XFree(image);
+
         return serial;
     }
 
@@ -382,6 +384,7 @@ main :: () {
         before := shown_serial();
 
         if !hand_cursor hand_cursor = XCreateFontCursor(x_global_display, 60); // hand2
+
         XDefineCursor(x_global_display, window, hand_cursor);
         XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 20, 20);
         // The server may show the new cursor a moment later; wait for it to change.

@@ -52,6 +52,7 @@ collect :: (name: string, source: string, events: *[..] Event) -> s64 {
         event := Event.{ kind = message.kind };
 
         if message.kind == .PHASE event.phase = cast(s64) (cast(*Message_Phase) message).phase;
+
         array_add(events, event);
 
         if message.kind == .COMPLETE {
@@ -61,6 +62,7 @@ collect :: (name: string, source: string, events: *[..] Event) -> s64 {
     }
 
     compiler_end_intercept(w);
+
     return code;
 }
 

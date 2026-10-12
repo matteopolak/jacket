@@ -31,8 +31,10 @@ tour_threads :: () {
 
     total := 0;
     for slices total += it.primes;
+
     print("3 workers counted the primes in 8 slices of 1000:");
     for slices print(" %", it.primes);
+
     print("\n  (% primes below 8000)\n", total);
 
     // A producer and a consumer share a ring of four slots. One semaphore counts
@@ -71,6 +73,7 @@ count_primes_in_slice :: (group: *Thread_Group, thread: *Thread, work: *void) ->
     slice := cast(*Slice) work;
     for n: slice.first..slice.last {
         if n < 2 continue;
+
         is_prime := true;
         d := 2;
 

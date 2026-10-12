@@ -54,6 +54,7 @@ compiles :: (source: string, mode: Mode) -> bool {
     }
 
     compiler_end_intercept(w);
+
     return ok;
 }
 

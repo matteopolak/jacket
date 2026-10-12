@@ -178,6 +178,7 @@ builders_and_termination :: () {
     builder: String_Builder;
 
     for 1..2000 print_to_builder(*builder, "%,", it);
+
     expected := builder_to_string(*builder, do_reset = false);
 
     assert(write_entire_file(name, *builder));
@@ -251,6 +252,7 @@ empty_and_large :: () {
     data := alloc_string(SIZE);
 
     for i: 0..SIZE - 1 data[i] = cast,trunc(u8) (i * 7 + i / 4096);
+
     large := path("large.bin");
 
     assert(write_entire_file(large, data));
@@ -272,6 +274,7 @@ empty_and_large :: () {
 
         assert(piece_ok);
         if got == 0 break;
+
         assert(memcmp(piece.data, data.data + offset, got) == 0, "piece at %", offset);
         offset += got;
     }

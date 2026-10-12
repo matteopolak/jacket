@@ -16,12 +16,15 @@ main :: () -> s64 {
     if tprint("%", Matrix4x3_Identity) != "(1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0)" return 6;
 
     if m2.floats.count != 4 || m2.floats[2] != 3 return 7;
+
     #assert Matrix4.Row_Type == Vector4 && Matrix4x3.Column_Type == Vector3;
     #assert Matrix2.IsMatrixFromMathModule;
     c := Complex.{ 0, 1 };
     squared := c * c;
 
     if squared.x != -1 || squared.y != 0 return 8;
+
     #assert size_of(type_of(PI)) == 4 && size_of(type_of(PI64)) == 8;
+
     return 0;
 }

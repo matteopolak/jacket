@@ -21,5 +21,6 @@ main :: () -> s64 {
 
     push_unique(*a, *x);
     push_unique(*a, *x);
+
     return ifx a.count == 1 then 0 else 1;
 }

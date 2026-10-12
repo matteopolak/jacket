@@ -117,6 +117,7 @@ run_threads :: () #c_call {
         thread.status = .DONE;
         thread.result = result;
         if thread != main_thread wasi_free(thread.frames);
+
         thread.frames = null;
         wake_all(thread, 0);
     }
@@ -124,8 +125,10 @@ run_threads :: () #c_call {
 
 add_thread :: (entry: Thread_Entry, argument: *void, frames: *u8, frame_bytes: u64) -> *Green_Thread #c_call {
     if !frames return null;
+
     thread := cast(*Green_Thread) wasi_calloc(1, size_of(Green_Thread));
     if !thread return null;
+
     thread.entry = entry;
     thread.argument = argument;
     thread.frames = frames;
@@ -133,7 +136,9 @@ add_thread :: (entry: Thread_Entry, argument: *void, frames: *u8, frame_bytes: u
     // Last in the list, so threads take turns in the order they were started.
     link := *first_thread;
     while link.* link = *link.*.next;
+
     link.* = thread;
+
     return thread;
 }
 
@@ -186,7 +191,9 @@ next_to_run :: () -> *Green_Thread #c_call {
         }
 
         if !latest trap();
+
         wake(latest, EDEADLK);
+
         return latest;
     }
 }
@@ -202,6 +209,7 @@ block_running :: (waiting_for: *void, deadline: u64) -> s32 #c_call {
     next_ticket += 1;
     thread.ticket = next_ticket;
     green_suspend();
+
     return running.wake_result;
 }
 
@@ -242,6 +250,7 @@ monotonic_nanoseconds :: () -> u64 #c_call {
 // Sleeps the whole interval: a host may wake a poll slightly early (Node's can).
 sleep_nanoseconds :: (total: u64) -> bool #c_call {
     if total == 0 return true;
+
     now := monotonic_nanoseconds();
     deadline := now + total;
 
@@ -254,8 +263,10 @@ sleep_nanoseconds :: (total: u64) -> bool #c_call {
         happened: u32;
 
         if wasi_poll_oneoff(offset32(*subscription), offset32(*event), 1, offset32(*happened)) != 0 return false;
+
         now = monotonic_nanoseconds();
         if now == 0 || now >= deadline break;
+
         total = deadline - now;
     }
 
@@ -284,9 +295,12 @@ EBUSY :: 16;
 #program_export "pthread_create"
 wasi_pthread_create :: (handle: *u64, attributes: *void, entry: Thread_Entry, argument: *void) -> s32 #c_call {
     if !green.enabled return EAGAIN;
+
     thread := add_thread(entry, argument, wasi_malloc(THREAD_FRAME_BYTES), THREAD_FRAME_BYTES);
     if !thread return EAGAIN;
+
     handle.* = cast(u64) thread;
+
     return 0;
 }
 
@@ -301,7 +315,9 @@ wasi_pthread_join :: (handle: u64, result: **void) -> s32 #c_call {
     }
 
     if result result.* = thread.result;
+
     remove_thread(thread);
+
     return 0;
 }
 
@@ -311,7 +327,9 @@ wasi_pthread_tryjoin_np :: (handle: u64, result: **void) -> s32 #c_call {
     if !thread return ESRCH;
     if thread.status != .DONE return EBUSY;
     if result result.* = thread.result;
+
     remove_thread(thread);
+
     return 0;
 }
 
@@ -351,6 +369,7 @@ wasi_pthread_mutex_lock :: (mutex: *Green_Mutex) -> s32 #c_call {
 
     mutex.owner = running;
     mutex.depth += 1;
+
     return 0;
 }
 
@@ -365,6 +384,7 @@ wasi_pthread_mutex_trylock :: (mutex: *Green_Mutex) -> s32 #c_call {
 #program_export "pthread_mutex_unlock"
 wasi_pthread_mutex_unlock :: (mutex: *Green_Mutex) -> s32 #c_call {
     if mutex.owner != running return EPERM;
+
     mutex.depth -= 1;
     if mutex.depth == 0 {
         mutex.owner = null;
@@ -407,8 +427,10 @@ wasi_pthread_cond_wait :: (condition: *void, mutex: *Green_Mutex) -> s32 #c_call
 #program_export "pthread_cond_timedwait"
 wasi_pthread_cond_timedwait :: (condition: *void, mutex: *Green_Mutex, deadline: *Seconds_And_Nanoseconds) -> s32 #c_call {
     if !deadline return EINVAL;
+
     now: Seconds_And_Nanoseconds;
     if wasi_clock_gettime(0, *now) != 0 return EINVAL;
+
     remaining := (deadline.seconds - now.seconds) * 1_000_000_000 + deadline.nanoseconds - now.nanoseconds;
     if remaining <= 0 return ETIMEDOUT;
 
@@ -423,6 +445,7 @@ wasi_pthread_cond_timedwait :: (condition: *void, mutex: *Green_Mutex, deadline:
 // Releases the mutex for the length of the wait, however deeply the thread holds it.
 wait_condition :: (condition: *void, mutex: *Green_Mutex, deadline: u64) -> s32 #c_call {
     if mutex.owner != running return EPERM;
+
     depth := mutex.depth;
 
     mutex.owner = null;
@@ -436,5 +459,6 @@ wait_condition :: (condition: *void, mutex: *Green_Mutex, deadline: u64) -> s32 
 
     mutex.owner = running;
     mutex.depth = depth;
+
     return result;
 }

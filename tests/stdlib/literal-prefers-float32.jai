@@ -24,5 +24,6 @@ main :: () {
 
     if type_of(a) != float32 || type_of(b) != float32 exit(1);
     if pick(3) != 1 exit(2);
+
     print("ok\n");
 }

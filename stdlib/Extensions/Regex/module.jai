@@ -61,14 +61,17 @@ compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
     re.pattern = pattern;
     engine, ok, error := build_engine(pattern, options);
     if !ok return re, false, error;
+
     re.engine = engine;
     re.group_count = engine.program.slot_count / 2 - 1;
     re.names = engine.program.names;
+
     return re, true, .{};
 }
 
 free_regex :: (re: *Regex) {
     if !re.engine return;
+
     dfa_free(*re.engine.forward);
     dfa_free(*re.engine.backward);
     onepass_free(*re.engine.onepass);
@@ -122,10 +125,12 @@ captures_all :: (re: *Regex, text: string) -> [..] Captures {
 // Group `index`'s text, and whether it took part in the match.
 group :: (caps: Captures, index: int) -> string, bool {
     if index < 0 || 2 * index + 1 >= caps.slots.count return "", false;
+
     s := caps.slots[2 * index];
     e := caps.slots[2 * index + 1];
 
     if s < 0 return "", false;
+
     return slice(caps.text, s, e - s), true;
 }
 
@@ -161,6 +166,7 @@ replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> stri
 
     for_matches(re.engine, text, #code {
         if limit >= 0 && count >= limit break;
+
         append(*builder, slice(text, last, s - last));
 
         if literal {
@@ -174,6 +180,7 @@ replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> stri
         count += 1;
     });
     append(*builder, slice(text, last, text.count - last));
+
     return builder_to_string(*builder);
 }
 
@@ -187,6 +194,7 @@ split :: (re: *Regex, text: string) -> [..] string {
         last = e;
     });
     array_add(*out, slice(text, last, text.count - last));
+
     return out;
 }
 
@@ -261,6 +269,7 @@ captures :: ($R: Type, text: string, start := 0) -> R.Groups, bool #modify {
     s, e := find_span(engine, text, start);
 
     if e < 0 return out, false;
+
     ok := fill_groups(R, engine, text, s, e, *out);
 
     return out, ok;
@@ -275,6 +284,7 @@ captures_all :: ($R: Type, text: string) -> [..] R.Groups #modify {
         groups: R.Groups;
         if fill_groups(R, engine, text, s, e, *groups) array_add(*out, groups);
     });
+
     return out;
 }
 
@@ -287,6 +297,7 @@ parse :: ($R: Type, text: string) -> R.Groups, bool #modify {
     s, e := find_span(engine, text, 0);
 
     if e < 0 return out, false;
+
     ok := fill_groups(R, engine, text, s, e, *out);
 
     return out, ok;
@@ -362,6 +373,7 @@ static_regex :: ($pattern: string) -> Regex {
     re.engine = static_engine_of(pattern, false);
     re.group_count = re.engine.program.slot_count / 2 - 1;
     re.names = re.engine.program.names;
+
     return re;
 }
 
@@ -370,9 +382,11 @@ cached_engine :: (pattern: string, full: bool) -> *Engine {
     found, engine := table_find(*engine_cache, key);
 
     if found return engine;
+
     key = copy_string(key);
     engine = build_engine(key, .{});
     table_add(*engine_cache, key, engine);
+
     return engine;
 }
 

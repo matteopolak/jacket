@@ -237,6 +237,7 @@ text :: (target: *Texture) {
 
     cut := found.count - 1;
     while found[cut] != #char "/" cut -= 1;
+
     font := get_font_at_size(string.{ cut, found.data }, string.{ found.count - cut - 1, found.data + cut + 1 }, 20);
 
     assert(font != null);

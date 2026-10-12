@@ -34,6 +34,7 @@ main :: () {
     }
 
     for *threads thread_deinit(it);
+
     assert(total == 300, "total %", total);
     assert(counter == 300, "counter %", counter);
     print("ok\n");

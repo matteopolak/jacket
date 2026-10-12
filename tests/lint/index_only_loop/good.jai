@@ -33,6 +33,7 @@ runs :: (str: string, other: string) -> int {
     for i: 0..str.count - 2 if str[i] == str[i + 1] n += 1;
     for i: 1..str.count - 1 n += str[i];
     for i: 0..str.count - 1 if str[i] != other[i] n += 1;
+
     return n;
 }
 

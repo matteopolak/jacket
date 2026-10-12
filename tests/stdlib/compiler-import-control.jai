@@ -18,6 +18,7 @@ build :: (source: string, remap: bool, answer: (w: Workspace, m: *Message_Failed
     options.output_type = .NO_OUTPUT;
     set_build_options(options, w);
     if remap remap_import(w, "", "Not_A_Module", "Math");
+
     compiler_begin_intercept(w);
     add_build_string(source, w);
 
@@ -39,6 +40,7 @@ build :: (source: string, remap: bool, answer: (w: Workspace, m: *Message_Failed
     }
 
     compiler_end_intercept(w);
+
     return result;
 }
 

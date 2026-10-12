@@ -214,6 +214,28 @@ a();
 b();
 ```
 
+`blank_line_after_guards`: a blank line after a guard, an `if`, `for` or `while` written on one line (`if !x return null;`). A run of guards stays together, and so does a declaration with the guard that tests it (that is `blank_line_after_declarations`). Bodies of four lines or fewer are left alone.
+
+```jai
+if !window return null;
+view := content_view(window);
+if !view return null;
+attach(view);
+show(view);
+```
+
+```jai
+if !window return null;
+
+view := content_view(window);
+if !view return null;
+
+attach(view);
+show(view);
+```
+
+`blank_line_before_return`: a blank line above a `return` in a body longer than four lines. In a switch the arm is measured instead, so `case 1; return 2;` and short arms stay as they are, and a `return` right after a `case` label is never moved.
+
 - To change the rules: `statement_wants_blank` (when a blank is wanted, per option), `finish_statement` (what kind of statement it is and where its header ends), `block_kind` (which `{` holds code) and `separate_statements` (the walk), after `separate_pair` in `format.jai`. `add_blank_line` is the shared way to put the blank above a statement's comments. Golden cases: `stmt-declarations`, `stmt-blocks`, `stmt-cases`, `stmt-comments` (one option each) and `stmt-combined`.
 
 **Indentation** follows bracket nesting:
@@ -288,10 +310,12 @@ blank_line_after_declarations = false  # true: blank line after a run of declara
 blank_lines_around_blocks = false      # true: blank lines around statements with a block body
 blank_line_between_cases = false       # true: blank line before a `case` after a multi-line arm
 blank_line_before_comments = false     # true: blank line above a comment that follows code
+blank_line_after_guards = false        # true: blank line after a run of one-line if/for/while
+blank_line_before_return = false       # true: blank line above a return in a longer body
 ignore = ["tests/corpus/**", "generated/*.jai"]
 ```
 
-Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Extensions/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more. The repository's own config also turns on two of the stricter blank-line options (`blank_line_after_declarations` and `blank_lines_around_blocks`, which are off by default) and keeps at most one blank line in a row.
+Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Extensions/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more. The repository's own config also turns on four of the stricter blank-line options (`blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_after_guards` and `blank_line_before_return`, which are off by default) and keeps at most one blank line in a row.
 
 **CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
 
@@ -317,7 +341,7 @@ formatted, ok, error := format_source(source, config); // config defaults to .{}
 
 - `format_source(text, config = .{}) -> result: string, ok: bool, error: string`: on success `result` is newly allocated (`free` it); on failure it is `""` and `error` (temporary storage) says why, usually as `line:column: message`: text that does not lex, unbalanced brackets, or a failed token check. Input is never partially formatted.
 - `parse_config(text) -> config: Format_Config, ok: bool, error: string`: parses `jaifmt.toml` text. `config.root` is left empty; set it to the config's directory if you use `format_is_ignored`.
-- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `blank_lines_between_items` (true), `blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_between_cases` and `blank_line_before_comments` (all false), `ignore`, `root`.
+- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `blank_lines_between_items` (true), `blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_between_cases`, `blank_line_before_comments`, `blank_line_after_guards` and `blank_line_before_return` (all false), `ignore`, `root`.
 - Also: `format_tokens_equivalent(before, after) -> ok, why` (the safety check), `format_is_ignored(config, path)`, `format_glob_match(pattern, text)`, `format_count_long_lines(text, max_width)`, `FORMAT_CONFIG_FILE_NAME` (`"jaifmt.toml"`).
 
 ## Browser playground

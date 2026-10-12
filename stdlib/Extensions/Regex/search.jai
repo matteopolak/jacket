@@ -16,6 +16,7 @@ Engine :: struct {
 build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     parsed := parse_pattern(pattern, options);
     if !parsed.ok return null, false, .{ parsed.error, parsed.offset };
+
     engine := New(Engine);
     engine.pattern = pattern;
     ok: bool;
@@ -36,6 +37,7 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     dfa_init(*engine.backward, *engine.reverse, true);
     engine.onepass = onepass_build(*engine.program, ONEPASS_STATE_LIMIT);
     engine.fixed_length = fixed_length(*engine.program);
+
     return engine, true, .{};
 }
 
@@ -43,19 +45,23 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
 // promises to say whether there is one (the end may be early and the start is not computed).
 find_span :: (engine: *Engine, text: string, start: int, earliest := false) -> start: int, end: int {
     if start > text.count return -1, -1;
+
     program := *engine.program;
     if program.anchored && start > 0 return -1, -1;
+
     end, gave_up := dfa_find_end(*engine.forward, text, start, program.anchored, earliest);
     if !gave_up {
         if end < 0 return -1, -1;
         if earliest return -1, end;
         if engine.fixed_length >= 0 return end - engine.fixed_length, end;
+
         s, gave_up_backward := dfa_find_start(*engine.backward, text, start, end);
         if !gave_up_backward return s, end;
     }
 
     slots: [2] int;
     if !pike_search(program, text, start, text.count, program.anchored, slots) return -1, -1;
+
     return slots[0], slots[1];
 }
 
@@ -73,6 +79,7 @@ captures_of :: (engine: *Engine, text: string, s: int, e: int) -> Captures {
     caps.names = engine.program.names;
     caps.slots = NewArray(engine.program.slot_count, int);
     fill_slots(engine, text, s, e, caps.slots);
+
     return caps;
 }
 
@@ -84,6 +91,7 @@ fill_slots :: (engine: *Engine, text: string, s: int, e: int, slots: [] int) {
     if engine.onepass.ok found = onepass_search(*engine.onepass, text, s, e, slots);
     else if backtrack_fits(program, e - s) found = backtrack_search(program, text, s, e, slots);
     else found = pike_search(program, text, s, e, true, slots);
+
     assert(found && slots[0] == s && slots[1] == e, "Regex: the matchers disagree on `%` in `%`: %..% vs %", engine.pattern, text, s, e, slots);
 }
 
@@ -194,12 +202,14 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
 
         if is_number text = group(caps, number);
         else text = group(caps, name);
+
         append(builder, text);
     }
 }
 
 parse_group_number :: (name: string) -> int, bool {
     if name.count == 0 || name.count > 9 return 0, false;
+
     value := 0;
 
     for name {
@@ -235,6 +245,7 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
 
         if !step.done {
             if lengths[step.at] != UNSEEN continue;
+
             lengths[step.at] = VISITING;
             array_add(*stack, .{ step.at, true });
 

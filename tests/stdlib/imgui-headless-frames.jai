@@ -27,6 +27,7 @@ frame :: (checked: *bool, value: *float, button_min: *ImVec2, button_max: *ImVec
 
     End();
     Render();
+
     return clicked;
 }
 
@@ -57,6 +58,7 @@ main :: () {
     assert(pixels != null && width > 0 && height > 0, "atlas %x%", width, height);
     lit := 0;
     for i: 0..width * height - 1 if pixels[i * 4 + 3] != 0 lit += 1;
+
     assert(lit > 100, "the font atlas has % opaque pixels", lit);
 
     checked := false;

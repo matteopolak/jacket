@@ -13,7 +13,9 @@ check_copy :: () -> bool {
 
     Memory.copy(bytes.data + 1, bytes.data, 5);
     if bytes[0] != 0 || bytes[1] != 0 || bytes[5] != 4 return false;
+
     Memory.copy(bytes.data, bytes.data + 1, 5);
+
     return bytes[0] == 0 && bytes[1] == 1 && bytes[4] == 4;
 }
 
@@ -21,11 +23,13 @@ check_hashes :: () -> bool {
     input := "abc";
     if Hash.djb2_hash(input) != 193485963 return false;
     if Hash.fnv1a_hash(input.data, input.count) != 0xe71fa2190541574b return false;
+
     scalar: s64 = 7;
     if Hash.get_hash(*scalar) != cast,trunc(u32) (Hash.knuth_hash((cast(u64) *scalar) ^ 5381) >> 32) return false;
     if Hash.get_hash(cast(u64) 7) != cast,trunc(u32) (Hash.knuth_hash(cast(u64) (7 ^ 5381)) >> 32) return false;
     if XXH.native_XXH32(null, 0, 0) != 0x02cc5d05 return false;
     if XXH.native_XXH64(null, 0, 0) != 0xef46db3751d8e999 return false;
+
     input = "0123456789abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ";
     state32: XXH.XXH32_state_t;
     state64: XXH.XXH64_state_t;

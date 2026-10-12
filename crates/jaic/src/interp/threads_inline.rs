@@ -143,7 +143,7 @@ pub(super) struct InlineSched {
     /// Polls since the running thread last let the others run.
     polls: u64,
     /// Value stacks of finished threads, for new ones.
-    spare_stacks: Vec<Box<[u64]>>,
+    spare_stacks: Vec<ValueStack>,
 }
 
 impl InlineSched {
@@ -675,7 +675,7 @@ impl Interp {
                 let stack = sched
                     .spare_stacks
                     .pop()
-                    .unwrap_or_else(|| vec![0u64; THREAD_STACK / 8].into_boxed_slice());
+                    .unwrap_or_else(|| ValueStack::heap(THREAD_STACK / 8));
                 self.put_exec_state(ExecState {
                     stack,
                     ..ExecState::default()

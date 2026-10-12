@@ -22,9 +22,11 @@ main :: () {
     });
     n := 41;
     if c.proc(*n) != 42 exit(1);
+
     init_plain(*c, (x: *int) -> int {
         return x.* + 2;
     });
     if c.proc(*n) != 43 exit(2);
+
     print("ok\n");
 }

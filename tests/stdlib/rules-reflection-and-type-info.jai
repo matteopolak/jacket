@@ -87,11 +87,13 @@ main :: () {
     found := false;
 
     for table if it == cast(*Type_Info) type_info(only_in_table) found = true;
+
     assert(found, "reflect.10: type table contains a used struct");
 
     // reflect.11: the table is filled once every descriptor exists, so it holds ones made late too.
     late := false;
     for get_runtime_info().type_table if it == cast(*Type_Info) type_info(Box(u8, 5)) late = true;
+
     assert(late, "reflect.11: type table contains a polymorph instance");
 
     print("ok\n");

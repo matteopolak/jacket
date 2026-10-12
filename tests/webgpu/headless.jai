@@ -22,6 +22,7 @@ failures := 0;
 
 check :: (ok: bool, what: string, args: ..Any) {
     if ok return;
+
     failures += 1;
     print("FAIL: ");
     print(what, ..args);
@@ -222,6 +223,7 @@ WGSL
         wrong := 0;
 
         for 0..COUNT - 1 if values[it] != cast(u32) (it * it + 1) wrong += 1;
+
         check(wrong == 0, "compute: % of % values are wrong (values[3] = %)", wrong, COUNT, values[3]);
         print("compute shader: checked\n");
         wgpuBufferUnmap(readback);
@@ -305,6 +307,7 @@ create_shader :: (device: WGPUDevice, code: string) -> WGPUShaderModule {
     wgsl.code = to_string_view(code);
     desc: WGPUShaderModuleDescriptor;
     desc.nextInChain = *wgsl.chain;
+
     return wgpuDeviceCreateShaderModule(device, *desc);
 }
 
@@ -345,5 +348,6 @@ map_read :: (instance: WGPUInstance, buffer: WGPUBuffer, size: u64) -> *u8 {
     data := cast(*u8) wgpuBufferGetConstMappedRange(buffer, 0, size);
 
     check(data != null, "the mapped range is null");
+
     return data;
 }

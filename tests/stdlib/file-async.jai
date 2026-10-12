@@ -123,6 +123,7 @@ main :: () {
         // More requests than the queue holds: the extra one is refused until completions drain.
         queue.capacity = 3;
         for 1..3 assert(Async.read_entire_file(queue, path("one.txt"), it).code == .Success);
+
         full := Async.read_entire_file(queue, path("one.txt"), 4);
 
         assert(full.code == .FullQueue, "full queue: %", full);

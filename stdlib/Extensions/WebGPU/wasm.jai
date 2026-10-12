@@ -64,6 +64,7 @@ webgpu_wasm_wait :: (futures: *WGPUFutureWaitInfo, count: u64, timeout_ns: u64) 
 
     while true {
         if !jai_sched_yield_for_wait() return cast(WGPUWaitStatus) jai_webgpu_wait(futures, count, left);
+
         slice := ifx left < WAIT_SLICE_NS then left else WAIT_SLICE_NS;
         status := cast(WGPUWaitStatus) jai_webgpu_wait(futures, count, slice);
 

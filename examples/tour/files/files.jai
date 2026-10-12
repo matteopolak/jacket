@@ -21,8 +21,10 @@ tour_files :: () {
 
     visit_files(tour_folder, true, *census, (info: *File_Visit_Info, census: *Census) {
         if !ends_with(info.short_name, ".jai") return;
+
         text, ok := read_entire_file(info.full_name);
         if !ok return;
+
         lines := count_lines(text);
 
         census.files += 1;
@@ -53,6 +55,7 @@ tour_files :: () {
 
     if !opened return;
     for 1..3 file_write(*file, tprint("entry %: % squared is %\n", it, it, it * it));
+
     file_close(*file);
 
     log_text := read_entire_file(path);

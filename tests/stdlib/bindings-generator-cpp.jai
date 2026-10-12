@@ -39,6 +39,7 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
     }
 
     visited += 1;
+
     return .RECURSE;
 }
 

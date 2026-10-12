@@ -24,6 +24,8 @@ main :: () -> int {
 
     if tally.calls < 2 return 2;
     if context.allocator.proc != before.proc return 3;
+
     print("ok\n");
+
     return 0;
 }

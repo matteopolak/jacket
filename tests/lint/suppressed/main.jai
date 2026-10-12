@@ -24,12 +24,14 @@ main :: () {
     ready := double_value(1, "x") > 1;
 
     if ready == true print("ready\n"); // jailint: allow(bool_comparison)
+
     x: s32 = 5;
     y := cast(s32) x; // jailint: allow(all)
     a := 0.1;
     b := a * 3;
 
     if a == b print("same\n");
+
     n := 3;
     n = n + 1; // jailint: allow(manual_assign_op)
     // jailint: allow(identical_operands, needless_bool)

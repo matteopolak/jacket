@@ -17,9 +17,12 @@ main :: () -> s32 {
 
     source, read_ok := read_standard_input();
     if !read_ok return fail("%: cannot read standard input", options.name);
+
     formatted, ok, error := format_source(source, config);
     if !ok return fail("%:%", options.name, error);
+
     write_string(formatted);
+
     return 0;
 }
 

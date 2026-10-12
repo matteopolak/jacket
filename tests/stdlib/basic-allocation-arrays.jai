@@ -24,6 +24,7 @@ counting_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
         case .RESIZE;
             counts.resizes += 1;
             if !old_memory counts.live += 1;
+
             counts.last_size = size;
         case .FREE;
             counts.frees += 1;
@@ -70,13 +71,16 @@ main :: () {
 
         memory := cast(*u8) alloc(10, counting);
         for 0..9 memory[it] = cast(u8) (it + 1);
+
         grown := cast(*u8) realloc(memory, 100000, 10, counting);
 
         assert(grown != null);
         for 0..9 assert(grown[it] == it + 1, "realloc kept byte %: %", it, grown[it]);
+
         grown[99999] = 5;
         shrunk := cast(*u8) realloc(grown, 4, 100000, counting);
         for 0..3 assert(shrunk[it] == it + 1, "a shrinking realloc kept byte %", it);
+
         assert(realloc(shrunk, -1, 4, counting) == null && realloc(shrunk, 4, -1, counting) == null, "negative sizes");
         free(shrunk, counting);
         s := alloc_string(5, counting);
@@ -116,9 +120,11 @@ main :: () {
 
         values := NewArray(1000, Defaults);
         for values assert(it.a == 7 && it.b == "seven", "element % not initialized", it_index);
+
         free(values.data);
         zeros := NewArray(4096, s32);
         for zeros assert(it == 0);
+
         free(zeros.data);
         nothing, base := NewArray(0, s64);
 
@@ -136,6 +142,7 @@ main :: () {
             assert(cast(u64) aligned.data % cast(u64) alignment == 0, "NewArray alignment %: %", alignment, aligned.data);
             assert(aligned_base != null && cast(*u8) aligned.data >= cast(*u8) aligned_base);
             for aligned assert(it == 0);
+
             free(aligned_base);
         }
 
@@ -219,6 +226,7 @@ check_temporary_storage :: () {
     mark := get_temporary_storage_mark();
 
     for 1..100 talloc(1000);
+
     assert(storage.total_bytes_occupied > 100000, "overflow pages hold %", storage.total_bytes_occupied);
     big := cast(*u8) talloc(1_000_000);
     big[999_999] = 1;
@@ -305,8 +313,10 @@ check_resizable_arrays :: () {
 
     // Growth across many elements keeps every value.
     for 0..9999 array_add(*a, it * 3);
+
     assert(a.count == 10000 && a.allocated >= 10000);
     for a assert(it == it_index * 3, "a[%] = %", it_index, it);
+
     assert(counts.allocations < 40, "growth is geometric: % allocations", counts.allocations);
     reserved := a.allocated;
 
@@ -355,11 +365,13 @@ check_resizable_arrays :: () {
     assert(array_unordered_remove_by_value(*dup_view, 7, stop_after_first = true) == 1 && dup_view.count == 5);
     assert(array_unordered_remove_by_value(*dup_view, 7) == 3 && dup_view.count == 2, "left %", dup_view);
     for dup_view assert(it != 7);
+
     assert(array_unordered_remove_by_value(*dup_view, 9) == 0);
 
     // `remove` while iterating removes exactly the matching elements, visiting each once.
     array_reset(*a);
     for 0..99 array_add(*a, it);
+
     visited := 0;
 
     for a {
@@ -379,11 +391,13 @@ check_resizable_arrays :: () {
     assert(sum == 4950 - 1683, "sum %", sum);
     // Removing every element.
     for a remove it;
+
     assert(a.count == 0);
 
     // Resizing, copying, swapping.
     array_resize(*a, 5);
     for a assert(it == 0);
+
     a[4] = 44;
     array_resize(*a, 2);
     array_resize(*a, 6);
@@ -414,6 +428,7 @@ check_resizable_arrays :: () {
     memset(raw.data, 0, raw.count * size_of(Defaults));
     init_range(raw.data, 0, raw.count);
     for raw assert(it.a == 7 && it.b == "seven");
+
     array_reset(*raw);
 
     // Structs with initializers grow initialized.
@@ -421,6 +436,7 @@ check_resizable_arrays :: () {
 
     array_resize(*structs, 3);
     for structs assert(it.a == 7, "resized element % not initialized", it_index);
+
     pointer := array_add(*structs);
 
     assert(pointer.a == 7 && structs.count == 4);
@@ -430,6 +446,7 @@ check_resizable_arrays :: () {
 check_array_views :: () {
     numbers: [10] s64;
     for *numbers it.* = it_index;
+
     tail := array_view(numbers, 6);
 
     assert(tail.count == 4 && tail[0] == 6);
@@ -449,6 +466,7 @@ check_array_views :: () {
 
     heap := NewArray(4, s64);
     for *heap it.* = it_index * 10;
+
     array_resize(*heap, 6);
     assert(heap.count == 6 && heap[3] == 30 && heap[5] == 0, "%", heap);
     array_resize(*heap, 2, initialize = false);

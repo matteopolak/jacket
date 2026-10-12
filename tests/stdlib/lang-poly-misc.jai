@@ -111,11 +111,14 @@ size_of_thing :: area;
 main :: () -> int {
     a, b := 1, 2;
     if a != 1 || b != 2 return 1;
+
     c := 5;
     d, c =, e := 7, 8, 9;
     if d != 7 || c != 8 || e != 9 return 2;
+
     ok:, second:, c = true, 4, 6;
     if !ok || second != 4 || c != 6 return 3;
+
     x, y := pair();
     if x != 1 || y != 2 return 4;
 
@@ -128,13 +131,16 @@ main :: () -> int {
     w := widen(small);
 
     if type_of(w) != s64 return 9;
+
     bytes := u8.[200, 100];
     if sum_widened(bytes) != 300 || type_of(sum_widened(bytes)) != u32 return 10;
 
     v := show_vec(Vec.{ 1, 2 });
     if v.x != 1 return 11;
+
     g: Grid5(N = 2);
     if Grid5(N = 2).M != 5 || type_of(g) != Grid5(N = 2) return 12;
+
     dflt: Defaulted;
     if dflt.n != 3 || dflt.values.count != 3 return 13;
 

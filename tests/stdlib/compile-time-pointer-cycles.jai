@@ -17,6 +17,7 @@ make_ring :: () -> *Node {
     b.value = 2;
     a.next = b;
     b.next = a;
+
     return a;
 }
 
@@ -30,6 +31,7 @@ make_self :: () -> Self_Pointing {
     s.self = New(Self_Pointing);
     s.self.self = s.self;
     s.self.value = 7;
+
     return s;
 }
 

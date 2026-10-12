@@ -11,6 +11,7 @@ static_engine :: (pattern: string, full: bool) -> Engine {
     engine.pattern = pattern;
     source := pattern;
     if full source = tprint("\\A(?:%)\\z", pattern);
+
     parsed := parse_pattern(source, .{});
     if !parsed.ok {
         offset := ifx full then max(parsed.offset - 5, 0) else parsed.offset;
@@ -44,6 +45,7 @@ static_engine :: (pattern: string, full: bool) -> Engine {
     engine.fixed_length = fixed_length(*engine.program);
     dfa_free(*forward);
     dfa_free(*backward);
+
     return engine;
 }
 
@@ -101,15 +103,18 @@ plan_groups :: (pattern: string) -> [..] Field_Plan, ok: bool {
     parsed := parse_pattern(pattern, .{});
 
     if !parsed.ok return plans, false;
+
     collect_groups(parsed.root, false, *plans);
     used: [..] string;
     for plans array_add(*used, it.name);
 
     for *plans {
         if it.kind != .ENUM continue;
+
         name := copy_string(it.name);
         if name[0] >= #char "a" && name[0] <= #char "z" name[0] -= 32;
         for other: used if other == name name = tprint("%_Value", name);
+
         it.type_name = name;
         array_add(*used, name);
     }
@@ -154,6 +159,7 @@ infer_kind :: (node: *Node, plan: *Field_Plan) {
         for node.children {
             word, ok := literal_text(it);
             if !ok || !is_identifier(word) return;
+
             name := member_name(word);
             index := index_of_name(members, name);
 
@@ -167,10 +173,12 @@ infer_kind :: (node: *Node, plan: *Field_Plan) {
         }
 
         if members.count < 2 return;
+
         plan.kind = .ENUM;
         plan.members = members;
         plan.words = words;
         plan.word_members = word_members;
+
         return;
     }
 
@@ -206,14 +214,17 @@ folded_letter :: (node: *Node) -> string, bool {
             lower := ifx c >= #char "A" && c <= #char "Z" then c + 32 else c;
             if lower < #char "a" || lower > #char "z" return "", false;
             if seen && lower != letter return "", false;
+
             letter = cast(u8) lower;
             seen += 1;
         }
     }
 
     if seen != 2 return "", false;
+
     text := alloc_string(1);
     text[0] = letter;
+
     return text, true;
 }
 
@@ -227,6 +238,7 @@ member_name :: (word: string) -> string {
 
         if c >= #char "A" && c <= #char "Z" && lower_before append(*builder, #char "_");
         if c >= #char "a" && c <= #char "z" c -= 32;
+
         append(*builder, c);
     }
 
@@ -290,14 +302,17 @@ number_shape :: (node: *Node) -> signed: bool, digits: int, is_float: bool, ok: 
     while i < items.count {
         ok, lo, hi := digit_run(items[i]);
         if !ok break;
+
         min_digits += lo;
         if hi < 0 || max_digits < 0 max_digits = -1;
         else max_digits += hi;
+
         i += 1;
     }
 
     if min_digits < 1 return false, 0, false, false;
     if i == items.count return signed, max_digits, false, true;
+
     // A fraction: `.` then digits, either inline or as an optional group.
     rest: [..] *Node;
     for i..items.count - 1 array_add(*rest, items[it]);
@@ -309,8 +324,10 @@ number_shape :: (node: *Node) -> signed: bool, digits: int, is_float: bool, ok: 
     }
 
     if rest.count < 2 return false, 0, false, false;
+
     dot, dot_ok := literal_text(rest[0]);
     if !dot_ok || dot != "." return false, 0, false, false;
+
     fraction := 0;
 
     for 1..rest.count - 1 {
@@ -320,6 +337,7 @@ number_shape :: (node: *Node) -> signed: bool, digits: int, is_float: bool, ok: 
     }
 
     if fraction < 1 return false, 0, false, false;
+
     return signed, max_digits, true, true;
 }
 
@@ -359,10 +377,12 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
     if node.kind == {
         case .LITERAL;
             for node.literal if it < #char "0" || it > #char "9" return false, 0, 0;
+
             return true, node.literal.count, node.literal.count;
         case .CLASS;
             if !node.ranges.count return false, 0, 0;
             for node.ranges if !is_digit_range(it, node.bytes) return false, 0, 0;
+
             return true, 1, 1;
         case .CAPTURE;
             return digit_run(node.children[0]);
@@ -370,6 +390,7 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
             ok, lo, hi := digit_run(node.children[0]);
             if !ok return false, 0, 0;
             if node.max < 0 || hi < 0 return true, lo * node.min, -1;
+
             return true, lo * node.min, hi * node.max;
         case .CONCAT;
             lo, hi := 0, 0;
@@ -377,6 +398,7 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
             for node.children {
                 ok, a, b := digit_run(it);
                 if !ok return false, 0, 0;
+
                 lo += a;
                 if b < 0 || hi < 0 hi = -1;
                 else hi += b;
@@ -411,6 +433,7 @@ is_digit_range :: (r: Char_Range, bytes: bool) -> bool {
 groups_members :: (pattern: string) -> string {
     plans, ok := plan_groups(pattern);
     if !ok return check_pattern(pattern);
+
     builder: String_Builder;
     any_optional := false;
 
@@ -445,6 +468,7 @@ groups_members :: (pattern: string) -> string {
 groups_fill :: (pattern: string) -> string {
     plans, ok := plan_groups(pattern);
     if !ok return "";
+
     builder: String_Builder;
 
     for plans {
@@ -484,6 +508,7 @@ groups_fill :: (pattern: string) -> string {
 into_fill :: (pattern: string, T: Type) -> string {
     plans, ok := plan_groups(pattern);
     if !ok return "";
+
     info := cast(*Type_Info) T;
     if info.type != .STRUCT {
         compiler_report(tprint("Regex: can only match into a struct, not %", T));
@@ -496,6 +521,7 @@ into_fill :: (pattern: string, T: Type) -> string {
 
     for member: st.members {
         if member.flags & .CONSTANT continue;
+
         group := -1;
         for plans if it.name == member.name group = it.group;
 
@@ -522,6 +548,7 @@ into_fill :: (pattern: string, T: Type) -> string {
                 // The exact name first, then any case.
                 for info_enum.names print_to_builder(*builder, "    %if piece == \"%\" out.% = .%;\n", ifx it_index then "else " else "", it, member.name, it);
                 for info_enum.names print_to_builder(*builder, "    else if equal_nocase(piece, \"%\") out.% = .%;\n", it, member.name, it);
+
                 append(*builder, "    else return false;\n");
             case;
                 compiler_report(tprint("Regex: field `%` of % has a type a group can't be parsed into; use a string, integer, float, bool or enum", member.name, T));
@@ -562,6 +589,7 @@ parse_integer :: (piece: string, $T: Type) -> T, bool {
         digit, size := digit_at(piece, i);
         if digit < 0 return 0, false;
         if magnitude > (LIMIT - cast(u64) digit) / 10 return 0, false;
+
         magnitude = magnitude * 10 + cast(u64) digit;
         i += size;
     }
@@ -577,6 +605,7 @@ parse_integer :: (piece: string, $T: Type) -> T, bool {
         }
 
         if magnitude > MAX_POSITIVE return 0, false;
+
         return cast(T) magnitude, true;
     } else {
         if negative && magnitude != 0 return 0, false;
@@ -604,6 +633,7 @@ parse_decimal :: (piece: string) -> float64, bool {
 
         digit, size := digit_at(piece, i);
         if digit < 0 return 0, false;
+
         array_add(*ascii, cast(u8) (#char "0" + digit));
         i += size;
     }
@@ -621,6 +651,7 @@ digit_at :: (text: string, index: int) -> int, int {
     c := text[index];
     if c >= #char "0" && c <= #char "9" return cast(int) (c - #char "0"), 1;
     if c < 0x80 return -1, 1;
+
     code, size := decode_utf8(text, index);
     if size == 1 return -1, 1;
 
@@ -631,6 +662,7 @@ digit_at :: (text: string, index: int) -> int, int {
 
     // Decimal digits come in runs of ten, zero first.
     for digit_table if code >= it.lo && code <= it.hi return cast(int) ((code - it.lo) % 10), size;
+
     return -1, size;
 }
 

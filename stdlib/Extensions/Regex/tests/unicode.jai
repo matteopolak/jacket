@@ -56,6 +56,7 @@ lookup :: (spec: string) -> [..] Char_Range {
 
     expect(error == "", tprint("`%` succeeded but has an error text", spec));
     expect(is_normalized(ranges), tprint("`%` is not sorted and merged", spec));
+
     return ranges;
 }
 

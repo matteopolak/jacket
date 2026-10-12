@@ -91,6 +91,7 @@ scene :: (p: Vector3) -> float, Material {
     floor_distance := p.y;
 
     if floor_distance < blob return floor_distance, .FLOOR;
+
     return blob, .BLOB;
 }
 

@@ -13,6 +13,7 @@ main :: () -> s64 {
     if (cast(*int) values[1].value_pointer).* != 42 return 3;
     if !(cast(*bool) values[2].value_pointer).* return 4;
     if (cast(*string) values[3].value_pointer).* != "hi" return 5;
+
     bad, _ := scan("a%i", "b7");
     if bad return 6;
 
@@ -21,6 +22,8 @@ main :: () -> s64 {
     if v.x != 1 || v.y != 2.5 || v.z != -3 return 8;
     if scan2("(1 2)", "(% % %)", *v.x, *v.y, *v.z) return 9;
     if atof("3.25") != 3.25 return 10;
+
     print("ok\n");
+
     return 0;
 }

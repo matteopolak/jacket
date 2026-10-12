@@ -7,8 +7,10 @@ main :: () -> s64 {
     b := rdtsc();
 
     if b < a return 1;
+
     stamp := rdtscp();
     if stamp < a return 2;
+
     pause();
     lfence();
     sfence();
@@ -21,10 +23,14 @@ main :: () -> s64 {
     rdseed();
     cpu := get_cpu_info();
     if cpu.vendor != .UNKNOWN && cpu.vendor != .INTEL && cpu.vendor != .AMD return 3;
+
     enable_feature(*cpu.feature_leaves, .AVX2);
     if !check_feature(cpu.feature_leaves, .AVX2) return 4;
+
     disable_feature(*cpu.feature_leaves, .AVX2);
     if check_feature(cpu.feature_leaves, .AVX2) return 5;
+
     print("ok\n");
+
     return 0;
 }

@@ -135,6 +135,7 @@ main :: () {
         assert(file_exists(path("empty-copy.bin")) && contents(path("empty-copy.bin")) == "");
         big := alloc_string(3 * 65536 + 17);
         for *big it.* = cast,trunc(u8) (it_index * 13 + it_index / 65536);
+
         assert(write_entire_file(path("big.bin"), big));
         assert(copy_file(path("big.bin"), path("big-copy.bin")));
         assert(contents(path("big-copy.bin")) == big, "large copy");
@@ -188,6 +189,7 @@ main :: () {
         assert(followed.count >= 4 && followed.count < 50, "followed listing has % names", followed.count);
         found_through_link := false;
         for followed if ends_with(it, "link/c.bin") found_through_link = true;
+
         // Through the link or the real path: each directory is listed once.
         unfollowed := file_list(path("src"), recursive = true, follow_directory_symlinks = false);
 

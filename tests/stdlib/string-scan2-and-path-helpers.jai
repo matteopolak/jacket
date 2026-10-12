@@ -38,15 +38,21 @@ main :: () -> int {
     color, ok := parse_enum(*line, Color);
 
     if !ok || color != .GREEN return 20;
+
     color, ok = parse_enum(*line, Color);
     if ok || color != .RED return 21;
+
     number, fok := parse_float(*line);
     if !fok || number != 3.5 return 22;
+
     number, fok = parse_float(*line);
     if fok return 23;
+
     small, iok := parse_int(*line, s8);
     if !iok || small != 42 return 24;
+
     small, iok = parse_int(*line, s8);
     if iok || small != 0 return 25;
+
     return 0;
 }

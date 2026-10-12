@@ -219,5 +219,6 @@ main :: () {
     same64("vpmadd52huq acc 0x5", R, .[0x5, 0x5, 0x10000000000003, 0x121fa00ad77db, 0x5, 0x4000000000005, 0x121fa00acd7c, 0xbf95ec0d654a1]);
 
     if failures != 0 exit(1);
+
     print("ok\n");
 }

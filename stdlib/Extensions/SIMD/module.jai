@@ -328,6 +328,7 @@ operator << :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     result: Vector(T, N) = ---;
 
     for 0..N - 1 result.lanes[it] = a.lanes[it] << bits;
+
     return result;
 }
 
@@ -339,6 +340,7 @@ operator >> :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     result: Vector(T, N) = ---;
 
     for 0..N - 1 result.lanes[it] = a.lanes[it] >> bits;
+
     return result;
 }
 
@@ -699,6 +701,7 @@ lanes_are_valid :: (T: Type, N: int) -> bool, string {
 
     if N <= 0 || (N & (N - 1)) != 0 return false, tprint("SIMD: the lane count must be a power of two, not %", N);
     if N * info.runtime_size > 64 return false, tprint("SIMD: % lanes of % make % bytes; a vector holds at most 64", N, T, N * info.runtime_size);
+
     return true, "";
 }
 
@@ -707,6 +710,7 @@ lane_bits :: (T: Type) -> Type {
     if size == 1 return u8;
     if size == 2 return u16;
     if size == 4 return u32;
+
     return u64;
 }
 
@@ -719,8 +723,10 @@ is_vector :: (V: Type) -> bool, string {
 is_byte_vector :: (V: Type) -> bool, string {
     ok, message := is_vector(V);
     if !ok return false, message;
+
     lanes := cast(*Type_Info_Array) (cast(*Type_Info_Struct) V).members[0].type;
     if lanes.element_type == type_info(u8) return true, "";
+
     return false, tprint("SIMD: a string loads into a vector of u8, not %", V);
 }
 

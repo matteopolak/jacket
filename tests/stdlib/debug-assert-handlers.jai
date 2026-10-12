@@ -8,10 +8,12 @@ main :: () -> s64 {
     if Debug.no_assert(loc, "silent") return 1;
     if Debug.print_assert(loc, "printed only") return 2;
     if Debug.trace_assert(loc, "printed with a trace") return 3;
+
     frames := Debug.backtrace();
     count := frames.count;
 
     Debug.free_backtrace(frames);
     if count == 0 && OS != .WASM return 4;
+
     return 0;
 }

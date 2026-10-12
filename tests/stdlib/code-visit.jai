@@ -10,9 +10,11 @@ count_calls :: (code: Code) -> int, int {
     get_recursive_nodes_breadth_first(root, *breadth);
     calls := 0;
     for breadth if it.kind == .PROCEDURE_CALL calls += 1;
+
     depth: [..] *Code_Node;
 
     get_recursive_nodes_depth_first(root, *depth);
+
     return calls, depth.count;
 }
 

@@ -119,9 +119,11 @@ main :: () {
 
     big: Big;
     for 0..9 big.v[it] = it;
+
     big = grow(big);
     big = grow(big);
     for 0..9 assert(big.v[it] == it + 2);
+
     copy := big;
     copy.v[0] = 100;
     assert(big.v[0] == 2);

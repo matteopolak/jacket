@@ -29,6 +29,7 @@ main :: () {
     got := read(process.input.handle, buffer.data, 16);
 
     while got < 0 && errno() == EINTR got = read(process.input.handle, buffer.data, 16);
+
     assert(to_string(buffer.data, got) == "done");
 
     output: [..] u8;

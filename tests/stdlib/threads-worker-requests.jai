@@ -50,6 +50,7 @@ main :: () {
         // Main has work of its own between requests, so the worker sits waiting meanwhile.
         sum := 0;
         for 1..2000 sum += it % 3;
+
         assert(sum > 0);
 
         lock(*channel.mutex);

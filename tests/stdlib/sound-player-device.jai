@@ -28,6 +28,7 @@ main :: () {
 
     for header append(*wav, it);
     for 1..200 append(*wav, 0);
+
     data := load_audio_data("silence.wav", builder_to_string(*wav));
 
     assert(data.loaded && data.sampling_rate == 44100 && data.nsamples_times_nchannels == 100);
@@ -45,6 +46,7 @@ main :: () {
         free(stream);
         sound_player_shutdown();
         print("ok\n");
+
         return;
     }
 

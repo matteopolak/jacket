@@ -22,11 +22,13 @@ check_memory_copy :: () {
     for count: s64.[0, 1, 2, 7, 16, 33] for distance : -40..40 {
         buffer: [128] u8;
         for *buffer it.* = cast(u8) it_index;
+
         source := 44;
         destination := source + distance;
         expected: [128] u8 = buffer;
 
         for i: 0..count - 1 expected[destination + i] = buffer[source + i];
+
         Memory.copy(buffer.data + destination, buffer.data + source, count);
         for buffer assert(it == expected[it_index], "copy of % bytes moved by %: byte % is %", count, distance, it_index, it);
     }
@@ -176,6 +178,7 @@ upper :: (input: string, data: *void) -> string {
     calls.* += 1;
     result := copy_string(input);
     for *result if it.* >= #char "a" && it.* <= #char "z" it.* -= 32;
+
     return result;
 }
 

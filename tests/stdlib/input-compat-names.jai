@@ -16,6 +16,7 @@ main :: () {
     found := false;
 
     for resizes if it.width == 800 && it.height == 600 found = true;
+
     assert(found);
     print("ok\n");
 }

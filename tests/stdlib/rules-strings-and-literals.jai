@@ -13,6 +13,7 @@ first_three :: (p: *u8) -> [3] u8 {
     out[0] = p[0];
     out[1] = p[1];
     out[2] = p[2];
+
     return out;
 }
 

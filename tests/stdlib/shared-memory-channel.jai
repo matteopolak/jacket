@@ -27,27 +27,34 @@
         created, reader := Channel.reader_create_channel(name, RING);
 
         if !created return 1;
+
         header := reader.header;
         if header.version != 1 || header.data_size_in_bytes != RING return 2;
         if header.full_memory_region_size_in_bytes != 16384 return 3;
         if header.reader_status != .PAUSED || header.writer_status != .DISCONNECTED return 4;
+
         // Nothing has been written yet.
         found, fatal := Channel.reader_poll_for_message(*reader);
         if found || fatal return 5;
+
         // The ring follows the fixed-size header block.
         data := Channel.get_data_area(header);
         if data != cast(*u8) header + Channel.OFFSET_TO_MESSAGE_DATA return 7;
+
         // The name is taken while the reader holds it; a missing name has no channel.
         taken := Channel.reader_create_channel(name, RING);
         if taken return 8;
+
         missing := Channel.writer_connect(tprint("/jaic-smc-missing-%", process_id()), name_not_found_is_quiet = true);
         if missing return 9;
 
         connected, writer := Channel.writer_connect(name);
         if !connected return 6;
+
         // Only one writer at a time.
         second := Channel.writer_connect(name);
         if second return 10;
+
         // Twenty 3000-byte payloads through a ring of under 16 KiB force it to wrap.
         PAYLOAD :: 3000;
 
@@ -74,9 +81,11 @@
         if !Channel.reader_release_channel(*reader) return 62;
         // Released: the name is free again, and nobody can connect to the old ring.
         if Channel.writer_connect(name, name_not_found_is_quiet = true) return 64;
+
         again, fresh := Channel.reader_create_channel(name, RING);
         if !again return 65;
         if !Channel.reader_release_channel(*fresh) return 66;
+
         return 0;
     }
 }

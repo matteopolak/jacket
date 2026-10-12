@@ -132,6 +132,7 @@ main :: () {
         }
 
         for r assert(it == a[it_index] + 10, "asm.9 asm.10 asm.11");
+
         assert(a[0] == 1 && b[0] == 10, "asm.11 sources unchanged");
     }
 
@@ -316,6 +317,7 @@ main :: () {
     {
         dst: [16] s32;
         for *dst it.* = -1;
+
         pd := dst.data;
         sel: u64 = 0b11;
 

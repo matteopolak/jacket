@@ -74,6 +74,7 @@ write_json :: (builder: *String_Builder, value: Any) {
 
             for 0..count - 1 {
                 if it append(builder, ", ");
+
                 element: Any;
                 element.type = array.element_type;
                 element.value_pointer = data + it * array.element_type.runtime_size;
@@ -90,6 +91,7 @@ write_json :: (builder: *String_Builder, value: Any) {
             for member: struct_info.members {
                 if array_find(member.notes, "NoSave") continue;
                 if written append(builder, ", ");
+
                 print_to_builder(builder, "\"%\": ", member.name);
                 field: Any;
                 field.type = member.type;

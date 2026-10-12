@@ -29,6 +29,7 @@ add_under_mutex :: (thread: *Thread) -> s64 {
         seen := shared.value;
 
         for 1..3 shared.racy_window += 1;
+
         shared.value = seen + 1;
         unlock(*shared.mutex);
     }
@@ -67,8 +68,10 @@ wait_at_gate :: (thread: *Thread) -> s64 {
     lock(*gate.mutex);
     gate.waiting += 1;
     while !gate.open wait(*gate.opened, *gate.mutex);
+
     gate.passed += 1;
     unlock(*gate.mutex);
+
     return 0;
 }
 
@@ -107,6 +110,7 @@ look_at_context :: (thread: *Thread) -> s64 {
 
     free(block);
     observed.allocator_is_inherited = counting_allocator_calls == before + 2;
+
     return 0;
 }
 
@@ -131,11 +135,13 @@ main :: () {
     init(*shared.mutex, "counter");
     threads: [THREADS] Thread;
     for *threads assert(thread_init(it, add_under_mutex), "thread_init %", it_index);
+
     indices: [THREADS] s64;
     for threads indices[it_index] = it.index;
     for i: 0..THREADS - 1 for j : i + 1..THREADS - 1 assert(indices[i] != indices[j], "thread indices repeat: %", indices);
     for *threads assert(thread_start(it), "thread_start %", it_index);
     for *threads thread_deinit(it);
+
     assert(shared.value == THREADS * INCREMENTS, "mutex counter %", shared.value);
     assert(shared.racy_window == 3 * THREADS * INCREMENTS, "racy window %", shared.racy_window);
     destroy(*shared.mutex);
@@ -187,6 +193,7 @@ main :: () {
 
         #if OS != .WASM assert(waited >= 25, "a 30 ms timed wait returned after % ms", waited);
         for 1..3 signal(*sem);
+
         assert(wait_for(*sem, 1000) == .SUCCESS);
         assert(wait_for(*sem) == .SUCCESS);
         assert(wait_for(*sem, 0) == .SUCCESS);
@@ -206,6 +213,7 @@ main :: () {
         thread_init(*taker, take_all);
         thread_start(*taker);
         for 1..10 signal(*handoff.items);
+
         thread_deinit(*taker);
         assert(handoff.taken == 10, "taken %", handoff.taken);
         assert(wait_for(*handoff.items, 0) == .TIMEOUT, "every signal was consumed exactly once");
@@ -232,6 +240,7 @@ main :: () {
 
             unlock(*gate.mutex);
             if waiting == THREADS break;
+
             sleep_milliseconds(1);
         }
 
@@ -247,6 +256,7 @@ main :: () {
         wake_all(*gate.opened);
         unlock(*gate.mutex);
         for *waiters thread_deinit(it);
+
         assert(gate.passed == THREADS, "passed %", gate.passed);
         destroy(*gate.opened);
         destroy(*gate.mutex);

@@ -35,14 +35,14 @@ help: write `!ready`
    = note: `bool_comparison` is `warn` by default
 
 warning[bool_comparison]: comparing a bool with `false`: `is_ready() == false`
-  --> tests/lint/bool_comparison/bad.jai:12:16
+  --> tests/lint/bool_comparison/bad.jai:13:16
    |
-12 |     waiting := is_ready() == false;
+13 |     waiting := is_ready() == false;
    |                ^^^^^^^^^^^^^^^^^^^
    |
 help: write `!is_ready()`
    |
-12 ~     waiting := !is_ready();
+13 ~     waiting := !is_ready();
    |
    = note: `bool_comparison` is `warn` by default
 

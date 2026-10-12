@@ -51,6 +51,7 @@
         }
 
         compiler_end_intercept(w);
+
         return system, reached;
     }
 
@@ -63,6 +64,7 @@
         // The sweep builds workspaces without output (-no_workspace_output), which never link.
         system, reached := link_lists();
         if !reached return;
+
         assert(contains(system, "-lm"), "system libraries lack -lm: %", system);
         assert(contains(system, "-lz"), "system libraries lack -lz: %", system);
         assert(contains(system, "-lpthread"), "system libraries lack -lpthread: %", system);

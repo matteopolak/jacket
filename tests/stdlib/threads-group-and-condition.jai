@@ -18,6 +18,7 @@ producer :: (thread: *Thread) -> s64 {
     box.produced = true;
     unlock(*box.mutex);
     wake(*box.ready);
+
     return 7;
 }
 
@@ -44,6 +45,7 @@ main :: () {
     thread_start(*producer_thread);
     lock(*box.mutex);
     while !box.produced wait(*box.ready, *box.mutex);
+
     assert(box.value == 41, "value %", box.value);
     unlock(*box.mutex);
     thread_deinit(*producer_thread);
@@ -62,8 +64,10 @@ main :: () {
     assert(init(*group, 3, square, false));
     jobs: [10] Job;
     for *jobs it.input = it_index + 1;
+
     assert(start(*group));
     for *jobs add_work(*group, it);
+
     done := 0;
 
     for 0..1000 {
@@ -74,6 +78,7 @@ main :: () {
 
     assert(done == jobs.count, "completed %", done);
     for jobs assert(it.output == it.input * it.input, "job % gave %", it_index, it.output);
+
     shutdown(*group);
     print("ok\n");
 }

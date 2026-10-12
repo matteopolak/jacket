@@ -22,6 +22,7 @@ main :: () {
     seen: [..] int;
 
     for <: backwards_aware v : *bag array_add(*seen, v);
+
     assert(seen.count == 3 && seen[0] == 3 && seen[2] == 1);
 
     seen.count = 0;

@@ -13,12 +13,15 @@
 scratch_directory :: (name: string) -> string {
     base := environment_value(ifx OS == .WINDOWS then "TEMP" else "TMPDIR");
     if base.count == 0 base = "/tmp";
+
     base = copy_temporary_string(base);
     for *base if it.* == #char "\\" it.* = #char "/";
     while base.count > 1 && base[base.count - 1] == #char "/" base.count -= 1;
+
     dir := tprint("%/jaic-%-%", base, name, process_id());
 
     assert(make_directory_if_it_does_not_exist(dir), "cannot create the scratch directory %", dir);
+
     return dir;
 }
 
@@ -39,6 +42,7 @@ hidden_directory: string;
 
 log_without_scratch_directory :: (message: string, data: *void, info: Log_Info) {
     if message.count == 0 return;
+
     text := replace(message, hidden_directory, "<scratch>");
     // As the default logger: a message ends its line.
     suffix := ifx text[text.count - 1] == #char "\n" then "" else "\n";

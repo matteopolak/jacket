@@ -70,6 +70,7 @@ check_options :: () -> bool {
     assert(text.count > 0, "compiler.14: version text");
     start := 0;
     while start < text.count && (text[start] < #char "0" || text[start] > #char "9") start += 1;
+
     numbers: [3] s32;
     slot := 0;
     i := start;
@@ -88,6 +89,7 @@ check_options :: () -> bool {
     }
 
     assert(info.major == numbers[0] && info.minor == numbers[1] && info.micro == numbers[2], "compiler.14: parsed numbers");
+
     return true;
 }
 
@@ -112,6 +114,7 @@ check_messages :: () -> bool {
     assert(again.kind == .COMPLETE, "compiler.8: COMPLETE repeats");
     assert((cast(*Message_Complete) again).error_code == .NONE, "compiler.8: with the last error code");
     compiler_end_intercept(w);
+
     return true;
 }
 

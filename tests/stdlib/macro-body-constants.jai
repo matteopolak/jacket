@@ -40,5 +40,6 @@ main :: () {
     for a sum += it;
     for *a it.* += 1;
     for a sum += it;
+
     assert(sum == 15);
 }

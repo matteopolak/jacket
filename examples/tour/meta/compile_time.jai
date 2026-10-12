@@ -69,6 +69,7 @@ planet_gravity_literal :: () -> string {
     }
 
     append(*builder, "]");
+
     return builder_to_string(*builder);
 }
 

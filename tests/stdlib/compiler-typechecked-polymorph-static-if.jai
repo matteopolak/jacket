@@ -41,14 +41,17 @@ JAI
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
+
         typechecked := cast(*Message_Typechecked) message;
         for typechecked.procedure_bodies {
             header := it.expression.header;
             if header.name == "main" {
                 for sub: it.subexpressions {
                     if sub.kind != .PROCEDURE_CALL continue;
+
                     callee := (cast(*Code_Procedure_Call) sub).resolved_procedure_expression;
                     if !callee || callee.kind != .PROCEDURE_HEADER continue;
+
                     called := cast(*Code_Procedure_Header) callee;
 
                     assert((called.procedure_flags & .POLYMORPHIC) == 0, "% resolves to its instance", called.name);
@@ -58,10 +61,12 @@ JAI
 
             if header.procedure_flags & .POLYMORPHIC continue;
             if header.name != "choose" && header.name != "pick" continue;
+
             instance_bodies += 1;
 
             for sub: it.subexpressions {
                 if sub.kind != .IF continue;
+
                 code_if := cast(*Code_If) sub;
                 if !(code_if.if_flags & .IS_STATIC) continue;
 

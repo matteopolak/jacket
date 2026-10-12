@@ -42,9 +42,11 @@ main :: () {
     if calls != 0 exit(5);
     if pick(side_int(), 9) != 9 exit(6);
     if calls != 0 exit(7);
+
     twice(side_int());
     if calls != 100 exit(8);
     if two(b = side_int(), a = 4, c = 5) != 9 exit(9);
     if calls != 100 exit(10);
+
     print("ok\n");
 }

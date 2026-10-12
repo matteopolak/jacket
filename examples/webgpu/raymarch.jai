@@ -142,8 +142,10 @@ main :: () {
     options.compatibleSurface = surface;
     adapter := webgpu_request_adapter(instance, *options);
     if !adapter exit(1);
+
     device := webgpu_request_device(instance, adapter);
     if !device exit(1);
+
     queue := wgpuDeviceGetQueue(device);
 
     // The shader applies gamma itself (the pow at the end of fs), so it wants a surface format
@@ -219,6 +221,7 @@ main :: () {
 
         now := seconds_since_init();
         if !paused time += cast(float32) (now - last);
+
         last = now;
         u := Uniforms.{ time = time, aspect = cast(float32) width / cast(float32) max(height, 1), palette = palette };
 
@@ -269,6 +272,7 @@ main :: () {
 
 configure :: (surface: WGPUSurface, device: WGPUDevice, format: WGPUTextureFormat, width: s32, height: s32) {
     if width <= 0 || height <= 0 return;
+
     config: WGPUSurfaceConfiguration;
     config.device = device;
     config.format = format;

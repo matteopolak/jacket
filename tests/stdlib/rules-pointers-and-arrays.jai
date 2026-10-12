@@ -86,11 +86,14 @@ main :: () {
     // ptr.12: by value with index, by pointer, and in reverse.
     sum := 0;
     for v, i: nums sum += v * i;
+
     assert(sum == 20 + 60 + 120, "for v, i");
     for *e: nums e.* += 1;
+
     assert(nums[0] == 11 && nums[3] == 41, "for *e writes through");
     order: [..] int;
     for < nums array_add(*order, it);
+
     assert(order[0] == 41 && order[3] == 11, "for < iterates in reverse");
 
     // ptr.14: #no_abc lets a view read past its count.

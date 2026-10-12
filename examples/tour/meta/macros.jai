@@ -46,6 +46,7 @@ for_expansion :: (sequence: *Collatz, body: Code, flags: For_Flags) #expand {
         `it_index := index;
         #insert body;
         if n == 1 break;
+
         n = ifx n % 2 == 0 then n / 2 else 3 * n + 1;
         index += 1;
     }
@@ -97,6 +98,7 @@ tour_macros :: () {
     print("  Collatz from 6:");
     six := Collatz.{ 6 };
     for value: six print(" %", value);
+
     print("\n");
     longest_start, longest_length := 0, 0;
 
@@ -115,5 +117,6 @@ tour_macros :: () {
 
     print("  chain:");
     for link: a print(" %:%", it_index, link.label);
+
     print("\n");
 }

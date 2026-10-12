@@ -90,9 +90,11 @@ main :: () {
     assert(cast(u32) fl == 3, "| combines");
     hit := false;
     if fl & .WRITE hit = true;
+
     assert(hit, "fl & .WRITE is true");
     miss := false;
     if fl & .EXEC miss = true;
+
     assert(!miss, "fl & .EXEC is false");
 
     // enum.9: a loose enum converts implicitly to and from integers and the enum.

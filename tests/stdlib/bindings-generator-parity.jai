@@ -67,6 +67,7 @@ generate :: (name: string, header: string, cpp: bool) -> string {
 
     array_add(*opts.source_files, header_path);
     if cpp array_add(*opts.extra_clang_arguments, "-x", "c++");
+
     opts.generate_library_declarations = false;
     array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
     array_add(*opts.generate_enums_from_macros_with_prefixes, "PROTO_");
@@ -74,6 +75,7 @@ generate :: (name: string, header: string, cpp: bool) -> string {
     text, ok := read_entire_file(output_path);
 
     assert(ok);
+
     return text;
 }
 
@@ -153,6 +155,7 @@ check_long_double :: () {
         builder, ok := generate_bindings(opts);
 
         assert(ok);
+
         return builder_to_string(*builder);
     }
 

@@ -71,6 +71,7 @@ main :: () {
     // flow.1: `for <` visits the range from its end down to its start.
     seen: [..] int;
     for < 1..3 array_add(*seen, it);
+
     assert(seen.count == 3 && seen[0] == 3 && seen[1] == 2 && seen[2] == 1, "reverse range is 3 2 1");
 
     // flow.2: `continue outer` continues the named outer loop.
@@ -88,6 +89,7 @@ main :: () {
     // flow.3: a range whose end is below its start runs zero times.
     runs := 0;
     for 5..3 runs += 1; // jailint: allow(reversed_range) the empty range is what is tested
+
     assert(runs == 0, "descending range is empty");
 
     // flow.4: `for v, i:` binds the value then the index.
@@ -95,11 +97,13 @@ main :: () {
     sum_vi := 0;
 
     for v, i: arr sum_vi += v * (i + 1);
+
     assert(sum_vi == 10 + 40 + 90, "value then index");
 
     // flow.5: pointer iteration writes through to the array.
     nums: [3] int = .[1, 2, 3];
     for *p: nums p.* += 1;
+
     assert(nums[0] == 2 && nums[1] == 3 && nums[2] == 4, "pointer iteration writes through");
 
     // flow.6, flow.24: `while x := cond` names the loop and binds the condition's value.
@@ -131,15 +135,18 @@ main :: () {
     // flow.7: range endpoints are inclusive.
     count := 0;
     for 2..6 count += 1;
+
     assert(count == 5, "2..6 has five values");
     one := 0;
     for 7..7 one += 1;
+
     assert(one == 1, "a..a runs once");
 
     // flow.8: endpoints are evaluated once, left to right.
     array_reset(*trace);
     calls := 0;
     for note(1)..note(3) calls += 1;
+
     assert(calls == 3, "range ran three times");
     assert(trace.count == 2 && trace[0] == 1 && trace[1] == 3, "endpoints evaluated once, left first");
 
@@ -155,6 +162,7 @@ main :: () {
     assert(idx_sum == 3 && val_sum == 60, "it and it_index");
     named_sum := 0;
     for elem, at: arr named_sum += elem + at;
+
     assert(named_sum == 63, "named value and index");
 
     // flow.10: plain break/continue target the innermost loop.
@@ -185,15 +193,18 @@ main :: () {
     list: [..] int;
     for 1..6 array_add(*list, it);
     for list if it % 2 == 0 remove it;
+
     assert(list.count == 3 && list[0] == 1 && list[1] == 5 && list[2] == 3, "unordered remove gives [1, 5, 3]");
     bare: [..] int;
     for 1..4 array_add(*bare, it);
     for bare if it == 1 remove;
+
     assert(bare.count == 3 && bare[0] == 4, "bare remove");
 
     // flow.12: `for #v2 a..b` is the same inclusive range.
     v2 := 0;
     for #v2 1..4 v2 += it;
+
     assert(v2 == 10, "#v2 range is inclusive");
 
     // flow.13: a case runs only its own body unless #through.
@@ -308,6 +319,7 @@ main :: () {
     // flow.22: `for x: value` on a type with for_expansion runs the macro.
     down: [..] int;
     for Countdown.{ 3 } array_add(*down, it);
+
     assert(down.count == 3 && down[0] == 3 && down[2] == 1, "for_expansion iteration");
     skipped := 0;
 

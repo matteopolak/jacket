@@ -40,6 +40,7 @@ check_messages :: () -> bool {
             assert(owner != null, "records.1: file has a module");
             announced := false;
             for imports if it == owner announced = true;
+
             assert(announced, "records.1: IMPORT precedes the module's files");
             if owner.module_name == "Basic" basic_files += 1;
         }
@@ -60,6 +61,7 @@ check_messages :: () -> bool {
     // records.2: one FILE message per loaded file (Basic spans several files).
     assert(basic_files >= 2, "records.2: a FILE per file of Basic");
     assert(saw_ratio, "records.5: ratio was reported");
+
     return true;
 }
 
@@ -101,6 +103,7 @@ check_nodes :: () -> bool {
     exists := cast(*Code_Declaration) directives.statements[1];
 
     assert(exists.expression.kind == .DIRECTIVE_EXISTS, "records.17: #exists node");
+
     return true;
 }
 

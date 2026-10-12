@@ -41,6 +41,7 @@ inspect :: (source: string) -> string {
         for typechecked.procedure_headers {
             header := it.expression;
             if !from_main_program(header) continue;
+
             print_to_builder(*report, "  procedure %: % argument(s), % return value(s)\n",
                 header.name, header.arguments.count, header.returns.count);
 
@@ -68,6 +69,7 @@ inspect :: (source: string) -> string {
 
     compiler_end_intercept(workspace);
     print_to_builder(*report, "  (the compiler sent % messages)\n", messages);
+
     return builder_to_string(*report);
 }
 

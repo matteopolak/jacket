@@ -50,6 +50,7 @@ unicode_property :: (spec: string) -> ranges: [..] Char_Range, ok: bool, error: 
 
     found, offset := find_name(.[#char "b"], name);
     if !found return none, false, sprint("unknown Unicode property `%`", name);
+
     wanted := loose_name(value);
 
     defer array_free(wanted);
@@ -58,11 +59,14 @@ unicode_property :: (spec: string) -> ranges: [..] Char_Range, ok: bool, error: 
     negative := flag == "no" || flag == "n" || flag == "false" || flag == "f";
 
     if !positive && !negative return none, false, sprint("unknown value `%` for Unicode property `%`", value, name);
+
     ranges := decode_set(offset);
     if positive return ranges, true, "";
+
     complemented := ranges_negate(ranges);
 
     array_free(ranges);
+
     return complemented, true, "";
 }
 
@@ -109,6 +113,7 @@ unicode_case_fold_ranges :: (ranges: [] Char_Range) -> [..] Char_Range {
 
     array_free(sorted);
     ranges_normalize(*result);
+
     return result;
 }
 
@@ -174,6 +179,7 @@ ranges_negate :: (ranges: [] Char_Range) -> [..] Char_Range {
     }
 
     if next <= MAX_CODE_POINT array_add(*result, .{ cast(u32) next, MAX_CODE_POINT });
+
     return result;
 }
 
@@ -193,6 +199,7 @@ digit_value :: (c: u8) -> u32 {
     if c >= #char "a" && c <= #char "z" return c - #char "a" + 26;
     if c >= #char "0" && c <= #char "9" return c - #char "0" + 52;
     if c == #char "-" return 62;
+
     return 63;
 }
 
@@ -205,6 +212,7 @@ read_number :: (position: *int) -> u32 {
 
         position.* += 1;
         if c == #char "\n" continue;
+
         digit := digit_value(c);
 
         result |= (digit & 31) << shift;
@@ -262,6 +270,7 @@ compare_key :: (key: string, line: string) -> int {
         if line_done return 1;
         if key[i] < line[i] return -1;
         if key[i] > line[i] return 1;
+
         i += 1;
     }
 
@@ -276,6 +285,7 @@ index_lookup :: (kind: u8, name: string) -> bool, string {
     defer array_free(key);
     array_add(*key, kind);
     for name array_add(*key, it);
+
     needle := string.{ key.count, key.data };
 
     index := UNICODE_NAME_INDEX;
@@ -287,8 +297,10 @@ index_lookup :: (kind: u8, name: string) -> bool, string {
         start := middle;
 
         while start > low && index[start - 1] != #char "\n" start -= 1;
+
         end := middle;
         while end < high && index[end] != #char "\n" end += 1;
+
         line := slice(index, start, end - start);
         order := compare_key(needle, line);
 
@@ -352,6 +364,7 @@ fold_loaded := false;
 
 load_fold_table :: () {
     if fold_loaded return;
+
     fold_loaded = true;
 
     position: int = UNICODE_FOLD_OFFSET;

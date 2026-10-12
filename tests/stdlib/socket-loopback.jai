@@ -51,6 +51,7 @@ ipv4 :: (a: u8, b: u8, c: u8, d: u8, port: u16) -> sockaddr_in {
 
     #if OS == .WINDOWS address.sin_addr.S_un.S_addr = bits;
     else address.sin_addr.s_addr = bits;
+
     return address;
 }
 
@@ -74,6 +75,7 @@ ipv6 :: (words: [8] u16, port: u16) -> sockaddr_in6 {
     }
 
     memcpy(*address.sin6_addr, bytes.data, 16);
+
     return address;
 }
 
@@ -128,6 +130,7 @@ check_fd_set :: () {
         // The set holds at most fd_array.count sockets; further adds are ignored.
         full: fd_set;
         for i: 0..set.fd_array.count + 3 FD_SET(cast(Socket) (i + 1) * 4, *full);
+
         assert(full.fd_count == full.fd_array.count, "a full set holds %", full.fd_count);
     } else {
         // Descriptors in every word of the set, including each word's top bit.
@@ -149,11 +152,13 @@ check_fd_set :: () {
         }
 
         for set.fds_bits assert(it == 0, "word % left %", it_index, it);
+
         // Descriptors outside the set are ignored rather than written out of bounds.
         FD_SET(-1, *set);
         FD_SET(limit, *set);
         FD_SET(limit + 1000, *set);
         for set.fds_bits assert(it == 0, "an out-of-range descriptor touched word %", it_index);
+
         assert(FD_ISSET(-1, *set) == 0 && FD_ISSET(limit, *set) == 0);
         assert(FD_ISSET(3, null) == 0);
         FD_SET(3, null);
@@ -249,6 +254,7 @@ wait_readable :: (s: Socket, milliseconds: s32) -> bool {
     result := select(cast(s32) s + 1, *readable, null, null, *timeout);
 
     assert(result >= 0, "select: error %", get_last_socket_error());
+
     return result > 0 && FD_ISSET(s, *readable) != 0;
 }
 
@@ -278,6 +284,7 @@ connected_pair :: () -> client: Socket, server: Socket, listener: Socket {
 
     assert(to_string(peer) == to_string(client_address), "accept reports the client: % vs %", to_string(peer), to_string(client_address));
     assert(ntohs(peer.sin_port) != ntohs(listening.sin_port));
+
     return client, server, listener;
 }
 
@@ -331,6 +338,7 @@ check_tcp :: () {
 
     defer free(payload.data);
     for *payload it.* = cast,trunc(u8) (it_index * 31 + (it_index >> 9));
+
     echo_through(client, server, payload);
 
     // Back to blocking: shutting down the client's sending side is the end of the server's stream.
@@ -370,6 +378,7 @@ echo_through :: (client: Socket, server: Socket, payload: [] u8) {
         FD_SET(server, *readable);
         if sent < payload.count FD_SET(client, *writable);
         if echoed < at_server.count FD_SET(server, *writable);
+
         timeout: timeval;
         timeout.tv_sec = 1;
         highest := max(cast(s64) client, cast(s64) server);

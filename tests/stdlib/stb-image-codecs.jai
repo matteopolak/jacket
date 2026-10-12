@@ -46,6 +46,7 @@ decode :: (sink: Sink, channels: s32) -> [] u8, width: s32, height: s32 {
 
     memcpy(result.data, loaded, w * h * channels);
     Load.stbi_image_free(loaded);
+
     return result, w, h;
 }
 
@@ -66,6 +67,7 @@ main :: () {
 
     assert(bw == WIDTH && bh == HEIGHT && back.count == picture.count);
     for picture assert(back[it_index] == it, "png byte % differs", it_index);
+
     // Asking for one channel converts to luminance; three drops alpha.
     gray := decode(png, 1);
 
@@ -87,6 +89,7 @@ main :: () {
     assert(Write.stbi_write_bmp_to_func(collect, *bmp, WIDTH, HEIGHT, 4, picture.data) != 0);
     from_bmp := decode(bmp, 4);
     for from_bmp if it_index % 4 != 3 assert(it == picture[it_index], "bmp byte % differs", it_index);
+
     tga: Sink;
 
     assert(Write.stbi_write_tga_to_func(collect, *tga, WIDTH, HEIGHT, 4, picture.data) != 0);
@@ -112,6 +115,7 @@ main :: () {
     // HDR round trip reports itself as HDR.
     floats := NewArray(WIDTH * HEIGHT * 3, float);
     for *floats it.* = cast(float) (it_index % 7) * 0.25 + 0.1;
+
     hdr: Sink;
 
     assert(Write.stbi_write_hdr_to_func(collect, *hdr, WIDTH, HEIGHT, 3, floats.data) != 0);
@@ -122,17 +126,21 @@ main :: () {
 
     assert(decoded_floats != null && hw == WIDTH && hh == HEIGHT);
     for 0..floats.count - 1 assert(abs(decoded_floats[it] - floats[it]) < 0.02 * floats[it] + 0.01, "hdr value % is % not %", it, decoded_floats[it], floats[it]);
+
     Load.stbi_image_free(decoded_floats);
 
     // Resizing a flat picture keeps it flat; halving averages neighbours.
     flat := NewArray(8 * 8, u8);
     for *flat it.* = 100;
+
     small := NewArray(4 * 4, u8);
 
     assert(Resize.stbir_resize_uint8(flat.data, 8, 8, 8, small.data, 4, 4, 4, 1) != 0);
     for small assert(it == 100, "flat pixel % became %", it_index, it);
+
     stripes := NewArray(8 * 8, u8);
     for *stripes it.* = ifx (it_index % 8) < 4 then cast(u8) 0 else cast(u8) 200;
+
     halved := NewArray(4 * 4, u8);
 
     assert(Resize.stbir_resize_uint8(stripes.data, 8, 8, 8, halved.data, 4, 4, 4, 1) != 0);

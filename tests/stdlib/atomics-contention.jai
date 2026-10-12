@@ -34,23 +34,28 @@ hammer :: (thread: *Thread) -> s64 {
         atomic_add(*counters.added_narrow, 1);
         atomic_increment(*counters.up_down);
         if atomic_decrement(*counters.up_down) atomic_increment(*counters.reached_zero);
+
         // Each thread flips its own byte back and forth: the end state shows no flip was lost.
         atomic_xor(*counters.toggles, (cast(u64) 0xff) << (8 * me));
         // Sixty-four bits claimed by whoever sets each one first: exactly one winner per bit.
         if !atomic_bit_test_and_set(*counters.claimed_bits, round % 64) atomic_increment(*counters.claims_won);
+
         // Each thread sets and clears its own bits in shared words.
         atomic_or(*counters.or_bits, (cast(u32) 1) << (me * 8 + round % 8));
         atomic_and(*counters.and_bits, ~((cast(u32) 1) << (me * 8 + round % 8)));
         // A spin lock from atomic_swap guarding a plain read-modify-write.
         while atomic_swap(*counters.spin, true) {}
+
         seen := counters.guarded;
 
         for 1..2 counters.racy_pad += 1;
+
         counters.guarded = seen + 1;
         atomic_write(*counters.spin, false);
     }
 
     atomic_increment(*counters.finished);
+
     return 0;
 }
 

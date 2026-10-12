@@ -46,6 +46,7 @@ make_i8x3 :: (seed: s32) -> R_i8x3 #c_call {
     r.f0 = cast(s8) (seed + 1);
     r.f1 = cast(s8) (seed + 2);
     r.f2 = cast(s8) (seed + 3);
+
     return r;
 }
 
@@ -187,6 +188,7 @@ make_i32x3 :: (seed: s32) -> R_i32x3 #c_call {
     r.f0 = cast(s32) (seed + 1);
     r.f1 = cast(s32) (seed + 2);
     r.f2 = cast(s32) (seed + 3);
+
     return r;
 }
 
@@ -212,6 +214,7 @@ make_i32x4 :: (seed: s32) -> R_i32x4 #c_call {
     r.f1 = cast(s32) (seed + 2);
     r.f2 = cast(s32) (seed + 3);
     r.f3 = cast(s32) (seed + 4);
+
     return r;
 }
 
@@ -239,6 +242,7 @@ make_i32x5 :: (seed: s32) -> R_i32x5 #c_call {
     r.f2 = cast(s32) (seed + 3);
     r.f3 = cast(s32) (seed + 4);
     r.f4 = cast(s32) (seed + 5);
+
     return r;
 }
 
@@ -283,6 +287,7 @@ make_i64x3 :: (seed: s32) -> R_i64x3 #c_call {
     r.f0 = cast(s64) (seed + 1);
     r.f1 = cast(s64) (seed + 2);
     r.f2 = cast(s64) (seed + 3);
+
     return r;
 }
 
@@ -308,6 +313,7 @@ make_i64x4 :: (seed: s32) -> R_i64x4 #c_call {
     r.f1 = cast(s64) (seed + 2);
     r.f2 = cast(s64) (seed + 3);
     r.f3 = cast(s64) (seed + 4);
+
     return r;
 }
 
@@ -343,6 +349,7 @@ make_i8x9 :: (seed: s32) -> R_i8x9 #c_call {
     r.f6 = cast(s8) (seed + 7);
     r.f7 = cast(s8) (seed + 8);
     r.f8 = cast(s8) (seed + 9);
+
     return r;
 }
 
@@ -394,6 +401,7 @@ make_i8x17 :: (seed: s32) -> R_i8x17 #c_call {
     r.f14 = cast(s8) (seed + 15);
     r.f15 = cast(s8) (seed + 16);
     r.f16 = cast(s8) (seed + 17);
+
     return r;
 }
 
@@ -459,6 +467,7 @@ make_i16x3 :: (seed: s32) -> R_i16x3 #c_call {
     r.f0 = cast(s16) (seed + 1);
     r.f1 = cast(s16) (seed + 2);
     r.f2 = cast(s16) (seed + 3);
+
     return r;
 }
 
@@ -522,6 +531,7 @@ make_f32x3 :: (seed: s32) -> R_f32x3 #c_call {
     r.f0 = cast(float32) (seed + 0.5);
     r.f1 = cast(float32) (seed + 1.5);
     r.f2 = cast(float32) (seed + 2.5);
+
     return r;
 }
 
@@ -547,6 +557,7 @@ make_f32x4 :: (seed: s32) -> R_f32x4 #c_call {
     r.f1 = cast(float32) (seed + 1.5);
     r.f2 = cast(float32) (seed + 2.5);
     r.f3 = cast(float32) (seed + 3.5);
+
     return r;
 }
 
@@ -574,6 +585,7 @@ make_f32x5 :: (seed: s32) -> R_f32x5 #c_call {
     r.f2 = cast(float32) (seed + 2.5);
     r.f3 = cast(float32) (seed + 3.5);
     r.f4 = cast(float32) (seed + 4.5);
+
     return r;
 }
 
@@ -637,6 +649,7 @@ make_f64x3 :: (seed: s32) -> R_f64x3 #c_call {
     r.f0 = cast(float64) (seed + 0.5);
     r.f1 = cast(float64) (seed + 1.5);
     r.f2 = cast(float64) (seed + 2.5);
+
     return r;
 }
 
@@ -662,6 +675,7 @@ make_f64x4 :: (seed: s32) -> R_f64x4 #c_call {
     r.f1 = cast(float64) (seed + 1.5);
     r.f2 = cast(float64) (seed + 2.5);
     r.f3 = cast(float64) (seed + 3.5);
+
     return r;
 }
 
@@ -689,6 +703,7 @@ make_f64x5 :: (seed: s32) -> R_f64x5 #c_call {
     r.f2 = cast(float64) (seed + 2.5);
     r.f3 = cast(float64) (seed + 3.5);
     r.f4 = cast(float64) (seed + 4.5);
+
     return r;
 }
 
@@ -796,6 +811,7 @@ make_f32x2i64 :: (seed: s32) -> R_f32x2i64 #c_call {
     r.f0 = cast(float32) (seed + 0.5);
     r.f1 = cast(float32) (seed + 1.5);
     r.f2 = cast(s64) (seed + 3);
+
     return r;
 }
 
@@ -819,6 +835,7 @@ make_i64f32x2 :: (seed: s32) -> R_i64f32x2 #c_call {
     r.f0 = cast(s64) (seed + 1);
     r.f1 = cast(float32) (seed + 1.5);
     r.f2 = cast(float32) (seed + 2.5);
+
     return r;
 }
 
@@ -907,6 +924,7 @@ make_f32x3i32 :: (seed: s32) -> R_f32x3i32 #c_call {
     r.f1 = cast(float32) (seed + 1.5);
     r.f2 = cast(float32) (seed + 2.5);
     r.f3 = cast(s32) (seed + 4);
+
     return r;
 }
 
@@ -993,6 +1011,7 @@ make_f64x2i64 :: (seed: s32) -> R_f64x2i64 #c_call {
     r.f0 = cast(float64) (seed + 0.5);
     r.f1 = cast(float64) (seed + 1.5);
     r.f2 = cast(s64) (seed + 3);
+
     return r;
 }
 
@@ -1018,6 +1037,7 @@ make_f32i8x3 :: (seed: s32) -> R_f32i8x3 #c_call {
     r.f1 = cast(s8) (seed + 2);
     r.f2 = cast(s8) (seed + 3);
     r.f3 = cast(s8) (seed + 4);
+
     return r;
 }
 
@@ -1059,6 +1079,7 @@ make_af32x3 :: (seed: s32) -> R_af32x3 #c_call {
     r.f0[0] = cast(float32) (seed + 0.5);
     r.f0[1] = cast(float32) (seed + 1.5);
     r.f0[2] = cast(float32) (seed + 2.5);
+
     return r;
 }
 
@@ -1080,6 +1101,7 @@ make_af64x3 :: (seed: s32) -> R_af64x3 #c_call {
     r.f0[0] = cast(float64) (seed + 0.5);
     r.f0[1] = cast(float64) (seed + 1.5);
     r.f0[2] = cast(float64) (seed + 2.5);
+
     return r;
 }
 
@@ -1103,6 +1125,7 @@ make_ai32x5 :: (seed: s32) -> R_ai32x5 #c_call {
     r.f0[2] = cast(s32) (seed + 3);
     r.f0[3] = cast(s32) (seed + 4);
     r.f0[4] = cast(s32) (seed + 5);
+
     return r;
 }
 
@@ -1124,6 +1147,7 @@ make_ai8x3 :: (seed: s32) -> R_ai8x3 #c_call {
     r.f0[0] = cast(s8) (seed + 1);
     r.f0[1] = cast(s8) (seed + 2);
     r.f0[2] = cast(s8) (seed + 3);
+
     return r;
 }
 
@@ -1151,6 +1175,7 @@ make_nf32 :: (seed: s32) -> R_nf32 #c_call {
     r.f0.f0 = cast(float32) (seed + 0.5);
     r.f0.f1 = cast(float32) (seed + 1.5);
     r.f1 = cast(float32) (seed + 2.5);
+
     return r;
 }
 
@@ -1178,6 +1203,7 @@ make_nmix :: (seed: s32) -> R_nmix #c_call {
     r.f0.f0 = cast(s32) (seed + 1);
     r.f0.f1 = cast(float32) (seed + 1.5);
     r.f1 = cast(float64) (seed + 2.5);
+
     return r;
 }
 
@@ -1211,6 +1237,7 @@ make_nnf32 :: (seed: s32) -> R_nnf32 #c_call {
     r.f0.f1 = cast(float32) (seed + 1.5);
     r.f1 = cast(float32) (seed + 2.5);
     r.f2 = cast(float32) (seed + 3.5);
+
     return r;
 }
 
@@ -1273,6 +1300,7 @@ make_nbig :: (seed: s32) -> R_nbig #c_call {
     r.f0.f1 = cast(s64) (seed + 2);
     r.f1.f0 = cast(float64) (seed + 2.5);
     r.f1.f1 = cast(float64) (seed + 3.5);
+
     return r;
 }
 

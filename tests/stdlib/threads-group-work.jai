@@ -27,6 +27,7 @@ square :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continu
     atomic_add(*total_runs, 1);
     job.thread_index = thread.index;
     job.context_thread_index = context.thread_index;
+
     return .CONTINUE;
 }
 
@@ -35,7 +36,9 @@ square_until_negative :: (group: *Thread_Group, thread: *Thread, work: *void) ->
     job := cast(*Job) work;
     job.runs += 1;
     if job.input < 0 return .STOP;
+
     job.output = job.input * job.input;
+
     return .CONTINUE;
 }
 
@@ -77,9 +80,11 @@ run_jobs :: (thread_count: s32, job_count: s64, stealing: bool) {
 
     defer free(jobs.data);
     for *jobs it.input = it_index - job_count / 2;
+
     // Work added before start waits in the queues.
     half := job_count / 2;
     for i: 0..half - 1 assert(add_work(*group, *jobs[i], "early"));
+
     assert(start(*group));
     assert(!start(*group), "a second start");
     for i: half..job_count - 1 assert(add_work(*group, *jobs[i]));
@@ -110,6 +115,7 @@ run_jobs :: (thread_count: s32, job_count: s64, stealing: bool) {
         assert(it.context_thread_index == cast(u32) it.thread_index, "context.thread_index % on thread %", it.context_thread_index, it.thread_index);
         found := false;
         for thread: group.threads if thread.index == it.thread_index found = true;
+
         assert(found, "job % ran on thread %, which is not in the group", it_index, it.thread_index);
     }
 
@@ -166,6 +172,7 @@ main :: () {
         for jobs assert(it.output == it_index * it_index);
         // One worker processes its queue in the order the work was added.
         for results assert(it == *jobs[it_index], "result % out of order", it_index);
+
         array_free(results);
         assert(shutdown(*group));
     }
@@ -178,6 +185,7 @@ main :: () {
         jobs: [6] Job;
         for *jobs it.input = ifx it_index == 2 then -1 else it_index + 1;
         for *jobs add_work(*group, it);
+
         start(*group);
         results := collect(*group, 3);
 
@@ -185,6 +193,7 @@ main :: () {
         array_free(results);
         assert(thread_is_done(*group.threads[0], 10000), "the stopped worker exits");
         for jobs assert(it.runs == xx (it_index <= 2), "job % ran % times", it_index, it.runs);
+
         assert(!shutdown(*group), "shutdown reports the unprocessed work");
         assert(!group.initted);
     }
@@ -202,6 +211,7 @@ main :: () {
 
         add_work(*group, *dummy);
         while atomic_read(*blocker.entered) == 0 sleep_milliseconds(1);
+
         start_time := current_time_monotonic();
 
         assert(!shutdown(*group, 20), "shutdown with a busy worker and a 20 ms timeout");
@@ -217,8 +227,10 @@ main :: () {
         // The same Thread_Group value can be set up and used again.
         jobs: [8] Job;
         for *jobs it.input = it_index;
+
         assert(init(*group, 2, square));
         for *jobs add_work(*group, it);
+
         start(*group);
         results := collect(*group, jobs.count);
 

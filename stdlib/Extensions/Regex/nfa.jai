@@ -13,9 +13,11 @@ look_holds :: (look: Look, text: string, pos: int) -> bool {
         case .END_LINE; return pos == text.count || text[pos] == #char "\n";
         case .START_LINE_CRLF;
             if pos == 0 || text[pos - 1] == #char "\n" return true;
+
             return text[pos - 1] == #char "\r" && (pos == text.count || text[pos] != #char "\n");
         case .END_LINE_CRLF;
             if pos == text.count || text[pos] == #char "\r" return true;
+
             return text[pos] == #char "\n" && (pos == 0 || text[pos - 1] != #char "\r");
     }
 
@@ -54,19 +56,24 @@ is_word_byte :: inline (b: u8) -> bool {
 word_char_after :: (text: string, pos: int) -> bool {
     if pos >= text.count return false;
     if text[pos] < 0x80 return is_word_byte(text[pos]);
+
     c, size := decode_utf8(text, pos);
     if size == 1 return false; // not valid UTF-8
+
     return is_word_char(c);
 }
 
 word_char_before :: (text: string, pos: int) -> bool {
     if pos <= 0 return false;
     if text[pos - 1] < 0x80 return is_word_byte(text[pos - 1]);
+
     // Back up to the lead byte of the sequence that ends here.
     start := pos - 1;
     while start > 0 && pos - start < 4 && (text[start] & 0xC0) == 0x80 start -= 1;
+
     c, size := decode_utf8(text, start);
     if start + size != pos || size == 1 return false;
+
     return is_word_char(c);
 }
 
@@ -144,6 +151,7 @@ pike_search :: (program: *Program, text: string, start: int, end: int, anchored:
         }
 
         if pos >= end break;
+
         pos += 1;
         vm.current, vm.next = vm.next, vm.current;
         vm.next.count = 0;
@@ -163,6 +171,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
 
     defer array_free(visited);
     for *slots it.* = -1;
+
     stack: [..] Frame;
 
     defer array_free(stack);
@@ -181,6 +190,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
         while true {
             bit := cast(int) pc * width + (pos - start);
             if visited[bit >> 6] & (cast(u64) 1 << cast(u64) (bit & 63)) break;
+
             visited[bit >> 6] |= cast(u64) 1 << cast(u64) (bit & 63);
             inst := *program.insts[pc];
             if inst.kind == {
@@ -188,6 +198,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
                     return true;
                 case .RANGES;
                     if pos >= end break;
+
                     b := text[pos];
                     // Overlapping transitions are alternatives: take the first that fits and
                     // stack the rest so that they pop in order.
@@ -201,6 +212,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
                     }
 
                     if first == 0xFFFF_FFFF break;
+
                     pc = first;
                     pos += 1;
                 case .SPLIT;
@@ -212,6 +224,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
                     pc = inst.next;
                 case .LOOK;
                     if !look_holds(inst.look, text, pos) break;
+
                     pc = inst.next;
                 case .FAIL;
                     break;
@@ -286,6 +299,7 @@ thread_slots :: inline (t: *Threads, pc: u32) -> [] int {
 add_thread :: (vm: *Pike, list: *Threads, pc: u32, pos: int, slots_in: [] int) {
     slots := vm.work;
     for slots_in slots[it_index] = it;
+
     stack := *vm.stack;
     stack.count = 0;
     array_add(stack, .{ pc = pc, restore = -1 });
@@ -301,6 +315,7 @@ add_thread :: (vm: *Pike, list: *Threads, pc: u32, pos: int, slots_in: [] int) {
 
         while true {
             if contains(list, at) break;
+
             list.sparse[at] = cast(u32) list.count;
             list.dense[list.count] = at;
             list.count += 1;
@@ -310,6 +325,7 @@ add_thread :: (vm: *Pike, list: *Threads, pc: u32, pos: int, slots_in: [] int) {
                 case .RANGES;
                     keep := thread_slots(list, at);
                     for slots keep[it_index] = it;
+
                     break;
                 case .SPLIT;
                     array_add(stack, .{ pc = inst.alt, restore = -1 });
@@ -323,6 +339,7 @@ add_thread :: (vm: *Pike, list: *Threads, pc: u32, pos: int, slots_in: [] int) {
                     at = inst.next;
                 case .LOOK;
                     if !look_holds(inst.look, vm.text, pos) break;
+
                     at = inst.next;
                 case .FAIL;
                     break;

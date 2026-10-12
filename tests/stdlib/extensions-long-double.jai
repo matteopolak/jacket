@@ -71,8 +71,10 @@ main :: () {
     // print goes through float64: values beyond its range print as Inf or 0.
     huge: Long_Double = 1;
     for 1..1100 huge *= 2;
+
     tiny_value: Long_Double = 1;
     for 1..1100 tiny_value /= 2;
+
     assert(tprint("% % %", huge, -huge, tiny_value) == "Inf -Inf 0");
 
     #if LONG_DOUBLE_IS_WIDE {
@@ -94,6 +96,7 @@ main :: () {
         // Out of s64's range: x87 gives the minimum (like fistp), binary128 saturates.
         beyond: Long_Double = 1;
         for 1..80 beyond *= 2;
+
         assert(cast(s64) -beyond == -9223372036854775808);
         // Reflection does not parse the wide type.
         parsed: Long_Double = 2;

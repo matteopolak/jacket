@@ -76,6 +76,7 @@ check_logging :: () {
     assert(c[5].info.section == *section && c[5].info.user_flags == 5);
     assert(c[6].message == "1 <missing format argument>", "a failed format still logs: %", c[6].message);
     for captured free(it.message);
+
     array_reset(*captured);
 
     // A logger set inside a nested context does not leak out of it.
@@ -237,6 +238,7 @@ check_builder :: () {
 
     append(*sized, "x");
     for 1..available.count - 1 append(*sized, "y");
+
     assert(sized.current_buffer == null, "the inline buffer is exactly full");
     p := ensure_contiguous_space(*sized, 10);
 
@@ -251,6 +253,7 @@ check_builder :: () {
     // Stealing another builder's text.
     other: String_Builder;
     for 1..1000 append(*other, "0123456789");
+
     append(*builder, "!");
     append_and_steal_buffers(*builder, *other);
     assert(builder_string_length(*other) == 0, "the source is emptied");
@@ -304,6 +307,7 @@ check_failing_builder :: () {
     init_string_builder(*builder);
     // One spill segment is allowed, the next is refused.
     for 1..3 for 1..STRING_BUILDER_BUFFER_SIZE append(*builder, "z");
+
     assert(builder.failed, "running out of memory marks the builder failed");
     kept := builder_string_length(*builder);
 

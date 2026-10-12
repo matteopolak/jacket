@@ -134,6 +134,7 @@ check_refusals :: () {
 check_equivalence_guard :: () {
     same, why := format_tokens_equivalent("a := b+c; // x\n", "a := b + c;  // x\n");
     if !same fail("equivalent sources rejected: %", why);
+
     pairs :: string.[
         "x := a & &b;\n", "x := a &&b;\n",
         "a := 1;\n", "a := 2;\n",
@@ -166,15 +167,16 @@ check_config_parsing :: () {
     }
 
     if !config.blank_lines_between_items fail("blank_lines_between_items should default to true");
+
     off, off_ok := parse_config("blank_lines_between_items = false\n");
     if !off_ok || off.blank_lines_between_items fail("blank_lines_between_items = false not parsed");
 
-    if config.blank_line_after_declarations || config.blank_lines_around_blocks || config.blank_line_between_cases || config.blank_line_before_comments {
+    if config.blank_line_after_declarations || config.blank_lines_around_blocks || config.blank_line_between_cases || config.blank_line_before_comments || config.blank_line_after_guards || config.blank_line_before_return {
         fail("the code block blank line options should default to false");
     }
 
-    on, on_ok := parse_config("blank_line_after_declarations = true\nblank_lines_around_blocks = true\nblank_line_between_cases = true\nblank_line_before_comments = true\n");
-    if !on_ok || !on.blank_line_after_declarations || !on.blank_lines_around_blocks || !on.blank_line_between_cases || !on.blank_line_before_comments {
+    on, on_ok := parse_config("blank_line_after_declarations = true\nblank_lines_around_blocks = true\nblank_line_between_cases = true\nblank_line_before_comments = true\nblank_line_after_guards = true\nblank_line_before_return = true\n");
+    if !on_ok || !on.blank_line_after_declarations || !on.blank_lines_around_blocks || !on.blank_line_between_cases || !on.blank_line_before_comments || !on.blank_line_after_guards || !on.blank_line_before_return {
         fail("the code block blank line options were not parsed");
     }
 

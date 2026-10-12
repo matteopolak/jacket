@@ -10,6 +10,7 @@ key_event :: (key: Input.Key_Code, pressed: bool) -> Input.Event {
     event.type = .KEYBOARD;
     event.key_code = key;
     event.key_pressed = xx pressed;
+
     return event;
 }
 

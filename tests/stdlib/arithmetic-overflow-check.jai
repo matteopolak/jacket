@@ -78,5 +78,6 @@ main :: () {
     y: u8 = 10;
 
     if x + y != 4 exit(1);
+
     print("ok\n");
 }

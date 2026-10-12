@@ -18,6 +18,7 @@ untouched_reset := 5;
 #run {
     for i: 0..7 weights.biases[i] = cast(s16) (i + 1);
     for i: 0..63 weights.table[i] = cast(s16) (i * 2);
+
     weights.name = copy_string("network");
     array_add(*weights.steps, 3, 5, 8);
     weights.first = *weights.table[10];

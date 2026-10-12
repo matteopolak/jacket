@@ -13,6 +13,7 @@ main :: () {
     // A 1000-byte pattern used for the longer inputs: byte i is (7i + 3) mod 256.
     pattern: [1000] u8;
     for *pattern it.* = cast,trunc(u8) (it_index * 7 + 3);
+
     long := string.{ pattern.count, pattern.data };
 
     hashes(long);
@@ -96,10 +97,12 @@ md5_digests :: (long: string) {
     // Lengths around the 56-byte padding limit and the 64-byte block.
     a_run: [65] u8;
     for *a_run it.* = #char "A";
+
     runs := string.["e38a93ffe074a99b3fed47dfbe37db21", "a2f3e2024931bd470555002aa5ccc010", "5f1c4bb2970471a5c75b7ba1dc9ee3ed", "d289a97565bc2d27ac8b8545a5ddba45", "162b6d6eb17cd9da55f95f8c73a32dda"];
     lengths := int.[55, 56, 63, 64, 65];
 
     for lengths check(string.{ it, a_run.data }, runs[it_index]);
+
     check(long, "10046f077f2082ac19676b8079f1cb1a");
 }
 

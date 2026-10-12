@@ -61,6 +61,7 @@ left_button :: (pressed: bool) -> Input.Event {
     event.type = .KEYBOARD;
     event.key_code = .MOUSE_BUTTON_LEFT;
     event.key_pressed = xx pressed;
+
     return event;
 }
 
@@ -68,6 +69,7 @@ begin_frame :: (window: Window_Type, target: *Simp.Texture, x: int, y: int, even
     pointer_x, pointer_y = x, y;
     Input.input_per_frame_event_and_flag_update();
     for events Input.publish_input_event(it);
+
     now += 1.0 / 60;
     Simp.set_render_target(target);
     Simp.clear_render_target(0, 0, 0, 1);
@@ -87,6 +89,7 @@ write_assets :: () -> bool {
     }
 
     if !font_bytes.count return false;
+
     make_directory_if_it_does_not_exist(".scratch", recursive = true);
     make_directory_if_it_does_not_exist(ASSET_DIR, recursive = true);
 
@@ -96,6 +99,7 @@ write_assets :: () -> bool {
     }
 
     free(font_bytes.data);
+
     return true;
 }
 
@@ -153,6 +157,7 @@ main :: () {
 
         GR.draw_popups();
         Simp.immediate_flush();
+
         return pressed, released, read_target(target);
     }
 
@@ -168,6 +173,7 @@ main :: () {
         pressed, released, image = frame(32, 44);
         assert(!pressed, "hovering pressed the button");
         if near(*image, 32, 44, theme.surface_color_over) break;
+
         first := pixel(*image, 32, 44);
 
         assert(first[1] > 0, "the hover fade has not started: %", first);
@@ -204,6 +210,7 @@ main :: () {
 
         GR.draw_popups();
         Simp.immediate_flush();
+
         return changed || dropdown_changed, state.open;
     }
 

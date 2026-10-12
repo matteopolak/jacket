@@ -47,6 +47,7 @@ main :: () {
     assert(cast(u8) "\u001F" == 31);
     total := 0;
     for cast(u8, "\u0000") ..cast(u8, "\u0003") total += 1;
+
     assert(total == 4);
     print("ok\n");
 }

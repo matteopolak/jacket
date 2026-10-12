@@ -29,6 +29,7 @@ JAI
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
+
         typechecked := cast(*Message_Typechecked) message;
         for typechecked.procedure_headers array_add(*headers, it.expression);
 
@@ -49,6 +50,7 @@ JAI
                 // The same header the earlier message reported.
                 found := false;
                 for headers if it == callee found = true;
+
                 assert(found);
             }
         }
@@ -57,6 +59,7 @@ JAI
     compiler_end_intercept(w);
     assert(saw_shader_body);
     for headers if it.name == "checked" assert(it.body_or_null != null);
+
     set_build_options_dc(.{ do_output = false });
 }
 

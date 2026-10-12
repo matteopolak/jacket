@@ -24,6 +24,7 @@ main :: () {
     sum := 0;
 
     for b sum += it;
+
     assert(sum == 6);
     print("ok\n");
 }

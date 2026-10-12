@@ -48,6 +48,7 @@ main :: () {
     xs := s32.[5, 3, 9, 1, 7];
     if OS == .WASM sort_in_jai(xs, by_value);
     else qsort(xs.data, xs.count, size_of(s32), by_value);
+
     print("%\n", xs);
     key: s32 = 7;
     find :: (key: *s32, xs: [] s32) -> *s32 {

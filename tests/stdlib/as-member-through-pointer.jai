@@ -19,6 +19,7 @@ main :: () {
     d.x = 42;
     if get_x(*d) != 42 exit(1);
     if get_x(d) != 42 exit(2);
+
     print("ok\n");
 }
 

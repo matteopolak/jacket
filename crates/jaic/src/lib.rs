@@ -8,6 +8,7 @@ pub mod ast;
 pub mod build;
 pub mod clang;
 pub mod docs;
+pub mod fiber;
 pub mod fxhash;
 pub mod intern;
 pub mod interp;

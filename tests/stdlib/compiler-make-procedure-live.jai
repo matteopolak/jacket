@@ -43,6 +43,7 @@ bodies_of :: (live: bool) -> [] string {
     }
 
     compiler_end_intercept(w);
+
     return names;
 }
 

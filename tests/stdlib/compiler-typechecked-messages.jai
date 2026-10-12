@@ -53,6 +53,7 @@ JAI
                     info := it.expression.defined_type;
                     if info.name == "Grid" assert(info.nontextual_flags & .POLYMORPHIC != 0);
                     if info.name != "Settings" continue;
+
                     saw_settings = true;
                     assert(info.members.count == 2 && info.members[0].notes[0] == "v1");
                 }
@@ -98,10 +99,12 @@ JAI
                 for typechecked.procedure_bodies {
                     body := it.expression;
                     if body.header.name != "work" continue;
+
                     statements: [..] *Code_Node;
 
                     array_add(*statements, inserted);
                     for body.block.statements array_add(*statements, it);
+
                     body.block.statements = statements;
                     compiler_modify_procedure(w, body);
                     modified = true;

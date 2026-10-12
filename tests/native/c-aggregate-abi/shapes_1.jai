@@ -72,6 +72,7 @@ make_f64x3 :: (seed: s32) -> f64x3 #c_call {
     r.f0 = cast(float64) (seed + 1.5);
     r.f1 = cast(float64) (seed + 2.5);
     r.f2 = cast(float64) (seed + 3.5);
+
     return r;
 }
 
@@ -117,6 +118,7 @@ make_f64x4 :: (seed: s32) -> f64x4 #c_call {
     r.f1 = cast(float64) (seed + 2.5);
     r.f2 = cast(float64) (seed + 3.5);
     r.f3 = cast(float64) (seed + 4.5);
+
     return r;
 }
 
@@ -283,6 +285,7 @@ make_f32i32f64 :: (seed: s32) -> f32i32f64 #c_call {
     r.f0 = cast(float32) (seed + 1.5);
     r.f1 = cast(s32) (seed + 2);
     r.f2 = cast(float64) (seed + 3.5);
+
     return r;
 }
 
@@ -326,6 +329,7 @@ make_f32x2i64 :: (seed: s32) -> f32x2i64 #c_call {
     r.f0 = cast(float32) (seed + 1.5);
     r.f1 = cast(float32) (seed + 2.5);
     r.f2 = cast(s64) (seed + 3);
+
     return r;
 }
 
@@ -369,6 +373,7 @@ make_f64f32x2 :: (seed: s32) -> f64f32x2 #c_call {
     r.f0 = cast(float64) (seed + 1.5);
     r.f1 = cast(float32) (seed + 2.5);
     r.f2 = cast(float32) (seed + 3.5);
+
     return r;
 }
 
@@ -412,6 +417,7 @@ make_u8x3 :: (seed: s32) -> u8x3 #c_call {
     r.f0 = cast(u8) (seed + 1);
     r.f1 = cast(u8) (seed + 2);
     r.f2 = cast(u8) (seed + 3);
+
     return r;
 }
 

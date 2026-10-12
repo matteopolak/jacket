@@ -9,5 +9,6 @@ main :: () -> int {
     if Bits.bit_scan_forward(cast(u32) 0) != 0 || Bits.bit_scan_reverse(cast(u32) 0) != 0 return 2;
     if Bits.bit_scan_forward(cast(u32) 8) != 4 || Bits.bit_scan_reverse(cast(u32) 9) != 4 return 3;
     if Bits.popcount(cast(s8) -1) != 8 return 4;
+
     return 0;
 }

@@ -54,8 +54,10 @@ main :: () {
     h := Holder.{ *b };
 
     for h if it != 3 exit(1);
+
     count := 0;
     for n, i: h.head count += i;
     if count != 1 exit(2);
+
     print("ok\n");
 }

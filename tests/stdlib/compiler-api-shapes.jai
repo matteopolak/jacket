@@ -31,6 +31,7 @@ options_shapes :: () {
     text := compiler_get_version_info(*info);
 
     if text.count > 0 && info.major >= 0 compiler_report("x", mode = .WARNING);
+
     compiler_report("file", 1, 2, "text");
     ws := get_current_workspace();
 
@@ -68,6 +69,7 @@ message_shapes :: (w: Workspace) {
             case .COMPLETE;
                 complete := cast(*Message_Complete) message;
                 if complete.error_code != .NONE compiler_set_workspace_status(.FAILED, w);
+
                 break;
         }
     }
@@ -100,6 +102,7 @@ ast_shapes :: (code: Code) {
     print("% %\n", table.count, is_subclass_of(table[0], "X"));
     status, found_type := get_root_type(code);
     if status == .SUCCESS print("%\n", found_type);
+
     print("%\n", compiler_get_base_path());
     print("%\n", get_toplevel_command_line().count);
     print("%\n", get_name(1));

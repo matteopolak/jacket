@@ -61,6 +61,7 @@ main :: () {
 
         // Polling while holding the lock does not start the thread either.
         for 1..5000 atomic_read(*flag);
+
         unlock(*mutex);
         thread_deinit(*thread);
         assert(sum > 0);
@@ -87,6 +88,7 @@ main :: () {
         assert(thread_init(*thread, raise_flag));
         assert(thread_start(*thread));
         while atomic_read(*flag) == 0 {}
+
         thread_deinit(*thread);
     }
 

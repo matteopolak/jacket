@@ -111,6 +111,7 @@ hooks_in_order :: () {
 
     assert(stepwise.calls.count == expected.count, "stepwise calls: %", stepwise.calls);
     for expected assert(stepwise.calls[it_index] == it, "hook % was %", it_index, stepwise.calls[it_index]);
+
     assert(with_init.calls.count == 5 && with_init.calls[0] == "init", "init comes first: %", with_init.calls);
     assert(with_init.options_seen.count == 4 && with_init.options_seen[3] == "fast", "init sees every option: %", with_init.options_seen);
     assert(stepwise.options_seen.count == 2 && stepwise.options_seen[0] == "3" && stepwise.options_seen[1] == "fast", "handle_one_option claims its pairs: %", stepwise.options_seen);

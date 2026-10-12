@@ -67,8 +67,10 @@ main :: () {
     check(tprint("% % %", 42, "x", 1.5) == "42 x 1.5", "tprint");
     numbers: [..] int;
     for 0..9999 array_add(*numbers, it * 2);
+
     total := 0;
     for numbers total += it;
+
     check(total == 99990000, "array sum");
     mark := get_temporary_storage_mark();
 
@@ -109,6 +111,7 @@ main :: () {
     // Hash_Table.
     table: Table(string, int);
     for 0..499 table_add(*table, tprint("k%", it), it);
+
     was_found, found_value := table_find(*table, "k321");
 
     check(was_found && found_value == 321, "table_find");

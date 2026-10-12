@@ -15,3 +15,6 @@ e40b1e7d5320f8a33771f0c4e4ec85e66334b3a0
 
 # style: reformat with the declaration and block blank-line options only
 71ae859c84bfcaff0cc0ca0221a7dd4e129c36c9
+
+# style: reformat with blank lines after guards and before returns
+45ac7d6fdc9a1ad5d60b14962ce1da9e65c66d32

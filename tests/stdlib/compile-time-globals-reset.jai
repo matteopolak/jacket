@@ -35,5 +35,6 @@ main :: () -> s64 {
     // `value := #run f()` evaluates f once, at compile time.
     if value != 42 return 5;
     if runs != 0 return 6;
+
     return 0;
 }

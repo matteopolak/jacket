@@ -15,6 +15,7 @@ mod crash;
 #[cfg(not(target_arch = "wasm32"))]
 pub use crash::CRASH_STATUS;
 mod executable_path;
+mod fibers;
 mod native;
 mod probe;
 pub mod profile;
@@ -460,7 +461,7 @@ impl Drop for ZeroedBlock {
 }
 
 pub struct Interp {
-    stack: Box<[u64]>,
+    stack: ValueStack,
     sp: u64,
     globals: Vec<Option<GlobalMem>>,
     /// start address -> (end, global) for address lookups.
@@ -582,7 +583,11 @@ pub struct Interp {
     unseen_thunks: Vec<u64>,
     /// Value stacks for procedures C calls back, reused.
     #[cfg(not(target_arch = "wasm32"))]
-    callback_stacks: Vec<Box<[u64]>>,
+    callback_stacks: Vec<ValueStack>,
+    /// Fibers by the address of their `Fiber_Context` (`fibers.rs`).
+    fibers: HashMap<u64, Box<fibers::FiberRec>>,
+    /// A trap a fiber ended in, for the context that started it to return.
+    fiber_trap: Option<Trap>,
     /// `release_code` ran: no code runs anymore.
     closed: bool,
     /// Procedures already recorded for `JAIC_COVERAGE`, by `FuncId`; `None` when it is unset.
@@ -618,11 +623,82 @@ fn suspended<T>(result: &Res<T>) -> bool {
     matches!(result, Err(trap) if trap.kind == Some(TrapKind::Suspended))
 }
 
+/// The memory interpreted frames live on: the words of an allocation of its own, or of a mapping
+/// somebody else owns (a fiber's, `fibers.rs`). It dereferences to the words like the box it
+/// replaces, and frees only what it allocated.
+struct ValueStack {
+    words: *mut u64,
+    len: usize,
+    owned: bool,
+}
+
+impl Default for ValueStack {
+    fn default() -> Self {
+        ValueStack {
+            words: std::ptr::NonNull::dangling().as_ptr(),
+            len: 0,
+            owned: false,
+        }
+    }
+}
+
+impl ValueStack {
+    /// `len` zeroed words from the heap.
+    fn heap(len: usize) -> Self {
+        let words = Box::into_raw(vec![0u64; len].into_boxed_slice());
+        ValueStack {
+            words: words.cast(),
+            len,
+            owned: true,
+        }
+    }
+
+    /// `len` words of memory that outlives the stack and is zeroed.
+    fn borrowed(words: *mut u64, len: usize) -> Self {
+        ValueStack {
+            words,
+            len,
+            owned: false,
+        }
+    }
+}
+
+// SAFETY: a stack is used by one thread at a time, like the box it stands in for.
+unsafe impl Send for ValueStack {
+}
+
+impl std::ops::Deref for ValueStack {
+    type Target = [u64];
+
+    fn deref(&self) -> &[u64] {
+        // SAFETY: `words` points at `len` words that live as long as `self` (see `heap`/`borrowed`).
+        unsafe { std::slice::from_raw_parts(self.words, self.len) }
+    }
+}
+
+impl std::ops::DerefMut for ValueStack {
+    fn deref_mut(&mut self) -> &mut [u64] {
+        // SAFETY: as above, and `&mut self` is the only way in.
+        unsafe { std::slice::from_raw_parts_mut(self.words, self.len) }
+    }
+}
+
+impl Drop for ValueStack {
+    fn drop(&mut self) {
+        if self.owned {
+            // SAFETY: made by `heap` from a boxed slice of `len` words.
+            drop(unsafe {
+                Box::from_raw(std::ptr::slice_from_raw_parts_mut(self.words, self.len))
+            });
+        }
+    }
+}
+
 /// What a thread running interpreted code keeps of `Interp` while another thread has it, or
 /// while it is inside a native call.
 #[derive(Default)]
 struct ExecState {
-    stack: Box<[u64]>,
+    stack: ValueStack,
     sp: u64,
     depth: usize,
     calls: Vec<Call>,
@@ -640,7 +716,7 @@ impl Default for Interp {
 impl Interp {
     pub fn new(host: Box<dyn Host>) -> Self {
         Self {
-            stack: Vec::new().into_boxed_slice(),
+            stack: ValueStack::default(),
             sp: 0,
             globals: Vec::new(),
             ranges: BTreeMap::new(),
@@ -696,6 +772,8 @@ impl Interp {
             unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             callback_stacks: Vec::new(),
+            fibers: HashMap::default(),
+            fiber_trap: None,
             closed: false,
             covered: profile::coverage_file().map(|_| Vec::new()),
         }
@@ -975,8 +1053,9 @@ impl Interp {
         self.ranges = BTreeMap::new();
         self.ct_type_tables = Vec::new();
         self.ct_type_table = (0, 0);
-        self.stack = Box::default();
+        self.stack = ValueStack::default();
         self.sp = 0;
+        self.fibers = HashMap::default();
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.callback_stacks = Vec::new();
@@ -1379,7 +1458,7 @@ impl Interp {
         let stack = self
             .callback_stacks
             .pop()
-            .unwrap_or_else(|| vec![0u64; STACK_SIZE / 8].into_boxed_slice());
+            .unwrap_or_else(|| ValueStack::heap(STACK_SIZE / 8));
         let outer = self.take_exec_state();
         self.put_exec_state(ExecState {
             stack,
@@ -1404,7 +1483,7 @@ impl Interp {
             return self.trap("compile-time code no longer runs: the compile is over");
         }
         if self.stack.is_empty() {
-            self.stack = vec![0u64; STACK_SIZE / 8].into_boxed_slice();
+            self.stack = ValueStack::heap(STACK_SIZE / 8);
             self.sp = 0;
         }
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
@@ -1983,6 +2062,14 @@ impl Interp {
                 if *op == ir::Intrinsic::CheckFailed {
                     return self.check_failed(program, argv);
                 }
+                if matches!(
+                    op,
+                    ir::Intrinsic::FiberInit
+                        | ir::Intrinsic::FiberSwitch
+                        | ir::Intrinsic::FiberFree
+                ) {
+                    return self.fiber_intrinsic(program, *op, argv);
+                }
                 let out = self.intrinsic(*op, argv)?;
                 for (r, &v) in results.iter().zip(out.iter()) {
                     vals[r.0 as usize] = v;
@@ -2122,6 +2209,9 @@ impl Interp {
             }
             // Needs the program for its location: `step` handles it.
             I::CheckFailed => unreachable!("CheckFailed is handled by `step`"),
+            I::FiberInit | I::FiberSwitch | I::FiberFree => {
+                unreachable!("fibers are handled by `step`")
+            }
             I::CompilerWrite => {
                 let bytes = self.fetch(a[0], a[1] as usize)?;
                 self.effects += 1;

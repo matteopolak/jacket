@@ -44,6 +44,7 @@ build_chain :: () -> *Link {
     first.next.value = 20;
     first.next.next = New(Link);
     first.next.next.value = 30;
+
     return first;
 }
 
@@ -172,9 +173,11 @@ main :: () {
     assert(info.type_table.count > 0, "ctdata.12: the type table is filled");
     found := false;
     for info.type_table if it == type_info(Marker_Type) found = true;
+
     assert(found, "ctdata.12: user struct is in the type table");
     found_int := false;
     for info.type_table if it == type_info(int) found_int = true;
+
     assert(found_int, "ctdata.12: int is in the type table");
 
     // ctdata.13: globals live inside one of the reported data segments.

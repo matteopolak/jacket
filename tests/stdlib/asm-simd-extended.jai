@@ -415,5 +415,6 @@ main :: () {
     check("maskmovps store", h(32), 0xae4a8c08f4b84d2);
 
     if failures exit(1);
+
     print("ok\n");
 }

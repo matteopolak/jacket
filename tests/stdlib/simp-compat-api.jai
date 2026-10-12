@@ -12,6 +12,7 @@ main :: () {
     assert(Simp.glyph_id_to_hash_key(5) == -5);
     ok := string.["a", "\xc3\xa9", "\xe2\x82\xac", "\xf0\x9f\x98\x80"];
     for ok assert(Simp.isLegalUTF8(it.data, it.count));
+
     assert(!Simp.isLegalUTF8("\xc0\x80".data, 2)); // overlong
     assert(!Simp.isLegalUTF8("\xe2\x82".data, 2)); // truncated
     assert(Simp.get_glyph_width_in_pixels(null) == 0);
@@ -37,6 +38,7 @@ main :: () {
     candidates := string.["/System/Library/Fonts/Supplemental/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"];
     for candidates {
         if !file_exists(it) continue;
+
         path, base := split_path(it);
         font := Simp.load_font(path, base, 16);
 
@@ -62,6 +64,7 @@ main :: () {
         assert(large.temporary_glyphs.count == 5 && large.temporary_glyphs[3] == small.temporary_glyphs[0]);
         assert(large.temporary_glyphs_byte_offsets.count == offsets_before + 2);
         for 0..1 assert(large.temporary_glyphs_byte_offsets[offsets_before + it] == -1);
+
         break;
     }
 

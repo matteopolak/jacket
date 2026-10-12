@@ -21,6 +21,7 @@ main :: () {
     assert(bits.slots[2] == 3);
     seen := 0;
     for bits if it seen += 1;
+
     assert(seen == 130);
     deinit(*bits);
     print("ok\n");

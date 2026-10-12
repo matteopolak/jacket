@@ -60,9 +60,11 @@ compile_program :: (parsed: *Parsed, reverse: bool) -> Program, ok: bool, error:
     }
 
     for c.shared free(it_index);
+
     deinit(*c.shared);
     out: Program;
     if c.too_big return out, false, "pattern compiles to too large a program";
+
     out.start = entry;
 
     if reverse {
@@ -92,6 +94,7 @@ compile_program :: (parsed: *Parsed, reverse: bool) -> Program, ok: bool, error:
     }
 
     compute_byte_classes(*out);
+
     return out, true, "";
 }
 
@@ -111,6 +114,7 @@ starts_with_text_start :: (node: *Node) -> bool {
             return false;
         case .ALTERNATE;
             for node.children if !starts_with_text_start(it) return false;
+
             return true;
         case .REPEAT;
             return node.min > 0 && starts_with_text_start(node.children[0]);
@@ -137,9 +141,11 @@ can_match_empty :: (node: *Node) -> bool {
         case .CAPTURE; return can_match_empty(node.children[0]);
         case .CONCAT;
             for node.children if !can_match_empty(it) return false;
+
             return true;
         case .ALTERNATE;
             for node.children if can_match_empty(it) return true;
+
             return false;
     }
 
@@ -163,6 +169,7 @@ emit :: (c: *Compiler, inst: Inst) -> u32 {
     }
 
     array_add(*c.insts, inst);
+
     return cast(u32) (c.insts.count - 1);
 }
 
@@ -197,6 +204,7 @@ compile_node :: (c: *Compiler, node: *Node, next: u32) -> u32 {
             return emit(c, .{ kind = .LOOK, look = node.look, next = next });
         case .CAPTURE;
             if c.reverse return compile_node(c, node.children[0], next);
+
             close := emit(c, .{ kind = .SAVE, next = next, alt = cast(u32) (2 * node.index + 1) });
             body := compile_node(c, node.children[0], close);
 
@@ -216,8 +224,10 @@ compile_node :: (c: *Compiler, node: *Node, next: u32) -> u32 {
 
             defer array_free(entries);
             for node.children array_add(*entries, compile_node(c, it, next));
+
             at := entries[entries.count - 1];
             for < 0..entries.count - 2 at = emit(c, .{ kind = .SPLIT, next = entries[it], alt = at });
+
             return at;
         case .REPEAT;
             return compile_repeat(c, node, next);
@@ -245,6 +255,7 @@ compile_repeat :: (c: *Compiler, node: *Node, next: u32) -> u32 {
         if c.too_big return 0;
         if node.greedy c.insts[loop] = .{ kind = .SPLIT, next = body, alt = next };
         else c.insts[loop] = .{ kind = .SPLIT, next = next, alt = body };
+
         return split(c, node.greedy, body, next);
     }
 
@@ -360,6 +371,7 @@ emit_trie :: (c: *Compiler, node: *Trie_Node, next: u32) -> u32 {
     // Same transitions, same node.
     builder: String_Builder;
     for list print_to_builder(*builder, "%-%>%,", it.lo, it.hi, it.next);
+
     key := builder_to_string(*builder);
     found, existing := table_find(*c.shared, key);
 
@@ -371,6 +383,7 @@ emit_trie :: (c: *Compiler, node: *Trie_Node, next: u32) -> u32 {
     at := emit_ranges(c, list);
 
     table_add(*c.shared, key, at);
+
     return at;
 }
 

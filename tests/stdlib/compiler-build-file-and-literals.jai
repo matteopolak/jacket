@@ -34,10 +34,12 @@ build_and_print :: () -> string {
         }
 
         if message.kind != .TYPECHECKED continue;
+
         typechecked := cast(*Message_Typechecked) message;
         for typechecked.declarations {
             declaration := it.expression;
             if declaration.name != "single_value" && declaration.name != "typed_value" continue;
+
             builder: String_Builder;
 
             assert(Program_Print.print_declaration(*builder, declaration), "% prints", declaration.name);
@@ -47,6 +49,7 @@ build_and_print :: () -> string {
     }
 
     compiler_destroy_workspace(w);
+
     return tprint("%\n%\n", single, typed);
 }
 

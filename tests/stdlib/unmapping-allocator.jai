@@ -41,6 +41,7 @@ main :: () {
         for i: 0..size - 1 p[i] = cast,trunc(u8) i;
         for i: 0..size - 1 assert(p[i] == cast,trunc(u8) i);
         for seen assert(it != p, "an address was handed out twice");
+
         array_add(*seen, p);
         free(p, a);
     }
@@ -54,10 +55,12 @@ main :: () {
     // A resize moves to a new block with the old contents.
     p := cast(*u8) alloc(10, a);
     for 0..9 p[it] = cast(u8) (it + 1);
+
     q := cast(*u8) realloc(p, 5000, 10, a);
 
     assert(q != p);
     for 0..9 assert(q[it] == it + 1, "byte % after resize", it);
+
     q[4999] = 1;
     r := cast(*u8) realloc(q, 3, 5000, a);
     for 0..2 assert(r[it] == it + 1);
