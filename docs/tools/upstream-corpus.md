@@ -153,21 +153,15 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | Jai-Shader-Transpiler | `build.jai` | - | yes | yes | Linux path uses an undeclared `info` upstream |
 | rexim.github.io | `rss.jai` | yes | yes | - | POSIX `time_t` |
 | jai-tracy | instrumented program | yes | yes | - | libtracy is not built on Windows |
-| wait_group | example | - | yes | - | Linux: `signal` is an ambiguous overload set in jaic (see below); no Windows backend |
+| wait_group | example | - | yes | - | Linux: upstream typo, `signal` for `it` in a `log` call (see below); no Windows backend |
 | hyperserve | GET /ping | - | yes | - | needs wait_group; not done upstream on Windows |
-| Focus | window and screenshot | - | yes | - | Linux: `LD.GL` is declared after `#scope_module`; Windows: `init_named_pipe_pair` missing from Process; x64 uses Focus's portable hash (no x64 `meow_hash`) |
+| Focus | window and screenshot | - | yes | yes | Linux: `LD.GL` (after `#scope_module`) now resolves, next is the `#run` icon loader needing the Linux stb libraries, not yet run on a Linux host; Windows and x64: the earlier blockers are gone (see below), full Windows run not yet seen |
 | forbear | playground window | - | yes | - | Linux needs a Wayland compositor; on the GPU-less CI macOS runner only the build is checked (the playground compiles shaders at start-up) |
 | sgpu, Vk-Engine | - | - | - | - | Slang / Jolt / ImGui builds and a Vulkan GPU |
 
-Gaps this found and did not fix (each needs a decision about Jai's behaviour or a bigger stdlib piece):
-
-- `signal` named as a value (`log("...", handle, signal)` in wait_group on Linux) is an ambiguous overload of POSIX's `signal` and Thread's `signal(*Semaphore)`.
-- Focus's own `modules/Linux_Display` exposes `GL` after `#scope_module`, and the program reads `LD.GL`.
-- Focus's Windows process code needs overlapped pipe reading; `Process.init_named_pipe_pair` now exists and is exercised against a real child by `tests/stdlib/process-named-pipes.jai` on the Windows CI jobs.
-
 ### Notes per project
 
-**Focus.** `jaic build first.jai` produces a working editor on macOS. It needs the stb libraries (`tools/build_native_libs.py`) and its own `modules/Objective_C/LightweightRenderingView/build.jai` run once. Debug builds need `~/Library/Application Support/dev.focus-editor` to exist, because upstream creates `.../debug` non-recursively.
+**Focus.** `jaic build first.jai` produces a working editor on macOS. It needs the stb libraries (`tools/build_native_libs.py`) and its own `modules/Objective_C/LightweightRenderingView/build.jai` run once. Debug builds need `~/Library/Application Support/dev.focus-editor` to exist, because upstream creates `.../debug` non-recursively. The x64 and Windows blockers listed earlier are gone: Focus's own `src/meow_hash.jai` (the AES path under `CPU == .X64`) checks and builds for `-cpu x64` and `-os windows` against the stdlib `meow_hash`, so the smoke test no longer swaps in the portable hash; `Process.init_named_pipe_pair` exists (exercised against a real child by `tests/stdlib/process-named-pipes.jai` on the Windows CI jobs) and Focus's `src/build_system_windows.jai` checks against it, so the smoke test no longer skips Windows. A full `jaic check first.jai -os windows` cannot be tried from a macOS host, because `first.jai` and `src/config.jai` run Windows-only code at compile time, so the first complete Windows run is the CI one.
 
 **Jails.** `jaic build build.jai` produces a native `bin/jails` that answers LSP requests. `-os windows` needs a Windows host (it calls `MultiByteToWideChar` at compile time).
 
@@ -186,18 +180,17 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 - Windows-only APIs (19.8, 33.2C, 33.6, 50.1) and the Windows-only raylib module (35.1, 52.2, 30/jai_raylib, and the `raylib/module.jai` files of 35 and 52, whose `raylib_native` library is declared only for Windows);
 - files meant to be `#load`ed, not run on their own (8B `file_alpha.jai`, `file_beta.jai`), and 31 `build_gui.jai`, which uses an undeclared `success` in a procedure nothing calls (Jai checks the program's own procedures; see [dead-code elimination](../language/dead-code-elimination.md));
 - intentional failures (20.2, 30.9, exercises/22);
-- APIs that older Jai versions had (6.6 `random_seed` result, 26.27 and exercises/30 `builder_to_string(allocator=)`, 33.10 `Sound_Player` struct, 51.2 GetRect `dropdown`);
+- written for an older Jai (outdated), using APIs that older Jai versions had (6.6 `random_seed` result, 26.27 and exercises/30 `builder_to_string(allocator=)`, 33.10 `Sound_Player` struct, 51.2 GetRect `dropdown`);
 - missing command-line arguments (30.14, 8.2, 12.8) or a missing `cpp_library.cpp`;
 - 31.2, which calls GL at compile time without a context.
 
 19.5 frees an advanced pointer and 27/foldera writes through null; both are upstream bugs. 10.4 reads freed memory, so its third line is not checked.
 
-**Metaprogramming libraries.** Sweep cases: match-jai `examples/first.jai`; yield-jai `constant`, `defer`, `first`, `if`, `if_case`, `while` (`expand` and `for` would need per-call `macro_expansion_block` export); AST_Utils `astTests.jai`; Jai-Shader-Transpiler `build.jai` (GLSL from `@glsl` procedures); jai-utils `closure.jai`; unotest. Checked by hand but not cases:
+**Metaprogramming libraries.** Sweep cases: match-jai `examples/first.jai`; yield-jai `constant`, `defer`, `first`, `if`, `if_case`, `while` (`expand` and `for` would need per-call `macro_expansion_block` export); AST_Utils `astTests.jai` and `examples/build.jai` (needs `FormatStruct.recursive_long_form_depth`, see [Basic](../specs/stdlib/README.md)); Jai-Shader-Transpiler `build.jai` (GLSL from `@glsl` procedures); jai-utils `closure.jai`; unotest. Checked by hand but not cases:
 
-- AST_Utils `examples/build.jai` sets `FormatStruct.recursive_long_form_depth`, which current Basic does not have, in a procedure of its own files, so it fails to check.
 - epic-fail is a `-plug` plugin ([metaprogram plugins](../metaprogramming/metaprogram-plugins.md)); its `assert` works when imported directly.
 - MetaThreadSafe's examples fail on purpose, with the same diagnostics; `compile_time_example` passes. It used to report the untaken `#if` branch of a baked instance: a call to a polymorphic procedure resolved to the generic header, and a static `#if` carried no evaluated flag. The call now resolves to the instance, whose body is reported with `EVALUATED_AS_TRUE` and `static_if_accepted_case` set (rules `records.30`, `records.31`). MetaThreadSafe is not pinned.
-- jai-control-flow uses `%%` as an escaped percent, which current Jai reads as two arguments; a corrected copy passes all its tests.
+- jai-control-flow was written for an older Jai in which `%%` was an escaped percent; current Jai reads it as two arguments. A copy updated for current Jai passes all its tests.
 
 **rluba's libraries.** All compile; what runs depends on the services they talk to.
 
@@ -217,7 +210,8 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 - cluster: `cluster -n 2 -- crashing` starts, watches and reaps instances. This relies on `Process` giving children a socket as stdin.
 - jai-tracy: the build case's setup compiles `macos/libtracy.a` from `tracy/public/TracyClient.cpp`. With `-min_size 1` the plugin wraps `main` in Tracy zones and the program runs. Its `generate.jai` also runs under jaic but isn't a case: it rewrites the pinned `bindings.jai`, and its enums come out different from upstream's (no `TracyPlotFormat` prefix stripping, `u32` instead of `s32`).
-- Upstream bugs, not cases: jai-date's `example.jai` passes `allocator =` as an ordinary named argument (current Jai needs `,,`); cluster's `examples/http_server.jai` calls `cluster_accept` with the old signature; jai-postgres's `examples/example.jai` refers to `Uuid` but declares `UUID`.
+- Written for an older Jai (outdated), so not cases: jai-date's `example.jai` passes `allocator =` as an ordinary named argument (current Jai needs `,,`); cluster's `examples/http_server.jai` calls `cluster_accept` with its old signature.
+- Upstream bugs (typos), not cases: jai-postgres's `examples/example.jai` refers to `Uuid` but declares `UUID`; wait_group's Linux `add_signals` logs `signal` where `it` was meant, which names the overloaded `signal` (POSIX's and Thread's `signal(*Semaphore)`) as a value with no target type. jaic rejects that as an ambiguous overload set; nothing in the corpus, tests or docs shows Jai accepting a procedure value of an overloaded name (the differential generator avoids them), so jaic's behaviour is left alone. The path is likely one the author never compiled on Linux.
 
 **chess-jai.** `build.jai - ui` and `- ai cpu` are check cases (`chess-jai-ui-check`, `chess-jai-engine-check`). `jaic build build.jai - ui ai release` produces `chess` and the `ceij` UCI engine (both need stb_vorbis). The engine reads its 21 MB NNUE network into a `#no_reset` global at compile time, and `perft_all` passes.
 
@@ -231,7 +225,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **KodaJai.** Imports FixedStringJai, JaiGLFW, ContiguousJsonJai, JaiBoundingTree, KodaSerializer, BlockAllocatorJai, JaiMath, lz4_static and JaiParallel, none pinned.
 
-**no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`. Its code uses dotless struct literals (`f({1})`) and `A : :5` enum members, which jaic now accepts; "struct `Rendering_Context` contains itself" was a jaic bug: its file-scope `using gpu_context;` (a `*Rendering_Context`) made every name in the struct's field types ask whether `Rendering_Context` has such a member, which laid the struct out again (rule `using.17`). Checked with `-os linux`, `module.jai` now stops at `VkDeviceMemory` in `modules/vulkan_memory_allocator/linux.jai`, which imports a `jai-vulkan` module the repository doesn't contain; with `-os windows` it checks (`no-api-module-windows-check`). It used to stop at `vkGetPhysicalDeviceFeatures2(physical_device, ...)`, which passes a `*Physical_Device` where its `#as` member `VkPhysicalDevice` (a pointer type) is expected; jaic only dereferenced a pointer for an `#as` member of non-pointer type. Now a pointer to a struct passes as its `#as` member's value whatever that type is (rule `using.18`). Its bindings generators use the older `Bindings_Generator` API (`*Enum.Enumerate`; a library renamed through `Library_Info.name`) and `Hash_Table`'s old `table_find_new`, and do not type-check.
+**no_api.** `first.jai` loads `examples/sponza/sponza.jai`, which is not in the repository; the build copies DLLs and launches `wt`. Its code uses dotless struct literals (`f({1})`) and `A : :5` enum members, which jaic now accepts; "struct `Rendering_Context` contains itself" was a jaic bug: its file-scope `using gpu_context;` (a `*Rendering_Context`) made every name in the struct's field types ask whether `Rendering_Context` has such a member, which laid the struct out again (rule `using.17`). Checked with `-os linux`, `module.jai` now stops at `VkDeviceMemory` in `modules/vulkan_memory_allocator/linux.jai`, which imports a `jai-vulkan` module the repository doesn't contain; with `-os windows` it checks (`no-api-module-windows-check`). It used to stop at `vkGetPhysicalDeviceFeatures2(physical_device, ...)`, which passes a `*Physical_Device` where its `#as` member `VkPhysicalDevice` (a pointer type) is expected; jaic only dereferenced a pointer for an `#as` member of non-pointer type. Now a pointer to a struct passes as its `#as` member's value whatever that type is (rule `using.18`). Its bindings generators were written for an older Jai (outdated): they use the older `Bindings_Generator` API (`*Enum.Enumerate`; a library renamed through `Library_Info.name`) and `Hash_Table`'s old `table_find_new`, so they do not type-check against current modules.
 
 **jai-protobuf.** The cases run on a scratch copy, since the tests and examples write generated code next to their `.proto` files: `jai-protobuf-tests` (`All tests passed!`), the four examples (`jai-protobuf-01-compiletime`, `-02a-pregenerate`, `-02b-use-generated`, `-03-imports`, `-04-memory-allocation`) and `jai-protobuf-protoc-check`. Two jaic gaps stopped them: `build.jai` starts with `#!/usr/bin/env jai`, which the lexer now skips at the start of a file, and the library builds a `File` from the C `stdin`. The well-known-types example is not a case: it reads `google/protobuf/*.proto` from `/usr/include`.
 

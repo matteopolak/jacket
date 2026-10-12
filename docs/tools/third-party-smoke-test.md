@@ -78,7 +78,7 @@ window program (`--dlls`), as the stdlib window tests do.
 
 **Deviations from the projects' own steps** (each is a step of the check):
 
-- Focus builds with `first.jai - release`; the stdlib's `meow_hash` has an x64 implementation, but the check has not yet been repeated with Focus's own `src/meow_hash.jai` unedited.
+- Focus builds with `first.jai - release`, using its own `src/meow_hash.jai` unedited (the stdlib's `meow_hash` has an x64 implementation).
 - reflector's `build.jai` also builds a Windows-only benchmark, so the check builds `reflector-tests.jai`, a
   driver that makes the same test workspace calls (see [upstream corpus](upstream-corpus.md)).
 - jai-tracy: `generate.jai` would rewrite the pinned bindings, so libtracy is compiled from the pinned Tracy client.

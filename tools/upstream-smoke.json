@@ -291,8 +291,8 @@
         }
       ],
       "skip": {
-        "linux-x64": "jaic rejects `log(..., signal)` in module.jai: `signal` names both POSIX's and Thread's, an ambiguous overload set (unverified whether Jai accepts it)",
-        "linux-arm64": "same: `signal` is an ambiguous overload set on Linux"
+        "linux-x64": "upstream typo: module.jai logs `signal` where `it` was meant (`log(\"...\", handle, signal)` inside `for signals`), which names an overloaded procedure (POSIX's and Thread's `signal`) as a value with no target type; jaic rejects that, and the Linux path was likely never compiled upstream",
+        "linux-arm64": "same upstream typo (`signal` for `it`) on Linux"
       }
     },
     {
@@ -333,7 +333,7 @@
         "macos-arm64",
         "macos-x64"
       ],
-      "only_reason": "hyperserve imports wait_group (kqueue/epoll; its Linux code needs the ambiguous `signal` fixed) and has no Windows support upstream"
+      "only_reason": "hyperserve imports wait_group (kqueue/epoll; its Linux code hits wait_group's `signal` typo) and has no Windows support upstream"
     },
     {
       "id": "jai-format",
@@ -526,19 +526,6 @@
       "project": "focus-editor--focus",
       "steps": [
         {
-          "name": "use Focus's portable hash instead of the AES one (stdlib meow_hash has no x64 implementation)",
-          "only": [
-            "linux-x64",
-            "macos-x64",
-            "windows-x64"
-          ],
-          "argv": [
-            "{python}",
-            "-c",
-            "import pathlib; f = pathlib.Path('src/meow_hash.jai'); f.write_text(f.read_text().replace('#if CPU == .X64 {', '#if false {', 1))"
-          ]
-        },
-        {
           "name": "build the macOS rendering view",
           "kind": "jaic",
           "only": [
@@ -575,9 +562,8 @@
         }
       ],
       "skip": {
-        "windows-x64": "Focus's Windows process code calls the Process module's init_named_pipe_pair (overlapped named pipes), which the stdlib does not have yet",
-        "linux-x64": "src/platform/linux.jai reads `LD.GL` from the project's own Linux_Display module, which declares it after `#scope_module`; jaic keeps module-scope names private to the module (unverified whether Jai lets a program see them)",
-        "linux-arm64": "src/platform/linux.jai reads `LD.GL` from the project's own Linux_Display module, which declares it after `#scope_module`; jaic keeps module-scope names private to the module (unverified whether Jai lets a program see them)"
+        "linux-x64": "not yet tried on a Linux host: `LD.GL` (declared after `#scope_module`) now resolves, and the next step is src/platform/linux.jai's compile-time `#run` icon loader calling stbi_load_from_memory, which needs the stb libraries built for Linux (a cross check from macOS stops there)",
+        "linux-arm64": "not yet tried on a Linux host: `LD.GL` (declared after `#scope_module`) now resolves, and the next step is src/platform/linux.jai's compile-time `#run` icon loader calling stbi_load_from_memory, which needs the stb libraries built for Linux (a cross check from macOS stops there)"
       }
     },
     {

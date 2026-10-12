@@ -347,6 +347,7 @@
   {"id": "yield-jai-if", "path": "sjorsdonkers--yield-jai/examples/if.jai", "mode": "run"},
   {"id": "yield-jai-if-case", "path": "sjorsdonkers--yield-jai/examples/if_case.jai", "mode": "run"},
   {"id": "yield-jai-while", "path": "sjorsdonkers--yield-jai/examples/while.jai", "mode": "run"},
+  {"id": "ast-utils-build", "path": "GufNZ--JaiModules-AST_Utils/examples/build.jai", "mode": "run", "args": ["-I", "../../_modules"]},
   {"id": "ast-utils-tests", "path": "GufNZ--JaiModules-AST_Utils/examples/astTests.jai", "mode": "run"},
   {"id": "shader-transpiler-build", "path": "PixelRifts--Jai-Shader-Transpiler/build.jai", "mode": "run"},
   {"id": "jai-utils-closure", "path": "Stuart-Mouse--jai-utils/closure.jai", "mode": "run"},
