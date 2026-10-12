@@ -2,36 +2,31 @@
 
 ## [Unreleased]
 
-### Features
+## [0.13.0] - 2026-10-12
 
-- `Extensions/Regex`: regular expressions with the syntax and matching rules of Rust's `regex` crate, full Unicode 17 support and linear-time matching (lazy DFAs, a Pike VM and a bounded backtracker). `Regex.compile` builds one at run time; `Regex.Static("...")` is compiled while the program compiles, rejects a bad pattern with a compile error, and turns named groups into typed fields (integers, floats, enums) that `parse`, `captures` and `parse_into` fill.
-- `Extensions/SIMD`: portable fixed-width vectors (`Vector(T, N)`, `u8x16`, `f32x4`, ...) with lane-wise arithmetic, comparisons into masks, reductions, shuffles and byte table lookups. Results are the same on every target; optimized native builds use vector instructions.
-- `Extensions/Byte_Search`: vectorized `find`, `find_any`, `find_last`, `count` and substring search, linear time even for adversarial needles (Two-Way fallback). Single-byte search runs at memory bandwidth, on par with Rust's `memchr`. `Byte_Set` (`make_byte_set`, `find`) searches for any byte of a set with nibble tables, and `find_pair`/`find_triple` for bytes from two or three sets at fixed distances.
-- Compiler intrinsics `byte_lookup` (pshufb/`tbl`/`swizzle`-style table lookup, 0 for indices of 16 or more on every target) and `sign_mask` (pmovmskb-style top-bit mask) lower to real vector instructions in native builds, and `#asm` `pshufb` and `pmovmskb` now use them.
+Three new stdlib extensions: regular expressions that match Rust's `regex` crate and run about as fast, portable SIMD vectors, and vectorized byte search.
 
-### Performance
+### Highlights
 
-- Native builds honour `inline` and `no_inline` on procedure declarations (LLVM `alwaysinline`/`noinline`); before, both were ignored.
-- Native null-pointer checks are no longer emitted for the incoming addresses of aggregate parameters and results, which are always the caller's copies. Small procedures taking structs by value vectorize again once inlined.
-- `Extensions/Regex`: patterns whose next byte always picks one path through the automaton (dates, `key=value`, most ASCII patterns) find their capture groups in a single scan of the match with a one-pass table, built at compile time for `Regex.Static`. Typed `captures_all` on a date pattern is about 35% faster.
-- `Extensions/Regex`: searches skip ahead with Byte_Search to where a match can start (a literal prefix, a set of first bytes, or pairs and triples of bytes), and a pattern that is a plain literal returns its match without running the DFA. Patterns whose matches all have one length skip the reverse scan. Unicode `\b` stays in the DFA instead of falling back to the Pike VM. Most benchmark patterns now run within 20% of Rust's `regex` or faster.
-- `Extensions/Byte_Search`: substring search with a `Finder` tests 64 positions per branch (absent needles at about 64 GB/s, from 19), and a hit picks its chunk without branching.
-- Stack trace nodes are left out of every procedure that only calls procedures that need none, not only out of leaves.
+- `Extensions/Regex`: Rust `regex` syntax, full Unicode, linear time. `Regex.Static` compiles patterns with the program and fills typed fields from named groups. See [Regex](https://github.com/matteopolak/jai/blob/main/docs/stdlib/regex.md).
+- `Extensions/SIMD`: fixed-width vectors (`u8x16`, `f32x4`, ...) with the same results on every target and real vector instructions in native builds.
+- `Extensions/Byte_Search`: byte, byte set and substring search at memory bandwidth, on par with `memchr`.
+- Native builds honour `inline` and `no_inline`, and leave stack trace nodes out of more procedures.
+- New intrinsics `byte_lookup` and `sign_mask` lower to vector instructions; `#asm` `pshufb` and `pmovmskb` use them.
 
 ### Breaking changes
 
-- `Extensions/SIMD`: `<<` and `>>` take the shift count modulo the lane width, as wasm does, instead of asserting it is smaller.
 - winget is no longer offered; install on Windows with `install.ps1` or the release zip.
 
 ### Fixes
 
-- `for` over a range or value that starts with an expression directive (`for #char "a"..#char "e"`, `for #run f()`) no longer parses the directive as a loop modifier.
-- Constants that an `#insert` declares inside a struct body, polymorphic or not, are now visible to the members that follow.
-- An `#expand` macro can backtick-declare a name equal to one of its own parameters (`` `engine := engine; ``) without an internal error.
-- The address of a `#run` struct constant is now static and stable, so returning it from a procedure no longer yields a dangling pointer.
-- `type_info(Name)` of a generic struct named without arguments now works, so a `#modify` can compare an argument's `polymorph_source_struct` against it.
-- A procedure's `#modify` can now name a value polymorph variable inferred from an argument type (`$N` in `Vec($T, $N)`, `$C` in `[$C] int`) instead of reporting it as declared more than once.
-- `size_of` and `align_of` of a non-constant `Type` variable (including a `$V: Type` inside a `#modify`) are now a compile error with a hint toward `runtime_size`, instead of silently returning the size of a `Type` value.
+- `for` over a range starting with a directive (`for #char "a"..#char "e"`) parses correctly.
+- Constants an `#insert` declares in a struct body are visible to the members after it.
+- An `#expand` macro can backtick-declare a name equal to one of its parameters.
+- The address of a `#run` struct constant is static, so returning it no longer dangles.
+- `type_info` of a generic struct without arguments works, for `#modify` comparisons.
+- A `#modify` can name a value polymorph inferred from an argument type (`$N` in `Vec($T, $N)`).
+- `size_of` of a non-constant `Type` is a compile error pointing to `runtime_size`.
 
 ## [0.12.0] - 2026-10-11
 
