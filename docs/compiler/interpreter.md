@@ -43,7 +43,7 @@ Registers are accessed unchecked: `build` computes the register count (`Code::re
 
 - `debug_break()` stops the program with a runtime error (exit 1), so a failed `assert` ends it as in Jai. Runtime_Support's `debug_break` is `#asm { int3; }` on x64 and `#bytes` `brk #0` on arm64; sema turns exactly those into the `DebugBreak` intrinsic, since raw machine code can't run here.
 - Bounds checks are the `BoundsCheck` intrinsic; see [pointers and arrays](../language/pointers-and-arrays.md#bounds-checks). Pointer indexing is never checked.
-- `block_budget`, when set, counts basic blocks and traps with `execution budget exhausted`. The language server, jailint and the playground use it. A workspace a metaprogram compiles runs on the budget of the interpreter that drives it: `build::step` and `build::finish_all` take a `&mut Option<u64>`, give it to the workspace's compiler and take back what is left.
+- `block_budget`, when set, counts basic blocks and traps with `execution budget exhausted`. Entering a block under it (`enter_block`) does not look up the source location (`sync_loc`, a binary search) unless threads run or the block traps: doing it every time was a fifth of the interpreter's time in the language server. The language server, jailint and the playground use it. A workspace a metaprogram compiles runs on the budget of the interpreter that drives it: `build::step` and `build::finish_all` take a `&mut Option<u64>`, give it to the workspace's compiler and take back what is left.
 
 ### Program arguments
 

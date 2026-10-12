@@ -1616,8 +1616,14 @@ impl Interp {
             if WATCH {
                 let block = code.block_at[pc];
                 if block != 0 && !entered {
-                    self.sync_loc(code, pc);
-                    self.enter_block(program, func, code, block as usize - 1)?;
+                    // Where the block starts is looked up only when it is needed: a thread
+                    // switch saves it, and a trap (budget, suspension) reports it.
+                    if self.multi {
+                        self.sync_loc(code, pc);
+                    }
+                    if let Err(trap) = self.enter_block(program, func, code, block as usize - 1) {
+                        return Err(self.located(trap, code, pc));
+                    }
                 }
                 entered = false;
             }
