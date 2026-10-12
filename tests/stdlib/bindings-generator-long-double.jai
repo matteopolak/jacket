@@ -5,7 +5,6 @@
 // in tests/native/c-long-double. Skips (printing ok) when clang or libclang is unavailable.
 #import "Basic";
 #import "String";
-#import "File";
 #import "Process";
 #import "Bindings_Generator";
 #import "Scratch_Directory";

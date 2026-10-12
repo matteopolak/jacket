@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
 
+mod objc;
 mod stdin;
 mod windows;
 
@@ -251,6 +252,7 @@ pub struct SandboxHost {
     /// `strerror` results by error number; they stay valid for the whole run, like libc's.
     error_texts: HashMap<u64, u64>,
     stdin: stdin::Stdin,
+    objc: objc::Objc,
 }
 
 impl SandboxHost {
@@ -662,6 +664,9 @@ impl Host for SandboxHost {
             return Some(Ok(vec![result]));
         }
         if let Some(result) = self.windows_foreign(symbol, args) {
+            return Some(Ok(vec![result]));
+        }
+        if let Some(result) = self.objc_foreign(symbol, args) {
             return Some(Ok(vec![result]));
         }
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);

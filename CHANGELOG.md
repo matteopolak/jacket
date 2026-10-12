@@ -12,6 +12,8 @@
 
 - The `meow_hash` module has an x64 `MeowHash` and `MeowU64From` (AES-based 128-bit hash taking an `#asm` `vec` register), so Focus's `calculate_meow_hash` compiles for x64. `Process` on Windows has `init_named_pipe_pair`, which makes an overlapped pipe pair with an event for the parent end.
 
+- The sandbox answers the Objective-C runtime calls compile-time code makes (`sel_registerName`, `objc_getClass`, `class_getInstanceSize`, `objc_msgSend` and a framework `dlopen`) with interned stand-ins, so Focus's macOS workspace builds in the editor: `AppKit.jai` went from 1810 identifiers without hover to 19 and `GameController.jai` from 183 to 0.
+
 ### Performance
 
 - `jailsp` hands the pages a compile freed back to the system once the compile is done: an editor on Focus sits at about 230 MiB between compiles instead of 300-370 MiB.
