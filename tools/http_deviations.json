@@ -1,0 +1,41 @@
+{
+  "cases": {
+    "request/sample.md:317": "HTTP/0.9 request lines (no version) are refused: the version is required (RFC 9112 3)",
+    "response/sample.md:648": "HTTP/0.9 is not supported: the codec answers 505 for any version but 1.0 and 1.1",
+    "request/invalid.md:493": "start line errors are found when the line is complete; llhttp fails on the first bad byte, before the CRLF",
+
+    "request/method.md:65": "llhttp stops after a CONNECT request (it counts as an upgrade) and fails on what follows; the codec reports the request and leaves the tunnel to the server",
+    "request/method.md:99": "llhttp stops after a CONNECT request (it counts as an upgrade) and fails on what follows; the codec reports the request and its framed body and leaves the tunnel to the server",
+    "request/uri.md:191": "llhttp stops after a CONNECT request (it counts as an upgrade) and fails on what follows; the codec reports the request and leaves the tunnel to the server",
+
+    "request/method.md:138": "the asterisk form is only valid for OPTIONS (RFC 9112 3.2.4)",
+    "request/uri.md:168": "a fragment is never part of a request target (RFC 9112 3.2), so a target with # is refused",
+
+    "request/method.md:375": "ICE is not HTTP: only HTTP/1.0 and HTTP/1.1 are accepted",
+    "request/method.md:405": "RTSP is not HTTP: only HTTP/1.0 and HTTP/1.1 are accepted",
+    "request/method.md:433": "RTSP is not HTTP: only HTTP/1.0 and HTTP/1.1 are accepted",
+    "response/sample.md:43": "RTSP is not HTTP: only HTTP/1.0 and HTTP/1.1 are accepted",
+    "response/sample.md:63": "ICE is not HTTP: only HTTP/1.0 and HTTP/1.1 are accepted",
+
+    "request/invalid.md:69": "any method token is accepted (RFC 9110 9.1; the server answers 501 for methods it does not know), llhttp has a fixed method list",
+    "request/invalid.md:359": "any method token is accepted (RFC 9110 9.1; the server answers 501 for methods it does not know), llhttp has a fixed method list",
+
+    "request/connection.md:545": "llhttp treats a request with Upgrade as the end of HTTP and fails on the bytes after it; the codec keeps parsing because a server may ignore Upgrade (RFC 9110 7.8). Head.upgrade tells the server to look",
+    "request/connection.md:682": "llhttp treats a request with Upgrade as the end of HTTP and fails on the bytes after it; the codec keeps parsing because a server may ignore Upgrade (RFC 9110 7.8). Head.upgrade tells the server to look",
+    "request/connection.md:716": "llhttp treats a request with Upgrade as the end of HTTP and fails on the bytes after it; the codec keeps parsing because a server may ignore Upgrade (RFC 9110 7.8). Head.upgrade tells the server to look",
+    "request/connection.md:756": "llhttp treats a request with Upgrade as the end of HTTP and fails on the bytes after it; the codec keeps parsing because a server may ignore Upgrade (RFC 9110 7.8). Head.upgrade tells the server to look",
+    "request/connection.md:815": "llhttp treats a request with Upgrade as the end of HTTP and fails on the bytes after it; the codec keeps parsing because a server may ignore Upgrade (RFC 9110 7.8). Head.upgrade tells the server to look",
+
+    "response/connection.md:296": "after a 101 the codec reports SWITCHED and stops; llhttp fails on the bytes that follow",
+    "response/connection.md:334": "after a 101 the codec reports SWITCHED and stops; llhttp fails on the bytes that follow",
+
+    "request/transfer-encoding.md:496": "only the chunked transfer coding is implemented: another coding is refused with 501 when the header is read, not when the body arrives",
+    "request/transfer-encoding.md:780": "only the chunked transfer coding is implemented: `deflate, chunked` is refused with 501, llhttp decodes the chunking and leaves deflate to the caller",
+    "request/transfer-encoding.md:822": "only the chunked transfer coding is implemented: `deflate` then `chunked` is refused with 501, llhttp decodes the chunking and leaves deflate to the caller",
+    "request/transfer-encoding.md:869": "`chunkedchunked` is no known coding: refused at the head (llhttp refuses when the body arrives)",
+    "response/transfer-encoding.md:70": "chunked must be the last coding: the codec refuses `chunked, deflate`, where RFC 9112 6.1 would read the response until close (a smuggling risk)",
+    "response/transfer-encoding.md:101": "chunked must be the last coding: the codec refuses it followed by another Transfer-Encoding line, where RFC 9112 6.1 would read the response until close (a smuggling risk)",
+    "response/transfer-encoding.md:139": "`chunkedchunked` is no known coding: refused at the head, where llhttp reads the response until close"
+  },
+  "rules": []
+}

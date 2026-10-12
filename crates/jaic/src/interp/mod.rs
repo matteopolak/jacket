@@ -2196,6 +2196,55 @@ impl Interp {
                 }
                 Rets::collect([success as u64, current].into_iter())
             }
+            // The interpreter runs one thread at a time, so every order behaves as sequentially
+            // consistent. A load that sees nothing new is a thread waiting for another one.
+            I::AtomicLoad(_) => {
+                let ty = Ty::int(a.get(1).copied().unwrap_or(8));
+                let value = self.load(ty, a[0])?;
+                if self.multi && self.host.cooperative_threads() {
+                    self.inline_poll();
+                }
+                Rets::one(value)
+            }
+            I::AtomicStore(_) => {
+                let ty = Ty::int(a.get(2).copied().unwrap_or(8));
+                self.store(ty, a[0], a[1])?;
+                Rets::default()
+            }
+            I::AtomicRmw(op, _) => {
+                let ty = Ty::int(a.get(2).copied().unwrap_or(8));
+                let current = self.load(ty, a[0])?;
+                let operand = mask(ty, a[1]);
+                let next = match op {
+                    ir::AtomicOp::Xchg => operand,
+                    ir::AtomicOp::Add => current.wrapping_add(operand),
+                    ir::AtomicOp::Sub => current.wrapping_sub(operand),
+                    ir::AtomicOp::And => current & operand,
+                    ir::AtomicOp::Or => current | operand,
+                    ir::AtomicOp::Xor => current ^ operand,
+                };
+                let next = mask(ty, next);
+                self.store(ty, a[0], next)?;
+                if self.multi && self.host.cooperative_threads() && next == current {
+                    self.inline_poll();
+                }
+                Rets::one(current)
+            }
+            I::AtomicCas(..) => {
+                let ty = Ty::int(a.get(3).copied().unwrap_or(8));
+                let current = self.load(ty, a[0])?;
+                let success = current == mask(ty, a[1]);
+                if success {
+                    self.store(ty, a[0], a[2])?;
+                }
+                if self.multi
+                    && self.host.cooperative_threads()
+                    && (!success || mask(ty, a[2]) == current)
+                {
+                    self.inline_poll();
+                }
+                Rets::collect([success as u64, current].into_iter())
+            }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
                 return self.check_trap(a.first().copied().unwrap_or(0), 0, 0);

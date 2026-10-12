@@ -2899,3 +2899,74 @@ fn fibers_are_refused_for_wasm() {
         String::from_utf8_lossy(&build.stderr)
     );
 }
+
+/// The ordered atomics (docs/stdlib/atomics.md) reach LLVM with the order the program names, and
+/// the program gives the same answers as the interpreter.
+#[test]
+fn ordered_atomics_keep_their_memory_orders() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("atomics-ordered");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("ordered.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         #import \"Atomics\";\n\
+         main :: () {\n\
+             x: u32;\n\
+             atomic_store(*x, 1, .RELEASE);\n\
+             a := atomic_load(*x, .ACQUIRE);\n\
+             b := atomic_fetch_add(*x, 2, .RELAXED);\n\
+             c := atomic_exchange(*x, 7, .ACQ_REL);\n\
+             ok, d := atomic_compare_exchange(*x, 7, 9, .RELEASE, .RELAXED);\n\
+             print(\"% % % % %\\n\", a, b, c, ok, d);\n\
+         }\n",
+    )
+    .unwrap();
+    let interpreted = Command::new(JAIC)
+        .arg("run")
+        .arg(&source)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        interpreted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&interpreted.stderr)
+    );
+    let ir = dir.join("ordered.ll");
+    let exe = exe_path(&dir, "ordered");
+    let build = Command::new(JAIC)
+        .arg("build")
+        .arg(&source)
+        .arg("-O0")
+        .arg("-o")
+        .arg(&exe)
+        .arg("--emit-ir")
+        .arg(&ir)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let ir = read_ir_parts(&ir);
+    for expected in [
+        "store atomic i32 %",
+        " release, align 4",
+        "load atomic i32, ptr %",
+        " acquire, align 4",
+        "atomicrmw add ptr",
+        " monotonic, align 4",
+        "atomicrmw xchg ptr",
+        " acq_rel, align 4",
+        "cmpxchg ptr",
+        " release monotonic, align 4",
+    ] {
+        assert!(ir.contains(expected), "missing `{expected}` in:\n{ir}");
+    }
+    let run = Command::new(&exe).output().unwrap();
+    assert!(run.status.success());
+    assert_eq!(run.stdout, interpreted.stdout);
+}

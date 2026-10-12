@@ -2450,6 +2450,21 @@ impl Compiler {
             "memset" => ir::Intrinsic::Memset,
             "memcmp" => ir::Intrinsic::Memcmp,
             "compare_and_swap" => ir::Intrinsic::CompareAndSwap,
+            "atomic_load_order"
+            | "atomic_store_order"
+            | "atomic_exchange_order"
+            | "atomic_fetch_add_order"
+            | "atomic_fetch_sub_order"
+            | "atomic_fetch_and_order"
+            | "atomic_fetch_or_order"
+            | "atomic_fetch_xor_order"
+            | "atomic_compare_exchange_order" => {
+                // The last parameter is the memory order, a compile-time constant that the IR
+                // op carries (a compare-exchange packs success | failure << 4).
+                let mode = self.const_int_arg(f, slots, &args, name.as_str(), span)?;
+                values.pop();
+                self.atomic_intrinsic(name.as_str(), mode, span)?
+            }
             "debug_break" => ir::Intrinsic::DebugBreak,
             "sqrt" => ir::Intrinsic::Sqrt,
             "sin" => ir::Intrinsic::Sin,
@@ -2481,14 +2496,108 @@ impl Compiler {
             .iter()
             .map(|&t| self.ir_ty(t).unwrap_or(Ty::Ptr))
             .collect();
-        if op == ir::Intrinsic::CompareAndSwap && values.len() == 3 {
-            // The interpreter needs the operand width: 1, 2, 4 or 8 bytes.
-            let width = self.size_of(sig.params[1].ty, span)?;
+        let atomic = matches!(
+            op,
+            ir::Intrinsic::AtomicLoad(_)
+                | ir::Intrinsic::AtomicStore(_)
+                | ir::Intrinsic::AtomicRmw(..)
+                | ir::Intrinsic::AtomicCas(..)
+        );
+        if (op == ir::Intrinsic::CompareAndSwap && values.len() == 3) || atomic {
+            // The interpreter needs the operand width: 1, 2, 4 or 8 bytes. A load has only the
+            // pointer; the other operations take the value as their second parameter.
+            let pointee = if matches!(op, ir::Intrinsic::AtomicLoad(_)) {
+                sig.returns[0]
+            } else {
+                sig.params[1].ty
+            };
+            let width = self.size_of(pointee, span)?;
             values.push(f.b.iconst(Ty::I64, width));
         }
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
         Ok(self.call_results(&sig.returns, results, outs))
+    }
+
+    /// The compile-time integer passed as the last argument of an intrinsic.
+    fn const_int_arg(
+        &mut self,
+        f: &mut FnCtx,
+        slots: &[Slot],
+        args: &[CallArg],
+        name: &str,
+        span: Span,
+    ) -> Result<i64> {
+        let bad = || format!("the memory order of `{name}` must be a compile-time constant");
+        let Some(Slot::Arg(a)) = slots.last() else {
+            return err(span, bad());
+        };
+        let arg = &args[*a];
+        let op = match &arg.op {
+            Some(op) => op.clone(),
+            None => {
+                let expr = arg.expr.as_ref().unwrap();
+                match self.check_expr_no_emit(arg.scope, expr) {
+                    Ok(op) => op,
+                    Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
+                }
+            }
+        };
+        match op {
+            Operand::Const {
+                value: Value::Int(v),
+                ..
+            } => Ok(v as i64),
+            _ => err(arg.span, bad()),
+        }
+    }
+
+    /// The IR operation of an `atomic_*_order` intrinsic with memory order(s) `mode`.
+    fn atomic_intrinsic(&self, name: &str, mode: i64, span: Span) -> Result<ir::Intrinsic> {
+        use ir::AtomicOp as Op;
+        let order = |v: i64| -> Result<u8> {
+            match u8::try_from(v) {
+                Ok(o) if o <= ir::ORDER_SEQ_CST => Ok(o),
+                _ => err(span, format!("`{name}` was given an unknown memory order")),
+            }
+        };
+        let (first, second) = (order(mode & 15)?, order((mode >> 4) & 15)?);
+        let released = |o: u8| o == ir::ORDER_RELEASE || o == ir::ORDER_ACQ_REL;
+        Ok(match name {
+            "atomic_load_order" => {
+                if released(first) {
+                    return err(
+                        span,
+                        "an atomic load cannot use release or acq_rel ordering",
+                    );
+                }
+                ir::Intrinsic::AtomicLoad(first)
+            }
+            "atomic_store_order" => {
+                if first == ir::ORDER_ACQUIRE || first == ir::ORDER_ACQ_REL {
+                    return err(
+                        span,
+                        "an atomic store cannot use acquire or acq_rel ordering",
+                    );
+                }
+                ir::Intrinsic::AtomicStore(first)
+            }
+            "atomic_exchange_order" => ir::Intrinsic::AtomicRmw(Op::Xchg, first),
+            "atomic_fetch_add_order" => ir::Intrinsic::AtomicRmw(Op::Add, first),
+            "atomic_fetch_sub_order" => ir::Intrinsic::AtomicRmw(Op::Sub, first),
+            "atomic_fetch_and_order" => ir::Intrinsic::AtomicRmw(Op::And, first),
+            "atomic_fetch_or_order" => ir::Intrinsic::AtomicRmw(Op::Or, first),
+            "atomic_fetch_xor_order" => ir::Intrinsic::AtomicRmw(Op::Xor, first),
+            _ => {
+                if released(second) {
+                    return err(
+                        span,
+                        "the failure ordering of a compare-exchange cannot be release or acq_rel",
+                    );
+                }
+                ir::Intrinsic::AtomicCas(first, second)
+            }
+        })
     }
 
     /// The compile-time `width` argument (16, 32 or 64) of `byte_lookup`/`sign_mask`.

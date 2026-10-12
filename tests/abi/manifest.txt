@@ -63,6 +63,7 @@ c: #include <ifaddrs.h>
 jai: #import "POSIX";
 jai: #import "Linux";
 jai: #import "Socket";
+jai: Io_Uring :: #import "Extensions/Io_Uring";
 
 # <sys/stat.h>
 struct stat_t = struct stat : st_dev st_ino st_mode st_nlink st_uid st_gid st_rdev st_size st_blksize st_blocks st_atime=st_atim st_mtime=st_mtim st_ctime=st_ctim
@@ -202,6 +203,25 @@ struct io_sqring_offsets = struct io_sqring_offsets : head tail ring_mask ring_e
 struct io_cqring_offsets = struct io_cqring_offsets : head tail ring_mask ring_entries overflow cqes flags
 struct io_uring_sqe = struct io_uring_sqe : opcode flags ioprio fd off addr len user_data
 struct io_uring_cqe = struct io_uring_cqe : user_data res flags
+# Extensions/Io_Uring (generated from the kernel header): the fields and values old kernel headers
+# have too, since the C side is whatever <linux/io_uring.h> the host ships.
+struct Io_Uring.io_uring_params = struct io_uring_params : sq_entries cq_entries flags sq_thread_cpu sq_thread_idle features wq_fd sq_off cq_off
+struct Io_Uring.io_sqring_offsets = struct io_sqring_offsets : head tail ring_mask ring_entries flags dropped array
+struct Io_Uring.io_cqring_offsets = struct io_cqring_offsets : head tail ring_mask ring_entries overflow cqes flags
+struct Io_Uring.io_uring_sqe = struct io_uring_sqe : opcode flags ioprio fd off addr2 addr splice_off_in len rw_flags user_data buf_index buf_group personality splice_fd_in
+struct Io_Uring.io_uring_cqe = struct io_uring_cqe : user_data res flags
+struct Io_Uring.io_uring_probe = struct io_uring_probe : last_op ops_len ops[]
+struct Io_Uring.io_uring_probe_op = struct io_uring_probe_op : op flags
+struct Io_Uring.io_uring_getevents_arg = struct io_uring_getevents_arg : sigmask sigmask_sz ts
+const Io_Uring.IORING_SETUP_IOPOLL=IORING_SETUP_IOPOLL Io_Uring.IORING_SETUP_SQPOLL=IORING_SETUP_SQPOLL Io_Uring.IORING_SETUP_SQ_AFF=IORING_SETUP_SQ_AFF Io_Uring.IORING_SETUP_CQSIZE=IORING_SETUP_CQSIZE Io_Uring.IORING_SETUP_CLAMP=IORING_SETUP_CLAMP Io_Uring.IORING_SETUP_ATTACH_WQ=IORING_SETUP_ATTACH_WQ
+const Io_Uring.IORING_FEAT_SINGLE_MMAP=IORING_FEAT_SINGLE_MMAP Io_Uring.IORING_FEAT_NODROP=IORING_FEAT_NODROP Io_Uring.IORING_FEAT_FAST_POLL=IORING_FEAT_FAST_POLL Io_Uring.IORING_FEAT_EXT_ARG=IORING_FEAT_EXT_ARG
+const Io_Uring.IORING_ENTER_GETEVENTS=IORING_ENTER_GETEVENTS Io_Uring.IORING_ENTER_SQ_WAKEUP=IORING_ENTER_SQ_WAKEUP Io_Uring.IORING_ENTER_SQ_WAIT=IORING_ENTER_SQ_WAIT Io_Uring.IORING_ENTER_EXT_ARG=IORING_ENTER_EXT_ARG
+const Io_Uring.IORING_OFF_SQ_RING=IORING_OFF_SQ_RING Io_Uring.IORING_OFF_CQ_RING=IORING_OFF_CQ_RING Io_Uring.IORING_OFF_SQES=IORING_OFF_SQES
+const Io_Uring.IORING_SQ_NEED_WAKEUP=IORING_SQ_NEED_WAKEUP Io_Uring.IORING_SQ_CQ_OVERFLOW=IORING_SQ_CQ_OVERFLOW Io_Uring.IORING_CQE_F_BUFFER=IORING_CQE_F_BUFFER Io_Uring.IORING_CQE_F_MORE=IORING_CQE_F_MORE
+const Io_Uring.IOSQE_FIXED_FILE=IOSQE_FIXED_FILE Io_Uring.IOSQE_IO_DRAIN=IOSQE_IO_DRAIN Io_Uring.IOSQE_IO_LINK=IOSQE_IO_LINK Io_Uring.IOSQE_IO_HARDLINK=IOSQE_IO_HARDLINK Io_Uring.IOSQE_ASYNC=IOSQE_ASYNC Io_Uring.IOSQE_BUFFER_SELECT=IOSQE_BUFFER_SELECT
+const Io_Uring.io_uring_op.NOP=IORING_OP_NOP Io_Uring.io_uring_op.READV=IORING_OP_READV Io_Uring.io_uring_op.WRITEV=IORING_OP_WRITEV Io_Uring.io_uring_op.FSYNC=IORING_OP_FSYNC Io_Uring.io_uring_op.POLL_ADD=IORING_OP_POLL_ADD Io_Uring.io_uring_op.TIMEOUT=IORING_OP_TIMEOUT Io_Uring.io_uring_op.ACCEPT=IORING_OP_ACCEPT Io_Uring.io_uring_op.CONNECT=IORING_OP_CONNECT Io_Uring.io_uring_op.CLOSE=IORING_OP_CLOSE Io_Uring.io_uring_op.READ=IORING_OP_READ Io_Uring.io_uring_op.WRITE=IORING_OP_WRITE Io_Uring.io_uring_op.SEND=IORING_OP_SEND Io_Uring.io_uring_op.RECV=IORING_OP_RECV
+const Io_Uring.io_uring_register_op.REGISTER_BUFFERS=IORING_REGISTER_BUFFERS Io_Uring.io_uring_register_op.REGISTER_PROBE=IORING_REGISTER_PROBE
+const Io_Uring.IO_URING_OP_SUPPORTED=IO_URING_OP_SUPPORTED
 struct input_event = struct input_event : time type code value
 struct input_absinfo = struct input_absinfo : value minimum maximum fuzz flat resolution
 

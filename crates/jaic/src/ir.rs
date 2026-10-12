@@ -253,6 +253,25 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
     }
 }
 
+/// Memory orders of the atomic intrinsics (the `Memory_Order` enum of `stdlib/Atomics.jai`).
+pub const ORDER_RELAXED: u8 = 0;
+
+pub const ORDER_ACQUIRE: u8 = 1;
+pub const ORDER_RELEASE: u8 = 2;
+pub const ORDER_ACQ_REL: u8 = 3;
+pub const ORDER_SEQ_CST: u8 = 4;
+
+/// The operation of an `Intrinsic::AtomicRmw`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AtomicOp {
+    Xchg,
+    Add,
+    Sub,
+    And,
+    Or,
+    Xor,
+}
+
 /// Built-in operations with backend-specific implementations.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Intrinsic {
@@ -261,6 +280,16 @@ pub enum Intrinsic {
     Memcmp,
     /// (ptr, old, new) -> (success, old_value); width from operand type.
     CompareAndSwap,
+    /// `(ptr, width) -> value`: an atomic load with the memory order of the payload (`ORDER_*`).
+    /// `width` is the operand size in bytes (1, 2, 4 or 8), as for `CompareAndSwap`.
+    AtomicLoad(u8),
+    /// `(ptr, value, width)`: an atomic store with the memory order of the payload.
+    AtomicStore(u8),
+    /// `(ptr, value, width) -> previous value`: an atomic read-modify-write, `*ptr = op(*ptr, value)`.
+    AtomicRmw(AtomicOp, u8),
+    /// `(ptr, old, new, width) -> (success, previous)`: a compare-exchange with the success and
+    /// failure memory orders of the payload.
+    AtomicCas(u8, u8),
     DebugBreak,
     /// Abort with a runtime error. An optional `i64` operand says why (`TRAP_*`), for the
     /// message (native code reports it through `Program::check_failed` when it has one).

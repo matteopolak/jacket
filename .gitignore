@@ -8,6 +8,7 @@
 /result
 /result-*
 /tests/stdlib/.scratch/
+/stdlib/Extensions/Io/tests/.scratch/
 
 # npm and pnpm (editors/vscode and any stray installs)
 node_modules/

@@ -54,6 +54,12 @@ Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: unmapp
 Vulkan macos-arm64: Vulkan/module.jai: #assert failed: Unsupported OS
 Vulkan macos-x64: Vulkan/module.jai: #assert failed: Unsupported OS
 Vulkan wasm: Vulkan/module.jai: #assert failed: Unsupported OS
+Extensions/Io wasm: Extensions/Io/module.jai: #assert failed: Extensions/Io needs fibers, and WebAssembly code cannot switch stacks
+Extensions/Io_Uring macos-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring macos-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring wasm: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring windows-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring windows-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
 Extensions/Wasi_Runtime linux-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime linux-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets

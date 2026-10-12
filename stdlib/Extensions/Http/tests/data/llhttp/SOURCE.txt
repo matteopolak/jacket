@@ -1,0 +1,3 @@
+Vendored from the llhttp project (nodejs/llhttp on GitHub), test/request and test/response,
+commit 69936dbc22922e596a05dfa912fc11d9a7af2136. MIT licensed, see LICENSE.
+tools/gen_http_corpus.py turns these files into ../llhttp_cases.jai.

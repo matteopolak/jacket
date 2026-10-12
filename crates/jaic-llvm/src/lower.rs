@@ -8,6 +8,7 @@
 use crate::debuginfo::{DebugFormat, DebugInfo, FnDebug};
 use inkwell::AddressSpace;
 use inkwell::AtomicOrdering;
+use inkwell::AtomicRMWBinOp;
 use inkwell::DLLStorageClass;
 use inkwell::FloatPredicate;
 use inkwell::GlobalVisibility;
@@ -19,7 +20,8 @@ use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic as LlvmIntrinsic;
 use inkwell::module::{Linkage, Module};
 use inkwell::types::{
-    AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, PointerType,
+    AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType,
+    PointerType,
 };
 use inkwell::values::{
     BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, GlobalValue,
@@ -27,9 +29,9 @@ use inkwell::values::{
 };
 use jaic::abi::{self, Arch, Passing, Piece, PieceTy};
 use jaic::ir::{
-    AggLayout, BinOp, BlockId, Callee, CmpOp, Conv, ConvOp, Foreign, Func, Global, Inst, Intrinsic,
-    Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val, WideArith, WideFloat,
-    WideOp, inst_vals, term_uses,
+    self, AggLayout, AtomicOp, BinOp, BlockId, Callee, CmpOp, Conv, ConvOp, Foreign, Func, Global,
+    Inst, Intrinsic, Linkage as IrLinkage, Program, RelocTarget, Sig, Term, Ty, UnOp, Val,
+    WideArith, WideFloat, WideOp, inst_vals, term_uses,
 };
 use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
@@ -1254,6 +1256,34 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     /// Adjust `v` to the LLVM type of `ty` where the IR is loose about
     /// pointer/integer identity.
+    /// The integer type an atomic access of an IR `ty` goes through: LLVM's atomic operations
+    /// compare and exchange bits, so floats and pointers use the integer of their width.
+    fn atomic_int_ty(&self, ty: Ty) -> R<IntType<'ctx>> {
+        Ok(match ty {
+            Ty::I8 => self.ctx.i8_type(),
+            Ty::I16 => self.ctx.i16_type(),
+            Ty::I32 | Ty::F32 => self.ctx.i32_type(),
+            Ty::I64 | Ty::F64 | Ty::Ptr => self.ctx.i64_type(),
+            _ => return Err("an atomic operation takes 1, 2, 4 or 8 bytes".into()),
+        })
+    }
+
+    /// `v` as the integer of its width (see `atomic_int_ty`).
+    fn atomic_bits(&self, v: BasicValueEnum<'ctx>) -> R<IntValue<'ctx>> {
+        match v {
+            BasicValueEnum::FloatValue(f) => {
+                let int = match f.get_type().get_bit_width() {
+                    16 => self.ctx.i16_type(),
+                    32 => self.ctx.i32_type(),
+                    64 => self.ctx.i64_type(),
+                    _ => return Err("an atomic operation takes 1, 2, 4 or 8 bytes".into()),
+                };
+                Ok(self.builder.build_bit_cast(f, int, "")?.into_int_value())
+            }
+            other => self.as_int(other),
+        }
+    }
+
     fn coerce(&self, v: BasicValueEnum<'ctx>, ty: Ty) -> R<BasicValueEnum<'ctx>> {
         let want = self.ll(ty);
         if v.get_type() == want {
@@ -2483,6 +2513,60 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 let ok = b.build_int_z_extend(ok, self.ctx.i8_type(), "")?;
                 Ok(vec![ok.into(), prev])
             }
+            Intrinsic::AtomicLoad(order) => {
+                // (ptr, width) -> value. LLVM wants the alignment of an atomic access stated.
+                let ty = want.first().copied().ok_or("an atomic load has no result")?;
+                let int = self.atomic_int_ty(ty)?;
+                let load = b.build_load(int, ptr_arg(0)?, "")?;
+                let inst = load
+                    .as_instruction_value()
+                    .ok_or("an atomic load is not an instruction")?;
+                inst.set_atomic_ordering(atomic_ordering(order))
+                    .map_err(|e| Error(format!("atomic ordering: {e:?}")))?;
+                inst.set_alignment(int.get_bit_width() / 8)
+                    .map_err(|e| Error(format!("atomic alignment: {e:?}")))?;
+                Ok(vec![self.coerce(load, ty)?])
+            }
+            Intrinsic::AtomicStore(order) => {
+                let value = self.atomic_bits(args[1])?;
+                let inst = b.build_store(ptr_arg(0)?, value)?;
+                inst.set_atomic_ordering(atomic_ordering(order))
+                    .map_err(|e| Error(format!("atomic ordering: {e:?}")))?;
+                inst.set_alignment(value.get_type().get_bit_width() / 8)
+                    .map_err(|e| Error(format!("atomic alignment: {e:?}")))?;
+                Ok(vec![])
+            }
+            Intrinsic::AtomicRmw(rmw, order) => {
+                let ty = want.first().copied().ok_or("an atomic update has no result")?;
+                let value = self.atomic_bits(args[1])?;
+                let rmw = match rmw {
+                    AtomicOp::Xchg => AtomicRMWBinOp::Xchg,
+                    AtomicOp::Add => AtomicRMWBinOp::Add,
+                    AtomicOp::Sub => AtomicRMWBinOp::Sub,
+                    AtomicOp::And => AtomicRMWBinOp::And,
+                    AtomicOp::Or => AtomicRMWBinOp::Or,
+                    AtomicOp::Xor => AtomicRMWBinOp::Xor,
+                };
+                let old = b.build_atomicrmw(rmw, ptr_arg(0)?, value, atomic_ordering(order))?;
+                Ok(vec![self.coerce(old.into(), ty)?])
+            }
+            Intrinsic::AtomicCas(success, failure) => {
+                let ty = want.get(1).copied().ok_or("a compare-exchange has no value")?;
+                let old = self.atomic_bits(args[1])?;
+                let new = self.atomic_bits(args[2])?;
+                let new = b.build_int_truncate_or_bit_cast(new, old.get_type(), "")?;
+                let res = b.build_cmpxchg(
+                    ptr_arg(0)?,
+                    old,
+                    new,
+                    atomic_ordering(success),
+                    atomic_ordering(failure),
+                )?;
+                let prev = b.build_extract_value(res, 0, "")?;
+                let ok = b.build_extract_value(res, 1, "")?.into_int_value();
+                let ok = b.build_int_z_extend(ok, self.ctx.i8_type(), "")?;
+                Ok(vec![ok.into(), self.coerce(prev, ty)?])
+            }
             Intrinsic::DebugBreak => {
                 self.call_intrinsic("llvm.debugtrap", &[], &[])?;
                 Ok(vec![])
@@ -2865,4 +2949,15 @@ fn reverse_post_order(func: &Func) -> Vec<usize> {
     }
     post.reverse();
     post
+}
+
+/// The LLVM ordering of an `ir::ORDER_*` constant.
+fn atomic_ordering(order: u8) -> AtomicOrdering {
+    match order {
+        ir::ORDER_RELAXED => AtomicOrdering::Monotonic,
+        ir::ORDER_ACQUIRE => AtomicOrdering::Acquire,
+        ir::ORDER_RELEASE => AtomicOrdering::Release,
+        ir::ORDER_ACQ_REL => AtomicOrdering::AcquireRelease,
+        _ => AtomicOrdering::SequentiallyConsistent,
+    }
 }

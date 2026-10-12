@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- `Atomics`: ordered operations with a `Memory_Order` (`RELAXED`, `ACQUIRE`, `RELEASE`, `ACQ_REL`, `SEQ_CST`): `atomic_load`, `atomic_store`, `atomic_exchange`, `atomic_compare_exchange` and `atomic_fetch_add/sub/and/or/xor`. They compile to single LLVM atomic instructions with the order you name (native and wasm) and run as sequentially consistent in the interpreter.
+- `Extensions/Io_Uring` (Linux only): the io_uring kernel interface. Constants, enums and structs are generated from `linux/io_uring.h` by `tools/gen_io_uring.py` with layout `#assert`s; `io_uring_setup/enter/register`; and a `Ring` with `ring_init`, `get_sqe`, `submit`, `peek_cqe`, `wait_cqe`, `cqe_seen` and `probe_ops`. 128-byte entries and 32-byte completions are supported.
+- `Extensions/Io`: cooperative fibers on a per-thread scheduler (`io_run`, `spawn`, `yield`, `sleep`, `cancel`) with a bounded `Channel(T)`, `Wait_Group` and `Fiber_Mutex`. Fibers get guard-paged, pooled stacks and their own copy of the context and temporary storage. Not available on wasm.
+- The `fiber_init`, `fiber_switch` and `fiber_free` intrinsics switch stacks in native builds (x64 SysV and Win64, arm64) and under `jaic run`; wasm builds refuse them.
+- `Extensions/Json`: `to_json`, `from_json` and `parse_json` with encoders and decoders generated from your types at compile time, `@json(...)` attributes, exact integers, shortest round-trip floats, strict RFC 8259 parsing checked against JSONTestSuite, and SIMD string scanning.
+- `Extensions/Http`: a sans-IO HTTP/1.0 and 1.1 codec. Incremental request and response parsers for input in pieces of any size (Content-Length, chunked with trailers, read-until-close, HEAD/1xx/204/304 rules, `Expect: 100-continue`, keep-alive and pipelining) with strict RFC 9112 framing against request smuggling and limits that map to 400/413/414/431/501/505, writers for heads and chunked bodies that choose the framing, a `Date` cache, and SIMD line and field scanning. Checked against llhttp's fixtures, a smuggling table and chunking tests (`tools/http_conformance.py`).
+- `Extensions/Io` IO: a completion engine with io_uring (Linux 6.1+, with graceful fallback), epoll and kqueue backends (`JAI_IO_BACKEND` forces one), and fiber `tcp_listen`/`accept`/`connect`/`read`/`write`/`close`, file open/read/write, `resolve` on helper threads, `with_deadline`, IO-aware `cancel`, a portable `Io_Error` with `last_platform_code()`, and `io_run_threads` with `SO_REUSEPORT` listeners.
+- `Extensions/Io` on Windows (x64 and arm64): I/O completion ports for sockets (AcceptEx, ConnectEx, WSARecv, WSASend, CancelIoEx) and files, and an IoRing for files on Windows 11 22H2 and newer, loaded from KernelBase.dll at run time so older Windows keeps using completion ports. `JAI_IO_BACKEND=iocp` or `ioring` forces one; `backend_reason()` says why a fallback happened. Name lookups work too. The Io tests, which printed a skip on Windows, now run there.
+- `Extensions/Io` file thread pool for epoll and kqueue: reads and writes longer than `JAI_IO_FILE_INLINE` bytes (default 32768) run on `JAI_IO_FILE_THREADS` worker threads (default 4, 0 for none) instead of blocking the scheduler's thread, and wake it through an eventfd or an `EVFILT_USER` event. `Backend` gains `.IOCP` and `.IORING`.
+
+### Fixes
+
+- `string_to_float64`, `string_to_float` and the Json float decoder are correctly rounded: about 1 in 600 random doubles used to parse one ulp off, and float32 results are now rounded once from the digits instead of through a float64. Json shares Basic's conversion; its own copy is gone.
+- `from_json` frees everything it allocated when decoding fails (and returns a default value), including the error message of an indexed attempt that was parsed again; a repeated key in a `Hash_Table` object no longer leaks the earlier value. New `free_json(*value)` releases a decoded value.
+
 ## [0.14.1] - 2026-10-12
 
 ### Added
