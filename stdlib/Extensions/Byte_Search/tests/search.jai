@@ -88,6 +88,63 @@ bytes :: () {
     check(Byte_Search.find(big, #char "y") == 99_999 && Byte_Search.find_last(big, #char "y") == 99_999, "a byte at the very end");
 }
 
+byte_sets :: () {
+    // Sets of every size, including ones spread over more than 8 high nibbles, against a
+    // membership loop.
+    for round: 0..300 {
+        members: [..] u8;
+        members.allocator = temp;
+        size := cast(int) (random_get() % 40);
+        if round % 5 == 0 size = 0;
+        for 1..size {
+            b := cast(u8) (random_get() % 256);
+            if round % 2 b = cast(u8) (#char "a" + random_get() % 26);
+            array_add(*members, b);
+        }
+        set := Byte_Search.make_byte_set(members);
+        text := alloc_string(cast(int) (random_get() % 300),, temp);
+        for *text it.* = ifx round % 3 then cast(u8) (#char "a" + random_get() % 26) else cast(u8) (random_get() % 256);
+        for b: 0..255 {
+            inside := false;
+            for members if it == b inside = true;
+            check(Byte_Search.contains(*set, cast(u8) b) == inside, tprint("contains % in %", b, members));
+        }
+        other := Byte_Search.make_byte_set(.[cast(u8) (random_get() % 256), #char "q", 0xC3]);
+        // Every fourth round, sets of one byte each, which take the plain compare path.
+        singles := round % 4 == 1;
+        if singles {
+            array_reset(*members);
+            members.allocator = temp;
+            array_add(*members, cast(u8) (#char "a" + random_get() % 26));
+            set = Byte_Search.make_byte_set(members);
+            other = Byte_Search.make_byte_set(.[cast(u8) (#char "a" + random_get() % 26)]);
+        }
+        gap := cast(int) (random_get() % 5);
+        for start: -1..text.count + 1 {
+            check(Byte_Search.find(*set, text, start) == naive_find_any(text, members, start), tprint("find set % from %", members, start));
+            expected := -1;
+            for i: max(start, 0)..text.count - 1 - gap {
+                if Byte_Search.contains(*set, text[i]) && Byte_Search.contains(*other, text[i + gap]) {
+                    expected = i;
+                    break;
+                }
+            }
+            check(Byte_Search.find_pair(*set, *other, gap, text, start) == expected, tprint("find_pair % gap % from %", members, gap, start));
+            third := ifx singles then Byte_Search.make_byte_set(.[#char "e"]) else Byte_Search.make_byte_set(.[#char "a", #char "e", 0x80]);
+            gap_3 := gap + 1 + cast(int) (random_get() % 3);
+            expected = -1;
+            for i: max(start, 0)..text.count - 1 - gap_3 {
+                if Byte_Search.contains(*set, text[i]) && Byte_Search.contains(*other, text[i + gap]) && Byte_Search.contains(*third, text[i + gap_3]) {
+                    expected = i;
+                    break;
+                }
+            }
+            check(Byte_Search.find_triple(*set, *other, *third, gap, gap_3, text, start) == expected, tprint("find_triple % gaps %/% from %", members, gap, gap_3, start));
+        }
+        reset_temporary_storage();
+    }
+}
+
 substrings :: () {
     // Short alphabets make near misses common; long needles exercise both the vector loop and
     // Two-Way.
@@ -158,6 +215,7 @@ linear_time :: () {
 main :: () {
     random_seed(20261012);
     bytes();
+    byte_sets();
     substrings();
     linear_time();
     if failures {
