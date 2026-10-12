@@ -379,6 +379,8 @@ pub struct Workspaces {
     tags: HashMap<&'static str, usize>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
+    /// The structs each program built from the records (`__jaic_rec_builder` numbers them from 1).
+    builders: Vec<crate::record_build::Builder>,
     /// The absolute path of the program's first source file, when it comes from a file: the
     /// top-level workspace's default output name and directory derive from it.
     pub main_file: String,
@@ -427,8 +429,12 @@ pub enum MetaOp {
     RecItemString,
     RecItemRef,
     RecTagId,
-    RecFill,
-    RecFillList,
+    RecBuilder,
+    RecType,
+    RecBuiltin,
+    RecPlan,
+    RecBuild,
+    RecOf,
     Clang,
     ClangText,
 }
@@ -474,8 +480,12 @@ impl MetaOp {
             "__jaic_rec_item_string" => Self::RecItemString,
             "__jaic_rec_item_ref" => Self::RecItemRef,
             "__jaic_rec_tag_id" => Self::RecTagId,
-            "__jaic_rec_fill" => Self::RecFill,
-            "__jaic_rec_fill_list" => Self::RecFillList,
+            "__jaic_rec_builder" => Self::RecBuilder,
+            "__jaic_rec_type" => Self::RecType,
+            "__jaic_rec_builtin" => Self::RecBuiltin,
+            "__jaic_rec_plan" => Self::RecPlan,
+            "__jaic_rec_build" => Self::RecBuild,
+            "__jaic_rec_of" => Self::RecOf,
             "__jaic_clang" => Self::Clang,
             "__jaic_clang_text" => Self::ClangText,
             _ => return None,
@@ -515,6 +525,7 @@ impl Workspaces {
             kept: Vec::new(),
             tags: HashMap::default(),
             records: Records::default(),
+            builders: Vec::new(),
             main_file: String::new(),
         }))
     }
@@ -1353,8 +1364,12 @@ pub fn call(
             | MetaOp::RecItemString
             | MetaOp::RecItemRef
             | MetaOp::RecTagId
-            | MetaOp::RecFill
-            | MetaOp::RecFillList
+            | MetaOp::RecBuilder
+            | MetaOp::RecType
+            | MetaOp::RecBuiltin
+            | MetaOp::RecPlan
+            | MetaOp::RecBuild
+            | MetaOp::RecOf
     ) {
         interp.effects += 1;
     }
@@ -1809,13 +1824,53 @@ pub fn call(
             let id = *reg.tags.entry(tag).or_insert(next);
             Ok(Rets::one(id as u64))
         }
-        MetaOp::RecFill => {
+        MetaOp::RecBuilder => {
             let mut reg = shared.borrow_mut();
-            Ok(Rets::one(rec_fill(&mut reg, interp, args)?))
+            reg.builders.push(Default::default());
+            Ok(Rets::one(reg.builders.len() as u64))
         }
-        MetaOp::RecFillList => {
+        MetaOp::RecType | MetaOp::RecBuiltin => {
+            let name = text(interp, 1)?;
             let mut reg = shared.borrow_mut();
-            Ok(Rets::one(rec_fill_list(&mut reg, interp, args)?))
+            let builder = builder(&mut reg, arg(0))?;
+            if op == MetaOp::RecType {
+                builder.add_type(name, arg(2));
+            } else {
+                builder.add_builtin(name, arg(2));
+            }
+            Ok(Rets::default())
+        }
+        MetaOp::RecPlan => {
+            let mut reg = shared.borrow_mut();
+            let builder = builder(&mut reg, arg(0))?;
+            builder.add_plan(interp, arg(1), arg(2), arg(3), arg(4), arg(5) & 1 != 0)?;
+            Ok(Rets::default())
+        }
+        MetaOp::RecBuild => {
+            let mut reg = shared.borrow_mut();
+            let Workspaces {
+                records,
+                kept,
+                builders,
+                ..
+            } = &mut *reg;
+            let builder = (arg(0) as usize)
+                .checked_sub(1)
+                .and_then(|at| builders.get_mut(at))
+                .ok_or_else(|| trap("records: no such builder".into()))?;
+            Ok(Rets::one(builder.build(
+                records,
+                kept,
+                interp,
+                arg(1) as i64,
+                arg(2),
+            )?))
+        }
+        MetaOp::RecOf => {
+            let mut reg = shared.borrow_mut();
+            Ok(Rets::one(
+                builder(&mut reg, arg(0))?.record_of(arg(1)) as u64
+            ))
         }
         MetaOp::RecField => Ok(Rets::one(field_name(interp, arg(1), |name| {
             shared.borrow().records.kind(arg(0) as i64, name) as u64
@@ -1904,123 +1959,12 @@ fn store_pair(interp: &mut Interp, p: u64, count: u64, data: u64) -> Result<(), 
     store(interp, p + 8, &data.to_le_bytes())
 }
 
-/// Plan entry kinds shared with `Record_Plan_Entry` in `stdlib/Compiler/records.jai`.
-const PLAN_OTHER: u64 = 0;
-
-const PLAN_INT: u64 = 1;
-const PLAN_STRING: u64 = 2;
-const PLAN_POINTER: u64 = 3;
-
-/// Where `__jaic_rec_fill` and `__jaic_rec_fill_list` find the Jai side's `record_structs`.
-struct Built {
-    data: u64,
-    count: i64,
-}
-
-/// Write one item as a member of plan kind `kind` and `size` bytes at `target`. Returns false when
-/// Jai must fill it: a reference to a record not built yet, or a value of an unexpected shape.
-fn write_item(
-    interp: &mut Interp,
-    keep: &mut Vec<Rc<[u8]>>,
-    built: &Built,
-    kind: u64,
-    size: usize,
-    item: &Item,
-    target: u64,
-) -> Result<bool, Trap> {
-    Ok(match (kind, item) {
-        (PLAN_INT, Item::Int(v) | Item::Ref(v)) => {
-            store(interp, target, &v.to_le_bytes()[..size.min(8)])?;
-            true
-        }
-        (PLAN_STRING, Item::Str(s)) => {
-            store_pair(interp, target, s.len() as u64, s.as_ptr() as u64)?;
-            keep.push(s.clone());
-            true
-        }
-        (PLAN_POINTER, Item::Ref(r)) => {
-            if *r <= 0 {
-                return Ok(true);
-            }
-            let pointer = if *r < built.count {
-                let at = built.data + *r as u64 * 8;
-                interp.read_u64(at).ok_or_else(|| unreadable(at))?
-            } else {
-                0
-            };
-            store(interp, target, &pointer.to_le_bytes())?;
-            pointer != 0
-        }
-        (PLAN_POINTER, Item::Int(_)) => false,
-        // Mismatched shapes read as zero, and the memory is already zeroed.
-        (PLAN_INT | PLAN_STRING | PLAN_POINTER, _) => true,
-        _ => false,
-    })
-}
-
-/// `__jaic_rec_fill(record, memory, plan, plan_count, built, built_count) -> left`: write the
-/// plan's integer, string and pointer members of `memory` from the record's fields. Pointers are
-/// written only when the referenced record is already built (`built[ref]`, the Jai side's
-/// `record_structs`). Returns a bit per plan entry (first 64) that Jai must still fill itself:
-/// the field exists but is an array, an in-place struct or an unbuilt reference.
-fn rec_fill(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> Result<u64, Trap> {
-    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
-    let (id, memory, plan, count) = (arg(0) as i64, arg(1), arg(2), arg(3) as usize);
-    let built = Built {
-        data: arg(4),
-        count: arg(5) as i64,
-    };
-    let Some(record) = reg.records.get(id) else {
-        return Ok(0);
-    };
-    let mut left = 0u64;
-    let mut keep = Vec::new();
-    // Record_Plan_Entry :: struct { offset: s64; kind: s64; size: s64; name: string; type: *Type_Info; }
-    const ENTRY: u64 = 48;
-    for k in 0..count.min(64) {
-        let entry = plan + k as u64 * ENTRY;
-        let read = |at: u64| interp.read_u64(at).ok_or_else(|| unreadable(at));
-        let (offset, kind, size) = (read(entry)?, read(entry + 8)?, read(entry + 16)? as usize);
-        let filled = match field_name(interp, entry + 24, |name| record.field(name)) {
-            None => true,
-            Some(Field::Item(item)) => {
-                write_item(interp, &mut keep, &built, kind, size, item, memory + offset)?
-            }
-            // A list read as a single value is zero, except as an array member.
-            Some(Field::List(_)) => kind != PLAN_OTHER,
-        };
-        if !filled {
-            left |= 1 << k;
-        }
-    }
-    reg.kept.extend(keep);
-    Ok(left)
-}
-
-/// `__jaic_rec_fill_list(record, name, data, count, kind, size, built, built_count) -> left`:
-/// write the elements of list field `name` into `data` (`count` elements of `size` bytes).
-/// Returns how many elements Jai must still fill (see `write_item`).
-fn rec_fill_list(reg: &mut Workspaces, interp: &mut Interp, args: &[u64]) -> Result<u64, Trap> {
-    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
-    let (id, data, count, kind, size) = (arg(0) as i64, arg(2), arg(3), arg(4), arg(5));
-    let built = Built {
-        data: arg(6),
-        count: arg(7) as i64,
-    };
-    let Some(Field::List(items)) = field_name(interp, arg(1), |name| reg.records.field(id, name))
-    else {
-        return Ok(count);
-    };
-    let mut left = 0;
-    let mut keep = Vec::new();
-    for (k, item) in items.iter().take(count as usize).enumerate() {
-        let target = data + k as u64 * size;
-        if !write_item(interp, &mut keep, &built, kind, size as usize, item, target)? {
-            left += 1;
-        }
-    }
-    reg.kept.extend(keep);
-    Ok(left)
+/// The builder `__jaic_rec_builder` numbered `handle`.
+fn builder(reg: &mut Workspaces, handle: u64) -> Result<&mut crate::record_build::Builder, Trap> {
+    (handle as usize)
+        .checked_sub(1)
+        .and_then(|at| reg.builders.get_mut(at))
+        .ok_or_else(|| Trap::new("records: no such builder"))
 }
 
 /// Parse the source text of a `Code` value (an expression, statement or block).

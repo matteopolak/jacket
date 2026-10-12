@@ -41,15 +41,18 @@ When a workspace runs out of sources, `step` lowers everything reachable (`Compi
 
 ### Jai side
 
-`stdlib/Compiler/records.jai`: `record_struct(id, expected)` allocates the struct the tag names (`RECORD_TYPES`, else the expected pointee type), zero-fills it, and fills members by name through `Type_Info_Struct`: integers, enums, bools and floats by size, strings, pointers (recursively and memoised, so a record maps to one pointer forever {#records.9}), in-place structs, and arrays of those. `using` members and anonymous unions are filled from the same record. `record_of(pointer)` maps back. Every `Code_*` struct sets its own kind (`base.kind = .IDENT;`), so nodes a metaprogram makes with `New(Code_Ident)` behave like exported ones {#records.19}.
+`stdlib/Compiler/records.jai`: `record_struct(id, expected)` returns the struct the tag names (`RECORD_TYPES`, else the expected pointee type), zero-filled and filled member by member from the record: integers, enums, bools and floats by size, strings, pointers (recursively and memoised, so a record maps to one pointer forever {#records.9}), in-place structs, and arrays of those. `using` members and anonymous unions are filled from the same record. `record_of(pointer)` maps back. Every `Code_*` struct sets its own kind (`base.kind = .IDENT;`), so nodes a metaprogram makes with `New(Code_Ident)` behave like exported ones {#records.19}.
 
-Large metaprograms build hundreds of thousands of records, so filling is split:
+Large metaprograms build hundreds of thousands of records per compile (a TYPECHECKED message of a large program reaches most of its syntax trees and types), so the building is native (`crates/jaic/src/record_build.rs`) and Jai only describes the layouts:
 
-- `record_plan(info)` flattens a struct type's members once, cached per `Type_Info_Struct`.
-- `__jaic_rec_fill` writes ints, strings and pointers to already-built records in one native call and returns a bit mask of members Jai must still fill (arrays, in-place structs, records not built yet). `__jaic_rec_fill_list` does the same for array elements. `__jaic_rec_tag_id` numbers tags so `record_type_of` can cache the struct type.
-- Structs come from 256 KiB zeroed chunks (`record_memory`) and are never freed, like Jai's nodes. Array data is allocated separately because metaprograms grow those arrays with `array_add`.
-- The pointer-to-record index behind `record_of` is built on its first call.
+- `record_plan(info)` flattens a struct type's members once into `Record_Plan_Entry`s (offset, kind, size, name, and for pointers, in-place structs and arrays what they hold) and hands the plan to the compiler with `__jaic_rec_plan`, together with the plans of every struct its members reach. So the layouts in `nodes.jai` stay the only place that knows them.
+- On first use, `records_builder` asks for a builder (`__jaic_rec_builder`, one per program: each program has its own type descriptors), names the struct each tag in `RECORD_TYPES` stands for (`__jaic_rec_type`) and the program's descriptors of primitive types (`__jaic_rec_builtin`, for `__builtin` records).
+- `__jaic_rec_build(builder, id, expected)` builds the record and every record it reaches that is not built yet, with a work list (no recursion over the graph), and returns the struct. `__jaic_rec_of` is `record_of`.
+- Structs and array data live in 256 KiB zeroed chunks the builder owns, freed with the registry, like Jai's nodes. Node arrays are views (`[]`), so nothing grows them in place; a metaprogram that wants another array assigns a new one.
 - Strings point into the records' own `Rc<[u8]>`, kept alive in `Workspaces::kept`.
+- `record_differs` (for `compiler_modify_procedure`) still compares in Jai through the plans; it runs once per modified body.
+
+To add a member kind the builder understands, add a `PLAN_*` kind on both sides (`records.jai` and `record_build.rs`); `Record_Plan_Entry`'s layout is read by offset in `Builder::add_plan`, so keep the two in step.
 
 ### `compiler_get_nodes` and typed nodes
 
