@@ -49,11 +49,11 @@ The compiler also emits IR operations that user code never names: `BoundsCheck` 
 
 ### Native lowering of the SIMD intrinsics
 
-`jaic-llvm` (`byte_lookup` and `sign_mask` in `lower.rs`) loads `<N x i8>` vectors and picks the instruction from the target. `SimdFeatures` (`simd_features` in `lib.rs`) is derived from the CPU name and feature string.
+`jaic-llvm` (the `simd` module, see [SIMD lowering](../compiler/simd-lowering.md)) loads `<N x i8>` vectors and picks the instruction from typed target features, resolved from the CPU name and feature string (`simd/features.rs`).
 
 | Target | `byte_lookup` |
 | --- | --- |
-| x86-64 with SSSE3 (macOS x86-64 baseline is `core2`; any CPU or `+ssse3`/`+sse4.1`/`+avx` feature) | `llvm.uadd.sat` of `0x70` on the indices (sets the top bit of every index of 16 or more, so `pshufb` zeroes it), then `pshufb`; width 32/64 with AVX2 uses `llvm.x86.avx2.pshuf.b` on 32-byte chunks |
+| x86-64 with SSSE3 (macOS x86-64 baseline is `core2`; any CPU that has it, or a `+ssse3`/`+sse4.1`/`+avx`/`+avx2` feature) | `llvm.uadd.sat` of `0x70` on the indices (sets the top bit of every index of 16 or more, so `pshufb` zeroes it), then `pshufb`; width 32/64 with AVX2 uses `llvm.x86.avx2.pshuf.b` on 32-byte chunks, width 64 with AVX-512BW `llvm.x86.avx512.pshuf.b.512` |
 | aarch64 | `llvm.aarch64.neon.tbl1` (`tbl` already gives 0 for indices of 16 or more) |
 | wasm with `+simd128` | `llvm.wasm.swizzle` (also 0 for 16 or more) |
 | anything else (Linux x86-64 baseline, wasm without SIMD) | per-lane `extractelement`/`select`/`insertelement` |

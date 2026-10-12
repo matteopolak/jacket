@@ -30,6 +30,16 @@ check_lookup32 :: (table: *[16] u8, indices: *[32] u8) {
     }
 }
 
+check_lookup64 :: (table: *[16] u8, indices: *[64] u8) {
+    out: [64] u8;
+    byte_lookup(out.data, table.data, indices.data, 64);
+    for 0..63 {
+        want: u8 = 0;
+        if indices.*[it] < 16 want = table.*[indices.*[it]];
+        if out[it] != want fail("lookup64", it, out[it]);
+    }
+}
+
 main :: () {
     table: [16] u8;
     for 0..15 table[it] = xx (it * 7 + 3);
@@ -45,6 +55,12 @@ main :: () {
         idx: [32] u8;
         for 0..31 idx[it] = xx (base * 32 + it);
         check_lookup32(*table, *idx);
+    }
+    // 64 bytes: four blocks, one table.
+    for base: 0..3 {
+        idx: [64] u8;
+        for 0..63 idx[it] = xx (base * 64 + it);
+        check_lookup64(*table, *idx);
     }
     // Reversed indices.
     rev: [32] u8;
@@ -65,6 +81,13 @@ main :: () {
     for 0..31 if v32[it] & 0x80 want32 |= (cast(u64) 1) << it;
     got = sign_mask(v32.data, 32);
     if got != want32 fail("mask32", xx got, xx want32);
+
+    v64: [64] u8;
+    for 0..63 v64[it] = ifx it % 7 == 0 || it == 63 then 0x81 else xx it;
+    want64: u64;
+    for 0..63 if v64[it] & 0x80 want64 |= (cast(u64) 1) << it;
+    got = sign_mask(v64.data, 64);
+    if got != want64 fail("mask64", xx got, xx want64);
 
     zeros: [16] u8;
     if sign_mask(zeros.data, 16) != 0 fail("mask zero", 0, 0);
