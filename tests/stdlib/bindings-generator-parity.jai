@@ -102,11 +102,12 @@ check_generated_text :: () {
         assert(has(text, "ALL_ONES :: cast,trunc(handle_t) (-1);"));
         assert(has(text, "SMALL :: cast(u32) 0x10;"));
 
-        // An anonymous enum keeps its place in the file; a same-line comment follows its value.
+        // An anonymous enum keeps its place in the file; comments on its values are not printed.
         anon := find_index_from_left(text, "FIRST_ANON");
         after := find_index_from_left(text, "After :: struct");
         assert(anon >= 0 && after >= 0 && anon < after);
-        assert(has(text, "SLOW :: 0; // the careful one"));
+        assert(has(text, "SLOW :: 0;\n"));
+        assert(!has(text, "the careful one"));
 
         // Macros that became enum values are rewritten where other macros use them.
         assert(has(text, "ALIAS :: TCP;"));

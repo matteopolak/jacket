@@ -19,6 +19,7 @@ window-input-native-events * wasm-interp,wasm-native,playground wasm has no wind
 bindings-generator-c * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 bindings-generator-cpp * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 bindings-generator-declaration-api * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
+bindings-generator-enum-names * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 bindings-generator-parity * wasm-interp,wasm-native,playground Bindings_Generator loads libclang, and wasm loads no native libraries
 getrect-right-handed-api * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
 getrect-right-handed-surface * wasm-interp,wasm-native,playground GetRect needs Window_Creation and Simp's native libraries, which have no wasm build
@@ -45,6 +46,7 @@ threads-switch-while-locked * wasm-native a busy wait on an atomic never blocks,
 bindings-generator-c windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
 bindings-generator-cpp windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
 bindings-generator-declaration-api windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
+bindings-generator-enum-names windows-*-mingw native compile-time code calls Windows (its scratch directory asks GetCurrentProcessId), which the Linux build host cannot run
 bindings-generator-bitfields windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
 bindings-generator-bitfields-msvc windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
 bindings-generator-checks windows-*-mingw native compile-time code takes the Windows file paths, which the Linux build host cannot run
