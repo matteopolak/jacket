@@ -583,6 +583,8 @@ pub struct Interp {
     /// Value stacks for procedures C calls back, reused.
     #[cfg(not(target_arch = "wasm32"))]
     callback_stacks: Vec<Box<[u64]>>,
+    /// `release_code` ran: no code runs anymore.
+    closed: bool,
     /// Procedures already recorded for `JAIC_COVERAGE`, by `FuncId`; `None` when it is unset.
     covered: Option<Vec<bool>>,
 }
@@ -694,6 +696,7 @@ impl Interp {
             unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             callback_stacks: Vec::new(),
+            closed: false,
             covered: profile::coverage_file().map(|_| Vec::new()),
         }
     }
@@ -959,6 +962,25 @@ impl Interp {
         // SAFETY: the address is the program's own, as for native code.
         unsafe { code::store_raw(ty, addr, v) };
         Ok(())
+    }
+
+    /// Stop running code for good: every later call traps. Drops the procedures' frames (their
+    /// bodies were released), the value stacks and the globals' memory (a global asked for
+    /// again is made anew); nothing may be running.
+    pub fn release_code(&mut self) {
+        self.closed = true;
+        self.frames = Vec::new();
+        self.retired = Vec::new();
+        self.globals = Vec::new();
+        self.ranges = BTreeMap::new();
+        self.ct_type_tables = Vec::new();
+        self.ct_type_table = (0, 0);
+        self.stack = Box::default();
+        self.sp = 0;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.callback_stacks = Vec::new();
+        }
     }
 
     /// The frame of procedure `id`, made on its first call (and again when its body was
@@ -1378,6 +1400,9 @@ impl Interp {
 
     /// Call a function with raw argument values.
     pub fn call(&mut self, program: &Program, func: FuncId, args: &[u64]) -> Res<Vec<u64>> {
+        if self.closed {
+            return self.trap("compile-time code no longer runs: the compile is over");
+        }
         if self.stack.is_empty() {
             self.stack = vec![0u64; STACK_SIZE / 8].into_boxed_slice();
             self.sp = 0;
@@ -1417,7 +1442,9 @@ impl Interp {
     #[inline(always)]
     fn body<'p>(&mut self, program: &'p Program, id: FuncId) -> Res<&'p ir::Func> {
         match program.funcs.get(id.0 as usize) {
-            Some(Some(func)) => Ok(func),
+            // Every lowered body has an entry block; one without was released
+            // (`Compiler::release_lowered_code`).
+            Some(Some(func)) if !func.blocks.is_empty() => Ok(func),
             _ => self.no_body(program, id),
         }
     }

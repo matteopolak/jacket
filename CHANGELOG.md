@@ -16,6 +16,7 @@
 
 ### Performance
 
+- The language server drops a compile's lowered code, globals' contents, interpreter stacks and leftover compile-time allocations once it is checked: Focus's coverage run peaks at 0.98 GB instead of 1.40 GB.
 - `jailsp` hands the pages a compile freed back to the system once the compile is done: an editor on Focus sits at about 230 MiB between compiles instead of 300-370 MiB.
 - Hover and go to definition answer several times faster when many files are open (Linalg's 12k requests: 4.8 s to 0.6 s): the server no longer re-reads folders, copies and hashes every open document and canonicalizes every path for each request, and code no target compiles no longer recompiles every target on each hover. Requests on an open document no longer compare, copy, reparse or scan its whole text. Focus's 380k requests went from over 10 minutes to 9 s, and a 600 KB file's from 6.6 s to 0.45 s. Compiles no longer canonicalize the same paths over and over, and a `#run` that traps no longer resolves the stdlib's folders for each report.
 - The syntax tree is a third of its former size in memory: `Expr` went from 80 to 56 bytes, `Stmt` from 272 to 88 and `Decl` from 640 to 176, by boxing rare statement and expression variants and the rare parts of declarations. `jaic check` of a generated 132k-line project peaks at 193 MiB instead of 284 MiB, and the language server keeps correspondingly less per compile.

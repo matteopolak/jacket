@@ -188,3 +188,37 @@ fn stray_files_do_not_push_out_the_projects_compile() {
         "the project's compile was kept"
     );
 }
+
+#[test]
+fn polymorphs_nothing_calls_keep_their_compile_time_constants_after_the_release() {
+    let folder = project(
+        "released",
+        &[(
+            "main.jai",
+            "#import \"Basic\";\nhelper :: () -> int { return 5; }\nVALUE :: #run helper();\n\
+             later :: (x: $T) -> T {\n    k :: #run helper();\n    scaled := x * k;\n    return scaled;\n}\n\
+             main :: () { print(\"%\\n\", VALUE); }\n",
+        )],
+    );
+    let (s, uri, text) = open(&folder, "main.jai");
+    assert!(hover_at(&s, &uri, &text, "VALUE ::").contains('5'));
+    // `later` is never called: its sketch ran `helper` before the compile released it.
+    assert!(hover_at(&s, &uri, &text, "scaled :=").contains("scaled"));
+    assert!(hover_at(&s, &uri, &text, "VALUE ::").contains('5'));
+}
+
+#[test]
+fn constants_built_in_freed_compile_time_memory_still_hover() {
+    let folder = project(
+        "heap",
+        &[(
+            "main.jai",
+            "#import \"Basic\";\nmake :: () -> string { return copy_string(\"hello\"); }\n\
+             NAME :: #run make();\nmain :: () { print(\"%\\n\", NAME); }\n",
+        )],
+    );
+    let (s, uri, text) = open(&folder, "main.jai");
+    // The string `make` allocated is freed with the compile; the constant keeps its own copy.
+    assert!(hover_at(&s, &uri, &text, "NAME ::").contains("hello"));
+    assert!(hover_at(&s, &uri, &text, "NAME);").contains("hello"));
+}

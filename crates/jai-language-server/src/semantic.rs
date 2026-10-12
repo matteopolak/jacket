@@ -702,12 +702,11 @@ fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
 }
 
 /// The editor facts a compile records for the files under `prefix`, its compile-time output
-/// going to `host`.
-fn editor_facts(prefix: &str, host: &Rc<RefCell<SandboxHost>>) -> Box<IdeFacts> {
+/// going to `host`, with what jailint needs (expression types, casts, uses) when `lint`.
+fn editor_facts(prefix: &str, host: &Rc<RefCell<SandboxHost>>, lint: bool) -> Box<IdeFacts> {
     let mut facts = IdeFacts::new(vec![prefix.to_string()]);
     facts.output = Some(host.clone());
-    // What jailint needs (expression types, casts, uses) on top of the editor facts.
-    facts.lint = true;
+    facts.lint = lint;
     Box::new(facts)
 }
 
@@ -715,12 +714,13 @@ fn editor_facts(prefix: &str, host: &Rc<RefCell<SandboxHost>>) -> Box<IdeFacts> 
 struct Built {
     prefix: String,
     host: Rc<RefCell<SandboxHost>>,
+    lint: bool,
     done: Rc<RefCell<Vec<Compiler>>>,
 }
 
 impl WorkspaceObserver for Built {
     fn created(&mut self, compiler: &mut Compiler) {
-        compiler.ide = Some(editor_facts(&self.prefix, &self.host));
+        compiler.ide = Some(editor_facts(&self.prefix, &self.host, self.lint));
     }
 
     fn finished(&mut self, compiler: Box<Compiler>, _failed: bool) {
@@ -792,6 +792,9 @@ fn compile(
     // the same way, with no output and the same host, and their compile-time code draws from
     // this compiler's budget.
     let workspace_host = host.clone();
+    // A compile for another target only answers hover and definition: lints come from the
+    // environment's own.
+    let lint = os.is_none();
     let built = Rc::new(RefCell::new(Vec::new()));
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
@@ -804,11 +807,12 @@ fn compile(
         observer: Some(Box::new(Built {
             prefix: prefix.clone(),
             host: host.clone(),
+            lint,
             done: built.clone(),
         })),
     });
     compiler.attach_workspaces(workspaces);
-    compiler.ide = Some(editor_facts(&prefix, &host));
+    compiler.ide = Some(editor_facts(&prefix, &host, lint));
     let errors = compiler
         .compile_program(root)
         .err()
@@ -841,10 +845,15 @@ fn compile(
         .collect();
     // Compile-time code is over once everything is checked. Each program holds the build
     // state, which would otherwise outlive the compile by hundreds of MB.
+    // Nothing runs the lowered bodies either: hovers and lints answer from the facts.
     compiler.release_build_state();
+    compiler.release_lowered_code();
     for other in &mut others {
         other.compiler.release_build_state();
+        other.compiler.release_lowered_code();
     }
+    // Every interpreter on the host is closed: what compile-time code left allocated goes too.
+    host.borrow_mut().release_memory();
     (compiler, errors, others)
 }
 

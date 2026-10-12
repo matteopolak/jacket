@@ -256,6 +256,13 @@ pub struct SandboxHost {
 }
 
 impl SandboxHost {
+    /// Free the blocks compile-time code allocated and never freed. Only once no code runs on
+    /// this host again (`Interp::release_code` on every interpreter using it): pointers to
+    /// them are left dangling in program memory.
+    pub fn release_memory(&mut self) {
+        self.allocations = HashMap::default();
+    }
+
     /// Back the sandbox's file system with `base` (read-only) and start in `cwd`.
     pub fn with_files(base: Rc<dyn FileSystem>, cwd: &str) -> Self {
         let mut host = SandboxHost::default();

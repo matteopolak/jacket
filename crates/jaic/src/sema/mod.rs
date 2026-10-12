@@ -568,6 +568,28 @@ impl Compiler {
         self.export = code_export::ExportState::default();
     }
 
+    /// Close the interpreter for good and drop what only running or emitting the program
+    /// needs: the bodies of every procedure lowered so far (keeping their signatures) and the
+    /// globals' initial contents (keeping their ids, sizes and names). An editor's compile
+    /// answers from its facts once it is checked, and these are tens of MB for a large
+    /// program. Code checked later may still lower, but no compile-time code runs again.
+    pub fn release_lowered_code(&mut self) {
+        for func in self.program.funcs.iter_mut().flatten() {
+            func.blocks = Vec::new();
+            func.vals = Vec::new();
+            func.slots = Vec::new();
+            func.trusted = Vec::new();
+            func.debug = None;
+        }
+        for global in &mut self.program.globals {
+            global.init = Vec::new();
+            global.relocs = Vec::new();
+        }
+        self.program.debug_types = Default::default();
+        self.program.debug_globals = Vec::new();
+        self.interp.release_code();
+    }
+
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
         let mut c = Compiler {
             library_files: Default::default(),
