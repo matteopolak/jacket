@@ -672,6 +672,15 @@ impl Compiler {
         ids: &[EntityId],
         span: Span,
     ) -> Result<Operand> {
+        // A macro's backtick declaration reusing a parameter's name shadows the parameter: the
+        // newest local is the one the rest of the body means.
+        if ids.len() > 1
+            && ids
+                .iter()
+                .all(|&id| matches!(self.entity(id).kind, EntityKind::Local { .. }))
+        {
+            return self.entity_operand(f, scope, ids[ids.len() - 1], span);
+        }
         if ids.len() > 1 || self.entity_is_overloadable(ids[0]) {
             let mut procs = Vec::new();
             for &id in ids {
@@ -1058,6 +1067,38 @@ impl Compiler {
                         span,
                         "cannot take the address of a number or bool constant: it has no storage (assign it to a variable first)",
                     ),
+                    // An aggregate constant lives in static data, so its address outlives the
+                    // procedure and is the same on every evaluation.
+                    Operand::Const {
+                        value: Value::Bytes(agg),
+                        ty,
+                        ..
+                    } if self.is_memory_type(ty) => {
+                        let key = (ty, agg.bytes.clone(), agg.relocs.clone());
+                        let global = match self.const_addr_globals.get(&key) {
+                            Some(&g) => g,
+                            None => {
+                                let size = self.size_of(ty, span)?;
+                                let align = self.align_of(ty, span)?;
+                                let g = self.program.add_global(ir::Global {
+                                    name: format!("const.{}", self.program.globals.len()),
+                                    size,
+                                    align,
+                                    init: agg.bytes.clone(),
+                                    relocs: agg.relocs.clone(),
+                                    read_only: false,
+                                    export: None,
+                                });
+                                self.const_addr_globals.insert(key, g);
+                                g
+                            }
+                        };
+                        let addr = f.b.global_addr(global);
+                        Ok(Operand::Value {
+                            ty: self.types.pointer(ty),
+                            val: addr,
+                        })
+                    }
                     other => {
                         // Address of a temporary.
                         let (ty, addr) = self.address_of(f, other, span)?;

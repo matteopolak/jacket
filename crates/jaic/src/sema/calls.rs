@@ -2600,6 +2600,27 @@ impl Compiler {
                         val: v,
                     });
                 }
+                // A generic struct named without arguments has the descriptor its instances
+                // carry as `polymorph_source_struct`.
+                if let Operand::PolyStruct(ps) = op
+                    && !self.poly_structs[ps.0 as usize]
+                        .lit
+                        .params
+                        .iter()
+                        .all(|p| p.default.is_some())
+                {
+                    let desc = self.preload_type("Type_Info_Struct", span)?;
+                    let (key, name) = {
+                        let p = &self.poly_structs[ps.0 as usize];
+                        (p.lit.id, p.name)
+                    };
+                    let global = self.generic_struct_info_global(Some(key), name, desc, span)?;
+                    let v = f.b.global_addr(global);
+                    return Ok(Operand::Value {
+                        ty: self.types.pointer(desc),
+                        val: v,
+                    });
+                }
                 let ty = self.operand_as_type(op, arg.value.span)?;
                 let info_ty = self.type_info_struct_type(ty, span)?;
                 let ptr = self.types.pointer(info_ty);

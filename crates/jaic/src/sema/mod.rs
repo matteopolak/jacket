@@ -412,6 +412,8 @@ pub struct Compiler {
     pub type_info_flags: HashMap<TypeId, u32>,
     /// String literal globals, deduplicated.
     pub strings: HashMap<Rc<[u8]>, ir::GlobalId>,
+    /// Static storage for aggregate constants whose address was taken, one per distinct image.
+    pub const_addr_globals: HashMap<(TypeId, Vec<u8>, Vec<ir::Reloc>), ir::GlobalId>,
     /// The data of constant views made from baked variadic arguments, deduplicated by
     /// contents so that equal argument lists share one global (and one instance).
     pub packs: HashMap<PackKey, ir::GlobalId>,
@@ -643,6 +645,7 @@ impl Compiler {
             type_table_func: None,
             type_info_flags: HashMap::default(),
             strings: HashMap::default(),
+            const_addr_globals: HashMap::default(),
             packs: HashMap::default(),
             output: Vec::new(),
             warnings: Vec::new(),

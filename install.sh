@@ -85,7 +85,7 @@ Build from source or use the Nix flake instead: https://github.com/$REPO#install
             esac
             ;;
         MINGW* | MSYS* | CYGWIN* | Windows_NT)
-            fail "on Windows, use winget (winget install matteopolak.jai) or install.ps1:
+            fail "on Windows, use install.ps1:
   irm https://raw.githubusercontent.com/$REPO/main/install.ps1 | iex" ;;
         *) fail "there is no prebuilt Jai toolchain for $os ($arch); see https://github.com/$REPO#install" ;;
     esac

@@ -19,7 +19,6 @@ Each install includes `jaic`, `jailsp`, `jailint`, `jaifmt` and the standard lib
 
 ```sh
 brew install matteopolak/tap/jai               # macOS, Linux
-winget install matteopolak.jai                 # Windows
 nix profile install github:matteopolak/jai     # Nix
 curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh | sh
 ```

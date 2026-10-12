@@ -30,7 +30,6 @@ help: loop over the elements: `for names`, with `it` and `it_index`
 
 ```sh
 brew install matteopolak/tap/jai        # macOS and Linux
-winget install matteopolak.jai          # Windows
 nix profile install github:matteopolak/jai
 ```
 

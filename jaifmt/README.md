@@ -18,7 +18,6 @@ jaifmt --stdin < in.jai > out.jai   # editor integration
 
 ```sh
 brew install matteopolak/tap/jai        # macOS and Linux
-winget install matteopolak.jai          # Windows
 nix profile install github:matteopolak/jai
 ```
 

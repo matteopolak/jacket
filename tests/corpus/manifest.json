@@ -3175,6 +3175,83 @@
       "rules": [
         "modparam.11"
       ]
+    },
+    {
+      "id": "struct-insert-constants",
+      "source": "positive/struct-insert-constants.jai",
+      "sha256": "218c53bd9bbadf0b57823c083c2509ff47c211f5b49dd7ee1cc443d48e1cbdd8",
+      "suite": "expanded",
+      "feature": "constants declared by #insert in a struct body are visible to its members",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 0,
+        "stdout": "{y}\n{b}\n4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "macro-backtick-shadows-parameter",
+      "source": "positive/macro-backtick-shadows-parameter.jai",
+      "sha256": "a033a64c23ef9fde7776e723050a4cb120f538a2a42f0f33c38e074f95fe623a",
+      "suite": "expanded",
+      "feature": "a backtick declaration in a macro shadows the parameter of the same name",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 0,
+        "stdout": "13\n13\n",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "run-constant-address",
+      "source": "positive/run-constant-address.jai",
+      "sha256": "86521b8ab5428a8272f2af3db3c202e9835624a72da2f2fd18d772ac0c2261c5",
+      "suite": "expanded",
+      "feature": "the address of a #run struct constant is static and stable",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 0,
+        "stdout": "4 [0, 7, 0]\n6 [0, 7, 0]\n5 [0, 7, 0]\ntrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "modify-poly-struct-type-info",
+      "source": "positive/modify-poly-struct-type-info.jai",
+      "sha256": "8e8d166ff16dd3199ba1478cea1b969c84b41bd2f82b62232081b4674901d80f",
+      "suite": "expanded",
+      "feature": "type_info of a bare generic struct in a #modify matches polymorph_source_struct",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 0,
+        "stdout": "ab\ncd\ntrue\n",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "modify-poly-struct-type-info-reject",
+      "source": "negative/modify-poly-struct-type-info.jai",
+      "sha256": "06a52176f1a947ce2527a123c28913af0e1168752ccdd464037a33fc1a939d92",
+      "suite": "negative",
+      "feature": "a #modify comparing against a bare generic struct rejects other types",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "not a Static"
+      }
     }
   ]
 }

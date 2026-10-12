@@ -155,7 +155,7 @@ Scripts, CI and project policies.
 - [LLVM setup](tools/llvm-setup.md)
 - [LLVM backends and binary size](tools/llvm-backends.md)
 - [Nix flake](tools/nix.md)
-- [Package managers and installers](tools/package-managers.md): Homebrew tap, winget, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup
+- [Package managers and installers](tools/package-managers.md): Homebrew tap, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup
 - [PGO and BOLT](tools/pgo-and-bolt.md): profile-guided and post-link optimisation of the released binaries, `tools/build_pgo.py`
 - [Third-party native libraries](tools/native-libs.md)
 - [Third-party smoke test](tools/third-party-smoke-test.md): finding public Jai repositories and trying them

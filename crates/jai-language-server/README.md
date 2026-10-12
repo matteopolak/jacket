@@ -10,7 +10,6 @@ It type-checks your code with `jaic`, the toolchain's compiler, including compil
 
 ```sh
 brew install matteopolak/tap/jai        # macOS and Linux
-winget install matteopolak.jai          # Windows
 nix profile install github:matteopolak/jai
 ```
 

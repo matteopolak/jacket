@@ -997,6 +997,26 @@ impl Compiler {
                         value, ..
                     } = &**boxed;
                     let inserted = self.eval_insert_stmts(scope, value)?;
+                    // Constants the inserted text declares are members like any written in the
+                    // body, visible to the fields that follow and to the struct's users.
+                    for stmt in &inserted {
+                        if let ast::StmtKind::Decl(decl) = &stmt.kind
+                            && decl.kind == ast::DeclKind::Const
+                        {
+                            for (index, n) in decl.names.iter().enumerate() {
+                                self.add_entity(
+                                    scope,
+                                    n.name,
+                                    n.span,
+                                    EntityKind::Decl {
+                                        decl: decl.clone(),
+                                        index,
+                                    },
+                                    true,
+                                );
+                            }
+                        }
+                    }
                     self.collect_fields(scope, &inserted, out)?;
                 }
                 ast::StmtKind::Place(e) => {

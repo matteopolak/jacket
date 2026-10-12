@@ -795,7 +795,7 @@ pub enum Storage {
 
 /// A relocation inside a global's initial bytes: an 8-byte pointer slot at
 /// `offset` that must hold the address of `target` plus `addend`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Reloc {
     pub offset: u64,
     pub target: RelocTarget,

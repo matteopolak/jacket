@@ -1,6 +1,6 @@
 name: packaging
 # Checks the package-manager channels against the latest published release: install.sh (Linux,
-# macOS) and install.ps1 (Windows), the Homebrew formula and the winget manifests rendered by
+# macOS) and install.ps1 (Windows), the Homebrew formula rendered by
 # tools/render_packages.py, each installed for real and run. Nothing is published from here; the
 # release workflow publishes. See docs/tools/package-managers.md.
 on:
@@ -170,10 +170,10 @@ jobs:
           cat "$RUNNER_TEMP/packages/homebrew/jai.rb"
       # Every platform's url and sha256 from synthetic checksums: the formula a release after
       # 0.4.1 gets, with Intel macOS and arm64 Linux builds and no `depends_on arch:`.
-      - name: Render and audit a formula for all six platforms
+      - name: Render and audit a formula for all four platforms
         run: |
           sums="$RUNNER_TEMP/all-platforms.SHA256SUMS"
-          for asset in macos-arm64.tar.gz macos-x64.tar.gz linux-x64.tar.gz linux-arm64.tar.gz windows-x64.zip windows-arm64.zip; do
+          for asset in macos-arm64.tar.gz macos-x64.tar.gz linux-x64.tar.gz linux-arm64.tar.gz; do
             echo "$(printf '%s' "$asset" | shasum -a 256 | cut -d ' ' -f 1)  jai-$asset"
           done > "$sums"
           python3 tools/render_packages.py --version 99.0.0 --sums "$sums" --out "$RUNNER_TEMP/all-platforms"
@@ -202,45 +202,3 @@ jobs:
           brew linkage jaitest/local/jai || true
           brew uninstall jaitest/local/jai
           brew untap jaitest/local
-
-  winget:
-    runs-on: windows-2025
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      - name: Render the manifests for the latest release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
-          gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
-          python3 tools/render_packages.py --version "$tag" --sums "$RUNNER_TEMP/SHA256SUMS" --out "$RUNNER_TEMP/packages"
-          dir="$(cygpath -w "$RUNNER_TEMP/packages/winget/manifests/m/matteopolak/jai/${tag#v}")"
-          echo "MANIFESTS=$dir" >> "$GITHUB_ENV"
-          cat "$RUNNER_TEMP/packages/winget/manifests/m/matteopolak/jai/${tag#v}"/*.yaml
-      - name: Validate, install from the local manifests, and run
-        shell: pwsh
-        run: |
-          ./packaging/winget/validate.ps1 $env:MANIFESTS
-          winget settings --enable LocalManifestFiles
-          winget install --manifest $env:MANIFESTS --accept-package-agreements --accept-source-agreements --disable-interactivity
-          if ($LASTEXITCODE -ne 0) { throw "winget install failed ($LASTEXITCODE)" }
-          $links = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links'
-          Get-ChildItem $links | Format-Table Name, LinkType, Target -AutoSize | Out-String -Width 400
-          Set-Location $env:RUNNER_TEMP
-          "#import `"Basic`";`n`nmain :: () {`n    print(`"hello from winget\n`");`n}`n" | Set-Content -NoNewline hello.jai
-          $out = & (Join-Path $links 'jaic.exe') run hello.jai
-          if ($LASTEXITCODE -ne 0 -or $out -ne 'hello from winget') { throw "jaic run printed '$out' ($LASTEXITCODE)" }
-          & (Join-Path $links 'jailint.exe') hello.jai
-          if ($LASTEXITCODE -ne 0) { throw 'jailint failed' }
-          $formatted = 'main::(){x:=1;}' | & (Join-Path $links 'jaifmt.exe') --stdin
-          $formatted
-          winget uninstall --manifest $env:MANIFESTS --accept-source-agreements --disable-interactivity
-          if ($LASTEXITCODE -ne 0) { throw "winget uninstall failed ($LASTEXITCODE)" }
-          if (Test-Path (Join-Path $links 'jaic.exe')) { throw 'the jaic alias survived the uninstall' }

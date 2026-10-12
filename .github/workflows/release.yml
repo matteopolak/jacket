@@ -511,7 +511,7 @@ jobs:
           pnpm exec ovsx publish "$vsix" -p "$OVSX_PAT" --skip-duplicate
 
   # Package managers (docs/tools/package-managers.md). After the GitHub release, the Homebrew
-  # formula and the winget manifests are rendered from the tag and the release's own SHA256SUMS
+  # formula is rendered from the tag and the release's own SHA256SUMS
   # by tools/render_packages.py, validated, and published when their secret is set (otherwise the
   # job says it skipped). They run after `publish`, so a failure here never holds up the release.
   # A run without a tag renders and validates from this run's archives and publishes nothing.
@@ -588,83 +588,6 @@ jobs:
             commit -q -m "jai $VERSION"
           git push origin HEAD
           echo "Pushed jai $VERSION to matteopolak/homebrew-tap"
-
-  # winget submits from the fork of microsoft/winget-pkgs that belongs to WINGET_TOKEN's owner
-  # (komac finds it), after syncing that fork with upstream. Microsoft's pipeline then validates
-  # the pull request and moderators review it (the first submission of a package by hand).
-  winget:
-    needs: [build, publish]
-    if: >-
-      inputs.publish_integrations &&
-      (!cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
-    runs-on: windows-2025
-    timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash
-    env:
-      TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
-      KOMAC_VERSION: 2.16.0
-      KOMAC_SHA256: bdc45baf028f750da7519cc8a5f2eab5dfef46dfe88650eeb0d0a9bf51446e4f
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ inputs.tag || github.ref }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        if: env.TAG == ''
-        with:
-          pattern: '*64'
-          path: archives
-          merge-multiple: true
-      - name: Render the manifests from the release's version and checksums
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -n "$TAG" ]; then
-            version="${TAG#v}"
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
-            source=(--sums "$RUNNER_TEMP/SHA256SUMS")
-          else
-            version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
-            source=(--archives archives)
-          fi
-          python tools/render_packages.py --version "$version" "${source[@]}" --out "$RUNNER_TEMP/packages"
-          manifests="$RUNNER_TEMP/packages/winget/manifests/m/matteopolak/jai/$version"
-          cat "$manifests"/*.yaml
-          echo "MANIFESTS=$(cygpath -w "$manifests")" >> "$GITHUB_ENV"
-      - name: Validate the manifests
-        shell: pwsh
-        run: ./packaging/winget/validate.ps1 $env:MANIFESTS
-      - name: Install komac (pinned, checksum verified)
-        run: |
-          curl -fsSL -o komac.exe "https://github.com/russellbanks/Komac/releases/download/v$KOMAC_VERSION/komac-$KOMAC_VERSION-x86_64-pc-windows-msvc.exe"
-          echo "$KOMAC_SHA256  komac.exe" | sha256sum -c -
-          ./komac.exe --version
-      - name: Submit to winget-pkgs
-        env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-          # Paused while the first winget-pkgs submission is under review: set the repository
-          # variable WINGET_SUBMIT to "true" to open a pull request for each release again.
-          WINGET_SUBMIT: ${{ vars.WINGET_SUBMIT }}
-        run: |
-          if [ -z "$WINGET_TOKEN" ]; then echo "WINGET_TOKEN is not set; skipping winget"; exit 0; fi
-          export GITHUB_TOKEN="$WINGET_TOKEN"
-          if [ -n "$TAG" ] && [ "$WINGET_SUBMIT" != true ]; then
-            echo "::notice::WINGET_SUBMIT is not true; not opening a winget-pkgs pull request for $TAG"
-            exit 0
-          fi
-          if [ -z "$TAG" ]; then
-            echo "No tag (dry run); komac only reads the manifests"
-            ./komac.exe submit --dry-run --yes "$MANIFESTS"
-            exit 0
-          fi
-          # A fork that is behind microsoft/winget-pkgs is fast-forwarded first.
-          ./komac.exe sync || echo "::warning::could not sync the winget-pkgs fork; submitting anyway"
-          ./komac.exe submit --yes "$MANIFESTS"
 
   # The Neovim plugin (editors/nvim) is mirrored to matteopolak/jai.nvim, because vim.pack and
   # plugin managers need a repository whose root is the plugin. The mirror's main branch is

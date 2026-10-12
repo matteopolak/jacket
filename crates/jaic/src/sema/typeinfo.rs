@@ -978,6 +978,56 @@ impl Compiler {
         Ok(m)
     }
 
+    /// The stand-in descriptor of a generic struct, carrying its name: one per generic struct
+    /// (keyed by its syntax), shared by every instance's `polymorph_source_struct` and by
+    /// `type_info` of the bare generic struct.
+    pub fn generic_struct_info_global(
+        &mut self,
+        key: Option<ast::AstId>,
+        name: Sym,
+        desc: TypeId,
+        span: Span,
+    ) -> Result<ir::GlobalId> {
+        let cached = key.and_then(|k| self.generic_struct_infos.get(&k).copied());
+        if let Some(g) = cached {
+            return Ok(g);
+        }
+        let size = self.size_of(desc, span)?;
+        let mut generic = Aggregate {
+            bytes: vec![0; size as usize],
+            relocs: Vec::new(),
+        };
+        self.set_field(&mut generic, desc, "type", Value::Int(tag::STRUCT), span)?;
+        self.set_field(
+            &mut generic,
+            desc,
+            "name",
+            Value::String(name.as_str().as_bytes().into()),
+            span,
+        )?;
+        self.set_field(
+            &mut generic,
+            desc,
+            "nontextual_flags",
+            Value::Int(0x100),
+            span,
+        )?;
+        let align = self.align_of(desc, span)?;
+        let g = self.program.add_global(ir::Global {
+            name: format!("type_info.generic.{}", name.as_str()),
+            size,
+            align,
+            init: generic.bytes,
+            relocs: generic.relocs,
+            read_only: true,
+            export: None,
+        });
+        if let Some(k) = key {
+            self.generic_struct_infos.insert(k, g);
+        }
+        Ok(g)
+    }
+
     /// `specified_parameters` and `polymorph_source_struct` of a polymorphic struct instance's
     /// runtime descriptor. The arguments' values go to `storage` (`constant_storage`).
     fn poly_struct_info(
@@ -1056,47 +1106,8 @@ impl Compiler {
         // A stand-in descriptor for the generic struct, carrying its name: one per generic
         // struct, so every instance's `polymorph_source_struct` is the same pointer.
         let generic_key = self.struct_asts.get(&s).map(|src| src.lit.id);
-        let cached = generic_key.and_then(|k| self.generic_struct_infos.get(&k).copied());
-        let size = self.size_of(desc, span)?;
-        let mut generic = Aggregate {
-            bytes: vec![0; size as usize],
-            relocs: Vec::new(),
-        };
         let name = self.types.struct_info(s).name;
-        self.set_field(&mut generic, desc, "type", Value::Int(tag::STRUCT), span)?;
-        self.set_field(
-            &mut generic,
-            desc,
-            "name",
-            Value::String(name.as_str().as_bytes().into()),
-            span,
-        )?;
-        self.set_field(
-            &mut generic,
-            desc,
-            "nontextual_flags",
-            Value::Int(0x100),
-            span,
-        )?;
-        let align = self.align_of(desc, span)?;
-        let g = match cached {
-            Some(g) => g,
-            None => {
-                let g = self.program.add_global(ir::Global {
-                    name: format!("type_info.generic.{}", name.as_str()),
-                    size,
-                    align,
-                    init: generic.bytes,
-                    relocs: generic.relocs,
-                    read_only: true,
-                    export: None,
-                });
-                if let Some(k) = generic_key {
-                    self.generic_struct_infos.insert(k, g);
-                }
-                g
-            }
-        };
+        let g = self.generic_struct_info_global(generic_key, name, desc, span)?;
         let Some((path, _)) =
             self.find_member(desc, Sym::intern("polymorph_source_struct"), span)?
         else {

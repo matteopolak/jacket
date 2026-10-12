@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Breaking changes
+
+- winget is no longer offered; install on Windows with `install.ps1` or the release zip.
+
+### Fixes
+
+- Constants that an `#insert` declares inside a struct body, polymorphic or not, are now visible to the members that follow.
+- An `#expand` macro can backtick-declare a name equal to one of its own parameters (`` `engine := engine; ``) without an internal error.
+- The address of a `#run` struct constant is now static and stable, so returning it from a procedure no longer yields a dangling pointer.
+- `type_info(Name)` of a generic struct named without arguments now works, so a `#modify` can compare an argument's `polymorph_source_struct` against it.
+
 ## [0.12.0] - 2026-10-11
 
 Projects built by a metaprogram, like Focus, now check, hover and go to definition through it, and the language server answers edits faster with much less memory.

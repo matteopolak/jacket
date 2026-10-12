@@ -12,8 +12,6 @@ SUMS = "\n".join([
     f"{'b' * 64}  jai-macos-arm64.tar.gz",
     f"{'1' * 64}  jai-linux-arm64.tar.gz",
     f"{'2' * 64}  jai-macos-x64.tar.gz",
-    f"{'c' * 64} *jai-windows-arm64.zip",
-    f"{'D' * 64}  jai-windows-x64.zip",
     f"{'e' * 64}  jai-vscode-1.2.3.vsix",
     "",
 ])
@@ -24,7 +22,7 @@ OLD_SUMS = OLD_SUMS.replace("  jai-", "  jaic-").replace(" *jai-", " *jaic-").re
 
 class RenderTests(unittest.TestCase):
     def render(self, sums=SUMS, version="1.2.3"):
-        values = render_packages.substitutions(version, render_packages.parse_sums(sums), None, "2026-10-07")
+        values = render_packages.substitutions(version, render_packages.parse_sums(sums), None)
         out = Path(tempfile.mkdtemp())
         paths = render_packages.render_all(values, out)
         return out, {path.relative_to(out).as_posix(): path.read_text() for path in paths}
@@ -60,50 +58,17 @@ class RenderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "jai-macos-x64.tar.gz"):
             self.render(sums, version="0.4.2")
 
-    def test_winget_manifests_live_under_the_identifier_path_with_uppercase_checksums(self):
-        _, files = self.render()
-        base = "winget/manifests/m/matteopolak/jai/1.2.3/"
-        self.assertEqual(sorted(files), ["homebrew/jai.rb",
-                                         base + "matteopolak.jai.installer.yaml",
-                                         base + "matteopolak.jai.locale.en-US.yaml",
-                                         base + "matteopolak.jai.yaml"])
-        installer = files[base + "matteopolak.jai.installer.yaml"]
-        self.assertIn(f"InstallerSha256: {'D' * 64}", installer)
-        self.assertIn(f"InstallerSha256: {'C' * 64}", installer)
-        self.assertIn("ReleaseDate: 2026-10-07", installer)
-        self.assertIn("InstallerUrl: https://github.com/matteopolak/jai/releases/download/v1.2.3/jai-windows-x64.zip",
-                      installer)
-        self.assertIn("RelativeFilePath: jai-windows-arm64\\jaifmt.exe", installer)
-        for text in files.values():
-            self.assertIsNone(re.search(r"@[A-Z0-9_]+@", text))
-            if "PackageIdentifier" in text:
-                self.assertIn("PackageIdentifier: matteopolak.jai\nPackageVersion: 1.2.3\n", text)
-
-    def test_winget_manifests_share_one_schema_version(self):
-        _, files = self.render()
-        versions = {re.search(r"^ManifestVersion: (\S+)$", text, re.M).group(1)
-                    for name, text in files.items() if name.startswith("winget/")}
-        self.assertEqual(len(versions), 1)
-        (version,) = versions
-        for name, text in files.items():
-            if name.startswith("winget/"):
-                self.assertIn(f".{version}.schema.json", text)
-
     def test_missing_asset_is_an_error(self):
-        sums = "\n".join(line for line in SUMS.splitlines() if "windows-arm64" not in line)
-        with self.assertRaisesRegex(ValueError, "jai-windows-arm64.zip"):
+        sums = "\n".join(line for line in SUMS.splitlines() if "linux-x64" not in line)
+        with self.assertRaisesRegex(ValueError, "jai-linux-x64.tar.gz"):
             self.render(sums)
 
     def test_releases_up_to_0_4_0_keep_their_jaic_archive_names(self):
         _, files = self.render(OLD_SUMS, version="0.4.0")
         self.assertIn('url "https://github.com/matteopolak/jai/releases/download/v0.4.0/jaic-linux-x64.tar.gz"',
                       files["homebrew/jai.rb"])
-        installer = files["winget/manifests/m/matteopolak/jai/0.4.0/matteopolak.jai.installer.yaml"]
-        self.assertIn("RelativeFilePath: jaic-windows-x64\\jaic.exe", installer)
-        self.assertIn("/v0.4.0/jaic-windows-arm64.zip", installer)
-        self.assertNotIn("/jai-windows", installer)
-        with self.assertRaisesRegex(ValueError, "jaic-windows-arm64.zip"):
-            self.render("\n".join(line for line in OLD_SUMS.splitlines() if "windows-arm64" not in line),
+        with self.assertRaisesRegex(ValueError, "jaic-linux-x64.tar.gz"):
+            self.render("\n".join(line for line in OLD_SUMS.splitlines() if "linux-x64" not in line),
                         version="0.3.0")
 
     def test_the_prefix_follows_the_archives_present(self):
@@ -125,8 +90,7 @@ class RenderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             sums = Path(tmp) / "SHA256SUMS"
             sums.write_text(SUMS)
-            render_packages.main(["--version", "v1.2.3", "--sums", str(sums), "--out", tmp,
-                                  "--release-date", "2026-01-02"])
+            render_packages.main(["--version", "v1.2.3", "--sums", str(sums), "--out", tmp])
             self.assertIn("/v1.2.3/", (Path(tmp) / "homebrew" / "jai.rb").read_text())
 
     def test_archives_are_hashed_like_sha256sum(self):
