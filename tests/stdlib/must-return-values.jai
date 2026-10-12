@@ -28,6 +28,7 @@ main :: () {
     if b != 2 exit(2);
     _ := only(5);
     _, _ := parse(3);
+
     if only(2) + macro_only(1) != 6 exit(3);
     lenient(4);
     ignore(only(1));

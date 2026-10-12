@@ -7,47 +7,53 @@ warning[manual_index_counter]: `n` always equals `it_index` of the loop that fol
 help: use `it_index` instead of counting by hand
    |
  4 -     n := 0;
- 5 -     for names {
- 6 -         print("% %\n", n, it);
- 7 -         n += 1;
- 4 +     for names {
- 5 +         print("% %\n", it_index, it);
+ 5 - 
+ 6 -     for names {
+ 7 -         print("% %\n", n, it);
+ 8 -         n += 1;
+ 4 + 
+ 5 +     for names {
+ 6 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
 
 warning[manual_index_counter]: `line_number` always equals `it_index` of the loop that follows
-  --> tests/lint/manual_index_counter/bad.jai:12:5
+  --> tests/lint/manual_index_counter/bad.jai:13:5
    |
-12 |     line_number := 0;
+13 |     line_number := 0;
    |     ^^^^^^^^^^^
    |
 help: use `it_index` instead of counting by hand
    |
-12 -     line_number := 0;
-13 -     for lines {
-14 -         defer line_number += 1;
-15 -         if !it continue;
-16 -         print("%: %\n", line_number, it);
-12 +     for lines {
-13 +         if !it continue;
-14 +         print("%: %\n", it_index, it);
+13 -     line_number := 0;
+14 - 
+15 -     for lines {
+16 -         defer line_number += 1;
+17 -         if !it continue;
+18 -         print("%: %\n", line_number, it);
+13 + 
+14 +     for lines {
+15 +         if !it continue;
+16 +         print("%: %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
 
 warning[manual_index_counter]: `n` always equals `it_index` of the loop that follows
-  --> tests/lint/manual_index_counter/bad.jai:22:5
+  --> tests/lint/manual_index_counter/bad.jai:24:5
    |
-22 |     n := 0;
+24 |     n := 0;
    |     ^
    |
 help: use `it_index` instead of counting by hand
    |
-22 -     n := 0;
-23 -     for word {
-24 -         print("% %\n", n, it);
-25 -         n += 1;
-22 +     for word {
-23 +         print("% %\n", it_index, it);
+24 -     n := 0;
+25 - 
+26 -     for word {
+27 -         print("% %\n", n, it);
+28 -         n += 1;
+24 + 
+25 +     for word {
+26 +         print("% %\n", it_index, it);
    |
    = note: `manual_index_counter` is `warn` by default
 

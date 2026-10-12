@@ -10,10 +10,12 @@ failures := 0;
 
 hash :: (p: *u8, n: int) -> u64 {
     h: u64 = 0xcbf2_9ce4_8422_2325;
+
     for 0..n - 1 {
         h ^= p[it];
         h *= 0x100_0000_01b3;
     }
+
     return h;
 }
 
@@ -27,22 +29,28 @@ check :: (name: string, got: u64, want: u64) {
 main :: () {
     A: [64] u8;
     B: [64] u8;
+
     for 0..63 {
         A[it] = xx ((it * 7 + 3) & 0xff);
         B[it] = xx ((200 - it * 13) & 0xff);
     }
+
     F: [16] float32;
     G: [16] float32;
+
     for 0..15 {
         F[it] = (it - 5.25) * 1.5;
         G[it] = 3.5 - it * 0.75;
     }
+
     D: [8] float64;
     E: [8] float64;
+
     for 0..7 {
         D[it] = (it - 2.5) * 3.25;
         E[it] = 1.75 - it * 1.125;
     }
+
     out: [64] u8;
     pa, pb, pf, pg, pd, pe, po := A.data, B.data, F.data, G.data, D.data, E.data, out.data;
 
@@ -61,6 +69,7 @@ main :: () {
         paddsb.x r, b;
         movdqu.x [po], r;
     }
+
     check("paddsb", h(16), 0xf92579310df573);
     #asm { movdqu.x r, a; paddusw.x r, b; movdqu.x [po], r; }
     check("paddusw", h(16), 0xbedecd405a59c245);
@@ -98,6 +107,7 @@ main :: () {
         paddsw.q m, n;
         movq [po], m;
     }
+
     check("paddsw mmx", h(8), 0xdf977c2e5f9030f3);
 
     // AVX2 three-operand forms.
@@ -107,6 +117,7 @@ main :: () {
         pmuludq yr:, ya, yb;
         movdqu [po], yr;
     }
+
     check("pmuludq", h(32), 0xd40d8fe213707e9f);
     #asm AVX2 { pmuldq yr, ya, yb; movdqu [po], yr; }
     check("pmuldq", h(32), 0xe9f318424596faf9);
@@ -167,6 +178,7 @@ main :: () {
     check("packusdw", h(16), 0xf65a0eddc1aeb90f);
     #asm AVX2 { psllvd yr, ya, yb; movdqu [po], yr; }
     check("psllvd", h(32), 0xc8210784d8af5a5);
+
     #asm AVX2 {
         pxor cnt:, cnt, cnt;
         movq.x cnt, [pa];
@@ -174,6 +186,7 @@ main :: () {
         psrlvq yr, yb, cnt;
         movdqu [po], yr;
     }
+
     check("psrlvq", h(32), 0x74b6fa51cd1d3f16);
     #asm AVX2 { pmovzxbd.x cnt, [pa]; psravd.x yr, yb, cnt; movdqu.x [po], yr; }
     check("psravd", h(16), 0x88bd141608478c9e);
@@ -183,6 +196,7 @@ main :: () {
         x: u64 = 0x1122_3344_5566_7788;
         r16: u64 = 0xffff_ffff_ffff_ffff;
         r64: u64;
+
         #asm {
             movdqu.x v:, [pa];
             pinsrb v, x, 5;
@@ -191,6 +205,7 @@ main :: () {
             pextrw r16, v, 2;
             pextrq r64, v, 1;
         }
+
         check("pinsrb/pinsrd", h(16), 0xe208ed6a92c8132b);
         check("pextrw", r16, 0x881f);
         check("pextrq", r64, 0x556677885049423b);
@@ -203,6 +218,7 @@ main :: () {
         unpcklps.x fr:, fa, fb;
         movups.x [po], fr;
     }
+
     check("unpcklps", h(16), 0xeb7f46b66c6a9a65);
     #asm AVX2 { unpckhpd fr, fa, fb; movups [po], fr; }
     check("unpckhpd", h(32), 0xad2bf10baca2c9c9);
@@ -222,11 +238,13 @@ main :: () {
     check("permps", h(32), 0xd98f8a0efce8c05);
     #asm AVX2 { insertps fr, fa, fb, 0x9a; movups.x [po], fr; }
     check("insertps", h(16), 0x1b3046fd26971685);
+
     {
         e: u32;
         #asm AVX2 { extractps e, fb, 2; }
         check("extractps", e, 0x40000000);
     }
+
     #asm AVX2 { movhlps fr, fa, fb; movups.x [po], fr; }
     check("movhlps", h(16), 0xca2d043ea6b4e5cc);
     #asm AVX2 { movlhps fr, fa, fb; movups.x [po], fr; }
@@ -271,15 +289,18 @@ main :: () {
     check("cvtss2sd", h(16), 0xd171b1cdcf96b799);
     #asm AVX2 { cvtsd2ss fr, fa, db; movups.x [po], fr; }
     check("cvtsd2ss", h(16), 0xab706c1fb755ab0);
+
     {
         q: s64 = -123456789012;
         d: s32 = -77;
         i32: s32;
         i64: s64;
+
         #asm AVX2 {
             cvtsi2ss.q fr, fa, q;
             movups.x [po], fr;
         }
+
         check("cvtsi2ss.q", h(16), 0xaa263db0f70fd552);
         #asm AVX2 { cvtsi2sd.d dr, da, d; movupd.x [po], dr; }
         check("cvtsi2sd.d", h(16), 0xa383b1cd7918c685);
@@ -292,13 +313,16 @@ main :: () {
     {
         nan: [8] float32 = .[1, 2, 0, 0, 5, 6, 7, 8];
         quiet_nan: u32 = 0x7fc0_0000;
+
         nan[2] = (cast(*float32) *quiet_nan).*;
         pn := nan.data;
+
         #asm AVX2 {
             movups fn:, [pn];
             cmpps fr, fn, fa, 1;
             movups [po], fr;
         }
+
         check("cmpps lt", h(32), 0xc8210784d8af5a5);
         #asm AVX2 { cmpps fr, fn, fa, 3; movups [po], fr; }
         check("cmpps unord", h(32), 0x6f8a4bd59751c7c1);
@@ -309,6 +333,7 @@ main :: () {
         #asm AVX2 { cmpsd dr, da, db, 2; movupd.x [po], dr; }
         check("cmpsd le", h(16), 0x231d9e33f53fd336);
         z, c, p: u8;
+
         #asm AVX2 { comiss fa, fb; setz z; setc c; setp p; }
         check("comiss", ((cast(u64) z) << 16) | ((cast(u64) c) << 8) | p, 0x100);
         #asm AVX2 { movups.x fu:, [pn + 8]; ucomiss fu, fa; setz z; setc c; setp p; }
@@ -337,6 +362,7 @@ main :: () {
         fmadd132ps fr, fa, fb;
         movups [po], fr;
     }
+
     check("fmadd132ps", h(32), 0xecd9250b59b16e2f);
     #asm AVX2, FMA { movups fr, fb; fmadd231ps.x fr, fa, fa; movups.x [po], fr; }
     check("fmadd231ps", h(16), 0xe2d24aa5e93e6b47);
@@ -361,6 +387,7 @@ main :: () {
         aesenc t, k;
         movdqu.x [po], t;
     }
+
     check("aesenc", h(16), 0x6c1632d0a2b475fd);
     #asm AES { movdqu.x t, s; aesenclast t, k; movdqu.x [po], t; }
     check("aesenclast", h(16), 0x791659a4b6c250e5);

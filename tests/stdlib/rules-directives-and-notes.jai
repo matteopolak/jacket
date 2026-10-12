@@ -49,6 +49,7 @@ JAI
     compiler_begin_intercept(w);
     add_build_string(PROGRAM, w);
     struct_ok := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .TYPECHECKED {
@@ -56,14 +57,17 @@ JAI
             for checked.declarations {
                 e := it.expression.expression;
                 if !e continue;
+
                 if it.expression.name == "Box" && e.kind == .STRUCT {
                     notes := (cast(*Code_Struct) e).notes;
                     struct_ok = notes.count == 1 && notes[0].text == "Boxed";
                 }
             }
         }
+
         if message.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(w);
     assert(struct_ok, "Code_Struct.notes");
 }
@@ -71,6 +75,7 @@ JAI
 main :: () {
     // note.11
     n := Noted.{ 1, 2 };
+
     assert(n.a + n.b == 3, "noted struct works");
     assert(size_of(Noted) == size_of(Plain), "notes take no space");
     assert(type_info(Noted).members.count == 2, "notes add no members");
@@ -79,6 +84,7 @@ main :: () {
     // note.12: an empty statement is a statement; `if cond ;` has an empty body.
     answer := true;
     reached := 0;
+
     if answer;
     reached += 1;
     ;;

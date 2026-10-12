@@ -60,6 +60,7 @@ defer_log: [..] string;
 
 defer_return :: () {
     defer array_add(*defer_log, "outer");
+
     {
         defer array_add(*defer_log, "inner");
         return;
@@ -74,12 +75,14 @@ main :: () {
 
     // flow.2: `continue outer` continues the named outer loop.
     total := 0;
+
     for outer: 1..4 {
         for < inner: 1..3 {
             if inner == 2 continue outer;
             total += outer;
         }
     }
+
     assert(total == 10, "named continue gives 10");
 
     // flow.3: a range whose end is below its start runs zero times.
@@ -90,6 +93,7 @@ main :: () {
     // flow.4: `for v, i:` binds the value then the index.
     arr := int.[10, 20, 30];
     sum_vi := 0;
+
     for v, i: arr sum_vi += v * (i + 1);
     assert(sum_vi == 10 + 40 + 90, "value then index");
 
@@ -104,12 +108,14 @@ main :: () {
         assert(x, "binding holds the condition");
         j += 1;
     }
+
     assert(j == 3, "named while ran 3 times");
     k := 0;
     while going := k < 10 {
         k += 1;
         if k == 4 break going;
     }
+
     assert(k == 4, "break by while name");
 
     // flow.25: `while :name cond` only labels the loop.
@@ -119,6 +125,7 @@ main :: () {
         if m == 2 continue spin;
         if m == 5 break spin;
     }
+
     assert(m == 5, "labelled while");
 
     // flow.7: range endpoints are inclusive.
@@ -139,10 +146,12 @@ main :: () {
     // flow.9: default `it` / `it_index`; naming replaces them.
     idx_sum := 0;
     val_sum := 0;
+
     for arr {
         idx_sum += it_index;
         val_sum += it;
     }
+
     assert(idx_sum == 3 && val_sum == 60, "it and it_index");
     named_sum := 0;
     for elem, at: arr named_sum += elem + at;
@@ -150,6 +159,7 @@ main :: () {
 
     // flow.10: plain break/continue target the innermost loop.
     pairs := 0;
+
     for a: 1..3 {
         for b: 1..3 {
             if b == 2 continue;
@@ -157,14 +167,18 @@ main :: () {
             pairs += 1;
         }
     }
+
     assert(pairs == 3, "innermost loop only");
     outer_breaks := 0;
+
     for a: 1..3 {
         outer_breaks += 1;
+
         for b: 1..3 {
             if b == 2 break a;
         }
     }
+
     assert(outer_breaks == 1, "break by name leaves the outer loop");
 
     // flow.11: `remove` is unordered: the last element moves into the hole and is revisited.
@@ -185,6 +199,7 @@ main :: () {
     // flow.13: a case runs only its own body unless #through.
     out: [..] string;
     c := Hue.GREEN;
+
     if c == {
         case .RED; array_add(*out, "red");
         case .GREEN;
@@ -192,6 +207,7 @@ main :: () {
             #through;
         case .BLUE; array_add(*out, "blue");
     }
+
     assert(out.count == 2 && out[0] == "green" && out[1] == "blue", "#through falls into the next body");
     array_reset(*out);
     c = .RED;
@@ -199,56 +215,68 @@ main :: () {
         case .RED; array_add(*out, "red");
         case .GREEN; array_add(*out, "green");
     }
+
     assert(out.count == 1 && out[0] == "red", "no fall through");
 
     // flow.14: bare `case;` is the default.
     n := 7;
     picked := "";
+
     if n == {
         case 1; picked = "one";
         case; picked = "default";
     }
+
     assert(picked == "default", "default label");
 
     // flow.16: aliases with the same value count as covered by #complete.
     h := Hue.BLUE;
     name := "";
+
     if #complete h == {
         case .CRIMSON; name = "red";
         case .GREEN; name = "green";
         case .BLUE; name = "blue";
     }
+
     assert(name == "blue", "alias covers RED");
 
     // flow.17: #complete on enum_flags or a non-enum is not checked.
     fb := Bits.B;
     flag_hit := false;
+
     if #complete fb == {
         case .B; flag_hit = true;
     }
+
     assert(flag_hit, "#complete on enum_flags");
     q := 3;
     if #complete q == {
         case 3; q = 4;
     }
+
     assert(q == 4, "#complete on an int");
 
     // flow.18: a constant switch value still needs every member.
     CONST_HUE :: Hue.RED;
     const_hit := false;
+
     if #complete CONST_HUE == {
         case .RED; const_hit = true;
         case .GREEN;
         case .BLUE;
     }
+
     assert(const_hit, "constant #complete switch");
 
     // flow.19: defers run at scope exit in reverse order.
     array_reset(*defer_log);
+
     {
         defer array_add(*defer_log, "d1");
         defer array_add(*defer_log, "d2");
     }
+
     assert(defer_log.count == 2 && defer_log[0] == "d2" && defer_log[1] == "d1", "reverse order");
 
     // flow.20: defers also run on return, break and continue.
@@ -256,21 +284,25 @@ main :: () {
     defer_return();
     assert(defer_log.count == 2 && defer_log[0] == "inner" && defer_log[1] == "outer", "defer on return");
     array_reset(*defer_log);
+
     for 1..3 {
         defer array_add(*defer_log, "it");
         if it == 1 continue;
         if it == 2 break;
     }
+
     assert(defer_log.count == 2, "defer on continue and break");
 
     // flow.21: push_context,defer_pop keeps the context for the rest of the block.
     before := context.allocator.data;
+
     {
         ctx := context;
         ctx.allocator.data = cast(*void) 1234;
         push_context, defer_pop ctx;
         assert(context.allocator.data == cast(*void) 1234, "pushed for the rest of the block");
     }
+
     assert(context.allocator.data == before, "popped at block end");
 
     // flow.22: `for x: value` on a type with for_expansion runs the macro.
@@ -278,18 +310,22 @@ main :: () {
     for Countdown.{ 3 } array_add(*down, it);
     assert(down.count == 3 && down[0] == 3 && down[2] == 1, "for_expansion iteration");
     skipped := 0;
+
     for Countdown.{ 4 } {
         if it == 3 continue;
         skipped += it;
     }
+
     assert(skipped == 4 + 2 + 1, "continue through a for_expansion");
 
     // flow.23: #insert (break = ...) replaces the body's break.
     got := 0;
+
     for Halt.{ 10 } {
         if it == 3 break;
         got += 1;
     }
+
     assert(got == 3 && stopped_by_macro, "replaced break");
 
     print("ok\n");

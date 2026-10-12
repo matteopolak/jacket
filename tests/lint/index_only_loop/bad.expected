@@ -1,146 +1,146 @@
 warning[index_only_loop]: `i` is only used to index `xs`
-  --> tests/lint/index_only_loop/bad.jai:11:5
+  --> tests/lint/index_only_loop/bad.jai:12:5
    |
-11 |     for i: 0..xs.count - 1 {
+12 |     for i: 0..xs.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for xs` and `it`
    |
-11 ~     for xs {
-12 ~         total += it;
+12 ~     for xs {
+13 ~         total += it;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` is only used to index `points`
-  --> tests/lint/index_only_loop/bad.jai:18:5
+  --> tests/lint/index_only_loop/bad.jai:20:5
    |
-18 |     for i: 0..points.count - 1 points[i].x += 1;
+20 |     for i: 0..points.count - 1 points[i].x += 1;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over pointers to the elements: `for *points` and `it`
    |
-18 ~     for *points it.x += 1;
+20 ~     for *points it.x += 1;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `names` to index it
-  --> tests/lint/index_only_loop/bad.jai:22:5
+  --> tests/lint/index_only_loop/bad.jai:24:5
    |
-22 |     for i: 0..names.count - 1 {
+24 |     for i: 0..names.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for names`, with `it` and `it_index`
    |
-22 ~     for names {
-23 ~         if it_index > 0 print(", ");
-24 ~         print("%", it);
+24 ~     for names {
+25 ~         if it_index > 0 print(", ");
+26 ~         print("%", it);
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `table` to index it
-  --> tests/lint/index_only_loop/bad.jai:31:5
+  --> tests/lint/index_only_loop/bad.jai:34:5
    |
-31 |     for i: 0..table.count - 1 {
+34 |     for i: 0..table.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for *table`, with `it` and `it_index`
    |
-31 ~     for *table {
-32 ~         it.* = sin(cast(float) it_index * 0.5);
+34 ~     for *table {
+35 ~         it.* = sin(cast(float) it_index * 0.5);
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` is only used to index `str`
-  --> tests/lint/index_only_loop/bad.jai:38:5
+  --> tests/lint/index_only_loop/bad.jai:41:5
    |
-38 |     for i: 0..str.count - 1 {
+41 |     for i: 0..str.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for str` and `it`
    |
-38 ~     for str {
-39 ~         cur := it;
+41 ~     for str {
+42 ~         cur := it;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` is only used to index `str`
-  --> tests/lint/index_only_loop/bad.jai:47:5
+  --> tests/lint/index_only_loop/bad.jai:50:5
    |
-47 |     for i: 0..(str.count - 1) total += str[i];
+50 |     for i: 0..(str.count - 1) total += str[i];
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for str` and `it`
    |
-47 ~     for str total += it;
+50 ~     for str total += it;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` is only used to index `str`
-  --> tests/lint/index_only_loop/bad.jai:53:5
+  --> tests/lint/index_only_loop/bad.jai:56:5
    |
-53 |     for i: 0..str.count - 1 str[i] += 1;
+56 |     for i: 0..str.count - 1 str[i] += 1;
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over pointers to the elements: `for *str` and `it`
    |
-53 ~     for *str it.* += 1;
+56 ~     for *str it.* += 1;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `k` counts through `n.name` to index it
-  --> tests/lint/index_only_loop/bad.jai:61:5
+  --> tests/lint/index_only_loop/bad.jai:64:5
    |
-61 |     for k: 0..n.name.count - 1 print("%: %\n", k, n.name[k]);
+64 |     for k: 0..n.name.count - 1 print("%: %\n", k, n.name[k]);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for n.name`, with `it` and `it_index`
    |
-61 ~     for n.name print("%: %\n", it_index, it);
+64 ~     for n.name print("%: %\n", it_index, it);
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `str` to index it
-  --> tests/lint/index_only_loop/bad.jai:66:5
+  --> tests/lint/index_only_loop/bad.jai:69:5
    |
-66 |     for i: 0..str.count - 1 {
+69 |     for i: 0..str.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: a nested loop binds `it`; name the iterator instead: `for elem: str` and `elem`
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `j` is only used to index `to_find`
-  --> tests/lint/index_only_loop/bad.jai:67:9
+  --> tests/lint/index_only_loop/bad.jai:70:9
    |
-67 |         for j: 0..to_find.count - 1 {
+70 |         for j: 0..to_find.count - 1 {
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 help: loop over the elements: `for to_find` and `it`
    |
-67 ~         for to_find {
-68 ~             if str[i] == it return i;
+70 ~         for to_find {
+71 ~             if str[i] == it return i;
    |
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` is only used to index `xs`
-  --> tests/lint/index_only_loop/bad.jai:76:5
+  --> tests/lint/index_only_loop/bad.jai:80:5
    |
-76 |     for i: 0..xs.count - 1 {
+80 |     for i: 0..xs.count - 1 {
    |     ^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: a nested loop binds `it`; name the iterator instead: `for elem: xs` and `elem`
    = note: `index_only_loop` is `warn` by default
 
 warning[index_only_loop]: `i` counts through `stops` to index it
-   --> tests/lint/index_only_loop/bad.jai:117:5
+   --> tests/lint/index_only_loop/bad.jai:124:5
     |
-117 |     for i: 0..stops.count - 1 {
+124 |     for i: 0..stops.count - 1 {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 help: loop over the elements: `for stops`, with `it` and `it_index`
     |
-117 ~     for stops {
-118 ~         print("% %\n", it_index + 1, it.title);
-119 ~         it.run();
+124 ~     for stops {
+125 ~         print("% %\n", it_index + 1, it.title);
+126 ~         it.run();
     |
     = note: `index_only_loop` is `warn` by default
 

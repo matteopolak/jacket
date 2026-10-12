@@ -28,10 +28,12 @@ main :: () {
     assert((flags_of(info, "after") & .OVERLAY) == 0);
 
     printed := 0;
+
     for info.members {
         if it.flags & (.CONSTANT | .IMPORTED | .OVERLAY) continue;
         printed += 1;
     }
+
     assert(printed == 5);
     print("ok\n");
 }

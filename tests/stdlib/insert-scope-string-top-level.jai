@@ -33,6 +33,7 @@ JAI
     compiler_begin_intercept(w);
     add_build_string(PROGRAM, w);
     found := false;
+
     while true {
         msg := compiler_wait_for_message();
         if msg.kind == .TYPECHECKED {
@@ -41,8 +42,10 @@ JAI
                 for note: it.expression.notes if note.text == "Marker" found = true;
             }
         }
+
         if msg.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(w);
     assert(found, "Proxy was not reported");
 }

@@ -18,6 +18,7 @@ shorten :: () -> string {
 
 main :: () {
     x := Stuff.SECOND;
+
     assert(!(.FIRST == x));
     assert(.SECOND == x);
     assert(.THIRD != x);
@@ -25,21 +26,26 @@ main :: () {
     Ticket :: struct(_order: Stuff = .FIRST) {
         order := _order;
     }
+
     a: Ticket;
     b: Ticket(.SECOND);
+
     assert(a.order == .FIRST);
     assert(b.order == .SECOND);
 
     source = "hello";
     total := 0;
     skipped := 0;
+
     while s := shorten() {
         if s.count == 3 {
             skipped += 1;
             continue s;
         }
+
         total += s.count;
     }
+
     assert(total == 4 + 2 + 1);
     assert(skipped == 1);
 }

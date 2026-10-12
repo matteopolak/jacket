@@ -29,6 +29,7 @@ main :: () {
     tree: Tree;
     tree.name = "oak";
     strange: Strange;
+
     assert(describe(tree) == "oak");
     assert(describe(strange) == "strange");
 }

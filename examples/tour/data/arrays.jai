@@ -8,6 +8,7 @@ tour_arrays :: () {
 
     // An array literal. `.[ ]` infers its element type.
     primes := int.[2, 3, 5, 7, 11, 13];
+
     // A view (`[] T`) is a pointer and a count. Every array converts to one.
     print("sum of primes:  %\n", sum(primes));
     print("sum of squares: %\n", sum(squares));
@@ -19,6 +20,7 @@ tour_arrays :: () {
 
     // Resizable arrays grow as you add to them.
     sieve := sieve_of_eratosthenes(60);
+
     defer array_free(sieve);
     print("primes below 60 (%): %\n", sieve.count, sieve);
 
@@ -28,12 +30,14 @@ tour_arrays :: () {
         if position == 0 continue;
         print("% ", tprint("%=%", position, word));
     }
+
     print("\n");
 
     // `for <` walks backwards, `for *` gives pointers so you can change elements.
     for < words print("% ", it);
     print("\n");
     numbers: [..] int;
+
     defer array_free(numbers);
     array_add(*numbers, 4, 8, 15, 16, 23, 42);
     for *numbers it.* *= 10;
@@ -44,6 +48,7 @@ tour_arrays :: () {
     print("multiples of 20 (in some order): %\n", numbers);
 
     found, index := array_find(numbers, 160);
+
     print("160 is in there: % (at index %)\n", found, index);
 }
 
@@ -55,8 +60,10 @@ sum :: (values: [] int) -> int {
 
 sieve_of_eratosthenes :: (limit: int) -> [..] int {
     composite := NewArray(limit, bool);
+
     defer array_free(composite);
     result: [..] int;
+
     for n: 2..limit - 1 {
         if composite[n] continue;
         array_add(*result, n);
@@ -66,5 +73,6 @@ sieve_of_eratosthenes :: (limit: int) -> [..] int {
             multiple += n;
         }
     }
+
     return result;
 }

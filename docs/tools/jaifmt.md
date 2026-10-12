@@ -85,6 +85,7 @@ The output is canonical: it depends on the tokens, comments and blank lines of t
 - Statements separated by `;` inside a block (or at file level) go on separate lines: `x:=1;   if x>0 {...}` becomes two statements. Exception: a `case` label keeps one simple statement after it when written on the same line (`case .A; return 1;`, `case 2; #through;`), the common Jai idiom; `case 2; a(); b();` is split.
 - Unchanged: `.{ }` and `.[ ]` literals keep their line structure, braceless bodies (`if x return;`), `#run f()` without a block, expressions continued over lines, trailing comments (`x := 1; // why`). A `{` with a comment between it and its header stays on its own line (joining would reorder the comment).
 - Blank lines between file-level items (`separate_items`, on unless `blank_lines_between_items = false`); see below.
+- Blank lines between the statements of code blocks (`separate_statements`, four opt-in options); see below.
 - Trailing whitespace is removed, runs of blank lines are capped at `max_blank_lines`, leading blank lines are dropped and the file ends with exactly one newline. Files that mostly use CRLF keep CRLF.
 
 **Blank lines between items** (`separate_items`).
@@ -137,6 +138,84 @@ Details:
 - Blank lines are only added, never removed; the usual `max_blank_lines` cap still applies (with `max_blank_lines = 0` none is written). Only line breaks that already exist are deepened, so the token check is unaffected. Items inside `// jaifmt: off` regions, and items sharing a line, are left alone.
 - To change the rules: `separate_pair` (when a blank is wanted), `finish_item` (what makes an item multi-line or an import), `block_ends_item` (where an item ends) and `is_item_container` (which `{` holds file-level items), at the end of `plan_lines` in `format.jai`. Golden cases: `items` and `items-off`.
 
+**Blank lines inside code blocks** (`separate_statements`). Four opt-in options, all `false` by default, add blank lines between the statements of *code blocks* to break up dense code. A code block is a procedure body (local and nested procedures too), a control-flow body (`if`/`else`/`for`/`while`/`defer`/`case`), a `#run { }` or `#code { }` block, or a `#if` body inside a procedure. Struct, union and enum bodies, `.{ }` literals and the file level (that is `blank_lines_between_items`' job) are never touched.
+
+Like `blank_lines_between_items` they only deepen line breaks that already exist, never remove a blank line, never move a comment, respect `max_blank_lines` (0 means none), and leave `// jaifmt: off` regions and statements that share a line alone. Comments directly above a statement belong to it, so a blank wanted "before statement S" goes above S's comments. A *statement* ends at its `;`, or at the `}` of its block when no `else` or note follows (an `if` with its `else` chain is one statement).
+
+`blank_line_after_declarations`: after a run of declarations, a blank line when the next statement is not one. A declaration is a statement whose leading names are followed by a top-level `:`, `:=` or `::` (`x := 1;`, `a, b := f();`, `x: int;`, `N :: 4;`, a local procedure); assignments and `using x;` are not. Nothing goes before the closing `}` or before an `else`/`case`. Two exceptions keep a setup line with its use: a *single* declaration stays next to a following block or braceless `if`/`for`/`while` whose header mentions a name it declared (`x, ok := f();` then `if !ok return;`), and a declaration stays next to an assignment that sets what it declared (`r: T;` then `r.x = 1;`). Bodies of four lines or fewer (`SHORT_BODY_LINES`) get no such blank, so a short helper stays compact.
+
+```jai
+count := items.count;
+total := 0;
+for items total += it;
+ok := run();
+if !ok return;
+```
+
+```jai
+count := items.count;
+total := 0;
+
+for items total += it;
+ok := run();
+if !ok return;
+```
+
+`blank_lines_around_blocks`: a statement that spans several output lines because it has a block body (`if`/`else` chain, `for`, `while`, `defer { }`, `#if`, `if x == { }`, `#insert #run { }`, a nested procedure, `#asm { }`) gets a blank line before and after it. Not at the start or end of the enclosing block, between `}` and `else`, or before a `case`. A braceless `if x return;` or a long call is not a block statement. Exceptions: the block stays next to a single declaration its header uses (the exception above), or next to an assignment whose names its header uses (`ok = f();` then `if !ok {`); and a run of *tiny* blocks (three lines each: header, one body line, `}`) is not pulled apart, so guard sequences and repeated table entries stay compact, with a blank only around the run.
+
+```jai
+a := f();
+if a.ready {
+    go(a);
+}
+log("done");
+```
+
+```jai
+a := f();
+if a.ready {
+    go(a);
+}
+
+log("done");
+```
+
+`blank_line_between_cases`: in `if x == { case ... }`, a blank line before a `case` label when the previous arm (label plus body) spans more than one output line. One-line arms (`case .A; #through;`, `case 1; return 2;`) and runs of them stay together.
+
+```jai
+case .A; return 1;
+case .B;
+    log("b");
+    return 2;
+case .C; return 3;
+```
+
+```jai
+case .A; return 1;
+case .B;
+    log("b");
+    return 2;
+
+case .C; return 3;
+```
+
+`blank_line_before_comments`: a comment that starts a line in a code block gets a blank line above it when the line before is code. Not after a `{`, after a `case` label line or after another comment line, and trailing comments are unaffected. Together with `blank_lines_around_blocks` the blank goes above the whole comment group, never between a comment and its statement.
+
+```jai
+a();
+// then b
+b();
+```
+
+```jai
+a();
+
+// then b
+b();
+```
+
+- To change the rules: `statement_wants_blank` (when a blank is wanted, per option), `finish_statement` (what kind of statement it is and where its header ends), `block_kind` (which `{` holds code) and `separate_statements` (the walk), after `separate_pair` in `format.jai`. `add_blank_line` is the shared way to put the blank above a statement's comments. Golden cases: `stmt-declarations`, `stmt-blocks`, `stmt-cases`, `stmt-comments` (one option each) and `stmt-combined`.
+
 **Indentation** follows bracket nesting:
 
 - A `{` that ends its output line opens a block: its lines are indented one level from the statement that opened it (so a multi-line procedure header still indents the body by one level), and the `}` returns to that level.
@@ -181,6 +260,7 @@ Binary versus prefix is decided from the previous code token: an operand (identi
 ## How to change it
 
 - New spacing rule: add it to `spacing_rule` in `stdlib/Extensions/Jai_Format/format.jai`, above the more general rules it should override, and add a line to `stdlib/Extensions/Jai_Format/tests/cases/spacing.in.jai`. Return `.PRESENCE` only where the parser itself looks at adjacency; everything else must be `.NONE` or `.SPACE` so the output stays canonical.
+- New blank-line rule for code blocks: `statement_wants_blank` in `format.jai` (one `if` per option; add a field to `Format_Config` in `module.jai` and a key to `parse_config_into` in `config.jai`), with a `stmt-*` golden case. It may only call `add_blank_line`, which deepens an existing break.
 - New line-structure rule: `plan_lines` (where breaks are added or removed). Any break it adds or removes must be one `break_change_allowed` accepts, and that function must only accept breaks the parser ignores.
 - New indentation behavior: `line_indent` (where a line starts) and `track` (what a token does to the frame stack). `starts_statement` decides statement versus continuation lines.
 - Lexer changes must mirror `crates/jaic/src/lexer.rs`; if the two disagree about where a token ends, the safety check can accept output that `jaic` lexes differently. Likewise, if the parser starts to depend on whitespace somewhere new (look for `newline_before` and `span.start == ...end` in `crates/jaic/src/parser/`), teach `check_equivalent` about it and make the formatter keep that spacing.
@@ -204,10 +284,14 @@ max_blank_lines = 2       # consecutive blank lines kept
 max_width = 100           # only reported by --verbose; lines are never wrapped
 brace_style = "same_line" # or "preserve"
 blank_lines_between_items = true  # or false: no blank lines added between file-level items
+blank_line_after_declarations = false  # true: blank line after a run of declarations in code blocks
+blank_lines_around_blocks = false      # true: blank lines around statements with a block body
+blank_line_between_cases = false       # true: blank line before a `case` after a multi-line arm
+blank_line_before_comments = false     # true: blank line above a comment that follows code
 ignore = ["tests/corpus/**", "generated/*.jai"]
 ```
 
-Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Extensions/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more.
+Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Extensions/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more. The repository's own config also turns on two of the stricter blank-line options (`blank_line_after_declarations` and `blank_lines_around_blocks`, which are off by default) and keeps at most one blank line in a row.
 
 **CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check prelude stdlib tests benchmarks tools jaifmt examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
 
@@ -233,7 +317,7 @@ formatted, ok, error := format_source(source, config); // config defaults to .{}
 
 - `format_source(text, config = .{}) -> result: string, ok: bool, error: string`: on success `result` is newly allocated (`free` it); on failure it is `""` and `error` (temporary storage) says why, usually as `line:column: message`: text that does not lex, unbalanced brackets, or a failed token check. Input is never partially formatted.
 - `parse_config(text) -> config: Format_Config, ok: bool, error: string`: parses `jaifmt.toml` text. `config.root` is left empty; set it to the config's directory if you use `format_is_ignored`.
-- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `blank_lines_between_items` (true), `ignore`, `root`.
+- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `blank_lines_between_items` (true), `blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_between_cases` and `blank_line_before_comments` (all false), `ignore`, `root`.
 - Also: `format_tokens_equivalent(before, after) -> ok, why` (the safety check), `format_is_ignored(config, path)`, `format_glob_match(pattern, text)`, `format_count_long_lines(text, max_width)`, `FORMAT_CONFIG_FILE_NAME` (`"jaifmt.toml"`).
 
 ## Browser playground

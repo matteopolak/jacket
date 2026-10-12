@@ -27,10 +27,12 @@ character_classes :: () -> s64 {
         upper := c >= 65 && c <= 90;
         lower := c >= 97 && c <= 122;
         digit := c >= 48 && c <= 57;
+
         if is_alpha(c) != (upper || lower) return 1;
         if is_digit(c) != digit return 2;
         if is_alnum(c) != (upper || lower || digit || c == 95) return 3;
     }
+
     return 0;
 }
 
@@ -41,6 +43,7 @@ enums_and_arrays :: () -> s64 {
     if low != 7 || high != 7 return 11;
 
     a: [..] int;
+
     array_add(*a, 4, 8, 15, 16, 8, 42);
     if !array_ordered_remove_by_value(*a, 8) return 12;
     expected :: int.[4, 15, 16, 8, 42];
@@ -61,12 +64,14 @@ bit_slots :: () -> s64 {
         if bits.slots.count != (count + 63) / 64 || bits.count != count return 20;
         for bits.slots if it != 0 return 21;
     }
+
     return 0;
 }
 
 matrices :: () -> s64 {
     m3 := Matrix3.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     w := make_matrix4(m3);
+
     if w._11 != 1 || w._23 != 6 || w._33 != 9 || w._14 != 0 || w._34 != 0 || w._41 != 0 || w._44 != 1 return 30;
     m43: Matrix4x3;
     for i: 0..11 m43.floats[i] = cast(float) (i + 1);
@@ -83,6 +88,7 @@ matrices :: () -> s64 {
     if s._12 != 200 || s._22 != 500 || s._32 != 800 return 35;
     if s._13 != 3000 || s._23 != 6000 || s._33 != 9000 return 36;
     t := m4;
+
     scale(*t, Vector3.{ 2, 3, 4 });
     if t._14 != m4._14 || t._41 != m4._41 || t._44 != m4._44 || t._12 != m4._12 * 3 || t._31 != m4._31 * 2 return 37;
     return 0;
@@ -100,6 +106,7 @@ strings :: () -> s64 {
 
     line := "  Foo=bar ; TRUE false maybe";
     token, ok := String.match_token(*line, "foo");
+
     if ok || token != "Foo" return 47;
     token, ok = String.match_token(*line, "=");
     if !ok || token != "=" return 48;
@@ -134,5 +141,6 @@ main :: () -> s64 {
     for result: s64.[character_classes(), enums_and_arrays(), bit_slots(), matrices(), strings(), darwin()] {
         if result != 0 return result;
     }
+
     return 0;
 }

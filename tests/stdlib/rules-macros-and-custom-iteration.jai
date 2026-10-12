@@ -79,10 +79,12 @@ main :: () {
 
     // macro.2
     counter := 0;
+
     bump_caller();
     bump_caller();
     assert(counter == 2, "caller local through a backtick");
     x, y := 1, 2;
+
     exchange(*x, *y);
     assert(x == 2 && y == 1, "macro swapping through pointers");
 
@@ -96,22 +98,28 @@ main :: () {
     // macro.8
     b: Bag;
     s := 0;
+
     for b {
         s += it * 10 + it_index;
     }
+
     assert(s == 63, "for over a struct");
     seen := 0;
+
     for Countdown.{ 3 } {
         seen = seen * 10 + it;
     }
+
     assert(seen == 321, "by-value for_expansion");
 
     // macro.9
     walked: [..] int;
+
     for: walk v, i: b {
         array_add(*walked, v);
         array_add(*walked, i);
     }
+
     assert(walked.count == 6, "named expansion visits every item");
     assert(walked[0] == 30 && walked[1] == 2 && walked[4] == 10 && walked[5] == 0, "named expansion order");
     print("ok\n");

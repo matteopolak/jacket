@@ -13,6 +13,7 @@ main :: () {
     e := 0.12345670;
     huge := 1.0e39;
     tiny := 1.0e-39;
+
     #assert type_of(a) == float64;
     #assert type_of(b) == float32;
     #assert type_of(c) == float64; // 8 digits, even though float32 holds it exactly
@@ -23,6 +24,7 @@ main :: () {
     #assert type_of(PI_LONG) == float64;
     f: float32 = 2;
     g := f * 3.14159265358979;
+
     #assert type_of(g) == float32;
     h: float32 = PI_LONG;
 

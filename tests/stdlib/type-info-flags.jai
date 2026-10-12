@@ -67,8 +67,10 @@ main :: () {
     check((type_info(Plain).textual_flags & .NO_PADDING) == 0, "no #no_padding flag on a plain struct");
     check((type_info(Blank).nontextual_flags & .ALL_MEMBERS_UNINITIALIZED) != 0, "all members uninitialized");
     check((type_info(Plain).nontextual_flags & .ALL_MEMBERS_UNINITIALIZED) == 0, "initialized members");
+
     for type_info(Blank).members if it.name == "K" {
         check(it.notes.count == 1 && it.notes[0] == "kn", "note on a struct constant");
     }
+
     print("ok\n");
 }

@@ -22,10 +22,12 @@ build_with :: (source: string, mode: type_of(Build_Options.arithmetic_overflow_c
     set_build_options(options, w);
     compiler_begin_intercept(w);
     add_build_string(source, w);
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(w);
 }
 
@@ -62,6 +64,7 @@ run_cases :: () {
     on_for := program("", "x: u8 = 250; for 1..3 #no_aoc { x += 10; } assert(x == 24);");
     on_while := program("", "x: u8 = 250; i := 0; while i < 2 #no_aoc { x += 10; i += 1; } assert(x == 14);");
     on_if := program("", "x: u8 = 250; if x > 0 #no_aoc { x += 10; } assert(x == 4);");
+
     for source: string.[on_proc, on_block, on_for, on_while, on_if] {
         build_with(source, FATAL);
     }
@@ -73,6 +76,7 @@ main :: () {
     // Ordinary arithmetic wraps in a program that did not turn the option on.
     x: u8 = 250;
     y: u8 = 10;
+
     if x + y != 4 exit(1);
     print("ok\n");
 }

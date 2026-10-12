@@ -11,6 +11,7 @@ probe :: () -> bool {
     first, second: s64;
     identical := Alloc_And_Free_Traces.{ *first, *second };
     unequal := Alloc_And_Free_Traces.{ *first, *first };
+
     if !compare_alloc_and_free_traces(identical, identical) return false;
     if compare_alloc_and_free_traces(identical, unequal) return false;
     return true;

@@ -10,6 +10,7 @@ check_crc :: () -> bool {
 
 check_copy :: () -> bool {
     bytes: [6] u8 = .[0, 1, 2, 3, 4, 5];
+
     Memory.copy(bytes.data + 1, bytes.data, 5);
     if bytes[0] != 0 || bytes[1] != 0 || bytes[5] != 4 return false;
     Memory.copy(bytes.data, bytes.data + 1, 5);
@@ -28,6 +29,7 @@ check_hashes :: () -> bool {
     input = "0123456789abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ";
     state32: XXH.XXH32_state_t;
     state64: XXH.XXH64_state_t;
+
     XXH.XXH32_reset(*state32, 17);
     XXH.XXH64_reset(*state64, 17);
     index: s64 = 0;
@@ -36,6 +38,7 @@ check_hashes :: () -> bool {
         XXH.XXH64_update(*state64, input.data + index, 1);
         index += 1;
     }
+
     return XXH.XXH32_digest(*state32) == XXH.native_XXH32(input.data, cast(u32) input.count, 17) && XXH.XXH64_digest(*state64) == XXH.native_XXH64(input.data, cast(u32) input.count, 17);
 }
 

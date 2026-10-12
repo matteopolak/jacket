@@ -17,6 +17,7 @@ main :: () {
         cvtps2dq v1:, [vp]!;
         movdqu [ap], v1;
     }
+
     for array if it != 128 fail("broadcast + round to nearest");
 
     #asm AVX512F {
@@ -24,6 +25,7 @@ main :: () {
         cvtps2dq v3:, v2 !z;
         movdqu [ap], v3;
     }
+
     for array if it != 127 fail("truncate");
 
     #asm AVX512F {
@@ -31,6 +33,7 @@ main :: () {
         cvtps2dq v3:, v2 !u;
         movdqu [ap], v3;
     }
+
     for array if it != 128 fail("round up");
 
     #asm AVX512F {
@@ -40,6 +43,7 @@ main :: () {
         cvtps2dq v5: &* mask, v4 !z;
         movdqu [ap], v5;
     }
+
     for array {
         if it_index % 2 == 0 {
             if it != 127 fail("masked lane");

@@ -63,6 +63,7 @@ is_hex_digit :: inline (c: u8) -> bool {
 
 lex :: (src: string) -> Lex_Result {
     result: Lex_Result;
+
     array_reserve(*result.tokens, src.count / 4 + 16);
 
     at: s64 = 0;
@@ -88,6 +89,7 @@ lex :: (src: string) -> Lex_Result {
         ws_start := at;
         newlines: s32 = 0;
         column: s32 = 0;
+
         while at < src.count {
             c := src[at];
             if c == #char "\n" {
@@ -135,6 +137,7 @@ lex :: (src: string) -> Lex_Result {
             depth := 1;
             while depth > 0 {
                 if at >= src.count fail("unterminated block comment", tok.start);
+
                 if src[at] == #char "/" && peek(1) == #char "*" {
                     depth += 1;
                     at += 2;
@@ -145,10 +148,12 @@ lex :: (src: string) -> Lex_Result {
                     at += 1;
                 }
             }
+
             tok.kind = .BLOCK_COMMENT;
             tok.end = at;
         } else if is_ident_start(c) {
             lex_ident(src, *at);
+
             // `group\_fraction`: a backslash (optionally followed by blanks) joins identifier parts.
             while at < src.count && src[at] == #char "\\" {
                 skip := 1;
@@ -157,6 +162,7 @@ lex :: (src: string) -> Lex_Result {
                 at += skip;
                 lex_ident(src, *at);
             }
+
             tok.kind = .IDENT;
             tok.end = at;
         } else if is_digit(c) || at_leading_dot_float(src, at) {
@@ -165,6 +171,7 @@ lex :: (src: string) -> Lex_Result {
             tok.end = at;
         } else if c == #char "\"" {
             at += 1;
+
             while true {
                 if at >= src.count fail("unterminated string", tok.start);
                 d := src[at];
@@ -172,12 +179,15 @@ lex :: (src: string) -> Lex_Result {
                     at += 1;
                     break;
                 }
+
                 if d == #char "\\" {
                     at += 2;
                     continue;
                 }
+
                 at += 1;
             }
+
             if at > src.count fail("unterminated string", tok.start);
             tok.kind = .STRING;
             tok.end = at;
@@ -185,6 +195,7 @@ lex :: (src: string) -> Lex_Result {
             at += 1;
             while at < src.count && (src[at] == #char " " || src[at] == #char "\t") at += 1;
             name_start := at;
+
             lex_ident(src, *at);
             name := slice(src, name_start, at - name_start);
             if name == "string" {
@@ -194,11 +205,13 @@ lex :: (src: string) -> Lex_Result {
             } else {
                 tok.kind = .DIRECTIVE;
             }
+
             tok.end = at;
         } else if c == #char "@" {
             at += 1;
             if at < src.count && src[at] == #char "\"" {
                 at += 1;
+
                 while true {
                     if at >= src.count fail("unterminated note", tok.start);
                     d := src[at];
@@ -206,14 +219,17 @@ lex :: (src: string) -> Lex_Result {
                         at += 1;
                         break;
                     }
+
                     if d == #char "\\" {
                         at += 2;
                         continue;
                     }
+
                     at += 1;
                 }
             } else {
                 depth := 0;
+
                 while at < src.count {
                     d := src[at];
                     if d == #char "(" {
@@ -226,16 +242,20 @@ lex :: (src: string) -> Lex_Result {
                         // splitting earlier would space out what the compiler reads as one.
                         break;
                     }
+
                     at += 1;
                 }
+
                 // An open `(` swallows the rest of the file, trailing whitespace included, which
                 // the formatter must trim: refuse it like an unbalanced bracket.
                 if depth > 0 fail("unterminated note", tok.start);
             }
+
             tok.kind = .NOTE;
             tok.end = at;
         } else {
             matched := false;
+
             for p: PUNCTUATION {
                 if at + p.count <= src.count && memcmp(src.data + at, p.data, p.count) == 0 {
                     at += p.count;
@@ -243,12 +263,15 @@ lex :: (src: string) -> Lex_Result {
                     break;
                 }
             }
+
             if !matched fail("unexpected character", at);
             tok.kind = .PUNCT;
             tok.end = at;
         }
+
         array_add(*result.tokens, tok);
     }
+
     return result;
 }
 
@@ -274,10 +297,12 @@ at_leading_dot_float :: (src: string, at: s64) -> bool {
 
 lex_number :: (src: string, at: *s64) {
     i := at.*;
+
     peek :: (n: s64) -> u8 #expand {
         if `i + n < `src.count return `src[`i + n];
         return 0;
     }
+
     if src[i] == #char "0" {
         p := peek(1);
         if p == #char "x" || p == #char "X" || p == #char "b" || p == #char "B" || p == #char "h" || p == #char "H" {
@@ -287,7 +312,9 @@ lex_number :: (src: string, at: *s64) {
             return;
         }
     }
+
     is_float := false;
+
     while i < src.count {
         c := src[i];
         if is_digit(c) || c == #char "_" {
@@ -305,6 +332,7 @@ lex_number :: (src: string, at: *s64) {
             break;
         }
     }
+
     at.* = i;
 }
 
@@ -312,18 +340,22 @@ lex_number :: (src: string, at: *s64) {
 // to a line whose first non-blank text is the tag. Leaves `at` after the closing tag.
 lex_here_string :: (src: string, at: *s64) -> bool {
     i := at.*;
+
     while true {
         while i < src.count && (src[i] == #char " " || src[i] == #char "\t") i += 1;
         if i >= src.count || src[i] != #char "," break;
         i += 1;
         while i < src.count && (src[i] == #char " " || src[i] == #char "\t") i += 1;
+
         if i < src.count && src[i] == #char "\\" {
             i += 2;
         } else {
             while i < src.count && is_ident_char(src[i]) i += 1;
         }
     }
+
     tag_start := i;
+
     while i < src.count && is_ident_char(src[i]) i += 1;
     tag := slice(src, tag_start, i - tag_start);
     if !tag.count return false;
@@ -339,7 +371,9 @@ lex_here_string :: (src: string, at: *s64) -> bool {
             at.* = indent + tag.count;
             return true;
         }
+
         i = line_end + 1;
     }
+
     return false;
 }

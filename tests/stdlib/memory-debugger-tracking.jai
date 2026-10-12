@@ -7,10 +7,12 @@ Node :: struct {
 totals :: (report: Basic.Leak_Report) -> (count: s64, bytes: s64) {
     count: s64;
     bytes: s64;
+
     for summary: report.sorted_summaries {
         count += summary.count + summary.child_count;
         bytes += summary.bytes + summary.child_bytes;
     }
+
     return count, bytes;
 }
 
@@ -23,6 +25,7 @@ main :: () -> s64 {
     second := Basic.alloc(24);
     report := Basic.make_leak_report(options);
     count, bytes := totals(report);
+
     Basic.deinit(*report);
     if count != 2 || bytes != 40 return 1;
     Basic.this_allocation_is_not_a_leak(first);
@@ -41,6 +44,7 @@ main :: () -> s64 {
     Basic.free(second);
     parent := Basic.New(Node);
     child := Basic.alloc(32);
+
     parent.child = child;
     options.scan_leaks_to_combine = true;
     report = Basic.make_leak_report(options);
@@ -48,10 +52,12 @@ main :: () -> s64 {
     if count != 2 || bytes != size_of(Node) + 32 return 5;
     roots: s64;
     children: s64;
+
     for summary: report.sorted_summaries {
         roots += summary.count;
         children += summary.child_count;
     }
+
     Basic.deinit(*report);
     if roots != 1 || children != 1 return 6;
     Basic.this_allocation_is_not_a_leak(parent);

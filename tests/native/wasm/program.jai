@@ -15,10 +15,12 @@ main :: () -> s32 {
     table: Table(string, int);
     for 0..9999 table_add(*table, sprint("key%", it), it * 3);
     total := 0;
+
     for 0..9999 {
         found := table_find_pointer(*table, tprint("key%", it));
         if found total += found.*;
     }
+
     print("table % %\n", table.count, total);
 
     // One block that grows to several megabytes, past the initial memory.
@@ -30,6 +32,7 @@ main :: () -> s32 {
     builder: String_Builder;
     for 0..499 print_to_builder(*builder, "% ", it);
     text := builder_to_string(*builder);
+
     print("text % %\n", text.count, split(text, " ").count);
     print("float % %\n", 3.25 * 2, sqrt(2.0));
     return cast(s32) args.count - 1;

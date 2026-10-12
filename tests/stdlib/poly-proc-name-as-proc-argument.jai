@@ -25,13 +25,16 @@ varargs_named :: (s: string, i: int, v: ..Any) -> int {
 main :: () {
     ints := int.[1, 2, 3];
     sq := map(ints, square);
+
     assert(sq.count == 3 && sq[2] == 9, "square");
 
     doubled := map(ints, twice);
+
     assert(doubled[1] == 4, "overload on int");
 
     strs := string.["a", "b"];
     ss := map(strs, twice);
+
     assert(ss[1] == "bb", "overload on string");
 
     // A named variadic keeps absorbing positional values until a later named argument.

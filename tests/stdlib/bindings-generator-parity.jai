@@ -55,13 +55,16 @@ has :: (text: string, needle: string) -> bool {
 // The bindings generated from `header`, written to and read back from a scratch directory.
 generate :: (name: string, header: string, cpp: bool) -> string {
     dir := scratch_directory(name);
+
     hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);
+
     assert(write_entire_file(header_path, header));
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     if cpp array_add(*opts.extra_clang_arguments, "-x", "c++");
     opts.generate_library_declarations = false;
@@ -69,6 +72,7 @@ generate :: (name: string, header: string, cpp: bool) -> string {
     array_add(*opts.generate_enums_from_macros_with_prefixes, "PROTO_");
     assert(generate_bindings(opts, output_path));
     text, ok := read_entire_file(output_path);
+
     assert(ok);
     return text;
 }
@@ -105,6 +109,7 @@ check_generated_text :: () {
         // An anonymous enum keeps its place in the file; comments on its values are not printed.
         anon := find_index_from_left(text, "FIRST_ANON");
         after := find_index_from_left(text, "After :: struct");
+
         assert(anon >= 0 && after >= 0 && anon < after);
         assert(has(text, "SLOW :: 0;\n"));
         assert(!has(text, "the careful one"));
@@ -130,11 +135,15 @@ C;
 // fields keep their layout as bytes and functions that pass one are stripped.
 check_long_double :: () {
     dir := scratch_directory("bindgen-parity-long-double");
+
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
+
     assert(write_entire_file(header_path, LONG_DOUBLE_HEADER));
+
     generate_for_x64 :: (header_path: string, extension: bool) -> string {
         opts: Generate_Bindings_Options;
+
         array_add(*opts.source_files, header_path);
         array_add(*opts.extra_clang_arguments, "-target", "x86_64-unknown-linux-gnu");
         opts.cpu = .X64;
@@ -142,10 +151,13 @@ check_long_double :: () {
         opts.use_jaic_long_double = extension;
         array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
         builder, ok := generate_bindings(opts);
+
         assert(ok);
         return builder_to_string(*builder);
     }
+
     text := generate_for_x64(header_path, true);
+
     assert(has(text, "value: Long_Double;"));
     assert(has(text, "assert(size_of(WithLongDouble) == 32"));
     assert(has(text, "get_long_double :: () -> Long_Double #foreign lib;"));
@@ -163,6 +175,7 @@ check_long_double :: () {
 main :: () {
     // The bindings compile (with their layout checks) and match the C layout.
     p: Packed4;
+
     assert(size_of(Packed4) == 12);
     assert(cast(*u8) *p.wide - cast(*u8) *p == 4);
     assert(SEPARATOR == #char "%");

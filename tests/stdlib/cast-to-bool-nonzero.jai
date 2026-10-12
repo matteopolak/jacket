@@ -13,17 +13,22 @@ Flags :: enum_flags {
 main :: () {
     two := 2;
     b := cast(bool) two;
+
     assert(b && !(!b) && b == true);
     assert(!cast(bool) 0 == true);
     big: u32 = 0x100;
+
     assert(cast(bool) big);
     flags := Flags.B;
     on := cast(bool) flags;
+
     assert(!(!on));
     words: [2] u64;
     p := *words[1];
+
     assert(cast(bool) p == true);
     half: float = 0.5;
+
     assert(cast(bool) half);
     print("ok\n");
 }

@@ -35,10 +35,12 @@ search_in_jai :: (key: *s32, xs: [] s32, compare: (*void, *void) -> s32 #c_call)
     while low < high {
         middle := (low + high) / 2;
         order := compare(key, *xs[middle]);
+
         if order == 0 return *xs[middle];
         if order < 0 high = middle;
         else low = middle + 1;
     }
+
     return null;
 }
 
@@ -52,7 +54,9 @@ main :: () {
         if OS == .WASM return cast(*s32) search_in_jai(key, xs, counting);
         return cast(*s32) bsearch(key, xs.data, cast(u64) xs.count, size_of(s32), counting);
     }
+
     found := find(*key, xs);
+
     print("% at index %\n", found.*, found - xs.data);
     assert(compared > 0);
     assert(find(*key, xs) == found);

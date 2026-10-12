@@ -46,16 +46,20 @@ collect :: (name: string, source: string, events: *[..] Event) -> s64 {
     compiler_begin_intercept(w);
     add_build_string(source, w);
     code := -1;
+
     while true {
         message := compiler_wait_for_message();
         event := Event.{ kind = message.kind };
+
         if message.kind == .PHASE event.phase = cast(s64) (cast(*Message_Phase) message).phase;
         array_add(events, event);
+
         if message.kind == .COMPLETE {
             code = cast(s64) (cast(*Message_Complete) message).error_code;
             break;
         }
     }
+
     compiler_end_intercept(w);
     return code;
 }
@@ -71,24 +75,29 @@ check_order :: () {
     first_typechecked_all := -1;
     first_file := -1;
     last_file_before_parsed := -1;
+
     for events {
         if it.kind == .FILE {
             if first_file < 0 first_file = it_index;
             if parsed < 0 last_file_before_parsed = it_index;
         }
+
         if it.kind == .PHASE && it.phase == 0 && parsed < 0 parsed = it_index;
         if it.kind == .PHASE && it.phase == 1 && first_typechecked_all < 0 first_typechecked_all = it_index;
     }
+
     // ws.7: FILE events, then PHASE ALL_SOURCE_CODE_PARSED, then PHASE TYPECHECKED_ALL_WE_CAN.
     assert(first_file >= 0 && parsed > last_file_before_parsed, "ws.7: files come before ALL_SOURCE_CODE_PARSED");
     assert(first_typechecked_all > parsed, "ws.7: TYPECHECKED_ALL_WE_CAN follows ALL_SOURCE_CODE_PARSED");
 
     // ws.11: an IMPORT precedes the first FILE.
     first_import := -1;
+
     for events if it.kind == .IMPORT {
         first_import = it_index;
         break;
     }
+
     assert(first_import >= 0 && first_import < first_file, "ws.11: IMPORT before FILE");
 
     // ws.12: a TYPECHECKED message comes right before the first TYPECHECKED_ALL_WE_CAN.

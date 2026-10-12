@@ -15,6 +15,7 @@ Counting :: struct {
 counting_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
     counts := cast(*Counting) data;
     base := Context_Base.default_allocator;
+
     if mode == {
         case .ALLOCATE;
             counts.allocations += 1;
@@ -32,8 +33,10 @@ counting_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
                 name := cast(*string) old_memory;
                 name.* = "counting";
             }
+
             return cast(*void) cast(u64) (Allocator_Caps.FREE | .ACTUALLY_RESIZE);
     }
+
     return base.proc(mode, size, old_size, old_memory, base.data);
 }
 
@@ -56,16 +59,19 @@ main :: () {
         assert(alloc(-1, counting) == null, "a negative size");
         assert(counts.allocations == 0, "a negative size never reaches the allocator");
         empty := alloc(0, counting);
+
         free(empty, counting);
         free(null, counting);
         assert(counts.frees == 1, "free(null) does not reach the allocator: % frees", counts.frees);
         none: Allocator;
+
         assert(alloc(16, none) == null, "an allocator without a proc");
         assert(realloc(null, 16, 0, none) == null);
 
         memory := cast(*u8) alloc(10, counting);
         for 0..9 memory[it] = cast(u8) (it + 1);
         grown := cast(*u8) realloc(memory, 100000, 10, counting);
+
         assert(grown != null);
         for 0..9 assert(grown[it] == it + 1, "realloc kept byte %: %", it, grown[it]);
         grown[99999] = 5;
@@ -74,6 +80,7 @@ main :: () {
         assert(realloc(shrunk, -1, 4, counting) == null && realloc(shrunk, 4, -1, counting) == null, "negative sizes");
         free(shrunk, counting);
         s := alloc_string(5, counting);
+
         assert(s.count == 5 && s.data != null);
         free(s, counting);
         assert(alloc_string(0, counting) == "");
@@ -83,6 +90,7 @@ main :: () {
     // get_capabilities.
     {
         caps, name := get_capabilities(counting);
+
         assert(caps == .FREE | .ACTUALLY_RESIZE && name == "counting", "caps % name %", caps, name);
         caps, name = get_capabilities(Allocator.{});
         assert(caps == 0 && name == "");
@@ -94,12 +102,15 @@ main :: () {
     {
         push_allocator(counting);
         d := New(Defaults);
+
         assert(d.a == 7 && d.b == "seven" && d.c[2] == 3, "New initializes: %", d.*);
         free(d);
         raw := New(Defaults, initialized = false);
+
         assert(raw != null);
         free(raw);
         explicit := New(s64, allocator = counting);
+
         assert(explicit.* == 0);
         free(explicit);
 
@@ -110,19 +121,26 @@ main :: () {
         for zeros assert(it == 0);
         free(zeros.data);
         nothing, base := NewArray(0, s64);
+
         assert(nothing.count == 0 && nothing.data == null && base == null);
         negative := NewArray(-5, s64);
+
         assert(negative.count == 0);
         huge := NewArray(0x7fff_ffff_ffff_ffff / 4, s64);
+
         assert(huge.count == 0 && huge.data == null, "an overflowing NewArray is refused");
+
         for alignment: s32.[16, 64, 256, 4096] {
             aligned, aligned_base := NewArray(3, s64, alignment = alignment);
+
             assert(cast(u64) aligned.data % cast(u64) alignment == 0, "NewArray alignment %: %", alignment, aligned.data);
             assert(aligned_base != null && cast(*u8) aligned.data >= cast(*u8) aligned_base);
             for aligned assert(it == 0);
             free(aligned_base);
         }
+
         wide := New(Wide);
+
         assert(cast(u64) wide % 64 == 0, "New of a #align 64 type: %", wide);
         free(wide);
         assert(counts.live == 0, "% live after New/NewArray", counts.live);
@@ -132,14 +150,18 @@ main :: () {
     // The (proc, data) overload of push_allocator, nested.
     {
         inner: Counting;
+
         push_allocator(counting_proc, *inner);
         assert(context.allocator.data == *inner);
+
         {
             push_allocator(counting);
             assert(context.allocator.data == *counts);
         }
+
         assert(context.allocator.data == *inner, "the inner push_allocator was undone");
         p := alloc(8);
+
         free(p);
         assert(inner.allocations == 1 && inner.frees == 1);
     }
@@ -148,10 +170,13 @@ main :: () {
     {
         default_allocator := context.allocator;
         caps := get_capabilities(default_allocator);
+
         if caps & .CREATE_HEAP {
             heap := create_heap(default_allocator);
+
             assert(heap.data != null && heap.data != default_allocator.data);
             p := alloc(100, heap);
+
             assert(p != null);
             assert(heap.proc(.IS_THIS_YOURS, 0, 0, p, heap.data) != null, "the heap owns its block");
             destroy_heap(heap);
@@ -167,31 +192,39 @@ main :: () {
 
 check_temporary_storage :: () {
     storage := context.temporary_storage;
+
     assert(storage != null);
     reset_temporary_storage();
     assert(storage.total_bytes_occupied == 0 && storage.high_water_mark == 0);
 
     first := talloc(10);
+
     assert(cast(u64) first % 8 == 0);
     second := talloc(1);
+
     assert(cast(*u8) second == cast(*u8) first + 16, "allocations are 8-aligned and adjacent");
     assert(temporary_allocator_proc(.IS_THIS_YOURS, 0, 0, first, null) != null);
     local: s64;
+
     assert(temporary_allocator_proc(.IS_THIS_YOURS, 0, 0, *local, null) == null);
 
     // A RESIZE that fits the old block's rounding stays in place.
     grown := realloc(second, 8, 1, temp);
+
     assert(grown == second, "resize within the 8-byte rounding stays put");
     moved := cast(*u8) realloc(first, 64, 10, temp);
+
     assert(moved != first);
 
     mark := get_temporary_storage_mark();
+
     for 1..100 talloc(1000);
     assert(storage.total_bytes_occupied > 100000, "overflow pages hold %", storage.total_bytes_occupied);
     big := cast(*u8) talloc(1_000_000);
     big[999_999] = 1;
     assert(temporary_allocator_proc(.IS_THIS_YOURS, 0, 0, big + 999_999, null) != null, "overflow pages belong to temp");
     high := storage.high_water_mark;
+
     set_temporary_storage_mark(mark);
     assert(storage.total_bytes_occupied == mark.total_bytes_occupied, "the mark restores the occupancy");
     assert(storage.high_water_mark == high, "the high water mark survives set_temporary_storage_mark");
@@ -201,11 +234,14 @@ check_temporary_storage :: () {
         auto_release_temp();
         for 1..50 talloc(4000);
     }
+
     assert(storage.total_bytes_occupied == mark.total_bytes_occupied + 8, "auto_release_temp released its scope: %", storage.total_bytes_occupied);
 
     text := talloc_string(3);
+
     assert(text.count == 3);
     s := tprint("% and %", 1, "two");
+
     assert(s == "1 and two");
     reset_temporary_storage();
     assert(storage.total_bytes_occupied == 0 && storage.high_water_mark == 0);
@@ -213,26 +249,33 @@ check_temporary_storage :: () {
     // A storage of our own, with its overflow allocator.
     counts: Counting;
     mine: Temporary_Storage;
+
     assert(init_temporary_storage(*mine, 256, allocator = .{ counting_proc, *counts }));
     assert(counts.allocations == 1);
+
     {
         scoped := context;
+
         push_context, defer_pop scoped;
         context.temporary_storage = *mine;
         a := talloc(200);
+
         assert(cast(*u8) a == mine.data);
         b := talloc(200);
+
         assert(counts.allocations == 2, "the second block overflowed into a new page");
         assert(temporary_allocator_proc(.IS_THIS_YOURS, 0, 0, b, null) != null);
         reset_temporary_storage();
         assert(counts.frees == 1, "reset released the overflow page");
         assert(talloc(16) == mine.data);
     }
+
     deinit_temporary_storage(*mine, .{ counting_proc, *counts }, true);
     assert(counts.live == 0, "% live after deinit", counts.live);
     assert(!init_temporary_storage(*mine, -1));
     // Storage handed in by the caller is used as is.
     buffer: [128] u8;
+
     assert(init_temporary_storage(*mine, buffer.count, buffer.data));
     assert(mine.data == buffer.data);
     deinit_temporary_storage(*mine);
@@ -240,12 +283,15 @@ check_temporary_storage :: () {
     // Without temporary storage, temp falls back to the context allocator.
     {
         scoped := context;
+
         push_context, defer_pop scoped;
         context.temporary_storage = null;
         p := talloc(32);
+
         assert(p != null);
         free(p, Context_Base.default_allocator);
         mark := get_temporary_storage_mark();
+
         assert(mark.total_bytes_occupied == 0);
         set_temporary_storage_mark(mark);
         reset_temporary_storage();
@@ -263,6 +309,7 @@ check_resizable_arrays :: () {
     for a assert(it == it_index * 3, "a[%] = %", it_index, it);
     assert(counts.allocations < 40, "growth is geometric: % allocations", counts.allocations);
     reserved := a.allocated;
+
     array_reserve(*a, 10);
     assert(a.allocated == reserved, "reserving less never shrinks");
     array_reset_keeping_memory(*a);
@@ -280,6 +327,7 @@ check_resizable_arrays :: () {
     array_ordered_remove_by_index(*a, 2);
     assert(a.count == 5 && a[2] == 2 && a[4] == 4);
     view: [] s64 = a;
+
     assert(array_ordered_remove_by_value(*view, 3) && view.count == 4 && view[3] == 4);
     assert(!array_ordered_remove_by_value(*view, 42));
     a.count = view.count;
@@ -289,10 +337,12 @@ check_resizable_arrays :: () {
     assert(pop(*a) == 2 && a.count == 2);
 
     added, index := array_add_if_unique(*a, 1);
+
     assert(!added && index == 1, "1 is already at index 1: % %", added, index);
     added, index = array_add_if_unique(*a, 5);
     assert(added && index == 2 && a[2] == 5);
     found, at := array_find(a, 5);
+
     assert(found && at == 2);
     found, at = array_find(a, 77);
     assert(!found && at == -1);
@@ -301,6 +351,7 @@ check_resizable_arrays :: () {
     array_reset(*a);
     array_add(*a, 7, 1, 7, 7, 2, 7);
     dup_view: [] s64 = a;
+
     assert(array_unordered_remove_by_value(*dup_view, 7, stop_after_first = true) == 1 && dup_view.count == 5);
     assert(array_unordered_remove_by_value(*dup_view, 7) == 3 && dup_view.count == 2, "left %", dup_view);
     for dup_view assert(it != 7);
@@ -310,17 +361,21 @@ check_resizable_arrays :: () {
     array_reset(*a);
     for 0..99 array_add(*a, it);
     visited := 0;
+
     for a {
         visited += 1;
         if it % 3 == 0 remove it;
     }
+
     assert(visited == 100, "visited %", visited);
     assert(a.count == 66, "% left after removing multiples of 3", a.count);
     sum := 0;
+
     for a {
         assert(it % 3 != 0);
         sum += it;
     }
+
     assert(sum == 4950 - 1683, "sum %", sum);
     // Removing every element.
     for a remove it;
@@ -334,10 +389,12 @@ check_resizable_arrays :: () {
     array_resize(*a, 6);
     assert(a.count == 6 && a[5] == 0, "growing again zero-initializes: %", a);
     copy := array_copy(a);
+
     assert(copy.count == 6 && copy.data != a.data);
     copy[0] = 10;
     assert(a[0] == 0, "array_copy is a deep copy");
     other: [..] s64;
+
     array_add(*other, 9);
     array_swap(*a, *other);
     assert(a.count == 1 && a[0] == 9 && other.count == 6);
@@ -350,6 +407,7 @@ check_resizable_arrays :: () {
 
     // maybe_grow and init_range on raw storage.
     raw: [..] Defaults;
+
     maybe_grow(cast(*Resizable_Array) *raw, size_of(Defaults));
     assert(raw.allocated >= 1 && raw.count == 0);
     raw.count = raw.allocated;
@@ -360,9 +418,11 @@ check_resizable_arrays :: () {
 
     // Structs with initializers grow initialized.
     structs: [..] Defaults;
+
     array_resize(*structs, 3);
     for structs assert(it.a == 7, "resized element % not initialized", it_index);
     pointer := array_add(*structs);
+
     assert(pointer.a == 7 && structs.count == 4);
     array_free(structs);
 }
@@ -371,15 +431,20 @@ check_array_views :: () {
     numbers: [10] s64;
     for *numbers it.* = it_index;
     tail := array_view(numbers, 6);
+
     assert(tail.count == 4 && tail[0] == 6);
     middle := array_view(numbers, 2, 3);
+
     assert(middle.count == 3 && middle[0] == 2 && middle[2] == 4);
     empty := array_view(numbers, 10);
+
     assert(empty.count == 0);
     clipped := array_view(numbers, 7, 20);
+
     assert(clipped.count == 3 && clipped[0] == 7);
     assert(peek(middle) == 4 && peek_pointer(middle) == *numbers[4]);
     m := middle;
+
     assert(pop(*m) == 4 && m.count == 2);
 
     heap := NewArray(4, s64);
@@ -389,6 +454,7 @@ check_array_views :: () {
     array_resize(*heap, 2, initialize = false);
     assert(heap.count == 2 && heap[1] == 10);
     copied := array_copy(heap);
+
     assert(copied.count == 2 && copied[1] == 10 && copied.data != heap.data);
     array_reset(*heap);
     assert(heap.count == 0 && heap.data == null);
@@ -401,8 +467,10 @@ check_array_views :: () {
     free(unordered.data);
 
     as_resizable := resizable(numbers, set_allocators = false);
+
     assert(as_resizable.count == 10 && as_resizable.data == numbers.data && as_resizable.allocated == 10 && as_resizable.allocator.proc == null);
     with_allocator := resizable(numbers);
+
     assert(with_allocator.allocator.proc == context.allocator.proc);
 }
 
@@ -424,8 +492,10 @@ Color :: enum s16 {
 
 check_small_helpers :: () {
     x, y := swap(1, 2);
+
     assert(x == 2 && y == 1);
     p, q := "p", "q";
+
     swap(*p, *q);
     assert(p == "q" && q == "p");
     Swap(*p, *q);
@@ -435,16 +505,20 @@ check_small_helpers :: () {
     assert(!IsScalar(string) && !IsScalar(*u8) && !IsScalar(Holder));
 
     values := enum_values_as_s64(Color);
+
     assert(values.count == 3 && values[0] == -2 && values[2] == 9);
     as_enum := enum_values_as_enum(Color);
+
     assert(as_enum.count == 3 && as_enum[0] == .RED && as_enum[1] == .GREEN && as_enum[2] == .BLUE);
     free(as_enum.data);
     low, high := enum_range(Color);
+
     assert(low == -2 && high == 9 && enum_highest_value(Color) == 9);
     assert(enum_names(Color)[1] == "GREEN");
 
     holder: Holder;
     other: Allocator = .{ counting_proc, null };
+
     holder.nested.allocator = other;
     remember_allocators(*holder);
     assert(holder.allocator.proc == context.allocator.proc, "a missing allocator is filled in");
@@ -453,27 +527,33 @@ check_small_helpers :: () {
     assert(holder.nested.allocator.proc == counting_proc, "a set allocator is kept");
 
     integer, signed, bits := is_integer_type(s16);
+
     assert(integer && signed && bits == 16);
     integer, signed, bits = is_integer_type(u64);
     assert(integer && !signed && bits == 64);
     integer = is_integer_type(float32);
     assert(!integer);
+
     {
         lo, hi := get_integer_range(s8);
         assert(lo == -128 && hi == 127);
     }
+
     {
         lo, hi := get_integer_range(u16);
         assert(lo == 0 && hi == 65535);
     }
+
     {
         lo, hi := get_integer_range(s64);
         assert(lo == -9223372036854775807 - 1 && hi == 9223372036854775807);
     }
+
     {
         lo, hi := get_integer_range(u64);
         assert(lo == 0 && hi == 0xffff_ffff_ffff_ffff);
     }
+
     assert(clamp_to_another_integer_type(300, u8) == 255);
     assert(clamp_to_another_integer_type(-5, u8) == 0);
     assert(clamp_to_another_integer_type(-500, s8) == -128);

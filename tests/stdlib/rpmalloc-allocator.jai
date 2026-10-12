@@ -10,11 +10,13 @@ main :: () {
     a.data = a.proc(.STARTUP, 0, 0, null, null);
     assert(a.data != null, "startup gives the main heap");
     caps, name := get_capabilities(a);
+
     assert((caps & .CREATE_HEAP) != 0 && (caps & .IS_THIS_YOURS) != 0 && (caps & .ACTUALLY_RESIZE) != 0, "caps %", caps);
     assert(name.count > 0);
 
     for size: s64.[1, 15, 16, 63, 64, 65, 500, 4096, 70000, 3_000_000] {
         p := cast(*u8) alloc(size, a);
+
         assert(p != null, "alloc %", size);
         if size >= 64 assert(cast(u64) p % 64 == 0, "a % byte block at %", size, p);
         for i: 0..size - 1 p[i] = cast,trunc(u8) (i * 13);
@@ -22,8 +24,10 @@ main :: () {
 
         // Grow across size classes, then shrink: contents survive each step.
         kept := size;
+
         for new_size: s64.[size + 1, size * 4 + 100, 24] {
             q := cast(*u8) realloc(p, new_size, kept, a);
+
             assert(q != null, "resize % -> %", kept, new_size);
             check := min(kept, new_size);
             for i: 0..check - 1 assert(q[i] == cast,trunc(u8) (i * 13), "byte % lost resizing % -> %", i, kept, new_size);
@@ -31,6 +35,7 @@ main :: () {
             p = q;
             kept = new_size;
         }
+
         free(p, a);
     }
 
@@ -46,6 +51,7 @@ main :: () {
     other := create_heap(a);
     inside := alloc(100, heap);
     outside := alloc(100, other);
+
     assert(heap.proc(.IS_THIS_YOURS, 0, 0, inside, heap.data) != null);
     assert(heap.proc(.IS_THIS_YOURS, 0, 0, outside, heap.data) == null, "ownership is per heap");
     destroy_heap(heap);
@@ -63,6 +69,7 @@ main :: () {
             slot := cast(**u8) t.data;
             for 0..255 slot.*[it] = cast,trunc(u8) it;
             fresh := cast(*u8) alloc(512, mine);
+
             memset(fresh, 7, 512);
             free(fresh, mine);
             mine.proc(.THREAD_STOP, 0, 0, null, mine.data);
@@ -70,10 +77,12 @@ main :: () {
         });
         thread_start(it);
     }
+
     for *workers {
         thread_is_done(it, -1);
         thread_deinit(it);
     }
+
     for shared {
         for i: 0..255 assert(it[i] == cast,trunc(u8) i, "thread wrote its slot");
         free(it, a);

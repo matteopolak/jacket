@@ -84,6 +84,7 @@ tour_polymorphism :: () {
         largest(int.[3, 9, 4]), largest(float.[2.5, -1, 0.5]), largest(u8.[7, 250, 13]));
 
     left, right := "left", "right";
+
     swap_values(*left, *right);
     print("after swap_values: % %\n", left, right);
 
@@ -95,16 +96,19 @@ tour_polymorphism :: () {
     show_ring(dice);
 
     ship := Ship.{ name = "Rocinante", x = 3, y = 4, cargo = 12 };
+
     print("% is % units from home.\n", ship.name, distance_from_origin(ship));
 
     byte_total := running_total(u8.[200, 200, 200]);
     float_total := running_total(float.[0.5, 0.25]);
+
     print("u8 total: % (an %), float total: % (a %)\n",
         byte_total, type_of(byte_total), float_total, type_of(float_total));
 
     n := 5;
     a, a_baked := power(2, 10);
     b, b_baked := power(3, n);
+
     print("power(2, 10) = % (baked: %), power(3, n) = % (baked: %)\n", a, a_baked, b, b_baked);
     print("double_it(21) = %\n", double_it(21));
 }

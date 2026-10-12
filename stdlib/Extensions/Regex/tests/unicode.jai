@@ -30,6 +30,7 @@ is_normalized :: (ranges: [] Char_Range) -> bool {
         if it.lo > it.hi return false;
         if it_index > 0 && cast(s64) it.lo <= cast(s64) ranges[it_index - 1].hi + 1 return false;
     }
+
     return true;
 }
 
@@ -52,6 +53,7 @@ lookup :: (spec: string) -> [..] Char_Range {
         fail("`%` did not resolve: %", spec, error);
         return ranges;
     }
+
     expect(error == "", tprint("`%` succeeded but has an error text", spec));
     expect(is_normalized(ranges), tprint("`%` is not sorted and merged", spec));
     return ranges;
@@ -88,9 +90,11 @@ test_general_categories :: () {
 
     // Every code point is in exactly one two-letter category.
     total: s64 = 0;
+
     for string.["Lu", "Ll", "Lt", "Lm", "Lo", "Mn", "Mc", "Me", "Nd", "Nl", "No", "Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po", "Sm", "Sc", "Sk", "So", "Zs", "Zl", "Zp", "Cc", "Cf", "Cs", "Co", "Cn"] {
         total += size_of_ranges(lookup(it));
     }
+
     expect(total == 0x110000, "the 30 categories partition the code space");
 }
 
@@ -135,6 +139,7 @@ test_binary_properties :: () {
     same_as("Alphabetic=true", "Alphabetic");
     same_as("Alphabetic:t", "Alphabetic");
     negated := ranges_negate(lookup("Alphabetic"));
+
     expect(same_ranges(negated, lookup("Alphabetic=no")), "=no is the complement");
     expect(same_ranges(negated, lookup("alpha=N")) && same_ranges(negated, lookup("alpha=false")) && same_ranges(negated, lookup("alpha:f")), "other spellings of no");
     expect(has("Alphabetic=No", #char "1") && !has("Alphabetic=No", #char "a"), "=No holds the digit");
@@ -143,8 +148,10 @@ test_binary_properties :: () {
 test_special_names :: () {
     expect(size_of_ranges(lookup("Any")) == 0x110000, "Any");
     ascii := lookup("ASCII");
+
     expect(ascii.count == 1 && ascii[0].lo == 0 && ascii[0].hi == 0x7F, "ASCII");
     assigned := lookup("Assigned");
+
     expect(contains(assigned, #char "a") && !contains(assigned, 0x0378), "Assigned");
     expect(size_of_ranges(assigned) + size_of_ranges(lookup("Cn")) == 0x110000, "Assigned and Cn are complements");
     same_as("any", "ANY");
@@ -195,6 +202,7 @@ test_perl_classes :: () {
     word := unicode_perl_word();
     digit := unicode_perl_digit();
     space := unicode_perl_space();
+
     expect(is_normalized(word) && is_normalized(digit) && is_normalized(space), "perl classes are normalized");
 
     expect(contains(word, #char "_") && contains(word, 0x00E9) && contains(word, 0x0663) && contains(word, 0x200D), "\\w holds _, e-acute, Arabic-Indic digit and ZWJ");
@@ -211,28 +219,35 @@ test_perl_classes :: () {
 
 test_range_helpers :: () {
     ranges: [..] Char_Range;
+
     array_add(*ranges, .{ 10, 20 }, .{ 1, 3 }, .{ 4, 5 }, .{ 15, 30 }, .{ 40, 40 }, .{ 41, 41 }, .{ 7, 7 });
     ranges_normalize(*ranges);
     expected := Char_Range.[.{ 1, 5 }, .{ 7, 7 }, .{ 10, 30 }, .{ 40, 41 }];
+
     expect(same_ranges(ranges, expected), "normalize sorts and merges");
 
     empty: [..] Char_Range;
+
     ranges_normalize(*empty);
     expect(empty.count == 0, "normalize of nothing");
     expect(size_of_ranges(ranges_negate(empty)) == 0x110000, "negation of nothing is everything");
 
     negated := ranges_negate(ranges);
+
     expect(is_normalized(negated), "negation is normalized");
     expect(negated[0].lo == 0 && negated[0].hi == 0, "negation starts at zero");
     expect(negated[negated.count - 1].hi == 0x10FFFF && negated[negated.count - 1].lo == 42, "negation ends at the top");
     expect(size_of_ranges(negated) + size_of_ranges(ranges) == 0x110000, "negation covers the rest");
     again := ranges_negate(negated);
+
     expect(same_ranges(again, ranges), "negating twice round-trips");
 
     whole := Char_Range.[.{ 0, 0x10FFFF }];
+
     expect(ranges_negate(whole).count == 0, "negation of everything is nothing");
 
     letters := lookup("L");
+
     expect(same_ranges(ranges_negate(ranges_negate(letters)), letters), "negation round-trips on \\p{L}");
 }
 
@@ -243,16 +258,21 @@ includes :: (items: [] u32, c: u32) -> bool {
 
 test_case_folding :: () {
     k := unicode_simple_fold(#char "k");
+
     expect(k.count == 2 && includes(k, #char "K") && includes(k, 0x212A), "k folds with K and the Kelvin sign");
     kelvin := unicode_simple_fold(0x212A);
+
     expect(kelvin.count == 2 && includes(kelvin, #char "k") && includes(kelvin, #char "K"), "Kelvin sign orbit");
 
     sigma := unicode_simple_fold(0x03C3);
+
     expect(sigma.count == 2 && includes(sigma, 0x03A3) && includes(sigma, 0x03C2), "sigma folds with Sigma and final sigma");
     final := unicode_simple_fold(0x03C2);
+
     expect(final.count == 2 && includes(final, 0x03C3) && includes(final, 0x03A3), "final sigma orbit");
 
     s := unicode_simple_fold(#char "s");
+
     expect(s.count == 2 && includes(s, #char "S") && includes(s, 0x017F), "s folds with S and long s");
     expect(includes(unicode_simple_fold(0x1E9E), 0x00DF), "capital sharp s folds with sharp s");
     expect(includes(unicode_simple_fold(0x00E5), 0x00C5) && includes(unicode_simple_fold(0x00E5), 0x212B), "a-ring folds with A-ring and the Angstrom sign");
@@ -274,6 +294,7 @@ test_case_folding :: () {
 test_case_fold_ranges :: () {
     lower := Char_Range.[.{ #char "a", #char "z" }];
     folded := unicode_case_fold_ranges(lower);
+
     expect(is_normalized(folded), "folded ranges are normalized");
     expect(contains(folded, #char "A") && contains(folded, #char "Z") && contains(folded, #char "m"), "[a-z] gains A-Z");
     expect(contains(folded, 0x017F) && contains(folded, 0x212A), "[a-z] gains long s and the Kelvin sign");
@@ -281,28 +302,34 @@ test_case_fold_ranges :: () {
 
     single := Char_Range.[.{ 0x03C3, 0x03C3 }];
     sigma := unicode_case_fold_ranges(single);
+
     expect(contains(sigma, 0x03A3) && contains(sigma, 0x03C2) && contains(sigma, 0x03C3), "sigma range");
     expect(sigma.count == 3 || sigma.count == 2, "sigma range size");
 
     // Unsorted and overlapping input is accepted.
     messy := Char_Range.[.{ #char "z", #char "z" }, .{ #char "a", #char "c" }, .{ #char "b", #char "d" }];
     result := unicode_case_fold_ranges(messy);
+
     expect(contains(result, #char "A") && contains(result, #char "D") && contains(result, #char "Z") && !contains(result, #char "E"), "messy input");
 
     nothing: [..] Char_Range;
+
     expect(unicode_case_fold_ranges(nothing).count == 0, "folding no ranges");
     digits := Char_Range.[.{ #char "0", #char "9" }];
+
     expect(same_ranges(unicode_case_fold_ranges(digits), digits), "digits are their own fold");
 
     // Folding a whole category is closed under folding and stays within bounds.
     letters := lookup("L");
     all_letters := unicode_case_fold_ranges(letters);
+
     expect(is_normalized(all_letters), "folded \\p{L} is normalized");
     expect(size_of_ranges(all_letters) >= size_of_ranges(letters), "folding only adds");
     expect(same_ranges(unicode_case_fold_ranges(all_letters), all_letters), "folding is idempotent");
 
     upper := lookup("Lu");
     folded_upper := unicode_case_fold_ranges(upper);
+
     expect(contains(folded_upper, #char "a") && contains(folded_upper, 0x03C2), "folded Lu holds lower case");
 }
 

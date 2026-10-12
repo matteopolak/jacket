@@ -168,6 +168,7 @@ main :: () {
 
     // ctdata.12: every type the program uses has a descriptor in the type table.
     info := get_runtime_info();
+
     assert(info.type_table.count > 0, "ctdata.12: the type table is filled");
     found := false;
     for info.type_table if it == type_info(Marker_Type) found = true;
@@ -179,12 +180,15 @@ main :: () {
     // ctdata.13: globals live inside one of the reported data segments.
     assert(info.global_data_info != null, "ctdata.13: global data info exists");
     segments := info.global_data_info.segment_info;
+
     assert(segments.count > 0, "ctdata.13: there are data segments");
     address := cast(u64) *marker_global;
     inside := false;
+
     for segments {
         start := cast(u64) it.data.data;
         if address >= start && address < start + cast(u64) it.data.count inside = true;
     }
+
     assert(inside, "ctdata.13: a global lies inside a reported segment");
 }

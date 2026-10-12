@@ -22,10 +22,13 @@ Tagged :: struct {
 
 main :: () {
     plain := Plain.{ p = null };
+
     assert(plain.p == null);
     tagged := Tagged.{ tag = .BANANA, banana = null };
+
     assert(tagged.tag == .BANANA && tagged.banana == null);
     constant :: Plain.{ p = null };
+
     assert(constant.p == null);
     print("ok\n");
 }

@@ -10,8 +10,10 @@ main :: () {
 
 check_tagged_union :: () {
     Value :: Tagged_Union(s64, string, float32, [3] u8);
+
     #assert size_of(Value.bytes) == 16;
     v: Value;
+
     assert(isa(v, s64) == null && isa(v, string) == null, "nothing set yet");
     set(*v, cast(s64) -5);
     assert(v.tag == s64 && isa(v, s64).* == -5 && isa(v, string) == null);
@@ -21,6 +23,7 @@ check_tagged_union :: () {
     assert(isa(v, float32).* == 2.5);
     set(*v, u8.[1, 2, 3]);
     bytes := isa(v, [3] u8);
+
     assert(bytes != null && bytes.*[2] == 3);
     // isa hands out a pointer into the union: writes through it stick.
     bytes.*[0] = 9;

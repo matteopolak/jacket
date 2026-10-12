@@ -18,10 +18,13 @@ total: int;
 repeat_with_i :: (count: int, body: Code) #expand {
     #insert -> string {
         builder: String_Builder;
+
         defer free_buffers(*builder);
+
         for 0..count - 1 {
             print_to_builder(*builder, "{ i :: %; #insert,scope() body; }\n", it);
         }
+
         return builder_to_string(*builder);
     }
 }
@@ -38,9 +41,11 @@ main :: () -> int {
     if record.alpha + record.beta != 7 return 1;
 
     x := 3;
+
     #insert -> Code {
         return #code x = (x * 10) + 5;
     }
+
     if x != 35 return 2;
 
     total = 0;

@@ -10,3 +10,8 @@ fc5a1290fd0a85a9fc677d36a80cbb0d186b9b39
 1d771bac973cc720778771f030e6994bbd323576
 # style: reformat the repository with blank lines between file-level items
 ec76b1fc3fb8dcf8cfad0c49c4d74e48e7933a3d
+# style: reformat with the stricter blank-line options
+53311458ebe17a167d5f16d73e502b82e6d407fc
+
+# style: reformat with the declaration and block blank-line options only
+86a7c9ae9c64be6ea22e8e9640c50b8aa6027a17

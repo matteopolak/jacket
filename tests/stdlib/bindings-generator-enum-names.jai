@@ -44,19 +44,23 @@ C;
 
 generate :: (name: string, windows: bool) -> string {
     dir := scratch_directory(name);
+
     hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);
+
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     opts.generate_library_declarations = false;
     array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
     if windows opts.os = .WINDOWS;
     assert(generate_bindings(opts, output_path));
     text, ok := read_entire_file(output_path);
+
     assert(ok);
     return text;
 }
@@ -97,6 +101,7 @@ check_enum_names :: () {
 
     // MSVC types an enum without a stated type `int`; a host with another default is told by `os`.
     windows := generate("bindgen-enum-names-windows", true);
+
     assert(has(windows, "PlotFormatEnum :: enum s32 {"));
     assert(has(windows, "Severity :: enum s32 {"));
     assert(has(windows, "Signed :: enum s32 {"));

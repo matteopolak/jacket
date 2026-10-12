@@ -10,6 +10,7 @@ main :: () {
     assert(kind(#char "a") == "u8");
     assert(kind(97) == "other");
     parts := split("a,b,c", #char ",");
+
     assert(parts.count == 3 && parts[2] == "c");
     print("ok\n");
 }

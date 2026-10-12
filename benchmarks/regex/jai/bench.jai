@@ -53,14 +53,17 @@ bench_static :: ($R: Type, id: string) {
     if !wanted(id) return;
     count := 0;
     best: float64 = 1.0e30;
+
     for 1..runs {
         t := now();
         matches := Regex.find_all(R, corpus);
         dt := now() - t;
+
         count = matches.count;
         array_free(matches);
         if dt < best best = dt;
     }
+
     report("jai-static", id, count, 0, best, 0);
 }
 
@@ -69,45 +72,56 @@ bench_static_captures :: ($R: Type, id: string) {
     count := 0;
     check: u64;
     best: float64 = 1.0e30;
+
     for 1..runs {
         t := now();
         all := Regex.captures_all(R, corpus);
         sum: u64;
+
         for all sum += cast(u64) it.year + cast(u64) it.month + cast(u64) it.day;
         dt := now() - t;
+
         count = all.count;
         check = sum;
         array_free(all);
         if dt < best best = dt;
     }
+
     report("jai-static", id, count, check, best, 0);
 }
 
 bench_runtime :: (pattern: string, id: string) {
     if !wanted(id) return;
     best_compile: float64 = 1.0e30;
+
     for 1..20 {
         t := now();
         re, ok, error := Regex.compile(pattern);
         dt := now() - t;
+
         if !ok {
             print("RESULT\tjai-runtime\t%\tna\t0\t0\t0\t0\tcompile error: %\n", id, error.message);
             return;
         }
+
         Regex.free_regex(*re);
         if dt < best_compile best_compile = dt;
     }
+
     re := Regex.compile(pattern);
     count := 0;
     best: float64 = 1.0e30;
+
     for 1..runs {
         t := now();
         matches := Regex.find_all(*re, corpus);
         dt := now() - t;
+
         count = matches.count;
         array_free(matches);
         if dt < best best = dt;
     }
+
     Regex.free_regex(*re);
     report("jai-runtime", id, count, 0, best, best_compile * 1000000.0);
 }
@@ -115,33 +129,41 @@ bench_runtime :: (pattern: string, id: string) {
 bench_runtime_captures :: (pattern: string, id: string) {
     if !wanted(id) return;
     best_compile: float64 = 1.0e30;
+
     for 1..20 {
         t := now();
         re := Regex.compile(pattern);
         dt := now() - t;
+
         Regex.free_regex(*re);
         if dt < best_compile best_compile = dt;
     }
+
     re := Regex.compile(pattern);
     count := 0;
     check: u64;
     best: float64 = 1.0e30;
+
     for 1..runs {
         t := now();
         all := Regex.captures_all(*re, corpus);
         sum: u64;
+
         for all {
             year, _ := Regex.group(it, "year");
             month, _ := Regex.group(it, "month");
             day, _ := Regex.group(it, "day");
             sum += digits(year) + digits(month) + digits(day);
         }
+
         dt := now() - t;
+
         count = all.count;
         check = sum;
         array_free(all);
         if dt < best best = dt;
     }
+
     Regex.free_regex(*re);
     report("jai-runtime", id, count, check, best, best_compile * 1000000.0);
 }
@@ -152,6 +174,7 @@ main :: () {
         print("usage: bench CORPUS RUNS [CASE...]\n");
         exit(2);
     }
+
     data, ok := read_entire_file(args[1]);
     if !ok exit(1);
     corpus = data;

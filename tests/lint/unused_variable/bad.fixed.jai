@@ -6,8 +6,10 @@ lookup :: (key: string) -> int, bool {
 
 main :: () {
     a, _ := 1, 2;
+
     print("%\n", a);
     value := lookup("key");
+
     print("%\n", value);
     first: string;
     first = "x";

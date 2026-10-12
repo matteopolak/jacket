@@ -30,6 +30,7 @@ global_p: Plain;
 
 main :: () {
     local_d: Derived;
+
     print("% % %\n", global_d.id, global_d.f != null, local_d.f != null);
     if global_d.f global_d.f(1);
     if local_d.f local_d.f(2);

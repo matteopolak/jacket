@@ -14,19 +14,23 @@ main :: () {
     instance := wgpuCreateInstance(null);
     adapter := webgpu_request_adapter(instance);
     info: WGPUAdapterInfo;
+
     wgpuAdapterGetInfo(adapter, *info);
     print("adapter: %\n", to_string(info.description));
     wgpuAdapterInfoFreeMembers(info);
     device := webgpu_request_device(instance, adapter);
+
     print("device: %\n", device != null);
 
     // A thread that counts while the main one waits for the page.
     counter: Thread;
+
     thread_init(*counter, (thread: *Thread) -> s64 {
         while !stop {
             ticks += 1;
             sleep_milliseconds(1);
         }
+
         return 0;
     });
     thread_start(*counter);
@@ -37,12 +41,15 @@ main :: () {
     desc.usage = .MapRead | .CopyDst;
     buffer := wgpuDeviceCreateBuffer(device, *desc);
     ok := webgpu_map_buffer(instance, buffer, .Read, 0, 16);
+
     print("thread ran while mapping: %\n", ticks > 0);
     data := cast(*u8) wgpuBufferGetConstMappedRange(buffer, 0, 16);
+
     print("mapped: % % %\n", ok, data[0], data[15]);
     wgpuBufferUnmap(buffer);
 
     before := ticks;
+
     for 1..3 webgpu_present(null);
     print("thread ran during frames: %\n", ticks > before);
     stop = true;
@@ -55,6 +62,7 @@ main :: () {
     shader_desc.nextInChain = *wgsl.chain;
     wgpuDeviceCreateShaderModule(device, *shader_desc);
     type, message := webgpu_pop_error_scope(instance, device);
+
     print("error scope: % (%)\n", type, message);
     print("done\n");
 }

@@ -8,9 +8,9 @@ warning[identical_branches]: both branches of this `if` are the same
    = note: `identical_branches` is `warn` by default
 
 warning[identical_branches]: both branches of this `ifx` are the same
-  --> tests/lint/identical_branches/bad.jai:10:14
+  --> tests/lint/identical_branches/bad.jai:11:14
    |
-10 |     label := ifx n > 0 then "pos" else "pos";
+11 |     label := ifx n > 0 then "pos" else "pos";
    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: the condition decides nothing: was one branch meant to differ?

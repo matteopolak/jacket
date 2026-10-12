@@ -19,23 +19,28 @@ main :: () {
     // whether it did plus the previous value.
     x: s64 = 5;
     ok, old := compare_and_swap(*x, 5, 9);
+
     assert(ok && old == 5 && x == 9, "first compare_and_swap");
     ok, old = compare_and_swap(*x, 5, 1);
     assert(!ok && old == 9 && x == 9, "second compare_and_swap");
     // The operand width follows the value type.
     small: u8 = 200;
     ok8, old8 := compare_and_swap(*small, 200, 7);
+
     assert(ok8 && old8 == 200 && small == 7, "u8 compare_and_swap");
     half: s16 = -3;
     ok16, old16 := compare_and_swap(*half, -3, 300);
+
     assert(ok16 && old16 == -3 && half == 300, "s16 compare_and_swap");
     word: u32 = 0xdead_beef;
     ok32, old32 := compare_and_swap(*word, 1, 2);
+
     assert(!ok32 && old32 == 0xdead_beef && word == 0xdead_beef, "u32 compare_and_swap");
 
     // intrin.4: memset, memcpy and memcmp.
     a: [8] u8;
     b: [8] u8;
+
     memset(a.data, 7, 8);
     for a assert(it == 7, "memset");
     memcpy(b.data, a.data, 8);
@@ -50,6 +55,7 @@ main :: () {
 
     // intrin.5
     c: [4] u8;
+
     copy_without_context(c.data, a.data, 4);
     for c assert(it == 7, "memcpy from #c_call");
 
@@ -58,6 +64,7 @@ main :: () {
     copy_proc := memcpy;
     cmp_proc := memcmp;
     d: [4] u8;
+
     set_proc(d.data, 3, 4);
     for d assert(it == 3, "memset through a value");
     copy_proc(c.data, d.data, 2);

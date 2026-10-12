@@ -94,6 +94,7 @@ Basket :: struct {
 main :: () {
     // using.1, using.2: promoted members and constants.
     p: Plain;
+
     assert(p.n == 5 && p.i.n == 5, "using.1");
     assert(Plain.K == 3, "using.2");
 
@@ -104,6 +105,7 @@ main :: () {
 
     // using.5: the member carries USING and AS flags.
     f := type_info(Derived).members[0].flags;
+
     assert((f & .USING) != 0 && (f & .AS) != 0, "using.5");
 
     // using.6, using.7: a pointer member promotes the pointee and writes through it.
@@ -116,21 +118,26 @@ main :: () {
     // using.8, using.10: default override of a promoted member; others keep theirs.
     t: Tuned;
     nt := New(Tuned);
+
     assert(t.mode == .B && nt.mode == .B, "using.8");
     assert(t.extra == 7 && nt.extra == 7, "using.10");
 
     // using.9: override through a dotted path.
     nd: Nested;
+
     assert(nd.limit == 40 && nd.extra == 7, "using.9");
 
     // using.11: using on a parameter and on a local.
     pt := Pt.{ 1, 2 };
+
     move(*pt, 4);
     assert(pt.x == 5, "using.11 parameter");
+
     {
         using pt;
         y = 30;
     }
+
     assert(pt.y == 30, "using.11 local");
 
     // using.12: using a literal makes a writable local.
@@ -147,20 +154,25 @@ main :: () {
 
     // using.14: using an enum-typed value brings in the enum members.
     basket := Basket.{ .MANGO };
+
     using basket.tag;
     hit := false;
+
     if basket.tag == {
         case APPLE; hit = false;
         case MANGO; hit = true;
     }
+
     assert(hit, "using.14");
 
     // using.15: a direct member shadows a promoted one.
     s: Shadow;
+
     assert(s.n == 99 && s.i.n == 5, "using.15");
 
     // using.16: both modifier orders parse and act the same.
     fl: Flipped;
+
     assert(get_x(*fl) == 1, "using.16");
 
     print("ok\n");

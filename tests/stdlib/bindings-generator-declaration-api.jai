@@ -33,12 +33,14 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
     // `Shape.kind` defaults to `.LINE`.
     if parent && parent.kind == .STRUCT && parent.name == "Shape" && decl.name == "kind" {
         value: *Declaration;
+
         for kind_enum.enumerates {
             if it.output_name == "LINE" {
                 value = it;
                 break;
             }
         }
+
         assert(value != null);
         literal := New(Literal);
         literal.literal_kind = .ENUM;
@@ -46,29 +48,35 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
         literal.enum_value = value;
         decl.expression = literal;
     }
+
     return .RECURSE;
 }
 
 // Runs at compile time: libclang is the compiler's, and executables cannot call it.
 check_bindings :: () {
     dir := scratch_directory("bindgen-declaration-api");
+
     hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);
+
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     array_add(*opts.generate_enums_from_macros_with_prefixes, "MODE_");
     opts.generate_library_declarations = false;
     opts.visitor = visitor;
     array_add(*opts.libraries, .{ filename = "libshapes_missing", identifier = "shapes" });
+
     opts.will_print_bindings = () {
         lib := context.generator.libraries[0];
         assert(lib.identifier == "shapes" && lib.name == "libshapes_missing");
         lib.identifier = "renamed_shapes";
     };
+
     assert(generate_bindings(opts, output_path));
 
     assert(kind_enum != null);
@@ -76,10 +84,12 @@ check_bindings :: () {
     assert(values_seen == 4);
     assert(parents_ok);
     first := kind_enum.enumerates[0];
+
     assert(first.name == "KIND_NONE" && first.output_name == "NONE");
     assert(first.expression != null && first.expression.kind == .LITERAL);
 
     text, ok := read_entire_file(output_path);
+
     assert(ok);
     assert(contains(text, "LINE   :: 3;"));
     assert(contains(text, "CIRCLE :: 4;"));

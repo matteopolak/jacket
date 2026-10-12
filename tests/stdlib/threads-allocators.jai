@@ -26,6 +26,7 @@ churn :: (thread: *Thread) -> s64 {
     sizes: [LIVE] s64;
     allocators: [LIVE] Allocator;
     note: string;
+
     for round: 0..ROUNDS - 1 {
         seed = seed * 6364136223846793005 + 1442695040888963407;
         slot := cast(s64) ((seed >> 33) % LIVE);
@@ -37,15 +38,19 @@ churn :: (thread: *Thread) -> s64 {
                     return 1;
                 }
             }
+
             result.checked += 1;
+
             if round % 3 == 0 {
                 // Grow it in place or by moving, then check the kept bytes again.
                 new_size := sizes[slot] * 2 + 1;
                 grown := cast(*u8) realloc(blocks[slot], new_size, sizes[slot], allocators[slot]);
+
                 for i: 0..sizes[slot] - 1 if grown[i] != pattern {
                     result.corrupted = true;
                     return 2;
                 }
+
                 memset(grown, pattern, new_size);
                 blocks[slot] = grown;
                 sizes[slot] = new_size;
@@ -57,11 +62,13 @@ churn :: (thread: *Thread) -> s64 {
             size := cast(s64) ((seed >> 40) % 300) + 1;
             allocator := ifx round % 2 then shared_debug_allocator else context.allocator;
             block := cast(*u8) alloc(size, allocator);
+
             memset(block, pattern, size);
             blocks[slot] = block;
             sizes[slot] = size;
             allocators[slot] = allocator;
         }
+
         // Temporary storage is per thread: text printed at one checkpoint is unchanged at the next,
         // although the other threads have been printing into their own storage in between.
         if round % 50 == 0 {
@@ -70,6 +77,7 @@ churn :: (thread: *Thread) -> s64 {
             note = expected_note(thread.index, round);
         }
     }
+
     for blocks if it free(it, allocators[it_index]);
     return 0;
 }
@@ -82,18 +90,22 @@ main :: () {
     shared_debug_allocator = get_overwriting_allocator();
     threads: [THREADS] Thread;
     results: [THREADS] Worker_Result;
+
     for *threads {
         it.data = *results[it_index];
         results[it_index].temporary_ok = true;
         assert(thread_init(it, churn));
     }
+
     for *threads assert(thread_start(it));
     for *threads thread_deinit(it);
+
     for results {
         assert(!it.corrupted, "thread % found a block changed by someone else", it_index);
         assert(it.checked > 0, "thread % checked nothing", it_index);
         assert(it.temporary_ok, "thread % saw its temporary storage change", it_index);
     }
+
     deinit_overwriting_allocator(shared_debug_allocator);
     print("ok\n");
 }

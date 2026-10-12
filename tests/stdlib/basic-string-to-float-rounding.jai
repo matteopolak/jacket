@@ -17,26 +17,32 @@ Case32 :: struct {
 
 main :: () {
     failures := 0;
+
     for CASES_64 {
         value, ok, rest := string_to_float64(it.text);
         bits := (cast(*u64) *value).*;
+
         if !ok || rest != "" || bits != it.bits {
             print("string_to_float64(\"%\") = % (bits %), expected bits %\n", it.text, value, formatInt(bits, base = 16), formatInt(it.bits, base = 16));
             failures += 1;
         }
     }
+
     for CASES_32 {
         value, ok, rest := string_to_float(it.text);
         bits := (cast(*u32) *value).*;
+
         if !ok || rest != "" || bits != it.bits {
             print("string_to_float(\"%\") = % (bits %), expected bits %\n", it.text, value, formatInt(bits, base = 16), formatInt(it.bits, base = 16));
             failures += 1;
         }
     }
+
     assert(failures == 0, "% conversions were not correctly rounded", failures);
 
     // The remainder and the failure cases are unchanged by the rounding.
     value, ok, rest := string_to_float64("  -1.25e+2xyz");
+
     assert(ok && value == -125 && rest == "xyz");
     value, ok, rest = string_to_float64("2.5e");
     assert(ok && value == 2.5 && rest == "e");
@@ -57,6 +63,7 @@ main :: () {
     tiny, ok = string_to_float64("-1e-400");
     assert(ok && tiny == 0 && ((cast(*u64) *tiny).* >> 63) == 1, "underflow keeps the sign");
     long_text: String_Builder;
+
     append(*long_text, "0.");
     for 1..400 append(*long_text, "3");
     long_value: float64;

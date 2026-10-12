@@ -10,19 +10,24 @@ main :: () {
     y: s16 = 7;
     flag := x > y;
     r := combine(ifx flag then x else y, y);
+
     assert(type_of(r) == s16 && r == 2101);
     // Parenthesized, and with only an untyped branch on one side.
     q := combine((ifx flag then y else 2), y);
+
     assert(type_of(q) == s16 && q == 50);
     // Both branches untyped: the literal default, as for a plain literal argument.
     n := combine(ifx flag then 3 else 4, 5);
+
     assert(type_of(n) == s64 && n == 16);
     f: float32 = 0.5;
     g := combine(ifx flag then 2 else f, f);
+
     assert(type_of(g) == float32 && g == 2);
     // Every branch an `ifx` itself: the nested branches bind (jaigen seed 61919).
     u: u64 = 7;
     h := combine(ifx flag then (ifx !flag then u else 17) else (ifx flag then cast(u64) 1 else 0), u);
+
     assert(type_of(h) == u64 && h == 120);
     print("ok\n");
 }

@@ -15,6 +15,7 @@ main :: () {
     build_exe := build_cpp_executable;
 
     files := enum_cpp_files("does-not-exist");
+
     assert(files.count == 0);
     free_cpp_files(files);
 
@@ -27,19 +28,24 @@ main :: () {
         make_directory_if_it_does_not_exist("/tmp");
         source := "/tmp/jaic_buildcpp_test.c";
         exe := "/tmp/jaic_buildcpp_test_exe";
+
         assert(write_entire_file(source, "#include <stdio.h>\nint main(void) { puts(\"from c\"); return 0; }\n"));
         ok := build_cpp(exe, source, type = .EXECUTABLE);
+
         assert(ok);
         result, output := run_command(exe, capture_and_return_output = true);
+
         assert(result.exit_code == 0);
         // The C runtime writes text-mode newlines: "\r\n" on Windows.
         expected := ifx OS == .WINDOWS then "from c\r\n" else "from c\n";
+
         assert(output == expected, "C program printed '%'", output);
         file_delete(exe);
         file_delete(source);
     }
 
     dir := "/tmp/jaic_buildcpp_lib";
+
     delete_directory(dir);
     assert(make_directory_if_it_does_not_exist(tprint("%/nested", dir), recursive = true));
     assert(write_entire_file(tprint("%/add.c", dir), "int add(int a, int b) { return a + b; }\n"));
@@ -47,9 +53,11 @@ main :: () {
     assert(write_entire_file(tprint("%/nested/more.cpp", dir), "extern \"C\" int twice(int a) { return a * 2; }\n"));
 
     shallow := enum_cpp_files(dir);
+
     assert(shallow.count == 1 && ends_with(shallow[0], "add.c"));
     free_cpp_files(shallow);
     deep := enum_cpp_files(dir, recursive = true);
+
     assert(deep.count == 2);
     free_cpp_files(deep);
 
@@ -68,6 +76,7 @@ main :: () {
             ARCHIVE :: "a";
             SHARED :: "so";
         }
+
         // Objects are made in the working directory and removed once archived.
         assert(build_cpp_static_lib(tprint("%/libadd", dir), tprint("%/add.c", dir), working_directory = dir));
         assert(file_exists(tprint("%/libadd.%", dir, ARCHIVE)));

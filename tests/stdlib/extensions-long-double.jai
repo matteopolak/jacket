@@ -29,6 +29,7 @@ main :: () {
     // Format-independent behaviour.
     one: Long_Double = 1;
     third := one / 3;
+
     assert(third == THIRD);
     assert(cast(float64) third == 1.0 / 3.0);
     assert(tprint("%", third) == "0.333333");
@@ -39,18 +40,24 @@ main :: () {
     h.value *= 2;
     assert(h.value == 15 && h.value > 14.75 && -h.value < 0);
     r, less := scaled(h.value, 2);
+
     assert(r == 30 && !less);
     mixed := h.value + cast(float64) 0.25;
+
     assert(mixed == 15.25 && type_of(mixed) == Long_Double);
     assert(cast(s32) mixed == 15 && cast(float32) mixed == 15.25);
     big: u64 = 0xffff_ffff_ffff_f800;
+
     assert(cast(u64) cast(Long_Double) big == big);
     info := type_info(Long_Double);
+
     assert(info.type == .FLOAT && info.runtime_size == size_of(Long_Double));
     zero: Long_Double;
+
     assert(-zero == zero);
     // NaN is unordered.
     nan := zero / zero;
+
     assert(nan != nan && !(nan == nan) && !(nan < one) && !(nan >= one));
     // Implicit conversions follow float64's: small integers, float32 and literals.
     small_int: s8 = -5;
@@ -73,13 +80,16 @@ main :: () {
         assert(size_of(Holder) == 32 && cast(s64) *h.value - cast(s64) *h == 16);
         // Bits past float64's 53 survive arithmetic, comparison and integer conversion.
         tiny := power_of_half(60);
+
         assert(tiny == folded_tiny);
         assert(one + tiny != one && cast(float64) (one + tiny) == 1);
         odd: s64 = (1 << 60) + 1;
+
         assert(cast(s64) cast(Long_Double) odd == odd);
         // A decimal literal is a float64 value first; arithmetic builds the exact value.
         from_literal := cast(Long_Double) 0.1;
         exact_tenth := cast(Long_Double) 1 / 10;
+
         assert(from_literal != exact_tenth && cast(float64) from_literal == 0.1 && cast(float64) exact_tenth == 0.1);
         // Out of s64's range: x87 gives the minimum (like fistp), binary128 saturates.
         beyond: Long_Double = 1;
@@ -87,7 +97,9 @@ main :: () {
         assert(cast(s64) -beyond == -9223372036854775808);
         // Reflection does not parse the wide type.
         parsed: Long_Double = 2;
+
         assert(!set_value_from_string(parsed, "1.5") && parsed == 2);
+
         #if CPU == .X64 {
             // x87: a 64-bit significand; one more bit rounds to even.
             assert(one + power_of_half(63) != one && one + power_of_half(64) == one);
@@ -97,6 +109,7 @@ main :: () {
             assert(one + power_of_half(112) != one && one + power_of_half(113) == one);
             assert(cast(s64) beyond == 9223372036854775807);
         }
+
         print("ok wide\n");
     } else {
         assert(Long_Double == float64);

@@ -11,46 +11,58 @@
 
 count_frames :: (plm: *Plm) -> s64 {
     count := 0;
+
     while true {
         frame := decode_video(plm);
         if !frame break;
         count += 1;
     }
+
     return count;
 }
 
 main :: () {
     plm := create_with_filename("pl-mpeg-clip.mpg");
+
     assert(plm != null, "the clip opens");
     assert(has_headers(plm));
     width, height := get_size(plm);
+
     assert(width == 32 && height == 32, "size % x %", width, height);
     assert(get_framerate(plm) == 25.0, "framerate %", get_framerate(plm));
     assert(get_num_video_streams(plm) == 1);
 
     // The first frame is red: BT.601 limited-range YCbCr of (255, 0, 0) is about (82, 90, 240).
     frame := decode_video(plm);
+
     assert(frame != null);
     assert(frame.width == 32 && frame.height == 32);
     rgb: [32 * 32 * 3] u8;
+
     frame_to_rgb(frame, rgb.data, 32 * 3);
+
     for pixel: 0..32 * 32 - 1 {
         red, green, blue := cast(s32) rgb[pixel * 3], cast(s32) rgb[pixel * 3 + 1], cast(s32) rgb[pixel * 3 + 2];
         assert(red > 235 && green < 20 && blue < 20, "pixel % is (%, %, %)", pixel, red, green, blue);
     }
+
     rgba: [32 * 32 * 4] u8;
+
     frame_to_rgba(frame, rgba.data, 32 * 4);
     assert(rgba[0] == rgb[0] && rgba[1] == rgb[1] && rgba[2] == rgb[2], "rgba carries the same colour");
     bgra: [32 * 32 * 4] u8;
+
     frame_to_bgra(frame, bgra.data, 32 * 4);
     assert(bgra[0] == rgb[2] && bgra[2] == rgb[0], "bgra swaps red and blue");
 
     // The other nine frames follow, then the stream ends.
     remaining := count_frames(plm);
+
     assert(remaining == 9, "% more frames after the first", remaining);
 
     // Audio: Layer II frames of 1152 samples at 44.1 kHz, carrying a tone (not silence).
     samples := decode_audio(plm);
+
     assert(samples != null, "audio decodes");
     assert(samples.count == SAMPLES_PER_FRAME, "% samples in the first block", samples.count);
     loudest: float;
@@ -70,11 +82,13 @@ main :: () {
 
     // A memory buffer decodes the same clip.
     clip, ok := read_entire_file("pl-mpeg-clip.mpg");
+
     assert(ok);
     bytes: [] u8;
     bytes.data = xx clip.data;
     bytes.count = clip.count;
     from_memory := create_with_memory(bytes, false);
+
     assert(from_memory != null && has_headers(from_memory));
     assert(count_frames(from_memory) == 10);
     plm_destroy(from_memory);
@@ -84,6 +98,7 @@ main :: () {
     junk: [64] u8;
     for 0..63 junk[it] = cast,trunc(u8) (it * 7 + 3);
     not_mpeg := create_with_memory(junk, false);
+
     assert(not_mpeg == null || !has_headers(not_mpeg), "junk has no headers");
 
     print("ok\n");

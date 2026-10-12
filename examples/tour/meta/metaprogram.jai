@@ -29,8 +29,10 @@ inspect :: (source: string) -> string {
 
     report: String_Builder;
     messages := 0;
+
     while true {
         message := compiler_wait_for_message();
+
         messages += 1;
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
@@ -41,16 +43,19 @@ inspect :: (source: string) -> string {
             if !from_main_program(header) continue;
             print_to_builder(*report, "  procedure %: % argument(s), % return value(s)\n",
                 header.name, header.arguments.count, header.returns.count);
+
             if !is_snake_case(header.name) {
                 print_to_builder(*report, "    style: '%' should be snake_case\n", header.name);
             }
         }
+
         for typechecked.structs {
             info := it.expression.defined_type;
             if info && info.name == "Point" {
                 print_to_builder(*report, "  struct %: % members\n", info.name, info.members.count);
             }
         }
+
         for typechecked.declarations {
             declaration := it.expression;
             for declaration.notes {
@@ -60,6 +65,7 @@ inspect :: (source: string) -> string {
             }
         }
     }
+
     compiler_end_intercept(workspace);
     print_to_builder(*report, "  (the compiler sent % messages)\n", messages);
     return builder_to_string(*report);

@@ -5,10 +5,12 @@
 
 main :: () {
     path := "/tmp/jai-file-read-line.txt";
+
     assert(write_entire_file(path, "one\r\n\ntwo words\nlast"));
     defer file_delete(path);
 
     input, opened := file_open(path);
+
     assert(opened);
     defer file_close(*input);
 
@@ -19,19 +21,24 @@ main :: () {
         assert(line == it);
         free(line);
     }
+
     line, ok := file_read_line(input);
+
     assert(!ok);
     assert(line.count == 0);
 
     // A file that ends with a newline has no extra empty line.
     assert(write_entire_file(path, "x\n"));
     again, reopened := file_open(path);
+
     assert(reopened);
     defer file_close(*again);
     first, first_ok := file_read_line(again);
+
     assert(first_ok && first == "x");
     free(first);
     _, second_ok := file_read_line(again);
+
     assert(!second_ok);
 
     print("ok\n");

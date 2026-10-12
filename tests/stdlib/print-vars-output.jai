@@ -8,9 +8,11 @@ main :: () {
     alpha := 3;
     longer_name := "hi";
     builder: String_Builder;
+
     print_vars_to(*builder, alpha, longer_name, alpha + 4);
     text := builder_to_string(*builder);
     expected := "alpha       = 3  (s64)\nlonger_name = hi (string)\nalpha + 4   = 7  (s64)\n";
+
     assert(text == expected, "print_vars_to:\n%\nexpected:\n%", text, expected);
     free(text);
 

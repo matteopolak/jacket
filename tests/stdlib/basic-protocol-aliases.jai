@@ -9,10 +9,12 @@ main :: () -> s64 {
     back: Basic.Allocator = plain;
     descriptor: Basic.Type_Info = .{ .INTEGER, 8 };
     raw: Protocol.Type_Info = descriptor;
+
     if raw.runtime_size != 8 return 1;
     integer: Basic.Type_Info_Integer;
     selected: Protocol.Type_Info_Integer = integer;
     wrapper: Basic.Any_Struct;
     selected_wrapper: Protocol.Any_Struct = wrapper;
+
     return 0;
 }

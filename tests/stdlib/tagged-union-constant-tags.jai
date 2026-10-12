@@ -17,19 +17,25 @@ ByType :: union kind: Type = u16 {
 
 main :: () {
     s := Small.{ kind = 4, a = 42 };
+
     assert(s.kind == 4 && s.a == 42);
 
     info := type_info(Small);
+
     assert(info.tagged_union_bindings.count == 2);
     first := info.tagged_union_bindings[0];
     second := info.tagged_union_bindings[1];
+
     assert(first.constant_value == 4 && info.members[first.member_index].name == "a");
     assert(cast(s64) second.constant_value == -12 && info.members[second.member_index].name == "c");
 
     t := ByType.{ kind = s32, b = 300 };
+
     assert(t.kind == s32 && t.b == 300);
     tinfo := type_info(ByType);
+
     assert(tinfo.tagged_union_bindings.count == 2);
+
     for tinfo.tagged_union_bindings {
         tag := (cast(*Type) *it.constant_value).*;
         name := tinfo.members[it.member_index].name;
@@ -49,9 +55,11 @@ main :: () {
     pair :: () -> bool, int {
         return true, 7;
     }
+
     ok := false;
     slot: int;
     p := *slot;
+
     ok =, p.* = pair();
     assert(ok && slot == 7);
     print("ok\n");

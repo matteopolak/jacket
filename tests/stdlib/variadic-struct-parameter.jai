@@ -13,10 +13,12 @@ Numbers :: struct(first: s64, rest: ..s64) {
 
 biggest :: (types: [] Type) -> s64 {
     result := 0;
+
     for types {
         size := (cast(*Type_Info) it).runtime_size;
         if size > result result = size;
     }
+
     return result;
 }
 
@@ -28,6 +30,7 @@ sum :: (first: s64, rest: [] s64) -> s64 {
 
 main :: () {
     H :: Holder(s64, string);
+
     assert(H.COUNT == 2);
     assert(size_of(H) == 16);
     assert(Holder(u8).COUNT == 1);
@@ -39,6 +42,7 @@ main :: () {
 
     x: Holder(s64, string);
     y: H = x;
+
     assert(y.bytes.count == 16);
 
     assert(Numbers(1).TOTAL == 1);

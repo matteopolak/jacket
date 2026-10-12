@@ -24,36 +24,43 @@ JAI
 #run {
     options := get_build_options();
     child: Build_Options;
+
     copy_commonly_propagated_fields(options, *child);
     paths: [..] string;
+
     array_add(*paths, "modules");
     for options.import_path array_add(*paths, it);
     child.import_path = paths;
     child.output_type = .NO_OUTPUT;
     w := compiler_create_workspace("generated kinds");
+
     set_build_options(child, w);
     compiler_begin_intercept(w);
     add_build_string(TARGET, w);
     target: *Message_Import;
     generated := false;
     failed := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .IMPORT {
             import := cast(*Message_Import) message;
             if import.module_name == "Generated_Kinds" target = import;
         }
+
         if message.kind == .PHASE && !generated && target {
             if (cast(*Message_Phase) message).phase == .TYPECHECKED_ALL_WE_CAN {
                 generated = true;
                 add_build_string(GENERATED, w, target);
             }
         }
+
         if message.kind == .COMPLETE {
             failed = (cast(*Message_Complete) message).error_code != .NONE;
             break;
         }
     }
+
     compiler_end_intercept(w);
     assert(generated, "the module was never imported");
     assert(!failed, "the generated module did not compile");

@@ -38,42 +38,55 @@ check_frame :: (frame: int) {
     // From the second frame on, the previous frame's key release comes first.
     base := ifx frame > 0 then 1 else 0;
     expected_events := base + 4;
+
     if frame % 10 == 0 expected_events += 1;
     assert(Input.events_this_frame.count == expected_events, "frame %: % events", frame, Input.events_this_frame.count);
+
     if base {
         release := Input.routed_events_this_frame[0];
         assert(release.window == window_for((frame - 1) % WINDOWS), "frame %: release routed to %", frame, release.window);
         assert(release.event.key_pressed == 0 && release.event.key_code == function_key(frame - 1), "frame %: release %", frame, release.event);
     }
+
     press := Input.events_this_frame[base];
+
     assert(press.type == .KEYBOARD && press.key_pressed != 0 && press.key_code == function_key(frame), "frame %: press %", frame, press);
     text := Input.events_this_frame[base + 1];
+
     assert(text.type == .TEXT_INPUT && text.utf32 == cast(u32) (#char "a" + frame % 26), "frame %: text %", frame, text.utf32);
     assert(Input.routed_events_this_frame.count == base + 2, "frame %: % routed", frame, Input.routed_events_this_frame.count);
     assert(Input.routed_events_this_frame[base].window == window && Input.routed_events_this_frame[base + 1].window == window);
     assert(Input.unrouted_events_this_frame.count == expected_events - base - 2);
     assert(Input.mouse_delta_z == 120, "frame %: wheel %", frame, Input.mouse_delta_z);
+
     if frame % 10 == 0 {
         drop := Input.events_this_frame[expected_events - 1];
         assert(drop.type == .DRAG_AND_DROP_FILES && drop.files.count == 2, "frame %: drop %", frame, drop.type);
         assert(drop.files[0] == tprint("file-%.txt", frame) && drop.files[1] == "second.txt", "frame %: dropped \"%\"", frame, drop.files[0]);
     }
+
     resizes := Input.get_window_resizes();
+
     assert(resizes.count == 2, "frame %: % resizes", frame, resizes.count);
+
     for resizes {
         if it.window == window assert(it.width == 100 + frame && it.height == 50 + frame, "frame %: resized to % %", frame, it.width, it.height);
         else assert(it.window == window_for(WINDOWS) && it.width == 7 && it.height == 8);
     }
+
     assert(Input.window_has_input_focus(window), "frame %: focus", frame);
     assert(Input.window_key_is_down(window, function_key(frame)), "frame %: key held", frame);
 }
 
 main :: () {
     heap := context.allocator;
+
     context.allocator = temp;
+
     for frame: 0..FRAMES - 1 {
         window := window_for(frame % WINDOWS);
         previous := window_for((frame + WINDOWS - 1) % WINDOWS);
+
         if frame > 0 Input.set_input_focus(previous, false);
         Input.set_input_focus(window, true);
         Input.queue_input_event(window, key_event(function_key(frame), true));
@@ -87,6 +100,7 @@ main :: () {
         wheel.wheel_delta = 120;
         Input.queue_input_event(wheel);
         Input.queue_input_event(key_event(.SHIFT, frame % 2 == 0));
+
         // The dropped names and their list pass to Input, which frees them at the next update.
         if frame % 10 == 0 {
             drop: Input.Event;
@@ -96,6 +110,7 @@ main :: () {
             array_add(*drop.files, copy_string("second.txt",, heap));
             Input.queue_input_event(drop);
         }
+
         Input.queue_window_resize(window, cast(s32) (90 + frame), 1);
         Input.queue_window_resize(window_for(WINDOWS), 7, 8);
         Input.queue_window_resize(window, cast(s32) (100 + frame), cast(s32) (50 + frame));
@@ -105,6 +120,7 @@ main :: () {
         Input.update_window_events();
         check_frame(frame);
         moves := Input.get_window_moves();
+
         assert(moves.count == 1 && moves[0].window == window && moves[0].x == frame, "frame %: moves", frame);
 
         // The game's end of frame. What update_window_events returned stays valid until the next one.
@@ -114,6 +130,7 @@ main :: () {
         reset_temporary_storage();
         Input.queue_input_event(window, key_event(function_key(frame), false));
     }
+
     Input.update_window_events();
     assert(Input.events_this_frame.count == 1 && Input.events_this_frame[0].key_pressed == 0);
     print("ok\n");

@@ -70,6 +70,7 @@ JAI
     plugin.workspace = w;
     arguments := string.["-min_size", "1"];
     cursor := 0;
+
     while cursor < arguments.count cursor = plugin.handle_one_option(plugin, arguments, cursor);
 
     compiler_begin_intercept(w);
@@ -77,19 +78,24 @@ JAI
     add_build_string(TARGET, w);
 
     verified := false;
+
     while true {
         message := compiler_wait_for_message();
+
         plugin.message(plugin, message);
+
         // The bodies arrive together, so once main is instrumented the rest are too.
         if (cast(*Iprof.Iprof_Plugin) plugin).entry_point_done && !verified {
             add_build_string("#run verify();", w);
             verified = true;
         }
+
         if message.kind == .COMPLETE {
             assert((cast(*Message_Complete) message).error_code == .NONE);
             break;
         }
     }
+
     compiler_end_intercept(w);
     assert(verified);
     plugin.finish(plugin);

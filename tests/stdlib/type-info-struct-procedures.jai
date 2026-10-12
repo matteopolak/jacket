@@ -21,12 +21,14 @@ find :: (name: string) -> *Type_Info_Struct_Member {
 
 main :: () {
     Hooks.used_hook();
+
     for name: string.["unused_hook", "generic", "expander", "used_hook", "LIMIT"] {
         member := find(name);
         assert(member != null, "member is listed");
         assert((member.flags & .CONSTANT) != 0, "member is a constant");
         assert(member.offset_in_bytes == -1, "constant has no offset");
     }
+
     assert(find("value").offset_in_bytes == 0 && (find("value").flags & .CONSTANT) == 0);
     assert(find("unused_hook").type.type == .PROCEDURE);
     assert(find("generic").type.type == .PROCEDURE);

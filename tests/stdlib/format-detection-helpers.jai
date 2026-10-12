@@ -22,6 +22,7 @@ main :: () {
 
     // ELF: magic plus a header's worth of bytes.
     elf := blank(64);
+
     put(elf, 0, 0x7f, #char "E", #char "L", #char "F");
     assert(is_elf(elf) && !is_macho(elf) && !is_coff(elf) && !is_apple_universal(elf));
     assert(!is_elf(blank(63)) && !is_elf(slice_to(elf, 63)), "a header shorter than 64 bytes is not an ELF");
@@ -30,26 +31,31 @@ main :: () {
 
     // 64-bit Mach-O, little endian.
     macho := blank(32);
+
     put(macho, 0, 0xcf, 0xfa, 0xed, 0xfe);
     assert(is_macho(macho) && !is_elf(macho));
     assert(!is_macho(slice_to(macho, 31)));
 
     // Universal (fat) binaries have their magic big-endian on disk.
     fat := blank(8);
+
     put(fat, 0, 0xca, 0xfe, 0xba, 0xbe);
     assert(is_apple_universal(fat) && !is_macho(fat));
     assert(!is_apple_universal(slice_to(fat, 7)));
 
     // A COFF object starts with the machine type (AMD64 here); a PE image wraps one.
     coff := blank(20);
+
     put(coff, 0, 0x64, 0x86);
     assert(is_coff(coff) && !is_coff(slice_to(coff, 19)));
     pe := blank(64 + 4 + 20);
+
     put(pe, 0, #char "M", #char "Z");
     put(pe, 60, 64, 0, 0, 0);
     put(pe, 64, #char "P", #char "E", 0, 0);
     put(pe, 68, 0x64, 0x86);
     found, start := is_pe(pe);
+
     assert(found && start == 68, "pe %", start);
     assert(!is_coff(pe) && !is_elf(pe));
     put(pe, 64, #char "X");
@@ -64,9 +70,11 @@ main :: () {
 
     // Zero padded names lose their padding only.
     padded := u8.[#char "a", #char "b", 0, #char "c", 0, 0, 0];
+
     assert(string_from_zero_padded_array(padded) == "ab\0c");
     assert(string_from_zero_padded_array(u8.[0, 0]) == "");
     empty: [] u8;
+
     assert(string_from_zero_padded_array(empty) == "");
 
     // C names that clash with keywords get an underscore.

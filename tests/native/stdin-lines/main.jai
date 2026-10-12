@@ -10,5 +10,6 @@ main :: () {
         if !ok break;
         print("[%]", line);
     }
+
     print("\n");
 }

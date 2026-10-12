@@ -52,6 +52,7 @@ onepass_build :: (program: *Program, state_limit: int) -> OnePass {
     b.seen = NewArray(program.insts.count, u32);
     b.seen_need = NewArray(program.insts.count, u32);
     array_add(*b.updates, 0);
+
     defer {
         array_free(b.entries);
         array_free(b.trans);
@@ -64,12 +65,15 @@ onepass_build :: (program: *Program, state_limit: int) -> OnePass {
         array_free(b.seen);
         array_free(b.seen_need);
     }
+
     start := state_for(*b, program.start);
     i := 0;
+
     while i < b.entries.count {
         if !fill_state(*b, i) return out;
         i += 1;
     }
+
     if b.failed return out;
     out.ok = true;
     out.stride = b.stride;
@@ -100,6 +104,7 @@ onepass_search :: (t: *OnePass, text: string, s: int, e: int, slots: [] int) -> 
     for *slots it.* = -1;
     state := t.start;
     pos := s;
+
     while pos < e {
         edge := t.trans[state + cast(int) t.byte_class[text[pos]]];
         if edge.next == NO_EDGE return false;
@@ -108,6 +113,7 @@ onepass_search :: (t: *OnePass, text: string, s: int, e: int, slots: [] int) -> 
         state = cast(int) edge.next;
         pos += 1;
     }
+
     final := t.finals[state / t.stride];
     if final.next == 0 return false;
     if final.need != 0 && !looks_hold(final.need, text, pos) return false;
@@ -152,11 +158,14 @@ Leaf :: struct {
 // The state that starts at `pc`, made if it is new.
 state_for :: (b: *Builder, pc: u32) -> u32 {
     if b.state_of[pc] != NO_EDGE return b.state_of[pc];
+
     if b.entries.count >= b.limit {
         b.failed = true;
         return 0;
     }
+
     at := cast(u32) (b.entries.count * b.stride);
+
     b.state_of[pc] = at;
     array_add(*b.entries, pc);
     return at;
@@ -166,30 +175,37 @@ state_for :: (b: *Builder, pc: u32) -> u32 {
 fill_state :: (b: *Builder, index: int) -> bool {
     program := b.program;
     row := index * b.stride;
+
     for 1..b.stride array_add(*b.trans, .{ NO_EDGE, 0, 0 });
     array_add(*b.finals, .{ 0, 0, 0 });
     if !explore(b, b.entries[index]) return false;
+
     for leaf: b.leaves {
         inst := program.insts[leaf.pc];
         if inst.kind == .MATCH {
             b.finals[index] = .{ 1, leaf.updates, leaf.need };
             continue;
         }
+
         for t: 0..inst.alt - 1 {
             tr := program.transitions[inst.next + t];
             target: u32 = NO_EDGE;
+
             for c: 0..b.stride - 1 {
                 byte := program.class_byte[c];
                 if byte < tr.lo || byte > tr.hi continue;
                 if b.trans[row + c].next != NO_EDGE return false; // two ways to take this byte
+
                 if target == NO_EDGE {
                     target = state_for(b, tr.next);
                     if b.failed return false;
                 }
+
                 b.trans[row + c] = .{ target, leaf.updates, leaf.need };
             }
         }
     }
+
     return true;
 }
 
@@ -198,17 +214,21 @@ fill_state :: (b: *Builder, index: int) -> bool {
 // depend on the text.
 explore :: (b: *Builder, entry: u32) -> bool {
     program := b.program;
+
     b.generation += 1;
     b.leaves.count = 0;
     b.path.count = 0;
     b.stack.count = 0;
     array_add(*b.stack, .{ pc = entry, path_length = 0, need = 0 });
     guarded_match := false; // a MATCH behind a look has been seen: it may not apply
+
     while b.stack.count {
         frame := pop(*b.stack);
+
         b.path.count = frame.path_length;
         need := frame.need;
         pc := frame.pc;
+
         while true {
             if b.seen[pc] == b.generation {
                 // The Pike VM keeps the first visit. That is only the answer here if the first
@@ -216,6 +236,7 @@ explore :: (b: *Builder, entry: u32) -> bool {
                 if b.seen_need[pc] != 0 return false;
                 break;
             }
+
             b.seen[pc] = b.generation;
             b.seen_need[pc] = need;
             inst := *program.insts[pc];
@@ -223,12 +244,14 @@ explore :: (b: *Builder, entry: u32) -> bool {
                 case .MATCH;
                     if guarded_match return false;
                     array_add(*b.leaves, .{ pc, intern_updates(b), need });
+
                     if need == 0 {
                         // Nothing of lower priority can win over a match that always applies.
                         b.stack.count = 0;
                     } else {
                         guarded_match = true;
                     }
+
                     break;
                 case .RANGES;
                     if guarded_match return false;
@@ -248,6 +271,7 @@ explore :: (b: *Builder, entry: u32) -> bool {
             }
         }
     }
+
     return true;
 }
 
@@ -255,7 +279,9 @@ explore :: (b: *Builder, entry: u32) -> bool {
 intern_updates :: (b: *Builder) -> u32 {
     if b.path.count == 0 return 0;
     list: [..] u32;
+
     defer array_free(list);
+
     for slot: b.path {
         at := 0;
         while at < list.count && list[at] < slot at += 1;
@@ -266,9 +292,12 @@ intern_updates :: (b: *Builder) -> u32 {
             list[k] = list[k - 1];
             k -= 1;
         }
+
         list[at] = slot;
     }
+
     index := cast(u32) b.updates.count;
+
     array_add(*b.updates, cast(u32) list.count);
     for list array_add(*b.updates, it);
     return index;
@@ -289,5 +318,6 @@ looks_hold :: (need: u32, text: string, pos: int) -> bool {
             if !look_holds(cast(Look) it, text, pos) return false;
         }
     }
+
     return true;
 }

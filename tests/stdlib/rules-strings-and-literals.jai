@@ -34,6 +34,7 @@ main :: () {
     // str.1: a string is a count and a data pointer.
     assert(size_of(string) == 16, "str.1 size");
     probe := "probe";
+
     #assert type_of(probe.count) == s64;
     #assert type_of(probe.data) == *u8;
     assert((cast(*s64) *probe).* == 5, "str.1 count first");
@@ -41,10 +42,12 @@ main :: () {
 
     // str.2: arbitrary bytes, including NUL and invalid UTF-8.
     raw := "a\0\xff\xfeb";
+
     assert(raw.count == 5 && raw[1] == 0 && raw[2] == 0xff && raw[4] == #char "b", "str.2");
 
     // str.3: the documented example.
     s := "a\tb\x41\d066é\0z";
+
     assert(bytes_are(s, .[97, 9, 98, 65, 66, 195, 169, 0, 122]), "str.3");
 
     // str.4: every escape.
@@ -73,21 +76,26 @@ main :: () {
 
     // str.14, str.15: a literal as *u8 gets a trailing NUL; embedded NULs survive.
     c: *u8 = "hi";
+
     assert(c[0] == #char "h" && c[1] == #char "i" && c[2] == 0, "str.14");
     seen := first_three("A\0B");
+
     assert(seen[0] == #char "A" && seen[1] == 0 && seen[2] == #char "B", "str.15");
 
     // str.17: advance drops leading bytes.
     view := "hello";
+
     advance(*view, 2);
     assert(view == "llo", "str.17");
 
     // str.18: iteration yields u8 bytes.
     total := 0;
+
     for ch: "hey" {
         #assert type_of(ch) == u8;
         total += ch;
     }
+
     assert(total == #char "h" + #char "e" + #char "y", "str.18");
 
     print("ok\n");

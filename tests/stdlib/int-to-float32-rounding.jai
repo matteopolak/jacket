@@ -22,6 +22,7 @@ AT_COMPILE_TIME :: #run cast,force(u32) to_f32_u(U);
 main :: () {
     u: u64 = U;
     s: s64 = S;
+
     assert(cast,force(u32) cast(float32) u == U_BITS);
     assert(cast,force(u32) cast(float32) s == S_BITS);
     assert(cast,force(u32) to_f32_u(u) == U_BITS);
@@ -29,11 +30,14 @@ main :: () {
     assert(AT_COMPILE_TIME == U_BITS);
     // Folded constants.
     f: float32 = cast(float32) cast(u64) U;
+
     assert(cast,force(u32) f == U_BITS);
     g: float32 = cast(float32) cast(s64) S;
+
     assert(cast,force(u32) g == S_BITS);
     // Values float64 holds exactly are unaffected.
     small: s64 = -16777217;
+
     assert(cast(float32) small == -16777216.0);
     print("ok\n");
 }

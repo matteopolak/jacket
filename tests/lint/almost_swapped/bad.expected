@@ -1,16 +1,16 @@
 warning[almost_swapped]: this sets both `a` and `b` to `b`
-  --> tests/lint/almost_swapped/bad.jai:11:5
+  --> tests/lint/almost_swapped/bad.jai:12:5
    |
-11 |     a = b;
+12 |     a = b;
    |     ^^^^^^
    |
    = help: to swap them, write `a, b = b, a;`
    = note: `almost_swapped` is `warn` by default
 
 warning[almost_swapped]: this sets both `p.first` and `p.second` to `p.second`
-  --> tests/lint/almost_swapped/bad.jai:14:5
+  --> tests/lint/almost_swapped/bad.jai:15:5
    |
-14 |     p.first = p.second;
+15 |     p.first = p.second;
    |     ^^^^^^^^^^^^^^^^^^^
    |
    = help: to swap them, write `p.first, p.second = p.second, p.first;`

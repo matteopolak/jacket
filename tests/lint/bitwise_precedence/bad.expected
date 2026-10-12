@@ -47,14 +47,14 @@ help: `^` binds first here: write `(flags ^ flags)`
    = note: `bitwise_precedence` is `warn` by default
 
 warning[bitwise_precedence]: `>>` binds tighter than `*` in Jai, unlike in C
-  --> tests/lint/bitwise_precedence/bad.jai:11:49
+  --> tests/lint/bitwise_precedence/bad.jai:12:49
    |
-11 |     print("% % % % %\n", mask, set, low, mixed, n * 2 >> 1);
+12 |     print("% % % % %\n", mask, set, low, mixed, n * 2 >> 1);
    |                                                 ^^^^^^^^^^
    |
 help: `>>` binds first here: write `(2 >> 1)`
    |
-11 ~     print("% % % % %\n", mask, set, low, mixed, n * (2 >> 1));
+12 ~     print("% % % % %\n", mask, set, low, mixed, n * (2 >> 1));
    |
    = note: `bitwise_precedence` is `warn` by default
 

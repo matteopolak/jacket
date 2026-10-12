@@ -19,5 +19,6 @@ main :: () {
     // Integers become enum values with `xx`.
     index := 1;
     color: Color = xx index;
+
     print("% % % % % %\n", low, rest, five, wide, narrow, color);
 }

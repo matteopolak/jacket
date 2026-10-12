@@ -32,6 +32,7 @@ query_at :: (window: Window_Type, client_area: bool) -> float, float, bool {
 main :: () {
     window := cast(Window_Type) 41;
     other := cast(Window_Type) 42;
+
     Input.update_window_events();
 
     // Published events land in this frame right away, unrouted or routed to their window, and
@@ -74,11 +75,14 @@ main :: () {
     Input.queue_window_move(other, 5, 6);
     Input.queue_window_move(window, 30, 40);
     moves := Input.get_window_moves();
+
     assert(moves.count == 2, "% moves", moves.count);
+
     for moves {
         if it.window == window assert(it.x == 30 && it.y == 40, "window moved to % %", it.x, it.y);
         else assert(it.window == other && it.x == 5 && it.y == 6);
     }
+
     assert(Input.get_window_moves().count == 0, "moves were not taken by the first read");
     Input.queue_window_move(other, 1, 2);
     moves = Input.get_window_moves();
@@ -94,6 +98,7 @@ main :: () {
     Input.input_pointer_source = null;
     Input.input_pointer_query_source = null;
     x, y, known := Input.get_input_pointer_position();
+
     assert(!known && x == 0 && y == 0, "pointer without an adapter: % % %", x, y, known);
     Input.input_pointer_source = pointer_at;
     x, y, known = Input.get_input_pointer_position();

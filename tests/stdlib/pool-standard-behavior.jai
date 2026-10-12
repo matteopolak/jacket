@@ -33,6 +33,7 @@ main :: () -> s64 {
     q.alignment = 32;
     x := get(*q, 3);
     y := get(*q, 3);
+
     if ((cast(u64) x) & 31) != 0 || ((cast(u64) y) & 31) != 0 || y == x return 11;
 
     // Oversized: separate allocation, tracked out of band, current block untouched.
@@ -40,6 +41,7 @@ main :: () -> s64 {
     pos := p.current_pos;
     block := p.current_memblock;
     big := cast(*u8) get(*p, 6554);
+
     if big == null return 12;
     if ((cast(u64) big) & 7) != 0 return 13;
     if p.out_of_band_allocations == null return 14;
@@ -52,6 +54,7 @@ main :: () -> s64 {
 
     // Filling a block moves on to a fresh one.
     first_block := p.current_memblock;
+
     for 0..20 get(*p, 6000);
     if p.current_memblock == first_block || p.used_memblocks == first_block return 18;
     if p.first_used_memblock != first_block return 19;
@@ -75,7 +78,9 @@ main :: () -> s64 {
 
     // As the context allocator.
     r: Pool;
+
     set_allocators(*r);
+
     {
         push_allocator(Allocator.{ pool_allocator_proc, *r });
         s := New(Sample);
@@ -86,6 +91,7 @@ main :: () -> s64 {
         grown := cast(*u8) realloc(buffer, 48, 24);
         if grown == null return 29;
     }
+
     if r.used_memblocks == null || r.bytes_left >= 65536 - 8 return 30;
     caller := Allocator.{ pool_allocator_proc, *r };
     if !caller.proc(.IS_THIS_YOURS, 0, 0, r.current_pos - 4, caller.data) return 31;

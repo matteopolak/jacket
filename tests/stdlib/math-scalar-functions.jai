@@ -27,6 +27,7 @@ main :: () {
 
     // Classification.
     nan_flag, inf_flag := is_nan_is_inf(NAN);
+
     assert(nan_flag && !inf_flag);
     nan_flag, inf_flag = is_nan_is_inf(-INF);
     assert(!nan_flag && inf_flag);
@@ -74,6 +75,7 @@ main :: () {
 
     // frexp / ldexp, including subnormals and the extremes.
     mantissa, power := frexp(cast(float64) 8);
+
     assert(mantissa == 0.5 && power == 4);
     mantissa, power = frexp(cast(float64) -0.375);
     assert(mantissa == -0.75 && power == -1);
@@ -83,6 +85,7 @@ main :: () {
     assert(mantissa == INF && power == 0);
     assert(ldexp(0.5, 4) == 8 && ldexp(0.5, -1073) == float64_from_bits(1) && ldexp(1, 1023) == 8.98846567431158e307);
     assert(isinf(ldexp(1, 1024)) && ldexp(1, -1080) == 0 && ldexp(-3, 2) == -12 && is_negative_zero(ldexp(NEG_ZERO, 5)));
+
     for i: -60..60 {
         x := 1.0 + cast(float64) i * 0.0371;
         m, p := frexp(x);
@@ -95,11 +98,13 @@ main :: () {
     assert(isnan(sqrt(cast(float64) -4)) && sqrt(INF) == INF && is_negative_zero(sqrt(NEG_ZERO)) && isnan(sqrt(NAN)));
     assert(near(sqrt(float64_from_bits(1)), 2.2227587494850775e-162, 1e-15), "sqrt of a subnormal");
     assert(sqrt(cast(float32) 9) == 3 && near32(sqrt(cast(float32) 2), 1.4142135623730951));
+
     // sqrt is correctly rounded: bit-exact against a reference over normal and subnormal inputs.
     for SQRT_BITS {
         root := sqrt(float64_from_bits(it[0]));
         assert(float64_bits(root) == it[1], "sqrt of bits % gave bits %, expected %", it[0], float64_bits(root), it[1]);
     }
+
     for i: 1..1000 {
         n := cast(float64) i;
         assert(sqrt(n * n) == n, "sqrt(%^2)", n);
@@ -124,6 +129,7 @@ main :: () {
     assert(near32(pow(cast(float32) 3, 4), 81) && near32(pow(cast(float32) 2, -1), 0.5));
     assert(pow(cast(float64) 3, 4) == 81 && pow(cast(float64) 10, 15) == 1e15 && pow(cast(float64) 0.5, -3) == 8 && pow(cast(float32) 2, 20) == 1048576);
     assert(pow(cast(float64) 10, -320) > 0 && pow(cast(float64) 10, -320) < 1.1e-320 && isinf(pow(cast(float64) 10, 400)) && pow(cast(float64) 10, -400) == 0);
+
     // Whole exponents give the nearest double (reference values computed exactly).
     for POW_CASES {
         result := pow(float64_from_bits(it.base), cast(float64) it.power);
@@ -140,10 +146,12 @@ main :: () {
     assert(sin_or_cos(cast(float64) 1, true) == sin(cast(float64) 1) && sin_or_cos(cast(float64) 1, false) == cos(cast(float64) 1));
     assert(near32(sin(cast(float32) 0.5), 0.479425538604203) && near32(cos(cast(float32) 0.5), 0.8775825618903728));
     assert(near32(tan(cast(float32) 0.5), 0.5463024898437905) && near32(cot(cast(float32) 0.5), 1.830487721712452));
+
     for i: -50..50 {
         x := cast(float64) i * 0.731;
         s := sin(x);
         c := cos(x);
+
         assert(near(s * s + c * c, 1, 1e-15), "sin^2 + cos^2 at %", x);
         assert(abs(sin(-x) + s) <= 1e-15 && abs(cos(-x) - c) <= 1e-15, "symmetry at %", x);
     }
@@ -159,6 +167,7 @@ main :: () {
     assert(near(asin(cast(float64) 1), PI64 / 2) && near(asin(cast(float64) -0.5), -PI64 / 6) && near(acos(cast(float64) 1) + 1, 1) && near(acos(cast(float64) 0), PI64 / 2));
     assert(isnan(acos(cast(float64) 1.0001)) && isnan(asin(cast(float64) -2)));
     assert(near32(asin(cast(float32) 0.5), PI64 / 6) && near32(acos(cast(float32) 0.5), PI64 / 3));
+
     for i: -20..20 {
         x := cast(float64) i * 0.05;
         assert(near(sin(asin(x)), x, 1e-14) || abs(x) < 1e-15, "sin(asin(%))", x);
@@ -178,12 +187,15 @@ main :: () {
     assert(min(3, 1, 2) == 1 && max(3, 1, 2, 9, -5) == 9 && min(2.5, -1.5) == -1.5 && max(cast(u8) 7, cast(u8) 200) == 200);
     assert(clamp(5, 0, 3) == 3 && clamp(-5, 0, 3) == 0 && clamp(2, 0, 3) == 2);
     value := 12.5;
+
     Clamp(*value, 0, 10);
     assert(value == 10);
     count := -3;
+
     Clamp(*count, 0, 100);
     assert(count == 0);
     a, b := 1, 2;
+
     Swap(*a, *b);
     assert(a == 2 && b == 1 && Min(4, 3) == 3 && Max(4, 3) == 4);
     assert(lerp(cast(float) 2, cast(float) 6, 0.25) == 3 && lerp(cast(float64) -1, 1, 0.5) == 0 && lerp(10, 20, 0.5) == 15);

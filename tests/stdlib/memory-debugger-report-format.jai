@@ -22,6 +22,7 @@ main :: () -> s64 {
     report := Debugger.make_leak_report(options);
 
     old := context.logger;
+
     context.logger = capture;
     Debugger.log_leak_report(report);
     context.logger = old;

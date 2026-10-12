@@ -8,6 +8,7 @@
     set_build_options_dc(.{ do_output = false });
     w := compiler_create_workspace("wasm");
     options := get_build_options(w);
+
     copy_commonly_propagated_fields(get_build_options(), *options);
     options.output_type = .EXECUTABLE;
     options.backend = .LLVM;

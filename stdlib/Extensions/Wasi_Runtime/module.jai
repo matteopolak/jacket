@@ -77,24 +77,30 @@ wasi_start :: () #c_call {
         count = 0;
         text_bytes = 0;
     }
+
     // WASI hands out 32-bit pointers; Jai's argv holds 64-bit ones, so read into a table of
     // offsets and widen it in place from the end.
     table := cast(*u64) heap_take(cast(u64) (count + 1) * 8);
     text := heap_take(cast(u64) text_bytes + 1);
+
     if !table || !text wasi_proc_exit(71);
+
     if count > 0 && wasi_args_get(offset32(table), offset32(text)) == 0 {
         offsets := cast(*u32) table;
         for < i: 0..cast(s64) count - 1 table[i] = cast(u64) offsets[i];
     } else {
         count = 0;
     }
+
     table[count] = 0;
+
     // A program that starts threads runs `main` as the first of them (threads.jai).
     if green.enabled {
         main_argument_count = cast(s32) count;
         main_arguments = cast(**u8) table;
         run_threads();
     }
+
     wasi_proc_exit(program_main(cast(s32) count, cast(**u8) table));
 }
 
@@ -164,15 +170,19 @@ wasi_getenv :: (name: *u8) -> *u8 #c_call {
         environment_ready = true;
         load_environment();
     }
+
     name_length := c_length(name);
     entry := environment;
+
     while entry && entry.* {
         candidate := entry.*;
         if c_length(candidate) > name_length && candidate[name_length] == #char "=" && bytes_equal(candidate, name, name_length) {
             return candidate + name_length + 1;
         }
+
         entry += 1;
     }
+
     return null;
 }
 
@@ -198,11 +208,13 @@ wasi_nanosleep :: (requested: *Seconds_And_Nanoseconds, remaining: *Seconds_And_
         error_number = EINVAL;
         return -1;
     }
+
     total := cast(u64) requested.seconds * 1_000_000_000 + cast(u64) requested.nanoseconds;
     if !sleep_running(total) {
         error_number = EINVAL;
         return -1;
     }
+
     return 0;
 }
 
@@ -218,13 +230,16 @@ wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c
     seconds := time.*;
     days := seconds / 86400;
     second_of_day := seconds % 86400;
+
     if second_of_day < 0 {
         second_of_day += 86400;
         days -= 1;
     }
+
     // Shift to a calendar whose years start on March 1, so the leap day ends each year.
     shifted := days + 719468;
     cycles := shifted / 146097;
+
     if shifted < 0 && shifted % 146097 != 0 cycles -= 1;
     day_of_cycle := shifted - cycles * 146097;
     year_of_cycle := (day_of_cycle - day_of_cycle / 1460 + day_of_cycle / 36524 - day_of_cycle / 146096) / 365;
@@ -233,10 +248,12 @@ wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c
     day := day_of_year - (153 * month_from_march + 2) / 5 + 1;
     month := ifx month_from_march < 10 then month_from_march + 3 else month_from_march - 9;
     year := year_of_cycle + cycles * 400;
+
     if month <= 2 year += 1;
     leap := (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     days_before_month :: s64.[0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
     day_in_year := days_before_month[month - 1] + day - 1;
+
     if leap && month > 2 day_in_year += 1;
     weekday := (days + 4) % 7; // 1970-01-01 was a Thursday.
     if weekday < 0 weekday += 7;
@@ -256,10 +273,12 @@ wasi_gmtime_r :: (time: *s64, result: *Broken_Down_Time) -> *Broken_Down_Time #c
 wasi_gettimeofday :: (result: *Seconds_And_Microseconds, zone: *void) -> s32 #c_call {
     now: Seconds_And_Nanoseconds;
     if wasi_clock_gettime(0, *now) != 0 return -1;
+
     if result {
         result.seconds = now.seconds;
         result.microseconds = now.nanoseconds / 1000;
     }
+
     return 0;
 }
 
@@ -323,10 +342,12 @@ wasi_poll :: (descriptors: *void, count: u64, timeout_milliseconds: s32) -> s32 
         error_number = ENOSYS;
         return -1;
     }
+
     if timeout_milliseconds > 0 {
         interval := Seconds_And_Nanoseconds.{ timeout_milliseconds / 1000, (timeout_milliseconds % 1000) * 1_000_000 };
         wasi_nanosleep(*interval, null);
     }
+
     return 0;
 }
 
@@ -412,6 +433,7 @@ load_environment :: () #no_context {
     if wasi_environ_sizes_get(offset32(*count), offset32(*text_bytes)) != 0 return;
     table := cast(*u64) heap_take(cast(u64) (count + 1) * 8);
     text := heap_take(cast(u64) text_bytes + 1);
+
     if !table || !text return;
     if wasi_environ_get(offset32(table), offset32(text)) != 0 return;
     offsets := cast(*u32) table;
@@ -467,9 +489,11 @@ wasi_memset :: (destination: *void, value: s32, count: u64) -> *void #c_call {
 wasi_memcmp :: (a: *void, b: *void, count: s64) -> s32 #c_call {
     left := cast(*u8) a;
     right := cast(*u8) b;
+
     for 0..count - 1 {
         if left[it] != right[it] return cast(s32) left[it] - cast(s32) right[it];
     }
+
     return 0;
 }
 
@@ -510,15 +534,19 @@ heap_take :: (bytes: u64) -> *u8 #no_context {
         heap_cursor = (cast(u64) *__heap_base + 15) & ~cast(u64) 15;
         heap_limit = cast(u64) memory_page_count(0) * PAGE_BYTES;
     }
+
     size := (bytes + 15) & ~cast(u64) 15;
     if size > heap_limit || heap_cursor > heap_limit - size {
         missing := heap_cursor + size - heap_limit;
         pages := cast(s64) ((missing + PAGE_BYTES - 1) / PAGE_BYTES);
+
         if pages < GROWTH_PAGES pages = GROWTH_PAGES;
         if memory_add_pages(0, pages) < 0 return null;
         heap_limit += cast(u64) pages * PAGE_BYTES;
     }
+
     result := cast(*u8) heap_cursor;
+
     heap_cursor += size;
     return result;
 }
@@ -528,12 +556,14 @@ wasi_malloc :: (size: u64) -> *void #c_call {
     if size > (cast(u64) 1 << 46) return null;
     class := class_for(size + TAG_BYTES);
     block := cast(*u8) free_by_class[class];
+
     if block {
         free_by_class[class] = (cast(*Free_Block) block).next;
     } else {
         block = heap_take(cast(u64) 1 << cast(u64) class);
         if !block return null;
     }
+
     (cast(*s64) block).* = class;
     return block + TAG_BYTES;
 }
@@ -551,12 +581,15 @@ wasi_free :: (memory: *void) #c_call {
 #program_export "realloc"
 wasi_realloc :: (memory: *void, size: u64) -> *void #c_call {
     if !memory return wasi_malloc(size);
+
     if size == 0 {
         wasi_free(memory);
         return null;
     }
+
     class := (cast(*s64) (cast(*u8) memory - TAG_BYTES)).*;
     room := (cast(u64) 1 << cast(u64) class) - TAG_BYTES;
+
     if size <= room return memory;
     moved := wasi_malloc(size);
     if !moved return null;
@@ -570,6 +603,7 @@ wasi_calloc :: (count: u64, size: u64) -> *void #c_call {
     if size != 0 && count > 0xffff_ffff_ffff_ffff / size return null;
     total := count * size;
     memory := wasi_malloc(total);
+
     if memory memset(memory, 0, cast(s64) total);
     return memory;
 }

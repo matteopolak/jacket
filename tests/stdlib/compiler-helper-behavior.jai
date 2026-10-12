@@ -47,6 +47,7 @@ main :: () -> int {
     if loc.fully_pathed_filename != "" || loc.line_number != 0 return 14;
 
     o: Build_Options;
+
     set_optimization(*o, .VERY_OPTIMIZED);
     if o.llvm_options.bitcode_optimization_setting != .O3 || o.llvm_options.machine_code_optimization_setting != .AGGRESSIVE return 15;
     if !o.llvm_options.enable_slp_vectorization || !o.llvm_options.enable_tail_calls || o.llvm_options.disable_inlining return 16;

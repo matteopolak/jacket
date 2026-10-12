@@ -67,10 +67,12 @@ parse_pattern :: (pattern: string, flags: Options) -> Parsed {
     array_add(*p.out.names, "");
     p.out.ok = true;
     root := parse_alternation(*p);
+
     if p.out.ok && p.pos < pattern.count {
         // parse_alternation only stops early at a `)` with no group open.
         fail(*p, p.pos, "unopened group: this `)` has no `(`");
     }
+
     if p.out.ok p.out.root = root;
     return p.out;
 }
@@ -91,6 +93,7 @@ fail :: (p: *Parser, offset: int, message: string) -> *Node {
         p.out.error = message;
         p.out.offset = offset;
     }
+
     return null;
 }
 
@@ -126,6 +129,7 @@ next_char :: (p: *Parser) -> u32 {
 // In (?x) mode, skips whitespace and `#` comments that run to the end of the line.
 skip_space :: (p: *Parser) {
     if !p.flags.ignore_space return;
+
     while !at_end(p) {
         c := peek(p);
         if c == #char " " || c == #char "\t" || c == #char "\n" || c == #char "\r" || c == 0x0b || c == 0x0c {
@@ -140,13 +144,16 @@ skip_space :: (p: *Parser) {
 
 parse_alternation :: (p: *Parser) -> *Node {
     branches: [..] *Node;
+
     while true {
         branch := parse_concat(p);
+
         if !p.out.ok return null;
         array_add(*branches, branch);
         if peek(p) != #char "|" break;
         p.pos += 1;
     }
+
     if branches.count == 1 return branches[0];
     node := make(.ALTERNATE);
     node.children = branches;
@@ -155,23 +162,29 @@ parse_alternation :: (p: *Parser) -> *Node {
 
 parse_concat :: (p: *Parser) -> *Node {
     items: [..] *Node;
+
     while true {
         skip_space(p);
         if at_end(p) break;
         c := peek(p);
         if c == #char "|" || c == #char ")" break;
         atom := parse_atom(p);
+
         if !p.out.ok return null;
         if !atom continue; // a flag group like (?i): nothing to match
+
         while true {
             skip_space(p);
             repeated := parse_repetition(p, atom);
+
             if !p.out.ok return null;
             if !repeated break;
             atom = repeated;
         }
+
         array_add(*items, atom);
     }
+
     if items.count == 0 return make(.EMPTY);
     if items.count == 1 return items[0];
     node := make(.CONCAT);
@@ -186,6 +199,7 @@ parse_repetition :: (p: *Parser, atom: *Node) -> *Node {
     c := peek(p);
     start := p.pos;
     min, max: int;
+
     if c == #char "*" {
         min, max = 0, -1;
         p.pos += 1;
@@ -202,9 +216,11 @@ parse_repetition :: (p: *Parser, atom: *Node) -> *Node {
         min = parse_count(p);
         if !p.out.ok return null;
         skip_space(p);
+
         if peek(p) == #char "," {
             p.pos += 1;
             skip_space(p);
+
             if is_digit(peek(p)) {
                 max = parse_count(p);
                 if !p.out.ok return null;
@@ -214,6 +230,7 @@ parse_repetition :: (p: *Parser, atom: *Node) -> *Node {
         } else {
             max = min;
         }
+
         skip_space(p);
         if peek(p) != #char "}" return fail(p, start, "unclosed repetition quantifier: expected `}`");
         p.pos += 1;
@@ -221,11 +238,14 @@ parse_repetition :: (p: *Parser, atom: *Node) -> *Node {
     } else {
         return null;
     }
+
     greedy := true;
+
     if peek(p) == #char "?" {
         greedy = false;
         p.pos += 1;
     }
+
     if p.flags.swap_greed greedy = !greedy;
     node := make(.REPEAT);
     node.min = min;
@@ -238,14 +258,17 @@ parse_repetition :: (p: *Parser, atom: *Node) -> *Node {
 parse_count :: (p: *Parser) -> int {
     start := p.pos;
     value := 0;
+
     while is_digit(peek(p)) {
         value = value * 10 + cast(int) (peek(p) - #char "0");
         p.pos += 1;
+
         if value > MAX_REPEAT {
             fail(p, start, tprint("repetition count is too large (the limit is %)", MAX_REPEAT));
             return 0;
         }
     }
+
     return value;
 }
 
@@ -270,6 +293,7 @@ is_ascii_letter :: (c: u8) -> bool {
 parse_atom :: (p: *Parser) -> *Node {
     start := p.pos;
     c := peek(p);
+
     if c == {
         case #char "(";
             return parse_group(p);
@@ -282,6 +306,7 @@ parse_atom :: (p: *Parser) -> *Node {
             node := make(.CLASS);
             node.bytes = !p.flags.unicode;
             top: u32 = ifx p.flags.unicode then cast(u32) 0x10FFFF else 0xFF;
+
             if p.flags.dot_all {
                 array_add(*node.ranges, .{ 0, top });
             } else if p.flags.crlf {
@@ -292,6 +317,7 @@ parse_atom :: (p: *Parser) -> *Node {
                 array_add(*node.ranges, .{ 0, 9 });
                 array_add(*node.ranges, .{ 11, top });
             }
+
             return node;
         case #char "^";
             p.pos += 1;
@@ -308,7 +334,9 @@ parse_atom :: (p: *Parser) -> *Node {
         case #char "{";
             return fail(p, start, "repetition quantifier missing expression; write `\\{` for a literal brace");
     }
+
     ch := next_char(p);
+
     return literal_node(p, ch);
 }
 
@@ -327,15 +355,19 @@ literal_node :: (p: *Parser, c: u32) -> *Node {
         node.literal = utf8_encode_string(c);
         return node;
     }
+
     if p.flags.case_insensitive {
         ranges: [..] Char_Range;
+
         array_add(*ranges, .{ c, c });
+
         if p.flags.unicode {
             for unicode_simple_fold(c) array_add(*ranges, .{ it, it });
         } else {
             if c >= #char "a" && c <= #char "z" array_add(*ranges, .{ c - 32, c - 32 });
             if c >= #char "A" && c <= #char "Z" array_add(*ranges, .{ c + 32, c + 32 });
         }
+
         if ranges.count > 1 {
             ranges_normalize(*ranges);
             node := make(.CLASS);
@@ -344,6 +376,7 @@ literal_node :: (p: *Parser, c: u32) -> *Node {
             return node;
         }
     }
+
     node := make(.LITERAL);
     node.literal = utf8_encode_string(c);
     return node;
@@ -367,25 +400,31 @@ class_node :: (p: *Parser, ranges: [..] Char_Range) -> *Node {
 
 parse_group :: (p: *Parser) -> *Node {
     open := p.pos;
+
     p.pos += 1;
     if p.depth >= MAX_NESTING return fail(p, open, "pattern nests groups too deeply");
     name := "";
     capturing := true;
     saved := p.flags;
+
     if peek(p) == #char "?" {
         p.pos += 1;
         if peek_is(p, "<=") || peek_is(p, "<!") return fail(p, open, "look-around is not supported: matching runs in linear time");
+
         if peek_is(p, "P<") || peek(p) == #char "<" {
             if peek(p) == #char "P" p.pos += 1;
             p.pos += 1;
             name_start := p.pos;
+
             while !at_end(p) && peek(p) != #char ">" {
                 c := peek(p);
                 first := p.pos == name_start;
                 valid := is_ascii_letter(c) || c == #char "_" || (!first && (is_digit(c) || c == #char "." || c == #char "[" || c == #char "]"));
+
                 if !valid return fail(p, p.pos, "invalid capture group name: names start with a letter or `_` and continue with letters, digits, `_`, `.`, `[` or `]`");
                 p.pos += 1;
             }
+
             if at_end(p) return fail(p, open, "unclosed capture group name: expected `>`");
             if p.pos == name_start return fail(p, p.pos, "empty capture group name");
             name = slice(p.pattern, name_start, p.pos - name_start);
@@ -398,11 +437,13 @@ parse_group :: (p: *Parser) -> *Node {
             negated := false;
             any := false;
             dash := -1;
+
             while true {
                 if at_end(p) return fail(p, open, "unclosed group");
                 c := peek(p);
                 if c == #char ")" || c == #char ":" break;
                 value := !negated;
+
                 if c == {
                     case #char "i"; flags.case_insensitive = value;
                     case #char "m"; flags.multi_line = value;
@@ -422,30 +463,38 @@ parse_group :: (p: *Parser) -> *Node {
                         if c == #char "P" && p.pos + 1 < p.pattern.count && (p.pattern[p.pos + 1] == #char "=" || p.pattern[p.pos + 1] == #char ">") return fail(p, p.pos, "backreferences are not supported");
                         return fail(p, p.pos, tprint("unrecognized flag `%`", slice(p.pattern, p.pos, 1)));
                 }
+
                 any = true;
                 if dash >= 0 && dash == p.pos - 1 dash = -2; // something followed the dash
                 p.pos += 1;
             }
+
             if dash >= 0 return fail(p, dash, "a `-` in flags must be followed by a flag");
+
             if peek(p) == #char ")" {
                 if !any && !negated return fail(p, open, "empty flag group `(?)`");
                 p.pos += 1;
                 p.flags = flags;
                 return null; // applies to the rest of the enclosing group
             }
+
             p.pos += 1; // ':'
             p.flags = flags;
             capturing = false;
         }
     }
+
     index := 0;
+
     if capturing {
         p.out.groups += 1;
         index = p.out.groups;
         array_add(*p.out.names, name);
     }
+
     p.depth += 1;
     inner := parse_alternation(p);
+
     p.depth -= 1;
     if !p.out.ok return null;
     if peek(p) != #char ")" return fail(p, open, "unclosed group: expected `)`");
@@ -465,6 +514,7 @@ parse_char_escape :: (p: *Parser) -> value: u32, is_byte: bool, ok: bool {
     start := p.pos;
     c := p.pattern[p.pos + 1];
     simple: u32 = 0xFFFF_FFFF;
+
     if c == {
         case #char "a"; simple = 0x07;
         case #char "f"; simple = 0x0C;
@@ -473,30 +523,37 @@ parse_char_escape :: (p: *Parser) -> value: u32, is_byte: bool, ok: bool {
         case #char "r"; simple = 0x0D;
         case #char "v"; simple = 0x0B;
     }
+
     if simple != 0xFFFF_FFFF {
         p.pos += 2;
         return simple, false, true;
     }
+
     if c == #char "x" || c == #char "u" || c == #char "U" {
         p.pos += 2;
         digits := ifx c == #char "x" then 2 else ifx c == #char "u" then 4 else 8;
         value: u32 = 0;
+
         if peek(p) == #char "{" {
             p.pos += 1;
             count := 0;
+
             while !at_end(p) && peek(p) != #char "}" {
                 if !is_hex(peek(p)) || count >= 8 {
                     fail(p, start, "invalid hexadecimal escape: expected hex digits and `}`");
                     return 0, false, false;
                 }
+
                 value = value * 16 + hex_value(peek(p));
                 count += 1;
                 p.pos += 1;
             }
+
             if at_end(p) || count == 0 {
                 fail(p, start, "invalid hexadecimal escape: expected hex digits and `}`");
                 return 0, false, false;
             }
+
             p.pos += 1;
         } else {
             for 1..digits {
@@ -504,21 +561,27 @@ parse_char_escape :: (p: *Parser) -> value: u32, is_byte: bool, ok: bool {
                     fail(p, start, tprint("invalid hexadecimal escape: expected % hex digits", digits));
                     return 0, false, false;
                 }
+
                 value = value * 16 + hex_value(peek(p));
                 p.pos += 1;
             }
         }
+
         if !p.flags.unicode && c == #char "x" && value <= 0xFF return value, value > 0x7F, true;
+
         if value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF) {
             fail(p, start, "escape is not a Unicode scalar value");
             return 0, false, false;
         }
+
         return value, false, true;
     }
+
     if c < 0x80 && !is_ascii_letter(c) && !is_digit(c) && c != #char "<" && c != #char ">" {
         p.pos += 2;
         return c, false, true;
     }
+
     return 0, false, false;
 }
 
@@ -545,13 +608,16 @@ parse_escape :: (p: *Parser) -> *Node {
         case #char "b";
             p.pos += 2;
             u := p.flags.unicode;
+
             if peek(p) == #char "{" {
                 // \b{start} and friends; anything else after \b is a repetition of \b.
                 end := p.pos + 1;
                 while end < p.pattern.count && (is_ascii_letter(p.pattern[end]) || p.pattern[end] == #char "-") end += 1;
+
                 if end > p.pos + 1 && end < p.pattern.count && p.pattern[end] == #char "}" {
                     name := slice(p.pattern, p.pos + 1, end - p.pos - 1);
                     look: Look;
+
                     if name == "start" look = ifx u then Look.WORD_START else .WORD_START_ASCII;
                     else if name == "end" look = ifx u then Look.WORD_END else .WORD_END_ASCII;
                     else if name == "start-half" look = ifx u then Look.WORD_START_HALF else .WORD_START_HALF_ASCII;
@@ -561,20 +627,25 @@ parse_escape :: (p: *Parser) -> *Node {
                     return look_node(look);
                 }
             }
+
             return look_node(ifx u then Look.WORD else .WORD_ASCII);
         case #char "Z";
             return fail(p, start, "`\\Z` is not supported; use `\\z` for the end of the text");
     }
+
     if is_digit(c) {
         if c == #char "0" return fail(p, start, "octal escapes are not supported; use `\\x00`");
         return fail(p, start, "backreferences are not supported");
     }
+
     if c == #char "d" || c == #char "D" || c == #char "s" || c == #char "S" || c == #char "w" || c == #char "W" || c == #char "p" || c == #char "P" {
         ranges, ok := parse_class_escape(p);
         if !ok return null;
         return class_node(p, ranges);
     }
+
     value, is_byte, ok := parse_char_escape(p);
+
     if !p.out.ok return null;
     if !ok return fail(p, start, tprint("unrecognized escape sequence `\\%`", slice(p.pattern, p.pos + 1, 1)));
     if is_byte return byte_literal_node(value);
@@ -585,9 +656,11 @@ parse_escape :: (p: *Parser) -> *Node {
 parse_class_escape :: (p: *Parser) -> [..] Char_Range, bool {
     start := p.pos;
     c := p.pattern[p.pos + 1];
+
     p.pos += 2;
     negate := c == #char "D" || c == #char "S" || c == #char "W" || c == #char "P";
     ranges: [..] Char_Range;
+
     if c == #char "d" || c == #char "D" {
         if p.flags.unicode ranges = unicode_perl_digit();
         else array_add(*ranges, .{ #char "0", #char "9" });
@@ -605,14 +678,18 @@ parse_class_escape :: (p: *Parser) -> [..] Char_Range, bool {
             fail(p, start, "Unicode properties need Unicode mode; remove (?-u)");
             return ranges, false;
         }
+
         spec: string;
+
         if peek(p) == #char "{" {
             close := p.pos;
             while close < p.pattern.count && p.pattern[close] != #char "}" close += 1;
+
             if close >= p.pattern.count {
                 fail(p, start, "unclosed Unicode class: expected `}`");
                 return ranges, false;
             }
+
             spec = slice(p.pattern, p.pos + 1, close - p.pos - 1);
             p.pos = close + 1;
         } else {
@@ -620,21 +697,27 @@ parse_class_escape :: (p: *Parser) -> [..] Char_Range, bool {
                 fail(p, start, "incomplete Unicode class: expected a name after `\\p`");
                 return ranges, false;
             }
+
             spec_start := p.pos;
+
             next_char(p);
             spec = slice(p.pattern, spec_start, p.pos - spec_start);
         }
+
         if spec.count && spec[0] == #char "^" {
             negate = !negate;
             spec = slice(spec, 1, spec.count - 1);
         }
+
         found, ok, message := unicode_property(spec);
         if !ok {
             fail(p, start, message);
             return ranges, false;
         }
+
         ranges = found;
     }
+
     if p.flags.case_insensitive ranges = fold_ranges(p, ranges);
     if negate ranges = negate_ranges(p, ranges);
     return ranges, true;
@@ -650,15 +733,18 @@ ascii_word :: (ranges: *[..] Char_Range) {
 fold_ranges :: (p: *Parser, ranges: [] Char_Range) -> [..] Char_Range {
     if p.flags.unicode return unicode_case_fold_ranges(ranges);
     out: [..] Char_Range;
+
     for ranges {
         array_add(*out, it);
         lo := max(it.lo, #char "a");
         hi := min(it.hi, #char "z");
+
         if lo <= hi array_add(*out, .{ lo - 32, hi - 32 });
         lo = max(it.lo, #char "A");
         hi = min(it.hi, #char "Z");
         if lo <= hi array_add(*out, .{ lo + 32, hi + 32 });
     }
+
     ranges_normalize(*out);
     return out;
 }
@@ -667,11 +753,13 @@ negate_ranges :: (p: *Parser, ranges: [] Char_Range) -> [..] Char_Range {
     if p.flags.unicode return ranges_negate(ranges);
     out: [..] Char_Range;
     next: u32 = 0;
+
     for ranges {
         if it.lo > 0xFF break;
         if it.lo > next array_add(*out, .{ next, it.lo - 1 });
         next = it.hi + 1;
     }
+
     if next <= 0xFF array_add(*out, .{ next, 0xFF });
     return out;
 }
@@ -680,21 +768,27 @@ negate_ranges :: (p: *Parser, ranges: [] Char_Range) -> [..] Char_Range {
 // right; ranges and plain unions bind tightest; a leading `^` negates the whole.
 parse_class :: (p: *Parser) -> [..] Char_Range, bool {
     open := p.pos;
+
     p.pos += 1;
     p.depth += 1;
     defer p.depth -= 1;
     empty: [..] Char_Range;
+
     if p.depth >= MAX_NESTING {
         fail(p, open, "pattern nests classes too deeply");
         return empty, false;
     }
+
     negate := false;
+
     if peek(p) == #char "^" {
         negate = true;
         p.pos += 1;
     }
+
     result, ok := parse_class_union(p, open, true);
     if !ok return empty, false;
+
     while true {
         op := 0;
         if peek_is(p, "&&") op = 1;
@@ -708,10 +802,12 @@ parse_class :: (p: *Parser) -> [..] Char_Range, bool {
         else if op == 2 result = ranges_intersect(result, negate_ranges(p, right));
         else result = ranges_union(ranges_intersect(result, negate_ranges(p, right)), ranges_intersect(right, negate_ranges(p, result)));
     }
+
     if peek(p) != #char "]" {
         fail(p, open, "unclosed character class: expected `]`");
         return empty, false;
     }
+
     p.pos += 1;
     if p.flags.case_insensitive result = fold_ranges(p, result);
     if negate result = negate_ranges(p, result);
@@ -723,67 +819,87 @@ parse_class :: (p: *Parser) -> [..] Char_Range, bool {
 parse_class_union :: (p: *Parser, open: int, first_in_class: bool) -> [..] Char_Range, bool {
     ranges: [..] Char_Range;
     first := true;
+
     while true {
         skip_space(p);
+
         if at_end(p) {
             fail(p, open, "unclosed character class: expected `]`");
             return ranges, false;
         }
+
         c := peek(p);
         if c == #char "]" && !(first && first_in_class) break;
+
         if peek_is(p, "&&") || peek_is(p, "--") || peek_is(p, "~~") {
             if first {
                 fail(p, p.pos, "set operator needs a class on both sides");
                 return ranges, false;
             }
+
             break;
         }
+
         first = false;
+
         if c == #char "[" {
             if peek_is(p, "[:") {
                 posix, is_posix, posix_ok := parse_posix_class(p);
                 if !posix_ok return ranges, false;
+
                 if is_posix {
                     for posix array_add(*ranges, it);
                     continue;
                 }
             }
+
             nested, ok := parse_class(p);
             if !ok return ranges, false;
             for nested array_add(*ranges, it);
             continue;
         }
+
         item_start := p.pos;
         lo, is_class, class_ranges, ok := parse_class_atom(p);
+
         if !ok return ranges, false;
+
         if is_class {
             for class_ranges array_add(*ranges, it);
             continue;
         }
+
         // A range `a-z`, unless the `-` ends the class or starts a `--` operator.
         skip_space(p);
+
         if peek(p) == #char "-" && !peek_is(p, "--") && p.pos + 1 < p.pattern.count && p.pattern[p.pos + 1] != #char "]" {
             p.pos += 1;
             skip_space(p);
+
             if at_end(p) {
                 fail(p, open, "unclosed character class: expected `]`");
                 return ranges, false;
             }
+
             hi, hi_is_class, _, hi_ok := parse_class_atom(p);
             if !hi_ok return ranges, false;
+
             if hi_is_class {
                 fail(p, item_start, "invalid range: a range's ends must be single characters");
                 return ranges, false;
             }
+
             if hi < lo {
                 fail(p, item_start, "invalid range: the start is greater than the end");
                 return ranges, false;
             }
+
             array_add(*ranges, .{ lo, hi });
         } else {
             array_add(*ranges, .{ lo, lo });
         }
     }
+
     if !p.flags.unicode {
         // Without Unicode, a class is over bytes: a non-ASCII character could only mean its
         // UTF-8 bytes one at a time, which is never what was meant.
@@ -792,6 +908,7 @@ parse_class_union :: (p: *Parser, open: int, first_in_class: bool) -> [..] Char_
             return ranges, false;
         }
     }
+
     ranges_normalize(*ranges);
     return ranges, true;
 }
@@ -799,12 +916,15 @@ parse_class_union :: (p: *Parser, open: int, first_in_class: bool) -> [..] Char_
 // One character (literal or escape) or a class escape inside `[...]`.
 parse_class_atom :: (p: *Parser) -> value: u32, is_class: bool, ranges: [..] Char_Range, ok: bool {
     empty: [..] Char_Range;
+
     if peek(p) == #char "\\" {
         start := p.pos;
+
         if p.pos + 1 >= p.pattern.count {
             fail(p, start, "incomplete escape sequence at the end of the pattern");
             return 0, false, empty, false;
         }
+
         c := p.pattern[p.pos + 1];
         if c == #char "d" || c == #char "D" || c == #char "s" || c == #char "S" || c == #char "w" || c == #char "W" || c == #char "p" || c == #char "P" {
             // Fold later with the whole class; parse_class_escape would fold now, which is
@@ -812,14 +932,19 @@ parse_class_atom :: (p: *Parser) -> value: u32, is_class: bool, ranges: [..] Cha
             ranges, ok := parse_class_escape(p);
             return 0, true, ranges, ok;
         }
+
         value, _, ok := parse_char_escape(p);
+
         if !p.out.ok return 0, false, empty, false;
+
         if !ok {
             fail(p, start, tprint("unrecognized escape sequence `\\%` in a class", slice(p.pattern, p.pos + 1, 1)));
             return 0, false, empty, false;
         }
+
         return value, false, empty, true;
     }
+
     return next_char(p), false, empty, true;
 }
 
@@ -832,17 +957,22 @@ parse_posix_class :: (p: *Parser) -> [..] Char_Range, is_posix: bool, ok: bool {
     start := p.pos;
     i := p.pos + 2;
     negate := false;
+
     if i < p.pattern.count && p.pattern[i] == #char "^" {
         negate = true;
         i += 1;
     }
+
     name_start := i;
+
     while i < p.pattern.count && (is_ascii_letter(p.pattern[i])) i += 1;
     if i + 1 >= p.pattern.count || p.pattern[i] != #char ":" || p.pattern[i + 1] != #char "]" return ranges, false, true;
     name := slice(p.pattern, name_start, i - name_start);
+
     add :: (lo: u32, hi: u32) #expand {
         array_add(*ranges, .{ lo, hi });
     }
+
     if name == {
         case "alnum";
             add(#char "0", #char "9");
@@ -880,6 +1010,7 @@ parse_posix_class :: (p: *Parser) -> [..] Char_Range, is_posix: bool, ok: bool {
             fail(p, start, tprint("unrecognized POSIX class `[:%:]`", name));
             return ranges, false, false;
     }
+
     p.pos = i + 2;
     ranges_normalize(*ranges);
     if negate ranges = negate_ranges(p, ranges);
@@ -892,13 +1023,16 @@ parse_posix_class :: (p: *Parser) -> [..] Char_Range, is_posix: bool, ok: bool {
 ranges_intersect :: (a: [] Char_Range, b: [] Char_Range) -> [..] Char_Range {
     out: [..] Char_Range;
     i, j := 0, 0;
+
     while i < a.count && j < b.count {
         lo := max(a[i].lo, b[j].lo);
         hi := min(a[i].hi, b[j].hi);
+
         if lo <= hi array_add(*out, .{ lo, hi });
         if a[i].hi < b[j].hi i += 1;
         else j += 1;
     }
+
     return out;
 }
 
@@ -917,6 +1051,7 @@ decode_utf8 :: (s: string, index: int) -> u32, int {
     if b0 < 0x80 return b0, 1;
     count := 0;
     value: u32;
+
     if b0 >= 0xC2 && b0 <= 0xDF {
         count = 1;
         value = b0 & 0x1F;
@@ -929,12 +1064,15 @@ decode_utf8 :: (s: string, index: int) -> u32, int {
     } else {
         return b0, 1;
     }
+
     if index + count >= s.count return b0, 1;
+
     for 1..count {
         b := cast(u32) s[index + it];
         if (b & 0xC0) != 0x80 return b0, 1;
         value = (value << 6) | (b & 0x3F);
     }
+
     // Overlong forms, surrogates and values past U+10FFFF are not valid.
     if count == 2 && (value < 0x800 || (value >= 0xD800 && value <= 0xDFFF)) return b0, 1;
     if count == 3 && (value < 0x10000 || value > 0x10FFFF) return b0, 1;
@@ -945,6 +1083,7 @@ utf8_encode_string :: (c: u32) -> string {
     buffer: [4] u8;
     count := utf8_encode(c, *buffer);
     text := alloc_string(count);
+
     for 0..count - 1 text[it] = buffer[it];
     return text;
 }
@@ -954,17 +1093,20 @@ utf8_encode :: (c: u32, out: *[4] u8) -> int {
         (out.*)[0] = cast(u8) c;
         return 1;
     }
+
     if c < 0x800 {
         (out.*)[0] = cast(u8) (0xC0 | (c >> 6));
         (out.*)[1] = cast(u8) (0x80 | (c & 0x3F));
         return 2;
     }
+
     if c < 0x10000 {
         (out.*)[0] = cast(u8) (0xE0 | (c >> 12));
         (out.*)[1] = cast(u8) (0x80 | ((c >> 6) & 0x3F));
         (out.*)[2] = cast(u8) (0x80 | (c & 0x3F));
         return 3;
     }
+
     (out.*)[0] = cast(u8) (0xF0 | (c >> 18));
     (out.*)[1] = cast(u8) (0x80 | ((c >> 12) & 0x3F));
     (out.*)[2] = cast(u8) (0x80 | ((c >> 6) & 0x3F));

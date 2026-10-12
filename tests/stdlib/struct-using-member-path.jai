@@ -39,6 +39,7 @@ Pose :: struct {
 #run {
     m := Mesh.{ armature = 4 };
     p := Pose.{ mesh = *m };
+
     assert(p.armature == 4);
     p.armature = 6;
     assert(m.armature == 6);

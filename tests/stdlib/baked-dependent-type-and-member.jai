@@ -7,9 +7,11 @@ Help :: struct(T: Type) {
     #insert -> string {
         info := cast(*Type_Info_Struct) type_info(T);
         builder: String_Builder;
+
         for info.members {
             if it.type.type == .STRUCT print(*builder, "%: Help(type_of(T.{}.%));\n", it.name, it.name);
         }
+
         return builder_to_string(*builder);
     };
 }

@@ -11,8 +11,10 @@ main :: () {
     line := "  hello  ";
     line = Str.trim(line);
     v := Vector3.{ 3, 4, 0 };
+
     normalize(*v);
     other := " x ";
+
     trim(*other);
     print("% % %\n", line, v, other);
 }

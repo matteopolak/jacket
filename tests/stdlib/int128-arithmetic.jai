@@ -6,6 +6,7 @@
 main :: () -> s64 {
     max_limb: u64 = 0xffff_ffff_ffff_ffff;
     carried := U128.{ max_limb, 0 } + U128.{ 1, 0 };
+
     if carried != U128.{ 0, 1 } return 1;
     wrapped := U128.{ max_limb, max_limb } + U128.{ 1, 0 };
     if wrapped != U128.{} return 2;

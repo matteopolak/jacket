@@ -7,8 +7,10 @@ lookup :: (key: string) -> int, bool {
 main :: () {
     leftover := 5;
     a, b := 1, 2;
+
     print("%\n", a);
     value, found := lookup("key");
+
     print("%\n", value);
     first, second: string;
     first = "x";

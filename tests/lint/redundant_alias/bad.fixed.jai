@@ -25,6 +25,7 @@ copies :: (n: int) {
     // Multi-line initializer.
     area := (n + 1) *
         (n + 2);
+
     print("%\n", area);
 }
 

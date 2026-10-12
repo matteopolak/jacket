@@ -40,6 +40,7 @@ checks :: () {
     assert(CODE_STATUS == .SUCCESS && CODE_SIZE == 1);
 
     base := compiler_get_base_path();
+
     assert(base.count > 0 && (ends_with(base, "/") || ends_with(base, "\\")), "base path: %", base);
 
     // Accepted and ignored.

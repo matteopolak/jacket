@@ -21,5 +21,6 @@ main :: () -> s64 {
         print("%\n", TEXT);
         return 1;
     }
+
     return 0;
 }

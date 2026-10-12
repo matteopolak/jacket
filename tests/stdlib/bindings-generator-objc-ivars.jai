@@ -67,12 +67,14 @@ build_and_generate :: () -> string {
         header_path := tprint("%/ivars.h", dir);
         source_path := tprint("%/ivars.m", dir);
         library_path := tprint("%/libivars.dylib", dir);
+
         if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
         result := run_command("clang", "-shared", "-fPIC", "-fno-objc-arc", "-o", library_path, source_path, "-lobjc", "-Wno-deprecated-declarations", capture_and_return_output = true);
         if result.exit_code != 0 return "";
 
         opts: Generate_Bindings_Options;
+
         array_add(*opts.source_files, header_path);
         array_add(*opts.extra_clang_arguments, "-x", "objective-c");
         array_add(*opts.libpaths, dir);

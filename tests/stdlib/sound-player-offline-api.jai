@@ -27,14 +27,17 @@ was_released :: (stream: *Sound_Stream) -> bool {
 // A mono 16-bit WAV holding `frames` copies of `value`.
 constant_wav :: (frames: int, value: s16) -> string {
     builder: String_Builder;
+
     u16le :: (b: *String_Builder, v: int) {
         append(b, cast(u8) (v & 0xff));
         append(b, cast(u8) ((v >> 8) & 0xff));
     }
+
     u32le :: (b: *String_Builder, v: int) {
         u16le(b, v & 0xffff);
         u16le(b, (v >> 16) & 0xffff);
     }
+
     append(*builder, "RIFF");
     u32le(*builder, 36 + frames * 2);
     append(*builder, "WAVEfmt ");
@@ -64,28 +67,36 @@ temporary_storage_frames :: (data: *Sound_Data) {
     push_allocator(temp);
     FIRST_ID :: 100;
     started: [60] *Sound_Stream;
+
     for frame: 0..59 {
         stream := make_stream(data);
+
         assert(stream != null);
         stream.entity_id = FIRST_ID + frame;
         set_repeating(stream, true);
         start_playing(stream);
         started[frame] = stream;
+
         if frame >= 3 {
             stop_stream_abruptly(FIRST_ID + frame - 3);
             assert(was_released(started[frame - 3]), "frame %: the stopped stream was not released", frame);
         }
+
         render(64);
         update();
         reset_temporary_storage();
         junk := NewArray(64 * 1024, u8, false);
+
         memset(junk.data, 0xa5, junk.count);
+
         for back: 0..min(frame, 2) {
             live := find(FIRST_ID + frame - back, 0);
             assert(live != null && live.sound_data == data && live.entity_id == FIRST_ID + frame - back, "frame %: stream % lost after the reset", frame, frame - back);
         }
+
         reset_temporary_storage();
     }
+
     for 57..59 stop_stream_abruptly(FIRST_ID + it);
     render(64);
 }
@@ -98,22 +109,27 @@ main :: () {
     // Helpers that need no running player.
     assert(perceptual_to_linear(0) == 0 && perceptual_to_linear(1) == 1);
     half_loudness := perceptual_to_linear(0.5);
+
     assert(abs(half_loudness - 0.3162) < 0.001, "half perceived loudness is amplitude %", half_loudness);
     assert(perceptual_to_linear(0.25) < half_loudness, "perceptual_to_linear is not increasing");
     assert(get_devices().count == 0, "the offline output lists devices");
     nothing: [8] s16;
+
     assert(render_offline(nothing) == 0, "rendered without a running player");
 
     // Loading from a file; a missing optional file is quietly not loaded.
     make_directory_if_it_does_not_exist(".scratch");
     make_directory_if_it_does_not_exist(SCRATCH);
     path := tprint("%/constant.wav", SCRATCH);
+
     assert(write_entire_file(path, constant_wav(2000, 16384)), "could not write %", path);
     data := load_audio_file(path);
+
     assert(data.loaded && data.type == .LINEAR_SAMPLE_ARRAY, "load_audio_file(%) did not load", path);
     assert(data.full_path == path && data.name == path, "loaded names % / %", data.full_path, data.name);
     assert(data.nchannels == 1 && data.sampling_rate == RATE && data.nsamples_times_nchannels == 2000);
     missing := load_audio_file(tprint("%/missing.wav", SCRATCH), optional = true);
+
     assert(!missing.loaded, "a missing file loaded");
     file_delete(path);
 
@@ -128,14 +144,17 @@ main :: () {
     // A centred mono sound reaches both speakers at constant power, scaled by the master volume
     // through the perceptual curve.
     full := 0.5 * 32767.0 * sqrt(0.5);
+
     set_master_volume(0.5);
     first := make_stream(*data);
+
     assert(first != null);
     assert(samples_to_bytes(first, 10) == 20, "10 mono samples are % bytes", samples_to_bytes(first, 10));
     first.entity_id = 1;
     start_playing(first);
     start_playing(first); // Already playing: not added twice.
     out := render(4);
+
     assert(near(out[0], full * half_loudness) && near(out[1], full * half_loudness), "half master volume gave % %", out[0], out[1]);
     assert(get_desired_volume_perceptual(first, .{}) == 0.5);
     set_master_volume(1);
@@ -182,6 +201,7 @@ main :: () {
 
     // The listener turns: a source on its left inside the inner radius moves to the right ear.
     side := make_stream(*data);
+
     set_repeating(side, true);
     side.user_flags |= .SPATIALIZED;
     side.position = .{ 0, 20, 0 };
@@ -192,6 +212,7 @@ main :: () {
     out = render(4);
     assert(near(out[0], 0.5 * 32767.0) && near(out[1], 0), "left source gave % %", out[0], out[1]);
     turned: Quaternion;
+
     set_from_axis_and_angle(*turned, .{ 0, 0, 1 }, PI);
     update_listener(.{}, turned);
     update();

@@ -16,6 +16,7 @@ main :: () {
     });
     assert(total == 3);
     p := store(null);
+
     assert(type_of(p) == *void && p == null);
     print("ok\n");
 }

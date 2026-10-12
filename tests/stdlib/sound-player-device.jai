@@ -25,9 +25,11 @@ main :: () {
         #char "W", #char "A", #char "V", #char "E", #char "f", #char "m", #char "t", #char " ",
         16, 0, 0, 0, 1, 0, 1, 0, 0x44, 0xac, 0, 0, 0x88, 0x58, 1, 0, 2, 0, 16, 0,
         #char "d", #char "a", #char "t", #char "a", 200, 0, 0, 0];
+
     for header append(*wav, it);
     for 1..200 append(*wav, 0);
     data := load_audio_data("silence.wav", builder_to_string(*wav));
+
     assert(data.loaded && data.sampling_rate == 44100 && data.nsamples_times_nchannels == 100);
 
     config: Sound_Player_Config;
@@ -36,6 +38,7 @@ main :: () {
         // No device: nothing runs, and nothing crashes.
         assert(get_audio_sampling_rate() == 0, "a failed init left a sampling rate");
         stream := make_stream(*data);
+
         start_playing(stream); // Not running: ignored.
         update();
         assert(find(0, 0) == null && released == 0);
@@ -44,16 +47,20 @@ main :: () {
         print("ok\n");
         return;
     }
+
     assert(get_audio_sampling_rate() > 0, "running with sampling rate %", get_audio_sampling_rate());
     set_master_volume(0);
     stream := make_stream(*data);
+
     set_repeating(stream, true);
     stream.entity_id = 5;
     start_playing(stream);
+
     for 1..10 {
         update();
         sleep_milliseconds(5);
     }
+
     assert(find(5, 0) == stream, "the stream stopped by itself");
     sound_player_shutdown();
     assert(released == 1, "shutdown released % streams", released);

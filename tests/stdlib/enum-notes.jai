@@ -27,6 +27,7 @@ JAI
     compiler_begin_intercept(w);
     add_build_string(PROGRAM, w);
     ok := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .TYPECHECKED {
@@ -39,8 +40,10 @@ JAI
                 }
             }
         }
+
         if message.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(w);
     assert(ok, "Code_Enum.notes");
 }

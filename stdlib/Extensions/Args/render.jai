@@ -77,10 +77,12 @@ paint :: (builder: *String_Builder, on: bool, code: string, text: string) {
 
 positional_label :: (positional: Option_Spec) -> string {
     name := ifx positional.value_name.count then positional.value_name else to_upper_copy(positional.long,, temp);
+
     if positional.kind == .LIST {
         if positional.required return tprint("<%>...", name);
         return tprint("[%]...", name);
     }
+
     if positional.required return tprint("<%>", name);
     return tprint("[%]", name);
 }
@@ -89,23 +91,30 @@ positional_label :: (positional: Option_Spec) -> string {
 usage_line :: (root: *Command_Spec, path: [] string) -> string {
     spec := root;
     builder: String_Builder;
+
     append(*builder, root.name);
+
     for path {
         for *sub: spec.subcommands if sub.name == it {
             spec = sub;
             break;
         }
+
         append(*builder, " ");
         append(*builder, it);
     }
+
     if has_visible_options(spec) append(*builder, " [OPTIONS]");
+
     for spec.positionals {
         append(*builder, " ");
         append(*builder, positional_label(it));
     }
+
     if spec.subcommands.count {
         append(*builder, ifx spec.subcommand_required then " <COMMAND>" else " [COMMAND]");
     }
+
     return builder_to_string(*builder,, temp);
 }
 
@@ -116,15 +125,19 @@ has_visible_options :: (spec: *Command_Spec) -> bool {
 
 find_command :: (root: *Command_Spec, path: [] string) -> *Command_Spec {
     spec := root;
+
     for path {
         found: *Command_Spec;
+
         for *sub: spec.subcommands if sub.name == it {
             found = sub;
             break;
         }
+
         if !found break;
         spec = found;
     }
+
     return spec;
 }
 
@@ -132,18 +145,23 @@ find_command :: (root: *Command_Spec, path: [] string) -> *Command_Spec {
 
 option_label :: (option: Option_Spec, color: bool) -> string {
     text: String_Builder;
+
     if option.short {
         paint(*text, color, ANSI_LITERAL, tprint("-%", short_text(option.short)));
         append(*text, ", ");
     } else {
         append(*text, "    ");
     }
+
     long := ifx option.negatable then tprint("--[no-]%", option.long) else tprint("--%", option.long);
+
     paint(*text, color, ANSI_LITERAL, long);
+
     if option.kind == .VALUE || option.kind == .LIST {
         append(*text, " ");
         paint(*text, color, ANSI_PLACEHOLDER, tprint("<%>", value_label(option)));
     }
+
     return builder_to_string(*text,, temp);
 }
 
@@ -182,6 +200,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
         append(*out, spec.about);
         append(*out, "\n\n");
     }
+
     paint(*out, color, ANSI_HEADING, "Usage:");
     print(*out, " %\n", usage_line(root, path));
 
@@ -198,14 +217,17 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
         array_add(*descriptions, tprint("%%", it.help, notes_for(it)));
         array_add(*sections, 0);
     }
+
     shown: [..] Option_Spec;
     for spec.options array_add(*shown, it);
     // The `@global` options of the commands above are accepted here too.
     ancestor := root;
+
     for step: path {
         for ancestor.options if it.global array_add(*shown, it);
         ancestor = find_command(ancestor, .[step]);
     }
+
     for shown {
         if it.hidden continue;
         array_add(*labels, option_label(it, color));
@@ -213,20 +235,24 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
         array_add(*descriptions, tprint("%%", it.help, notes_for(it)));
         array_add(*sections, 1);
     }
+
     help_option := Option_Spec.{ long = "help", short = #char "h", help = "Print help" };
     version_option := Option_Spec.{ long = "version", short = #char "V", help = "Print version" };
+
     {
         array_add(*labels, option_label(help_option, color));
         array_add(*widths, label_width(help_option));
         array_add(*descriptions, help_option.help);
         array_add(*sections, 1);
     }
+
     if root.version.count && !path.count {
         array_add(*labels, option_label(version_option, color));
         array_add(*widths, label_width(version_option));
         array_add(*descriptions, version_option.help);
         array_add(*sections, 1);
     }
+
     for spec.subcommands {
         array_add(*labels, ifx color then tprint("%1%2%3", ANSI_LITERAL, it.name, ANSI_RESET) else it.name);
         array_add(*widths, it.name.count);
@@ -238,16 +264,20 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
     for widths if it > column column = it;
 
     titles := string.["Arguments:", "Options:", "Commands:"];
+
     for section: 0..2 {
         first := true;
+
         for labels {
             if sections[it_index] != section continue;
+
             if first {
                 append(*out, "\n");
                 paint(*out, color, ANSI_HEADING, titles[section]);
                 append(*out, "\n");
                 first = false;
             }
+
             append(*out, "  ");
             // Positionals and commands carry no colour codes of their own: colour them here.
             if section == 0 && color paint(*out, true, ANSI_PLACEHOLDER, it);
@@ -257,6 +287,7 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
             append(*out, "\n");
         }
     }
+
     return builder_to_string(*out);
 }
 
@@ -274,16 +305,20 @@ report :: (error: Error) {
     if error.kind == .NONE return;
     color := color_enabled(.ERROR);
     out: String_Builder;
+
     paint(*out, color, ANSI_ERROR, "error");
     print(*out, ": %\n", error.message);
+
     if error.suggestion.count {
         paint(*out, color, ANSI_HINT, "help");
         print(*out, ": did you mean `%`?\n", error.suggestion);
     }
+
     if error.usage.count {
         paint(*out, color, ANSI_HINT, "usage");
         print(*out, ": %\n", error.usage);
     }
+
     if error.command.count print(*out, "For more information, run `% --help`.\n", error.command);
     print("%", builder_to_string(*out,, temp), to_standard_error = true);
 }

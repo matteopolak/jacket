@@ -14,6 +14,7 @@ tour_threads :: () {
     }
 
     group: Thread_Group;
+
     init(*group, 3, count_primes_in_slice);
     group.logging = false;
     start(*group);
@@ -25,6 +26,7 @@ tour_threads :: () {
         done += get_completed_work(*group).count;
         if done < slices.count sleep_milliseconds(1);
     }
+
     shutdown(*group);
 
     total := 0;
@@ -36,23 +38,28 @@ tour_threads :: () {
     // A producer and a consumer share a ring of four slots. One semaphore counts
     // the free slots, the other the filled ones, so neither side ever overruns.
     ring: Ring_Buffer;
+
     init(*ring.free_slots, ring.slots.count);
     init(*ring.filled_slots, 0);
 
     producer: Thread;
+
     thread_init(*producer, produce_squares);
     producer.data = *ring;
     thread_start(*producer);
 
     print("The consumer received: ");
     sum := 0;
+
     for 1..10 {
         wait_for(*ring.filled_slots);
         value := ring.slots[it % ring.slots.count];
+
         signal(*ring.free_slots);
         print("% ", value);
         sum += value;
     }
+
     print("(sum %)\n", sum);
 
     thread_is_done(*producer, -1);
@@ -66,15 +73,19 @@ count_primes_in_slice :: (group: *Thread_Group, thread: *Thread, work: *void) ->
         if n < 2 continue;
         is_prime := true;
         d := 2;
+
         while d * d <= n {
             if n % d == 0 {
                 is_prime = false;
                 break;
             }
+
             d += 1;
         }
+
         if is_prime slice.primes += 1;
     }
+
     return .CONTINUE;
 }
 
@@ -93,14 +104,17 @@ Ring_Buffer :: struct {
 
 produce_squares :: (thread: *Thread) -> s64 {
     ring := cast(*Ring_Buffer) thread.data;
+
     for 1..10 {
         // A zero timeout only checks: count the times the ring was full.
         if wait_for(*ring.free_slots, 0) == .TIMEOUT {
             ring.waits += 1;
             wait_for(*ring.free_slots);
         }
+
         ring.slots[it % ring.slots.count] = it * it;
         signal(*ring.filled_slots);
     }
+
     return 0;
 }

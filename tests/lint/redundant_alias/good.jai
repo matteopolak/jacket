@@ -30,6 +30,7 @@ typed :: (n: int) {
     d := cast(s32) c;
     e := n;
     f: s32 = xx e;
+
     print("%\n", b + d + f);
 }
 
@@ -91,6 +92,7 @@ storage :: () {
 // The new name appears in the first initializer.
 shadows :: (b: int) {
     a := b + 1;
+
     {
         b := a;
         print("%\n", b);
@@ -107,10 +109,13 @@ inserted :: () {
 
 disabled :: (n: int) {
     path := n;
+
     #if OS == .WINDOWS {
         print("%\n", path);
     }
+
     other := path;
+
     print("%\n", other);
 }
 
@@ -133,7 +138,9 @@ others :: (n: int) {
         c := it;
         print("%\n", c);
     }
+
     p := n;
+
     print("%\n", p);
 }
 

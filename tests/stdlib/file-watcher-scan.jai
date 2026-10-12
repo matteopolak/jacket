@@ -21,9 +21,11 @@ on_change :: (watcher: *File_Watcher(Seen), change: *File_Change, seen: *Seen) {
     // Roots are absolute (with backslashes on Windows); names below them use "/".
     marker :: "file-watcher-scan";
     at := find_index_from_left(change.full_path, marker);
+
     assert(at >= 0, "change outside the root: %", change.full_path);
     start := at + marker.count + 1;
     name := slice(change.full_path, start, change.full_path.count - start);
+
     array_add(*seen.names, copy_string(name));
     array_add(*seen.events, change.events);
 }
@@ -49,6 +51,7 @@ main :: () {
 
     seen: Seen;
     watcher: File_Watcher(Seen);
+
     // Bad arguments, and use before init.
     assert(!add_directories(*watcher, ROOT));
     assert(!init(*watcher, null, *seen));
@@ -66,6 +69,7 @@ main :: () {
 
     // Nothing happened yet.
     changed, needs_wait := process_changes(*watcher);
+
     assert(!changed && !needs_wait && seen.names.count == 0, "quiet start reported % changes", seen.names.count);
 
     // Sizes change so a coarse modification clock cannot hide the edit.
@@ -82,6 +86,7 @@ main :: () {
     assert(events_for(*seen, "keep.txt") == 0, "keep.txt was not touched");
     // The directory "sub" changed too, where the file system dates a directory by its entries.
     sub_events := events_for(*seen, "sub");
+
     assert(seen.names.count == 4 + xx (sub_events != 0) && (sub_events == 0 || sub_events == .MODIFIED), "% changes, sub: %", seen.names.count, sub_events);
     forget(*seen);
 
@@ -101,6 +106,7 @@ main :: () {
         // Only additions are wanted; nothing is recursive; a long merge window holds changes back.
         held: Seen;
         filtered: File_Watcher(Seen);
+
         assert(init(*filtered, on_change, *held, events_to_watch = .ADDED, merge_window_seconds = 30, watch_recursively = false));
         assert(make_directory_if_it_does_not_exist(path("sub2")));
         assert(add_directories(*filtered, ROOT));
@@ -108,6 +114,7 @@ main :: () {
         assert(write_entire_file(path("keep.txt"), "kept, but longer now"));
         assert(write_entire_file(path("late.txt"), "late"));
         changed, needs_wait, wait_seconds := process_changes(*filtered);
+
         assert(!changed && needs_wait && wait_seconds > 0 && wait_seconds <= 30, "held back: % % %", changed, needs_wait, wait_seconds);
         assert(held.names.count == 0);
         assert(filtered.changes.count == 1 && ends_with(filtered.changes[0].full_path, "late.txt"), "% pending", filtered.changes.count);

@@ -7,5 +7,6 @@ main :: () {
     z := cast(s64) count;
     w: u8 = 1;
     v: u8 = xx w;
+
     print("% % %\n", y, z, v);
 }

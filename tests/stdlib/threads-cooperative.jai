@@ -14,6 +14,7 @@ worker :: (thread: *Thread) -> s64 {
         unlock(*mutex);
         atomic_add(*counter, 1);
     }
+
     return thread.index;
 }
 
@@ -31,6 +32,7 @@ main :: () {
         thread_init(it, worker);
         thread_start(it);
     }
+
     for *threads thread_deinit(it);
     assert(total == 300, "total %", total);
     assert(counter == 300, "counter %", counter);

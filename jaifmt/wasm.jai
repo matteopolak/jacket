@@ -8,6 +8,7 @@ main :: () -> s32 {
     options, set := Args.parse(Options, HELP);
 
     config: Format_Config;
+
     if set.config {
         parsed, ok, error := parse_config(options.config);
         if !ok return fail("%: %", FORMAT_CONFIG_FILE_NAME, error);
@@ -45,12 +46,14 @@ c_read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "read";
 read_standard_input :: () -> string, bool {
     builder: String_Builder;
     chunk: [16384] u8;
+
     while true {
         got := c_read(0, chunk.data, chunk.count);
         if got < 0 return "", false;
         if got == 0 break;
         append(*builder, chunk.data, got);
     }
+
     return builder_to_string(*builder), true;
 }
 

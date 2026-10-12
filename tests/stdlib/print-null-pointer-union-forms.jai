@@ -56,6 +56,7 @@ main :: () -> s64 {
     // get_field returns the member and its offset, searching `using` members.
     info := cast(*Type_Info_Struct) type_info(Derived);
     member, offset := get_field(info, "y");
+
     if !member || offset != 16 return 8;
     member, offset = get_field(info, "z");
     if !member || offset != 0 return 9;

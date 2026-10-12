@@ -37,6 +37,7 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
         decl.decl_flags |= .OMIT_FROM_OUTPUT;
         return .STOP;
     }
+
     visited += 1;
     return .RECURSE;
 }
@@ -44,13 +45,16 @@ visitor :: (decl: *Declaration, parent: *Declaration) -> Declaration_Visit_Resul
 // Runs at compile time: libclang is the compiler's, and executables cannot call it.
 check_bindings :: () {
     dir := scratch_directory("bindgen-cpp");
+
     hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);
+
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     array_add(*opts.extra_clang_arguments, "-x", "c++");
     array_add(*opts.flatten_namespaces, "Gui");
@@ -60,6 +64,7 @@ check_bindings :: () {
     assert(generate_bindings(opts, output_path));
 
     text, ok := read_entire_file(output_path);
+
     assert(ok);
     assert(visited > 0);
     // libclang mangles for the host's C++ ABI: Microsoft's on Windows, Itanium elsewhere.

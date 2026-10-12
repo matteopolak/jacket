@@ -29,10 +29,12 @@ JAI
     add_build_string(TARGET, w);
 
     inserted := compiler_get_nodes(#code bump());
+
     assert(inserted.kind == .PROCEDURE_CALL);
 
     main_import: *Message_Import;
     saw_settings, saw_versions, saw_work, modified := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == {
@@ -42,6 +44,7 @@ JAI
 
             case .FILE;
                 file := cast(*Message_File) message;
+
                 assert(file.enclosing_import != null);
 
             case .TYPECHECKED;
@@ -53,28 +56,37 @@ JAI
                     saw_settings = true;
                     assert(info.members.count == 2 && info.members[0].notes[0] == "v1");
                 }
+
                 for typechecked.declarations {
                     decl := it.expression;
+
                     assert(decl.enclosing_load && decl.enclosing_load.enclosing_import == main_import);
+
                     if decl.name == "VERSIONS" {
                         saw_versions = true;
                         literal := cast(*Code_Literal) decl.expression;
+
                         assert(literal.value_type == .ARRAY);
                         entry := cast(*Code_Literal) literal.array_literal_info.array_members[1];
+
                         assert((cast(*Code_Literal) entry.struct_literal_info.arguments[0])._s64 == 2);
                         assert((cast(*Code_Literal) entry.struct_literal_info.arguments[1])._string == "name");
                     }
+
                     if decl.name == "work" {
                         saw_work = true;
                         assert(decl.notes.count == 1 && decl.notes[0].text == "Public");
                         assert(decl.type.type == .PROCEDURE);
                         header := cast(*Code_Procedure_Header) decl.expression;
+
                         assert(header.arguments.count == 2);
                         assert(header.arguments[1].type == type_info(int));
                         assert(header.arguments[1].expression.kind == .LITERAL);
                         // A baked struct's instance is the origin's instance, parameters included.
                         grid := cast(*Type_Info_Struct) (cast(*Type_Info_Pointer) header.arguments[0].type).pointer_to;
+
                         assert(grid.name == "Grid" && grid.specified_parameters.count == 2);
+
                         for param: grid.specified_parameters {
                             storage := grid.constant_storage.data + param.offset_into_constant_storage;
                             if param.name == "N" assert((cast(*int) storage).* == 4);
@@ -82,10 +94,12 @@ JAI
                         }
                     }
                 }
+
                 for typechecked.procedure_bodies {
                     body := it.expression;
                     if body.header.name != "work" continue;
                     statements: [..] *Code_Node;
+
                     array_add(*statements, inserted);
                     for body.block.statements array_add(*statements, it);
                     body.block.statements = statements;
@@ -106,6 +120,7 @@ JAI
                 break;
         }
     }
+
     assert(saw_settings && saw_versions && saw_work);
     print("ok\n");
 }

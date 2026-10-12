@@ -76,10 +76,12 @@ build_and_generate :: () -> string {
     check_path := tprint("%/check.c", dir);
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/libmsbits.%", dir, ext);
+
     if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
     // clang's record layout for the Windows target agrees with the hand-written sizes.
     checks: String_Builder;
+
     append(*checks, "#include \"msbits.h\"\n");
     for STRUCT_NAMES print_to_builder(*checks, "_Static_assert(sizeof(struct %) == %, \"%\");\n", it, EXPECTED_SIZES[it_index], it);
     if !write_entire_file(check_path, builder_to_string(*checks)) return "";
@@ -154,6 +156,7 @@ main :: () {
         assert(size_of(Signs) == EXPECTED_SIZES[6] && ms_size(6) == EXPECTED_SIZES[6]);
 
         m: Mixed;
+
         ms_mixed_set(*m, 5, -9, 2);
         assert(Mixed_get_a(*m) == 5 && Mixed_get_b(*m) == -9 && Mixed_get_c(*m) == 2);
         Mixed_set_a(*m, 3); // `char` is unsigned on Linux arm64; stay in range for both.
@@ -162,6 +165,7 @@ main :: () {
         assert(ms_mixed_get(*m, 0) == 3 && ms_mixed_get(*m, 1) == 15 && ms_mixed_get(*m, 2) == 1);
 
         s: SameType;
+
         ms_same_set(*s, 0xABCDE, 0x54321, 9);
         assert(SameType_get_a(*s) == 0xABCDE && SameType_get_b(*s) == 0x54321 && SameType_get_c(*s) == 9);
         SameType_set_b(*s, 0xFFFFF);
@@ -169,24 +173,28 @@ main :: () {
         assert(ms_same_get(*s, 0) == 0xABCDE && ms_same_get(*s, 1) == 0xFFFFF && ms_same_get(*s, 2) == 15);
 
         z: Zero;
+
         ms_zero_set(*z, 5, 6);
         assert(Zero_get_a(*z) == 5 && Zero_get_b(*z) == 6);
         Zero_set_b(*z, 1);
         assert(ms_zero_get(*z, 0) == 5 && ms_zero_get(*z, 1) == 1);
 
         t: Tail;
+
         ms_tail_set(*t, 7, -3);
         assert(t.c == 7 && Tail_get_x(*t) == -3);
         Tail_set_x(*t, 5);
         assert(ms_tail_get(*t, 0) == 7 && ms_tail_get(*t, 1) == 5);
 
         w: Wide;
+
         ms_wide_set(*w, 0xAB_CDEF_0123, 0x2BCD_EF01, 77);
         assert(Wide_get_a(*w) == 0xAB_CDEF_0123 && Wide_get_b(*w) == 0x2BCD_EF01 && w.after == 77);
         Wide_set_b(*w, 0x3FFF_FFFF);
         assert(ms_wide_get(*w, 1) == 0x3FFF_FFFF && ms_wide_get(*w, 0) == 0xAB_CDEF_0123 && ms_wide_get(*w, 2) == 77);
 
         sh: Shorts;
+
         ms_shorts_set(*sh, -200, 255);
         assert(Shorts_get_a(*sh) == -200 && Shorts_get_b(*sh) == 255);
         Shorts_set_a(*sh, 100);
@@ -194,6 +202,7 @@ main :: () {
         assert(ms_shorts_get(*sh, 0) == 100 && ms_shorts_get(*sh, 1) == -256);
 
         sg: Signs;
+
         ms_signs_set(*sg, 12, -5);
         assert(Signs_get_a(*sg) == 12 && Signs_get_b(*sg) == -5);
         Signs_set_a(*sg, 3);

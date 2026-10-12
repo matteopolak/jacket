@@ -28,6 +28,7 @@ main :: () {
     first := cast(Window_Type) 1001;
     second := cast(Window_Type) 1002;
     key: Input.Key_Code = .ARROW_LEFT;
+
     Input.set_input_focus(false);
     Input.update_window_events();
 

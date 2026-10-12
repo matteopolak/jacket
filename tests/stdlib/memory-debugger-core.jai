@@ -11,11 +11,13 @@ arena_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: 
         release_count += 1;
         return null;
     }
+
     if fail_allocations return null;
     if mode != .ALLOCATE || size < 0 return null;
     bytes := (size + 7) & ~7;
     if bytes > size_of(arena) - arena_position return null;
     result := cast(*u8) *arena + arena_position;
+
     arena_position += bytes;
     return result;
 }
@@ -23,6 +25,7 @@ arena_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: 
 main :: () -> s64 {
     state: MD_State;
     allocator := Allocator.{ arena_allocator, null };
+
     state.storage_allocator = allocator;
     defer md_deinit(*state);
     one: [16] u8;
@@ -69,6 +72,7 @@ main :: () -> s64 {
     if md_realloc(*state, allocator, *one, 16, *two, 24, null, 0) != .OUT_OF_MEMORY || md_find(*state, *one).allocation.is_live return 26;
     fail_allocations = false;
     before := release_count;
+
     md_deinit(*state);
     if state.records != null || state.traces != null || state.next_index != 1 || release_count <= before return 20;
     return 0;

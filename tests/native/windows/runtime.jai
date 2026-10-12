@@ -55,8 +55,10 @@ worker :: (thread: *Thread) -> s64 {
         counter += 1;
         unlock(*counter_mutex);
     }
+
     // Each thread has its own context and temporary storage.
     s := tprint("thread %", thread.index);
+
     return s.count;
 }
 
@@ -69,18 +71,22 @@ main :: () {
     for numbers total += it;
     check(total == 99990000, "array sum");
     mark := get_temporary_storage_mark();
+
     for 1..1000 {
         s := tprint("% and %", it, it * 3);
         check(s.count > 0, "tprint");
     }
+
     set_temporary_storage_mark(mark);
     big := alloc(1 << 24);
+
     memset(big, 7, 1 << 24);
     check((cast(*u8) big)[(1 << 24) - 1] == 7, "large allocation");
     free(big);
     check(abs(sqrt(2.0) - 1.41421356) < 0.00001, "sqrt");
     args := get_command_line_arguments();
     for args check(it.count > 0, "command line argument");
+
     // Built, argv[0] is the executable. `jaic run runtime.jai -- runtime-arg` passes the source
     // file and that argument; on Windows they are read again from the wide command line, which
     // must be the program's and not jaic's own (`jaic.exe run runtime.jai -- runtime-arg`).
@@ -92,23 +98,28 @@ main :: () {
 
     // String.
     parts := split("alpha,beta,gamma", ",");
+
     check(parts.count == 3 && parts[2] == "gamma", "split");
     check(join(..parts, "+") == "alpha+beta+gamma", "join");
     check(to_upper_copy("windows") == "WINDOWS", "to_upper_copy");
     found, before, after := split_from_left("key=value", #char "=");
+
     check(found && before == "key" && after == "value", "split_from_left");
 
     // Hash_Table.
     table: Table(string, int);
     for 0..499 table_add(*table, tprint("k%", it), it);
     was_found, found_value := table_find(*table, "k321");
+
     check(was_found && found_value == 321, "table_find");
     check(table.count == 500, "table count");
 
     // File: write, read back, delete (in the working directory).
     name := "jaic-windows-runtime-test.txt";
+
     check(write_entire_file(name, "line one\nline two\n"), "write_entire_file");
     text, read_ok := read_entire_file(name);
+
     check(read_ok && text == "line one\nline two\n", "read_entire_file");
     check(file_exists(name), "file_exists");
     check(file_delete(name), "file_delete");
@@ -121,24 +132,30 @@ main :: () {
         check(thread_init(it, worker), "thread_init");
         check(thread_start(it), "thread_start");
     }
+
     for *threads {
         while !thread_is_done(it, 1000) {}
         thread_deinit(it);
     }
+
     check(counter == 4000, "threads counted");
 
     // C ABI for #c_call procedures called through pointers: small structs travel in an
     // integer register on Win64, others by reference to a copy.
     pair_proc := add_pair;
     p := pair_proc(.{ 10, 20 });
+
     check(p.a == 11 && p.b == 22, "8-byte struct");
     big_proc := sum_big;
     b := big_proc(.{ 1, 2, 3 });
+
     check(b.x == 6 && b.y == 2 && b.z == 3, "24-byte struct");
     scale_proc := scale_floats;
     f := scale_proc(.{ 1.5, 2.5 }, 2);
+
     check(f.f == 3 && f.g == 5, "two-float struct");
     many_proc := many;
+
     check(many_proc(1, 0.5, 2, 0.25, 3, 0.125, .{ 4, 5 }) == 15.875, "stack arguments");
 
     if failures == 0 print("ok\n");

@@ -23,6 +23,7 @@ step :: (r: *Base) {
     } else {
         r.buffer += 2;
     }
+
     r.depth += 1;
 }
 
@@ -49,11 +50,14 @@ visit :: (d: *Item, r: *$R) -> string {
 
 main :: () {
     w: Writer;
+
     step(*w);
     step(*w);
     rd: Reader;
+
     step(*rd);
     plain: Base(true);
+
     deepen(*plain);
     deepen(*w);
     assert(w.buffer == 4 && w.depth == 12);
@@ -62,6 +66,7 @@ main :: () {
     assert(depth_of(w) == 12 && depth_of(*rd) == 1);
     item: Item;
     f: float;
+
     assert(visit(*item, *w) == "custom" && visit(*f, *w) == "generic");
     print("ok\n");
 }

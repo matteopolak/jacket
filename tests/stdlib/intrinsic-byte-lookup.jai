@@ -12,7 +12,9 @@ fail :: (what: string, a: int, b: int) {
 
 check_lookup16 :: (table: *[16] u8, indices: *[16] u8) {
     out: [16] u8;
+
     byte_lookup(out.data, table.data, indices.data, 16);
+
     for 0..15 {
         want: u8 = 0;
         if indices.*[it] < 16 want = table.*[indices.*[it]];
@@ -22,7 +24,9 @@ check_lookup16 :: (table: *[16] u8, indices: *[16] u8) {
 
 check_lookup32 :: (table: *[16] u8, indices: *[32] u8) {
     out: [32] u8;
+
     byte_lookup(out.data, table.data, indices.data, 32);
+
     for 0..31 {
         want: u8 = 0;
         if indices.*[it] < 16 want = table.*[indices.*[it]];
@@ -32,7 +36,9 @@ check_lookup32 :: (table: *[16] u8, indices: *[32] u8) {
 
 check_lookup64 :: (table: *[16] u8, indices: *[64] u8) {
     out: [64] u8;
+
     byte_lookup(out.data, table.data, indices.data, 64);
+
     for 0..63 {
         want: u8 = 0;
         if indices.*[it] < 16 want = table.*[indices.*[it]];
@@ -50,18 +56,21 @@ main :: () {
         for 0..15 idx[it] = xx (base * 16 + it);
         check_lookup16(*table, *idx);
     }
+
     // 32 bytes: both blocks use the same table.
     for base: 0..7 {
         idx: [32] u8;
         for 0..31 idx[it] = xx (base * 32 + it);
         check_lookup32(*table, *idx);
     }
+
     // 64 bytes: four blocks, one table.
     for base: 0..3 {
         idx: [64] u8;
         for 0..63 idx[it] = xx (base * 64 + it);
         check_lookup64(*table, *idx);
     }
+
     // Reversed indices.
     rev: [32] u8;
     for 0..31 rev[it] = xx (15 - (it % 16));

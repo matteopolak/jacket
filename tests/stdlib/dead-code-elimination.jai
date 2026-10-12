@@ -44,6 +44,7 @@ compiles :: (source: string, mode: Mode) -> bool {
     compiler_begin_intercept(w);
     add_build_string(source, w);
     ok := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE {
@@ -51,6 +52,7 @@ compiles :: (source: string, mode: Mode) -> bool {
             break;
         }
     }
+
     compiler_end_intercept(w);
     return ok;
 }

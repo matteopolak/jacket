@@ -33,16 +33,19 @@ check_pool_contract :: () -> int {
     if pool.memblock_size != 65536 || pool.oversized_size != 6554 || pool.alignment != 8 || pool.block_allocator.proc || pool.overwrite_memory || pool.free_memblocks_on_reset return 2;
     pointer_type := cast(*Type_Info_Pointer) type_of(pool.current_memblock);
     header_type := cast(*Type_Info_Struct) pointer_type.pointer_to;
+
     if header_type.runtime_size != P.HEADER_SIZE || header_type.members.count != 2 return 3;
     if header_type.members[0].name != "next" || header_type.members[0].offset_in_bytes != 0 || header_type.members[1].name != "data" || header_type.members[1].offset_in_bytes != 8 || header_type.members[1].type.runtime_size != 0 return 4;
     allocator := Allocator.{ P.pool_allocator_proc, *pool };
     caps, name := get_capabilities_info(allocator);
+
     if name != "modules/Pool" || (caps & .IS_THIS_YOURS) == 0 || (caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) == 0 return 5;
     allocator.proc(.STARTUP, 0, 0, null, allocator.data);
     if pool.block_allocator.proc return 6;
 
     trace: Storage_Allocation_Trace;
     backing := storage_trace_allocator(*trace);
+
     pool.memblock_size = 64;
     pool.oversized_size = 128;
     pool.overwrite_memory = true;
@@ -50,6 +53,7 @@ check_pool_contract :: () -> int {
     defer P.release(*pool);
     first := cast(*u8) P.get(*pool, 16);
     first_block := pool.current_memblock;
+
     if !first || first != cast(*u8) first_block + P.HEADER_SIZE || pool.bytes_left != 40 || first[0] != 204 return 7;
     used, oversized := P.calculate_used_memory(pool);
     if used != 24 || oversized != 0 return 8;

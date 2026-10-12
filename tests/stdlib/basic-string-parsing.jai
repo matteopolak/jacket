@@ -8,9 +8,11 @@ main :: () -> s64 {
     if !max_ok || maximum != 0xffff_ffff_ffff_ffff || max_rest != "!" return 2;
     overflow_text := "18446744073709551616!";
     _, overflow_ok, overflow_rest := string_to_int(overflow_text, T = u64);
+
     if overflow_ok || overflow_rest != overflow_text return 3;
     underflow_text := "-9223372036854775809";
     _, underflow_ok, underflow_rest := string_to_int(underflow_text);
+
     if underflow_ok || underflow_rest != underflow_text return 4;
     zero, zero_ok, zero_rest := string_to_int("-0suffix");
     if !zero_ok || zero != 0 || zero_rest != "suffix" return 5;

@@ -7,12 +7,15 @@ main :: () {
     } else {
         print("small\n");
     }
+
     if n > 0 {} else {}
+
     #if OS == .WINDOWS {
         print("x\n");
     } else {
         print("x\n");
     }
+
     print("%\n", ifx n > 0 then "pos" else "neg");
     print("%\n", sign(n));
 }

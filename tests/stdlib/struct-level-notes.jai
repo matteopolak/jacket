@@ -31,9 +31,11 @@ main :: () {
     if type_info(Plain).notes.count != 0 exit(6);
     if type_info(Generic(int)).notes.count != 1 || type_info(Generic(int)).notes[0] != "generic" exit(7);
     if type_info(Variant).notes.count != 1 || type_info(Variant).notes[0] != "shared" exit(8);
+
     #run {
         notes := type_info(Tagged).notes;
         assert(notes.count == 2 && notes[0] == "thing");
     };
+
     print("ok\n");
 }

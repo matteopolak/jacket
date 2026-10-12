@@ -17,17 +17,22 @@ static_engine :: (pattern: string, full: bool) -> Engine {
         report_pattern_error(pattern, parsed.error, offset);
         return engine;
     }
+
     ok: bool;
     message: string;
     engine.program, ok, message = compile_program(*parsed, false);
     if ok engine.reverse, ok, message = compile_program(*parsed, true);
+
     if !ok {
         report_pattern_error(pattern, message, 0);
         return engine;
     }
+
     forward, backward: Dfa;
+
     dfa_init(*forward, *engine.program, false, STATIC_STATE_LIMIT);
     dfa_init(*backward, *engine.reverse, true, STATIC_STATE_LIMIT);
+
     if dfa_build_all(*forward) && dfa_build_all(*backward) {
         engine.forward = dfa_freeze(*forward);
         engine.backward = dfa_freeze(*backward);
@@ -35,6 +40,7 @@ static_engine :: (pattern: string, full: bool) -> Engine {
         // Freezing is optional: a pattern with no table just captures the slower way.
         engine.onepass = onepass_build(*engine.program, ONEPASS_STATIC_STATE_LIMIT);
     }
+
     engine.fixed_length = fixed_length(*engine.program);
     dfa_free(*forward);
     dfa_free(*backward);
@@ -54,6 +60,7 @@ is_static :: (R: Type) -> bool, string {
     if info.type == .STRUCT && (cast(*Type_Info_Struct) info).polymorph_source_struct == type_info(Static) {
         return true, "";
     }
+
     return false, tprint("expected a Regex.Static(\"...\") type, not %; for a pattern made at run time, pass *re from Regex.compile", R);
 }
 
@@ -92,10 +99,12 @@ Field_Plan :: struct {
 plan_groups :: (pattern: string) -> [..] Field_Plan, ok: bool {
     plans: [..] Field_Plan;
     parsed := parse_pattern(pattern, .{});
+
     if !parsed.ok return plans, false;
     collect_groups(parsed.root, false, *plans);
     used: [..] string;
     for plans array_add(*used, it.name);
+
     for *plans {
         if it.kind != .ENUM continue;
         name := copy_string(it.name);
@@ -104,6 +113,7 @@ plan_groups :: (pattern: string) -> [..] Field_Plan, ok: bool {
         it.type_name = name;
         array_add(*used, name);
     }
+
     return plans, true;
 }
 
@@ -118,6 +128,7 @@ collect_groups :: (node: *Node, optional: bool, plans: *[..] Field_Plan) {
                 infer_kind(node.children[0], *plan);
                 array_add(plans, plan);
             }
+
             collect_groups(node.children[0], optional, plans);
         case .REPEAT;
             collect_groups(node.children[0], optional || node.min == 0, plans);
@@ -133,23 +144,28 @@ JAI_KEYWORDS :: string.["if", "else", "then", "case", "for", "while", "break", "
 infer_kind :: (node: *Node, plan: *Field_Plan) {
     plan.kind = .STRING;
     plan.type_name = "string";
+
     // A few fixed words: an enum, with each word written as a member name (`dog`, `Dog` and
     // `DOG` all become DOG; `hotDog` becomes HOT_DOG).
     if node.kind == .ALTERNATE && node.children.count >= 2 && node.children.count <= 64 {
         members, words: [..] string;
         word_members: [..] int;
+
         for node.children {
             word, ok := literal_text(it);
             if !ok || !is_identifier(word) return;
             name := member_name(word);
             index := index_of_name(members, name);
+
             if index < 0 {
                 index = members.count;
                 array_add(*members, name);
             }
+
             array_add(*words, word);
             array_add(*word_members, index);
         }
+
         if members.count < 2 return;
         plan.kind = .ENUM;
         plan.members = members;
@@ -157,14 +173,18 @@ infer_kind :: (node: *Node, plan: *Field_Plan) {
         plan.word_members = word_members;
         return;
     }
+
     signed, digits, is_float, ok := number_shape(node);
     if !ok return;
+
     if is_float {
         plan.kind = .FLOAT;
         plan.type_name = "float64";
         return;
     }
+
     plan.kind = .INTEGER;
+
     if signed {
         plan.type_name = ifx digits >= 0 && digits <= 2 then "s8" else ifx digits >= 0 && digits <= 4 then "s16" else ifx digits >= 0 && digits <= 9 then "s32" else "s64";
     } else {
@@ -177,9 +197,11 @@ infer_kind :: (node: *Node, plan: *Field_Plan) {
 folded_letter :: (node: *Node) -> string, bool {
     letter: u8;
     seen := 0;
+
     for node.ranges {
         if it.lo > 0x7F continue;
         if it.hi > 0x7F return "", false;
+
         for c: it.lo..it.hi {
             lower := ifx c >= #char "A" && c <= #char "Z" then c + 32 else c;
             if lower < #char "a" || lower > #char "z" return "", false;
@@ -188,6 +210,7 @@ folded_letter :: (node: *Node) -> string, bool {
             seen += 1;
         }
     }
+
     if seen != 2 return "", false;
     text := alloc_string(1);
     text[0] = letter;
@@ -197,13 +220,16 @@ folded_letter :: (node: *Node) -> string, bool {
 // An identifier in upper snake case, the way enum members are written.
 member_name :: (word: string) -> string {
     builder: String_Builder;
+
     for word {
         c := it;
         lower_before := it_index > 0 && ((word[it_index - 1] >= #char "a" && word[it_index - 1] <= #char "z") || (word[it_index - 1] >= #char "0" && word[it_index - 1] <= #char "9"));
+
         if c >= #char "A" && c <= #char "Z" && lower_before append(*builder, #char "_");
         if c >= #char "a" && c <= #char "z" c -= 32;
         append(*builder, c);
     }
+
     return builder_to_string(*builder);
 }
 
@@ -217,25 +243,31 @@ literal_text :: (node: *Node) -> string, bool {
     if node.kind == .LITERAL return node.literal, true;
     if node.kind == .CLASS return folded_letter(node);
     if node.kind == .CAPTURE return literal_text(node.children[0]);
+
     if node.kind == .CONCAT {
         builder: String_Builder;
+
         for node.children {
             piece, ok := literal_text(it);
             if !ok return "", false;
             append(*builder, piece);
         }
+
         return builder_to_string(*builder), true;
     }
+
     return "", false;
 }
 
 is_identifier :: (word: string) -> bool {
     if !word.count return false;
+
     for word {
         c := it;
         letter := (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || c == #char "_";
         if !letter && !(it_index > 0 && c >= #char "0" && c <= #char "9") return false;
     }
+
     return true;
 }
 
@@ -243,14 +275,18 @@ is_identifier :: (word: string) -> bool {
 // digits. `digits` is the most integer digits it can match, -1 for no limit.
 number_shape :: (node: *Node) -> signed: bool, digits: int, is_float: bool, ok: bool {
     items: [..] *Node;
+
     flatten(node, *items);
     i := 0;
     signed := false;
+
     if i < items.count && is_sign(items[i]) {
         signed = true;
         i += 1;
     }
+
     min_digits, max_digits := 0, 0;
+
     while i < items.count {
         ok, lo, hi := digit_run(items[i]);
         if !ok break;
@@ -259,25 +295,30 @@ number_shape :: (node: *Node) -> signed: bool, digits: int, is_float: bool, ok: 
         else max_digits += hi;
         i += 1;
     }
+
     if min_digits < 1 return false, 0, false, false;
     if i == items.count return signed, max_digits, false, true;
     // A fraction: `.` then digits, either inline or as an optional group.
     rest: [..] *Node;
     for i..items.count - 1 array_add(*rest, items[it]);
+
     if rest.count == 1 && rest[0].kind == .REPEAT && rest[0].min == 0 && rest[0].max == 1 {
         inner: [..] *Node;
         flatten(rest[0].children[0], *inner);
         rest = inner;
     }
+
     if rest.count < 2 return false, 0, false, false;
     dot, dot_ok := literal_text(rest[0]);
     if !dot_ok || dot != "." return false, 0, false, false;
     fraction := 0;
+
     for 1..rest.count - 1 {
         ok, lo := digit_run(rest[it]);
         if !ok return false, 0, false, false;
         fraction += lo;
     }
+
     if fraction < 1 return false, 0, false, false;
     return signed, max_digits, true, true;
 }
@@ -304,10 +345,12 @@ is_sign :: (node: *Node) -> bool {
     if node.kind == .REPEAT && node.min == 0 && node.max == 1 return is_sign(node.children[0]);
     if node.kind == .CAPTURE return is_sign(node.children[0]);
     if node.kind == .LITERAL return node.literal == "-" || node.literal == "+";
+
     if node.kind == .CLASS {
         for node.ranges if it.lo != #char "-" && it.lo != #char "+" || it.hi != it.lo return false;
         return node.ranges.count > 0;
     }
+
     return false;
 }
 
@@ -330,6 +373,7 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
             return true, lo * node.min, hi * node.max;
         case .CONCAT;
             lo, hi := 0, 0;
+
             for node.children {
                 ok, a, b := digit_run(it);
                 if !ok return false, 0, 0;
@@ -337,9 +381,11 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
                 if b < 0 || hi < 0 hi = -1;
                 else hi += b;
             }
+
             return true, lo, hi;
         case .ALTERNATE;
             lo, hi := -1, 0;
+
             for node.children {
                 ok, a, b := digit_run(it);
                 if !ok return false, 0, 0;
@@ -347,8 +393,10 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
                 if b < 0 || hi < 0 hi = -1;
                 else hi = max(hi, b);
             }
+
             return true, lo, hi;
     }
+
     return false, 0, 0;
 }
 
@@ -365,25 +413,30 @@ groups_members :: (pattern: string) -> string {
     if !ok return check_pattern(pattern);
     builder: String_Builder;
     any_optional := false;
+
     for plans {
         reserved := it.name == "match" || it.name == "has" || array_find(JAI_KEYWORDS, it.name);
         if reserved || !is_identifier(it.name) {
             compiler_report(tprint("Regex: group `%` in % can't be a field of Groups; rename it, or use captures_into with your own struct", it.name, pattern));
             return "";
         }
+
         if it.kind == .ENUM {
             print_to_builder(*builder, "% :: enum u8 {", it.type_name);
             for word: it.members print_to_builder(*builder, " %;", word);
             append(*builder, " }\n");
         }
+
         print_to_builder(*builder, "%: %;\n", it.name, it.type_name);
         if it.optional any_optional = true;
     }
+
     if any_optional {
         append(*builder, "has: struct {\n");
         for plans if it.optional print_to_builder(*builder, "    %: bool;\n", it.name);
         append(*builder, "};\n");
     }
+
     return builder_to_string(*builder);
 }
 
@@ -393,10 +446,12 @@ groups_fill :: (pattern: string) -> string {
     plans, ok := plan_groups(pattern);
     if !ok return "";
     builder: String_Builder;
+
     for plans {
         print_to_builder(*builder, "if slots[%] >= 0 {\n", 2 * it.group);
         print_to_builder(*builder, "    piece := slice(text, slots[%], slots[%] - slots[%]);\n", 2 * it.group, 2 * it.group + 1, 2 * it.group);
         if it.optional print_to_builder(*builder, "    out.has.% = true;\n", it.name);
+
         if it.kind == {
             case .STRING;
                 print_to_builder(*builder, "    out.% = piece;\n", it.name);
@@ -413,11 +468,14 @@ groups_fill :: (pattern: string) -> string {
                 for word: plan.words {
                     print_to_builder(*builder, "    else if equal_nocase(piece, \"%\") out.% = .%;\n", word, plan.name, plan.members[plan.word_members[it_index]]);
                 }
+
                 // Only a non-ASCII fold (the Kelvin sign for k) gets here.
                 append(*builder, "    else return false;\n");
         }
+
         append(*builder, "}\n");
     }
+
     return builder_to_string(*builder);
 }
 
@@ -431,17 +489,21 @@ into_fill :: (pattern: string, T: Type) -> string {
         compiler_report(tprint("Regex: can only match into a struct, not %", T));
         return "";
     }
+
     st := cast(*Type_Info_Struct) info;
     builder: String_Builder;
     seen: [..] string;
+
     for member: st.members {
         if member.flags & .CONSTANT continue;
         group := -1;
         for plans if it.name == member.name group = it.group;
+
         if group < 0 {
             compiler_report(tprint("Regex: field `%` of % has no group `(?<%>...)` in %", member.name, T, member.name, pattern));
             return "";
         }
+
         array_add(*seen, member.name);
         print_to_builder(*builder, "if slots[%] >= 0 {\n", 2 * group);
         print_to_builder(*builder, "    piece := slice(text, slots[%], slots[%] - slots[%]);\n", 2 * group, 2 * group + 1, 2 * group);
@@ -465,16 +527,20 @@ into_fill :: (pattern: string, T: Type) -> string {
                 compiler_report(tprint("Regex: field `%` of % has a type a group can't be parsed into; use a string, integer, float, bool or enum", member.name, T));
                 return "";
         }
+
         append(*builder, "}\n");
     }
+
     for plans {
         found := false;
         for name: seen if name == it.name found = true;
+
         if !found {
             compiler_report(tprint("Regex: group `%` in % has no field in %", it.name, pattern, T));
             return "";
         }
     }
+
     return builder_to_string(*builder);
 }
 
@@ -483,12 +549,15 @@ into_fill :: (pattern: string, T: Type) -> string {
 parse_integer :: (piece: string, $T: Type) -> T, bool {
     i := 0;
     negative := false;
+
     if i < piece.count && (piece[i] == #char "-" || piece[i] == #char "+") {
         negative = piece[i] == #char "-";
         i += 1;
     }
+
     magnitude: u64 = 0;
     LIMIT :: 0xFFFF_FFFF_FFFF_FFFF;
+
     while i < piece.count {
         digit, size := digit_at(piece, i);
         if digit < 0 return 0, false;
@@ -496,21 +565,26 @@ parse_integer :: (piece: string, $T: Type) -> T, bool {
         magnitude = magnitude * 10 + cast(u64) digit;
         i += size;
     }
+
     #if #run type_info(T).signed {
         BITS :: size_of(T) * 8;
         MAX_POSITIVE :: (cast(u64) 1 << (BITS - 1)) - 1;
+
         if negative {
             if magnitude > MAX_POSITIVE + 1 return 0, false;
             if magnitude == MAX_POSITIVE + 1 return cast,no_check(T) (cast(u64) 1 << (BITS - 1)), true;
             return cast(T) -cast(s64) magnitude, true;
         }
+
         if magnitude > MAX_POSITIVE return 0, false;
         return cast(T) magnitude, true;
     } else {
         if negative && magnitude != 0 return 0, false;
+
         #if size_of(T) < 8 {
             if magnitude > (cast(u64) 1 << (size_of(T) * 8)) - 1 return 0, false;
         }
+
         return cast(T) magnitude, true;
     }
 }
@@ -527,15 +601,18 @@ parse_decimal :: (piece: string) -> float64, bool {
             i += 1;
             continue;
         }
+
         digit, size := digit_at(piece, i);
         if digit < 0 return 0, false;
         array_add(*ascii, cast(u8) (#char "0" + digit));
         i += size;
     }
+
     text: string;
     text.data = ascii.data;
     text.count = ascii.count;
     value, ok, rest := string_to_float64(text);
+
     return value, ok && rest.count == 0;
 }
 
@@ -546,10 +623,12 @@ digit_at :: (text: string, index: int) -> int, int {
     if c < 0x80 return -1, 1;
     code, size := decode_utf8(text, index);
     if size == 1 return -1, 1;
+
     if !digit_table_ready {
         digit_table = unicode_perl_digit();
         digit_table_ready = true;
     }
+
     // Decimal digits come in runs of ten, zero first.
     for digit_table if code >= it.lo && code <= it.hi return cast(int) ((code - it.lo) % 10), size;
     return -1, size;

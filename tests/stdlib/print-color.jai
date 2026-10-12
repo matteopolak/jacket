@@ -25,11 +25,14 @@ emit :: () {
 main :: () {
     #if OS == .MACOS || OS == .LINUX {
         name :: ".scratch/print-color.txt";
+
         make_directory_if_it_does_not_exist(".scratch");
         file := POSIX.open(name, POSIX.O_WRONLY | POSIX.O_CREAT | POSIX.O_TRUNC, 420);
+
         assert(file >= 0);
         saved_out := POSIX.dup(1);
         saved_err := POSIX.dup(2);
+
         assert(POSIX.dup2(file, 1) >= 0 && POSIX.dup2(file, 2) >= 0);
         emit();
         POSIX.dup2(saved_out, 1);
@@ -38,13 +41,16 @@ main :: () {
         POSIX.close(saved_out);
         POSIX.close(saved_err);
         text, ok := read_entire_file(name);
+
         assert(ok);
         expected := "\e[0;31mvalue 42\e[0m\e[1;92mbold\e[0m\e[4;44minside\e[0m\e[0;33mto stderr\e[0m\e[0;36merr\e[0m";
+
         assert(text == expected, "escapes:\n%\nexpected\n%", text, expected);
         assert(file_delete(name));
     } else {
         emit();
         write_string("\n");
     }
+
     print("ok\n");
 }

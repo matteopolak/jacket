@@ -18,6 +18,7 @@ main :: () {
     flags :: (t: Type) -> Struct_Status_Flags {
         return (cast(*Type_Info_Struct) t).status_flags;
     }
+
     assert((flags(Scoped) & .LOCAL) != 0);
     assert((flags(Outer.Inside) & .LOCAL) != 0);
     assert((flags(Top) & .LOCAL) == 0);

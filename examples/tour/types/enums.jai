@@ -27,11 +27,13 @@ tour_enums :: () {
     bag |= .SCARF;
     bag &= ~Gear.UMBRELLA;
     bits := formatInt(cast(int) bag, base = 2, minimum_digits = 4);
+
     print("The bag holds % (bits: %)\n", bag, bits);
     if bag & .BOOTS then print("Boots are in the bag.\n");
 
     // `.X` is an enum literal; its type comes from context.
     tomorrow: Weather = .SNOWY;
+
     print("Tomorrow is % (value %); Weather has % members.\n",
         tomorrow, cast(int) tomorrow, enum_names(Weather).count);
 }
@@ -51,5 +53,6 @@ pack_for :: (weather: Weather) -> Gear {
         case .THUNDERSTORM;
             return 0; // Better stay inside.
     }
+
     return 0;
 }

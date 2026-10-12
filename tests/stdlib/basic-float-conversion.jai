@@ -8,6 +8,7 @@ main :: () -> s64 {
     if tprint("%", formatFloat(9.999, trailing_width = 2, mode = .SCIENTIFIC, zero_removal = .NO)) != "1.00e+01" return 4;
     infinity := cast,force(float64) cast(u64) 0x7ff0_0000_0000_0000;
     nan := cast,force(float64) cast(u64) 0x7ff8_0000_0000_0001;
+
     if tprint("%", formatFloat(infinity)) != "Inf" || tprint("%", formatFloat(-infinity)) != "-Inf" || tprint("%", formatFloat(nan)) != "NaN" return 5;
     if formatFloatRoundtrip(-0.0) != "-0" return 6;
     minimum := cast,force(float64) cast(u64) 1;

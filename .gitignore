@@ -15,5 +15,8 @@ node_modules/
 
 # regex benchmark build products
 /benchmarks/regex/target/
+
+# Agent worktrees made by Claude Code.
+/.claude/worktrees/
 /TODO.md
 /HANDOFF.md

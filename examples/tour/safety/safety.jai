@@ -27,9 +27,11 @@ tour_safety :: () {
     view: [] int = backing;
     view.count = 2;
     sum := 0;
+
     for 0..3 #no_abc {
         sum += view[it];
     }
+
     print("A view of % numbers, read past its end with #no_abc: sum %\n", view.count, sum);
 
     // A whole program can relax the checks too: a metaprogram sets
@@ -40,14 +42,17 @@ tour_safety :: () {
             print("BREAK_ON_PURPOSE is .NOTHING; change it to see a runtime error.\n");
         case .NARROWING_CAST;
             small := cast(u8) big;
+
             print("never printed: %\n", small);
         case .INDEX_PAST_END;
             three := int.[1, 2, 3];
             index := three.count;
+
             print("never printed: %\n", three[index]);
         case .NULL_POINTER;
             nothing: *int;
             value := nothing.*;
+
             print("never printed: %\n", value);
     }
 }

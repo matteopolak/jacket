@@ -75,27 +75,34 @@ main :: () {
     #insert snippet;
     #insert snippet;
     assert(seen_count == 2, "code.4: inserting a statement Code twice runs it twice");
+
     block :: #code {
         seen_count += 10;
         seen_count *= 2;
     };
+
     #insert block;
     assert(seen_count == 24, "code.4: a block Code yields all its statements");
 
     // code.2: expression position.
     value := #insert #code 3 + 4;
+
     assert(value == 7, "code.2: #insert in expression position");
     assert(TOP_LEVEL_VALUE == 17, "code.2: top-level #insert of a string");
 
     // code.3: `-> Code` and `-> string` bodies at statement level.
     counter := 1;
+
     #insert -> Code {
         return #code counter += 41;
     };
+
     assert(counter == 42, "code.3: #insert -> Code");
+
     #insert -> string {
         return "counter *= 2;";
     };
+
     assert(counter == 84, "code.3: #insert -> string");
     assert(GENERATED_SQUARE == 81, "code.3: top-level #insert -> string");
 
@@ -105,13 +112,16 @@ main :: () {
 
     // code.9
     local_value := 5;
+
     assert(double_it(#code local_value + 1) == 12, "code.9: Code expression uses its defining scope");
 
     // code.10: a string in expression position is checked in the insertion scope.
     here := 20;
     sum := #insert "here + 1";
+
     assert(sum == 21, "code.10: string expression sees insertion-scope names");
     product := (#insert "here + 1") * 2;
+
     assert(product == 42, "code.10: string is parsed as a parenthesized expression");
 
     // code.11
@@ -126,13 +136,17 @@ main :: () {
     assert(ANSWER == 42, "code.13: ANSWER");
     twice_with_defer(#code array_add(*log, "body"));
     #insert code_val;
+
     #insert -> string {
         return "array_add(*log, \"from string\");";
     };
+
     x := 5;
+
     #insert #run tprint("x += %;", 3);
     assert(x == 8, "code.13: x is 8");
     expected :: string.["body", "d0", "body", "d1", "hi", "from string"];
+
     assert(log.count == expected.count, "code.13: log length");
     for expected assert(log[it_index] == it, "code.13: log order");
 }

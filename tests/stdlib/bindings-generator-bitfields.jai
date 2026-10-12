@@ -77,12 +77,14 @@ build_and_generate :: () -> string {
     source_path := tprint("%/bits.c", dir);
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/libbits.%", dir, ext);
+
     if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
     result := run_command("clang", "-shared", "-fPIC", "-o", library_path, source_path, capture_and_return_output = true);
     if result.exit_code != 0 return "";
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     array_add(*opts.libpaths, dir);
     array_add(*opts.libnames, "libbits");
@@ -120,6 +122,7 @@ main :: () {
 
         // C writes, Jai reads.
         p: Packed;
+
         bits_packed_set(*p, 5, 19, -7);
         assert(Packed_get_a(*p) == 5 && Packed_get_b(*p) == 19 && p.tail == -7);
         // Jai writes, C reads.
@@ -131,6 +134,7 @@ main :: () {
         assert(bits_packed_get(*p, 0) == 7 && bits_packed_get(*p, 1) == 31);
 
         o: Offset;
+
         bits_offset_set(*o, 1000, 9);
         assert(Offset_get_x(*o) == 1000 && Offset_get_y(*o) == 9);
         Offset_set_x(*o, 524287);
@@ -142,6 +146,7 @@ main :: () {
         assert(Offset_get_x(*o) == -3 && o.s == 77);
 
         s: Signed;
+
         bits_signed_set(*s, -5, -1000, -2);
         assert(Signed_get_lo(*s) == -5 && Signed_get_hi(*s) == -1000 && Signed_get_m(*s) == -2);
         Signed_set_lo(*s, 7);
@@ -150,6 +155,7 @@ main :: () {
         assert(bits_signed_get(*s, 0) == 7 && bits_signed_get(*s, 1) == 2047 && bits_signed_get(*s, 2) == -4);
 
         w: Wide;
+
         bits_wide_set(*w, 0xAB_CDEF_0123, 0x45_6789);
         assert(Wide_get_a(*w) == 0xAB_CDEF_0123 && Wide_get_b(*w) == 0x45_6789);
         Wide_set_a(*w, 0xFF_FFFF_FFFF);
@@ -159,12 +165,14 @@ main :: () {
         assert(Wide_get_b(*w) == 1);
 
         z: Zero;
+
         bits_zero_set(*z, 5, 6, 42);
         assert(Zero_get_a(*z) == 5 && Zero_get_b(*z) == 6 && z.z == 42);
         Zero_set_b(*z, 3);
         assert(bits_zero_get(*z, 1) == 3 && bits_zero_get(*z, 0) == 5 && bits_zero_get(*z, 2) == 42);
 
         bo: Bools;
+
         bits_bools_set(*bo, true, false, 33);
         assert(Bools_get_on(*bo) == true && Bools_get_off(*bo) == false && Bools_get_n(*bo) == 33);
         Bools_set_off(*bo, true);
@@ -172,10 +180,12 @@ main :: () {
         assert(bits_bools_get(*bo, 0) == 0 && bits_bools_get(*bo, 1) == 1 && bits_bools_get(*bo, 2) == 33);
 
         g: Gap;
+
         bits_gap_set(*g, 65, 3);
         assert(g.c == 65 && Gap_get_b(*g) == 3 && bits_gap_b(*g) == 3);
 
         inst: Instance;
+
         assert(size_of(Instance) == 16);
         bits_instance_set(*inst, 0xABCDEF, 0x12, 0x654321, 0xFE);
         assert(Instance_get_index(*inst) == 0xABCDEF && Instance_get_mask(*inst) == 0x12);

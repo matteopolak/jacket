@@ -25,6 +25,7 @@
         // size, and the writer insists that the size it sees matches the header.
         RING :: 16384 - Channel.OFFSET_TO_MESSAGE_DATA;
         created, reader := Channel.reader_create_channel(name, RING);
+
         if !created return 1;
         header := reader.header;
         if header.version != 1 || header.data_size_in_bytes != RING return 2;
@@ -49,6 +50,7 @@
         if second return 10;
         // Twenty 3000-byte payloads through a ring of under 16 KiB force it to wrap.
         PAYLOAD :: 3000;
+
         for round: 0..19 {
             reserved, message := Channel.writer_reserve_message(*writer, PAYLOAD);
             if !reserved return 100 + round;
@@ -62,6 +64,7 @@
             for i: 0..PAYLOAD - 1 if incoming.user_read_pointer[i] != cast,trunc(u8) (round * 7 + i) return 400 + round;
             if !Channel.reader_done_with_message(*incoming) return 500 + round;
         }
+
         // A message larger than the ring can never fit.
         too_big := Channel.writer_reserve_message(*writer, RING);
         if too_big return 60;

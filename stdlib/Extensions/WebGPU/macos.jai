@@ -12,7 +12,9 @@ webgpu_metal_layer :: (window: Window_Type) -> *void {
         log_error("WebGPU: CAMetalLayer is not available (QuartzCore is loaded with wgpu-native; create the instance first)");
         return null;
     }
+
     layer := msg_ptr(layer_class, sel("layer"));
+
     msg_set_bool(view, sel("setWantsLayer:"), 1);
     msg_set_ptr(view, sel("setLayer:"), layer);
     msg_set_f64(layer, sel("setContentsScale:"), msg_f64(window, sel("backingScaleFactor")));

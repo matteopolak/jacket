@@ -52,13 +52,16 @@ baked_holder :: #run make_holder();
 
 main :: () {
     holder := Holder.{ 100, triple };
+
     // Read back from memory and called by C on this thread.
     print("% % %\n", call_holder(*holder, 5), call_holder(*global_holder, 2), call_stored(*global_unary, 9));
     // Called by interpreted code through the stored pointers.
     stored_proc := holder.apply;
+
     print("% % % %\n", stored_proc(7), global_unary(4), holder.apply == triple, global_holder.apply == stored_proc);
     sorter := Sorter.{ descending };
     xs: [5] s32 = .[3, 9, 1, 7, 5];
+
     sort_ints(xs.data, xs.count, *sorter);
     print("%\n", xs);
     // C's own threads, while this one waits in C and while it runs Jai code.
@@ -66,11 +69,14 @@ main :: () {
     start_background(*global_holder, 6);
     // Each poll waits a millisecond in C, where the callback can run; give up after 10 s.
     result := background_result();
+
     for 1..10_000 {
         if result >= 0 break;
         result = background_result();
     }
+
     assert(result >= 0, "the background thread's callback never ran");
     baked := baked_holder;
+
     print("% % %\n", call_holder(*baked, 3), result, calls);
 }

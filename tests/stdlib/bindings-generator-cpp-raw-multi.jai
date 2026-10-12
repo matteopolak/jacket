@@ -98,12 +98,14 @@ build_and_generate :: () -> string {
     source_path := tprint("%/multi.cpp", dir);
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/libmulti.%", dir, ext);
+
     if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
     result := run_command("clang++", "-std=c++17", "-Wno-invalid-offsetof", "-shared", "-fPIC", "-o", library_path, source_path, capture_and_return_output = true);
     if result.exit_code != 0 return "";
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     array_add(*opts.extra_clang_arguments, "-x", "c++", "-std=c++17");
     array_add(*opts.libpaths, dir);
@@ -145,16 +147,20 @@ main :: () {
         assert(size_of(Multi.PartB__RAW) == 5 && size_of(Multi.PartF__RAW) == 3);
 
         c: Multi.C;
+
         assert(byte_offset(*c, *c.x) == Multi.offset_b_in_c());
         assert(byte_offset(*c, *c.c) == Multi.offset_c());
         g: Multi.G;
+
         assert(byte_offset(*g, *g.f) == Multi.offset_f_in_g());
         assert(byte_offset(*g, *g.z) == Multi.offset_z());
         n: Multi.N;
+
         assert(byte_offset(*n, *n.n) == Multi.offset_n());
 
         // Fields written by C++ read back in Jai, and the other way round.
         pc := Multi.make_c(1, 2, 3, 4, 5);
+
         assert(pc.a == 1 && pc.b == 2 && pc.x == 3 && pc.y == 4 && pc.c == 5);
         assert(Multi.C.total(pc) == 15);
         c.a = 10;
@@ -165,6 +171,7 @@ main :: () {
         assert(Multi.C.total(*c) == 150);
 
         pg := Multi.make_g(1, 2, 3, 4, 5);
+
         assert(pg.a == 1 && pg.b == 2 && pg.f == 3 && pg.g == 4 && pg.z == 5);
         assert(Multi.G.total(pg) == 15);
         g.a = 10;
@@ -175,6 +182,7 @@ main :: () {
         assert(Multi.G.total(*g) == 150);
 
         pn := Multi.make_n(1, 2, 3, 4, 5);
+
         assert(pn.a == 1 && pn.b == 2 && pn.f == 3 && pn.g == 4 && pn.n == 5);
         n.a = 10;
         n.b = 20;

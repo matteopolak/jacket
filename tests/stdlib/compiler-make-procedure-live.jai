@@ -22,6 +22,7 @@ bodies_of :: (live: bool) -> [] string {
     compiler_begin_intercept(w);
     add_build_string(TARGET, w);
     names: [..] string;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == {
@@ -33,12 +34,14 @@ bodies_of :: (live: bool) -> [] string {
                         compiler_make_procedure_live(w, cast(*Code_Procedure_Header) decl.expression);
                     }
                 }
+
                 for typechecked.procedure_bodies array_add(*names, copy_string(it.expression.header.name));
             case .COMPLETE;
                 assert((cast(*Message_Complete) message).error_code == .NONE);
                 break;
         }
     }
+
     compiler_end_intercept(w);
     return names;
 }
@@ -50,9 +53,11 @@ contains :: (names: [] string, wanted: string) -> bool {
 
 checks :: () {
     plain := bodies_of(false);
+
     assert(!contains(plain, "spare") && !contains(plain, "other"));
 
     live := bodies_of(true);
+
     assert(contains(live, "spare"));
     assert(!contains(live, "other"));
     print("ok\n");

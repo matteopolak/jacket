@@ -71,7 +71,9 @@ main :: () {
         left: int;
         right: int;
     }
+
     pr := Pair.{ 2, 3 };
+
     {
         using pr;
         assert(left + right == 5, "scope.6");

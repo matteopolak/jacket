@@ -8,6 +8,7 @@ main :: () -> s64 {
     options.scan_leaks_to_combine = false;
     report: Debugger.Leak_Report = Debugger.make_leak_report(options);
     found := false;
+
     for summary: report.sorted_summaries if summary.bytes == 19 found = true;
     Debugger.log_leak_report(report);
     Debugger.deinit(*report);

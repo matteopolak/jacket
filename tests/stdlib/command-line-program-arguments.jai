@@ -13,6 +13,7 @@ main :: () {
     argv := get_command_line_arguments();
     // Compiled programs see their name as argument zero; `jaic run` without `--` passes none.
     ok, options, is_set, free_arguments := parse_arguments(Options);
+
     assert(ok, "no arguments parse");
     assert(!options.verbose && options.level == 3 && options.name == "default", "defaults kept: %", options);
     assert(!is_set.verbose && !is_set.level && !is_set.name);
@@ -20,6 +21,7 @@ main :: () {
 
     // The same parse through the explicit entry point, with a program name of our own.
     explicit := string.["program", "-level", "9", "-name", "ünïcode", "-verbose", "extra"];
+
     ok, options, is_set, free_arguments = parse_arguments_from(explicit, Options);
     assert(ok && options.level == 9 && options.name == "ünïcode" && options.verbose && is_set.level && is_set.name && is_set.verbose);
     assert(free_arguments.count == 1 && free_arguments[0] == "extra");

@@ -6,5 +6,6 @@ main :: () {
     ratio := cast(float) (done / total);
     width := 10.0;
     half := 1 / 2 * width;
+
     print("% %\n", ratio, half);
 }

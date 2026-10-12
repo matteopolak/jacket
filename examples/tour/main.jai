@@ -34,6 +34,7 @@ main :: () {
         title: string;
         run: () -> ();
     }
+
     stops :: Stop.[
         .{ "Basics", tour_basics },
         .{ "Structs, using and unions", tour_structs },

@@ -16,6 +16,7 @@ main :: () {
     } else #if OS != .WASM {
         input := File.{ stdin };
     }
+
     #if OS != .WASM assert(is_valid(input), "the standard input handle is not valid");
     print("ok\n");
 }

@@ -1,7 +1,7 @@
 warning[infinite_loop]: this loop's condition never changes inside it
-  --> tests/lint/infinite_loop/bad.jai:6:11
+  --> tests/lint/infinite_loop/bad.jai:7:11
    |
- 6 |     while i < values.count {
+ 7 |     while i < values.count {
    |           ^^^^^^^^^^^^^^^^
    |
    = help: nothing in the loop assigns `i` or `values`, and it has no `break` or `return`: once entered it never ends

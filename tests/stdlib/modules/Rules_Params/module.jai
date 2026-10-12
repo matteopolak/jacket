@@ -5,6 +5,7 @@
         PLAIN;
         FANCY;
     }
+
     DEFAULT_WIDTH :: 40;
 }
 
@@ -20,12 +21,14 @@ bump :: () -> int {
 
 greeting :: (name: string) -> string {
     builder: String_Builder;
+
     for 1..COUNT {
         if LOUD append(*builder, "HELLO ");
         else append(*builder, "hello ");
         append(*builder, name);
         append(*builder, ";");
     }
+
     return builder_to_string(*builder);
 }
 

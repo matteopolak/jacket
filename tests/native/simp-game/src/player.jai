@@ -11,6 +11,7 @@ init :: (using p: *Player, texture_path: string) {
         print("game: could not load %\n", texture_path);
         exit(1);
     }
+
     GL.glBindTexture(GL.GL_TEXTURE_2D, texture.gl_handle);
     GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
     GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);

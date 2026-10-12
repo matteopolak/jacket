@@ -16,6 +16,7 @@ eat :: (using t: *T, s: string) {
 main :: () {
     t: T;
     html := true;
+
     eat(*t, ifx html then "-->" else "--");
     eat(*t, #char "a");
     assert(t.n == 4);

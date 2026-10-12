@@ -41,6 +41,7 @@
 
     check_vector :: (v: Vector) {
         data := NewArray(v.count + 1, u8);
+
         defer free(data.data);
         fill_input(data.data, v.count);
 
@@ -48,6 +49,7 @@
         MeowHash(MeowDefaultSeed, xx v.count, data.data, hash);
         got0 := MeowU64From(hash, 0);
         got1 := MeowU64From(hash, 1);
+
         if got0 != v.low || got1 != v.high {
             print("FAIL length %: got %/%, want %/%\n", v.count, got0, got1, v.low, v.high);
             failures += 1;
@@ -63,6 +65,7 @@ main :: () {
         a := u8.[1, 2, 3, 4, 5];
         b := u8.[1, 2, 3, 4, 6];
         c := u8.[1, 2, 3, 4, 5, 0];
+
         #asm { ha: vec; }
         MeowHash(MeowDefaultSeed, 5, a.data, ha);
         #asm { hb: vec; }
@@ -71,19 +74,24 @@ main :: () {
         MeowHash(MeowDefaultSeed, 6, c.data, hc);
         #asm { hd: vec; }
         MeowHash(MeowDefaultSeed, 5, a.data, hd);
+
         if MeowU64From(ha, 0) != MeowU64From(hd, 0) || MeowU64From(ha, 1) != MeowU64From(hd, 1) {
             print("FAIL not deterministic\n");
             failures += 1;
         }
+
         if MeowU64From(ha, 0) == MeowU64From(hb, 0) {
             print("FAIL byte change\n");
             failures += 1;
         }
+
         if MeowU64From(ha, 0) == MeowU64From(hc, 0) {
             print("FAIL length change\n");
             failures += 1;
         }
+
         if failures != 0 exit(1);
     }
+
     print("ok\n");
 }

@@ -34,11 +34,14 @@ now: float64 = 1;
 
 read_target :: (target: *Simp.Texture) -> Simp.Bitmap {
     reader := Simp.pixel_read_begin(target, .RGBA8);
+
     assert(reader != null, "pixel_read_begin failed");
+
     for 1..1000 {
         if Simp.pixel_read_is_done(reader) break;
         sleep_milliseconds(1);
     }
+
     return Simp.pixel_read_end(reader);
 }
 
@@ -74,6 +77,7 @@ begin_frame :: (window: Window_Type, target: *Simp.Texture, x: int, y: int, even
 // The asset folder: the real font under the expected name, and stand-ins for the images.
 write_assets :: () -> bool {
     font_bytes: string;
+
     for FONT_CANDIDATES {
         bytes, ok := read_entire_file(it, log_errors = false);
         if ok && bytes.count > 0 {
@@ -81,24 +85,30 @@ write_assets :: () -> bool {
             break;
         }
     }
+
     if !font_bytes.count return false;
     make_directory_if_it_does_not_exist(".scratch", recursive = true);
     make_directory_if_it_does_not_exist(ASSET_DIR, recursive = true);
+
     for GR.getrect_asset_filenames {
         contents := ifx it_index == 4 then font_bytes else tprint("stand-in %", it);
         assert(write_entire_file(tprint("%/%", ASSET_DIR, it), contents), "could not write %", it);
     }
+
     free(font_bytes.data);
     return true;
 }
 
 main :: () {
     window := create_window(160, 120, "jaic getrect gl test");
+
     assert(cast(u64) window != 0, "create_window failed");
+
     for 1..5 {
         Input.update_window_events();
         sleep_milliseconds(5);
     }
+
     Simp.prepare_window(window, 0);
     Simp.set_render_target(window);
 
@@ -108,8 +118,10 @@ main :: () {
         print("ok\n");
         return;
     }
+
     GR.set_asset_root(ASSET_DIR);
     radio_full, radio_empty, check_full, check_empty, font, circle, hsl, rgb, numbers := GR.get_rect_get_global_data();
+
     assert(radio_full == "stand-in ui_radiobox_full.png" && numbers == "stand-in mode_numbers.png", "image resources % / %", radio_full, numbers);
     assert(font.count > 1000, "the font resource has % bytes", font.count);
     images := string.[radio_empty, check_full, check_empty, circle, hsl, rgb];
@@ -120,9 +132,11 @@ main :: () {
     procs.get_mouse_pointer_position = (window: Window_Type, right_handed: bool) -> int, int, bool {
         return pointer_x, pointer_y, true;
     };
+
     GR.ui_init("", *procs);
 
     target := Simp.texture_create_render_target(SIZE, SIZE, .RGBA8);
+
     assert(target != null, "texture_create_render_target failed");
 
     theme := GR.default_overall_theme.button_theme;
@@ -132,9 +146,11 @@ main :: () {
     theme.surface_color_flash = .{ 0, 0, 1, 1 };
     button_rect := GR.get_rect(8, 32, 48, 24);
     here := #location();
+
     frame :: (x: int, y: int, events: ..Input.Event) -> pressed: bool, released: bool, image: Simp.Bitmap #expand {
         begin_frame(window, target, x, y, ..events);
         pressed, state, released := GR.button(button_rect, "", *theme, loc = here);
+
         GR.draw_popups();
         Simp.immediate_flush();
         return pressed, released, read_target(target);
@@ -142,18 +158,22 @@ main :: () {
 
     // Idle, hovered, pressed, released: the surface color follows.
     pressed, released, image := frame(-100, -100);
+
     assert(!pressed && near(*image, 32, 44, theme.surface_color), "idle button center %", pixel(*image, 32, 44));
     assert(near(*image, 2, 2, .{ 0, 0, 0, 1 }), "outside the button %", pixel(*image, 2, 2));
     Simp.deinit(*image);
+
     // Hovering fades toward the hover color over a few frames.
     for 1..60 {
         pressed, released, image = frame(32, 44);
         assert(!pressed, "hovering pressed the button");
         if near(*image, 32, 44, theme.surface_color_over) break;
         first := pixel(*image, 32, 44);
+
         assert(first[1] > 0, "the hover fade has not started: %", first);
         if it < 60 Simp.deinit(*image);
     }
+
     assert(near(*image, 32, 44, theme.surface_color_over), "hovered button center %", pixel(*image, 32, 44));
     Simp.deinit(*image);
     pressed, released, image = frame(32, 44, left_button(true));
@@ -176,15 +196,19 @@ main :: () {
     choices := string.["a", "b"];
     value: s32 = 0;
     drop := GR.get_rect(4, 44, 56, 12);
+
     widgets :: (x: int, y: int, events: ..Input.Event) -> changed: bool, open: bool #expand {
         begin_frame(window, target, x, y, ..events);
         changed := GR.checkbox(box, "on", *checked, loc = here);
         dropdown_changed, state := GR.dropdown(drop, choices, *value, loc = here);
+
         GR.draw_popups();
         Simp.immediate_flush();
         return changed || dropdown_changed, state.open;
     }
+
     changed, open := widgets(10, 10, left_button(true));
+
     assert(changed && checked, "checkbox click: changed %, value %", changed, checked);
     widgets(10, 10, left_button(false));
     changed, open = widgets(10, 50, left_button(true));
@@ -202,6 +226,7 @@ main :: () {
     info.draw = (state: *GR.Subwindow_State, content: GR.Rect, data: *void) {
         GR.draw_proc_adjust_y1(state, content.y + 20);
     };
+
     begin_frame(window, target, -100, -100);
     GR.add_subwindow(*info);
     GR.draw_popups();

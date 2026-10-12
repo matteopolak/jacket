@@ -7,5 +7,6 @@ main :: () {
     whole: int = xx ratio;
     precise: float64 = 1.0 / 3.0;
     rough: float32 = xx precise;
+
     print("% % %\n", small, whole, rough);
 }

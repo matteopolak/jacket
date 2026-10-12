@@ -40,6 +40,7 @@ Collatz :: struct {
 for_expansion :: (sequence: *Collatz, body: Code, flags: For_Flags) #expand {
     n := sequence.start;
     index := 0;
+
     while true {
         `it := n;
         `it_index := index;
@@ -59,6 +60,7 @@ Chain :: struct {
 for_expansion :: (chain: *Chain, body: Code, flags: For_Flags) #expand {
     link := chain;
     index := 0;
+
     while link {
         `it := link;
         `it_index := index;
@@ -76,11 +78,13 @@ tour_macros :: () {
     print("hooray!\n");
 
     total := 0;
+
     tally_up(10);
     tally_up(32);
     print("  total after two macro calls: %\n", total);
 
     steps := 0;
+
     {
         stopwatch("counting to 1000");
         for 1..1000 steps += 1;
@@ -95,17 +99,20 @@ tour_macros :: () {
     for value: six print(" %", value);
     print("\n");
     longest_start, longest_length := 0, 0;
+
     for start: 1..30 {
         length := 0;
         sequence := Collatz.{ start };
         for sequence length = it_index + 1;
         if length > longest_length longest_start, longest_length = start, length;
     }
+
     print("  Below 31, % takes the longest path: % numbers.\n", longest_start, longest_length);
 
     c := Chain.{ "charlie", null };
     b := Chain.{ "bravo", *c };
     a := Chain.{ "alpha", *b };
+
     print("  chain:");
     for link: a print(" %:%", it_index, link.label);
     print("\n");

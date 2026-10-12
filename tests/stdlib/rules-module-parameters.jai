@@ -53,6 +53,7 @@ main :: () {
     assert(as_u16(Wide.WIDTH) == 2, "untyped argument converts to u16");
     small: u8 = Wide.WIDTH;
     half: float32 = Wide.WIDTH;
+
     assert(small == 2 && half == 2, "untyped argument converts to u8 and float32");
 
     // modparam.9: a typed argument keeps its type.

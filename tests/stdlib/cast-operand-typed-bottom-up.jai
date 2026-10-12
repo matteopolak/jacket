@@ -21,16 +21,21 @@ main :: () {
     v: u16 = 0xfff0;
     // `0` is matched with `w`: u16 arithmetic, wrapping, then the conversion.
     f := cast(float32) (0 - w);
+
     assert(f == 65521);
     g := cast(float32) ((0 - w) & v);
+
     assert(g == 65520);
     g2 := cast(float64) (2 * w - 1);
+
     assert(g2 == 29);
     // An s8 sum wraps before it is widened.
     x: s8 = 100;
+
     assert(cast(s32) (x + 100) == -56);
     // Integer division of integers, even under a float cast.
     n: s64 = 7;
+
     assert(cast(float64) (n / 2) == 3);
     assert(cast(float32) (1 / 3) == 0); // jailint: allow(integer_division_in_float) tested
     // Bare and literal-only operands are constants folded at the target.
@@ -40,8 +45,10 @@ main :: () {
     assert(cast(float32) (2.5 * 2) == 5);
     // Operands with no type of their own take the cast's type.
     flags := cast(Flags) (.A | .C);
+
     assert(flags == Flags.A | .C);
     d := cast(Dir) .WEST;
+
     assert(d == .WEST);
     print("ok\n");
 }

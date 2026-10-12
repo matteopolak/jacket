@@ -29,16 +29,20 @@ build :: () {
     add_build_file("src/main.jai", w);
 
     failed := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .ERROR failed = true;
+
         if message.kind == .COMPLETE {
             complete := cast(*Message_Complete) message;
             if complete.error_code != .NONE failed = true;
             break;
         }
     }
+
     compiler_end_intercept(w);
+
     if failed {
         log_error("The game did not build.\n");
         exit(1);
@@ -49,9 +53,11 @@ build :: () {
     } else {
         result := run_command("./build/game");
     }
+
     if result.type != .EXITED || result.exit_code != 0 {
         log_error("The game stopped with %.\n", result);
         exit(1);
     }
+
     print("first.jai: the game built and ran\n");
 }

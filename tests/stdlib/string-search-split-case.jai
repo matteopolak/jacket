@@ -26,6 +26,7 @@ main :: () {
 
     // Byte and substring searches.
     s := "abcabc";
+
     assert(find_index_from_left(s, #char "b") == 1 && find_index_from_right(s, #char "b") == 4);
     assert(find_index_from_left(s, #char "b", 2) == 4 && find_index_from_left(s, #char "b", 5) == -1);
     assert(find_index_from_left(s, #char "a", -3) == 0, "a negative start clamps to 0");
@@ -42,6 +43,7 @@ main :: () {
     assert(is_any(#char "b", "abc") && !is_any(#char "d", "abc") && !is_any(#char "a", ""));
 
     index, found := index_of_string_nocase("Hello World", "WORLD");
+
     assert(found && index == 6, "index_of_string_nocase: % %", index, found);
     index, found = index_of_string_nocase("Hello", "HELLO!");
     assert(!found && index == -1);
@@ -50,6 +52,7 @@ main :: () {
 
     // contains and its variants return what follows the match.
     ok, rest := contains("key: value", ": ");
+
     assert(ok && rest == "value");
     ok, rest = contains("key: value", "=");
     assert(!ok && rest == "");
@@ -74,6 +77,7 @@ main :: () {
 
     // replace_chars edits in place.
     edited := copy_string("a-b_c-d");
+
     replace_chars(edited, "-_", #char " ");
     assert(edited == "a b c d", "replace_chars: %", edited);
     replace_chars(edited, "", #char "!");
@@ -82,6 +86,7 @@ main :: () {
 
     // split_from_left/right by byte, by string and by any byte.
     f, l, r := split_from_left("k=v=w", #char "=");
+
     assert(f && l == "k" && r == "v=w");
     f, l, r = split_from_right("k=v=w", #char "=");
     assert(f && l == "k=v" && r == "w");
@@ -112,10 +117,12 @@ main :: () {
 
     // split keeps empty pieces, including leading and trailing ones; join inverts it.
     pieces := split(",a,,b,", #char ",");
+
     assert(pieces.count == 5, "split count %", pieces.count);
     expected := string.["", "a", "", "b", ""];
     for expected assert(pieces[it_index] == it, "piece % is '%'", it_index, pieces[it_index]);
     joined := join(..pieces, separator = ",");
+
     assert(joined == ",a,,b,", "join(split(x)) == x: %", joined);
     free(joined);
     array_free(pieces);
@@ -145,14 +152,18 @@ main :: () {
 
     // Long input: split and join 1000 parts.
     long_builder: String_Builder;
+
     for 0..999 {
         if it append(*long_builder, ";");
         print_to_builder(*long_builder, "%", it);
     }
+
     long_text := builder_to_string(*long_builder);
+
     pieces = split(long_text, #char ";");
     assert(pieces.count == 1000 && pieces[999] == "999" && pieces[500] == "500");
     rejoined := join(..pieces, separator = ";");
+
     assert(rejoined == long_text);
     free(rejoined);
     array_free(pieces);
@@ -175,6 +186,7 @@ main :: () {
 
     // Case conversion: in place on writable strings, copies leave the input alone.
     writable := copy_string("Hello, Wörld 123");
+
     to_upper_in_place(writable);
     assert(writable == "HELLO, WöRLD 123", "to_upper_in_place: %", writable);
     to_lower_in_place(writable);
@@ -183,16 +195,19 @@ main :: () {
     source := "MiXeD-Case_42";
     lower := to_lower_copy(source);
     upper := to_upper_copy(source);
+
     assert(lower == "mixed-case_42" && upper == "MIXED-CASE_42" && source == "MiXeD-Case_42");
     assert(lower.data != source.data, "the copy is a new buffer");
     free(lower);
     free(upper);
     empty_lower := to_lower_copy("");
+
     assert(empty_lower == "");
     free(empty_lower);
 
     // replace: counts, overlapping candidates, growing and shrinking, and empty patterns.
     replaced, count := replace("aaaa", "aa", "b");
+
     assert(replaced == "bb" && count == 2, "replace non-overlapping: % %", replaced, count);
     free(replaced);
     replaced, count = replace("abc", "x", "y");
@@ -217,10 +232,12 @@ main :: () {
 
     // CRLF normalisation, in place and as a copy.
     text := copy_string("\r\n\r\nx\r");
+
     normalize_line_endings(*text);
     assert(text == "\n\nx\r");
     free(text);
     normalized := normalize_line_endings("");
+
     assert(normalized == "");
     free(normalized);
 

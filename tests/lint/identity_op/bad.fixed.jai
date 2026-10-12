@@ -6,5 +6,6 @@ main :: () {
     b := x;
     c := x;
     d := x * 2;
+
     print("% % % %\n", a, b, c, d);
 }

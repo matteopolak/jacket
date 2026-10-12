@@ -26,6 +26,7 @@ main :: () {
     square := (x: int) -> int {
         return x * x;
     };
+
     assert(square(7) == 49, "procedure literal with a body");
     assert(apply_pair(4, 5, (a, b) => a - b) == -1, "parenthesised lambda");
     twice(() => {
@@ -35,6 +36,7 @@ main :: () {
 
     // lambda.2: parameter types come from the expected procedure type.
     halve: (float64) -> float64 = x => x / 2;
+
     assert(halve(5) == 2.5, "lambda typed from its declaration");
 
     // lambda.3: a lambda bound with `::` is polymorphic; each use gets its own instance.

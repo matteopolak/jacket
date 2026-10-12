@@ -21,6 +21,7 @@ main :: () {
 
     // The same at run time.
     one, two, three, four, eight, ten := 1, 2, 3, 4, 8, 10;
+
     assert(one << two + three == 7);
     assert(eight >> one + one == 5);
     assert(one << two * three == 12);
@@ -30,11 +31,13 @@ main :: () {
 
     // Bitwise and shift operators: one level, left to right.
     a, b := 0x0F, 0x30;
+
     assert(a << 4 | b == 0xF0);
     assert(b | a << 4 == 0x3F0); // C: 0xF0
     assert(0xF0 ^ a & 0x0C == 0x0C); // C: 0xFC
     assert(a >> 2 & 0x2 == 0x2);
     x: u8 = 0x81;
+
     assert(x <<< 1 | 0x10 == 0x13);
     // They bind tighter than arithmetic on either side.
     assert(2 * a & 0x3 == 6); // C: 2
@@ -43,6 +46,7 @@ main :: () {
 
     // `%` is below `*` and `/`, above `+` and `-`.
     tab, col := 4, 6;
+
     assert(tab - col % tab == 2); // a tab stop: same as C
     assert(col % tab + 1 == 3);
     assert(17 % 4 * 3 == 5); // C: 3
@@ -59,8 +63,10 @@ main :: () {
     assert(-a & 0xFF == 0xF1);
     assert(~a & 0xFF == 0xF0);
     neg_shift := -3;
+
     assert(-neg_shift & 7 == 3);
     flag := false;
+
     assert(!flag && true);
 
     // Comparisons are below arithmetic, `&&` is above `||`.
@@ -70,6 +76,7 @@ main :: () {
 
     // A prefix cast takes the bitwise level into its value, nothing looser.
     byte: u8 = 0x66;
+
     assert(cast(u32) byte << 16 == 0);
     assert(cast(u32) byte << 4 | 1 == 0x61);
     assert(cast(s64) byte * 2 + 1 == 205);

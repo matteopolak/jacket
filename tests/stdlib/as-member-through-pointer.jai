@@ -89,5 +89,6 @@ id_of :: (id: u32) -> u32 {
     assert(handle_x(*w) == 7);
 
     id := Id_Wrapper.{ 5 };
+
     assert(id_of(*id) == 5);
 }

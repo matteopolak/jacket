@@ -28,17 +28,21 @@ Holder :: struct {
 
 main :: () {
     a: Typed;
+
     assert(a.kind == .TEXT);
     assert(type_of(a.kind) == Kind);
 
     b: Inferred;
+
     assert(b.kind == .LIST);
     assert(type_of(b.kind) == Kind);
 
     c := Inferred.{ kind = .NUMBER, number = 7 };
+
     assert(c.kind == .NUMBER && c.number == 7);
 
     h: Holder;
+
     assert(h.tag == .NUMBER);
     h.tag = .TEXT;
     h.t = "x";

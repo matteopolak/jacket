@@ -47,6 +47,7 @@ main :: () {
     }
 
     info := __runtime_info;
+
     assert(info.type_table.count > 0, "runtime info has no type table");
     print("ok\n");
 }

@@ -15,7 +15,9 @@ fail :: (message: string) {
 main :: () {
     // A 4x2 RGBA gradient, written as PNG by stb_image_write and read back by stb_image.
     image: Simp.Bitmap;
+
     Simp.bitmap_alloc(*image, 4, 2, .RGBA8);
+
     for y: 0..image.height - 1 {
         for x: 0..image.width - 1 {
             texel := image.data.data + y * image.stride + x * 4;
@@ -25,12 +27,14 @@ main :: () {
             texel[3] = 255;
         }
     }
+
     path :: "simp-image.png";
     if !Simp.bitmap_save(*image, path, save_alpha = true) fail("stbi_write_png failed");
 
     loaded: Simp.Bitmap;
     if !Simp.bitmap_load(*loaded, path) fail("stbi_load failed");
     if loaded.width != 4 || loaded.height != 2 fail(tprint("loaded %x%, expected 4x2", loaded.width, loaded.height));
+
     for y: 0..1 {
         for x: 0..3 {
             want := image.data.data + y * image.stride + x * 4;
@@ -48,6 +52,7 @@ main :: () {
     junk: [64] u8;
     error: s32;
     stream := Vorbis.stb_vorbis_open_memory(junk.data, junk.count, *error, null);
+
     if stream fail("stb_vorbis accepted garbage");
     if error == 0 fail("stb_vorbis reported no error");
 

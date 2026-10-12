@@ -21,9 +21,11 @@ main :: () {
     assert(take(.A & ~ .B) == 1);
     on := false;
     picked: Flags = .C | ifx on then .B else cast(Flags) 0;
+
     assert(picked == .C);
     // The expected `int` does not name members; the right operand's type does.
     h := Holder.{ flags = .A | .C };
+
     assert(cast(int) (.C & h.flags) == 4);
     print("ok\n");
 }

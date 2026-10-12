@@ -86,6 +86,7 @@ main :: () {
 
     // enum.8: flags combine with | and &, and `fl & .WRITE` works as an `if` condition.
     fl := Perm.READ | Perm.WRITE;
+
     assert(cast(u32) fl == 3, "| combines");
     hit := false;
     if fl & .WRITE hit = true;
@@ -97,14 +98,18 @@ main :: () {
     // enum.9: a loose enum converts implicitly to and from integers and the enum.
     l: Shade.loose = 10;
     i: int = l;
+
     assert(i == 10, "loose to int");
     s: Shade = l;
+
     assert(s == .MID, "loose to enum");
     back: Shade.loose = Shade.LIGHT;
+
     assert(cast(int) back == 11, "enum to loose");
 
     // enum.10: type_info gives the names and values.
     info := type_info(Shade);
+
     assert(info.names.count == 4 && info.values.count == 4, "four names and values");
     assert(info.names[1] == "MID" && info.values[1] == 10, "names and values line up");
     assert(info.names[3] == "BRIGHT" && info.values[3] == 12, "last member");
@@ -125,15 +130,17 @@ main :: () {
 
     // enum.14: an inferred member on the left of a comparison takes the right side's type.
     r := Rank.SECOND;
+
     assert(.SECOND == r, "inferred member on the left");
     assert(!(.FIRST == r), "inferred member compares by value");
 
     // enum.15: a polymorphic struct's enum value parameter types .MEMBER arguments and defaults.
     t: Ticket(.THIRD);
+
     assert(t.order == .THIRD, "explicit argument");
     d: Ticket();
-    assert(d.order == .FIRST, "default argument");
 
+    assert(d.order == .FIRST, "default argument");
 
     // enum.16: a member's value may name the enum itself.
     assert(cast(s32) Sc.IPV6 == 51, "member names its own enum");

@@ -16,9 +16,11 @@ main :: () -> s64 {
     if observed.x != 9 || observed.y != 1.25 return 3;
     rows[2] = Point.{ x = 12, y = 2.5 };
     if rows.x[2] != 12 || rows.y[2] != 2.5 return 4;
+
     for *row: rows {
         row.x += 1;
     }
+
     if rows.x[0] != 1 || rows.x[1] != 10 || rows.x[2] != 13 return 5;
     if (cast(*u8) *rows.x[2] - cast(*u8) *rows.x[0]) != 2 * size_of(s32) return 6;
     empty: Columns.Soa(Point, 0);

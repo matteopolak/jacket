@@ -45,26 +45,33 @@ bump :: (p: *s64) -> s64 {
 main :: () {
     minimum: s64 = -9223372036854775807 - 1;
     minus_one: s64 = -1;
+
     assert(minimum / -1 == minimum);
     assert(minimum % -1 == 0);
     assert(minimum / minus_one == minimum);
     assert(minimum % minus_one == 0);
     assert(-7 / 2 == -3 && -7 % 2 == -1 && 7 / -2 == -3 && 7 % -2 == 1);
     n: s64 = -7;
+
     assert(n / 2 == -3 && n % 2 == -1 && n / -2 == 3 && n % -2 == -1);
     u: u64 = 18446744073709551615;
+
     assert(u / 10 == 1844674407370955161 && u % 10 == 5);
     small: u8 = 200;
+
     assert(small / 7 == 28 && small % 7 == 4);
 
     one: u32 = 1;
+
     assert(one << 31 == 2147483648);
     assert(one << 32 == 0);
     assert((one << 5) >> 5 == 1);
     neg: s32 = -64;
+
     assert(neg >> 3 == -8);
     assert(neg >> 40 == -1);
     amount := 3;
+
     assert(neg >> amount == -8);
 
     total: s64 = 5;
@@ -98,13 +105,16 @@ main :: () {
 
     a3: Odd3 = .{ 1, 2, 3 };
     b3 := a3;
+
     a3.a = 9;
     assert(b3.a == 1 && b3.b == 2 && b3.c == 3);
     // jailint: allow(redundant_alias)
     a13: Odd13 = .{ 123456789012, 77, 5 };
     b13 := a13;
+
     assert(b13.a == 123456789012 && b13.b == 77 && b13.c == 5);
     zeroed: Odd13;
+
     assert(zeroed.a == 0 && zeroed.b == 0 && zeroed.c == 0);
 
     big: Big;

@@ -16,11 +16,14 @@ main :: () {
     top: s32 = 7;
     height: float = 2;
     lines := top / height;
+
     assert(type_of(lines) == float && lines == 3.5);
     big: s64 = 3;
+
     assert(big * 0.5 == 1.5 && height < top);
 
     text, occurrences := replace("a[0]b[0]", "[0]", "[1]");
+
     assert(text == "a[1]b[1]" && occurrences == 2);
     print("ok\n");
 }

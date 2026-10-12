@@ -25,6 +25,7 @@ JAI
     unused_body := false;
     global_counter := false;
     file_hidden := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
@@ -33,12 +34,14 @@ JAI
         for typechecked.procedure_bodies {
             if it.expression.header.name == "never_called" unused_body = true;
         }
+
         for typechecked.declarations {
             decl := it.expression;
             if decl.name == "counter" global_counter = (decl.flags & .IS_GLOBAL) != 0;
             if decl.name == "hidden" file_hidden = (decl.flags & .SCOPE_FILE) != 0 && (decl.flags & .IS_GLOBAL) != 0;
         }
     }
+
     compiler_end_intercept(w);
     assert(unused_body, "the body of an uncalled procedure is reported");
     assert(global_counter, "a global variable is IS_GLOBAL");

@@ -31,6 +31,7 @@ check :: (ok: bool, what: string, args: ..Any) {
 main :: () {
     args := get_command_line_arguments();
     fallback := false;
+
     for args if it == "fallback" fallback = true;
 
     instance := wgpuCreateInstance(null);
@@ -38,6 +39,7 @@ main :: () {
         print("no WebGPU instance\n");
         exit(77);
     }
+
     options: WGPURequestAdapterOptions;
     options.forceFallbackAdapter = xx fallback;
     adapter := webgpu_request_adapter(instance, *options);
@@ -45,7 +47,9 @@ main :: () {
         print("no adapter\n");
         exit(77);
     }
+
     info: WGPUAdapterInfo;
+
     wgpuAdapterGetInfo(adapter, *info);
     print("adapter: % (%, %)\n", to_string(info.device), info.backendType, info.adapterType);
     wgpuAdapterInfoFreeMembers(info);
@@ -55,6 +59,7 @@ main :: () {
         print("FAIL: no device\n");
         exit(1);
     }
+
     queue := wgpuDeviceGetQueue(device);
 
     render_to_texture(instance, device, queue);
@@ -67,10 +72,12 @@ main :: () {
     wgpuDeviceRelease(device);
     wgpuAdapterRelease(adapter);
     wgpuInstanceRelease(instance);
+
     if failures {
         print("% checks failed\n", failures);
         exit(1);
     }
+
     print("webgpu headless: ok\n");
 }
 
@@ -81,8 +88,10 @@ no_window :: (instance: WGPUInstance, adapter: WGPUAdapter) {
     #if OS == .WASM return;
     window: Window_Type;
     surface := webgpu_create_surface(instance, window);
+
     check(surface == null, "a surface for no window");
     format := webgpu_surface_format(surface, adapter);
+
     check(format == .Undefined, "a format for no surface: %", format);
 }
 
@@ -139,6 +148,7 @@ WGSL
 
     encoder := wgpuDeviceCreateCommandEncoder(device, null);
     pass := wgpuCommandEncoderBeginRenderPass(encoder, *pass_desc);
+
     wgpuRenderPassEncoderSetPipeline(pass, pipeline);
     wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
     wgpuRenderPassEncoderEnd(pass);
@@ -151,6 +161,7 @@ WGSL
         pixel :: (x: s64, y: s64) -> u32 #expand {
             return (cast(*u32) (pixels + y * ROW_BYTES + x * 4)).*;
         }
+
         // Little-endian rgba8: 0xAABBGGRR.
         check(pixel(SIZE / 2, SIZE / 2) == 0xFF00_80FF || pixel(SIZE / 2, SIZE / 2) == 0xFF00_7FFF,
             "render: middle pixel is 0x%, not orange", formatInt(pixel(SIZE / 2, SIZE / 2), base = 16));
@@ -196,6 +207,7 @@ WGSL
 
     encoder := wgpuDeviceCreateCommandEncoder(device, null);
     pass := wgpuCommandEncoderBeginComputePass(encoder, null);
+
     wgpuComputePassEncoderSetPipeline(pass, pipeline);
     wgpuComputePassEncoderSetBindGroup(pass, 0, bind_group, 0, null);
     wgpuComputePassEncoderDispatchWorkgroups(pass, COUNT / 64, 1, 1);
@@ -208,6 +220,7 @@ WGSL
     if data {
         values := cast(*u32) data;
         wrong := 0;
+
         for 0..COUNT - 1 if values[it] != cast(u32) (it * it + 1) wrong += 1;
         check(wrong == 0, "compute: % of % values are wrong (values[3] = %)", wrong, COUNT, values[3]);
         print("compute shader: checked\n");
@@ -227,6 +240,7 @@ WGSL
 upload_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQueue) {
     N :: 4;
     texels: [N * N] u32;
+
     for *texels it.* = cast(u32) (0x1020_3040 + it_index * 0x0101_0101);
 
     texture_desc: WGPUTextureDescriptor;
@@ -243,23 +257,28 @@ upload_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQueue)
     layout.bytesPerRow = N * 4;
     layout.rowsPerImage = N;
     extent := WGPUExtent3D.{ N, N, 1 };
+
     wgpuQueueWriteTexture(queue, *destination, texels.data, size_of(type_of(texels)), *layout, *extent);
 
     readback := create_buffer(device, 256 * N, .MapRead | .CopyDst);
     encoder := wgpuDeviceCreateCommandEncoder(device, null);
+
     copy_texture_to_buffer(encoder, texture, readback, N, N, 256);
     submit(queue, encoder);
 
     data := map_read(instance, readback, 256 * N);
     if data {
         wrong := 0;
+
         for y: 0..N - 1 for x : 0..N - 1 {
             if (cast(*u32) (data + y * 256 + x * 4)).* != texels[y * N + x] wrong += 1;
         }
+
         check(wrong == 0, "texture upload: % of % texels are wrong", wrong, N * N);
         print("texture upload: checked\n");
         wgpuBufferUnmap(readback);
     }
+
     wgpuBufferRelease(readback);
     wgpuTextureRelease(texture);
 }
@@ -270,6 +289,7 @@ error_scopes :: (instance: WGPUInstance, device: WGPUDevice) {
     wgpuDevicePushErrorScope(device, .Validation);
     bad := create_shader(device, "fn broken( { this is not WGSL");
     type, message := webgpu_pop_error_scope(instance, device);
+
     check(type == .Validation, "error scope: an invalid shader gave %, not a validation error", type);
     check(message.count > 0, "error scope: the validation error has no message");
     if bad wgpuShaderModuleRelease(bad);
@@ -304,6 +324,7 @@ copy_texture_to_buffer :: (encoder: WGPUCommandEncoder, texture: WGPUTexture, bu
     destination.layout.bytesPerRow = row_bytes;
     destination.layout.rowsPerImage = height;
     extent := WGPUExtent3D.{ width, height, 1 };
+
     wgpuCommandEncoderCopyTextureToBuffer(encoder, *source, *destination, *extent);
 }
 
@@ -320,7 +341,9 @@ map_read :: (instance: WGPUInstance, buffer: WGPUBuffer, size: u64) -> *u8 {
         check(false, "mapping a buffer failed");
         return null;
     }
+
     data := cast(*u8) wgpuBufferGetConstMappedRange(buffer, 0, size);
+
     check(data != null, "the mapped range is null");
     return data;
 }

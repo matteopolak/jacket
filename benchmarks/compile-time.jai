@@ -13,11 +13,13 @@ sum :: (v: Vec($N, $T)) -> T {
 
 table :: #run -> [256] u32 {
     result: [256] u32;
+
     for 0..255 {
         c := cast(u32) it;
         for 1..8 c = ifx c & 1 then 0xEDB88320 ^ (c >> 1) else c >> 1;
         result[it] = c;
     }
+
     return result;
 };
 

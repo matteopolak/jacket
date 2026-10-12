@@ -21,6 +21,7 @@ take_ptr :: (p: *u8) -> u8 {
 main :: () {
     o := Obj.{ base = 40 };
     vt := Vtable.{ add = add_impl };
+
     assert(vt.add(*o, 2) == 42);
 
     // A fixed array decays to a pointer to its first element (preferred over boxing into Any), so
@@ -30,5 +31,6 @@ main :: () {
     name[1] = #char "i";
     assert(take_ptr(name) == #char "h");
     s := to_string(name);
+
     assert(s == "hi");
 }

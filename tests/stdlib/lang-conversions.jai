@@ -44,8 +44,10 @@ main :: () {
     // E.loose is integer-compatible.
     loose := cast(Mode.loose) Mode.AUTO;
     as_int: int = loose;
+
     assert(as_int == 2);
     back: Mode.loose = 1;
+
     assert(cast(Mode) back == .ON);
 
     // String literals convert to C strings.
@@ -55,13 +57,16 @@ main :: () {
     // string and []u8 share a layout.
     text := "bytes";
     view := cast([] u8) text;
+
     assert(view.count == 5 && view[0] == #char "b");
     again := cast(string) view;
+
     assert(again == "bytes");
 
     // Arrays and strings cast to bool as "non-empty".
     numbers := int.[1, 2, 3];
     empty: [] int;
+
     assert(cast(bool) numbers);
     assert(!cast(bool) empty);
     assert(cast(bool) "x" && !cast(bool) "");
@@ -83,22 +88,27 @@ main :: () {
     // An integer meeting an untyped float constant becomes a float.
     n := 7;
     half := n * 0.5;
+
     assert(half == 3.5);
     assert(type_of(half) == float);
 
     // ifx with an implicit then takes the interesting part of the condition.
     x := 7;
+
     assert((ifx x > 5 else 0) == 7);
     assert((ifx x else 1) == 7);
     zero := 0;
+
     assert((ifx zero else 1) == 1);
 
     // formatInt wraps any integer.
     big: u64 = 0xfedc_ba98_7654_3210;
+
     assert(tprint("%", formatInt(big, base = 16)) == "fedcba9876543210");
 
     // File-scope `using` of an enum brings its members into scope.
     both := FLAG_A | FLAG_B;
+
     assert(cast(u8) both == 3);
     print("ok\n");
 }

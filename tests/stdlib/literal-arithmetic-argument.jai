@@ -19,14 +19,17 @@ three :: () -> bool, int, float {
 
 main :: () {
     scale := 2.0;
+
     assert(width_of(.{ 300, -1 } * scale) == 600);
     assert(width_or_default(.{ 10, 0 } * scale + .{ 1, 0 }) == 21);
 
     ok := false;
+
     {
         ok, value:, extra := three();
         assert(ok && value == 7 && extra == 0.5);
     }
+
     assert(!ok);
     print("ok\n");
 }

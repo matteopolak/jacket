@@ -28,8 +28,10 @@ main :: () {
 inferred :: () {
     whole := false;
     h := ifx whole then find_a else find_b;
+
     assert(h("x", "y") == 200);
     k := ifx whole then find_b else find_a;
+
     assert(k("x", "y", 5) == 105);
 }
 

@@ -47,6 +47,7 @@ Uniforms :: struct {
 
 main :: () {
     window: Window_Type;
+
     #if OS != .WASM {
         window = create_window(800, 600, "WebGPU triangle");
     }
@@ -62,15 +63,18 @@ main :: () {
     queue := wgpuDeviceGetQueue(device);
 
     info: WGPUAdapterInfo;
+
     wgpuAdapterGetInfo(adapter, *info);
     print("Adapter: % (%)\n", to_string(info.description), info.backendType);
     wgpuAdapterInfoFreeMembers(info);
 
     // Not an sRGB format, so the colors below look the same natively and in the browser.
     format := webgpu_surface_format(surface, adapter);
+
     print("Surface format: %\n", format);
 
     width, height := webgpu_window_size(window);
+
     configure(surface, device, format, width, height);
 
     wgsl: WGPUShaderSourceWGSL;
@@ -116,43 +120,54 @@ main :: () {
     paused := false;
     frames := 0;
     last := seconds_since_init();
+
     while true {
         update_window_events();
+
         for get_window_resizes() {
             width, height = webgpu_window_size(window);
             configure(surface, device, format, width, height);
         }
+
         quit := false;
+
         for events_this_frame {
             if it.type == .QUIT quit = true;
             if it.type != .KEYBOARD || !it.key_pressed continue;
             if it.key_code == .ESCAPE quit = true;
             if it.key_code == .SPACEBAR paused = !paused;
+
             if it.key_code == .MOUSE_BUTTON_LEFT {
                 background = .{ random_get_zero_to_one() * 0.4, random_get_zero_to_one() * 0.4, random_get_zero_to_one() * 0.4 };
                 print("Background %\n", background);
             }
         }
+
         if quit break;
 
         now := seconds_since_init();
         if !paused angle += cast(float32) (now - last);
         last = now;
         u := Uniforms.{ angle = angle, aspect = cast(float32) width / cast(float32) max(height, 1) };
+
         wgpuQueueWriteBuffer(queue, uniforms, 0, *u, size_of(Uniforms));
 
         frame: WGPUSurfaceTexture;
+
         wgpuSurfaceGetCurrentTexture(surface, *frame);
+
         if frame.status == WEBGPU_SURFACE_OCCLUDED {
             // A hidden window on macOS: nothing to draw into until it shows again.
             sleep_milliseconds(16);
             continue;
         }
+
         if frame.status != .SuccessOptimal && frame.status != .SuccessSuboptimal {
             width, height = webgpu_window_size(window);
             configure(surface, device, format, width, height);
             continue;
         }
+
         view := wgpuTextureCreateView(frame.texture, null);
 
         color: WGPURenderPassColorAttachment;
@@ -166,12 +181,14 @@ main :: () {
 
         encoder := wgpuDeviceCreateCommandEncoder(device, null);
         pass := wgpuCommandEncoderBeginRenderPass(encoder, *pass_desc);
+
         wgpuRenderPassEncoderSetPipeline(pass, pipeline);
         wgpuRenderPassEncoderSetBindGroup(pass, 0, bind_group, 0, null);
         wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
         wgpuRenderPassEncoderEnd(pass);
         wgpuRenderPassEncoderRelease(pass);
         commands := wgpuCommandEncoderFinish(encoder, null);
+
         wgpuQueueSubmit(queue, 1, *commands);
         wgpuCommandBufferRelease(commands);
         wgpuCommandEncoderRelease(encoder);
@@ -183,6 +200,7 @@ main :: () {
         frames += 1;
         if frames == 3 print("Drew % frames\n", frames);
     }
+
     print("Done after % frames\n", frames);
 }
 

@@ -21,6 +21,7 @@ main :: () -> s64 {
     value: Top;
 
     plain := formatStruct(value, use_long_form_if_more_than_this_many_members = -1);
+
     if tprint("%", plain) != "{middle = {{1, 2}, 3}; m = 4; }" return 1;
 
     one := plain;

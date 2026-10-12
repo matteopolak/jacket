@@ -14,12 +14,14 @@ tally_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void
 main :: () -> int {
     tally: Tally;
     before := context.allocator;
+
     {
         push_allocator(tally_proc, *tally);
         if context.allocator.proc != tally_proc return 1;
         text := sprint("%", 42);
         free(text);
     }
+
     if tally.calls < 2 return 2;
     if context.allocator.proc != before.proc return 3;
     print("ok\n");

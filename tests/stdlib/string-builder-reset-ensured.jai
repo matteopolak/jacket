@@ -5,6 +5,7 @@
 main :: () {
     builder: String_Builder;
     space := ensure_contiguous_space_and_return_available_range(*builder);
+
     assert(space.count >= 4);
     memcpy(space.data, "abcd".data, 4);
     advance_through_ensured_space(*builder, 4);

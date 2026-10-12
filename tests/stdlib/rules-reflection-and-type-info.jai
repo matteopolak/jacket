@@ -29,10 +29,12 @@ main :: () {
     // reflect.1: type_info(T) is a pointer to the descriptor; asking twice gives the same one.
     a := type_info(Point3);
     b := type_info(Point3);
+
     assert(a != null && a == b, "reflect.1: one descriptor per type");
 
     // reflect.2: a Type value at run time is the descriptor's address.
     t: Type = Point3;
+
     assert(cast(*Type_Info) t == cast(*Type_Info) a, "reflect.2: Type is the descriptor address");
 
     // reflect.3: the descriptor struct matches the kind of type.
@@ -42,6 +44,7 @@ main :: () {
     assert(type_info(string).type == .STRING, "reflect.3: string");
     assert(type_info(*u16).pointer_to == cast(*Type_Info) type_info(u16), "reflect.3: pointer target");
     proc := type_info(#type (int, bool) -> float);
+
     assert(proc.type == .PROCEDURE && proc.argument_types.count == 2 && proc.return_types.count == 1, "reflect.3: procedure");
     assert(type_info([3] u8).array_count == 3, "reflect.3: array count");
     assert(type_info([3] u8).element_type == cast(*Type_Info) type_info(u8), "reflect.3: array element");
@@ -51,6 +54,7 @@ main :: () {
 
     // reflect.4: every descriptor converts to *Type_Info through its header.
     header: *Type_Info = type_info(Point3);
+
     assert(header.type == .STRUCT && header.runtime_size == size_of(Point3), "reflect.4: header via #as");
 
     // reflect.5: the documented struct and enum descriptors.
@@ -59,6 +63,7 @@ main :: () {
     assert(a.members[1].name == "py" && a.members[1].offset_in_bytes == 4 && a.members[1].type.type == .FLOAT, "reflect.5: py");
     assert(a.members[2].name == "label" && a.members[2].offset_in_bytes == 8 && a.members[2].type.type == .STRING, "reflect.5: label");
     e := type_info(Shade);
+
     assert(e.names.count == 3 && e.names[0] == "DARK" && e.names[1] == "MID" && e.names[2] == "LIGHT", "reflect.5: enum names");
     assert(e.values[0] == 0 && e.values[1] == 1 && e.values[2] == 2, "reflect.5: enum values");
 
@@ -71,6 +76,7 @@ main :: () {
 
     // reflect.8: polymorphic instances record their parameters and source struct.
     box := type_info(Box(u8, 5));
+
     assert(box.specified_parameters.count == 2, "reflect.8: specified parameters");
     assert(box.specified_parameters[0].name == "Item" && box.specified_parameters[1].name == "N", "reflect.8: parameter names");
     assert(box.polymorph_source_struct != null, "reflect.8: polymorph source");
@@ -79,6 +85,7 @@ main :: () {
     // reflect.10: the runtime type table lists the program's descriptors.
     table := get_type_table();
     found := false;
+
     for table if it == cast(*Type_Info) type_info(only_in_table) found = true;
     assert(found, "reflect.10: type table contains a used struct");
 

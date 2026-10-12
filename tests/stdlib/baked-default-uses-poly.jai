@@ -11,12 +11,14 @@ push_unique :: (arr: *[..] $T, item: T, $compare: (T, T) -> bool = (a, b) => a =
         array_add(arr, item);
         return true;
     }
+
     return false;
 }
 
 main :: () -> s64 {
     a: [..] *int;
     x := 3;
+
     push_unique(*a, *x);
     push_unique(*a, *x);
     return ifx a.count == 1 then 0 else 1;

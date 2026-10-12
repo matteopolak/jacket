@@ -9,5 +9,6 @@ main :: () {
     low := (x & 0xFF) + 1;
     chained := x << 8 | n; // C reads it the same way
     both := (x >> 4) & 0xF;
+
     print("% % % % %\n", mask, set, low, chained, both);
 }

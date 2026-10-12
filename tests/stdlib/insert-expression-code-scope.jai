@@ -15,9 +15,12 @@ main :: () {
         local :: (n: int) -> s64 #expand {
             return twice(n + base);
         }
+
         base := 10;
+
         assert(local(1) == 22);
     }
+
     assert(fail("abc") == 6);
     print("ok\n");
 }

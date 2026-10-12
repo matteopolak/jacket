@@ -26,6 +26,7 @@ bad_parent: bool;
 
 root_border :: (corner: M.Vector2, size: M.Vector2, node: *T.Treemap_Node, parent: *T.Display_Node, values: *[4] float) {
     border_calls += 1;
+
     if !node.parent {
         if parent bad_parent = true;
         <<values = .[2, 2, 2, 2];
@@ -51,16 +52,19 @@ check_treemap_contract :: () -> int {
     border_calls = 0;
     bad_parent = false;
     map: T.Treemap;
+
     defer T.free_treemap(*map);
     root := T.add_node(*map, "root", null);
     large := T.add_node(*map, "large", root);
     small := T.add_node(*map, "small", root);
     zero := T.add_node(*map, "zero", root);
+
     large.size = 9;
     small.size = 3;
     zero.size = 0;
     first := T.init_treemap_display(*map);
     second := T.init_treemap_display(*map);
+
     defer T.free_treemap_display(*first);
     defer T.free_treemap_display(*second);
     T.recompute_if_dirty(*first, .{ 100, 80 }, root_border);
@@ -68,6 +72,7 @@ check_treemap_contract :: () -> int {
     a := first.nodes[T.get_index(*map, large)];
     b := first.nodes[T.get_index(*map, small)];
     z := first.nodes[T.get_index(*map, zero)];
+
     if !close_area(node_area(a), 5472) || !close_area(node_area(b), 1824) || node_area(z) != 0 return 3;
     if a.corner.x < 2 || a.corner.y < 2 || a.corner.x + a.size.x > 98.01 || a.corner.y + a.size.y > 78.01 return 4;
     if b.corner.x < 2 || b.corner.y < 2 || b.corner.x + b.size.x > 98.01 || b.corner.y + b.size.y > 78.01 return 5;

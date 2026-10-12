@@ -61,8 +61,10 @@ to_string :: (view: WGPUStringView) -> string {
 // meanwhile, see docs/stdlib/webgpu.md).
 webgpu_wait :: (instance: WGPUInstance, done: *bool) {
     polls := 0;
+
     while !done.* {
         wgpuInstanceProcessEvents(instance);
+
         #if OS != .WASM {
             polls += 1;
             if !done.* && polls > 100 sleep_milliseconds(1);
@@ -81,6 +83,7 @@ webgpu_request_adapter :: (instance: WGPUInstance, options: *WGPURequestAdapterO
         if status != .Success copy_message(*state.message, message);
         state.done = true;
     };
+
     info.userdata1 = *state;
     wgpuInstanceRequestAdapter(instance, options, info);
     webgpu_wait(instance, *state.done);
@@ -93,12 +96,14 @@ webgpu_request_adapter :: (instance: WGPUInstance, options: *WGPURequestAdapterO
 webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descriptor: *WGPUDeviceDescriptor = null) -> WGPUDevice {
     desc: WGPUDeviceDescriptor;
     if descriptor desc = descriptor.*;
+
     if !desc.uncapturedErrorCallbackInfo.callback {
         desc.uncapturedErrorCallbackInfo.callback = (device: *WGPUDevice, type: WGPUErrorType, message: WGPUStringView, userdata1: *void, userdata2: *void) #c_call {
             push_context, defer_pop webgpu_callback_context;
             log_error("WebGPU % error: %", type, to_string(message));
         };
     }
+
     state: Request_State;
     info: WGPURequestDeviceCallbackInfo;
     info.mode = .AllowProcessEvents;
@@ -108,6 +113,7 @@ webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descript
         if status != .Success copy_message(*state.message, message);
         state.done = true;
     };
+
     info.userdata1 = *state;
     webgpu_callback_context = context;
     webgpu_callback_context.stack_trace = null; // the trace points into this frame, which a later callback outlives
@@ -130,15 +136,18 @@ webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapM
         copy_message(*state.message, message);
         state.done = true;
     };
+
     info.userdata1 = *state;
     // wgpu-native rejects WGPU_WHOLE_MAP_SIZE ("must be multiple of 4"): pass the rest's size.
     if size == WGPU_WHOLE_MAP_SIZE size = wgpuBufferGetSize(buffer) - offset;
     wgpuBufferMapAsync(buffer, mode, offset, size, info);
     webgpu_wait(instance, *state.done);
+
     if state.status != .Success {
         log_error("WebGPU: mapping a buffer failed (%): %", state.status, message_text(*state.message));
         return false;
     }
+
     return true;
 }
 
@@ -154,6 +163,7 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
         copy_message(*state.message, message);
         state.done = true;
     };
+
     info.userdata1 = *state;
     wgpuDevicePopErrorScope(device, info);
     webgpu_wait(instance, *state.done);
@@ -172,7 +182,9 @@ webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSu
             return null;
         }
     }
+
     desc: WGPUSurfaceDescriptor;
+
     #if OS == .MACOS {
         source: WGPUSurfaceSourceMetalLayer;
         source.layer = webgpu_metal_layer(window);
@@ -190,6 +202,7 @@ webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSu
         source.window = cast(u64) window;
         desc.nextInChain = *source.chain;
     }
+
     return wgpuInstanceCreateSurface(instance, *desc);
 }
 
@@ -205,10 +218,12 @@ webgpu_surface_format :: (surface: WGPUSurface, adapter: WGPUAdapter, srgb := fa
     caps: WGPUSurfaceCapabilities;
     if wgpuSurfaceGetCapabilities(surface, adapter, *caps) != .Success || caps.formatCount == 0 return .Undefined;
     defer wgpuSurfaceCapabilitiesFreeMembers(caps);
+
     for 0..cast(s64) caps.formatCount - 1 {
         format := caps.formats[it];
         if webgpu_format_is_srgb(format) == srgb return format;
     }
+
     // None of the wanted kind: the surface's preferred one.
     return caps.formats[0];
 }
@@ -227,6 +242,7 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
         case .ETC2RGBA8UnormSrgb;
             return true;
     }
+
     // The ASTC sRGB formats are the odd values from ASTC4x4UnormSrgb on.
     if format >= .ASTC4x4UnormSrgb && format <= .ASTC12x12UnormSrgb return (cast(u32) format - cast(u32) WGPUTextureFormat.ASTC4x4UnormSrgb) % 2 == 0;
     return false;

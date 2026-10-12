@@ -22,6 +22,7 @@ main :: () {
     assert(bits_macro(xx b1 | c1) == 6);
     assert(bits(xx (a1 | b1)) == 3);
     mask: u64 = 7;
+
     assert(bits(mask & xx b1) == 2);
     print("ok\n");
 }

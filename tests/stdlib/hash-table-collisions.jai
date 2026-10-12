@@ -6,6 +6,7 @@ constant_hash :: (key: s64) -> u32 {
 
 main :: () -> s64 {
     table: Tables.Table(s64, s64, constant_hash);
+
     Tables.init(*table, 32);
     defer Tables.deinit(*table);
     Tables.table_add(*table, 1, 10);
@@ -19,10 +20,12 @@ main :: () -> s64 {
     Tables.table_add(*table, 3, 40);
     if table.count != 3 || table.slots_filled != 3 return 4;
     for i: 4..80 Tables.table_set(*table, i, i * 10);
+
     for i: 4..80 {
         ok, found := Tables.table_find(*table, i);
         if !ok || found != i * 10 return 5;
     }
+
     pointer, newly := Tables.find_or_add(*table, 99);
     if !newly return 6;
     pointer.* = 123;

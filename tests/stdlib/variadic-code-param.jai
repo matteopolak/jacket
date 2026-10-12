@@ -9,6 +9,7 @@ count_codes :: ($args: ..Code) -> s64 #expand {
 sum_codes :: ($args: ..Code) -> s64 #expand {
     #insert -> string {
         builder: String_Builder;
+
         append(*builder, "total := 0;\n");
         for args print_to_builder(*builder, "total += #insert args[%];\n", it_index);
         append(*builder, "return total;\n");
@@ -23,6 +24,7 @@ pass_on :: ($c: Code) -> s64 #expand {
 main :: () {
     alpha := 3;
     beta := 10;
+
     assert(count_codes(alpha) == 1);
     assert(count_codes(alpha, alpha + 1, beta) == 3);
     assert(sum_codes(alpha, alpha + 1) == 7);

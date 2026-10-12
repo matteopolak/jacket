@@ -45,6 +45,7 @@ golden :: (name: string) -> string {
         case "TOOL_BUILD_HELP"; return TOOL_BUILD_HELP;
         case "TOOL_REMOTE_HELP"; return TOOL_REMOTE_HELP;
     }
+
     return "";
 }
 
@@ -56,6 +57,7 @@ main :: () {
     Args.set_color_mode(.NEVER);
     argv := string.["jaifmt", "--help"];
     cli, error, set := Args.try_parse(Cli, HELP, argv);
+
     same_text("--help", error.text, CLI_HELP);
 
     // Subcommand pages.
@@ -78,6 +80,7 @@ main :: () {
         print("% failures\n", failures);
         exit(1);
     }
+
     print("ok\n");
 }
 
@@ -85,6 +88,7 @@ main :: () {
 check_error_layout :: () {
     Args.set_color_mode(.NEVER);
     _, error := Args.try_parse(Cli, HELP, string.["jaifmt", "--chek"]);
+
     Args.report(error); // to stderr; the fields below are what it prints
     expect(error.kind == .UNKNOWN_OPTION, "error layout setup");
     expect(error.message == "unknown option `--chek`" && error.suggestion == "--check" && error.usage == "jaifmt [OPTIONS] [PATHS]..." && error.command == "jaifmt", "error fields feed the report");

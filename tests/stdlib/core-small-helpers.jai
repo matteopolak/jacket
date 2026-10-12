@@ -25,6 +25,7 @@ main :: () -> int {
     if max_of_type(float32) != FLOAT32_MAX || min_of_type(float64) != FLOAT64_MIN return 3;
 
     xs: [..] int;
+
     array_insert_at(*xs, 2, 0);
     array_insert_at(*xs, 0, 0);
     array_insert_at(*xs, 3, 2);
@@ -41,9 +42,11 @@ main :: () -> int {
 
     rows := make_matrix_from_rows(.{ 1, 2, 3 }, .{ 4, 5, 6 }, .{ 7, 8, 9 }, Matrix3);
     cols := make_matrix_from_columns(.{ 1, 2, 3 }, .{ 4, 5, 6 }, .{ 7, 8, 9 });
+
     if rows._12 != 2 || rows._31 != 7 || cols._12 != 4 || cols._31 != 3 || cols._44 != 1 || cols._14 != 0 return 20;
 
     lexer: Lexer;
+
     set_input_from_string(*lexer, "s := \"q\\n\";");
     t := peek_next_token(*lexer);
     if t.type != .IDENT return 30;

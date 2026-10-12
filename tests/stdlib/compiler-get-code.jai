@@ -11,6 +11,7 @@ double_literals :: (code: Code) -> Code {
         literal := cast(*Code_Literal) it;
         if literal.value_type == .NUMBER literal._s64 *= 2;
     }
+
     return compiler_get_code(root);
 }
 
@@ -25,11 +26,14 @@ main :: () -> s64 {
     step :: #code {
         total += 5;
     };
+
     apply(step);
     apply(step);
+
     if total != 21 {
         print("total = %\n", total);
         return 1;
     }
+
     return 0;
 }

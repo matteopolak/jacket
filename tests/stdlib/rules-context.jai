@@ -19,6 +19,7 @@ depth_in_push :: (target: int) -> int {
     push_context ctx {
         return read_depth();
     }
+
     return -1;
 }
 
@@ -47,6 +48,7 @@ main :: () {
         push_context ctx {
             assert(read_depth() == 99, "callee sees the pushed copy");
         }
+
         assert(ctx.depth == 99, "the copy itself is unchanged");
         assert(read_depth() == 7, "restored after the block");
     }
@@ -61,6 +63,7 @@ main :: () {
     // ctx.6: push_context restores on return, break and continue.
     assert(depth_in_push(50) == 50, "return from inside push_context");
     assert(context.depth == 7, "restored after return");
+
     for 1..3 {
         ctx := context;
         ctx.depth = 100 + it;
@@ -69,6 +72,7 @@ main :: () {
             if it == 2 break;
         }
     }
+
     assert(context.depth == 7, "restored after continue and break");
 
     // ctx.7: push_context,defer_pop keeps the context until the end of the enclosing block.
@@ -78,6 +82,7 @@ main :: () {
         push_context, defer_pop ctx;
         assert(read_depth() == 31, "held for the rest of the block");
     }
+
     assert(read_depth() == 7, "popped at the end of the block");
 
     // ctx.10: a #c_call body can establish a context with push_context.
@@ -85,6 +90,7 @@ main :: () {
 
     // ctx.13: indirect calls pass the active context too.
     reader := read_depth;
+
     {
         ctx := context;
         ctx.depth = 64;

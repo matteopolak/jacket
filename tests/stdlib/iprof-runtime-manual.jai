@@ -21,20 +21,24 @@ main :: () {
     Iprof.init_runtime();
 
     total := 0;
+
     for frame: 0..9 {
         total += work(10000);
         Iprof.update(true);
     }
+
     assert(total > 0);
 
     report := Iprof.create_report();
     found := false;
+
     for report.records {
         if it.name == "work" {
             found = true;
             assert(it.calls > 0);
         }
     }
+
     assert(found);
 
     Iprof.set_report_mode(.CALL_COUNT);
@@ -62,6 +66,7 @@ main :: () {
     config.draw_line = (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color: Vector4) {
         draws += 1;
     };
+
     config.graph_begin = (x: float, y: float, w: float, h: float) {};
     config.graph_end = (x: float, y: float, w: float, h: float) {};
     Iprof.draw(10, 10, 400, 200, *config);

@@ -16,12 +16,15 @@ for_expansion :: (list: *$T, body: Code, flags: For_Flags) #expand
 {
     `it := list;
     `it_index := 0;
+
     while it {
         next := it.next;
+
         defer {
             it = next;
             it_index += 1;
         }
+
         #insert body;
     }
 }
@@ -36,9 +39,11 @@ Holder :: struct {
 
 for_expansion :: (h: *Holder, body: Code, flags: For_Flags) #expand {
     `it_index: Info;
+
     for n, _: h.head {
         it_index.total += n.v;
     }
+
     `it := it_index.total;
     #insert body;
 }
@@ -47,6 +52,7 @@ main :: () {
     a := Node.{ null, 1 };
     b := Node.{ *a, 2 };
     h := Holder.{ *b };
+
     for h if it != 3 exit(1);
     count := 0;
     for n, i: h.head count += i;

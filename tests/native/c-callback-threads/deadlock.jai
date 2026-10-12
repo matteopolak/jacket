@@ -18,6 +18,7 @@ lock_mutex :: (x: s32) -> s32 #c_call {
         signal(*done);
         unlock(*mutex);
     }
+
     return x;
 }
 
@@ -43,5 +44,6 @@ main :: () {
         thread_start(*thread);
         thread_deinit(*thread);
     }
+
     print("not reached\n");
 }

@@ -27,10 +27,12 @@ add_under_mutex :: (thread: *Thread) -> s64 {
         // A deliberately non-atomic update with work in between: without the lock, another thread
         // scheduled here would lose increments.
         seen := shared.value;
+
         for 1..3 shared.racy_window += 1;
         shared.value = seen + 1;
         unlock(*shared.mutex);
     }
+
     return 0;
 }
 
@@ -41,11 +43,13 @@ Handoff :: struct {
 
 take_all :: (thread: *Thread) -> s64 {
     handoff := cast(*Handoff) thread.data;
+
     for 1..10 {
         result := wait_for(*handoff.items);
         assert(result == .SUCCESS, "wait_for without a timeout gave %", result);
         handoff.taken += 1;
     }
+
     return 0;
 }
 
@@ -59,6 +63,7 @@ Gate :: struct {
 
 wait_at_gate :: (thread: *Thread) -> s64 {
     gate := cast(*Gate) thread.data;
+
     lock(*gate.mutex);
     gate.waiting += 1;
     while !gate.open wait(*gate.opened, *gate.mutex);
@@ -95,9 +100,11 @@ look_at_context :: (thread: *Thread) -> s64 {
     // Temporary storage is the thread's own, not the starting thread's.
     memory := talloc(64);
     begin := cast(*u8) thread.starting_temporary_storage.data;
+
     observed.temporary_is_own = cast(*u8) memory >= begin && cast(*u8) memory < begin + thread.starting_temporary_storage.size;
     before := counting_allocator_calls;
     block := alloc(32);
+
     free(block);
     observed.allocator_is_inherited = counting_allocator_calls == before + 2;
     return 0;
@@ -136,8 +143,10 @@ main :: () {
     // thread_init and thread_start refuse bad requests.
     {
         thread: Thread;
+
         assert(!thread_init(null, nothing), "thread_init with a null thread");
         null_proc: Native_Thread_Proc;
+
         assert(!thread_init(*thread, null_proc), "thread_init with a null proc");
         assert(!thread_init(*thread, nothing, -1), "thread_init with negative temporary storage");
         assert(!thread_start(*thread), "thread_start before thread_init");
@@ -162,6 +171,7 @@ main :: () {
     // Semaphores: counts, timeouts, bad arguments.
     {
         sem: Semaphore;
+
         assert(wait_for(*sem, 0) == .ERROR, "waiting on an uninitialized semaphore");
         assert(wait_for(null) == .ERROR);
         assert(!init(*sem, -1), "negative initial count");
@@ -171,8 +181,10 @@ main :: () {
         assert(wait_for(*sem, 0) == .SUCCESS);
         assert(wait_for(*sem, 0) == .TIMEOUT, "count should be used up");
         start := current_time_monotonic();
+
         assert(wait_for(*sem, 30) == .TIMEOUT);
         waited := to_milliseconds(current_time_monotonic() - start);
+
         #if OS != .WASM assert(waited >= 25, "a 30 ms timed wait returned after % ms", waited);
         for 1..3 signal(*sem);
         assert(wait_for(*sem, 1000) == .SUCCESS);
@@ -187,6 +199,7 @@ main :: () {
 
         // Ten signals handed to a thread that takes them one by one.
         handoff: Handoff;
+
         init(*handoff.items);
         taker: Thread;
         taker.data = *handoff;
@@ -202,6 +215,7 @@ main :: () {
     // A condition variable: waiters block until the gate opens; wake releases one, wake_all the rest.
     #if OS != .WASM {
         gate: Gate;
+
         init(*gate.mutex);
         init(*gate.opened, "gate");
         waiters: [THREADS] Thread;
@@ -210,14 +224,17 @@ main :: () {
             thread_init(it, wait_at_gate);
             thread_start(it);
         }
+
         // Wait until every waiter is asleep on the condition variable.
         while true {
             lock(*gate.mutex);
             waiting := gate.waiting;
+
             unlock(*gate.mutex);
             if waiting == THREADS break;
             sleep_milliseconds(1);
         }
+
         lock(*gate.mutex);
         assert(gate.passed == 0, "nobody passes a closed gate");
         unlock(*gate.mutex);
@@ -238,18 +255,21 @@ main :: () {
     // thread_is_done before, while (with a timeout) and after a thread runs.
     {
         release: Release;
+
         init(*release.go);
         thread: Thread;
         thread.data = *release;
         assert(thread_init(*thread, wait_for_release));
         assert(thread_start(*thread));
         assert(!thread_is_done(*thread), "a thread blocked on a semaphore is not done");
+
         #if OS != .WASM {
             start := current_time_monotonic();
             assert(!thread_is_done(*thread, 20), "a timed thread_is_done on a blocked thread");
             waited := to_milliseconds(current_time_monotonic() - start);
             assert(waited >= 15, "thread_is_done(20) returned after % ms", waited);
         }
+
         signal(*release.go);
         assert(thread_is_done(*thread, 10000), "thread_is_done after release");
         // The liveness signal is handed back, so asking again (and deinit) still sees it.
@@ -265,6 +285,7 @@ main :: () {
         thread: Thread;
         thread.data = *observed;
         scoped := context;
+
         push_context, defer_pop scoped;
         context.logger = capture_logger;
         context.logger_data = *observed;
@@ -283,11 +304,13 @@ main :: () {
     // A thread can use storage the caller hands it for temporary storage.
     {
         storage: Temporary_Storage;
+
         assert(init_temporary_storage(*storage, 4096));
         observed: Observed;
         thread: Thread;
         thread.data = *observed;
         scoped := context;
+
         push_context, defer_pop scoped;
         context.logger = capture_logger;
         context.logger_data = *observed;
@@ -298,6 +321,7 @@ main :: () {
         assert(observed.temporary_is_own, "talloc used the caller's storage");
         deinit_temporary_storage(*storage, free_original = true);
     }
+
     print("ok\n");
 }
 

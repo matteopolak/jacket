@@ -20,6 +20,7 @@ tour_finale :: () {
     up := cross(forward, right);
 
     line: [WIDTH] u8;
+
     for row: 0..HEIGHT - 1 {
         for column: 0..WIDTH - 1 {
             u := (cast(float) column / (WIDTH - 1) - 0.5) * 1.45;
@@ -29,12 +30,14 @@ tour_finale :: () {
             // Sprinkle a few stars over the top of the sky.
             scattered := (column * 7 + row * 13) % 23 == 0 && (column * row) % 5 == 1;
             star := row < HEIGHT / 5 && scattered;
+
             if index == 0 && star {
                 line[column] = #char "*";
             } else {
                 line[column] = SHADES[index];
             }
         }
+
         print("%\n", cast(string) line);
     }
 }
@@ -42,28 +45,36 @@ tour_finale :: () {
 // Returns an index into SHADES for the ray from `origin` in `direction`.
 shade :: (origin: Vector3, direction: Vector3) -> int {
     distance := 0.0;
+
     for 1..80 {
         point := origin + direction * distance;
         nearest, material := scene(point);
+
         if nearest < 0.002 {
             normal := surface_normal(point);
             light := max(dot(normal, LIGHT_DIRECTION), 0);
+
             if in_shadow(point + normal * 0.01) light *= 0.2;
+
             if material == .BLOB {
                 // A little ambient light keeps the dark side from vanishing into the floor.
                 light = 0.25 + 0.75 * light;
             } else {
                 // A checkerboard: the floor alternates between two brightnesses.
                 checker := (cast(int) floor(point.x) + cast(int) floor(point.z)) & 1;
+
                 light *= ifx checker then 0.35 else 0.7;
                 // Fog: the floor fades out towards the horizon.
                 light *= exp(-0.12 * distance);
             }
+
             return 1 + cast(int) (light * (SHADES.count - 2));
         }
+
         distance += nearest;
         if distance > 30 break;
     }
+
     return 0; // The ray flew off into the sky.
 }
 
@@ -78,6 +89,7 @@ scene :: (p: Vector3) -> float, Material {
     small := length(p - Vector3.{ 0.9, 0.55, -0.4 }) - 0.5;
     blob := smooth_min(big, small, 0.4);
     floor_distance := p.y;
+
     if floor_distance < blob return floor_distance, .FLOOR;
     return blob, .BLOB;
 }
@@ -90,6 +102,7 @@ smooth_min :: (a: float, b: float, k: float) -> float {
 // The gradient of the distance field points away from the surface.
 surface_normal :: (p: Vector3) -> Vector3 {
     e :: 0.001;
+
     return normalize(Vector3.{
         scene(p + Vector3.{ e, 0, 0 }) - scene(p - Vector3.{ e, 0, 0 }),
         scene(p + Vector3.{ 0, e, 0 }) - scene(p - Vector3.{ 0, e, 0 }),
@@ -99,11 +112,13 @@ surface_normal :: (p: Vector3) -> Vector3 {
 
 in_shadow :: (p: Vector3) -> bool {
     travelled := 0.0;
+
     for 1..40 {
         nearest := scene(p + LIGHT_DIRECTION * travelled);
         if nearest < 0.002 return true;
         travelled += nearest;
         if travelled > 10 break;
     }
+
     return false;
 }

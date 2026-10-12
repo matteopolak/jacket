@@ -33,6 +33,7 @@ do_sth :: (x: *$X/SomeTrait) {
 
 main :: () {
     f: ExSomeTrait;
+
     f.set(*f, 1, 42);
     print("%\n", f);
     print("%\n", f.get(f, 1));

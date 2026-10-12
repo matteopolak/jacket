@@ -35,6 +35,7 @@ making :: () {
     same(load_partial(u16x8, cast(*u16) bytes.data, 3, 9), .[0x0100, 0x0302, 0x0504, 9, 9, 9, 9, 9], "load_partial");
 
     out: [8] s32;
+
     store(indices(s32x4) * 3, out, 2);
     check(out[2] == 0 && out[3] == 3 && out[4] == 6 && out[5] == 9 && out[6] == 0, tprint("store: %", out));
 
@@ -45,6 +46,7 @@ making :: () {
 
 arithmetic :: () {
     a := splat(u8x16, 250);
+
     same(low_half(a + 10), .[4, 4, 4, 4, 4, 4, 4, 4], "u8 + wraps");
     same(low_half(3 - indices(u8x16)), .[3, 2, 1, 0, 255, 254, 253, 252], "scalar - vector wraps");
     same(indices(s16x8) * -2, .[0, -2, -4, -6, -8, -10, -12, -14], "s16 *");
@@ -65,6 +67,7 @@ arithmetic :: () {
 
 bitwise :: () {
     a := u32x4.{ .[0xF0F0, 0xFF, 0, 0xFFFF_FFFF] };
+
     same(a & 0xFF, .[0xF0, 0xFF, 0, 0xFF], "&");
     same(0x100 | a, .[0xF1F0, 0x1FF, 0x100, 0xFFFF_FFFF], "|");
     same(a ^ a, .[0, 0, 0, 0], "^");
@@ -78,11 +81,13 @@ masks :: () {
     text := "find the q in here, quick";
     chunk := load(u8x16, text, 0);
     q := eq(chunk, #char "q");
+
     check(any(q) && !all(q) && !none(q), "any/all/none");
     check(first_true(q) == 9 && last_true(q) == 9 && count_true(q) == 1, tprint("one q at 9: % % %", first_true(q), last_true(q), count_true(q)));
     check(to_bits(q) == 1 << 9, "to_bits");
 
     spaces := eq(chunk, #char " ");
+
     check(to_bits(spaces) == (1 << 4) | (1 << 8) | (1 << 10) | (1 << 13), tprint("spaces: %", formatInt(to_bits(spaces), base = 2)));
     check(to_bits(spaces | q) == to_bits(spaces) | to_bits(q), "mask |");
     check(to_bits(spaces & q) == 0 && to_bits(~q) == 0xFFFF & ~(1 << 9) && to_bits(q ^ q) == 0, "mask & ~ ^");
@@ -90,13 +95,16 @@ masks :: () {
     check(first_true(eq(chunk, #char "z")) == -1 && last_true(eq(chunk, #char "z")) == -1, "first_true of none");
 
     m := mask_from_bits(Mask(s32, 4), 0b1010);
+
     same(select(m, splat(s32x4, 1), splat(s32x4, 2)), .[2, 1, 2, 1], "select ints");
     same(select(lt(f32x4.{ .[1, 5, 2, 8] }, 4), splat(f32x4, 0), f32x4.{ .[1, 5, 2, 8] }), .[0, 5, 0, 8], "select floats");
 
     f := f32x4.{ .[1, 2, 3, 4] };
+
     check(to_bits(eq(f, 2)) == 0b10 && to_bits(ne(f, 2)) == 0b1101 && to_bits(le(f, 2)) == 0b11, "float compares");
     check(to_bits(gt(f, 2)) == 0b1100 && to_bits(ge(f, 2)) == 0b1110 && to_bits(lt(f, 2)) == 0b1, "more float compares");
     nan := f32x4.{ .[FLOAT32_NAN, 1, 1, 1] };
+
     check(!eq(nan, nan)[0] && ne(nan, nan)[0] && !lt(nan, nan)[0], "NaN compares unequal");
     check(to_bits(lt(s8x16.{ .[-1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, 0)) == 1, "signed compare");
     check(to_bits(lt(u8x16.{ .[255, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, 128)) == 0xFFFE, "unsigned compare");
@@ -105,15 +113,18 @@ masks :: () {
 
 reductions :: () {
     a := s32x4.{ .[3, -7, 10, 2] };
+
     check(reduce_add(a) == 8 && reduce_min(a) == -7 && reduce_max(a) == 10, "add/min/max");
     check(reduce_add(splat(u8x16, 20)) == 64, "reduce_add wraps");
     b := u16x8.{ .[0xF0, 0xF1, 0xF3, 0xF7, 0xFF, 0xF0, 0xF0, 0xF0] };
+
     check(reduce_and(b) == 0xF0 && reduce_or(b) == 0xFF && reduce_xor(b) == (0xF0 ^ 0xF1 ^ 0xF3 ^ 0xF7 ^ 0xFF ^ 0xF0 ^ 0xF0 ^ 0xF0), "and/or/xor");
 }
 
 rearranging :: () {
     a := indices(u8x16);
     b := indices(u8x16) + 16;
+
     same(shuffle(a, .[15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]), .[15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0], "shuffle reverses");
     same(shuffle(s32x4.{ .[10, 20, 30, 40] }, s32x4.{ .[50, 60, 70, 80] }, .[0, 4, 1, 7]), .[10, 50, 20, 80], "two-input shuffle");
     same(reverse(s32x4.{ .[1, 2, 3, 4] }), .[4, 3, 2, 1], "reverse");
@@ -122,8 +133,10 @@ rearranging :: () {
     same(window(a, b, 14), .[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "window 14");
 
     table := u8x16.{ .[100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115] };
+
     same(lookup(table, u8x16.{ .[0, 15, 16, 255, 128, 127, 3, 3, 1, 2, 4, 5, 6, 7, 8, 9] }), .[100, 115, 0, 0, 0, 0, 103, 103, 101, 102, 104, 105, 106, 107, 108, 109], "lookup");
     wide := lookup(table, indices(u8x32));
+
     check(wide[15] == 115 && wide[16] == 0 && wide[31] == 0, "lookup with 32 lanes");
 }
 
@@ -133,6 +146,7 @@ changing_shape :: () {
     same(convert(f64x2, Vector(s16, 2).{ .[-3, 5] }), .[-3, 5], "int to float");
     same(bitcast(u32x4, splat(u8x16, 1)), .[0x0101_0101, 0x0101_0101, 0x0101_0101, 0x0101_0101], "bitcast");
     a := indices(u16x8);
+
     same(low_half(a), .[0, 1, 2, 3], "low_half");
     same(high_half(a), .[4, 5, 6, 7], "high_half");
     same(combine(high_half(a), low_half(a)), .[4, 5, 6, 7, 0, 1, 2, 3], "combine");
@@ -153,6 +167,7 @@ main :: () {
     rearranging();
     changing_shape();
     bits();
+
     if failures {
         print("% failures\n", failures);
         exit(1);

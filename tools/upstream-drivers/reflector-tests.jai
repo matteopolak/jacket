@@ -12,6 +12,7 @@
     options.output_path = "bin";
     options.intermediate_path = "bin";
     w := BeginTestWorkspace("Tests", options);
+
     AddAllStrings(w);
     add_build_file("src/test.jai", w);
     EndTestWorkspace(w);

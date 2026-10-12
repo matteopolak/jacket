@@ -74,6 +74,7 @@ main :: () {
     assert(type_of(offset_of(Outer, "big")) == s64);
 
     o: Outer;
+
     assert(cast(*u8) *o.big - cast(*u8) *o == offset_of(Outer, "big"));
     assert(cast(*u8) *o.y - cast(*u8) *o == offset_of(Outer, "y"));
     info := type_info(Outer);
@@ -81,6 +82,7 @@ main :: () {
 
     // Use as a constant: an array length.
     Buf :: [offset_of(Outer, "big")] u8;
+
     assert(size_of(Buf) == 8);
 
     assert(is_value_type(int));

@@ -28,9 +28,11 @@ generate :: (strip: Strip_Flags, checks: bool) -> string {
     ext := ifx OS == .MACOS then "dylib" else "so";
     library_path := tprint("%/libchecks.%", dir, ext);
     result := run_command("clang++", "-shared", "-fPIC", "-o", library_path, tprint("%/checks.cpp", fixture), capture_and_return_output = true);
+
     if result.exit_code != 0 return "";
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, tprint("%/checks.h", fixture));
     array_add(*opts.extra_clang_arguments, "-x", "c++", "-std=c++17");
     array_add(*opts.libpaths, dir);

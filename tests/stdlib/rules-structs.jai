@@ -69,23 +69,28 @@ Child :: struct {
 main :: () {
     // struct.1: a declared variable takes the member defaults.
     p: Point3;
+
     assert(p.x == 1 && p.y == 2 && p.z == 3, "struct.1");
 
     // struct.2: omitted literal members keep their defaults.
     w := Point3.{ y = 9 };
+
     assert(w.x == 1 && w.y == 9 && w.z == 3, "struct.2");
 
     // struct.3: positional literals follow declaration order.
     u := Point3.{ 4, 5, 6 };
+
     assert(u.x == 4 && u.y == 5 && u.z == 6, "struct.3");
 
     // struct.4: an empty literal is all defaults.
     e := Point3.{};
+
     assert(e.x == 1 && e.y == 2 && e.z == 3, "struct.4");
 
     // struct.6: natural alignment, size rounded to the struct alignment.
     assert(size_of(Gaps) == 24, "struct.6 size");
     info := type_info(Gaps);
+
     assert(info.members[1].offset_in_bytes == 8 && info.members[2].offset_in_bytes == 16, "struct.6 offsets");
 
     // struct.7: #no_padding packs the members.
@@ -121,6 +126,7 @@ main :: () {
 
     // struct.16: a member-override statement in a struct body.
     ch: Child;
+
     assert(ch.mode == .C && ch.extra == 11, "struct.16");
 
     print("ok\n");

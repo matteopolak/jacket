@@ -77,12 +77,14 @@ build_and_generate :: () -> string {
         header_path := tprint("%/generics.h", dir);
         source_path := tprint("%/generics.m", dir);
         library_path := tprint("%/libgenerics.dylib", dir);
+
         if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
         result := run_command("clang", "-shared", "-fPIC", "-fno-objc-arc", "-o", library_path, source_path, "-lobjc", "-Wno-deprecated-declarations", capture_and_return_output = true);
         if result.exit_code != 0 return "";
 
         opts: Generate_Bindings_Options;
+
         array_add(*opts.source_files, header_path);
         array_add(*opts.extra_clang_arguments, "-x", "objective-c");
         array_add(*opts.libpaths, dir);
@@ -125,9 +127,11 @@ main :: () {
         assert(generics_ping() == 7); // Loads the library, and with it the classes.
 
         item := objc_alloc(class(Item));
+
         Item.setTag(cast(*Item) item, 42);
 
         b := Box(*Item).box(class(Box(*Item)));
+
         assert(Box(*Item).item(b) == null);
         Box(*Item).setItem(b, cast(*Item) item);
         assert(type_of(Box(*Item).item(b)) == *Item);
@@ -135,12 +139,14 @@ main :: () {
 
         // Generic results keep their arguments.
         g := Box(*Item).itemGroup(b);
+
         assert(type_of(g) == *Group(*Item));
         assert(Group(*Item).first(g) == cast(*Item) item);
         assert(Group(id).first(Box(*Item).plainGroup(b)) == item);
 
         // A subclass of a specialised generic class inherits `Box(*Item)`.
         s := cast(*Sub) Box(*Item).initWithItem(objc_alloc(class(Sub)), cast(*Item) item);
+
         assert(Sub.itemTag(s) == 42);
         assert(Box(*Item).item(s) == cast(*Item) item);
         print("ok\n");

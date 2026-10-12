@@ -14,10 +14,12 @@ main :: () -> s64 {
     h: Holder;
     h.pools.allocator = context.allocator;
     locs: [10] Bucket_Locator;
+
     for 0..9 {
         l := bucket_array_add(*h.pools, .{ it });
         locs[it] = l;
     }
+
     if h.pools.count != 10 || h.pools.all_buckets.count != 3 return 1;
     bucket_array_remove(*h.pools, locs[5]);
     sum := 0;

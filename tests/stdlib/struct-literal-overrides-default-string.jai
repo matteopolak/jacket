@@ -12,9 +12,11 @@ Info :: struct {
 main :: () {
     x := Info.{ flavor = "chocolate", n = 3 };
     y: Info;
+
     if x.flavor != "chocolate" || y.flavor != "vanilla" || x.cone != "waffle" {
         print("FAIL % %\n", x, y);
         exit(1);
     }
+
     print("ok\n");
 }

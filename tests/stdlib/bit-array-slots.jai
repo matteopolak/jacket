@@ -2,6 +2,7 @@ Bits :: #import "Bit_Array";
 
 main :: () -> s64 {
     bits := Bits.make_bit_array(130);
+
     defer Bits.deinit(*bits);
     if bits.slots.count != 3 || bits.count != 130 || !bits.allocator.proc return 1;
     Bits.set_bit(*bits, 63);
@@ -18,13 +19,16 @@ main :: () -> s64 {
     Bits.set_all_bits(*bits);
     if bits.slots[0] != -1 || bits.slots[2] != 3 return 6;
     Bits.toggle_all_bits(*bits);
+
     for bit: bits {
         if bit return 7;
     }
+
     Bits.clear_bit(*bits, 63);
     Bits.clear_all_bits(*bits);
     for slot: bits.slots if slot != 0 return 8;
     empty := Bits.make_bit_array(0);
+
     defer Bits.deinit(*empty);
     if empty.slots.count != 0 return 9;
     return 0;

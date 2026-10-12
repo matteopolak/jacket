@@ -17,6 +17,7 @@ expect :: (got: s32, buf: [] u8, want: string) {
 main :: () {
     buf: [256] u8;
     n := sprintf(buf.data, "%.2f", 1.25);
+
     expect(n, buf, "1.25");
 
     n = sprintf(buf.data, "%d %.1f %s %.3f", cast(s32) 7, 0.5, "mid".data, 2.125);

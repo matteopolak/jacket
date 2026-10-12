@@ -16,6 +16,7 @@ Thing :: struct {
         inner :: () -> bool {
             return size_of(type_of(z)) == 2 && type_of(t) == Type;
         }
+
         return inner() && t == float;
     }
 }

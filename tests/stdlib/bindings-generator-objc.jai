@@ -70,12 +70,14 @@ build_and_generate :: () -> string {
         header_path := tprint("%/counter.h", dir);
         source_path := tprint("%/counter.m", dir);
         library_path := tprint("%/libcounter.dylib", dir);
+
         if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
         result := run_command("clang", "-shared", "-fPIC", "-fno-objc-arc", "-o", library_path, source_path, "-lobjc", "-Wno-deprecated-declarations", capture_and_return_output = true);
         if result.exit_code != 0 return "";
 
         opts: Generate_Bindings_Options;
+
         array_add(*opts.source_files, header_path);
         array_add(*opts.extra_clang_arguments, "-x", "objective-c");
         array_add(*opts.libpaths, dir);
@@ -117,6 +119,7 @@ main :: () {
         assert(counter_ping() == 42); // Loads the library, and with it the classes.
 
         c := Counter.counterWithValue(class(Counter), 5);
+
         assert(c != null);
         assert(Counter.value(c) == 5);
         Counter.setValue(c, 7);
@@ -134,6 +137,7 @@ main :: () {
 
         // `instancetype` follows the receiver: an `init` of a subclass returns the subclass.
         s := Counter.initWithValue(objc_alloc(Sub), 3);
+
         assert(type_of(s) == *Sub);
         assert(Sub.subValue(s) == 1003);
         assert(Counter.value(s) == 3); // Inherited through `#as using`.

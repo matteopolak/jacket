@@ -14,20 +14,25 @@ tour_memory :: () {
         value: int;
         next: *Node;
     }
+
     head: *Node;
+
     for 1..5 {
         node := New(Node);
         node.value = it * it;
         node.next = head;
         head = node;
     }
+
     print("A hand-made linked list: ");
     walker := head;
     while walker {
         print("% ", walker.value);
         walker = walker.next;
     }
+
     print("\n");
+
     while head {
         next := head.next;
         free(head);
@@ -37,19 +42,23 @@ tour_memory :: () {
     // The temporary allocator is a scratch pad: allocate freely, then reset it all at once.
     // (main calls reset_temporary_storage() after every stop of the tour.)
     scratch := tprint("% + % = %", 2, 2, 4);
+
     print("Made \"%\" in temporary storage, nothing to free.\n", scratch);
 
     // Every procedure receives an implicit `context`. Change the allocator in it,
     // and everything called below uses your allocator, even library code.
     counter: Counting_Allocator;
+
     {
         push_allocator(counting_allocator_proc, *counter);
         numbers: [..] int;
         for 1..100 array_add(*numbers, it);
         greeting := sprint("hello from %", "the context");
+
         free(greeting);
         array_free(numbers);
     }
+
     print("The counting allocator saw % allocations, % frees and % resizes (% bytes).\n",
         counter.allocations, counter.frees, counter.resizes, counter.bytes);
 
@@ -59,6 +68,7 @@ tour_memory :: () {
     push_context new_context {
         log("the logger is just a procedure in the context");
     }
+
     log("and it is back to normal now");
 }
 
@@ -71,6 +81,7 @@ Counting_Allocator :: struct {
 counting_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void,
     allocator_data: *void) -> *void {
     tally := cast(*Counting_Allocator) allocator_data;
+
     if mode == {
         case .ALLOCATE;
             tally.allocations += 1;
@@ -81,7 +92,9 @@ counting_allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_
         case .FREE;
             tally.frees += 1;
     }
+
     heap := context.default_allocator;
+
     return heap.proc(mode, size, old_size, old_memory, heap.data);
 }
 

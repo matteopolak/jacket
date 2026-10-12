@@ -34,19 +34,23 @@ has :: (text: string, needle: string) -> bool {
 // Runs at compile time: libclang is the compiler's, and executables cannot call it.
 check_bindings :: () {
     dir := scratch_directory("bindgen-c");
+
     hide_scratch_directory_in_log(dir);
     defer delete_directory(dir);
     header_path := tprint("%/test.h", dir);
     output_path := tprint("%/test.jai", dir);
+
     assert(write_entire_file(header_path, HEADER));
 
     opts: Generate_Bindings_Options;
+
     array_add(*opts.source_files, header_path);
     opts.generate_library_declarations = false;
     array_add(*opts.libraries, .{ filename = "does_not_exist", identifier = "lib" });
     assert(generate_bindings(opts, output_path));
 
     text, ok := read_entire_file(output_path);
+
     assert(ok);
 
     assert(has(text, "LIMIT :: 5;"));

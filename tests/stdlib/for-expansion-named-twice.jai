@@ -12,6 +12,7 @@ twice :: (n: int, body: Code, flags: For_Flags) #expand {
         #insert body;
         i += 1;
     }
+
     i = 0;
     while i < n {
         it = 10 + i;
@@ -23,10 +24,12 @@ twice :: (n: int, body: Code, flags: For_Flags) #expand {
 
 main :: () {
     total, indices := 0, 0;
+
     for: twice value, position: 3 {
         total += value;
         indices += position;
     }
+
     assert(total == 36);
     assert(indices == 6);
     print("ok\n");

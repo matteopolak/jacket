@@ -14,25 +14,30 @@ tour_basics :: () {
     crew := 4;
     fuel: float = 0.75;
     log_entry: string; // Variables start zeroed unless you write `= ---`.
+
     print("The % carries % crew and % of a tank of fuel; log entry: \"%\"\n",
         SHIP_NAME, crew, fuel, log_entry);
 
     // Sized integers convert explicitly with `cast`; `xx` casts to whatever is expected.
     byte := cast,trunc(u8) 300; // keeps the low byte: 44
     small: s16 = xx crew;
+
     print("cast,trunc(u8) 300 = %, small = %, light speed = % km/s\n", byte, small, LIGHT_SPEED / 1000);
 
     // Procedures can be declared anywhere, including inside other procedures.
     cube :: (x: int) -> int {
         return x * x * x;
     }
+
     print("cube(7) = %\n", cube(7));
 
     // Several return values, with names, without tuples or out-parameters.
     quotient, remainder := divide(47, 5);
+
     print("47 / 5 is % remainder %\n", quotient, remainder);
     // Keep only the first return value if that is all you want.
     rounded_down := divide(99, 10);
+
     print("99 / 10 rounds down to %\n", rounded_down);
 
     // Named and default arguments.
@@ -46,6 +51,7 @@ tour_basics :: () {
 
     // Procedures are values: store them, pass them, call them later.
     operation := cube;
+
     print("operation(3) = %, apply_twice(cube, 2) = %\n", operation(3), apply_twice(cube, 2));
 
     // Anonymous procedures work as arguments too.

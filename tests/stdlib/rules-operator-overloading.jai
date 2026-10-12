@@ -64,6 +64,7 @@ main :: () {
 
     // opov.3: operator + on a struct.
     c := a + b;
+
     assert(c.x == 4 && c.y == 6, "V2 + V2");
     // opov.4: operator == on a struct.
     assert(!(a == b), "different V2 values are not ==");
@@ -73,8 +74,10 @@ main :: () {
 
     // opov.1: binary and unary operators go through overload resolution by operand types.
     n := -a;
+
     assert(n.x == -1 && n.y == -2, "unary operator -");
     scaled := a * 2.0;
+
     assert(scaled.x == 2 && scaled.y == 4, "V2 * float picks the scalar overload");
     assert(a * b == 11.0, "V2 * V2 picks the dot overload");
 
@@ -95,6 +98,7 @@ main :: () {
 
     // opov.2: a module's operator overloads apply where its type is used.
     bits: Bit_Array;
+
     init_bit_array(*bits, 16);
     bits[5] = true;
     assert(bits[5] && !bits[4], "Bit_Array's operator [] and []= are visible here");
@@ -104,6 +108,7 @@ main :: () {
     f: Perm = .READ;
     f |= .WRITE;
     both := f & .WRITE;
+
     #assert type_of(both) == Perm;
     #assert type_of(f | .EXEC) == Perm;
     #assert type_of(~f) == Perm;

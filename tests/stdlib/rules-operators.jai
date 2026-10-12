@@ -20,15 +20,19 @@ main :: () {
 
     // ops.2: postfix binds before prefix.
     p := Point.{ x = 5 };
+
     assert(-p.x == -5, "-p.x is -(p.x)");
     q := Point.{ x = 7, inner = *p };
     ptr := *q.inner;
+
     #assert type_of(ptr) == **Point;
     arr := int.[3, 4];
+
     assert(-arr[1] == -4, "-a[i] is -(a[i])");
 
     // ops.3: prefix binds before the bitwise level.
     mask := 0b1100;
+
     assert(~mask & 0xF == 0b0011, "~a & b is (~a) & b");
     assert(-two & 0xFF == 0xFE, "-a & b is (-a) & b");
 
@@ -40,6 +44,7 @@ main :: () {
     // ops.5: a prefix cast takes the bitwise level into its operand.
     b: u8 = 0x12;
     r := cast(u32) b << 4 | 1;
+
     assert(r == 0x21, "cast(u32) b << 4 | 1 is cast(u32) ((b << 4) | 1)");
 
     // ops.6: bitwise binds before multiplicative.
@@ -52,6 +57,7 @@ main :: () {
 
     // ops.8: % is above + and -.
     tab, col := 4, 6;
+
     assert(tab - col % tab == 2, "tab - col mod tab");
     assert(col % tab + one == 3, "col mod tab + 1");
 
@@ -63,21 +69,25 @@ main :: () {
 
     // ops.10: bitwise binds before equality.
     x0f, x33 := 0x0F, 0x33;
+
     assert(x0f & x33 == 0x03, "0x0F & 0x33 == 0x03");
 
     // ops.11: equality binds before &&.
     t := true;
+
     assert(one == one && t, "a == b && c");
     assert(!(one == two && t), "(1 == 2) && true is false");
 
     // ops.12: && binds before ||.
     f := false;
+
     assert(t || f && f, "a || b && c is a || (b && c)");
     assert(!(f && t || f), "(f && t) || f is false");
 
     // ops.13: cast(float) (hex >> 16) & 0xFF converts the masked integer.
     hex: u32 = 0x7F3C00;
     red := cast(float) (hex >> 16) & 0xFF;
+
     #assert type_of(red) == float;
     assert(red == 127, "the mask applies before the cast");
 
@@ -86,11 +96,13 @@ main :: () {
     p0 := *words[0];
     p2 := *words[2];
     diff := cast(s64) p2 - cast(s64) p0;
+
     #assert type_of(diff) == s64;
     assert(diff == 8, "byte distance between two u32 slots");
 
     // ops.15: b | a << 8 is (b | a) << 8.
     a8, b8 := 0x01, 0x02;
+
     assert(b8 | a8 << 8 == 0x300, "b | a << 8 is (b | a) << 8");
     assert(a8 << 8 | b8 == 0x102, "a << 8 | b is (a << 8) | b");
 

@@ -36,10 +36,12 @@ not_the_global :: (ident: *Code_Node) -> bool {
     compiler_begin_intercept(w);
     add_build_string(TARGET, w);
     seen := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
+
         for (cast(*Message_Typechecked) message).procedure_bodies {
             body := it.expression;
             if body.header.name != "value" continue;
@@ -47,22 +49,28 @@ not_the_global :: (ident: *Code_Node) -> bool {
             statements := body.block.statements;
             // a := t.count;
             member := cast(*Code_Binary_Operator) (cast(*Code_Declaration) statements[0]).expression;
+
             assert(not_the_global(member.right));
             // b := scaled(2, count = 3);
             call := cast(*Code_Procedure_Call) (cast(*Code_Declaration) statements[1]).expression;
+
             assert(not_the_global(call.arguments_unsorted[1].name));
             // for 0..2 total += it;
             loop := cast(*Code_For) statements[3];
             add := cast(*Code_Binary_Operator) (cast(*Code_Block) loop.block).statements[0];
+
             assert(not_the_global(add.right));
             // return a + b + total + count;  (the local `count`, 7)
             sum := cast(*Code_Binary_Operator) (cast(*Code_Return) statements[5]).arguments_unsorted[0].expression;
             last := cast(*Code_Ident) sum.right;
+
             assert(last.resolved_declaration != null);
             local := last.resolved_declaration.expression;
+
             assert(local && local.kind == .LITERAL && (cast(*Code_Literal) local)._s64 == 7);
         }
     }
+
     compiler_end_intercept(w);
     assert(seen);
     set_build_options_dc(.{ do_output = false });

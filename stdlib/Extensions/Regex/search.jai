@@ -25,11 +25,13 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
         free(engine);
         return null, false, .{ message, 0 };
     }
+
     engine.reverse, ok, message = compile_program(*parsed, true);
     if !ok {
         free(engine);
         return null, false, .{ message, 0 };
     }
+
     dfa_init(*engine.forward, *engine.program, false);
     dfa_init(*engine.backward, *engine.reverse, true);
     engine.onepass = onepass_build(*engine.program, ONEPASS_STATE_LIMIT);
@@ -51,6 +53,7 @@ find_span :: (engine: *Engine, text: string, start: int, earliest := false) -> s
         s, gave_up_backward := dfa_find_start(*engine.backward, text, start, end);
         if !gave_up_backward return s, end;
     }
+
     slots: [2] int;
     if !pike_search(program, text, start, text.count, program.anchored, slots) return -1, -1;
     return slots[0], slots[1];
@@ -77,6 +80,7 @@ captures_of :: (engine: *Engine, text: string, s: int, e: int) -> Captures {
 fill_slots :: (engine: *Engine, text: string, s: int, e: int, slots: [] int) {
     program := *engine.program;
     found: bool;
+
     if engine.onepass.ok found = onepass_search(*engine.onepass, text, s, e, slots);
     else if backtrack_fits(program, e - s) found = backtrack_search(program, text, s, e, slots);
     else found = pike_search(program, text, s, e, true, slots);
@@ -88,14 +92,17 @@ for_matches :: (the_engine: *Engine, text: string, body: Code) #expand {
     `engine := the_engine;
     pos := 0;
     last_end := -1;
+
     while pos <= text.count {
         `s, `e := find_span(engine, text, pos);
         if e < 0 break;
+
         if s == e && (s == last_end || !is_boundary(engine, text, s)) {
             // Not allowed here: look again one character on.
             pos = s + next_char_size(text, s);
             continue;
         }
+
         #insert body;
         last_end = e;
         pos = e;
@@ -135,6 +142,7 @@ is_meta :: (c: u8) -> bool {
         case #char "~";
             return true;
     }
+
     return false;
 }
 
@@ -147,13 +155,16 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
             i += 1;
             continue;
         }
+
         next := replacement[i + 1];
         if next == #char "$" {
             append(builder, #char "$");
             i += 2;
             continue;
         }
+
         name: string;
+
         if next == #char "{" {
             close := find_index_from_left(replacement, #char "}", i + 2);
             if close < 0 {
@@ -161,21 +172,26 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
                 i += 1;
                 continue;
             }
+
             name = slice(replacement, i + 2, close - i - 2);
             i = close + 1;
         } else {
             end := i + 1;
             while end < replacement.count && (is_word_byte(replacement[end])) end += 1;
+
             if end == i + 1 {
                 append(builder, c);
                 i += 1;
                 continue;
             }
+
             name = slice(replacement, i + 1, end - i - 1);
             i = end;
         }
+
         number, is_number := parse_group_number(name);
         text: string;
+
         if is_number text = group(caps, number);
         else text = group(caps, name);
         append(builder, text);
@@ -185,11 +201,13 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
 parse_group_number :: (name: string) -> int, bool {
     if name.count == 0 || name.count > 9 return 0, false;
     value := 0;
+
     for name {
         c := it;
         if c < #char "0" || c > #char "9" return 0, false;
         value = value * 10 + cast(int) (c - #char "0");
     }
+
     return value, true;
 }
 
@@ -206,16 +224,20 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
         at: u32;
         done: bool;
     }
+
     stack: [..] Step;
     stack.allocator = temp;
     array_add(*stack, .{ start, false });
+
     while stack.count {
         step := pop(*stack);
         inst := *program.insts[step.at];
+
         if !step.done {
             if lengths[step.at] != UNSEEN continue;
             lengths[step.at] = VISITING;
             array_add(*stack, .{ step.at, true });
+
             if inst.kind == {
                 case .SAVE; #through;
                 case .LOOK; array_add(*stack, .{ inst.next, false });
@@ -225,9 +247,12 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
                 case .RANGES;
                     for t: 0..inst.alt - 1 array_add(*stack, .{ program.transitions[inst.next + t].next, false });
             }
+
             continue;
         }
+
         result := VARIES;
+
         if inst.kind == {
             case .MATCH; result = 0;
             case .SAVE; #through;
@@ -242,11 +267,14 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
                         result = VARIES;
                         break;
                     }
+
                     result = n + 1;
                 }
         }
+
         lengths[step.at] = result;
     }
+
     return known(lengths, start);
 }
 

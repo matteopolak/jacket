@@ -19,9 +19,11 @@ main :: () {
         print("ok\n");
         return;
     }
+
     buf: [128] u8;
     n := snprintf(buf.data, buf.count, "%d %s %.2f %ld %c", cast(s32) 42, "hi".data, 1.5, cast(s64) -7, cast(s32) #char "x");
     text := to_string(buf.data, n);
+
     assert(text == "42 hi 1.50 -7 x", "snprintf gave '%'", text);
 
     // Win64 passes variadic doubles in both an XMM and the matching integer register, and
@@ -42,11 +44,13 @@ main :: () {
         F_SETFD :: 2;
         FD_CLOEXEC :: 1;
         fds: [2] s32;
+
         assert(pipe(*fds) == 0);
         assert(fcntl(fds[0], F_SETFD, cast(s32) FD_CLOEXEC) == 0);
         assert(fcntl(fds[0], F_GETFD) & FD_CLOEXEC != 0, "FD_CLOEXEC was not set");
         close(fds[0]);
         close(fds[1]);
     }
+
     print("ok\n");
 }

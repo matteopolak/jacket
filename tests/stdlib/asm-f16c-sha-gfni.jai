@@ -43,6 +43,7 @@ narrow8 :: (src: *u32, dst: *u16, $mode: int) {
 to_half :: (bits: u32, $mode: int) -> u16 {
     src: [8] u32;
     dst: [8] u16;
+
     src[0] = bits;
     narrow8(src.data, dst.data, mode);
     return dst[0];
@@ -51,6 +52,7 @@ to_half :: (bits: u32, $mode: int) -> u16 {
 to_single :: (h: u16) -> u32 {
     src: [8] u16;
     dst: [8] u32;
+
     src[0] = h;
     widen8(src.data, dst.data);
     return dst[0];
@@ -88,10 +90,12 @@ half_magnitude :: (h: u16) -> float64 {
 reference_half :: (bits: u32, mode: int) -> u16 {
     negative := (bits >> 31) != 0;
     sign: u16 = ifx negative then cast(u16) 0x8000 else 0;
+
     if (bits & 0x7fff_ffff) == 0x7f80_0000 return sign | 0x7c00;
     a := cast(float64) float_of(bits & 0x7fff_ffff);
     lo: u16 = 0;
     hi: u16 = 0x7bff;
+
     if half_magnitude(hi) <= a {
         lo = hi;
     } else {
@@ -101,17 +105,21 @@ reference_half :: (bits: u32, mode: int) -> u16 {
             else hi = mid - 1;
         }
     }
+
     below := half_magnitude(lo);
     if below == a return sign | lo;
     above := half_magnitude(lo + 1);
     up := false;
+
     if mode == {
         case 0;
             middle := (below + above) / 2;
+
             up = a > middle || (a == middle && (lo & 1) != 0);
         case 1; up = negative;
         case 2; up = !negative;
     }
+
     if up lo += 1;
     return sign | lo;
 }
@@ -147,6 +155,7 @@ check_f16c :: () {
 
     // Rounding modes on ties, overflow and underflow.
     one_and_half_ulp :: 0x3f80_1000; // 1 + 2^-11: halfway between 0x3c00 and 0x3c01
+
     expect("tie even", to_half(one_and_half_ulp, 0), 0x3c00);
     expect("tie down", to_half(one_and_half_ulp, 1), 0x3c00);
     expect("tie up", to_half(one_and_half_ulp, 2), 0x3c01);
@@ -178,16 +187,19 @@ check_f16c :: () {
     back: [8] u16;
     mismatches := 0;
     widened: u64 = 0xcbf2_9ce4_8422_2325;
+
     for base: 0..8191 {
         for j: 0..7 halves[j] = cast(u16) (base * 8 + j);
         widen8(halves.data, singles.data);
         fnv(*widened, cast(*u8) singles.data, 32);
         narrow8(singles.data, back.data, 0);
+
         for j: 0..7 {
             h := halves[j];
             s := singles[j];
             is_nan := (h & 0x7c00) == 0x7c00 && (h & 0x3ff) != 0;
             want: u32;
+
             if is_nan {
                 want = ((cast(u32) h & 0x8000) << 16) | 0x7fc0_0000 | ((cast(u32) h & 0x3ff) << 13);
             } else if (h & 0x7fff) == 0x7c00 {
@@ -196,10 +208,12 @@ check_f16c :: () {
                 v := cast(float32) half_magnitude(h & 0x7fff);
                 want = bits_of(v) | ((cast(u32) h & 0x8000) << 16);
             }
+
             want_back := ifx is_nan then h | 0x200 else h;
             if s != want || back[j] != want_back mismatches += 1;
         }
     }
+
     expect("half round trips", cast(u64) mismatches, 0);
     // FNV-1a of the widened values, recorded with vcvtph2ps on x86-64.
     expect("cvtph2ps hardware hash", widened, 0x5d79_f1b0_86f3_0345);
@@ -207,23 +221,28 @@ check_f16c :: () {
     // vcvtps2ph in each rounding mode over pseudo-random singles (odd lanes fully
     // random, so NaNs and infinities too); hashes recorded on x86-64.
     recorded :: u64.[0x87ba_3965_eff5_b47f, 0xeb2e_4270_3c09_0389, 0xd7f4_0491_ecaf_f047, 0x82d1_9a17_2adf_cb7c, 0x87ba_3965_eff5_b47f];
+
     for mode: 0..4 {
         hash: u64 = 0xcbf2_9ce4_8422_2325;
         seed: u32 = 0x2468_ace1;
+
         step :: () -> u32 #expand {
             `seed ^= `seed << 13;
             `seed ^= `seed >> 17;
             `seed ^= `seed << 5;
             return `seed;
         }
+
         lanes: [8] u32;
         halves8: [8] u16;
+
         for 1..2048 {
             for j: 0..7 {
                 r := step();
                 e := 96 + (step() & 63);
                 lanes[j] = ifx j & 1 then r else (r & 0x807f_ffff) | (e << 23);
             }
+
             if mode == {
                 case 0; narrow8(lanes.data, halves8.data, 0);
                 case 1; narrow8(lanes.data, halves8.data, 1);
@@ -231,35 +250,43 @@ check_f16c :: () {
                 case 3; narrow8(lanes.data, halves8.data, 3);
                 case; narrow8(lanes.data, halves8.data, 4);
             }
+
             fnv(*hash, cast(*u8) halves8.data, 16);
         }
+
         expect(tprint("cvtps2ph hardware hash %", mode), hash, recorded[mode]);
     }
 
     // Pseudo-random singles around the half range, all modes, against the reference.
     state: u32 = 0x1234_5678;
+
     next :: () -> u32 #expand {
         `state ^= `state << 13;
         `state ^= `state >> 17;
         `state ^= `state << 5;
         return `state;
     }
+
     src: [8] u32;
     out: [5][8] u16;
     wrong := 0;
+
     for 1..400 {
         for j: 0..7 {
             r := next();
             // Exponents 96..159 cover subnormal halves, normals and overflow.
             e := 96 + (next() & 63);
+
             src[j] = (r & 0x807f_ffff) | (e << 23);
             if j == 7 src[j] = next();
         }
+
         narrow8(src.data, out[0].data, 0);
         narrow8(src.data, out[1].data, 1);
         narrow8(src.data, out[2].data, 2);
         narrow8(src.data, out[3].data, 3);
         narrow8(src.data, out[4].data, 4);
+
         for j: 0..7 {
             x := src[j];
             if (x & 0x7f80_0000) == 0x7f80_0000 && (x & 0x7f_ffff) != 0 continue;
@@ -267,36 +294,44 @@ check_f16c :: () {
             if out[4][j] != out[0][j] wrong += 1;
         }
     }
+
     expect("cvtps2ph against reference", cast(u64) wrong, 0);
 
     // xmm forms read and write half as much; a register result is zero above it.
     {
         hs: [8] u16 = .[0x3c00, 0x4000, 0x4200, 0x4400, 0x4500, 0x4600, 0x4700, 0x4800];
         fs: [8] float32;
+
         for *fs it.* = -1;
         ph, pf := hs.data, fs.data;
+
         #asm F16C {
             vcvtph2ps.x v:, [ph];
             movdqu.x [pf], v;
         }
+
         expect("cvtph2ps xmm", cast(u64) (fs[0] == 1 && fs[3] == 4 && fs[4] == -1), 1);
         hs2: [8] u16;
         for *hs2 it.* = 0xffff;
         ph2 := hs2.data;
+
         #asm F16C {
             movdqu.x v, [pf];
             vcvtps2ph.x [ph2], v, 0;
         }
+
         expect("cvtps2ph m64", cast(u64) (hs2[0] == 0x3c00 && hs2[3] == 0x4400 && hs2[4] == 0xffff), 1);
         wide: [8] u32;
         for *wide it.* = 0xffff_ffff;
         pw := wide.data;
+
         #asm F16C, AVX {
             movdqu.y r:, [pw];
             movdqu.x v, [pf];
             vcvtps2ph.x r, v, 0;
             movdqu.y [pw], r;
         }
+
         expect("cvtps2ph xmm clears", cast(u64) (wide[0] == 0x4000_3c00 && wide[2] == 0 && wide[7] == 0), 1);
     }
 
@@ -308,36 +343,45 @@ check_f16c :: () {
         for *hs it.* = 0xaaaa;
         sel: u64 = 0b1010_0000_0000_0101;
         pf, ph := fs.data, hs.data;
+
         #asm AVX512F {
             kmovw km:, sel;
             movups vf:, [pf];
             vcvtps2ph.z [ph] & km, vf, 0;
         }
+
         good := hs[0] == 0 && hs[1] == 0xaaaa && hs[2] == 0x4000 && hs[13] == 0x4a80 && hs[15] == 0x4b80 && hs[14] == 0xaaaa;
+
         expect("cvtps2ph masked store", cast(u64) good, 1);
         dst: [32] u16;
         for *dst it.* = 0x5555;
         pd := dst.data;
+
         #asm AVX512F {
             movdqu vd:, [pd];
             vcvtps2ph.z vd & km, vf, 0;
             movdqu [pd], vd;
         }
+
         good = dst[0] == 0 && dst[1] == 0x5555 && dst[2] == 0x4000 && dst[3] == 0x5555 && dst[15] == 0x4b80 && dst[16] == 0;
         expect("cvtps2ph merge mask", cast(u64) good, 1);
+
         #asm AVX512F {
             movdqu vd, [pd];
             vcvtps2ph.z vd &* km, vf, 0;
             movdqu [pd], vd;
         }
+
         expect("cvtps2ph zero mask", cast(u64) (dst[1] == 0 && dst[2] == 0x4000), 1);
         back: [16] float32;
         for *back it.* = -1;
         pb := back.data;
+
         #asm AVX512F {
             vcvtph2ps.z vb:, [ph];
             movups [pb], vb;
         }
+
         expect("cvtph2ps zmm", cast(u64) (back[2] == 2 && back[15] == 15 && back[1] == -1706.0 / 32768.0), 1);
     }
 }
@@ -374,11 +418,14 @@ sha1_rounds :: (abcd: *u32, we: *u32, $func: int) {
 sha1 :: (text: string) -> [5] u32 {
     h := u32.[0x6745_2301, 0xefcd_ab89, 0x98ba_dcfe, 0x1032_5476, 0xc3d2_e1f0];
     words := pad_message(text);
+
     for block: 0..words.count / 16 - 1 {
         w: [20][4] u32;
         for g: 0..3 for j : 0..3 w[g][3 - j] = words[block * 16 + 4 * g + j];
+
         for g: 4..19 {
             m4, m3, m2, m1, dst := w[g - 4].data, w[g - 3].data, w[g - 2].data, w[g - 1].data, w[g].data;
+
             #asm SHA {
                 movdqu.x t:, [m4];
                 movdqu.x u:, [m3];
@@ -390,11 +437,14 @@ sha1 :: (text: string) -> [5] u32 {
                 movdqu.x [dst], t;
             }
         }
+
         abcd := u32.[h[3], h[2], h[1], h[0]];
         prev: [4] u32;
         we: [4] u32;
+
         for g: 0..19 {
             pw, pp, pa, pe := w[g].data, prev.data, abcd.data, we.data;
+
             if g == 0 {
                 e0 := u32.[0, 0, 0, h[4]];
                 pz := e0.data;
@@ -403,14 +453,17 @@ sha1 :: (text: string) -> [5] u32 {
                 // E for these rounds is A from four rounds back, rotated.
                 #asm SHA { movdqu.x x:, [pp]; movdqu.x y:, [pw]; sha1nexte x, y; movdqu.x [pe], x; }
             }
+
             prev = abcd;
             if g < 5 sha1_rounds(pa, pe, 0);
             else if g < 10 sha1_rounds(pa, pe, 1);
             else if g < 15 sha1_rounds(pa, pe, 2);
             else sha1_rounds(pa, pe, 3);
         }
+
         zero: [4] u32;
         pp, pz, pe := prev.data, zero.data, we.data;
+
         #asm SHA { movdqu.x x:, [pp]; movdqu.x y:, [pz]; sha1nexte x, y; movdqu.x [pe], x; }
         h[0] += abcd[3];
         h[1] += abcd[2];
@@ -418,6 +471,7 @@ sha1 :: (text: string) -> [5] u32 {
         h[3] += abcd[0];
         h[4] += we[3];
     }
+
     return h;
 }
 
@@ -440,11 +494,14 @@ sha256 :: (text: string) -> [8] u32 {
     ];
     k := SHA256_K;
     words := pad_message(text);
+
     for block: 0..words.count / 16 - 1 {
         w: [16][4] u32;
         for g: 0..3 for j : 0..3 w[g][j] = words[block * 16 + 4 * g + j];
+
         for g: 4..15 {
             m4, m3, m2, m1, dst := w[g - 4].data, w[g - 3].data, w[g - 2].data, w[g - 1].data, w[g].data;
+
             #asm SHA {
                 movdqu.x t:, [m4];
                 movdqu.x u:, [m3];
@@ -458,10 +515,13 @@ sha256 :: (text: string) -> [8] u32 {
                 movdqu.x [dst], t;
             }
         }
+
         abef := u32.[h[5], h[4], h[1], h[0]];
         cdgh := u32.[h[7], h[6], h[3], h[2]];
+
         for g: 0..15 {
             pw, pk, p1, p2 := w[g].data, *k[4 * g], abef.data, cdgh.data;
+
             #asm SHA {
                 movdqu.x ab:, [p1];
                 movdqu.x cd:, [p2];
@@ -475,6 +535,7 @@ sha256 :: (text: string) -> [8] u32 {
                 movdqu.x [p2], cd;
             }
         }
+
         h[0] += abef[3];
         h[1] += abef[2];
         h[4] += abef[1];
@@ -484,6 +545,7 @@ sha256 :: (text: string) -> [8] u32 {
         h[6] += cdgh[1];
         h[7] += cdgh[0];
     }
+
     return h;
 }
 
@@ -497,12 +559,14 @@ check_sha :: () {
     long :: "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
     // FIPS 180-4 example digests.
     d := sha1("abc");
+
     expect("sha1 abc", cast(u64) digest_matches(d, u32.[0xa9993e36, 0x4706816a, 0xba3e2571, 0x7850c26c, 0x9cd0d89d]), 1);
     d = sha1(long);
     expect("sha1 two blocks", cast(u64) digest_matches(d, u32.[0x84983e44, 0x1c3bd26e, 0xbaae4aa1, 0xf95129e5, 0xe54670f1]), 1);
     d = sha1("");
     expect("sha1 empty", cast(u64) digest_matches(d, u32.[0xda39a3ee, 0x5e6b4b0d, 0x3255bfef, 0x95601890, 0xafd80709]), 1);
     e := sha256("abc");
+
     expect("sha256 abc", cast(u64) digest_matches(e, u32.[0xba7816bf, 0x8f01cfea, 0x414140de, 0x5dae2223, 0xb00361a3, 0x96177a9c, 0xb410ff61, 0xf20015ad]), 1);
     e = sha256(long);
     expect("sha256 two blocks", cast(u64) digest_matches(e, u32.[0x248d6a61, 0xd20638b8, 0xe5c02693, 0x0c3e6039, 0xa33ce459, 0x64ff2167, 0xf6ecedd4, 0x19db06c1]), 1);
@@ -514,12 +578,14 @@ check_sha :: () {
         wide: [8] u32;
         for *wide it.* = 0x0101_0101 * cast(u32) (it_index + 1);
         pw := wide.data;
+
         #asm SHA, AVX {
             movdqu.y r:, [pw];
             movdqu.y s:, [pw];
             sha1msg1 r, s;
             movdqu.y [pw], r;
         }
+
         expect("sha keeps upper", cast(u64) (wide[4] == 0x0505_0505 && wide[7] == 0x0808_0808), 1);
     }
 }
@@ -535,13 +601,16 @@ gf_reference_mul :: (a: u8, b: u8) -> u8 {
 
 gf_reference_affine :: (matrix: u64, x: u8, c: u8) -> u8 {
     r: u8 = 0;
+
     for i: 0..7 {
         row := cast,trunc(u8) (matrix >> ((7 - i) * 8));
         t := row & x;
         parity: u8 = 0;
+
         for 0..7 parity ^= (t >> it) & 1;
         r |= parity << i;
     }
+
     return r ^ c;
 }
 
@@ -552,21 +621,25 @@ check_gfni :: () {
     p: [32] u8;
     pa, pb, pp := a.data, b.data, p.data;
     wrong := 0;
+
     for x: 0..255 {
         for half: 0..7 {
             for j: 0..31 {
                 a[j] = cast(u8) x;
                 b[j] = cast,trunc(u8) (half * 32 + j);
             }
+
             #asm AVX, GFNI {
                 movdqu va:, [pa];
                 movdqu vb:, [pb];
                 vgf2p8mulb vp:, va, vb;
                 movdqu [pp], vp;
             }
+
             for j: 0..31 if p[j] != gf_reference_mul(a[j], b[j]) wrong += 1;
         }
     }
+
     expect("gf2p8mulb", cast(u64) wrong, 0);
 
     // Legacy form: the destination is the first factor.
@@ -574,39 +647,48 @@ check_gfni :: () {
         a[j] = cast,trunc(u8) (j * 17 + 3);
         b[j] = cast,trunc(u8) (200 - j * 9);
     }
+
     #asm GFNI {
         movdqu.x r:, [pa];
         movdqu.x s:, [pb];
         gf2p8mulb r, s;
         movdqu.x [pp], r;
     }
+
     wrong = 0;
     for j: 0..15 if p[j] != gf_reference_mul(a[j], b[j]) wrong += 1;
     expect("gf2p8mulb legacy", cast(u64) wrong, 0);
 
     // Affine maps with pseudo-random matrices and constants.
     state: u64 = 0x9e37_79b9_7f4a_7c15;
+
     next :: () -> u64 #expand {
         `state ^= `state << 13;
         `state ^= `state >> 7;
         `state ^= `state << 17;
         return `state;
     }
+
     m: [4] u64;
     xs: [32] u8;
     pm, px := m.data, xs.data;
+
     wrong = 0;
+
     for 1..64 {
         for *m it.* = next();
         for *xs it.* = cast,trunc(u8) next();
+
         #asm AVX, GFNI {
             movdqu vx:, [px];
             movdqu vm:, [pm];
             vgf2p8affineqb vr:, vx, vm, 0x5a;
             movdqu [pp], vr;
         }
+
         for j: 0..31 if p[j] != gf_reference_affine(m[j / 8], xs[j], 0x5a) wrong += 1;
     }
+
     expect("gf2p8affineqb", cast(u64) wrong, 0);
 
     // The AES S-box is the inverse followed by the AES affine map.
@@ -615,15 +697,19 @@ check_gfni :: () {
     sbox: [256] u8;
     inverse: [256] u8;
     all: [256] u8;
+
     for 0..255 all[it] = cast(u8) it;
+
     for chunk: 0..7 {
         src, dst, dst2 := *all[chunk * 32], *sbox[chunk * 32], *inverse[chunk * 32];
         pam, pid := *aes_matrix, *identity;
+
         #asm AVX, GFNI {
             movdqu vx:, [src];
             vgf2p8affineinvqb vs:, vx, [pam]!, 0x63;
             movdqu [dst], vs;
         }
+
         #asm GFNI {
             movdqu.x vx, [src];
             movq vi:, [pid];
@@ -635,6 +721,7 @@ check_gfni :: () {
             movdqu.x [dst2 + 16], vx;
         }
     }
+
     expect("sbox 00", sbox[0x00], 0x63);
     expect("sbox 01", sbox[0x01], 0x7c);
     expect("sbox 02", sbox[0x02], 0x77);
@@ -651,14 +738,17 @@ check_gfni :: () {
         za: [64] u8;
         zb: [64] u8;
         zr: [64] u8;
+
         for 0..63 {
             za[it] = cast,trunc(u8) (it * 5 + 1);
             zb[it] = cast,trunc(u8) (it * 11 + 7);
             zr[it] = 0xee;
         }
+
         sel: u64 = 0xf0f0_0000_0000_00ff;
         reverse: u64 = 0x8040_2010_0804_0201;
         pza, pzb, pzr, prev := za.data, zb.data, zr.data, *reverse;
+
         #asm AVX512F, AVX512BW, GFNI {
             kmovq km:, sel;
             movdqu8 va:, [pza];
@@ -667,26 +757,34 @@ check_gfni :: () {
             vgf2p8mulb vr & km, va, vb;
             movdqu8 [pzr], vr;
         }
+
         wrong = 0;
+
         for 0..63 {
             on := (sel >> it) & 1;
             want := ifx on != 0 then gf_reference_mul(za[it], zb[it]) else 0xee;
             if zr[it] != want wrong += 1;
         }
+
         expect("gf2p8mulb merge mask", cast(u64) wrong, 0);
+
         #asm AVX512F, AVX512BW, GFNI {
             vgf2p8affineqb vr &* km, va, [prev]!, 0;
             movdqu8 [pzr], vr;
         }
+
         wrong = 0;
+
         for 0..63 {
             on := (sel >> it) & 1;
             x := za[it];
             reversed: u8 = 0;
+
             for bit: 0..7 if (x >> bit) & 1 reversed |= cast,trunc(u8) (0x80 >> bit);
             want := ifx on != 0 then reversed else 0;
             if zr[it] != want wrong += 1;
         }
+
         expect("gf2p8affineqb broadcast zero mask", cast(u64) wrong, 0);
     }
 }

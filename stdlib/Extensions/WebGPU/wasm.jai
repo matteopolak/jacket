@@ -61,13 +61,16 @@ webgpu_dispatch :: (futures: *WGPUFutureWaitInfo, count: u64, how: Dispatch) {
 // Wait until one of `futures` completed or `timeout_ns` passed, letting other threads run.
 webgpu_wasm_wait :: (futures: *WGPUFutureWaitInfo, count: u64, timeout_ns: u64) -> WGPUWaitStatus {
     left := timeout_ns;
+
     while true {
         if !jai_sched_yield_for_wait() return cast(WGPUWaitStatus) jai_webgpu_wait(futures, count, left);
         slice := ifx left < WAIT_SLICE_NS then left else WAIT_SLICE_NS;
         status := cast(WGPUWaitStatus) jai_webgpu_wait(futures, count, slice);
+
         if status != .TimedOut || left == slice return status;
         if left != WAIT_FOREVER left -= slice;
     }
+
     return .TimedOut;
 }
 

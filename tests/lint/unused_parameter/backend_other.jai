@@ -10,5 +10,6 @@ fill_slots :: (slots: int) -> int {
     slot_index :: (row: int, col: int) -> int {
         return row * 32 + col;
     }
+
     return slot_index(1, slots);
 }

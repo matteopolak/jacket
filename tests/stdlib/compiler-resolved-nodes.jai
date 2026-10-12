@@ -14,10 +14,13 @@ pair :: (a: int) -> int, bool {
 returns_of :: ($call: Code) -> int #expand {
     return #run -> int {
         root := compiler_get_nodes(call);
+
         assert(root.kind == .PROCEDURE_CALL);
         resolved := (cast(*Code_Procedure_Call) root).resolved_procedure_expression;
+
         assert(resolved && resolved.kind == .PROCEDURE_HEADER);
         header := cast(*Code_Procedure_Header) resolved;
+
         assert(header.name == "pair");
         assert(header.arguments.count == 1 && header.arguments[0].name == "a");
         assert(get_type(header.returns[0].type_inst.result) == int);
@@ -31,8 +34,10 @@ returns_of :: ($call: Code) -> int #expand {
 // An identifier knows its declaration and type.
 #run {
     root := compiler_get_nodes(#code pair);
+
     assert(root.kind == .IDENT);
     ident := cast(*Code_Ident) root;
+
     assert(ident.resolved_declaration != null);
     assert(ident.resolved_declaration.expression.kind == .PROCEDURE_HEADER);
 }
@@ -44,11 +49,14 @@ returns_of :: ($call: Code) -> int #expand {
         c, d: int = 1, 2;
     });
     block := cast(*Code_Block) root;
+
     assert(block.statements.count == 2);
     assert(block.statements[0].kind == .COMPOUND_DECLARATION);
     builder: String_Builder;
+
     print_expression(*builder, block);
     text := builder_to_string(*builder);
+
     assert(contains(text, "a, b := pair(1);"), "%", text);
     assert(contains(text, "c, d : int = 1, 2;"), "%", text);
 }
@@ -96,9 +104,11 @@ JAI
     compiler_begin_intercept(w);
     add_build_string(TARGET, w);
     modified := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
+
         if message.kind == .TYPECHECKED {
             typechecked := cast(*Message_Typechecked) message;
             for typechecked.procedure_bodies {
@@ -115,6 +125,7 @@ JAI
             }
         }
     }
+
     compiler_end_intercept(w);
     assert(modified);
     set_build_options_dc(.{ do_output = false });

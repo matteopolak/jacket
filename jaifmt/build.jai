@@ -35,6 +35,7 @@ build_jaifmt :: () {
     set_build_options_dc(.{ do_output = false });
 
     argv: [..] string;
+
     array_add(*argv, "jaifmt/build.jai");
     array_add(*argv, ..get_build_options().compile_time_command_line);
     options, error := Args.try_parse(Options, HELP, argv);
@@ -42,24 +43,30 @@ build_jaifmt :: () {
         print("%", error.text);
         return;
     }
+
     if error.kind != .NONE {
         compiler_report(tprint("%; usage: %", error.message, error.usage));
         return;
     }
+
     wasm := options.target == .WASM;
     output := options.output;
+
     if !output output = tprint("%../target/%", #filepath, ifx wasm then "jaifmt.wasm" else "jaifmt");
 
     w := compiler_create_workspace(ifx wasm then "jaifmt.wasm" else "jaifmt");
     build := get_build_options(w);
+
     copy_commonly_propagated_fields(get_build_options(), *build);
     build.output_type = .EXECUTABLE;
     build.emit_debug_info = .NONE;
     set_optimization(*build, .OPTIMIZED);
     path, name := split_output(output);
+
     build.output_path = path;
     build.output_executable_name = name;
     source := "main.jai";
+
     if wasm {
         // A WASI command: "wasi" in the triple makes jaic link its Wasi_Runtime module.
         build.os_target = .WASM;
@@ -67,6 +74,7 @@ build_jaifmt :: () {
         build.llvm_options.target_system_triple = "wasm64-unknown-wasi";
         source = "wasm.jai";
     }
+
     set_build_options(build, w);
     add_build_file(tprint("%1%2", #filepath, source), w);
 }

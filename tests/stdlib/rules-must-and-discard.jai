@@ -56,8 +56,10 @@ main :: () {
 
     // must.9: calls through a procedure value and operator overloads do not carry #must.
     p := only;
+
     p(1);
     u, w: V;
+
     u + w; // jailint: allow(no_effect) the discarded value is what is tested
 
     // must.3: the argument to a #discard parameter is not evaluated.

@@ -156,11 +156,13 @@ operator / :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) {
 
 operator - :: inline (a: Vector($T, $N)) -> Vector(T, N) #no_aoc {
     result: Vector(T, N) = ---;
+
     #if is_float(T) {
         for 0..N - 1 result.lanes[it] = -a.lanes[it];
     } else {
         for 0..N - 1 result.lanes[it] = 0 - a.lanes[it];
     }
+
     return result;
 }
 
@@ -207,11 +209,13 @@ abs :: inline (a: Vector($T, $N)) -> Vector(T, N) #no_aoc #modify {
     return is_signed_or_float(T), "abs needs signed or float lanes";
 } {
     result: Vector(T, N) = ---;
+
     #if is_float(T) {
         for 0..N - 1 result.lanes[it] = ifx a.lanes[it] < 0 then -a.lanes[it] else a.lanes[it];
     } else {
         for 0..N - 1 result.lanes[it] = ifx a.lanes[it] < 0 then 0 - a.lanes[it] else a.lanes[it];
     }
+
     return result;
 }
 
@@ -220,17 +224,21 @@ saturating_add :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #n
     return is_integer(T), "saturating_add needs integer lanes";
 } {
     result: Vector(T, N) = ---;
+
     for 0..N - 1 {
         x, y := a.lanes[it], b.lanes[it];
         sum := x + y;
+
         #if is_signed(T) {
             // Overflow happened when both inputs share a sign the sum lacks.
             if (x >= 0) == (y >= 0) && (sum >= 0) != (x >= 0) sum = ifx x >= 0 then signed_max(T) else ~signed_max(T);
         } else {
             if sum < x sum = ~cast(T) 0;
         }
+
         result.lanes[it] = sum;
     }
+
     return result;
 }
 
@@ -239,16 +247,20 @@ saturating_sub :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #n
     return is_integer(T), "saturating_sub needs integer lanes";
 } {
     result: Vector(T, N) = ---;
+
     for 0..N - 1 {
         x, y := a.lanes[it], b.lanes[it];
         difference := x - y;
+
         #if is_signed(T) {
             if (x >= 0) != (y >= 0) && (difference >= 0) != (x >= 0) difference = ifx x >= 0 then signed_max(T) else ~signed_max(T);
         } else {
             if y > x difference = 0;
         }
+
         result.lanes[it] = difference;
     }
+
     return result;
 }
 
@@ -314,6 +326,7 @@ operator << :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     // The count wraps at the lane width, as wasm's shifts do, so every count is defined.
     bits := count & (size_of(T) * 8 - 1);
     result: Vector(T, N) = ---;
+
     for 0..N - 1 result.lanes[it] = a.lanes[it] << bits;
     return result;
 }
@@ -324,6 +337,7 @@ operator >> :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     // The count wraps at the lane width, as wasm's shifts do, so every count is defined.
     bits := count & (size_of(T) * 8 - 1);
     result: Vector(T, N) = ---;
+
     for 0..N - 1 result.lanes[it] = a.lanes[it] >> bits;
     return result;
 }
@@ -463,6 +477,7 @@ last_true :: inline (mask: Mask($T, $N)) -> int {
 // Lane i from `a` where the mask is set, from `b` where it isn't.
 select :: inline (mask: Mask($T, $N), a: Vector(T, N), b: Vector(T, N)) -> Vector(T, N) {
     result: Vector(T, N) = ---;
+
     #if is_float(T) {
         for 0..N - 1 result.lanes[it] = ifx mask.lanes[it] then a.lanes[it] else b.lanes[it];
     } else {
@@ -471,6 +486,7 @@ select :: inline (mask: Mask($T, $N), a: Vector(T, N), b: Vector(T, N)) -> Vecto
             result.lanes[it] = (a.lanes[it] & m) | (b.lanes[it] & ~m);
         }
     }
+
     return result;
 }
 
@@ -532,10 +548,12 @@ shuffle :: inline (a: Vector($T, $N), $order: [] int) -> Vector(T, N) {
 shuffle :: inline (a: Vector($T, $N), b: Vector(T, N), $order: [] int) -> Vector(T, N) {
     #assert(order.count == N && order_is_valid(order, 2 * N), "SIMD: shuffle order needs N indices from 0 to 2N - 1");
     result: Vector(T, N) = ---;
+
     for 0..N - 1 {
         index := order[it];
         result.lanes[it] = ifx index < N then a.lanes[index] else b.lanes[index - N];
     }
+
     return result;
 }
 
@@ -545,10 +563,12 @@ shuffle :: inline (a: Vector($T, $N), b: Vector(T, N), $order: [] int) -> Vector
 window :: inline (a: Vector($T, $N), b: Vector(T, N), $start: int) -> Vector(T, N) {
     #assert(start >= 0 && start <= N, "SIMD: window start must be from 0 to N");
     result: Vector(T, N) = ---;
+
     for 0..N - 1 {
         index := start + it;
         result.lanes[it] = ifx index < N then a.lanes[index] else b.lanes[index - N];
     }
+
     return result;
 }
 
@@ -563,14 +583,17 @@ reverse :: inline (a: Vector($T, $N)) -> Vector(T, N) {
 // split each byte into nibbles and look both up.
 lookup :: inline (table: u8x16, indices: Vector(u8, $N)) -> Vector(u8, N) {
     result: Vector(u8, N) = ---;
+
     #if N >= 16 {
         byte_lookup(*result.lanes[0], *table.lanes[0], *indices.lanes[0], N);
         return result;
     }
+
     for 0..N - 1 {
         index := indices.lanes[it];
         result.lanes[it] = ifx index < 16 then table.lanes[index & 15] else 0;
     }
+
     return result;
 }
 
@@ -582,11 +605,13 @@ convert :: ($V: Type, a: Vector($T, V.N)) -> V #modify {
     return is_vector(V);
 } {
     result: V = ---;
+
     #if is_float(V.T) || is_float(T) {
         for 0..V.N - 1 result.lanes[it] = cast(V.T) a.lanes[it];
     } else {
         for 0..V.N - 1 result.lanes[it] = cast,trunc(V.T) a.lanes[it];
     }
+
     return result;
 }
 
@@ -625,10 +650,12 @@ high_half :: inline (a: Vector($T, $N)) -> Vector(T, N / 2) {
 // `low` then `high`, as one vector of twice the lanes.
 combine :: inline (low: Vector($T, $N), high: Vector(T, N)) -> Vector(T, 2 * N) {
     result: Vector(T, 2 * N) = ---;
+
     for 0..N - 1 {
         result.lanes[it] = low.lanes[it];
         result.lanes[N + it] = high.lanes[it];
     }
+
     return result;
 }
 
@@ -669,6 +696,7 @@ lanes_are_valid :: (T: Type, N: int) -> bool, string {
     if info.type != .INTEGER && info.type != .FLOAT {
         return false, tprint("SIMD: lanes must be integers or floats, not %", T);
     }
+
     if N <= 0 || (N & (N - 1)) != 0 return false, tprint("SIMD: the lane count must be a power of two, not %", N);
     if N * info.runtime_size > 64 return false, tprint("SIMD: % lanes of % make % bytes; a vector holds at most 64", N, T, N * info.runtime_size);
     return true, "";
@@ -740,6 +768,7 @@ JAI, operator);
 // fewer, wider operations than one per lane.
 reduce_or_lanes :: inline (mask: Mask($T, $N)) -> u64 {
     result: u64;
+
     #if N * size_of(T) >= 8 {
         words: [N * size_of(T) / 8] u64 = ---;
         memcpy(words.data, *mask, size_of(type_of(words)));
@@ -747,11 +776,13 @@ reduce_or_lanes :: inline (mask: Mask($T, $N)) -> u64 {
     } else {
         for 0..N - 1 result |= mask.lanes[it];
     }
+
     return result;
 }
 
 reduce_and_lanes :: inline (mask: Mask($T, $N)) -> u64 {
     result := ~cast(u64) 0;
+
     #if N * size_of(T) >= 8 {
         words: [N * size_of(T) / 8] u64 = ---;
         memcpy(words.data, *mask, size_of(type_of(words)));
@@ -760,5 +791,6 @@ reduce_and_lanes :: inline (mask: Mask($T, $N)) -> u64 {
     } else {
         for 0..N - 1 result &= mask.lanes[it];
     }
+
     return result;
 }

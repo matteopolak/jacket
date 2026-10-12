@@ -49,13 +49,16 @@ busy :: () -> s64 {
 
 main :: () {
     init(*mutex);
+
     {
         thread: Thread;
+
         assert(thread_init(*thread, take_mutex));
         assert(thread_start(*thread));
         lock(*mutex);
         // Long enough to be preempted while holding the lock.
         sum := busy();
+
         // Polling while holding the lock does not start the thread either.
         for 1..5000 atomic_read(*flag);
         unlock(*mutex);
@@ -63,24 +66,30 @@ main :: () {
         assert(sum > 0);
         assert(ran_with_mutex == 1, "ran %", ran_with_mutex);
     }
+
     {
         thread: Thread;
+
         assert(thread_init(*thread, take_spin));
         assert(thread_start(*thread));
         lock_spin();
         sum := busy();
+
         unlock_spin();
         thread_deinit(*thread);
         assert(sum > 0);
         assert(ran_with_spin == 1, "ran %", ran_with_spin);
     }
+
     {
         thread: Thread;
+
         assert(thread_init(*thread, raise_flag));
         assert(thread_start(*thread));
         while atomic_read(*flag) == 0 {}
         thread_deinit(*thread);
     }
+
     destroy(*mutex);
     print("ok\n");
 }

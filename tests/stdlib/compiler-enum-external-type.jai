@@ -16,6 +16,7 @@ JAI
     compiler_begin_intercept(w);
     add_build_string(PROGRAM, w);
     found := false;
+
     while true {
         msg := compiler_wait_for_message();
         if msg.kind == .TYPECHECKED {
@@ -30,8 +31,10 @@ JAI
                 }
             }
         }
+
         if msg.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(w);
     assert(found, "Mode was not reported");
 }

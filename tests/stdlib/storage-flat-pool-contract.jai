@@ -19,21 +19,26 @@ check_flat_pool_contract :: () -> int {
     if pool.alignment != 8 || pool.current_point || pool.memory_base || pool.first_uncommitted_page || pool.address_limit return 2;
     allocator := Allocator.{ P.flat_pool_allocator_proc, *pool };
     caps, name := get_capabilities_info(allocator);
+
     if name != "modules/Flat_Pool" || (caps & .IS_THIS_YOURS) == 0 || (caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) == 0 return 3;
     allocator.proc(.STARTUP, 0, 0, null, allocator.data);
     if pool.memory_base != null || allocator.proc(.IS_THIS_YOURS, 0, 0, *pool, allocator.data) != null return 4;
     trace: Storage_Allocation_Trace;
     backing := storage_trace_allocator(*trace);
+
     pool.alignment = 64;
+
     {
         push_allocator(backing);
         P.init(*pool, 513);
     }
+
     defer P.fini(*pool);
     if trace.allocations != 1 || trace.outstanding != 1 || pool.address_limit - pool.memory_base != 4096 return 5;
     if pool.current_point != pool.memory_base || pool.first_uncommitted_page != pool.address_limit || ((cast(u64) pool.memory_base) & 63) != 0 return 6;
     first := cast(*u8) P.get(*pool, 16);
     second := cast(*u8) P.get(*pool, 16);
+
     if first != pool.memory_base || second != first + 64 || pool.current_point != first + 80 return 7;
     first[0] = 37;
     second[0] = 91;
@@ -52,10 +57,12 @@ check_flat_pool_contract :: () -> int {
     if P.get(*pool, 0) != first || pool.current_point != first return 14;
     other_trace: Storage_Allocation_Trace;
     other_backing := storage_trace_allocator(*other_trace);
+
     {
         push_allocator(other_backing);
         P.fini(*pool);
     }
+
     if trace.outstanding != 0 || trace.frees != 1 || other_trace.frees != 0 || pool.alignment != 64 return 15;
     if pool.current_point || pool.memory_base || pool.first_uncommitted_page || pool.address_limit return 16;
     P.fini(*pool);
@@ -63,11 +70,13 @@ check_flat_pool_contract :: () -> int {
 
     lazy: P.Flat_Pool;
     lazy_allocator := Allocator.{ P.flat_pool_allocator_proc, *lazy };
+
     {
         push_allocator(lazy_allocator);
         memory := alloc(24);
         if !memory || memory != lazy.memory_base || lazy.current_point != lazy.memory_base + 24 || lazy.address_limit - lazy.memory_base != 4096 return 18;
     }
+
     lazy_allocator.proc(.SHUTDOWN, 0, 0, null, lazy_allocator.data);
     if !lazy.memory_base return 19;
     P.fini(*lazy);

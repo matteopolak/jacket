@@ -27,6 +27,7 @@ Seen :: struct {
 pump :: (windows: [] Window_Type, seen: [] Seen, done: (seen: [] Seen) -> bool, frames := 200) -> bool {
     for 1..frames {
         update_window_events();
+
         for resize: get_window_resizes() {
             for windows if it == resize.window {
                 seen[it_index].resized = true;
@@ -34,21 +35,27 @@ pump :: (windows: [] Window_Type, seen: [] Seen, done: (seen: [] Seen) -> bool, 
                 seen[it_index].height = resize.height;
             }
         }
+
         for routed: routed_events_this_frame {
             for windows if it == routed.window {
                 record := *seen[it_index];
                 event := routed.event;
+
                 if event.type == .QUIT record.quits += 1;
+
                 if event.type == .KEYBOARD {
                     if event.key_pressed array_add(*record.downs, event.key_code);
                     else array_add(*record.ups, event.key_code);
                 }
+
                 if event.type == .TEXT_INPUT array_add(*record.text, event.utf32);
             }
         }
+
         if done(seen) return true;
         sleep_milliseconds(5);
     }
+
     return false;
 }
 
@@ -62,8 +69,10 @@ has :: (codes: [] Key_Code, wanted: Key_Code) -> bool {
 
 main :: () {
     first := create_window(320, 240, "jaic input test one");
+
     assert(first != INVALID_WINDOW_HANDLE, "create_window failed");
     second := create_window(200, 150, "jaic input test two");
+
     assert(second != INVALID_WINDOW_HANDLE && second != first, "second create_window failed");
     windows: [2] Window_Type = .[cast(Window_Type) first, cast(Window_Type) second];
     seen: [2] Seen;
@@ -72,12 +81,15 @@ main :: () {
     sized := pump(windows, seen, (seen: [] Seen) -> bool {
         return seen[0].resized && seen[1].resized;
     });
+
     assert(sized, "no resize event for a new window (first %, second %)", seen[0].resized, seen[1].resized);
     assert(seen[0].width > 0 && seen[0].height > 0, "first window size % x %", seen[0].width, seen[0].height);
     _, _, width, height, measured := get_dimensions(first, false);
+
     assert(measured && width > 0 && height > 0, "get_dimensions % x % (%)", width, height, measured);
     assert(width == seen[0].width && height == seen[0].height, "resize % x % vs get_dimensions % x %", seen[0].width, seen[0].height, width, height);
     _, _, pointer_ok := get_mouse_pointer_position(first, false);
+
     assert(pointer_ok, "get_mouse_pointer_position failed");
 
     // A key typed into the second window is routed there, with its text.
@@ -86,9 +98,11 @@ main :: () {
     typed := pump(windows, seen, (seen: [] Seen) -> bool {
         return has(seen[1].ups, KEY_A);
     });
+
     assert(typed, "key events for the second window: downs %, ups %", seen[1].downs, seen[1].ups);
     assert(has(seen[1].downs, KEY_A), "no key press for the second window: %", seen[1].downs);
     assert(!has(seen[0].downs, KEY_A), "the first window got the second window's key");
+
     #if OS != .WINDOWS {
         // Windows turns posted WM_KEYDOWNs into characters only for the focused window.
         found_text := false;
@@ -102,6 +116,7 @@ main :: () {
     clicked := pump(windows, seen, (seen: [] Seen) -> bool {
         return has(seen[0].ups, .MOUSE_BUTTON_LEFT);
     });
+
     assert(clicked, "mouse button events for the first window: downs %, ups %", seen[0].downs, seen[0].ups);
     assert(has(seen[0].downs, .MOUSE_BUTTON_LEFT), "no mouse press: %", seen[0].downs);
     pump(windows, seen, (seen: [] Seen) -> bool {
@@ -112,6 +127,7 @@ main :: () {
     // Over Input's windows the arrow comes back as the pointer moves, unless the program
     // handles the cursor itself (set_custom_cursor_handling).
     cursor_window = first;
+
     for custom: bool.[false, true] {
         set_custom_cursor_handling(custom);
         // The window system also resets the cursor by itself now and then (AppKit when the
@@ -119,9 +135,11 @@ main :: () {
         // restoring the arrow. Input would do so on every motion, so a program that owns the
         // cursor must keep its hand cursor in at least one of a few attempts.
         shown := false;
+
         for attempt: 1..(ifx custom then 5 else 1) {
             show_hand(first);
             move_pointer(first);
+
             if custom {
                 // Nothing may restore the arrow: give the pump time to do it wrongly.
                 pump(windows, seen, (seen: [] Seen) -> bool {
@@ -134,11 +152,14 @@ main :: () {
                     return !hand_shown(cursor_window);
                 }, 600);
             }
+
             shown = hand_shown(first);
             if shown == custom break;
         }
+
         assert(shown == custom, "custom cursor handling %: hand cursor shown %", custom, shown);
     }
+
     set_custom_cursor_handling(false);
 
     // Closing the second window as its close button would reports QUIT for it alone.
@@ -146,6 +167,7 @@ main :: () {
     closed := pump(windows, seen, (seen: [] Seen) -> bool {
         return seen[1].quits > 0;
     });
+
     assert(closed, "no QUIT after closing the second window");
     assert(seen[0].quits == 0, "closing the second window sent QUIT to the first");
     close_like_the_user(first);
@@ -188,6 +210,7 @@ main :: () {
         event := make(cast(*void) objc_getClass("NSEvent"),
             sel_registerName("keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:"),
             ifx down then 10 else 11, .{ 10, 10 }, 0, 0, window_number(window), null, a, a, NO, 0);
+
         assert(event != null, "NSEvent key event");
         post(event);
     }
@@ -199,6 +222,7 @@ main :: () {
         event := make(cast(*void) objc_getClass("NSEvent"),
             sel_registerName("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
             ifx down then 1 else 2, .{ 40, 40 }, 0, 0, window_number(window), null, 0, 1, 1);
+
         assert(event != null, "NSEvent mouse event");
         post(event);
     }
@@ -220,6 +244,7 @@ main :: () {
         event := make(cast(*void) objc_getClass("NSEvent"),
             sel_registerName("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
             5, .{ 50, 50 }, 0, 0, window_number(window), null, 0, 0, 0);
+
         assert(event != null, "NSEvent mouse moved event");
         post(event);
     }
@@ -286,6 +311,7 @@ main :: () {
         event.xkey.x = 10;
         event.xkey.y = 10;
         sent := XSendEvent(x_global_display, window, True, ifx down then KeyPressMask else KeyReleaseMask, *event);
+
         assert(sent != 0, "XSendEvent key");
         XFlush(x_global_display);
     }
@@ -301,6 +327,7 @@ main :: () {
         event.xbutton.x = 40;
         event.xbutton.y = 40;
         sent := XSendEvent(x_global_display, window, True, ifx down then ButtonPressMask else ButtonReleaseMask, *event);
+
         assert(sent != 0, "XSendEvent click");
         XFlush(x_global_display);
     }
@@ -315,6 +342,7 @@ main :: () {
         event.xclient.data.l[0] = cast(s64) x_global_wm_delete_window;
         event.xclient.data.l[1] = CurrentTime;
         sent := XSendEvent(x_global_display, window, False, NoEventMask, *event);
+
         assert(sent != 0, "XSendEvent close");
         XFlush(x_global_display);
     }
@@ -342,19 +370,23 @@ main :: () {
     shown_serial :: () -> u64 {
         XSync(x_global_display, False);
         image := XFixesGetCursorImage(x_global_display);
+
         assert(image != null, "XFixesGetCursorImage");
         serial := image.cursor_serial;
+
         XFree(image);
         return serial;
     }
 
     show_hand :: (window: Window) {
         before := shown_serial();
+
         if !hand_cursor hand_cursor = XCreateFontCursor(x_global_display, 60); // hand2
         XDefineCursor(x_global_display, window, hand_cursor);
         XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 20, 20);
         // The server may show the new cursor a moment later; wait for it to change.
         hand_serial = shown_serial();
+
         for 1..200 {
             if hand_serial != before break;
             sleep_milliseconds(5);

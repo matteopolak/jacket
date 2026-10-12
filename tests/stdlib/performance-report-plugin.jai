@@ -7,10 +7,12 @@ Performance_Report :: #import "Performance_Report";
 
 main :: () {
     plugin := Performance_Report.get_plugin();
+
     assert(plugin.before_intercept != null);
     assert(plugin.message != null);
 
     flags: Intercept_Flags;
+
     plugin.before_intercept(plugin, *flags);
     assert((flags & .DO_PERFORMANCE_REPORT_RUNS) != 0);
     assert((flags & .DO_PERFORMANCE_REPORT_POLYMORPHS) != 0);

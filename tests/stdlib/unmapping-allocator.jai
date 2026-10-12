@@ -19,17 +19,23 @@ note_assertion :: (location: Source_Code_Location, message: string) -> bool {
 
 main :: () {
     a := get_unmapping_allocator();
+
     assert(a.proc != null);
     caps := get_capabilities(a);
+
     assert((caps & .HINT_I_AM_A_DEBUG_ALLOCATOR) != 0);
 
     seen: [..] *u8;
+
     defer array_free(seen);
+
     for size: s64.[1, 7, 100, 4095, 4096, 4097, 70000] {
         p := cast(*u8) alloc(size, a);
+
         assert(p != null, "alloc %", size);
         // The block ends exactly at a page boundary, where the guard page starts.
         end := cast(u64) (p + size);
+
         assert(end % 4096 == 0, "a % byte block ends at %", size, end);
         // Every byte of the block is usable.
         for i: 0..size - 1 p[i] = cast,trunc(u8) i;
@@ -38,8 +44,10 @@ main :: () {
         array_add(*seen, p);
         free(p, a);
     }
+
     // Zero bytes still gets a distinct address.
     zero := alloc(0, a);
+
     assert(zero != null);
     free(zero, a);
 
@@ -47,6 +55,7 @@ main :: () {
     p := cast(*u8) alloc(10, a);
     for 0..9 p[it] = cast(u8) (it + 1);
     q := cast(*u8) realloc(p, 5000, 10, a);
+
     assert(q != p);
     for 0..9 assert(q[it] == it + 1, "byte % after resize", it);
     q[4999] = 1;
@@ -55,11 +64,14 @@ main :: () {
 
     // Ownership covers live blocks only, and a heap is an independent instance.
     owned := cast(*u8) alloc(16, a);
+
     assert(a.proc(.IS_THIS_YOURS, 0, 0, owned, a.data) != null);
     assert(a.proc(.IS_THIS_YOURS, 0, 0, p, a.data) == null, "a retired block is not owned");
     heap := create_heap(a);
+
     assert(heap.data != null && heap.data != a.data);
     inner := alloc(32, heap);
+
     assert(inner != null);
     assert(heap.proc(.IS_THIS_YOURS, 0, 0, inner, heap.data) != null);
     assert(a.proc(.IS_THIS_YOURS, 0, 0, inner, a.data) == null, "ownership is per heap");
@@ -77,6 +89,7 @@ main :: () {
         free(q, a);
         assert(assertions.count == 2, "freeing a block a resize already retired is reported too");
     }
+
     deinit_unmapping_allocator(a);
     print("ok\n");
 }

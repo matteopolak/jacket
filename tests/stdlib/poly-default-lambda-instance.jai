@@ -16,9 +16,11 @@ main :: () {
     a := compare_of(1);
     b := compare_of(2);
     c := compare_of(1.0);
+
     assert(a == b, "same T, same default lambda");
     assert(a != c, "different T, different instance");
     arr := s32.[1, 2, 1];
+
     assert(count_equal(arr, 1) == 2);
     assert(count_equal(arr, 2) == 1);
     print("ok\n");

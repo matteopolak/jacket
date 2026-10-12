@@ -103,9 +103,11 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
     state.cursor = 1;
     state.environment = environment;
     state.program = program_name(argv);
+
     describe_root :: (program: string) -> Command_Spec {
         return describe(T, help, program);
     }
+
     state.describe = describe_root;
     ok := parse_command(T, help, *state, *out, *set);
     if !ok finish_error(*state);
@@ -117,14 +119,17 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
 parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
     argv := get_command_line_arguments();
     out, error, set := try_parse(T, help, argv);
+
     if error.kind == .HELP || error.kind == .VERSION {
         print("%", error.text);
         exit(0);
     }
+
     if error.kind != .NONE {
         report(error);
         exit(2);
     }
+
     return out, set;
 }
 
@@ -168,11 +173,13 @@ describe :: ($T: Type, $help: Help(T), program: string) -> Command_Spec {
     spec.about = help.about;
     spec.version = help.version;
     defaults: T;
+
     #insert -> string {
         analysis := analyze(T, help.version.count > 0, true);
         if !analysis.ok return "";
         return generate_description(*analysis);
     };
+
     return spec;
 }
 
@@ -180,6 +187,7 @@ program_name :: (argv: [] string) -> string {
     if !argv.count return "program";
     name := argv[0];
     cut := find_index_of_any_from_right(name, "/\\");
+
     if cut >= 0 name = slice(name, cut + 1, name.count - cut - 1);
     if ends_with(name, ".exe") name = slice(name, 0, name.count - 4);
     return ifx name.count then name else "program";
@@ -193,6 +201,7 @@ finish_error :: (state: *Parse_State) {
     active := find_command(*root, state.path);
 
     names: [..] string;
+
     array_add(*names, state.program);
     for state.path array_add(*names, it);
     error.command = join(..names, " ");
@@ -201,18 +210,22 @@ finish_error :: (state: *Parse_State) {
         error.text = render_help(*root, state.path, color_enabled(.OUTPUT));
         return;
     }
+
     if error.kind == .VERSION {
         error.text = tprint("% %\n", root.name, root.version);
         return;
     }
+
     error.usage = usage_line(*root, state.path);
 
     if error.kind == .UNKNOWN_OPTION {
         long: [..] string;
+
         for active.options if !it.hidden {
             array_add(*long, tprint("--%", it.long));
             if it.negatable array_add(*long, tprint("--no-%", it.long));
         }
+
         array_add(*long, "--help");
         if root.version.count array_add(*long, "--version");
         if begins_with(error.option, "--") error.suggestion = copy_string(closest(error.option, long));

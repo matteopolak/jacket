@@ -14,6 +14,7 @@ main :: () {
     a := 0.1;
     b := 0.2;
     total := a + b;
+
     // Against a constant: an exact stored value.
     if total == 0 print("zero\n");
     // The NaN test.

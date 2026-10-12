@@ -17,11 +17,13 @@ main :: () {
 
     // num.2: an untyped integer literal settles as s64.
     small := 5;
+
     #assert type_of(small) == s64;
 
     // num.3: an untyped float literal is float32 unless it needs float64 precision.
     short := 0.75;
     long := 9876543210.125;
+
     #assert type_of(short) == float32;
     #assert type_of(long) == float64;
 
@@ -37,6 +39,7 @@ main :: () {
     wide_signed: s64 = tiny;
     f32: float32 = 1.25;
     f64: float64 = f32;
+
     assert(half == 200 && word == 200 && signed_wide == 200, "unsigned widening keeps the value");
     assert(wide_signed == -5, "signed widening keeps the sign");
     assert(f64 == 1.25, "float32 widens to float64");
@@ -45,6 +48,7 @@ main :: () {
     m7 := -7;
     two := 2;
     three := 3;
+
     assert(m7 / two == -3, "-7 / 2 is -3");
     assert(m7 % three == -1, "-7 mod 3 is -1");
     assert(7 / -two == -3, "7 / -2 is -3");
@@ -54,11 +58,13 @@ main :: () {
 
     // num.9: u64 accepts its maximum as a literal.
     top: u64 = 18446744073709551615;
+
     assert(top + 1 == 0, "u64 max wraps to 0");
     assert(top == 0xFFFF_FFFF_FFFF_FFFF, "u64 max literal");
 
     // num.10: the most negative s64 is a valid literal.
     bottom: s64 = -9223372036854775808;
+
     assert(bottom < 0 && bottom - 1 > 0, "s64 minimum literal");
 
     // num.11: digit separators, hex and binary literals.
@@ -70,6 +76,7 @@ main :: () {
     zero := 0.0;
     pos := 1.0 / zero;
     neg := -1.0 / zero;
+
     assert(pos > 1e38 && pos == pos * 2, "1/0 is +inf");
     assert(neg < -1e38 && neg == neg * 2, "-1/0 is -inf");
 

@@ -86,12 +86,14 @@ is_number :: (text: string) -> bool {
     if text.count && text[0] == #char "-" start = 1;
     digits := 0;
     dots := 0;
+
     for start..text.count - 1 {
         c := text[it];
         if c == #char "." dots += 1;
         else if c >= #char "0" && c <= #char "9" digits += 1;
         else return false;
     }
+
     return digits > 0 && dots <= 1;
 }
 
@@ -119,6 +121,7 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
 
     is_subcommand := has_note(member, "subcommand");
     info := member.type;
+
     if info.type == .ARRAY {
         array := cast(*Type_Info_Array) info;
         if array.array_type != .RESIZABLE {
@@ -143,6 +146,7 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
         }
     } else if info.type == .ENUM && is_subcommand {
         field.kind = .SELECTOR;
+
         if (cast(*Type_Info_Enum) info).enum_type_flags & .FLAGS {
             complain(analysis, name, "an enum_flags cannot select a subcommand");
             field.kind = .INVALID;
@@ -157,6 +161,7 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
     for member.notes {
         note := it;
         if note == "---" continue;
+
         if note == "positional" field.positional = true;
         else if note == "required" field.required = true;
         else if note == "count" {
@@ -195,6 +200,7 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
         } else if begins_with(note, "range(") && ends_with(note, ")") {
             body := slice(note, 6, note.count - 7);
             found, low, high := split_from_left(body, #char ",");
+
             if !found || !is_number(low) || !is_number(high) {
                 complain(analysis, name, tprint("`@%` needs two numbers, as in `@range(1,64)`", note));
             } else {
@@ -206,6 +212,7 @@ read_field :: (analysis: *Analysis, member: *Type_Info_Struct_Member) -> Field {
             complain(analysis, name, tprint("unknown note `@%`. The notes are positional, short=, long=, env=, range(a,b), value=, count, required, conflicts=, requires=, hidden, subcommand, global and optional", note));
         }
     }
+
     return field;
 }
 
@@ -218,6 +225,7 @@ is_name_text :: (text: string) -> bool {
         c := it;
         if !is_alnum_byte(c) && c != #char "-" && c != #char "_" return false;
     }
+
     return true;
 }
 
@@ -236,16 +244,19 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
     analysis: Analysis;
     analysis.quiet = quiet;
     struct_info := cast(*Type_Info_Struct) type_info(T);
+
     analysis.type_name = struct_info.name;
 
     for *member: struct_info.members {
         if member.flags & .CONSTANT continue;
         array_add(*analysis.fields, read_field(*analysis, member));
     }
+
     fields := analysis.fields;
 
     selectors := 0;
     subcommands := 0;
+
     for *field: fields {
         name := field.name;
         if help_meta_field(name) complain(*analysis, name, "this name is reserved by `Args.Help`; rename the field");
@@ -257,22 +268,27 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
         if field.has_range && !numeric_kind(field.kind) && !(field.kind == .LIST && numeric_kind(field.element_kind)) {
             complain(*analysis, name, tprint("`@range` needs a numeric field (an integer or a float), not %", type_label(field.info)));
         }
+
         if field.has_range && field.kind == .COUNT complain(*analysis, name, "`@range` cannot be combined with `@count`");
+
         if field.has_range && (field.kind == .INT || (field.kind == .LIST && field.element_kind == .INT)) {
             if contains(field.range_lo, #char ".") || contains(field.range_hi, #char ".") {
                 complain(*analysis, name, "an integer field needs an integer `@range`");
             }
         }
+
         if field.env.count {
             if field.kind == .LIST || field.kind == .SUBCOMMAND || field.kind == .SELECTOR complain(*analysis, name, "`@env` is for options with a single value");
             if field.positional complain(*analysis, name, "`@env` cannot be combined with `@positional`");
         }
+
         if field.kind == .FLAG || field.kind == .COUNT || field.kind == .SUBCOMMAND || field.kind == .SELECTOR {
             if field.value_name.count complain(*analysis, name, "`@value` names the value of an option; this field has none");
         }
         if field.required && (field.kind == .FLAG || field.kind == .COUNT || field.kind == .SUBCOMMAND || field.kind == .SELECTOR) {
             complain(*analysis, name, "`@required` does not apply to flags and counters (and subcommands are required unless the selector is `@optional`)");
         }
+
         if field.optional && field.kind != .SELECTOR complain(*analysis, name, "`@optional` goes on the enum field that selects the subcommand");
         if field.global && (field.positional || field.kind == .SUBCOMMAND || field.kind == .SELECTOR) complain(*analysis, name, "`@global` applies to options");
 
@@ -280,9 +296,11 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
             if field.kind == .FLAG || field.kind == .COUNT || field.kind == .SUBCOMMAND || field.kind == .SELECTOR {
                 complain(*analysis, name, "a positional must be a value, not a flag, counter or subcommand");
             }
+
             if field.short complain(*analysis, name, "`@short` cannot be combined with `@positional`");
             if field.long != kebab(name) complain(*analysis, name, "`@long` cannot be combined with `@positional`");
         }
+
         if field.kind == .SUBCOMMAND || field.kind == .SELECTOR {
             if field.short complain(*analysis, name, "`@short` does not apply to subcommands");
         }
@@ -292,14 +310,17 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
     // follow an optional one.
     last_positional: *Field;
     count := 0;
+
     for *field: fields {
         if !field.positional || field.kind == .INVALID continue;
+
         if last_positional && last_positional.kind == .LIST {
             complain(*analysis, last_positional.name, "only the last positional may be an array; this one is followed by another positional");
         }
         if last_positional && !last_positional.required && field.required {
             complain(*analysis, field.name, tprint("a required positional cannot follow the optional `%`; mark that one `@required` too or reorder them", last_positional.name));
         }
+
         last_positional = field;
         count += 1;
     }
@@ -318,6 +339,7 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
             for fields if it.kind == .SUBCOMMAND && kebab(it.name) == kebab(value_name) matched = true;
             if !matched complain(*analysis, selector.name, tprint("the value `%` has no subcommand field named `%`", value_name, to_lower_copy(value_name,, temp)));
         }
+
         for *sub: fields {
             if sub.kind != .SUBCOMMAND continue;
             matched := false;
@@ -329,36 +351,47 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
     // Names: each long and short spelling once, and not the built-in --help/-h (--version/-V).
     taken_long: [..] string;
     taken_short: [..] u8;
+
     array_add(*taken_long, "help");
     array_add(*taken_short, #char "h");
+
     if has_version {
         array_add(*taken_long, "version");
         array_add(*taken_short, #char "V");
     }
+
     for *field: fields {
         if field.kind == .INVALID || field.positional || field.kind == .SELECTOR continue;
         longs: [..] string;
+
         array_add(*longs, field.long);
         if field.kind == .FLAG array_add(*longs, tprint("no-%", field.long));
+
         for spelling: longs {
             if field.kind == .SUBCOMMAND break;
+
             for taken_long if it == spelling {
                 complain(*analysis, field.name, tprint("the long name `--%` is already used (by another option or built in); pick another with `@long=`", spelling));
             }
+
             array_add(*taken_long, spelling);
         }
+
         if field.kind == .SUBCOMMAND {
             for taken_sub: fields {
                 if taken_sub.kind == .SUBCOMMAND && taken_sub.name != field.name && taken_sub.long == field.long {
                     complain(*analysis, field.name, tprint("the subcommand name `%` is used twice", field.long));
                 }
             }
+
             continue;
         }
+
         if field.short {
             for taken_short if it == field.short {
                 complain(*analysis, field.name, tprint("the short name `-%` is already used (by another option or built in)", short_text(field.short)));
             }
+
             array_add(*taken_short, field.short);
         }
     }
@@ -371,6 +404,7 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
             else if target == field complain(*analysis, field.name, "`@conflicts` names the field itself");
             else if target.kind == .SUBCOMMAND || target.kind == .SELECTOR complain(*analysis, field.name, tprint("`@conflicts=%` names a subcommand; conflicts are between options and positionals", other));
         }
+
         for other: field.requires {
             target := find_field(fields, other);
             if !target complain(*analysis, field.name, tprint("`@requires=%` names a field that does not exist", other));
@@ -378,6 +412,7 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
             else if target.kind == .SUBCOMMAND || target.kind == .SELECTOR complain(*analysis, field.name, tprint("`@requires=%` names a subcommand; requirements are between options and positionals", other));
         }
     }
+
     return analysis;
 }
 
@@ -385,7 +420,9 @@ analyze :: (T: Type, has_version: bool, quiet: bool) -> Analysis {
 
 quote :: (text: string) -> string {
     builder: String_Builder;
+
     append(*builder, "\"");
+
     for text {
         c := it;
         if c == #char "\"" append(*builder, "\\\"");
@@ -393,6 +430,7 @@ quote :: (text: string) -> string {
         else if c == #char "\n" append(*builder, "\\n");
         else append(*builder, string.{ 1, *c });
     }
+
     append(*builder, "\"");
     return builder_to_string(*builder,, temp);
 }
@@ -402,6 +440,7 @@ display_name :: (field: *Field) -> string {
     if field.positional {
         return tprint("<%>", ifx field.value_name.count then field.value_name else to_upper_copy(field.long,, temp));
     }
+
     return tprint("--%", field.long);
 }
 
@@ -409,6 +448,7 @@ range_literal :: (field: *Field) -> string {
     if !field.has_range return "NO_RANGE";
     kind := ifx field.kind == .LIST then field.element_kind else field.kind;
     text := quote(tprint("%..%", field.range_lo, field.range_hi));
+
     if kind == .FLOAT return tprint("Range.{ present = true, flo = %, fhi = %, text = % }", field.range_lo, field.range_hi, text);
     return tprint("Range.{ present = true, lo = %, hi = %, text = % }", field.range_lo, field.range_hi, text);
 }
@@ -423,6 +463,7 @@ store_statement :: (field: *Field, destination: string, display: string, failure
     if kind == .FLAG {
         return tprint("if !store_flag_text(state, %, value, %) return %;\n", display, destination, failure);
     }
+
     return tprint("if !store_value(state, %, value, %, %) return %;\n", display, destination, range_literal(field), failure);
 }
 
@@ -434,6 +475,7 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
     for *field: fields {
         enum_info: *Type_Info_Enum;
         element_text: string;
+
         if field.kind == .ENUM {
             enum_info = cast(*Type_Info_Enum) field.info;
             element_text = tprint("type_of(T.{}.%)", field.name);
@@ -441,18 +483,23 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
             enum_info = cast(*Type_Info_Enum) field.element;
             element_text = tprint("type_of(T.{}.%[0])", field.name);
         } else continue;
+
         names: [..] string;
         for enum_info.names array_add(*names, kebab(it));
         print(*out, "store_enum_% :: (state: *Parse_State, display: string, text: string, dest: *%) -> bool {\n", field.name, element_text);
         append(*out, "    lowered := to_lower_copy(text,, temp);\n");
+
         for enum_info.names {
             print(*out, "    if lowered == % { dest.* = .%; return true; }\n", quote(names[it_index]), it);
         }
+
         append(*out, "    bad_choice(state, display, text, .[");
+
         for names {
             if it_index append(*out, ", ");
             append(*out, quote(it));
         }
+
         append(*out, "]);\n    return false;\n}\n");
     }
 
@@ -460,12 +507,14 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
     for *field: fields {
         if field.positional || field.kind == .SUBCOMMAND || field.kind == .SELECTOR || field.kind == .INVALID continue;
         print(*out, "opt_% :: (state: *Parse_State, out: *T, set: *Is_Set(T), display: string, is_short: bool, rest: string, has_rest: bool, negated: bool) -> Outcome {\n", field.name);
+
         if field.kind == .FLAG {
             print(*out, "    if has_rest && !is_short return unexpected_value(state, display);\n    out.% = !negated;\n    set.% = true;\n    return .FLAG;\n", field.name, field.name);
         } else if field.kind == .COUNT {
             print(*out, "    if has_rest && !is_short return unexpected_value(state, display);\n    bump(*out.%);\n    set.% = true;\n    return .FLAG;\n", field.name, field.name);
         } else {
             append(*out, "    value: string;\n    if !take_value(state, display, rest, has_rest, is_short, *value) return .ERROR;\n");
+
             if field.kind == .LIST {
                 print(*out, "    item: type_of(T.{}.%[0]);\n", field.name);
                 print(*out, "    %", store_statement(field, "*item", "display", ".ERROR"));
@@ -475,47 +524,59 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
                 // A Color_Mode field takes effect at once, so errors and --help later on use it.
                 if field.kind == .ENUM && field.info == type_info(Color_Mode) print(*out, "    set_color_mode(out.%);\n", field.name);
             }
+
             print(*out, "    set.% = true;\n    return .DONE;\n", field.name);
         }
+
         append(*out, "}\n");
     }
 
     // The option table.
     append(*out, "h_option :: (out_v: *void, set_v: *void, state: *Parse_State, name: string, is_short: bool, rest: string, has_rest: bool, only_globals: bool) -> Outcome {\n");
     append(*out, "    out := cast(*T) out_v;\n    set := cast(*Is_Set(T)) set_v;\n");
+
     for pass: 0..1 {
         has_any := false;
+
         for *field: fields {
             if field.positional || field.kind == .SUBCOMMAND || field.kind == .SELECTOR || field.kind == .INVALID continue;
             if pass == 0 && !field.short continue;
             has_any = true;
         }
+
         if !has_any continue;
         append(*out, ifx pass == 0 then "    if is_short {\n        if name == {\n" else "    if !is_short {\n        if name == {\n");
+
         for *field: fields {
             if field.positional || field.kind == .SUBCOMMAND || field.kind == .SELECTOR || field.kind == .INVALID continue;
             guard := ifx field.global then "" else "if only_globals return .NOT_FOUND; ";
+
             if pass == 0 {
                 if !field.short continue;
                 print(*out, "            case %; %return opt_%(state, out, set, %, true, rest, has_rest, false);\n", quote(short_text(field.short)), guard, field.name, quote(tprint("-%", short_text(field.short))));
             } else {
                 print(*out, "            case %; %return opt_%(state, out, set, %, false, rest, has_rest, false);\n", quote(field.long), guard, field.name, quote(tprint("--%", field.long)));
+
                 if field.kind == .FLAG {
                     print(*out, "            case %; %return opt_%(state, out, set, %, false, rest, has_rest, true);\n", quote(tprint("no-%", field.long)), guard, field.name, quote(tprint("--no-%", field.long)));
                 }
             }
         }
+
         append(*out, "            case; return .NOT_FOUND;\n        }\n    }\n");
     }
+
     append(*out, "    return .NOT_FOUND;\n}\n");
 
     // Positionals.
     append(*out, "h_positional :: (out_v: *void, set_v: *void, state: *Parse_State, text: string) -> bool {\n");
     append(*out, "    out := cast(*T) out_v;\n    set := cast(*Is_Set(T)) set_v;\n    index := state.positional_index;\n    state.positional_index += 1;\n    value := text;\n");
     position := 0;
+
     for *field: fields {
         if !field.positional || field.kind == .INVALID continue;
         display := quote(display_name(field));
+
         if field.kind == .LIST {
             print(*out, "    if index >= % {\n        item: type_of(T.{}.%[0]);\n        %", position, field.name, store_statement(field, "*item", display, "false"));
             print(*out, "        array_add(*out.%, item);\n        set.% = true;\n        return true;\n    }\n", field.name, field.name);
@@ -523,17 +584,21 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
             print(*out, "    if index == % {\n        %", position, store_statement(field, tprint("*out.%", field.name), display, "false"));
             print(*out, "        set.% = true;\n        return true;\n    }\n", field.name);
         }
+
         position += 1;
     }
+
     append(*out, "    fail(state, .UNEXPECTED_ARGUMENT, text, text, \"unexpected argument `%`\", text);\n    return false;\n}\n");
 
     // Subcommands.
     append(*out, "h_subcommand :: (out_v: *void, set_v: *void, state: *Parse_State, name: string) -> Outcome {\n");
     selector: *Field;
     for *field: fields if field.kind == .SELECTOR selector = field;
+
     if selector {
         append(*out, "    out := cast(*T) out_v;\n    set := cast(*Is_Set(T)) set_v;\n    if name == {\n");
         enum_info := cast(*Type_Info_Enum) selector.info;
+
         for *field: fields {
             if field.kind != .SUBCOMMAND continue;
             value_name: string;
@@ -545,40 +610,50 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
             print(*out, "            ok := parse_command(type_of(T.{}.%), help.%, state, *out.%, *set.%);\n", field.name, field.name, field.name, field.name);
             append(*out, "            state.globals = link.next;\n            return ifx ok then Outcome.DONE else Outcome.ERROR;\n");
         }
+
         append(*out, "    }\n");
     }
+
     append(*out, "    return .NOT_FOUND;\n}\n");
 
     // Defaults from the environment, required options, conflicts.
     append(*out, "h_finish :: (out_v: *void, set_v: *void, state: *Parse_State) -> bool {\n");
     append(*out, "    out := cast(*T) out_v;\n    set := cast(*Is_Set(T)) set_v;\n");
+
     for *field: fields {
         if !field.env.count || field.kind == .INVALID continue;
         print(*out, "    if !set.% {\n        env := environment_lookup(state, %);\n        if env.count {\n            value := env;\n", field.name, quote(field.env));
         display := quote(tprint("$%", field.env));
+
         print(*out, "            %", store_statement(field, tprint("*out.%", field.name), display, "false"));
         print(*out, "            set.% = true;\n        }\n    }\n", field.name);
     }
+
     if selector && !selector.optional {
         print(*out, "    if !set.% {\n        fail(state, .MISSING_COMMAND, \"\", \"\", \"a subcommand is required\");\n        return false;\n    }\n", selector.name);
     }
+
     for *field: fields {
         if !field.required || field.kind == .INVALID continue;
         print(*out, "    if !set.% {\n        fail(state, .MISSING_REQUIRED, %, \"\", \"the % `%` is required\");\n        return false;\n    }\n", field.name, quote(display_name(field)), ifx field.positional then "argument" else "option", display_name(field));
     }
+
     for *field: fields {
         if field.kind == .INVALID continue;
+
         for other: field.conflicts {
             target := find_field(fields, other);
             if !target continue;
             print(*out, "    if set.% && set.% {\n        fail(state, .CONFLICT, %, %, \"`%` cannot be used with `%`\");\n        return false;\n    }\n", field.name, other, quote(display_name(field)), quote(display_name(target)), display_name(field), display_name(target));
         }
+
         for other: field.requires {
             target := find_field(fields, other);
             if !target continue;
             print(*out, "    if set.% && !set.% {\n        fail(state, .REQUIRES, %, %, \"`%` requires `%`\");\n        return false;\n    }\n", field.name, other, quote(display_name(field)), quote(display_name(target)), display_name(field), display_name(target));
         }
     }
+
     append(*out, "    return true;\n}\n");
 
     append(*out, "handlers: Command_Handlers;\nhandlers.option = h_option;\nhandlers.positional = h_positional;\nhandlers.subcommand = h_subcommand;\nhandlers.finish = h_finish;\n");
@@ -591,12 +666,15 @@ generate_command :: (analysis: *Analysis, has_version: bool) -> string {
 // The statements of `describe` that fill a Command_Spec.
 generate_description :: (analysis: *Analysis) -> string {
     out: String_Builder;
+
     for *field: analysis.fields {
         if field.kind == .INVALID || field.kind == .SELECTOR continue;
+
         if field.kind == .SUBCOMMAND {
             print(*out, "array_add(*spec.subcommands, describe(type_of(T.{}.%), help.%, %));\n", field.name, field.name, quote(field.long));
             continue;
         }
+
         append(*out, "{\n    option: Option_Spec;\n");
         print(*out, "    option.field = %;\n    option.long = %;\n", quote(field.name), quote(field.long));
         if field.short print(*out, "    option.short = %;\n", cast(s64) field.short);
@@ -613,21 +691,28 @@ generate_description :: (analysis: *Analysis) -> string {
         enum_info: *Type_Info_Enum;
         if field.kind == .ENUM enum_info = cast(*Type_Info_Enum) field.info;
         if field.kind == .LIST && field.element_kind == .ENUM enum_info = cast(*Type_Info_Enum) field.element;
+
         if enum_info {
             append(*out, "    option.choices = .[");
+
             for enum_info.names {
                 if it_index append(*out, ", ");
                 append(*out, quote(kebab(it)));
             }
+
             append(*out, "];\n");
         }
+
         if field.kind == .FLAG print(*out, "    if defaults.% option.default_text = \"true\";\n", field.name);
+
         if field.kind == .INT || field.kind == .FLOAT || field.kind == .STRING || field.kind == .ENUM {
             print(*out, "    option.default_text = default_text(defaults.%);\n", field.name);
         }
+
         if field.has_range print(*out, "    option.range_text = %;\n", quote(tprint("%..%", field.range_lo, field.range_hi)));
         print(*out, "    array_add(*spec.%, option);\n}\n", ifx field.positional then "positionals" else "options");
     }
+
     selector: *Field;
     for *field: analysis.fields if field.kind == .SELECTOR selector = field;
     if selector print(*out, "spec.subcommand_required = %;\n", !selector.optional);
@@ -642,10 +727,12 @@ warn_missing_help :: (type_name: string, field: string, text: string) {
 
 generate_help_checks :: (analysis: *Analysis) -> string {
     out: String_Builder;
+
     for *field: analysis.fields {
         if field.kind == .INVALID || field.kind == .SELECTOR || field.kind == .SUBCOMMAND || field.hidden continue;
         print(*out, "#run warn_missing_help(%, %, help.%);\n", quote(analysis.type_name), quote(field.name), field.name);
     }
+
     return builder_to_string(*out);
 }
 
@@ -658,6 +745,7 @@ is_subcommand_member :: (member: *Type_Info_Struct_Member) -> bool {
 help_members :: (T: Type) -> string {
     out: String_Builder;
     struct_info := cast(*Type_Info_Struct) type_info(T);
+
     for *member: struct_info.members {
         if member.flags & .CONSTANT continue;
         if help_meta_field(member.name) continue;
@@ -666,16 +754,19 @@ help_members :: (T: Type) -> string {
         if is_subcommand_member(member) print(*out, "%: Help(type_of(T.{}.%));\n", member.name, member.name);
         else print(*out, "%: string;\n", member.name);
     }
+
     return builder_to_string(*out);
 }
 
 set_members :: (T: Type) -> string {
     out: String_Builder;
     struct_info := cast(*Type_Info_Struct) type_info(T);
+
     for *member: struct_info.members {
         if member.flags & .CONSTANT continue;
         if is_subcommand_member(member) print(*out, "%: Is_Set(type_of(T.{}.%));\n", member.name, member.name);
         else print(*out, "%: bool;\n", member.name);
     }
+
     return builder_to_string(*out);
 }

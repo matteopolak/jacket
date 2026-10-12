@@ -8,6 +8,7 @@ Item :: struct {
 
 main :: () {
     values: [..] int;
+
     random_seed(7);
     for 0..999 array_add(*values, cast(int) (random_get() % 500));
     intro_sort(values, (a: int, b: int) -> int {
@@ -23,6 +24,7 @@ main :: () {
     for items assert(it.index == it_index);
 
     small := int.[3, 1, 2];
+
     insertion_sort(small, (a: int, b: int) -> int {
         return a - b;
     });

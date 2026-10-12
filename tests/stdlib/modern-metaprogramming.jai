@@ -50,9 +50,11 @@ Basket :: struct {
 
 is_mango :: (basket: Basket) -> bool {
     using basket.tag;
+
     if basket.tag == {
         case MANGO; return true;
     }
+
     return false;
 }
 
@@ -81,6 +83,7 @@ main :: () {
 
     LOCAL_ONLY :: 2;
     made := #insert #run made_code();
+
     assert(made == 42);
 
     // `-1` in a `#code` is one negative literal, and backticks survive printing.
@@ -88,6 +91,7 @@ main :: () {
         c: Code;
         c = #code case -1;
         node := compiler_get_nodes(c).(*Code_Case);
+
         assert(node.condition.kind == .LITERAL && node.condition.(*Code_Literal)._s64 == -1);
         assert(printed(compiler_get_nodes(#code `x + y)) == "`x + y");
         assert(contains(printed(compiler_get_nodes(#code {
@@ -101,12 +105,14 @@ main :: () {
             #assert(1 < 2, "math");
             a := #exists(foo);
         }));
+
         assert(contains(text, "#assert(1 < 2, \"math\")"), "%", text);
         assert(contains(text, "#exists(foo)"), "%", text);
     }
 
     // Typechecked expressions carry their type.
     x := 2;
+
     #insert -> string {
         root := compiler_get_nodes(#code x + 2 == 4).(*Code_Binary_Operator);
         assert(root.left.type == type_info(int), "% %", root.left.type, root.left.kind);

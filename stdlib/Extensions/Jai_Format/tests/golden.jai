@@ -30,23 +30,28 @@ main :: () {
     bless := args.count > 1 && args[1] == "--bless";
 
     names: [..] string;
+
     for file_list(CASES) {
         if ends_with(it, ".in.jai") array_add(*names, slice(it, 0, it.count - ".in.jai".count));
     }
+
     quick_sort(names, compare_strings);
     if names.count < 8 fail("expected the golden cases in %, found %", CASES, names.count);
 
     for base: names {
         config: Format_Config;
         toml, has_config := read_entire_file(tprint("%.toml", base), log_errors = false);
+
         if has_config {
             parsed, ok, message := parse_config(toml);
             if !ok {
                 fail("%.toml: %", base, message);
                 continue;
             }
+
             config = parsed;
         }
+
         input, read_ok := read_entire_file(tprint("%.in.jai", base));
         if !read_ok {
             fail("cannot read %.in.jai", base);
@@ -63,15 +68,18 @@ main :: () {
         if !again_ok || again != output fail("%: formatting is not idempotent", base);
 
         expected_path := tprint("%.out.jai", base);
+
         if bless {
             write_entire_file(expected_path, output.data, output.count);
             continue;
         }
+
         expected, expected_ok := read_entire_file(expected_path, log_errors = false);
         if !expected_ok {
             fail("missing %; run with -- --bless", expected_path);
             continue;
         }
+
         if expected != output report_difference(base, expected, output);
     }
 
@@ -84,20 +92,24 @@ main :: () {
         print("% jaifmt golden failures\n", failures);
         exit(1);
     }
+
     print("jaifmt golden tests: % cases ok\n", names.count);
 }
 
 report_difference :: (name: string, expected: string, actual: string) {
     a := split(expected, "\n");
     b := split(actual, "\n");
+
     for i: 0..max(a.count, b.count) - 1 {
         line_a := ifx i < a.count then a[i] else "<end>";
         line_b := ifx i < b.count then b[i] else "<end>";
+
         if line_a != line_b {
             fail("%.out.jai line %:\n  expected: %\n  actual:   %", name, i + 1, line_a, line_b);
             return;
         }
     }
+
     fail("%.out.jai differs", name);
 }
 
@@ -137,6 +149,7 @@ check_equivalence_guard :: () {
         "l := #location(x);\n", "l := #location (x);\n",
     ];
     i := 0;
+
     while i < pairs.count {
         equivalent := format_tokens_equivalent(pairs[i], pairs[i + 1]);
         if equivalent fail("format_tokens_equivalent accepted % -> %", pairs[i], pairs[i + 1]);
@@ -147,13 +160,25 @@ check_equivalence_guard :: () {
 check_config_parsing :: () {
     config, ok, message := parse_config("indent_width = 2 # two\nmax_width = 120\nbrace_style = \"preserve\"\nignore = [\"a/**\", \"b.jai\"]\n");
     if !ok fail("config rejected: %", message);
+
     if config.indent_width != 2 || config.max_width != 120 || config.brace_style != .PRESERVE || config.ignore.count != 2 {
         fail("config parsed wrong: %", config);
     }
+
     if !config.blank_lines_between_items fail("blank_lines_between_items should default to true");
     off, off_ok := parse_config("blank_lines_between_items = false\n");
     if !off_ok || off.blank_lines_between_items fail("blank_lines_between_items = false not parsed");
-    for string.["indent_width = x\n", "unknown = 1\n", "brace_style = \"weird\"\n", "ignore = \"a\"\n", "blank_lines_between_items = 1\n"] {
+
+    if config.blank_line_after_declarations || config.blank_lines_around_blocks || config.blank_line_between_cases || config.blank_line_before_comments {
+        fail("the code block blank line options should default to false");
+    }
+
+    on, on_ok := parse_config("blank_line_after_declarations = true\nblank_lines_around_blocks = true\nblank_line_between_cases = true\nblank_line_before_comments = true\n");
+    if !on_ok || !on.blank_line_after_declarations || !on.blank_lines_around_blocks || !on.blank_line_between_cases || !on.blank_line_before_comments {
+        fail("the code block blank line options were not parsed");
+    }
+
+    for string.["indent_width = x\n", "unknown = 1\n", "brace_style = \"weird\"\n", "ignore = \"a\"\n", "blank_lines_between_items = 1\n", "blank_lines_around_blocks = yes\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad config accepted: %", it);
     }
@@ -174,11 +199,13 @@ check_self_formatted :: () {
             fail("cannot read %", path);
             continue;
         }
+
         output, formatted, error := format_source(source);
         if !formatted {
             fail("%: %", path, error);
             continue;
         }
+
         if output != source report_difference(path, source, output);
     }
 }

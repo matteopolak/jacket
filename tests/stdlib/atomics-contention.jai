@@ -28,6 +28,7 @@ counters: Counters;
 
 hammer :: (thread: *Thread) -> s64 {
     me := cast(s64) thread.data;
+
     for round: 0..ROUNDS - 1 {
         atomic_add(*counters.added, 3);
         atomic_add(*counters.added_narrow, 1);
@@ -43,10 +44,12 @@ hammer :: (thread: *Thread) -> s64 {
         // A spin lock from atomic_swap guarding a plain read-modify-write.
         while atomic_swap(*counters.spin, true) {}
         seen := counters.guarded;
+
         for 1..2 counters.racy_pad += 1;
         counters.guarded = seen + 1;
         atomic_write(*counters.spin, false);
     }
+
     atomic_increment(*counters.finished);
     return 0;
 }
@@ -58,12 +61,14 @@ main :: () {
         it.data = cast(*void) it_index;
         assert(thread_init(it, hammer));
     }
+
     for *threads assert(thread_start(it));
     // Wait for the workers by spinning on an atomic before joining them.
     while atomic_read(*counters.finished) != THREADS sleep_milliseconds(1);
     for *threads thread_deinit(it);
 
     total :: THREADS * ROUNDS;
+
     assert(counters.added == 3 * total, "added %", counters.added);
     assert(counters.added_narrow == cast(u16) total, "added_narrow %", counters.added_narrow);
     assert(counters.up_down == 0, "up_down %", counters.up_down);

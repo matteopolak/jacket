@@ -6,20 +6,24 @@
 
 lex :: (source: string) -> [..] Token, Lexer {
     lexer: Lexer;
+
     set_input_from_string(*lexer, source);
     tokens: [..] Token;
+
     while true {
         token := peek_next_token(*lexer);
         if token.type == .END_OF_INPUT break;
         array_add(*tokens, token.*);
         eat_token(*lexer);
     }
+
     return tokens, lexer;
 }
 
 kinds :: (source: string) -> [..] Token_Type {
     tokens := lex(source);
     result: [..] Token_Type;
+
     for tokens array_add(*result, it.type);
     array_free(tokens);
     return result;
@@ -39,6 +43,7 @@ as_type :: (c: u8) -> Token_Type {
 main :: () {
     // Identifiers and keywords.
     tokens, lexer := lex("x_1 for ifx then interface Some_Type _private xx");
+
     assert(tokens.count == 8);
     assert(tokens[0].type == .IDENT && tokens[0].ident_value.name == "x_1");
     assert(tokens[1].type == .KEYWORD_FOR && tokens[2].type == .KEYWORD_IFX && tokens[3].type == .KEYWORD_THEN && tokens[4].type == .KEYWORD_INTERFACE);
@@ -94,17 +99,21 @@ main :: () {
 
     // A hexadecimal float is not decoded: one error token, and scanning resumes after it.
     hexfloat, hexfloat_lexer := lex("0x1.8p3 after");
+
     assert(hexfloat.count == 2 && hexfloat[0].type == .ERROR && hexfloat_lexer.reported_error, "hexfloat: %", hexfloat);
     assert(hexfloat[1].type == .IDENT && hexfloat[1].ident_value.name == "after");
     array_free(hexfloat);
 
     // check_for_equals picks the augmented kind when "=" follows; c1 is one past the last column.
     equals_lexer: Lexer;
+
     set_input_from_string(*equals_lexer, "+= -");
     plus := check_for_equals(*equals_lexer, as_type(#char "+"), .PLUSEQUALS);
+
     assert(plus.type == .PLUSEQUALS && plus.c0 == 1 && plus.c1 == 3, "+=: % % %", plus.type, plus.c0, plus.c1);
     eat_character(*equals_lexer);
     minus := check_for_equals(*equals_lexer, as_type(#char "-"), .MINUSEQUALS);
+
     assert(minus.type == as_type(#char "-") && minus.c0 == 4 && minus.c1 == 5, "-: % % %", minus.type, minus.c0, minus.c1);
 
     // Here-strings keep their body verbatim.
@@ -115,6 +124,7 @@ main :: () {
     assert(count_herestring_lines(*lexer, *tokens[3]) == 3);
     array_free(tokens);
     unterminated, unterminated_lexer := lex("#string X\nno end");
+
     assert(unterminated[0].type == .ERROR && unterminated_lexer.reported_error);
     array_free(unterminated);
     same_kinds("#stringy", .[as_type(#char "#"), .IDENT]);
@@ -123,12 +133,15 @@ main :: () {
     tokens, lexer = lex("f :: () {} @Note @@System // gone\n/* outer /* inner */ still */ `caller_value");
     note := tokens[tokens.count - 3];
     system := tokens[tokens.count - 2];
+
     assert(note.type == .NOTE && note.ident_value.name == "Note" && note.value_flags == 0);
     assert(system.type == .NOTE && system.ident_value.name == "System" && cast(u32) system.value_flags == cast(u32) Note_Flags.IS_SYSTEM_LEVEL);
     last := tokens[tokens.count - 1];
+
     assert(last.type == .IDENT && last.ident_value.name == "caller_value" && last.ident_is_backticked && last.c0 == 31, "backticked identifier at column %", last.c0);
     array_free(tokens);
     open_comment, comment_lexer := lex("a /* never closed");
+
     assert(open_comment.count == 1 && comment_lexer.reported_error);
     array_free(open_comment);
 
@@ -142,19 +155,24 @@ main :: () {
 
     // Lookahead and the token ring.
     ring: Lexer;
+
     set_input_from_string(*ring, "a b c d e f g h i j");
     third := peek_token(*ring, 2);
+
     assert(third.ident_value.name == "c" && peek_next_token(*ring).ident_value.name == "a");
     for 0..8 eat_token(*ring);
     assert(get_last_token(*ring).ident_value.name == "i" && peek_next_token(*ring).ident_value.name == "j");
     seventh := peek_token(*ring, 1);
+
     assert(seventh.type == .END_OF_INPUT && ring.eof_token.type == .END_OF_INPUT);
 
     // Character-level helpers.
     chars: Lexer;
+
     set_input_from_string(*chars, "7f\nz");
     assert(get_decimal_digit(*chars) == 7 && get_decimal_digit(*chars) == -1);
     digit, ok := get_hex_digit(*chars, .ASCII_8_BIT);
+
     assert(ok && digit == 15 && peek_next_character(*chars) == #char "\n");
     eat_character(*chars);
     assert(chars.current_line_number == 2 && chars.current_character_index == 1);
@@ -178,6 +196,7 @@ main :: () {
 
     // Reusing a lexer resets its state; a missing file is reported.
     reuse: Lexer;
+
     set_input_from_string(*reuse, "\"bad");
     peek_next_token(*reuse);
     assert(reuse.reported_error);

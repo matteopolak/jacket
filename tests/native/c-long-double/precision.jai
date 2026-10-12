@@ -19,6 +19,7 @@ random_value :: () -> Long_Double {
     k := cast(s64) (r & 63) - 32;
     scale: Long_Double = 1;
     two: Long_Double = 2;
+
     if k > 0 for 1..k scale *= two;
     if k < 0 for 1..-k scale /= two;
     v := mantissa * scale / 3;
@@ -34,9 +35,11 @@ dump :: (x: Long_Double) {
 
 main :: () {
     acc: Long_Double = 1;
+
     for 1..300 {
         a := random_value();
         b := random_value();
+
         dump(a + b);
         dump(a - b);
         dump(a * b);
@@ -46,5 +49,6 @@ main :: () {
         print("% % % %|", a < b, a == b, cast(s64) a, cast(float64) b);
         if it % 4 == 0 print("\n");
     }
+
     print("\n");
 }

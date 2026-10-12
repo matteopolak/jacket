@@ -20,6 +20,7 @@ tour_reflection :: () {
 
     // Walk a struct's members by name, type and offset.
     print("Save_Game members:\n");
+
     for member: type_info(Save_Game).members {
         offset := formatInt(member.offset_in_bytes, minimum_digits = 2);
         print("  +%  %: %", offset, member.name, member.type.type);
@@ -38,8 +39,10 @@ tour_reflection :: () {
         secret_note = "do not save this",
     };
     builder: String_Builder;
+
     write_json(*builder, save);
     json := builder_to_string(*builder);
+
     defer free(json);
     print("As JSON, via reflection:\n  %\n", json);
 }
@@ -61,11 +64,14 @@ write_json :: (builder: *String_Builder, value: Any) {
             // Fixed arrays keep their elements inline; views and [..] arrays start
             // with a count and a data pointer.
             count, data := array.array_count, value.value_pointer;
+
             if array.array_type != .FIXED {
                 view := cast(*Array_View_64) value.value_pointer;
                 count, data = view.count, view.data;
             }
+
             append(builder, "[");
+
             for 0..count - 1 {
                 if it append(builder, ", ");
                 element: Any;
@@ -73,11 +79,14 @@ write_json :: (builder: *String_Builder, value: Any) {
                 element.value_pointer = data + it * array.element_type.runtime_size;
                 write_json(builder, element);
             }
+
             append(builder, "]");
         case .STRUCT;
             struct_info := cast(*Type_Info_Struct) info;
+
             append(builder, "{");
             written := 0;
+
             for member: struct_info.members {
                 if array_find(member.notes, "NoSave") continue;
                 if written append(builder, ", ");
@@ -88,6 +97,7 @@ write_json :: (builder: *String_Builder, value: Any) {
                 write_json(builder, field);
                 written += 1;
             }
+
             append(builder, "}");
         case;
             append(builder, "null");

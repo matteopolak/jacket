@@ -28,7 +28,9 @@ tour_gpu :: () {
         print("Chrome or Edge (137 or newer) can show it.\n");
         return;
     }
+
     window: Window_Type; // in the browser: the page's canvas
+
     #if OS != .WASM {
         window = create_window(960, 600, "Jai tour: ray marching on the GPU");
         if !window {
@@ -36,12 +38,15 @@ tour_gpu :: () {
             return;
         }
     }
+
     instance := wgpuCreateInstance(null);
     surface := webgpu_create_surface(instance, window);
+
     if !surface {
         print("No WebGPU surface for the window, so this stop is skipped.\n");
         return;
     }
+
     options: WGPURequestAdapterOptions;
     options.compatibleSurface = surface;
     adapter := webgpu_request_adapter(instance, *options);
@@ -49,17 +54,21 @@ tour_gpu :: () {
         print("No GPU adapter here, so this stop is skipped.\n");
         return;
     }
+
     device := webgpu_request_device(instance, adapter);
     if !device return;
     queue := wgpuDeviceGetQueue(device);
 
     // The shader does its own gamma, so: not an sRGB format.
     format := webgpu_surface_format(surface, adapter);
+
     if format == .Undefined {
         print("The surface lists no texture formats, so this stop is skipped.\n");
         return;
     }
+
     width, height := webgpu_window_size(window);
+
     gpu_configure(surface, device, format, width, height);
 
     wgsl: WGPUShaderSourceWGSL;
@@ -104,13 +113,17 @@ tour_gpu :: () {
     start := seconds_since_init();
     last := start;
     frames := 0;
+
     while seconds_since_init() - start < GPU_SECONDS {
         update_window_events();
+
         for get_window_resizes() {
             width, height = webgpu_window_size(window);
             gpu_configure(surface, device, format, width, height);
         }
+
         quit := false;
+
         for events_this_frame {
             if it.type == .QUIT quit = true; // the window was closed
             if it.type != .KEYBOARD || !it.key_pressed continue;
@@ -118,6 +131,7 @@ tour_gpu :: () {
             if it.key_code == .SPACEBAR paused = !paused;
             if it.key_code == .MOUSE_BUTTON_LEFT palette += 1;
         }
+
         if quit break;
 
         now := seconds_since_init();
@@ -125,24 +139,30 @@ tour_gpu :: () {
         last = now;
         aspect := cast(float32) width / cast(float32) max(height, 1);
         u := Gpu_Uniforms.{ time, aspect, palette, 0 };
+
         wgpuQueueWriteBuffer(queue, uniforms, 0, *u, size_of(Gpu_Uniforms));
 
         frame: WGPUSurfaceTexture;
+
         wgpuSurfaceGetCurrentTexture(surface, *frame);
+
         #if OS != .WASM {
             if frame.status != .SuccessOptimal && frame.status != .SuccessSuboptimal {
                 // No frame this time: the window is hidden (macOS says so with
                 // WEBGPU_SURFACE_OCCLUDED until it shows again) or its size changed (configure
                 // it again). Nap a little and try the next frame.
                 if frame.texture wgpuTextureRelease(frame.texture);
+
                 if frame.status != WEBGPU_SURFACE_OCCLUDED {
                     width, height = webgpu_window_size(window);
                     gpu_configure(surface, device, format, width, height);
                 }
+
                 sleep_milliseconds(10);
                 continue;
             }
         }
+
         view := wgpuTextureCreateView(frame.texture, null);
         color: WGPURenderPassColorAttachment;
         color.view = view;
@@ -154,12 +174,14 @@ tour_gpu :: () {
 
         encoder := wgpuDeviceCreateCommandEncoder(device, null);
         pass := wgpuCommandEncoderBeginRenderPass(encoder, *pass_desc);
+
         wgpuRenderPassEncoderSetPipeline(pass, pipeline);
         wgpuRenderPassEncoderSetBindGroup(pass, 0, bind_group, 0, null);
         wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
         wgpuRenderPassEncoderEnd(pass);
         wgpuRenderPassEncoderRelease(pass);
         commands := wgpuCommandEncoderFinish(encoder, null);
+
         wgpuQueueSubmit(queue, 1, *commands);
         wgpuCommandBufferRelease(commands);
         wgpuCommandEncoderRelease(encoder);
@@ -171,6 +193,7 @@ tour_gpu :: () {
         wgpuTextureRelease(frame.texture);
         frames += 1;
     }
+
     if frames == 0 {
         print("The window never showed (it was hidden all along), so nothing was drawn.\n");
     } else {

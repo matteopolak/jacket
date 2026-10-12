@@ -8,20 +8,25 @@ Array :: struct(T: Type) {
 
 for_expansion :: (array: *Array($T), body: Code, flags: For_Flags) #expand {
     DO_POINTER :: cast(bool) (flags & .POINTER);
+
     `it_index: s32;
+
     #if DO_POINTER {
         `it: *T;
     } else {
         `it: T;
     }
+
     it_index = -1;
     while it_index < array.count - 1 {
         it_index += 1;
+
         #if DO_POINTER {
             it = *array.data[it_index];
         } else {
             it = array.data[it_index];
         }
+
         #insert body;
     }
 }

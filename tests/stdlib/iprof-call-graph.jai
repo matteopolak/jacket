@@ -49,11 +49,13 @@ main :: () {
         top();
         Iprof.update(true);
     }
+
     // A frame with nothing recorded must not disturb the averages.
     top();
     Iprof.update(false);
 
     report := Iprof.create_report();
+
     assert(report.records.count == 4);
     assert(find_row(report, "leaf").calls == 7); // 2 per middle level (3 levels) + 1 from top.
     assert(find_row(report, "middle").calls == 3);
@@ -99,6 +101,7 @@ main :: () {
     report = Iprof.create_report();
     text := Iprof.text_report(report);
     lines := split(text, "\n");
+
     assert(begins_with(lines[0], "Iprof: self time"), "%", text);
     assert(contains(lines[1], "self ms") && contains(lines[1], "hier ms"), "%", text);
     leaf_line := "";
@@ -107,8 +110,10 @@ main :: () {
 
     // CSV report.
     path := "iprof-call-graph-test.csv";
+
     assert(Iprof.save_csv_report(report, path));
     csv, ok := read_entire_file(path);
+
     assert(ok);
     file_delete(path);
     assert(begins_with(csv, "zone,self_ms,hier_ms,calls,indent,file,line\n"), "%", csv);

@@ -35,9 +35,9 @@ help: to use -2, compute in `s64` (`cast(s64) u`); to mean 65534, write 65534
    = note: `wrapping_constant` is `warn` by default
 
 warning[wrapping_constant]: constant `0x8000_0000` is 2147483648, which does not fit in `s32`: `%` uses it as -2147483648
-  --> tests/lint/wrapping_constant/bad.jai:9:10
+  --> tests/lint/wrapping_constant/bad.jai:10:10
    |
- 9 |     h %= 0x8000_0000;
+10 |     h %= 0x8000_0000;
    |          ^^^^^^^^^^^ `s32` comes from `h`
    |
    = help: to use 2147483648, compute in `s64` and convert back; to mean -2147483648, write -2147483648

@@ -48,21 +48,26 @@ PLANET_GRAVITY :: #insert #run planet_gravity_literal();
 
 planet_members :: () -> string {
     builder: String_Builder;
+
     for line: split(PLANET_DATA, "\n") {
         if !line continue;
         name := split(line, " ")[0];
         print_to_builder(*builder, "%;\n", name);
     }
+
     return builder_to_string(*builder);
 }
 
 planet_gravity_literal :: () -> string {
     builder: String_Builder;
+
     append(*builder, "float.[");
+
     for line: split(PLANET_DATA, "\n") {
         if !line continue;
         print_to_builder(*builder, "%, ", split(line, " ")[1]);
     }
+
     append(*builder, "]");
     return builder_to_string(*builder);
 }
@@ -81,6 +86,7 @@ tour_compile_time :: () {
     print("Fibonacci, computed by the compiler: %\n", FIBONACCI);
 
     print("A sine wave from a compile-time table:\n");
+
     for value: SINE_TABLE {
         column := cast(int) ((value + 1) * 20);
         print("  %*\n", pad(column));
@@ -88,6 +94,7 @@ tour_compile_time :: () {
 
     print("%\n", PLATFORM_NOTE);
     print("% planets were generated from a here-string:\n", enum_names(Planet).count);
+
     for planet: enum_values_as_enum(Planet) {
         gravity := formatFloat(PLANET_GRAVITY[planet], trailing_width = 1);
         print("  % pulls at % m/s²\n", planet, gravity);

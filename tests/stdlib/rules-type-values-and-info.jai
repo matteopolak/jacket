@@ -43,6 +43,7 @@ half :: (f: float) -> float {
 main :: () {
     // typeval.1: structural types are interned.
     d: Derived;
+
     assert(*Derived == type_of(*d), "typeval.1 pointer");
     assert([4] int == [4] s64 && [] u8 != [] s8, "typeval.1 arrays");
     assert(type_of(half) == #type (float) -> float, "typeval.1 proc");
@@ -62,12 +63,15 @@ main :: () {
 
     // typeval.6: isa converts implicitly to its base.
     r: Ratio = 3;
+
     assert(half(r) == 1.5, "typeval.6");
 
     // typeval.7: Type values are first-class.
     tt: [2] Type = .[int, float];
+
     assert(tprint("% %", tt[0], tt[1]) == "s64 float32", "typeval.7 print");
     held := Fruit;
+
     assert(held == Fruit && held != tt[0], "typeval.7 compare");
 
     // typeval.9: sizes of Type and Any.
@@ -75,6 +79,7 @@ main :: () {
 
     // typeval.10: Any.type is a *Type_Info.
     any: Any = 5;
+
     assert(any.type == type_info(int), "typeval.10");
     assert(any.type.type == .INTEGER, "typeval.10 tag");
 
@@ -89,6 +94,7 @@ main :: () {
 
     // typeval.13: members with name, offset, type and flags.
     m := type_info(Derived).members;
+
     assert(m.count == 2 && m[0].name == "base" && m[1].name == "b", "typeval.13 names");
     assert(m[0].offset_in_bytes == 0 && m[1].offset_in_bytes == 8, "typeval.13 offsets");
     assert(m[1].type == type_info(float), "typeval.13 type");
@@ -98,6 +104,7 @@ main :: () {
     // typeval.14: member notes and struct notes.
     assert(m[1].notes.count == 1 && m[1].notes[0] == "tagged", "typeval.14 member");
     sn := type_info(Noted).notes;
+
     assert(sn.count == 2 && sn[0] == "persist" && sn[1] == "v2", "typeval.14 struct");
 
     print("ok\n");

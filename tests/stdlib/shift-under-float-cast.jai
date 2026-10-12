@@ -11,6 +11,7 @@ main :: () {
     assert(sx == 11);
     n := 3;
     f := cast(float) (1 << n);
+
     assert(f == 8);
     print("ok\n");
 }

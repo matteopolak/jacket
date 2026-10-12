@@ -71,30 +71,30 @@ help: declare `area` with the value directly
    = note: `redundant_alias` is `warn` by default
 
 warning[redundant_alias]: `small` only exists to be copied into `big`
-  --> tests/lint/redundant_alias/bad.jai:38:5
+  --> tests/lint/redundant_alias/bad.jai:39:5
    |
-38 |     small: u8 = 5;
+39 |     small: u8 = 5;
    |     ^^^^^
    |
 help: declare `big` with the value directly
    |
-38 -     small: u8 = 5;
-39 -     big := small;
-38 +     big: u8 = 5;
+39 -     small: u8 = 5;
+40 -     big := small;
+39 +     big: u8 = 5;
    |
    = note: `redundant_alias` is `warn` by default
 
 warning[redundant_alias]: `doubled` only exists to be copied into `shown`
-  --> tests/lint/redundant_alias/bad.jai:45:9
+  --> tests/lint/redundant_alias/bad.jai:46:9
    |
-45 |         doubled := it * 2;
+46 |         doubled := it * 2;
    |         ^^^^^^^
    |
 help: declare `shown` with the value directly
    |
-45 -         doubled := it * 2;
-46 -         shown := doubled;
-45 +         shown := it * 2;
+46 -         doubled := it * 2;
+47 -         shown := doubled;
+46 +         shown := it * 2;
    |
    = note: `redundant_alias` is `warn` by default
 

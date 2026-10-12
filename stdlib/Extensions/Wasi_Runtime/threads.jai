@@ -39,6 +39,7 @@ green_suspend :: () #c_call {
         green.state = GREEN_RUNNING;
         return;
     }
+
     green.state = GREEN_UNWINDING;
 }
 
@@ -97,18 +98,22 @@ main_thread_entry :: (argument: *void) -> *void #c_call {
 run_threads :: () #c_call {
     main_thread := add_thread(main_thread_entry, null, heap_take(MAIN_FRAME_BYTES), MAIN_FRAME_BYTES);
     if !main_thread wasi_proc_exit(71);
+
     while true {
         thread := next_to_run();
+
         running = thread;
         green.top = thread.frames;
         green.limit = thread.frames_end;
         green.state = ifx thread.started then GREEN_REWINDING else GREEN_RUNNING;
         thread.started = true;
         result := thread.entry(thread.argument);
+
         if green.state == GREEN_UNWINDING {
             green.state = GREEN_RUNNING;
             continue;
         }
+
         thread.status = .DONE;
         thread.result = result;
         if thread != main_thread wasi_free(thread.frames);
@@ -147,30 +152,39 @@ next_to_run :: () -> *Green_Thread #c_call {
         now := monotonic_nanoseconds();
         soonest: u64 = 0;
         thread := first_thread;
+
         while thread {
             if thread.status == .BLOCKED && thread.deadline != 0 {
                 if thread.deadline <= now wake(thread, ETIMEDOUT);
                 else if soonest == 0 || thread.deadline < soonest soonest = thread.deadline;
             }
+
             thread = thread.next;
         }
+
         start := ifx running && running.next then running.next else first_thread;
+
         thread = start;
+
         while true {
             if thread.status == .RUNNABLE return thread;
             thread = ifx thread.next then thread.next else first_thread;
             if thread == start break;
         }
+
         if soonest != 0 {
             sleep_nanoseconds(soonest - now);
             continue;
         }
+
         latest: *Green_Thread;
+
         thread = first_thread;
         while thread {
             if thread.status == .BLOCKED && (!latest || thread.ticket > latest.ticket) latest = thread;
             thread = thread.next;
         }
+
         if !latest trap();
         wake(latest, EDEADLK);
         return latest;
@@ -202,10 +216,12 @@ wake :: (thread: *Green_Thread, result: s32) #c_call {
 wake_one :: (object: *void) #c_call {
     first: *Green_Thread;
     thread := first_thread;
+
     while thread {
         if thread.status == .BLOCKED && thread.waiting_for == object && (!first || thread.ticket < first.ticket) first = thread;
         thread = thread.next;
     }
+
     if first wake(first, 0);
 }
 
@@ -228,6 +244,7 @@ sleep_nanoseconds :: (total: u64) -> bool #c_call {
     if total == 0 return true;
     now := monotonic_nanoseconds();
     deadline := now + total;
+
     while true {
         subscription: Clock_Subscription;
         subscription.kind = 0; // clock
@@ -235,11 +252,13 @@ sleep_nanoseconds :: (total: u64) -> bool #c_call {
         subscription.timeout = total;
         event: Poll_Event;
         happened: u32;
+
         if wasi_poll_oneoff(offset32(*subscription), offset32(*event), 1, offset32(*happened)) != 0 return false;
         now = monotonic_nanoseconds();
         if now == 0 || now >= deadline break;
         total = deadline - now;
     }
+
     return true;
 }
 
@@ -276,9 +295,11 @@ wasi_pthread_join :: (handle: u64, result: **void) -> s32 #c_call {
     thread := cast(*Green_Thread) handle;
     if !thread return ESRCH;
     if thread == running return EDEADLK;
+
     while thread.status != .DONE {
         if block_running(thread, 0) == EDEADLK return EDEADLK;
     }
+
     if result result.* = thread.result;
     remove_thread(thread);
     return 0;
@@ -327,6 +348,7 @@ wasi_pthread_mutex_lock :: (mutex: *Green_Mutex) -> s32 #c_call {
         if !green.enabled return EDEADLK;
         if block_running(mutex, 0) == EDEADLK return EDEADLK;
     }
+
     mutex.owner = running;
     mutex.depth += 1;
     return 0;
@@ -348,6 +370,7 @@ wasi_pthread_mutex_unlock :: (mutex: *Green_Mutex) -> s32 #c_call {
         mutex.owner = null;
         wake_one(mutex);
     }
+
     return 0;
 }
 
@@ -388,10 +411,12 @@ wasi_pthread_cond_timedwait :: (condition: *void, mutex: *Green_Mutex, deadline:
     if wasi_clock_gettime(0, *now) != 0 return EINVAL;
     remaining := (deadline.seconds - now.seconds) * 1_000_000_000 + deadline.nanoseconds - now.nanoseconds;
     if remaining <= 0 return ETIMEDOUT;
+
     if !green.enabled {
         sleep_nanoseconds(cast(u64) remaining);
         return ETIMEDOUT;
     }
+
     return wait_condition(condition, mutex, monotonic_nanoseconds() + cast(u64) remaining);
 }
 
@@ -399,13 +424,16 @@ wasi_pthread_cond_timedwait :: (condition: *void, mutex: *Green_Mutex, deadline:
 wait_condition :: (condition: *void, mutex: *Green_Mutex, deadline: u64) -> s32 #c_call {
     if mutex.owner != running return EPERM;
     depth := mutex.depth;
+
     mutex.owner = null;
     mutex.depth = 0;
     wake_one(mutex);
     result := block_running(condition, deadline);
+
     while mutex.owner && mutex.owner != running {
         if block_running(mutex, 0) == EDEADLK return EDEADLK;
     }
+
     mutex.owner = running;
     mutex.depth = depth;
     return result;

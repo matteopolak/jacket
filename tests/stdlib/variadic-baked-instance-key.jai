@@ -10,6 +10,7 @@ G :: #code gamma;
 show :: ($args: ..Code) -> string #expand {
     #insert -> string {
         builder: String_Builder;
+
         append(*builder, "builder: String_Builder;\n");
         for args print_to_builder(*builder, "print_to_builder(*builder, \"%\", #insert args[%]);\n", "%", it_index);
         append(*builder, "return builder_to_string(*builder);\n");
@@ -45,6 +46,7 @@ main :: () {
     p1 :: #procedure_of_call names(s64, u8);
     p2 :: #procedure_of_call names(s64, u8);
     p3 :: #procedure_of_call names(u8, s64);
+
     assert(p1 == p2);
     assert(p1 != p3);
     print("ok\n");

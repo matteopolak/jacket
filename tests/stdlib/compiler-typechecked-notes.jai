@@ -24,12 +24,14 @@ JAI
     add_build_string(TARGET, w);
     headers: [..] *Code_Procedure_Header;
     saw_shader_body := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
         if message.kind != .TYPECHECKED continue;
         typechecked := cast(*Message_Typechecked) message;
         for typechecked.procedure_headers array_add(*headers, it.expression);
+
         for typechecked.procedure_bodies {
             body := it.expression;
             if body.header.name == "shader" {
@@ -38,9 +40,11 @@ JAI
                 decl := cast(*Code_Declaration) body.block.statements[0];
                 assert(decl.expression.type == type_info(int));
             }
+
             if body.header.name == "entry" {
                 call := cast(*Code_Procedure_Call) body.block.statements[0];
                 callee := cast(*Code_Procedure_Header) call.resolved_procedure_expression;
+
                 assert(callee.notes.count == 1 && callee.notes[0].text == "checked");
                 // The same header the earlier message reported.
                 found := false;
@@ -49,6 +53,7 @@ JAI
             }
         }
     }
+
     compiler_end_intercept(w);
     assert(saw_shader_body);
     for headers if it.name == "checked" assert(it.body_or_null != null);

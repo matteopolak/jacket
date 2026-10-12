@@ -21,6 +21,10 @@ Format_Config :: struct {
     max_width := 100; // only reported (format_count_long_lines); lines are never rewrapped
     brace_style := Brace_Style.SAME_LINE;
     blank_lines_between_items := true; // a blank line around multi-line file-level items and import groups
+    blank_line_after_declarations := false; // in code blocks: a blank line after a run of declarations
+    blank_lines_around_blocks := false; // in code blocks: a blank line before and after statements with a block body
+    blank_line_between_cases := false; // in a switch: a blank line before a `case` that follows a multi-line arm
+    blank_line_before_comments := false; // in code blocks: a blank line above a comment that follows code
     ignore: [..] string; // globs relative to `root`, for format_is_ignored
     root: string; // directory of the config file; set by whoever read it
 }

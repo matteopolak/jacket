@@ -131,6 +131,7 @@ Uniforms :: struct {
 
 main :: () {
     window: Window_Type;
+
     #if OS != .WASM {
         window = create_window(960, 600, "WebGPU raymarch");
     }
@@ -150,6 +151,7 @@ main :: () {
     format := webgpu_surface_format(surface, adapter);
 
     width, height := webgpu_window_size(window);
+
     configure(surface, device, format, width, height);
 
     wgsl: WGPUShaderSourceWGSL;
@@ -194,13 +196,17 @@ main :: () {
     paused := false;
     last := seconds_since_init();
     frames := 0;
+
     while true {
         update_window_events();
+
         for get_window_resizes() {
             width, height = webgpu_window_size(window);
             configure(surface, device, format, width, height);
         }
+
         quit := false;
+
         for events_this_frame {
             if it.type == .QUIT quit = true;
             if it.type != .KEYBOARD || !it.key_pressed continue;
@@ -208,21 +214,26 @@ main :: () {
             if it.key_code == .SPACEBAR paused = !paused;
             if it.key_code == .MOUSE_BUTTON_LEFT palette += 1;
         }
+
         if quit break;
 
         now := seconds_since_init();
         if !paused time += cast(float32) (now - last);
         last = now;
         u := Uniforms.{ time = time, aspect = cast(float32) width / cast(float32) max(height, 1), palette = palette };
+
         wgpuQueueWriteBuffer(queue, uniforms, 0, *u, size_of(Uniforms));
 
         frame: WGPUSurfaceTexture;
+
         wgpuSurfaceGetCurrentTexture(surface, *frame);
+
         if frame.status != .SuccessOptimal && frame.status != .SuccessSuboptimal {
             width, height = webgpu_window_size(window);
             configure(surface, device, format, width, height);
             continue;
         }
+
         view := wgpuTextureCreateView(frame.texture, null);
 
         color: WGPURenderPassColorAttachment;
@@ -235,12 +246,14 @@ main :: () {
 
         encoder := wgpuDeviceCreateCommandEncoder(device, null);
         pass := wgpuCommandEncoderBeginRenderPass(encoder, *pass_desc);
+
         wgpuRenderPassEncoderSetPipeline(pass, pipeline);
         wgpuRenderPassEncoderSetBindGroup(pass, 0, bind_group, 0, null);
         wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
         wgpuRenderPassEncoderEnd(pass);
         wgpuRenderPassEncoderRelease(pass);
         commands := wgpuCommandEncoderFinish(encoder, null);
+
         wgpuQueueSubmit(queue, 1, *commands);
         wgpuCommandBufferRelease(commands);
         wgpuCommandEncoderRelease(encoder);
@@ -250,6 +263,7 @@ main :: () {
         wgpuTextureRelease(frame.texture);
         frames += 1;
     }
+
     print("Done after % frames\n", frames);
 }
 

@@ -18,6 +18,7 @@ reset :: (n: *int) {
 
 main :: () {
     entries: [..] Entry;
+
     array_add(*entries, .{ key = "a" });
     array_add(*entries, .{ key = "b" });
 

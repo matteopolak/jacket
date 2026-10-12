@@ -8,8 +8,10 @@
 #run {
     code :: #code value :: 42;
     root, expressions := compiler_get_nodes(code);
+
     print("nodes % %\n", expressions.count, code_to_string(compiler_get_code(root)));
     rendered := code_to_string(compiler_get_code(root));
+
     assert(rendered == "value :: 42", "rendered: %", rendered);
 }
 

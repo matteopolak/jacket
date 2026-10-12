@@ -45,6 +45,7 @@ make_recorder :: (source: string, with_init: bool) -> *Recorder {
     r.before_intercept = (p: *Metaprogram_Plugin, flags: *Intercept_Flags) {
         record(p, "before_intercept");
     };
+
     r.add_source = (p: *Metaprogram_Plugin) {
         record(p, "add_source");
         options := get_build_options(p.workspace);
@@ -52,17 +53,20 @@ make_recorder :: (source: string, with_init: bool) -> *Recorder {
         set_build_options(options, p.workspace);
         add_build_string((cast(*Recorder) p).source, p.workspace);
     };
+
     r.message = (p: *Metaprogram_Plugin, message: *Message) {
         r := cast(*Recorder) p;
         r.messages += 1;
         if message.kind == .COMPLETE r.completed = true;
     };
+
     r.finish = (p: *Metaprogram_Plugin) {
         record(p, "finish");
     };
     r.shutdown = (p: *Metaprogram_Plugin) {
         record(p, "shutdown");
     };
+
     if with_init {
         r.init = (p: *Metaprogram_Plugin, options: [] string) -> bool {
             record(p, "init");
@@ -77,17 +81,20 @@ make_recorder :: (source: string, with_init: bool) -> *Recorder {
             return cursor + 2;
         };
     }
+
     return r;
 }
 
 argument_splitting :: () {
     args := string.["first.jai", "-plug", "Check", "-x", "+plug", "Iprof", "-release"];
     ok, plugins, remaining := parse_plugin_arguments(args);
+
     assert(ok && plugins.count == 2 && plugins[0].name == "Check" && plugins[1].name == "Iprof", "plugins: %", plugins);
     assert(remaining.count == 3 && remaining[0] == "first.jai" && remaining[1] == "-x" && remaining[2] == "-release", "remaining: %", remaining);
     ok, plugins, remaining = parse_plugin_arguments(.[]);
     assert(ok && plugins.count == 0 && remaining.count == 0);
     results: [..] *Metaprogram_Plugin;
+
     assert(init_plugins(Plugin_To_Create.[], *results, get_current_workspace()), "no plugins to create is fine");
 }
 
@@ -98,8 +105,10 @@ hooks_in_order :: () {
     stepwise := make_recorder("", false);
     plugins := (*Metaprogram_Plugin).[*with_init.base, *stepwise.base];
     options := string.["-level", "3", "-mode", "fast"];
+
     assert(build_with_plugins(file, plugins, options), "the plugin build succeeds");
     expected := string.["before_intercept", "add_source", "finish", "shutdown"];
+
     assert(stepwise.calls.count == expected.count, "stepwise calls: %", stepwise.calls);
     for expected assert(stepwise.calls[it_index] == it, "hook % was %", it_index, stepwise.calls[it_index]);
     assert(with_init.calls.count == 5 && with_init.calls[0] == "init", "init comes first: %", with_init.calls);
@@ -113,11 +122,13 @@ check_plugin :: () {
     file := tprint("%modules/Rules_Single.jai", path_strip_filename(#file));
     // A clean program passes the format check; the C-porting check only warns.
     checker := make_recorder(GOOD_SOURCE, true);
+
     checker.message = (p: *Metaprogram_Plugin, message: *Message) {
         Check.do_error_checking(p, message);
         settings: Check.C_Porting_Check_Settings;
         Check.check_c_porting(message, settings);
     };
+
     assert(build_with_plugins(file, (*Metaprogram_Plugin).[*checker.base], .[]), "a correct program passes Check");
     Check.finish_error_checking();
 

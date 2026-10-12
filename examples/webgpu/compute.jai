@@ -27,8 +27,10 @@ main :: () {
         print("This browser has no WebGPU.\n");
         return;
     }
+
     instance := wgpuCreateInstance(null);
     adapter := webgpu_request_adapter(instance);
+
     if !adapter exit(1);
     device := webgpu_request_device(instance, adapter);
     if !device exit(1);
@@ -50,6 +52,7 @@ main :: () {
     buffer_desc.size = SIZE;
     buffer_desc.usage = .Storage | .CopySrc;
     storage := wgpuDeviceCreateBuffer(device, *buffer_desc);
+
     buffer_desc.usage = .MapRead | .CopyDst;
     readback := wgpuDeviceCreateBuffer(device, *buffer_desc);
 
@@ -65,6 +68,7 @@ main :: () {
 
     encoder := wgpuDeviceCreateCommandEncoder(device, null);
     pass := wgpuCommandEncoderBeginComputePass(encoder, null);
+
     wgpuComputePassEncoderSetPipeline(pass, pipeline);
     wgpuComputePassEncoderSetBindGroup(pass, 0, bind_group, 0, null);
     wgpuComputePassEncoderDispatchWorkgroups(pass, (COUNT + 63) / 64, 1, 1);
@@ -72,12 +76,14 @@ main :: () {
     wgpuComputePassEncoderRelease(pass);
     wgpuCommandEncoderCopyBufferToBuffer(encoder, storage, 0, readback, 0, SIZE);
     commands := wgpuCommandEncoderFinish(encoder, null);
+
     wgpuQueueSubmit(queue, 1, *commands);
 
     // Waits for the GPU (and, in the browser, for the page) until the copy can be read.
     if !webgpu_map_buffer(instance, readback, .Read) exit(1);
     steps := cast(*u32) wgpuBufferGetConstMappedRange(readback, 0, SIZE);
     longest := 0;
+
     for 1..COUNT - 1 if steps[it] > steps[longest] longest = it;
     print("Below %, % takes the most Collatz steps: %.\n", COUNT + 1, longest + 1, steps[longest]);
     print("27 takes %.\n", steps[26]);

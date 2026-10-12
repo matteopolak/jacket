@@ -16,6 +16,7 @@ layout_cases :: () -> bool {
 
     // cut_top takes the highest-y slice; the remainder keeps the original bottom.
     top, rest := G.cut_top(r, 15, 5);
+
     if !near(top.y, 65) || !near(top.h, 15) || !near(top.x, 10) || !near(top.w, 100) return false;
     if !near(rest.y, 20) || !near(rest.h, 40) return false;
 
@@ -30,6 +31,7 @@ layout_cases :: () -> bool {
 
     left, right_rest := G.cut_left(r, 30, 0);
     right, left_rest := G.cut_right(r, 30, 0);
+
     if !near(left.x, 10) || !near(right_rest.x, 40) || !near(right.x, 80) || !near(left_rest.w, 70) return false;
 
     // y-up containment: the top edge (y+h) is exclusive, the bottom edge (y) inclusive.

@@ -28,6 +28,7 @@ JAI
     add_build_string(PROGRAM, w);
     added := false;
     failed := false;
+
     while true {
         msg := compiler_wait_for_message();
         if msg.kind == .PHASE && !added {
@@ -37,11 +38,13 @@ JAI
                 added = true;
             }
         }
+
         if msg.kind == .COMPLETE {
             failed = (cast(*Message_Complete) msg).error_code != .NONE;
             break;
         }
     }
+
     compiler_end_intercept(w);
     assert(added && !failed);
 }

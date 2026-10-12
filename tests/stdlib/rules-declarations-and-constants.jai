@@ -51,6 +51,7 @@ main :: () {
     // decl.1: block constants are visible before their declaration.
     early_use := HOISTED + 1;
     HOISTED :: 9;
+
     assert(early_use == 10, "hoisted block constant");
     assert(EARLY == 42, "file-level order independence");
 
@@ -66,6 +67,7 @@ main :: () {
     // decl.4: local types, constants and procedures refer to each other regardless of order.
     Count :: Later + 1;
     Later :: 2;
+
     Local :: struct {
         values: [Count] int;
     }
@@ -75,12 +77,15 @@ main :: () {
     helper :: () -> int {
         return 10;
     }
+
     l: Local;
+
     assert(l.values.count == 3, "local struct uses a later constant");
     assert(local_total() == 13, "local procedure calls a later one");
 
     // decl.5: struct constants and procedures are namespace members.
     r: Rec;
+
     assert(Rec.Count == 2 && Rec.LIM == 3, "struct constants");
     assert(Rec.read(r) == 27, "struct procedure");
 
@@ -88,11 +93,13 @@ main :: () {
     // `members` too, in declaration order, flagged CONSTANT, their values in constant_storage.
     assert(Rec.TRUE == 1, "constant member");
     info := type_info(Rec);
+
     assert(info.members.count == 6, "four constants, then v and w");
     fields := 0;
     for info.members if !(it.flags & .CONSTANT) fields += 1;
     assert(fields == 2, "only v and w are fields");
     true_member := info.members[0];
+
     assert(true_member.name == "TRUE" && true_member.type == type_info(s32), "TRUE is listed first");
     assert((cast(*s32) (info.constant_storage.data + true_member.offset_into_constant_storage)).* == 1, "its value");
     assert(info.members[3].name == "read" && info.members[3].type.type == .PROCEDURE, "procedures are listed");
@@ -106,6 +113,7 @@ main :: () {
 
     // decl.8: several declarations at once.
     a, b := 1, 2.5;
+
     #assert type_of(a) == int;
     #assert type_of(b) == float;
     assert(a == 1 && b == 2.5, "multi-declaration");
@@ -115,34 +123,42 @@ main :: () {
 
     // decl.11: nested procedures see enclosing constants, types and globals.
     LOCAL_CONST :: 4;
+
     Inner :: struct {
         n: int;
     }
+
     nested :: () -> int {
         i: Inner;
         i.n = LOCAL_CONST;
         return i.n + OUTER_CONST + outer_global;
     }
+
     assert(nested() == 20, "nested procedure");
 
     // decl.15: `a, b :: f();` binds every value.
     N, S :: pair();
+
     assert(N == 3 && S == "three", "multi-value constant");
 
     // decl.16: fewer names than values take the leading values.
     P, Q :: triple();
+
     assert(P == 1 && Q == 2, "leading values");
 
     // decl.17: `#run f()` keeps all values.
     // (The variable form `x, y, z := #run triple();` is pending: jaic repeats the first value.)
     X, Y, Z :: #run triple();
+
     assert(X == 1 && Y == 2 && Z == 3, "#run keeps every value");
 
     // decl.21: listed values go to the names in order.
     A, B: int : 1, 2;
+
     C, D :: "c", () -> int {
         return 4;
     };
+
     assert(A == 1 && B == 2 && C == "c" && D() == 4, "listed constants");
 
     // decl.18: both #assert forms run at compile time (the file-level ones above held).
@@ -151,6 +167,7 @@ main :: () {
 
     // decl.20: notes after a field.
     member := type_info(Rec).members[4];
+
     assert(member.name == "v" && member.notes.count == 1 && member.notes[0] == "Hidden", "field note");
 
     print("ok\n");

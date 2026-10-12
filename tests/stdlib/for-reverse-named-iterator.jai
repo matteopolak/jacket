@@ -8,6 +8,7 @@ Bag :: struct {
 
 backwards_aware :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
     reverse := flags & .REVERSE;
+
     for i: 0..2 {
         index := ifx reverse then 2 - i else i;
         `it := bag.values[index];
@@ -19,10 +20,12 @@ backwards_aware :: (bag: *Bag, body: Code, flags: For_Flags) #expand {
 main :: () {
     bag: Bag;
     seen: [..] int;
+
     for <: backwards_aware v : *bag array_add(*seen, v);
     assert(seen.count == 3 && seen[0] == 3 && seen[2] == 1);
 
     seen.count = 0;
     for: backwards_aware v : *bag array_add(*seen, v);
+
     assert(seen[0] == 1 && seen[2] == 3);
 }

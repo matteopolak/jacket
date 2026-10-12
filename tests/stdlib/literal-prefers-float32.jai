@@ -21,6 +21,7 @@ pick :: (x: float64) -> int {
 main :: () {
     a := lg(2);
     b := lg(2.5);
+
     if type_of(a) != float32 || type_of(b) != float32 exit(1);
     if pick(3) != 1 exit(2);
     print("ok\n");

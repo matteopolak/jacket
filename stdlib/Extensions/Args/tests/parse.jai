@@ -51,6 +51,7 @@ cli_fails :: (kind: Args.Error_Kind, message: string, args: ..string) -> Args.Er
 
 test_defaults_and_syntax :: () {
     cli, set := cli_ok();
+
     expect(!cli.check && cli.jobs == 4 && cli.color == .AUTO && cli.config == "" && cli.verbose == 0 && cli.paths.count == 0, "defaults");
     expect(!set.check && !set.jobs && !set.color && !set.config && !set.verbose && !set.paths, "nothing is set by default");
 
@@ -65,6 +66,7 @@ test_defaults_and_syntax :: () {
         cli, set = cli_ok(form);
         expect(cli.jobs == 8 && set.jobs, tprint("jobs form %", form));
     }
+
     cli, set = cli_ok("--jobs", "9");
     expect(cli.jobs == 9, "--jobs 9");
     cli, set = cli_ok("-j", "10");
@@ -104,6 +106,7 @@ test_defaults_and_syntax :: () {
 
 test_env :: () {
     cli, error, set := Args.try_parse(Cli, HELP, with_program("jaifmt", .[]), .["JAIFMT_JOBS=12"]);
+
     expect(error.kind == .NONE && cli.jobs == 12 && set.jobs, "@env fills an option that was not given");
     cli, error, set = Args.try_parse(Cli, HELP, with_program("jaifmt", .["-j", "3"]), .["JAIFMT_JOBS=12"]);
     expect(error.kind == .NONE && cli.jobs == 3, "the command line beats @env");
@@ -117,11 +120,13 @@ test_env :: () {
     expect(cli.jobs == 5, "@env matches whole names");
 
     tool, tool_error, tool_set := Args.try_parse(Tool, TOOL_HELP, with_program("tool", .["build"]), .["BUILD_TARGET=wasm"]);
+
     expect(tool_error.kind == .NONE && tool.build.target == "wasm" && tool_set.build.target, "@env inside a subcommand");
 }
 
 test_errors :: () {
     error := cli_fails(.UNKNOWN_OPTION, "unknown option `--chek`", "--chek");
+
     expect(error.suggestion == "--check" && error.option == "--chek", "typo suggestion");
     expect(error.usage == "jaifmt [OPTIONS] [PATHS]..." && error.command == "jaifmt", "usage line and command");
     error = cli_fails(.UNKNOWN_OPTION, "unknown option `--zzzzzz`", "--zzzzzz");
@@ -176,6 +181,7 @@ test_kinds :: () {
     }
 
     kinds, error, set := parse();
+
     expect(error.kind == .NONE && !kinds.flag && kinds.on_by_default && kinds.signed == -5 && kinds.ratio == 0.5, "Kinds defaults");
 
     kinds, error, set = parse("--flag", "--no-on-by-default", "--small", "200", "--wide=-9000000000", "--signed", "-300", "--ratio", "2.25", "--single=3.5", "--name", "héllo wörld", "--color=never");
@@ -222,7 +228,9 @@ test_relations :: () {
     parse :: (args: ..string) -> Relations, Args.Error, Args.Is_Set(Relations) {
         return Args.try_parse(Relations, RELATIONS_HELP, with_program("rel", args));
     }
+
     r, error, set := parse("--mode", "m", "-i", "f");
+
     expect(error.kind == .NONE && r.input == "f" && r.mode == "m", "ok");
     r, error, set = parse("-i", "f");
     expect(error.kind == .MISSING_REQUIRED && error.message == "the option `--mode` is required" && error.option == "--mode", tprint("%", error.message));
@@ -240,7 +248,9 @@ test_positionals :: () {
     parse :: (args: ..string) -> Copy, Args.Error, Args.Is_Set(Copy) {
         return Args.try_parse(Copy, COPY_HELP, with_program("cp", args));
     }
+
     c, error, set := parse("a", "b");
+
     expect(error.kind == .NONE && c.source == "a" && c.target == "b" && c.extra.count == 0 && set.source && set.target && !set.extra, "two positionals");
     c, error, set = parse("a", "b", "c", "d", "-f");
     expect(error.kind == .NONE && c.force && same_strings(c.extra, .["c", "d"]), "the last positional collects the rest");
@@ -256,7 +266,9 @@ test_positionals :: () {
     Few :: struct {
         one: string; @positional
     }
+
     _, few_error := Args.try_parse(Few, Args.Help(Few).{ one = "x" }, string.["few", "a", "b"]);
+
     expect(few_error.kind == .UNEXPECTED_ARGUMENT && few_error.message == "unexpected argument `b`", tprint("%", few_error.message));
 }
 
@@ -264,7 +276,9 @@ test_subcommands :: () {
     parse :: (args: ..string) -> Tool, Args.Error, Args.Is_Set(Tool) {
         return Args.try_parse(Tool, TOOL_HELP, with_program("tool", args));
     }
+
     t, error, set := parse("build", "-r", "--target", "x", "a", "b");
+
     expect(error.kind == .NONE && t.command == .BUILD && t.build.release && t.build.target == "x", "build");
     expect(same_strings(t.build.files, .["a", "b"]) && set.command && set.build.release && set.build.target && set.build.files, "build is_set");
     expect(!set.run.program, "the other subcommand stays unset");
@@ -300,6 +314,7 @@ test_subcommands :: () {
     expect(error.kind == .VERSION && error.text == "tool 0.1.0\n", "root version");
 
     o, o_error, o_set := Args.try_parse(Optional_Tool, OPTIONAL_HELP, string.["opt"]);
+
     expect(o_error.kind == .NONE && !o_set.command, "an @optional selector may be left out");
     o, o_error, o_set = Args.try_parse(Optional_Tool, OPTIONAL_HELP, string.["opt", "-n", "init", "here"]);
     expect(o_error.kind == .NONE && o.dry_run && o.command == .INIT && o.init.path == "here" && o_set.command && o_set.init.path, "optional selector with a subcommand");
@@ -311,7 +326,9 @@ test_shell_option :: () {
     Completer :: struct {
         completions: Args.Shell;
     }
+
     c, error, set := Args.try_parse(Completer, Args.Help(Completer).{ completions = "Print a completion script" }, string.["x", "--completions", "powershell"]);
+
     expect(error.kind == .NONE && c.completions == .POWERSHELL && set.completions, "Args.Shell works as an option type");
 }
 
@@ -324,9 +341,11 @@ main :: () {
     test_relations();
     test_positionals();
     test_subcommands();
+
     if failures {
         print("% failures\n", failures);
         exit(1);
     }
+
     print("ok\n");
 }

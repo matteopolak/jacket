@@ -21,8 +21,10 @@ Unused_Enum :: enum {
 
 #run {
     table := get_type_table();
+
     assert(table.count > 0);
     found_unused, found_enum := false, false;
+
     for table {
         if it.type == .STRUCT {
             info := cast(*Type_Info_Struct) it;
@@ -31,6 +33,7 @@ Unused_Enum :: enum {
                 assert(info.members.count == 2 && info.members[0].name == "c" && info.members[1].name == "d");
             }
         }
+
         if it.type == .ENUM {
             info := cast(*Type_Info_Enum) it;
             if info.name == "Unused_Enum" {
@@ -39,6 +42,7 @@ Unused_Enum :: enum {
             }
         }
     }
+
     assert(found_unused && found_enum);
 
     // Another workspace's table, between its compiler messages.
@@ -49,27 +53,33 @@ Unused_Enum :: enum {
     compiler_begin_intercept(w);
     add_build_string("Other_Struct :: struct { x: int; } main :: () {}", w);
     seen := false;
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE {
             for get_type_table(w) {
                 if it.type == .STRUCT && (cast(*Type_Info_Struct) it).name == "Other_Struct" seen = true;
             }
+
             break;
         }
     }
+
     compiler_end_intercept(w);
     assert(seen);
 }
 
 main :: () {
     x: Used;
+
     print("%\n", x);
+
     // The running program's table has what the program reaches, not every declaration.
     for get_type_table() {
         if it.type == .STRUCT {
             assert((cast(*Type_Info_Struct) it).name != "Unused_Never_Reached");
         }
     }
+
     print("ok\n");
 }

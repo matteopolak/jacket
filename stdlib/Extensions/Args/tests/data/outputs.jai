@@ -16,15 +16,18 @@ Named_Text :: struct {
 // What `tool <args>` answers with: the help page of the command it ends at.
 tool_help_page :: (args: ..string) -> string {
     argv: [..] string;
+
     array_add(*argv, "tool");
     for args array_add(*argv, it);
     _, error := Args.try_parse(Tool, TOOL_HELP, argv);
+
     return error.text;
 }
 
 help_outputs :: () -> [] Named_Text {
     Args.set_color_mode(.NEVER); // --help pages in tests must not depend on the terminal
     list: [..] Named_Text;
+
     array_add(*list, .{ "CLI_HELP", Args.help_text(Cli, HELP, "jaifmt") });
     array_add(*list, .{ "CLI_HELP_COLOR", visible(Args.help_text(Cli, HELP, "jaifmt", color = true)) });
     array_add(*list, .{ "KINDS_HELP_TEXT", Args.help_text(Kinds, KINDS_HELP, "kinds") });
@@ -38,6 +41,7 @@ help_outputs :: () -> [] Named_Text {
 
 completion_outputs :: () -> [] Named_Text {
     list: [..] Named_Text;
+
     array_add(*list, .{ "CLI_BASH", Args.completions(Cli, HELP, .BASH, "jaifmt") });
     array_add(*list, .{ "CLI_ZSH", Args.completions(Cli, HELP, .ZSH, "jaifmt") });
     array_add(*list, .{ "CLI_FISH", Args.completions(Cli, HELP, .FISH, "jaifmt") });

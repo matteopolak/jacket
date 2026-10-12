@@ -24,9 +24,11 @@ twice :: ($$n: int) -> int #modify {
 
 main :: () {
     w := widen(5);
+
     assert(type_of(w) == float64 && w == 5.0);
     assert(positive(3) == 3);
     v := 3;
+
     assert(twice(4) == 8);
     assert(twice(v) == 6);
     print("ok\n");

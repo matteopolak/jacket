@@ -21,17 +21,21 @@ main :: () {
 
     // `value.(T, trunc)` takes cast flags after the type.
     big: s64 = 0x1_0000_0005;
+
     assert(big.(u32, trunc) == 5);
 
     // `E.loose` converts to `E`.
     loose: Op.loose = .MINUS;
+
     assert(strict(loose) == 1);
 
     // `xx a == b` casts to the other operand's type.
     err: s32 = 0;
+
     assert(xx err == false); // jailint: allow(bool_comparison) the comparison is what is tested
 
     // Matrices list their elements first: positional literals fill _11, _12, ...
     m := Matrix2.{ 1, 2, 3, 4 };
+
     assert(m._12 == 2 && m._21 == 3 && m.v[1].y == 4 && m.floats[0] == 1);
 }

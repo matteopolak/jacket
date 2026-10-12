@@ -32,6 +32,7 @@ OBJC;
 generate :: (cpu: type_of(Generate_Bindings_Options.cpu)) -> string {
     #if OS == .MACOS {
         dir := scratch_directory("bindgen-objc-stret");
+
         defer delete_directory(dir);
         header_path := tprint("%/maker.h", dir);
         if !write_entire_file(header_path, HEADER) return "";
@@ -59,12 +60,14 @@ HAVE_OBJC :: X64.count > 0 && ARM64.count > 0;
 count_of :: (text: string, needle: string) -> s64 {
     n := 0;
     rest := text;
+
     while true {
         i := find_index_from_left(rest, needle);
         if i < 0 break;
         n += 1;
         rest = slice(rest, i + needle.count, rest.count - i - needle.count);
     }
+
     return n;
 }
 

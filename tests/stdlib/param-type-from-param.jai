@@ -16,6 +16,7 @@ init_plain :: (cache: *Cache(int), proc: cache.Proc) {
 
 main :: () {
     c: Cache(int);
+
     init(*c, (x: *int) -> int {
         return x.* + 1;
     });

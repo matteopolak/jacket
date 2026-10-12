@@ -27,5 +27,6 @@ main :: () {
     // The other operand is wide enough.
     w: s64 = 1;
     fine := (0xffff_ffff - 40) / w;
+
     print("% % % % % % % % % % % % %\n", under, minus_one, a, low, all_ones, cleared, wide, big, narrow, as_s32, named, folded, fine);
 }

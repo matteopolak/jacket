@@ -8,9 +8,11 @@ Point :: struct {
 
 sum :: (xs: [] int) -> int {
     total := 0;
+
     for i: 0..xs.count - 1 {
         total += xs[i];
     }
+
     return total;
 }
 
@@ -23,6 +25,7 @@ list :: (names: [] string) {
         if i > 0 print(", ");
         print("%", names[i]);
     }
+
     print("\n");
 }
 
@@ -68,6 +71,7 @@ find :: (str: string, to_find: string) -> int {
             if str[i] == to_find[j] return i;
         }
     }
+
     return -1;
 }
 
@@ -84,17 +88,20 @@ main :: () {
     print("%\n", find("hello", "lo"));
     cross(.[1, 2], .[3, 4]);
     s := copy_string("abc");
+
     shout(s);
     print("%\n", bytes(s));
     shift(s);
     dump(.{ s });
     xs := int.[1, 2, 3];
     points: [2] Point;
+
     bump(points);
     list(.["a", "b"]);
     print("% %\n", sum(xs), points[0].x);
     tour();
     t: [4] float;
+
     fill(t);
 }
 

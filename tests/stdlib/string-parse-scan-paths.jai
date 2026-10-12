@@ -12,6 +12,7 @@ main :: () {
     // parse_token splits on spaces and treats each delimiter as a token of its own.
     line := "  name = (value);";
     token, ok := parse_token(*line);
+
     assert(ok && token == "name" && line == " = (value);", "parse_token 1: '%' '%'", token, line);
     token, ok = parse_token(*line);
     assert(ok && token == "=");
@@ -24,9 +25,11 @@ main :: () {
     token, ok = parse_token(*line);
     assert(ok && token == ";" && line == "");
     blank := "   \t ";
+
     token, ok = parse_token(*blank);
     assert(!ok && blank == "   \t ", "a failed parse_token restores the line: '%'", blank);
     custom := "a|b c";
+
     token, ok = parse_token(*custom, delimiters = "|", spaces = "");
     assert(ok && token == "a");
     token, ok = parse_token(*custom, delimiters = "|", spaces = "");
@@ -36,6 +39,7 @@ main :: () {
 
     // match_token consumes the next token whether or not it matched.
     words := "begin END rest";
+
     token, ok = match_token(*words, "begin");
     assert(ok && token == "begin");
     token, ok = match_token(*words, "end");
@@ -49,6 +53,7 @@ main :: () {
     // parse_bool accepts true/false in any letter case.
     flags := "TRUE false True maybe";
     b, bok := parse_bool(*flags);
+
     assert(bok && b);
     b, bok = parse_bool(*flags);
     assert(bok && !b);
@@ -60,6 +65,7 @@ main :: () {
     // parse_enum resolves member names, including in a non-s64 enum.
     fruits := "FIG PEAR plum";
     fruit, fok := parse_enum(*fruits, Fruit);
+
     assert(fok && fruit == .FIG && cast(u8) fruit == 200);
     fruit, fok = parse_enum(*fruits, Fruit);
     assert(fok && fruit == .PEAR);
@@ -69,10 +75,12 @@ main :: () {
     // parse_float and parse_int.
     numbers := "1.5 -2.25e2 7 -9223372036854775808 9223372036854775808 x";
     value, vok := parse_float(*numbers);
+
     assert(vok && value == 1.5);
     value, vok = parse_float(*numbers);
     assert(vok && value == -225, "parse_float exponent: %", value);
     integer, iok := parse_int(*numbers);
+
     assert(iok && integer == 7);
     integer, iok = parse_int(*numbers);
     assert(iok && integer == -9223372036854775808, "s64 minimum: %", integer);
@@ -81,24 +89,28 @@ main :: () {
     integer, iok = parse_int(*numbers);
     assert(!iok, "not a number");
     empty := "";
+
     integer, iok = parse_int(*empty);
     assert(!iok && integer == 0);
 
     // parse_int range-checks the requested type instead of truncating.
     bytes := "255 256 -1 -128 -129";
     byte, bok2 := parse_int(*bytes, u8);
+
     assert(bok2 && byte == 255);
     byte, bok2 = parse_int(*bytes, u8);
     assert(!bok2, "256 does not fit in u8 (got %)", byte);
     byte, bok2 = parse_int(*bytes, u8);
     assert(!bok2, "-1 does not fit in u8 (got %)", byte);
     small, sok := parse_int(*bytes, s8);
+
     assert(sok && small == -128);
     small, sok = parse_int(*bytes, s8);
     assert(!sok, "-129 does not fit in s8 (got %)", small);
 
     // scan: every conversion, literal percent signs, and the failure cases.
     matched, values := scan("%d%%, %i, %f, %b, %s", "-12%, 99, -0.5, false, \"two words\"");
+
     assert(matched && values.count == 5, "scan: % %", matched, values.count);
     assert((cast(*int) values[0].value_pointer).* == -12);
     assert((cast(*int) values[1].value_pointer).* == 99);
@@ -137,6 +149,7 @@ main :: () {
 
     // path_decomp and the other path helpers accept both separators.
     path, base, extension, full := path_decomp("dir/sub/name.tar.gz");
+
     assert(path == "dir/sub/" && base == "name.tar" && extension == "gz" && full == "name.tar.gz", "decomp 1: % % % %", path, base, extension, full);
     path, base, extension, full = path_decomp("C:\\x\\y.txt");
     assert(path == "C:\\x\\" && base == "y" && extension == "txt" && full == "y.txt");
@@ -157,6 +170,7 @@ main :: () {
 
     assert(path_filename("a/b/c.txt") == "c.txt" && path_filename("a\\b") == "b" && path_filename("a/") == "" && path_filename("x") == "x");
     ext, has_ext := path_extension("archive.tar.gz");
+
     assert(has_ext && ext == "gz");
     ext, has_ext = path_extension("a.b/c");
     assert(!has_ext && ext == "");
@@ -170,6 +184,7 @@ main :: () {
     assert(path_ensure_extension("note", "md") == "note.md" && path_ensure_extension("note.md", "md") == "note.md");
 
     separators := copy_string("a/b\\c/d");
+
     path_overwrite_separators(separators, #char "/");
     assert(separators == "a/b/c/d");
     path_overwrite_separators(separators, #char "\\");

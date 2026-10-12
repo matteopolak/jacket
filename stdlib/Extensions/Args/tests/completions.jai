@@ -35,6 +35,7 @@ golden :: (name: string) -> string {
         case "TOOL_FISH"; return TOOL_FISH;
         case "TOOL_POWERSHELL"; return TOOL_POWERSHELL;
     }
+
     return "";
 }
 
@@ -55,11 +56,14 @@ main :: () {
     shells := Args.Shell.[.BASH, .ZSH, .FISH, .POWERSHELL];
     for shell: shells {
         script := Args.completions(Tool, TOOL_HELP, shell, "tool");
+
         for string.["verbose", "config", "quiet", "release", "target", "build", "run", "remote-add"] {
             expect(contains(script, it), tprint("% completions mention %", shell, it));
         }
+
         expect(!contains(script, "secret"), "no hidden options");
         script = Args.completions(Cli, HELP, shell, "jaifmt");
+
         for string.["check", "jobs", "color", "config", "verbose", "always", "never", "auto"] {
             expect(contains(script, it), tprint("% completions mention %", shell, it));
         }
@@ -67,11 +71,13 @@ main :: () {
 
     // A hidden option is left out.
     script := Args.completions(Kinds, KINDS_HELP, .FISH, "kinds");
+
     expect(!contains(script, "secret") && contains(script, "-l lvl") && contains(script, "-l output-dir"), "hidden options are not completed; renamed ones use their new name");
 
     if failures {
         print("% failures\n", failures);
         exit(1);
     }
+
     print("ok\n");
 }

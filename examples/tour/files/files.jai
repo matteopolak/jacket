@@ -16,12 +16,15 @@ tour_files :: () {
         longest_name: string;
         longest_lines: int;
     }
+
     census: Census;
+
     visit_files(tour_folder, true, *census, (info: *File_Visit_Info, census: *Census) {
         if !ends_with(info.short_name, ".jai") return;
         text, ok := read_entire_file(info.full_name);
         if !ok return;
         lines := count_lines(text);
+
         census.files += 1;
         census.lines += lines;
         if lines > census.longest_lines {
@@ -36,20 +39,24 @@ tour_files :: () {
     guide, found := read_entire_file(tprint("%/tour.md", tour_folder));
     if found {
         print("tour.md's headings:");
+
         for line: split(guide, "\n") {
             if begins_with(line, "#") print(" \"%\"", trim_left(line, "# "));
         }
+
         print("\n");
     }
 
     // Write a file a line at a time, read it back, then delete it.
     path := "/tmp/jai-tour-log.txt";
     file, opened := file_open(path, for_writing = true);
+
     if !opened return;
     for 1..3 file_write(*file, tprint("entry %: % squared is %\n", it, it, it * it));
     file_close(*file);
 
     log_text := read_entire_file(path);
+
     print("Read back % bytes from %:\n%", log_text.count, path, log_text);
     free(log_text);
     file_delete(path);

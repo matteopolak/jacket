@@ -13,6 +13,7 @@ Color :: enum {
 main :: () -> int {
     a, b: int;
     f: float;
+
     if !scan2("(1 2)", "(% %)", *a, *b) || a != 1 || b != 2 return 1;
     if !scan2("x=3.25;", "x=%;", *f) || f != 3.25 return 2;
     if !scan2("%5", "%%%", *a) || a != 5 return 3;
@@ -23,16 +24,19 @@ main :: () -> int {
 
     if path_strip_extension("a/b.c") != "a/b" || path_strip_extension("x.tar.gz") != "x.tar" return 10;
     if path_strip_extension("a.b/c") != "a.b/c" || path_strip_extension(".hidden") != ".hidden" return 11;
+
     #if OS != .WINDOWS {
         if !is_absolute_path("/abs") || is_absolute_path("rel") || is_absolute_path("") return 12;
     }
 
     text := copy_string("a\r\nb\r\r\nc\r");
+
     normalize_line_endings(*text);
     if text != "a\nb\r\nc\r" return 13;
 
     line := " GREEN purple 3.5 x 42";
     color, ok := parse_enum(*line, Color);
+
     if !ok || color != .GREEN return 20;
     color, ok = parse_enum(*line, Color);
     if ok || color != .RED return 21;

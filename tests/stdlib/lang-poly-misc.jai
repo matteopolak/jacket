@@ -59,6 +59,7 @@ sum_widened :: (a: [] $T) -> $R #modify {
             else R = u32;
         }
     }
+
     return true;
 } {
     result: R = 0;
@@ -125,6 +126,7 @@ main :: () -> int {
 
     small: s8 = 3;
     w := widen(small);
+
     if type_of(w) != s64 return 9;
     bytes := u8.[200, 100];
     if sum_widened(bytes) != 300 || type_of(sum_widened(bytes)) != u32 return 10;
@@ -147,8 +149,10 @@ main :: () -> int {
 
     // Constants declared later in a block are visible earlier.
     if later(3) != 6 return 16;
+
     later :: (n: int) -> int {
         return n * 2;
     }
+
     return 0;
 }

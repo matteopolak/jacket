@@ -5,6 +5,7 @@
 main :: () -> s64 {
     v3 := Vector3.{ 1, 2, 3 };
     m2 := Matrix2.{ _11 = 1, _12 = 2, _21 = 3, _22 = 4 };
+
     if tprint("%", v3) == "(1, 2, 3)" return 1;
 
     context.print_style.struct_printer = math_struct_printer;
@@ -19,6 +20,7 @@ main :: () -> s64 {
     #assert Matrix2.IsMatrixFromMathModule;
     c := Complex.{ 0, 1 };
     squared := c * c;
+
     if squared.x != -1 || squared.y != 0 return 8;
     #assert size_of(type_of(PI)) == 4 && size_of(type_of(PI64)) == 8;
     return 0;

@@ -54,25 +54,31 @@ find_last_any :: no_inline (text: string, a: u8, b: u8, c: u8, end := -1) -> int
 count :: no_inline (text: string, byte: u8) -> int {
     total := 0;
     i := 0;
+
     if text.count >= LANES {
         a := byte;
+
         // Matching lanes are 0xFF, which is -1 as a u8: subtracting the mask adds one per match.
         // A u8 lane holds up to 255 of them, so the sums are emptied every 255 chunks.
         while i + LANES <= text.count {
             sums := splat(Bytes, 0);
             rounds := min(255, (text.count - i) / LANES);
+
             for 1..rounds {
                 chunk := load(Bytes, text.data + i);
                 sums = sums - bitcast(Bytes, eq(chunk, a));
                 i += LANES;
             }
+
             total += sum_lanes(sums);
         }
     }
+
     while i < text.count {
         if text[i] == byte total += 1;
         i += 1;
     }
+
     return total;
 }
 
@@ -92,8 +98,10 @@ make_byte_set :: (bytes: [] u8) -> Byte_Set {
     // bucket of its high nibble is among those listed for its low nibble.
     bucket: [16] int;
     used := 0;
+
     for h: 0..15 {
         bucket[h] = -1;
+
         for l: 0..15 {
             b := h * 16 + l;
             if set.bits[b >> 3] & (1 << (b & 7)) {
@@ -103,24 +111,31 @@ make_byte_set :: (bytes: [] u8) -> Byte_Set {
             }
         }
     }
+
     set.wide = used > 8;
     members := 0;
+
     for b: 0..255 if set.bits[b >> 3] & (1 << (b & 7)) {
         members += 1;
         set.single = cast(s16) b;
     }
+
     if members != 1 set.single = -1;
+
     for h: 0..15 {
         k := bucket[h];
         if k < 0 continue;
         pair := k / 8;
         bit := cast(u8) (1 << (k % 8));
+
         set.high[pair].lanes[h] = bit;
+
         for l: 0..15 {
             b := h * 16 + l;
             if set.bits[b >> 3] & (1 << (b & 7)) set.low[pair].lanes[l] |= bit;
         }
     }
+
     return set;
 }
 
@@ -145,8 +160,10 @@ find_pair :: (first: *Byte_Set, second: *Byte_Set, gap: int, text: string, start
             if contains(first, text[i]) && contains(second, text[i + gap]) return i;
             i += 1;
         }
+
         return -1;
     }
+
     // Searching the first text.count - gap positions keeps every read of text[i + gap] inside.
     bounded := text;
     bounded.count -= gap;
@@ -163,8 +180,10 @@ find_triple :: (first: *Byte_Set, second: *Byte_Set, third: *Byte_Set, gap_2: in
             if contains(first, text[i]) && contains(second, text[i + gap_2]) && contains(third, text[i + gap_3]) return i;
             i += 1;
         }
+
         return -1;
     }
+
     bounded := text;
     bounded.count -= gap_3;
     if first.single >= 0 && second.single >= 0 && third.single >= 0 return triple_bytes_search(bounded, cast(u8) first.single, cast(u8) second.single, cast(u8) third.single, gap_2, gap_3, start);
@@ -211,10 +230,12 @@ make_finder :: (needle: string) -> Finder {
     first := 0;
     for 1..needle.count - 1 if rarity(needle[it]) < rarity(needle[first]) first = it;
     second := -1;
+
     for 0..needle.count - 1 {
         if it == first continue;
         if second < 0 || rarity(needle[it]) < rarity(needle[second]) second = it;
     }
+
     if second < 0 second = first;
     finder.first_offset = min(first, second);
     finder.second_offset = max(first, second);
@@ -229,6 +250,7 @@ make_finder :: (needle: string) -> Finder {
 // The first match at or after `start`, or -1.
 find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
     needle := finder.needle;
+
     if start < 0 start = 0;
     if needle.count == 0 return ifx start <= text.count then start else -1;
     if start + needle.count > text.count return -1;
@@ -236,6 +258,7 @@ find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
 
     last_start := text.count - needle.count; // the last place a match can begin
     i := start;
+
     if last_start - i + 1 >= LANES {
         first := splat(Bytes, finder.first_byte);
         second := splat(Bytes, finder.second_byte);
@@ -245,6 +268,7 @@ find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
         misses := 0;
         one := text.data + finder.first_offset;
         two := text.data + finder.second_offset;
+
         while i + LANES - 1 <= last_start {
             // Four chunks of candidates per branch while none of them fit.
             if i + 4 * LANES - 1 <= last_start {
@@ -252,11 +276,13 @@ find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
                 m1 := eq(load(Bytes, one + i + LANES), first) & eq(load(Bytes, two + i + LANES), second);
                 m2 := eq(load(Bytes, one + i + 2 * LANES), first) & eq(load(Bytes, two + i + 2 * LANES), second);
                 m3 := eq(load(Bytes, one + i + 3 * LANES), first) & eq(load(Bytes, two + i + 3 * LANES), second);
+
                 if !any(m0 | m1 | m2 | m3) {
                     i += 4 * LANES;
                     continue;
                 }
             }
+
             bits := to_bits(eq(load(Bytes, one + i), first) & eq(load(Bytes, two + i), second));
             while bits {
                 candidate := i + trailing_zeros(bits);
@@ -264,16 +290,19 @@ find :: no_inline (finder: *Finder, text: string, start := 0) -> int {
                 misses += 1;
                 bits &= bits - 1;
             }
+
             i += LANES;
             if misses > 8 && misses * 32 > i - start return two_way_forward(finder, text, i);
         }
     }
+
     return two_way_forward(finder, text, i);
 }
 
 // The last match ending at or before `end` (-1: the end of the text), or -1.
 find_last :: no_inline (finder: *Finder, text: string, end := -1) -> int {
     needle := finder.needle;
+
     if end < 0 || end > text.count end = text.count;
     if needle.count == 0 return end;
     if needle.count > end return -1;
@@ -285,22 +314,27 @@ find_last :: no_inline (finder: *Finder, text: string, end := -1) -> int {
         first := splat(Bytes, finder.first_byte);
         second := splat(Bytes, finder.second_byte);
         misses := 0;
+
         while i >= LANES {
             base := i - LANES;
             a := load(Bytes, text.data + base + finder.first_offset);
             b := load(Bytes, text.data + base + finder.second_offset);
             bits := to_bits(eq(a, first) & eq(b, second));
+
             while bits {
                 top := 63 - leading_zeros(bits);
                 candidate := base + top;
+
                 if memcmp(text.data + candidate, needle.data, needle.count) == 0 return candidate;
                 misses += 1;
                 bits &= ~((cast(u64) 1) << top);
             }
+
             i = base;
             if misses > 8 && misses * 32 > end - i return two_way_backward(finder, text, i + needle.count - 2);
         }
     }
+
     return two_way_backward(finder, text, i + needle.count - 2);
 }
 
@@ -503,6 +537,7 @@ make_rarity :: () -> [256] u8 {
         table[lower] = cast(u8) (250 - it_index * 6);
         table[lower - 32] = cast(u8) (130 - it_index * 3);
     }
+
     return table;
 }
 
@@ -515,6 +550,7 @@ make_rarity :: () -> [256] u8 {
 // says whether u is a suffix of the start of v, which makes the period exact.
 factorize :: (needle: string, backwards: bool) -> critical: int, period: int, periodic: bool {
     n := needle.count;
+
     at :: (i: int) -> u8 #expand {
         return ifx backwards then needle[n - 1 - i] else needle[i];
     }
@@ -523,6 +559,7 @@ factorize :: (needle: string, backwards: bool) -> critical: int, period: int, pe
     suffix_a, period_a := maximal_suffix(needle, backwards, false);
     suffix_b, period_b := maximal_suffix(needle, backwards, true);
     critical, period := suffix_a, period_a;
+
     if suffix_b > suffix_a then critical, period = suffix_b, period_b;
 
     // The needle has period `period` exactly when its first `critical` bytes repeat at
@@ -534,6 +571,7 @@ factorize :: (needle: string, backwards: bool) -> critical: int, period: int, pe
             break;
         }
     }
+
     if !periodic period = max(critical, n - critical) + 1;
     return critical, period, periodic;
 }
@@ -541,17 +579,21 @@ factorize :: (needle: string, backwards: bool) -> critical: int, period: int, pe
 // Where the lexicographically greatest suffix begins (or least, with `flip`), and its period.
 maximal_suffix :: (needle: string, backwards: bool, flip: bool) -> start: int, period: int {
     n := needle.count;
+
     at :: (i: int) -> u8 #expand {
         return ifx backwards then needle[n - 1 - i] else needle[i];
     }
+
     best := 0; // the suffix found so far
     candidate := 1; // the suffix compared against it
     offset := 0; // how far they agree
     period := 1;
+
     while candidate + offset < n {
         x := at(candidate + offset);
         y := at(best + offset);
         greater := ifx flip then x < y else x > y;
+
         if x == y {
             if offset + 1 == period {
                 candidate += period;
@@ -571,6 +613,7 @@ maximal_suffix :: (needle: string, backwards: bool, flip: bool) -> start: int, p
             period = candidate - best;
         }
     }
+
     return best, period;
 }
 
@@ -580,15 +623,18 @@ two_way_forward :: (finder: *Finder, text: string, start: int) -> int {
     critical, period := finder.critical, finder.period;
     pos := start;
     memory := 0; // with a periodic needle: how much of the start is known to match
+
     while pos + n <= text.count {
         // Match v, from the critical position on.
         i := max(critical, memory);
         while i < n && needle[i] == text[pos + i] i += 1;
+
         if i < n {
             pos += i - critical + 1;
             memory = 0;
             continue;
         }
+
         // Then u, backwards.
         j := critical - 1;
         while j >= memory && needle[j] == text[pos + j] j -= 1;
@@ -596,6 +642,7 @@ two_way_forward :: (finder: *Finder, text: string, start: int) -> int {
         pos += period;
         if finder.periodic memory = n - period;
     }
+
     return -1;
 }
 
@@ -608,19 +655,23 @@ two_way_backward :: (finder: *Finder, text: string, last: int) -> int {
     // `stop` is one past the match's last byte; reading backwards, offset k is needle[n - 1 - k].
     stop := min(last + 1, text.count);
     memory := 0;
+
     while stop - n >= 0 {
         i := max(critical, memory);
         while i < n && needle[n - 1 - i] == text[stop - 1 - i] i += 1;
+
         if i < n {
             stop -= i - critical + 1;
             memory = 0;
             continue;
         }
+
         j := critical - 1;
         while j >= memory && needle[n - 1 - j] == text[stop - 1 - j] j -= 1;
         if j < memory return stop - n;
         stop -= period;
         if finder.reverse_periodic memory = n - period;
     }
+
     return -1;
 }

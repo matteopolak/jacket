@@ -50,6 +50,7 @@ compile_program :: (parsed: *Parsed, reverse: bool) -> Program, ok: bool, error:
     init(*c.shared, 64);
     match := emit(*c, .{ kind = .MATCH });
     entry: u32;
+
     if reverse {
         entry = compile_node(*c, parsed.root, match);
     } else {
@@ -57,11 +58,13 @@ compile_program :: (parsed: *Parsed, reverse: bool) -> Program, ok: bool, error:
         body := compile_node(*c, parsed.root, end);
         entry = emit(*c, .{ kind = .SAVE, next = body, alt = 0 });
     }
+
     for c.shared free(it_index);
     deinit(*c.shared);
     out: Program;
     if c.too_big return out, false, "pattern compiles to too large a program";
     out.start = entry;
+
     if reverse {
         out.start_unanchored = entry;
     } else {
@@ -69,20 +72,25 @@ compile_program :: (parsed: *Parsed, reverse: bool) -> Program, ok: bool, error:
         // below every thread that started earlier.
         loop := emit(*c, .{ kind = .SPLIT, next = entry });
         first := cast(u32) c.transitions.count;
+
         array_add(*c.transitions, .{ 0, 255, loop });
         any := emit(*c, .{ kind = .RANGES, next = first, alt = 1 });
+
         c.insts[loop].alt = any;
         out.start_unanchored = loop;
     }
+
     out.insts = c.insts;
     out.transitions = c.transitions;
     out.slot_count = 2 * (parsed.groups + 1);
     out.names = parsed.names;
     out.anchored = starts_with_text_start(parsed.root);
+
     for c.insts if it.kind == .LOOK {
         out.has_looks = true;
         if it.look >= .WORD && it.look <= .WORD_END_HALF out.has_unicode_word = true;
     }
+
     compute_byte_classes(*out);
     return out, true, "";
 }
@@ -99,6 +107,7 @@ starts_with_text_start :: (node: *Node) -> bool {
                 if starts_with_text_start(it) return true;
                 if !matches_only_empty(it) return false;
             }
+
             return false;
         case .ALTERNATE;
             for node.children if !starts_with_text_start(it) return false;
@@ -106,6 +115,7 @@ starts_with_text_start :: (node: *Node) -> bool {
         case .REPEAT;
             return node.min > 0 && starts_with_text_start(node.children[0]);
     }
+
     return false;
 }
 
@@ -132,6 +142,7 @@ can_match_empty :: (node: *Node) -> bool {
             for node.children if can_match_empty(it) return true;
             return false;
     }
+
     return false;
 }
 
@@ -150,6 +161,7 @@ emit :: (c: *Compiler, inst: Inst) -> u32 {
         c.too_big = true;
         return 0;
     }
+
     array_add(*c.insts, inst);
     return cast(u32) (c.insts.count - 1);
 }
@@ -164,17 +176,20 @@ emit_ranges :: (c: *Compiler, ranges: [] Transition) -> u32 {
 // end means every continuation already exists when something jumps to it.
 compile_node :: (c: *Compiler, node: *Node, next: u32) -> u32 {
     if c.too_big return 0;
+
     if node.kind == {
         case .EMPTY;
             return next;
         case .LITERAL;
             at := next;
             text := node.literal;
+
             if c.reverse {
                 for text at = emit_ranges(c, .[.{ it, it, at }]);
             } else {
                 for < text at = emit_ranges(c, .[.{ it, it, at }]);
             }
+
             return at;
         case .CLASS;
             return compile_class(c, node, next);
@@ -184,17 +199,21 @@ compile_node :: (c: *Compiler, node: *Node, next: u32) -> u32 {
             if c.reverse return compile_node(c, node.children[0], next);
             close := emit(c, .{ kind = .SAVE, next = next, alt = cast(u32) (2 * node.index + 1) });
             body := compile_node(c, node.children[0], close);
+
             return emit(c, .{ kind = .SAVE, next = body, alt = cast(u32) (2 * node.index) });
         case .CONCAT;
             at := next;
+
             if c.reverse {
                 for node.children at = compile_node(c, it, at);
             } else {
                 for < node.children at = compile_node(c, it, at);
             }
+
             return at;
         case .ALTERNATE;
             entries: [..] u32;
+
             defer array_free(entries);
             for node.children array_add(*entries, compile_node(c, it, next));
             at := entries[entries.count - 1];
@@ -203,6 +222,7 @@ compile_node :: (c: *Compiler, node: *Node, next: u32) -> u32 {
         case .REPEAT;
             return compile_repeat(c, node, next);
     }
+
     return next;
 }
 
@@ -215,23 +235,28 @@ compile_repeat :: (c: *Compiler, node: *Node, next: u32) -> u32 {
     child := node.children[0];
     at := next;
     mandatory := node.min;
+
     if node.max < 0 && node.min == 0 && can_match_empty(child) {
         // x* where x can match empty is (x+)?, so that a single empty pass through x still
         // sets x's groups, as Perl-style engines do.
         loop := emit(c, .{ kind = .SPLIT });
         body := compile_node(c, child, loop);
+
         if c.too_big return 0;
         if node.greedy c.insts[loop] = .{ kind = .SPLIT, next = body, alt = next };
         else c.insts[loop] = .{ kind = .SPLIT, next = next, alt = body };
         return split(c, node.greedy, body, next);
     }
+
     if node.max < 0 {
         // The last mandatory copy (or an optional one, for min 0) loops back on itself.
         loop := emit(c, .{ kind = .SPLIT });
         body := compile_node(c, child, loop);
+
         if c.too_big return 0;
         if node.greedy c.insts[loop] = .{ kind = .SPLIT, next = body, alt = next };
         else c.insts[loop] = .{ kind = .SPLIT, next = next, alt = body };
+
         if mandatory > 0 {
             at = body;
             mandatory -= 1;
@@ -245,10 +270,12 @@ compile_repeat :: (c: *Compiler, node: *Node, next: u32) -> u32 {
             if c.too_big return 0;
         }
     }
+
     for 1..mandatory {
         at = compile_node(c, child, at);
         if c.too_big return 0;
     }
+
     return at;
 }
 
@@ -257,17 +284,22 @@ compile_repeat :: (c: *Compiler, node: *Node, next: u32) -> u32 {
 // \w small and lets them share their continuation-byte tails.
 compile_class :: (c: *Compiler, node: *Node, next: u32) -> u32 {
     if node.ranges.count == 0 return emit(c, .{ kind = .FAIL });
+
     if node.bytes {
         list: [..] Transition;
         defer array_free(list);
         for node.ranges array_add(*list, .{ cast(u8) it.lo, cast(u8) it.hi, next });
         return emit_ranges(c, list);
     }
+
     root := New(Trie_Node);
+
     defer free_trie(root);
+
     for node.ranges {
         for_utf8_sequences(it.lo, it.hi, root, c.reverse);
     }
+
     return emit_trie(c, root, next);
 }
 
@@ -294,40 +326,50 @@ free_trie :: (node: *Trie_Node) {
 
 trie_insert :: (root: *Trie_Node, path: [] Byte_Range) {
     node := root;
+
     for path {
         last := it_index == path.count - 1;
         found: *Trie_Edge;
+
         for *edge: node.edges {
             if edge.lo == it.lo && edge.hi == it.hi && (edge.child != null) == !last {
                 found = edge;
                 break;
             }
         }
+
         if !found {
             array_add(*node.edges, .{ lo = it.lo, hi = it.hi, child = ifx last then null else New(Trie_Node) });
             found = *node.edges[node.edges.count - 1];
         }
+
         node = found.child;
     }
 }
 
 emit_trie :: (c: *Compiler, node: *Trie_Node, next: u32) -> u32 {
     list: [..] Transition;
+
     defer array_free(list);
+
     for node.edges {
         target := ifx it.child then emit_trie(c, it.child, next) else next;
         array_add(*list, .{ it.lo, it.hi, target });
     }
+
     // Same transitions, same node.
     builder: String_Builder;
     for list print_to_builder(*builder, "%-%>%,", it.lo, it.hi, it.next);
     key := builder_to_string(*builder);
     found, existing := table_find(*c.shared, key);
+
     if found {
         free(key);
         return existing;
     }
+
     at := emit_ranges(c, list);
+
     table_add(*c.shared, key, at);
     return at;
 }
@@ -336,11 +378,13 @@ emit_trie :: (c: *Compiler, node: *Trie_Node, next: u32) -> u32 {
 // adds each run's path to the trie. Surrogates have no UTF-8 form and are skipped.
 for_utf8_sequences :: (lo: u32, hi: u32, root: *Trie_Node, reverse: bool) {
     if lo > hi return;
+
     if lo <= 0xDFFF && hi >= 0xD800 {
         if lo < 0xD800 for_utf8_sequences(lo, 0xD7FF, root, reverse);
         if hi > 0xDFFF for_utf8_sequences(0xE000, hi, root, reverse);
         return;
     }
+
     // Split where the encoded length changes.
     LIMITS :: u32.[0x7F, 0x7FF, 0xFFFF];
     for LIMITS {
@@ -350,11 +394,13 @@ for_utf8_sequences :: (lo: u32, hi: u32, root: *Trie_Node, reverse: bool) {
             return;
         }
     }
+
     if hi < 0x80 {
         path := Byte_Range.[.{ cast(u8) lo, cast(u8) hi }];
         trie_insert(root, path);
         return;
     }
+
     count := ifx hi < 0x800 then 2 else ifx hi < 0x10000 then 3 else 4;
     // Where lo and hi differ above the low 6*i bits, the low bits must cover everything, or
     // the run is split so that they do.
@@ -366,6 +412,7 @@ for_utf8_sequences :: (lo: u32, hi: u32, root: *Trie_Node, reverse: bool) {
                 for_utf8_sequences((lo | mask) + 1, hi, root, reverse);
                 return;
             }
+
             if (hi & mask) != mask {
                 for_utf8_sequences(lo, (hi & ~mask) - 1, root, reverse);
                 for_utf8_sequences(hi & ~mask, hi, root, reverse);
@@ -373,14 +420,18 @@ for_utf8_sequences :: (lo: u32, hi: u32, root: *Trie_Node, reverse: bool) {
             }
         }
     }
+
     a, b: [4] u8;
+
     utf8_encode(lo, *a);
     utf8_encode(hi, *b);
     path: [4] Byte_Range;
+
     for 0..count - 1 {
         index := ifx reverse then count - 1 - it else it;
         path[it] = .{ a[index], b[index] };
     }
+
     view: [] Byte_Range;
     view.data = path.data;
     view.count = count;
@@ -390,11 +441,14 @@ for_utf8_sequences :: (lo: u32, hi: u32, root: *Trie_Node, reverse: bool) {
 // Byte classes: two bytes share a class when no transition and no look can tell them apart.
 compute_byte_classes :: (p: *Program) {
     boundary: [257] bool;
+
     mark :: (lo: int, hi: int) #expand {
         boundary[lo] = true;
         boundary[hi + 1] = true;
     }
+
     for p.transitions mark(it.lo, it.hi);
+
     if p.has_looks {
         mark(#char "\n", #char "\n");
         mark(#char "\r", #char "\r");
@@ -404,11 +458,14 @@ compute_byte_classes :: (p: *Program) {
         mark(#char "a", #char "z");
         mark(0x80, 0xFF);
     }
+
     class := 0;
+
     for b: 0..255 {
         if b > 0 && boundary[b] class += 1;
         p.byte_class[b] = cast(u8) class;
     }
+
     p.class_count = class + 1;
     for < b: 0..255 p.class_byte[p.byte_class[b]] = cast(u8) b;
 }

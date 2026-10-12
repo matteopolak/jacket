@@ -43,6 +43,7 @@ two_product :: (a: float64, b: float64) -> Pair #no_context {
     b_high := b_spread - (b_spread - b);
     b_low := b - b_high;
     error := ((a_high * b_high - product) + a_high * b_low + a_low * b_high) + a_low * b_low;
+
     return .{ product, error };
 }
 
@@ -83,8 +84,10 @@ pair_divide_pair :: (a: Pair, b: Pair) -> Pair #no_context {
     first := a.head / b.head;
     remainder := pair_add(a, pair_negate(pair_multiply_float(b, first)));
     second := remainder.head / b.head;
+
     remainder = pair_add(remainder, pair_negate(pair_multiply_float(b, second)));
     third := remainder.head / b.head;
+
     return pair_add(quick_two_sum(first, second), .{ third, 0 });
 }
 
@@ -124,13 +127,16 @@ Reduced :: struct {
 // 64 bits of the big-endian word array `words` starting at bit `position` from its end.
 product_bits :: (words: *[PRODUCT_WORDS] u32, position: s64) -> u64 #no_context {
     result: u64;
+
     for k: 0..63 {
         at := position + k;
         if at >= PRODUCT_WORDS * 32 break;
         word := words.*[PRODUCT_WORDS - 1 - at / 32];
         bit := cast(u64) ((word >> cast(u32) (at % 32)) & 1);
+
         result |= bit << cast(u64) k;
     }
+
     return result;
 }
 
@@ -139,23 +145,28 @@ pair_from_fraction :: (high: u64, low: u64) -> head: float64, tail: float64 #no_
     h := high;
     l := low;
     shift := 0;
+
     while h == 0 && shift < 128 {
         h = l;
         l = 0;
         shift += 64;
     }
+
     if h == 0 return 0, 0;
+
     while (h & SIGN_BIT) == 0 {
         h = (h << 1) | (l >> 63);
         l <<= 1;
         shift += 1;
     }
+
     // h holds the leading 64 bits: the top 53 make the head, the next 53 the tail.
     head_bits := h >> 11;
     tail_bits := ((h & 0x7ff) << 42) | (l >> 22);
     // The fraction is h:l / 2^(128 + shift).
     head := compose_float(false, head_bits, -53 - shift);
     tail := compose_float(false, tail_bits, -106 - shift);
+
     return head, tail;
 }
 
@@ -165,6 +176,7 @@ reduce :: (x: float64) -> Reduced #no_context {
     // The words before `first` only add multiples of 8 to x * 2/pi, which leave the quadrant
     // and the fraction unchanged.
     first := 0;
+
     if e >= 35 first = (e - 35) / 32 + 1;
     window: [WINDOW_WORDS] u32;
     for j: 0..WINDOW_WORDS - 1 window[j] = TWO_OVER_PI[first + j];
@@ -173,16 +185,20 @@ reduce :: (x: float64) -> Reduced #no_context {
     m_words: [2] u32;
     m_words[0] = cast,no_check(u32) (m >> 32);
     m_words[1] = cast,no_check(u32) m;
+
     for < i: 0..1 {
         carry: u64;
+
         for < j: 0..WINDOW_WORDS - 1 {
             at := i + j + 1;
             sum := cast(u64) m_words[i] * cast(u64) window[j] + cast(u64) product[at] + carry;
             product[at] = cast,no_check(u32) sum;
             carry = sum >> 32;
         }
+
         product[i] = cast,no_check(u32) (cast(u64) product[i] + carry);
     }
+
     // The product is m * 2/pi * 2^(32 * (first + WINDOW_WORDS)); x * 2/pi puts the binary point
     // `point` bits from the product's end.
     point := 32 * (first + WINDOW_WORDS) - e;
@@ -191,6 +207,7 @@ reduce :: (x: float64) -> Reduced #no_context {
     high := product_bits(*product, point - 64);
     low := product_bits(*product, point - 128);
     negative := false;
+
     if (high & SIGN_BIT) != 0 {
         // Past one half: count the next quadrant and take the fraction minus one.
         result.quadrant = (result.quadrant + 1) & 3;
@@ -198,15 +215,19 @@ reduce :: (x: float64) -> Reduced #no_context {
         high = ~high + (ifx low == 0 then cast(u64) 1 else 0);
         negative = true;
     }
+
     f_head, f_tail := pair_from_fraction(high, low);
     // (f_head + f_tail) * pi/2.
     angle := pair_multiply(.{ f_head, f_tail }, HALF_PI);
+
     result.head = angle.head;
     result.tail = angle.tail;
+
     if negative {
         result.head = -result.head;
         result.tail = -result.tail;
     }
+
     return result;
 }
 
@@ -228,6 +249,7 @@ cosine_pair :: (head: float64, tail: float64) -> Pair #no_context {
     series := 0.041666666666666664 + z * (-0.001388888888888889 + z * (2.48015873015873e-05 + z * (-2.755731922398589e-07 + z * (2.08767569878681e-09 + z * (-1.1470745597729725e-11 + z * (4.779477332387385e-14 + z * (-1.5619206968586225e-16 + z * 4.110317623312165e-19)))))));
     half_z := 0.5 * z;
     w := 1 - half_z;
+
     // 1 - z/2 loses the bits of z/2 below w's last place (and z those of head^2); add them back
     // with the rest.
     return quick_two_sum(w, ((1 - w) - half_z) + (z * z * series - 0.5 * square.tail - head * tail));
@@ -244,12 +266,14 @@ wasi_sin :: (x: float64) -> float64 #c_call {
     if magnitude <= QUARTER_PI return sine_kernel(x, 0);
     r := reduce(magnitude);
     value: float64;
+
     if r.quadrant == {
         case 0; value = sine_kernel(r.head, r.tail);
         case 1; value = cosine_kernel(r.head, r.tail);
         case 2; value = -sine_kernel(r.head, r.tail);
         case; value = -cosine_kernel(r.head, r.tail);
     }
+
     return ifx x < 0 then -value else value;
 }
 
@@ -264,6 +288,7 @@ wasi_cos :: (x: float64) -> float64 #c_call {
         case 1; return -sine_kernel(r.head, r.tail);
         case 2; return -cosine_kernel(r.head, r.tail);
     }
+
     return sine_kernel(r.head, r.tail);
 }
 
@@ -282,11 +307,13 @@ wasi_tan :: (x: float64) -> float64 #c_call {
     if !is_finite(x) return x - x;
     magnitude := ifx x < 0 then -x else x;
     r: Reduced;
+
     if magnitude <= QUARTER_PI r.head = magnitude;
     else r = reduce(magnitude);
     sine := sine_pair(r.head, r.tail);
     cosine := cosine_pair(r.head, r.tail);
     value: float64;
+
     if (r.quadrant & 1) == 0 value = pair_round(pair_divide_pair(sine, cosine));
     else value = -pair_round(pair_divide_pair(cosine, sine));
     return ifx x < 0 then -value else value;
@@ -311,14 +338,17 @@ EXP_UNDERFLOW :: -745.1332191019412; // below: under half the smallest subnormal
 scale :: (value: float64, exponent: s64) -> float64 #no_context {
     x := value;
     e := exponent;
+
     while e > 1023 {
         x *= from_bits(0x7fe0_0000_0000_0000); // 2^1023
         e -= 1023;
     }
+
     while e < -1022 {
         x *= from_bits(0x0010_0000_0000_0000); // 2^-1022
         e += 1022;
     }
+
     return x * from_bits((cast(u64) (e + 1023)) << 52);
 }
 
@@ -326,12 +356,14 @@ scale :: (value: float64, exponent: s64) -> float64 #no_context {
 exp_series :: (r: Pair) -> Pair #no_context {
     sum := pair_add(ONE_PAIR, r);
     term := r;
+
     for n: 2..40 {
         term = pair_divide(pair_multiply(term, r), cast(float64) n);
         sum = pair_add(sum, term);
         magnitude := ifx term.head < 0 then -term.head else term.head;
         if magnitude < sum.head * 7.703719777548943e-34 break;
     }
+
     return sum;
 }
 
@@ -350,25 +382,32 @@ log_pair :: (x: float64) -> Pair #no_context {
         m <<= 1;
         e -= 1;
     }
+
     k := e + 52;
     mantissa := from_bits((m & FRACTION_BITS) | 0x3ff0_0000_0000_0000); // in [1, 2)
+
     if mantissa > 1.4142135623730951 {
         mantissa *= 0.5;
         k += 1;
     }
+
     f := mantissa - 1; // exact
     s := pair_divide_pair(.{ f, 0 }, two_sum(2, f));
     s2 := pair_multiply(s, s);
     sum := s;
     power := s;
+
     for n: 1..40 {
         power = pair_multiply(power, s2);
         term := pair_divide(power, cast(float64) (2 * n + 1));
+
         sum = pair_add(sum, term);
         magnitude := ifx term.head < 0 then -term.head else term.head;
         total := ifx sum.head < 0 then -sum.head else sum.head;
+
         if magnitude < total * 7.703719777548943e-34 break;
     }
+
     return pair_add(pair_multiply_float(LN2, cast(float64) k), pair_multiply_float(sum, 2));
 }
 
@@ -456,29 +495,37 @@ is_odd_integer :: (y: float64) -> bool #no_context {
 #program_export "pow"
 wasi_pow :: (x: float64, y: float64) -> float64 #c_call {
     INFINITY :: 0x7ff0_0000_0000_0000;
+
     if y == 0 || x == 1 return 1;
     if x != x || y != y return x + y;
     y_odd := is_odd_integer(y);
     magnitude := ifx x < 0 then -x else x;
+
     if !is_finite(y) {
         if magnitude == 1 return 1;
         grows := (magnitude > 1) == (y > 0);
         return ifx grows then from_bits(INFINITY) else 0;
     }
+
     if x == 0 || !is_finite(x) {
         // x^y is 0 or infinite, negative for a negative x and an odd y.
         large := (x == 0) == (y < 0);
         result := from_bits(ifx large then INFINITY else 0);
+
         if y_odd && (bits_of(x) & SIGN_BIT) != 0 result = -result;
         return result;
     }
+
     negative := false;
+
     if x < 0 {
         if truncate(y) != y return (x - x) / (x - x); // a negative number to a fractional power
         negative = y_odd;
     }
+
     result: float64;
     y_magnitude := ifx y < 0 then -y else y;
+
     if magnitude == 1 {
         result = 1;
     } else if y_magnitude >= 18446744073709551616.0 {
@@ -491,6 +538,7 @@ wasi_pow :: (x: float64, y: float64) -> float64 #c_call {
         else if exponent.head < EXP_UNDERFLOW result = 0;
         else result = exp_pair(exponent);
     }
+
     return ifx negative then -result else result;
 }
 
@@ -510,20 +558,25 @@ HALF_PI :: Pair.{ 1.5707963267948966, 6.123233995736766e-17 };
 // atan(t) for 0 <= t <= 1.
 atan_pair :: (t: Pair) -> Pair #no_context {
     u := t;
+
     for 1..3 {
         root := pair_square_root(pair_add(ONE_PAIR, pair_multiply(u, u)));
         u = pair_divide_pair(u, pair_add(ONE_PAIR, root));
     }
+
     u2 := pair_multiply(u, u);
     sum := u;
     power := u;
+
     for n: 1..40 {
         power = pair_negate(pair_multiply(power, u2));
         term := pair_divide(power, cast(float64) (2 * n + 1));
+
         sum = pair_add(sum, term);
         magnitude := ifx term.head < 0 then -term.head else term.head;
         if magnitude < sum.head * 7.703719777548943e-34 break;
     }
+
     return pair_multiply_float(sum, 8);
 }
 
@@ -538,6 +591,7 @@ wasi_atan :: (x: float64) -> float64 #c_call {
     if x != x return x;
     magnitude := ifx x < 0 then -x else x;
     angle: float64;
+
     if magnitude < 7.450580596923828e-09 return x; // x^3/3 is below half an ulp of x
     if magnitude > 1152921504606846976.0 angle = HALF_PI.head; // pi/2 - 1/x rounds to pi/2
     else angle = pair_round(first_quadrant_angle(.{ magnitude, 0 }, ONE_PAIR));
@@ -558,6 +612,7 @@ wasi_atan2 :: (y: float64, x: float64) -> float64 #c_call {
     ay := ifx y_negative then -y else y;
     ax := ifx x_negative then -x else x;
     angle: Pair;
+
     if y == 0 {
         angle = ifx x_negative then PI else .{ 0, 0 };
     } else if !is_finite(ay) {
@@ -576,15 +631,19 @@ wasi_atan2 :: (y: float64, x: float64) -> float64 #c_call {
         } else {
             larger := ifx ay > ax then ay else ax;
             exponent := 0;
+
             if larger > 3.273390607896142e+150 exponent = -600; // 2^500
             else if larger < 3.054936363499605e-151 exponent = 600; // 2^-500
             ay = scale(ay, exponent);
             ax = scale(ax, exponent);
             angle = first_quadrant_angle(.{ ay, 0 }, .{ ax, 0 });
         }
+
         if x_negative angle = pair_add(PI, pair_negate(angle));
     }
+
     result := pair_round(angle);
+
     return ifx y_negative then -result else result;
 }
 
@@ -605,6 +664,7 @@ wasi_asin :: (x: float64) -> float64 #c_call {
     if magnitude > 1 return (x - x) / (x - x);
     if magnitude < 7.450580596923828e-09 return x; // x^3/6 is below half an ulp of x
     angle := pair_round(first_quadrant_angle(.{ magnitude, 0 }, cosine_from_sine(magnitude)));
+
     return ifx x < 0 then -angle else angle;
 }
 

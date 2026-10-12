@@ -15,10 +15,12 @@ run_fatal :: (prefix: string, body: string) {
     set_build_options(options, w);
     compiler_begin_intercept(w);
     add_build_string(source, w);
+
     while true {
         message := compiler_wait_for_message();
         if message.kind == .COMPLETE break;
     }
+
     compiler_end_intercept(w);
 }
 

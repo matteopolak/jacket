@@ -1,8 +1,11 @@
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
 indent_width = 4
 max_width = 100
-max_blank_lines = 2
+max_blank_lines = 1
 brace_style = "same_line"
+# Stricter, opt-in spacing inside code blocks (see docs/tools/jaifmt.md).
+blank_line_after_declarations = true # after a run of declarations
+blank_lines_around_blocks = true # around statements with a block body
 
 # Every Jai file the repository owns is formatted, except:
 # - tests/corpus: fixtures pinned by sha256 in tests/corpus/manifest.json, and negative cases

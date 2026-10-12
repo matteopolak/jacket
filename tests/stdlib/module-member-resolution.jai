@@ -8,13 +8,13 @@ UG :: #import "Using_Global";
 RO :: #import "Reexport_Outer";
 PP :: #import "Program_Param"()(VERBOSE = true);
 
-
 main :: () {
     load_procs();
     // Exported `using` global, reached four ways.
     assert(answer() == 42);
     assert(UG.answer() == 42);
     assert(UG.procs.answer() == 42);
+
     {
         using UG;
         assert(answer() == 42);
@@ -22,6 +22,7 @@ main :: () {
 
     // Declarations re-exported with `using M :: #import`.
     t := RO.Inner_Thing.{ number = 1 };
+
     assert(t.number + RO.inner_value() == 8);
 
     // Module parameters.

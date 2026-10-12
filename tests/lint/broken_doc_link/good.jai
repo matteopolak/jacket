@@ -33,6 +33,7 @@ scale :: (p: Point) {}
 main :: () {
     // The value of [x] is not documented here.
     x := 5;
+
     // jailint: allow(broken_doc_link)
     // This one is silenced: [alsogone].
     scale(.{});

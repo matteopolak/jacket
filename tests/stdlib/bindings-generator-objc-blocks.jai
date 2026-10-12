@@ -64,12 +64,14 @@ build_and_generate :: () -> string {
         header_path := tprint("%/blocks.h", dir);
         source_path := tprint("%/blocks.m", dir);
         library_path := tprint("%/libblocks.dylib", dir);
+
         if !write_entire_file(header_path, HEADER) || !write_entire_file(source_path, SOURCE) return "";
 
         result := run_command("clang", "-shared", "-fPIC", "-fno-objc-arc", "-o", library_path, source_path, "-lobjc", "-Wno-deprecated-declarations", capture_and_return_output = true);
         if result.exit_code != 0 return "";
 
         opts: Generate_Bindings_Options;
+
         array_add(*opts.source_files, header_path);
         array_add(*opts.extra_clang_arguments, "-x", "objective-c");
         array_add(*opts.libpaths, dir);
@@ -98,12 +100,14 @@ has :: (text: string, needle: string) -> bool {
 count_of :: (text: string, needle: string) -> s64 {
     count := 0;
     rest := text;
+
     while true {
         index := find_index_from_left(rest, needle);
         if index < 0 break;
         count += 1;
         rest = slice(rest, index + needle.count, rest.count - index - needle.count);
     }
+
     return count;
 }
 
@@ -128,6 +132,7 @@ main :: () {
 
         // Blocks returned by Objective-C are called through `invoke`.
         triple := Worker.multiplier(cast(*Worker) w, 3);
+
         assert(triple != null);
         assert(triple.invoke(triple, 14) == 42);
 
@@ -137,6 +142,7 @@ main :: () {
 
         // A void block with several parameters stores into the object.
         rec := Worker.recorder(cast(*Worker) w);
+
         rec.invoke(rec, 77, 1.25);
         assert(Worker.lastCode(cast(*Worker) w) == 77);
         assert(Worker.weight(cast(*Worker) w) == 1.25);
@@ -147,6 +153,7 @@ main :: () {
         // Properties: a block-typed property round trips through the setter and getter.
         Worker.setOnDone(cast(*Worker) w, rec);
         done := Worker.onDone(cast(*Worker) w);
+
         assert(done != null);
         done.invoke(done, 31, 2.0);
         assert(Worker.lastCode(cast(*Worker) w) == 31);
@@ -155,12 +162,15 @@ main :: () {
 
         // Blocks made from Jai procedures: Objective-C calls them, also after copying them.
         assert(has(BINDINGS, "Block_s32_s32_literal :: (invoke: #type (block: *Block_s32_s32, unknown0: s32) -> s32 #c_call, user_data: *void = null) -> *Block_s32_s32 {"));
+
         add_offset :: (block: *Block_s32_s32, value: s32) -> s32 #c_call {
             offset := cast(*s32) objc_block_user_data(block);
             return value + offset.*;
         }
+
         offset: s32 = 100;
         adder := Block_s32_s32_literal(add_offset, *offset);
+
         assert(Worker.apply(cast(*Worker) w, adder, 5) == 105);
         assert(Worker.applyInline(cast(*Worker) w, adder, 5) == 106);
         offset = 1;
@@ -169,20 +179,25 @@ main :: () {
         on_done :: (block: *Block_void_s32_float64, code: s32, weight: float64) #c_call {
             (cast(*s32) objc_block_user_data(block)).* = code;
         }
+
         seen: s32;
         handler := Block_void_s32_float64_literal(on_done, *seen);
+
         Worker.fire(cast(*Worker) w, handler, 12);
         assert(seen == 12);
         Worker.setOnDone(cast(*Worker) w, handler); // Block_copy keeps the global block.
         stored := Worker.onDone(cast(*Worker) w);
+
         assert(stored == handler);
         stored.invoke(stored, 13, 0);
         assert(seen == 13);
 
         completed := false;
+
         complete :: (block: *Block_void) #c_call {
             (cast(*bool) objc_block_user_data(block)).* = true;
         }
+
         Worker.setCompletion(cast(*Worker) w, Block_void_literal(complete, *completed));
         assert(completed);
         print("ok\n");
