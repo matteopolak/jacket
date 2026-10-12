@@ -13,7 +13,7 @@
 use crate::fxhash::HashMap;
 use crate::interp::{Host, Interp, Rets, Trap};
 use crate::ir;
-use crate::records::{Field, Item, Records};
+use crate::records::{FieldRef, Item, Records};
 use crate::sema::{
     Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport, ProvidedKind,
     TargetCpu, TargetOs,
@@ -1693,11 +1693,11 @@ pub fn call(
             // A FILE message stands for its module (the enclosing import).
             let records = &reg.records;
             let message = match records.item(record, "enclosing_import", None) {
-                Some(Item::Ref(import)) => *import,
+                Some(Item::Ref(import)) => import,
                 _ => record,
             };
             let module = match records.item(message, "__module", None) {
-                Some(Item::Int(m)) => *m as u32,
+                Some(Item::Int(m)) => m as u32,
                 _ => return Err(trap("add_build_string: the message names no module".into())),
             };
             let ws = reg.ws(id).map_err(trap)?;
@@ -1879,7 +1879,7 @@ pub fn call(
             let reg = shared.borrow();
             Ok(Rets::one(field_name(interp, arg(1), |name| {
                 match reg.records.field(arg(0) as i64, name) {
-                    Some(Field::List(items)) => items.len() as u64,
+                    Some(FieldRef::List(items)) => items.len() as u64,
                     _ => 0,
                 }
             })))
@@ -1890,7 +1890,7 @@ pub fn call(
             let reg = shared.borrow();
             Ok(Rets::one(field_name(interp, arg(1), |name| {
                 match reg.records.item(arg(0) as i64, name, index) {
-                    Some(Item::Int(v) | Item::Ref(v)) => *v as u64,
+                    Some(Item::Int(v) | Item::Ref(v)) => v as u64,
                     _ => 0,
                 }
             })))
@@ -1904,7 +1904,7 @@ pub fn call(
             let mut reg = shared.borrow_mut();
             let found = field_name(interp, arg(1), |name| {
                 match reg.records.item(arg(0) as i64, name, index) {
-                    Some(Item::Str(s)) => Some(s.clone()),
+                    Some(Item::Str(s)) => Some(s),
                     _ => None,
                 }
             });

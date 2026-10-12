@@ -12,8 +12,10 @@
 //! Record ids are global to a top-level compilation, start at 1, and 0 means
 //! null. Records live until the compilation ends, so a record id (and the
 //! struct the metaprogram built from it) keeps its identity across messages.
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+
+use crate::fxhash::HashMap;
 
 #[derive(Clone, Debug)]
 pub enum Item {
@@ -24,61 +26,247 @@ pub enum Item {
     Ref(i64),
 }
 
+/// A field's value, as given to [`Record::set`].
 #[derive(Clone, Debug)]
 pub enum Field {
     Item(Item),
     List(Vec<Item>),
 }
 
+/// A field's value as read back: strings and lists are borrowed from the record.
+#[derive(Clone, Copy, Debug)]
+pub enum FieldRef<'a> {
+    Int(i64),
+    Str(&'a Rc<[u8]>),
+    Ref(i64),
+    List(List<'a>),
+}
+
+/// A list field as read back.
+#[derive(Clone, Copy, Debug)]
+pub enum List<'a> {
+    Items(&'a [Item]),
+    /// A list of record ids, kept as plain ids: most lists are.
+    Refs(&'a [i64]),
+}
+
+impl List<'_> {
+    pub fn len(self) -> usize {
+        match self {
+            List::Items(items) => items.len(),
+            List::Refs(ids) => ids.len(),
+        }
+    }
+
+    pub fn is_empty(self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn get(self, index: usize) -> Option<Item> {
+        match self {
+            List::Items(items) => items.get(index).cloned(),
+            List::Refs(ids) => ids.get(index).map(|&id| Item::Ref(id)),
+        }
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = Item> {
+        (0..self.len()).filter_map(move |i| self.get(i))
+    }
+}
+
+impl FieldRef<'_> {
+    /// The value as an [`Item`]; `None` for a list.
+    pub fn item(self) -> Option<Item> {
+        match self {
+            FieldRef::Int(v) => Some(Item::Int(v)),
+            FieldRef::Ref(v) => Some(Item::Ref(v)),
+            FieldRef::Str(s) => Some(Item::Str(s.clone())),
+            FieldRef::List(_) => None,
+        }
+    }
+}
+
+/// A field name, interned. Records hold `Rc`s, so they never leave the thread that made
+/// them, and a table per thread is enough.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Name(u16);
+
+#[derive(Default)]
+struct Names {
+    list: Vec<&'static str>,
+    by_text: HashMap<&'static str, Name>,
+    /// Literals by address: interning one is a pointer hash, not a string hash.
+    by_address: HashMap<(usize, usize), Name>,
+}
+
+thread_local! {
+    static NAMES: RefCell<Names> = RefCell::default();
+}
+
+impl Name {
+    /// The name `name`, interned on first use.
+    pub fn of(name: &'static str) -> Name {
+        NAMES.with_borrow_mut(|names| {
+            let key = (name.as_ptr() as usize, name.len());
+            if let Some(&id) = names.by_address.get(&key) {
+                return id;
+            }
+            let id = names.add(name);
+            names.by_address.insert(key, id);
+            id
+        })
+    }
+
+    /// The name `name` if any field was ever given it.
+    pub fn find(name: &str) -> Option<Name> {
+        NAMES.with_borrow(|names| names.by_text.get(name).copied())
+    }
+
+    /// The name `name`, interned on first use: for names that are not literals, from a
+    /// small set (a leaked copy is kept).
+    pub fn intern(name: &str) -> Name {
+        Name::find(name).unwrap_or_else(|| {
+            let name: &'static str = Box::leak(name.into());
+            NAMES.with_borrow_mut(|names| names.add(name))
+        })
+    }
+
+    pub fn as_str(self) -> &'static str {
+        NAMES.with_borrow(|names| names.list[self.0 as usize])
+    }
+}
+
+impl Names {
+    fn add(&mut self, name: &'static str) -> Name {
+        if let Some(&id) = self.by_text.get(name) {
+            return id;
+        }
+        let id = Name(u16::try_from(self.list.len()).expect("too many record field names"));
+        self.list.push(name);
+        self.by_text.insert(name, id);
+        id
+    }
+}
+
+/// One field: an integer or record id inline, a string or list by index into the record's
+/// `extra`. 16 bytes, where a name and a [`Field`] took 48: syntax trees exported to a
+/// metaprogram are most of its compiler's memory.
+#[derive(Clone, Copy, Debug)]
+struct Slot {
+    name: Name,
+    kind: u8,
+    value: i64,
+}
+
+#[derive(Clone, Debug)]
+enum Extra {
+    Str(Rc<[u8]>),
+    List(Vec<Item>),
+    Refs(Box<[i64]>),
+}
+
 #[derive(Clone, Debug)]
 pub struct Record {
     pub tag: &'static str,
-    pub fields: Vec<(&'static str, Field)>,
+    slots: Vec<Slot>,
+    extra: Vec<Extra>,
 }
 
 impl Record {
     pub fn new(tag: &'static str) -> Self {
         Record {
             tag,
-            fields: Vec::new(),
+            slots: Vec::new(),
+            extra: Vec::new(),
         }
     }
 
+    /// A record with room for `fields` fields, for one whose size is known up front.
+    pub fn with_capacity(tag: &'static str, fields: usize) -> Self {
+        Record {
+            tag,
+            slots: Vec::with_capacity(fields),
+            extra: Vec::new(),
+        }
+    }
+
+    fn push(&mut self, name: &'static str, kind: i64, value: i64) {
+        self.slots.push(Slot {
+            name: Name::of(name),
+            kind: kind as u8,
+            value,
+        });
+    }
+
+    fn push_extra(&mut self, extra: Extra) -> i64 {
+        self.extra.push(extra);
+        self.extra.len() as i64 - 1
+    }
+
     pub fn int(&mut self, name: &'static str, v: i64) -> &mut Self {
-        self.fields.push((name, Field::Item(Item::Int(v))));
+        self.push(name, KIND_INT, v);
         self
     }
 
     pub fn str(&mut self, name: &'static str, s: &[u8]) -> &mut Self {
-        self.fields.push((name, Field::Item(Item::Str(s.into()))));
+        let at = self.push_extra(Extra::Str(s.into()));
+        self.push(name, KIND_STRING, at);
         self
     }
 
     /// A pointer field; `0` (null) is left out.
     pub fn ptr(&mut self, name: &'static str, id: i64) -> &mut Self {
         if id != 0 {
-            self.fields.push((name, Field::Item(Item::Ref(id))));
+            self.push(name, KIND_REF, id);
         }
         self
     }
 
     pub fn list(&mut self, name: &'static str, items: Vec<Item>) -> &mut Self {
-        self.fields.push((name, Field::List(items)));
+        let at = self.push_extra(Extra::List(items));
+        self.push(name, KIND_LIST, at);
         self
     }
 
     pub fn refs(&mut self, name: &'static str, ids: impl IntoIterator<Item = i64>) -> &mut Self {
-        self.list(name, ids.into_iter().map(Item::Ref).collect())
+        let at = self.push_extra(Extra::Refs(ids.into_iter().collect()));
+        self.push(name, KIND_LIST, at);
+        self
     }
 
-    pub fn field(&self, name: &str) -> Option<&Field> {
-        self.fields.iter().find(|(n, _)| *n == name).map(|(_, f)| f)
+    fn value(&self, slot: &Slot) -> FieldRef<'_> {
+        match (slot.kind as i64, &self.extra.get(slot.value as usize)) {
+            (KIND_STRING, Some(Extra::Str(s))) => FieldRef::Str(s),
+            (KIND_LIST, Some(Extra::List(items))) => FieldRef::List(List::Items(items)),
+            (KIND_LIST, Some(Extra::Refs(ids))) => FieldRef::List(List::Refs(ids)),
+            (KIND_REF, _) => FieldRef::Ref(slot.value),
+            _ => FieldRef::Int(slot.value),
+        }
+    }
+
+    pub fn field(&self, name: &str) -> Option<FieldRef<'_>> {
+        self.field_named(Name::find(name)?)
+    }
+
+    pub fn field_named(&self, name: Name) -> Option<FieldRef<'_>> {
+        let slot = self.slots.iter().find(|s| s.name == name)?;
+        Some(self.value(slot))
     }
 
     pub fn set(&mut self, name: &'static str, field: Field) {
-        match self.fields.iter_mut().find(|(n, _)| *n == name) {
-            Some((_, f)) => *f = field,
-            None => self.fields.push((name, field)),
+        let (kind, value) = match field {
+            Field::Item(Item::Int(v)) => (KIND_INT, v),
+            Field::Item(Item::Ref(v)) => (KIND_REF, v),
+            Field::Item(Item::Str(s)) => (KIND_STRING, self.push_extra(Extra::Str(s))),
+            Field::List(items) => (KIND_LIST, self.push_extra(Extra::List(items))),
+        };
+        let id = Name::of(name);
+        match self.slots.iter_mut().find(|s| s.name == id) {
+            Some(slot) => {
+                slot.kind = kind as u8;
+                slot.value = value;
+            }
+            None => self.push(name, kind, value),
         }
     }
 }
@@ -164,25 +352,25 @@ impl Records {
         }
     }
 
-    pub fn field(&self, id: i64, name: &str) -> Option<&Field> {
+    pub fn field(&self, id: i64, name: &str) -> Option<FieldRef<'_>> {
         self.get(id)?.field(name)
     }
 
     pub fn kind(&self, id: i64, name: &str) -> i64 {
         match self.field(id, name) {
             None => KIND_NONE,
-            Some(Field::Item(Item::Int(_))) => KIND_INT,
-            Some(Field::Item(Item::Str(_))) => KIND_STRING,
-            Some(Field::Item(Item::Ref(_))) => KIND_REF,
-            Some(Field::List(_)) => KIND_LIST,
+            Some(FieldRef::Int(_)) => KIND_INT,
+            Some(FieldRef::Str(_)) => KIND_STRING,
+            Some(FieldRef::Ref(_)) => KIND_REF,
+            Some(FieldRef::List(_)) => KIND_LIST,
         }
     }
 
     /// The item named `name`, or element `index` of the list named `name`.
-    pub fn item(&self, id: i64, name: &str, index: Option<usize>) -> Option<&Item> {
+    pub fn item(&self, id: i64, name: &str, index: Option<usize>) -> Option<Item> {
         match (self.field(id, name)?, index) {
-            (Field::Item(item), None) => Some(item),
-            (Field::List(items), Some(i)) => items.get(i),
+            (FieldRef::List(items), Some(i)) => items.get(i),
+            (single, None) => single.item(),
             _ => None,
         }
     }

@@ -10,6 +10,8 @@ The bridge that lets a metaprogram see another workspace's code: `Message_File`,
 
 A metaprogram runs in its own compiler's interpreter, which borrows that compiler, and the target workspace's types are not the metaprogram's types. So the target's compiler exports neutral records (`crates/jaic/src/records.rs`): a tag naming a Jai struct (`"Code_Ident"`, `"Type_Info_Struct"`, `"Message_Import"`) and named fields, each an `Int` (floats as bits), `Str`, `Ref` (record id, 0 = null) or a list of those. Ids are global to the compilation, and records live until it ends.
 
+Exported syntax trees are most of a metaprogram compiler's memory (a third of a Focus check), so a `Record` is compact: each field is a 16-byte `Slot` holding an interned field `Name` (a `u16`), its kind and either the integer/record id itself or an index into the record's `extra` (strings and lists). Lists of record ids are kept as plain `i64`s. Readers get a borrowed `FieldRef` (`Records::field`, `Record::field_named`); writers still pass `Field`/`Item` to `Record::set`. Field names are interned per thread (`Name::of` hashes a literal by address); records hold `Rc`s, so they never cross threads. Plan entries in `record_build.rs` intern their member names once, so filling a struct compares `u16`s.
+
 ### Rust exporter
 
 `sema/code_export.rs`, with state in `Compiler::export`:
@@ -70,9 +72,9 @@ Gotcha: a run that writes globals before `compiler_get_nodes` writes them again 
 
 In typed exports:
 
-- Names resolve to locals first (`Exporter::locals`, scoped per block), then `Compiler::lookup` from the code's scope. A declaration resolves to a cached reference record (`resolved_decls`) with `type`, `type_inst.result` and, for procedures, a header as `expression`. Builtins like `size_of` resolve to nothing.
+- Names resolve to locals first (`Exporter::locals`, scoped per block), then `Compiler::lookup` from the code's scope. A loop's `it` and `it_index` (or its named variables) are locals with no declaration record (`0` in `locals`), so they resolve to nothing rather than to a global of the same name. Names that are not scope names (the member in `a.b` and `.B`, a struct literal's field, a named argument, a loop label) are exported unresolved by `Exporter::name_ident`: a scope lookup would find an unrelated global, or miss after searching every sibling file's imports, which made the lookups a quarter of a Focus edit. A declaration resolves to a cached reference record (`resolved_decls`) with `type`, `type_inst.result` and, for procedures, a header as `expression`. Builtins like `size_of` resolve to nothing.
 - Calls pick the only candidate, else the first overload whose parameter count fits.
-- Value expressions get `type` by checking them in the code's scope without emitting (`Exporter::expr_type`); untyped literals report their default (`s64`, `float32`) {#records.13}.
+- Value expressions get `type` by checking them in the code's scope without emitting (`Exporter::expr_type`). One that reads a local (`Exporter::reads_local`) gets none, since the code's scope does not have the local. Untyped literals report their default (`s64`, `float32`) {#records.13}.
 - Type records carry `__address`, the real descriptor in this program's memory, so `type == type_info(T)` works {#records.11}.
 - In `x := value`, the value takes the declaration's type when it has none.
 

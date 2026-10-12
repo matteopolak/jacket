@@ -10,7 +10,7 @@
 //! `compiler_modify_procedure` can map a modified statement list back.
 use super::scope::{EntityKind, Resolved, ScopeKind};
 use super::*;
-use crate::records::{Field, Item, Record, Records};
+use crate::records::{Field, FieldRef, Item, Record, Records};
 use crate::types::{ArrayKind, TypeKind};
 
 /// Values of `Message.kind`.
@@ -599,7 +599,7 @@ impl Compiler {
                     "compiler_modify_procedure: a statement is neither from this procedure nor from compiler_get_nodes",
                 );
             };
-            new_stmts.extend(self.parse_inserted_code(&String::from_utf8_lossy(text))?);
+            new_stmts.extend(self.parse_inserted_code(&String::from_utf8_lossy(&text))?);
         }
         let lit = ast::ProcLit {
             header: old.header.clone(),
@@ -957,7 +957,9 @@ impl Exporter<'_> {
 
     /// A node record with the `Code_Node` fields filled in.
     fn node(&mut self, tag: &'static str, kind: i64, span: Span) -> Record {
-        let mut rec = Record::new(tag);
+        // The common fields (kind, location, serial, type) and a node's own few: growing
+        // from empty reallocated most records two or three times.
+        let mut rec = Record::with_capacity(tag, 12);
         rec.int("kind", kind);
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
@@ -1025,10 +1027,19 @@ impl Exporter<'_> {
         rec.str("name", name.as_str().as_bytes());
         if let Some(decl) = self.resolve_name(name) {
             rec.ptr("resolved_declaration", decl);
-            if let Some(Field::Item(Item::Ref(ty))) = self.r.field(decl, "type") {
-                rec.ptr("type", *ty);
+            if let Some(FieldRef::Ref(ty)) = self.r.field(decl, "type") {
+                rec.ptr("type", ty);
             }
         }
+        self.add(rec)
+    }
+
+    /// A `Code_Ident` that is not a name of the scope: a member (`a.b`, `.B`), a struct
+    /// literal's field, a named argument or a loop label. Looking it up in the scope would
+    /// miss after the slowest search, or find an unrelated global of the same name.
+    fn name_ident(&mut self, name: Sym, span: Span) -> i64 {
+        let mut rec = self.node("Code_Ident", node::IDENT, span);
+        rec.str("name", name.as_str().as_bytes());
         self.add(rec)
     }
 
@@ -1036,7 +1047,8 @@ impl Exporter<'_> {
     /// exported, else what the scope's lookup finds (a declaration made for it once).
     fn resolve_name(&mut self, name: Sym) -> Option<i64> {
         if let Some(&(_, decl)) = self.locals.iter().rev().find(|(n, _)| *n == name) {
-            return Some(decl);
+            // 0: a local with no declaration record (a loop's `it`).
+            return (decl != 0).then_some(decl);
         }
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
@@ -1120,7 +1132,7 @@ impl Exporter<'_> {
     /// declaration has none (a polymorphic header's unresolved type).
     fn mark_varargs(&mut self, decl: i64, span: Span) {
         let inst = match self.r.get(decl).and_then(|d| d.field("type_inst")) {
-            Some(Field::Item(Item::Ref(id))) => *id,
+            Some(FieldRef::Ref(id)) => id,
             _ => {
                 let rec = self.node("Code_Type_Instantiation", node::TYPE_INSTANTIATION, span);
                 let id = self.r.reserve(rec.tag);
@@ -1395,7 +1407,7 @@ impl Exporter<'_> {
                 rec
             }
             E::Member(a, name) => {
-                let (a, b) = (self.expr(a), self.ident(name.name, name.span));
+                let (a, b) = (self.expr(a), self.name_ident(name.name, name.span));
                 let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
                 rec.int("operator_type", b'.' as i64)
                     .ptr("left", a)
@@ -1403,7 +1415,7 @@ impl Exporter<'_> {
                 rec
             }
             E::InferredMember(name) => {
-                let b = self.ident(name.name, name.span);
+                let b = self.name_ident(name.name, name.span);
                 let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
                 rec.int("operator_type", b'.' as i64).ptr("right", b);
                 rec
@@ -1433,13 +1445,12 @@ impl Exporter<'_> {
                     rec.ptr("resolved_procedure_expression", header);
                     // The call's type: its first return.
                     let first = match self.r.item(header, "returns", Some(0)) {
-                        Some(Item::Ref(ret)) => Some(*ret),
+                        Some(Item::Ref(ret)) => Some(ret),
                         _ => None,
                     };
-                    if let Some(Field::Item(Item::Ref(ty))) =
-                        first.and_then(|ret| self.r.field(ret, "type"))
+                    if let Some(FieldRef::Ref(ty)) = first.and_then(|ret| self.r.field(ret, "type"))
                     {
-                        rec.ptr("type", *ty);
+                        rec.ptr("type", ty);
                     }
                 }
                 rec
@@ -1496,7 +1507,7 @@ impl Exporter<'_> {
                 for field in fields {
                     let value = self.expr(&field.value);
                     let target = match (&field.name, &field.target) {
-                        (Some(n), _) => self.ident(n.name, n.span),
+                        (Some(n), _) => self.name_ident(n.name, n.span),
                         (None, Some(t)) => self.expr(t),
                         (None, None) => {
                             values.push(value);
@@ -1761,10 +1772,36 @@ impl Exporter<'_> {
 
     /// The type `e` checks to in the exported code's scope, when it checks there.
     fn expr_type(&mut self, e: &ast::Expr) -> Option<TypeId> {
+        // Locals are not in that scope: checking would fail after a costly search for the
+        // name, or find a global the local shadows.
+        if self.reads_local(e) {
+            return None;
+        }
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
         let ty = c.check_expr_no_emit(scope, e).ok()?.ty();
         (ty != TypeId::COMPILE_TIME).then_some(ty)
+    }
+
+    /// Does `e` name a local of the exported code (looking through operators, members,
+    /// indexing, casts and calls)?
+    fn reads_local(&self, e: &ast::Expr) -> bool {
+        use ast::ExprKind as E;
+        match &e.kind {
+            E::Ident(name) => self.locals.iter().any(|(n, _)| n == name),
+            E::Binary(_, a, b) | E::Index(a, b) => self.reads_local(a) || self.reads_local(b),
+            E::Unary(_, a)
+            | E::Member(a, _)
+            | E::Cast {
+                value: a, ..
+            } => self.reads_local(a),
+            E::Call {
+                callee,
+                args,
+                ..
+            } => self.reads_local(callee) || args.iter().any(|a| self.reads_local(&a.value)),
+            _ => false,
+        }
     }
 
     /// `Code_Argument` records and the argument values.
@@ -1773,7 +1810,7 @@ impl Exporter<'_> {
         let mut values = Vec::new();
         for arg in args {
             let value = self.expr(&arg.value);
-            let name = arg.name.map_or(0, |n| self.ident(n.name, n.span));
+            let name = arg.name.map_or(0, |n| self.name_ident(n.name, n.span));
             let mut rec = Record::new("Code_Argument");
             rec.ptr("expression", value).ptr("name", name);
             unsorted.push(self.r.add(rec));
@@ -1927,9 +1964,17 @@ impl Exporter<'_> {
                     ast::ForOver::Range(a, b) => (self.expr(a), self.expr(b)),
                     ast::ForOver::Collection(c) => (self.expr(c), 0),
                 };
+                // The loop's variables are locals of the body, not names of the enclosing
+                // scope; they have no declaration record.
+                let locals = self.locals.len();
+                for (name, default) in [(f.it, "it"), (f.index, "it_index")] {
+                    let name = name.map_or_else(|| Sym::intern(default), |i| i.name);
+                    self.locals.push((name, 0));
+                }
                 let it = f.it.map_or(0, |i| self.ident(i.name, i.span));
                 let index = f.index.map_or(0, |i| self.ident(i.name, i.span));
                 let block = self.stmt_block(&f.body);
+                self.locals.truncate(locals);
                 let flags = (f.by_pointer as i64) | ((f.reverse as i64) * 0x2);
                 let mut rec = self.node("Code_For", node::FOR, span);
                 rec.ptr("iteration_expression", a)
@@ -1946,7 +1991,7 @@ impl Exporter<'_> {
                     S::Continue(_) => 1,
                     _ => 2,
                 };
-                let target = label.map_or(0, |l| self.ident(l.name, l.span));
+                let target = label.map_or(0, |l| self.name_ident(l.name, l.span));
                 let mut rec = self.node("Code_Loop_Control", node::LOOP_CONTROL, span);
                 rec.int("control_type", control).ptr("target_ident", target);
                 self.add(rec)
@@ -2180,13 +2225,13 @@ impl Exporter<'_> {
         let rec = self.decl(d, name, ty, None, true, 0);
         // `x := value`: the value has the declared type (its own typing may not see locals).
         if d.ty.is_none()
-            && let Some(Field::Item(Item::Ref(ty))) = self.r.field(rec, "type").cloned()
-            && let Some(Field::Item(Item::Ref(value))) = self.r.field(rec, "expression").cloned()
+            && let Some(FieldRef::Ref(ty)) = self.r.field(rec, "type")
+            && let Some(FieldRef::Ref(value)) = self.r.field(rec, "expression")
             && value != 0
             && let Some(value) = self.r.get_mut(value)
             && value
                 .field("type")
-                .is_none_or(|t| matches!(t, Field::Item(Item::Ref(0))))
+                .is_none_or(|t| matches!(t, FieldRef::Ref(0)))
         {
             value.ptr("type", ty);
         }
@@ -2456,18 +2501,18 @@ impl Exporter<'_> {
         // The header's arguments and named returns are in scope in the body.
         let locals = self.locals.len();
         for list in ["arguments", "returns"] {
-            let Some(Field::List(items)) = self.r.field(header_id, list) else {
+            let Some(FieldRef::List(items)) = self.r.field(header_id, list) else {
                 continue;
             };
             let decls: Vec<i64> = items
                 .iter()
                 .filter_map(|i| match i {
-                    Item::Ref(d) => Some(*d),
+                    Item::Ref(d) => Some(d),
                     _ => None,
                 })
                 .collect();
             for d in decls {
-                if let Some(Field::Item(Item::Str(name))) = self.r.field(d, "name")
+                if let Some(FieldRef::Str(name)) = self.r.field(d, "name")
                     && !name.is_empty()
                 {
                     let name = Sym::intern(&String::from_utf8_lossy(name));

@@ -12,7 +12,7 @@
 //! pointers to the same record stay the same pointer.
 use crate::fxhash::HashMap;
 use crate::interp::{Interp, Trap};
-use crate::records::{Field, Item, Records};
+use crate::records::{FieldRef, Item, List, Name, Records};
 use std::rc::Rc;
 
 /// Plan entry kinds shared with `Record_Plan_Entry` in `stdlib/Compiler/records.jai`.
@@ -39,7 +39,7 @@ struct Entry {
     offset: u64,
     kind: u64,
     size: usize,
-    name: Box<str>,
+    name: Name,
     /// An array's elements: their kind and size.
     element_kind: u64,
     element_size: u64,
@@ -153,7 +153,7 @@ impl Builder {
                 offset: read(0)?,
                 kind: read(8)?,
                 size: read(16)? as usize,
-                name: read_string(interp, entry + 24).into(),
+                name: Name::intern(&read_string(interp, entry + 24)),
                 element_kind: read(48)?,
                 element_size: read(56)?,
                 target: read(64)?,
@@ -161,7 +161,11 @@ impl Builder {
             });
         }
         let constant_storage = type_info_struct
-            .then(|| entries.iter().find(|e| &*e.name == "constant_storage"))
+            .then(|| {
+                entries
+                    .iter()
+                    .find(|e| e.name.as_str() == "constant_storage")
+            })
             .flatten()
             .map(|e| e.offset);
         self.plans.insert(
@@ -220,11 +224,11 @@ impl Builder {
         let record = fill.records.get(id);
         if let Some(record) = record {
             // A descriptor of the program reading the records: the real one.
-            if let Some(Field::Item(Item::Int(address))) = record.field("__address") {
-                self.remember(id, *address as u64);
-                return *address as u64;
+            if let Some(FieldRef::Int(address)) = record.field("__address") {
+                self.remember(id, address as u64);
+                return address as u64;
             }
-            if let Some(Field::Item(Item::Str(name))) = record.field("__builtin")
+            if let Some(FieldRef::Str(name)) = record.field("__builtin")
                 && let Some(&info) = std::str::from_utf8(name)
                     .ok()
                     .and_then(|name| self.builtins.get(name))
@@ -289,26 +293,16 @@ impl Builder {
             return Ok(());
         };
         for entry in &plan.entries {
-            let Some(field) = record.field(&entry.name) else {
+            let Some(field) = record.field_named(entry.name) else {
                 continue;
             };
             let target = memory + entry.offset;
             match field {
-                Field::Item(item) => {
-                    self.fill_item(
-                        fill,
-                        interp,
-                        entry.kind,
-                        entry.size,
-                        entry.target,
-                        item,
-                        target,
-                    )?;
-                }
-                Field::List(items) if entry.kind == PLAN_ARRAY && !items.is_empty() => {
+                FieldRef::List(items) if entry.kind == PLAN_ARRAY && !items.is_empty() => {
                     let size = entry.element_size;
                     let data = self.alloc((items.len() as u64 * size) as usize);
                     for (k, item) in items.iter().enumerate() {
+                        let item = &item;
                         self.fill_item(
                             fill,
                             interp,
@@ -325,7 +319,21 @@ impl Builder {
                     }
                 }
                 // A list read as a single value is zero, and the memory is zeroed already.
-                Field::List(_) => {}
+                FieldRef::List(_) => {}
+                single => {
+                    let Some(item) = single.item() else {
+                        continue;
+                    };
+                    self.fill_item(
+                        fill,
+                        interp,
+                        entry.kind,
+                        entry.size,
+                        entry.target,
+                        &item,
+                        target,
+                    )?;
+                }
             }
         }
         Ok(())
@@ -373,7 +381,9 @@ impl Builder {
         storage: u64,
         id: i64,
     ) -> Result<(), Trap> {
-        let Some(Field::List(items)) = fill.records.field(id, "__constant_pointers") else {
+        let Some(FieldRef::List(List::Items(items))) =
+            fill.records.field(id, "__constant_pointers")
+        else {
             return Ok(());
         };
         let data = interp
