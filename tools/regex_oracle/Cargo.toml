@@ -1,0 +1,12 @@
+# Rust's regex crate as a reference for Extensions/Regex: tools/gen_regex_corpus.py feeds it
+# patterns and records what it matches. Not part of the jaic workspace.
+[package]
+name = "regex-oracle"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+regex = "=1.13.1"
+
+[workspace]

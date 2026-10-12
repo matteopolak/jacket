@@ -3252,6 +3252,84 @@
       "negative": {
         "check": "not a Static"
       }
+    },
+    {
+      "id": "regex-bad-pattern",
+      "source": "negative/regex-bad-pattern.jai",
+      "sha256": "bdc1ffaec23943165de5bb10fe400b5cc50e64d13309126ea6e0e5c7ce42c044",
+      "suite": "negative",
+      "feature": "regex-bad-pattern",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Regex: unclosed group: expected `)`"
+      }
+    },
+    {
+      "id": "regex-field-without-group",
+      "source": "negative/regex-field-without-group.jai",
+      "sha256": "0feb4d702ca73ef46b347cdaf5340d9be1f64d07023ffbb8ff56acbd70994328",
+      "suite": "negative",
+      "feature": "regex-field-without-group",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Regex: field `y` of Point has no group"
+      }
+    },
+    {
+      "id": "regex-group-without-field",
+      "source": "negative/regex-group-without-field.jai",
+      "sha256": "d31e0569a3cf6f6946231d5d30e660cd79f7c0cded401250476070c210666270",
+      "suite": "negative",
+      "feature": "regex-group-without-field",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Regex: group `y` in (?<x>\\d+),(?<y>\\d+) has no field in Point"
+      }
+    },
+    {
+      "id": "regex-field-type",
+      "source": "negative/regex-field-type.jai",
+      "sha256": "589950f986a28ff367453901c70116829f6652b3db901dadc6795a121e6aea97",
+      "suite": "negative",
+      "feature": "regex-field-type",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Regex: field `x` of Point has a type a group can't be parsed into"
+      }
+    },
+    {
+      "id": "regex-bad-static-declaration",
+      "source": "negative/regex-bad-static-declaration.jai",
+      "sha256": "4b6f7ea80a83b188c6cd4569feb1f1bd81d42689b9e43efc27c80007b4f4ab25",
+      "suite": "negative",
+      "feature": "regex-bad-static-declaration",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "Regex: unclosed character class"
+      }
+    },
+    {
+      "id": "regex-not-static",
+      "source": "negative/regex-not-static.jai",
+      "sha256": "11d92f7a0cd660f39c9ff248c4846c545530a2423f1c82d586beaf37a6ccd2ad",
+      "suite": "negative",
+      "feature": "regex-not-static",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "expected a Regex.Static(\"...\") type, not s64"
+      }
     }
   ]
 }

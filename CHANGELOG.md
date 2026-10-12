@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Features
+
+- `Extensions/Regex`: regular expressions with the syntax and matching rules of Rust's `regex` crate, full Unicode 17 support and linear-time matching (lazy DFAs, a Pike VM and a bounded backtracker). `Regex.compile` builds one at run time; `Regex.Static("...")` is compiled while the program compiles, rejects a bad pattern with a compile error, and turns named groups into typed fields (integers, floats, enums) that `parse`, `captures` and `parse_into` fill.
+
 ### Breaking changes
 
 - winget is no longer offered; install on Windows with `install.ps1` or the release zip.

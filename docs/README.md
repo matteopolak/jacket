@@ -101,6 +101,7 @@ The LLVM backend, C ABI and linking.
 - [Stdlib extensions: jaic-only modules in `stdlib/Extensions/`](specs/stdlib/README.md)
 - [Command_Line](specs/stdlib/README.md)
 - [Args: a compile-time-generated command-line parser (jaic extension)](specs/stdlib/README.md)
+- [Regex: regular expressions with compile-time typed patterns (jaic extension)](specs/stdlib/README.md)
 - [Compiler API, reflection and metaprogram support](specs/stdlib/README.md)
 - [Files, processes and OS services](specs/stdlib/README.md)
 - [GetRect](specs/stdlib/README.md)
@@ -158,6 +159,7 @@ Scripts, CI and project policies.
 - [Package managers and installers](tools/package-managers.md): Homebrew tap, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup
 - [PGO and BOLT](tools/pgo-and-bolt.md): profile-guided and post-link optimisation of the released binaries, `tools/build_pgo.py`
 - [Third-party native libraries](tools/native-libs.md)
+- [Regex Unicode tables](tools/regex-unicode-tables.md): `tools/gen_regex_unicode.py`, the generated `unicode_data.jai` and the lookup API of `Extensions/Regex`
 - [Third-party smoke test](tools/third-party-smoke-test.md): finding public Jai repositories and trying them
 - [open-jai expectation harness](tools/openjai-expectations.md)
 - [Releases](tools/releases.md)

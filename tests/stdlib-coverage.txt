@@ -25,6 +25,7 @@ Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
 Extensions/Jai_Format 6
+Extensions/Regex 77
 File 33
 File_Async 9
 File_Utilities 15
@@ -113,6 +114,7 @@ Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
 Extensions/Jai_Format 6
+Extensions/Regex 77
 File 33
 File_Async 9
 File_Utilities 15
@@ -201,6 +203,7 @@ Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
 Extensions/Jai_Format 6
+Extensions/Regex 77
 File 34
 File_Async 9
 File_Utilities 15
@@ -291,6 +294,7 @@ Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
 Extensions/Jai_Format 6
+Extensions/Regex 77
 File 33
 File_Async 9
 File_Utilities 15
@@ -380,6 +384,7 @@ Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
 Extensions/Jai_Format 6
+Extensions/Regex 77
 File 37
 File_Async 9
 File_Utilities 15
@@ -467,6 +472,7 @@ Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
 Extensions/Jai_Format 6
+Extensions/Regex 77
 File 37
 File_Async 9
 File_Utilities 15
