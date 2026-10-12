@@ -306,7 +306,9 @@ fn instrument_func(
     let originals = (1..original_blocks).chain(std::iter::once(body_id.0 as usize));
     for b in originals.collect::<Vec<_>>() {
         let old = std::mem::take(&mut e.func.blocks[b].insts);
-        let term_calls = successors(&e.func.blocks[b].term)
+        let term_calls = e.func.blocks[b]
+            .term
+            .successors()
             .iter()
             .any(|s| reaches_call[s.0 as usize]);
         let mut insts = Vec::with_capacity(old.len() + 4);
@@ -351,27 +353,6 @@ fn calls_before_next_loc(rest: &[Inst], successors_call: bool) -> bool {
     successors_call
 }
 
-fn successors(term: &Term) -> Vec<BlockId> {
-    match term {
-        Term::Jump(b) => vec![*b],
-        Term::Branch {
-            then_block,
-            else_block,
-            ..
-        } => vec![*then_block, *else_block],
-        Term::Switch {
-            cases,
-            default,
-            ..
-        } => cases
-            .iter()
-            .map(|c| c.1)
-            .chain(std::iter::once(*default))
-            .collect(),
-        Term::Ret(_) | Term::Unreachable => Vec::new(),
-    }
-}
-
 /// Per block: does a call happen from its start before any `Loc` on some path? (A statement's
 /// line only matters if one is.)
 fn reaches_call_from_entry(blocks: &[Block]) -> Vec<bool> {
@@ -397,7 +378,7 @@ fn reaches_call_from_entry(blocks: &[Block]) -> Vec<bool> {
         for (b, block) in blocks.iter().enumerate() {
             if first[b] == 0
                 && !result[b]
-                && successors(&block.term).iter().any(|s| result[s.0 as usize])
+                && block.term.successors().iter().any(|s| result[s.0 as usize])
             {
                 result[b] = true;
                 changed = true;

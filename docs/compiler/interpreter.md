@@ -18,6 +18,9 @@ The IR is shaped for LLVM: every local lives in a stack slot, so a statement is 
 |---|---|
 | `SlotAddr` (or a slot plus a constant) feeding a `Load`/`Store` | `LoadFrame`/`StoreFrame` with the frame offset; no null check, since frame memory is always valid |
 | `PtrAdd p, base, IConst` feeding a `Load`/`Store` later in the same block | `Load`/`Store` of `base` + `off` |
+| `Bin` of known constants (add, subtract, multiply, and, or, xor) | `Const` with the folded value |
+| `GlobalAddr` plus a constant `PtrAdd` | one `GlobalAddr` carrying the offset |
+| `PtrAdd base, (i * IConst)` whose product is read only there | `AddScaled`, `base + i * scale` in one op (scale fits 16 bits) |
 | `IConst` that fits 32 bits as an operand | `AddImm`, `MulImm`, `BinImm`, `CmpImm`, `StoreImm`, `StoreFrameImm` |
 | 64-bit `Add`/`Sub`/`Mul`, `PtrAdd` | `Add`/`Sub`/`Mul`, which need no masking |
 | `Cmp` read only by the block's `Branch` | `BranchCmp`/`BranchCmpImm`, which compare and jump; a branch on a constant becomes a jump |
@@ -31,7 +34,7 @@ The IR is shaped for LLVM: every local lives in a stack slot, so a statement is 
 
 The ops of a procedure are one flat array run with a program counter (`run_ops`); block endings are ops, and a branch's target is an op index. There is no per-op source location: `Loc` instructions are lowered away (`lower_locs`) and only calls and `Ir` ops carry a location, which a failing op looks up with `Code::loc_at`. The loop is instantiated twice (`run_ops::<WATCH>`); the `WATCH` form also calls `enter_block` at each block start, for the block budget, thread preemption and `JAIC_PROFILE`, and is picked only when one of those is on.
 
-**Registers.** A procedure's virtual registers live on the interpreter's own stack, after its slots and trace node (`Frame::regs`), so a call allocates nothing: `enter` bumps the stack pointer, the caller copies the arguments in, and the callee leaves its results at the start of its registers. `promote.rs` then turns scalar slots that nothing takes the address of into registers and forwards stores and copies inside a block (a window of 64 ops), so a local variable costs no memory traffic. Values it cannot prove local stay in memory.
+**Registers.** A procedure's virtual registers live on the interpreter's own stack, after its slots and trace node (`Frame::regs`), so a call allocates nothing: `enter` bumps the stack pointer, the caller copies the arguments in, and the callee leaves its results at the start of its registers. `promote.rs` then turns scalar slots that nothing takes the address of into registers and forwards stores and copies inside a block (a window of 64 ops), and into a successor block whose only predecessor is that block, so a local variable costs no memory traffic. Values it cannot prove local stay in memory. Pure ops whose results nothing reads are then removed by mark and sweep from the registers that calls, stores, branches and `Ir` ops read, so a dead loop counter that only feeds itself goes too.
 
 Definitions whose results nobody reads any more (the folded constants and slot addresses) are dropped. Folding moves a register read later than the IR has it, so it is only done for values with one definition (SSA, which the IR builder produces): constants and frame addresses anywhere, other values only within the block that defined them, where no definition can run again in between.
 

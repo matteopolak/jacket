@@ -531,6 +531,30 @@ pub enum Term {
     Unreachable,
 }
 
+impl Term {
+    /// The blocks this ending can go to, a target once per edge.
+    pub fn successors(&self) -> Vec<BlockId> {
+        match self {
+            Term::Jump(b) => vec![*b],
+            Term::Branch {
+                then_block,
+                else_block,
+                ..
+            } => vec![*then_block, *else_block],
+            Term::Switch {
+                cases,
+                default,
+                ..
+            } => cases
+                .iter()
+                .map(|c| c.1)
+                .chain(std::iter::once(*default))
+                .collect(),
+            Term::Ret(_) | Term::Unreachable => Vec::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Block {
     pub insts: Vec<Inst>,

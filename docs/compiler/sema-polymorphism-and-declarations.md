@@ -59,6 +59,7 @@ Implementation notes for the parts of `crates/jaic/src/sema` that handle declara
 - `#insert (break=..., continue=..., remove=...) body` runs the replacement at the insertion site (`InsertReplacements`, `try_insert_replacement`).
 - `#insert,scope(Top)` with a top-level `Top :: #code()` checks the code in that file's scope and declares its constants there, so a metaprogram sees them as top-level declarations.
 - `for *=cond` / `for <=cond` take compile-time flags; `remove it` works in reverse loops.
+- `check_for` lowers range and array loops rotated: the bound is tested once before the body and again after each step, which branches straight back to the body, so a loop costs one compare and one branch per iteration. A range loop tests `it` against the bound before stepping (`>=`, or `<=` reversed), so a bound at the type's limit cannot wrap, and a body that moves `it` past the bound still ends the loop. An array loop reloads the count after each step, so `array_add` and `remove it` in the body take effect. `tests/stdlib/for-loop-bounds.jai` covers these edges.
 - A struct iterated through `for_expansion` is passed by address unless an overload takes that type by value. A non-pointer iterable passed to a `*T` expansion parameter is spilled to a temporary (`wants_pointer` in `stmt.rs`). A forwarded body (`for_expansion(*inner, body, flags)`) borrows the inserting macro's `it`/`it_index` into the loop scope. `utf8_iter` backtick-declares `it` and `it_index` (character count; `-1` backwards).
 
 ### Pending and deferred work

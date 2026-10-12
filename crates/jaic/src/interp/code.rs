@@ -54,6 +54,13 @@ pub(super) enum Op {
         dst: u32,
         off: u64,
     },
+    /// `dst = a + b * scale`: an element's address from its index.
+    AddScaled {
+        dst: u32,
+        a: u32,
+        b: u32,
+        scale: u16,
+    },
     /// 64-bit arithmetic that needs no masking.
     Add {
         dst: u32,
@@ -138,9 +145,11 @@ pub(super) enum Op {
         dst: u32,
         src: u32,
     },
+    /// `dst = address of global + off`
     GlobalAddr {
         dst: u32,
         global: GlobalId,
+        off: i32,
     },
     ForeignAddr {
         dst: u32,
@@ -454,6 +463,8 @@ enum Known {
     Int(u64),
     /// `stack_base + offset`.
     Frame(u64),
+    /// The address of a global plus an offset.
+    Global(GlobalId, i32),
 }
 
 /// Values of a block: `base + off` for values this block computed by adding a constant.
@@ -513,11 +524,31 @@ pub(super) fn build(
                 } if defs[dst.0 as usize] == 1 => {
                     known[dst.0 as usize] = Known::Int(mask(ty, value))
                 }
+                Inst::GlobalAddr {
+                    dst,
+                    global,
+                } if defs[dst.0 as usize] == 1 => known[dst.0 as usize] = Known::Global(global, 0),
                 Inst::SlotAddr {
                     dst,
                     slot,
                 } if defs[dst.0 as usize] == 1 => {
                     known[dst.0 as usize] = Known::Frame(frame_offsets[slot.0 as usize])
+                }
+                // Arithmetic on constants, such as `count * size_of(T)` or a pointer step, is
+                // a constant too, so later adds and multiplies take it as an immediate.
+                Inst::Bin {
+                    dst,
+                    op,
+                    ty,
+                    a,
+                    b,
+                } if defs[dst.0 as usize] == 1 => {
+                    if let (Known::Int(x), Known::Int(y)) =
+                        (known[a.0 as usize], known[b.0 as usize])
+                        && let Some(value) = fold_bin(op, x, y)
+                    {
+                        known[dst.0 as usize] = Known::Int(mask(ty, value));
+                    }
                 }
                 _ => {}
             }
@@ -723,6 +754,20 @@ fn specialize(op: Op) -> Op {
     }
 }
 
+/// `a op b` for the operators whose result, masked to the type, does not depend on
+/// signedness or width.
+fn fold_bin(op: BinOp, a: u64, b: u64) -> Option<u64> {
+    Some(match op {
+        BinOp::Add => a.wrapping_add(b),
+        BinOp::Sub => a.wrapping_sub(b),
+        BinOp::Mul => a.wrapping_mul(b),
+        BinOp::And => a & b,
+        BinOp::Or => a | b,
+        BinOp::Xor => a ^ b,
+        _ => return None,
+    })
+}
+
 fn imm(value: u64, ty: Ty) -> Option<i32> {
     let small = value as i64 as i32;
     (mask(ty, small as i64 as u64) == value).then_some(small)
@@ -915,8 +960,9 @@ impl Builder<'_> {
                 let op = Op::GlobalAddr {
                     dst: self.v(dst),
                     global,
+                    off: 0,
                 };
-                self.push(op, None);
+                self.push(op, self.single(dst).then_some(dst));
             }
             Inst::ForeignAddr {
                 dst,
@@ -1088,6 +1134,15 @@ impl Builder<'_> {
     }
 
     fn bin(&mut self, dst: Val, op: BinOp, ty: Ty, a: Val, b: Val) {
+        if let Known::Int(value) = self.known[dst.0 as usize] {
+            self.fold(a);
+            self.fold(b);
+            let op = Op::Const {
+                dst: self.v(dst),
+                value,
+            };
+            return self.push(op, Some(dst));
+        }
         let wide = matches!(ty, Ty::I64 | Ty::Ptr);
         let commutes = matches!(
             op,
@@ -1193,6 +1248,21 @@ impl Builder<'_> {
                     Some(dst),
                 );
             }
+            // A constant offset from a global is the global's address with that offset.
+            if let Known::Global(global, off) = self.known[base.0 as usize]
+                && self.single(dst)
+                && let Some(sum) = i32::try_from(x).ok().and_then(|x| off.checked_add(x))
+            {
+                self.known[dst.0 as usize] = Known::Global(global, sum);
+                self.fold(base);
+                self.fold(offset);
+                let op = Op::GlobalAddr {
+                    dst: d,
+                    global,
+                    off: sum,
+                };
+                return self.push(op, Some(dst));
+            }
             // Remember `base + x` for loads and stores later in this block.
             let (root, total) = match self.offsets[base.0 as usize] {
                 Some(o) => (o.base, o.off.checked_add(x)),
@@ -1214,6 +1284,28 @@ impl Builder<'_> {
                 };
                 return self.push(op, single.then_some(dst));
             }
+        }
+        // `base + i * size` when the multiply was the op just made, for this add alone.
+        if self.ops.len() > self.block_start_mark
+            && self.single(offset)
+            && self.uses[offset.0 as usize] == 1
+            && let Some(&Op::MulImm {
+                dst: product,
+                a: index,
+                imm,
+            }) = self.ops.last()
+            && product == self.v(offset)
+            && let Ok(scale) = u16::try_from(imm)
+        {
+            self.ops.pop();
+            self.pure_def.pop();
+            let op = Op::AddScaled {
+                dst: d,
+                a: self.v(base),
+                b: index,
+                scale,
+            };
+            return self.push(op, None);
         }
         let op = Op::Add {
             dst: d,
@@ -1405,6 +1497,9 @@ fn op_dst(op: &Op) -> Option<u32> {
             dst, ..
         }
         | Op::Add {
+            dst, ..
+        }
+        | Op::AddScaled {
             dst, ..
         }
         | Op::AddImm {
@@ -1655,6 +1750,12 @@ impl Interp {
                     a,
                     b,
                 } => set(dst, get(a).wrapping_add(get(b))),
+                Op::AddScaled {
+                    dst,
+                    a,
+                    b,
+                    scale,
+                } => set(dst, get(a).wrapping_add(get(b).wrapping_mul(scale as u64))),
                 Op::AddImm {
                     dst,
                     a,
@@ -1755,7 +1856,11 @@ impl Interp {
                 Op::GlobalAddr {
                     dst,
                     global,
-                } => set(dst, tri!(self.global_addr(program, global))),
+                    off,
+                } => set(
+                    dst,
+                    tri!(self.global_addr(program, global)).wrapping_add(off as i64 as u64),
+                ),
                 Op::ForeignAddr {
                     dst,
                     foreign,

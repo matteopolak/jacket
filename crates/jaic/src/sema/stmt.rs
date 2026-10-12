@@ -2247,10 +2247,18 @@ impl Compiler {
             result?;
             f.b.jump(step);
             f.b.switch_to(step);
-            // Stop before wrapping past the bound.
+            // Stop at (or past, if the body moved `it`) the bound, before stepping could wrap.
+            // Otherwise the next value is still in range, so the step goes straight back to the
+            // body and only the first iteration runs the test in `head`.
             let cur = f.b.load(t, it);
+            let past = match (for_.reverse, signed) {
+                (false, true) => CmpOp::SGe,
+                (false, false) => CmpOp::UGe,
+                (true, true) => CmpOp::SLe,
+                (true, false) => CmpOp::ULe,
+            };
             let at_end = f.b.cmp(
-                CmpOp::Eq,
+                past,
                 t,
                 cur,
                 if for_.reverse {
@@ -2278,7 +2286,7 @@ impl Compiler {
             let one64 = f.b.iconst(Ty::I64, 1);
             let i2 = f.b.bin(ir::BinOp::Add, Ty::I64, i, one64);
             f.b.store(Ty::I64, idx, i2);
-            f.b.jump(head);
+            f.b.jump(body_block);
             f.b.switch_to(exit);
             return Ok(());
         }
@@ -2414,14 +2422,20 @@ impl Compiler {
         let exit = f.b.new_block();
         f.b.jump(head);
         f.b.switch_to(head);
-        let i = f.b.load(Ty::I64, idx);
-        let c = if for_.reverse {
-            let zero = f.b.iconst(Ty::I64, 0);
-            f.b.cmp(CmpOp::SGe, Ty::I64, i, zero)
-        } else {
-            let n = load_count(f);
-            f.b.cmp(CmpOp::SLt, Ty::I64, i, n)
+        // The bound test, here and again after each step (so a step goes straight to the body
+        // or out, without a jump back up). The count is read each time: the body may grow or
+        // shrink the array.
+        let in_range = |f: &mut FnCtx| {
+            let i = f.b.load(Ty::I64, idx);
+            if for_.reverse {
+                let zero = f.b.iconst(Ty::I64, 0);
+                f.b.cmp(CmpOp::SGe, Ty::I64, i, zero)
+            } else {
+                let n = load_count(f);
+                f.b.cmp(CmpOp::SLt, Ty::I64, i, n)
+            }
         };
+        let c = in_range(f);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
         let data = match fixed {
@@ -2492,7 +2506,8 @@ impl Compiler {
             one,
         );
         f.b.store(Ty::I64, idx, next);
-        f.b.jump(head);
+        let c = in_range(f);
+        f.b.branch(c, body_block, exit);
         f.b.switch_to(exit);
         Ok(())
     }

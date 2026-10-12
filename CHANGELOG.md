@@ -16,6 +16,7 @@
 
 ### Performance
 
+- Compile-time loops run faster: `for` loops test their bound after the step instead of jumping back to a separate head, and the interpreter folds constant arithmetic, merges a scaled index into one `AddScaled` op, forwards copies into a block's only successor and drops loop counters nothing reads. chess-jai's `#run` weight table runs 8 ops per iteration instead of 15, and an edit there takes the language server 335 ms instead of 409 ms; other projects run 1-3% fewer instructions.
 - Metaprograms get their messages and syntax trees several times faster: the compiler builds the structs of a record and everything it reaches in one native call, where `stdlib/Compiler` filled them member by member in interpreted code. A Focus build reads about 450k such structs; an edit in Focus now takes the language server 0.83 s instead of 1.3-1.7 s, and the session peaks at 0.93 GB instead of 1.05 GB.
 - `edit_bench` (see docs/tools/edit-bench.md) measures the language server's answer time after an edit inside a body.
 - The language server drops a compile's lowered code, globals' contents, interpreter stacks and leftover compile-time allocations once it is checked: Focus's coverage run peaks at 0.98 GB instead of 1.40 GB.

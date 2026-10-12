@@ -56,6 +56,12 @@ pub(super) fn visit(op: &mut Op, pool: &mut [u32], f: &mut impl FnMut(Use, &mut 
             a,
             b,
         }
+        | Op::AddScaled {
+            dst,
+            a,
+            b,
+            ..
+        }
         | Op::Sub {
             dst,
             a,
@@ -285,6 +291,8 @@ fn pure(op: &Op) -> bool {
             | Op::Ext { .. }
             | Op::FrameAddr { .. }
             | Op::Add { .. }
+            | Op::AddScaled { .. }
+            | Op::GlobalAddr { .. }
             | Op::AddImm { .. }
             | Op::Sub { .. }
             | Op::Mul { .. }
@@ -292,6 +300,20 @@ fn pure(op: &Op) -> bool {
             | Op::Cmp { .. }
             | Op::CmpImm { .. }
     )
+}
+
+/// How many edges reach each block of `func`; the entry block's count includes the call.
+fn predecessors(func: &ir::Func) -> Vec<u32> {
+    let mut preds = vec![0; func.blocks.len()];
+    if let Some(entry) = preds.first_mut() {
+        *entry = 1;
+    }
+    for block in &func.blocks {
+        for next in block.term.successors() {
+            preds[next.0 as usize] += 1;
+        }
+    }
+    preds
 }
 
 /// The registers an IR instruction run by `Op::Ir` reads and writes.
@@ -333,6 +355,8 @@ struct Pass<'a> {
     /// Registers below this are IR values; the rest are slot pieces.
     base: u32,
     dead: Vec<bool>,
+    /// How many edges reach each block (the entry block counts the call as one).
+    preds: Vec<u32>,
     /// Reads of each register by any live op (the ones an `Op::Ir` makes included).
     reads: Vec<u32>,
     writes: Vec<u32>,
@@ -403,6 +427,7 @@ pub(super) fn promote(
         defs,
         base,
         dead: Vec::new(),
+        preds: predecessors(func),
         reads: vec![0; nregs],
         writes: vec![0; nregs],
     };
@@ -550,6 +575,9 @@ impl Pass<'_> {
 
     /// Whether an `Op::Ir` or `Op::Term` at `i` reads or writes `reg`.
     fn opaque(&self, i: usize, reg: u32) -> bool {
+        if !matches!(self.ops[i], Op::Ir { .. } | Op::Term { .. }) {
+            return false;
+        }
         let (mut reads, mut writes) = (Vec::new(), Vec::new());
         ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
         reads.contains(&reg) || writes.contains(&reg)
@@ -707,7 +735,9 @@ impl Pass<'_> {
     }
 
     /// After `dst = src`, the ops that follow in the block read `src` where they read `dst`,
-    /// until either is written. (The move goes when nothing reads `dst` any more.)
+    /// until either is written. When neither is written by the end of the block, the same goes
+    /// on in each successor only this block jumps to (a loop's step after its exit test).
+    /// (The move goes when nothing reads `dst` any more.)
     fn forward_copies(&mut self, b: usize) {
         let (start, end) = (self.blocks[b].start as usize, self.blocks[b].end as usize);
         for i in start..end {
@@ -721,68 +751,122 @@ impl Pass<'_> {
             if self.dead[i] || dst == src {
                 continue;
             }
-            for j in (i + 1..end).take(WINDOW) {
-                if self.dead[j] {
-                    continue;
-                }
-                let mut moved = 0;
-                visit(&mut self.ops[j], self.pool, &mut |u, r| {
-                    if u == Use::Read && *r == dst {
-                        *r = src;
-                        moved += 1;
-                    }
-                });
-                self.reads[src as usize] += moved;
-                self.reads[dst as usize] -= moved;
-                let (_, writes_dst) = self.touches(j, dst);
-                let (_, writes_src) = self.touches(j, src);
-                if writes_dst || writes_src || self.writes_opaque(j, dst, src) {
-                    break;
+            if self.forward_copy(dst, src, i + 1, end) || self.reads[dst as usize] == 0 {
+                continue;
+            }
+            for next in self.func.blocks[b].term.successors() {
+                let next = next.0 as usize;
+                if next != b && self.preds[next] == 1 {
+                    let (from, to) = (
+                        self.blocks[next].start as usize,
+                        self.blocks[next].end as usize,
+                    );
+                    self.forward_copy(dst, src, from, to);
                 }
             }
         }
     }
 
+    /// Reads of `dst` in ops `from..to` read `src` instead, up to the first op that writes
+    /// either (or `WINDOW` ops). Whether the scan stopped early.
+    fn forward_copy(&mut self, dst: u32, src: u32, from: usize, to: usize) -> bool {
+        for j in (from..to).take(WINDOW) {
+            if self.dead[j] {
+                continue;
+            }
+            let mut moved = 0;
+            visit(&mut self.ops[j], self.pool, &mut |u, r| {
+                if u == Use::Read && *r == dst {
+                    *r = src;
+                    moved += 1;
+                }
+            });
+            self.reads[src as usize] += moved;
+            self.reads[dst as usize] -= moved;
+            let (_, writes_dst) = self.touches(j, dst);
+            let (_, writes_src) = self.touches(j, src);
+            if writes_dst || writes_src || self.writes_opaque(j, dst, src) {
+                return true;
+            }
+        }
+        to - from > WINDOW
+    }
+
     /// Whether an `Op::Ir` at `i` writes `a` or `b`.
     fn writes_opaque(&self, i: usize, a: u32, b: u32) -> bool {
+        if !matches!(self.ops[i], Op::Ir { .. } | Op::Term { .. }) {
+            return false;
+        }
         let (mut reads, mut writes) = (Vec::new(), Vec::new());
         ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
         writes.contains(&a) || writes.contains(&b)
     }
 
-    /// Remove effect-free ops whose result nobody reads.
+    /// Remove effect-free ops whose result nothing needs. A register is needed when an op with
+    /// an effect reads it, or when the pure op writing a needed register reads it, so a
+    /// register only its own updates read (a loop counter nothing looks at) goes too.
     fn drop_unread(&mut self) {
-        self.count();
-        loop {
-            let mut changed = false;
-            for i in (0..self.ops.len()).rev() {
-                if self.dead[i] || !pure(&self.ops[i]) {
-                    continue;
-                }
-                let mut dst = None;
+        let mut needed = vec![false; self.reads.len()];
+        let mut work = Vec::new();
+        // The live pure ops writing each register: `first[reg]`, then `next[op]` (`NONE` ends).
+        const NONE: u32 = u32::MAX;
+        let mut first = vec![NONE; self.reads.len()];
+        let mut next = vec![NONE; self.ops.len()];
+        let (mut reads, mut writes) = (Vec::new(), Vec::new());
+        for i in 0..self.ops.len() {
+            if self.dead[i] {
+                continue;
+            }
+            if pure(&self.ops[i]) {
                 visit(&mut self.ops[i], self.pool, &mut |u, r| {
                     if u == Use::Write {
-                        dst = Some(*r);
+                        next[i] = first[*r as usize];
+                        first[*r as usize] = i as u32;
                     }
                 });
-                let Some(dst) = dst else {
-                    continue;
-                };
-                if self.reads[dst as usize] != 0 {
-                    continue;
+                continue;
+            }
+            reads.clear();
+            writes.clear();
+            ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
+            visit(&mut self.ops[i], self.pool, &mut |u, r| {
+                if u == Use::Read {
+                    reads.push(*r);
                 }
-                self.dead[i] = true;
-                changed = true;
-                let reads = &mut self.reads;
-                visit(&mut self.ops[i], self.pool, &mut |u, r| {
-                    if u == Use::Read {
-                        reads[*r as usize] -= 1;
+            });
+            for &r in &reads {
+                if !needed[r as usize] {
+                    needed[r as usize] = true;
+                    work.push(r);
+                }
+            }
+        }
+        while let Some(reg) = work.pop() {
+            let mut i = first[reg as usize];
+            while i != NONE {
+                visit(&mut self.ops[i as usize], self.pool, &mut |u, r| {
+                    if u == Use::Read && !needed[*r as usize] {
+                        needed[*r as usize] = true;
+                        work.push(*r);
                     }
                 });
+                i = next[i as usize];
             }
-            if !changed {
-                break;
+        }
+        let mut changed = false;
+        for (reg, &head) in first.iter().enumerate() {
+            if needed[reg] {
+                continue;
             }
+            let mut i = head;
+            while i != NONE {
+                self.dead[i as usize] = true;
+                changed = true;
+                i = next[i as usize];
+            }
+        }
+        if changed {
+            self.count();
         }
     }
 
