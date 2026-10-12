@@ -953,15 +953,11 @@ impl Compiler {
     /// The uses of the struct field or enum member named at `offset`, with its declaration.
     fn ide_member_references(&self, file: FileId, offset: u32) -> Option<Vec<(Span, bool)>> {
         let ide = self.ide.as_ref()?;
-        let (_, decl) = ide
-            .member_uses
-            .iter()
-            .filter(|(u, _)| u.file == file && u.start <= offset && offset <= u.end)
-            .min_by_key(|(u, _)| u.end - u.start)?;
+        let (_, decl) = ide.member_use_at(file, offset)?;
         let mut out: Vec<(Span, bool)> = ide
             .member_uses
             .iter()
-            .filter(|(_, d)| d == decl)
+            .filter(|(_, d)| *d == decl)
             .map(|(u, d)| (*u, u == d))
             .collect();
         out.sort_by_key(|(s, _)| (s.file.0, s.start));
@@ -972,12 +968,8 @@ impl Compiler {
     /// recorded files (a rename can reach it). `None` when `offset` names no member.
     pub fn ide_member_declared(&self, file: FileId, offset: u32) -> Option<bool> {
         let ide = self.ide.as_ref()?;
-        let (_, decl) = ide
-            .member_uses
-            .iter()
-            .filter(|(u, _)| u.file == file && u.start <= offset && offset <= u.end)
-            .min_by_key(|(u, _)| u.end - u.start)?;
-        Some(ide.member_uses.contains(&(*decl, *decl)))
+        let (_, decl) = ide.member_use_at(file, offset)?;
+        Some(ide.member_uses.contains(&(decl, decl)))
     }
 
     /// Every recorded reference to what the identifier at `offset` names (declarations

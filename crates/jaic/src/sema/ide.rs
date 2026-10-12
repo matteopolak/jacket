@@ -26,6 +26,15 @@ struct RefIndex {
     files: HashMap<FileId, (Vec<u32>, Vec<u32>)>,
 }
 
+/// `member_uses` by the file of the use, sorted by start, with the longest use's length.
+#[derive(Default)]
+struct MemberIndex {
+    /// How many of `member_uses` are in the index: uses are only added, so a different count
+    /// means it is rebuilt.
+    built: usize,
+    files: HashMap<FileId, (Vec<(Span, Span)>, u32)>,
+}
+
 /// Spans up to this many bytes are found by binary search; a lookup walks back at most this far.
 const SHORT_REF: u32 = 64;
 
@@ -97,6 +106,8 @@ pub struct IdeFacts {
     /// Every use of a struct field or enum member of the recorded files, as (the member's
     /// name, the name where it is declared). Declarations map to themselves.
     pub member_uses: HashSet<(Span, Span)>,
+    /// `member_uses` by position (`member_use_at`), built on first use after they change.
+    members_by_position: std::cell::RefCell<MemberIndex>,
     /// Errors of procedure bodies that failed while the program compiled, beyond the one the
     /// compile stopped at.
     pub errors: Vec<Diagnostic>,
@@ -209,6 +220,37 @@ impl IdeFacts {
         // In the order recorded, which breaks ties as a scan of `refs` would.
         found.sort_unstable();
         found.into_iter().map(|i| &self.refs[i as usize]).collect()
+    }
+
+    /// The narrowest use of a struct field or enum member holding `offset` in `file`, with the
+    /// declaration it names.
+    pub fn member_use_at(&self, file: FileId, offset: u32) -> Option<(Span, Span)> {
+        let mut index = self.members_by_position.borrow_mut();
+        if index.built != self.member_uses.len() {
+            let mut files: HashMap<FileId, (Vec<(Span, Span)>, u32)> = HashMap::default();
+            for &(u, d) in &self.member_uses {
+                let (uses, longest) = files.entry(u.file).or_default();
+                uses.push((u, d));
+                *longest = (*longest).max(u.end.saturating_sub(u.start));
+            }
+            for (uses, _) in files.values_mut() {
+                uses.sort_unstable_by_key(|(u, d)| (u.start, u.end, d.file.0, d.start, d.end));
+            }
+            *index = MemberIndex {
+                built: self.member_uses.len(),
+                files,
+            };
+        }
+        let (uses, longest) = index.files.get(&file)?;
+        let past = uses.partition_point(|(u, _)| u.start <= offset);
+        let earliest = offset.saturating_sub(*longest);
+        uses[..past]
+            .iter()
+            .rev()
+            .take_while(|(u, _)| u.start >= earliest)
+            .filter(|(u, _)| offset <= u.end)
+            .min_by_key(|(u, d)| (u.end - u.start, u.start, d.file.0, d.start))
+            .copied()
     }
 
     /// Drop the references recorded after the first `len`; use this, not `refs.truncate`,
@@ -1388,14 +1430,10 @@ impl Compiler {
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
         // A struct field or enum member: the declaration its use was matched to.
         if let Some(ide) = self.ide.as_ref()
-            && let Some((_, decl)) = ide
-                .member_uses
-                .iter()
-                .filter(|(u, _)| u.file == file && u.start <= offset && offset <= u.end)
-                .min_by_key(|(u, _)| u.end - u.start)
+            && let Some((_, decl)) = ide.member_use_at(file, offset)
             && decl.end > decl.start
         {
-            return vec![*decl];
+            return vec![decl];
         }
         let Some(r) = self.ide.as_ref().and_then(|ide| {
             ide.refs_at(file, offset)
