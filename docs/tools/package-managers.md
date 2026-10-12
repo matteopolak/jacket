@@ -77,7 +77,7 @@ Uninstall: `rm -rf ~/.local/share/jai ~/.local/bin/{jaic,jailsp,jailint,jaifmt}`
 
 ### install.ps1
 
-Runs in Windows PowerShell 5.1 and PowerShell 7 (`irm ... | iex`, so it never calls `exit`). It picks `windows-x64` or `windows-arm64` from the OS architecture (not the process's, which may be emulated), gets the latest tag from the GitHub API, verifies the zip against `SHA256SUMS`, unpacks it into `%LOCALAPPDATA%\Programs\jai\<version>`, points the directory junction `%LOCALAPPDATA%\Programs\jai\current` at it, adds `current` to the user `PATH` once, and deletes older versions. A junction needs no administrator rights or developer mode, unlike a symbolic link, and `jaic.exe` started through it finds `current\stdlib`. `JAI_VERSION` and `JAI_INSTALL_DIR` (or `JAIC_VERSION` and `JAIC_INSTALL_DIR`) work as in `install.sh`, as does the archive name.
+Runs in Windows PowerShell 5.1 and PowerShell 7 (`irm ... | iex`, so it never calls `exit`). It picks `windows-x64` or `windows-arm64` from the OS architecture (not the process's, which may be emulated), finds the latest version from the `releases/latest` redirect (no API rate limit, as in `install.sh`), verifies the zip against `SHA256SUMS`, unpacks it into `%LOCALAPPDATA%\Programs\jai\<version>`, points the directory junction `%LOCALAPPDATA%\Programs\jai\current` at it, adds `current` to the user `PATH` once, and deletes older versions. A junction needs no administrator rights or developer mode, unlike a symbolic link, and `jaic.exe` started through it finds `current\stdlib`. `JAI_VERSION` and `JAI_INSTALL_DIR` (or `JAIC_VERSION` and `JAIC_INSTALL_DIR`) work as in `install.sh`, as does the archive name.
 
 ### Validation in CI
 

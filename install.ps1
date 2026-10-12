@@ -32,8 +32,17 @@
     $version = if ($env:JAI_VERSION) { "$env:JAI_VERSION".Trim() } else { "$env:JAIC_VERSION".Trim() }
     if ($version.StartsWith('v')) { $version = $version.Substring(1) }
     if (-not $version -or $version -eq 'latest') {
-        $release = Invoke-RestMethod -UseBasicParsing -Headers @{ 'User-Agent' = 'jai-install.ps1' } "https://api.github.com/repos/$repo/releases/latest"
-        $version = $release.tag_name.TrimStart('v')
+        # The /releases/latest page redirects to /releases/tag/v<version>; unlike the API, no
+        # rate limit applies.
+        $request = [Net.WebRequest]::Create("https://github.com/$repo/releases/latest")
+        $request.Method = 'HEAD'
+        $request.AllowAutoRedirect = $false
+        $request.UserAgent = 'jai-install.ps1'
+        $response = $request.GetResponse()
+        $location = "$($response.Headers['Location'])"
+        $response.Close()
+        if ($location -notmatch '/releases/tag/v?([^/]+)$') { throw "Could not find the latest release of $repo (got '$location'); set JAI_VERSION" }
+        $version = $Matches[1]
     }
     if ($version -notmatch '^[0-9A-Za-z.-]+$') { throw "JAI_VERSION '$version' is not a version like 0.4.0" }
 
