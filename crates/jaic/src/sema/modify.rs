@@ -139,7 +139,10 @@ impl Compiler {
             }
         }
         for name in type_vars {
-            if variables.iter().any(|(n, _, _)| *n == name) {
+            // An inferred value variable (`$N` in `Vec($T, $N)`) is already a constant.
+            if variables.iter().any(|(n, _, _)| *n == name)
+                || constants.iter().any(|(n, _, _)| *n == name)
+            {
                 continue;
             }
             let initial = match bindings.iter().find(|(n, _, _)| *n == name) {

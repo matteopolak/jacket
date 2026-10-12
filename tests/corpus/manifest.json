@@ -3254,6 +3254,48 @@
       }
     },
     {
+      "id": "modify-inferred-value",
+      "source": "positive/modify-inferred-value.jai",
+      "sha256": "584b268902d54530af5f81aba6678b33e3c31c266d5fadf3e3510527f542c590",
+      "suite": "expanded",
+      "feature": "a #modify names a value polymorph variable inferred from an argument type",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 0,
+        "stdout": "16 3 5 7\n",
+        "stderr": ""
+      }
+    },
+    {
+      "id": "modify-inferred-value-reject",
+      "source": "negative/modify-inferred-value.jai",
+      "sha256": "ff336ab9fbb7628271078802c18132270a681bbcf76f7c7bf79ee755aa605c55",
+      "suite": "negative",
+      "feature": "a #modify naming an inferred value variable can reject with a message",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "too many lanes"
+      }
+    },
+    {
+      "id": "size-of-type-variable",
+      "source": "negative/size-of-type-variable.jai",
+      "sha256": "57040ebca3947c0850a018bdcaff3293d9ac3105fd8da14556a213bd9d3aaa0c",
+      "suite": "negative",
+      "feature": "size_of a non-constant Type variable is a compile error",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "needs a constant type"
+      }
+    },
+    {
       "id": "regex-bad-pattern",
       "source": "negative/regex-bad-pattern.jai",
       "sha256": "bdc1ffaec23943165de5bb10fe400b5cc50e64d13309126ea6e0e5c7ce42c044",

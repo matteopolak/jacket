@@ -2547,6 +2547,36 @@ impl Compiler {
                 };
                 let ty = match op {
                     Operand::Type(t) => t,
+                    Operand::Const {
+                        value: Value::Type(t),
+                        ..
+                    } => t,
+                    Operand::Value {
+                        ty: TypeId::TYPE, ..
+                    }
+                    | Operand::Place {
+                        ty: TypeId::TYPE, ..
+                    } => {
+                        let name = if b == BuiltinProc::SizeOf {
+                            "size_of"
+                        } else {
+                            "align_of"
+                        };
+                        return Err(Box::new(
+                            Diagnostic::error(
+                                arg.value.span,
+                                format!(
+                                    "`{name}` needs a constant type, but this is a `Type` variable"
+                                ),
+                            )
+                            .with_label("not a compile-time constant")
+                            .with_help(
+                                "a variable's value is only known at run time; use \
+                                 `(cast(*Type_Info) t).runtime_size` (see `type_info(...)`) \
+                                 to read a type's size from a variable",
+                            ),
+                        ));
+                    }
                     other => other.ty(),
                 };
                 let v = if b == BuiltinProc::SizeOf {

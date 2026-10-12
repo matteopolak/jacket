@@ -21,6 +21,8 @@
 - An `#expand` macro can backtick-declare a name equal to one of its own parameters (`` `engine := engine; ``) without an internal error.
 - The address of a `#run` struct constant is now static and stable, so returning it from a procedure no longer yields a dangling pointer.
 - `type_info(Name)` of a generic struct named without arguments now works, so a `#modify` can compare an argument's `polymorph_source_struct` against it.
+- A procedure's `#modify` can now name a value polymorph variable inferred from an argument type (`$N` in `Vec($T, $N)`, `$C` in `[$C] int`) instead of reporting it as declared more than once.
+- `size_of` and `align_of` of a non-constant `Type` variable (including a `$V: Type` inside a `#modify`) are now a compile error with a hint toward `runtime_size`, instead of silently returning the size of a `Type` value.
 
 ## [0.12.0] - 2026-10-11
 

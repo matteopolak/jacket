@@ -35,12 +35,14 @@ A `$$x` parameter is baked when its argument is a constant and stays a runtime p
 
 ### `#modify`
 
-A `#modify` block runs at compile time once per polymorph, before the instance is made, with the polymorph variables in scope: type variables as assignable `Type` values (unbound ones start as `void`) and baked `$x` values as constants. Whatever it leaves in a type variable becomes the binding, so it can bind a `$R` that appears only in the return type; `return false` (or `return false, "why"`) rejects the call {#poly.18}:
+A `#modify` block runs at compile time once per polymorph, before the instance is made, with the polymorph variables in scope: type variables as assignable `Type` values (unbound ones start as `void`) and baked `$x` values, including value variables inferred from an argument type (`$N` in `Vec($T, $N)`, `$C` in `[$C] int`), as constants. Whatever it leaves in a type variable becomes the binding, so it can bind a `$R` that appears only in the return type; `return false` (or `return false, "why"`) rejects the call {#poly.18}:
 
 ```jai
 widen    :: (x: $T) -> $R #modify { R = float64; } { return cast(R) x; }   // widen(5) is 5.0
 positive :: ($n: int) -> int #modify { return n > 0, "n must be positive"; } { return n; }
 ```
+
+Note: jaic accepts more than Jai here. Real Jai only treats polymorph variables as types inside `#modify`, so naming an inferred value variable (`N`) is an error there; jaic makes it readable. Inside the block a type variable is a runtime variable, so `size_of(V)` is a compile error; use `(cast(*Type_Info) V).runtime_size`.
 
 On a struct, every struct parameter is assignable and the final values pick the instance (`tests/stdlib/struct-modify.jai`).
 
