@@ -1125,7 +1125,7 @@ fn equality_comparison_is_not_a_switch() {
 #[test]
 fn for_loop_forms() {
     let stmts = body_of(
-        "for x, i: arr {}\nfor arr {}\nfor 0..n-1 {}\nfor < arr {}\nfor * p: arr {}\nfor :it_iter v: arr {}\nfor #v2 < a..b {}\nfor i: 1..10 print(i);",
+        "for x, i: arr {}\nfor arr {}\nfor 0..n-1 {}\nfor < arr {}\nfor * p: arr {}\nfor :it_iter v: arr {}\nfor #v2 < a..b {}\nfor i: 1..10 print(i);\nfor #char \"a\"..#char \"e\" {}\nfor #v2 #run f() {}",
     );
     let fors: Vec<&For> = stmts
         .iter()
@@ -1147,6 +1147,9 @@ fn for_loop_forms() {
         fors[6].reverse && fors[6].flags.len() == 1 && matches!(fors[6].over, ForOver::Range(..))
     );
     assert!(matches!(fors[7].body.kind, StmtKind::Expr(_)));
+    // A directive that starts an expression is the range or collection, not a flag.
+    assert!(fors[8].flags.is_empty() && matches!(fors[8].over, ForOver::Range(..)));
+    assert!(fors[9].flags.len() == 1 && matches!(fors[9].over, ForOver::Collection(_)));
 }
 
 #[test]

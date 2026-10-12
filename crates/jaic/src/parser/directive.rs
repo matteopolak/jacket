@@ -14,6 +14,35 @@ pub(super) struct DirectiveFlag {
     pub arg: Option<Expr>,
 }
 
+/// Whether `#name` begins an expression (`#char "a"`, `#run f()`), rather than being a flag on the
+/// statement it follows.
+pub(super) fn directive_starts_expr(name: &str) -> bool {
+    matches!(
+        name,
+        "caller_location"
+            | "caller_code"
+            | "file"
+            | "line"
+            | "filepath"
+            | "this"
+            | "compile_time"
+            | "run"
+            | "code"
+            | "insert"
+            | "type"
+            | "ifx"
+            | "char"
+            | "location"
+            | "procedure_name"
+            | "bake_arguments"
+            | "bake_constants"
+            | "procedure_of_call"
+            | "bytes"
+            | "exists"
+            | "string"
+    )
+}
+
 impl Parser<'_> {
     pub(super) fn parse_directive_expr(&mut self, name: &str) -> PResult<Expr> {
         let start = self.span();

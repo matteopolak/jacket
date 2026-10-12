@@ -538,7 +538,7 @@ impl Parser<'_> {
                     iterator = Some(self.ident("as iterator name")?);
                     continue;
                 }
-                Tok::Directive(name) => {
+                Tok::Directive(name) if !super::directive::directive_starts_expr(name.as_str()) => {
                     let ident = Ident {
                         name: *name,
                         span: self.span(),
