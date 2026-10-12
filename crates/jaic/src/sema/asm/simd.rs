@@ -1844,19 +1844,21 @@ impl Compiler {
             }
             SOp::Pshufb => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
-                let idx_mask = konst(f, Ty::I64, block - 1);
+                // `ByteLookup` zeroes every index of 16 or more, pshufb only those with the top
+                // bit set: `& 0x8F` maps one onto the other (bits 4-6 are ignored by pshufb).
+                let keep = konst(f, Ty::I8, 0x8F);
+                let adj = f.b.alloca(64, 16);
+                for i in 0..width {
+                    let ctl = load_lane(f, s[1], i, Ty::I8);
+                    let ctl = bin(f, BinOp::And, Ty::I8, ctl, keep);
+                    store_lane(f, adj, i, Ty::I8, ctl);
+                }
                 for blk in 0..width / block {
-                    let base = lane_addr(f, s[0], blk * block);
-                    for j in 0..block {
-                        let ctl = load_lane(f, s[1], blk * block + j, Ty::I8);
-                        let neg = is_neg(f, Ty::I8, ctl);
-                        let at = resize(f, ctl, Ty::I8, Ty::I64, false);
-                        let at = bin(f, BinOp::And, Ty::I64, at, idx_mask);
-                        let v = load_dyn(f, base, at, Ty::I8);
-                        let zero = konst(f, Ty::I8, 0);
-                        let v = select(f, Ty::I8, neg, zero, v);
-                        store_lane(f, tmp, blk * block + j, Ty::I8, v);
-                    }
+                    let at = blk * block;
+                    let table = lane_addr(f, s[0], at);
+                    let idx = lane_addr(f, adj, at);
+                    let out = lane_addr(f, tmp, at);
+                    f.b.intrinsic(Intrinsic::ByteLookup(16), vec![out, table, idx], &[]);
                 }
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }

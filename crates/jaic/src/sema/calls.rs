@@ -2461,6 +2461,16 @@ impl Compiler {
             "abs" | "fabs" => ir::Intrinsic::Fabs,
             "rdtsc" | "get_cpu_cycle_count" => ir::Intrinsic::CycleCounter,
             "pause" | "mm_pause" => ir::Intrinsic::Pause,
+            "byte_lookup" | "sign_mask" => {
+                // The last parameter is the vector width in bytes; the IR op carries it.
+                let width = self.const_width_arg(f, slots, &args, name.as_str(), span)?;
+                values.pop();
+                if name.as_str() == "byte_lookup" {
+                    ir::Intrinsic::ByteLookup(width)
+                } else {
+                    ir::Intrinsic::SignMask(width)
+                }
+            }
             other => return err(span, format!("unknown intrinsic `{other}`")),
         };
         let returns: Vec<Ty> = sig
@@ -2476,6 +2486,40 @@ impl Compiler {
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
         Ok(self.call_results(&sig.returns, results, outs))
+    }
+
+    /// The compile-time `width` argument (16, 32 or 64) of `byte_lookup`/`sign_mask`.
+    fn const_width_arg(
+        &mut self,
+        f: &mut FnCtx,
+        slots: &[Slot],
+        args: &[CallArg],
+        name: &str,
+        span: Span,
+    ) -> Result<u8> {
+        let bad =
+            || format!("the `width` of `{name}` must be a compile-time constant 16, 32 or 64");
+        let Some(Slot::Arg(a)) = slots.last() else {
+            return err(span, bad());
+        };
+        let arg = &args[*a];
+        let op = match &arg.op {
+            Some(op) => op.clone(),
+            None => {
+                let expr = arg.expr.as_ref().unwrap();
+                match self.check_expr_no_emit(arg.scope, expr) {
+                    Ok(op) => op,
+                    Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
+                }
+            }
+        };
+        match op {
+            Operand::Const {
+                value: Value::Int(w @ (16 | 32 | 64)),
+                ..
+            } => Ok(w as u8),
+            _ => err(arg.span, bad()),
+        }
     }
 
     // -----------------------------------------------------------------------

@@ -287,6 +287,7 @@ fn stdlib_tests_run_natively() {
         "process-stdin-socket",
         "posix-stat-and-mutex",
         "no-reset-globals-baked",
+        "intrinsic-byte-lookup",
     ] {
         // These two import POSIX, which does not build for Windows.
         if cfg!(windows) && matches!(name, "proc-sentinel-constant" | "process-stdin-socket") {

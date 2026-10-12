@@ -230,12 +230,61 @@ fn cpu_and_features(cpu: Option<&str>, features: Option<&str>, triple: &str) -> 
     (cpu, features)
 }
 
+/// The vector features the target machine has, from its CPU name and feature string.
+fn simd_features(cpu: &str, features: &str, arch: jaic::abi::Arch) -> lower::SimdFeatures {
+    let has = |f: &str| features.split(',').any(|x| x.strip_prefix('+') == Some(f));
+    // CPUs that predate SSSE3 (every other named CPU has it).
+    let old = cpu.is_empty()
+        || [
+            "x86-64",
+            "x86-64-v1",
+            "generic",
+            "k8",
+            "opteron",
+            "athlon",
+            "amdfam10",
+            "barcelona",
+        ]
+        .contains(&cpu)
+        || [
+            "pentium", "i386", "i486", "i586", "i686", "k6", "nocona", "prescott", "yonah",
+        ]
+        .iter()
+        .any(|p| cpu.starts_with(p));
+    let avx2_cpu = [
+        "x86-64-v3",
+        "x86-64-v4",
+        "haswell",
+        "broadwell",
+        "skylake",
+        "icelake",
+        "cascadelake",
+        "cooperlake",
+        "tigerlake",
+        "sapphirerapids",
+        "alderlake",
+        "raptorlake",
+        "znver",
+    ]
+    .iter()
+    .any(|p| cpu.starts_with(p));
+    let x86 = matches!(arch, jaic::abi::Arch::X86_64 | jaic::abi::Arch::Win64);
+    lower::SimdFeatures {
+        ssse3: x86 && (!old || has("ssse3") || has("sse4.1") || has("avx")),
+        avx2: x86 && (has("avx2") || avx2_cpu),
+        simd128: arch.is_wasm() && has("simd128"),
+    }
+}
+
 /// The oldest CPU every machine running `triple` has: x86-64 (SSE2) on x86-64, the M1 on arm64
 /// macOS (macOS 11, the deployment target, runs only on Apple silicon there), and LLVM's
 /// `generic` (armv8-a, the wasm MVP) elsewhere.
 fn baseline_cpu(triple: &str) -> &'static str {
     let arm64 = triple.starts_with("arm64") || triple.starts_with("aarch64");
-    if triple.starts_with("x86_64") {
+    if triple.starts_with("x86_64") && triple.contains("-apple-") {
+        // Every Intel Mac (and Rosetta) has SSSE3.
+        "core2"
+    } else if triple.starts_with("x86_64") {
         "x86-64"
     } else if arm64 && triple.contains("-apple-") {
         "apple-m1"
@@ -364,6 +413,11 @@ fn emit_module(
         shard,
         debug,
         options.opt_level == OptLevel::O0,
+        simd_features(
+            &machine.get_cpu().to_string_lossy(),
+            &machine.get_feature_string().to_string_lossy(),
+            arch,
+        ),
     )?;
     let unit = shard.map_or(0, |s| s.index);
     if let Some(ir_path) = &options.emit_ir {

@@ -5,6 +5,7 @@
 ### Features
 
 - `Extensions/Regex`: regular expressions with the syntax and matching rules of Rust's `regex` crate, full Unicode 17 support and linear-time matching (lazy DFAs, a Pike VM and a bounded backtracker). `Regex.compile` builds one at run time; `Regex.Static("...")` is compiled while the program compiles, rejects a bad pattern with a compile error, and turns named groups into typed fields (integers, floats, enums) that `parse`, `captures` and `parse_into` fill.
+- Compiler intrinsics `byte_lookup` (pshufb/`tbl`/`swizzle`-style table lookup, 0 for indices of 16 or more on every target) and `sign_mask` (pmovmskb-style top-bit mask) lower to real vector instructions in native builds, and `#asm` `pshufb` and `pmovmskb` now use them.
 
 ### Breaking changes
 

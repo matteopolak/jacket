@@ -88,6 +88,11 @@ that is not pinned reads 0; a pin is `=== a`, `=== di`, `=== 10`, or `r10`), and
   vector registers).
   A `name:` destination declares a `vec` register, except for instructions that write a general-purpose value
   (`movmsk*`, `pextr*`, `extractps`, `cvt*2si`): there it is a `gpr` (`dst_class` in `vec.rs` and `simd.rs`).
+  `pmovmskb` lowers to `Intrinsic::SignMask` and `pshufb` to one `Intrinsic::ByteLookup` per 16-byte block, so both become
+  real vector instructions in native builds ([intrinsics](../language/intrinsics.md)). `ByteLookup` zeroes every index of
+  16 or more, while `pshufb` ignores bits 4-6 of an index and zeroes only when bit 7 is set; the lowering first masks each
+  index with `0x8F`, which maps one onto the other, so results stay bit-exact with hardware. Masked EVEX forms use the
+  same path, with the mask applied afterwards like any other instruction.
 - **Masks.** An `omr` register is an 8-byte local. `dst: &k` (merge) / `dst: &*k` (zero) apply after the instruction
   ran; a masked store to memory writes only selected elements. Compares (`pcmp*`, `cmpps`) whose destination is an
   `omr` write a bit per lane, and a `&k` on them ANDs the result. Instructions that consume the mask themselves

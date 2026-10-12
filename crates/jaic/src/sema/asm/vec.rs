@@ -778,13 +778,18 @@ impl Compiler {
                 let src = self.vec_ptr(f, ops[1], span)?;
                 let ty = Ty::int(size);
                 let mut mask = konst(f, Ty::I64, 0);
-                for i in 0..width / size {
-                    let x = load_lane(f, src, i, ty);
-                    let neg = is_neg(f, ty, x);
-                    let bit = resize(f, neg, Ty::I8, Ty::I64, false);
-                    let at = konst(f, Ty::I64, i);
-                    let bit = bin(f, BinOp::Shl, Ty::I64, bit, at);
-                    mask = bin(f, BinOp::Or, Ty::I64, mask, bit);
+                if size == 1 && matches!(width, 16 | 32 | 64) {
+                    mask =
+                        f.b.intrinsic(Intrinsic::SignMask(width as u8), vec![src], &[Ty::I64])[0];
+                } else {
+                    for i in 0..width / size {
+                        let x = load_lane(f, src, i, ty);
+                        let neg = is_neg(f, ty, x);
+                        let bit = resize(f, neg, Ty::I8, Ty::I64, false);
+                        let at = konst(f, Ty::I64, i);
+                        let bit = bin(f, BinOp::Shl, Ty::I64, bit, at);
+                        mask = bin(f, BinOp::Or, Ty::I64, mask, bit);
+                    }
                 }
                 self.vec_scalar_write(f, ops[0], Ty::I64, mask, span)?;
             }

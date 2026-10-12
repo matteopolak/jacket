@@ -313,6 +313,13 @@ pub enum Intrinsic {
     /// `long double` operations of a wide format (`Long_Double` from `Extensions/Long_Double`), on values in
     /// memory; see `WideOp` for the operands.
     Wide(WideOp, WideFloat),
+    /// `(dst, table, indices)`, all addresses of bytes; the payload is the width in bytes (16, 32
+    /// or 64). Per 16-byte block of `indices`: `dst[i] = idx[i] < 16 ? table[idx[i]] : 0`, for
+    /// every index 0..255, whatever the target.
+    ByteLookup(u8),
+    /// `(src) -> I64`; the payload is the width in bytes (16, 32 or 64). Bit i of the result is the
+    /// top bit of byte i (`pmovmskb`).
+    SignMask(u8),
 }
 
 /// Operations on wide (`long double`) floats. `dst`, `a` and `b` are addresses of 16-byte

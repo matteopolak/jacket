@@ -2198,6 +2198,30 @@ impl Interp {
                 Rets::one((r < 0 || r > keep as i128) as u64)
             }
             I::Wide(op, fmt) => self.wide(op, fmt, a)?.into(),
+            I::ByteLookup(width) => {
+                let table = self.fetch(a[1], 16)?;
+                let indices = self.fetch(a[2], width as usize)?;
+                let out: Vec<u8> = indices
+                    .iter()
+                    .map(|&i| {
+                        if i < 16 {
+                            table[i as usize]
+                        } else {
+                            0
+                        }
+                    })
+                    .collect();
+                self.put(a[0], &out)?;
+                Rets::default()
+            }
+            I::SignMask(width) => {
+                let bytes = self.fetch(a[0], width as usize)?;
+                let mut mask = 0u64;
+                for (i, b) in bytes.iter().enumerate() {
+                    mask |= ((b >> 7) as u64) << i;
+                }
+                Rets::one(mask)
+            }
         })
     }
 

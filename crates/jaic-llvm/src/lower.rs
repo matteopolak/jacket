@@ -74,6 +74,14 @@ pub struct Plan {
     pub global_imports: Vec<Vec<u32>>,
 }
 
+/// The vector instructions the target machine is known to have (`ByteLookup`).
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub struct SimdFeatures {
+    pub ssse3: bool,
+    pub avx2: bool,
+    pub simd128: bool,
+}
+
 /// Which part of the program a module holds when codegen is split across modules.
 #[derive(Clone, Copy)]
 pub struct Shard<'p> {
@@ -92,6 +100,7 @@ pub fn lower_program<'ctx>(
     shard: Option<Shard>,
     debug: Option<(DebugFormat, bool)>,
     unoptimized: bool,
+    simd: SimdFeatures,
 ) -> Result<(), String> {
     let debug = debug
         .map(|(format, optimized)| DebugInfo::new(context, module, program, format, optimized));
@@ -126,6 +135,7 @@ pub fn lower_program<'ctx>(
         check_files: RefCell::new(HashMap::new()),
         debug,
         inline_small_copies: unoptimized && !arch.is_wasm(),
+        simd,
     };
     backend.run().map_err(|e| e.0)
 }
@@ -225,6 +235,7 @@ struct Backend<'ctx, 'p> {
     /// loads and stores. FastISel turns a `memcpy` whose pointers are not known to be aligned
     /// into a library call (and every `memset` into one), which costs more than the copy.
     inline_small_copies: bool,
+    simd: SimdFeatures,
 }
 
 /// The largest copy or fill that unoptimized code writes inline.
@@ -2284,6 +2295,132 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
 
     // ----- intrinsics ------------------------------------------------------
 
+    fn load_bytes(
+        &self,
+        ptr: PointerValue<'ctx>,
+        lanes: u32,
+    ) -> R<inkwell::values::VectorValue<'ctx>> {
+        let ty = self.ctx.i8_type().vec_type(lanes);
+        let load = self.builder.build_load(ty, ptr, "")?;
+        if let Some(i) = load.as_instruction_value() {
+            let _ = i.set_alignment(1);
+        }
+        Ok(load.into_vector_value())
+    }
+
+    /// `ByteLookup`: `dst[i] = idx[i] < 16 ? table[idx[i]] : 0` per 16-byte block, with the
+    /// target's byte shuffle where there is one.
+    fn byte_lookup(
+        &self,
+        width: u8,
+        args: &[BasicValueEnum<'ctx>],
+    ) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let b = &self.builder;
+        let ptr = |i: usize| -> R<PointerValue<'ctx>> {
+            Ok(self.coerce(args[i], Ty::Ptr)?.into_pointer_value())
+        };
+        let (dst, table_ptr, idx_ptr) = (ptr(0)?, ptr(1)?, ptr(2)?);
+        let i8t = self.ctx.i8_type();
+        let table = self.load_bytes(table_ptr, 16)?;
+        let splat = |lanes: u32, v: u64| {
+            inkwell::types::VectorType::const_vector(&vec![i8t.const_int(v, false); lanes as usize])
+        };
+        let x86 = matches!(self.arch, Arch::X86_64 | Arch::Win64);
+        let wide_x86 = x86 && self.simd.ssse3 && self.simd.avx2 && width >= 32;
+        let chunk: u32 = if wide_x86 {
+            32
+        } else {
+            16
+        };
+        let wide_table = if wide_x86 {
+            let mask: Vec<IntValue> = (0..32)
+                .map(|i| self.ctx.i32_type().const_int(i % 16, false))
+                .collect();
+            Some(b.build_shuffle_vector(
+                table,
+                table,
+                inkwell::types::VectorType::const_vector(&mask),
+                "",
+            )?)
+        } else {
+            None
+        };
+        for blk in 0..(width as u32 / chunk) {
+            let at = (blk * chunk) as u64;
+            let idx = self.load_bytes(self.gep_const(idx_ptr, at)?, chunk)?;
+            let vty = i8t.vec_type(chunk);
+            let res: BasicValueEnum = if x86 && self.simd.ssse3 {
+                // pshufb zeroes on the top bit only; a saturating add of 0x70 sets it for
+                // every index of 16 or more and leaves 0..15 alone.
+                let sat = self
+                    .call_intrinsic(
+                        "llvm.uadd.sat",
+                        &[vty.into()],
+                        &[idx.into(), splat(chunk, 0x70).into()],
+                    )?
+                    .ok_or("uadd.sat produced no value")?;
+                match &wide_table {
+                    Some(t) => self
+                        .call_intrinsic("llvm.x86.avx2.pshuf.b", &[], &[(*t).into(), sat.into()])?
+                        .ok_or("pshufb produced no value")?,
+                    None => self
+                        .call_intrinsic(
+                            "llvm.x86.ssse3.pshuf.b.128",
+                            &[],
+                            &[table.into(), sat.into()],
+                        )?
+                        .ok_or("pshufb produced no value")?,
+                }
+            } else if matches!(self.arch, Arch::Aarch64 | Arch::Win64Arm) {
+                self.call_intrinsic(
+                    "llvm.aarch64.neon.tbl1",
+                    &[vty.into()],
+                    &[table.into(), idx.into()],
+                )?
+                .ok_or("tbl produced no value")?
+            } else if self.arch.is_wasm() && self.simd.simd128 {
+                self.call_intrinsic("llvm.wasm.swizzle", &[], &[table.into(), idx.into()])?
+                    .ok_or("swizzle produced no value")?
+            } else {
+                let i32t = self.ctx.i32_type();
+                let zero = i8t.const_zero();
+                let mut out = vty.get_undef();
+                for lane in 0..16u64 {
+                    let at = i32t.const_int(lane, false);
+                    let i = b.build_extract_element(idx, at, "")?.into_int_value();
+                    let in_range =
+                        b.build_int_compare(IntPredicate::ULT, i, i8t.const_int(16, false), "")?;
+                    let sel = b.build_and(i, i8t.const_int(15, false), "")?;
+                    let sel = b.build_int_z_extend(sel, i32t, "")?;
+                    let v = b.build_extract_element(table, sel, "")?.into_int_value();
+                    let v = b.build_select(in_range, v, zero, "")?.into_int_value();
+                    out = b.build_insert_element(out, v, at, "")?;
+                }
+                out.into()
+            };
+            let store = b.build_store(self.gep_const(dst, at)?, res)?;
+            let _ = store.set_alignment(1);
+        }
+        Ok(vec![])
+    }
+
+    /// `SignMask`: the top bit of each byte, packed into an integer.
+    fn sign_mask(&self, width: u8, args: &[BasicValueEnum<'ctx>]) -> R<Vec<BasicValueEnum<'ctx>>> {
+        let b = &self.builder;
+        let src = self.coerce(args[0], Ty::Ptr)?.into_pointer_value();
+        let v = self.load_bytes(src, width as u32)?;
+        let zero = self.ctx.i8_type().vec_type(width as u32).const_zero();
+        let neg = b.build_int_compare(IntPredicate::SLT, v, zero, "")?;
+        let bits = self
+            .ctx
+            .custom_width_int_type(std::num::NonZeroU32::new(width as u32).ok_or("zero width")?)?;
+        let packed = b.build_bit_cast(neg, bits, "")?.into_int_value();
+        Ok(vec![
+            b.build_int_z_extend_or_bit_cast(packed, self.ctx.i64_type(), "")?
+                .into(),
+        ])
+    }
+
     /// `long double` operations: native `x86_fp80` / `fp128` arithmetic on values in memory.
     fn wide(
         &self,
@@ -2550,6 +2687,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 Ok(vec![])
             }
             Intrinsic::Wide(op, fmt) => self.wide(op, fmt, args),
+            Intrinsic::ByteLookup(width) => self.byte_lookup(width, args),
+            Intrinsic::SignMask(width) => self.sign_mask(width, args),
             Intrinsic::Sqrt => float_unary("llvm.sqrt"),
             Intrinsic::Sin => float_unary("llvm.sin"),
             Intrinsic::Cos => float_unary("llvm.cos"),
