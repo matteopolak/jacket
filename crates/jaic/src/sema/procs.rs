@@ -1146,6 +1146,11 @@ impl Compiler {
         f.proc = Some(id);
         f.no_abc = header.flags.no_abc || !self.options.array_bounds_check;
         f.no_aoc = header.flags.no_aoc;
+        f.b.func.inline = match header.flags.inline {
+            ast::CallHintFlag::Inline => ir::InlineHint::Always,
+            ast::CallHintFlag::NoInline => ir::InlineHint::Never,
+            ast::CallHintFlag::None => ir::InlineHint::Default,
+        };
         if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc {
             f.b.func.null_checks = true;
             self.note_check_handler(span);
@@ -1189,6 +1194,10 @@ impl Compiler {
         for param in &sig.params {
             let incoming = f.b.param(next);
             next += 1;
+            // An aggregate arrives as the address of the caller's copy, never null.
+            if self.is_memory_type(param.ty) {
+                f.b.func.trusted.push(incoming);
+            }
             if param.discard {
                 if let Some(name) = param.name {
                     let e = self.add_const(scope, name, param.span, Value::Int(0), TypeId::S64);
@@ -1225,6 +1234,8 @@ impl Compiler {
         f.return_types = sig.returns.clone();
         for (i, &rt) in sig.returns.iter().enumerate() {
             if self.is_memory_type(rt) {
+                // The caller's result slot, never null.
+                f.b.func.trusted.push(f.b.param(next));
                 f.return_outs.push(Some(f.b.param(next)));
                 next += 1;
             } else {

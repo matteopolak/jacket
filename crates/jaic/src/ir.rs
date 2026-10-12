@@ -600,13 +600,26 @@ pub struct Func {
     /// Native code checks every load, store and copy through a pointer that may be null
     /// (`Build_Options.null_pointer_check`, off for `#no_abc` procedures).
     pub null_checks: bool,
-    /// Values known to hold a real (never null) address: the context pointer, and the addresses
-    /// of the stack trace bookkeeping. Native code does not null-check loads and stores through
+    /// Values known to hold a real (never null) address: the context pointer, the addresses
+    /// of the stack trace bookkeeping, and the incoming addresses of aggregate parameters and
+    /// results. Native code does not null-check loads and stores through
     /// them.
     pub trusted: Vec<Val>,
+    /// The procedure was declared `inline` or `no_inline`: native code always or never inlines
+    /// it.
+    pub inline: InlineHint,
     /// Native debug information (named variables, lexical scopes), recorded only when the
     /// program is built with debug info. Boxed so the interpreter's hot data stays small.
     pub debug: Option<Box<FuncDebug>>,
+}
+
+/// Whether native code inlines a function: `inline` and `no_inline` on its declaration.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum InlineHint {
+    #[default]
+    Default,
+    Always,
+    Never,
 }
 
 /// What a function was made for. Compile-time code outside a procedure runs in a function of
@@ -983,6 +996,7 @@ impl Builder {
             trace: None,
             null_checks: false,
             trusted: Vec::new(),
+            inline: InlineHint::Default,
             debug: None,
         };
         Self {

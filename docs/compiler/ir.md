@@ -36,7 +36,9 @@ Calling conventions:
 
 ## Configuration
 
-`Func::trusted` lists values that are never null (the context pointer, and the addresses the [stack trace](stack-traces.md) pass computes); native code does not null-check accesses through them.
+`Func::trusted` lists values that are never null (the context pointer, the addresses the [stack trace](stack-traces.md) pass computes, and the incoming addresses of aggregate parameters and memory-class results, which always point at the caller's copies); native code does not null-check accesses through them. Without the last two, a small `inline` procedure taking a struct keeps a check per access after inlining, and the branches stop LLVM vectorizing its loops.
+
+`Func::inline` (`InlineHint`) carries `inline` / `no_inline` from the declaration; the LLVM backend turns it into `alwaysinline` / `noinline`.
 
 `Options::stack_trace` and `Options::array_bounds_check` decide at lowering time whether stack-trace bookkeeping and bounds checks are emitted.
 

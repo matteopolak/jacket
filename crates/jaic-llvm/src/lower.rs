@@ -819,6 +819,18 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .set_linkage(Linkage::AvailableExternally);
         }
         self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
+        let inline = match func.inline {
+            jaic::ir::InlineHint::Always => Some("alwaysinline"),
+            jaic::ir::InlineHint::Never => Some("noinline"),
+            jaic::ir::InlineHint::Default => None,
+        };
+        if let Some(name) = inline {
+            f.add_attribute(
+                AttributeLoc::Function,
+                self.ctx
+                    .create_enum_attribute(Attribute::get_named_enum_kind_id(name), 0),
+            );
+        }
         // Keep a frame record in every function that calls another, as clang does by default
         // on Apple and AArch64 targets. Without one, frame-pointer stack walks (macOS libc
         // `backtrace`, which Debug uses, and sampling profilers) stop at the first jaic frame.
