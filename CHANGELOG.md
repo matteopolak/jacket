@@ -2,49 +2,31 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-11
+
+Projects built by a metaprogram, like Focus, now check, hover and go to definition through it, and the language server answers edits faster with much less memory.
+
 ### Highlights
 
-- The bodies of polymorphic procedures and macros nothing calls hover and go to definition all the way through, with each `$T` shown as `T` and its members as `T.name`. Named results (`-> ok := false`) hover too, as do the named arguments of `#bake_arguments` and `#bake_constants`.
-- Code under an `#if OS == ...` or `#if CPU == ...` branch another target takes, and files only that branch loads, hover and go to definition: the language server compiles for that target when asked about it.
-- The parameters of `#foreign` procedures hover, and the library name after `#foreign` hovers and goes to its declaration.
-- `ide_coverage --errors` prints each file's type-checker errors.
-- Projects built by a metaprogram (`first.jai` creating a workspace and adding files with `add_build_file`, as Focus does) are checked through it: files the workspace compiles hover and go to definition, with or without a message loop in the metaprogram. A metaprogram written for Windows runs too, since compile-time code can use common Windows file, path, text and time calls; starting processes and shared memory are refused with an error code instead of stopping the compile.
-
-- The `meow_hash` module has an x64 `MeowHash` and `MeowU64From` (AES-based 128-bit hash taking an `#asm` `vec` register), so Focus's `calculate_meow_hash` compiles for x64. `Process` on Windows has `init_named_pipe_pair`, which makes an overlapped pipe pair with an event for the parent end.
-
-- The sandbox answers the Objective-C runtime calls compile-time code makes (`sel_registerName`, `objc_getClass`, `class_getInstanceSize`, `objc_msgSend` and a framework `dlopen`) with interned stand-ins, so Focus's macOS workspace builds in the editor: `AppKit.jai` went from 1810 identifiers without hover to 19 and `GameController.jai` from 183 to 0.
-
-### Performance
-
-- Records exported to metaprograms take a third of the memory: a field is 16 bytes (an interned name, its kind and the value or an index) instead of 48, and lists of node references hold plain ids. `jaic check` of Focus peaks at 0.50 GB instead of 0.68 GB, and the language server on Focus at 0.71 GB instead of 0.91 GB.
-- Exporting checked code to metaprograms (TYPECHECKED messages) no longer looks up member names, named arguments, loop labels and loop variables as if they were names of the enclosing scope, and no longer re-checks expressions that read a local outside that local's scope. Most of these lookups missed after searching every file's imports: an edit in Focus or Jails runs 15% fewer instructions, and 4-6% fewer again now that node records are allocated at their usual size instead of grown field by field. A member, a named argument or a loop's `it` no longer resolves to an unrelated global of the same name.
-- Compile-time loops run faster: `for` loops test their bound after the step instead of jumping back to a separate head, and the interpreter folds constant arithmetic, merges a scaled index into one `AddScaled` op, forwards copies into a block's only successor and drops loop counters nothing reads. chess-jai's `#run` weight table runs 8 ops per iteration instead of 15, and an edit there takes the language server 335 ms instead of 409 ms; other projects run 1-3% fewer instructions.
-- Metaprograms get their messages and syntax trees several times faster: the compiler builds the structs of a record and everything it reaches in one native call, where `stdlib/Compiler` filled them member by member in interpreted code. A Focus build reads about 450k such structs; an edit in Focus now takes the language server 0.83 s instead of 1.3-1.7 s, and the session peaks at 0.93 GB instead of 1.05 GB.
-- `edit_bench` (see docs/tools/edit-bench.md) measures the language server's answer time after an edit inside a body.
-- The language server drops a compile's lowered code, globals' contents, interpreter stacks and leftover compile-time allocations once it is checked: Focus's coverage run peaks at 0.98 GB instead of 1.40 GB.
-- `jailsp` hands the pages a compile freed back to the system once the compile is done: an editor on Focus sits at about 230 MiB between compiles instead of 300-370 MiB.
-- Hover and go to definition answer several times faster when many files are open (Linalg's 12k requests: 4.8 s to 0.6 s): the server no longer re-reads folders, copies and hashes every open document and canonicalizes every path for each request, and code no target compiles no longer recompiles every target on each hover. Requests on an open document no longer compare, copy, reparse or scan its whole text. Focus's 380k requests went from over 10 minutes to 9 s, and a 600 KB file's from 6.6 s to 0.45 s. Compiles no longer canonicalize the same paths over and over, and a `#run` that traps no longer resolves the stdlib's folders for each report.
-- The syntax tree is a third of its former size in memory: `Expr` went from 80 to 56 bytes, `Stmt` from 272 to 88 and `Decl` from 640 to 176, by boxing rare statement and expression variants and the rare parts of declarations. `jaic check` of a generated 132k-line project peaks at 193 MiB instead of 284 MiB, and the language server keeps correspondingly less per compile.
-- Compile-time code runs faster: `print` appends a format string's plain text in runs instead of byte by byte, and the interpreter no longer looks up the source location at every block it enters under an execution budget (the language server's compiles). Focus's coverage run: 15 s to 13.7 s.
-- Hover and go to definition on large programs no longer scan every struct field and enum member use for each request: Focus's coverage run went from 30 s to 15 s.
-- The language server keeps the project's compile when a stray file is compiled next to it, dropping the cheaper one instead: Focus's coverage run no longer recompiles `first.jai` for each unloaded Wayland protocol file.
-- The language server drops a metaprogram's build state once the compile is checked, and keeps compiles for two other targets instead of one. Focus's coverage run peaks at 1.3 GB instead of 2.7 GB and takes 19 s instead of 31 s.
+- Projects whose `first.jai` builds a workspace are checked through that metaprogram, so their files hover and go to definition.
+- Code under another target's `#if OS == ...` or `#if CPU == ...` branch hovers too: the server compiles for that target when asked.
+- Unused polymorphic procedures and macros, named results, `#foreign` parameters and library names now hover.
+- Faster and leaner on large projects: an edit in Focus answers in about 0.7 s instead of 1.3-1.7 s, with less memory.
+- Compile-time code runs faster, and metaprograms get their messages and syntax trees several times faster.
 
 ### Fixes
 
-- `Process.init_named_pipe_pair` on Windows is covered by a runtime test that starts a child with the pipes as its standard input and output.
-- `MeowHash` on x64 is now bit-exact with Meow hash 0.5 (calico): the tail and length handling and the final mixing follow the published algorithm, and the test checks the official digests.
-- `*Name` for a polymorphic struct with its arguments left off (`-> *NSDictionary`, `f: (x: *void) -> *Dict`) is a pointer to the polymorphic struct instead of failing with "expected a type, found constant".
-- `syscall` works in `#asm` blocks (`syscall rcx_out:, r11_out:, rax_inout`, with arguments in the registers pinned to `di`, `si`, `d`, `10`, `8` and `9`): compiled code makes the call on x86-64, `#run` makes it on a Linux x86-64 host, and the sandbox and the browser refuse it with `-EPERM`.
-- A loop value named `it_index` (`for < it_index: 0..n`, often in a `for_expansion`) no longer stops the compile with an internal error; naming a loop's value and index the same is an error.
-- Hovering a word right after a non-ASCII character no longer fails.
-- Files of a module kept in the project's own `modules/` folder are checked through the program that imports it, so they see its `#module_parameters` values and names its metaprogram pokes in (Focus's Simp module), instead of alone.
-- Names declared under `#scope_module` are reachable from importers as `Module.name`, as in Jai; only `#scope_file` names stay hidden.
-- Reading a struct with a garbage length at compile time (a `freeze` of uninitialized memory) no longer aborts the compiler trying to allocate it.
-- `#bake_constants` that fixes only some of a procedure's polymorphic types (`#bake_constants f(T = float32)` where `f` also has `$W`) makes a procedure that is still polymorphic in the rest, instead of failing.
-- Constants declared with listed values (`a, b :: 1, 2;`, `a, b : int : 1, 2;`) give each name its value instead of failing with "2 names but 1 values".
-- A missing `#import,dir` or `#import,file` path is named as written (folder `gone` does not exist), with help about imports instead of `#load`.
-- A procedure with a bare polymorphic struct parameter (`p: *Pair`) stays polymorphic when an earlier `#load` fails, instead of erroring as if `Pair` were a type.
+- `MeowHash` works on x64 and matches the official Meow hash 0.5 digests.
+- `syscall` works in `#asm` blocks on x86-64.
+- `*Name` of a polymorphic struct without arguments is a pointer to it, not an error.
+- A loop value named `it_index` no longer causes an internal compiler error.
+- Hovering a word right after a non-ASCII character works.
+- Modules in the project's own `modules/` folder are checked through the importing program.
+- `#scope_module` names are reachable from importers as `Module.name`.
+- `#bake_constants` fixing only some polymorphic types keeps the procedure polymorphic in the rest.
+- `a, b :: 1, 2;` gives each name its own value.
+- A missing `#import,dir` or `#import,file` path is reported as written, with help.
+- Freezing uninitialized memory at compile time no longer aborts the compiler.
 
 ## [0.11.0] - 2026-10-11
 
