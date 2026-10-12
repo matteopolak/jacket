@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-12
+
+### Added
+
+- `FormatStruct.recursive_long_form_depth`: nested structs inside a long-form struct print in long form too, for that many levels (`-1` for all).
+
+### Fixes
+
+- `Bindings_Generator` enums match the official generator's: a shared camel-case prefix is stripped (with the C names kept as aliases), member comments are left out, empty structs print as `struct {}`, Windows targets get `s32` for plain C enums, and negative values in unsigned enums print as hex.
+
 ## [0.14.0] - 2026-10-12
 
 ### Breaking changes
