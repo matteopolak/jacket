@@ -81,7 +81,9 @@ Field_Plan :: struct {
     group: int;
     kind: Field_Kind;
     type_name: string; // u16, s64, float64, or the enum's name
-    members: [..] string; // ENUM: the words, in pattern order
+    members: [..] string; // ENUM: the member names, in pattern order
+    words: [..] string; // ENUM: each word of the alternation...
+    word_members: [..] int; // ...and the member it becomes
     optional: bool; // may not take part in a match
 }
 
@@ -131,18 +133,28 @@ JAI_KEYWORDS :: string.["if", "else", "then", "case", "for", "while", "break", "
 infer_kind :: (node: *Node, plan: *Field_Plan) {
     plan.kind = .STRING;
     plan.type_name = "string";
-    // A few fixed words: an enum.
+    // A few fixed words: an enum, with each word written as a member name (`dog`, `Dog` and
+    // `DOG` all become DOG; `hotDog` becomes HOT_DOG).
     if node.kind == .ALTERNATE && node.children.count >= 2 && node.children.count <= 64 {
-        words: [..] string;
+        members, words: [..] string;
+        word_members: [..] int;
         for node.children {
             word, ok := literal_text(it);
             if !ok || !is_identifier(word) return;
-            for words if it == word return;
-            for JAI_KEYWORDS if it == word return;
+            name := member_name(word);
+            index := index_of_name(members, name);
+            if index < 0 {
+                index = members.count;
+                array_add(*members, name);
+            }
             array_add(*words, word);
+            array_add(*word_members, index);
         }
+        if members.count < 2 return;
         plan.kind = .ENUM;
-        plan.members = words;
+        plan.members = members;
+        plan.words = words;
+        plan.word_members = word_members;
         return;
     }
     signed, digits, is_float, ok := number_shape(node);
@@ -160,9 +172,50 @@ infer_kind :: (node: *Node, plan: *Field_Plan) {
     }
 }
 
+// The letter a case-insensitive class stands for, written in lower case: (?i)y matches Y and y. Other
+// characters in the class must be outside ASCII (like the Kelvin sign for k).
+folded_letter :: (node: *Node) -> string, bool {
+    letter: u8;
+    seen := 0;
+    for node.ranges {
+        if it.lo > 0x7F continue;
+        if it.hi > 0x7F return "", false;
+        for c: it.lo..it.hi {
+            lower := ifx c >= #char "A" && c <= #char "Z" then c + 32 else c;
+            if lower < #char "a" || lower > #char "z" return "", false;
+            if seen && lower != letter return "", false;
+            letter = cast(u8) lower;
+            seen += 1;
+        }
+    }
+    if seen != 2 return "", false;
+    text := alloc_string(1);
+    text[0] = letter;
+    return text, true;
+}
+
+// An identifier in upper snake case, the way enum members are written.
+member_name :: (word: string) -> string {
+    builder: String_Builder;
+    for word {
+        c := it;
+        lower_before := it_index > 0 && ((word[it_index - 1] >= #char "a" && word[it_index - 1] <= #char "z") || (word[it_index - 1] >= #char "0" && word[it_index - 1] <= #char "9"));
+        if c >= #char "A" && c <= #char "Z" && lower_before append(*builder, #char "_");
+        if c >= #char "a" && c <= #char "z" c -= 32;
+        append(*builder, c);
+    }
+    return builder_to_string(*builder);
+}
+
+index_of_name :: (array: [] string, value: string) -> int {
+    for array if it == value return it_index;
+    return -1;
+}
+
 // The text a node always matches exactly, if it is a plain string.
 literal_text :: (node: *Node) -> string, bool {
     if node.kind == .LITERAL return node.literal, true;
+    if node.kind == .CLASS return folded_letter(node);
     if node.kind == .CAPTURE return literal_text(node.children[0]);
     if node.kind == .CONCAT {
         builder: String_Builder;
@@ -352,9 +405,16 @@ groups_fill :: (pattern: string) -> string {
             case .FLOAT;
                 print_to_builder(*builder, "    value, fits := parse_decimal(piece);\n    if !fits return false;\n    out.% = value;\n", it.name);
             case .ENUM;
-                for word: it.members {
-                    print_to_builder(*builder, "    %if piece == \"%\" out.% = .%;\n", ifx it_index then "else " else "", word, it.name, word);
+                // The exact word first, then any case (for a case-insensitive pattern).
+                plan := it;
+                for word: plan.words {
+                    print_to_builder(*builder, "    %if piece == \"%\" out.% = .%;\n", ifx it_index then "else " else "", word, plan.name, plan.members[plan.word_members[it_index]]);
                 }
+                for word: plan.words {
+                    print_to_builder(*builder, "    else if equal_nocase(piece, \"%\") out.% = .%;\n", word, plan.name, plan.members[plan.word_members[it_index]]);
+                }
+                // Only a non-ASCII fold (the Kelvin sign for k) gets here.
+                append(*builder, "    else return false;\n");
         }
         append(*builder, "}\n");
     }

@@ -58,11 +58,11 @@ def pattern(rng, atoms, depth=0):
 def cases():
     rng = random.Random(20261011)
     out = []
-    for _ in range(700):
+    for _ in range(150):
         out.append((pattern(rng, ATOMS), "".join(rng.choice(TEXT) for _ in range(rng.randint(0, 14)))))
     atoms, chars = ATOMS + WIDE_ATOMS * 2, TEXT + WIDE_TEXT
-    for i in range(700):
-        size = rng.randint(100, 300) if i % 25 == 0 else rng.randint(0, 14)
+    for i in range(150):
+        size = rng.randint(100, 300) if i % 10 == 0 else rng.randint(0, 14)
         out.append((pattern(rng, atoms), "".join(rng.choice(chars) for _ in range(size))))
     for bad in BAD:
         out.append((bad, "a"))

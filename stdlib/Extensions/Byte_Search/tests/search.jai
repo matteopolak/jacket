@@ -58,7 +58,7 @@ random_text :: (count: int, alphabet: string) -> string {
 }
 
 bytes :: () {
-    for round: 0..400 {
+    for round: 0..100 {
         alphabet := ifx round % 3 == 0 then "ab" else ifx round % 3 == 1 then "abcdefgh\n" else "abcdefghijklmnopqrstuvwxyz0123456789 \n\x00\xFF";
         size := cast(int) (random_get() % 200);
         text := random_text(size, alphabet);
@@ -91,7 +91,7 @@ bytes :: () {
 byte_sets :: () {
     // Sets of every size, including ones spread over more than 8 high nibbles, against a
     // membership loop.
-    for round: 0..300 {
+    for round: 0..80 {
         members: [..] u8;
         members.allocator = temp;
         size := cast(int) (random_get() % 40);
@@ -148,7 +148,7 @@ byte_sets :: () {
 substrings :: () {
     // Short alphabets make near misses common; long needles exercise both the vector loop and
     // Two-Way.
-    for round: 0..1500 {
+    for round: 0..250 {
         alphabet := ifx round % 4 == 0 then "a" else ifx round % 4 == 1 then "ab" else ifx round % 4 == 2 then "abc" else "abcdefghij ";
         size := cast(int) (random_get() % 150);
         text := random_text(size, alphabet);

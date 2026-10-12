@@ -56,10 +56,10 @@ parsing :: () {
 
     pet: Pet_Regex.Groups;
     pet, ok = Regex.parse(Pet_Regex, "dog -3 4.5");
-    check(ok && pet.kind == .dog && pet.age == -3 && pet.weight == 4.5, "parse with an enum, a sign and a float");
+    check(ok && pet.kind == .DOG && pet.age == -3 && pet.weight == 4.5, "parse with an enum, a sign and a float");
     check(pet.has.weight && !pet.has.name, "which optional groups took part");
     pet, ok = Regex.captures(Pet_Regex, "a bird 2 \"Tweety\" ...");
-    check(ok && pet.kind == .bird && pet.name == "Tweety" && pet.match.start == 2, "captures");
+    check(ok && pet.kind == .BIRD && pet.name == "Tweety" && pet.match.start == 2, "captures");
 
     small, fits := Regex.parse(Regex.Static("(?<n>\\d{2})"), "99");
     check(fits && small.n == 99, "u8");
@@ -72,6 +72,17 @@ parsing :: () {
     check(fits2 && negative.n == -99 && type_of(negative.n) == s8, "s8");
     arabic, fits3 := Regex.parse(Regex.Static("(?<n>\\d{3})"), "٣٤٥");
     check(fits3 && arabic.n == 345, "digits from another script");
+
+    size, ok2 := Regex.parse(Regex.Static("(?<size>small|SMALL|bigOne|big_one|if)"), "bigOne");
+    check(ok2 && size.size == .BIG_ONE, "words become upper snake case members");
+    size, ok2 = Regex.parse(Regex.Static("(?<size>small|SMALL|bigOne|big_one|if)"), "small");
+    check(ok2 && size.size == .SMALL && size.size != .IF, "words with the same member fold into one");
+    shout, ok3 := Regex.parse(Regex.Static("(?i)(?<word>yes|no)"), "YeS");
+    check(ok3 && shout.word == .YES, "a case-insensitive word");
+    _, ok3 = Regex.parse(Regex.Static("(?i)(?<word>ok|no)"), "o\u212A");
+    check(!ok3, "a word matched through a non-ASCII fold has no member");
+    one: Regex.Static("(?<w>a|A)").Groups;
+    check(type_of(one.w) == string, "one member is a string");
 
     dates := Regex.captures_all(Date, "1999-01-02, 2000-12-31");
     check(dates.count == 2 && dates[1].year == 2000 && dates[1].day == 31, "captures_all");

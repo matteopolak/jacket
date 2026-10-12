@@ -208,7 +208,7 @@ escape :: (text: string) -> string {
 Static :: struct(pattern: string) {
 
     // The named groups, as typed fields: `[0-9]{4}` is a u16, `-?\d+` an s64, `\d+\.\d+` a
-    // float64, `cat|dog` an enum (Groups.Kind for a group named kind) with members cat and dog,
+    // float64, `cat|dog` an enum (Groups.Kind for a group named kind) with members CAT and DOG,
     // and anything else a string. Groups that might not take part in a match get a flag in `has`.
     Groups :: struct {
         match: Match;

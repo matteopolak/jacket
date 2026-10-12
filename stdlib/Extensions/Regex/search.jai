@@ -199,31 +199,58 @@ UNSEEN :: -2;
 VISITING :: -3;
 VARIES :: -1;
 
-// The bytes consumed from `at` to the match, or VARIES.
-length_from :: (program: *Program, lengths: [] int, at: u32) -> int {
-    if lengths[at] == VISITING return VARIES; // a loop
-    if lengths[at] != UNSEEN return lengths[at];
-    lengths[at] = VISITING;
-    inst := *program.insts[at];
-    result := VARIES;
-    if inst.kind == {
-        case .MATCH; result = 0;
-        case .SAVE; #through;
-        case .LOOK; result = length_from(program, lengths, inst.next);
-        case .SPLIT;
-            a := length_from(program, lengths, inst.next);
-            b := length_from(program, lengths, inst.alt);
-            if a == b result = a;
-        case .RANGES;
-            for t: 0..inst.alt - 1 {
-                n := length_from(program, lengths, program.transitions[inst.next + t].next);
-                if n == VARIES || (t > 0 && n + 1 != result) {
-                    result = VARIES;
-                    break;
-                }
-                result = n + 1;
-            }
+// The bytes consumed from `start` to the match, or VARIES. Walks the program depth first with
+// its own stack, since a long pattern nests deeper than a wasm call stack allows.
+length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
+    Step :: struct {
+        at: u32;
+        done: bool;
     }
-    lengths[at] = result;
-    return result;
+    stack: [..] Step;
+    stack.allocator = temp;
+    array_add(*stack, .{ start, false });
+    while stack.count {
+        step := pop(*stack);
+        inst := *program.insts[step.at];
+        if !step.done {
+            if lengths[step.at] != UNSEEN continue;
+            lengths[step.at] = VISITING;
+            array_add(*stack, .{ step.at, true });
+            if inst.kind == {
+                case .SAVE; #through;
+                case .LOOK; array_add(*stack, .{ inst.next, false });
+                case .SPLIT;
+                    array_add(*stack, .{ inst.alt, false });
+                    array_add(*stack, .{ inst.next, false });
+                case .RANGES;
+                    for t: 0..inst.alt - 1 array_add(*stack, .{ program.transitions[inst.next + t].next, false });
+            }
+            continue;
+        }
+        result := VARIES;
+        if inst.kind == {
+            case .MATCH; result = 0;
+            case .SAVE; #through;
+            case .LOOK; result = known(lengths, inst.next);
+            case .SPLIT;
+                a := known(lengths, inst.next);
+                if a == known(lengths, inst.alt) result = a;
+            case .RANGES;
+                for t: 0..inst.alt - 1 {
+                    n := known(lengths, program.transitions[inst.next + t].next);
+                    if n == VARIES || (t > 0 && n + 1 != result) {
+                        result = VARIES;
+                        break;
+                    }
+                    result = n + 1;
+                }
+        }
+        lengths[step.at] = result;
+    }
+    return known(lengths, start);
+}
+
+// A finished length, or VARIES for one still being walked (a loop back to it).
+known :: (lengths: [] int, at: u32) -> int {
+    return ifx lengths[at] >= 0 then lengths[at] else VARIES;
 }
