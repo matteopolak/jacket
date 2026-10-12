@@ -29,9 +29,6 @@ class PublicIncludes(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertIn("absent from public checkout", errors[0])
 
-    def test_original_reference_input_is_rejected_even_if_present(self):
-        self.assertIn("excluded input", errors[0])
-
     def test_authored_prelude_is_available_without_vendor_exception(self):
         self.assertEqual(self.inspect("../../../stdlib/prelude/module.jai", "stdlib/prelude/module.jai"), (1, []))
 

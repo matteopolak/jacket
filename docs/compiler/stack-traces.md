@@ -52,9 +52,13 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   `trace_enter` and the pass write a `u64` hash and `u32` depth and line.
 - Hash values differ from Jai's; they only mix the caller hash, procedure id and call line.
 - There is no sentinel node from `push_context`, so call depths can differ in that case.
-- Compiled code gives no node to a procedure that contains no call and never uses its context
-  pointer (`makes_no_calls`): nothing can read the trace from inside it, and Jai
-  omits leaf procedures as well. The interpreter still pushes a node for every traced procedure.
+- Compiled code gives no node to a *quiet* procedure (`quiet_funcs`): one that uses its context
+  pointer only to pass it on, and calls only quiet procedures, directly. A procedure that calls
+  nothing is quiet, and so is one that calls only such procedures, found by iterating to a fixed
+  point (recursion never qualifies). Nothing inside one can read the trace: an `assert`, an
+  allocator or an indirect call disqualifies it. This keeps small helper chains (SIMD lane
+  operations, `inline` accessors) free of the push and pop. The interpreter still pushes a node for
+  every traced procedure.
 - The pass's own loads and stores through the context and the previous node are listed in
   `Func::trusted`, so the backend does not null-check them; keep new bookkeeping accesses
   in that list.

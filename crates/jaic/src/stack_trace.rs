@@ -14,13 +14,14 @@ const HASH_PRIME: u64 = 0x0100_0000_01b3;
 /// Instrument every function that has `trace` info; the info is then cleared, so running the
 /// result in the interpreter does not push a second node.
 pub fn instrument(program: &mut Program, layout: &TraceLayout) {
+    let quiet = quiet_funcs(&program.funcs);
     for i in 0..program.funcs.len() {
         let Some(info) = program.funcs[i].as_ref().and_then(|f| f.trace.clone()) else {
             continue;
         };
-        if program.funcs[i].as_ref().is_some_and(makes_no_calls) {
-            // Nothing can read the stack from a procedure that calls nothing, and the
-            // Jai leaves such procedures out as well.
+        if quiet[i] {
+            // Nothing can read the stack from a procedure that only calls procedures like
+            // itself, so it needs no node: the small helpers a hot loop calls cost nothing.
             program.funcs[i].as_mut().unwrap().trace = None;
             continue;
         }
@@ -31,20 +32,48 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
     }
 }
 
-/// A procedure that neither calls anything nor touches its context pointer: no callee, handler
-/// or allocator can look at the stack trace from inside it, and it cannot read
-/// `context.stack_trace` itself (runtime check failures report their own location).
-fn makes_no_calls(func: &Func) -> bool {
+/// The procedures that never let anything look at the stack trace: they touch their context
+/// pointer only to pass it on, and call only other quiet procedures (directly). A procedure that
+/// calls nothing is quiet; so, in turn, is one that calls only those. Runtime check failures
+/// report their own location, so they don't need a node either.
+fn quiet_funcs(funcs: &[Option<Func>]) -> Vec<bool> {
+    let mut quiet = vec![false; funcs.len()];
+    loop {
+        let mut changed = false;
+        for (i, func) in funcs.iter().enumerate() {
+            if !quiet[i]
+                && let Some(func) = func
+                && is_quiet(func, &quiet)
+            {
+                quiet[i] = true;
+                changed = true;
+            }
+        }
+        if !changed {
+            return quiet;
+        }
+    }
+}
+
+fn is_quiet(func: &Func, quiet: &[bool]) -> bool {
     let mut uses_context = false;
-    let mut call = false;
     for block in &func.blocks {
         for inst in &block.insts {
-            call |= matches!(inst, Inst::Call(_));
+            if let Inst::Call(call) = inst {
+                let Callee::Func(callee) = call.callee else {
+                    return false;
+                };
+                if !quiet.get(callee.0 as usize).copied().unwrap_or(false) {
+                    return false;
+                }
+                // Passing the context on to a quiet callee is fine.
+                continue;
+            }
             inst_vals(inst, &mut |_| {}, &mut |v| uses_context |= v == Val(0));
         }
         term_uses(&block.term, &mut |v| uses_context |= v == Val(0));
     }
-    !call && !uses_context
+    !uses_context
 }
 
 fn info_global(
