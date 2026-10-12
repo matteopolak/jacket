@@ -71,8 +71,20 @@ free_regex :: (re: *Regex) {
     if !re.engine return;
     dfa_free(*re.engine.forward);
     dfa_free(*re.engine.backward);
+    onepass_free(*re.engine.onepass);
     free(re.engine);
     re.engine = null;
+}
+
+// Whether captures for this pattern are found in a single scan (see docs/stdlib/regex.md).
+is_one_pass :: (re: *Regex) -> bool {
+    return re.engine.onepass.ok;
+}
+
+is_one_pass :: ($R: Type) -> bool #modify {
+    return is_static(R);
+} {
+    return static_engine_of(R.pattern, false).onepass.ok;
 }
 
 is_match :: (re: *Regex, text: string, start := 0) -> bool {
@@ -381,6 +393,7 @@ fill_struct :: ($pattern: string, engine: *Engine, text: string, s: int, e: int,
 #load "syntax.jai";
 #load "program.jai";
 #load "nfa.jai";
+#load "onepass.jai";
 #load "dfa.jai";
 #load "search.jai";
 #load "generate.jai";

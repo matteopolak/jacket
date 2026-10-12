@@ -165,6 +165,52 @@ linear :: () {
     check(found && Regex.group(caps, 1) == "aaa", "(a*)*b captures");
 }
 
+// Which patterns have a one-pass capture table, and that the captures they give are right.
+one_pass :: () {
+    YES :: string.[
+        "(\\d+)-(\\d+)", "(?<y>[0-9]{4})-(?<m>[0-9]{2})", "^(\\w+) (\\w+)$", "(a|b)c", "(?:a(b)|c(d))e",
+        "(\\w+)@(\\w+)\\.com", "\\b(\\w+)\\b", "(?m)^(a+)$", "(?mR)^(a+)$", "(a)?b", "([^,]*),([^,]*)",
+        "(\\p{Greek}+)x", "(?-u)\\b(\\w+)\\b", "(a*?)b", "(\\d{1,3})\\.(\\d{1,3})",
+    ];
+    NO :: string.[
+        "(a|ab)(c|bcd)", "(a+)(a+)", "(a*)(a*)", "(a|a)", "(\\w+)\\s*(\\w+)", "(\\w+)\\s(\\w+)", "a?a", "(a?)*a",
+        "[a-z]{2000}(x)", "(?:a|\\ba)b",
+    ];
+    for YES {
+        re := compiled(it);
+        check(Regex.is_one_pass(*re), tprint("% is one-pass", it));
+        Regex.free_regex(*re);
+    }
+    for NO {
+        re := compiled(it);
+        check(!Regex.is_one_pass(*re), tprint("% is not one-pass", it));
+        Regex.free_regex(*re);
+    }
+
+    re := compiled("(?<k>[a-z]+)=(?<v>\\d+)?;");
+    check(Regex.is_one_pass(*re), "key=value is one-pass");
+    caps, found := Regex.captures(*re, "xx abc=12; abc=;");
+    check(found && Regex.group(caps, "k") == "abc" && Regex.group(caps, "v") == "12", "one-pass groups");
+    all := Regex.captures_all(*re, "a=1;b=;c=3;");
+    check(all.count == 3 && all[1].slots[4] == -1 && Regex.group(all[2], 2) == "3", "one-pass optional group");
+    Regex.free_regex(*re);
+
+    // A group in a loop keeps its last pass; a look is checked against the text around the match.
+    loop := compiled("(?:(a)|(b))*c");
+    check(Regex.is_one_pass(*loop), "(?:(a)|(b))*c is one-pass");
+    caps, found = Regex.captures(*loop, "abac");
+    check(found && Regex.group(caps, 1) == "a" && Regex.group(caps, 2) == "b", "loop groups");
+    Regex.free_regex(*loop);
+    word := compiled("\\b(\\w+)\\b");
+    caps, found = Regex.captures(*word, "  naïve ");
+    check(found && Regex.group(caps, 1) == "naïve", "Unicode \\b with a one-pass table");
+    Regex.free_regex(*word);
+
+    // Static patterns carry their table in the program.
+    check(Regex.is_one_pass(Regex.Static("(\\d+)-(\\d+)")), "a Static pattern is one-pass");
+    check(!Regex.is_one_pass(Regex.Static("(a+)(a+)")), "a Static pattern is not always one-pass");
+}
+
 main :: () {
     errors();
     searching();
@@ -172,6 +218,7 @@ main :: () {
     replacing();
     options();
     linear();
+    one_pass();
     if failures {
         print("% regex checks failed\n", failures);
         exit(1);

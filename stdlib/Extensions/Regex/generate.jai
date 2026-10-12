@@ -32,6 +32,8 @@ static_engine :: (pattern: string, full: bool) -> Engine {
         engine.forward = dfa_freeze(*forward);
         engine.backward = dfa_freeze(*backward);
         engine.frozen = true;
+        // Freezing is optional: a pattern with no table just captures the slower way.
+        engine.onepass = onepass_build(*engine.program, ONEPASS_STATIC_STATE_LIMIT);
     }
     dfa_free(*forward);
     dfa_free(*backward);

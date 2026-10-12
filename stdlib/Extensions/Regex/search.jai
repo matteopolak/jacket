@@ -1,5 +1,6 @@
 // Picks a matcher for each search: the lazy DFAs find where a match ends and starts, then the
-// backtracker (short matches) or the Pike VM fills in captures. The Pike VM also takes over
+// one-pass table (patterns that have one), the backtracker (short matches) or the Pike VM fills
+// in captures. The Pike VM also takes over
 // when a DFA grows too big, and for Unicode \b on non-ASCII text, which the DFA can't see.
 
 Engine :: struct {
@@ -8,6 +9,7 @@ Engine :: struct {
     reverse: Program;
     forward: Dfa;
     backward: Dfa;
+    onepass: OnePass; // the one-pass capture table, if the pattern has one (onepass.ok)
     frozen: bool; // built at compile time: both DFAs are complete and the programs are constants
 }
 
@@ -30,6 +32,7 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     }
     dfa_init(*engine.forward, *engine.program, false);
     dfa_init(*engine.backward, *engine.reverse, true);
+    engine.onepass = onepass_build(*engine.program, ONEPASS_STATE_LIMIT);
     return engine, true, .{};
 }
 
@@ -64,7 +67,8 @@ captures_of :: (engine: *Engine, text: string, s: int, e: int) -> Captures {
 fill_slots :: (engine: *Engine, text: string, s: int, e: int, slots: [] int) {
     program := *engine.program;
     found: bool;
-    if backtrack_fits(program, e - s) found = backtrack_search(program, text, s, e, slots);
+    if engine.onepass.ok found = onepass_search(*engine.onepass, text, s, e, slots);
+    else if backtrack_fits(program, e - s) found = backtrack_search(program, text, s, e, slots);
     else found = pike_search(program, text, s, e, true, slots);
     assert(found && slots[0] == s && slots[1] == e, "Regex: the matchers disagree on `%` in `%`: %..% vs %", engine.pattern, text, s, e, slots);
 }
