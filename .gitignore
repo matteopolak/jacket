@@ -12,5 +12,8 @@
 # npm and pnpm (editors/vscode and any stray installs)
 node_modules/
 /tools/regex_oracle/target/
+
+# regex benchmark build products
+/benchmarks/regex/target/
 /TODO.md
 /HANDOFF.md

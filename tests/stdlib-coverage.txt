@@ -24,8 +24,10 @@ Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
+Extensions/Byte_Search 12
 Extensions/Jai_Format 6
 Extensions/Regex 77
+Extensions/SIMD 8
 File 33
 File_Async 9
 File_Utilities 15
@@ -113,8 +115,10 @@ Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
+Extensions/Byte_Search 12
 Extensions/Jai_Format 6
 Extensions/Regex 77
+Extensions/SIMD 8
 File 33
 File_Async 9
 File_Utilities 15
@@ -202,8 +206,10 @@ Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
+Extensions/Byte_Search 12
 Extensions/Jai_Format 6
 Extensions/Regex 77
+Extensions/SIMD 8
 File 34
 File_Async 9
 File_Utilities 15
@@ -293,8 +299,10 @@ Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
+Extensions/Byte_Search 12
 Extensions/Jai_Format 6
 Extensions/Regex 77
+Extensions/SIMD 8
 File 33
 File_Async 9
 File_Utilities 15
@@ -383,8 +391,10 @@ Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
+Extensions/Byte_Search 12
 Extensions/Jai_Format 6
 Extensions/Regex 77
+Extensions/SIMD 8
 File 37
 File_Async 9
 File_Utilities 15
@@ -471,8 +481,10 @@ Deep_Copy 1
 Default_Allocator 4
 Example_Plugin 8
 Extensions/Args 6
+Extensions/Byte_Search 12
 Extensions/Jai_Format 6
 Extensions/Regex 77
+Extensions/SIMD 8
 File 37
 File_Async 9
 File_Utilities 15

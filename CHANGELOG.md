@@ -5,10 +5,14 @@
 ### Features
 
 - `Extensions/Regex`: regular expressions with the syntax and matching rules of Rust's `regex` crate, full Unicode 17 support and linear-time matching (lazy DFAs, a Pike VM and a bounded backtracker). `Regex.compile` builds one at run time; `Regex.Static("...")` is compiled while the program compiles, rejects a bad pattern with a compile error, and turns named groups into typed fields (integers, floats, enums) that `parse`, `captures` and `parse_into` fill.
+- `Extensions/SIMD`: portable fixed-width vectors (`Vector(T, N)`, `u8x16`, `f32x4`, ...) with lane-wise arithmetic, comparisons into masks, reductions, shuffles and byte table lookups. Results are the same on every target; optimized native builds use vector instructions.
+- `Extensions/Byte_Search`: vectorized `find`, `find_any`, `find_last`, `count` and substring search, linear time even for adversarial needles (Two-Way fallback). Single-byte search runs at memory bandwidth, on par with Rust's `memchr`.
 - Compiler intrinsics `byte_lookup` (pshufb/`tbl`/`swizzle`-style table lookup, 0 for indices of 16 or more on every target) and `sign_mask` (pmovmskb-style top-bit mask) lower to real vector instructions in native builds, and `#asm` `pshufb` and `pmovmskb` now use them.
 
 ### Performance
 
+- Native builds honour `inline` and `no_inline` on procedure declarations (LLVM `alwaysinline`/`noinline`); before, both were ignored.
+- Native null-pointer checks are no longer emitted for the incoming addresses of aggregate parameters and results, which are always the caller's copies. Small procedures taking structs by value vectorize again once inlined.
 - `Extensions/Regex`: patterns whose next byte always picks one path through the automaton (dates, `key=value`, most ASCII patterns) find their capture groups in a single scan of the match with a one-pass table, built at compile time for `Regex.Static`. Typed `captures_all` on a date pattern is about 35% faster.
 
 ### Breaking changes
@@ -17,6 +21,7 @@
 
 ### Fixes
 
+- `for` over a range or value that starts with an expression directive (`for #char "a"..#char "e"`, `for #run f()`) no longer parses the directive as a loop modifier.
 - Constants that an `#insert` declares inside a struct body, polymorphic or not, are now visible to the members that follow.
 - An `#expand` macro can backtick-declare a name equal to one of its own parameters (`` `engine := engine; ``) without an internal error.
 - The address of a `#run` struct constant is now static and stable, so returning it from a procedure no longer yields a dangling pointer.

@@ -103,6 +103,8 @@ The LLVM backend, C ABI and linking.
 - [Command_Line](specs/stdlib/README.md)
 - [Args: a compile-time-generated command-line parser (jaic extension)](specs/stdlib/README.md)
 - [Regex: regular expressions with compile-time typed patterns (jaic extension)](specs/stdlib/README.md)
+- [SIMD: portable fixed-width vectors (jaic extension)](specs/stdlib/README.md)
+- [Byte_Search: vectorized byte and substring search (jaic extension)](specs/stdlib/README.md)
 - [Compiler API, reflection and metaprogram support](specs/stdlib/README.md)
 - [Files, processes and OS services](specs/stdlib/README.md)
 - [GetRect](specs/stdlib/README.md)
@@ -136,6 +138,7 @@ Scripts, CI and project policies.
 - [Benchmarks and profiling](tools/benchmarks.md)
 - [Build storage and target directories](tools/build-storage.md)
 - [Compile-time benchmark](tools/compile-time-benchmark.md): wall time, peak RSS and phases of real projects, `--timings`
+- [Regex benchmark](tools/regex-benchmark.md): `Extensions/Regex` against Rust `regex`, RE2, PCRE2, CTRE and Hyperscan on a generated corpus
 - [Edit benchmark](tools/edit-bench.md): how long `jailsp` takes to answer after an edit inside a body, compiles per edit
 - [IDE coverage](tools/ide-coverage.md): which identifiers of a project get no hover or go to definition from `jailsp`
 - [Language server benchmark](tools/lsp-benchmark.md): latency, CPU time and RSS of `jailsp` (or another server) on real and generated projects and very large files

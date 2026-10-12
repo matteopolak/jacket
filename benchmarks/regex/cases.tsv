@@ -1,0 +1,11 @@
+# id	pattern	description
+date	[0-9]{4}-[0-9]{2}-[0-9]{2}	ISO dates, count all matches
+email	\w+@\w+\.com	e-mail addresses
+greek	\p{Greek}+	runs of Greek letters (Unicode script)
+nomatch	zzz	a literal that never occurs
+nocase	(?i)HELLO	case-insensitive literal that never occurs
+wordb	\b\w+\b	every word (Unicode \w and \b)
+alt	Sherlock|Holmes|Watson|Irene|Adler	literal alternation
+literal	the	a short literal that matches often
+ing	[a-zA-Z]+ing	words ending in ing
+caps	(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})	typed captures on the date pattern
