@@ -92,6 +92,12 @@ class PositionTests(unittest.TestCase):
         self.assertLess(early['hover']['line'], late['hover']['line'])
         self.assertIsNone(pick_positions('x :: 1;\n'))
 
+    def test_bodies_with_the_brace_on_the_next_line(self):
+        text = 'walk :: (node: *Node)\n{\n    visit_node(node.left);\n}\n'
+        pick = pick_positions(text)
+        self.assertEqual(pick['declaration'], {'line': 0, 'character': 0, 'name': 'walk'})
+        self.assertEqual(pick['hover']['line'], 2)
+
     def test_generated_programs_have_positions(self):
         text = benchgen.generate(2000, 1)['main.jai']
         pick = pick_positions(text)

@@ -81,6 +81,16 @@ WORKLOADS: dict[str, dict] = {
     'focus-main': {'project': 'focus-editor--focus', 'document': 'src/editors.jai', 'also': ['src/main.jai']},
     'jails': {'project': 'SogoCZE--Jails', 'document': 'server/program.jai', 'also': ['server/main.jai']},
     'chess-jai': {'project': 'danieltan1517--chess-jai', 'document': 'movegen.jai', 'also': ['build.jai']},
+    # More real projects of different shapes, so speedups are not tuned to Focus alone: metaprogram builds
+    # (Photon, forbear, protobuf, reflector, no_api), a library with a test root (toml-jai) and a formatter
+    # with a first.jai (jai-format).
+    'photon': {'project': 'DavidColson--Photon', 'document': 'source/document.jai', 'also': ['build.jai']},
+    'forbear': {'project': 'gabrielmfern--forbear', 'document': 'forbear.jai', 'also': ['build.jai']},
+    'protobuf': {'project': 'segcore--jai-protobuf', 'document': 'generator.jai', 'also': ['build.jai']},
+    'reflector': {'project': 'n00bmind--reflector', 'document': 'src/reflect_binary_fb.jai', 'also': ['build.jai']},
+    'no-api': {'project': 'UnNabbo--no_api', 'document': 'src/commands.jai', 'also': ['first.jai']},
+    'toml': {'project': 'sjorsdonkers--toml-jai', 'document': 'src/parser.jai', 'also': ['tests.jai']},
+    'jai-format': {'project': 'OrangeLightning219--jai-format', 'document': 'module.jai', 'also': ['first.jai']},
     # Generated (tools/benchgen.py): (lines, seed, files). main.jai loads the parts and is open too. The part in
     # the middle is the document.
     'gen-60k': {'generated': (60_000, 1, 12)},
@@ -188,6 +198,8 @@ def mask_line(line: str, block_depth: int = 0) -> tuple[str, int]:
 
 
 PROC_START = re.compile(r'^([A-Za-z_]\w*)\s*::\s*\(.*\{\s*$')
+# A header whose `{` is on the next line, alone at column 0 (Allman style).
+PROC_HEADER = re.compile(r'^([A-Za-z_]\w*)\s*::\s*\(.*\)[^{;]*$')
 IDENT = re.compile(r'(?<![\w.#$@])[A-Za-z_]\w*')
 MEMBER = re.compile(r'(?<![\w.$])([A-Za-z_]\w*)\.([A-Za-z_]\w*)')
 
@@ -199,14 +211,19 @@ def utf16_col(line: str, col: int) -> int:
 
 def procedure_bodies(masked: list[str]) -> list[tuple[int, int, str, int]]:
     """(first line, closing line, name, name column) of each top-level procedure whose `{` ends its header
-    line and whose closing `}` is alone at column 0."""
+    line, or is alone at column 0 on the next line, and whose closing `}` is alone at column 0."""
     bodies = []
     start = None
     for number, line in enumerate(masked):
         if start is None:
             match = PROC_START.match(line)
+            header = PROC_HEADER.match(line)
             if match:
                 start = (number, match.group(1))
+            elif header and number + 1 < len(masked) and masked[number + 1].rstrip() == '{':
+                start = (number, header.group(1))
+        elif number == start[0] + 1 and line.rstrip() == '{':
+            continue
         elif line.rstrip() in ('}', '};'):
             bodies.append((start[0], number, start[1], 0))
             start = None

@@ -33,7 +33,7 @@ is the model for the options and the results format.
   same body typed one character per `didChange`, completion after each; the first and the median; the line is
   deleted afterwards) and `completion_member_typed` (one edit adding `name.` and completion after the dot).
 - **Positions** (`pick_positions`) are deterministic: comments and strings are masked, procedure bodies are
-  top-level `name :: (...) ... {` up to a `}` at column 0, and the hover is the identifier 60% of the way
+  top-level `name :: (...) ... {` (or a header followed by `{` alone on the next line) up to a `}` at column 0, and the hover is the identifier 60% of the way
   through all identifiers of all bodies (not a keyword, member or declaration). The same body gives the insertion
   line (after the hover line, same indentation), the procedure name for references, and a `base.field` use for
   member completion. Columns are UTF-16. Printing `info.picks` in the JSON shows what was used.
@@ -58,6 +58,10 @@ is the model for the options and the results format.
   - `focus`: workspace = the Focus checkout, `src/editors.jai` (200 KiB) with `first.jai` open. `focus-main` has
     `src/main.jai` open instead, so the program is checked from there and not from the build metaprogram.
   - `jails`: `server/program.jai` with `server/main.jai` open; `chess-jai`: `movegen.jai` with `build.jai` open.
+  - `photon`, `forbear`, `protobuf`, `reflector`, `no-api`, `toml` and `jai-format`: one large source file of each
+    project with its root file (`build.jai`, `first.jai` or `tests.jai`) open. They cover different shapes
+    (metaprogram builds, a library with a test root, a formatter), so a speedup tuned to Focus alone shows up as
+    a flat line elsewhere. Check several of them, not just `focus`, before calling a change a win.
   - `gen-60k`, `gen-240k`: [`tools/benchgen.py`](benchmark-generator.md) programs (seed 1) split into 12 and 48
     files; the middle `part_N.jai` is measured, `main.jai` is open.
   - `large-25k`, `large-100k`: one-file programs (`benchgen` with `files=1`) of about 0.8 MB and 3.3 MB, the single

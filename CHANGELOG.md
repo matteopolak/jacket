@@ -16,6 +16,8 @@
 
 ### Performance
 
+- Metaprograms get their messages and syntax trees several times faster: the compiler builds the structs of a record and everything it reaches in one native call, where `stdlib/Compiler` filled them member by member in interpreted code. A Focus build reads about 450k such structs; an edit in Focus now takes the language server 0.83 s instead of 1.3-1.7 s, and the session peaks at 0.93 GB instead of 1.05 GB.
+- `edit_bench` (see docs/tools/edit-bench.md) measures the language server's answer time after an edit inside a body.
 - The language server drops a compile's lowered code, globals' contents, interpreter stacks and leftover compile-time allocations once it is checked: Focus's coverage run peaks at 0.98 GB instead of 1.40 GB.
 - `jailsp` hands the pages a compile freed back to the system once the compile is done: an editor on Focus sits at about 230 MiB between compiles instead of 300-370 MiB.
 - Hover and go to definition answer several times faster when many files are open (Linalg's 12k requests: 4.8 s to 0.6 s): the server no longer re-reads folders, copies and hashes every open document and canonicalizes every path for each request, and code no target compiles no longer recompiles every target on each hover. Requests on an open document no longer compare, copy, reparse or scan its whole text. Focus's 380k requests went from over 10 minutes to 9 s, and a 600 KB file's from 6.6 s to 0.45 s. Compiles no longer canonicalize the same paths over and over, and a `#run` that traps no longer resolves the stdlib's folders for each report.
