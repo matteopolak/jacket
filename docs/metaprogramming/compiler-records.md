@@ -47,7 +47,7 @@ When a workspace runs out of sources, `step` lowers everything reachable (`Compi
 
 Large metaprograms build hundreds of thousands of records per compile (a TYPECHECKED message of a large program reaches most of its syntax trees and types), so the building is native (`crates/jaic/src/record_build.rs`) and Jai only describes the layouts:
 
-- `record_plan(info)` flattens a struct type's members once into `Record_Plan_Entry`s (offset, kind, size, name, and for pointers, in-place structs and arrays what they hold) and hands the plan to the compiler with `__jaic_rec_plan`, together with the plans of every struct its members reach. So the layouts in `nodes.jai` stay the only place that knows them.
+- `record_plan(info)` flattens a struct type's members once into `Record_Plan_Entry`s (offset, kind, size, name, and for pointers, in-place structs and arrays what they hold) and hands the plan to the compiler with `__jaic_rec_plan`, together with the plans of every struct its members reach. So the layouts in `messages.jai`, `syntax_nodes.jai` and `directive_nodes.jai` stay the only place that knows them.
 - On first use, `records_builder` asks for a builder (`__jaic_rec_builder`, one per program: each program has its own type descriptors), names the struct each tag in `RECORD_TYPES` stands for (`__jaic_rec_type`) and the program's descriptors of primitive types (`__jaic_rec_builtin`, for `__builtin` records).
 - `__jaic_rec_build(builder, id, expected)` builds the record and every record it reaches that is not built yet, with a work list (no recursion over the graph), and returns the struct. `__jaic_rec_of` is `record_of`.
 - Structs and array data live in 256 KiB zeroed chunks the builder owns, freed with the registry, like Jai's nodes. Node arrays are views (`[]`), so nothing grows them in place; a metaprogram that wants another array assigns a new one.
@@ -97,7 +97,7 @@ The edit is queued and applied at the workspace's next step (`Compiler::modify_p
 ## How to change it
 
 - New node kind: a case in `Exporter::expr`/`stmt` building a record with the `Code_*` member names, and an entry in `RECORD_TYPES` if it is reached through a base pointer.
-- New field: add it to the record. The Jai filler matches by name, ignores unknown names and leaves missing fields zero. Keep names identical to `stdlib/Compiler/nodes.jai` and `stdlib/prelude/module.jai`.
+- New field: add it to the record. The Jai filler matches by name, ignores unknown names and leaves missing fields zero. Keep names identical to the `stdlib/Compiler/*_nodes.jai` and `messages.jai` files and `stdlib/prelude/module.jai`.
 - Only top-level statement lists can be modified; nested blocks would need their statement records mapped too.
 - Gotcha: anything the exporter resolves can run compile-time code, so never hold the registry borrow.
 

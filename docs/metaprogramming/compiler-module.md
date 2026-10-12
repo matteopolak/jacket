@@ -10,7 +10,9 @@
 
 | File | Content |
 | --- | --- |
-| `nodes.jai` | `Message` and the `Message_*` records, `Typechecked(T)`, the `Code_Node` family, `Operator_Type`, `Provided_Import_Type`. Pure data; layout and member order follow the public API. |
+| `messages.jai` | `Message` and the `Message_*` records, `Typechecked(T)` and the report records. Pure data; layout and member order follow the public API. |
+| `syntax_nodes.jai` | The `Code_Node` family for declarations, expressions and statements, `Operator_Type`, `Provided_Import_Type`. Pure data. |
+| `directive_nodes.jai` | The `Code_Directive_*` nodes for `#` directives. Pure data. |
 | `options.jai` | `Build_Options` (with `Commonly_Propagated`), `Llvm_Options`, `Build_Options_During_Compile`, `set_optimization`, `copy_commonly_propagated_fields`, the per-workspace option store and forwarding to Rust. |
 | `workspace.jai` | Workspaces, `add_build_file/string`, interception and message construction, `compiler_report`, version info, stubs, and the primitive declarations. |
 | `records.jai` | Turning compiler records into Jai structs; see [compiler records](compiler-records.md). |

@@ -388,6 +388,7 @@ fill_struct :: ($pattern: string, engine: *Engine, text: string, s: int, e: int,
 #import "String";
 #import "Hash_Table";
 #import "Compiler";
+Byte_Search :: #import "Extensions/Byte_Search";
 
 #load "unicode.jai";
 #load "syntax.jai";

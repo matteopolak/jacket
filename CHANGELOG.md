@@ -6,7 +6,7 @@
 
 - `Extensions/Regex`: regular expressions with the syntax and matching rules of Rust's `regex` crate, full Unicode 17 support and linear-time matching (lazy DFAs, a Pike VM and a bounded backtracker). `Regex.compile` builds one at run time; `Regex.Static("...")` is compiled while the program compiles, rejects a bad pattern with a compile error, and turns named groups into typed fields (integers, floats, enums) that `parse`, `captures` and `parse_into` fill.
 - `Extensions/SIMD`: portable fixed-width vectors (`Vector(T, N)`, `u8x16`, `f32x4`, ...) with lane-wise arithmetic, comparisons into masks, reductions, shuffles and byte table lookups. Results are the same on every target; optimized native builds use vector instructions.
-- `Extensions/Byte_Search`: vectorized `find`, `find_any`, `find_last`, `count` and substring search, linear time even for adversarial needles (Two-Way fallback). Single-byte search runs at memory bandwidth, on par with Rust's `memchr`.
+- `Extensions/Byte_Search`: vectorized `find`, `find_any`, `find_last`, `count` and substring search, linear time even for adversarial needles (Two-Way fallback). Single-byte search runs at memory bandwidth, on par with Rust's `memchr`. `Byte_Set` (`make_byte_set`, `find`) searches for any byte of a set with nibble tables, and `find_pair`/`find_triple` for bytes from two or three sets at fixed distances.
 - Compiler intrinsics `byte_lookup` (pshufb/`tbl`/`swizzle`-style table lookup, 0 for indices of 16 or more on every target) and `sign_mask` (pmovmskb-style top-bit mask) lower to real vector instructions in native builds, and `#asm` `pshufb` and `pmovmskb` now use them.
 
 ### Performance
@@ -14,9 +14,13 @@
 - Native builds honour `inline` and `no_inline` on procedure declarations (LLVM `alwaysinline`/`noinline`); before, both were ignored.
 - Native null-pointer checks are no longer emitted for the incoming addresses of aggregate parameters and results, which are always the caller's copies. Small procedures taking structs by value vectorize again once inlined.
 - `Extensions/Regex`: patterns whose next byte always picks one path through the automaton (dates, `key=value`, most ASCII patterns) find their capture groups in a single scan of the match with a one-pass table, built at compile time for `Regex.Static`. Typed `captures_all` on a date pattern is about 35% faster.
+- `Extensions/Regex`: searches skip ahead with Byte_Search to where a match can start (a literal prefix, a set of first bytes, or pairs and triples of bytes), and a pattern that is a plain literal returns its match without running the DFA. Patterns whose matches all have one length skip the reverse scan. Unicode `\b` stays in the DFA instead of falling back to the Pike VM. Most benchmark patterns now run within 20% of Rust's `regex` or faster.
+- `Extensions/Byte_Search`: substring search with a `Finder` tests 64 positions per branch (absent needles at about 64 GB/s, from 19), and a hit picks its chunk without branching.
+- Stack trace nodes are left out of every procedure that only calls procedures that need none, not only out of leaves.
 
 ### Breaking changes
 
+- `Extensions/SIMD`: `<<` and `>>` take the shift count modulo the lane width, as wasm does, instead of asserting it is smaller.
 - winget is no longer offered; install on Windows with `install.ps1` or the release zip.
 
 ### Fixes

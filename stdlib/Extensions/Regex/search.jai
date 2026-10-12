@@ -1,7 +1,6 @@
 // Picks a matcher for each search: the lazy DFAs find where a match ends and starts, then the
 // one-pass table (patterns that have one), the backtracker (short matches) or the Pike VM fills
-// in captures. The Pike VM also takes over
-// when a DFA grows too big, and for Unicode \b on non-ASCII text, which the DFA can't see.
+// in captures. The Pike VM also takes over when a DFA grows too big.
 
 Engine :: struct {
     pattern: string;
@@ -10,6 +9,7 @@ Engine :: struct {
     forward: Dfa;
     backward: Dfa;
     onepass: OnePass; // the one-pass capture table, if the pattern has one (onepass.ok)
+    fixed_length := -1; // every match is this many bytes long: no need to look for the start
     frozen: bool; // built at compile time: both DFAs are complete and the programs are constants
 }
 
@@ -33,6 +33,7 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     dfa_init(*engine.forward, *engine.program, false);
     dfa_init(*engine.backward, *engine.reverse, true);
     engine.onepass = onepass_build(*engine.program, ONEPASS_STATE_LIMIT);
+    engine.fixed_length = fixed_length(*engine.program);
     return engine, true, .{};
 }
 
@@ -46,12 +47,21 @@ find_span :: (engine: *Engine, text: string, start: int, earliest := false) -> s
     if !gave_up {
         if end < 0 return -1, -1;
         if earliest return -1, end;
+        if engine.fixed_length >= 0 return end - engine.fixed_length, end;
         s, gave_up_backward := dfa_find_start(*engine.backward, text, start, end);
         if !gave_up_backward return s, end;
     }
     slots: [2] int;
     if !pike_search(program, text, start, text.count, program.anchored, slots) return -1, -1;
     return slots[0], slots[1];
+}
+
+// The length every match has, or -1 if they differ (or the program is too big to tell).
+fixed_length :: (program: *Program) -> int {
+    if program.insts.count > 10_000 return -1;
+    lengths := NewArray(program.insts.count, int,, temp);
+    for *lengths it.* = UNSEEN;
+    return length_from(program, lengths, program.start);
 }
 
 captures_of :: (engine: *Engine, text: string, s: int, e: int) -> Captures {
@@ -181,4 +191,39 @@ parse_group_number :: (name: string) -> int, bool {
         value = value * 10 + cast(int) (c - #char "0");
     }
     return value, true;
+}
+
+#scope_file
+
+UNSEEN :: -2;
+VISITING :: -3;
+VARIES :: -1;
+
+// The bytes consumed from `at` to the match, or VARIES.
+length_from :: (program: *Program, lengths: [] int, at: u32) -> int {
+    if lengths[at] == VISITING return VARIES; // a loop
+    if lengths[at] != UNSEEN return lengths[at];
+    lengths[at] = VISITING;
+    inst := *program.insts[at];
+    result := VARIES;
+    if inst.kind == {
+        case .MATCH; result = 0;
+        case .SAVE; #through;
+        case .LOOK; result = length_from(program, lengths, inst.next);
+        case .SPLIT;
+            a := length_from(program, lengths, inst.next);
+            b := length_from(program, lengths, inst.alt);
+            if a == b result = a;
+        case .RANGES;
+            for t: 0..inst.alt - 1 {
+                n := length_from(program, lengths, program.transitions[inst.next + t].next);
+                if n == VARIES || (t > 0 && n + 1 != result) {
+                    result = VARIES;
+                    break;
+                }
+                result = n + 1;
+            }
+    }
+    lengths[at] = result;
+    return result;
 }
