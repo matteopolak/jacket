@@ -311,18 +311,20 @@ operator ^ :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) #symmetric {
 operator << :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     return is_integer(T), "<< needs integer lanes";
 } {
-    assert(count >= 0 && count < size_of(T) * 8, "SIMD: shift by % bits of a %-bit lane", count, size_of(T) * 8);
+    // The count wraps at the lane width, as wasm's shifts do, so every count is defined.
+    bits := count & (size_of(T) * 8 - 1);
     result: Vector(T, N) = ---;
-    for 0..N - 1 result.lanes[it] = a.lanes[it] << count;
+    for 0..N - 1 result.lanes[it] = a.lanes[it] << bits;
     return result;
 }
 
 operator >> :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     return is_integer(T), ">> needs integer lanes";
 } {
-    assert(count >= 0 && count < size_of(T) * 8, "SIMD: shift by % bits of a %-bit lane", count, size_of(T) * 8);
+    // The count wraps at the lane width, as wasm's shifts do, so every count is defined.
+    bits := count & (size_of(T) * 8 - 1);
     result: Vector(T, N) = ---;
-    for 0..N - 1 result.lanes[it] = a.lanes[it] >> count;
+    for 0..N - 1 result.lanes[it] = a.lanes[it] >> bits;
     return result;
 }
 
@@ -739,8 +741,9 @@ JAI, operator);
 reduce_or_lanes :: inline (mask: Mask($T, $N)) -> u64 {
     result: u64;
     #if N * size_of(T) >= 8 {
-        words := cast(*u64) *mask.lanes[0];
-        for 0..N * size_of(T) / 8 - 1 result |= words[it];
+        words: [N * size_of(T) / 8] u64 = ---;
+        memcpy(words.data, *mask, size_of(type_of(words)));
+        for words result |= it;
     } else {
         for 0..N - 1 result |= mask.lanes[it];
     }
@@ -750,8 +753,9 @@ reduce_or_lanes :: inline (mask: Mask($T, $N)) -> u64 {
 reduce_and_lanes :: inline (mask: Mask($T, $N)) -> u64 {
     result := ~cast(u64) 0;
     #if N * size_of(T) >= 8 {
-        words := cast(*u64) *mask.lanes[0];
-        for 0..N * size_of(T) / 8 - 1 result &= words[it];
+        words: [N * size_of(T) / 8] u64 = ---;
+        memcpy(words.data, *mask, size_of(type_of(words)));
+        for words result &= it;
         if result != ~cast(u64) 0 result = 0;
     } else {
         for 0..N - 1 result &= mask.lanes[it];
