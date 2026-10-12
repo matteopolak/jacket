@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-12
+
+### Breaking changes
+
+- `Regex.Static` `Groups` enums name their members in upper snake case, like other Jai enums: `cat|dog` gives `.CAT` and `.DOG`, `hotDog` gives `.HOT_DOG`. Words that spell the same member (`dog|DOG`) fold into one.
+
+### Fixes
+
+- Regex patterns long enough to overflow the wasm call stack no longer crash when compiled.
+- Case-insensitive word groups (`(?i)(?<answer>yes|no)`) become enums too.
+
 ## [0.13.0] - 2026-10-12
 
 Three new stdlib extensions: regular expressions that match Rust's `regex` crate and run about as fast, portable SIMD vectors, and vectorized byte search.
