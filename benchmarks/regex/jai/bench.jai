@@ -88,7 +88,7 @@ bench_runtime :: (pattern: string, id: string) {
     best_compile: float64 = 1.0e30;
     for 1..20 {
         t := now();
-        re := Regex.compile(pattern);
+        re, ok, error := Regex.compile(pattern);
         dt := now() - t;
         if !ok {
             print("RESULT\tjai-runtime\t%\tna\t0\t0\t0\t0\tcompile error: %\n", id, error.message);
