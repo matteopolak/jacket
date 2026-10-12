@@ -217,6 +217,9 @@ impl Compiler {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());
         }
+        // A parameter naming a polymorphic struct bare (`f: *Table`) makes it polymorphic,
+        // which must be known before its types are: `*Table` alone is a type too.
+        self.refresh_implicit_poly(id)?;
         if self.proc(id).is_poly {
             return err(
                 span,

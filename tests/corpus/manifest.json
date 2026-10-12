@@ -654,6 +654,22 @@
       }
     },
     {
+      "id": "intercepted-bare-poly-struct-parameter",
+      "source": "positive/intercepted-bare-poly-struct-parameter.jai",
+      "sha256": "876380c5bee2368c765200213ba3cd6f7dd783337279777a56fd6cbe97f0c248",
+      "suite": "expanded",
+      "feature": "implicitly polymorphic procedure exported for an intercept before its first call",
+      "kind": "program",
+      "target": "host",
+      "dependencies": [],
+      "host_build_reviewed": true,
+      "runtime": {
+        "exit_code": 17,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
       "id": "contextual-overload",
       "source": "positive/contextual-overload.jai",
       "sha256": "725e5451f14bfd274bb3546c3f74246d2760a1a9be5a3e02c0116ed044aeb23f",
