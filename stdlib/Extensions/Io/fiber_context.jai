@@ -1,5 +1,8 @@
 // The compiler's stack-switching primitives (docs/compiler/fibers.md) and the state they save.
-// Most programs use `spawn` and `io_run` instead; these are for building other schedulers.
+// Internal to the module: programs use `spawn` and `io_run`. A program that wants the primitives
+// itself declares them (tests/native/fibers/switch.jai shows how).
+
+#scope_module
 
 // What one suspended fiber leaves behind. Zero it before first use. The fields belong to the
 // compiler: native code keeps the saved stack pointer in `sp` (and, on Windows, the stack bounds the
@@ -28,3 +31,5 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 // Gives back what the compiler keeps for `fiber` (nothing for native code; the interpreter's
 // stacks for that context). Call it once a context is never used again, and not for the running one.
 fiber_free :: (fiber: *Fiber_Context) #intrinsic;
+
+#scope_export

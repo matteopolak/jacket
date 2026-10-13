@@ -97,6 +97,8 @@ Fiber_Handle :: struct {
     generation: u64;
 }
 
+#scope_module
+
 Timer :: struct {
     deadline: s64;
     sequence: u64;
@@ -140,6 +142,8 @@ Scheduler :: struct {
 }
 
 #add_context io_scheduler: *Scheduler;
+
+#scope_export
 
 // Runs `proc` as the first fiber of a new scheduler on this thread and returns when it has
 // returned. Fibers it started that are still alive then are canceled, and run until they end.

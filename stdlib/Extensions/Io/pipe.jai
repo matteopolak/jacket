@@ -36,12 +36,16 @@ Pipe_Stream :: struct {
     link: *Pipe_Link;
 }
 
+#scope_module
+
 Pipe_Link :: struct {
     halves: [2] Pipe_Half;
     ends: [2] Pipe_Stream;
     open: s64;
     allocator: Allocator;
 }
+
+#scope_export
 
 // Two connected ends. What one writes the other reads. `close` both when done (they free
 // themselves once both are closed).
