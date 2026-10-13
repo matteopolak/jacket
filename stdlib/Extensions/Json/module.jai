@@ -207,6 +207,8 @@ from_json :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Err
     return result, .{};
 }
 
+#scope_module
+
 decode_document :: (r: *Json_Reader, out: *$T) -> bool {
     if !json_decode(r, out) return false;
 
@@ -220,6 +222,8 @@ decode_document :: (r: *Json_Reader, out: *$T) -> bool {
 
     return true;
 }
+
+#scope_export
 
 // The one way to release what the decoders allocated, for a decoded value of any type, a
 // `Json_Value` or a `Json_Error`. For a typed value: its strings, arrays, pointers (and what they

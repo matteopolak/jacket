@@ -13,6 +13,8 @@ Query_Pair :: struct {
     value: string;
 }
 
+#scope_module
+
 // How a field's text becomes a JSON value, decided from its type at compile time.
 Pair_Kind :: enum u8 {
     UNKNOWN; // no field has this key: ignored
@@ -24,6 +26,8 @@ Pair_Kind :: enum u8 {
     NUMBER_LIST;
     BOOL_LIST;
 }
+
+#scope_export
 
 // Decodes a `T` from `pairs`. A key that repeats gives an array for an array field, and is a
 // "duplicate field" error for any other. Keys no field has are ignored unless `T` is marked
@@ -101,14 +105,14 @@ from_param :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Er
     return from_json(T, literal, options);
 }
 
+#scope_module
+
 // The member of `T` that `key` names, from the notes (`rename`, `alias`...).
 pair_kind :: ($T: Type, key: string) -> Pair_Kind {
     #insert -> string {
         return generate_pair_kinds(T);
     };
 }
-
-#scope_module
 
 append_pair_value :: (builder: *String_Builder, kind: Pair_Kind, text: string) {
     if kind == .NUMBER && looks_like_number(text) {
