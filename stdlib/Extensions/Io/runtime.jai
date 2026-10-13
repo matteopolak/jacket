@@ -232,6 +232,16 @@ close_now :: (stream: Tcp_Stream) {
     sys_close(stream.handle.fd);
 }
 
+// The same for a listener.
+close_now :: (listener: Tcp_Listener) {
+    scheduler := context.io_scheduler;
+    engine := scheduler.engine;
+
+    if engine.backend == .EPOLL || engine.backend == .KQUEUE poll_close(scheduler, engine, listener.handle.fd);
+
+    sys_close(listener.handle.fd);
+}
+
 #scope_module
 
 drop_locals :: (scheduler: *Scheduler) {

@@ -211,6 +211,13 @@ is_canceled :: () -> bool {
     return fiber.canceled;
 }
 
+// Whether the calling code runs on a fiber of a scheduler, that is inside `io_run`.
+in_scheduler :: () -> bool {
+    scheduler := context.io_scheduler;
+
+    return scheduler != null && scheduler.thread_index == context.thread_index && scheduler.current != null;
+}
+
 // The handle of the running fiber.
 current :: () -> Fiber_Handle {
     fiber := current_fiber();
