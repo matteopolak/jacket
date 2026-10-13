@@ -234,6 +234,8 @@ header_name_string :: (id: Header_Name) -> string {
     return HEADER_NAMES[cast(int) id];
 }
 
+#scope_module
+
 HEADER_TABLE_SIZE :: 256;
 
 header_hash :: inline (name: string) -> int {
@@ -262,6 +264,8 @@ make_header_table :: () -> [HEADER_TABLE_SIZE] u8 {
 }
 
 header_table :: #run make_header_table();
+
+#scope_export
 
 // The id of a well-known header name, matched without regard to case; .UNKNOWN otherwise.
 lookup_header_name :: (name: string) -> Header_Name {

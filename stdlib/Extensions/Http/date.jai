@@ -1,8 +1,12 @@
 // HTTP dates (RFC 9110 5.6.7): the IMF-fixdate form `Sun, 06 Nov 1994 08:49:37 GMT`. A server
 // sends a Date header on every response, so Date_Cache formats the text once per second.
 
+#scope_module
+
 DAY_NAMES :: string.["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 MONTH_NAMES :: string.["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+#scope_export
 
 // The date text for the current second, formatted again only when the second changes. One
 // cache per thread (it is not synchronized).

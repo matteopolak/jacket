@@ -25,6 +25,8 @@ Server :: struct {
     served: s64; // requests answered, for tests and logs
 }
 
+#scope_module
+
 Connection :: struct {
     next: *Connection;
     previous: *Connection;
@@ -34,6 +36,8 @@ Connection :: struct {
     secure: bool; // the TLS handshake is still to be done (`config.tls`)
     idle: bool; // waiting for the first byte of a request: safe to cut off
 }
+
+#scope_export
 
 // Starts listening on the running scheduler (call it inside `Io.io_run`, from a fiber) and
 // returns at once; connections are served by fibers of this scheduler. Fails if the address
