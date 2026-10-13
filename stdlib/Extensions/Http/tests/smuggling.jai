@@ -9,7 +9,7 @@
 Smuggle :: struct {
     name: string;
     input: string;
-    expect: Error_Kind;
+    expect: Parse_Error_Kind;
 }
 
 // Every one of these is refused with the kind named.

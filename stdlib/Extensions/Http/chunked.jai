@@ -3,7 +3,7 @@
 
 #scope_module
 
-chunk_fail :: (p: *Parser, pos: int, kind: Error_Kind, message: string) -> int, Event {
+chunk_fail :: (p: *Parser, pos: int, kind: Parse_Error_Kind, message: string) -> int, Event {
     return pos, fail(p, kind, message);
 }
 

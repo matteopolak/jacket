@@ -908,7 +908,7 @@ failures_of_transport :: (base: string, server: *Server) {
 
     close(*response);
 
-    check(error.kind == .TIMEOUT, "timeout: %", error_text(error));
+    check(error.kind == .TIMED_OUT, "timeout: %", error_text(error));
     check(elapsed >= 100 && elapsed < 500, "after about 150 ms: % ms", elapsed);
     free_error(*error);
 
@@ -960,7 +960,7 @@ failures_of_transport :: (base: string, server: *Server) {
     free_error(*error);
 
     response, error = send(*api, .{ url = "http://no-such-host.invalid/", timeout = 3000 });
-    check(error.kind == .TRANSPORT || error.kind == .TIMEOUT, "an unknown host: %", error_text(error));
+    check(error.kind == .TRANSPORT || error.kind == .TIMED_OUT, "an unknown host: %", error_text(error));
     free_error(*error);
 }
 

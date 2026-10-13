@@ -467,14 +467,14 @@ timeouts :: () {
 
     response, error := send(api, .{ url = "/rest/400", timeout = 50 });
 
-    expect_equal(error.kind, Client_Error_Kind.TIMEOUT);
+    expect_equal(error.kind, Client_Error_Kind.TIMED_OUT);
     expect_equal(response.status, 0);
 
     api.timeout = 50;
 
     _, again := get(api, "/rest/400");
 
-    expect_equal(again.kind, Client_Error_Kind.TIMEOUT);
+    expect_equal(again.kind, Client_Error_Kind.TIMED_OUT);
 
     // A slow handler within the limit is fine.
     api.timeout = 5000;

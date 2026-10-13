@@ -31,7 +31,7 @@ Test_Options :: struct {
     // (`expect_redirect`); `send(api, .{ url = ..., max_redirects = 5 })` follows for one request.
     follow_redirects := false;
 
-    // Milliseconds a request may take before it fails with `.TIMEOUT` (the client's `timeout`).
+    // Milliseconds a request may take before it fails with `.TIMED_OUT` (the client's `timeout`).
     timeout := 10_000;
 }
 

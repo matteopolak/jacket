@@ -17,7 +17,7 @@ Seen :: struct {
     heads: int;
     ends: int;
     body: [..] u8;
-    error: Error_Kind;
+    error: Parse_Error_Kind;
 }
 
 feed :: (parser: *Parser, seen: *Seen, input: string, piece: int) {

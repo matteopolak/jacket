@@ -340,7 +340,7 @@ parse_eof :: (p: *Parser) -> Event {
 
 #scope_module
 
-fail :: (p: *Parser, kind: Error_Kind, message: string) -> Event {
+fail :: (p: *Parser, kind: Parse_Error_Kind, message: string) -> Event {
     p.state = .FAILED;
     p.error.kind = kind;
     p.error.message = message;
@@ -430,7 +430,7 @@ begin_message :: (p: *Parser) {
 // Appends the next line of `data` (from `pos`) to `bytes`. Returns 1 when the line is complete,
 // 0 when `data` ran out first, and -1 after recording an error. `too_large` is the error for a
 // line over max_line_size.
-collect_line :: (p: *Parser, data: [] u8, pos: *int, bytes: *[..] u8, line_start: int, too_large: Error_Kind, total_limit: int) -> int {
+collect_line :: (p: *Parser, data: [] u8, pos: *int, bytes: *[..] u8, line_start: int, too_large: Parse_Error_Kind, total_limit: int) -> int {
     i := pos.*;
     newline, bad := find_line_end(data, i, bytes.count > line_start && bytes.data[bytes.count - 1] == #char "\r");
 
@@ -491,7 +491,7 @@ parse_head :: (p: *Parser, data: [] u8) -> consumed: int, event: Event {
             return data.count, event;
         }
 
-        too_large := Error_Kind.HEADERS_TOO_LARGE;
+        too_large := Parse_Error_Kind.HEADERS_TOO_LARGE;
         if !p.in_headers && p.kind == .REQUEST too_large = .URI_TOO_LONG;
 
         before := p.bytes.count;

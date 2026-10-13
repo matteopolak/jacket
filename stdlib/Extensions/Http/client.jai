@@ -92,7 +92,7 @@ Client_Response :: struct {
 Client_Error_Kind :: enum u8 {
     NONE; // no error: `.{}`
     TRANSPORT; // connecting, sending or receiving failed (`transport` says how)
-    TIMEOUT; // the request took longer than its timeout
+    TIMED_OUT; // the request took longer than its timeout
     INVALID_URL; // the URL cannot be requested
     TLS; // the TLS handshake or the check of the server's certificate failed (`detail` says why)
     REDIRECTS; // too many redirects
@@ -108,7 +108,7 @@ Client_Error_Kind :: enum u8 {
 Client_Error :: struct {
     kind: Client_Error_Kind;
     detail: string; // what happened
-    transport: Io.Io_Error; // for TRANSPORT and TIMEOUT: the Io error behind it
+    transport: Io.Io_Error; // for TRANSPORT and TIMED_OUT: the Io error behind it
     json: Json_Error; // for DECODE: where and why the JSON did not fit
 
     // For DECODE and STATUS: the response that was being read.
@@ -1071,7 +1071,7 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
 
 io_failure :: (error: Io.Io_Error, what: string) -> Client_Error {
     if error == .TIMED_OUT || error == .CANCELED {
-        return client_error(.TIMEOUT, error, tprint("timed out while %", what));
+        return client_error(.TIMED_OUT, error, tprint("timed out while %", what));
     }
 
     return client_error(.TRANSPORT, error, tprint("%: %", what, error));

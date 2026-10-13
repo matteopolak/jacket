@@ -269,7 +269,7 @@ body_text :: (d: *Driver) -> string {
 
 // The error kind a whole input ends with (NONE when it parses to the end of the input), and
 // checks that feeding it a byte at a time gives the same kind.
-error_kind_of :: (kind: Parser_Kind, input: string, limits := Limits.{}) -> Error_Kind {
+error_kind_of :: (kind: Parser_Kind, input: string, limits := Limits.{}) -> Parse_Error_Kind {
     d := make_driver(kind, limits);
 
     defer free_driver(d);

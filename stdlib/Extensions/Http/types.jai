@@ -353,7 +353,7 @@ has_token :: (value: string, token: string) -> bool {
     return false;
 }
 
-Error_Kind :: enum u8 {
+Parse_Error_Kind :: enum u8 {
     NONE;
     BAD_START_LINE; // 400: not `METHOD target HTTP/1.x` (or a status line)
     BAD_METHOD; // 400
@@ -387,13 +387,13 @@ Error_Kind :: enum u8 {
 
 // Why parsing stopped. `message` is a static string.
 Parse_Error :: struct {
-    kind: Error_Kind;
+    kind: Parse_Error_Kind;
     message: string;
     offset: int; // bytes of the current message consumed before the fault
 }
 
 // The status code a server answers with for an error kind.
-error_status :: (kind: Error_Kind) -> int {
+error_status :: (kind: Parse_Error_Kind) -> int {
     if kind == {
         case .NONE; return 200;
         case .VERSION_NOT_SUPPORTED; return 505;

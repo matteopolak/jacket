@@ -223,7 +223,7 @@ certificate_failures :: (base: string, server: *Server) {
 
     response, error = send(*api, .{ url = plain_url, timeout = 5000 });
 
-    check(error.kind == .TRANSPORT || error.kind == .TIMEOUT, "http to an https port: % %", error.kind, error_text(error));
+    check(error.kind == .TRANSPORT || error.kind == .TIMED_OUT, "http to an https port: % %", error.kind, error_text(error));
     free_error(*error);
 }
 
