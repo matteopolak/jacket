@@ -53,7 +53,20 @@ poll_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {
     }
 
     wait_append(*engine.fds[fd], op);
-    poll_arm(scheduler, engine, fd);
+
+    failure := poll_arm(scheduler, engine, fd);
+    if failure != 0 {
+        // The kernel will not watch the descriptor. The running fiber owns this operation, so it
+        // reports through its result like a call that fails at once; it is not woken. The others
+        // waiting on the descriptor fail with the same error.
+        wait_unlink(*engine.fds[fd], op);
+        poll_fail(scheduler, engine, fd, failure, true, true);
+
+        op.result = failure;
+        op.state = .DONE;
+
+        return true;
+    }
 
     return false;
 }
@@ -136,7 +149,8 @@ poll_ready :: (scheduler: *Scheduler, engine: *Engine, fd: s64, readable: bool, 
         finish_op(scheduler, op, op.result);
     }
 
-    poll_arm(scheduler, engine, fd);
+    failure := poll_arm(scheduler, engine, fd);
+    if failure != 0 poll_fail(scheduler, engine, fd, failure, true, true);
 }
 
 poll_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {
@@ -211,8 +225,9 @@ wait_unlink :: (state: *Fd_State, op: *Op) {
     op.previous = null;
 }
 
-// Makes sure the kernel will report `fd` when someone is waiting on it.
-poll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {
+// Makes sure the kernel will report `fd` when someone is waiting on it. 0, or the negative error
+// number if the kernel refused (the waiters are left for the caller to fail).
+poll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) -> s64 {
     state := *engine.fds[fd];
 
     if engine.backend == .KQUEUE {
@@ -226,8 +241,10 @@ poll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {
             state.write_armed = true;
         }
     } else {
-        epoll_arm(scheduler, engine, fd);
+        return epoll_arm(scheduler, engine, fd);
     }
+
+    return 0;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -388,7 +405,7 @@ KQ_WRITE :: -2;
 
     // The registration is one-shot for the whole descriptor, so it is rewritten whenever the set of
     // waiters differs from what is registered, or it has fired.
-    epoll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {
+    epoll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) -> s64 {
         state := *engine.fds[fd];
 
         wanted: u32;
@@ -396,8 +413,8 @@ KQ_WRITE :: -2;
         if state.read_head wanted |= EPOLLIN;
         if state.write_head wanted |= EPOLLOUT;
 
-        if wanted == 0 return;
-        if state.live && state.mask == wanted return;
+        if wanted == 0 return 0;
+        if state.live && state.mask == wanted return 0;
 
         event: Epoll_Event;
         event.events = wanted | EPOLLONESHOT;
@@ -413,15 +430,13 @@ KQ_WRITE :: -2;
             result = c_epoll_ctl(engine.poll_fd, EPOLL_CTL_MOD, cast(s32) fd, *event);
         }
 
-        if result < 0 {
-            poll_fail(scheduler, engine, fd, -cast(s64) errno_now(), true, true);
-
-            return;
-        }
+        if result < 0 return -cast(s64) errno_now();
 
         state.registered = true;
         state.live = true;
         state.mask = wanted;
+
+        return 0;
     }
 
     epoll_wait_events :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {
@@ -454,6 +469,10 @@ KQ_WRITE :: -2;
 } else {
     epoll_start :: (engine: *Engine) {}
     epoll_remove :: (engine: *Engine, fd: s64) {}
-    epoll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {}
+
+    epoll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) -> s64 {
+        return 0;
+    }
+
     epoll_wait_events :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {}
 }

@@ -556,6 +556,13 @@ fire_timers :: (scheduler: *Scheduler) {
             abandon_job(fiber);
             wake(fiber, .TIMED_OUT);
         } else {
+            // A fiber queued on a list (a pipe read with a limit) leaves it now: until it runs, a
+            // producer must not find it there and wake it a second time.
+            if fiber.waiter {
+                waiter_unlink(fiber.waiter);
+                fiber.waiter = null;
+            }
+
             wake(fiber);
         }
     }

@@ -228,7 +228,7 @@ pipe_wait :: (half: *Pipe_Half) -> Io_Error {
     if error != .NONE return error;
 
     if !waiter.completed {
-        // The deadline's timer woke the fiber; nobody took it off the wait list.
+        // The deadline's timer woke the fiber (and took it off the wait list).
         waiter_unlink(*waiter);
 
         return .TIMED_OUT;

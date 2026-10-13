@@ -2,9 +2,14 @@ name: windows native
 # Native Windows executables from `jaic build`, for x64 and arm64: built on Windows with the MSVC
 # toolchain, and cross-built from Linux with MinGW-w64 (llvm-mingw for arm64) then run on
 # Windows. See docs/native/windows.md.
+#
+# Pushes to the two branches run everything their `paths` filter admits. Pushes to `main` pass
+# the same (broad) filter, which cannot differ per branch, and are then narrowed by the `changes`
+# job to the Io, Io_Uring, Http, Json, Windows and jaic-llvm paths plus this file, so the Windows
+# runners are not spent on every stdlib or compiler change.
 on:
   push:
-    branches: ['wip/windows-native', 'ci/windows-arm64']
+    branches: ['main', 'wip/windows-native', 'ci/windows-arm64']
     paths:
       - 'crates/**'
       - 'stdlib/**'
@@ -26,6 +31,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: '0'
   LLVM_VERSION: 23.1.2
@@ -39,8 +47,49 @@ env:
   MESA_SHA256: 4c6d32e653e0ff9ad07796e40c0bcfabf2764d849e3ce4f3b1590112c87e42f9
   GALLIUM_DRIVER: llvmpipe
 jobs:
+  changes:
+    # Gate for pushes to main: run the Windows jobs only when a path that main's Windows coverage
+    # is for changed. Other refs and manual runs always run. If the range cannot be diffed (a new
+    # branch, a forced push), run rather than skip.
+    name: select what runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.select.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compare the pushed range with the main-only paths
+        id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" != push ] || [ "$REF" != refs/heads/main ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files="$(git diff --name-only "$BEFORE" "$SHA" 2>/dev/null)"; then
+            echo "cannot diff $BEFORE..$SHA; running"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$files"
+          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json)/|stdlib/Windows/|crates/jaic-llvm/|\.github/workflows/windows-native\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no Io, Http, Json, Windows or LLVM backend change; skipping"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   cross:
     name: cross-build (Linux, MinGW-w64)
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -94,6 +143,8 @@ jobs:
 
   native:
     name: jaic build on Windows (MSVC)
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: windows-2025
     timeout-minutes: 60
     env:
@@ -198,6 +249,8 @@ jobs:
     # The third-party projects of ci.yml's job of the same name, built and run on Windows with the
     # interactive desktop and Mesa's software OpenGL (docs/tools/third-party-smoke-test.md).
     name: third-party projects (Windows x64)
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: windows-2025
     timeout-minutes: 90
     env:
@@ -239,6 +292,8 @@ jobs:
 
   cross-arm64:
     name: cross-build arm64 (Linux, llvm-mingw)
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -291,6 +346,8 @@ jobs:
 
   native-arm64:
     name: jaic build on Windows arm64 (MSVC)
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: windows-11-arm
     timeout-minutes: 90
     env:

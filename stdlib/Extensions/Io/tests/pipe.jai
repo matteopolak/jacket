@@ -214,6 +214,77 @@ test_deadline_and_cancel :: () {
     Io.close(far);
 }
 
+Timed_Reader :: struct {
+    end: *Io.Pipe_Stream;
+    group: *Io.Wait_Group;
+    count: s64;
+    error: Io.Io_Error;
+}
+
+timed_reader :: (reader: *Timed_Reader) {
+    buffer: [8] u8;
+
+    Io.with_deadline(30, #code {
+        reader.count, reader.error = Io.read(reader.end, buffer);
+    });
+
+    Io.done(reader.group);
+}
+
+Late_Writer :: struct {
+    end: *Io.Pipe_Stream;
+    group: *Io.Wait_Group;
+}
+
+// Wakes up after a short sleep, and so before the reader's deadline.
+late_writer :: (writer: *Late_Writer) {
+    Io.sleep(10);
+    Io.write(writer.end, "x");
+    Io.done(writer.group);
+}
+
+// Keeps the thread busy for longer than both limits, without yielding.
+hog :: (group: *Io.Wait_Group) {
+    until := to_milliseconds(current_time_monotonic()) + 60;
+
+    while to_milliseconds(current_time_monotonic()) < until {}
+
+    Io.done(group);
+}
+
+// A reader whose deadline has passed is ready to run but not yet running; a write that lands in
+// between must not wake it a second time. Here the writer's sleep and the reader's limit both end
+// while one fiber keeps the thread busy, so the scheduler makes both ready in one step, the
+// writer first.
+test_write_between_deadline_and_wakeup :: () {
+    near, far := Io.make_pipe();
+
+    group: Io.Wait_Group;
+
+    Io.add(*group, 3);
+
+    reader := Timed_Reader.{ far, *group };
+    writer := Late_Writer.{ near, *group };
+
+    Io.spawn(timed_reader, *reader);
+    Io.spawn(late_writer, *writer);
+    Io.spawn(hog, *group);
+
+    Io.wait(*group);
+
+    assert(reader.error == .TIMED_OUT && reader.count == 0, "the reader timed out: % %", reader.error, reader.count);
+
+    // The byte is still there for the next read.
+    buffer: [8] u8;
+
+    count, error := Io.read(far, buffer);
+
+    assert(error == .NONE && count == 1, "the write was kept: % %", error, count);
+
+    Io.close(near);
+    Io.close(far);
+}
+
 Sender :: struct {
     end: *Io.Pipe_Stream;
     total: int;
@@ -289,6 +360,7 @@ test_all :: () {
     test_half_close();
     test_close_wakes_reader();
     test_deadline_and_cancel();
+    test_write_between_deadline_and_wakeup();
     test_large_transfer();
     test_read_full_stops_at_the_end();
 }
