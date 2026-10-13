@@ -4,9 +4,17 @@
 // A readiness API does not do the IO, so these backends try each operation at once, without
 // blocking. If the system says "not now" (EAGAIN), the operation waits in a queue on its
 // descriptor, one queue for readers and one for writers, and the descriptor is armed in the kernel
-// for one notification (kqueue EV_ONESHOT, epoll EPOLLONESHOT). When it fires, the queue is served
-// in order until an operation would block again, and the descriptor is armed again if anyone is
-// left. Two fibers waiting on one descriptor therefore never lose each other's wake-up.
+// for one notification (kqueue EV_ONESHOT) or watched for good (epoll EPOLLET, see below). When it
+// fires, the queue is served in order until an operation would block again, and a oneshot
+// descriptor is armed again if anyone is left. Two fibers waiting on one descriptor therefore never
+// lose each other's wake-up.
+//
+// epoll registers a descriptor once, edge-triggered, when its first operation has to wait, so a
+// request/response connection costs no `epoll_ctl` per request. The price is that the kernel no
+// longer says "still readable": the backend remembers per descriptor and direction that a try
+// found nothing (`read_blocked`, `write_blocked`) and tries again only after an event. A receive
+// that returns less than it asked for has also emptied the socket, so it counts as a try that
+// found nothing; that spares the failing `recv` an idle connection would otherwise make.
 //
 // Regular files never report "not ready", so they cannot wait in the poller. A short read or write
 // on a file runs at once (blocking the thread for the page cache's few microseconds); a longer one
@@ -34,13 +42,13 @@ poll_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {
         if pool_submit(scheduler, engine, op) return false;
     }
 
-    if poll_attempt(op) {
-        op.state = .DONE;
-
-        return true;
-    }
-
     if fd < 0 || fd >= MAX_POLLED_FDS {
+        if poll_attempt(op) {
+            op.state = .DONE;
+
+            return true;
+        }
+
         op.result = -E_MFILE;
         op.state = .DONE;
 
@@ -52,7 +60,32 @@ poll_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {
         array_resize(*engine.fds, max(fd + 1, old * 2));
     }
 
-    wait_append(*engine.fds[fd], op);
+    state := *engine.fds[fd];
+
+    if engine.backend == .EPOLL && state.registered && op.handle.kind != .FILE && op.kind != .CONNECT {
+        // Nothing has changed since the last try found nothing: wait without another system call.
+        if ifx poll_wants_write(op) then state.write_blocked else state.read_blocked {
+            op.wants_write = poll_wants_write(op);
+            wait_append(state, op);
+
+            return poll_wait(scheduler, engine, fd, op);
+        }
+    }
+
+    if poll_attempt_noted(engine, state, op) {
+        op.state = .DONE;
+
+        return true;
+    }
+
+    wait_append(state, op);
+
+    return poll_wait(scheduler, engine, fd, op);
+}
+
+// Puts the kernel in charge of waking `op`, which is queued on `fd`. True if that failed and the
+// operation finished with the error; false if it waits.
+poll_wait :: (scheduler: *Scheduler, engine: *Engine, fd: s64, op: *Op) -> bool {
 
     failure := poll_arm(scheduler, engine, fd);
     if failure != 0 {
@@ -69,6 +102,42 @@ poll_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {
     }
 
     return false;
+}
+
+// The epoll event bits the backend keeps in `Fd_State.mask`. Defined on every OS: the code that
+// reads the mask is shared with kqueue, which leaves it 0.
+EPOLLIN :: 0x1;
+EPOLLOUT :: 0x4;
+
+// Whether `op` waits for the descriptor to become writable.
+poll_wants_write :: (op: *Op) -> bool {
+    return op.kind == .SEND || op.kind == .WRITE || op.kind == .CONNECT;
+}
+
+// `poll_attempt` plus what epoll remembers about the result (see the header).
+poll_attempt_noted :: (engine: *Engine, state: *Fd_State, op: *Op, ready := false) -> bool {
+    finished := poll_attempt(op, ready);
+
+    if engine.backend != .EPOLL return finished;
+
+    if !finished {
+        if op.wants_write state.write_blocked = true;
+        else state.read_blocked = true;
+
+        return false;
+    }
+
+    if op.kind == .RECV {
+        if op.result == 0 {
+            state.hup = true;
+        } else if op.result > 0 {
+            if op.result < op.length && !state.hup && state.registered && (state.mask & EPOLLIN) != 0 state.read_blocked = true;
+        }
+    } else if op.kind == .SEND {
+        if op.result >= 0 && op.result < op.length && state.registered && (state.mask & EPOLLOUT) != 0 state.write_blocked = true;
+    }
+
+    return true;
 }
 
 // One non-blocking try. True: finished, `op.result` is set. False: it must wait for readiness
@@ -139,13 +208,17 @@ poll_ready :: (scheduler: *Scheduler, engine: *Engine, fd: s64, readable: bool, 
 
     state := *engine.fds[fd];
 
+    if readable state.read_blocked = false;
+    if writable state.write_blocked = false;
+
     // The first reader in line was reported ready; the ones behind it have to look, since an
-    // operation ahead of them may have taken what there was.
+    // operation ahead of them may have taken what there was. (epoll checks a descriptor again when
+    // it reports it, so an edge about data that was taken in the meantime does not come.)
     reported := true;
 
     while readable && state.read_head {
         op := state.read_head;
-        if !poll_attempt(op, reported) break;
+        if !poll_attempt_noted(engine, state, op, reported) break;
 
         reported = false;
 
@@ -155,7 +228,7 @@ poll_ready :: (scheduler: *Scheduler, engine: *Engine, fd: s64, readable: bool, 
 
     while writable && state.write_head {
         op := state.write_head;
-        if !poll_attempt(op) break;
+        if !poll_attempt_noted(engine, state, op) break;
 
         wait_unlink(state, op);
         finish_op(scheduler, op, op.result);
@@ -389,11 +462,10 @@ KQ_WRITE :: -2;
 }
 
 #if OS == .LINUX {
-    EPOLLIN :: 0x1;
-    EPOLLOUT :: 0x4;
     EPOLLERR :: 0x8;
     EPOLLHUP :: 0x10;
-    EPOLLONESHOT :: 0x4000_0000;
+    EPOLLRDHUP :: 0x2000;
+    EPOLLET :: 0x8000_0000;
     EPOLL_CTL_ADD :: 1;
     EPOLL_CTL_DEL :: 2;
     EPOLL_CTL_MOD :: 3;
@@ -415,21 +487,24 @@ KQ_WRITE :: -2;
         c_epoll_ctl(engine.poll_fd, EPOLL_CTL_DEL, cast(s32) fd, *event);
     }
 
-    // The registration is one-shot for the whole descriptor, so it is rewritten whenever the set of
-    // waiters differs from what is registered, or it has fired.
+    // Registers `fd` for what its waiters need, once and edge-triggered: the registration stays
+    // and only grows (a MOD to add a direction, which also reports the descriptor if it is ready
+    // already, so nothing is missed between the failed try and here).
     epoll_arm :: (scheduler: *Scheduler, engine: *Engine, fd: s64) -> s64 {
         state := *engine.fds[fd];
 
-        wanted: u32;
+        wanted := state.mask;
 
-        if state.read_head wanted |= EPOLLIN;
+        if state.read_head wanted |= EPOLLIN | EPOLLRDHUP;
         if state.write_head wanted |= EPOLLOUT;
 
-        if wanted == 0 return 0;
-        if state.live && state.mask == wanted return 0;
+        // A socket that is connecting will be read from next: one registration, not two.
+        if !state.registered && state.write_head && state.write_head.kind == .CONNECT wanted |= EPOLLIN | EPOLLRDHUP;
+
+        if state.registered && wanted == state.mask return 0;
 
         event: Epoll_Event;
-        event.events = wanted | EPOLLONESHOT;
+        event.events = wanted | EPOLLET;
         event.fd = cast(u32) fd;
 
         operation := ifx state.registered then EPOLL_CTL_MOD else EPOLL_CTL_ADD;
@@ -445,7 +520,6 @@ KQ_WRITE :: -2;
         if result < 0 return -cast(s64) errno_now();
 
         state.registered = true;
-        state.live = true;
         state.mask = wanted;
 
         return 0;
@@ -471,11 +545,14 @@ KQ_WRITE :: -2;
 
             if fd >= engine.fds.count continue;
 
-            engine.fds[fd].live = false;
-
             problem := (event.events & (EPOLLERR | EPOLLHUP)) != 0;
+            shutdown := (event.events & EPOLLRDHUP) != 0;
 
-            poll_ready(scheduler, engine, fd, problem || (event.events & EPOLLIN) != 0, problem || (event.events & EPOLLOUT) != 0);
+            // A socket that is hung up or has an error has things to say whenever asked: the end
+            // of the stream is not an edge that comes again.
+            if problem || shutdown engine.fds[fd].hup = true;
+
+            poll_ready(scheduler, engine, fd, problem || shutdown || (event.events & EPOLLIN) != 0, problem || (event.events & EPOLLOUT) != 0);
         }
     }
 } else {

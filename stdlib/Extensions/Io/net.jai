@@ -237,6 +237,21 @@ tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Li
 accept :: (listener: Tcp_Listener) -> Tcp_Stream, Io_Error {
     stream: Tcp_Stream;
 
+    #if OS == .LINUX {
+        if current_scheduler().engine.backend == .IO_URING {
+            used, fd, error := uring_accept(listener.handle);
+
+            if used {
+                if error != .NONE return stream, error;
+
+                stream.handle = .{ fd, .SOCKET };
+                sys_set_option(fd, IPPROTO_TCP, TCP_NODELAY, 1);
+
+                return stream, .NONE;
+            }
+        }
+    }
+
     op := begin_op(.ACCEPT, listener.handle);
     error := await_op(op);
     fd := op.result;
@@ -701,6 +716,8 @@ close_handle :: (handle: Handle) -> Io_Error {
 
     scheduler := current_scheduler();
 
+    if handle.kind == .SOCKET && scheduler.engine.backend == .IO_URING uring_listener_closing(scheduler, scheduler.engine, handle.fd);
+
     op := begin_op(.CLOSE, handle);
     op.fiber = scheduler.current;
 
@@ -727,6 +744,7 @@ close_without_waiting :: (handle: Handle) {
     engine := scheduler.engine;
 
     if engine.backend == .EPOLL || engine.backend == .KQUEUE poll_close(scheduler, engine, handle.fd);
+    else if engine.backend == .IO_URING && handle.kind == .SOCKET uring_listener_abandoned(scheduler, engine, handle.fd);
 
     sys_close_handle(handle);
 }

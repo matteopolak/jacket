@@ -1024,6 +1024,179 @@ test_run_ends_blocked_fibers :: () {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Accept: connections that arrive while nobody accepts, several acceptors, closing with some queued
+
+Acceptor_Job :: struct {
+    listener: Io.Tcp_Listener;
+    group: *Io.Wait_Group;
+    accepted: *int;
+}
+
+counting_acceptor :: (job: Acceptor_Job) {
+    defer Io.done(job.group);
+
+    while true {
+        conn, error := Io.accept(job.listener);
+        if error != .NONE return;
+
+        job.accepted.* += 1;
+        Io.close(conn);
+    }
+}
+
+test_accept_backlog :: () {
+    listener, error := Io.tcp_listen(LOOPBACK);
+
+    assert(error == .NONE);
+
+    address, _ := Io.local_address(listener);
+
+    // More connections than the engine queues ahead of time (io_uring), accepted one at a time.
+    // That needs a listen backlog above 128, which Linux grants; macOS caps every backlog at 128
+    // (kern.ipc.somaxconn) and has no such queue, so it checks fewer.
+    #if OS == .LINUX COUNT :: 300;
+    else COUNT :: 100;
+    clients: [COUNT] Io.Tcp_Stream;
+
+    for 0..COUNT - 1 {
+        clients[it], error = Io.connect(address);
+        assert(error == .NONE, "connect %: %", it, error);
+    }
+
+    // Everything is accepted once, each socket is connected to its client.
+    for 0..COUNT - 1 {
+        conn, accept_error := Io.accept(listener);
+
+        assert(accept_error == .NONE, "accept %: %", it, accept_error);
+
+        byte: u8 = cast(u8) (it & 255);
+
+        Io.write(conn, .{ 1, *byte });
+        Io.close(conn);
+    }
+
+    for 0..COUNT - 1 {
+        reply: [1] u8;
+        count, read_error := Io.read(clients[it], reply);
+
+        assert(read_error == .NONE && count == 1 && reply[0] == cast(u8) (it & 255), "client % read % % %", it, count, read_error, reply[0]);
+
+        Io.close(clients[it]);
+    }
+
+    // A pause with nothing queued, then more.
+    for 1..3 {
+        client, connect_error := Io.connect(address);
+
+        assert(connect_error == .NONE);
+
+        conn, accept_error := Io.accept(listener);
+
+        assert(accept_error == .NONE);
+
+        Io.sleep(2);
+        Io.close(client);
+        Io.close(conn);
+    }
+
+    assert(Io.close(listener) == .NONE);
+}
+
+test_accept_two_acceptors :: () {
+    listener, error := Io.tcp_listen(LOOPBACK);
+
+    assert(error == .NONE);
+
+    address, _ := Io.local_address(listener);
+
+    group: Io.Wait_Group;
+    accepted: int;
+
+    Io.add(*group, 2);
+    Io.spawn(counting_acceptor, Acceptor_Job.{ listener, *group, *accepted });
+    Io.spawn(counting_acceptor, Acceptor_Job.{ listener, *group, *accepted });
+    Io.sleep(5);
+
+    for 1..50 {
+        client, connect_error := Io.connect(address);
+        assert(connect_error == .NONE);
+
+        Io.close(client);
+    }
+
+    while accepted < 50 Io.sleep(1);
+
+    // Closing the listener ends both acceptors.
+    Io.close(listener);
+    Io.wait(*group);
+
+    assert(accepted == 50, "accepted %", accepted);
+}
+
+test_close_with_queued_connections :: () {
+    listener, error := Io.tcp_listen(LOOPBACK);
+
+    assert(error == .NONE);
+
+    address, _ := Io.local_address(listener);
+
+    first, e1 := Io.connect(address);
+    second, e2 := Io.connect(address);
+    third, e3 := Io.connect(address);
+
+    assert(e1 == .NONE && e2 == .NONE && e3 == .NONE);
+
+    // The first accept may queue the other two ahead of time; closing the listener drops them.
+    conn, accept_error := Io.accept(listener);
+
+    assert(accept_error == .NONE);
+
+    Io.sleep(5);
+    assert(Io.close(listener) == .NONE);
+
+    // The listener's port is free again, and a late accept on the closed listener fails.
+    again, again_error := Io.tcp_listen(address);
+
+    assert(again_error == .NONE, "relisten: %", again_error);
+    Io.close(again);
+
+    for Io.Tcp_Stream.[second, third] {
+        buffer: [4] u8;
+        count, read_error := Io.read(it, buffer);
+
+        assert(count == 0 || read_error != .NONE, "a queued connection stayed open: % %", count, read_error);
+    }
+
+    Io.close(conn);
+    Io.close(first);
+    Io.close(second);
+    Io.close(third);
+}
+
+test_close_now_releases_the_port :: () {
+    listener, error := Io.tcp_listen(LOOPBACK);
+
+    assert(error == .NONE);
+
+    address, _ := Io.local_address(listener);
+
+    // Arms the accept, then gives up on it.
+    Io.with_deadline(5, #code {
+        _, error = Io.accept(listener);
+    });
+
+    assert(error == .TIMED_OUT);
+
+    Io.close(listener, now = true);
+    Io.sleep(5);
+
+    again, again_error := Io.tcp_listen(address);
+
+    assert(again_error == .NONE, "relisten: %", again_error);
+    Io.close(again);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Threads: one scheduler each, listeners sharing a port
 
 Shared_Port :: struct {
@@ -1489,6 +1662,150 @@ write_later :: (job: Late_Write) {
     Io.write(job.stream, "x");
 }
 
+// Edge-triggered readiness (epoll): data and the end of the stream that arrived before anyone
+// looked are still found, and a wait on a drained socket does not report it readable because of an
+// arrival that was read already.
+test_readiness_after_early_reads :: () {
+    pair := make_pair();
+    buffer: [64] u8;
+
+    // Data and then the end of the stream, both there before the first read.
+    Io.write(pair.client, "abc");
+    Io.shutdown_write(pair.client);
+    Io.sleep(5);
+
+    count, error := Io.read(pair.server, buffer);
+
+    assert(error == .NONE && count == 3, "first read gave % %", count, error);
+
+    Io.with_deadline(1000, #code {
+        count, error = Io.read(pair.server, buffer);
+    });
+
+    assert(error == .NONE && count == 0, "the end of the stream was not seen: % %", count, error);
+    assert(Io.wait_readable(pair.server) == .NONE);
+
+    close_pair(pair);
+
+    // A second arrival whose event is still on its way when the data is read.
+    pair = make_pair();
+
+    // Waiting once registers the socket with epoll.
+    Io.with_deadline(5, #code {
+        error = Io.wait_readable(pair.server);
+    });
+
+    assert(error == .TIMED_OUT);
+
+    _, write_error := Io.write(pair.client, "a");
+
+    assert(write_error == .NONE);
+
+    Io.with_deadline(1000, #code {
+        error = Io.wait_readable(pair.server);
+    });
+
+    assert(error == .NONE, "wait_readable: %", error);
+
+    _, write_error = Io.write(pair.client, "b");
+    assert(write_error == .NONE);
+
+    count, error = Io.read(pair.server, buffer);
+
+    assert(error == .NONE && count >= 1, "read gave % %", count, error);
+
+    // "b" may have been read with "a" or may still be there.
+    if count == 1 {
+        count, error = Io.read(pair.server, buffer);
+
+        assert(error == .NONE && count == 1);
+    }
+
+    Io.with_deadline(30, #code {
+        error = Io.wait_readable(pair.server);
+    });
+
+    assert(error == .TIMED_OUT, "wait_readable on a drained socket gave %", error);
+
+    // And it still works when something does arrive.
+    _, write_error = Io.write(pair.client, "c");
+    assert(write_error == .NONE);
+
+    Io.with_deadline(1000, #code {
+        error = Io.wait_readable(pair.server);
+    });
+
+    assert(error == .NONE, "wait_readable after more data: %", error);
+
+    count, error = Io.read(pair.server, buffer);
+
+    assert(error == .NONE && count == 1 && buffer[0] == #char "c");
+
+    close_pair(pair);
+}
+
+// A fiber that waits idle gives back the stack it used below its current frame; what it keeps in
+// its live frames must survive, and the dead part must work again afterwards.
+Stack_Job :: struct {
+    stream: Io.Tcp_Stream;
+    ok: *bool;
+    group: *Io.Wait_Group;
+}
+
+touch_stack :: (depth: int, seed: u8) -> int {
+    block: [1024] u8;
+
+    for *block it.* = cast(u8) ((it_index + depth) & 255) ^ seed;
+
+    sum := 0;
+
+    if depth > 0 sum = touch_stack(depth - 1, seed);
+
+    for block sum += it;
+
+    return sum;
+}
+
+stack_sleeper :: (job: Stack_Job) {
+    defer Io.done(job.group);
+
+    live: [2000] u8;
+
+    for *live it.* = cast(u8) ((it_index * 7) & 255);
+
+    before := touch_stack(40, 1);
+
+    error := Io.wait_readable(job.stream);
+
+    intact := error == .NONE;
+
+    for live {
+        if it != cast(u8) ((it_index * 7) & 255) intact = false;
+    }
+
+    if touch_stack(40, 1) != before intact = false;
+
+    job.ok.* = intact;
+}
+
+test_wait_readable_keeps_the_stack :: () {
+    pair := make_pair();
+
+    group: Io.Wait_Group;
+    ok := false;
+
+    Io.add(*group);
+    Io.spawn(stack_sleeper, Stack_Job.{ pair.server, *ok, *group });
+    Io.sleep(10);
+
+    Io.write(pair.client, "x");
+    Io.wait(*group);
+
+    assert(ok, "the stack changed across an idle wait");
+
+    close_pair(pair);
+}
+
 // `wait_readable` returns when a read would not wait, without taking anything: not before, not
 // again after, and the same through a Reader.
 test_wait_readable :: () {
@@ -1683,6 +2000,8 @@ run_wait_readable :: () {
     test_cancel_wait_readable();
     test_close_wakes_wait_readable();
     test_wait_readable_races_deadline();
+    test_wait_readable_keeps_the_stack();
+    test_readiness_after_early_reads();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1702,6 +2021,10 @@ run_tcp :: () {
     test_address_in_use();
     test_local_and_peer_address();
     test_close_wakes_waiters();
+    test_accept_backlog();
+    test_accept_two_acceptors();
+    test_close_with_queued_connections();
+    test_close_now_releases_the_port();
     test_resolve();
     test_resolve_coalesces();
     test_resolver_helpers_bounded();

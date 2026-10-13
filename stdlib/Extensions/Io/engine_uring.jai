@@ -12,12 +12,28 @@
 // so a completion finds its operation without a lookup. Values below 16 are used for entries the
 // engine does not track (the cancel requests).
 
+// One listening socket's multishot accept. A fiber in `accept` waits on it; connections that
+// arrive while nobody waits are queued for the next call.
+Accept_Slot :: struct {
+    fd: s64;
+    // The armed request, null when the kernel has ended it (or it was never armed).
+    op: *Op;
+    // `close` ran: queued sockets are closed, and the slot is freed when the request ends.
+    closing: bool;
+    waiter: *Accept_Wait;
+    queue: [..] s32;
+    head: s64;
+}
+
+// The answer a parked `accept` is waiting for; lives on that fiber's stack.
+Accept_Wait :: struct {
+    fiber: *Fiber;
+    result: s64;
+    cause: Io_Error;
+}
+
 #if OS == .LINUX {
     Uring :: #import "Extensions/Io_Uring";
-
-    Uring_State :: struct {
-        ring: Uring.Ring;
-    }
 
     // Submission queue size. The completion queue is twice that, and overflowing completions are
     // kept by the kernel until reaped.
@@ -30,6 +46,16 @@
     POLLIN :: 0x1;
     // Accepted sockets block: io_uring waits for them itself.
     SOCK_CLOEXEC :: 0x80000;
+
+    Uring_State :: struct {
+        ring: Uring.Ring;
+        // Listeners that have (or had) a multishot accept armed.
+        accepts: [..] *Accept_Slot;
+    }
+
+    // Accepted connections wait here when no fiber is in `accept`; more than this and the
+    // multishot request is canceled until the queue drains.
+    ACCEPT_QUEUE_LIMIT :: 128;
 
     // Tries to make the ring; returns why it could not, or "" if `engine` now uses io_uring.
     uring_start :: (engine: *Engine) -> string {
@@ -98,6 +124,15 @@
     }
 
     uring_stop :: (engine: *Engine) {
+        for engine.uring.accepts {
+            for i: it.head..it.queue.count - 1 sys_close(it.queue[i]);
+
+            array_reset(*it.queue);
+            free(it);
+        }
+
+        array_reset(*engine.uring.accepts);
+
         Uring.ring_deinit(*engine.uring.ring);
         free(engine.uring);
         engine.uring = null;
@@ -249,6 +284,13 @@
             if user_data > 15 {
                 op := cast(*Op) cast(*void) user_data;
 
+                if op.slot {
+                    accept_completed(scheduler, op, result, flags);
+                    tail = atomic_load(ring.cq_tail, .ACQUIRE);
+
+                    continue;
+                }
+
                 if flags & Uring.IORING_CQE_F_BUFFER op.buffer_id = cast(s32) (flags >> Uring.IORING_CQE_BUFFER_SHIFT);
 
                 finish_op(scheduler, op, result, flags, (flags & Uring.IORING_CQE_F_MORE) != 0);
@@ -256,6 +298,189 @@
 
             tail = atomic_load(ring.cq_tail, .ACQUIRE);
         }
+    }
+
+    accept_slot :: (state: *Uring_State, fd: s64) -> *Accept_Slot {
+        for state.accepts {
+            if it.fd == fd && !it.closing return it;
+        }
+
+        return null;
+    }
+
+    // `accept` through one multishot request per listener instead of one request per connection.
+    // Returns false (and does nothing) when this call has to use a one-shot `accept` instead:
+    // another fiber is already waiting on the listener, or the request is being canceled.
+    uring_accept :: (handle: Handle) -> bool, s64, Io_Error {
+        fiber, scheduler := current_fiber();
+        engine := scheduler.engine;
+        state := engine.uring;
+
+        slot := accept_slot(state, handle.fd);
+
+        if !slot {
+            slot = New(Accept_Slot);
+            slot.fd = handle.fd;
+            array_add(*state.accepts, slot);
+        }
+
+        if slot.waiter || (slot.op && slot.op.canceling) return false, 0, .NONE;
+
+        fiber.platform_code = 0;
+        if fiber.canceled return true, 0, .CANCELED;
+        if fiber.deadline != 0 && now_nanoseconds() >= fiber.deadline return true, 0, .TIMED_OUT;
+
+        if slot.head < slot.queue.count {
+            fd := slot.queue[slot.head];
+
+            slot.head += 1;
+
+            if slot.head == slot.queue.count {
+                slot.head = 0;
+                slot.queue.count = 0;
+            }
+
+            return true, fd, .NONE;
+        }
+
+        if !slot.op {
+            op := new_op(engine, .ACCEPT, handle);
+            op.slot = slot;
+
+            sqe := uring_entry(scheduler, engine);
+
+            Uring.prep_rw(sqe, .ACCEPT, cast(s32) handle.fd, null, 0, 0);
+            sqe.ioprio = Uring.IORING_ACCEPT_MULTISHOT;
+            sqe.accept_flags = SOCK_CLOEXEC;
+            sqe.user_data = cast(u64) cast(*void) op;
+
+            slot.op = op;
+        }
+
+        wait: Accept_Wait;
+        wait.fiber = fiber;
+
+        slot.waiter = *wait;
+        fiber.op = slot.op;
+        scheduler.pending += 1;
+
+        if fiber.deadline != 0 timer_add(scheduler, fiber, fiber.deadline);
+
+        park(scheduler, fiber);
+
+        fiber.op = null;
+
+        if wait.result >= 0 return true, wait.result, .NONE;
+
+        code := -wait.result;
+
+        fiber.platform_code = cast(s32) code;
+
+        if code == E_CANCELED {
+            if wait.cause != .NONE return true, 0, wait.cause;
+            if fiber.canceled return true, 0, .CANCELED;
+
+            return true, 0, .CLOSED;
+        }
+
+        return true, 0, error_from_code(code);
+    }
+
+    accept_completed :: (scheduler: *Scheduler, op: *Op, result: s64, flags: u32) {
+        slot := op.slot;
+        more := (flags & Uring.IORING_CQE_F_MORE) != 0;
+        waiter := slot.waiter;
+
+        if !more {
+            slot.op = null;
+            op.state = .DONE;
+        }
+
+        if waiter {
+            // Connections go to the waiting fiber, and so does the end of the request if it ends
+            // with an error. Taking `waiter` off the slot first makes this the one wake.
+            if result >= 0 && slot.closing {
+                sys_close(result);
+            } else {
+                waiter.result = result;
+                waiter.cause = op.cancel_cause;
+                slot.waiter = null;
+                scheduler.pending -= 1;
+
+                if !more waiter.fiber.op = null;
+
+                wake(waiter.fiber);
+            }
+        } else if result >= 0 {
+            if slot.closing {
+                sys_close(result);
+            } else {
+                array_add(*slot.queue, cast(s32) result);
+
+                if more && slot.queue.count - slot.head >= ACCEPT_QUEUE_LIMIT && !op.canceling {
+                    engine_cancel(scheduler, op);
+                }
+            }
+        }
+
+        if !more {
+            free_op(scheduler.engine, op);
+            if slot.closing accept_free(scheduler.engine.uring, slot);
+        }
+    }
+
+    accept_free :: (state: *Uring_State, slot: *Accept_Slot) {
+        for state.accepts {
+            if it == slot {
+                state.accepts[it_index] = state.accepts[state.accepts.count - 1];
+                state.accepts.count -= 1;
+
+                break;
+            }
+        }
+
+        array_reset(*slot.queue);
+        free(slot);
+    }
+
+    // The listener `fd` is being closed: sockets accepted ahead of time are closed, and the slot
+    // goes when the kernel has ended its request (the close cancels it).
+    uring_listener_closing :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {
+        state := engine.uring;
+        slot := accept_slot(state, fd);
+
+        if !slot return;
+
+        for i: slot.head..slot.queue.count - 1 sys_close(slot.queue[i]);
+
+        slot.queue.count = 0;
+        slot.head = 0;
+        slot.closing = true;
+
+        if !slot.op accept_free(state, slot);
+    }
+
+    // `close(now = true)`: the descriptor is closed without waiting, so the multishot request has
+    // to be canceled by hand or it would keep the socket open.
+    uring_listener_abandoned :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {
+        state := engine.uring;
+        slot := accept_slot(state, fd);
+
+        if !slot return;
+
+        had_request := slot.op != null;
+
+        uring_listener_closing(scheduler, engine, fd);
+
+        if !had_request return;
+
+        sqe := uring_entry(scheduler, engine);
+        sqe.opcode = cast(u8) Uring.io_uring_op.ASYNC_CANCEL;
+        sqe.fd = cast(s32) fd;
+        sqe.cancel_flags = Uring.IORING_ASYNC_CANCEL_FD | Uring.IORING_ASYNC_CANCEL_ALL;
+        sqe.user_data = UNTRACKED;
+
+        Uring.submit(*engine.uring.ring);
     }
 
     byte_offset :: (base: *void, bytes: $T) -> *void {
@@ -269,6 +494,8 @@
     }
 
     uring_stop :: (engine: *Engine) {}
+    uring_listener_closing :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {}
+    uring_listener_abandoned :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {}
     uring_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {}
     uring_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {}
     uring_wait :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {}

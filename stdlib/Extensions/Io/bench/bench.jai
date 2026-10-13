@@ -16,7 +16,7 @@ CONNECTIONS :: 64;
 ROUND_TRIPS :: 2000;
 MESSAGE_BYTES :: 64;
 CHURN_CLIENTS :: 16;
-CHURN_PER_CLIENT :: 400;
+CHURN_PER_CLIENT :: 2000;
 
 echo_connection :: (conn: Io.Tcp_Stream) {
     defer Io.close(conn);
