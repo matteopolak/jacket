@@ -2,26 +2,41 @@
 
 ## [Unreleased]
 
-### Added
+## [0.16.0] - 2026-10-13
 
-- `Extensions/Tls`: TLS 1.2 and 1.3 on a vendored mbedTLS 3.6.7 (built by `tools/build_native_libs.py` from a pinned release tarball with a repo-owned configuration). `tls_connect` and `tls_accept` run the handshake as an ordinary blocking call on a fiber over any `Io.Reader`/`Io.Writer`; the stream is again a reader and writer (with `wait_proc`), so deadlines, `cancel` and the HTTP connection loops work over it unchanged. SNI, ALPN, client certificates, a custom `verify_proc`; trust from the Linux certificate bundles (`SSL_CERT_FILE`, `SSL_CERT_DIR`), `Security.framework` on macOS and CryptoAPI on Windows, or your own `roots_pem`. See `docs/stdlib/tls.md`.
-- `Extensions/Http`: `https://` URLs in the client (system trust by default, `client.tls` for your own roots or client certificate, `Client_Error.TLS`) and `app.config.tls` to serve HTTPS (handshake under `header_timeout`, ALPN `http/1.1`). `Client_Error_Kind.UNSUPPORTED` is gone: https is supported. A redirect keeps its scheme and drops credentials when it changes it. Programs that use Http now link about 1 MB of mbedTLS.
-- `Extensions/Http`: `close(*response, now := false)`: with `now = true` the connection is closed at once instead of draining the rest of the body, like every other `close(x, now)`. `docs/stdlib/extensions-conventions.md` states the rules Io, Tls, Http and Json follow (values and pointers, `close`, errors, who frees, milliseconds), and `docs/stdlib/http-server.md` says what 0 and negative mean for each `Server_Config` timeout.
+HTTPS in the async IO stack, and a round of hardening and speed for `Extensions/Io`, `Http` and `Json`.
+
+### Highlights
+
+- `Extensions/Tls`: TLS 1.2 and 1.3 on a bundled mbedTLS, with the system's trust store on Linux, macOS and Windows. `https://` works in the `Http` client, and `app.config.tls` serves HTTPS. See [tls](https://github.com/matteopolak/jai/blob/main/docs/stdlib/tls.md).
+- An idle keep-alive connection costs about 16 KB instead of 35 KB: it holds no read buffer while it waits (`Io.wait_readable`).
+- epoll serves 10% to 17% more HTTP requests per second (edge-triggered, one registration per socket); io_uring accepts with one multishot request per listener.
+- `Json` parses 1.3x to 1.7x faster and reads floats up to 6x faster (Eisel-Lemire), with float64 printed by Schubfach; results are unchanged.
+- Name lookups for the same host share one system call, and lookup threads grow on demand.
 
 ### Breaking changes
 
-Names made consistent across Io, Tls, Http and Json, and internals no longer exported. Update the left column to the right.
+Names are now consistent across Io, Tls, Http and Json (see [conventions](https://github.com/matteopolak/jai/blob/main/docs/stdlib/extensions-conventions.md)), and internals are no longer exported.
 
 | Was | Now |
 | --- | --- |
 | `Json.json_error_text(error)` | `error_text(error)` |
 | `Client_Error_Kind.TIMEOUT` | `Client_Error_Kind.TIMED_OUT` |
+| `Client_Error_Kind.UNSUPPORTED` (for `https://`) | gone: https works |
 | `Http.Error_Kind` (the parser's) | `Parse_Error_Kind` |
-| `Io.resolver_statistics()` | `Io.io_statistics()`, an `Io_Statistics` with `resolver_jobs` and `resolver_helpers` |
-| `read_buffer_counts()`, `idle_connection_count()`, `connections_opened()`, `open_response_count()`, `source_pool_counts()` | `http_statistics()`, an `Http_Statistics` with `read_buffers_in_use`, `read_buffers_free`, `idle_connections`, `connections_opened`, `open_responses`, `body_sources_free`, `body_buffers_free`, `body_sources_created` |
-| `Io.Fiber_Context`, `Io.fiber_init`, `Io.fiber_switch`, `Io.fiber_free`, `Io.Timer`, `Io.Scheduler`, `Io.Pipe_Link` | private to the module (declare the compiler intrinsics yourself, as `tests/native/fibers/switch.jai` does) |
-| `Http.header_table`, `HEADER_TABLE_SIZE`, `header_hash`, `make_header_table`, `DAY_NAMES`, `MONTH_NAMES`, `Connection` | private to the module |
-| `Json.decode_document`, `pair_kind`, `Pair_Kind` | private to the module |
+| `Io.Fiber_Context`, `fiber_init`, `fiber_switch`, `fiber_free`, `Timer`, `Scheduler`, `Pipe_Link` | private to `Io` |
+| `Http.header_table`, `header_hash`, `make_header_table`, `HEADER_TABLE_SIZE`, `DAY_NAMES`, `MONTH_NAMES`, `Connection` | private to `Http` |
+| `Json.decode_document`, `pair_kind`, `Pair_Kind` | private to `Json` |
+
+Programs that import `Http` now link mbedTLS (about 1 MB).
+
+### Fixes
+
+- `Io`: a lookup answered before its fiber parked, a pipe read whose deadline fired, and an epoll registration the kernel refused no longer wake a fiber twice (`woke a fiber that is not blocked`).
+- `Io`: io_uring completions are safe if a completion handler submits more work.
+- `Http` client: `close(*response, now = true)` closes the connection instead of draining the body.
+- `Tls_Error` text no longer points into the error value, so a copied error keeps its message.
+- `Server_Config` documents what 0 and negative mean for each timeout.
 
 ## [0.15.0] - 2026-10-12
 
