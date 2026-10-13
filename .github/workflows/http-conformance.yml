@@ -8,8 +8,10 @@ on:
     paths:
       - stdlib/Extensions/Http/**
       - stdlib/Extensions/SIMD/**
+      - stdlib/Extensions/Io/**
       - tests/stdlib/http-codec-*.jai
       - tools/http_conformance.py
+      - tools/io_stress.py
       - tools/gen_http_corpus.py
       - tools/http_deviations.json
       - .github/workflows/http-conformance.yml
@@ -17,8 +19,10 @@ on:
     paths:
       - stdlib/Extensions/Http/**
       - stdlib/Extensions/SIMD/**
+      - stdlib/Extensions/Io/**
       - tests/stdlib/http-codec-*.jai
       - tools/http_conformance.py
+      - tools/io_stress.py
       - tools/gen_http_corpus.py
       - tools/http_deviations.json
       - .github/workflows/http-conformance.yml
@@ -66,3 +70,5 @@ jobs:
         run: cargo build --locked -p jaic-cli
       - name: Corpus, llhttp fixtures, smuggling and chunking tests
         run: python3 -u tools/http_conformance.py --jaic target/debug/jaic --modes interp,native,wasm-interp,wasm-native
+      - name: Io and Http tests under load (default, -O2, ASan on Linux)
+        run: python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3
