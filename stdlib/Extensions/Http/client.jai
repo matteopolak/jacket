@@ -1589,24 +1589,6 @@ drop_entry :: (pool: *Client_Pool, index: int) {
 checkin :: (owner: *void, host: string, port: u16, stream: Link) {
     pool := client_pool();
 
-    count := 0;
-
-    for pool.idle {
-        if it.owner == owner && it.port == port && it.host == host count += 1;
-    }
-
-    // Too many for this host: the oldest one goes.
-    while count >= client_settings.max_idle_per_host {
-        for pool.idle {
-            if it.owner == owner && it.port == port && it.host == host {
-                drop_entry(pool, it_index);
-                count -= 1;
-
-                break;
-            }
-        }
-    }
-
     if client_settings.max_idle_per_host <= 0 {
         close(stream);
 
@@ -1622,4 +1604,32 @@ checkin :: (owner: *void, host: string, port: u16, stream: Link) {
     entry.since = now_ms();
 
     array_add(*pool.idle, entry);
+
+    // Too many for this host: the oldest ones go. They leave the pool before any close, since a
+    // close can wait and let other fibers check connections in meanwhile.
+    count := 0;
+
+    for pool.idle {
+        if it.owner == owner && it.port == port && it.host == host count += 1;
+    }
+
+    excess: [..] Link;
+    excess.allocator = temp;
+
+    index := 0;
+
+    while count > client_settings.max_idle_per_host && index < pool.idle.count {
+        it := pool.idle[index];
+
+        if it.owner == owner && it.port == port && it.host == host {
+            array_add(*excess, it.stream);
+            free(it.host.data);
+            array_ordered_remove_by_index(*pool.idle, index);
+            count -= 1;
+        } else {
+            index += 1;
+        }
+    }
+
+    for excess close(it);
 }
