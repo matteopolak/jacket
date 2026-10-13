@@ -32,20 +32,41 @@ const HANDLE_BASE: u64 = 0x7a1c_0000_0000;
 
 pub(super) enum Object {
     Thread(usize),
-    Semaphore { count: u32, max: u32 },
-    Event { manual: bool, set: bool },
+    Semaphore {
+        count: u32,
+        max: u32,
+    },
+    /// `real`: the kernel event behind it (0: none). A program may hand its event to a real call
+    /// as an `OVERLAPPED`'s `hEvent`, which only a kernel handle satisfies, and the kernel signals
+    /// it behind the scheduler's back, so the flag below is refreshed from it when waiting.
+    Event {
+        manual: bool,
+        set: bool,
+        real: u64,
+    },
 }
 
 impl Object {
-    fn signaled(&self, threads: &[GThread]) -> bool {
+    fn signaled(&mut self, threads: &[GThread]) -> bool {
         match *self {
             Object::Thread(id) => threads[id].finished,
             Object::Semaphore {
                 count, ..
             } => count > 0,
             Object::Event {
-                set, ..
-            } => set,
+                manual,
+                ref mut set,
+                real,
+            } => {
+                if *set || real == 0 || !real_event_signaled(real) {
+                    return *set;
+                }
+                // An auto-reset kernel event is consumed by this poll, so the flag keeps it. A
+                // manual-reset one stays signaled in the kernel, which clears it itself when the
+                // next overlapped operation starts, so no flag is kept.
+                *set = !manual;
+                true
+            }
         }
     }
 
@@ -59,7 +80,13 @@ impl Object {
             Object::Event {
                 manual,
                 set,
-            } => *set &= *manual,
+                real,
+            } => {
+                *set &= *manual;
+                if *real != 0 && !*set {
+                    real_event_call(*real, false);
+                }
+            }
         }
     }
 }
@@ -68,6 +95,65 @@ impl Object {
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn SetLastError(code: u32);
+}
+
+#[cfg(windows)]
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn CreateEventW(attributes: usize, manual: i32, initial: i32, name: usize) -> usize;
+    fn SetEvent(handle: usize) -> i32;
+    fn ResetEvent(handle: usize) -> i32;
+    fn CloseHandle(handle: usize) -> i32;
+    fn WaitForSingleObject(handle: usize, milliseconds: u32) -> u32;
+}
+
+/// A kernel event, or 0 where there is none to make.
+fn real_event_new(manual: bool, set: bool) -> u64 {
+    #[cfg(windows)]
+    // SAFETY: CreateEventW with no attributes or name has no preconditions.
+    return unsafe { CreateEventW(0, manual as i32, set as i32, 0) as u64 };
+    #[cfg(not(windows))]
+    {
+        let _ = (manual, set);
+        0
+    }
+}
+
+/// Sets (`true`) or resets (`false`) the kernel event.
+fn real_event_call(handle: u64, set: bool) {
+    #[cfg(windows)]
+    // SAFETY: the handle is an event this module made and has not closed.
+    unsafe {
+        if set {
+            SetEvent(handle as usize);
+        } else {
+            ResetEvent(handle as usize);
+        }
+    };
+    #[cfg(not(windows))]
+    let _ = (handle, set);
+}
+
+fn real_event_close(handle: u64) {
+    #[cfg(windows)]
+    // SAFETY: the handle is an event this module made; the program has just closed it.
+    unsafe {
+        CloseHandle(handle as usize);
+    };
+    #[cfg(not(windows))]
+    let _ = handle;
+}
+
+/// Whether the kernel event is signaled (an auto-reset one is consumed).
+fn real_event_signaled(handle: u64) -> bool {
+    #[cfg(windows)]
+    // SAFETY: the handle is an event this module made and has not closed.
+    return unsafe { WaitForSingleObject(handle as usize, 0) == 0 };
+    #[cfg(not(windows))]
+    {
+        let _ = handle;
+        false
+    }
 }
 
 /// The calling thread's `GetLastError` value. Every scheduler thread is the OS thread the
@@ -134,7 +220,15 @@ impl Interp {
                 Ok(1)
             }
             "CloseHandle" if self.owns(arg(0)) => {
-                self.with_sched(|s| s.objects.remove(&arg(0)));
+                let removed = self.with_sched(|s| s.objects.remove(&arg(0)));
+                if let Some(Object::Event {
+                    real, ..
+                }) = removed
+                    && real != 0
+                {
+                    real_event_close(real);
+                    return Some(Ok(vec![1]));
+                }
                 Ok(1)
             }
 
@@ -230,20 +324,33 @@ impl Interp {
                 }
                 Ok(1)
             }
-            "CreateEventA" | "CreateEventW" => Ok(self.new_object(Object::Event {
-                manual: arg(1) as u32 != 0,
-                set: arg(2) as u32 != 0,
-            })),
+            "CreateEventA" | "CreateEventW" => {
+                let (manual, set) = (arg(1) as u32 != 0, arg(2) as u32 != 0);
+                let real = real_event_new(manual, set);
+                Ok(self.new_object_at(
+                    real,
+                    Object::Event {
+                        manual,
+                        set,
+                        real,
+                    },
+                ))
+            }
             "SetEvent" | "ResetEvent" if self.owns(arg(0)) => {
                 let now_set = symbol == "SetEvent";
                 let found = self.with_sched(|s| {
                     let Some(Object::Event {
-                        set, ..
+                        set,
+                        real,
+                        ..
                     }) = s.objects.get_mut(&arg(0))
                     else {
                         return false;
                     };
                     *set = now_set;
+                    if *real != 0 {
+                        real_event_call(*real, now_set);
+                    }
                     if now_set {
                         s.wake_object_waiters();
                     }
@@ -269,7 +376,17 @@ impl Interp {
     }
 
     fn owns(&mut self, handle: u64) -> bool {
-        handle >= HANDLE_BASE && self.with_sched(|s| s.objects.contains_key(&handle))
+        handle != 0 && self.with_sched(|s| s.objects.contains_key(&handle))
+    }
+
+    /// Like `new_object`, but the object is known by `handle` when that is not 0 (a kernel
+    /// handle).
+    fn new_object_at(&mut self, handle: u64, object: Object) -> u64 {
+        if handle == 0 {
+            return self.new_object(object);
+        }
+        self.with_sched(|s| s.objects.insert(handle, object));
+        handle
     }
 
     fn new_object(&mut self, object: Object) -> u64 {
@@ -311,7 +428,7 @@ impl Interp {
             let done = self.with_sched(|s| {
                 let mut ready = Vec::new();
                 for (i, h) in handles.iter().enumerate() {
-                    let object = s.objects.get(h)?;
+                    let object = s.objects.get_mut(h)?;
                     if object.signaled(&s.threads) {
                         ready.push(i);
                     }
@@ -351,7 +468,22 @@ impl Interp {
             if milliseconds == 0 || deadline.is_some_and(|d| d <= Instant::now()) {
                 return Ok(WAIT_TIMEOUT);
             }
-            self.block(Block::Object(deadline))?;
+            // A kernel event is signaled without telling the scheduler, so look again soon.
+            let poll = self.with_sched(|s| {
+                handles.iter().any(|h| {
+                    matches!(
+                        s.objects.get(h),
+                        Some(Object::Event { real, .. }) if *real != 0
+                    )
+                })
+            });
+            let wake = if poll {
+                let soon = Instant::now() + Duration::from_millis(1);
+                Some(deadline.map_or(soon, |d| d.min(soon)))
+            } else {
+                deadline
+            };
+            self.block(Block::Object(wake))?;
         }
     }
 }

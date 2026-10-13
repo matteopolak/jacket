@@ -1009,7 +1009,9 @@ test_file_round_trip :: () {
 
     small := "hello, files";
 
-    assert(Io.write_file(path, small) == .NONE);
+    written := Io.write_file(path, small);
+
+    assert(written == .NONE, "writing the small file: %", written);
 
     content, error := Io.read_file(path);
 

@@ -279,7 +279,8 @@ Iocp_State :: struct {
         if win_get_completions(state.port, entries.data, ENTRIES, *removed, milliseconds, 0) == 0 {
             error := win_error();
 
-            assert(error == WAIT_TIMEOUT, "Io: GetQueuedCompletionStatusEx failed (%)", error);
+            // The extended call reports a timeout as either code, depending on the Windows version.
+            assert(error == WAIT_TIMEOUT || error == ERROR_TIMEOUT, "Io: GetQueuedCompletionStatusEx failed (%)", error);
 
             return;
         }

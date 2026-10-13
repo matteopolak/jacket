@@ -91,6 +91,7 @@
 
     INFINITE :: 0xffff_ffff;
     WAIT_TIMEOUT :: 258;
+    ERROR_TIMEOUT :: 1460;
     WAIT_OBJECT_0 :: 0;
 
     ERROR_HANDLE_EOF :: 38;

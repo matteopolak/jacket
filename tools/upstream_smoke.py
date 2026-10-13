@@ -91,7 +91,9 @@ def run_step(step, ctx):
     check_output(text.replace("\r\n", "\n"), step, " ".join(argv[:3]))
     for name in step.get("outputs", []):
         if not any(Path(ctx["cwd"], n).exists() for n in (name, name + ".exe")):
-            raise Failure(f"{name}: not produced")
+            where = Path(ctx["cwd"], name).parent
+            listing = ", ".join(sorted(n.name for n in where.iterdir())) if where.is_dir() else "no such directory"
+            raise Failure(f"{name}: not produced (the build said:\n{tail(text)}\n{where} holds: {listing})")
     return text
 
 
