@@ -35,7 +35,7 @@ run :: (text: string, simd: bool) -> Outcome {
     json_index_min_size = 0;
 
     outcome: Outcome;
-    value, error := parse_json(text);
+    value, error := from_json(Json_Value, text);
 
     if error.kind == .NONE {
         outcome.ok = true;

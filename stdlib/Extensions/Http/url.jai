@@ -3,7 +3,7 @@
 
 // One decoded `name=value` of a query string or a form, or one path parameter. The same type
 // `Extensions/Json` decodes typed values from.
-Pair :: Text_Pair;
+Pair :: Query_Pair;
 
 // Decodes `%XX` escapes (and `+` as a space when `plus_is_space`, which forms and queries use but
 // paths do not). The text itself is returned, with no allocation, when there is nothing to

@@ -1,12 +1,14 @@
-// Typed values from text that is not JSON: the key/value pairs of a URL query or a form, and the
-// single strings of a path segment or a header. Each value is read by the type of the field its
-// key names, with the same notes as JSON (`rename`, `alias`, `default`, `deny_unknown_fields`...),
-// by turning the pairs into the JSON object that says the same thing and decoding that. So every
-// rule and every error message (`missing field `q``, `expected an integer`, the field path) is
-// the one `from_json` has.
+// Typed values from text that is not JSON: `from_query` for the key/value pairs of a URL query or
+// a urlencoded form, and `from_param` for a single string such as a path segment or a header.
+// This is not JSON parsing; it lives in this module because each value is read by the type of the
+// field its key names, with the same notes as JSON (`rename`, `alias`, `default`,
+// `deny_unknown_fields`...), by turning the pairs into the JSON object that says the same thing
+// and decoding that. So every rule and every error message (`missing field `q``, `expected an
+// integer`, the field path) is the one `from_json` has. The Http server's `Query`, `Form`, `Path`
+// and `Params` extractors call these.
 
 // One `key=value` of a query or a form, already percent-decoded.
-Text_Pair :: struct {
+Query_Pair :: struct {
     key: string;
     value: string;
 }
@@ -29,8 +31,8 @@ Pair_Kind :: enum u8 {
 // is released by `free_json`, as for `from_json`.
 //
 //     Search :: struct @json(default) { q: string; limit := 20; tags: [..] string; }
-//     search, error := from_pairs(Search, pairs);
-from_pairs :: ($T: Type, pairs: [] Text_Pair, options := Json_Options.{}) -> T, Json_Error {
+//     search, error := from_query(Search, pairs);       // pairs of "?q=jai&tags=a&tags=b"
+from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T, Json_Error {
     builder: String_Builder;
 
     append(*builder, "{");
@@ -85,9 +87,9 @@ from_pairs :: ($T: Type, pairs: [] Text_Pair, options := Json_Options.{}) -> T, 
     return from_json(T, text, options);
 }
 
-// Decodes a `T` from one piece of text: an integer, float, bool, string or enum. `from_text(int,
-// "42")` is 42; `from_text(Color, "red")` the member `red`; a string is taken as it is.
-from_text :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Error {
+// Decodes a `T` from one piece of text: an integer, float, bool, string or enum. `from_param(int,
+// "42")` is 42; `from_param(Color, "red")` the member `red`; a string is taken as it is.
+from_param :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Error {
     kind :: #run text_kind(type_info(T));
 
     builder: String_Builder;
@@ -216,7 +218,7 @@ text_kind :: (info: *Type_Info) -> Pair_Kind {
     kind := scalar_kind(*g, info, .{});
 
     if kind == .UNKNOWN {
-        compiler_report(tprint("Json: from_text reads integers, floats, bools, strings and enums, not %", type_label(info)));
+        compiler_report(tprint("Json: from_param reads integers, floats, bools, strings and enums, not %", type_label(info)));
     }
 
     return kind;

@@ -37,12 +37,14 @@
 #load "pipe.jai";
 #load "files.jai";
 #load "stream.jai";
+#load "json.jai";
 #load "runtime.jai";
 #load "interrupt.jai";
 
 #scope_module
 #import "Basic";
 #import "Atomics";
+Json :: #import "Extensions/Json";
 #load "stacks.jai";
 #load "overflow.jai";
 #load "platform.jai";

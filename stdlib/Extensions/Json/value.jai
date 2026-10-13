@@ -15,7 +15,7 @@ Json_Kind :: enum u8 {
 //   STRING  text, the contents with escapes resolved
 //   ARRAY   items
 //   OBJECT  members, in document order (duplicate keys are kept; json_get finds the last)
-// Everything a Json_Value owns comes from context.allocator; json_free releases it.
+// Everything a Json_Value owns comes from context.allocator; free_json releases it.
 Json_Value :: struct {
     kind: Json_Kind;
     boolean: bool;
@@ -114,7 +114,7 @@ json_set :: (object: *Json_Value, key: string, value: Json_Value) {
     existing := json_get(object, key);
 
     if existing {
-        json_free(existing);
+        free_json(existing);
         existing.* = value;
 
         return;
@@ -208,20 +208,20 @@ json_as_string :: (value: *Json_Value) -> string, bool {
     return value.text, true;
 }
 
-// Releases everything `value` owns and leaves it null.
-json_free :: (value: *Json_Value) {
+// Releases everything `value` owns and leaves it null. Part of the `free_json` set.
+free_json :: (value: *Json_Value) {
     if value.kind == .STRING || value.kind == .NUMBER {
         if value.text.count free(value.text);
     }
 
-    for *item: value.items json_free(item);
+    for *item: value.items free_json(item);
 
     array_free(value.items);
 
     for *member: value.members {
         if member.key.count free(member.key);
 
-        json_free(*member.value);
+        free_json(*member.value);
     }
 
     array_free(value.members);

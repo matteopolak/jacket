@@ -840,7 +840,7 @@ emit_free :: (g: *Gen, out: *String_Builder, target: string, info: *Type_Info, d
             print(out, "}\n");
         case .STRUCT;
             if is_json_value(info) {
-                print(out, "json_free(%);\n", address_of(target));
+                print(out, "free_json(%);\n", address_of(target));
             } else if is_table(info) {
                 _, element := table_entry(info);
                 id := next_id(g);
@@ -849,16 +849,16 @@ emit_free :: (g: *Gen, out: *String_Builder, target: string, info: *Type_Info, d
                 emit_free(g, out, tprint("entry_%.*", id), element, "");
                 print(out, "}\ndeinit(%);\n", address_of(target));
             } else if default.count {
-                print(out, "json_free_value(%, %);\n", address_of(target), address_of(default));
+                print(out, "free_json_fields(%, %);\n", address_of(target), address_of(default));
             } else {
                 id := next_id(g);
 
-                print(out, "{\ndefault_%: type_of(%);\njson_free_value(%, *default_%);\n}\n", id, target, address_of(target), id);
+                print(out, "{\ndefault_%: type_of(%);\nfree_json_fields(%, *default_%);\n}\n", id, target, address_of(target), id);
             }
     }
 }
 
-// The body of json_free_value for T: `value` is what to free, `defaults` a default T.
+// The body of free_json_fields for T: `value` is what to free, `defaults` a default T.
 generate_freer :: (T: Type) -> string {
     g: Gen;
     info := type_info(T);
@@ -944,7 +944,7 @@ emit_decode :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Style, on
             emit_decode_array(g, target, cast(*Type_Info_Array) info, style, on_fail);
         case .STRUCT;
             if is_json_value(info) {
-                print(out, "if !json_read_value(r, %) { json_free(%); % }\n", address_of(target), address_of(target), on_fail);
+                print(out, "if !json_read_value(r, %) { free_json(%); % }\n", address_of(target), address_of(target), on_fail);
             } else if is_table(info) {
                 emit_decode_table(g, target, info, style, on_fail);
             } else {

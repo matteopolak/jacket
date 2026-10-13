@@ -212,7 +212,9 @@ Raw_Response :: struct {
 read_responses :: (stream: Io.Tcp_Stream, count: int, milliseconds: s64, method := Method.GET) -> [..] Raw_Response {
     results: [..] Raw_Response;
 
-    Io.with_deadline(milliseconds, #code { results = collect_responses(stream, count, method); });
+    Io.with_deadline(milliseconds, #code {
+        results = collect_responses(stream, count, method);
+    });
 
     return results;
 }

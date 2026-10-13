@@ -1,4 +1,4 @@
-// from_pairs and from_text: typed values from query strings, forms and single strings, with the
+// from_query and from_param: typed values from query strings, forms and single strings, with the
 // notes and the error messages of from_json.
 #import "Basic";
 #import "Extensions/Json";
@@ -23,8 +23,8 @@ Strict :: struct @json(deny_unknown_fields) {
     name: string;
 }
 
-pairs :: (items: ..string) -> [] Text_Pair {
-    result: [..] Text_Pair;
+pairs :: (items: ..string) -> [] Query_Pair {
+    result: [..] Query_Pair;
 
     for 0..items.count / 2 - 1 array_add(*result, .{ items[it * 2], items[it * 2 + 1] });
 
@@ -41,7 +41,7 @@ expect :: (ok: bool, message: string) {
 }
 
 main :: () {
-    search, error := from_pairs(Search, pairs("q", "jai", "pageSize", "50", "tags", "a", "tags", "b", "ratio", "0.5", "exact", "true", "colour", "blue", "ids", "3", "ids", "4", "other", "ignored"));
+    search, error := from_query(Search, pairs("q", "jai", "pageSize", "50", "tags", "a", "tags", "b", "ratio", "0.5", "exact", "true", "colour", "blue", "ids", "3", "ids", "4", "other", "ignored"));
 
     expect(error.kind == .NONE, tprint("pairs: %", json_error_text(error)));
     expect(search.q == "jai" && search.page_size == 50, "strings and numbers");
@@ -51,89 +51,89 @@ main :: () {
     free_json(*search);
 
     // Defaults and missing fields.
-    only_q, only_error := from_pairs(Search, pairs("q", "x"));
+    only_q, only_error := from_query(Search, pairs("q", "x"));
 
     expect(only_error.kind == .NONE && only_q.page_size == 20 && only_q.color == .green && only_q.tags.count == 0, "defaults");
     free_json(*only_q);
 
-    _, missing := from_pairs(Search, pairs());
+    _, missing := from_query(Search, pairs());
 
     expect(missing.kind == .MISSING_FIELD, tprint("missing q: %", json_error_text(missing)));
-    free_json_error(*missing);
+    free_json(*missing);
 
     // Wrong types name the field.
-    bad, bad_error := from_pairs(Search, pairs("q", "x", "pageSize", "many"));
+    bad, bad_error := from_query(Search, pairs("q", "x", "pageSize", "many"));
 
     expect(bad_error.kind == .TYPE && bad_error.path == "pageSize", tprint("bad int: %", json_error_text(bad_error)));
-    free_json_error(*bad_error);
+    free_json(*bad_error);
 
-    bad, bad_error = from_pairs(Search, pairs("q", "x", "pageSize", "1.5"));
+    bad, bad_error = from_query(Search, pairs("q", "x", "pageSize", "1.5"));
     expect(bad_error.kind == .TYPE && bad_error.path == "pageSize", "a fraction is not an integer");
-    free_json_error(*bad_error);
+    free_json(*bad_error);
 
-    bad, bad_error = from_pairs(Search, pairs("q", "x", "color", "purple"));
+    bad, bad_error = from_query(Search, pairs("q", "x", "color", "purple"));
     expect(bad_error.kind == .INVALID_VALUE, tprint("bad enum: %", json_error_text(bad_error)));
-    free_json_error(*bad_error);
+    free_json(*bad_error);
 
-    bad, bad_error = from_pairs(Search, pairs("q", "x", "q", "y"));
+    bad, bad_error = from_query(Search, pairs("q", "x", "q", "y"));
     expect(bad_error.kind == .DUPLICATE_FIELD, tprint("duplicate: %", json_error_text(bad_error)));
-    free_json_error(*bad_error);
+    free_json(*bad_error);
 
-    bad, bad_error = from_pairs(Search, pairs("q", "x", "exact", "yes"));
+    bad, bad_error = from_query(Search, pairs("q", "x", "exact", "yes"));
     expect(bad_error.kind == .TYPE && bad_error.path == "exact", "bool spelling");
-    free_json_error(*bad_error);
+    free_json(*bad_error);
 
     // Unknown keys.
-    _, strict_error := from_pairs(Strict, pairs("name", "a", "extra", "b"));
+    _, strict_error := from_query(Strict, pairs("name", "a", "extra", "b"));
 
     expect(strict_error.kind == .UNKNOWN_FIELD, tprint("deny_unknown_fields: %", json_error_text(strict_error)));
-    free_json_error(*strict_error);
+    free_json(*strict_error);
 
     // Text that needs escaping survives.
-    quoted, quoted_error := from_pairs(Strict, pairs("name", "say \"hi\"\n\\"));
+    quoted, quoted_error := from_query(Strict, pairs("name", "say \"hi\"\n\\"));
 
     expect(quoted_error.kind == .NONE && quoted.name == "say \"hi\"\n\\", "escapes");
     free_json(*quoted);
 
-    // from_text.
-    number, number_error := from_text(int, "42");
+    // from_param.
+    number, number_error := from_param(int, "42");
 
-    expect(number_error.kind == .NONE && number == 42, "from_text int");
+    expect(number_error.kind == .NONE && number == 42, "from_param int");
 
-    negative, negative_error := from_text(s8, "-128");
+    negative, negative_error := from_param(s8, "-128");
 
-    expect(negative_error.kind == .NONE && negative == -128, "from_text s8");
+    expect(negative_error.kind == .NONE && negative == -128, "from_param s8");
 
-    _, range_error := from_text(u8, "300");
+    _, range_error := from_param(u8, "300");
 
-    expect(range_error.kind == .OUT_OF_RANGE, tprint("from_text range: %", json_error_text(range_error)));
-    free_json_error(*range_error);
+    expect(range_error.kind == .OUT_OF_RANGE, tprint("from_param range: %", json_error_text(range_error)));
+    free_json(*range_error);
 
-    _, text_error := from_text(int, "abc");
+    _, text_error := from_param(int, "abc");
 
-    expect(text_error.kind == .TYPE, "from_text type");
-    free_json_error(*text_error);
+    expect(text_error.kind == .TYPE, "from_param type");
+    free_json(*text_error);
 
-    _, empty_error := from_text(int, "");
+    _, empty_error := from_param(int, "");
 
     expect(empty_error.kind == .TYPE, "empty is not a number");
-    free_json_error(*empty_error);
+    free_json(*empty_error);
 
-    ratio, ratio_error := from_text(float64, "1e3");
+    ratio, ratio_error := from_param(float64, "1e3");
 
-    expect(ratio_error.kind == .NONE && ratio == 1000, "from_text float");
+    expect(ratio_error.kind == .NONE && ratio == 1000, "from_param float");
 
-    flag, flag_error := from_text(bool, "true");
+    flag, flag_error := from_param(bool, "true");
 
-    expect(flag_error.kind == .NONE && flag, "from_text bool");
+    expect(flag_error.kind == .NONE && flag, "from_param bool");
 
-    color, color_error := from_text(Color, "blue");
+    color, color_error := from_param(Color, "blue");
 
-    expect(color_error.kind == .NONE && color == .blue, "from_text enum");
+    expect(color_error.kind == .NONE && color == .blue, "from_param enum");
 
-    word, word_error := from_text(string, "he said \"x\"");
+    word, word_error := from_param(string, "he said \"x\"");
 
-    expect(word_error.kind == .NONE && word == "he said \"x\"", "from_text string");
+    expect(word_error.kind == .NONE && word == "he said \"x\"", "from_param string");
     free_json(*word);
 
     print("ok\n");

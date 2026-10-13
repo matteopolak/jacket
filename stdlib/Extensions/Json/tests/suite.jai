@@ -26,13 +26,13 @@ run_suite :: () {
     rejected_i := 0;
 
     for SUITE_CASES {
-        value, error := parse_json(it.text);
+        value, error := from_json(Json_Value, it.text);
         accepted := error.kind == .NONE;
 
         if accepted {
             // What was accepted must survive a round trip through the encoder.
             again := to_json(value);
-            second, error2 := parse_json(again);
+            second, error2 := from_json(Json_Value, again);
             check(error2.kind == .NONE && to_json(second) == again, tprint("% does not round trip", it.name));
         }
 

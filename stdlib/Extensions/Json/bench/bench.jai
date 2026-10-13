@@ -5,7 +5,7 @@
 //     /tmp/json-bench                        # a generated 4 MB document of mixed content
 //     /tmp/json-bench twitter.json canada.json citm_catalog.json
 //
-// Files given on the command line are measured as untyped documents (parse_json, then
+// Files given on the command line are measured as untyped documents (`from_json(Json_Value, ...)`, then
 // to_json of the value). The generated document is also decoded into and encoded from a typed
 // struct. Real-world files: tools/json_bench_data.py downloads simdjson's examples.
 
@@ -141,7 +141,7 @@ bench_catalog: Catalog;
 bench_encoded: string;
 
 parse_work :: () {
-    _, error := parse_json(bench_text);
+    _, error := from_json(Json_Value, bench_text);
     assert(error.kind == .NONE);
 }
 
@@ -189,10 +189,10 @@ bench :: (pool: *Flat_Pool, label: string, text: string, typed: bool) {
 
     json_index_min_size = 0;
 
-    compare(pool, "parse_json", megabytes, parse_work);
+    compare(pool, "from_json (untyped)", megabytes, parse_work);
 
     json_use_simd = false;
-    value, error := parse_json(text);
+    value, error := from_json(Json_Value, text);
 
     assert(error.kind == .NONE);
     bench_value = value;

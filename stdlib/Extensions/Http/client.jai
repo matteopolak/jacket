@@ -140,7 +140,7 @@ free_error :: (error: *Client_Error) {
         if error.detail.count free(error.detail.data);
         if error.body.count free(error.body.data);
 
-        free_json_error(*error.json);
+        free_json(*error.json);
     }
 
     error.* = .{};
@@ -347,17 +347,35 @@ read_bytes :: (response: *Client_Response) -> [] u8, Client_Error {
     return .{ data.count, data.data }, .{};
 }
 
-// The body decoded as a `T` (whatever the status: check `response.status` first). Strings in the
+// The body decoded as a `T` (whatever the status: check `response.status` first). It is
+// `Io.read_json` over the response's body, so the body is decoded as it arrives; the limit of
+// `max_response_size` and the read-once rule are the same as for `read_text`. Strings in the
 // value are from the context allocator; `free_json` releases them.
 read_json :: (response: *Client_Response, $T: Type) -> T, Client_Error {
     status := response.status;
-    bytes, error := read_bytes(response);
+    source, error := readable(response);
 
     if error.kind != .NONE return .{}, error;
 
-    defer free(bytes.data);
+    if source.has_stored == false && source.kind == .LENGTH && source.length > source.max_size {
+        drop_connection(source);
 
-    value, failure := from_json(T, string.{ bytes.count, bytes.data });
+        source.failed = true;
+
+        return .{}, client_error(.TOO_LARGE, .NONE, tprint("the body is % bytes, more than the limit of % (max_response_size)", source.length, source.max_size));
+    }
+
+    body := Body_Reader.{ response = response, source = source };
+
+    value, failure := Io.read_json(Io.Reader.{ *body, body_read_proc, null }, T);
+
+    source.streamed = false;
+
+    if body.failure.kind != .NONE {
+        free_json(*failure);
+
+        return .{}, body.failure;
+    }
 
     if failure.kind != .NONE {
         failed := Client_Error.{ kind = .DECODE, status = status, owned = true };
@@ -369,6 +387,41 @@ read_json :: (response: *Client_Response, $T: Type) -> T, Client_Error {
     }
 
     return value, .{};
+}
+
+// The body of a response as an `Io.Reader`, for `read_json`: each read is a `read_some` that stops
+// at the request's `max_response_size` and keeps the client error it ran into, which the reader
+// can only report as an `Io_Error`.
+Body_Reader :: struct {
+    response: *Client_Response;
+    source: *Body_Source;
+    total: int;
+    failure: Client_Error;
+}
+
+body_read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
+    body := cast(*Body_Reader) data;
+
+    count, error := read_some(body.response, buffer);
+
+    if error.kind != .NONE {
+        body.failure = error;
+
+        return 0, .OTHER;
+    }
+
+    body.total += count;
+
+    if body.total > body.source.max_size {
+        drop_connection(body.source);
+
+        body.source.failed = true;
+        body.failure = client_error(.TOO_LARGE, .NONE, tprint("the body is longer than the limit of % bytes (max_response_size)", body.source.max_size));
+
+        return 0, .OTHER;
+    }
+
+    return count, .NONE;
 }
 
 // Reads the next part of the body into `buffer` and returns how many bytes it wrote: at least one
@@ -490,7 +543,7 @@ error_for_status :: (response: *Client_Response) -> Client_Error {
 
             free_json(*problem);
         } else {
-            free_json_error(*failure);
+            free_json(*failure);
         }
     }
 
@@ -623,7 +676,9 @@ send_on_fiber :: (client: *Client, request: Client_Request) -> Client_Response, 
     response: Client_Response;
     error: Client_Error;
 
-    Io.with_deadline(within(timeout), #code { response, error = send_following(client, request, note); });
+    Io.with_deadline(within(timeout), #code {
+        response, error = send_following(client, request, note);
+    });
 
     if error.kind != .NONE return build_response(0, error_text(error), .[], note), error;
 
@@ -1157,7 +1212,9 @@ read_wire :: (source: *Body_Source) -> int, Io.Io_Error {
     count: s64;
     error: Io.Io_Error;
 
-    Io.with_deadline(remaining, #code { count, error = Io.read(source.stream.reader, source.buffer); });
+    Io.with_deadline(remaining, #code {
+        count, error = Io.read(source.stream.reader, source.buffer);
+    });
 
     return count, error;
 }

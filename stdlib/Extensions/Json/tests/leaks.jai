@@ -103,7 +103,7 @@ decode_and_release :: (text: string, label: string, expectation: Expectation) {
             free_json(*value);
         } else {
             default_result = value.title.count == 0 && value.tags.count == 0 && value.leaves.count == 0 && value.link == null && value.by_name.count == 0 && value.extra.kind == .NULL && value.nick == "guest";
-            free_json_error(*error);
+            free_json(*error);
         }
     }
 
@@ -170,7 +170,7 @@ shapes :: () {
         node, error := from_json(Node, deep_text, Json_Options.{ max_depth = 20 });
 
         limit_kind = error.kind;
-        free_json_error(*error);
+        free_json(*error);
         free_json(*node);
     }
 
@@ -189,17 +189,17 @@ shapes :: () {
         _, error := from_json(Wrapped, "[{\"label\": \"a\", \"values\": [1]}, {\"label\": \"b\", \"values\": [x]}]");
 
         bad_wrapped = error.kind != .NONE;
-        free_json_error(*error);
+        free_json(*error);
 
         _, error2 := from_json([] string, "[\"a\", \"b\", 4]");
 
         bad_view = error2.kind != .NONE;
-        free_json_error(*error2);
+        free_json(*error2);
 
         pointer, error3 := from_json(*Leaf, "{\"label\": \"p\", \"values\": [1, \"2\"]}");
 
         bad_pointer = error3.kind != .NONE && pointer == null;
-        free_json_error(*error3);
+        free_json(*error3);
 
         ok_wrapped, error4 := from_json(Wrapped, "[{\"label\": \"a\", \"values\": [1]}]");
 
@@ -236,7 +236,45 @@ defaults :: () {
     free_json(*value);
 }
 
+// `free_json` is one overload set: a decoded value of any type, a Json_Value and a Json_Error each
+// leave nothing allocated and are reset, and freeing twice is harmless.
+free_each_kind :: () {
+    tally: Tally;
+    typed_cleared, untyped_cleared, error_cleared: bool;
+    had_error_text: bool;
+
+    {
+        push_allocator(tally_proc, *tally);
+
+        typed, typed_error := from_json(Config, DOCUMENT);
+        untyped, untyped_error := from_json(Json_Value, "{\"k\": [1, \"two\", {\"three\": null}], \"s\": \"text\"}");
+        _, failure := from_json(Config, "{\"title\": 5}");
+
+        had_error_text = typed_error.kind == .NONE && untyped_error.kind == .NONE && failure.message.count > 0 && failure.path.count > 0;
+
+        free_json(*typed);
+        free_json(*untyped);
+        free_json(*failure);
+
+        typed_cleared = typed.title.count == 0 && typed.tags.count == 0 && typed.link == null;
+        untyped_cleared = untyped.kind == .NULL && untyped.members.count == 0;
+        error_cleared = failure.kind == .NONE && failure.message.count == 0 && failure.path.count == 0;
+
+        free_json(*typed);
+        free_json(*untyped);
+        free_json(*failure);
+    }
+
+    check(had_error_text, "the values decoded and the error has a message and a path");
+    check(typed_cleared, "free_json on a decoded struct resets it");
+    check(untyped_cleared, "free_json on a Json_Value resets it");
+    check(error_cleared, "free_json on a Json_Error resets it");
+    check(tally.outstanding == 0, tprint("free_json left % blocks allocated", tally.outstanding));
+}
+
 main :: () {
+    free_each_kind();
+
     for pass: 0..1 {
         json_use_simd = pass == 1;
         json_index_min_size = 0;

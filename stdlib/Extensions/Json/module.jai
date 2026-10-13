@@ -14,7 +14,8 @@
 //
 //     text := to_json(user);                    // pretty: to_json(user, pretty = true)
 //     user, error := from_json(User, text);     // error.kind == .NONE on success
-//     value, error := parse_json(text);         // a Json_Value, when the shape is unknown
+//     value, error := from_json(Json_Value, text);    // when the shape is unknown
+//     free_json(*user);                         // also for a Json_Value and a Json_Error
 
 Json_Error_Kind :: enum u8 {
     NONE;
@@ -26,11 +27,12 @@ Json_Error_Kind :: enum u8 {
     UNKNOWN_FIELD; // with deny_unknown_fields
     DUPLICATE_FIELD;
     LIMIT; // too deep, or too large
+    READ; // the source of a stream failed before the document ended
 }
 
 // Why decoding failed and where. `path` names the value inside the document (`tags[2]`,
 // `address.zip`); `line` and `column` count from 1, the column in characters. `message` and
-// `path` are allocated with context.allocator: free_json_error releases them.
+// `path` are allocated with context.allocator: free_json releases them.
 Json_Error :: struct {
     kind: Json_Error_Kind;
     message: string;
@@ -70,7 +72,8 @@ json_error_text :: (error: Json_Error) -> string {
     return tprint("% at line %, column %", error.message, error.line, error.column);
 }
 
-free_json_error :: (error: *Json_Error) {
+// Releases the `message` and `path` of an error and clears it. Part of the `free_json` set.
+free_json :: (error: *Json_Error) {
     if error.message.count free(error.message);
     if error.path.count free(error.path);
 
@@ -92,6 +95,53 @@ write_json :: (builder: *String_Builder, value: $T, pretty := false) {
     w.pretty = pretty;
 
     json_encode(*w, *value);
+}
+
+// Where a document comes from when it is not in memory yet: `fill` puts the next piece of text in
+// `buffer` and returns how many bytes it wrote (0 at the end), and a non-empty string when the
+// source failed (what went wrong). `data` is handed to it as it is. Json does not know what the
+// pieces come from; `Io.read_json` makes one from an `Io.Reader`.
+Json_Fill :: #type (data: *void, buffer: [] u8) -> s64, string;
+
+Json_Source :: struct {
+    data: *void;
+    fill: Json_Fill;
+}
+
+// Decodes a `T` from a source in pieces. The pieces are gathered in one buffer (the decoder wants
+// the whole document, and its strings are copied out of it, so the buffer is freed before this
+// returns) and then decoded exactly as `from_json(T, text)` would, so a document split at any
+// byte gives the same value or the same error. A source that fails gives a `.READ` error with
+// the source's text; a document longer than `options.max_size` is a `.LIMIT` error and the rest
+// is not read.
+from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, Json_Error {
+    empty: T;
+
+    text: [..] u8;
+
+    defer array_free(text);
+
+    while true {
+        if text.count == text.allocated array_reserve(*text, max(4096, text.count * 2));
+
+        count, failure := source.fill(source.data, .{ text.allocated - text.count, text.data + text.count });
+
+        if failure.count {
+            return empty, Json_Error.{ kind = .READ, message = copy_string(failure), line = 1, column = 1 };
+        }
+
+        if count == 0 break;
+
+        text.count += count;
+
+        if text.count > options.max_size {
+            message := copy_string(tprint("the input is larger than the limit of % bytes", options.max_size));
+
+            return empty, Json_Error.{ kind = .LIMIT, message = message, offset = options.max_size, line = 1, column = 1 };
+        }
+    }
+
+    return from_json(T, string.{ text.count, text.data }, options);
 }
 
 // Decodes `text` into a `T`. Strings, arrays, pointers and tables in the result are allocated
@@ -140,7 +190,7 @@ from_json :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Err
             }
 
             // The scalar pass below reports the error again; this one's message is not kept.
-            free_json_error(*r.error);
+            free_json(*r.error);
             json_index_stats.reparsed += 1;
         }
     }
@@ -171,7 +221,8 @@ decode_document :: (r: *Json_Reader, out: *$T) -> bool {
     return true;
 }
 
-// Releases what from_json allocated for `value`: its strings, arrays, pointers (and what they
+// The one way to release what the decoders allocated, for a decoded value of any type, a
+// `Json_Value` or a `Json_Error`. For a typed value: its strings, arrays, pointers (and what they
 // point to), tables and nested values, all with `free`. The fields are reset, so a second call
 // does nothing. A field that still holds its declared default (a document that omitted it) is
 // not freed, so defaults such as `name := "guest"` are safe. Fields with a `with=` handler are
@@ -180,20 +231,7 @@ decode_document :: (r: *Json_Reader, out: *$T) -> bool {
 free_json :: (value: *$T) {
     defaults: T;
 
-    json_free_value(value, *defaults);
-}
-
-json_free_value :: (value: *$T, defaults: *T) {
-    #insert -> string {
-        return generate_freer(T);
-    };
-}
-
-// Parses `text` without a target type.
-parse_json :: (text: string, options := Json_Options.{}) -> Json_Value, Json_Error {
-    value, error := from_json(Json_Value, text, options);
-
-    return value, error;
+    free_json_fields(value, *defaults);
 }
 
 // Writes the JSON of the value `value` points to. This and json_decode are what `with=`
@@ -217,9 +255,15 @@ json_decode :: (r: *Json_Reader, out: *$T) -> bool {
 #load "reader.jai";
 #load "index.jai";
 #load "generate.jai";
-#load "pairs.jai";
+#load "query.jai";
 
 #scope_module
+
+free_json_fields :: (value: *$T, defaults: *T) {
+    #insert -> string {
+        return generate_freer(T);
+    };
+}
 
 simd_enabled :: inline () -> bool {
     #if OS == .WASM return false;

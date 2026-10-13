@@ -82,7 +82,7 @@ extract_path :: (request: *Request, position: int, name: string, $T: Type) -> T,
     #if T == string {
         return text, .{};
     } else {
-        value, failure := from_text(T, text,, temp);
+        value, failure := from_param(T, text,, temp);
 
         if failure.kind != .NONE {
             return .{}, input_error(400, "path", name, tprint("invalid path parameter `%`: %", name, failure.message));
@@ -93,7 +93,7 @@ extract_path :: (request: *Request, position: int, name: string, $T: Type) -> T,
 }
 
 extract_params :: (request: *Request, $T: Type) -> T, Http_Error {
-    value, failure := from_pairs(T, request.params,, temp);
+    value, failure := from_query(T, request.params,, temp);
 
     if failure.kind != .NONE {
         return .{}, input_error(400, "path", failure.path, tprint("invalid path parameter%: %", ifx failure.path.count then tprint(" `%`", failure.path) else "", failure.message));
@@ -105,7 +105,7 @@ extract_params :: (request: *Request, $T: Type) -> T, Http_Error {
 extract_query :: (request: *Request, $T: Type) -> T, Http_Error {
     pairs := query_pairs(request);
 
-    value, failure := from_pairs(T, pairs,, temp);
+    value, failure := from_query(T, pairs,, temp);
 
     if failure.kind != .NONE {
         return .{}, input_error(400, "query", failure.path, bad_pairs_detail("query parameter", failure, pairs));
@@ -123,7 +123,7 @@ extract_form :: (request: *Request, $T: Type) -> T, Http_Error {
 
     pairs := parse_query(body_text(request),, temp);
 
-    value, failure := from_pairs(T, pairs,, temp);
+    value, failure := from_query(T, pairs,, temp);
 
     if failure.kind != .NONE {
         return .{}, input_error(400, "form", failure.path, bad_pairs_detail("form field", failure, pairs));
@@ -162,7 +162,7 @@ extract_header :: (request: *Request, name: string, $T: Type) -> T, Http_Error {
     #if T == string {
         return text, .{};
     } else {
-        value, failure := from_text(T, text,, temp);
+        value, failure := from_param(T, text,, temp);
 
         if failure.kind != .NONE {
             return .{}, input_error(400, "header", name, tprint("invalid header `%`: %", name, failure.message));

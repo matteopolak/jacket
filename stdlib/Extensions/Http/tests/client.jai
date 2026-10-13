@@ -581,6 +581,15 @@ large_bodies :: (base: string, server: *Server) {
     free_error(*after);
     close(*response);
 
+    // read_json refuses it the same way, before decoding anything.
+    response, error = send(*api, .{ url = tprint("%/big", base), max_response_size = 50_000 });
+
+    _, json_too_large := read_json(*response, User);
+
+    check(json_too_large.kind == .TOO_LARGE, "read_json over the limit: %", error_text(json_too_large));
+    free_error(*json_too_large);
+    close(*response);
+
     // Streamed, the same body is fine, and the limit does not count.
     response, error = send(*api, .{ url = tprint("%/big", base), max_response_size = 50_000 });
 
@@ -962,6 +971,7 @@ scripted :: (base: string, server: *Server) {
     array_add(*script.replies, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nabc");
     array_add(*script.replies, "garbage that is not http\r\n\r\n");
     array_add(*script.replies, "HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 4\r\n\r\nabcd");
+    array_add(*script.replies, "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n8\r\n[1,2,3,4\r\n8\r\n,5,6,7,8\r\n1\r\n]\r\n0\r\n\r\n");
 
     Io.spawn(scripted_server, *script);
 
@@ -1005,6 +1015,16 @@ scripted :: (base: string, server: *Server) {
     response, send_error = send(*api, .{ url = url });
     check(send_error.kind == .TRANSPORT, "two different Content-Lengths: %", error_text(send_error));
     free_error(*send_error);
+    close(*response);
+
+    // A chunked body has no length to check first: read_json stops once it passes the limit.
+    response, send_error = send(*api, .{ url = url, max_response_size = 10 });
+    check(send_error.kind == .NONE, "a chunked JSON body: %", error_text(send_error));
+
+    _, limit_error := read_json(*response, [] int);
+
+    check(limit_error.kind == .TOO_LARGE, "a chunked body over the limit: %", error_text(limit_error));
+    free_error(*limit_error);
     close(*response);
 
     Io.close(script.listener);

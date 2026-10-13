@@ -220,7 +220,9 @@ serve_connection :: (connection: *Connection) {
             if pending.count == 0 {
                 // About to wait for the client: it gets what it is owed first.
                 if out.count > 0 {
-                    Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+                    Io.with_deadline(within(config.write_timeout), #code {
+                        _, write_error = Io.write(stream.writer, out);
+                    });
 
                     if write_error != .NONE return;
 
@@ -253,7 +255,9 @@ serve_connection :: (connection: *Connection) {
                 count: s64;
                 error: Io.Io_Error;
 
-                Io.with_deadline(within(timeout), #code { count, error = Io.read(stream.reader, buffer); });
+                Io.with_deadline(within(timeout), #code {
+                    count, error = Io.read(stream.reader, buffer);
+                });
 
                 connection.idle = false;
 
@@ -296,7 +300,9 @@ serve_connection :: (connection: *Connection) {
         // ---- The body.
         if head.expect_continue {
             if out.count > 0 {
-                Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+                Io.with_deadline(within(config.write_timeout), #code {
+                    _, write_error = Io.write(stream.writer, out);
+                });
 
                 if write_error != .NONE return;
 
@@ -305,7 +311,9 @@ serve_connection :: (connection: *Connection) {
 
             write_continue(*out);
 
-            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+            Io.with_deadline(within(config.write_timeout), #code {
+                _, write_error = Io.write(stream.writer, out);
+            });
 
             if write_error != .NONE return;
 
@@ -344,7 +352,9 @@ serve_connection :: (connection: *Connection) {
                 count: s64;
                 error: Io.Io_Error;
 
-                Io.with_deadline(within(config.body_timeout), #code { count, error = Io.read(stream.reader, buffer); });
+                Io.with_deadline(within(config.body_timeout), #code {
+                    count, error = Io.read(stream.reader, buffer);
+                });
 
                 if error == .TIMED_OUT {
                     send_failure(server, stream, *out, http_error(408, "the request body was not received in time"));
@@ -402,13 +412,17 @@ serve_connection :: (connection: *Connection) {
 
         // A big body goes out from where it is instead of being copied after the head.
         if response.body.count >= LARGE_BODY && request.method != .HEAD && body_allowed(response.status) {
-            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+            Io.with_deadline(within(config.write_timeout), #code {
+                _, write_error = Io.write(stream.writer, out);
+            });
 
             if write_error != .NONE return;
 
             out.count = 0;
 
-            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, response.body); });
+            Io.with_deadline(within(config.write_timeout), #code {
+                _, write_error = Io.write(stream.writer, response.body);
+            });
 
             if write_error != .NONE return;
         }
@@ -416,7 +430,9 @@ serve_connection :: (connection: *Connection) {
         reset_temporary_storage();
 
         if !keep_alive {
-            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+            Io.with_deadline(within(config.write_timeout), #code {
+                _, write_error = Io.write(stream.writer, out);
+            });
 
             return;
         }
@@ -509,7 +525,9 @@ send_failure :: (server: *Server, stream: Link, out: *[..] u8, error: Http_Error
 
     if response.body.count >= LARGE_BODY && body_allowed(response.status) append_bytes(out, response.body.data, response.body.count);
 
-    Io.with_deadline(within(server.app.config.write_timeout), #code { Io.write(stream.writer, out.*); });
+    Io.with_deadline(within(server.app.config.write_timeout), #code {
+        Io.write(stream.writer, out.*);
+    });
 
     out.count = 0;
 

@@ -891,7 +891,7 @@ json_skip_value :: (r: *Json_Reader) -> bool {
 }
 
 // Reads any value into a Json_Value. On failure `out` holds what was read so far, and
-// json_free releases it.
+// free_json releases it.
 json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
     c := json_peek(r);
 

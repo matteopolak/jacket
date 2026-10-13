@@ -154,7 +154,7 @@ types :: () {
     table_set(*e.s, "two", 2);
     e.t = New(Address);
     e.t.street = "Main";
-    e.u, _ = parse_json("{\"k\":[1,2.5,null,true,\"s\"]}");
+    e.u, _ = from_json(Json_Value, "{\"k\":[1,2.5,null,true,\"s\"]}");
     array_add(*e.v, .ADMIN);
     array_add(*e.v, .MEMBER);
     list: [..] Address;
@@ -367,29 +367,29 @@ errors :: () {
     deep := "";
     for 1..300 deep = join(deep, "[");
 
-    _, error10 := parse_json(deep);
+    _, error10 := from_json(Json_Value, deep);
 
     check(error10.kind == .LIMIT, "depth limit");
 
     shallow: Json_Options;
     shallow.max_depth = 2;
-    _, error11 := parse_json("[[[1]]]", shallow);
+    _, error11 := from_json(Json_Value, "[[[1]]]", shallow);
 
     check(error11.kind == .LIMIT, "custom depth limit");
-    _, error12 := parse_json("[[1]]", shallow);
+    _, error12 := from_json(Json_Value, "[[1]]", shallow);
 
     check(error12.kind == .NONE, "within the custom limit");
 
     small: Json_Options;
     small.max_size = 3;
-    _, error13 := parse_json("[1,2,3]", small);
+    _, error13 := from_json(Json_Value, "[1,2,3]", small);
 
     check(error13.kind == .LIMIT, "size limit");
 
-    _, error14 := parse_json("\n\n  [1, ?]");
+    _, error14 := from_json(Json_Value, "\n\n  [1, ?]");
 
     check(error14.kind == .SYNTAX && error14.line == 3 && error14.column == 7, tprint("position: %", json_error_text(error14)));
-    _, error15 := parse_json("[\"é\", x]");
+    _, error15 := from_json(Json_Value, "[\"é\", x]");
 
     check(error15.line == 1 && error15.column == 7, tprint("column counts characters: %", json_error_text(error15)));
 }
@@ -422,7 +422,7 @@ values :: () {
     check(ok3 && s == "replaced", "json_as_string");
     check(json_get(*v, "missing") == null && json_at(json_get(*v, "list"), 1).kind == .NULL, "lookups");
 
-    big, error := parse_json("[123456789012345678901234567890, 18446744073709551615]");
+    big, error := from_json(Json_Value, "[123456789012345678901234567890, 18446744073709551615]");
 
     check(error.kind == .NONE && to_json(big) == "[123456789012345678901234567890,18446744073709551615]", "big integers keep their digits");
     u, ok4 := json_as_u64(json_at(*big, 1));
@@ -437,9 +437,9 @@ values :: () {
     write_json(*builder, v);
     check(builder_to_string(*builder) == to_json(v), "write_json");
 
-    json_free(*v);
-    json_free(*big);
-    check(v.kind == .NULL, "json_free");
+    free_json(*v);
+    free_json(*big);
+    check(v.kind == .NULL, "free_json on a Json_Value");
 }
 
 recursion :: () {
