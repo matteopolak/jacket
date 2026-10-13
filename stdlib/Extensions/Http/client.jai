@@ -1355,6 +1355,14 @@ fill_pending :: (source: *Body_Source) -> bool, Client_Error {
             case .NEED_MORE;
                 count, read_error := read_wire(source);
 
+                // A body that ends where the connection does cannot tell a TLS peer that left
+                // without close_notify from one that said goodbye (browsers and Python's ssl
+                // accept it too): the end is the end. Other framings still see the error.
+                if read_error == .CONNECTION_RESET && source.kind == .UNTIL_CLOSE && Tls.ended_without_close_notify(source.stream.reader) {
+                    read_error = .NONE;
+                    count = 0;
+                }
+
                 if read_error != .NONE return false, io_failure(read_error, "reading the response body");
 
                 if count == 0 {

@@ -229,6 +229,7 @@ certificate_failures :: (base: string, server: *Server) {
 
 wrong_name_app: App;
 impatient_app: App;
+logging_app: App;
 
 // 3. A server with a certificate for another name.
 wrong_name :: (base: string, server: *Server) {
@@ -519,6 +520,258 @@ bad_server_config :: () {
     }, *bad);
 }
 
+// 11. Peers that leave without close_notify. The Tls layer reports it (`TRUNCATED`); HTTP decides
+// whether it matters: not for a body that ends with the connection, nor for an idle connection.
+
+// A TLS server that answers one way and then drops the connection without close_notify.
+Ragged_Mode :: enum {
+    UNTIL_CLOSE; // HTTP/1.0, no Content-Length: the body ends with the connection
+    CUT_LENGTH; // promises 100000 bytes and sends 20000
+    KEEP_ALIVE; // a complete keep-alive answer, then the connection is dropped
+}
+
+Ragged :: struct {
+    listener: Io.Tcp_Listener;
+    config: *Tls.Tls_Config;
+    mode: Ragged_Mode;
+    accepted: int;
+}
+
+RAGGED_SIZE :: 200_000;
+
+ragged_body :: (count: int) -> string {
+    text := alloc_string(count,, temp);
+
+    for *text it.* = cast(u8) (#char "a" + it_index % 26);
+
+    return text;
+}
+
+// Reads until the end of a request head; false when the client went away first.
+read_request_head :: (stream: *Tls.Tls_Stream) -> bool {
+    seen: [..] u8;
+
+    seen.allocator = temp;
+
+    buffer: [512] u8;
+
+    while true {
+        count, error := Tls.read(stream, buffer);
+
+        if error != .NONE || count == 0 return false;
+
+        for 0..count - 1 array_add(*seen, buffer[it]);
+
+        if contains(string.{ seen.count, seen.data }, "\r\n\r\n") return true;
+    }
+
+    return false;
+}
+
+ragged_server :: (state: *Ragged) {
+    while true {
+        tcp, accept_error := Io.accept(state.listener);
+
+        if accept_error != .NONE break;
+
+        state.accepted += 1;
+
+        stream, tls_error := Tls.tls_accept(state.config, Io.reader_of(tcp), Io.writer_of(tcp));
+
+        if tls_error.kind != .NONE {
+            Io.close(tcp);
+
+            continue;
+        }
+
+        if read_request_head(stream) {
+            if state.mode == {
+                case .UNTIL_CLOSE;
+                    Tls.write(stream, "HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+                    Tls.write(stream, ragged_body(RAGGED_SIZE));
+
+                case .CUT_LENGTH;
+                    Tls.write(stream, "HTTP/1.1 200 OK\r\nContent-Length: 100000\r\n\r\n");
+                    Tls.write(stream, ragged_body(20_000));
+
+                case .KEEP_ALIVE;
+                    Tls.write(stream, "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\npong");
+            }
+        }
+
+        // Closes the connection and sends no close_notify.
+        Tls.close(stream, true);
+    }
+}
+
+start_ragged :: (state: *Ragged, mode: Ragged_Mode, config: *Tls.Tls_Config) -> string {
+    error: Io.Io_Error;
+
+    state.* = .{};
+    state.config = config;
+    state.mode = mode;
+
+    state.listener, error = Io.tcp_listen("127.0.0.1:0");
+
+    check(error == .NONE, "listen: %", error);
+
+    address, _ := Io.local_address(state.listener);
+
+    Io.spawn(ragged_server, state);
+
+    return tprint("https://%", Io.address_to_string(address));
+}
+
+stop_ragged :: (state: *Ragged) {
+    Io.close(state.listener);
+    Io.sleep(20);
+}
+
+ragged_eof :: (base: string, server: *Server) {
+    client_config := make_client_config();
+
+    defer Tls.tls_config_free(*client_config);
+
+    server_config := make_server_config("server");
+
+    defer Tls.tls_config_free(*server_config);
+
+    state: Ragged;
+
+    // A body that ends with the connection is complete when the peer leaves without close_notify.
+    ragged_base := start_ragged(*state, .UNTIL_CLOSE, *server_config);
+
+    api: Client;
+
+    api.base_url = ragged_base;
+    api.tls = *client_config;
+
+    reply := get_path(*api, "/");
+
+    check(reply.status == 200, "read until close, status: %", reply.status);
+    check(reply.body == ragged_body(RAGGED_SIZE), "read until close, the whole body without an error: % bytes", reply.body.count);
+
+    // The same through the streaming reader.
+    response, error := get(*api, "/");
+
+    check(error.kind == .NONE, "read until close, streaming: %", error_text(error));
+
+    total := 0;
+    buffer: [4096] u8;
+
+    while error.kind == .NONE {
+        count: int;
+
+        count, error = read_some(*response, buffer);
+
+        if count == 0 && error.kind == .NONE break;
+
+        total += count;
+    }
+
+    check(error.kind == .NONE && total == RAGGED_SIZE, "read until close, streamed: % bytes, %", total, error_text(error));
+
+    close(*response);
+    stop_ragged(*state);
+
+    // A body with a Content-Length that is cut short is still an error.
+    base_cut := start_ragged(*state, .CUT_LENGTH, *server_config);
+
+    api.base_url = base_cut;
+
+    response, error = get(*api, "/");
+
+    failed := error.kind != .NONE;
+
+    if !failed {
+        _, error = read_text(*response);
+
+        failed = error.kind != .NONE;
+
+        close(*response);
+    }
+
+    check(failed, "a cut Content-Length body is an error");
+    check(error.kind == .TRANSPORT, "and a transport error: %", error.kind);
+
+    stop_ragged(*state);
+
+    // A pooled connection the server dropped without close_notify is replaced by a retry.
+    base_pooled := start_ragged(*state, .KEEP_ALIVE, *server_config);
+
+    api.base_url = base_pooled;
+
+    for 1..4 {
+        reply = get_path(*api, "/");
+
+        check(reply.status == 200 && reply.body == "pong", "request % over a dropped pooled connection: % '%'", it, reply.status, reply.body);
+
+        Io.sleep(50);
+    }
+
+    check(state.accepted == 4, "each request needed a new connection: %", state.accepted);
+
+    stop_ragged(*state);
+}
+
+// A client that drops its TLS connection without close_notify is an ordinary end for the server.
+ragged_clients :: (base: string, server: *Server) {
+    client_config := make_client_config();
+
+    defer Tls.tls_config_free(*client_config);
+
+    // Handshakes and leaves, with and without a request.
+    for 0..3 {
+        tcp := raw_connect(server);
+
+        stream, error := Tls.tls_connect(*client_config, Io.reader_of(tcp), Io.writer_of(tcp), "127.0.0.1");
+
+        check(error.kind == .NONE, "handshake: %", Tls.error_text(error));
+
+        if error.kind != .NONE {
+            Io.close(tcp);
+
+            continue;
+        }
+
+        if it == 1 || it == 2 Tls.write(stream, "GET /ping HTTP/1.1\r\nHost: t\r\n\r\n");
+
+        if it == 2 {
+            answer: [256] u8;
+            text: string;
+
+            while !contains(text, "pong") {
+                count, read_error := Tls.read(stream, answer);
+
+                check(read_error == .NONE && count > 0, "answer: % %", count, read_error);
+
+                if read_error != .NONE || count == 0 break;
+
+                text = tprint("%1%2", text, string.{ count, answer.data });
+            }
+        }
+
+        if it == 3 Tls.write(stream, "GET /pi");
+
+        Tls.close(stream, true);
+    }
+
+    started := current_time_monotonic();
+
+    while server.count > 0 && to_milliseconds(current_time_monotonic() - started) < 3000 Io.sleep(10);
+
+    check(server.count == 0, "the server dropped the connections: % left", server.count);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *client_config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "the server is fine after clients that left: %", reply.status);
+}
+
 main :: () {
     if !supported() return;
 
@@ -542,6 +795,7 @@ main :: () {
     run_server(*app, alpn);
     run_server(*app, idle_holds_no_buffer);
     run_server(*app, many_clients);
+    run_server(*app, ragged_eof);
     run_server(*app, shutdown);
 
     // The handshake timeout is short here.
@@ -575,6 +829,14 @@ main :: () {
     client_auth_app.config.tls = *auth_config;
 
     run_server(*client_auth_app, client_certificates);
+
+    // Logs every request: leaving without close_notify must add nothing (see the output).
+    get(*logging_app, "/ping", ping);
+
+    logging_app.config.log_requests = true;
+    logging_app.config.tls = *server_config;
+
+    run_server(*logging_app, ragged_clients);
 
     bad_server_config();
 

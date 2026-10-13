@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixes
+
+- `Http` client: a read-until-close response body over TLS ends normally when the server closes the connection without close_notify (as in browsers and Python's `ssl`); Content-Length and chunked bodies still fail when cut, and a pooled TLS connection dropped that way is retried. `Tls.ended_without_close_notify(reader)` tells the two ends apart.
+
 ## [0.16.0] - 2026-10-13
 
 HTTPS in the async IO stack, and a round of hardening and speed for `Extensions/Io`, `Http` and `Json`.

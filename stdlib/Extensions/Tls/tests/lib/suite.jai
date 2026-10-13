@@ -483,6 +483,8 @@ test_close_notify :: () {
 
     assert(error == .CONNECTION_RESET, "truncated: % %", count, error);
     assert(Tls.last_error(pair.client.stream).kind == .TRUNCATED, "kind: %", Tls.error_text(Tls.last_error(pair.client.stream)));
+    assert(Tls.ended_without_close_notify(Tls.reader_of(pair.client.stream)), "the reader says the end was ragged");
+    assert(!Tls.ended_without_close_notify(Io.reader_of(pair.client.tcp)), "a TCP reader is not a TLS one");
 
     // And it stays broken.
     count, error = Tls.read(pair.client.stream, buffer);

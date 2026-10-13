@@ -297,6 +297,17 @@ close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
     return error;
 }
 
+// Whether `reader` is a TLS stream's reader (from `reader_of`) whose connection ended without the
+// peer's close_notify (`last_error(stream).kind == .TRUNCATED`). For a protocol that frames its own
+// messages, such as HTTP, where that end is no failure once the message is complete.
+ended_without_close_notify :: (reader: Io.Reader) -> bool {
+    if reader.read_proc != read_proc return false;
+
+    stream := cast(*Tls_Stream) reader.data;
+
+    return stream.failure.kind == .TRUNCATED;
+}
+
 reader_of :: (stream: *Tls_Stream) -> Io.Reader {
     reader: Io.Reader;
 
