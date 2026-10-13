@@ -1491,6 +1491,20 @@ impl Compiler {
         bindings: &[(Sym, Value, TypeId)],
         span: Span,
     ) -> Result<(Value, TypeId)> {
+        // `$loc := #caller_location` is the place of the call, as for a runtime parameter:
+        // generic code can hand it to `compiler_report` so an error points at the user's call.
+        if matches!(d.kind, E::CallerLocation) {
+            let file = self.scope_file(def_scope);
+            let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+            if let Operand::Const {
+                ty,
+                value,
+                ..
+            } = self.location_operand(&mut f, span)?
+            {
+                return Ok((value, ty));
+            }
+        }
         let mut scope = def_scope;
         if !bindings.is_empty() {
             // One scope per set of bindings, so a lambda default
