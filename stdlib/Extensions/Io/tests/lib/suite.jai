@@ -1106,6 +1106,109 @@ test_accept_backlog :: () {
     assert(Io.close(listener) == .NONE);
 }
 
+Burst_Job :: struct {
+    address: Io.Address;
+    group: *Io.Wait_Group;
+    failed: *int;
+}
+
+burst_handler :: (conn: Io.Tcp_Stream) {
+    defer Io.close(conn);
+
+    byte: [1] u8;
+    count, error := Io.read(conn, byte);
+
+    if error == .NONE && count == 1 Io.write(conn, byte);
+}
+
+// One byte to the server and back; a connection the server never accepts times out.
+burst_client :: (job: Burst_Job) {
+    defer Io.done(job.group);
+
+    client, error := Io.connect(job.address);
+
+    if error != .NONE {
+        job.failed.* += 1;
+
+        return;
+    }
+
+    defer Io.close(client);
+
+    byte: [1] u8 = .[7];
+    count: s64;
+    read_error: Io.Io_Error;
+
+    Io.with_deadline(5000, #code {
+        Io.write(client, byte);
+        count, read_error = Io.read(client, byte);
+    });
+
+    if read_error != .NONE || count != 1 job.failed.* += 1;
+}
+
+Burst_Server :: struct {
+    listener: Io.Tcp_Listener;
+    group: *Io.Wait_Group;
+}
+
+burst_acceptor :: (server: Burst_Server) {
+    defer Io.done(server.group);
+
+    while true {
+        conn, error := Io.accept(server.listener);
+
+        if error != .NONE return;
+
+        Io.spawn(burst_handler, conn);
+
+        // Slower than the burst.
+        for 1..20 Io.yield();
+    }
+}
+
+// Bursts of connections arrive faster than the acceptor takes them, so the engine's queue of
+// accepted sockets fills up (io_uring ends its accept request when 128 are queued) and the acceptor
+// runs while the request is still being ended: it has to take the queued sockets, not wait for new
+// ones. How the acceptor and the burst interleave varies from round to round.
+test_accept_bursts :: () {
+    listener, error := Io.tcp_listen(LOOPBACK);
+
+    assert(error == .NONE);
+
+    address, _ := Io.local_address(listener);
+
+    #if OS == .LINUX {
+        COUNT :: 300;
+        ROUNDS :: 15;
+    } else {
+        COUNT :: 100;
+        ROUNDS :: 5;
+    }
+
+    acceptor_group: Io.Wait_Group;
+
+    Io.add(*acceptor_group);
+    Io.spawn(burst_acceptor, Burst_Server.{ listener, *acceptor_group });
+
+    failed := 0;
+
+    for 1..ROUNDS {
+        group: Io.Wait_Group;
+
+        Io.add(*group, COUNT);
+
+        for 1..COUNT Io.spawn(burst_client, Burst_Job.{ address, *group, *failed });
+
+        Io.wait(*group);
+
+        assert(failed == 0, "round %: % of % connections were not served", it, failed, COUNT);
+    }
+
+    assert(Io.close(listener) == .NONE);
+    Io.wait(*acceptor_group);
+}
+
 test_accept_two_acceptors :: () {
     listener, error := Io.tcp_listen(LOOPBACK);
 
@@ -2038,6 +2141,7 @@ run_tcp :: () {
     test_local_and_peer_address();
     test_close_wakes_waiters();
     test_accept_backlog();
+    test_accept_bursts();
     test_accept_two_acceptors();
     test_close_with_queued_connections();
     test_close_now_releases_the_port();

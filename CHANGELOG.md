@@ -12,6 +12,7 @@
 
 ### Fixes
 
+- `Extensions/Io` on io_uring: a burst of more than 128 connections arriving while the acceptor was busy could strand the connections the engine had queued ahead of time, so their clients waited for a server that had already accepted them (found by an open-load HTTP bench: about 1 run in 8 hung at the end). `accept` takes queued sockets before anything else.
 - `Http` client: a read-until-close response body over TLS ends normally when the server closes the connection without close_notify (as in browsers and Python's `ssl`); Content-Length and chunked bodies still fail when cut, and a pooled TLS connection dropped that way is retried. `Tls.ended_without_close_notify(reader)` tells the two ends apart.
 
 ## [0.16.0] - 2026-10-13

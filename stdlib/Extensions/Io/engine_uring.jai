@@ -30,6 +30,8 @@ Accept_Wait :: struct {
     fiber: *Fiber;
     result: s64;
     cause: Io_Error;
+    // The listener was closed: the slot may be gone by the time the fiber runs.
+    closing: bool;
 }
 
 #if OS == .LINUX {
@@ -324,66 +326,79 @@ Accept_Wait :: struct {
             array_add(*state.accepts, slot);
         }
 
-        if slot.waiter || (slot.op && slot.op.canceling) return false, 0, .NONE;
+        // A second acceptor at the same time uses an ordinary accept. One that arrives while the
+        // request is being canceled (the queue was full) does not: sockets the request took before
+        // the cancel landed are still queued, and an ordinary accept would never look at them.
+        if slot.waiter return false, 0, .NONE;
 
-        fiber.platform_code = 0;
-        if fiber.canceled return true, 0, .CANCELED;
-        if fiber.deadline != 0 && now_nanoseconds() >= fiber.deadline return true, 0, .TIMED_OUT;
+        while true {
+            fiber.platform_code = 0;
+            if fiber.canceled return true, 0, .CANCELED;
+            if fiber.deadline != 0 && now_nanoseconds() >= fiber.deadline return true, 0, .TIMED_OUT;
 
-        if slot.head < slot.queue.count {
-            fd := slot.queue[slot.head];
+            if slot.head < slot.queue.count {
+                fd := slot.queue[slot.head];
 
-            slot.head += 1;
+                slot.head += 1;
 
-            if slot.head == slot.queue.count {
-                slot.head = 0;
-                slot.queue.count = 0;
+                if slot.head == slot.queue.count {
+                    slot.head = 0;
+                    slot.queue.count = 0;
+                }
+
+                return true, fd, .NONE;
             }
 
-            return true, fd, .NONE;
+            if !slot.op {
+                op := new_op(engine, .ACCEPT, handle);
+                op.slot = slot;
+
+                sqe := uring_entry(scheduler, engine);
+
+                Uring.prep_rw(sqe, .ACCEPT, cast(s32) handle.fd, null, 0, 0);
+                sqe.ioprio = Uring.IORING_ACCEPT_MULTISHOT;
+                sqe.accept_flags = SOCK_CLOEXEC;
+                sqe.user_data = cast(u64) cast(*void) op;
+
+                slot.op = op;
+            }
+
+            wait: Accept_Wait;
+            wait.fiber = fiber;
+
+            slot.waiter = *wait;
+            fiber.op = slot.op;
+            scheduler.pending += 1;
+
+            if fiber.deadline != 0 timer_add(scheduler, fiber, fiber.deadline);
+
+            park(scheduler, fiber);
+
+            fiber.op = null;
+
+            if wait.result >= 0 return true, wait.result, .NONE;
+
+            code := -wait.result;
+
+            fiber.platform_code = cast(s32) code;
+
+            if code == E_CANCELED {
+                if wait.cause != .NONE return true, 0, wait.cause;
+                if fiber.canceled return true, 0, .CANCELED;
+                if wait.closing return true, 0, .CLOSED;
+
+                // The request was ended to stop the queue growing: ask again, unless the listener
+                // was closed since.
+                slot = accept_slot(state, handle.fd);
+                if !slot return true, 0, .CLOSED;
+
+                continue;
+            }
+
+            return true, 0, error_from_code(code);
         }
 
-        if !slot.op {
-            op := new_op(engine, .ACCEPT, handle);
-            op.slot = slot;
-
-            sqe := uring_entry(scheduler, engine);
-
-            Uring.prep_rw(sqe, .ACCEPT, cast(s32) handle.fd, null, 0, 0);
-            sqe.ioprio = Uring.IORING_ACCEPT_MULTISHOT;
-            sqe.accept_flags = SOCK_CLOEXEC;
-            sqe.user_data = cast(u64) cast(*void) op;
-
-            slot.op = op;
-        }
-
-        wait: Accept_Wait;
-        wait.fiber = fiber;
-
-        slot.waiter = *wait;
-        fiber.op = slot.op;
-        scheduler.pending += 1;
-
-        if fiber.deadline != 0 timer_add(scheduler, fiber, fiber.deadline);
-
-        park(scheduler, fiber);
-
-        fiber.op = null;
-
-        if wait.result >= 0 return true, wait.result, .NONE;
-
-        code := -wait.result;
-
-        fiber.platform_code = cast(s32) code;
-
-        if code == E_CANCELED {
-            if wait.cause != .NONE return true, 0, wait.cause;
-            if fiber.canceled return true, 0, .CANCELED;
-
-            return true, 0, .CLOSED;
-        }
-
-        return true, 0, error_from_code(code);
+        return true, 0, .CLOSED;
     }
 
     accept_completed :: (scheduler: *Scheduler, op: *Op, result: s64, flags: u32) {
@@ -404,6 +419,7 @@ Accept_Wait :: struct {
             } else {
                 waiter.result = result;
                 waiter.cause = op.cancel_cause;
+                waiter.closing = slot.closing;
                 slot.waiter = null;
                 scheduler.pending -= 1;
 
