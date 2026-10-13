@@ -304,8 +304,12 @@ receive_pattern :: (job: *Transfer) {
     job.done = true;
 }
 
-wait_all :: (jobs: [] *bool) {
+wait_all :: (jobs: [] *bool, limit := 60_000) {
+    started := now_ms();
+
     while true {
+        assert(now_ms() - started < limit, "the transfers did not finish in % ms", limit);
+
         all := true;
 
         for jobs if !(<<it) all = false;
@@ -344,6 +348,85 @@ test_large_transfers :: () {
         Io.spawn(receive_pattern, *jobs[3]);
 
         wait_all(.[*jobs[0].done, *jobs[1].done, *jobs[2].done, *jobs[3].done]);
+
+        for jobs assert(it.errors == 0, "transfer % failed", it_index);
+
+        close_pair(*pair);
+
+        Tls.tls_config_free(*server_config);
+        Tls.tls_config_free(*client_config);
+    }
+}
+
+// Socket buffers of a few KiB, so a megabyte cannot hide in them.
+#if OS == .WINDOWS {
+    ws2_32 :: #system_library "ws2_32";
+    set_socket_option :: (socket: s64, level: s32, name: s32, value: *void, length: s32) -> s32 #foreign ws2_32 "setsockopt";
+
+    SOL_SOCKET :: 0xffff;
+    SO_SNDBUF :: 0x1001;
+    SO_RCVBUF :: 0x1002;
+} else {
+    socket_library :: #system_library "libc";
+    set_socket_option :: (socket: s32, level: s32, name: s32, value: *void, length: u32) -> s32 #foreign socket_library "setsockopt";
+
+    #if OS == .MACOS {
+        SOL_SOCKET :: 0xffff;
+        SO_SNDBUF :: 0x1001;
+        SO_RCVBUF :: 0x1002;
+    } else {
+        SOL_SOCKET :: 1;
+        SO_SNDBUF :: 7;
+        SO_RCVBUF :: 8;
+    }
+}
+
+shrink_buffers :: (tcp: Io.Tcp_Stream) {
+    size: s32 = 8192;
+
+    #if OS == .WINDOWS {
+        set_socket_option(tcp.handle.fd, SOL_SOCKET, SO_SNDBUF, *size, 4);
+        set_socket_option(tcp.handle.fd, SOL_SOCKET, SO_RCVBUF, *size, 4);
+    } else {
+        set_socket_option(cast(s32) tcp.handle.fd, SOL_SOCKET, SO_SNDBUF, *size, 4);
+        set_socket_option(cast(s32) tcp.handle.fd, SOL_SOCKET, SO_RCVBUF, *size, 4);
+    }
+}
+
+// Both ends write a lot at once (200 KB, against socket buffers of a few KiB): each side has to keep reading
+// while its own write waits for the peer, or both wait for each other for good. (With the socket
+// buffers of a loopback connection, which take a megabyte, the large transfer above never shows
+// this.)
+test_duplex_with_small_socket_buffers :: () {
+    for version: 0..1 {
+        server_config := make_config("server", "", min = ifx version == 0 then Tls.Tls_Version.TLS_1_2 else Tls.Tls_Version.TLS_1_3);
+        client_config := make_config("", "ca");
+
+        init(*server_config);
+        init(*client_config);
+
+        pair := connect_pair(*server_config, *client_config);
+
+        expect_connected(pair);
+
+        shrink_buffers(pair.client.tcp);
+        shrink_buffers(pair.server.tcp);
+
+        SIZE :: 200_000;
+
+        jobs: [4] Transfer;
+
+        jobs[0] = .{ stream = pair.client.stream, size = SIZE, seed = 1 };
+        jobs[1] = .{ stream = pair.server.stream, size = SIZE, seed = 1 };
+        jobs[2] = .{ stream = pair.server.stream, size = SIZE + 77, seed = 5 };
+        jobs[3] = .{ stream = pair.client.stream, size = SIZE + 77, seed = 5 };
+
+        Io.spawn(send_pattern, *jobs[0]);
+        Io.spawn(receive_pattern, *jobs[1]);
+        Io.spawn(send_pattern, *jobs[2]);
+        Io.spawn(receive_pattern, *jobs[3]);
+
+        wait_all(.[*jobs[0].done, *jobs[1].done, *jobs[2].done, *jobs[3].done], 40_000);
 
         for jobs assert(it.errors == 0, "transfer % failed", it_index);
 
@@ -1364,6 +1447,8 @@ run_all :: () {
     test_alpn();
     progress("test_large_transfers");
     test_large_transfers();
+    progress("test_duplex_with_small_socket_buffers");
+    test_duplex_with_small_socket_buffers();
     progress("test_close_notify");
     test_close_notify();
     progress("test_cut_in_the_middle_of_a_record");

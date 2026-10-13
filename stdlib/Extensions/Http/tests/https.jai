@@ -29,12 +29,37 @@ echo_size :: (body: Text) -> string {
     return tprint("%", body.value.count);
 }
 
+// Built once, before any server runs: filling 3 MB in the interpreter takes seconds on a slow machine,
+// which must not count against a request.
+big: string;
+
 big_page :: () -> string {
-    page := alloc_string(BIG);
+    return big;
+}
 
-    for 0..BIG - 1 page[it] = cast(u8) (#char "a" + it % 26);
+// A request with time to spare for the interpreter: the large bodies are checked byte by byte.
+LONG_TIMEOUT :: 120_000;
 
-    return page;
+fetch_long :: (api: *Client, method: Method, path: string, body := "", content_type := "") -> Reply {
+    request: Client_Request;
+
+    request.method = method;
+    request.url = path;
+    request.body = .{ body.count, body.data };
+    request.timeout = LONG_TIMEOUT;
+
+    headers: [1] Header_Field;
+
+    if content_type.count {
+        headers[0] = .{ "Content-Type", content_type };
+        request.headers = headers;
+    }
+
+    response, error := send(api, request);
+
+    check(error.kind == .NONE, "% % failed: %", method_name(method), path, error_text(error));
+
+    return into_reply(*response);
 }
 
 BIG :: 3 * 1024 * 1024 + 17;
@@ -113,7 +138,7 @@ round_trips :: (base: string, server: *Server) {
     check(connections_opened() == before, "keep-alive: % connections opened for five requests", connections_opened() - before);
 
     // Bodies bigger than a record and than the socket buffers, both ways.
-    reply = get_path(*api, "/big");
+    reply = fetch_long(*api, .GET, "/big");
 
     check(reply.status == 200 && reply.body.count == BIG, "a large response: % bytes", reply.body.count);
 
@@ -135,7 +160,7 @@ round_trips :: (base: string, server: *Server) {
 
     for 0..BIG - 1 upload[it] = cast(u8) (it & 0x7f);
 
-    reply = post_body(*api, "/size", upload, "text/plain");
+    reply = fetch_long(*api, .POST, "/size", upload, "text/plain");
 
     check(reply.status == 200 && reply.body == tprint("%", BIG), "a large request: '%'", reply.body);
 
@@ -487,6 +512,8 @@ bad_server_config :: () {
     bad.config.address = "127.0.0.1:0";
     bad.config.handle_signals = false;
 
+    print("(the server's refusal on the next line is the expected result of this check)\n");
+
     Io.io_run((app: *App) {
         server, error := start(app);
 
@@ -496,6 +523,10 @@ bad_server_config :: () {
 
 main :: () {
     if !supported() return;
+
+    big = alloc_string(BIG);
+
+    for *big it.* = cast(u8) (#char "a" + it_index % 26);
 
     get(*app, "/ping", ping);
     get(*app, "/echo/{rest}", echo_path);

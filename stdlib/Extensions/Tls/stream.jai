@@ -25,8 +25,17 @@ Tls_Stream :: struct {
     // library makes (which are `#c_call`) can run Jai code and park the fiber.
     fiber_context: #Context;
 
-    // Calls into the library take turns (a fiber may be parked inside a send).
+    // Calls into the library take turns. A fiber never waits for the network while it holds this:
+    // the receive callback asks the library to retry and the fiber waits outside, and the send
+    // callback only appends to `out`.
     lock: Io.Fiber_Mutex;
+
+    // What the library has produced and the connection has not taken yet, in order. Appended to
+    // under `lock` by the send callback; `flush` writes it out under `flush_lock`, so the bytes
+    // of two flushes never interleave. The library is never parked in a send: that is what lets
+    // both ends of a connection write a lot at once and still read each other.
+    out: [..] u8;
+    flush_lock: Io.Fiber_Mutex;
 
     // What the Io call under the running library call returned, when it failed.
     io_error: Io.Io_Error;
@@ -166,7 +175,12 @@ read :: (stream: *Tls_Stream, buffer: [] u8) -> s64, Io.Io_Error {
         result, error := call_library(stream, .READ, buffer.data, cast(u64) buffer.count);
 
         if error != .NONE return 0, error;
+
+        // An alert or a key update the read produced goes out, unless a write is already doing it.
+        flush_error := flush(stream, false);
+
         if result > 0 return result, .NONE;
+        if flush_error != .NONE && result != ERR_SSL_PEER_CLOSE_NOTIFY return 0, flush_error;
 
         if result == ERR_SSL_PEER_CLOSE_NOTIFY {
             stream.peer_closed = true;
@@ -205,6 +219,12 @@ write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
         if stream.broken != .NONE return 0, stream.broken;
 
         result, error := call_library(stream, .WRITE, bytes.data, cast(u64) bytes.count);
+
+        if error != .NONE return 0, error;
+
+        // The write is done when its bytes are on the connection: this is where it waits when the
+        // peer is slow, and why a writer cannot pile up unbounded output.
+        error = flush(stream, true);
 
         if error != .NONE return 0, error;
         if result > 0 return result, .NONE;
@@ -262,7 +282,9 @@ close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
         // The peer may be gone, or not reading: the close below does not depend on this, and a
         // peer that is not reading must not hold up whoever closes.
         Io.with_deadline(CLOSE_NOTIFY_MS, #code {
-            call_library(stream, .CLOSE_NOTIFY, null, 0);
+            _, error := call_library(stream, .CLOSE_NOTIFY, null, 0);
+
+            if error == .NONE flush(stream, false);
         });
     }
 
@@ -355,6 +377,7 @@ open_stream :: (conf: *void, reader: Io.Reader, writer: Io.Writer) -> *Tls_Strea
     stream.writer = writer;
     stream.ssl = ssl;
     stream.can_wait = reader.wait_proc != null;
+    stream.out.allocator = context.allocator;
 
     mbedtls_ssl_set_bio(ssl, stream, bio_send, bio_receive, null);
     jai_tls_ssl_set_user(ssl, stream);
@@ -364,6 +387,8 @@ open_stream :: (conf: *void, reader: Io.Reader, writer: Io.Writer) -> *Tls_Strea
 
 release_stream :: (stream: *Tls_Stream) {
     jai_tls_ssl_free(stream.ssl);
+
+    array_free(stream.out);
 
     free(stream);
 }
@@ -452,26 +477,22 @@ fail :: (stream: *Tls_Stream, result: s32) -> Io.Io_Error {
 }
 
 // The library's way of reading and writing the connection. These run inside its calls, on the
-// fiber that made the call (`stream.fiber_context`), and park it like any Io call.
+// fiber that made the call (`stream.fiber_context`). The send callback takes the bytes at once and
+// `flush` writes them after the call; the receive callback may park the fiber only for a source
+// that cannot say when it is readable.
 bio_send :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
     stream := cast(*Tls_Stream) context_data;
-    result: s32;
 
     push_context stream.fiber_context {
-        count, error := Io.write_some(stream.writer, .{ cast(s64) length, buffer });
+        old := stream.out.count;
 
-        if error != .NONE {
-            stream.io_error = error;
-            result = ERR_NET_SEND_FAILED;
-        } else if count <= 0 {
-            stream.io_error = .NO_SPACE;
-            result = ERR_NET_SEND_FAILED;
-        } else {
-            result = cast(s32) count;
-        }
+        array_reserve(*stream.out, old + cast(s64) length);
+        memcpy(stream.out.data + old, buffer, cast(s64) length);
+
+        stream.out.count = old + cast(s64) length;
     }
 
-    return result;
+    return cast(s32) length;
 }
 
 bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
@@ -484,6 +505,10 @@ bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
             result = ERR_SSL_WANT_READ;
         } else {
             stream.ready = false;
+
+            // A source that cannot say when it is readable is read here, parking the fiber: what
+            // the library has produced so far must reach the peer first, or both would wait.
+            if !stream.can_wait flush(stream, true);
 
             count, error := Io.read(stream.reader, .{ cast(s64) length, buffer });
 
@@ -520,6 +545,74 @@ sni_callback :: (data: *void, ssl: *void, name: *u8, length: u64) -> s32 #c_call
     return 0;
 }
 
+// Writes what the library produced to the connection, in order. Only one flush writes at a time
+// (the others wait their turn, or, with `wait` off, leave their bytes to the one that is writing,
+// which does not stop before `out` is empty). A call that must know its bytes are out, like a
+// write, waits; a read that produced an alert or a key update does not hold itself up for it.
+// Deadlines and `cancel` apply as to any write. A failed write breaks the stream.
+flush :: (stream: *Tls_Stream, wait: bool) -> Io.Io_Error {
+    if stream.out.count == 0 return .NONE;
+
+    if wait {
+        error := Io.lock(*stream.flush_lock);
+
+        if error != .NONE return error;
+    } else if !Io.try_lock(*stream.flush_lock) {
+        return .NONE;
+    }
+
+    defer Io.unlock(*stream.flush_lock);
+
+    failure := Io.Io_Error.NONE;
+
+    while stream.out.count > 0 && failure == .NONE {
+        // Take everything there is: the library may add more while this waits, into a new buffer,
+        // so the memory being written never moves.
+        chunk := stream.out;
+
+        stream.out = .{};
+        stream.out.allocator = chunk.allocator;
+
+        sent := 0;
+
+        while sent < chunk.count {
+            count, error := Io.write_some(stream.writer, .{ chunk.count - sent, chunk.data + sent });
+
+            if error != .NONE {
+                failure = error;
+
+                break;
+            }
+
+            if count <= 0 {
+                failure = .NO_SPACE;
+
+                break;
+            }
+
+            sent += count;
+        }
+
+        array_free(chunk);
+    }
+
+    if failure != .NONE {
+        array_reset(*stream.out);
+
+        // A write that fails because the stream is being closed under it says so.
+        if stream.closing failure = .CLOSED;
+
+        if stream.broken == .NONE {
+            stream.failure = io_error(failure);
+            stream.broken = failure;
+        }
+
+        return failure;
+    }
+
+    return .NONE;
+}
+
 // ---------------------------------------------------------------------------------------------
 // The handshake
 
@@ -528,7 +621,12 @@ run_handshake :: (stream: *Tls_Stream) -> Tls_Error {
         result, error := call_library(stream, .HANDSHAKE, null, 0);
 
         if error != .NONE return io_error(error);
-        if result == 0 return .{};
+
+        // The handshake messages (and the alert of a failed one) go out before waiting for the peer.
+        flush_error := flush(stream, true);
+
+        if flush_error != .NONE && result != 0 return io_error(flush_error);
+        if result == 0 return ifx flush_error != .NONE then io_error(flush_error) else Tls_Error.{};
 
         if result == ERR_SSL_WANT_READ {
             error = wait_for_input(stream);
