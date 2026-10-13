@@ -141,12 +141,13 @@ percentile :: (counts: [] s64, total: s64, fraction: float64) -> s64 {
     return 0;
 }
 
-// Where the head ends and how long the body is, once the head has arrived.
-response_size :: (data: [] u8) -> int {
+// Where the head ends and how long the body is, once the head has arrived. `closes` says the server
+// ends the connection after this response (it does after `max_requests_per_connection`, 10,000).
+response_size :: (data: [] u8) -> (size: int, closes: bool) {
     text := string.{ data.count, data.data };
     end := find_index_from_left(text, "\r\n\r\n");
 
-    if end < 0 return -1;
+    if end < 0 return -1, false;
 
     head := slice(text, 0, end);
     length := 0;
@@ -162,7 +163,7 @@ response_size :: (data: [] u8) -> int {
         }
     }
 
-    return end + 4 + length;
+    return end + 4 + length, find_index_from_left(head, "Connection: close") >= 0;
 }
 
 client :: (load: Load) {
@@ -214,6 +215,7 @@ client :: (load: Load) {
         }
 
         have := 0;
+        reconnect := false;
 
         while true {
             count, read_error := Io.read(stream, .{ buffer.count - have, buffer.data + have });
@@ -226,12 +228,28 @@ client :: (load: Load) {
 
             have += count;
 
-            size := response_size(.{ have, buffer.data });
+            size, closes := response_size(.{ have, buffer.data });
 
-            if size >= 0 && have >= size break;
+            if size >= 0 && have >= size {
+                reconnect = closes;
+
+                break;
+            }
         }
 
         if open due += load.period;
+
+        if reconnect {
+            Io.close(stream);
+
+            stream, error = Io.connect(load.address);
+
+            if error != .NONE {
+                atomic_add(*load.round.bad, 1);
+
+                return;
+            }
+        }
 
         if done >= WARMUP record(load.histogram, now_ns() - planned);
 
