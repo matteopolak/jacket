@@ -48,9 +48,12 @@ Tls_Config :: struct {
     verify_proc: Tls_Verify_Proc;
     verify_data: *void;
 
-    // Set by `tls_config_init`; do not copy a config after that.
+    // Set by `tls_config_init` (its type is internal to the module): do not touch it, and do not
+    // copy a config after that.
     native: *Tls_Native;
 }
+
+#scope_module
 
 // What a config builds: one mbedTLS configuration for each side, and the objects they point to.
 Tls_Native :: struct {
@@ -71,6 +74,8 @@ Tls_Native :: struct {
     external_verify: Tls_Verify_Proc;
     external_data: *void;
 }
+
+#scope_export
 
 // Parses the certificates and keys and builds the mbedTLS configurations. Call it once before the
 // first connection; the config must stay where it is and outlive every stream made from it.
