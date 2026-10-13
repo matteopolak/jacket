@@ -2,6 +2,9 @@
 #ifndef JAI_MBEDTLS_THREADING_ALT_H
 #define JAI_MBEDTLS_THREADING_ALT_H
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 
 typedef struct mbedtls_threading_mutex_t {

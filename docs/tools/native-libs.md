@@ -4,7 +4,7 @@
 
 The stdlib binds some third-party libraries that no system ships: `stb_image`, `stb_image_write`,
 `stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, FreeType, Dear ImGui, MojoShader,
-`rpmalloc` (built with first-class heaps; macOS and Linux only) and, on Windows, SDL2.
+`rpmalloc` (built with first-class heaps; macOS and Linux only), mbedTLS (for [`Extensions/Tls`](../specs/stdlib/README.md)) and, on Windows, SDL2.
 `tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
@@ -27,6 +27,7 @@ carry the library), "shared" the `.dylib` / `.so` / `.dll` that `jaic run` loads
 | MojoShader (`mojoshader`) | built | built | built | built (static) |
 | Dear ImGui (`imgui`, C++) | built | built | built | not built (see below) |
 | `rpmalloc` | built | built | not built | not built |
+| mbedTLS (`mbedtls`) | built | built | built | built (static) |
 | SDL2 (`SDL2`) | system copy | system copy | official prebuilt release, x64 only | official prebuilt release, x64 only |
 | wgpu-native | downloaded (`tools/fetch_wgpu_native.py`), static and shared | same | same | not shipped |
 
@@ -42,7 +43,8 @@ user's to install; `jaic` finds them the usual way.
   `license` files to copy out of it (a path, or `{"file", "head", "as"}` when the licence is only
   the head of a file, as in `pl_mpeg.h`). Each library has a one-line C translation unit (`code`:
   `#define STB_IMAGE_IMPLEMENTATION` + `#include`) or a list of `units` with `include` directories,
-  `defines` and extra compiler `cflags`, and optionally a `support` unit of glue code and a `lemon`
+  `defines` and extra compiler `cflags`, and optionally a `support` unit of glue code, a `local` directory of the
+  repository with `local_units` compiled with it (mbedTLS's configuration and glue), and a `lemon`
   parser generation step; `platforms` limits it to some OSes (`["windows"]`), `except` names
   platform directories it is not built for, and `prebuilt` installs files of an official binary
   release per platform instead of compiling (SDL2). A run that builds every library then checks that
@@ -124,6 +126,15 @@ Metal and SPIR-V profiles are off (`SUPPORT_PROFILE_*=0`), as the bindings do no
 off the C diagnostics that newer compilers promote to errors in this code. At this revision
 `MOJOSHADER_compile` stops at an intermediate form that the library prints to standard output and
 returns no assembly; the bindings and upstream both behave that way.
+
+### mbedTLS
+
+`mbedtls` is the TLS library behind [`Extensions/Tls`](../specs/stdlib/README.md): mbedTLS 3.6.7 (the 3.6 LTS; Apache-2.0 OR GPL-2.0-or-later, `LICENSE` ships under `licenses/mbedtls/`) from its release tarball (pinned URL and sha256), built as one library from 107 of the 109 `library/*.c` units: crypto, X.509 and TLS together, so the Jai side has one `#system_library "mbedtls"`. Left out are `net_sockets.c` (the Io module does the sockets) and `psa_its_file.c` (persistent keys). The library's own sources are not edited. What is ours lives in the repository:
+
+- `tools/native/mbedtls/jai_mbedtls_config.h`, given to the library with `MBEDTLS_USER_CONFIG_FILE` (a `defines` entry in the manifest) on top of the defaults, which already give TLS 1.2 and 1.3, ALPN, SNI, PSA, X25519, P-256, P-384, ECDSA, RSA, AES-GCM, ChaCha20-Poly1305 and PEM. It turns on threading (`MBEDTLS_THREADING_PTHREAD`, or `MBEDTLS_THREADING_ALT` on Windows), sets the output record buffer to 8 KiB (see [memory](../specs/stdlib/README.md)) and removes the net, timing and persistent-key code; on Windows arm64 it also turns off the ARM crypto instruction paths, which need compiler support that is not checked there.
+- `tools/native/mbedtls/threading_alt.h` and `jai_mbedtls.c`: the Windows mutex (`CRITICAL_SECTION`), starting the library once per process, allocating its opaque objects, reading the system's root certificates on Unix, and a few field reads the Jai bindings cannot do.
+
+Two entries of the manifest make this possible: `local` is a directory of the repository that is added to the include path, and `local_units` are files in it that are compiled with the library. MinGW cross builds compile it the same way with `x86_64-w64-mingw32-gcc`; a program that links it on Windows also needs `bcrypt` (named by the module with `#library,system,link_always`). The Windows (clang for MSVC, and MinGW) and macOS builds have not been run here; CI builds them.
 
 ### SDL2
 

@@ -4,20 +4,17 @@
 // bodies and graceful shutdown. Run from this directory, once per backend (JAI_IO_BACKEND).
 #load "lib/server_support.jai";
 
-#import "File";
 Tls :: #import "Extensions/Tls";
 
-DATA :: "../../Tls/tests/data/";
+// The certificates of the Tls tests, as string constants (see ../../Tls/tests/data/make_certs.sh).
+#load "../../Tls/tests/data/certs.jai";
 
 load :: (name: string) -> string {
-    text, ok := read_entire_file(tprint("%1%2", DATA, name));
+    for DATA if it.name == name return it.text;
 
-    if !ok {
-        print("FAIL: % is missing: run the tests from the tests directory\n", name);
-        exit(1);
-    }
+    assert(false, "no test file %", name);
 
-    return text;
+    return "";
 }
 
 ping :: () -> string {

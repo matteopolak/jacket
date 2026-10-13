@@ -259,8 +259,11 @@ close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
     stream.users += 1;
 
     if !now && stream.established && stream.broken == .NONE {
-        // The peer may be gone or the deadline over: the close below does not depend on this.
-        call_library(stream, .CLOSE_NOTIFY, null, 0);
+        // The peer may be gone, or not reading: the close below does not depend on this, and a
+        // peer that is not reading must not hold up whoever closes.
+        Io.with_deadline(CLOSE_NOTIFY_MS, #code {
+            call_library(stream, .CLOSE_NOTIFY, null, 0);
+        });
     }
 
     error := Io.close(stream.reader, now);
@@ -323,6 +326,9 @@ c_text :: (text: *u8) -> string {
     return string.{ length, text };
 }
 
+// How long `close` waits to send close_notify.
+CLOSE_NOTIFY_MS :: 1000;
+
 Library_Call :: enum u8 {
     HANDSHAKE;
     READ;
@@ -380,9 +386,15 @@ leave :: (stream: *Tls_Stream) {
 // One call into the library, with the stream locked and the fiber's context saved for the
 // callbacks. Returns the library's result, or the error of waiting for the lock.
 call_library :: (stream: *Tls_Stream, call: Library_Call, buffer: *u8, length: u64) -> s32, Io.Io_Error {
-    error := Io.lock(*stream.lock);
+    // A close does not queue behind a fiber that is in the middle of a send: closing the
+    // connection is what ends that send.
+    if call == .CLOSE_NOTIFY {
+        if !Io.try_lock(*stream.lock) return 0, .TIMED_OUT;
+    } else {
+        error := Io.lock(*stream.lock);
 
-    if error != .NONE return 0, error;
+        if error != .NONE return 0, error;
+    }
 
     defer Io.unlock(*stream.lock);
 

@@ -60,6 +60,7 @@ Extensions/Io_Uring macos-x64: Extensions/Io_Uring/module.jai: #assert failed: E
 Extensions/Io_Uring wasm: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
 Extensions/Io_Uring windows-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
 Extensions/Io_Uring windows-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Tls wasm: Extensions/Tls/module.jai: #assert failed: Extensions/Tls runs on fibers over Io, and WebAssembly has neither
 Extensions/Wasi_Runtime linux-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime linux-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets

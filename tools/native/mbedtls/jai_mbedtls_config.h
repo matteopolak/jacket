@@ -5,6 +5,12 @@
 #ifndef JAI_MBEDTLS_CONFIG_H
 #define JAI_MBEDTLS_CONFIG_H
 
+#if defined(_WIN32) && !defined(WIN32_LEAN_AND_MEAN)
+/* windows.h would otherwise include the old winsock.h, which clashes with the winsock2.h that
+ * x509_crt.c includes after it. */
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 /* PSA (which TLS 1.3 needs), the ticket keys and the shared random generator are used from every
  * scheduler thread: each connection has a context of its own, but the library's global state is
  * locked. Windows has no pthreads: tools/native/mbedtls/threading_alt.h and the glue provide the

@@ -9,6 +9,8 @@ on:
       - stdlib/Extensions/Http/**
       - stdlib/Extensions/SIMD/**
       - stdlib/Extensions/Io/**
+      - stdlib/Extensions/Tls/**
+      - tools/native/mbedtls/**
       - tests/stdlib/http-codec-*.jai
       - tools/http_conformance.py
       - tools/io_stress.py
@@ -20,6 +22,8 @@ on:
       - stdlib/Extensions/Http/**
       - stdlib/Extensions/SIMD/**
       - stdlib/Extensions/Io/**
+      - stdlib/Extensions/Tls/**
+      - tools/native/mbedtls/**
       - tests/stdlib/http-codec-*.jai
       - tools/http_conformance.py
       - tools/io_stress.py

@@ -99,3 +99,6 @@ Extensions/Http/tests/client * wasm-interp,wasm-native the HTTP server and clien
 Extensions/Http/tests/testing * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm
 Extensions/Io/tests/pipe * wasm-interp,wasm-native wasm code cannot switch stacks, so Extensions/Io does not build for it
 Extensions/Io/tests/streams * wasm-interp,wasm-native wasm code cannot switch stacks, so Extensions/Io does not build for it
+Extensions/Tls/tests/tls * wasm-interp,wasm-native Extensions/Tls runs on fibers over Extensions/Io, which does not build for wasm
+Extensions/Tls/tests/interop * wasm-interp,wasm-native Extensions/Tls runs on fibers over Extensions/Io, which does not build for wasm
+Extensions/Http/tests/https * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm

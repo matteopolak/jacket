@@ -14,12 +14,16 @@ now_ms :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }
 
+// The test certificates and keys, as string constants (data/certs.jai, made by data/make_certs.sh
+// from the files beside it), so the program carries them and reads no file.
+#load "../data/certs.jai";
+
 load :: (name: string) -> string {
-    text, ok := read_entire_file(tprint("data/%", name));
+    for DATA if it.name == name return it.text;
 
-    assert(ok, "data/% is missing: run the tests from the tests directory", name);
+    assert(false, "no test file %", name);
 
-    return text;
+    return "";
 }
 
 pattern :: (index: int) -> u8 {
@@ -1043,6 +1047,70 @@ test_close_under_a_reader :: () {
     Tls.tls_config_free(*client_config);
 }
 
+Flooding :: struct {
+    stream: *Tls.Tls_Stream;
+    error: Io.Io_Error;
+    done: bool;
+}
+
+// Writes until something stops it.
+flood :: (job: *Flooding) {
+    block: [8192] u8;
+
+    while true {
+        _, error := Tls.write(job.stream, block);
+
+        if error != .NONE {
+            job.error = error;
+
+            break;
+        }
+    }
+
+    job.done = true;
+}
+
+// A peer that does not read cannot hold up `close`: it is what ends the writer that is stuck.
+test_close_with_a_peer_that_does_not_read :: () {
+    server_config := make_config("server", "");
+    client_config := make_config("", "ca");
+
+    init(*server_config);
+    init(*client_config);
+
+    pair := connect_pair(*server_config, *client_config);
+
+    expect_connected(pair);
+
+    job := Flooding.{ stream = pair.client.stream };
+
+    Io.spawn(flood, *job);
+
+    // The socket buffers fill up, and the writer waits inside a send.
+    Io.sleep(300);
+
+    assert(!job.done, "the writer should be stuck");
+
+    started := now_ms();
+
+    Tls.close(pair.client.stream);
+
+    pair.client.stream = null;
+
+    elapsed := now_ms() - started;
+
+    assert(elapsed < 900, "close took % ms with a peer that does not read", elapsed);
+
+    while !job.done Io.sleep(1);
+
+    assert(job.error == .CLOSED, "the stuck writer: %", job.error);
+
+    close_pair(*pair);
+
+    Tls.tls_config_free(*server_config);
+    Tls.tls_config_free(*client_config);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Many connections
 
@@ -1298,6 +1366,7 @@ run_all :: () {
     test_wait_readable();
     test_reading_and_writing_at_once();
     test_close_under_a_reader();
+    test_close_with_a_peer_that_does_not_read();
     test_many_connections();
     test_over_a_pipe();
     test_config_errors();
