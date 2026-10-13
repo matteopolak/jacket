@@ -872,6 +872,16 @@ pub struct LinkInputs {
     pub user_libraries: Vec<String>,
 }
 
+/// The C runtime libraries an MSVC link names by default (`msvcrt` brings in `vcruntime` and `ucrt`
+/// through its own directives, which `/NODEFAULTLIB` would drop).
+const MSVC_RUNTIME_LIBRARIES: &[&str] = &[
+    "msvcrt.lib",
+    "vcruntime.lib",
+    "ucrt.lib",
+    "oldnames.lib",
+    "legacy_stdio_definitions.lib",
+];
+
 /// [`LinkInputs`] for `libraries` on `target` (`None`: the host), rendered as [`link`] would
 /// pass them: `cc`-style arguments, or `name.lib` for an MSVC target.
 pub fn link_inputs(libraries: &[Library], target: Option<&str>) -> Result<LinkInputs, String> {
@@ -902,6 +912,15 @@ pub fn link_inputs(libraries: &[Library], target: Option<&str>) -> Result<LinkIn
                 inputs.user_libraries.push(format!("/LIBPATH:{dir}"))
             }
             LinkArg::SearchDir(dir) => inputs.user_libraries.push(format!("-L{dir}")),
+        }
+    }
+    if flavor == LinkFlavor::Msvc {
+        // What `link` adds with /DEFAULTLIB. A custom link command often passes /NODEFAULTLIB
+        // (to swap in the static runtime), which then needs every one of them named.
+        for name in MSVC_RUNTIME_LIBRARIES {
+            if !inputs.system_libraries.iter().any(|l| l == name) {
+                inputs.system_libraries.push((*name).to_string());
+            }
         }
     }
     Ok(inputs)

@@ -51,7 +51,7 @@ What jaic cannot do at all stops the metaprogram with an error {#bo.5}:
 With `use_custom_link_command` on a workspace that writes an executable or a dynamic library, `write_output` does not link. It calls `OutputBackend::write_objects` instead, which writes the objects to `intermediate_path` (or next to the output). It then queues `PHASE` `READY_FOR_CUSTOM_LINK_COMMAND` with:
 
 - `compiler_generated_object_files`;
-- `system_libraries`, linker arguments for libraries linked by name (`-lm`, `-framework Metal`, `user32.lib` for MSVC);
+- `system_libraries`, linker arguments for libraries linked by name (`-lm`, `-framework Metal`, `user32.lib` for MSVC, where the list ends with the C runtime jaic's own link names: `msvcrt.lib`, `vcruntime.lib`, `ucrt.lib`, `oldnames.lib`, `legacy_stdio_definitions.lib`; a command that passes `/NODEFAULTLIB` needs them all);
 - `user_libraries`, library files by path with their `-L` and `-Wl,-rpath,` arguments;
 - `executable_name`.
 
