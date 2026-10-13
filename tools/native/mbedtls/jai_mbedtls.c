@@ -91,6 +91,15 @@ void *jai_tls_ssl_new(void) {
     return ssl;
 }
 
+/* Each connection's own pointer (the Jai side's stream), which the library's callbacks hand back. */
+void jai_tls_ssl_set_user(void *ssl, void *user) {
+    mbedtls_ssl_set_user_data_p(ssl, user);
+}
+
+void *jai_tls_ssl_user(void *ssl) {
+    return mbedtls_ssl_get_user_data_p(ssl);
+}
+
 void jai_tls_ssl_free(void *ssl) {
     if (!ssl) return;
     mbedtls_ssl_free(ssl);

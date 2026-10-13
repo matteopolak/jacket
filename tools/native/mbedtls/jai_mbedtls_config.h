@@ -21,6 +21,10 @@
  * which mbedTLS does not fragment: a certificate chain larger than this cannot be sent). */
 #define MBEDTLS_SSL_OUT_CONTENT_LEN 8192
 
+/* No persistent PSA keys, so no storage for them. */
+#undef MBEDTLS_PSA_CRYPTO_STORAGE_C
+#undef MBEDTLS_PSA_ITS_FILE_C
+
 /* Sockets and timers are the Io module's. */
 #undef MBEDTLS_NET_C
 #undef MBEDTLS_TIMING_C
