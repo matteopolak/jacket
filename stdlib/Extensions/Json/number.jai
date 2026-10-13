@@ -287,7 +287,23 @@ eisel_lemire :: (w_in: u64, q: s64, mantissa_bits: s64, min_exponent: s64, infin
 // otherwise read as an integer, and `1.5e-9` / `1e21` outside that. The text is put together in a
 // local buffer and appended once.
 append_decimal_float :: (builder: *String_Builder, negative: bool, digits: *u8, count: int, exponent10: int) {
-    out: [64] u8 = ---;
+    ascii: [32] u8 = ---;
+
+    for 0..count - 1 ascii[it] = digits[it] + #char "0";
+
+    append_decimal_ascii(builder, negative, ascii.data, count, exponent10);
+}
+
+// The same for digits that are already characters. The text is built in a window reserved in the
+// builder (at most 32 bytes: 17 digits, a sign, a point, up to five zeros and an exponent), or in a
+// local buffer when the builder cannot give one.
+append_decimal_ascii :: (builder: *String_Builder, negative: bool, digits: *u8, count: int, exponent10: int) {
+    local: [64] u8 = ---;
+    window := builder_reserve(builder, 32);
+    out := window;
+
+    if !out out = local.data;
+
     n := 0;
 
     if negative {
@@ -297,17 +313,13 @@ append_decimal_float :: (builder: *String_Builder, negative: bool, digits: *u8, 
 
     // exponent10 is the exponent of the first digit: the value is d.ddd * 10^exponent10.
     if exponent10 < -6 || exponent10 >= 21 {
-        out[n] = digits[0] + #char "0";
+        out[n] = digits[0];
         n += 1;
 
         if count > 1 {
             out[n] = #char ".";
-            n += 1;
-
-            for 1..count - 1 {
-                out[n] = digits[it] + #char "0";
-                n += 1;
-            }
+            copy_bytes(out + n + 1, digits + 1, count - 1);
+            n += count;
         }
 
         out[n] = #char "e";
@@ -343,34 +355,34 @@ append_decimal_float :: (builder: *String_Builder, negative: bool, digits: *u8, 
             n += 1;
         }
 
-        for 0..count - 1 {
-            out[n] = digits[it] + #char "0";
-            n += 1;
-        }
+        copy_bytes(out + n, digits, count);
+        n += count;
     } else {
         whole := exponent10 + 1;
 
-        for 0..whole - 1 {
-            out[n] = ifx it < count then digits[it] + #char "0" else cast(u8) #char "0";
-            n += 1;
-        }
-
         if count > whole {
+            copy_bytes(out + n, digits, whole);
+            n += whole;
             out[n] = #char ".";
-            n += 1;
+            copy_bytes(out + n + 1, digits + whole, count - whole);
+            n += 1 + count - whole;
+        } else {
+            copy_bytes(out + n, digits, count);
+            n += count;
 
-            for whole..count - 1 {
-                out[n] = digits[it] + #char "0";
+            for count..whole - 1 {
+                out[n] = #char "0";
                 n += 1;
             }
-        } else {
+
             out[n] = #char ".";
             out[n + 1] = #char "0";
             n += 2;
         }
     }
 
-    append(builder, out.data, n);
+    if window builder_commit(builder, n);
+    else append(builder, out, n);
 }
 
 // The shortest decimal that reads back as the same float64, and of those the closest to it:
@@ -493,19 +505,12 @@ append_float64 :: (builder: *String_Builder, value: float64) {
 
     value_digits, exponent := shortest_decimal(magnitude);
 
-    // The digits, most significant first, as values 0..9.
+    // The digits, most significant first, as characters.
     text: [20] u8 = ---;
-    at := 20;
+    start := write_digits_backward(text.data + 20, value_digits);
+    count := text.data + 20 - start;
 
-    while value_digits != 0 {
-        at -= 1;
-        text[at] = cast,no_check(u8) (value_digits % 10);
-        value_digits /= 10;
-    }
-
-    count := 20 - at;
-
-    append_decimal_float(builder, negative, *text[at], count, exponent + count - 1);
+    append_decimal_ascii(builder, negative, start, count, exponent + count - 1);
 }
 
 append_float32 :: (builder: *String_Builder, value: float32) {

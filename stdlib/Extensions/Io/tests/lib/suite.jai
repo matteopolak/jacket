@@ -1178,26 +1178,38 @@ test_close_with_queued_connections :: () {
 }
 
 test_close_now_releases_the_port :: () {
-    listener, error := Io.tcp_listen(LOOPBACK);
+    // Another process can take the freed port before it is listened on again (the runtime tests
+    // and tools/io_stress.py run many programs at once), so a taken port is tried again with a new
+    // one. A listener that `close(now = true)` did not release fails every attempt.
+    ATTEMPTS :: 10;
 
-    assert(error == .NONE);
+    for 1..ATTEMPTS {
+        listener, error := Io.tcp_listen(LOOPBACK);
 
-    address, _ := Io.local_address(listener);
+        assert(error == .NONE);
 
-    // Arms the accept, then gives up on it.
-    Io.with_deadline(5, #code {
-        _, error = Io.accept(listener);
-    });
+        address, _ := Io.local_address(listener);
 
-    assert(error == .TIMED_OUT);
+        // Arms the accept, then gives up on it.
+        Io.with_deadline(5, #code {
+            _, error = Io.accept(listener);
+        });
 
-    Io.close(listener, now = true);
-    Io.sleep(5);
+        assert(error == .TIMED_OUT);
 
-    again, again_error := Io.tcp_listen(address);
+        Io.close(listener, now = true);
+        Io.sleep(5);
 
-    assert(again_error == .NONE, "relisten: %", again_error);
-    Io.close(again);
+        again, again_error := Io.tcp_listen(address);
+
+        if again_error == .NONE {
+            Io.close(again);
+
+            return;
+        }
+
+        assert(again_error == .ADDRESS_IN_USE && it < ATTEMPTS, "relisten: %", again_error);
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
