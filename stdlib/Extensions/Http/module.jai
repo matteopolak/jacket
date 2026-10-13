@@ -33,8 +33,11 @@ http_use_simd := true;
     #load "router.jai";
     #load "extract.jai";
     #load "app.jai";
+    #load "stream.jai";
     #load "server.jai";
     #load "client.jai";
+    #load "test_client.jai";
+    #load "expect.jai";
 }
 
 #scope_module

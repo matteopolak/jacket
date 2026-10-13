@@ -54,6 +54,13 @@ run_server :: (app: *App, body: Server_Test) {
     Io.io_run(entry, *data);
 }
 
+// Runs `body` with a test client for `app`: no socket and no scheduler to set up.
+App_Test :: #type (api: *Client);
+
+run_app :: (app: *App, body: App_Test) {
+    body(test_client(app));
+}
+
 Run_Data :: struct {
     app: *App;
     body: Server_Test;
@@ -70,52 +77,96 @@ supported :: () -> bool {
     return true;
 }
 
-// A request through the client; a transport failure fails the check and returns an empty response.
-fetch :: (base: string, method: Method, path: string, body := "", headers: [] Header_Field = .[]) -> Client_Response {
+// A response with its body read, for checks that look at both. Everything is in temporary
+// storage.
+Reply :: struct {
+    status: int;
+    reason: string;
+    headers: [] Header_Field;
+    body: string;
+}
+
+// Reads the body of `response` and closes it.
+into_reply :: (response: *Client_Response) -> Reply {
+    reply: Reply;
+
+    reply.status = response.status;
+    reply.reason = copy_string(response.reason,, temp);
+
+    list: [..] Header_Field;
+
+    for response.headers {
+        copy := it;
+
+        copy.name = copy_string(it.name,, temp);
+        copy.value = copy_string(it.value,, temp);
+
+        array_add(*list, copy,, temp);
+    }
+
+    reply.headers = list;
+
+    if response.source {
+        text, error := read_text(response);
+
+        check(error.kind == .NONE, "reading the body: %", error_text(error));
+
+        reply.body = copy_string(text,, temp);
+
+        free(text.data);
+    }
+
+    close(response);
+
+    return reply;
+}
+
+// A request through `api`, with the answer's body read; a transport failure fails the check and
+// returns an empty reply.
+fetch :: (api: *Client, method: Method, path: string, body := "", headers: [] Header_Field = .[]) -> Reply {
     request: Client_Request;
 
     request.method = method;
-    request.url = tprint("%%", base, path);
+    request.url = path;
     request.headers = headers;
     request.body = .{ body.count, body.data };
     request.timeout = 5000;
-    request.follow_redirects = false;
+    request.max_redirects = 0;
 
-    response, error := send(request);
+    response, error := send(api, request);
 
     check(error.kind == .NONE, "% % failed: %", method_name(method), path, error_text(error));
 
-    return response;
+    return into_reply(*response);
 }
 
-get_path :: (base: string, path: string, headers: [] Header_Field = .[]) -> Client_Response {
-    return fetch(base, .GET, path, "", headers);
+get_path :: (api: *Client, path: string, headers: [] Header_Field = .[]) -> Reply {
+    return fetch(api, .GET, path, "", headers);
 }
 
-post_body :: (base: string, path: string, body: string, content_type := "application/json") -> Client_Response {
+post_body :: (api: *Client, path: string, body: string, content_type := "application/json") -> Reply {
     headers := Header_Field.[.{ "Content-Type", content_type }];
 
-    return fetch(base, .POST, path, body, headers);
+    return fetch(api, .POST, path, body, headers);
 }
 
-// The response body as text.
-body_of :: (response: Client_Response) -> string {
-    return string.{ response.body.count, response.body.data };
+// The reply body as text.
+body_of :: (reply: Reply) -> string {
+    return reply.body;
 }
 
-// `"title"` of a problem document, or "" when the body is not one.
 contains :: (text: string, needle: string) -> bool {
     return find_index_from_left(text, needle) >= 0;
 }
 
-header_of :: (response: Client_Response, name: string) -> string {
-    value, _ := find_header(response.headers, name);
+header_of :: (reply: Reply, name: string) -> string {
+    value, _ := find_header(reply.headers, name);
 
     return value;
 }
 
-has_header :: (response: Client_Response, name: string) -> bool {
-    _, found := find_header(response.headers, name);
+has_header :: (reply: Reply, name: string) -> bool {
+    _, found := find_header(reply.headers, name);
 
     return found;
 }

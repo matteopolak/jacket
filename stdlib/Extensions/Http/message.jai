@@ -208,18 +208,11 @@ no_content :: () -> Response {
 
 Http_Error_Kind :: enum u8 {
     NONE; // no error: `.{}`
-    STATUS; // an HTTP status: from a handler, or (client) a response that was not 2xx
-    TRANSPORT; // client: connecting, sending or receiving failed (`transport` says how)
-    TIMEOUT; // client: the request took longer than its timeout
-    INVALID_URL; // client: the URL cannot be requested
-    UNSUPPORTED; // client: not implemented yet (https)
-    DECODE; // client: the response was not what was asked for (not JSON, wrong shape)
-    REDIRECTS; // client: too many redirects
+    STATUS; // an HTTP status, from a handler
 }
 
-// What a handler returns to answer with a status instead of a value, and what the client returns
-// for anything that went wrong. A handler's `.{}` means no error. The server sends it as an
-// RFC 9457 `application/problem+json` document:
+// What a handler returns to answer with a status instead of a value. A handler's `.{}` means
+// no error. The server sends it as an RFC 9457 `application/problem+json` document:
 //
 //     return .{}, not_found("No user with id %", id.value);
 //     // 404 {"type":"about:blank","title":"Not Found","status":404,"detail":"No user with id 7"}
@@ -227,21 +220,13 @@ Http_Error_Kind :: enum u8 {
 // `app.on_error` changes the format for all of them.
 Http_Error :: struct {
     kind: Http_Error_Kind;
-    status: int; // the HTTP status (0 when there was no response)
+    status: int; // the HTTP status
     title: string; // short and fixed per status; the reason phrase when empty
     detail: string; // what happened this time
     problem_type: string; // a URI naming the kind of problem; "about:blank" when empty
     location: string; // for bad input: `body`, `query`, `path`, `header` or `form`
     field: string; // for bad input: the parameter, header or JSON path that was wrong
     headers: [] Header_Field; // sent with the error (`Retry-After`, `WWW-Authenticate`); see with_header
-
-    // Client side.
-    body: string; // the response body, when the status was not 2xx
-    transport: Io.Io_Error; // why a TRANSPORT error happened
-
-    // Set when the strings above were allocated for this error (the client's errors): release
-    // them with `free_error`.
-    owned: bool;
 }
 
 // An error with a status and a detail text (used as it is). The named helpers below take a
@@ -326,8 +311,6 @@ error_text :: (error: Http_Error) -> string {
 
         return tprint("% %", error.status, error.title);
     }
-
-    if error.kind == .TRANSPORT return tprint("%: %", error.detail, error.transport);
 
     return error.detail;
 }

@@ -96,9 +96,11 @@ fail_with :: (code: Path("code", int)) -> Http_Error {
 trace: [..] string;
 
 log_calls :: (request: *Request, next: Next) -> Response {
-    array_add(*trace, tprint("log in %", request.path));
+    // Kept after the request, so copied out of temporary storage.
+    array_add(*trace, copy_string(tprint("log in %", request.path)));
     response := next(request);
-    array_add(*trace, tprint("log out %", response.status));
+
+    array_add(*trace, copy_string(tprint("log out %", response.status)));
 
     return response;
 }
@@ -156,139 +158,139 @@ public_home :: () -> string {
 app: App;
 custom: App;
 
-responses :: (base: string, server: *Server) {
+responses :: (api: *Client) {
     // ---- Return mapping
-    response := get_path(base, "/struct");
+    response := get_path(api, "/struct");
 
     check(response.status == 200 && body_of(response) == "{\"id\":1,\"name\":\"Ada\"}" && header_of(response, "Content-Type") == "application/json", "struct as JSON: % %", response.status, body_of(response));
 
-    response = get_path(base, "/list");
+    response = get_path(api, "/list");
     check(body_of(response) == "[{\"id\":1,\"name\":\"Ada\"},{\"id\":2,\"name\":\"Grace\"}]", "slice as JSON: %", body_of(response));
 
-    response = get_path(base, "/string");
+    response = get_path(api, "/string");
     check(body_of(response) == "plain words" && header_of(response, "Content-Type") == "text/plain; charset=utf-8", "string: % %", body_of(response), header_of(response, "Content-Type"));
 
-    response = get_path(base, "/bytes");
+    response = get_path(api, "/bytes");
     check(response.body.count == 4 && response.body[3] == 255 && header_of(response, "Content-Type") == "application/octet-stream", "bytes: % %", response.body.count, header_of(response, "Content-Type"));
 
-    response = get_path(base, "/response");
+    response = get_path(api, "/response");
     check(response.status == 202 && header_of(response, "X-Extra") == "1" && contains(body_of(response), "Linus"), "Response as is: % %", response.status, body_of(response));
 
-    response = get_path(base, "/nothing");
+    response = get_path(api, "/nothing");
     check(response.status == 204 && response.body.count == 0 && !has_header(response, "Content-Length"), "void is 204: % %", response.status, header_of(response, "Content-Length"));
 
-    response = get_path(base, "/html");
+    response = get_path(api, "/html");
     check(header_of(response, "Content-Type") == "text/html; charset=utf-8" && body_of(response) == "<p>hi</p>", "html: %", header_of(response, "Content-Type"));
 
-    response = get_path(base, "/redirect");
+    response = get_path(api, "/redirect");
     check(response.status == 307 && header_of(response, "Location") == "/elsewhere", "redirect: % %", response.status, header_of(response, "Location"));
 
-    response = post_body(base, "/created", "Hopper", "text/plain");
+    response = post_body(api, "/created", "Hopper", "text/plain");
     check(response.status == 201 && contains(body_of(response), "Hopper"), "POST value is 201: %", response.status);
 
-    response = get_path(base, "/error-only/false");
+    response = get_path(api, "/error-only/false");
     check(response.status == 204, "no error and nothing else is 204: %", response.status);
 
-    response = get_path(base, "/error-only/true");
+    response = get_path(api, "/error-only/true");
     check(response.status == 401, "error only: %", response.status);
 
-    response = get_path(base, "/pair/false");
+    response = get_path(api, "/pair/false");
     check(response.status == 200 && contains(body_of(response), "Five"), "value, no error: % %", response.status, body_of(response));
 
-    response = get_path(base, "/pair/true");
+    response = get_path(api, "/pair/true");
     check(response.status == 409 && contains(body_of(response), "it conflicts"), "value and error: % %", response.status, body_of(response));
 
-    response = get_path(base, "/bad-header");
+    response = get_path(api, "/bad-header");
     check(response.status == 500 && contains(body_of(response), "invalid response"), "a response the writer refuses is a 500: % %", response.status, body_of(response));
 
-    response = get_path(base, "/big");
+    response = get_path(api, "/big");
     check(response.body.count == 2000 * 41, "a big body arrives whole: %", response.body.count);
 
     // ---- Errors
     expected :: int.[400, 401, 403, 404, 409, 410, 418, 422, 429, 500, 503];
 
     for code: expected {
-        response = get_path(base, tprint("/fail/%", code));
+        response = get_path(api, tprint("/fail/%", code));
         check(response.status == code, "error %: got %", code, response.status);
         check(header_of(response, "Content-Type") == "application/problem+json", "error % content type: %", code, header_of(response, "Content-Type"));
         check(contains(body_of(response), tprint("\"status\":%", code)) && contains(body_of(response), "\"type\":\"about:blank\""), "error % body: %", code, body_of(response));
     }
 
-    response = get_path(base, "/fail/400");
+    response = get_path(api, "/fail/400");
     check(contains(body_of(response), "\"title\":\"Bad Request\"") && contains(body_of(response), "\"detail\":\"bad: reason\""), "the format is applied: %", body_of(response));
 
-    response = get_path(base, "/fail/404");
+    response = get_path(api, "/fail/404");
     check(!contains(body_of(response), "detail"), "no detail when none was given: %", body_of(response));
 
-    response = get_path(base, "/fail/401");
+    response = get_path(api, "/fail/401");
     check(header_of(response, "WWW-Authenticate") == "Bearer", "error headers: %", header_of(response, "WWW-Authenticate"));
 
-    response = get_path(base, "/fail/429");
+    response = get_path(api, "/fail/429");
     check(header_of(response, "Retry-After") == "30", "Retry-After: %", header_of(response, "Retry-After"));
 
-    response = get_path(base, "/fail/402");
+    response = get_path(api, "/fail/402");
     check(response.status == 402 && contains(body_of(response), "https://example.com/probs/out-of-credit") && contains(body_of(response), "Out of credit"), "problem type and title: %", body_of(response));
 
     // ---- Middleware and groups
     trace.count = 0;
 
-    response = get_path(base, "/public");
+    response = get_path(api, "/public");
     check(body_of(response) == "public" && header_of(response, "X-Seen") == "yes", "app middleware: % %", body_of(response), header_of(response, "X-Seen"));
     check(trace.count == 3 && trace[0] == "log in /public" && trace[1] == "header mw" && trace[2] == "log out 200", "app middleware order: %", trace);
 
     trace.count = 0;
 
-    response = get_path(base, "/nowhere");
+    response = get_path(api, "/nowhere");
     check(response.status == 404 && header_of(response, "X-Seen") == "yes", "app middleware sees a 404: % %", response.status, header_of(response, "X-Seen"));
 
-    response = get_path(base, "/admin");
+    response = get_path(api, "/admin");
     check(response.status == 401 && contains(body_of(response), "a token is required"), "group middleware answers itself: % %", response.status, body_of(response));
     check(header_of(response, "X-Seen") == "yes", "app middleware wraps the group's: %", header_of(response, "X-Seen"));
 
-    response = get_path(base, "/admin", Header_Field.[.{ "Authorization", "Bearer wrong" }]);
+    response = get_path(api, "/admin", Header_Field.[.{ "Authorization", "Bearer wrong" }]);
     check(response.status == 403, "a bad token: %", response.status);
 
     trace.count = 0;
 
     token := Header_Field.[.{ "Authorization", "Bearer secret" }];
 
-    response = get_path(base, "/admin", token);
+    response = get_path(api, "/admin", token);
     check(body_of(response) == "admin home" && trace.count == 4 && trace[2] == "auth", "a good token: % %", body_of(response), trace);
 
-    response = get_path(base, "/admin/users/12", token);
+    response = get_path(api, "/admin/users/12", token);
     check(body_of(response) == "admin user 12", "a param under a group: %", body_of(response));
 
     trace.count = 0;
 
-    response = get_path(base, "/admin/v1/ping", token);
+    response = get_path(api, "/admin/v1/ping", token);
     check(body_of(response) == "pong" && header_of(response, "X-Stamp") == "v1", "a nested group: % %", body_of(response), header_of(response, "X-Stamp"));
     check(trace.count == 5 && trace[2] == "auth" && trace[3] == "stamp", "nested middleware order: %", trace);
 
-    response = get_path(base, "/admin/v1/ping");
+    response = get_path(api, "/admin/v1/ping");
     check(response.status == 401, "a nested group keeps the parent's middleware: %", response.status);
 
-    response = get_path(base, "/public", token);
+    response = get_path(api, "/public", token);
     check(!has_header(response, "X-Stamp"), "group middleware stays in its group");
 
-    response = get_path(base, "/orgs/acme/orders/4");
+    response = get_path(api, "/orgs/acme/orders/4");
     check(body_of(response) == "acme 4", "params in a group prefix: %", body_of(response));
 
-    response = get_path(base, "/orgs/acme/both/4");
+    response = get_path(api, "/orgs/acme/both/4");
     check(contains(body_of(response), "\"org\":\"acme\"") && contains(body_of(response), "\"id\":4"), "Params covering prefix and route: %", body_of(response));
 }
 
-custom_errors :: (base: string, server: *Server) {
-    response := get_path(base, "/nothing");
+custom_errors :: (api: *Client) {
+    response := get_path(api, "/nothing");
 
     check(response.status == 404 && body_of(response) == "{\"error\":\"not found\",\"code\":404}" && header_of(response, "Content-Type") == "application/json", "on_error for 404: % %", response.status, body_of(response));
 
-    response = fetch(base, .DELETE, "/users/1");
+    response = fetch(api, .DELETE, "/users/1");
     check(response.status == 405 && header_of(response, "Allow") == "GET, HEAD, OPTIONS" && contains(body_of(response), "\"code\":405"), "on_error for 405 keeps Allow: % %", response.status, header_of(response, "Allow"));
 
-    response = get_path(base, "/users/x");
+    response = get_path(api, "/users/x");
     check(response.status == 400 && contains(body_of(response), "\"error\":\"invalid path parameter `id`"), "on_error for an extractor: % %", response.status, body_of(response));
 
-    response = get_path(base, "/fail");
+    response = get_path(api, "/fail");
     check(response.status == 409 && body_of(response) == "{\"error\":\"taken\",\"code\":409}", "on_error for a handler's error: % %", response.status, body_of(response));
 }
 
@@ -353,13 +355,13 @@ main :: () {
     get(orgs, "/orders/{id}", org_order);
     get(orgs, "/both/{id}", org_both);
 
-    run_server(*app, responses);
+    run_app(*app, responses);
 
     get(*custom, "/users/{id}", user_by_id);
     get(*custom, "/fail", always_conflict);
     custom.on_error = format_error;
 
-    run_server(*custom, custom_errors);
+    run_app(*custom, custom_errors);
 
     finish();
 }

@@ -37,6 +37,8 @@ slow :: (ms: Path("ms", int)) -> string {
 app: App;
 
 // 1. Keep-alive, Connection: close, HTTP/1.0.
+plain_client: Client;
+
 keep_alive :: (base: string, server: *Server) {
     stream := raw_connect(server);
 
@@ -132,7 +134,7 @@ limits :: (base: string, server: *Server) {
     body: [..] u8;
     for 1..1000 array_add(*body, #char "y");
 
-    response := post_body(base, "/text", string.{ body.count, body.data }, "text/plain");
+    response := post_body(*plain_client, tprint("%/text", base), string.{ body.count, body.data }, "text/plain");
 
     check(response.status == 200 && starts_with_count(body_of(response), "1000:"), "a body of exactly the limit: % %", response.status, response.body.count);
 
@@ -336,12 +338,16 @@ burst_client :: (burst: Burst) {
     defer Io.done(burst.group);
 
     for 1..5 {
-        response, error := send(.{ url = tprint("%/echo/x", burst.base), timeout = 3000 });
+        response, error := send(*plain_client, .{ url = tprint("%/echo/x", burst.base), timeout = 3000 });
 
-        if error.kind == .NONE && response.status == 200 && body_of(response) == "/echo/x" burst.ok.* += 1;
+        text := "";
+
+        if error.kind == .NONE text, _ = read_text(*response);
+
+        if error.kind == .NONE && response.status == 200 && text == "/echo/x" burst.ok.* += 1;
         else check(false, "burst request failed: %", error_text(error));
 
-        free_response(*response);
+        close(*response);
     }
 }
 
@@ -366,6 +372,7 @@ Shutdown_Probe :: struct {
     status: int;
     connection_header: string;
     body: string;
+    finished: Io.Wait_Group;
 }
 
 in_flight :: (probe: *Shutdown_Probe) {
@@ -381,6 +388,7 @@ in_flight :: (probe: *Shutdown_Probe) {
     }
 
     Io.close(stream);
+    Io.done(*probe.finished);
 }
 
 shutdown_test :: (base: string, server: *Server) {
@@ -396,6 +404,7 @@ shutdown_test :: (base: string, server: *Server) {
 
     entered := slow_entered;
 
+    Io.add(*probe.finished, 1);
     Io.spawn(in_flight, *probe);
     wait_for_slow(entered + 1);
 
@@ -413,6 +422,9 @@ shutdown_test :: (base: string, server: *Server) {
     wait(server);
 
     elapsed := to_milliseconds(current_time_monotonic() - started);
+
+    // The server is done, but the client fiber may not have read its answer yet: wait for it.
+    Io.wait(*probe.finished);
 
     check(probe.status == 200 && probe.body == "slow done", "the request in flight finished: % %", probe.status, probe.body);
     check(probe.connection_header == "close", "and asked the client to close: %", probe.connection_header);
