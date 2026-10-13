@@ -119,8 +119,6 @@
     }
 
     uring_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {
-        ring := *engine.uring.ring;
-
         if op.kind == .CLOSE {
             uring_close(scheduler, engine, op);
 
