@@ -520,23 +520,35 @@ lookup_fiber :: (job: Lookup_Job) {
 test_resolve_coalesces :: () {
     FIBERS :: 50;
 
-    group: Io.Wait_Group;
-    failures := 0;
-
-    before, _ := Io.resolver_statistics();
-
-    Io.add(*group, FIBERS);
-    for 1..FIBERS Io.spawn(lookup_fiber, Lookup_Job.{ *group, *failures });
-
-    Io.wait(*group);
-    assert(failures == 0, "% of % lookups failed", failures, FIBERS);
-
-    after, helpers := Io.resolver_statistics();
-
     // A helper can answer before the next fiber asks (often, on a busy machine), so how many fibers
-    // share a job varies; that none ever did is the failure.
-    assert(after - before < FIBERS, "% getaddrinfo calls for % fibers", after - before, FIBERS);
-    assert(helpers >= 1 && helpers <= 8, "% helpers", helpers);
+    // share a job varies from run to run, and now and then none do. Sharing that never happens in
+    // ten rounds is the failure.
+    shared := false;
+
+    for 1..10 {
+        group: Io.Wait_Group;
+        failures := 0;
+
+        before, _ := Io.resolver_statistics();
+
+        Io.add(*group, FIBERS);
+        for 1..FIBERS Io.spawn(lookup_fiber, Lookup_Job.{ *group, *failures });
+
+        Io.wait(*group);
+        assert(failures == 0, "% of % lookups failed", failures, FIBERS);
+
+        after, helpers := Io.resolver_statistics();
+
+        assert(helpers >= 1 && helpers <= 8, "% helpers", helpers);
+
+        if after - before < FIBERS {
+            shared = true;
+
+            break;
+        }
+    }
+
+    assert(shared, "no lookup was shared in ten rounds of % fibers", FIBERS);
 }
 
 Shared_Lookup :: struct {

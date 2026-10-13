@@ -152,6 +152,9 @@ Threaded :: struct {
     port: u16;
     threads: int;
     done: s64;
+    ready: s32; // threads that have listened (or failed to)
+    finished: s32; // threads whose clients are done
+    listen_error: s32;
 }
 
 shared: Threaded;
@@ -159,19 +162,39 @@ shared: Threaded;
 threaded_main :: () {
     listener, error := Io.tcp_listen(Io.address_v4(127, 0, 0, 1, shared.port), reuse_port = true);
 
-    assert(error == .NONE, "listen: %", error);
+    if error != .NONE {
+        // Another process took the port after pick_port released it; `run_threads` picks again.
+        Atomics.atomic_store(*shared.listen_error, cast(s32) error);
+        Atomics.atomic_add(*shared.ready, 1);
+        Atomics.atomic_add(*shared.finished, 1);
+
+        return;
+    }
 
     Io.spawn(accept_loop, listener);
 
-    group: Io.Wait_Group;
+    // Every thread listens before any client connects, and no listener closes before every
+    // thread's clients are done: a connection queued on a listener that closes is reset.
+    Atomics.atomic_add(*shared.ready, 1);
+
+    while Atomics.atomic_load(*shared.ready) < shared.threads Io.sleep(1);
+
     done: s64;
 
-    Io.add(*group, CHURN_CLIENTS);
-    for 1..CHURN_CLIENTS Io.spawn(churn, Churn.{ shared.port, *group, *done, CHURN_PER_CLIENT / shared.threads });
+    if Atomics.atomic_load(*shared.listen_error) == 0 {
+        group: Io.Wait_Group;
 
-    Io.wait(*group);
+        Io.add(*group, CHURN_CLIENTS);
+        for 1..CHURN_CLIENTS Io.spawn(churn, Churn.{ shared.port, *group, *done, CHURN_PER_CLIENT / shared.threads });
+
+        Io.wait(*group);
+    }
 
     Atomics.atomic_add(*shared.done, done);
+    Atomics.atomic_add(*shared.finished, 1);
+
+    while Atomics.atomic_load(*shared.finished) < shared.threads Io.sleep(1);
+
     Io.close(listener);
 }
 
@@ -188,16 +211,25 @@ pick_port :: () {
 }
 
 run_threads :: (count: int) {
-    shared.threads = count;
-    Io.io_run(pick_port);
+    for 1..10 {
+        shared = .{};
+        shared.threads = count;
+        Io.io_run(pick_port);
 
-    started := current_time_monotonic();
+        started := current_time_monotonic();
 
-    Io.io_run_threads(count, threaded_main);
+        Io.io_run_threads(count, threaded_main);
 
-    elapsed := seconds(started);
+        elapsed := seconds(started);
 
-    print("connections on % threads: % in % ms: % connections/s\n", count, shared.done, cast(s64) (elapsed * 1000), cast(s64) (cast(float64) shared.done / elapsed));
+        if shared.listen_error != 0 continue;
+
+        print("connections on % threads: % in % ms: % connections/s\n", count, shared.done, cast(s64) (elapsed * 1000), cast(s64) (cast(float64) shared.done / elapsed));
+
+        return;
+    }
+
+    print("the port was taken ten times in a row\n");
 }
 
 main :: () {

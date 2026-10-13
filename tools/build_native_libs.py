@@ -150,6 +150,8 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
         units = [unit]
     else:
         units = [src / rel for rel in lib['units']]
+        # Files of this repository that belong to the library (a configuration header, glue code).
+        units += [ROOT / lib['local'] / rel for rel in lib.get('local_units', [])]
     if 'support' in lib:
         # Glue the library's own sources lack (see tools/native-libs.json), as one more unit.
         support = tmp / f'jai_{name}_support.{lib.get("support_suffix", "cpp")}'
@@ -158,6 +160,8 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
     flags = ['-O2', '-w', '-I', str(src)]
     cxx_flags = ['-std=c++11', '-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics']
     flags += [f'-I{src / d}' for d in lib.get('include', [])]
+    if 'local' in lib:
+        flags.append(f'-I{ROOT / lib["local"]}')
     if 'lemon' in lib:
         flags.append(f'-I{generate_parser(lib, src, tmp, plat)}')
     flags += [f'-D{d}' for d in lib.get('defines', [])]
