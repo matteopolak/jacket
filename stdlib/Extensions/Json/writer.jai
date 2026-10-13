@@ -7,7 +7,7 @@ HEX_DIGITS :: "0123456789abcdef";
 
 // How many bytes of `text` starting at `at` form one well-formed UTF-8 sequence (RFC 3629: no
 // overlong forms, no surrogates, nothing above U+10FFFF), or 0.
-utf8_sequence_length :: (text: string, at: int) -> int {
+utf8_sequence_length :: (text: string, at: int) -> int #no_abc {
     first := text[at];
 
     if first < 0x80 return 1;
@@ -58,7 +58,7 @@ utf8_sequence_length :: (text: string, at: int) -> int {
 
 // Appends `text` as a JSON string with its quotes. Control characters, quotes and backslashes
 // are escaped; bytes that are not valid UTF-8 become U+FFFD so the output is always valid JSON.
-append_json_string :: (builder: *String_Builder, text: string) {
+append_json_string :: (builder: *String_Builder, text: string) #no_abc {
     append(builder, #char "\"");
 
     start := 0;

@@ -200,6 +200,239 @@ random_round_trips :: (count: int) {
     check(bad == 0, "short decimals print as they were written");
 }
 
+// The direct conversions (exact multiplication, Eisel-Lemire) must agree with Basic's exact
+// decimal conversion, bit for bit, on every shape of token: random digits and exponents over the
+// whole range (including subnormals and the edge of overflow), exact halfway cases between
+// neighbouring floats, and neighbours of those.
+reference64 :: (text: string) -> u64, bool {
+    d: Decimal_Float = ---;
+
+    scan_decimal_float(text, *d, limit_exponent = false);
+
+    value, overflow := decimal_float_to_float64(*d);
+
+    return bits64(value), overflow;
+}
+
+reference32 :: (text: string) -> u32, bool {
+    d: Decimal_Float = ---;
+
+    scan_decimal_float(text, *d, limit_exponent = false);
+
+    value, overflow := decimal_float_to_float32(*d);
+
+    return bits32(value), overflow;
+}
+
+fast_path_agrees_with :: (text: string, bad: *int) {
+    expected, overflow := reference64(text);
+    value, ok := parse64(text);
+
+    if ok == overflow || (ok && bits64(value) != expected) {
+        bad.* += 1;
+        if bad.* < 8 print("float64 % gave % (expected %, overflow %)\n", text, bits64(value), expected, overflow);
+    }
+
+    expected32, overflow32 := reference32(text);
+    value32, ok32 := parse32(text);
+
+    if ok32 == overflow32 || (ok32 && bits32(value32) != expected32) {
+        bad.* += 1;
+        if bad.* < 8 print("float32 % gave % (expected %, overflow %)\n", text, bits32(value32), expected32, overflow32);
+    }
+}
+
+random_digits :: (builder: *String_Builder, count: int, zero_runs: bool) {
+    for 1..count {
+        if zero_runs && random_get() % 4 == 0 append(builder, "0");
+        else if zero_runs && random_get() % 4 == 0 append(builder, "9");
+        else print(builder, "%", random_get() % 10);
+    }
+}
+
+fast_path_agrees :: (count: int) {
+    random_seed(7771);
+
+    bad := 0;
+
+    for 1..count {
+        builder: String_Builder;
+
+        if random_get() % 8 == 0 append(*builder, "-");
+
+        whole := cast(int) (random_get() % 20);
+        fraction := cast(int) (random_get() % 20);
+        zero_runs := random_get() % 3 == 0;
+
+        if whole == 0 {
+            append(*builder, "0");
+        } else {
+            print(*builder, "%", 1 + random_get() % 9);
+            random_digits(*builder, whole - 1, zero_runs);
+        }
+
+        if whole == 0 && fraction == 0 fraction = 1;
+
+        if fraction > 0 {
+            append(*builder, ".");
+            random_digits(*builder, fraction, zero_runs);
+        }
+
+        kind := random_get() % 4;
+
+        if kind == 1 print(*builder, "e%", cast(int) (random_get() % 61) - 30);
+        else if kind == 2 print(*builder, "e%", cast(int) (random_get() % 700) - 360);
+        else if kind == 3 print(*builder, "E+%", random_get() % 330);
+
+        text := builder_to_string(*builder);
+
+        fast_path_agrees_with(text, *bad);
+        free(text);
+    }
+
+    // Halfway between two floats: an odd multiple of half a unit in the last place, as integers
+    // between 2^53 and 2^64 (exact in a u64), with the neighbours on either side.
+    for 1..count / 4 {
+        k := cast(u64) (random_get() % 11) + 1;
+        m := (((cast(u64) random_get() << 32) | cast(u64) random_get()) & ((cast(u64) 1 << 52) - 1)) | (cast(u64) 1 << 52);
+        halfway := (m << k) | ((cast(u64) 1) << (k - 1));
+
+        for delta: -1..1 {
+            text := tprint("%", halfway + cast(u64) delta);
+            fast_path_agrees_with(text, *bad);
+        }
+    }
+
+    // Floats near the ends of the range and around the subnormal boundary, written with their shortest digits.
+    for 1..count / 4 {
+        bits := (cast(u64) random_get() << 32) ^ cast(u64) random_get();
+        pick := random_get() % 4;
+
+        if pick == 0 bits = (bits & 0x000f_ffff_ffff_ffff) | ((cast(u64) (random_get() % 3)) << 52);
+        else if pick == 1 bits = (bits & 0x000f_ffff_ffff_ffff) | ((cast(u64) (0x7fc + random_get() % 3)) << 52);
+        else bits &= 0x7fff_ffff_ffff_ffff;
+
+        value := cast,force(float64) bits;
+
+        if value != value || value - value != 0 continue;
+
+        fast_path_agrees_with(to_json(value), *bad);
+    }
+
+    check(bad == 0, "the direct float conversions agree with the exact one");
+}
+
+// to_json prints the digits of Schubfach; Basic's exact shortest-digit generator (the former
+// implementation) must give the same digits and the same decimal exponent for every float64.
+same_digits_as_exact :: (value: float64, bad: *int) {
+    bits := bits64(value) & 0x7fff_ffff_ffff_ffff;
+
+    if (bits >> 52) == 0x7ff || bits == 0 return;
+
+    exact := __float_decimal_digits(bits, -1);
+    written := to_json(value);
+
+    // Digits before any exponent, where the point is, and the exponent.
+    digits: [32] u8;
+    count := 0;
+    point := -1;
+    exponent := 0;
+    i := 0;
+
+    if written[0] == #char "-" i = 1;
+
+    while i < written.count && written[i] != #char "e" {
+        if written[i] == #char "." {
+            point = count;
+        } else {
+            digits[count] = written[i] - #char "0";
+            count += 1;
+        }
+
+        i += 1;
+    }
+
+    if point < 0 point = count;
+
+    if i < written.count {
+        i += 1;
+        negative := written[i] == #char "-";
+
+        if negative i += 1;
+
+        while i < written.count {
+            exponent = exponent * 10 + written[i] - #char "0";
+            i += 1;
+        }
+
+        if negative exponent = -exponent;
+    }
+
+    first := 0;
+
+    while first < count - 1 && digits[first] == 0 {
+        first += 1;
+        point -= 1;
+    }
+
+    while count > first + 1 && digits[count - 1] == 0 count -= 1;
+
+    count -= first;
+
+    matches := count == exact.count && point - 1 + exponent == exact.exponent;
+
+    for 0..count - 1 {
+        if matches && digits[first + it] != exact.digits[it] matches = false;
+    }
+
+    if !matches {
+        bad.* += 1;
+        if bad.* < 8 print("shortest digits of % (bits %): got %, exact has % digits, exponent %\n", written, bits, written, exact.count, exact.exponent);
+    }
+}
+
+shortest_matches_exact :: (count: int) {
+    random_seed(424242);
+
+    bad := 0;
+
+    // Every power of two and its neighbours: the irregular spacing and the integer fast path.
+    for exponent: 0..2046 {
+        // Every exponent in the full sweep; otherwise every 16th, and the ends of the range.
+        if !FULL_SWEEP && exponent % 16 != 0 && exponent > 4 && exponent < 2042 continue;
+
+        for delta: -2..2 {
+            bits := (cast(u64) exponent << 52) + cast(u64) (delta + 2);
+            same_digits_as_exact(cast,force(float64) bits, *bad);
+            same_digits_as_exact(cast,force(float64) ((cast(u64) exponent << 52) - 1 - cast(u64) delta + 2), *bad);
+        }
+    }
+
+    // The smallest subnormals and the largest numbers.
+    for 1..ifx FULL_SWEEP then 2000 else 20 {
+        same_digits_as_exact(cast,force(float64) cast(u64) it, *bad);
+        same_digits_as_exact(cast,force(float64) (0x7fef_ffff_ffff_ffff - cast(u64) it), *bad);
+    }
+
+    // Integers and short decimals, as they usually appear.
+    for 1..count {
+        same_digits_as_exact(cast(float64) (cast(s64) random_get() - 2147483648), *bad);
+        same_digits_as_exact(cast(float64) (cast(s64) random_get() % 100000) / 100.0, *bad);
+        same_digits_as_exact(cast(float64) (cast(s64) ((cast(u64) random_get() << 21) ^ cast(u64) random_get())) * 1.0, *bad);
+    }
+
+    // Random bit patterns, and values with a random exponent in the usual range.
+    for 1..count {
+        bits := (cast(u64) random_get() << 32) ^ cast(u64) random_get();
+        same_digits_as_exact(cast,force(float64) bits, *bad);
+
+        small := cast(float64) random_get() / 4294967296.0 * 360.0 - 180.0;
+        same_digits_as_exact(small, *bad);
+    }
+
+    check(bad == 0, "the printed digits are the exact shortest digits");
+}
+
 integers :: () {
     value, error := from_json(s64, "-9223372036854775808");
 
@@ -243,7 +476,8 @@ integers :: () {
 }
 
 // Set to true for the large random sweep (about 15 s with a release jaic in the interpreter);
-// the default count keeps the test to a few seconds even with a debug jaic.
+// the default counts keep the test well inside the runtime-test timeout even interpreted on a slow
+// machine with a debug jaic.
 FULL_SWEEP :: false;
 
 main :: () {
@@ -256,7 +490,9 @@ main :: () {
         integers();
 
         // The number reader does not look at the text's bytes in bulk, so one pass is enough.
-        if pass == 0 random_round_trips(ifx FULL_SWEEP then 20000 else 1500);
+        if pass == 0 random_round_trips(ifx FULL_SWEEP then 20000 else 1000);
+        if pass == 0 shortest_matches_exact(ifx FULL_SWEEP then 300000 else 400);
+        if pass == 0 fast_path_agrees(ifx FULL_SWEEP then 400000 else 600);
     }
 
     assert(failures == 0);

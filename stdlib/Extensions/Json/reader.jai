@@ -22,6 +22,8 @@ Json_Reader :: struct {
     key_start: int; // where the key last returned by json_object_next begins
     path: [..] Path_Segment;
     scratch: [..] u8;
+    values: [..] Json_Value; // children of the arrays being read into a Json_Value, innermost last
+    members: [..] Json_Member; // the same for objects
     index: [] u32; // stage 1's structural index, when `indexed` (see index.jai)
     ip: int; // the first index entry that may lie at or after `pos`
     indexed: bool;
@@ -50,6 +52,8 @@ reader_init :: (r: *Json_Reader, text: string, options: Json_Options) {
 reader_free :: (r: *Json_Reader) {
     array_free(r.path);
     array_free(r.scratch);
+    array_free(r.values);
+    array_free(r.members);
 }
 
 #scope_export
@@ -86,14 +90,28 @@ json_path_index :: (r: *Json_Reader, index: int) {
 
 #scope_module
 
-skip_whitespace :: (r: *Json_Reader) {
-    while r.pos < r.text.count {
-        c := r.text[r.pos];
+// Most values are not preceded by whitespace in compact documents, and by one byte or a short
+// run in pretty-printed ones: the test for "nothing to skip" is inline, the loop is not.
+skip_whitespace :: inline (r: *Json_Reader) {
+    if r.pos < r.text.count && r.text.data[r.pos] > 0x20 return;
 
-        if c != #char " " && c != #char "\n" && c != #char "\t" && c != #char "\r" return;
+    skip_whitespace_run(r);
+}
 
-        r.pos += 1;
+skip_whitespace_run :: (r: *Json_Reader) #no_abc {
+    data := r.text.data;
+    count := r.text.count;
+    i := r.pos;
+
+    while i < count {
+        c := data[i];
+
+        if c != #char " " && c != #char "\n" && c != #char "\t" && c != #char "\r" break;
+
+        i += 1;
     }
+
+    r.pos = i;
 }
 
 describe_byte :: (c: u8) -> string {
@@ -140,12 +158,12 @@ wrong_type :: (r: *Json_Reader, expected: string) -> bool {
 #scope_export
 
 // The next significant byte (0 at the end of the input).
-json_peek :: (r: *Json_Reader) -> u8 {
+json_peek :: inline (r: *Json_Reader) -> u8 {
     skip_whitespace(r);
 
     if r.pos >= r.text.count return 0;
 
-    return r.text[r.pos];
+    return r.text.data[r.pos];
 }
 
 #scope_module
@@ -280,7 +298,7 @@ hex_value :: (c: u8) -> int {
 }
 
 // Four hex digits at `at`, or -1.
-hex4 :: (text: string, at: int) -> int {
+hex4 :: (text: string, at: int) -> int #no_abc {
     if at + 4 > text.count return -1;
 
     value := 0;
@@ -298,7 +316,7 @@ hex4 :: (text: string, at: int) -> int {
 
 // Checks one string (the cursor is on the opening quote) and moves past it. Returns the raw
 // text between the quotes and whether it has escapes.
-scan_string :: (r: *Json_Reader) -> string, bool, bool {
+scan_string :: (r: *Json_Reader) -> string, bool, bool #no_abc {
     text := r.text;
 
     if r.indexed {
@@ -647,35 +665,39 @@ read_literal :: (r: *Json_Reader, word: string) -> bool {
     return json_fail(r, .SYNTAX, tprint("invalid literal, expected `%`", word));
 }
 
-// Checks the number grammar of RFC 8259 and returns the token's text.
-scan_number :: (r: *Json_Reader) -> string, bool {
-    text := r.text;
+// Checks the number grammar of RFC 8259 and returns the token's text. Every access is guarded by
+// `i < count`, so the bounds checks are off.
+scan_number :: (r: *Json_Reader) -> string, bool #no_abc {
+    data := r.text.data;
+    count := r.text.count;
     start := r.pos;
     i := start;
 
-    if i < text.count && text[i] == #char "-" i += 1;
+    if i < count && data[i] == #char "-" i += 1;
 
-    if i >= text.count {
+    if i >= count {
         json_fail_at(r, .SYNTAX, "invalid number", i);
 
         return "", false;
     }
 
-    if text[i] == #char "0" {
+    if data[i] == #char "0" {
         i += 1;
-    } else if text[i] >= #char "1" && text[i] <= #char "9" {
-        while i < text.count && text[i] >= #char "0" && text[i] <= #char "9" i += 1;
+    } else if data[i] >= #char "1" && data[i] <= #char "9" {
+        i += 1;
+
+        while i < count && data[i] >= #char "0" && data[i] <= #char "9" i += 1;
     } else {
         json_fail_at(r, .SYNTAX, "invalid number", i);
 
         return "", false;
     }
 
-    if i < text.count && text[i] == #char "." {
+    if i < count && data[i] == #char "." {
         i += 1;
         digits := i;
 
-        while i < text.count && text[i] >= #char "0" && text[i] <= #char "9" i += 1;
+        while i < count && data[i] >= #char "0" && data[i] <= #char "9" i += 1;
 
         if i == digits {
             json_fail_at(r, .SYNTAX, "invalid number: a digit must follow the decimal point", i);
@@ -684,14 +706,14 @@ scan_number :: (r: *Json_Reader) -> string, bool {
         }
     }
 
-    if i < text.count && (text[i] == #char "e" || text[i] == #char "E") {
+    if i < count && (data[i] == #char "e" || data[i] == #char "E") {
         i += 1;
 
-        if i < text.count && (text[i] == #char "+" || text[i] == #char "-") i += 1;
+        if i < count && (data[i] == #char "+" || data[i] == #char "-") i += 1;
 
         digits := i;
 
-        while i < text.count && text[i] >= #char "0" && text[i] <= #char "9" i += 1;
+        while i < count && data[i] >= #char "0" && data[i] <= #char "9" i += 1;
 
         if i == digits {
             json_fail_at(r, .SYNTAX, "invalid number: a digit must follow the exponent", i);
@@ -702,12 +724,16 @@ scan_number :: (r: *Json_Reader) -> string, bool {
 
     r.pos = i;
 
-    return slice(text, start, i - start), true;
+    return string.{ i - start, data + start }, true;
+}
+
+starts_number :: inline (c: u8) -> bool {
+    return c == #char "-" || (c >= #char "0" && c <= #char "9");
 }
 
 // An integer token (optional minus, digits only) as a sign and a magnitude; false for anything
 // else or a magnitude above u64.
-parse_integer_token :: (token: string) -> bool, u64, bool {
+parse_integer_token :: (token: string) -> bool, u64, bool #no_aoc {
     negative := false;
     i := 0;
 
@@ -719,6 +745,20 @@ parse_integer_token :: (token: string) -> bool, u64, bool {
     if i >= token.count return false, 0, false;
 
     magnitude: u64;
+
+    // Up to 19 digits cannot overflow a u64, so the common case needs no check per digit.
+    if token.count - i <= 19 {
+        while i < token.count {
+            digit := cast(u64) token.data[i] - 48;
+
+            if digit >= 10 return false, 0, false;
+
+            magnitude = magnitude * 10 + digit;
+            i += 1;
+        }
+
+        return negative, magnitude, true;
+    }
 
     while i < token.count {
         c := token[i];
@@ -741,7 +781,7 @@ parse_integer_token :: (token: string) -> bool, u64, bool {
 // Reads an integer into `out`, which must fit between `low` and `high`. `type_name` appears in
 // the message when it does not.
 json_read_signed :: (r: *Json_Reader, out: *s64, low: s64, high: s64, type_name: string) -> bool {
-    if json_peek(r) == 0 || value_name(r.text[r.pos]) != "a number" return wrong_type(r, "an integer");
+    if !starts_number(json_peek(r)) return wrong_type(r, "an integer");
 
     start := r.pos;
     token, ok := scan_number(r);
@@ -780,7 +820,7 @@ json_read_signed :: (r: *Json_Reader, out: *s64, low: s64, high: s64, type_name:
 }
 
 json_read_unsigned :: (r: *Json_Reader, out: *u64, high: u64, type_name: string) -> bool {
-    if json_peek(r) == 0 || value_name(r.text[r.pos]) != "a number" return wrong_type(r, "an integer");
+    if !starts_number(json_peek(r)) return wrong_type(r, "an integer");
 
     start := r.pos;
     token, ok := scan_number(r);
@@ -807,7 +847,7 @@ json_read_unsigned :: (r: *Json_Reader, out: *u64, high: u64, type_name: string)
 }
 
 json_read_float64 :: (r: *Json_Reader, out: *float64) -> bool {
-    if json_peek(r) == 0 || value_name(r.text[r.pos]) != "a number" return wrong_type(r, "a number");
+    if !starts_number(json_peek(r)) return wrong_type(r, "a number");
 
     start := r.pos;
     token, ok := scan_number(r);
@@ -824,7 +864,7 @@ json_read_float64 :: (r: *Json_Reader, out: *float64) -> bool {
 }
 
 json_read_float32 :: (r: *Json_Reader, out: *float32) -> bool {
-    if json_peek(r) == 0 || value_name(r.text[r.pos]) != "a number" return wrong_type(r, "a number");
+    if !starts_number(json_peek(r)) return wrong_type(r, "a number");
 
     start := r.pos;
     token, ok := scan_number(r);
@@ -890,6 +930,45 @@ json_skip_value :: (r: *Json_Reader) -> bool {
     return unexpected(r, "a value");
 }
 
+#scope_module
+
+// The children collected since `base`, moved into one allocation of exactly their size.
+take_values :: (r: *Json_Reader, base: int) -> [..] Json_Value {
+    result: [..] Json_Value;
+    count := r.values.count - base;
+
+    if count == 0 return result;
+
+    result.data = alloc(count * size_of(Json_Value));
+    result.count = count;
+    result.allocated = count;
+    result.allocator = context.allocator;
+
+    memcpy(result.data, r.values.data + base, count * size_of(Json_Value));
+    r.values.count = base;
+
+    return result;
+}
+
+take_members :: (r: *Json_Reader, base: int) -> [..] Json_Member {
+    result: [..] Json_Member;
+    count := r.members.count - base;
+
+    if count == 0 return result;
+
+    result.data = alloc(count * size_of(Json_Member));
+    result.count = count;
+    result.allocated = count;
+    result.allocator = context.allocator;
+
+    memcpy(result.data, r.members.data + base, count * size_of(Json_Member));
+    r.members.count = base;
+
+    return result;
+}
+
+#scope_export
+
 // Reads any value into a Json_Value. On failure `out` holds what was read so far, and
 // free_json releases it.
 json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
@@ -901,36 +980,65 @@ json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
 
             out.kind = .OBJECT;
 
+            base := r.members.count;
             first := true;
+            ok := true;
 
             while true {
                 key, status := json_object_next(r, *first);
 
-                if status == .ERROR return false;
-                if status == .END return true;
+                if status == .ERROR {
+                    ok = false;
 
-                member := array_add(*out.members);
+                    break;
+                }
+
+                if status == .END break;
+
+                member: Json_Member;
                 member.key = copy_string(key);
+                ok = json_read_value(r, *member.value);
 
-                if !json_read_value(r, *member.value) return false;
+                array_add(*r.members, member);
+
+                if !ok break;
             }
+
+            out.members = take_members(r, base);
+
+            return ok;
         case #char "[";
             if !json_begin_array(r) return false;
 
             out.kind = .ARRAY;
 
+            base := r.values.count;
             first := true;
+            ok := true;
 
             while true {
                 status := json_array_next(r, *first);
 
-                if status == .ERROR return false;
-                if status == .END return true;
+                if status == .ERROR {
+                    ok = false;
 
-                item := array_add(*out.items);
+                    break;
+                }
 
-                if !json_read_value(r, item) return false;
+                if status == .END break;
+
+                item: Json_Value;
+
+                ok = json_read_value(r, *item);
+
+                array_add(*r.values, item);
+
+                if !ok break;
             }
+
+            out.items = take_values(r, base);
+
+            return ok;
         case #char "\"";
             text, ok := json_read_string(r);
 

@@ -1350,25 +1350,49 @@ test_config_errors :: () {
     Tls.tls_config_free(*client);
 }
 
+// Names each group as it starts, so a run that hangs says where (a timeout keeps the output).
+progress :: (name: string) {
+    print("  %\n", name);
+}
+
 run_all :: () {
+    progress("test_handshakes");
     test_handshakes();
+    progress("test_version_mismatch");
     test_version_mismatch();
+    progress("test_alpn");
     test_alpn();
+    progress("test_large_transfers");
     test_large_transfers();
+    progress("test_close_notify");
     test_close_notify();
+    progress("test_cut_in_the_middle_of_a_record");
     test_cut_in_the_middle_of_a_record();
+    progress("test_handshake_deadline");
     test_handshake_deadline();
+    progress("test_handshake_cancel");
     test_handshake_cancel();
+    progress("test_verification_failures");
     test_verification_failures();
+    progress("test_verification_off");
     test_verification_off();
+    progress("test_client_certificates");
     test_client_certificates();
+    progress("test_verify_proc");
     test_verify_proc();
+    progress("test_wait_readable");
     test_wait_readable();
+    progress("test_reading_and_writing_at_once");
     test_reading_and_writing_at_once();
+    progress("test_close_under_a_reader");
     test_close_under_a_reader();
+    progress("test_close_with_a_peer_that_does_not_read");
     test_close_with_a_peer_that_does_not_read();
+    progress("test_many_connections");
     test_many_connections();
+    progress("test_over_a_pipe");
     test_over_a_pipe();
+    progress("test_config_errors");
     test_config_errors();
 }
 

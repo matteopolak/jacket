@@ -4,6 +4,7 @@
 //     jaic build -O2 stdlib/Extensions/Json/bench/bench.jai -o /tmp/json-bench
 //     /tmp/json-bench                        # a generated 4 MB document of mixed content
 //     /tmp/json-bench twitter.json canada.json citm_catalog.json
+//     /tmp/json-bench floats                 # a generated 2 MB array of coordinates, typed
 //
 // Files given on the command line are measured as untyped documents (`from_json(Json_Value, ...)`, then
 // to_json of the value). The generated document is also decoded into and encoded from a typed
@@ -36,6 +37,10 @@ Item :: struct {
 
 Catalog :: struct {
     items: [..] Item;
+}
+
+Floats :: struct {
+    values: [..] float64;
 }
 
 WORDS :: string.["alpha", "beta", "gamma", "delta", "épsilon", "日本語", "line\\nbreak", "quote\\\"d", "plain text that is a little longer than the rest, with spaces", "x"];
@@ -97,6 +102,31 @@ generate :: (megabytes: int) -> string {
     return builder_to_string(*builder);
 }
 
+// About `megabytes` MB of longitudes and latitudes with up to 17 significant digits, as in canada.json.
+generate_floats :: (megabytes: int) -> string {
+    random_seed(7);
+
+    builder: String_Builder;
+
+    append(*builder, "{\"values\": [");
+
+    first := true;
+
+    while builder_string_length(*builder) < megabytes * 1024 * 1024 {
+        if !first append(*builder, ", ");
+
+        first = false;
+
+        value := (cast(float64) random_get() / 4294967296.0) * 360.0 - 180.0;
+
+        append(*builder, to_json(value));
+    }
+
+    append(*builder, "]}\n");
+
+    return builder_to_string(*builder);
+}
+
 seconds :: () -> float64 {
     return to_float64_seconds(current_time_monotonic());
 }
@@ -139,6 +169,7 @@ bench_text: string;
 bench_value: Json_Value;
 bench_catalog: Catalog;
 bench_encoded: string;
+bench_floats: Floats;
 
 parse_work :: () {
     _, error := from_json(Json_Value, bench_text);
@@ -157,6 +188,16 @@ decode_work :: () {
 
 encode_work :: () {
     encoded := to_json(bench_catalog);
+    assert(encoded.count > 0);
+}
+
+decode_floats_work :: () {
+    _, error := from_json(Floats, bench_text);
+    assert(error.kind == .NONE);
+}
+
+encode_floats_work :: () {
+    encoded := to_json(bench_floats);
     assert(encoded.count > 0);
 }
 
@@ -219,6 +260,25 @@ bench :: (pool: *Flat_Pool, label: string, text: string, typed: bool) {
 
 }
 
+bench_floats_document :: (pool: *Flat_Pool) {
+    text := generate_floats(2);
+
+    bench_text = text;
+    print("floats: % bytes\n", text.count);
+
+    json_index_min_size = 1 << 40;
+
+    compare(pool, "from_json (Floats)", cast(float64) text.count / (1024.0 * 1024.0), decode_floats_work);
+
+    json_use_simd = false;
+    floats, error := from_json(Floats, text);
+
+    assert(error.kind == .NONE);
+    bench_floats = floats;
+
+    compare(pool, "to_json (Floats)", cast(float64) to_json(floats).count / (1024.0 * 1024.0), encode_floats_work);
+}
+
 main :: () {
     pool: Flat_Pool;
 
@@ -226,7 +286,9 @@ main :: () {
 
     arguments := get_command_line_arguments();
 
-    if arguments.count < 2 {
+    if arguments.count == 2 && arguments[1] == "floats" {
+        bench_floats_document(*pool);
+    } else if arguments.count < 2 {
         text := generate(4);
         bench(*pool, "generated catalog", text, true);
     } else {
