@@ -345,6 +345,12 @@ def run_check(check, args, plat, shots):
             (work / name).symlink_to(UPSTREAM / name, target_is_directory=True)
         for dest, source in check.get("files", {}).items():
             shutil.copyfile(ROOT / source, work / dest)
+        # Files only some platforms need, from the built native libraries (`{native_libs}`): the
+        # corpus has the text of a project, not its prebuilt binaries.
+        for dest, source in check.get("platform_files", {}).get(plat, {}).items():
+            target = work / dest
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source.replace("{native_libs}", os.environ.get("JAIC_NATIVE_LIBS", "")), target)
         cwd = work / check["project"] / check.get("dir", "")
         env = dict(os.environ)
         env.update(check.get("env", {}))

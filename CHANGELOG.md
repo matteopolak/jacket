@@ -23,6 +23,11 @@
 
 ### Fixes
 
+- Windows: `Extensions/Io` creates its IoRing with a version that accepts file writes (`IORING_VERSION_3`, 300, when the system has it) instead of always version 2, which refused them, and treats `ERROR_TIMEOUT` from `GetQueuedCompletionStatusEx` as a timeout.
+- Windows: `CreateEventW` under `jaic run` now makes a real kernel event, so it can be an `OVERLAPPED`'s `hEvent`; the interpreter's scheduler still waits on it and sees the kernel signal it.
+- Windows: the main workspace's default `output_path` uses `/` like `#file`, and `Bindings_Generator` types enums without negative values `u32` for non-Windows targets when run on Windows.
+- Windows: `find_visual_studio_in_a_ridiculous_garbage_way` returns the folder of `link.exe` rather than the file, and `find_windows_kit_root` returns the versioned `Lib` folder of the SDK, which is how upstream projects (Focus) build their link commands from them; `find_windows_kit_install_root` is the registry's root.
+- MinGW cross builds no longer fail in `ld.lld` on globals whose names contain spaces: COFF symbols are not given hidden visibility, which LLVM turned into unquoted `-exclude-symbols:` directives.
 - A baked `$loc := #caller_location` default is the location of the call, not of the declaration.
 - `string_to_float64`, `string_to_float` and the Json float decoder are correctly rounded: about 1 in 600 random doubles used to parse one ulp off, and float32 results are now rounded once from the digits instead of through a float64. Json shares Basic's conversion; its own copy is gone.
 - `from_json` frees everything it allocated when decoding fails (and returns a default value), including the error message of an indexed attempt that was parsed again; a repeated key in a `Hash_Table` object no longer leaks the earlier value. New `free_json(*value)` releases a decoded value.

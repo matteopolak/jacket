@@ -524,6 +524,11 @@
     {
       "id": "focus",
       "project": "focus-editor--focus",
+      "platform_files": {
+        "windows-x64": {
+          "focus-editor--focus/modules/freetype-bin/windows/freetype.lib": "{native_libs}/freetype.lib"
+        }
+      },
       "steps": [
         {
           "name": "build the macOS rendering view",
