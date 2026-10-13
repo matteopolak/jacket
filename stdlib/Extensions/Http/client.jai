@@ -156,7 +156,7 @@ Transport :: struct {
     base: #type (data: *void) -> string;
 
     // A new connection for `url` (its scheme, host and port); null: a TCP connection to the host.
-    open: #type (data: *void, url: Url) -> Stream, Io.Io_Error;
+    open: #type (data: *void, url: Url) -> Link, Io.Io_Error;
 }
 
 // What requests have in common.
@@ -623,15 +623,7 @@ send_on_fiber :: (client: *Client, request: Client_Request) -> Client_Response, 
     response: Client_Response;
     error: Client_Error;
 
-    if timeout > 0 {
-        previous := Io.set_deadline(timeout);
-
-        response, error = send_following(client, request, note);
-
-        Io.restore_deadline(previous);
-    } else {
-        response, error = send_following(client, request, note);
-    }
+    Io.with_deadline(within(timeout), #code { response, error = send_following(client, request, note); });
 
     if error.kind != .NONE return build_response(0, error_text(error), .[], note), error;
 
@@ -845,7 +837,7 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
 
         if failure.kind == .NONE return response, .{};
 
-        stream_close(stream);
+        close(stream);
 
         // A pooled connection the server closed while it sat idle fails before any answer came:
         // that is not the request's fault, so try once more on a fresh connection.
@@ -866,7 +858,7 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
 // Writes the request on `stream` and reads the response up to the end of its head. The body is
 // left on the stream, in the response's `source`. `reply_started` says whether any byte of an
 // answer arrived.
-converse :: (client: *Client, stream: Stream, method: Method, method_text: string, url: Url, headers: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note) -> Client_Response, reply_started: bool, Client_Error {
+converse :: (client: *Client, stream: Link, method: Method, method_text: string, url: Url, headers: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note) -> Client_Response, reply_started: bool, Client_Error {
     out: [..] u8;
 
     defer array_reset(*out);
@@ -879,7 +871,7 @@ converse :: (client: *Client, stream: Stream, method: Method, method_text: strin
 
     append_bytes(*out, body.data, body.count);
 
-    _, write_error := stream_write(stream, out);
+    _, write_error := Io.write(stream.writer, out);
 
     if write_error != .NONE return .{}, false, io_failure(write_error, "sending the request");
 
@@ -915,7 +907,7 @@ converse :: (client: *Client, stream: Stream, method: Method, method_text: strin
     defer array_reset(*headers_list);
 
     while !got_head {
-        count, read_error := stream_read(stream, source.buffer);
+        count, read_error := Io.read(stream.reader, source.buffer);
 
         if read_error != .NONE return .{}, started, io_failure(read_error, "reading the response");
 
@@ -1056,12 +1048,12 @@ build_response :: (status: int, reason: string, headers: [] Header_Field, note: 
 //
 // A `Body_Source` is what is left of a response once its head is parsed: the connection, the
 // parser positioned at the start of the body, and the bytes read past the head. It sits on the
-// heap so every copy of the `Client_Response` shares it. It reads through the `stream_*`
+// heap so every copy of the `Client_Response` shares it. It reads through the connection's `Io.Reader`
 // procedures only, so it does not care what the connection is.
 
 Body_Source :: struct {
     // The connection, and what it is pooled under.
-    stream: Stream;
+    stream: Link;
     owner: *void;
     host: string;
     port: u16;
@@ -1123,7 +1115,7 @@ drop_connection :: (source: *Body_Source) {
     if !source.held return;
 
     unregister_source(source);
-    stream_close(source.stream);
+    close(source.stream);
 
     source.held = false;
 }
@@ -1149,12 +1141,12 @@ connection_done :: (source: *Body_Source) {
     if source.keep_alive && source.kind != .UNTIL_CLOSE && source.input.count == 0 {
         checkin(source.owner, source.host, source.port, source.stream);
     } else {
-        stream_close(source.stream);
+        close(source.stream);
     }
 }
 
 read_wire :: (source: *Body_Source) -> int, Io.Io_Error {
-    remaining: s64;
+    remaining := Io.NO_DEADLINE;
 
     if source.deadline_ms > 0 {
         remaining = source.deadline_ms - now_ms();
@@ -1162,7 +1154,12 @@ read_wire :: (source: *Body_Source) -> int, Io.Io_Error {
         if remaining <= 0 return 0, .TIMED_OUT;
     }
 
-    return read_within(source.stream, source.buffer, remaining);
+    count: s64;
+    error: Io.Io_Error;
+
+    Io.with_deadline(remaining, #code { count, error = Io.read(source.stream.reader, source.buffer); });
+
+    return count, error;
 }
 
 // Makes `source.pending` hold body bytes, reading from the connection when it has none. Returns
@@ -1352,32 +1349,30 @@ release_source :: (source: *Body_Source) {
         return;
     }
 
-    previous := Io.set_deadline(DRAIN_TIMEOUT);
-
     total := 0;
 
     source.reading = true;
 
-    while source.held {
-        eof, error := fill_pending(source);
+    Io.with_deadline(DRAIN_TIMEOUT, #code {
+        while source.held {
+            eof, error := fill_pending(source);
 
-        if error.kind != .NONE {
-            free_error(*error);
+            if error.kind != .NONE {
+                free_error(*error);
 
-            break;
+                break;
+            }
+
+            if eof break;
+
+            total += source.pending.count;
+            source.pending = .{};
+
+            if total > DRAIN_LIMIT break;
         }
-
-        if eof break;
-
-        total += source.pending.count;
-        source.pending = .{};
-
-        if total > DRAIN_LIMIT break;
-    }
+    });
 
     source.reading = false;
-
-    Io.restore_deadline(previous);
 
     // Whatever is left over is not worth waiting for.
     drop_connection(source);
@@ -1427,7 +1422,7 @@ Pool_Entry :: struct {
     host: string;
     port: u16;
     owner: *void; // the transport's data: a connection is only reused by the transport that made it
-    stream: Stream;
+    stream: Link;
     since: s64;
 }
 
@@ -1455,13 +1450,13 @@ drop_pool :: (value: *void) {
     pool := cast(*Client_Pool) value;
 
     for pool.idle {
-        stream_close_now(it.stream);
+        close(it.stream, now = true);
         free(it.host.data);
     }
 
     // Responses that were never read or closed lose their connection with the scheduler.
     for pool.open {
-        stream_close_now(it.stream);
+        close(it.stream, now = true);
 
         it.held = false;
         it.released = true;
@@ -1474,7 +1469,7 @@ drop_pool :: (value: *void) {
 }
 
 // A connection to the URL's host: an idle one from the pool, or a new one.
-checkout :: (client: *Client, url: Url) -> Stream, reused: bool, Client_Error {
+checkout :: (client: *Client, url: Url) -> Link, reused: bool, Client_Error {
     pool := client_pool();
     now := now_ms();
     owner := client.transport.data;
@@ -1499,17 +1494,20 @@ checkout :: (client: *Client, url: Url) -> Stream, reused: bool, Client_Error {
         index -= 1;
     }
 
-    stream: Stream;
+    stream: Link;
     error: Io.Io_Error;
 
     if client.transport.open {
         stream, error = client.transport.open(owner, url);
     } else {
+        address: Io.Address;
         tcp: Io.Tcp_Stream;
 
-        tcp, error = Io.connect(url.host, url.port);
+        address, error = Io.resolve(url.host, url.port);
 
-        stream = tcp_stream(tcp);
+        if error == .NONE tcp, error = Io.connect(address);
+
+        if error == .NONE stream = tcp_link(tcp);
     }
 
     if error != .NONE {
@@ -1528,10 +1526,10 @@ drop_entry :: (pool: *Client_Pool, index: int) {
     // pool meanwhile.
     array_ordered_remove_by_index(*pool.idle, index);
     free(entry.host.data);
-    stream_close(entry.stream);
+    close(entry.stream);
 }
 
-checkin :: (owner: *void, host: string, port: u16, stream: Stream) {
+checkin :: (owner: *void, host: string, port: u16, stream: Link) {
     pool := client_pool();
 
     count := 0;
@@ -1553,7 +1551,7 @@ checkin :: (owner: *void, host: string, port: u16, stream: Stream) {
     }
 
     if client_settings.max_idle_per_host <= 0 {
-        stream_close(stream);
+        close(stream);
 
         return;
     }

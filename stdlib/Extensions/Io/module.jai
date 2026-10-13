@@ -36,6 +36,7 @@
 #load "net.jai";
 #load "pipe.jai";
 #load "files.jai";
+#load "stream.jai";
 #load "runtime.jai";
 #load "interrupt.jai";
 

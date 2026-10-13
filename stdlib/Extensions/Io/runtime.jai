@@ -1,37 +1,24 @@
 // Deadlines, which backend is running, and one scheduler per thread.
 
-// Limits every IO call (and `sleep`) in `body` to `milliseconds` from now: one that is still
-// waiting then returns `.TIMED_OUT`, and so does a call made after the limit. Deadlines nest; the
-// earlier one wins. Channel and lock operations are not IO and ignore it.
+// The one way to bound a wait. Limits every IO call (and `sleep`) in `body` to `milliseconds`
+// from now: one that is still waiting then returns `.TIMED_OUT`, and so does a call made after the
+// limit, even when data is ready. `0` is a limit that has already passed. Deadlines nest; the
+// earlier one wins, and the previous deadline is back when `body` ends. A negative `milliseconds`
+// adds no limit (`NO_DEADLINE`), so a timeout setting that may be off needs no second code path.
+// Channel and lock operations are not IO and ignore it.
 //
 //     with_deadline(2000, #code {
 //         count, error = read(conn, buffer);       // .TIMED_OUT after two seconds without data
 //     });
 with_deadline :: (milliseconds: s64, body: Code) #expand {
-    previous_deadline := set_deadline(milliseconds);
-    defer restore_deadline(previous_deadline);
+    previous_deadline := push_deadline(milliseconds);
+    defer pop_deadline(previous_deadline);
 
     #insert body;
 }
 
-// The procedure form of `with_deadline`: starts a deadline for the running fiber and returns what
-// to give `restore_deadline` when the guarded work is over.
-set_deadline :: (milliseconds: s64) -> s64 {
-    fiber := current_fiber();
-    previous := fiber.deadline;
-
-    limit := now_nanoseconds() + max(milliseconds, 0) * 1_000_000;
-
-    if previous == 0 || limit < previous fiber.deadline = limit;
-
-    return previous;
-}
-
-restore_deadline :: (previous: s64) {
-    fiber := current_fiber();
-
-    fiber.deadline = previous;
-}
+// A `with_deadline` argument that adds no limit.
+NO_DEADLINE :: -1;
 
 Backend :: enum u8 {
     // No IO on this system: every operation fails with `.UNSUPPORTED`.
@@ -154,6 +141,27 @@ io_run_threads :: (count: s64, proc: $P, data: $T) {
 
 #scope_module
 
+// Starts a deadline for the running fiber and returns what `pop_deadline` is given when the
+// guarded work is over.
+push_deadline :: (milliseconds: s64) -> s64 {
+    fiber := current_fiber();
+    previous := fiber.deadline;
+
+    if milliseconds < 0 return previous;
+
+    limit := now_nanoseconds() + milliseconds * 1_000_000;
+
+    if previous == 0 || limit < previous fiber.deadline = limit;
+
+    return previous;
+}
+
+pop_deadline :: (previous: s64) {
+    fiber := current_fiber();
+
+    fiber.deadline = previous;
+}
+
 run_threads :: (count: s64, entry: Thread.Native_Thread_Proc, data: *void) {
     count = ifx count <= 0 then processor_count() else count;
 
@@ -183,7 +191,7 @@ run_threads :: (count: s64, entry: Thread.Native_Thread_Proc, data: *void) {
 
 // What `set_scheduler_local` is given to release a value when its scheduler ends. It runs on the
 // scheduler's thread after every fiber has ended, so it must not block: close sockets with
-// `close_now`.
+// `close(stream, now = true)`.
 Local_Drop :: #type (value: *void);
 
 Local_Entry :: struct {
@@ -218,28 +226,6 @@ set_scheduler_local :: (key: *void, value: *void, drop: Local_Drop) {
     }
 
     array_add(*scheduler.locals, Local_Entry.{ key, value, drop });
-}
-
-// Closes `stream` at once, without waiting, for code that cannot block: a `Local_Drop`, or a
-// fiber that must not give up its turn. Fibers still waiting on the stream are not woken, so use
-// `close` unless the scheduler is ending.
-close_now :: (stream: Tcp_Stream) {
-    scheduler := context.io_scheduler;
-    engine := scheduler.engine;
-
-    if engine.backend == .EPOLL || engine.backend == .KQUEUE poll_close(scheduler, engine, stream.handle.fd);
-
-    sys_close(stream.handle.fd);
-}
-
-// The same for a listener.
-close_now :: (listener: Tcp_Listener) {
-    scheduler := context.io_scheduler;
-    engine := scheduler.engine;
-
-    if engine.backend == .EPOLL || engine.backend == .KQUEUE poll_close(scheduler, engine, listener.handle.fd);
-
-    sys_close(listener.handle.fd);
 }
 
 #scope_module

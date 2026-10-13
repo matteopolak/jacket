@@ -251,7 +251,7 @@ accept :: (listener: Tcp_Listener) -> Tcp_Stream, Io_Error {
     return stream, .NONE;
 }
 
-// Connects to `address`.
+// Connects to `address`. The one with a name is `connect("host:port")`.
 connect :: (address: Address) -> Tcp_Stream, Io_Error {
     current_fiber();
 
@@ -288,15 +288,7 @@ connect :: (address: Address) -> Tcp_Stream, Io_Error {
     return stream, .NONE;
 }
 
-// Connects to `host:port`, looking `host` up if it is a name.
-connect :: (host: string, port: u16) -> Tcp_Stream, Io_Error {
-    address, error := resolve(host, port);
-    if error != .NONE return .{}, error;
-
-    return connect(address);
-}
-
-// Connects to `"host:port"`, `"1.2.3.4:80"` or `"[::1]:80"`.
+// Connects to `"host:port"`, `"1.2.3.4:80"` or `"[::1]:80"`, looking `host` up if it is a name.
 connect :: (target: string) -> Tcp_Stream, Io_Error {
     split := -1;
 
@@ -312,7 +304,10 @@ connect :: (target: string) -> Tcp_Stream, Io_Error {
     port, ok := parse_decimal(string.{ target.count - split - 1, target.data + split + 1 }, 65535);
     if !ok return .{}, .INVALID;
 
-    return connect(string.{ split, target.data }, cast(u16) port);
+    resolved, error := resolve(string.{ split, target.data }, cast(u16) port);
+    if error != .NONE return .{}, error;
+
+    return connect(resolved);
 }
 
 // The address this socket is bound to; with `tcp_listen(":0")`, which port it got.
@@ -352,17 +347,7 @@ read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the peer closed first, with the bytes read.
 read_full :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
-    total := 0;
-
-    while total < buffer.count {
-        count, error := read(stream, .{ buffer.count - total, buffer.data + total });
-        if error != .NONE return total, error;
-        if count == 0 return total, .END_OF_FILE;
-
-        total += count;
-    }
-
-    return total, .NONE;
+    return read_full(reader_of(stream), buffer);
 }
 
 // Sends some of `data`: at least one byte unless `data` is empty. Returns how many.
@@ -385,16 +370,7 @@ write_some :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
 
 // Sends all of `data`, waiting as often as it takes. On an error it returns how many bytes went out.
 write :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
-    total := 0;
-
-    while total < data.count {
-        count, error := write_some(stream, .{ data.count - total, data.data + total });
-        if error != .NONE return total, error;
-
-        total += count;
-    }
-
-    return total, .NONE;
+    return write(writer_of(stream), data);
 }
 
 write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
@@ -409,12 +385,26 @@ shutdown_write :: (stream: Tcp_Stream) -> Io_Error {
 }
 
 // Closes the socket. Fibers still waiting on it return `.CLOSED`. Works for a canceled fiber too,
-// so `defer close(conn)` always cleans up.
-close :: (stream: Tcp_Stream) -> Io_Error {
+// so `defer close(conn)` always cleans up. With `now` it closes at once without waiting, for code
+// that cannot block: a `Local_Drop`, or a fiber that must not give up its turn. Fibers still
+// waiting on the socket are not woken, so use the plain call unless the scheduler is ending.
+close :: (stream: Tcp_Stream, now := false) -> Io_Error {
+    if now {
+        close_without_waiting(stream.handle);
+
+        return .NONE;
+    }
+
     return close_handle(stream.handle);
 }
 
-close :: (listener: Tcp_Listener) -> Io_Error {
+close :: (listener: Tcp_Listener, now := false) -> Io_Error {
+    if now {
+        close_without_waiting(listener.handle);
+
+        return .NONE;
+    }
+
     return close_handle(listener.handle);
 }
 
@@ -714,6 +704,17 @@ close_handle :: (handle: Handle) -> Io_Error {
     end_op(op);
 
     return error;
+}
+
+// Closes `handle` at once, on the calling thread's scheduler, without parking the fiber (it may
+// run outside any fiber, in a `Local_Drop`).
+close_without_waiting :: (handle: Handle) {
+    scheduler := context.io_scheduler;
+    engine := scheduler.engine;
+
+    if engine.backend == .EPOLL || engine.backend == .KQUEUE poll_close(scheduler, engine, handle.fd);
+
+    sys_close_handle(handle);
 }
 
 // Closes a handle that never reached the engine, or whose operations all finished.

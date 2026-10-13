@@ -173,10 +173,12 @@ test_deadline_and_cancel :: () {
 
     started := to_milliseconds(current_time_monotonic());
 
-    previous := Io.set_deadline(30);
-    count, error := Io.read(far, buffer);
+    count: s64;
+    error: Io.Io_Error;
 
-    Io.restore_deadline(previous);
+    Io.with_deadline(30, #code {
+        count, error = Io.read(far, buffer);
+    });
 
     elapsed := to_milliseconds(current_time_monotonic()) - started;
 

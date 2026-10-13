@@ -14,7 +14,7 @@ File_Mode :: enum u8 {
     READ_WRITE;
 }
 
-// An open file. `read` and `write` use and advance `position`; `read_at` and `write_at` do not.
+// An open file. `read` and `write` use and advance `position`; `read_at` and `write_at` do not. It has a position, so every procedure takes it by pointer.
 Io_File :: struct {
     handle: Handle;
     position: s64;
@@ -46,13 +46,19 @@ open_file :: (path: string, mode := File_Mode.READ) -> Io_File, Io_Error {
 
 // Reads up to `buffer.count` bytes at the file's position. 0 at the end of the file.
 read :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
-    count, error := read_at(file.*, buffer, file.position);
+    count, error := read_at(file, buffer, file.position);
     file.position += count;
 
     return count, error;
 }
 
-read_at :: (file: Io_File, buffer: [] u8, offset: s64) -> s64, Io_Error {
+// Reads until `buffer` is full. `.END_OF_FILE` if the file ended first, with the bytes read.
+read_full :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
+    return read_full(reader_of(file), buffer);
+}
+
+// Reads at `offset`; the file's position does not move.
+read_at :: (file: *Io_File, buffer: [] u8, offset: s64) -> s64, Io_Error {
     if buffer.count == 0 return 0, .NONE;
 
     op := begin_op(.READ, file.handle);
@@ -70,19 +76,39 @@ read_at :: (file: Io_File, buffer: [] u8, offset: s64) -> s64, Io_Error {
     return count, .NONE;
 }
 
-// Writes all of `data` at the file's position (at the end, for `.APPEND`).
-write :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
-    count, error := write_at(file.*, data, file.position);
+// Writes some of `data` at the file's position (at the end, for `.APPEND`) and moves the
+// position past it. At least one byte unless `data` is empty; returns how many.
+write_some :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
+    if data.count == 0 return 0, .NONE;
+
+    op := begin_op(.WRITE, file.handle);
+    op.buffer = data.data;
+    op.length = data.count;
+    op.offset = ifx file.append then -1 else file.position;
+
+    error := await_op(op);
+    count := op.result;
+
+    end_op(op);
+
+    if error != .NONE return 0, error;
+
     file.position += count;
 
-    return count, error;
+    return count, .NONE;
+}
+
+// Writes all of `data` at the file's position (at the end, for `.APPEND`).
+write :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
+    return write(writer_of(file), data);
 }
 
 write :: (file: *Io_File, text: string) -> s64, Io_Error {
     return write(file, .{ text.count, text.data });
 }
 
-write_at :: (file: Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
+// Writes all of `data` at `offset`; the file's position does not move.
+write_at :: (file: *Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
     total := 0;
 
     while total < data.count {
@@ -105,11 +131,11 @@ write_at :: (file: Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
     return total, .NONE;
 }
 
-write_at :: (file: Io_File, text: string, offset: s64) -> s64, Io_Error {
+write_at :: (file: *Io_File, text: string, offset: s64) -> s64, Io_Error {
     return write_at(file, .{ text.count, text.data }, offset);
 }
 
-file_size :: (file: Io_File) -> s64, Io_Error {
+file_size :: (file: *Io_File) -> s64, Io_Error {
     current_fiber();
 
     size := sys_file_size(file.handle.fd);
@@ -118,7 +144,14 @@ file_size :: (file: Io_File) -> s64, Io_Error {
     return size, .NONE;
 }
 
-close :: (file: Io_File) -> Io_Error {
+// Closes the file. With `now`, without going through the engine (see `close` for a reader).
+close :: (file: *Io_File, now := false) -> Io_Error {
+    if now {
+        close_without_waiting(file.handle);
+
+        return .NONE;
+    }
+
     return close_handle(file.handle);
 }
 
@@ -127,34 +160,12 @@ read_file :: (path: string) -> [] u8, Io_Error {
     file, error := open_file(path, .READ);
     if error != .NONE return .[], error;
 
-    defer close(file);
+    defer close(*file);
 
-    size, size_error := file_size(file);
+    size, size_error := file_size(*file);
     if size_error != .NONE return .[], size_error;
 
-    capacity := max(size, 4096);
-    data := cast(*u8) alloc(capacity);
-    used := 0;
-
-    while true {
-        if used == capacity {
-            capacity *= 2;
-            data = cast(*u8) realloc(data, capacity, used);
-        }
-
-        count, read_error := read_at(file, .{ capacity - used, data + used }, used);
-        if read_error != .NONE {
-            free(data);
-
-            return .[], read_error;
-        }
-
-        if count == 0 break;
-
-        used += count;
-    }
-
-    return .{ used, data }, .NONE;
+    return read_all(reader_of(*file), size);
 }
 
 // Creates or replaces a file with `data`.
@@ -162,9 +173,9 @@ write_file :: (path: string, data: [] u8) -> Io_Error {
     file, error := open_file(path, .WRITE);
     if error != .NONE return error;
 
-    defer close(file);
+    defer close(*file);
 
-    _, write_error := write_at(file, data, 0);
+    _, write_error := write(*file, data);
 
     return write_error;
 }

@@ -187,17 +187,15 @@ read_until_closed :: (stream: Io.Tcp_Stream, milliseconds: s64) -> string {
     builder: String_Builder;
     buffer: [4096] u8;
 
-    previous := Io.set_deadline(milliseconds);
+    Io.with_deadline(milliseconds, #code {
+        while true {
+            count, error := Io.read(stream, buffer);
 
-    while true {
-        count, error := Io.read(stream, buffer);
+            if error != .NONE || count == 0 break;
 
-        if error != .NONE || count == 0 break;
-
-        append(*builder, string.{ count, buffer.data });
-    }
-
-    Io.restore_deadline(previous);
+            append(*builder, string.{ count, buffer.data });
+        }
+    });
 
     return builder_to_string(*builder,, temp);
 }
@@ -214,6 +212,14 @@ Raw_Response :: struct {
 read_responses :: (stream: Io.Tcp_Stream, count: int, milliseconds: s64, method := Method.GET) -> [..] Raw_Response {
     results: [..] Raw_Response;
 
+    Io.with_deadline(milliseconds, #code { results = collect_responses(stream, count, method); });
+
+    return results;
+}
+
+collect_responses :: (stream: Io.Tcp_Stream, count: int, method: Method) -> [..] Raw_Response {
+    results: [..] Raw_Response;
+
     parser: Parser;
 
     parser_init(*parser, .RESPONSE);
@@ -224,10 +230,6 @@ read_responses :: (stream: Io.Tcp_Stream, count: int, milliseconds: s64, method 
     buffer: [4096] u8;
     current: Raw_Response;
     body: [..] u8;
-
-    previous := Io.set_deadline(milliseconds);
-
-    defer Io.restore_deadline(previous);
 
     while results.count < count {
         read, error := Io.read(stream, buffer);
@@ -296,17 +298,21 @@ send_text :: (stream: Io.Tcp_Stream, text: string) {
 // Waits until the connection reports an end (the server closed it), up to `milliseconds`.
 closes_within :: (stream: Io.Tcp_Stream, milliseconds: s64) -> bool {
     buffer: [256] u8;
+    closed := false;
 
-    previous := Io.set_deadline(milliseconds);
+    Io.with_deadline(milliseconds, #code {
+        while true {
+            count, error := Io.read(stream, buffer);
 
-    defer Io.restore_deadline(previous);
+            if error == .TIMED_OUT break;
 
-    while true {
-        count, error := Io.read(stream, buffer);
+            if error != .NONE || count == 0 {
+                closed = true;
 
-        if error == .TIMED_OUT return false;
-        if error != .NONE || count == 0 return true;
-    }
+                break;
+            }
+        }
+    });
 
-    return false;
+    return closed;
 }

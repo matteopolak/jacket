@@ -160,7 +160,7 @@ drop_test_hosts :: (value: *void) {
         if it.target.over_tcp {
             it.server.stopping = true;
 
-            Io.close_now(it.server.listener);
+            Io.close(it.server.listener, now = true);
         }
 
         free(it.server);
@@ -183,7 +183,7 @@ test_base :: (data: *void) -> string {
     return server_url(host.server);
 }
 
-test_open :: (data: *void, url: Url) -> Stream, Io.Io_Error {
+test_open :: (data: *void, url: Url) -> Link, Io.Io_Error {
     target := cast(*Test_Target) data;
 
     host, error := test_host(target);
@@ -193,12 +193,14 @@ test_open :: (data: *void, url: Url) -> Stream, Io.Io_Error {
     if target.over_tcp {
         stream, connect_error := Io.connect(host.server.address);
 
-        return tcp_stream(stream), connect_error;
+        if connect_error != .NONE return .{}, connect_error;
+
+        return tcp_link(stream), .NONE;
     }
 
     near, far := Io.make_pipe();
 
-    adopt(host.server, pipe_stream(far));
+    adopt(host.server, pipe_link(far));
 
-    return pipe_stream(near), .NONE;
+    return pipe_link(near), .NONE;
 }

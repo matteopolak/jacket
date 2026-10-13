@@ -1066,17 +1066,17 @@ test_file_modes_and_offsets :: () {
     assert(file.position == 10);
 
     // Positional writes leave the position alone and may extend the file.
-    count, write_error = Io.write_at(file, "ab", 3);
+    count, write_error = Io.write_at(*file, "ab", 3);
     assert(write_error == .NONE && count == 2 && file.position == 10);
 
-    count, write_error = Io.write_at(file, "Z", 12);
+    count, write_error = Io.write_at(*file, "Z", 12);
     assert(write_error == .NONE && count == 1);
 
-    size, size_error := Io.file_size(file);
+    size, size_error := Io.file_size(*file);
 
     assert(size_error == .NONE && size == 13, "size %", size);
 
-    assert(Io.close(file) == .NONE);
+    assert(Io.close(*file) == .NONE);
 
     file, error = Io.open_file(path, .READ);
     assert(error == .NONE);
@@ -1097,24 +1097,24 @@ test_file_modes_and_offsets :: () {
         assert(error == .NONE && count == 0);
     }
 
-    count, error = Io.read_at(file, .{ 3, buffer.data }, 7);
+    count, error = Io.read_at(*file, .{ 3, buffer.data }, 7);
     assert(error == .NONE && count == 3 && string.{ 3, buffer.data } == "789");
 
-    count, error = Io.read_at(file, buffer, 1000);
+    count, error = Io.read_at(*file, buffer, 1000);
     assert(error == .NONE && count == 0);
 
     // A file opened for reading cannot be written.
-    _, write_error = Io.write_at(file, "x", 0);
+    _, write_error = Io.write_at(*file, "x", 0);
     assert(write_error != .NONE, "writing to a read-only file succeeded");
     assert(Io.last_platform_code() != 0);
 
-    assert(Io.close(file) == .NONE);
+    assert(Io.close(*file) == .NONE);
 
     // Append adds to the end of what is there.
     file, error = Io.open_file(path, .APPEND);
     assert(error == .NONE);
     Io.write(*file, "++");
-    Io.close(file);
+    Io.close(*file);
 
     content, read_error := Io.read_file(path);
 
@@ -1126,11 +1126,11 @@ test_file_modes_and_offsets :: () {
     file, error = Io.open_file(path, .READ_WRITE);
     assert(error == .NONE);
 
-    Io.write_at(file, "XY", 0);
-    count, error = Io.read_at(file, .{ 4, buffer.data }, 0);
+    Io.write_at(*file, "XY", 0);
+    count, error = Io.read_at(*file, .{ 4, buffer.data }, 0);
     assert(error == .NONE && string.{ 4, buffer.data } == "XY2a");
 
-    Io.close(file);
+    Io.close(*file);
 }
 
 test_file_errors :: () {
@@ -1224,7 +1224,7 @@ big_reader :: (job: Big_Read) {
 
     defer free(buffer.data);
 
-    job.count.*, job.result.* = Io.read_at(job.file, buffer, 0);
+    job.count.*, job.result.* = Io.read_at(*job.file, buffer, 0);
 }
 
 // A large read can be out (on the thread pool, in an IoRing, in the kernel) when another fiber
@@ -1262,9 +1262,9 @@ test_file_cancel_and_close_under_read :: () {
             Io.wait(*group);
 
             assert(result == .NONE || result == .CANCELED, "read canceled under way gave %", result);
-            assert(Io.close(file) == .NONE);
+            assert(Io.close(*file) == .NONE);
         } else {
-            assert(Io.close(file) == .NONE);
+            assert(Io.close(*file) == .NONE);
             Io.wait(*group);
 
             assert(result == .NONE || result == .CLOSED || result == .INVALID || result == .OTHER, "read closed under way gave %", result);

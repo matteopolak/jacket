@@ -11,7 +11,7 @@
 //     count, error := read(client, buffer);       // "ping" echoed back
 //
 // Writes never block: bytes wait in memory until the other end reads them. A read waits for
-// bytes, honours `with_deadline` (`.TIMED_OUT`) and `cancel` like a socket read, and returns 0
+// bytes, honours `with_deadline` (`.TIMED_OUT`, also for a call made after the limit) and `cancel` like a socket read, and returns 0
 // once the other end has closed (or shut down its writing side) and everything sent was read.
 // Both ends must be used by fibers of the same scheduler.
 
@@ -66,6 +66,7 @@ make_pipe :: () -> *Pipe_Stream, *Pipe_Stream {
 // and everything it sent has been read.
 read :: (stream: *Pipe_Stream, buffer: [] u8) -> s64, Io_Error {
     if buffer.count == 0 return 0, .NONE;
+    if deadline_passed() return 0, .TIMED_OUT;
 
     while true {
         if stream.closed return 0, .CLOSED;
@@ -107,23 +108,18 @@ read :: (stream: *Pipe_Stream, buffer: [] u8) -> s64, Io_Error {
 
 // Reads until `buffer` is full; `.END_OF_FILE` if the other end closed first.
 read_full :: (stream: *Pipe_Stream, buffer: [] u8) -> s64, Io_Error {
-    total := 0;
-
-    while total < buffer.count {
-        count, error := read(stream, .{ buffer.count - total, buffer.data + total });
-
-        if error != .NONE return total, error;
-        if count == 0 return total, .END_OF_FILE;
-
-        total += count;
-    }
-
-    return total, .NONE;
+    return read_full(reader_of(stream), buffer);
 }
 
 // Hands `data` to the other end. Never waits. `.BROKEN_PIPE` if the other end is closed.
 write :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
+    return write_some(stream, data);
+}
+
+// The same: a pipe never waits, so `write_some` takes all of `data` too.
+write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
     if stream.closed return 0, .CLOSED;
+    if data.count > 0 && deadline_passed() return 0, .TIMED_OUT;
 
     half := stream.outbound;
 
@@ -162,7 +158,7 @@ shutdown_write :: (stream: *Pipe_Stream) -> Io_Error {
 // Closes this end: the other end reads what was already sent and then 0, writes to it fail, and
 // a fiber waiting in `read` on this end returns `.CLOSED`. Close each end once: the memory of both
 // goes when the second one is closed.
-close :: (stream: *Pipe_Stream) -> Io_Error {
+close :: (stream: *Pipe_Stream, now := false) -> Io_Error {
     stream.closed = true;
     stream.outbound.finished = true;
     stream.inbound.abandoned = true;
@@ -185,6 +181,16 @@ close :: (stream: *Pipe_Stream) -> Io_Error {
 }
 
 #scope_module
+
+// Whether the running fiber's `with_deadline` limit has passed: a pipe call then fails before it
+// starts, like a socket call does.
+deadline_passed :: () -> bool {
+    if !in_scheduler() return false;
+
+    fiber := current_fiber();
+
+    return fiber.deadline != 0 && now_nanoseconds() >= fiber.deadline;
+}
 
 // Wakes the readers of `half`; `reason` 1 tells them their own end was closed.
 pipe_wake :: (half: *Pipe_Half, reason: s32) {

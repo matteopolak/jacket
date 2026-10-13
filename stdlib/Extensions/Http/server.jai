@@ -29,7 +29,7 @@ Connection :: struct {
     next: *Connection;
     previous: *Connection;
     server: *Server;
-    stream: Stream;
+    stream: Link;
     fiber: Io.Fiber_Handle;
     idle: bool; // waiting for the first byte of a request: safe to cut off
 }
@@ -111,12 +111,12 @@ accept_loop :: (server: *Server) {
             continue;
         }
 
-        adopt(server, tcp_stream(stream));
+        adopt(server, tcp_link(stream));
     }
 }
 
 // Serves `stream` on a new fiber of the running scheduler.
-adopt :: (server: *Server, stream: Stream) {
+adopt :: (server: *Server, stream: Link) {
     connection := New(Connection);
 
     connection.server = server;
@@ -156,32 +156,6 @@ now_ms :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }
 
-// Reads at most `timeout` milliseconds (0: no limit).
-read_within :: (stream: Stream, buffer: [] u8, timeout: s64) -> s64, Io.Io_Error {
-    if timeout <= 0 return stream_read(stream, buffer);
-
-    previous := Io.set_deadline(timeout);
-    count, error := stream_read(stream, buffer);
-
-    Io.restore_deadline(previous);
-
-    return count, error;
-}
-
-write_within :: (stream: Stream, data: [] u8, timeout: s64) -> bool {
-    if data.count == 0 return true;
-
-    previous: s64;
-
-    if timeout > 0 previous = Io.set_deadline(timeout);
-
-    _, error := stream_write(stream, data);
-
-    if timeout > 0 Io.restore_deadline(previous);
-
-    return error == .NONE;
-}
-
 // Where an HTTP/2 upgrade (`Upgrade: h2c`) or prior-knowledge connection would take over. HTTP/2
 // is a later milestone, so nothing switches yet; the connection keeps speaking HTTP/1.
 upgrade_connection :: (connection: *Connection, head: *Head) -> bool {
@@ -206,9 +180,10 @@ serve_connection :: (connection: *Connection) {
         free(connection);
     }
 
-    defer stream_close(stream);
+    defer close(stream);
 
-    peer := stream_peer(stream);
+    peer := stream.peer;
+    write_error: Io.Io_Error;
 
     limits: Limits;
 
@@ -245,7 +220,9 @@ serve_connection :: (connection: *Connection) {
             if pending.count == 0 {
                 // About to wait for the client: it gets what it is owed first.
                 if out.count > 0 {
-                    if !write_within(stream, out, config.write_timeout) return;
+                    Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+
+                    if write_error != .NONE return;
 
                     out.count = 0;
                 }
@@ -273,7 +250,10 @@ serve_connection :: (connection: *Connection) {
                     }
                 }
 
-                count, error := read_within(stream, buffer, timeout);
+                count: s64;
+                error: Io.Io_Error;
+
+                Io.with_deadline(within(timeout), #code { count, error = Io.read(stream.reader, buffer); });
 
                 connection.idle = false;
 
@@ -316,14 +296,18 @@ serve_connection :: (connection: *Connection) {
         // ---- The body.
         if head.expect_continue {
             if out.count > 0 {
-                if !write_within(stream, out, config.write_timeout) return;
+                Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+
+                if write_error != .NONE return;
 
                 out.count = 0;
             }
 
             write_continue(*out);
 
-            if !write_within(stream, out, config.write_timeout) return;
+            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+
+            if write_error != .NONE return;
 
             out.count = 0;
         }
@@ -357,7 +341,10 @@ serve_connection :: (connection: *Connection) {
                 // The next read overwrites the buffer the body so far points into.
                 if in_buffer && body_buffer.count == 0 && body.count > 0 append_bytes(*body_buffer, body.data, body.count);
 
-                count, error := read_within(stream, buffer, config.body_timeout);
+                count: s64;
+                error: Io.Io_Error;
+
+                Io.with_deadline(within(config.body_timeout), #code { count, error = Io.read(stream.reader, buffer); });
 
                 if error == .TIMED_OUT {
                     send_failure(server, stream, *out, http_error(408, "the request body was not received in time"));
@@ -415,17 +402,21 @@ serve_connection :: (connection: *Connection) {
 
         // A big body goes out from where it is instead of being copied after the head.
         if response.body.count >= LARGE_BODY && request.method != .HEAD && body_allowed(response.status) {
-            if !write_within(stream, out, config.write_timeout) return;
+            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
+
+            if write_error != .NONE return;
 
             out.count = 0;
 
-            if !write_within(stream, response.body, config.write_timeout) return;
+            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, response.body); });
+
+            if write_error != .NONE return;
         }
 
         reset_temporary_storage();
 
         if !keep_alive {
-            write_within(stream, out, config.write_timeout);
+            Io.with_deadline(within(config.write_timeout), #code { _, write_error = Io.write(stream.writer, out); });
 
             return;
         }
@@ -506,7 +497,7 @@ parse_failure :: (parser: *Parser) -> Http_Error {
 }
 
 // Sends an error and closes (the connection cannot be trusted to carry another request).
-send_failure :: (server: *Server, stream: Stream, out: *[..] u8, error: Http_Error) {
+send_failure :: (server: *Server, stream: Link, out: *[..] u8, error: Http_Error) {
     request: Request;
 
     request.app = server.app;
@@ -518,7 +509,7 @@ send_failure :: (server: *Server, stream: Stream, out: *[..] u8, error: Http_Err
 
     if response.body.count >= LARGE_BODY && body_allowed(response.status) append_bytes(out, response.body.data, response.body.count);
 
-    write_within(stream, out.*, server.app.config.write_timeout);
+    Io.with_deadline(within(server.app.config.write_timeout), #code { Io.write(stream.writer, out.*); });
 
     out.count = 0;
 
