@@ -30,7 +30,7 @@ reader :: (job: Job) {
 
     assert(error == .NONE, "open: %", error);
 
-    defer Io.close(file);
+    defer Io.close(*file);
 
     buffer := NewArray(job.size, u8, false);
 
@@ -42,7 +42,7 @@ reader :: (job: Job) {
         position = (position * 1103515245 + 12345) & 0x7fffffff;
 
         offset := (position % (FILE_BYTES / job.size)) * job.size;
-        got, read_error := Io.read_at(file, buffer, offset);
+        got, read_error := Io.read_at(*file, buffer, offset);
 
         assert(read_error == .NONE && got == job.size, "read: % %", got, read_error);
     }
