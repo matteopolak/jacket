@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Performance
+
+- `Extensions/Tls`: a write sends up to 64 KiB of records at once and a read takes up to 64 KiB from the connection at once, which cuts the calls into the IO engine by 15 times. One stream moves about 10% more (110-112 to 123 MiB/s each way on a 4-core VM, loopback, both ends on one thread; `Tls/bench/bench.jai`); the cipher is the limit, see [tls](https://github.com/matteopolak/jai/blob/main/docs/stdlib/tls.md#throughput).
+
+### Added
+
+- `Tls.cipher_suite(stream)`, the name of the negotiated cipher suite, and `Tls.ended_without_close_notify(reader)`.
+
 ### Fixes
 
 - `Http` client: a read-until-close response body over TLS ends normally when the server closes the connection without close_notify (as in browsers and Python's `ssl`); Content-Length and chunked bodies still fail when cut, and a pooled TLS connection dropped that way is retried. `Tls.ended_without_close_notify(reader)` tells the two ends apart.

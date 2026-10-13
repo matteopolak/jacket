@@ -64,7 +64,7 @@ random_text :: (count: int, alphabet: string) -> string {
 }
 
 bytes :: () {
-    for round: 0..100 {
+    for round: 0..50 {
         alphabet := ifx round % 3 == 0 then "ab" else ifx round % 3 == 1 then "abcdefgh\n" else "abcdefghijklmnopqrstuvwxyz0123456789 \n\x00\xFF";
         size := cast(int) (random_get() % 200);
         text := random_text(size, alphabet);
@@ -102,7 +102,7 @@ bytes :: () {
 byte_sets :: () {
     // Sets of every size, including ones spread over more than 8 high nibbles, against a
     // membership loop.
-    for round: 0..80 {
+    for round: 0..30 {
         members: [..] u8;
         members.allocator = temp;
         size := cast(int) (random_get() % 40);

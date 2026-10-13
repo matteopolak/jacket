@@ -52,6 +52,17 @@ Tls_Stream :: struct {
     can_wait: bool;
     ready: bool;
 
+    // Bytes read from the connection and not yet handed to the library. The library asks for one
+    // record at a time (at most 16 KiB), and each ask used to cost a wait and a read on the
+    // connection; reading more at once and serving the library from here costs one pair for several
+    // records. The buffer lives from a read to the moment the library has taken all of it, so a
+    // quiet connection holds none; `ahead_size` is how much the next read takes (it grows while
+    // reads come back full, and starts again at the size of a record after a short one).
+    ahead: [] u8;
+    ahead_start: s64;
+    ahead_end: s64;
+    ahead_size: s64;
+
     established: bool;
     peer_closed: bool;
     closing: bool;
@@ -140,6 +151,12 @@ alpn_protocol :: (stream: *Tls_Stream) -> string {
     return c_text(mbedtls_ssl_get_alpn_protocol(stream.ssl));
 }
 
+// The cipher suite in use, by mbedTLS's name ("TLS1-3-AES-128-GCM-SHA256",
+// "TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256").
+cipher_suite :: (stream: *Tls_Stream) -> string {
+    return c_text(mbedtls_ssl_get_ciphersuite(stream.ssl));
+}
+
 // The name a client asked for in its SNI extension, on a stream from `tls_accept` ("" if it sent
 // none). It points into the stream.
 server_name :: (stream: *Tls_Stream) -> string {
@@ -207,27 +224,52 @@ read :: (stream: *Tls_Stream, buffer: [] u8) -> s64, Io.Io_Error {
     return 0, .NONE;
 }
 
-// Waits until the library has accepted at least one byte of `bytes` (a record holds up to 8 KiB of
-// them) and sends it; returns how many it took.
+// The library makes one record per call (up to 8 KiB of data); a write of more goes through several
+// records into `out` and reaches the connection in one send, up to this much, instead of one send
+// (and one trip through the scheduler) per record.
+BATCH_BYTES :: 64 * 1024;
+
+// Waits until the library has accepted at least one byte of `bytes` and sends it, together with the
+// records of as many more bytes as fit in `BATCH_BYTES`; returns how many it took.
 write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
     if bytes.count == 0 return 0, .NONE;
     if !enter(stream) return 0, .CLOSED;
 
     defer leave(stream);
 
+    taken := 0;
+
     while true {
-        if stream.broken != .NONE return 0, stream.broken;
+        if stream.broken != .NONE {
+            if taken > 0 break;
 
-        result, error := call_library(stream, .WRITE, bytes.data, cast(u64) bytes.count);
+            return 0, stream.broken;
+        }
 
-        if error != .NONE return 0, error;
+        result, error := call_library(stream, .WRITE, bytes.data + taken, cast(u64) (bytes.count - taken));
 
-        // The write is done when its bytes are on the connection: this is where it waits when the
-        // peer is slow, and why a writer cannot pile up unbounded output.
+        if error != .NONE {
+            // What the library already made is on its way: report it, the next call meets the error.
+            if taken > 0 break;
+
+            return 0, error;
+        }
+
+        if result > 0 {
+            taken += result;
+
+            if taken >= bytes.count || stream.out.count >= BATCH_BYTES break;
+
+            continue;
+        }
+
+        if taken > 0 break;
+
+        // Nothing was taken: an alert or a handshake message (a renegotiation, a key update) went
+        // into `out`. Send it, then wait for the peer if the library needs to hear from it.
         error = flush(stream, true);
 
         if error != .NONE return 0, error;
-        if result > 0 return result, .NONE;
 
         if result == ERR_SSL_WANT_READ {
             error = wait_for_input(stream);
@@ -242,7 +284,13 @@ write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
         return 0, fail(stream, result);
     }
 
-    return 0, .NONE;
+    // The write is done when its bytes are on the connection: this is where it waits when the
+    // peer is slow, and why a writer cannot pile up unbounded output.
+    error := flush(stream, true);
+
+    if error != .NONE return 0, error;
+
+    return taken, .NONE;
 }
 
 // Sends all of `bytes`. On an error it returns how many went out.
@@ -263,6 +311,7 @@ wait_readable :: (stream: *Tls_Stream) -> Io.Io_Error {
 
     if stream.broken != .NONE return stream.broken;
     if stream.peer_closed return .NONE;
+    if stream.ahead_end > stream.ahead_start return .NONE;
     if mbedtls_ssl_check_pending(stream.ssl) != 0 || mbedtls_ssl_get_bytes_avail(stream.ssl) > 0 return .NONE;
     if !stream.can_wait return .UNSUPPORTED;
 
@@ -401,6 +450,8 @@ release_stream :: (stream: *Tls_Stream) {
 
     array_free(stream.out);
 
+    if stream.ahead.data free(stream.ahead.data);
+
     free(stream);
 }
 
@@ -497,7 +548,11 @@ bio_send :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
     push_context stream.fiber_context {
         old := stream.out.count;
 
-        array_reserve(*stream.out, old + cast(s64) length);
+        needed := old + cast(s64) length;
+
+        // Grow by doubling: a write of several records appends them one after the other.
+        if needed > stream.out.allocated array_reserve(*stream.out, max(needed, 2 * stream.out.allocated, 16 * 1024));
+
         memcpy(stream.out.data + old, buffer, cast(s64) length);
 
         stream.out.count = old + cast(s64) length;
@@ -511,7 +566,9 @@ bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
     result: s32;
 
     push_context stream.fiber_context {
-        if stream.can_wait && !stream.ready {
+        if stream.ahead_end > stream.ahead_start {
+            result = serve_ahead(stream, buffer, length);
+        } else if stream.can_wait && !stream.ready {
             // Nothing is known to be there: have the fiber wait outside the library.
             result = ERR_SSL_WANT_READ;
         } else {
@@ -521,7 +578,27 @@ bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
             // the library has produced so far must reach the peer first, or both would wait.
             if !stream.can_wait flush(stream, true);
 
-            count, error := Io.read(stream.reader, .{ cast(s64) length, buffer });
+            // A connection that can say when it is readable is read ahead (see `ahead`): the read
+            // below does not wait, as the wait outside just ended. The others are read as asked.
+            count: s64;
+            error: Io.Io_Error;
+
+            if stream.can_wait {
+                if stream.ahead_size < READ_AHEAD_MIN stream.ahead_size = READ_AHEAD_MIN;
+
+                stream.ahead = .{ stream.ahead_size, alloc(stream.ahead_size) };
+
+                count, error = Io.read(stream.reader, stream.ahead);
+
+                // Nothing was read, so nothing is kept.
+                if error != .NONE || count == 0 {
+                    free(stream.ahead.data);
+
+                    stream.ahead = .{};
+                }
+            } else {
+                count, error = Io.read(stream.reader, .{ cast(s64) length, buffer });
+            }
 
             if error != .NONE && stream.can_wait && (error == .TIMED_OUT || error == .CANCELED || error == .CLOSED) {
                 // The deadline passed or the fiber was canceled between the wait and this read.
@@ -531,6 +608,18 @@ bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
             } else if error != .NONE {
                 stream.io_error = error;
                 result = ERR_NET_RECV_FAILED;
+            } else if stream.can_wait {
+                stream.ahead_start = 0;
+                stream.ahead_end = count;
+
+                // A read that filled the buffer says the connection has more: read more next time.
+                if count == stream.ahead.count {
+                    stream.ahead_size = min(2 * stream.ahead_size, READ_AHEAD_MAX);
+                } else {
+                    stream.ahead_size = READ_AHEAD_MIN;
+                }
+
+                result = serve_ahead(stream, buffer, length);
             } else {
                 result = cast(s32) count;
             }
@@ -538,6 +627,29 @@ bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
     }
 
     return result;
+}
+
+READ_AHEAD_MIN :: 16 * 1024;
+READ_AHEAD_MAX :: 64 * 1024;
+
+// Hands the library up to `length` of the bytes read ahead, and frees the buffer when they are used up.
+serve_ahead :: (stream: *Tls_Stream, buffer: *u8, length: u64) -> s32 {
+    count := min(stream.ahead_end - stream.ahead_start, cast(s64) length);
+
+    memcpy(buffer, stream.ahead.data + stream.ahead_start, count);
+
+    stream.ahead_start += count;
+
+    if stream.ahead_start == stream.ahead_end {
+        stream.ahead_start = 0;
+        stream.ahead_end = 0;
+
+        free(stream.ahead.data);
+
+        stream.ahead = .{};
+    }
+
+    return cast(s32) count;
 }
 
 // Records the name a client sent (the library tells the server before it picks a certificate) and

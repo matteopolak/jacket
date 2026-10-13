@@ -70,9 +70,13 @@ Process :: #import "Process";
         alpn: string;
         name: string;
         version: string;
+        suite: string;
         error: Tls.Tls_Error;
         done: bool;
     }
+
+    // What the next `check_server` expects in the name of the cipher suite ("" for anything).
+    expected_suite := "";
 
     // Accepts one connection, reads the request line, answers and closes.
     serve_one :: (state: *Serving) {
@@ -94,6 +98,7 @@ Process :: #import "Process";
         state.alpn = copy_string(Tls.alpn_protocol(stream));
         state.name = copy_string(Tls.server_name(stream));
         state.version = copy_string(Tls.version(stream));
+        state.suite = copy_string(Tls.cipher_suite(stream));
 
         buffer: [1024] u8;
         count, read_error := Tls.read(stream, buffer);
@@ -147,6 +152,9 @@ Process :: #import "Process";
         assert(state.error.kind == .NONE, "%", Tls.error_text(state.error));
         assert(state.version == expected_version, "version %", state.version);
         assert(state.name == "localhost", "sni '%'", state.name);
+        assert(expected_suite.count == 0 || has(state.suite, expected_suite), "cipher suite '%', expected '%'", state.suite, expected_suite);
+
+        expected_suite = "";
 
         // The alpn the caller asked for, if any.
         alpn_wanted := "";
@@ -158,6 +166,7 @@ Process :: #import "Process";
         free(state.alpn.data);
         free(state.name.data);
         free(state.version.data);
+        free(state.suite.data);
 
         stop_child(*child);
         array_free(args);
@@ -179,6 +188,24 @@ Process :: #import "Process";
 
         check_server(*rsa_config, "", "TLSv1.3");
         check_server(*rsa_config, "-tls1_2", "TLSv1.2");
+
+        // A client that offers one cipher gets it, whichever the server would prefer.
+        expected_suite = "AES-128-GCM";
+        check_server(*server_config, "", "TLSv1.3", "-ciphersuites", "TLS_AES_128_GCM_SHA256");
+        expected_suite = "AES-256-GCM";
+        check_server(*server_config, "", "TLSv1.3", "-ciphersuites", "TLS_AES_256_GCM_SHA384");
+        expected_suite = "CHACHA20-POLY1305";
+        check_server(*server_config, "", "TLSv1.3", "-ciphersuites", "TLS_CHACHA20_POLY1305_SHA256");
+        expected_suite = "ECDSA-WITH-AES-128-GCM";
+        check_server(*server_config, "-tls1_2", "TLSv1.2", "-cipher", "ECDHE-ECDSA-AES128-GCM-SHA256");
+        expected_suite = "ECDSA-WITH-AES-256-GCM";
+        check_server(*server_config, "-tls1_2", "TLSv1.2", "-cipher", "ECDHE-ECDSA-AES256-GCM-SHA384");
+        expected_suite = "ECDSA-WITH-CHACHA20-POLY1305";
+        check_server(*server_config, "-tls1_2", "TLSv1.2", "-cipher", "ECDHE-ECDSA-CHACHA20-POLY1305");
+        expected_suite = "RSA-WITH-AES-128-GCM";
+        check_server(*rsa_config, "-tls1_2", "TLSv1.2", "-cipher", "ECDHE-RSA-AES128-GCM-SHA256");
+        expected_suite = "RSA-WITH-CHACHA20-POLY1305";
+        check_server(*rsa_config, "-tls1_2", "TLSv1.2", "-cipher", "ECDHE-RSA-CHACHA20-POLY1305");
 
         // OpenSSL presents a client certificate that our server checks.
         mutual := make_config("server", "ca");

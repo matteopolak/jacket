@@ -358,6 +358,67 @@ test_large_transfers :: () {
     }
 }
 
+// Writes of every awkward size (a block, a record, a batch of records, one byte over each) read back
+// in pieces of another size, so the partial blocks of the cipher and the read-ahead of the stream
+// both meet the ends of their buffers.
+test_awkward_sizes :: () {
+    sizes := int.[1, 2, 15, 16, 17, 31, 33, 100, 127, 129, 4095, 8191, 8192, 8193, 16383, 16384, 16385, 65535, 65536, 65537, 150_001];
+    pieces := int.[1, 7, 16, 1000, 8192, 20_000];
+
+    for version: 0..1 {
+        server_config := make_config("server", "", min = ifx version == 0 then Tls.Tls_Version.TLS_1_2 else Tls.Tls_Version.TLS_1_3);
+        client_config := make_config("", "ca");
+
+        init(*server_config);
+        init(*client_config);
+
+        pair := connect_pair(*server_config, *client_config);
+
+        expect_connected(pair);
+
+        suite := Tls.cipher_suite(pair.client.stream);
+
+        assert(has(suite, "GCM") || has(suite, "CHACHA20"), "an AEAD suite: %", suite);
+        assert(Tls.cipher_suite(pair.server.stream) == suite, "both ends agree on %", suite);
+
+        for size: sizes {
+            for from_client: 0..1 {
+                sender := ifx from_client then pair.client.stream else pair.server.stream;
+                receiver := ifx from_client then pair.server.stream else pair.client.stream;
+                piece := pieces[(size + from_client) % pieces.count];
+
+                job := Transfer.{ stream = sender, size = size, seed = size };
+
+                Io.spawn(send_pattern, *job);
+
+                data := cast(*u8) alloc(size);
+                got := 0;
+
+                while got < size {
+                    count, error := Io.read_full(Tls.reader_of(receiver), .{ min(piece, size - got), data + got });
+
+                    assert(error == .NONE && count > 0, "read % bytes of % (pieces of %): %", got, size, piece, error);
+
+                    got += count;
+                }
+
+                for 0..size - 1 assert(data[it] == pattern(it + size), "byte % of % differs", it, size);
+
+                free(data);
+
+                wait_all(.[*job.done]);
+
+                assert(job.errors == 0, "the write of % bytes failed", size);
+            }
+        }
+
+        close_pair(*pair);
+
+        Tls.tls_config_free(*server_config);
+        Tls.tls_config_free(*client_config);
+    }
+}
+
 // Socket buffers of a few KiB, so a megabyte cannot hide in them.
 #if OS == .WINDOWS {
     ws2_32 :: #system_library "ws2_32";
@@ -1457,6 +1518,8 @@ run_all :: () {
     test_alpn();
     progress("test_large_transfers");
     test_large_transfers();
+    progress("test_awkward_sizes");
+    test_awkward_sizes();
     progress("test_duplex_with_small_socket_buffers");
     test_duplex_with_small_socket_buffers();
     progress("test_close_notify");

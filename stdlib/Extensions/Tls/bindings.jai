@@ -74,6 +74,7 @@ mbedtls_ssl_check_pending :: (ssl: *void) -> s32 #foreign libmbedtls;
 mbedtls_ssl_get_bytes_avail :: (ssl: *void) -> u64 #foreign libmbedtls;
 mbedtls_ssl_get_alpn_protocol :: (ssl: *void) -> *u8 #foreign libmbedtls;
 mbedtls_ssl_get_version :: (ssl: *void) -> *u8 #foreign libmbedtls;
+mbedtls_ssl_get_ciphersuite :: (ssl: *void) -> *u8 #foreign libmbedtls;
 mbedtls_ssl_get_verify_result :: (ssl: *void) -> u32 #foreign libmbedtls;
 mbedtls_ssl_get_peer_cert :: (ssl: *void) -> *void #foreign libmbedtls;
 
