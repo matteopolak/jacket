@@ -313,6 +313,7 @@
                 return true;
             }
 
+            print("DEBUG ring build failed: kind % result 0x%\n", op.kind, formatInt(cast(u32) result, base = 16));
             // The queue may be full of entries the kernel has not seen yet.
             ring_flush(state);
         }

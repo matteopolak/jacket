@@ -770,7 +770,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     fn internal_linkage(&self, gv: GlobalValue<'ctx>, owned: bool, shared: bool) {
         if self.shard.is_some() && (shared || !owned) {
             gv.set_linkage(Linkage::External);
-            gv.set_visibility(GlobalVisibility::Hidden);
+            // COFF has no hidden visibility, and MinGW would list the symbol in an unquoted
+            // `-exclude-symbols:` linker directive, which names with spaces break.
+            if !self.arch.is_windows() {
+                gv.set_visibility(GlobalVisibility::Hidden);
+            }
         } else {
             gv.set_linkage(Linkage::Internal);
         }

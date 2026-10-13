@@ -55,7 +55,11 @@ pub(crate) fn emit(
     machine: &(dyn Fn() -> Result<TargetMachine, String> + Sync),
 ) -> Result<Vec<PathBuf>, String> {
     let m = module.as_mut_ptr();
-    expose_locals(m);
+    // COFF has no hidden visibility; on MinGW, LLVM turns it into `-exclude-symbols:` linker
+    // directives with the names unquoted, which breaks on names with spaces or commas.
+    let triple = module.get_triple();
+    let coff = triple.as_str().to_string_lossy().contains("windows");
+    expose_locals(m, !coff);
     // Largest functions first, each to the lightest unit. Unit 0 also holds the data.
     let mut defs: Vec<(String, usize)> = functions(m)
         .into_iter()
@@ -212,7 +216,7 @@ fn weight(f: LLVMValueRef) -> usize {
 }
 
 /// Make every local definition a hidden external one, so other units can refer to it.
-fn expose_locals(m: LLVMModuleRef) {
+fn expose_locals(m: LLVMModuleRef, hidden: bool) {
     let mut unnamed = 0usize;
     let defs = functions(m)
         .into_iter()
@@ -237,7 +241,9 @@ fn expose_locals(m: LLVMModuleRef) {
                 llvm::LLVMSetValueName2(v, fresh.as_ptr().cast(), fresh.len());
             }
             llvm::LLVMSetLinkage(v, LLVMLinkage::LLVMExternalLinkage);
-            llvm::LLVMSetVisibility(v, LLVMVisibility::LLVMHiddenVisibility);
+            if hidden {
+                llvm::LLVMSetVisibility(v, LLVMVisibility::LLVMHiddenVisibility);
+            }
         }
     }
 }
