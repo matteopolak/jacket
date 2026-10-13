@@ -58,8 +58,8 @@ def stage_example(source, output, name, main):
 
 def jaifmt_wasm_command(jaic, root, output):
     """Compile the WASI jaifmt (jaifmt/wasm.jai) with a native jaic; docs/tools/jaifmt.md."""
-    return [str(jaic), "build", str(root / "jaifmt/wasm.jai"), "-os", "wasm", "-O2", "--no-debug-info",
-            "-o", str(output)]
+    return [str(jaic), str(root / "jaifmt/wasm.jai"), "-os", "wasm", "-O2", "-no_debug_info",
+            "-exe", str(output)]
 
 
 def build_command(cargo, target, release):

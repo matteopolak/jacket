@@ -1,7 +1,7 @@
 // The HTTP client against the notes API of crud.jai (start that first, or pass another base URL).
 //
-//     jaic run examples/http/client.jai
-//     jaic run examples/http/client.jai -- http://localhost:3000
+//     jaic examples/http/client.jai -interp
+//     jaic examples/http/client.jai -interp -- http://localhost:3000
 //
 // The client runs on a fiber, so everything happens inside Io.io_run. Repeated requests to one
 // host reuse the same connection.

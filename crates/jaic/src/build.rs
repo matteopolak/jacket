@@ -210,7 +210,7 @@ pub struct BuildEnv {
     pub options: Options,
     pub backend: Option<Box<dyn OutputBackend>>,
     /// Without a backend: what to tell the user when a workspace asks for output that this
-    /// command does not write (`jaic check` only compiles workspaces). `None`
+    /// command does not write (`jaic -check` only compiles workspaces). `None`
     /// says nothing (the browser and editors, where no output is ever expected).
     pub unwritten_output_hint: Option<UnwrittenOutputHint>,
     /// Arguments after `-` on the command line (`compile_time_command_line`).
@@ -384,6 +384,19 @@ pub struct Workspaces {
     /// The absolute path of the program's first source file, when it comes from a file: the
     /// top-level workspace's default output name and directory derive from it.
     pub main_file: String,
+    /// What the command line chose for the top-level program's output and crash handler.
+    pub main_overrides: MainOverrides,
+}
+
+/// Command-line choices the target program's `get_build_options` reports before a metaprogram
+/// changes anything (`-exe`, `-output_path`, `-no_backtrace_on_crash`).
+#[derive(Clone, Debug, Default)]
+pub struct MainOverrides {
+    /// `output_executable_name`; empty: derived from the main file.
+    pub exe: String,
+    /// `output_path`; empty: the main file's directory.
+    pub output_path: String,
+    pub no_backtrace_on_crash: bool,
 }
 
 pub type SharedWorkspaces = Rc<RefCell<Workspaces>>;
@@ -414,6 +427,7 @@ pub enum MetaOp {
     StructLocation,
     BasePath,
     MainFile,
+    MainOverride,
     TypeTable,
     AddLibraryDir,
     RemapImport,
@@ -465,6 +479,7 @@ impl MetaOp {
             "__jaic_struct_location" => Self::StructLocation,
             "__jaic_base_path" => Self::BasePath,
             "__jaic_main_file" => Self::MainFile,
+            "__jaic_main_override" => Self::MainOverride,
             "__jaic_type_table" => Self::TypeTable,
             "__jaic_add_library_dir" => Self::AddLibraryDir,
             "__jaic_workspace_remap_import" => Self::RemapImport,
@@ -527,12 +542,20 @@ impl Workspaces {
             records: Records::default(),
             builders: Vec::new(),
             main_file: String::new(),
+            main_overrides: MainOverrides::default(),
         }))
     }
 
     /// Settings of the top-level program (workspace 2).
     pub fn top_level_settings(&self) -> BuildSettings {
         self.list[TOP_LEVEL_WORKSPACE as usize].settings.clone()
+    }
+
+    /// How many workspaces compile-time code created (the top-level program is not one).
+    pub fn created_workspaces(&self) -> usize {
+        self.list
+            .len()
+            .saturating_sub(TOP_LEVEL_WORKSPACE as usize + 1)
     }
 
     /// Whether any workspace compilation failed.
@@ -1195,9 +1218,9 @@ fn write_output(
                         _ => "an executable",
                     };
                     (reg.env.report)(&format!(
-                        "warning: `jaic check` does not write {} (workspace `{name}` asks for \
+                        "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
                          {kind})\n\
-                         help: `jaic build {main}` (or `jaic run {main}`) writes it",
+                         help: `jaic {main}` (or `jaic {main} -interp`) writes it",
                         shown_path(&output),
                         main = hint.main_file,
                     ));
@@ -1350,6 +1373,7 @@ pub fn call(
             | MetaOp::StructLocation
             | MetaOp::BasePath
             | MetaOp::MainFile
+            | MetaOp::MainOverride
             | MetaOp::TypeTable
             | MetaOp::CodeIsNull
             | MetaOp::CodeNodes
@@ -1471,6 +1495,21 @@ pub fn call(
         MetaOp::MainFile => {
             let file = shared.borrow().main_file.clone();
             return_string(interp, file.as_bytes(), 0)?;
+            Ok(Rets::default())
+        }
+        MetaOp::MainOverride => {
+            // 0: executable name, 1: output path, 2: `OFF` when the crash handler is not wanted.
+            let value = {
+                let reg = shared.borrow();
+                let overrides = &reg.main_overrides;
+                match arg(0) {
+                    0 => overrides.exe.clone(),
+                    1 => overrides.output_path.clone(),
+                    _ if overrides.no_backtrace_on_crash => "OFF".to_string(),
+                    _ => String::new(),
+                }
+            };
+            return_string(interp, value.as_bytes(), 1)?;
             Ok(Rets::default())
         }
         MetaOp::AddLibraryDir => {

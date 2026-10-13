@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-build Windows test programs with `jaic build -os windows`, and run them on Windows.
+"""Cross-build Windows test programs with `jaic -os windows`, and run them on Windows.
 
     windows_cross.py build --jaic path/to/jaic --out dir   # any host with MinGW-w64
     windows_cross.py build --cpu arm64 --jaic jaic --out dir   # with llvm-mingw
@@ -113,7 +113,7 @@ def build_one(args, source, output):
     target = [] if args.host else ["-os", "windows", "-cpu", args.cpu]
     try:
         result = subprocess.run(
-            [str(pathlib.Path(args.jaic).resolve()), "build", str(source), *target, "-o", str(output)],
+            [str(pathlib.Path(args.jaic).resolve()), str(source), *target, "-exe", str(output)],
             cwd=source.parent,
             capture_output=True,
             text=True,
@@ -139,7 +139,7 @@ CROSS_DLLS = []
 
 def use_cross_libs(args):
     """Cross-build the third-party C libraries the stdlib tests link (stb_*, FreeType, lz4...)
-    with the MinGW toolchain, and point `jaic build` at them (JAIC_CROSS_LIBS). They are static
+    with the MinGW toolchain, and point `jaic` at them (JAIC_CROSS_LIBS). They are static
     archives, so the executables need no DLL beside them, except SDL2, which comes as the
     official release's import library and DLL (copied beside the executables, see `build`)."""
     platform = skip_platform(args)

@@ -1,5 +1,5 @@
 // Linux: Xlib surfaces for Window_Creation's windows (wgpu-native presents through Vulkan, or
-// GLES through EGL), and what the static libwgpu_native.a needs when `jaic build` links it.
+// GLES through EGL), and what the static libwgpu_native.a needs when `jaic` links it.
 
 #scope_module
 

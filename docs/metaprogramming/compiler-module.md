@@ -94,11 +94,11 @@ Syntax-tree APIs (`compiler_get_nodes`, `compiler_get_code`, `code_to_string`, `
 - A new primitive is a `MetaOp` in `build.rs` plus a `#compiler` declaration at the end of `workspace.jai`. Keep public signatures as they are; something jaic cannot do either does nothing and says why in its comment, or reports an error through `__jaic_report`.
 - Anonymous enums inside `Build_Options` and `Message_*` can't be named elsewhere, so helper state stores them as integers (`last_complete_error`) or uses the polymorphic `enum_member_name`.
 - Workspace id `-1` means the current workspace (`resolve_workspace`).
-- `jaic check` only type-checks code reachable from `main`, so a probe must call new procedures behind a runtime condition. `tests/stdlib/compiler-api-shapes.jai` is that probe for the option, message and stub surface; `tests/stdlib/type-info-flags.jai` covers type-info flags.
+- `jaic -check` only type-checks code reachable from `main`, so a probe must call new procedures behind a runtime condition. `tests/stdlib/compiler-api-shapes.jai` is that probe for the option, message and stub surface; `tests/stdlib/type-info-flags.jai` covers type-info flags.
 
 ## Configuration
 
-`MACHINE_OPTIONS_SIZE` sizes the `machine_options` layout placeholder. `jaic check file.jai -os linux|windows|macos` changes the target `OS`, and with it the default `os_target`; compile-time code still runs on the host.
+`MACHINE_OPTIONS_SIZE` sizes the `machine_options` layout placeholder. `jaic file.jai -check -os linux|windows|macos` changes the target `OS`, and with it the default `os_target`; compile-time code still runs on the host.
 
 ## Dependencies
 

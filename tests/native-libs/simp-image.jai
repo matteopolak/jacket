@@ -1,7 +1,7 @@
 // Calls into each prebuilt third-party library a release archive ships (stb_image,
 // stb_image_write, stb_image_resize, stb_vorbis) through Simp and the bindings, without a window.
 // Exits with 0 when every call worked; release.yml runs it from the unpacked archive with
-// `jaic run` and as a `jaic build` executable (docs/tools/releases.md).
+// `jaic -interp` and as a `jaic` executable (docs/tools/releases.md).
 #import "Basic";
 Simp :: #import "Simp";
 Resize :: #import "stb_image_resize";

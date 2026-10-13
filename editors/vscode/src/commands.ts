@@ -1,13 +1,16 @@
-// "Jai: Run File", "Build File" and "Check File": `jaic <command> <file>` as a task, so the output
-// shows in a terminal and the task can be rerun.
+// "Jai: Run File", "Build File" and "Check File": `jaic <file> [-interp|-check]` as a task, so the
+// output shows in a terminal and the task can be rerun.
 import * as path from "node:path";
 import * as vscode from "vscode";
 
 export type JaicCommand = "run" | "build" | "check";
 
+/** The mode option each command passes to `jaic`: running interprets, building is the default. */
+const modeOption: Record<JaicCommand, string[]> = { run: ["-interp"], build: [], check: ["-check"] };
+
 /** The `jaic` arguments for a command on `file`. */
 export function jaicArguments(command: JaicCommand, file: string, extra: readonly string[]): string[] {
-  return [command, file, ...extra];
+  return [file, ...modeOption[command], ...extra];
 }
 
 export async function runJaic(

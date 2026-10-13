@@ -14,8 +14,8 @@ Only our Rust code is profiled. LLVM, which `jaic` links for native output, is t
 2. **Training** (`train()`), with `LLVM_PROFILE_FILE=pgo/profraw/%4m.profraw` so the hundreds of `jaic` runs merge into a few files per binary as they exit:
    - `tools/jaic-sweep.py` over `corpus negative stdlib modules examples` (check and interpreted run);
    - the sweep again with native builds: `--opt O0` over `corpus stdlib examples` and `--opt O2` over `corpus examples`;
-   - `jaic run` of each `benchmarks/*.jai` (interpreter dispatch, compile-time execution);
-   - `jaic build jaifmt/main.jai` at `-O0` and `-O2` (a real multi-file program), `jaic check examples/tour/main.jai`;
+   - `jaic -interp` of each `benchmarks/*.jai` (interpreter dispatch, compile-time execution);
+   - `jaic jaifmt/main.jai` at `-O0` and `-O2` (a real multi-file program), `jaic examples/tour/main.jai -check`;
    - `jailint` over `stdlib`, `examples` and `tests/stdlib`;
    - a scripted `jailsp` session (`lsp_session()`): it opens a few files, asks for symbols, semantic tokens, folding, inlay hints, hovers, completions, definitions, highlights, signature help and references across each file, types a new procedure character by character with completions along the way, restores the file, closes it and shuts down.
 
@@ -69,16 +69,16 @@ Apple M5, dynamic LLVM 22.1.8, plain `cargo build --release --target aarch64-app
 
 | Workload | A median | B median | B/A (runs 1, 2) |
 |---|---|---|---|
-| `jaic check` Focus `first.jai`* | 1.90 s | 1.74 s | 0.91, noisy (min 1.86 → 1.46 s, 1.67 → 1.51 s) |
-| `jaic check` Jails `build.jai`* | 0.171 s | 0.157 s | 0.92, 0.91 |
-| `jaic check` sgpu examples* | 0.436 s | 0.406 s | 0.93, 0.93 |
-| `jaic run` jaison tests* | 0.357 s | 0.342 s | 0.96, 0.94 |
+| `jaic -check` Focus `first.jai`* | 1.90 s | 1.74 s | 0.91, noisy (min 1.86 → 1.46 s, 1.67 → 1.51 s) |
+| `jaic -check` Jails `build.jai`* | 0.171 s | 0.157 s | 0.92, 0.91 |
+| `jaic -check` sgpu examples* | 0.436 s | 0.406 s | 0.93, 0.93 |
+| `jaic -interp` jaison tests* | 0.357 s | 0.342 s | 0.96, 0.94 |
 | `jailint stdlib` | 1.83 s | 1.67 s | 0.91, 0.93 |
 | scripted `jailsp` session | 3.04 s | 2.80 s | 0.92, 1.01 (min 2.96 → 2.57 s, 2.86 → 2.65 s) |
 | `benchmarks/interp-strings.jai` | 1.24 s | 1.22 s | 0.98, 0.96 |
 | `benchmarks/interp-loops.jai` | 0.386 s | 0.370 s | 0.96, 0.95 |
-| `jaic build jaifmt/main.jai -O0` | 0.152 s | 0.148 s | 0.97, 0.98 |
-| `jaic build jaifmt/main.jai -O2` | 0.825 s | 0.833 s | 1.01, 0.99 |
+| `jaic jaifmt/main.jai -O0` | 0.152 s | 0.148 s | 0.97, 0.98 |
+| `jaic jaifmt/main.jai -O2` | 0.825 s | 0.833 s | 1.01, 0.99 |
 
 The front end (parsing, sema, compile-time execution) is 6 to 9% faster; the interpreter's hot loops gain 2 to 5%. `-O2` builds do not change, since their time is LLVM's optimiser, which we do not profile. The PGO binaries passed the full sweep (`corpus negative stdlib modules examples upstream`: 852 passed), the native sweep at `-O0` and `-O2` (`corpus stdlib modules`: 332 passed each), and `jaic-diff.py --backends interp,native,native-O2 corpus gen:1:40` (84 agree). The whole PGO build took 93 s on this machine, against about 20 s for a plain release build.
 

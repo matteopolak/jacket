@@ -23,7 +23,7 @@
 // `cancel(fiber)` has been called for its fiber.
 //
 // Fibers need the compiler's stack-switching intrinsics, which native builds and the interpreter
-// (`jaic run`) have and WebAssembly does not: importing this module for wasm is a compile error.
+// (`jaic -interp`) have and WebAssembly does not: importing this module for wasm is a compile error.
 // The stack of each fiber, in bytes, including its guard page. Address space only: the OS commits
 // pages as the fiber touches them (Windows commits it all up front).
 #module_parameters(STACK_BYTES := 256 * 1024, POOL_LIMIT := 1024, TEMPORARY_BYTES := 2048);

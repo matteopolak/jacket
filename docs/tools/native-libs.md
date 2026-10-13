@@ -7,7 +7,7 @@ The stdlib binds some third-party libraries that no system ships: `stb_image`, `
 `rpmalloc` (built with first-class heaps; macOS and Linux only), mbedTLS (for [`Extensions/Tls`](../specs/stdlib/README.md)) and, on Windows, SDL2.
 `tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
-library name, both for foreign calls at compile time or under `jaic run` and when linking `jaic build`
+library name, both for foreign calls at compile time or under `jaic -interp` and when linking `jaic`
 output. Without it, programs that use those modules type-check but can't call into them or link.
 Release archives ship the libraries for their platform in `artifacts/native-libs/<platform>/`, built by
 `release.yml` from the same pinned sources, so an installed toolchain runs and builds Simp, GetRect and
@@ -17,8 +17,8 @@ files go to `licenses/<source>/` beside the libraries (the pinned manifest names
 ## What ships where
 
 Every row is built by `build_native_libs.py` into `artifacts/native-libs/<platform>/` and into the release
-archive of the same name. "static" is `lib<name>.a` / `<name>.lib` (what `jaic build` links, so executables
-carry the library), "shared" the `.dylib` / `.so` / `.dll` that `jaic run` loads.
+archive of the same name. "static" is `lib<name>.a` / `<name>.lib` (what `jaic` links, so executables
+carry the library), "shared" the `.dylib` / `.so` / `.dll` that `jaic -interp` loads.
 
 | Library | macOS arm64/x64 | Linux x64/arm64 | Windows x64/arm64 (MSVC) | MinGW cross (`windows-*-mingw`) |
 |---|---|---|---|---|
@@ -70,7 +70,7 @@ user's to install; `jaic` finds them the usual way.
 
 - MinGW cross builds (`--platform windows-x64-mingw` or `windows-arm64-mingw`, on Linux or macOS):
   the same sources compiled with `<x86_64|aarch64>-w64-mingw32-gcc`/`-g++` into `lib<name>.a`
-  (static only, no DLL) under `artifacts/native-libs/windows-<cpu>-mingw/`. `jaic build -os windows`
+  (static only, no DLL) under `artifacts/native-libs/windows-<cpu>-mingw/`. `jaic -os windows`
   links them from the directories in `JAIC_CROSS_LIBS` (`library_args` in `jaic-llvm`); it never uses
   the host's native-libs directory for a cross build, whose archives are for the host.
   `tools/windows_cross.py build --stdlib` builds and sets it, as `windows-native.yml`'s cross jobs run it.
@@ -148,7 +148,7 @@ link time, which `jaic` has no way to learn from a plain `libSDL2.a`. So:
   `SDL2.lib` (import library) and `SDL2.dll` for MSVC, `libSDL2.a` (the release's `libSDL2.dll.a` import
   library under the name `jaic` looks up) and `SDL2.dll` for MinGW. The release's static MinGW `libSDL2.a`
   is not used because it needs a dozen Windows system libraries named at link time. Programs that use
-  SDL2 therefore need `SDL2.dll` next to the executable (or on `PATH`); `jaic run` loads it from the
+  SDL2 therefore need `SDL2.dll` next to the executable (or on `PATH`); `jaic -interp` loads it from the
   native-libs directory. `stdlib_runtime.py` and `windows_cross.py` copy it beside the test executables.
 - **Windows arm64**: the official release has no arm64 binaries, so SDL2 is not shipped there.
 - **macOS and Linux**: the system's SDL2 (`brew install sdl2`, `libsdl2-dev`), as before. CI installs it.
@@ -183,7 +183,7 @@ Then build and run the examples (shaders and `sample.png` come from `tools/fetch
 brew install cmake ninja molten-vk vulkan-loader vulkan-validationlayers
 python3 tools/build_slang.py
 python3 tools/build_native_libs.py
-cd corpus/upstream/roeyb1--sgpu/examples && jaic build build.jai
+cd corpus/upstream/roeyb1--sgpu/examples && jaic build.jai
 export VK_ICD_FILENAMES=/opt/homebrew/etc/vulkan/icd.d/MoltenVK_icd.json \
        VK_LAYER_PATH=/opt/homebrew/share/vulkan/explicit_layer.d \
        DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/opt/vulkan-validationlayers/lib
@@ -221,9 +221,9 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 MSVC libraries on Windows; network access to `raw.githubusercontent.com` and `github.com` on first
 build. Release archives include these libraries (`release.yml`'s Package step; the smoke test runs
 `tests/native-libs/simp-image.jai` and the FreeType, ImGui and MojoShader runtime tests (plus SDL2's on Windows
-x64) from the unpacked archive with `jaic run` and as built executables). Archives
+x64) from the unpacked archive with `jaic -interp` and as built executables). Archives
 up to 0.4.2 did not, so Simp programs stopped with ``foreign procedure `stbi_load` is not available here``
-under `jaic run` and with a missing `stb_image` library when linking.
+under `jaic -interp` and with a missing `stb_image` library when linking.
 
 ## wgpu-native (WebGPU)
 

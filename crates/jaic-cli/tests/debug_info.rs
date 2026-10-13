@@ -1,4 +1,4 @@
-//! Native debug information (`docs/native/debug-info.md`): the DWARF `jaic build` emits
+//! Native debug information (`docs/native/debug-info.md`): the DWARF `jaic` emits
 //! is valid and describes the program, and a debugger can use it. Tests skip when
 //! `llvm-dwarfdump` or `lldb` is not installed.
 use std::path::{Path, PathBuf};
@@ -20,9 +20,8 @@ fn build(dir: &str, name: &str, args: &[&str], units: Option<&str>, collect: boo
     let _ = std::fs::remove_dir_all(dsym(&exe));
     let source = fixture();
     let mut cmd = Command::new(JAIC);
-    cmd.arg("build")
-        .arg(&source)
-        .arg("-o")
+    cmd.arg(&source)
+        .arg("-exe")
         .arg(&exe)
         .args(args)
         .current_dir(source.parent().unwrap());
@@ -169,7 +168,7 @@ fn dwarf_is_valid_with_split_codegen() {
 
 #[test]
 fn no_debug_info_flag_omits_it() {
-    let exe = build("debug-info-off", "prog", &["--no-debug-info"], None, true);
+    let exe = build("debug-info-off", "prog", &["-no_debug_info"], None, true);
     if cfg!(target_os = "macos") {
         assert!(!dsym(&exe).exists());
     } else if let Some(tool) = dwarfdump() {

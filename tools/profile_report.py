@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Summarize a `samply record --save-only --unstable-presymbolicate` profile in the terminal.
 
-    samply record --save-only --unstable-presymbolicate -o prof.json.gz -- jaic check big.jai
+    samply record --save-only --unstable-presymbolicate -o prof.json.gz -- jaic big.jai -check
     python3 tools/profile_report.py prof.json.gz [--top 30] [--thread NAME] [--within TEXT] [--without TEXT]
 
 Prints the busiest thread's functions by self samples and by inclusive samples (a function counts

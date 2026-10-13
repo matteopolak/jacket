@@ -10,10 +10,10 @@ The tests are `tests/stdlib/*.jai` and the stdlib's own module tests (`stdlib/<M
 `stdlib/tests/**/*.jai`, minus their `modules/` folders of mock modules). Each one checks its own
 results with `assert` and must exit 0 in every mode:
 
-    interp       `jaic run file.jai`
-    native       `jaic build file.jai` for the host, then the executable
-    wasm-interp  `jaic run file.jai -os wasm` (the sandboxed host the browser engine also uses)
-    wasm-native  `jaic build file.jai -os wasm`, then the module under node's WASI (tools/wasi_run.mjs)
+    interp       `jaic file.jai -interp`
+    native       `jaic file.jai` for the host, then the executable
+    wasm-interp  `jaic file.jai -interp -os wasm` (the sandboxed host the browser engine also uses)
+    wasm-native  `jaic file.jai -os wasm`, then the module under node's WASI (tools/wasi_run.mjs)
 
 A program without `main` does its work while it compiles; its build passing is its result in the
 `native` and `wasm-native` modes. Programs run in their own directory, one mode after another,
@@ -147,7 +147,7 @@ def run_mode(args, test, path, mode, scratch):
         record = Path(scratch) / f"{test.replace('/', '-')}-{mode}.coverage"
         if args.coverage:
             env["JAIC_COVERAGE"] = str(record)
-        code, out = run_command([args.jaic, "run", str(path), *target], path.parent, args.timeout, env)
+        code, out = run_command([args.jaic, str(path), "-interp", *target], path.parent, args.timeout, env)
         if args.coverage and record.exists():
             # One file per run, gathered under a lock: concurrent appends could interleave.
             with COVERAGE_LOCK, open(args.coverage, "a", encoding="utf-8") as into:
@@ -156,7 +156,7 @@ def run_mode(args, test, path, mode, scratch):
         return code == 0, out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     exe = Path(tempfile.mkdtemp(dir=scratch)) / test.replace("/", "-")
     try:
-        code, out = run_command([args.jaic, "build", str(path), *target, "-o", str(exe)], path.parent,
+        code, out = run_command([args.jaic, str(path), *target, "-exe", str(exe)], path.parent,
                                 args.timeout, env)
         # A program without `main` did all its work at compile time.
         if code != 0 and ("no exported 'main'" in out or "has no `main` procedure" in out):

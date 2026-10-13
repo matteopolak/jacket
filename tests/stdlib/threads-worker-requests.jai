@@ -1,5 +1,5 @@
 // A worker that waits on a semaphore for requests serves every one of them, however long it
-// waited. The browser sandbox and `jaic run -os wasm` run all threads on one host thread; they
+// waited. The browser sandbox and `jaic -interp -os wasm` run all threads on one host thread; they
 // used to give up on a worker waiting for its next request once the main thread could go on,
 // so the second request was never served and the program hung (File_Async did this).
 #import "Basic";

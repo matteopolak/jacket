@@ -1,5 +1,5 @@
-//! `jaic` command line: `jaic <run|check|build> <file.jai> [-I dir]... [-o out]`.
-use jaic::build::{BuildEnv, BuildSettings, OutputBackend, OutputType, Workspaces};
+//! `jaic` command line: `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`.
+use jaic::build::{BuildEnv, BuildSettings, MainOverrides, OutputBackend, OutputType, Workspaces};
 use jaic::interp::{NativeHost, SandboxHost, SharedHost};
 use jaic::sema::{
     Compiler, DeadCode, FileSystem, NativeFs, Options, ProgramSource, TargetCpu, TargetOs,
@@ -14,7 +14,7 @@ use std::rc::Rc;
 #[global_allocator]
 static ALLOCATOR: jaic::memory_limit::CountingAllocator = jaic::memory_limit::CountingAllocator;
 
-/// `--timings`: wall time per compiler phase, printed to stderr when the command ends.
+/// `-timings`: wall time per compiler phase, printed to stderr when the command ends.
 mod timings {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -88,51 +88,122 @@ fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+/// What jaic does with the program: build it (the default), only compile it, or interpret it.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Command {
+enum Mode {
     Check,
-    Run,
+    Interp,
     Build,
+}
+
+/// The optimization flavor `-o`, `-od` and `-very_debug` stand for.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Flavor {
+    Optimized,
+    OptimizedDebug,
+    VeryDebug,
+}
+
+impl Flavor {
+    /// The `llvm_options.bitcode_optimization_setting` name this flavor builds with.
+    fn level(self) -> &'static str {
+        match self {
+            Flavor::Optimized => "O2",
+            Flavor::OptimizedDebug => "O1",
+            Flavor::VeryDebug => "O0",
+        }
+    }
+}
+
+/// A `-add` or `-run` string, in command-line order.
+enum Added {
+    /// `-add`: more code for the target program.
+    Code(String),
+    /// `-run`: code to run at compile time.
+    Run(String),
+}
+
+impl Added {
+    /// The source text this adds to the program.
+    fn source(&self) -> String {
+        match self {
+            Added::Code(code) => code.clone(),
+            Added::Run(code) => {
+                let end = if code.trim_end().ends_with([';', '}']) {
+                    ""
+                } else {
+                    ";"
+                };
+                format!("#run {{\n{code}{end}\n}};\n")
+            }
+        }
+    }
+}
+
+/// One `+Name` plugin with the arguments that follow it.
+struct Plugin {
+    /// The module name; it may carry module parameters, `Check(CHECK_BINDINGS=false)`.
+    name: String,
+    options: Vec<String>,
 }
 
 /// Parsed command line.
 struct Cli {
-    command: Command,
+    mode: Mode,
     file: String,
     imports: Vec<PathBuf>,
-    output: Option<PathBuf>,
+    /// `-exe`: the target workspace's `output_executable_name`. It may carry a directory and an
+    /// extension.
+    exe: Option<String>,
+    /// `-output_path`: the target workspace's `output_path`.
+    output_path: Option<PathBuf>,
+    /// `-o`, `-od` or `-very_debug`.
+    flavor: Option<Flavor>,
     /// `-O0`..`-O3`; `None`: what the metaprogram chose (default: unoptimized).
     opt_level: Option<&'static str>,
     emit_ir: Option<PathBuf>,
-    /// `--no-debug-info`: omit native debug information (on by default, like `jai`).
+    /// `-no_debug_info`: omit native debug information (on by default).
     no_debug_info: bool,
+    /// `-no_inline`: every function not marked `inline` gets `noinline`.
+    no_inline: bool,
+    /// `-no_split`: generate code in one module instead of several.
+    no_split: bool,
+    /// `-no_backtrace_on_crash`: no crash handler in the target program.
+    no_backtrace_on_crash: bool,
+    /// `-add` and `-run` strings.
+    added: Vec<Added>,
     /// Arguments after `-`, for the metaprogram (`compiler_get_command_line`).
     command_line: Vec<String>,
-    /// `run` only: arguments after `--`, for the program (`get_command_line_arguments`).
+    /// `-interp` only: arguments after `--`, for the program (`get_command_line_arguments`).
     program_args: Vec<String>,
     /// `-os`: the target `OS` when it is not the host (checking code for another platform).
     os: Option<TargetOs>,
     /// `-cpu`: the target `CPU` when it is not the host's (`-os windows -cpu arm64`).
     cpu: Option<TargetCpu>,
-    /// `-plug Name`: metaprogram plugin modules (`Name` may carry module parameters,
-    /// `Check(CHECK_BINDINGS=false)`).
-    plugins: Vec<String>,
-    /// Arguments jaic does not know; they are the plugins' options (an error without plugins).
-    plugin_options: Vec<String>,
+    /// `+Name`: metaprogram plugin modules, each with the arguments up to the next `+Name`.
+    plugins: Vec<Plugin>,
     /// `-target`: an explicit LLVM target triple (`x86_64-pc-windows-msvc`...).
     target: Option<String>,
-    /// `--timings`: report the wall time of each phase on stderr.
+    /// `-timings`: report the wall time of each phase on stderr.
     timings: bool,
-    /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for `build`.
+    /// `-sanitize address,undefined` (repeatable): sanitizer instrumentation for builds.
     sanitize: Vec<String>,
     /// `-no_dce`: type-check every declaration, modules included
     /// (`Build_Options.dead_code_elimination = .NONE`).
     no_dce: bool,
-    /// `-no_workspace_output` (`run`): do not write what workspaces a metaprogram creates ask
-    /// for (test sweeps over many programs).
+    /// `-no_check_bindings`: `CHECK_BINDINGS=false` for a `+Check` plugin.
+    no_check_bindings: bool,
+    /// `-no_workspace_output` (`-interp`): do not write what workspaces a metaprogram creates
+    /// ask for (test sweeps over many programs).
     no_workspace_output: bool,
-    /// `--color`: colour in diagnostics.
-    color: jaic::render::ColorChoice,
+    /// `-no_color`: no colour in diagnostics.
+    no_color: bool,
+    /// `-msvc_format`: diagnostics as `path(line,col): error: message` lines.
+    msvc_format: bool,
+    /// `-quiet`: print nothing but errors.
+    quiet: bool,
+    /// `-verbose`: say what is being done.
+    verbose: bool,
 }
 
 impl Cli {
@@ -167,7 +238,7 @@ impl Cli {
                 )
                 .to_string(),
             )),
-            _ if self.command != Command::Build => Ok(None),
+            _ if self.mode != Mode::Build => Ok(None),
             // A WASI command, runnable by node, wasmtime and the like.
             TargetOs::Wasm => Ok(Some(WASI_TRIPLE.into())),
             _ => Err(
@@ -178,10 +249,10 @@ impl Cli {
     }
 }
 
-/// What `jaic build -os wasm` targets: wasm64 with the `Wasi_Runtime` module linked in.
+/// What `jaic -os wasm` targets: wasm64 with the `Wasi_Runtime` module linked in.
 const WASI_TRIPLE: &str = "wasm64-unknown-wasi";
 
-/// `jaic build`'s exit status when the program has no `main` (its work is all `#run`s), so
+/// A build's exit status when the program has no `main` (its work is all `#run`s), so
 /// tools can tell "nothing to build" from a failed compile.
 const NO_MAIN_STATUS: u8 = 3;
 
@@ -217,41 +288,62 @@ fn os_and_cpu(triple: &str) -> (TargetOs, TargetCpu) {
     (os, cpu)
 }
 
-/// `jaic --help`.
+/// `jaic -help`.
 fn usage_text() -> String {
     format!(
         "jaic {version}: compile, check and run Jai programs
 
-usage: jaic run <file.jai> [options] [- metaprogram args...] [-- program args...]
-       jaic check <file.jai> [options]
-       jaic build <file.jai> [options] [-o output]
+usage: jaic [options] file.jai [options] [+Plugin [plugin options...]]... [- metaprogram args...] [-- program args...]
 
-commands:
-  run      compile the program and run it in the interpreter
-  check    compile the program without running or writing anything
-  build    compile the program to a native executable (or what its metaprogram asks for)
+By default jaic builds a native executable. Options may come before or after the file.
 
-options:
-  -I, -import_dir <dir>     also look for modules in <dir> (repeatable)
+modes:
+  -check                    compile the program without running or writing anything
+  -interp                   run `main` in the interpreter (arguments after `--` go to the program)
+
+program:
+  -add \"code\"               add the code to the target program (repeatable)
+  -run \"code\"               run the code at compile time, as a `#run` (repeatable)
+  -import_dir <dir>         also look for modules in <dir> (repeatable; short form -I)
   -os <os>                  target OS: linux, windows, macos or wasm
   -cpu <cpu>                target CPU: x64 or arm64
   -target <triple>          build for an LLVM target triple
-  -plug <Module>            run a metaprogram plugin (check and build; repeatable)
   -no_dce                   type-check unreferenced module code too
-  --color <when>            coloured diagnostics: auto, always or never
-  --timings                 print the wall time of each phase on stderr
-  -h, --help                print this help
-  -V, --version             print the version
+  -no_check                 accepted and ignored: jaic does not run the Check plugin unless asked
+  -no_check_bindings        set CHECK_BINDINGS=false on a +Check plugin, if there is one
 
-build options:
-  -o <output>               the output file
-  -O0, -O1, -O2, -O3        optimization level
-  --emit-ir <file.ll>       also write the LLVM IR
-  --no-debug-info           leave out native debug information
+output (building only):
+  -exe <name>               the executable's name; it may include a directory and extension
+                            (`-exe build/app.exe`). A bare name goes next to the source file
+  -output_path <dir>        the directory the executable is written to
+  -o, -optimized            optimized build (LLVM O2) without stack traces or runtime checks
+  -od, -optimized_debug     lightly optimized build (LLVM O1) that keeps stack traces and checks
+  -very_debug               unoptimized build with every runtime check on
+  -O0, -O1, -O2, -O3        pick the LLVM optimization level directly
+  -no_inline                do not inline procedures
+  -no_split                 generate code as one module instead of several
+  -no_backtrace_on_crash    leave the crash handler out of the program
+  -emit_ir <file.ll>        also write the LLVM IR
+  -no_debug_info            leave out native debug information
   -sanitize <list>          address and/or undefined, comma-separated
+  -no_workspace_output      (-interp only) do not write what a metaprogram's workspaces ask for
 
-run options:
-  -no_workspace_output      do not write what a metaprogram's workspaces ask for
+plugins:
+  +Name                     run the metaprogram plugin module Name. Every argument after it, up
+                            to the next +Name, `-` or `--`, is that plugin's own option.
+                            Module parameters go in the name: '+Check(CHECK_BINDINGS=false)'
+                            (quote it in a shell). Plugins do not combine with -interp.
+  -                         the rest is for the metaprogram (`compiler_get_command_line`)
+  --                        the rest is for the program (-interp only)
+
+diagnostics and output:
+  -no_color                 no colour in diagnostics
+  -msvc_format              one `path(line,col): error: message` line per diagnostic
+  -quiet                    print nothing but errors
+  -verbose                  say what is being done
+  -timings                  print the wall time of each phase on stderr
+  -h, -help, --help         print this help
+  -V, -version, --version   print the version
 
 environment:
   JAIC_MEMORY_LIMIT=<bytes|nK|nM|nG>  stop with exit status {limit} once that much is allocated
@@ -259,8 +351,8 @@ environment:
   NO_COLOR, FORCE_COLOR, CLICOLOR_FORCE  turn colour off or on
 
 exit status: 0 success, 1 the program failed to compile, an input file cannot be read
-or a runtime error stopped it (`run` otherwise exits with the program's own status),
-2 a command-line mistake, {no_main} `build` found no `main` to make an executable from,
+or a runtime error stopped it (`-interp` otherwise exits with the program's own status),
+2 a command-line mistake, {no_main} a build found no `main` to make an executable from,
 {limit} the memory limit, {crash} native code crashed under the interpreter, 101 an
 internal compiler error",
         version = env!("CARGO_PKG_VERSION"),
@@ -307,130 +399,269 @@ const VALUE_OPTIONS: &[(&str, &str)] = &[
         "-target",
         "an LLVM target triple, such as x86_64-pc-windows-gnu",
     ),
-    (
-        "--target",
-        "an LLVM target triple, such as x86_64-pc-windows-gnu",
-    ),
-    ("-o", "an output path"),
-    ("--emit-ir", "a file to write the LLVM IR to"),
+    ("-exe", "an executable name"),
+    ("-output_path", "a directory"),
+    ("-emit_ir", "a file to write the LLVM IR to"),
     ("-sanitize", "address, undefined or both, comma-separated"),
-    ("--sanitize", "address, undefined or both, comma-separated"),
-    ("-plug", "a plugin module name"),
-    ("-plugin", "a plugin module name"),
-    ("--color", "a value: auto, always or never"),
-    ("-color", "a value: auto, always or never"),
+    ("-add", "the code to add to the program"),
+    ("-run", "the code to run at compile time"),
 ];
 
 /// Every option jaic knows, for "did you mean" suggestions.
 const KNOWN_OPTIONS: &[&str] = &[
+    "-check",
+    "-interp",
+    "-add",
+    "-run",
     "-I",
     "-import_dir",
     "-os",
     "-cpu",
     "-target",
-    "--target",
+    "-exe",
+    "-output_path",
     "-o",
-    "--emit-ir",
-    "--no-debug-info",
-    "-sanitize",
-    "--sanitize",
+    "-optimized",
+    "-od",
+    "-optimized_debug",
+    "-very_debug",
     "-O0",
     "-O1",
     "-O2",
     "-O3",
-    "-plug",
-    "-plugin",
-    "--timings",
+    "-no_inline",
+    "-no_split",
     "-no_dce",
+    "-no_backtrace_on_crash",
+    "-no_check",
+    "-no_check_bindings",
+    "-emit_ir",
+    "-no_debug_info",
+    "-sanitize",
     "-no_workspace_output",
-    "--color",
-    "--help",
-    "--version",
+    "-no_color",
+    "-msvc_format",
+    "-quiet",
+    "-verbose",
+    "-timings",
+    "-help",
+    "-version",
 ];
 
-/// Options only `jaic build` takes.
+/// Options only a build takes: `-check` and `-interp` write no output.
 const BUILD_ONLY: &[&str] = &[
+    "-exe",
+    "-output_path",
     "-o",
-    "--emit-ir",
-    "--no-debug-info",
-    "-sanitize",
-    "--sanitize",
+    "-optimized",
+    "-od",
+    "-optimized_debug",
+    "-very_debug",
     "-O0",
     "-O1",
     "-O2",
     "-O3",
+    "-no_inline",
+    "-no_split",
+    "-emit_ir",
+    "-no_debug_info",
+    "-sanitize",
 ];
+
+/// Spellings from before 0.17.0 and what replaces them.
+const RENAMED: &[(&str, &str)] = &[
+    ("--emit-ir", "-emit_ir <file.ll>"),
+    ("--no-debug-info", "-no_debug_info"),
+    ("--timings", "-timings"),
+    ("--sanitize", "-sanitize <list>"),
+    ("--target", "-target <triple>"),
+    (
+        "--color",
+        "-no_color to turn colour off; FORCE_COLOR=1 turns it on",
+    ),
+    (
+        "-color",
+        "-no_color to turn colour off; FORCE_COLOR=1 turns it on",
+    ),
+    ("-plug", "+Name after the file, as in `jaic file.jai +Name`"),
+    (
+        "-plugin",
+        "+Name after the file, as in `jaic file.jai +Name`",
+    ),
+];
+
+/// `arg` as a shell would need it written.
+fn shell_word(arg: &str) -> String {
+    let plain = !arg.is_empty()
+        && arg
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-_./:=+,@%".contains(c));
+    if plain {
+        arg.to_string()
+    } else {
+        format!("'{}'", arg.replace('\'', "'\\''"))
+    }
+}
+
+/// The error for `jaic run|check|build ...`: the same command in the single-command form, with
+/// the other arguments carried over (renamed options included).
+fn subcommand_error(args: &[String]) -> CliError {
+    let old = args[0].as_str();
+    let mode_flag = match old {
+        "run" => Some("-interp"),
+        "check" => Some("-check"),
+        _ => None,
+    };
+    let mut file = None;
+    let mut options: Vec<String> = Vec::new();
+    let mut plugins: Vec<String> = Vec::new();
+    let mut plugin_options: Vec<String> = Vec::new();
+    let mut tail: Vec<String> = Vec::new();
+    let mut rest = args[1..].iter();
+    while let Some(arg) = rest.next() {
+        let arg = arg.as_str();
+        match arg {
+            "-" | "--" => {
+                tail.push(arg.to_string());
+                tail.extend(rest.by_ref().cloned());
+            }
+            "-plug" | "-plugin" => plugins.extend(rest.next().map(|name| format!("+{name}"))),
+            "--color" | "-color" => {
+                if rest.next().is_some_and(|when| when == "never") {
+                    options.push("-no_color".into());
+                }
+            }
+            "-o" => {
+                if let Some(path) = rest.next() {
+                    options.extend(["-exe".into(), path.clone()]);
+                }
+            }
+            "--emit-ir" | "--sanitize" | "--target" => {
+                options.push(arg[1..].replace("emit-ir", "emit_ir"));
+                options.extend(rest.next().cloned());
+            }
+            "--no-debug-info" | "--timings" => {
+                options.push(arg[1..].replace("no-debug-info", "no_debug_info"));
+            }
+            _ if VALUE_OPTIONS.iter().any(|(option, _)| *option == arg) => {
+                options.push(arg.to_string());
+                options.extend(rest.next().cloned());
+            }
+            _ if arg.starts_with('-') || !plugin_options.is_empty() => {
+                plugin_options.push(arg.to_string())
+            }
+            _ if file.is_none() => file = Some(arg.to_string()),
+            _ => plugin_options.push(arg.to_string()),
+        }
+    }
+    let mut words = vec![file.unwrap_or_else(|| "file.jai".into())];
+    words.extend(options);
+    words.extend(mode_flag.map(String::from));
+    words.extend(plugins);
+    words.extend(plugin_options);
+    words.extend(tail);
+    let words: Vec<String> = words.iter().map(|w| shell_word(w)).collect();
+    CliError::new("jaic has no subcommands since 0.17.0")
+        .help(format!("use `jaic {}`", words.join(" ")))
+        .help(
+            "`-check` only compiles, `-interp` runs the program in the interpreter, and with \
+             neither jaic builds an executable",
+        )
+}
+
+/// What is wrong with `--`, which only `-interp` takes.
+fn program_args_error(file: &str) -> CliError {
+    CliError::new("`--` hands arguments to the program, which only `-interp` runs")
+        .help(format!("use `jaic {file} -interp -- ...`"))
+        .help("arguments for the metaprogram go after a lone `-`")
+}
 
 fn parse(args: &[String]) -> Result<Request, CliError> {
     let Some(first) = args.first() else {
-        return Err(CliError::new("no command given")
-            .help("run a program with `jaic run file.jai`; `jaic --help` lists every command"));
+        return Err(CliError::new("no file to compile")
+            .help("usage: jaic [options] file.jai [options]")
+            .help("`jaic -help` lists the options"));
     };
-    let command = match first.as_str() {
-        "check" => Command::Check,
-        "run" => Command::Run,
-        "build" => Command::Build,
-        "-h" | "--help" | "-help" | "help" => return Ok(Request::Help),
-        "-V" | "--version" | "-version" | "version" => return Ok(Request::Version),
-        other if other.ends_with(".jai") => {
-            return Err(CliError::new(format!("`{other}` is not a command"))
-                .help(format!("to run it, use `jaic run {other}`"))
-                .help("`jaic check` only compiles it, `jaic build` writes an executable"));
-        }
-        other => {
-            let mut error = CliError::new(format!("unknown command `{other}`"));
-            if let Some(near) = jaic::suggest::closest(other, ["run", "check", "build", "help"]) {
-                error = error.help(format!("did you mean `jaic {near}`?"));
-            }
-            return Err(error.help("the commands are `run`, `check` and `build`"));
-        }
-    };
-    let name = first.as_str();
-    let file = match args.get(1) {
-        Some(file) if file == "-h" || file == "--help" => return Ok(Request::Help),
-        Some(file) if file.starts_with('-') && file.len() > 1 => {
-            return Err(CliError::new(format!(
-                "expected a .jai file after `jaic {name}`, found `{file}`"
-            ))
-            .help(format!(
-                "put the file first and options after it: `jaic {name} file.jai {file} ...`"
-            )));
-        }
-        Some(file) => file.clone(),
-        None => {
-            return Err(CliError::new(format!("`jaic {name}` needs a .jai file"))
-                .help(format!("for example: `jaic {name} main.jai`")));
-        }
-    };
+    if matches!(first.as_str(), "run" | "check" | "build") && !Path::new(first).exists() {
+        return Err(subcommand_error(args));
+    }
     let mut cli = Cli {
-        command,
-        file,
+        mode: Mode::Build,
+        file: String::new(),
         imports: Vec::new(),
-        output: None,
+        exe: None,
+        output_path: None,
+        flavor: None,
         opt_level: None,
         emit_ir: None,
         no_debug_info: false,
+        no_inline: false,
+        no_split: false,
+        no_backtrace_on_crash: false,
+        added: Vec::new(),
         command_line: Vec::new(),
         program_args: Vec::new(),
         os: None,
         cpu: None,
         target: None,
         plugins: Vec::new(),
-        plugin_options: Vec::new(),
         timings: false,
         sanitize: Vec::new(),
         no_dce: false,
+        no_check_bindings: false,
         no_workspace_output: false,
-        color: jaic::render::ColorChoice::Auto,
+        no_color: false,
+        msvc_format: false,
+        quiet: false,
+        verbose: false,
     };
-    // Only jaic's own options count: metaprogram and program arguments start at `-`/`--`.
-    let has_plugins = args
-        .iter()
-        .take_while(|a| *a != "-" && *a != "--")
-        .any(|a| a == "-plug" || a == "-plugin");
-    let mut rest = args[2..].iter();
+    let mut file: Option<String> = None;
+    let mut extra: Option<String> = None;
+    let (mut check, mut interp) = (false, false);
+    // The first option that only builds take, for the `-check`/`-interp` error.
+    let mut build_only: Option<String> = None;
+    let mut rest = args.iter();
     while let Some(arg) = rest.next() {
-        // `--color=always` and the like.
+        match arg.as_str() {
+            "-" => {
+                // Metaprogram arguments run up to a `--` (if any).
+                for arg in rest.by_ref() {
+                    if arg == "--" {
+                        if !interp {
+                            return Err(program_args_error(file.as_deref().unwrap_or("file.jai")));
+                        }
+                        cli.program_args.push(file.clone().unwrap_or_default());
+                        break;
+                    }
+                    cli.command_line.push(arg.clone());
+                }
+                cli.program_args.extend(rest.by_ref().cloned());
+                continue;
+            }
+            "--" => {
+                if !interp {
+                    return Err(program_args_error(file.as_deref().unwrap_or("file.jai")));
+                }
+                // argv[0] is the source file, like a built program's executable path.
+                cli.program_args.push(file.clone().unwrap_or_default());
+                cli.program_args.extend(rest.by_ref().cloned());
+                continue;
+            }
+            _ => {}
+        }
+        // A plugin takes every argument up to the next `+Name`, `-` or `--`.
+        if let Some(name) = arg.strip_prefix('+').filter(|name| !name.is_empty()) {
+            cli.plugins.push(Plugin {
+                name: name.to_string(),
+                options: Vec::new(),
+            });
+            continue;
+        }
+        if let Some(plugin) = cli.plugins.last_mut() {
+            plugin.options.push(arg.clone());
+            continue;
+        }
+        // `-os=linux` and the like.
         let (a, inline) = match arg.split_once('=') {
             Some((option, value))
                 if option.starts_with('-') && VALUE_OPTIONS.iter().any(|(o, _)| *o == option) =>
@@ -454,32 +685,17 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
                 }
             }
         };
-        if BUILD_ONLY.contains(&a) && command != Command::Build && !has_plugins {
-            return Err(
-                CliError::new(format!("`{a}` only applies to `jaic build`")).help(format!(
-                    "`jaic {name}` writes no output; use `jaic build {} {a} ...`",
-                    cli.file
-                )),
-            );
+        if BUILD_ONLY.contains(&a) {
+            build_only.get_or_insert_with(|| a.to_string());
         }
         match a {
-            "-" => {
-                // Metaprogram arguments run up to a `--` (if any).
-                for arg in rest.by_ref() {
-                    if arg == "--" && command == Command::Run {
-                        cli.program_args.push(cli.file.clone());
-                        break;
-                    }
-                    cli.command_line.push(arg.clone());
-                }
-                cli.program_args.extend(rest.by_ref().cloned());
-            }
-            "--" if command == Command::Run => {
-                // argv[0] is the source file, like a built program's executable path.
-                cli.program_args.push(cli.file.clone());
-                cli.program_args.extend(rest.by_ref().cloned());
-            }
+            "-h" | "-help" | "--help" => return Ok(Request::Help),
+            "-V" | "-version" | "--version" => return Ok(Request::Version),
+            "-check" => check = true,
+            "-interp" => interp = true,
             "-I" | "-import_dir" => cli.imports.push(PathBuf::from(value(a)?)),
+            "-add" => cli.added.push(Added::Code(value(a)?)),
+            "-run" => cli.added.push(Added::Run(value(a)?)),
             "-os" => {
                 let os = value(a)?;
                 cli.os = Some(match os.as_str() {
@@ -508,33 +724,46 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
                     }
                 })
             }
-            "-target" | "--target" => cli.target = Some(value(a)?),
-            "-h" | "--help" | "-help" if !has_plugins => return Ok(Request::Help),
-            "--timings" => cli.timings = true,
+            "-target" => cli.target = Some(value(a)?),
+            "-exe" => cli.exe = Some(value(a)?),
+            "-output_path" => cli.output_path = Some(PathBuf::from(value(a)?)),
+            "-o" | "-optimized" | "-od" | "-optimized_debug" | "-very_debug" => {
+                // Before 0.17.0 `-o` named the output.
+                if a == "-o"
+                    && let Some(word) = rest.clone().next()
+                    && !word.starts_with(['-', '+'])
+                    && !word.ends_with(".jai")
+                {
+                    return Err(CliError::new("`-o` takes no value since 0.17.0")
+                        .help("it asks for an optimized build; name the output with `-exe name` and `-output_path dir`")
+                        .help(format!("to keep the old meaning of `-o {word}`, use `-exe {word}`")));
+                }
+                let flavor = match a {
+                    "-o" | "-optimized" => Flavor::Optimized,
+                    "-od" | "-optimized_debug" => Flavor::OptimizedDebug,
+                    _ => Flavor::VeryDebug,
+                };
+                if cli.flavor.is_some_and(|f| f != flavor) {
+                    return Err(CliError::new(
+                        "`-o`, `-od` and `-very_debug` each pick a build flavor; use one",
+                    ));
+                }
+                cli.flavor = Some(flavor);
+            }
+            "-O0" => cli.opt_level = Some("O0"),
+            "-O1" => cli.opt_level = Some("O1"),
+            "-O2" => cli.opt_level = Some("O2"),
+            "-O3" => cli.opt_level = Some("O3"),
+            "-no_inline" => cli.no_inline = true,
+            "-no_split" => cli.no_split = true,
             "-no_dce" => cli.no_dce = true,
-            "-no_workspace_output" if command == Command::Run => cli.no_workspace_output = true,
-            "-no_workspace_output" if !has_plugins => {
-                return Err(
-                    CliError::new("`-no_workspace_output` only applies to `jaic run`").help(
-                        if command == Command::Check {
-                            "`jaic check` never writes workspace output"
-                        } else {
-                            "`jaic build` writes what the workspaces ask for; leave the option out"
-                        },
-                    ),
-                );
-            }
-            "--color" | "-color" => {
-                let when = value("--color")?;
-                cli.color = jaic::render::ColorChoice::parse(&when).ok_or_else(|| {
-                    CliError::new(format!("unknown `--color` value `{when}`"))
-                        .help("use auto, always or never")
-                })?;
-            }
-            "-o" => cli.output = Some(PathBuf::from(value(a)?)),
-            "--emit-ir" => cli.emit_ir = Some(PathBuf::from(value(a)?)),
-            "--no-debug-info" => cli.no_debug_info = true,
-            "-sanitize" | "--sanitize" => {
+            "-no_backtrace_on_crash" => cli.no_backtrace_on_crash = true,
+            // Check is not run unless asked for, so there is nothing to turn off.
+            "-no_check" => {}
+            "-no_check_bindings" => cli.no_check_bindings = true,
+            "-emit_ir" => cli.emit_ir = Some(PathBuf::from(value(a)?)),
+            "-no_debug_info" => cli.no_debug_info = true,
+            "-sanitize" => {
                 let list = value(a)?;
                 if let Some(bad) = list
                     .split(',')
@@ -548,55 +777,117 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
                 }
                 cli.sanitize.push(list)
             }
-            "-O0" => cli.opt_level = Some("O0"),
-            "-O1" => cli.opt_level = Some("O1"),
-            "-O2" => cli.opt_level = Some("O2"),
-            "-O3" => cli.opt_level = Some("O3"),
-            "-plug" | "-plugin" => cli.plugins.push(value(a)?),
-            other if other.starts_with("-O") && command == Command::Build && !has_plugins => {
-                return Err(
-                    CliError::new(format!("unknown optimization level `{other}`"))
-                        .help("use -O0, -O1, -O2 or -O3"),
-                );
-            }
-            // An unknown option and everything after it (its values) go to the plugins.
-            other if other.starts_with('-') || !cli.plugin_options.is_empty() => {
-                cli.plugin_options.push(other.to_string())
-            }
-            other => {
-                let mut error = CliError::new(format!("unexpected argument `{other}`"));
-                if command == Command::Run {
-                    error = error.help(format!(
-                        "arguments for the program go after `--`: `jaic run {} -- {other}`",
-                        cli.file
-                    ));
-                } else {
-                    error = error
-                        .help("jaic compiles one file; it can `#load` or `#import` the others");
+            "-no_workspace_output" => cli.no_workspace_output = true,
+            "-no_color" => cli.no_color = true,
+            "-msvc_format" => cli.msvc_format = true,
+            "-quiet" => cli.quiet = true,
+            "-verbose" => cli.verbose = true,
+            "-timings" => cli.timings = true,
+            other if other.starts_with('-') => {
+                let name = other.split_once('=').map_or(other, |(name, _)| name);
+                if let Some((_, instead)) = RENAMED.iter().find(|(old, _)| *old == name) {
+                    return Err(CliError::new(format!(
+                        "`{name}` is spelled differently since 0.17.0"
+                    ))
+                    .help(format!("use {instead}")));
                 }
-                return Err(error);
+                if other.starts_with("-O") {
+                    return Err(
+                        CliError::new(format!("unknown optimization level `{other}`"))
+                            .help("use -O0, -O1, -O2 or -O3"),
+                    );
+                }
+                let mut error = CliError::new(format!("unknown option `{other}`"));
+                if let Some(near) = jaic::suggest::closest(other, KNOWN_OPTIONS.iter().copied()) {
+                    error = error.help(format!("did you mean `{near}`?"));
+                }
+                return Err(error.help(
+                    "options after a `+Plugin` belong to that plugin; `jaic -help` lists jaic's own",
+                ));
+            }
+            other if file.is_none() => file = Some(other.to_string()),
+            other => {
+                extra.get_or_insert_with(|| other.to_string());
             }
         }
     }
-    // Plugins compile the program in a workspace of their own, which `run` cannot start.
-    if !cli.plugins.is_empty() && command == Command::Run {
-        return Err(CliError::new(
-            "`-plug` works with `jaic check` and `jaic build`, not `jaic run`",
-        )
-        .help(format!("use `jaic build {} -plug ...`", cli.file)));
+    let Some(file) = file else {
+        return Err(CliError::new("no file to compile")
+            .help("usage: jaic [options] file.jai [options]")
+            .help("`jaic -help` lists the options"));
+    };
+    cli.file = file;
+    if check && interp {
+        return Err(CliError::new("`-check` and `-interp` cannot be combined")
+            .help("`-check` only compiles the program; `-interp` runs it in the interpreter"));
     }
-    if let Some(unknown) = cli
-        .plugin_options
-        .first()
-        .filter(|_| cli.plugins.is_empty())
-    {
-        let mut error = CliError::new(format!("unknown option `{unknown}`"));
-        if let Some(near) = jaic::suggest::closest(unknown, KNOWN_OPTIONS.iter().copied()) {
-            error = error.help(format!("did you mean `{near}`?"));
+    cli.mode = match (check, interp) {
+        (true, _) => Mode::Check,
+        (_, true) => Mode::Interp,
+        _ => Mode::Build,
+    };
+    if let Some(word) = extra {
+        let mut error = if word.ends_with(".jai") {
+            CliError::new(format!(
+                "jaic compiles one file, but got `{}` and `{word}`",
+                cli.file
+            ))
+            .help("`#load` or `#import` the others from the first")
+        } else {
+            CliError::new(format!("unexpected argument `{word}`"))
+        };
+        if cli.mode == Mode::Interp {
+            error = error.help(format!(
+                "arguments for the program go after `--`: `jaic {} -interp -- {word}`",
+                cli.file
+            ));
         }
-        return Err(error.help(
-            "options jaic does not know are handed to `-plug` plugins, but none were given; `jaic --help` lists the options",
+        return Err(error);
+    }
+    if let Some(option) = build_only.filter(|_| cli.mode != Mode::Build) {
+        let (mode, why) = if cli.mode == Mode::Check {
+            ("-check", "only compiles and writes no output")
+        } else {
+            (
+                "-interp",
+                "runs the program in the interpreter and writes no output",
+            )
+        };
+        return Err(
+            CliError::new(format!("`{option}` only applies to a build, not `{mode}`"))
+                .help(format!("`{mode}` {why}; leave `{mode}` out to build")),
+        );
+    }
+    if cli.no_workspace_output && cli.mode != Mode::Interp {
+        return Err(
+            CliError::new("`-no_workspace_output` only applies to `-interp`").help(
+                if cli.mode == Mode::Check {
+                    "`-check` never writes workspace output"
+                } else {
+                    "a build writes what the workspaces ask for; leave the option out"
+                },
+            ),
+        );
+    }
+    if cli.opt_level.is_some() && cli.flavor.is_some() {
+        return Err(CliError::new(
+            "`-O0`..`-O3` and `-o`, `-od` or `-very_debug` both set the optimization",
+        )
+        .help("use one of them"));
+    }
+    if cli.quiet && cli.verbose {
+        return Err(CliError::new(
+            "`-quiet` and `-verbose` contradict each other",
         ));
+    }
+    // Plugins compile the program in a workspace of their own, which `-interp` cannot start.
+    if !cli.plugins.is_empty() && cli.mode == Mode::Interp {
+        return Err(
+            CliError::new("plugins work with a build or `-check`, not `-interp`").help(format!(
+                "use `jaic {} +{} ...` and run the executable",
+                cli.file, cli.plugins[0].name
+            )),
+        );
     }
     Ok(Request::Compile(Box::new(cli)))
 }
@@ -698,11 +989,24 @@ fn print_cli_error(error: CliError) {
     eprint!("{}", report.render());
 }
 
+/// Whether `-no_color` is among jaic's own arguments, read before parsing so that even
+/// command-line mistakes are printed without colour. Plugin, metaprogram and program
+/// arguments (from the first `+Name`, `-` or `--`) are not jaic's.
+fn wants_no_color(args: &[String]) -> bool {
+    args.iter()
+        .take_while(|a| *a != "-" && *a != "--" && !a.starts_with('+'))
+        .any(|a| a == "-no_color")
+}
+
 fn main() -> ExitCode {
     install_panic_hook();
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Colour and layout first, so even command-line mistakes use them.
-    let color = jaic::render::ColorChoice::from_args(&args, &["--color", "-color"]);
+    let color = if wants_no_color(&args) {
+        jaic::render::ColorChoice::Never
+    } else {
+        jaic::render::ColorChoice::Auto
+    };
     jaic::render::set_style(jaic::render::detect(color));
     if let Err(message) = jaic::memory_limit::arm_from_env() {
         eprint!(
@@ -723,6 +1027,12 @@ fn main() -> ExitCode {
         }
         Err(error) => return report_cli_error(error),
     };
+    if cli.msvc_format {
+        jaic::render::set_style(jaic::render::Style {
+            layout: jaic::render::Layout::Msvc,
+            color: false,
+        });
+    }
 
     // Deeply recursive programs and checking need a large stack.
     // On macOS the main thread stays free to run the program's foreign calls (AppKit only
@@ -774,6 +1084,19 @@ fn install_panic_hook() {
     }));
 }
 
+/// Whether a reported line is a warning or an informational note, which `-quiet` leaves out.
+fn is_chatter(text: &str) -> bool {
+    let first = text.lines().next().unwrap_or_default();
+    ["warning: ", "info: "]
+        .iter()
+        .any(|kind| first.starts_with(kind) || first.contains(&format!(": {kind}")))
+}
+
+/// Whether `exe` names a place (`build/app`, `/tmp/app`), not just a file name.
+fn has_directory(exe: &str) -> bool {
+    Path::new(exe).components().count() > 1 || Path::new(exe).is_absolute()
+}
+
 fn run(cli: Cli) -> ExitCode {
     if cli.timings {
         timings::enable();
@@ -807,7 +1130,20 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     // relative to the original directory.
     let absolute = |p: &PathBuf| std::path::absolute(p).unwrap_or_else(|_| p.clone());
     cli.imports = cli.imports.iter().map(absolute).collect();
-    cli.output = cli.output.as_ref().map(absolute);
+    cli.output_path = cli.output_path.as_ref().map(absolute);
+    // `-exe` with a directory is taken from where jaic was started, like the paths above, and
+    // splits into the output path and the executable's name; a bare name goes beside the main
+    // file (or into `-output_path`).
+    if let Some(exe) = cli.exe.clone()
+        && cli.output_path.is_none()
+        && has_directory(&exe)
+    {
+        let full = absolute(&PathBuf::from(&exe));
+        if let (Some(dir), Some(name)) = (full.parent(), full.file_name()) {
+            cli.output_path = Some(dir.to_path_buf());
+            cli.exe = Some(name.to_string_lossy().into_owned());
+        }
+    }
     cli.emit_ir = cli.emit_ir.as_ref().map(absolute);
     let main_dir = path.parent().map(PathBuf::from).unwrap_or_default();
     let started_in = std::env::current_dir().unwrap_or_default();
@@ -827,10 +1163,21 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         options.dead_code = DeadCode::None;
     }
     // Only native output has a use for variable and type descriptions.
-    options.debug_info = cli.command == Command::Build && !cli.no_debug_info;
+    options.debug_info = cli.mode == Mode::Build && !cli.no_debug_info;
+    if cli.no_backtrace_on_crash {
+        options.backtrace_on_crash = false;
+    }
+    if cli.flavor == Some(Flavor::Optimized) {
+        // What `set_optimization(*o, .OPTIMIZED)` does besides the LLVM levels, and no stack trace.
+        options.stack_trace = false;
+        options.array_bounds_check = false;
+        options.null_pointer_check = false;
+        options.arithmetic_overflow_check = 0;
+        options.cast_bounds_check = 0;
+    }
     match cli.target_triple() {
         // The interpreter models wasm32 (the browser engine's target); LLVM output cannot.
-        Ok(Some(triple)) if triple.starts_with("wasm32") && cli.command == Command::Build => {
+        Ok(Some(triple)) if triple.starts_with("wasm32") && cli.mode == Mode::Build => {
             eprintln!(
                 "error: jaic builds wasm64 (Memory64) only; Jai needs 8-byte pointers (use -target wasm64-unknown-wasi)"
             );
@@ -845,7 +1192,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         }
         Ok(None) if cli.os.is_some() || cli.cpu.is_some() => {
             // `-os`/`-cpu` for checking only: that OS and CPU, with its usual C compiler. A wasm
-            // target has its own CPU (`CUSTOM`), as `jaic build -os wasm` and the browser give it.
+            // target has its own CPU (`CUSTOM`), as a `-os wasm` build and the browser give it.
             if options.os == TargetOs::Wasm && cli.cpu.is_none() {
                 options.cpu = TargetCpu::Wasm;
             }
@@ -863,20 +1210,20 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     options.import_paths.push(stdlib.clone());
     options.preload = Some(stdlib.join("prelude/module.jai"));
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
-    // What workspaces created by metaprograms ask for is written by `build` and `run` alike:
-    // `run` differs only in interpreting the top-level program instead of compiling it.
-    // `check` only checks.
-    let writes_workspaces = match cli.command {
-        Command::Build => true,
-        Command::Run => !cli.no_workspace_output,
-        Command::Check => false,
+    // What workspaces created by metaprograms ask for is written by a build and `-interp` alike:
+    // `-interp` differs only in interpreting the top-level program instead of compiling it.
+    // `-check` only checks.
+    let writes_workspaces = match cli.mode {
+        Mode::Build => true,
+        Mode::Interp => !cli.no_workspace_output,
+        Mode::Check => false,
     };
     let backend: Option<Box<dyn OutputBackend>> =
         writes_workspaces.then(|| Box::new(native_backend(&cli)) as Box<dyn OutputBackend>);
     // `OS == .WASM` code is written for the interpreter's sandbox host (virtual clock and files,
     // cooperative threads), so compile-time code of a wasm target runs there whatever the
-    // command. `jaic run -os wasm` runs the program there too, the way the browser does, with its
-    // output printed when the run ends; `jaic build` for wasm compiles it to a wasm module.
+    // command. `jaic -interp -os wasm` runs the program there too, the way the browser does, with
+    // its output printed when the run ends; a build for wasm compiles it to a wasm module.
     let cwd = std::env::current_dir().unwrap_or_default();
     let shared_sandbox = Rc::new(RefCell::new(SandboxHost::with_files(
         fs.clone(),
@@ -884,11 +1231,12 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     )));
     let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
     let workspace_sandbox = shared_sandbox.clone();
+    let quiet = cli.quiet;
     let workspaces = Workspaces::new(BuildEnv {
         fs: fs.clone(),
         options: options.clone(),
         backend,
-        unwritten_output_hint: (cli.command == Command::Check).then(|| {
+        unwritten_output_hint: (cli.mode == Mode::Check && !cli.quiet).then(|| {
             jaic::build::UnwrittenOutputHint {
                 main_file: cli.file.clone(),
             }
@@ -901,44 +1249,81 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
                 Box::new(NativeHost)
             }
         }),
-        report: Box::new(|text| eprintln!("{text}")),
+        report: Box::new(move |text| {
+            if !(quiet && is_chatter(text)) {
+                eprintln!("{text}");
+            }
+        }),
         observer: None,
     });
-    workspaces.borrow_mut().main_file = path.display().to_string();
-    // `check` and `build` exit right after: tearing down the syntax trees and the program takes
-    // about a tenth of a large `check`, and nothing observes it.
-    let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.command != Command::Run);
+    {
+        let mut registry = workspaces.borrow_mut();
+        registry.main_file = path.display().to_string();
+        // What the target program's `get_build_options` reports before a metaprogram changes it.
+        registry.main_overrides = MainOverrides {
+            exe: cli.exe.clone().unwrap_or_default(),
+            output_path: cli
+                .output_path
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default(),
+            no_backtrace_on_crash: cli.no_backtrace_on_crash,
+        };
+    }
+    // `-check` and builds exit right after: tearing down the syntax trees and the program takes
+    // about a tenth of a large check, and nothing observes it.
+    let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.mode != Mode::Interp);
     if let Some(host) = &sandbox {
         compiler.interp.host = Box::new(SharedHost(host.clone()));
     }
     compiler.attach_workspaces(workspaces.clone());
     // `-os wasm` / `-target wasm64-unknown-wasi`: a WASI command, with its runtime added.
-    let wasi = cli.command == Command::Build
+    let wasi = cli.mode == Mode::Build
         && cli
             .target_triple()
             .ok()
             .flatten()
             .is_some_and(|t| jaic::build::wants_wasi_runtime(compiler.options.os, &t));
-    let compiled = if wasi && cli.plugins.is_empty() {
-        let sources = [
-            ProgramSource::File(path.clone()),
-            ProgramSource::String(jaic::build::WASI_RUNTIME_IMPORT.into()),
-        ];
+    if cli.verbose {
+        let what = match cli.mode {
+            Mode::Build => "building",
+            Mode::Check => "checking",
+            Mode::Interp => "interpreting",
+        };
+        eprintln!("jaic: {what} {}", shown(&path));
+        if !cli.plugins.is_empty() {
+            let names: Vec<&str> = cli.plugins.iter().map(|p| p.name.as_str()).collect();
+            eprintln!("jaic: plugins: {}", names.join(", "));
+        }
+    }
+    let added: Vec<ProgramSource> = cli
+        .added
+        .iter()
+        .map(|a| ProgramSource::String(a.source()))
+        .collect();
+    let compiled = if cli.plugins.is_empty() {
+        let mut sources = vec![ProgramSource::File(path.clone())];
+        sources.extend(added);
+        if wasi {
+            sources.push(ProgramSource::String(
+                jaic::build::WASI_RUNTIME_IMPORT.into(),
+            ));
+        }
         timings::time("front end", || compiler.compile_sources(&sources))
-    } else if cli.plugins.is_empty() {
-        timings::time("front end", || compiler.compile_program(&path))
     } else {
         let source = plugin_metaprogram(&cli, &path);
         timings::time("front end", || {
             compiler.compile_sources(&[ProgramSource::String(source)])
         })
     };
-    if cli.command == Command::Build {
+    if cli.mode == Mode::Build {
         // What compile-time code of a wasm target printed (it runs in the sandbox).
         flush_sandbox(&shared_sandbox);
     }
-    for warning in &compiler.warnings {
-        eprintln!("{}", compiler.render(warning));
+    if !cli.quiet {
+        for warning in &compiler.warnings {
+            eprintln!("{}", compiler.render(warning));
+        }
     }
     if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
@@ -947,7 +1332,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     let finished = timings::time("workspaces", || {
         jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
     });
-    if cli.command == Command::Build {
+    if cli.mode == Mode::Build {
         flush_sandbox(&shared_sandbox);
     }
     if let Err(message) = finished {
@@ -957,11 +1342,17 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     if workspaces.borrow().any_failed() {
         return ExitCode::from(1);
     }
+    if cli.verbose {
+        let created = workspaces.borrow().created_workspaces();
+        if created > 0 {
+            eprintln!("jaic: the metaprogram built {created} workspace(s)");
+        }
+    }
     let settings = workspaces.borrow().top_level_settings();
-    match cli.command {
-        Command::Check => ExitCode::SUCCESS,
-        Command::Run => {
-            // The program sees itself as the executable `jaic build` would write next to its
+    match cli.mode {
+        Mode::Check => ExitCode::SUCCESS,
+        Mode::Interp => {
+            // The program sees itself as the executable a build would write next to its
             // main file (not `jaic`), so data found relative to the executable is found.
             if sandbox.is_none() {
                 let stem = path.file_stem().unwrap_or_default().to_string_lossy();
@@ -995,21 +1386,21 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             }
         }
         // A metaprogram that turned its own output off has nothing to write.
-        Command::Build if !settings.do_output || settings.output_type == OutputType::NoOutput => {
+        Mode::Build if !settings.do_output || settings.output_type == OutputType::NoOutput => {
             ExitCode::SUCCESS
         }
-        Command::Build
+        Mode::Build
             if settings.output_type == OutputType::Executable
                 && compiler.exported_func("main").is_none() =>
         {
             let file = shown(&path);
             print_error(&format!(
                 "`{file}` has no `main` procedure, so there is no program to write\n\
-                 help: add `main :: () {{ ... }}` as the program's starting point, or use `jaic check {file}` to only check the code"
+                 help: add `main :: () {{ ... }}` as the program's starting point, or use `jaic {file} -check` to only check the code"
             ));
             ExitCode::from(NO_MAIN_STATUS)
         }
-        Command::Build => match build(&mut compiler, &cli, &path, settings) {
+        Mode::Build => match build(&mut compiler, &cli, &path, settings) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
                 print_error(&message);
@@ -1065,29 +1456,58 @@ fn flush_sandbox(host: &Rc<RefCell<SandboxHost>>) {
     let _ = std::io::stderr().write_all(&std::mem::take(&mut host.stderr));
 }
 
-/// The metaprogram `-plug` stands for: import each plugin module, then compile `path` in a
-/// workspace with their hooks (`build_with_plugins` in `Metaprogram_Plugins`).
+/// The metaprogram `+Plugin` stands for: import each plugin module, then compile `path` in a
+/// workspace with their hooks (`build_with_plugin_groups` in `Metaprogram_Plugins`).
 fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
-    let quote = |s: &str| format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""));
+    let quote = |s: &str| {
+        let escaped = s
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r");
+        format!("\"{escaped}\"")
+    };
     let mut text = String::from(
         "Compiler :: #import \"Compiler\";\nPlugins :: #import \"Metaprogram_Plugins\";\n#import \"Basic\";\n",
     );
     for (i, plugin) in cli.plugins.iter().enumerate() {
         // `Name(PARAM=value)` passes module parameters along.
-        let (name, params) = plugin.split_at(plugin.find('(').unwrap_or(plugin.len()));
+        let (name, params) = plugin
+            .name
+            .split_at(plugin.name.find('(').unwrap_or(plugin.name.len()));
+        let params = if cli.no_check_bindings && name == "Check" {
+            check_bindings_off(params)
+        } else {
+            params.to_string()
+        };
         text += &format!("__plugin_{i} :: #import {}{params};\n", quote(name));
     }
     text += "#run,stallable {\n    plugins: [..] *Compiler.Metaprogram_Plugin;\n";
     for i in 0..cli.plugins.len() {
         text += &format!("    array_add(*plugins, __plugin_{i}.get_plugin());\n");
     }
-    text += "    options: [..] string;\n";
-    for option in &cli.plugin_options {
-        text += &format!("    array_add(*options, {});\n", quote(option));
+    // Each plugin's own options, one after the other, with how many belong to each.
+    text += "    options: [..] string;\n    counts: [..] s64;\n";
+    for plugin in &cli.plugins {
+        for option in &plugin.options {
+            text += &format!("    array_add(*options, {});\n", quote(option));
+        }
+        text += &format!("    array_add(*counts, {});\n", plugin.options.len());
     }
-    // `-o` names the executable; otherwise it is named after the file, next to it.
+    text += "    added: [..] string;\n";
+    for added in &cli.added {
+        text += &format!("    array_add(*added, {});\n", quote(&added.source()));
+    }
+    // `-exe` and `-output_path` name the executable; otherwise it is named after the file, next
+    // to it.
     let lossy = |p: Option<&std::ffi::OsStr>| p.map(|n| n.to_string_lossy().into_owned());
-    let (name, dir) = match &cli.output {
+    let target = match (&cli.exe, &cli.output_path) {
+        (Some(exe), Some(dir)) => Some(dir.join(exe)),
+        (Some(exe), None) => Some(PathBuf::from(exe)),
+        (None, Some(dir)) => Some(dir.join(path.file_stem().unwrap_or_default())),
+        (None, None) => None,
+    };
+    let (name, dir) = match &target {
         Some(out) => (
             lossy(out.file_name()),
             lossy(out.parent().map(|d| d.as_os_str())),
@@ -1095,7 +1515,7 @@ fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
         None => (lossy(path.file_stem()), None),
     };
     text += &format!(
-        "    Plugins.build_with_plugins({}, plugins, options, {}, {});\n}}\n",
+        "    Plugins.build_with_plugin_groups({}, plugins, options, counts, added, {}, {});\n}}\n",
         quote(&path.to_string_lossy()),
         quote(&name.unwrap_or_default()),
         quote(&dir.unwrap_or_default()),
@@ -1103,15 +1523,26 @@ fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
     text
 }
 
-/// Write the top-level program. `-o`/`-O` override what the metaprogram set.
+/// Module parameters `params` (`""` or `(A=1,B=2)`) with `CHECK_BINDINGS=false` added, unless
+/// they already say what `CHECK_BINDINGS` is.
+fn check_bindings_off(params: &str) -> String {
+    match params.strip_suffix(')') {
+        _ if params.contains("CHECK_BINDINGS") => params.to_string(),
+        Some(open) => format!("{open},CHECK_BINDINGS=false)"),
+        None => "(CHECK_BINDINGS=false)".into(),
+    }
+}
+
+/// Write the top-level program. `-exe`, `-output_path` and the optimization options override
+/// what the metaprogram set.
 fn build(
     compiler: &mut Compiler,
     cli: &Cli,
     source: &Path,
     mut settings: BuildSettings,
 ) -> Result<(), String> {
-    let output = cli.output.clone().unwrap_or_else(|| {
-        let name = if settings.output_executable_name.is_empty() {
+    let name = cli.exe.clone().unwrap_or_else(|| {
+        if settings.output_executable_name.is_empty() {
             source
                 .file_stem()
                 .unwrap_or_default()
@@ -1119,11 +1550,16 @@ fn build(
                 .into_owned()
         } else {
             settings.output_executable_name.clone()
-        };
-        PathBuf::from(&settings.output_path).join(name)
+        }
     });
-    if let Some(level) = cli.opt_level {
-        // `-O` stands for a whole flavor: the metaprogram's code generation switches go too.
+    let dir = cli
+        .output_path
+        .clone()
+        .unwrap_or_else(|| PathBuf::from(&settings.output_path));
+    let output = dir.join(name);
+    if let Some(level) = cli.opt_level.or(cli.flavor.map(Flavor::level)) {
+        // `-O` and the flavors stand for a whole build: the metaprogram's code generation
+        // switches go too.
         settings.optimization = level.into();
         settings.machine_code_optimization.clear();
         settings.llvm_switches.clear();
@@ -1139,7 +1575,11 @@ fn build(
         );
     }
     timings::time("prepare output", || compiler.prepare_compiled_output());
-    native_backend(cli).write_output(&compiler.program, &settings, &output)
+    native_backend(cli).write_output(&compiler.program, &settings, &output)?;
+    if cli.verbose {
+        eprintln!("jaic: wrote {}", shown(&output));
+    }
+    Ok(())
 }
 
 #[cfg(feature = "llvm")]
@@ -1149,11 +1589,13 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
         debug_info: !cli.no_debug_info,
         target: cli.target_triple().ok().flatten(),
         sanitize: cli.sanitize.join(","),
+        no_inline: cli.no_inline,
+        no_split: cli.no_split,
     }
 }
 
 /// Without the `llvm` feature (an interpreter-only build, e.g. for a host without LLVM
-/// libraries) `build` reports that it cannot write native output.
+/// libraries) a build reports that it cannot write native output.
 #[cfg(not(feature = "llvm"))]
 fn native_backend(_cli: &Cli) -> NoBackend {
     NoBackend
@@ -1183,6 +1625,9 @@ struct LlvmBackend {
     target: Option<String>,
     /// The `-sanitize` lists, comma-joined (empty: no sanitizers).
     sanitize: String,
+    /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
+    no_inline: bool,
+    no_split: bool,
 }
 
 /// What one write of a workspace's output needs, worked out from its settings.
@@ -1234,7 +1679,7 @@ impl LlvmBackend {
         if output.is_dir() {
             let name = output.join("program");
             return Err(format!(
-                "the output path `{}` is a directory\nhelp: name the file to write inside it, as in `-o {}`",
+                "the output path `{}` is a directory\nhelp: name the file to write inside it, as in `-exe {}`",
                 shown(&output),
                 shown(&name)
             ));
@@ -1242,7 +1687,7 @@ impl LlvmBackend {
         let create_dir = |dir: &Path, what: &str| {
             std::fs::create_dir_all(dir).map_err(|e| {
                 format!(
-                    "could not create the {what} directory `{}`: {}\nhelp: choose another place with `-o`",
+                    "could not create the {what} directory `{}`: {}\nhelp: choose another place with `-output_path`",
                     shown(dir),
                     jaic::io_reason(&e)
                 )
@@ -1309,9 +1754,14 @@ impl LlvmBackend {
             loop_vectorization: switch("enable_loop_vectorization"),
             slp_vectorization: switch("enable_slp_vectorization"),
             merge_functions: switch("merge_functions"),
-            disable_inlining: switch("disable_inlining"),
+            disable_inlining: if self.no_inline {
+                Some(true)
+            } else {
+                switch("disable_inlining")
+            },
             tail_calls: switch("enable_tail_calls"),
             split_modules: switch("enable_split_modules"),
+            single_unit: self.no_split,
             frame_pointers: settings.frame_pointers,
             no_red_zone: settings.disable_redzone,
             ir_after: wanted(settings.output_llvm_ir, ".ll"),
@@ -1322,7 +1772,7 @@ impl LlvmBackend {
             ),
             macos_version,
         };
-        // `-emit-ir` wins over `output_llvm_ir_before_optimizations`.
+        // `-emit_ir` wins over `output_llvm_ir_before_optimizations`.
         let emit_ir = self.emit_ir.clone().or_else(|| {
             wanted(
                 settings.output_llvm_ir_before_optimizations,
@@ -1381,7 +1831,7 @@ impl LlvmBackend {
         }
         std::fs::File::create(&object).map_err(|e| {
             format!(
-                "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-o`",
+                "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-output_path`",
                 shown(&object),
                 jaic::io_reason(&e)
             )
@@ -1527,12 +1977,144 @@ mod tests {
     use super::*;
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
-        let mut argv = vec!["build".to_string(), "main.jai".to_string()];
+        let mut argv = vec!["main.jai".to_string()];
         argv.extend(args.iter().map(|a| a.to_string()));
         let Ok(Request::Compile(cli)) = parse(&argv) else {
             panic!("invalid command line {argv:?}");
         };
         cli.target_triple_from(host_os, host_cpu).expect("a target")
+    }
+
+    fn args(words: &[&str]) -> Vec<String> {
+        words.iter().map(|w| w.to_string()).collect()
+    }
+
+    fn cli(words: &[&str]) -> Cli {
+        match parse(&args(words)) {
+            Ok(Request::Compile(cli)) => *cli,
+            Ok(_) => panic!("{words:?} asked for help or the version"),
+            Err(e) => panic!("{words:?}: {} {:?}", e.message, e.help),
+        }
+    }
+
+    fn error(words: &[&str]) -> CliError {
+        match parse(&args(words)) {
+            Err(e) => e,
+            Ok(_) => panic!("{words:?} should be a command-line mistake"),
+        }
+    }
+
+    #[test]
+    fn the_mode_is_an_option_and_the_file_may_come_anywhere() {
+        assert!(cli(&["a.jai"]).mode == Mode::Build);
+        assert!(cli(&["a.jai", "-check"]).mode == Mode::Check);
+        let interp = cli(&["-interp", "a.jai", "-no_dce"]);
+        assert!(interp.mode == Mode::Interp);
+        assert_eq!(interp.file, "a.jai");
+        assert!(parse(&args(&["a.jai", "-check", "-interp"])).is_err());
+        assert!(error(&["a.jai", "b.jai"]).message.contains("one file"));
+    }
+
+    #[test]
+    fn dashes_split_metaprogram_and_program_arguments() {
+        let c = cli(&["a.jai", "-interp", "-", "m1", "m2", "--", "p1"]);
+        assert_eq!(c.command_line, ["m1", "m2"]);
+        assert_eq!(c.program_args, ["a.jai", "p1"]);
+        let c = cli(&["a.jai", "-", "-release", "-x"]);
+        assert_eq!(c.command_line, ["-release", "-x"]);
+        assert!(
+            error(&["a.jai", "--", "p"])
+                .message
+                .contains("only `-interp`")
+        );
+    }
+
+    #[test]
+    fn plugins_take_the_arguments_up_to_the_next_plugin() {
+        let c = cli(&[
+            "a.jai",
+            "-I",
+            "d",
+            "+One",
+            "-x",
+            "1",
+            "+Two(A=1)",
+            "-",
+            "meta",
+        ]);
+        assert_eq!(c.imports, [PathBuf::from("d")]);
+        assert_eq!(c.plugins.len(), 2);
+        assert_eq!(c.plugins[0].name, "One");
+        assert_eq!(c.plugins[0].options, ["-x", "1"]);
+        assert_eq!(c.plugins[1].name, "Two(A=1)");
+        assert!(c.plugins[1].options.is_empty());
+        assert_eq!(c.command_line, ["meta"]);
+        assert!(
+            error(&["a.jai", "-interp", "+One"])
+                .message
+                .contains("not `-interp`")
+        );
+        // Before the first plugin an unknown option is jaic's mistake.
+        assert!(
+            error(&["a.jai", "-bogus", "+One"])
+                .message
+                .contains("unknown option")
+        );
+    }
+
+    #[test]
+    fn check_bindings_off_edits_module_parameters() {
+        assert_eq!(check_bindings_off(""), "(CHECK_BINDINGS=false)");
+        assert_eq!(check_bindings_off("(A=1)"), "(A=1,CHECK_BINDINGS=false)");
+        assert_eq!(
+            check_bindings_off("(CHECK_BINDINGS=true)"),
+            "(CHECK_BINDINGS=true)"
+        );
+    }
+
+    #[test]
+    fn optimized_is_a_flavor_that_takes_no_value() {
+        assert!(cli(&["a.jai", "-o"]).flavor == Some(Flavor::Optimized));
+        assert!(cli(&["-od", "a.jai"]).flavor == Some(Flavor::OptimizedDebug));
+        assert!(cli(&["-o", "a.jai"]).flavor == Some(Flavor::Optimized));
+        assert!(
+            error(&["a.jai", "-o", "out"])
+                .message
+                .contains("takes no value")
+        );
+        assert!(
+            error(&["a.jai", "-o", "-very_debug"])
+                .message
+                .contains("flavor")
+        );
+        let c = cli(&["a.jai", "-exe", "build/app.exe", "-output_path", "out"]);
+        assert_eq!(c.exe.as_deref(), Some("build/app.exe"));
+        assert_eq!(c.output_path, Some(PathBuf::from("out")));
+    }
+
+    #[test]
+    fn old_subcommands_get_the_new_command_back() {
+        let e = error(&["run", "a.jai", "-I", "d", "--", "x"]);
+        assert!(
+            e.help[0].contains("`jaic a.jai -I d -interp -- x`"),
+            "{:?}",
+            e.help
+        );
+        let e = error(&["build", "a.jai", "-o", "out", "-plug", "Check"]);
+        assert!(
+            e.help[0].contains("`jaic a.jai -exe out +Check`"),
+            "{:?}",
+            e.help
+        );
+    }
+
+    #[test]
+    fn add_and_run_become_source_text() {
+        let c = cli(&["a.jai", "-add", "x :: 1;", "-run", "f()", "-run", "g();"]);
+        let text: Vec<String> = c.added.iter().map(Added::source).collect();
+        assert_eq!(text[0], "x :: 1;");
+        assert_eq!(text[1], "#run {\nf();\n};\n");
+        assert_eq!(text[2], "#run {\ng();\n};\n");
     }
 
     #[test]

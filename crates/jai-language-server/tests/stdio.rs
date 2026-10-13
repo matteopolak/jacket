@@ -92,7 +92,7 @@ fn command_line_mistakes_explain_what_jailsp_is() {
     let (code, _, stderr) = run(&["main.jai"], b"");
     assert_eq!(code, Some(2));
     assert!(
-        stderr.contains("help: to check `main.jai` from a terminal, use `jaic check main.jai`"),
+        stderr.contains("help: to check `main.jai` from a terminal, use `jaic main.jai -check`"),
         "{stderr}"
     );
     let (code, _, stderr) = run(&["--bogus"], b"");

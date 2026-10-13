@@ -167,7 +167,7 @@ def build_and_run(group: str, ctx: dict, corpus: Path, runs: int, cases: list[st
     if group == "jai":
         exe = bin_dir / "jai-bench"
         if not (ctx["skip_build"] and exe.exists()):
-            must([ctx["jaic"], "build", BENCH / "jai" / "bench.jai", "-O2", "-o", exe], "jaic build", cwd=ROOT)
+            must([ctx["jaic"], BENCH / "jai" / "bench.jai", "-O2", "-exe", exe], "jaic", cwd=ROOT)
         report.versions["jaic"] = run([ctx["jaic"], "--version"]).stdout.strip().removeprefix("jaic ") or "unknown"
     elif group == "rust":
         env = dict(os.environ, CARGO_TARGET_DIR=str(TARGET / "rust"))

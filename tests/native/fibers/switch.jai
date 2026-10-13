@@ -2,7 +2,7 @@
 // robin, and each keeps integer, double and float locals that live across every switch (in
 // callee-saved registers once the program is optimized). Then a fiber context is prepared again
 // and a thread's own stack is switched back to from a fiber. The output is the same under
-// `jaic run` and in a native build.
+// `jaic -interp` and in a native build.
 #import "Basic";
 
 Fiber_Context :: struct {

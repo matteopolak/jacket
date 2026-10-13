@@ -1,4 +1,4 @@
-//! `jaic run` answers the program's executable-path query with the executable `jaic build`
+//! `jaic -interp` answers the program's executable-path query with the executable `jaic`
 //! would write next to the main file, not `jaic`'s own path.
 use std::path::Path;
 use std::process::Command;
@@ -17,7 +17,7 @@ fn run_reports_the_built_executable_path() {
     )
     .unwrap();
     let output = Command::new(JAIC)
-        .args(["run", "src/game.jai"])
+        .args(["-interp", "src/game.jai"])
         .current_dir(&dir)
         .output()
         .unwrap();

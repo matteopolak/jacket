@@ -2,7 +2,7 @@
 
 ## What it is
 
-How fast `jaic build` turns source into an executable, where an unoptimized (`-O0`) build spends its time, and what was changed to speed it up. `jaic --timings` prints the phases; the method and workloads below reproduce the numbers.
+How fast `jaic` turns source into an executable, where an unoptimized (`-O0`) build spends its time, and what was changed to speed it up. `jaic -timings` prints the phases; the method and workloads below reproduce the numbers.
 
 ## How it works
 
@@ -28,7 +28,7 @@ Not worth it: units below 5,000 instructions (hello world already uses all cores
 
 ## Compile-time interpreter
 
-`#run`, metaprograms, `jaic run` and the playground all execute in `interp/`. Method: release `jaic` (`--release`, same machine, idle), median of 7 warm runs per workload, before versus after. Workloads are `check` on corpus projects that run metaprograms (Focus, Jails, sgpu examples, Jai-Shader-Transpiler, yield-jai), `run` on jaison's tests, and `run` on CPU-bound programs (`benchmarks/interp-loops.jai`, `interp-strings.jai`, `interp-calls.jai`, and a mixed one).
+`#run`, metaprograms, `jaic -interp` and the playground all execute in `interp/`. Method: release `jaic` (`--release`, same machine, idle), median of 7 warm runs per workload, before versus after. Workloads are `-check` on corpus projects that run metaprograms (Focus, Jails, sgpu examples, Jai-Shader-Transpiler, yield-jai), `-interp` on jaison's tests, and `-interp` on CPU-bound programs (`benchmarks/interp-loops.jai`, `interp-strings.jai`, `interp-calls.jai`, and a mixed one).
 
 | Workload | Before | After |
 |---|---|---|
@@ -73,7 +73,7 @@ What changed (details in [interpreter](interpreter.md#the-interpreters-code-form
 - **Foreign calls**: per-procedure flags replace two string scans, and results and signatures no longer allocate or clone. `executable_path_foreign` checks the symbol before cloning the path. A wider set of libc functions is known not to release memory, so they no longer flush the probe cache (the suspected cause of the sgpu slowdown; the corpus projects were not rerun in this pass).
 - **Intrinsics** return `Rets` instead of a `Vec`.
 
-Left: `trace_enter` is about 16% of `interp-fib` (stack traces are on under `jaic run`; its layout lookups could be cached per frame), compare and arithmetic ops still dispatch through a second table on the operator, and calls still recurse on the Rust stack where an explicit activation stack would save the `run_ops` prologue.
+Left: `trace_enter` is about 16% of `interp-fib` (stack traces are on under `jaic -interp`; its layout lookups could be cached per frame), compare and arithmetic ops still dispatch through a second table on the operator, and calls still recurse on the Rust stack where an explicit activation stack would save the `run_ops` prologue.
 
 ### Second pass (null checks, teardown, split)
 
@@ -93,7 +93,7 @@ What each change gained:
 
 - **Cheaper null checks** (`lower::NullFacts`, `null_check`): a check was an `icmp` plus a call to a trap function with the source location, emitted at every pointer load and store. It is now a compare and branch to a trap block that calls the shared `jaic.null_fail` helper, and a pointer already checked in the same IR block (or a constant offset under 4096 from one) is not checked again. Facts are dropped when a slot is stored to or its address escapes. About 14% of the 240k-line build's wall time and 25% of its CPU; the line and message of a failed check are unchanged (`null_checks_skipped_after_a_check_still_catch_changes` in `crates/jaic-cli/tests/native.rs`).
 - **No LLVM value names**: `LLVMContextSetDiscardValueNames` on every context. Names were never read.
-- **Leaking at exit**: `jaic build`/`check` forget the LLVM module, context and target machine of each unit and the `Compiler` itself (`LeakOnExit` in `jaic-cli/src/main.rs`) instead of freeing them just before the process ends. `jaic run` still drops, since a program can run more than once in one process. Freeing the compiler was about 9% of `check`.
+- **Leaking at exit**: Builds and `-check` forget the LLVM module, context and target machine of each unit and the `Compiler` itself (`LeakOnExit` in `jaic-cli/src/main.rs`) instead of freeing them just before the process ends. `jaic -interp` still drops, since a program can run more than once in one process. Freeing the compiler was about 9% of `-check`.
 - **`pending_done` in sema scope expansion**: `expand_pending` and `settled` skip the finished prefix of the pending list instead of scanning it every round.
 - **Post-optimizer split ignores `enable_split_modules`**: that option now only limits the pre-optimizer split of unoptimized builds. The split after the passes does not change the machine code except for function order, and Focus and chess-jai (which set it to `false`) generate machine code on four threads now.
 
@@ -195,15 +195,15 @@ Variables stay in stack slots. Promoting them (`mem2reg` at `-O0`) was measured 
 
 ## How to change it
 
-- Measure with `jaic build x.jai -o out --timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` ([benchmark generator](../tools/benchmark-generator.md); `gen-10k`/`gen-60k`/`gen-240k` in `compile_bench.py`).
-- To compare ISel strategies externally, `llc -O0 -global-isel=0` on `--emit-ir` output.
+- Measure with `jaic x.jai -exe out -timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` ([benchmark generator](../tools/benchmark-generator.md); `gen-10k`/`gen-60k`/`gen-240k` in `compile_bench.py`).
+- To compare ISel strategies externally, `llc -O0 -global-isel=0` on `-emit_ir` output.
 - A new per-function or per-module step in `lower.rs` should not iterate over the whole program in every shard: use the lazy accessors. Any lookup of a symbol by name must call `declare_named` first.
 - Profile with samply as described in [benchmarks](../tools/benchmarks.md); `Interp::run_code` is the main self-time item left for metaprogram-heavy code, then `trace_enter`, then `build::call` and `write_item`, which read and write compiler records through the probe field by field.
 
 ## Configuration
 
 - `JAIC_CODEGEN_UNITS=N`, `JAIC_VERIFY_IR`, `JAIC_DSYM`: see [LLVM backend](../native/llvm-backend.md#configuration) and [debug info](../native/debug-info.md).
-- `--timings`: phase table on stderr.
+- `-timings`: phase table on stderr.
 
 ## Dependencies
 

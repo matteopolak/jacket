@@ -103,6 +103,9 @@ pub struct Codegen {
     pub tail_calls: Option<bool>,
     /// `enable_split_modules`: `Some(false)` keeps unoptimized codegen in one module.
     pub split_modules: Option<bool>,
+    /// `-no_split`: one codegen unit at every optimization level, with machine code generation
+    /// unsplit as well (what `JAIC_CODEGEN_UNITS=1` does).
+    pub single_unit: bool,
     /// `enable_frame_pointers`: `Some(true)` keeps a frame record in every function,
     /// `Some(false)` in none (Apple targets keep their ABI's frame records regardless).
     pub frame_pointers: Option<bool>,
@@ -481,7 +484,7 @@ fn unit_path(path: &Path, unit: u32) -> PathBuf {
     path.with_file_name(name)
 }
 
-/// Whether the caller reads the LLVM IR text (`--emit-ir`, `output_llvm_ir`, bitcode), which is
+/// Whether the caller reads the LLVM IR text (`-emit_ir`, `output_llvm_ir`, bitcode), which is
 /// easier to follow with the value and block names lowering gives.
 fn wants_ir_text(options: &Options) -> bool {
     let c = &options.codegen;
@@ -583,7 +586,7 @@ const MAX_OPT_UNITS: usize = 8;
 /// Intel macOS the linker records only the first sanitized unit in the debug map, and the reports
 /// lose the other units' lines.
 fn codegen_units(program: &Program, options: &Options) -> usize {
-    if options.sanitize.any() {
+    if options.sanitize.any() || options.codegen.single_unit {
         return 1;
     }
     if let Some(n) = std::env::var("JAIC_CODEGEN_UNITS")
@@ -647,6 +650,7 @@ pub fn emit_objects(
         // unit. The objects then differ from one module's only in how many there are.
         let split = options.opt_level != OptLevel::O0
             && options.emit_ir.is_none()
+            && !options.codegen.single_unit
             && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
         return emit_module(program, options, path, None, split, true, &cuts);
     }
@@ -747,7 +751,7 @@ impl LinkFlavor {
     }
 }
 
-/// The triple `jaic build -os windows` targets from a non-Windows host: the MinGW-w64
+/// The triple `jaic -os windows` targets from a non-Windows host: the MinGW-w64
 /// environment, whose cross toolchains are packaged for macOS and Linux.
 pub const WINDOWS_CROSS_TRIPLE: &str = "x86_64-pc-windows-gnu";
 
@@ -954,9 +958,9 @@ pub fn linker_not_run(program: &str, e: &std::io::Error, install: &str) -> Strin
         return format!("could not run the linker `{program}`: {e}");
     }
     format!(
-        "could not find the linker `{program}`, which `jaic build` uses to write executables\n\
+        "could not find the linker `{program}`, which jaic uses to write executables\n\
          help: {install}\n\
-         help: `jaic run` needs no linker: it runs the program in the interpreter"
+         help: `jaic file.jai -interp` needs no linker: it runs the program in the interpreter"
     )
 }
 

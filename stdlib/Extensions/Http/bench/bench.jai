@@ -1,7 +1,7 @@
 // Throughput of the HTTP parser with the scalar scans and with the vector scans, in MB/s of
 // message bytes and in requests per second.
 //
-//     jaic build -O2 stdlib/Extensions/Http/bench/bench.jai -o /tmp/http-bench
+//     jaic -O2 stdlib/Extensions/Http/bench/bench.jai -exe /tmp/http-bench
 //     /tmp/http-bench
 //
 // Three streams: small requests (a browser's: nine headers), requests with large headers

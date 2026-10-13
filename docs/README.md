@@ -49,7 +49,7 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 - [Compile-time execution (`#run`)](metaprogramming/compile-time-execution.md)
 - [Compiler module (Jai side)](metaprogramming/compiler-module.md)
 - [Compiler records (messages, syntax trees, type descriptors)](metaprogramming/compiler-records.md)
-- [Metaprogram plugins (`-plug`)](metaprogramming/metaprogram-plugins.md)
+- [Metaprogram plugins (`+Name`)](metaprogramming/metaprogram-plugins.md)
 - [Preload and Runtime_Support bootstrap](specs/jai/README.md)
 - [Reflection and Type_Info](metaprogramming/reflection-and-type-info.md)
 - [Workspaces and metaprograms](metaprogramming/workspaces.md)
@@ -63,7 +63,7 @@ How `crates/jaic`, the interpreter and the language server work.
 - [Format string check](compiler/format-string-check.md): `print` format strings against their argument count
 - [jaic `#asm` blocks](compiler/asm.md)
 - [SIMD lowering](compiler/simd-lowering.md): target features, per-ISA backends and how to add an intrinsic or instruction set
-- [Threads under `jaic run`](compiler/interpreter-threads.md)
+- [Threads under `jaic -interp`](compiler/interpreter-threads.md)
 - [Fiber intrinsics: switching stacks in every backend](compiler/fibers.md)
 - [jaic interpreter](compiler/interpreter.md)
 - [Low-level IR](compiler/ir.md)
@@ -149,9 +149,10 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 Scripts, CI and project policies.
 
+- [The `jaic` command line](tools/cli.md): modes, options, plugins, and what changed from 0.16
 - [Benchmarks and profiling](tools/benchmarks.md)
 - [Build storage and target directories](tools/build-storage.md)
-- [Compile-time benchmark](tools/compile-time-benchmark.md): wall time, peak RSS and phases of real projects, `--timings`
+- [Compile-time benchmark](tools/compile-time-benchmark.md): wall time, peak RSS and phases of real projects, `-timings`
 - [Regex benchmark](tools/regex-benchmark.md): `Extensions/Regex` against Rust `regex`, RE2, PCRE2, CTRE and Hyperscan on a generated corpus
 - [Edit benchmark](tools/edit-bench.md): how long `jailsp` takes to answer after an edit inside a body, compiles per edit
 - [IDE coverage](tools/ide-coverage.md): which identifiers of a project get no hover or go to definition from `jailsp`

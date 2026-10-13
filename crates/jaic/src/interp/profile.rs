@@ -22,7 +22,7 @@ pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
         let file = std::env::var_os("JAIC_COVERAGE")
             .filter(|v| !v.is_empty())
             .map(std::path::PathBuf::from);
-        // A program that calls `exit` under `jaic run` ends the process from inside the
+        // A program that calls `exit` under `jaic -interp` ends the process from inside the
         // interpreter, so the procedures it ran are also written from the C runtime's exit hook.
         #[cfg(not(target_arch = "wasm32"))]
         if file.is_some() {

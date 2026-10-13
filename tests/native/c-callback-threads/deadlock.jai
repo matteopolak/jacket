@@ -1,4 +1,4 @@
-// Deadlocks `jaic run` reports instead of hanging (a native build hangs). With no argument, two
+// Deadlocks `jaic -interp` reports instead of hanging (a native build hangs). With no argument, two
 // Jai threads each wait for the other; with `callback`, a thread of C's own waits in a #c_call
 // procedure for a mutex the main thread holds while the main thread waits for that procedure.
 #import "Basic";

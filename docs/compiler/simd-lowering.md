@@ -51,8 +51,8 @@ Add an intrinsic: add the `ir::Intrinsic` variant and its sema/interpreter parts
 Add an architecture family: a `Family` variant and `Family::of` mapping, its features, a new file and a line in each dispatch function.
 
 Gotchas:
-- An LLVM intrinsic whose name is wrong is reported at lowering time (`LLVM intrinsic '...' is unavailable`), but one the target cannot select fails only in codegen: check with `--emit-ir` and by building an object.
-- The IR for every target is produced on any host, so cross-target checks need no emulator. The metaprogram options set the CPU and features for the program's workspace, and `jaic build m.jai -target <triple> --emit-ir x.ll` selects the triple.
+- An LLVM intrinsic whose name is wrong is reported at lowering time (`LLVM intrinsic '...' is unavailable`), but one the target cannot select fails only in codegen: check with `-emit_ir` and by building an object.
+- The IR for every target is produced on any host, so cross-target checks need no emulator. The metaprogram options set the CPU and features for the program's workspace, and `jaic m.jai -target <triple> -emit_ir x.ll` selects the triple.
 - SVE has no backend yet (`aarch64.rs` says where it would go); scalable vectors need a different loop than `map_blocks`.
 
 ## Configuration

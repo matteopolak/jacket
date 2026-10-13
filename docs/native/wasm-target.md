@@ -2,14 +2,14 @@
 
 ## What it is
 
-`jaic build` can compile a program to a WebAssembly module: LLVM generates wasm64 (Memory64) object code and `wasm-ld` links it. With `-os wasm`, the module is a WASI preview 1 command that runs under node, wasmtime, or a browser with a WASI shim. With a bare `wasm64-unknown-unknown` triple, the host supplies the imports and calls the exports directly.
+`jaic` can compile a program to a WebAssembly module: LLVM generates wasm64 (Memory64) object code and `wasm-ld` links it. With `-os wasm`, the module is a WASI preview 1 command that runs under node, wasmtime, or a browser with a WASI shim. With a bare `wasm64-unknown-unknown` triple, the host supplies the imports and calls the exports directly.
 
 This is a separate thing from the [browser compiler](../browser/playground.md), which is the compiler itself built to wasm32 by Cargo; it *interprets* programs whose target is `OS == .WASM`. `jaifmt.wasm` ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) is the main user of this target.
 
 ```sh
-jaic build hello.jai -os wasm -o hello.wasm            # WASI command; Wasi_Runtime is added
+jaic hello.jai -os wasm -exe hello.wasm            # WASI command; Wasi_Runtime is added
 node --no-warnings tools/wasi_run.mjs hello.wasm a b  # stdin/stdout/env/args, exits with main's status
-jaic build lib.jai -target wasm64-unknown-unknown -O2 -o lib.wasm   # no runtime: your host's imports
+jaic lib.jai -target wasm64-unknown-unknown -O2 -exe lib.wasm   # no runtime: your host's imports
 ```
 
 From a metaprogram, the same options as Jai:
@@ -94,7 +94,7 @@ jaic adds `#import "Extensions/Wasi_Runtime"` to the first workspace when the ta
 | --- | --- |
 | `-os wasm` | triple `wasm64-unknown-wasi`, Wasi_Runtime added |
 | `-target wasm64-unknown-unknown` | no runtime; the host supplies imports |
-| `-O2`, `--no-debug-info` | as for native builds; without debug info the module is linked with `--strip-debug` |
+| `-O2`, `-no_debug_info` | as for native builds; without debug info the module is linked with `--strip-debug` |
 | `JAIC_WASM_LD` | path of `wasm-ld`; otherwise `$LLVM_SYS_231_PREFIX/bin`, the prefix jaic was built with, `llvm-config --bindir`, Homebrew's `lld`/`lld@23` kegs, `/usr/lib/llvm-23/bin`, then `PATH` (`wasm-ld-23`, `wasm-ld`) |
 | `JAIC_REQUIRE_WASM_TESTS=1` | the wasm tests fail instead of skipping when node or wasm-ld is missing (CI sets it) |
 

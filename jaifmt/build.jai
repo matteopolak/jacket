@@ -1,11 +1,11 @@
 // Builds jaifmt through the Compiler module (see docs/tools/jaifmt.md):
 //
-//     jaic build jaifmt/build.jai                    native, optimised: target/jaifmt
-//     jaic build jaifmt/build.jai - wasm             WASI module: target/jaifmt.wasm
-//     jaic build jaifmt/build.jai - -o <file>        choose the output file
-//     jaic build jaifmt/build.jai - --help           the options (parsed by Extensions/Args)
+//     jaic jaifmt/build.jai                    native, optimised: target/jaifmt
+//     jaic jaifmt/build.jai - wasm             WASI module: target/jaifmt.wasm
+//     jaic jaifmt/build.jai - -o <file>        choose the output file
+//     jaic jaifmt/build.jai - --help           the options (parsed by Extensions/Args)
 //
-// Use `jaic build`, not `jaic run`: only `build` writes the workspaces a metaprogram creates.
+// Use `jaic`, not `jaic -interp`: only a build writes the workspaces a metaprogram creates.
 // The default output is the repository's target/ directory, wherever jaic was started. jaic runs
 // metaprograms from their own directory, so a relative `-o` path is relative to jaifmt/.
 #import "Basic";

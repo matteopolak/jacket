@@ -8,7 +8,7 @@ use jaic::ir::Library;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The triple `jaic build -os wasm` and an `os_target = .WASM` workspace use by default.
+/// The triple `jaic -os wasm` and an `os_target = .WASM` workspace use by default.
 pub const WASM_TRIPLE: &str = "wasm64-unknown-unknown";
 
 /// Whether `triple` names a WebAssembly target.

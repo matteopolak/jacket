@@ -19,7 +19,7 @@ Published as `matteopolak/setup-jai`; use `matteopolak/setup-jai@v1`. Usage:
 - uses: matteopolak/setup-jai@v1
   with:
     version: 0.4.3
-- run: jaifmt --check . && jailint -D warnings . && jaic build main.jai
+- run: jaifmt --check . && jailint -D warnings . && jaic main.jai
 ```
 
 ## How to change it

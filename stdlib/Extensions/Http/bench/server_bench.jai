@@ -19,7 +19,7 @@
 // both). The open load uses enough connections per thread that each one waits a few milliseconds
 // between requests.
 //
-//     jaic build stdlib/Extensions/Http/bench/server_bench.jai -O2 -o /tmp/http-bench
+//     jaic stdlib/Extensions/Http/bench/server_bench.jai -O2 -exe /tmp/http-bench
 //     /tmp/http-bench                 # one thread
 //     /tmp/http-bench 4               # four
 //     /tmp/http-bench 4 5000          # four threads, 5 seconds per route

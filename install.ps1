@@ -102,5 +102,5 @@
         Write-Host "Added $current to your user PATH; open a new terminal to use jaic, jailsp, jailint and jaifmt."
     }
     if (($env:Path -split ';') -notcontains $current) { $env:Path = "$env:Path;$current" }
-    Write-Host 'Try it: jaic run hello.jai'
+    Write-Host 'Try it: jaic hello.jai -interp'
 }

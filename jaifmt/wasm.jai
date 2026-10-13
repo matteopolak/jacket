@@ -1,4 +1,4 @@
-// jaifmt as a WASI command, built to jaifmt.wasm with `jaic build -os wasm` (see
+// jaifmt as a WASI command, built to jaifmt.wasm with `jaic -os wasm` (see
 // docs/tools/jaifmt.md). It formats the Jai source read from stdin and writes the result to
 // stdout, exiting 0. Options are parsed by Extensions/Args (see `HELP`): a bad command line
 // exits 2. On a config or format error it prints `jaifmt: ...` to stderr, prints nothing to

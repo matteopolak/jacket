@@ -57,6 +57,22 @@ fn plain_compact_is_the_long_standing_layout() {
 }
 
 #[test]
+fn msvc_layout_is_one_located_line_per_item_and_never_coloured() {
+    let style = Style {
+        layout: Layout::Msvc,
+        color: true,
+    };
+    assert_eq!(
+        unknown_name().render_with(style),
+        "u.jai(3,18): error: unknown identifier `countr`\n\
+         u.jai(3,18): note: names are case-sensitive\n\
+         u.jai(3,18): note: help: a similar name exists: `counter`\n"
+    );
+    let bare = Report::new(Severity::Error, "no place").render_with(style);
+    assert_eq!(bare, "error: no place\n");
+}
+
+#[test]
 fn ascii_block_has_line_numbers_context_labels_and_the_fix() {
     let text = unknown_name().render_with(ASCII_STYLE);
     assert_eq!(

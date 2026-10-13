@@ -1,7 +1,7 @@
 // Args completion scripts for each shell against golden texts (data/golden.jai), plus checks
 // that the scripts name what the declarations declare.
 //
-//     jaic run stdlib/Extensions/Args/tests/completions.jai
+//     jaic stdlib/Extensions/Args/tests/completions.jai -interp
 //
 // After an intended change, regenerate the goldens with data/bless.jai.
 

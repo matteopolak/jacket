@@ -4,7 +4,7 @@
 // the same heads, body bytes, trailers and error. Mutated input also has to leave the parser
 // failed or waiting, never stuck or crashed.
 //
-//     jaic run stdlib/Extensions/Http/tests/chunking.jai
+//     jaic stdlib/Extensions/Http/tests/chunking.jai -interp
 
 #load "lib/support.jai";
 #load "data/llhttp_cases.jai";

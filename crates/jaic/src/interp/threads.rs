@@ -1,4 +1,4 @@
-//! Threads for interpreted programs under native `jaic run`.
+//! Threads for interpreted programs under native `jaic -interp`.
 //!
 //! Every Jai thread is an OS thread, but only the one holding the baton runs interpreted code,
 //! so `Interp` is never touched by two threads at once. The baton moves when its holder blocks

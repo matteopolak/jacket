@@ -1,6 +1,6 @@
 // Regex benchmark for jaic's Extensions/Regex.
 //
-//     jaic build benchmarks/regex/jai/bench.jai -O2 -o bench
+//     jaic benchmarks/regex/jai/bench.jai -O2 -exe ./bench
 //     ./bench CORPUS RUNS [CASE...]
 //
 // Prints one tab-separated line per engine and case:

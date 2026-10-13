@@ -2,13 +2,13 @@
 
 ## What it is
 
-`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit of its main branch) over a separately installed LLVM 23.1, and `jaic build` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic check` and `jaic run` don't use it at run time. `jai-wasm` doesn't depend on LLVM.
+`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit of its main branch) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `jaic -interp` don't use it at run time. `jai-wasm` doesn't depend on LLVM.
 
 ## How it works
 
 `llvm-sys` finds LLVM through `LLVM_SYS_231_PREFIX` (a directory containing `bin/llvm-config` and `lib/`). CI sets it per platform: Homebrew's `llvm@23` on arm64 macOS (`tools/install_ci_llvm_macos.sh`, which runs `brew update` and retries when a runner image's Homebrew predates the `llvm@23` alias); on Intel macOS, where Homebrew has no bottles and would build LLVM from source past the job's timeout, the same script installs conda-forge's LLVM 23.1 packages (`llvmdev`, `libllvm23`, `llvm-tools`, `clang`, `compiler-rt`, `lld`) with a pinned, checksummed micromamba into the runner's temp directory, links the binaries it builds with an rpath to that `lib/` (`RUSTFLAGS`, since conda's libraries load through `@rpath`), sets `SDKROOT`, and puts only LLVM's own tools on `PATH` so conda's `cc`, `ld` and other cctools do not replace the system's (with `--static`, for the release's `macos-x64` archive, it installs only the static libraries and links nothing from the environment at run time; see [releases](releases.md#how-to-change-it)); and `tools/install_ci_llvm_linux.sh` on Ubuntu 24.04 (x86-64 or ARM64), which adds the signed apt.llvm.org archive after checking its signing-key fingerprint and installs the 23.1 packages into `/usr/lib/llvm-23`. The runners' Ubuntu mirror sometimes stalls mid-transfer and apt would wait on it forever, so the script also writes `/etc/apt/apt.conf.d/80jai-ci-network` (30-second network timeouts, five retries; it applies to the job's later `apt-get` calls too) and runs `apt-get update` and `install` under a ten-minute `timeout`, three attempts each; the workflow steps that call it have `timeout-minutes: 15`, so a stall fails the step instead of using up the job. The script needs `sudo` and writes system apt configuration; use it on fresh CI runners only.
 
-`jaic build -os wasm` also needs LLD's `wasm-ld`, which Homebrew and Debian package separately from LLVM (`lld`, `lld-23`); CI installs both ([wasm target](../native/wasm-target.md)).
+`jaic -os wasm` also needs LLD's `wasm-ld`, which Homebrew and Debian package separately from LLVM (`lld`, `lld-23`); CI installs both ([wasm target](../native/wasm-target.md)).
 
 The same prefix is read at run time, to find the sanitizer link driver (`bin/clang`, see [sanitizers](../native/sanitizers.md)), `llvm-symbolizer` in the sweep and `llvm-dwarfdump` in `tests/debug_info.rs`.
 
@@ -48,7 +48,7 @@ For a new LLVM major version:
 ## Configuration
 
 ```sh
-brew install llvm@23 lld   # lld: wasm-ld, only for `jaic build -os wasm`
+brew install llvm@23 lld   # lld: wasm-ld, only for `jaic -os wasm`
 export LLVM_SYS_231_PREFIX="$(brew --prefix llvm@23)"
 export PATH="$LLVM_SYS_231_PREFIX/bin:$PATH"
 cargo build -p jaic-cli --locked

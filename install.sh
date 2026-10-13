@@ -157,7 +157,7 @@ Install a later version, or build from source: https://github.com/$REPO#install"
     say "Installed jai $version into $target"
     say "Linked$linked into $bin_dir"
     case ":${PATH:-}:" in
-        *":$bin_dir:"*) say "Try it: jaic run hello.jai" ;;
+        *":$bin_dir:"*) say "Try it: jaic hello.jai -interp" ;;
         *)
             say ""
             say "$bin_dir is not on your PATH. Add it, for example:"
@@ -166,7 +166,7 @@ Install a later version, or build from source: https://github.com/$REPO#install"
                 */zsh) say "  echo 'export PATH=\"$bin_dir:\$PATH\"' >> ~/.zshrc" ;;
                 *) say "  echo 'export PATH=\"$bin_dir:\$PATH\"' >> ~/.profile" ;;
             esac
-            say "then open a new shell and run: jaic run hello.jai"
+            say "then open a new shell and run: jaic hello.jai -interp"
             ;;
     esac
 }

@@ -11,7 +11,7 @@ Options :: struct {
 
 main :: () {
     argv := get_command_line_arguments();
-    // Compiled programs see their name as argument zero; `jaic run` without `--` passes none.
+    // Compiled programs see their name as argument zero; `jaic -interp` without `--` passes none.
     ok, options, is_set, free_arguments := parse_arguments(Options);
 
     assert(ok, "no arguments parse");

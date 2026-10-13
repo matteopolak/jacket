@@ -2,7 +2,7 @@
 // differently must be refused outright, and the ones that merely look odd must still be framed
 // the one way the RFC gives. Each case runs whole and one byte at a time.
 //
-//     jaic run stdlib/Extensions/Http/tests/smuggling.jai
+//     jaic stdlib/Extensions/Http/tests/smuggling.jai -interp
 
 #load "lib/support.jai";
 

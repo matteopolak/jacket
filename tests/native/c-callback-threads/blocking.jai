@@ -1,6 +1,6 @@
 // #c_call procedures that a thread of C's own calls and that wait for Jai threads (a mutex, a
 // condition variable, a join, a sleep), callbacks nested in C calls, and a Jai thread that keeps
-// running while another one waits in C. The output is the same under `jaic run` and natively.
+// running while another one waits in C. The output is the same under `jaic -interp` and natively.
 #import "Basic";
 #import "Thread";
 

@@ -4,7 +4,7 @@
 // damage, including strings with long runs of backslashes and quotes that straddle the
 // 64-byte blocks of the index.
 //
-//     jaic run stdlib/Extensions/Json/tests/differential.jai
+//     jaic stdlib/Extensions/Json/tests/differential.jai -interp
 
 #import "Basic";
 #import "Random";

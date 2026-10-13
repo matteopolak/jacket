@@ -122,7 +122,7 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 | [cluster](https://github.com/rluba/cluster), [hyperserve](https://github.com/rluba/hyperserve) | works | Build natively and serve |
 | [jai-redis](https://github.com/rluba/jai-redis) | works | Test builds; running needs a Redis server |
 | [jai-postgres](https://github.com/rluba/jai-postgres) | partial | Checks; running needs libpq and a database |
-| [jai-tracy](https://github.com/rluba/jai-tracy) | works | `-plug tracy` instruments and builds a profiled program |
+| [jai-tracy](https://github.com/rluba/jai-tracy) | works | `+tracy` instruments and builds a profiled program |
 | [sgpu](https://github.com/roeyb1/sgpu) | works | Examples build on macOS; mesh shaders need a driver MoltenVK lacks. `Vulkan_With_VMA/generate.jai` regenerates its bindings |
 | [The Way to Jai](https://github.com/Ivo-Balbaert/The_Way_to_Jai) | works | Most programs run; the rest check |
 | [Vk-Engine](https://github.com/ostef/Vk-Engine) | partial | Checks for Linux; no macOS support upstream |
@@ -161,14 +161,14 @@ struct and string parameters changed through their address (`advance(*s, 1)` in
 
 ### Notes per project
 
-**Focus.** `jaic build first.jai` produces a working editor on macOS. It needs the stb libraries (`tools/build_native_libs.py`) and its own `modules/Objective_C/LightweightRenderingView/build.jai` run once. Debug builds need `~/Library/Application Support/dev.focus-editor` to exist, because upstream creates `.../debug` non-recursively. The x64 and Windows blockers listed earlier are gone: Focus's own `src/meow_hash.jai` (the AES path under `CPU == .X64`) checks and builds for `-cpu x64` and `-os windows` against the stdlib `meow_hash`, so the smoke test no longer swaps in the portable hash; `Process.init_named_pipe_pair` exists (exercised against a real child by `tests/stdlib/process-named-pipes.jai` on the Windows CI jobs) and Focus's `src/build_system_windows.jai` checks against it, so the smoke test no longer skips Windows. A full `jaic check first.jai -os windows` cannot be tried from a macOS host, because `first.jai` and `src/config.jai` run Windows-only code at compile time, so the first complete Windows run is the CI one.
+**Focus.** `jaic first.jai` produces a working editor on macOS. It needs the stb libraries (`tools/build_native_libs.py`) and its own `modules/Objective_C/LightweightRenderingView/build.jai` run once. Debug builds need `~/Library/Application Support/dev.focus-editor` to exist, because upstream creates `.../debug` non-recursively. The x64 and Windows blockers listed earlier are gone: Focus's own `src/meow_hash.jai` (the AES path under `CPU == .X64`) checks and builds for `-cpu x64` and `-os windows` against the stdlib `meow_hash`, so the smoke test no longer swaps in the portable hash; `Process.init_named_pipe_pair` exists (exercised against a real child by `tests/stdlib/process-named-pipes.jai` on the Windows CI jobs) and Focus's `src/build_system_windows.jai` checks against it, so the smoke test no longer skips Windows. A full `jaic first.jai -check -os windows` cannot be tried from a macOS host, because `first.jai` and `src/config.jai` run Windows-only code at compile time, so the first complete Windows run is the CI one.
 
-**Jails.** `jaic build build.jai` produces a native `bin/jails` that answers LSP requests. `-os windows` needs a Windows host (it calls `MultiByteToWideChar` at compile time).
+**Jails.** `jaic build.jai` produces a native `bin/jails` that answers LSP requests. `-os windows` needs a Windows host (it calls `MultiByteToWideChar` at compile time).
 
 **Vk-Engine** (with Linalg and Jolt-Jai). The sweep cases `vk-engine-{core,renderer,game,editor}-check` run
 
 ```sh
-jaic check Build.jai -I Modules -I Source -os linux - Core|Renderer|Game|Editor
+jaic Build.jai -check -I Modules -I Source -os linux - Core|Renderer|Game|Editor
 ```
 
 on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine whose libraries are built, so `Build.jai` doesn't regenerate bindings inside the corpus. Use a release `jaic`; each module takes tens of seconds. Without the placeholders `Build.jai` runs three generators: ImGui's and Vulkan's work, Jolt's needs `cmake`. Vulkan's used to stop with "expected *Declaration, found Enumerate" at `Modules/Vulkan/generate.jai:240`. That was a jaic gap: the generator (like sgpu's `Vulkan_With_VMA/generate.jai`) uses the newer `Bindings_Generator` API, where `Enum.enumerates` holds `*Declaration`s, and jaic's module had the older `Enum.Enumerate` values. With the newer API both Vulkan generators run; Vk-Engine's writes `vulkan_linux.jai` with the same 668 `sType` defaults as the pinned file. Natively on macOS it stops early: the upstream `Vulkan`, `ImGui` and `JoltPhysics` modules have no macOS branch. `tools/build_vk_engine_libs.py` builds the C++ libraries for macOS; see [Vk-Engine](../native/vk-engine.md).
@@ -188,7 +188,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 
 **Metaprogramming libraries.** Sweep cases: match-jai `examples/first.jai`; yield-jai `constant`, `defer`, `first`, `if`, `if_case`, `while` (`expand` and `for` would need per-call `macro_expansion_block` export); AST_Utils `astTests.jai` and `examples/build.jai` (needs `FormatStruct.recursive_long_form_depth`, see [Basic](../specs/stdlib/README.md)); Jai-Shader-Transpiler `build.jai` (GLSL from `@glsl` procedures); jai-utils `closure.jai`; unotest. Checked by hand but not cases:
 
-- epic-fail is a `-plug` plugin ([metaprogram plugins](../metaprogramming/metaprogram-plugins.md)); its `assert` works when imported directly.
+- epic-fail is a `+Name` plugin ([metaprogram plugins](../metaprogramming/metaprogram-plugins.md)); its `assert` works when imported directly.
 - MetaThreadSafe's examples fail on purpose, with the same diagnostics; `compile_time_example` passes. It used to report the untaken `#if` branch of a baked instance: a call to a polymorphic procedure resolved to the generic header, and a static `#if` carried no evaluated flag. The call now resolves to the instance, whose body is reported with `EVALUATED_AS_TRUE` and `static_if_accepted_case` set (rules `records.30`, `records.31`). MetaThreadSafe is not pinned.
 - jai-control-flow was written for an older Jai in which `%%` was an escaped percent; current Jai reads it as two arguments. A copy updated for current Jai passes all its tests.
 
@@ -197,7 +197,7 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 | Library | What it is | Sweep cases |
 | --- | --- | --- |
 | jaison | JSON parse/print, typed and generic | `jaison-tests`, `jaison-example`, `jaison-native-build` |
-| uniform | RE2-style regular expressions | `uniform-tests` (`jaic run first.jai - test`, the stubborn suite at compile time) |
+| uniform | RE2-style regular expressions | `uniform-tests` (`jaic first.jai -interp - test`, the stubborn suite at compile time) |
 | stubborn | Compile-time test runner and matchers | `stubborn-module`, `uniform-tests` |
 | jai-date | Date parsing, formatting, arithmetic | `jai-date-module` (`#run` self-tests) |
 | jai-csv | CSV parsing into typed arrays | `jai-csv-module` |
@@ -213,13 +213,13 @@ on a scratch copy with empty `Libs/Linux` placeholders, as on a Linux machine wh
 - Written for an older Jai (outdated), so not cases: jai-date's `example.jai` passes `allocator =` as an ordinary named argument (current Jai needs `,,`); cluster's `examples/http_server.jai` calls `cluster_accept` with its old signature.
 - Upstream bugs (typos), not cases: jai-postgres's `examples/example.jai` refers to `Uuid` but declares `UUID`; wait_group's Linux `add_signals` logs `signal` where `it` was meant, which names the overloaded `signal` (POSIX's and Thread's `signal(*Semaphore)`) as a value with no target type. jaic rejects that as an ambiguous overload set; nothing in the corpus, tests or docs shows Jai accepting a procedure value of an overloaded name (the differential generator avoids them), so jaic's behaviour is left alone. The path is likely one the author never compiled on Linux.
 
-**chess-jai.** `build.jai - ui` and `- ai cpu` are check cases (`chess-jai-ui-check`, `chess-jai-engine-check`). `jaic build build.jai - ui ai release` produces `chess` and the `ceij` UCI engine (both need stb_vorbis). The engine reads its 21 MB NNUE network into a `#no_reset` global at compile time, and `perft_all` passes.
+**chess-jai.** `build.jai - ui` and `- ai cpu` are check cases (`chess-jai-ui-check`, `chess-jai-engine-check`). `jaic build.jai - ui ai release` produces `chess` and the `ceij` UCI engine (both need stb_vorbis). The engine reads its 21 MB NNUE network into a `#no_reset` global at compile time, and `perft_all` passes.
 
 **forbear.** `build.jai` checks and builds (`forbear-build`). The case's setup compiles `vendor/kb_text_shape.a` and `vendor/freetype.a` with clang first; otherwise `build.jai` regenerates `bindings-MACOS.jai` inside the corpus.
 
 **rexim.github.io.** `rss.jai` runs (`rexim-rss`). It writes `event/<id>.json`, so the case creates `event/`. Upstream indexes `WEEKDAYS[tm_wday - 1]`, which is out of bounds on Sundays (local time), so the step has `"not_on": ["Sunday"]` (a step key the smoke runner checks against `time.strftime("%A")`, with `not_on_reason` printed when it skips).
 
-**ui_builder.** `jaic check demo.jai` passes (`ui-builder-demo-check`). `jaic build` stops at the link step: Pixel_Maker's prebuilt `bindings/Slang/lib/macos/libslang` is not in the pinned corpus.
+**ui_builder.** `jaic demo.jai -check` passes (`ui-builder-demo-check`). `jaic` stops at the link step: Pixel_Maker's prebuilt `bindings/Slang/lib/macos/libslang` is not in the pinned corpus.
 
 **Photon.** Windows-only: `Ico_File` and `Windows_Resources` are imported only for Windows, and `-os windows` calls `MultiByteToWideChar` at compile time.
 

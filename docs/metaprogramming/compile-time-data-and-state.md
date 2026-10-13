@@ -39,7 +39,7 @@ counter := 5;
 
 The example above prints `counter = 5, keep = 7` {#ctdata.11}.
 
-`resolve_global_var` (`sema/decls.rs`) adds every user global not marked `#no_reset` to `Program.reset_globals`. `run_program` calls `Interp::reset_globals`, which zeroes each one, copies its `init` bytes and re-applies relocations. `x := #run f();` keeps its value because the result is the initializer {#ctdata.9}. `jaic build` emits only `init` data, so the reset is implicit there.
+`resolve_global_var` (`sema/decls.rs`) adds every user global not marked `#no_reset` to `Program.reset_globals`. `run_program` calls `Interp::reset_globals`, which zeroes each one, copies its `init` bytes and re-applies relocations. `x := #run f();` keeps its value because the result is the initializer {#ctdata.9}. `jaic` emits only `init` data, so the reset is implicit there.
 
 `#no_reset` globals go to `sema.no_reset_globals`. Before codegen, `bake_no_reset_globals` (`driver.rs`, called from `prepare_compiled_output`) reads each one back from the interpreter with `read_aggregate`, the same path `#run` constants take, and makes that its `init`. An executable therefore sees what compile-time code stored, including strings, arrays and pointers into other globals. chess-jai loads its network weights this way {#ctdata.10}.
 

@@ -1,5 +1,5 @@
 // Windows: HWND surfaces for Window_Creation's windows (wgpu-native presents through D3D12,
-// Vulkan or GL), and the system libraries the static wgpu_native.lib needs when `jaic build`
+// Vulkan or GL), and the system libraries the static wgpu_native.lib needs when `jaic`
 // links it. The library carries import stubs for most DLLs it calls; these are the rest.
 
 #scope_module

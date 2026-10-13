@@ -1,13 +1,13 @@
-//! `jaic run`'s answer to "where is my executable": the program asks the OS
+//! `jaic -interp`'s answer to "where is my executable": the program asks the OS
 //! (`_NSGetExecutablePath`, `readlink("/proc/self/exe")`, `GetModuleFileNameW(null)`), which
 //! would name `jaic` itself. With `Interp::run_executable` set, these calls instead report the
-//! executable `jaic build` would write, so a program that finds its data next to itself
+//! executable `jaic` would write, so a program that finds its data next to itself
 //! (`join(path_strip_filename(get_path_of_running_executable()), "../assets")`) runs the same
 //! either way. Compile-time code keeps the real answer (the compiler, as with any compiler).
 //!
 //! The same goes for the command line on Windows: Runtime_Support reads the arguments again
 //! from `GetCommandLineW` (the C runtime's `argv` is in the ANSI code page), which would give
-//! `jaic run file.jai -- ...`. While `run_executable` is set it gets `Interp::run_arguments`
+//! `jaic file.jai -interp -- ...`. While `run_executable` is set it gets `Interp::run_arguments`
 //! quoted so that `CommandLineToArgvW` splits them back unchanged.
 use super::{Interp, Res};
 use crate::ir::Ty;
@@ -79,7 +79,7 @@ impl Interp {
             })(),
             // LPWSTR GetCommandLineW(void): the program's arguments, not jaic's.
             "GetCommandLineW" => Ok(self.run_command_line()),
-            // No arguments at all (`jaic run` without `--`) has no Windows spelling: an empty
+            // No arguments at all (`jaic -interp` without `--`) has no Windows spelling: an empty
             // command line splits into the executable's path. Report the split as failed, which
             // keeps the empty `argv` the program started with.
             "CommandLineToArgvW"

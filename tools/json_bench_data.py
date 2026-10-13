@@ -4,7 +4,7 @@ the nativejson-benchmark data) into
 a directory, and prints the command to run:
 
     python3 tools/json_bench_data.py /tmp/json-data
-    jaic build stdlib/Extensions/Json/bench/bench.jai -O2 -o /tmp/json-bench
+    jaic stdlib/Extensions/Json/bench/bench.jai -O2 -exe /tmp/json-bench
     /tmp/json-bench /tmp/json-data/twitter.json /tmp/json-data/canada.json /tmp/json-data/citm_catalog.json
 
 The files are not kept in the repository: they are several MB, and each has its own provenance

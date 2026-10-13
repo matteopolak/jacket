@@ -1,6 +1,6 @@
 // A JSON API for notes, kept in memory.
 //
-//     jaic run examples/http/crud.jai
+//     jaic examples/http/crud.jai -interp
 //     curl -i -X POST localhost:8080/notes -H 'content-type: application/json' -d '{"title":"milk"}'
 //     curl localhost:8080/notes/1
 //     curl localhost:8080/notes?status=open

@@ -3,7 +3,7 @@
 ## What it is
 
 A repeatable pass over public Jai repositories on GitHub: find active, popular projects, pin them in the
-[upstream corpus](upstream-corpus.md), try `jaic check`/`build`/`run` on their entry points, and fix what is a
+[upstream corpus](upstream-corpus.md), try `jaic -check`, a plain build and `jaic -interp` on their entry points, and fix what is a
 jaic or stdlib bug. Results live in the [project status](upstream-corpus.md#project-status) table.
 
 ## How it works
@@ -26,7 +26,7 @@ jaic or stdlib bug. Results live in the [project status](upstream-corpus.md#proj
    default size cap go in `MAX_FILE_BYTES` (chess-jai's network).
 3. **Find the entry point.** Usually `first.jai` or `build.jai` (a metaprogram) at the root. Its arguments after
    `-` select targets (`build.jai - ui ai release`). The README or a `build.sh`/`.bat` shows the real command.
-4. **Try it**, cheapest first: `jaic check`, then `jaic build`, then run the result. A `--release` jaic keeps big
+4. **Try it**, cheapest first: `jaic -check`, then `jaic`, then run the result. A `--release` jaic keeps big
    metaprograms quick.
 5. **Classify** the outcome:
    - passes;

@@ -2,7 +2,7 @@
 // connections per second (connect, one round trip, close). Server and clients share one scheduler,
 // so the numbers measure the engine and the fibers, not the machine's network.
 //
-//     jaic build -O2 stdlib/Extensions/Io/bench/bench.jai -o /tmp/io-bench
+//     jaic -O2 stdlib/Extensions/Io/bench/bench.jai -exe /tmp/io-bench
 //     /tmp/io-bench                       # the default backend
 //     JAI_IO_BACKEND=epoll /tmp/io-bench  # a forced one (io_uring, epoll or kqueue)
 //

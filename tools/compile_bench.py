@@ -9,7 +9,7 @@ Each workload (project x mode) runs --repeat times. The first run is reported as
 module cache on disk, so cold only means the first run of the session: binary pages, stdlib and project
 sources not yet in the OS file cache); the median of the remaining runs is "warm". Peak RSS is the
 compiler process's own maximum resident set (child processes such as the linker are not included).
-With jaic's --timings, every run also reports wall time per compiler phase.
+With jaic's -timings, every run also reports wall time per compiler phase.
 
 --compare flags workloads whose warm wall time or peak RSS grew by more than --threshold (and by more
 than --min-seconds / --min-mib, so tiny workloads do not trip on noise) and exits 1 when any did.
@@ -47,39 +47,39 @@ MODES = ('check', 'build-O0', 'build-O2')
 # level, so their build-O2 row passes the metaprogram's release switch instead of -O2.
 WORKLOADS: dict[str, tuple[str, dict[str, list[str]], list[str]]] = {
     'focus': ('focus-editor--focus', {
-        'check': ['check', 'first.jai'],
-        'build-O0': ['build', 'first.jai'],
-        'build-O2': ['build', 'first.jai', '-', 'release'],
+        'check': ['first.jai', '-check'],
+        'build-O0': ['first.jai'],
+        'build-O2': ['first.jai', '-', 'release'],
     }, []),
     'jails': ('SogoCZE--Jails', {
-        'check': ['check', 'build.jai'],
-        'build-O0': ['build', 'build.jai'],
+        'check': ['build.jai', '-check'],
+        'build-O0': ['build.jai'],
         # Jails' -release is VERY_OPTIMIZED (O3).
-        'build-O2': ['build', 'build.jai', '-', '-release'],
+        'build-O2': ['build.jai', '-', '-release'],
     }, []),
     'sgpu-examples': ('roeyb1--sgpu/examples', {
-        'check': ['check', 'build.jai'],
+        'check': ['build.jai', '-check'],
     }, []),
     'jaison-tests': ('rluba--jaison', {
-        'check': ['check', 'tests.jai'],
-        'build-O0': ['build', 'tests.jai', '-O0', '-o', '{tmp}/jaison-tests'],
-        'build-O2': ['build', 'tests.jai', '-O2', '-o', '{tmp}/jaison-tests'],
+        'check': ['tests.jai', '-check'],
+        'build-O0': ['tests.jai', '-O0', '-exe', '{tmp}/jaison-tests'],
+        'build-O2': ['tests.jai', '-O2', '-exe', '{tmp}/jaison-tests'],
     }, []),
     # open-jai's examples are small; this one pulls in GetRect, Simp and the windowing modules.
     'open-jai-getrect': ('withlang-dev--open-jai/examples/33', {
-        'check': ['check', '33.3_getrect_buttons.jai'],
-        'build-O0': ['build', '33.3_getrect_buttons.jai', '-O0', '-o', '{tmp}/getrect-buttons'],
-        'build-O2': ['build', '33.3_getrect_buttons.jai', '-O2', '-o', '{tmp}/getrect-buttons'],
+        'check': ['33.3_getrect_buttons.jai', '-check'],
+        'build-O0': ['33.3_getrect_buttons.jai', '-O0', '-exe', '{tmp}/getrect-buttons'],
+        'build-O2': ['33.3_getrect_buttons.jai', '-O2', '-exe', '{tmp}/getrect-buttons'],
     }, []),
     'chess-jai': ('danieltan1517--chess-jai', {
         # Engine and UI; the engine reads its 21 MB network at compile time.
-        'check': ['check', 'build.jai'],
-        'build-O0': ['build', 'build.jai', '-', 'ui', 'ai', 'debug'],
-        'build-O2': ['build', 'build.jai', '-', 'ui', 'ai', 'release'],
+        'check': ['build.jai', '-check'],
+        'build-O0': ['build.jai', '-', 'ui', 'ai', 'debug'],
+        'build-O2': ['build.jai', '-', 'ui', 'ai', 'release'],
     }, []),
     'forbear': ('gabrielmfern--forbear', {
-        'check': ['check', 'build.jai'],
-        'build-O0': ['build', 'build.jai'],
+        'check': ['build.jai', '-check'],
+        'build-O0': ['build.jai'],
     }, ['forbear-build']),
 }
 
@@ -87,8 +87,8 @@ WORKLOADS: dict[str, tuple[str, dict[str, list[str]], list[str]]] = {
 # Generated workloads (tools/benchgen.py): name -> (lines, seed). Program text depends only on these.
 GENERATED: dict[str, tuple[int, int]] = {'gen-10k': (10_000, 1), 'gen-60k': (60_000, 1), 'gen-240k': (240_000, 1)}
 GENERATED_MODES: dict[str, list[str]] = {
-    'check': ['check', 'main.jai'],
-    'build-O0': ['build', 'main.jai', '-O0', '-o', '{tmp}/gen-out'],
+    'check': ['main.jai', '-check'],
+    'build-O0': ['main.jai', '-O0', '-exe', '{tmp}/gen-out'],
 }
 
 
@@ -166,8 +166,9 @@ def run_once(jaic: Path, cwd: Path, args: list[str], timeout: float) -> dict:
     """One compiler run: wall seconds, peak RSS (MiB) and phase timings."""
     start = time.perf_counter()
     with tempfile.TemporaryFile() as err:
-        # `--timings` goes before a `-`: everything after it belongs to the metaprogram.
-        command = [str(jaic), *args[:2], '--timings', *args[2:]]
+        # `-timings` goes before a `-`: everything after it belongs to the metaprogram.
+        cut = args.index('-') if '-' in args else len(args)
+        command = [str(jaic), *args[:cut], '-timings', *args[cut:]]
         process = subprocess.Popen(command, cwd=cwd, stdout=subprocess.DEVNULL,
                                    stderr=err, stdin=subprocess.DEVNULL)
         deadline = start + timeout

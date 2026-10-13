@@ -155,7 +155,7 @@ impl Compiler {
         // An exact declaration elsewhere is a better lead than a similar name in scope.
         if let Some(builder) = self.metaprogram_defining(wanted, span) {
             return Some(d.with_help(format!(
-                "`{wanted}` is added by `{builder}` (with `add_build_string`) when it builds this file: build through it, as in `jaic build {builder}`"
+                "`{wanted}` is added by `{builder}` (with `add_build_string`) when it builds this file: build through it, as in `jaic {builder}`"
             )));
         }
         if let Some(found) = crate::suggest::closest(wanted, names.iter().copied()) {

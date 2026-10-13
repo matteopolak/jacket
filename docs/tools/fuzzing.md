@@ -29,7 +29,7 @@ The harnesses call library entry points directly. Nothing on these paths uses `c
 
 ### Sandboxing
 
-Compile-time execution and `main` run through the browser playground's sandbox, the same one `jaic run -os wasm` uses: target OS/CPU `wasm`, the stdlib from an in-memory file system, and `SandboxHost`, a small in-memory libc with no dynamic linker, real files, network or clock. `BLOCK_BUDGET` (2M interpreter basic blocks per input) stops infinite loops in `#run` and `main` with an "execution budget exhausted" diagnostic, also in the workspaces a metaprogram compiles, which draw from the same budget. Any hang that is left is in the compiler itself.
+Compile-time execution and `main` run through the browser playground's sandbox, the same one `jaic -interp -os wasm` uses: target OS/CPU `wasm`, the stdlib from an in-memory file system, and `SandboxHost`, a small in-memory libc with no dynamic linker, real files, network or clock. `BLOCK_BUDGET` (2M interpreter basic blocks per input) stops infinite loops in `#run` and `main` with an "execution budget exhausted" diagnostic, also in the workspaces a metaprogram compiles, which draw from the same budget. Any hang that is left is in the compiler itself.
 
 Compiling harnesses (`check`, `interp`, `generated`, `lsp`, `lsp_json`, `lsp_edits`, `jaifmt`) run on a 256 MiB thread, the stack the wasm build links with. The native CLI and `jailsp` use 1 GiB. `lexer` and `parser` run on libFuzzer's main thread (8 MiB).
 

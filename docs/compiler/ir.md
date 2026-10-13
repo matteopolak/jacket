@@ -33,7 +33,7 @@ Calling conventions:
 - Fiber intrinsics (`FiberInit`, `FiberSwitch`, `FiberFree`) are described in [fibers](fibers.md).
 - New instruction or intrinsic: add the variant in `ir.rs`, emit it from sema, and implement it in `interp/mod.rs` and `crates/jaic-llvm/src/lower.rs`. A backend that misses a variant fails to compile, which is the point.
 - Keep aggregates in memory. Aggregate-valued registers would break both backends and the C ABI handling.
-- `jaic build file.jai --emit-ir out.ll` writes the LLVM IR, the quickest way to inspect lowering.
+- `jaic file.jai -emit_ir out.ll` writes the LLVM IR, the quickest way to inspect lowering.
 
 ## Configuration
 

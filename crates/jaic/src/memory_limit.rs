@@ -3,7 +3,7 @@
 //! [`CountingAllocator`] is the `jaic` binary's global allocator: it forwards to the system
 //! allocator and, once [`arm`]ed, keeps a running total of live bytes. The interpreter's own
 //! memory (the stack, globals, the sandbox heap) comes from Rust allocations; the C `malloc`
-//! family a natively linked program calls at compile time or under `jaic run` is resolved to the
+//! family a natively linked program calls at compile time or under `jaic -interp` is resolved to the
 //! counting wrappers in [`foreign_override`] instead of libc's. Crossing the limit prints one
 //! line and ends the process with [`EXIT_CODE`], so callers (the corpus sweep) can tell it from
 //! an ordinary failure.

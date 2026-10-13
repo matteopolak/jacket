@@ -3,7 +3,7 @@
 // one request on each, keeps them open and idle, and reads the child's resident set from
 // /proc/<pid>/status before and after. Linux only: elsewhere it prints that it skipped.
 //
-//     jaic build stdlib/Extensions/Http/bench/idle_bench.jai -O2 -o /tmp/http-idle
+//     jaic stdlib/Extensions/Http/bench/idle_bench.jai -O2 -exe /tmp/http-idle
 //     ulimit -n 65536                   # both ends of every connection are descriptors
 //     /tmp/http-idle 1000               # N connections (default 1000)
 //     /tmp/http-idle 10000 http         # also a final request on every connection, to show it still works

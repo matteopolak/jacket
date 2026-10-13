@@ -2,9 +2,9 @@
 
 ## What it is
 
-WASI preview 1 gives a program one thread and no call to start another, and wasm code cannot switch stacks. A `jaic build -os wasm` program that uses the Thread module still runs its threads: Wasi_Runtime runs them as green threads, one at a time on the host's thread, and jaic's LLVM backend rewrites the procedures that may block so a thread can be set aside and resumed later. The program prints what it prints natively; it just never runs two threads at once.
+WASI preview 1 gives a program one thread and no call to start another, and wasm code cannot switch stacks. A `jaic -os wasm` program that uses the Thread module still runs its threads: Wasi_Runtime runs them as green threads, one at a time on the host's thread, and jaic's LLVM backend rewrites the procedures that may block so a thread can be set aside and resumed later. The program prints what it prints natively; it just never runs two threads at once.
 
-This is only for native WASI builds. `jaic run -os wasm` and the browser engine interpret the program and schedule its threads themselves ([threads under `jaic run`](../compiler/interpreter-threads.md)).
+This is only for native WASI builds. `jaic -interp -os wasm` and the browser engine interpret the program and schedule its threads themselves ([threads under `jaic -interp`](../compiler/interpreter-threads.md)).
 
 ## How it works
 

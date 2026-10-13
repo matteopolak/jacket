@@ -6,12 +6,12 @@
 
 The scheduler's invariants (a fiber is woken once, and only while it is parked) fail only when
 two things land in a particular order, which a quiet machine rarely produces; with many copies
-fighting for the cores it happens. Each test is built once per variant with `jaic build FILE -o OUT`
+fighting for the cores it happens. Each test is built once per variant with `jaic FILE -exe OUT`
 from the test's own directory:
 
     default   no flags
     o2        -O2
-    asan      --sanitize address,undefined (Linux only; skipped elsewhere)
+    asan      -sanitize address,undefined (Linux only; skipped elsewhere)
 
 and each round then starts `--copies` copies of every program at once (default three per CPU),
 each in its own scratch working directory (the tests write `.scratch/` below it). A copy fails
@@ -50,7 +50,7 @@ DEFAULT_TESTS = [
 VARIANTS = {
     "default": [],
     "o2": ["-O2"],
-    "asan": ["--sanitize", "address,undefined"],
+    "asan": ["-sanitize", "address,undefined"],
 }
 # Lines of a failing copy's output that are shown, and failures shown in full.
 OUTPUT_LINES = 15
@@ -60,7 +60,7 @@ EXE = ".exe" if sys.platform == "win32" else ""
 
 def build(jaic, test, variant, out):
     """Compiles `test` for `variant`. None on success, else the compiler's output."""
-    command = [str(jaic), "build", test.name, *VARIANTS[variant], "-o", str(out)]
+    command = [str(jaic), test.name, *VARIANTS[variant], "-exe", str(out)]
     try:
         result = subprocess.run(command, cwd=test.parent, capture_output=True, text=True, timeout=1800)
     except subprocess.TimeoutExpired:

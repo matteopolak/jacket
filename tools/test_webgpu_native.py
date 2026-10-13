@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run tests/webgpu/headless.jai (or, with --test window, tests/webgpu/window.jai) natively:
-interpreted (`jaic run`, which loads the shared wgpu-native) and built (`jaic build`, which links
+interpreted (`jaic -interp`, which loads the shared wgpu-native) and built (`jaic`, which links
 the static one), on this host's GPU or a software adapter (Mesa's lavapipe on Linux, WARP on
 Windows).
 
@@ -46,7 +46,7 @@ def attempt(command: list[str], label: str, args: list[str]) -> int:
     for extra in ([], ['fallback']):
         print(f'--- {label}{" (fallback adapter)" if extra else ""}', flush=True)
         program_args = args + extra
-        if program_args and command[1:2] == ['run']:
+        if program_args and '-interp' in command:
             program_args = ['--', *program_args]
         status = run(command + program_args)
         if status != NO_ADAPTER:
@@ -74,9 +74,9 @@ def main() -> int:
     exe = out.with_suffix('.exe') if plat.startswith('windows') else out
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    results = {'jaic run': attempt([jaic, 'run', str(test)], 'jaic run', program_args)}
-    built = run([jaic, 'build', str(test), '-o', str(out)])
-    results['jaic build'] = attempt([str(exe)], 'built executable', program_args) if built == 0 else built
+    results = {'jaic -interp': attempt([jaic, str(test), '-interp'], 'jaic -interp', program_args)}
+    built = run([jaic, str(test), '-exe', str(out)])
+    results['jaic (native)'] = attempt([str(exe)], 'built executable', program_args) if built == 0 else built
 
     failed = False
     for mode, status in results.items():

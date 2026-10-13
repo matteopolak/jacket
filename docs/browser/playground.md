@@ -121,7 +121,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   left to run there (sockets, windows, OpenGL, audio, libclang, Debug's stack capture) has a `playground` line in `tests/stdlib-runtime-skips.txt`
   instead; it still runs, and the check fails if it passes, so the line goes once it can. `PLAYGROUND_VERBOSE=1 ... name.jai`
   prints that test's output; passing test names runs only those.
-- Debug browser-only behavior natively: `jaic run test.jai -os wasm` uses the same `SandboxHost`.
+- Debug browser-only behavior natively: `jaic test.jai -interp -os wasm` uses the same `SandboxHost`.
 
 ## Configuration
 

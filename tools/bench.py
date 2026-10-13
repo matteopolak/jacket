@@ -24,10 +24,10 @@ UPSTREAM = ROOT / "corpus" / "upstream"
 # (name, working directory, jaic arguments). Only workloads that succeed and leave the corpus
 # untouched: Vk-Engine's Build.jai regenerates bindings into its own tree, so it is not here.
 CORPUS = [
-    ("focus-check", UPSTREAM / "focus-editor--focus", ["check", "first.jai"]),
-    ("jaison-tests", UPSTREAM / "rluba--jaison", ["run", "tests.jai"]),
-    ("jails-check", UPSTREAM / "SogoCZE--Jails", ["check", "build.jai"]),
-    ("sgpu-examples-check", UPSTREAM / "roeyb1--sgpu" / "examples", ["check", "build.jai"]),
+    ("focus-check", UPSTREAM / "focus-editor--focus", ["first.jai", "-check"]),
+    ("jaison-tests", UPSTREAM / "rluba--jaison", ["tests.jai", "-interp"]),
+    ("jails-check", UPSTREAM / "SogoCZE--Jails", ["build.jai", "-check"]),
+    ("sgpu-examples-check", UPSTREAM / "roeyb1--sgpu" / "examples", ["build.jai", "-check"]),
 ]
 
 
@@ -38,7 +38,7 @@ def default_jaic():
 
 def workloads():
     for path in sorted((ROOT / "benchmarks").glob("*.jai")):
-        yield path.stem, ROOT, ["run", str(path)]
+        yield path.stem, ROOT, [str(path), "-interp"]
     for name, cwd, args in CORPUS:
         if cwd.is_dir():
             yield name, cwd, args

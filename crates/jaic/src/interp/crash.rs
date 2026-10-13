@@ -1,6 +1,6 @@
 //! What jaic says when native code it called for an interpreted program crashes.
 //!
-//! `#run` code and `jaic run` call foreign procedures directly, so a bad pointer passed to C
+//! `#run` code and `jaic -interp` call foreign procedures directly, so a bad pointer passed to C
 //! faults inside jaic's own process. Without a handler the process dies with a bare signal
 //! and no hint of which call did it. While a foreign call is in progress (`ForeignCall`), a
 //! fault handler — `sigaction` on an alternate stack for SIGSEGV, SIGBUS, SIGILL and SIGFPE,

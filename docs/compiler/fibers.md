@@ -29,7 +29,7 @@ Native: `crates/jaic/src/fiber.rs` holds one assembly routine pair per ABI, `jai
 
 A fresh stack starts at a trampoline that moves `data` into the argument register and calls `entry`.
 
-Interpreter: `interp/fibers.rs` gives every fiber a mapping `[guard][native stack][value stack]` and its own `ExecState`, and reuses the same assembly (as `global_asm!`) to switch Rust stacks. A trap inside a fiber is carried to the root fiber, whose `fiber_switch` then reports it. The stack the program passes to `fiber_init` is not used by the interpreter, so a runaway recursion shows up as the interpreter's "stack overflow" trap instead of a guard page hit. Fibers are not available in the sandbox host (`jaic run -os wasm`, the playground): the call traps.
+Interpreter: `interp/fibers.rs` gives every fiber a mapping `[guard][native stack][value stack]` and its own `ExecState`, and reuses the same assembly (as `global_asm!`) to switch Rust stacks. A trap inside a fiber is carried to the root fiber, whose `fiber_switch` then reports it. The stack the program passes to `fiber_init` is not used by the interpreter, so a runaway recursion shows up as the interpreter's "stack overflow" trap instead of a guard page hit. Fibers are not available in the sandbox host (`jaic -interp -os wasm`, the playground): the call traps.
 
 wasm: all three fail to compile with "fibers are not supported when compiling for WebAssembly: wasm code cannot switch stacks".
 

@@ -284,7 +284,7 @@
             "type": "string"
           },
           "default": [],
-          "markdownDescription": "Extra arguments for `jaic run`, `jaic build` and `jaic check` (before the file), such as `-O2`."
+          "markdownDescription": "Extra arguments for the Run, Build and Check File commands, placed after the file and the mode option, such as `-O2`."
         },
         "jai.trace.server": {
           "type": "string",

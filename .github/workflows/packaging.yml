@@ -90,7 +90,7 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           printf '#import "Basic";\n\nmain :: () {\n    print("hello from install.sh\\n");\n}\n' > hello.jai
-          test "$(jaic run hello.jai)" = "hello from install.sh"
+          test "$(jaic hello.jai -interp)" = "hello from install.sh"
           jailint hello.jai
           test "$(echo 'main::(){x:=1;}' | jaifmt --stdin)" = "$(printf 'main :: () {\n    x := 1;\n}')"
           command -v jailsp
@@ -101,7 +101,7 @@ jobs:
           ./install.sh
           ./install.sh
           test "$(find "$JAI_INSTALL_DIR" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 1
-          cd "$RUNNER_TEMP" && "$JAI_BIN_DIR/jaic" run hello.jai
+          cd "$RUNNER_TEMP" && "$JAI_BIN_DIR/jaic" hello.jai -interp
       - name: Bad versions and occupied commands fail with a message
         run: |
           if JAIC_VERSION=0.0.0-missing JAIC_INSTALL_DIR="$RUNNER_TEMP/x" JAIC_BIN_DIR="$RUNNER_TEMP/xb" ./install.sh 2> err.txt; then exit 1; fi
@@ -135,8 +135,8 @@ jobs:
         run: |
           Set-Location $env:RUNNER_TEMP
           "#import `"Basic`";`n`nmain :: () {`n    print(`"hello from install.ps1\n`");`n}`n" | Set-Content -NoNewline hello.jai
-          $out = jaic run hello.jai
-          if ($LASTEXITCODE -ne 0 -or $out -ne 'hello from install.ps1') { throw "jaic run printed '$out'" }
+          $out = jaic hello.jai -interp
+          if ($LASTEXITCODE -ne 0 -or $out -ne 'hello from install.ps1') { throw "jaic -interp printed '$out'" }
           jailint hello.jai
           if ($LASTEXITCODE -ne 0) { throw 'jailint failed' }
           (Get-Command jaifmt, jailsp).Source

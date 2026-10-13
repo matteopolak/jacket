@@ -78,9 +78,9 @@ class ScriptingWasmBuildTests(unittest.TestCase):
 
     def test_jaifmt_wasm_is_compiled_by_the_given_native_jaic(self):
         command = wasm.jaifmt_wasm_command(Path('/own/jaic'), Path('/src'), Path('/out/jaifmt.wasm'))
-        self.assertEqual(command[:3], ['/own/jaic', 'build', '/src/jaifmt/wasm.jai'])
+        self.assertEqual(command[:2], ['/own/jaic', '/src/jaifmt/wasm.jai'])
         self.assertEqual(command[command.index('-os') + 1], 'wasm')
-        self.assertEqual(command[command.index('-o') + 1], '/out/jaifmt.wasm')
+        self.assertEqual(command[command.index('-exe') + 1], '/out/jaifmt.wasm')
         self.assertIn('-O2', command)
 
     def test_explicit_external_target_is_in_the_pinned_build_command(self):

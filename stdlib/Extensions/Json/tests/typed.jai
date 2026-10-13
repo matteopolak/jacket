@@ -1,7 +1,7 @@
 // Typed encoding and decoding: every type and every @json attribute, round trips, and errors
 // with their path, line and column.
 //
-//     jaic run stdlib/Extensions/Json/tests/typed.jai
+//     jaic stdlib/Extensions/Json/tests/typed.jai -interp
 
 #import "Basic";
 #import "String";

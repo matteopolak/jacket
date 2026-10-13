@@ -18,7 +18,7 @@ stdenv.mkDerivation {
   buildPhase = ''
     runHook preBuild
     # The source directory is named jaifmt too, so the binary is written inside it.
-    jaic build jaifmt/main.jai -O2 --no-debug-info -o jaifmt/jaifmt
+    jaic jaifmt/main.jai -O2 -no_debug_info -exe jaifmt/jaifmt
     runHook postBuild
   '';
 

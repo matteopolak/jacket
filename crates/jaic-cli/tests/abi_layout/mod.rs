@@ -7,7 +7,7 @@
 //!
 //! The host check builds and runs both. The cross check (`JAIC_ABI_CROSS`) reads the C values
 //! from LLVM IR (`clang -target ... -S -emit-llvm`) and the Jai values from a `#run` under
-//! `jaic check -target ...`, so neither program runs on the target.
+//! `jaic -check -target ...`, so neither program runs on the target.
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::Path;
@@ -243,7 +243,7 @@ fn c_source(manifest: &Manifest, checks: &[Check], as_array: bool) -> String {
 }
 
 /// The Jai side: `abi_report` prints every check, from `main` (built and run on the host) or
-/// from a `#run` (cross check under `jaic check`).
+/// from a `#run` (cross check under `jaic -check`).
 fn jai_source(manifest: &Manifest, checks: &[Check], at_compile_time: bool) -> String {
     let mut s = String::from("#import \"Basic\";\n");
     for line in &manifest.jai_prelude {
@@ -415,7 +415,7 @@ pub fn check_host(
     )?;
     run(
         Command::new(jaic)
-            .args(["build", "abi.jai", "-o"])
+            .args(["abi.jai", "-exe"])
             .arg(exe("abi_jai"))
             .current_dir(dir),
         "building the Jai side",
@@ -524,7 +524,7 @@ pub fn check_cross(
         .collect();
     let jai = run(
         Command::new(jaic)
-            .args(["check", "abi.jai", "-target", &target.jaic_triple])
+            .args(["-check", "abi.jai", "-target", &target.jaic_triple])
             .current_dir(dir),
         "checking the Jai side",
     )?;

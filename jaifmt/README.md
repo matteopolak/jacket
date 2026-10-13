@@ -28,13 +28,13 @@ The [VS Code extension](../docs/tools/vscode-extension.md) uses `jaifmt` as the 
 To build it from a checkout (it needs `jaic` with LLVM; see the [LLVM setup](../docs/tools/llvm-setup.md)):
 
 ```sh
-jaic build jaifmt/build.jai             # target/jaifmt (native, optimised)
-jaic build jaifmt/build.jai - wasm      # target/jaifmt.wasm (WASI)
+jaic jaifmt/build.jai             # target/jaifmt (native, optimised)
+jaic jaifmt/build.jai - wasm      # target/jaifmt.wasm (WASI)
 ```
 
 ## Features
 
-- Runs natively, under `jaic run` and in the browser (the playground formats with the same code, compiled to a `jaifmt.wasm` of about 283 KB).
+- Runs natively, under `jaic -interp` and in the browser (the playground formats with the same code, compiled to a `jaifmt.wasm` of about 283 KB).
 - Token-equivalence check on every file; a file whose brackets do not balance or that does not lex is left unchanged, with an error.
 - Blank lines between file-level items, spaced as the dominant style of public Jai code.
 - `// jaifmt: off` and `// jaifmt: on` fence a region that must stay as written; string literals, here-strings and `#asm` blocks are always kept byte for byte.

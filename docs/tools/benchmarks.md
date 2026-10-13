@@ -17,7 +17,7 @@
 | `interp-loops-long` | the loops of `interp-loops` with ten times the rounds |
 | `interp-foreign` | 60 million calls of a C function (`labs`) |
 | `interp-strings` | `tprint` with floats, `String_Builder`, `Hash_Table`, `split` |
-| `focus-check` | `jaic check first.jai` in Focus: compiler messages and `Compiler` records |
+| `focus-check` | `jaic first.jai -check` in Focus: compiler messages and `Compiler` records |
 | `jaison-tests` | jaison's test suite run in the interpreter (U128 math, the memory debugger) |
 | `jails-check`, `sgpu-examples-check` | metaprograms of two mid-sized projects |
 
@@ -53,7 +53,7 @@ For time spent in the compiler itself (parsing, sema, IR lowering, interpreter d
 
 ```sh
 cargo build --profile profiling -p jaic-cli
-samply record --save-only --unstable-presymbolicate -o prof.json.gz -- target/profiling/jaic check first.jai
+samply record --save-only --unstable-presymbolicate -o prof.json.gz -- target/profiling/jaic first.jai -check
 python3 tools/profile_report.py prof.json.gz --top 30
 ```
 

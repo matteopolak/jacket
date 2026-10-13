@@ -3,7 +3,7 @@
 // together), plus the memory it takes to hold many unread responses at once (each holds its
 // connection and, until it is read or closed, its read buffer).
 //
-//     jaic build stdlib/Extensions/Http/bench/client_bench.jai -O2 -o /tmp/http-client-bench
+//     jaic stdlib/Extensions/Http/bench/client_bench.jai -O2 -exe /tmp/http-client-bench
 //     /tmp/http-client-bench              # 3 seconds
 //     /tmp/http-client-bench 5000         # 5 seconds
 //     /tmp/http-client-bench 0            # only the memory figure, in a fresh process

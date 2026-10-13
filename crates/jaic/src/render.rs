@@ -1,7 +1,7 @@
 //! Diagnostics as text: one renderer for `jaic`'s compile and runtime errors, `jailint`'s
 //! lints and the command-line tools' own errors.
 //!
-//! Three layouts (see `docs/compiler/diagnostics.md`):
+//! Four layouts (see `docs/compiler/diagnostics.md`):
 //!
 //! - `Plain`, used when stderr is not a terminal (pipes, CI logs, tests): each tool's
 //!   long-standing ASCII text. `jaic` writes `path:line:col: error: message` with the line
@@ -9,6 +9,8 @@
 //! - `Ascii`: on a terminal without UTF-8, a rustc-like block with line numbers, context
 //!   lines, labels and fix previews.
 //! - `Unicode`: the same with box-drawing characters.
+//! - `Msvc`: one `path(line,col): error: message` line per diagnostic, for editors and build
+//!   tools that scan output for that shape (`jaic -msvc_format`). Never coloured.
 //!
 //! Colour is independent of the layout. The process-wide choice (`set_style`) is made once
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
@@ -22,6 +24,7 @@ pub enum Layout {
     Plain,
     Ascii,
     Unicode,
+    Msvc,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -46,6 +49,7 @@ pub fn set_style(style: Style) {
         Layout::Plain => 0,
         Layout::Ascii => 1,
         Layout::Unicode => 2,
+        Layout::Msvc => 3,
     };
     STYLE.store(layout | (u8::from(style.color) << 2), Ordering::Relaxed);
 }
@@ -78,6 +82,7 @@ pub fn style() -> Style {
         layout: match bits & 3 {
             1 => Layout::Ascii,
             2 => Layout::Unicode,
+            3 => Layout::Msvc,
             _ => Layout::Plain,
         },
         color: bits & 4 != 0,
@@ -307,7 +312,7 @@ impl<'a> Report<'a> {
 
     pub fn render_with(&self, style: Style) -> String {
         let mut r = Renderer {
-            paint: Paint(style.color),
+            paint: Paint(style.color && style.layout != Layout::Msvc),
             glyphs: if style.layout == Layout::Unicode {
                 &UNICODE
             } else {
@@ -317,7 +322,9 @@ impl<'a> Report<'a> {
             severity_color: self.severity.color(),
             out: String::new(),
         };
-        if r.plain && self.compact {
+        if style.layout == Layout::Msvc {
+            r.msvc(self);
+        } else if r.plain && self.compact {
             r.compact(self);
         } else {
             r.block(self);
@@ -510,6 +517,34 @@ impl Renderer {
         for help in &report.help {
             let head = self.header(Severity::Help, None, &help.message);
             self.line(&head);
+        }
+    }
+
+    /// The `-msvc_format` form: `path(line,col): severity: message` for each located item, notes
+    /// and help at the primary place (or bare when the report has none).
+    fn msvc(&mut self, report: &Report) {
+        let place = |label: Option<&Label>| {
+            label.map_or(String::new(), |l| {
+                let (line, col) = line_col(l.text, l.start);
+                format!("{}({line},{col}): ", shown(l.path))
+            })
+        };
+        let flat = |text: &str| text.replace('\n', " ");
+        let head = match report.code {
+            Some(code) => format!("{}[{code}]", report.severity.as_str()),
+            None => report.severity.as_str().to_string(),
+        };
+        let at = place(report.primary.as_ref());
+        self.line(&format!("{at}{head}: {}", flat(&report.message)));
+        for label in &report.secondary {
+            let message = label.message.as_ref().unwrap_or(&report.message);
+            self.line(&format!("{}note: {}", place(Some(label)), flat(message)));
+        }
+        for note in &report.notes {
+            self.line(&format!("{at}note: {}", flat(note)));
+        }
+        for help in &report.help {
+            self.line(&format!("{at}note: help: {}", flat(&help.message)));
         }
     }
 

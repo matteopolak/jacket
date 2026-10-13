@@ -7,12 +7,12 @@ modules (stdlib/*/tests and stdlib/tests), gen:SEED:COUNT (COUNT programs from t
 SEED; reproduce one with `tools/jaigen.py SEED`), or file paths.
 
 Backends:
-  interp     `jaic run`: the interpreter on the host OS
-  native     `jaic build` (LLVM, -O0) and run the executable
+  interp     `jaic -interp`: the interpreter on the host OS
+  native     `jaic` (LLVM, -O0) and run the executable
   native-O2  the same with -O2
   wasm       the browser engine (crates/jai-wasm in node, tools/jaic_diff_wasm.mjs): the interpreter compiled
              to wasm32, target OS .WASM, sandboxed host
-  wasm-native  `jaic build -os wasm` (LLVM, wasm64 with Wasi_Runtime) run by node's WASI
+  wasm-native  `jaic -os wasm` (LLVM, wasm64 with Wasi_Runtime) run by node's WASI
              (tools/wasi_run.mjs); only when asked for, it needs wasm-ld and node 24
 
 A result is (status, stdout, stderr). Status is `exit N` or `runtime error` (an interpreter runtime error,
@@ -48,7 +48,7 @@ OUTPUT_VARIES = {
     # A profiler report: the numbers are measured times (a virtual clock on wasm).
     "iprof-runtime-manual": "prints measured times",
     # trace_assert prints the native call stack: return addresses and the running executable's
-    # symbols (the interpreter's own frames under `jaic run`).
+    # symbols (the interpreter's own frames under `jaic -interp`).
     "debug-assert-handlers": "prints a native stack trace",
 }
 
@@ -205,7 +205,7 @@ class Runner:
         return Result(f"exit {code}", out, err)
 
     def run_interp(self, case):
-        out, err, code = self.capped([self.jaic, "run", case.path, *(["--", *case.args] if case.args else [])],
+        out, err, code = self.capped([self.jaic, case.path, "-interp", *(["--", *case.args] if case.args else [])],
                                      case.path.parent)
         if code == 1 and "runtime error" not in err and re.search(r"(^|\n)\S*:\d+:\d+: error:|^error:", err):
             return Result("compile error", note=err.strip()[:300])
@@ -215,7 +215,7 @@ class Runner:
         exe = self.work / "bin" / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', case.id)}-{opt}{'.wasm' if wasm else ''}"
         exe.parent.mkdir(parents=True, exist_ok=True)
         target = ["-os", "wasm"] if wasm else []
-        bout, berr, bcode = self.capped([self.jaic, "build", case.path, "-o", exe, f"-{opt}", *target], case.path.parent)
+        bout, berr, bcode = self.capped([self.jaic, case.path, "-exe", exe, f"-{opt}", *target], case.path.parent)
         if bcode != 0:
             if bcode == -1:
                 return Result("timeout" if berr == "timeout" else "memory", note=berr)
@@ -227,7 +227,7 @@ class Runner:
         if not exe.exists():
             # A metaprogram that takes over the build (its own workspaces, NO_OUTPUT) decides what gets
             # written; the program it compiled is not this executable.
-            return Result("unsupported", note="the build wrote no executable at -o (the program's metaprogram controls output)")
+            return Result("unsupported", note="the build wrote no executable at -exe (the program's metaprogram controls output)")
         run = ["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", exe] if wasm else [exe]
         out, err, code = self.capped([*run, *case.args], case.path.parent, jaic=False)
         exe.unlink(missing_ok=True)

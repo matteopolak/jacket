@@ -71,7 +71,7 @@ find_jaifmt() {
         if [ -n "$debug" ] && { [ -z "$jaic" ] || [ "$debug" -nt "$jaic" ]; }; then jaic=$debug; fi
         if [ -n "$jaic" ] && { [ -z "$bin" ] || stale "$bin" jaifmt stdlib/Extensions/Jai_Format stdlib/Extensions/Args; }; then
             say "rebuilding jaifmt"
-            "$jaic" build jaifmt/main.jai -O2 -o "$root/target/jaifmt" >/dev/null 2>&1 &&
+            "$jaic" jaifmt/main.jai -O2 -exe "$root/target/jaifmt" >/dev/null 2>&1 &&
                 bin=$(exe "$root/target/jaifmt") || warn "could not rebuild jaifmt; using the existing one"
         fi
     fi

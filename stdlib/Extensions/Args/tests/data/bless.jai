@@ -1,7 +1,7 @@
 // Rewrites golden.jai from the current output, for when a change to the help or completion
 // layout is intended:
 //
-//     jaic run stdlib/Extensions/Args/tests/data/bless.jai > stdlib/Extensions/Args/tests/data/golden.jai
+//     jaic stdlib/Extensions/Args/tests/data/bless.jai -interp > stdlib/Extensions/Args/tests/data/golden.jai
 //
 // then run jaifmt on the file (the CI format check covers it). (Not named like a test and not under tests/*.jai, so the stdlib runtime harness skips it.)
 

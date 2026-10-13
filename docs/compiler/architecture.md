@@ -7,7 +7,7 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 | Crate | Role |
 | --- | --- |
 | `crates/jaic` | Compiler core: lexer, parser, semantic analysis, IR, interpreter. No external crates. |
-| `crates/jaic-cli` | The `jaic` binary (`run`, `check`, `build`). |
+| `crates/jaic-cli` | The `jaic` binary (`jaic file.jai` builds, `-check` only compiles, `-interp` runs the program in the interpreter). |
 | `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 23). |
 | `crates/jai-language-server` | JSON-RPC language server on top of `jaic`. See [language server](language-server.md). |
 | `crates/jailint` | The `jailint` linter: rules over the type-checked program, also used by the language server. See [jailint](../tools/jailint.md). |
@@ -33,7 +33,7 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
   - `lower.rs`: to IR; `driver.rs`: entry points and `Options`
 - `ir.rs`: the shared [IR](ir.md).
 - `build.rs`, `records.rs`: workspaces and compiler messages for metaprograms ([workspaces](../metaprogramming/workspaces.md)).
-- `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic run`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. Raw memory access is confined to `interp::memory`.
+- `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. Raw memory access is confined to `interp::memory`.
 - `stdlib/` are plain Jai, loaded through `sema::FileSystem` (real or virtual).
 
 ## How to change it
@@ -45,14 +45,14 @@ Unsupported constructs must produce a diagnostic, never a silent success.
 ## Configuration
 
 ```sh
-cargo run -p jaic-cli -- check file.jai [-I dir] [-os linux|windows|macos]
-cargo run -p jaic-cli -- run file.jai [- metaprogram args]
+cargo run -p jaic-cli -- file.jai -check [-I dir] [-os linux|windows|macos]
+cargo run -p jaic-cli -- file.jai -interp [- metaprogram args]
 ```
 
 Cargo features of `jaic-cli`:
 
 - `dynamic-llvm` (default) links LLVM's shared library; `static-llvm` links it statically, for [release archives](../tools/releases.md). Both need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)).
-- `--no-default-features` builds a `jaic` that only checks and interprets; `build` reports that it can't write native output. Useful for hosts without LLVM libraries, such as an x86-64 `jaic` under Rosetta for testing the interpreter's x86-64 foreign calls.
+- `--no-default-features` builds a `jaic` that only checks and interprets; a build reports that it can't write native output. Useful for hosts without LLVM libraries, such as an x86-64 `jaic` under Rosetta for testing the interpreter's x86-64 foreign calls.
 
 ## Dependencies
 

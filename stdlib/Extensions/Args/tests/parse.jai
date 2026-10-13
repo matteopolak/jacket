@@ -1,7 +1,7 @@
 // Args parse matrix: every syntax form, every field type, defaults, @env, @range, relations,
 // subcommands, and the errors each failure produces (kind, message, suggestion, usage).
 //
-//     jaic run stdlib/Extensions/Args/tests/parse.jai
+//     jaic stdlib/Extensions/Args/tests/parse.jai -interp
 
 #import "Basic";
 #import "String";

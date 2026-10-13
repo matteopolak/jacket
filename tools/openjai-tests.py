@@ -5,10 +5,10 @@ The open-jai test files (corpus/upstream/withlang-dev--open-jai/test/**) declare
 expectations as calls like `expect_program_output("test/x.jai", "out\n")`. This
 script extracts those calls and checks them with jaic:
 
-  expect_program_output[_contains]   -> `jaic run`, stdout equals / contains
-  expect_compile_output[_contains]   -> `jaic check`, stdout equals / contains
-  expect_compile_success             -> `jaic check` exits 0
-  expect_compile_failure             -> `jaic check` fails, stderr contains message
+  expect_program_output[_contains]   -> `jaic -interp`, stdout equals / contains
+  expect_compile_output[_contains]   -> `jaic -check`, stdout equals / contains
+  expect_compile_success             -> `jaic -check` exits 0
+  expect_compile_failure             -> `jaic -check` fails, stderr contains message
 
 Expectations about open-jai's own CLI (`expect_compiler_command_*`), example
 annotations and output files are skipped.
@@ -69,7 +69,7 @@ def run_case(jaic, kind, args):
     source = args[0]
     try:
         p = subprocess.run(
-            [jaic, mode, source],
+            [jaic, source, "-interp" if mode == "run" else "-check"],
             cwd=OPENJAI,
             capture_output=True,
             text=True,

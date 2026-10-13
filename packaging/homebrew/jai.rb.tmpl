@@ -58,7 +58,7 @@ class Jai < Formula
           print("Hello from Homebrew!\\n");
       }
     JAI
-    assert_equal "Hello from Homebrew!\n", shell_output("#{bin}/jaic run hello.jai")
+    assert_equal "Hello from Homebrew!\n", shell_output("#{bin}/jaic hello.jai -interp")
     assert_equal "main :: () {\n    x := 1;\n}\n", pipe_output("#{bin}/jaifmt --stdin", "main::(){x:=1;}")
     system bin/"jailint", "hello.jai"
   end

@@ -2,7 +2,7 @@
 
 ## What it is
 
-`#run` executes Jai code inside the compiler, in the same interpreter that backs `jaic run` (see [interpreter](../compiler/interpreter.md)). The result becomes a constant, a type, or a global initializer of the program being compiled {#ctexec.1}.
+`#run` executes Jai code inside the compiler, in the same interpreter that backs `jaic -interp` (see [interpreter](../compiler/interpreter.md)). The result becomes a constant, a type, or a global initializer of the program being compiled {#ctexec.1}.
 
 ## How it works
 
@@ -25,7 +25,7 @@ The expression or block is compiled into a throwaway thunk (`thunk_ctx`, `run_th
 - `#assert cond, "msg"` is evaluated with `eval_static_condition`; failure is `#assert failed: msg` {#ctexec.10}.
 - Compile-time code has full host access: files, `Process.run_command`, and foreign procedures through the real dynamic loader {#ctexec.11}. A metaprogram can do anything the user can {#ctexec.12}. `fork` in the child is guarded; see the interpreter page.
 - `#run,stallable` parses (`ast::Expr::Run::flags`), but sema ignores the flag; running is always synchronous {#ctexec.13}.
-- `jaic check` also runs `#run`s and `#assert`s.
+- `jaic -check` also runs `#run`s and `#assert`s.
 
 `compile_time_context` builds one shared default context for compile-time code from Runtime_Support's `Context` type; without Runtime_Support it passes null.
 

@@ -166,7 +166,7 @@ def verify(cases, jaic):
     def run(c):
         path = UPSTREAM / c["path"]
         anns = annotations(path)
-        r = subprocess.run([jaic, "run", str(path), *c.get("args", [])], cwd=path.parent,
+        r = subprocess.run([jaic, str(path), "-interp", *c.get("args", [])], cwd=path.parent,
                            capture_output=True, stdin=subprocess.DEVNULL, timeout=300)
         out = r.stdout.decode(errors="replace")
         rel = c["path"][len(PROJECT):]

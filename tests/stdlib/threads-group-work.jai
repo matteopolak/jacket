@@ -2,7 +2,7 @@
 // with and without work stealing; a worker that returns .STOP leaves its later work unprocessed;
 // shutdown with a timeout gives up on a busy worker; a group can be set up again after shutdown.
 //
-// In the browser and `jaic run -os wasm` a worker parked with no work is abandoned rather than
+// In the browser and `jaic -interp -os wasm` a worker parked with no work is abandoned rather than
 // resumed (docs/compiler/interpreter-threads.md), so all work is added before the first wait for
 // results, and the timed shutdown of a blocked worker only runs where threads are concurrent.
 #import "Basic";

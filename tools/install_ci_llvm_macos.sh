@@ -36,7 +36,7 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     tar -xjf "$tools/$micromamba_package" -C "$tools" bin/micromamba
     # llvmdev: llvm-config, headers and the shared libLLVM that llvm-sys links; llvm-tools:
     # llvm-dwarfdump and llvm-symbolizer; clang and compiler-rt: the driver and runtimes for
-    # `jaic build -sanitize`.
+    # `jaic -sanitize`.
     packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "llvm-tools=$llvm_version"
               "clang=$llvm_version" "compiler-rt=$llvm_version")
     $lld && packages+=("lld=$llvm_version")

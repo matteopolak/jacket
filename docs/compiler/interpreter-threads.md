@@ -1,14 +1,14 @@
-# Threads under `jaic run`
+# Threads under `jaic -interp`
 
 ## What it is
 
 Programs that use `Thread` (`pthread_create`, mutexes, condition variables, `sleep`, or their
 Win32 counterparts on Windows) run in the interpreter on a cooperative scheduler. There are two implementations, chosen by `Host::cooperative_threads()`:
 
-- native `jaic run`: several OS threads exist, but only the one holding the "baton" executes
+- native `jaic -interp`: several OS threads exist, but only the one holding the "baton" executes
   interpreted code; threads inside C calls, and threads C started that call back into Jai, take
   part too;
-- the sandbox host (browser, `jaic run -os wasm`): no OS threads; see [inline threads](#inline-threads-sandbox-host-browser).
+- the sandbox host (browser, `jaic -interp -os wasm`): no OS threads; see [inline threads](#inline-threads-sandbox-host-browser).
 
 ## How it works
 

@@ -127,7 +127,7 @@ options:
   --help, -h     show this text
   --version, -V  show the version
 
-To check a file from a terminal, use `jaic check file.jai`; for lints, `jailint file.jai`.
+To check a file from a terminal, use `jaic file.jai -check`; for lints, `jailint file.jai`.
 ";
 
 /// Handles the command line: `Some(status)` when jailsp should exit without serving.
@@ -149,7 +149,7 @@ fn command_line() -> Option<std::process::ExitCode> {
                 eprintln!(
                     "error: jailsp takes no files: it is a language server that an editor starts"
                 );
-                eprintln!("help: to check `{file}` from a terminal, use `jaic check {file}`");
+                eprintln!("help: to check `{file}` from a terminal, use `jaic {file} -check`");
                 return Some(std::process::ExitCode::from(2));
             }
             other => {

@@ -3,7 +3,7 @@
 // interpreter cannot find it there). Windows on arm64 passes all of a variadic call's
 // arguments, doubles included, in x0-x7 and then on the stack; Win64 duplicates the first
 // four doubles in integer registers. Run natively by tools/windows_cross.py and with
-// `jaic run` in .github/workflows/windows-native.yml.
+// `jaic -interp` in .github/workflows/windows-native.yml.
 #import "Basic";
 
 libc :: #system_library "libc";

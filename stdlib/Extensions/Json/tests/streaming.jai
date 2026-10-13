@@ -2,7 +2,7 @@
 // text decodes to, however it is cut, and a source that fails or runs past the size limit is an
 // error. Json has no IO of its own, so the pieces here come from a string.
 //
-//     jaic run stdlib/Extensions/Json/tests/streaming.jai
+//     jaic stdlib/Extensions/Json/tests/streaming.jai -interp
 
 #import "Basic";
 #import "Extensions/Json";

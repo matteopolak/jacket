@@ -2,7 +2,7 @@
 
 ## What it is
 
-How `jaic` passes C structs by value, variadic arguments and C++ method receivers across `#foreign` calls and `#c_call` callbacks. One classification drives both the interpreter's native foreign calls (`jaic run`) and the LLVM backend (`jaic build`).
+How `jaic` passes C structs by value, variadic arguments and C++ method receivers across `#foreign` calls and `#c_call` callbacks. One classification drives both the interpreter's native foreign calls (`jaic -interp`) and the LLVM backend (`jaic`).
 
 ## How it works
 
@@ -79,7 +79,7 @@ add_impl :: (this: *Obj, x: s32) -> s32 #c_call { return this.base + x; }
 ## How to change it
 
 - New architecture or rule: extend `abi.rs` (it has unit tests), then the LLVM `bind_params` and call lowering in `crates/jaic-llvm/src/lower.rs`, and `interp/native.rs`. Keep them in step.
-- Compare against clang: `clang --target=x86_64-pc-windows-msvc -S -emit-llvm structs.c` (or `aarch64-pc-windows-msvc`, `arm64-apple-macos`, ...) next to `jaic build ... -target <same triple> --emit-ir out.ll`. Clang emits IR for any target without its libraries, so this works on any host.
+- Compare against clang: `clang --target=x86_64-pc-windows-msvc -S -emit-llvm structs.c` (or `aarch64-pc-windows-msvc`, `arm64-apple-macos`, ...) next to `jaic ... -target <same triple> -emit_ir out.ll`. Clang emits IR for any target without its libraries, so this works on any host.
 - Pieces become separate LLVM parameters (`f32, f32`, not clang's `[2 x float]`). Register assignment matches except when an aggregate needs two registers and only one is left: AAPCS64 puts all of it on the stack, while separate parameters would split it.
 - Small signed integers are not sign- or zero-extended per the C ABI, because the IR doesn't carry signedness.
 

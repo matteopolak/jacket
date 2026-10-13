@@ -56,7 +56,7 @@ msg_set_ptr :: (receiver: *void, selector: *void, value: *void) #foreign objc "o
 msg_set_bool :: (receiver: *void, selector: *void, value: s8) #foreign objc "objc_msgSend";
 msg_set_f64 :: (receiver: *void, selector: *void, value: float64) #foreign objc "objc_msgSend";
 
-// What the static libwgpu_native.a needs when `jaic build` links it.
+// What the static libwgpu_native.a needs when `jaic` links it.
 wgpu_metal :: #system_library,link_always "Metal";
 wgpu_quartz_core :: #system_library,link_always "QuartzCore";
 wgpu_foundation :: #system_library,link_always "Foundation";

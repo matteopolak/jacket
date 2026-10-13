@@ -1,4 +1,4 @@
-// Runs a WASI command module built by `jaic build -os wasm` under node's WASI (preview 1), with
+// Runs a WASI command module built by `jaic -os wasm` under node's WASI (preview 1), with
 // this process's stdin, stdout, stderr and environment, and exits with the module's exit code.
 // The module sees the host's file system: `/` is pre-opened, and `PWD` names this process's
 // working directory, which Wasi_Runtime starts from (WASI itself has no working directory).

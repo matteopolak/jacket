@@ -1,7 +1,7 @@
 // Every search against a plain loop, on random texts, every start and end, and needles built to
 // defeat the vector loop.
 //
-//     jaic run stdlib/Extensions/Byte_Search/tests/search.jai
+//     jaic stdlib/Extensions/Byte_Search/tests/search.jai -interp
 
 #import "Basic";
 #import "Random";

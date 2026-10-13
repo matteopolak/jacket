@@ -35,7 +35,7 @@ The same checks on the working tree: `just fmt --check --staged` and `just lint 
 
 ### Finding the tools
 
-- `jaifmt`: `target/jaifmt`. When its sources (`jaifmt/`, `stdlib/Extensions/Jai_Format`, `stdlib/Extensions/Args`) are newer, and `target/release|debug/jaic` exists, it is rebuilt with `jaic build jaifmt/main.jai -O2 -o target/jaifmt` (the CI command). Otherwise `jaifmt` on `PATH`.
+- `jaifmt`: `target/jaifmt`. When its sources (`jaifmt/`, `stdlib/Extensions/Jai_Format`, `stdlib/Extensions/Args`) are newer, and `target/release|debug/jaic` exists, it is rebuilt with `jaic jaifmt/main.jai -O2 -exe target/jaifmt` (the CI command). Otherwise `jaifmt` on `PATH`.
 - `jailint`: `target/release/jailint` or `target/debug/jailint`, whichever is not older than `crates/jailint`, `crates/jaic`, `crates/jaic-cli` or `Cargo.lock`. If both are stale, `cargo build -p jailint` (debug, incremental) runs. Otherwise `jailint` on `PATH`.
 - `rustfmt`, `python3`: from `PATH` (rustup picks the pinned nightly).
 

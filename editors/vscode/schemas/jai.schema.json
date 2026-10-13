@@ -11,7 +11,7 @@
       "items": {
         "type": "string"
       },
-      "markdownDescription": "The files you give `jaic build` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist."
+      "markdownDescription": "The files you give `jaic` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist."
     },
     "import_path": {
       "type": "array",

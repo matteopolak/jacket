@@ -1,7 +1,7 @@
 // Exact encoder output for a struct that uses every field kind and attribute, compact and
 // pretty. The expected texts were taken before the encoder was optimised: they pin the bytes.
 //
-//     jaic run stdlib/Extensions/Json/tests/encode.jai
+//     jaic stdlib/Extensions/Json/tests/encode.jai -interp
 
 #import "Basic";
 #import "String";

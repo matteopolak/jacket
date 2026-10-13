@@ -1,7 +1,7 @@
 //! Fixtures shared by the `jaic` integration tests.
 use std::path::{Path, PathBuf};
 
-/// A plugin module for `-plug`: `init` takes the options jaic does not know, `add_source`
+/// A plugin module for `+Echo_Plugin`: `init` takes the plugin's own options, `add_source`
 /// adds code to the program, `message` sees typechecked procedures and `finish` reports.
 const ECHO_PLUGIN: &str = r#"#import "Basic";
 #import "Compiler";

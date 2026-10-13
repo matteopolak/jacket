@@ -1,5 +1,5 @@
 # Stdlib modules that do not type-check for a target on purpose, checked by
-# crates/jaic-cli/tests/stdlib_targets.rs (`jaic check -no_dce -os <os> -cpu <cpu>` on a program that only
+# crates/jaic-cli/tests/stdlib_targets.rs (`jaic -check -no_dce -os <os> -cpu <cpu>` on a program that only
 # imports the module). Each line is `Module target: file: first error`, with the stdlib path and the
 # line and column left out. Every other module and target must check cleanly. When a change makes
 # a listed module pass or fail differently, update its line; see docs/tools/stdlib-target-check.md.

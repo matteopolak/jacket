@@ -27,7 +27,7 @@ body:
     id: command
     attributes:
       label: Command
-      placeholder: jaic run main.jai
+      placeholder: jaic main.jai -interp
     validations:
       required: true
   - type: textarea

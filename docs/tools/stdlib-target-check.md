@@ -2,7 +2,7 @@
 
 ## What it is
 
-A test that type-checks every stdlib module for every target, including the code nothing calls. `crates/jaic-cli/tests/stdlib_targets.rs` runs `jaic check <file> -no_dce -os <os> -cpu <cpu>` for linux, macos and windows on x64 and arm64, and for wasm, on a program that only imports the module. The CPU is always given, so the result does not depend on the host's. CI runs it as the `stdlib-targets` step of `ci.yml` ([continuous integration](continuous-integration.md)).
+A test that type-checks every stdlib module for every target, including the code nothing calls. `crates/jaic-cli/tests/stdlib_targets.rs` runs `jaic <file> -check -no_dce -os <os> -cpu <cpu>` for linux, macos and windows on x64 and arm64, and for wasm, on a program that only imports the module. The CPU is always given, so the result does not depend on the host's. CI runs it as the `stdlib-targets` step of `ci.yml` ([continuous integration](continuous-integration.md)).
 
 Without it, a module's code for other platforms (`#if OS == .MACOS`) and the procedures no test calls are never type-checked, because [dead-code elimination](../language/dead-code-elimination.md) only checks module code a program reaches. A type error there stays hidden until a user on that platform calls the procedure. One example is the macOS input adapter, which used a constant from the wrong module.
 

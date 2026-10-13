@@ -16,11 +16,14 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-/// Write `source` as `dir/name` and run `jaic <command>` on it with `args`.
-fn jaic_on(dir: &Path, name: &str, source: &str, command: &str, args: &[&str]) -> Output {
+/// Write `source` as `dir/name` and run `jaic` on it with the mode option `mode` (`-check`,
+/// `-interp`, or empty for a build) and `args`.
+fn jaic_on(dir: &Path, name: &str, source: &str, mode: &str, args: &[&str]) -> Output {
     let path = dir.join(name);
     std::fs::write(&path, source).unwrap();
-    jaic(dir, &[command, path.to_str().unwrap()], args)
+    let mut command = vec![path.to_str().unwrap()];
+    command.extend(Some(mode).filter(|m| !m.is_empty()));
+    jaic(dir, &command, args)
 }
 
 fn jaic(dir: &Path, command: &[&str], args: &[&str]) -> Output {
@@ -59,7 +62,7 @@ fn runtime_bounds_check_names_the_check_and_the_call_stack() {
         &dir,
         "bounds.jai",
         "get :: (a: [] int, i: int) -> int {\n    return a[i];\n}\nmain :: () {\n    arr := int.[1, 2, 3];\n    get(arr, 5);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_eq!(output.status.code(), Some(1));
@@ -89,7 +92,7 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
         &dir,
         "copy.jai",
         "#import \"Basic\";\nmain :: () {\n    s: string;\n    s.count = 4;\n    t := copy_string(s);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_eq!(output.status.code(), Some(1));
@@ -117,7 +120,7 @@ fn crash_in_native_code_names_the_foreign_call() {
         &dir,
         "crash.jai",
         &format!("{source}main :: () {{\n    work();\n}}\n"),
-        "run",
+        "-interp",
         &[],
     );
     assert_eq!(run.status.code(), Some(121), "{}", stderr(&run));
@@ -136,7 +139,7 @@ fn crash_in_native_code_names_the_foreign_call() {
         &dir,
         "compile_time.jai",
         &format!("{source}#run work();\nmain :: () {{}}\n"),
-        "check",
+        "-check",
         &[],
     );
     assert_eq!(compile_time.status.code(), Some(121));
@@ -157,7 +160,7 @@ fn crash_in_native_code_names_the_foreign_call() {
 fn failure_in_a_procedure_called_from_c_says_where() {
     let dir = scratch("callback-trap");
     let source = "libc :: #system_library \"libc\";\nqsort :: (base: *void, n: u64, size: u64, compare: (*void, *void) -> s32 #c_call) #foreign libc;\ncompare :: (a: *void, b: *void) -> s32 #c_call {\n    x: [2] s32;\n    i := 5;\n    return x[i];\n}\nmain :: () {\n    a := int.[3, 1, 2];\n    qsort(a.data, 3, 8, compare);\n}\n";
-    let run = jaic_on(&dir, "callback.jai", source, "run", &[]);
+    let run = jaic_on(&dir, "callback.jai", source, "-interp", &[]);
     assert_eq!(run.status.code(), Some(1), "{}", stderr(&run));
     assert_in_order(
         &stderr(&run),
@@ -176,7 +179,7 @@ fn failure_in_a_procedure_called_from_c_says_where() {
 fn crash_on_a_c_thread_is_not_blamed_on_another_call() {
     let dir = scratch("native-crash-thread");
     let source = "libc :: #system_library \"libc\";\npthread_create :: (thread: *u64, attributes: *void, start: *void, argument: *void) -> s32 #foreign libc;\npthread_join :: (thread: u64, result: **void) -> s32 #foreign libc;\nmain :: () {\n    thread: u64;\n    pthread_create(*thread, null, cast(*void) 16, null);\n    pthread_join(thread, null);\n}\n";
-    let run = jaic_on(&dir, "thread.jai", source, "run", &[]);
+    let run = jaic_on(&dir, "thread.jai", source, "-interp", &[]);
     let err = stderr(&run);
     assert!(!run.status.success(), "{err}");
     assert_ne!(run.status.code(), Some(121), "{err}");
@@ -191,7 +194,7 @@ fn cast_and_switch_checks_say_which_value() {
         &dir,
         "cast.jai",
         "main :: () {\n    w := 300;\n    c := cast(u8) w;\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_eq!(cast.status.code(), Some(1));
@@ -207,7 +210,7 @@ fn cast_and_switch_checks_say_which_value() {
         &dir,
         "signed.jai",
         "main :: () {\n    n := -200;\n    c := cast(s8) n;\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_in_order(
@@ -221,7 +224,7 @@ fn cast_and_switch_checks_say_which_value() {
         &dir,
         "switch.jai",
         "Color :: enum { RED; GREEN; }\nmain :: () {\n    c := cast(Color) 7;\n    if #complete c == {\n        case .RED;\n        case .GREEN;\n    }\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_eq!(switch.status.code(), Some(1));
@@ -241,7 +244,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         &dir,
         "null.jai",
         "P :: struct { x: int; }\nmain :: () {\n    p: *P;\n    x := p.x;\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_in_order(
@@ -256,7 +259,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         &dir,
         "boxed.jai",
         "#import \"Basic\";\nmain :: () {\n    p: *int;\n    print(\"%\\n\", p.*);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_in_order(
@@ -272,7 +275,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         &dir,
         "sign.jai",
         "sign :: (x: int) -> int {\n    if x > 0 return 1;\n}\nmain :: () {\n    sign(0);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_in_order(
@@ -286,7 +289,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         &dir,
         "deep.jai",
         "down :: (n: int) -> int {\n    return down(n + 1) + 1;\n}\nmain :: () {\n    down(0);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     let text = stderr(&deep);
@@ -309,7 +312,7 @@ fn compile_time_failure_shows_user_code_and_the_run_site() {
         &dir,
         "ct.jai",
         "get :: (a: [] int, i: int) -> int {\n    return a[i];\n}\nX :: #run get(int.[1, 2, 3], 7);\nmain :: () {}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_eq!(output.status.code(), Some(1));
@@ -334,7 +337,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         &dir,
         "a.jai",
         "#import \"Basic\";\nmain :: () {\n    x := 3;\n    assert(x == 4, \"x was %\", x);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_eq!(output.status.code(), Some(1));
@@ -359,7 +362,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         &dir,
         "b.jai",
         "#import \"Basic\";\nload :: (ok: bool) {\n\tassert(ok);\n}\ninit :: () { load(false); }\nmain :: () { init(); }\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_in_order(
@@ -378,7 +381,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         &dir,
         "d.jai",
         "#import \"Basic\";\nf :: (s: string) -> int { return s.count; }\nmain :: () {\n    if true assert(f(\"a,b\") == 1 && (2 > 1));\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     assert_in_order(
@@ -392,7 +395,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         &dir,
         "c.jai",
         "#import \"Basic\";\nmain :: () {\n    a: [..] int;\n    array_add(*a, 1);\n    array_unordered_remove_by_index(*a, 5);\n}\n",
-        "run",
+        "-interp",
         &[],
     );
     let text = stderr(&output);
@@ -409,7 +412,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         &dir,
         "d.jai",
         "#import \"Basic\";\n#run {\n    assert(1 == 2, \"compile-time check\");\n};\nmain :: () {}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -428,7 +431,7 @@ fn unknown_identifier_suggests_a_visible_name() {
         &dir,
         "u.jai",
         "#import \"Basic\";\nmain :: () {\n    counter := 1;\n    print(\"%\\n\", countr);\n}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -443,11 +446,17 @@ fn unknown_identifier_suggests_a_visible_name() {
         &dir,
         "p.jai",
         "#import \"Basic\";\nmain :: () {\n    prnt(\"x\\n\");\n}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(&stderr(&output), &["help: a similar name exists: `print`"]);
-    let output = jaic_on(&dir, "n.jai", "main :: () { x := qqqqqq; }\n", "check", &[]);
+    let output = jaic_on(
+        &dir,
+        "n.jai",
+        "main :: () { x := qqqqqq; }\n",
+        "-check",
+        &[],
+    );
     assert!(!stderr(&output).contains("help:"), "{}", stderr(&output));
 }
 
@@ -459,7 +468,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         &dir,
         "i.jai",
         "main :: () {\n    print(\"hi\\n\");\n}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -479,7 +488,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         &dir,
         "l.jai",
         "main :: () {\n    x := log(2.0);\n}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -494,7 +503,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         &dir,
         "n.jai",
         "main :: () {\n    x := Math.sqrt(2.0);\n}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -514,14 +523,14 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         &dir,
         "src/main.jai",
         "#import \"Basic\";\nmain :: () { print(\"%\\n\", MODE); }\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
         &stderr(&output),
         &[
             "error: unknown identifier `MODE`",
-            "help: `MODE` is added by `build.jai` (with `add_build_string`) when it builds this file: build through it, as in `jaic build build.jai`",
+            "help: `MODE` is added by `build.jai` (with `add_build_string`) when it builds this file: build through it, as in `jaic build.jai`",
         ],
     );
 }
@@ -617,7 +626,7 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
         ),
     ];
     for (source, expected) in cases {
-        let output = jaic_on(&dir, "m.jai", source, "check", &[]);
+        let output = jaic_on(&dir, "m.jai", source, "-check", &[]);
         assert_eq!(output.status.code(), Some(1), "{source}");
         assert_in_order(&stderr(&output), expected);
     }
@@ -654,7 +663,7 @@ fn modify_without_polymorph_variables_is_reported_at_the_block() {
         ),
     ];
     for (source, expected) in cases {
-        let output = jaic_on(&dir, "m.jai", source, "check", &[]);
+        let output = jaic_on(&dir, "m.jai", source, "-check", &[]);
         assert_eq!(output.status.code(), Some(1), "{source}");
         let text = stderr(&output);
         assert_in_order(&text, expected);
@@ -689,7 +698,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
             &dir,
             &file,
             &format!("#import \"{name}\";\nmain :: () {{}}\n"),
-            "check",
+            "-check",
             &[],
         );
         assert_eq!(output.status.code(), Some(1), "{name}");
@@ -702,7 +711,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
         &dir,
         "ok.jai",
         "#import \"Extensions/Long_Double\";\nmain :: () { x: Long_Double = 1; }\n",
-        "check",
+        "-check",
         &[],
     );
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
@@ -715,7 +724,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
         &dir,
         "m.jai",
         "#import \"Basik\";\nmain :: () {}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_eq!(output.status.code(), Some(1));
@@ -736,7 +745,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
         &dir,
         "n.jai",
         "#import \"Zzyzx_Engine\";\nmain :: () {}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -750,7 +759,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
         &dir,
         "g.jai",
         "#import \"Gadgets\";\nmain :: () {}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -780,7 +789,7 @@ fn missing_import_folder_names_its_path() {
             &dir,
             "i.jai",
             &format!("{source}\nmain :: () {{}}\n"),
-            "check",
+            "-check",
             &[],
         );
         assert_eq!(output.status.code(), Some(1));
@@ -802,7 +811,7 @@ fn missing_load_file_says_where_it_looked() {
         &dir,
         "l.jai",
         "#load \"helpers.jai\";\nmain :: () {}\n",
-        "check",
+        "-check",
         &[],
     );
     assert_eq!(output.status.code(), Some(1));
@@ -826,28 +835,28 @@ fn input_file_problems() {
     std::fs::write(dir.join("proj/first.jai"), "main :: () {}\n").unwrap();
     let cases: &[(&[&str], &[&str])] = &[
         (
-            &["run", "gmae.jai"],
+            &["-interp", "gmae.jai"],
             &[
                 "error: file `gmae.jai` does not exist",
                 "help: did you mean `game.jai`?",
             ],
         ),
         (
-            &["run", "game"],
+            &["-interp", "game"],
             &[
                 "error: file `game` does not exist",
                 "help: did you mean `game.jai`?",
             ],
         ),
         (
-            &["run", "nothing_like_it.jai"],
+            &["-interp", "nothing_like_it.jai"],
             &[
                 "error: file `nothing_like_it.jai` does not exist",
                 "help: relative paths start from the current directory",
             ],
         ),
         (
-            &["check", "proj"],
+            &["-check", "proj"],
             &[
                 "error: `proj` is a directory, not a .jai file",
                 "help: did you mean `proj/first.jai`?",
@@ -872,7 +881,7 @@ fn build_problems_say_what_to_change() {
     std::fs::create_dir_all(dir.join("out")).unwrap();
     let cases: &[(&[&str], Option<i32>, &[&str])] = &[
         (
-            &["build", "lib.jai"],
+            &["lib.jai"],
             Some(3),
             &[
                 "error: `lib.jai` has no `main` procedure, so there is no program to write",
@@ -880,15 +889,15 @@ fn build_problems_say_what_to_change() {
             ],
         ),
         (
-            &["build", "ok.jai", "-o", "out"],
+            &["ok.jai", "-exe", "out"],
             Some(1),
             &[
                 "error: the output path `out` is a directory",
-                "help: name the file to write inside it, as in `-o out/program`",
+                "help: name the file to write inside it, as in `-exe out/program`",
             ],
         ),
         (
-            &["build", "ok.jai", "-sanitize", "adress"],
+            &["ok.jai", "-sanitize", "adress"],
             Some(2),
             &[
                 "error: unknown sanitizer `adress` for `-sanitize`",
@@ -902,9 +911,9 @@ fn build_problems_say_what_to_change() {
         assert_eq!(output.status.code(), *code, "{args:?}: {text}");
         assert_in_order(&text, expected);
     }
-    // A linker that is not installed: how to get one, and that `jaic run` needs none.
+    // A linker that is not installed: how to get one, and that `-interp` needs none.
     let output = Command::new(JAIC)
-        .args(["build", "ok.jai", "-o", "prog"])
+        .args(["ok.jai", "-exe", "prog"])
         .current_dir(&dir)
         .env("JAIC_LINKER", "no-such-linker-for-jaic-tests")
         .env_remove("JAIC_DIAGNOSTICS")
@@ -917,7 +926,7 @@ fn build_problems_say_what_to_change() {
             "error: could not find the linker `no-such-linker-for-jaic-tests`",
             "help: ",
             "JAIC_LINKER",
-            "help: `jaic run` needs no linker",
+            "help: `jaic file.jai -interp` needs no linker",
         ],
     );
     // An undeclared `#foreign` library.
@@ -925,7 +934,7 @@ fn build_problems_say_what_to_change() {
         &dir,
         "f.jai",
         "f :: () #foreign nothere;\nmain :: () { f(); }\n",
-        "check",
+        "-check",
         &[],
     );
     assert_in_order(
@@ -941,133 +950,258 @@ fn build_problems_say_what_to_change() {
 fn command_line_mistakes_explain_themselves() {
     let dir = scratch("cli");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
+    std::fs::write(dir.join("two.jai"), "main :: () {}\n").unwrap();
     let cases: &[(&[&str], &[&str])] = &[
         (
             &[],
             &[
-                "error: no command given",
-                "help: run a program with `jaic run file.jai`",
+                "error: no file to compile",
+                "help: usage: jaic [options] file.jai [options]",
+                "help: `jaic -help` lists the options",
             ],
         ),
+        (&["-check"], &["error: no file to compile"]),
         (
-            &["rnu", "ok.jai"],
-            &[
-                "error: unknown command `rnu`",
-                "help: did you mean `jaic run`?",
-            ],
-        ),
-        (
-            &["ok.jai"],
-            &[
-                "error: `ok.jai` is not a command",
-                "help: to run it, use `jaic run ok.jai`",
-            ],
-        ),
-        (&["run"], &["error: `jaic run` needs a .jai file"]),
-        (
-            &["run", "-os", "linux", "ok.jai"],
-            &[
-                "error: expected a .jai file after `jaic run`, found `-os`",
-                "help: put the file first",
-            ],
-        ),
-        (
-            &["run", "ok.jai", "-os"],
+            &["ok.jai", "-os"],
             &["error: `-os` needs an OS name: linux, windows, macos or wasm"],
         ),
         (
-            &["run", "ok.jai", "-os", "linus"],
+            &["ok.jai", "-os", "linus"],
             &[
                 "error: unknown OS `linus` for `-os`",
                 "help: did you mean `-os linux`?",
             ],
         ),
         (
-            &["run", "ok.jai", "-cpu", "z80"],
+            &["ok.jai", "-cpu", "z80"],
             &["error: unknown CPU `z80` for `-cpu`"],
         ),
-        (&["run", "ok.jai", "-I"], &["error: `-I` needs a directory"]),
+        (&["ok.jai", "-I"], &["error: `-I` needs a directory"]),
         (
-            &["run", "ok.jai", "--timing"],
+            &["ok.jai", "-timing"],
             &[
-                "error: unknown option `--timing`",
-                "help: did you mean `--timings`?",
+                "error: unknown option `-timing`",
+                "help: did you mean `-timings`?",
             ],
         ),
         (
-            &["run", "ok.jai", "-o", "x"],
-            &["error: `-o` only applies to `jaic build`"],
+            &["ok.jai", "-interp", "-o"],
+            &["error: `-o` only applies to a build, not `-interp`"],
         ),
         (
-            &["build", "ok.jai", "-O7"],
+            &["ok.jai", "-check", "-exe", "x"],
+            &["error: `-exe` only applies to a build, not `-check`"],
+        ),
+        (
+            &["ok.jai", "-o", "x"],
+            &[
+                "error: `-o` takes no value since 0.17.0",
+                "help: it asks for an optimized build; name the output with `-exe name` and `-output_path dir`",
+                "help: to keep the old meaning of `-o x`, use `-exe x`",
+            ],
+        ),
+        (
+            &["ok.jai", "-O7"],
             &[
                 "error: unknown optimization level `-O7`",
                 "help: use -O0, -O1, -O2 or -O3",
             ],
         ),
         (
-            &["run", "ok.jai", "extra"],
+            &["ok.jai", "-o", "-O2"],
+            &["error: `-O0`..`-O3` and `-o`, `-od` or `-very_debug` both set the optimization"],
+        ),
+        (
+            &["ok.jai", "-interp", "extra"],
             &[
                 "error: unexpected argument `extra`",
-                "help: arguments for the program go after `--`: `jaic run ok.jai -- extra`",
+                "help: arguments for the program go after `--`: `jaic ok.jai -interp -- extra`",
             ],
         ),
         (
-            &["run", "ok.jai", "-plug", "X"],
-            &["error: `-plug` works with `jaic check` and `jaic build`, not `jaic run`"],
+            &["ok.jai", "two.jai"],
+            &[
+                "error: jaic compiles one file, but got `ok.jai` and `two.jai`",
+                "help: `#load` or `#import` the others from the first",
+            ],
         ),
         (
-            &["run", "ok.jai", "--color", "sometimes"],
-            &["error: unknown `--color` value `sometimes`"],
+            &["ok.jai", "-check", "-interp"],
+            &["error: `-check` and `-interp` cannot be combined"],
         ),
         (
-            &["run", "ok.jai", "-color=sometimes"],
-            &["error: unknown `--color` value `sometimes`"],
+            &["ok.jai", "-interp", "+X"],
+            &[
+                "error: plugins work with a build or `-check`, not `-interp`",
+                "help: use `jaic ok.jai +X ...` and run the executable",
+            ],
         ),
         (
-            &["build", "ok.jai", "-no_workspace_output"],
-            &["error: `-no_workspace_output` only applies to `jaic run`"],
+            &["ok.jai", "--", "a"],
+            &[
+                "error: `--` hands arguments to the program, which only `-interp` runs",
+                "help: use `jaic ok.jai -interp -- ...`",
+            ],
         ),
-        // `-plug` after `-` is the metaprogram's argument, so `-o` is still build-only.
         (
-            &["run", "ok.jai", "-o", "x", "-", "-plug", "X"],
-            &["error: `-o` only applies to `jaic build`"],
+            &["ok.jai", "-check", "-", "--", "a"],
+            &["error: `--` hands arguments to the program, which only `-interp` runs"],
         ),
+        (
+            &["ok.jai", "-no_workspace_output"],
+            &["error: `-no_workspace_output` only applies to `-interp`"],
+        ),
+        (
+            &["ok.jai", "-quiet", "-verbose"],
+            &["error: `-quiet` and `-verbose` contradict each other"],
+        ),
+        // Old spellings name their replacements, unless a plugin is given them.
+        (
+            &["ok.jai", "--emit-ir", "x.ll"],
+            &[
+                "error: `--emit-ir` is spelled differently since 0.17.0",
+                "help: use -emit_ir <file.ll>",
+            ],
+        ),
+        (
+            &["ok.jai", "--timings"],
+            &[
+                "error: `--timings` is spelled differently",
+                "help: use -timings",
+            ],
+        ),
+        (
+            &["ok.jai", "--no-debug-info"],
+            &["help: use -no_debug_info"],
+        ),
+        (
+            &["ok.jai", "--color", "never"],
+            &["help: use -no_color to turn colour off"],
+        ),
+        (
+            &["ok.jai", "-color=never"],
+            &["error: `-color` is spelled differently"],
+        ),
+        (
+            &["ok.jai", "-plug", "X"],
+            &[
+                "error: `-plug` is spelled differently",
+                "help: use +Name after the file",
+            ],
+        ),
+        (
+            &["ok.jai", "-plugin", "X"],
+            &["error: `-plugin` is spelled differently"],
+        ),
+        (
+            &["ok.jai", "--sanitize", "address"],
+            &["help: use -sanitize <list>"],
+        ),
+        (
+            &["ok.jai", "--target", "x"],
+            &["help: use -target <triple>"],
+        ),
+        // The old subcommands: the same command in the new form, other arguments carried over.
+        (
+            &["run", "ok.jai", "--", "a"],
+            &[
+                "error: jaic has no subcommands since 0.17.0",
+                "help: use `jaic ok.jai -interp -- a`",
+            ],
+        ),
+        (
+            &["check", "ok.jai", "-I", "libs"],
+            &["help: use `jaic ok.jai -I libs -check`"],
+        ),
+        (
+            &[
+                "build",
+                "ok.jai",
+                "-o",
+                "out",
+                "--emit-ir",
+                "x.ll",
+                "-plug",
+                "Check",
+            ],
+            &["help: use `jaic ok.jai -exe out -emit_ir x.ll +Check`"],
+        ),
+        (
+            &[
+                "run",
+                "ok.jai",
+                "--color",
+                "never",
+                "--timings",
+                "-",
+                "meta",
+            ],
+            &["help: use `jaic ok.jai -no_color -timings -interp - meta`"],
+        ),
+        (&["build"], &["help: use `jaic file.jai`"]),
     ];
     for (args, expected) in cases {
         let output = jaic(&dir, args, &[]);
         let text = stderr(&output);
         assert_eq!(output.status.code(), Some(2), "{args:?}: {text}");
         assert_in_order(&text, expected);
-        assert!(!text.contains("usage:"), "{args:?}: {text}");
+        // The full help text is not dumped on a mistake.
+        assert!(!text.contains("exit status:"), "{args:?}: {text}");
     }
+    // Old spellings after a `+Plugin` are the plugin's own arguments, not mistakes.
+    let output = jaic(
+        &dir,
+        &["ok.jai", "-check", "+NoSuchPlugin", "--timings"],
+        &[],
+    );
+    assert!(
+        !stderr(&output).contains("spelled differently"),
+        "{}",
+        stderr(&output)
+    );
+    // A file that is really called `build` is compiled, not taken for the old subcommand.
+    std::fs::write(dir.join("build"), "main :: () {}\n").unwrap();
+    let output = jaic(&dir, &["build", "-check"], &[]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     for args in [
         &["--help"][..],
         &["-h"],
-        &["help"],
-        &["run", "--help"],
-        &["run", "ok.jai", "--help"],
-        &["build", "ok.jai", "-O2", "-h"],
+        &["-help"],
+        &["ok.jai", "--help"],
+        &["ok.jai", "-O2", "-h"],
     ] {
         let output = jaic(&dir, args, &[]);
         assert_eq!(output.status.code(), Some(0), "{args:?}");
         let text = String::from_utf8_lossy(&output.stdout);
-        assert_in_order(&text, &["usage: jaic run <file.jai>", "exit status:"]);
+        assert_in_order(
+            &text,
+            &[
+                "usage: jaic [options] file.jai",
+                "-check",
+                "-interp",
+                "+Name",
+                "exit status:",
+            ],
+        );
     }
-    let output = jaic(&dir, &["--version"], &[]);
-    assert_eq!(output.status.code(), Some(0));
-    assert!(String::from_utf8_lossy(&output.stdout).starts_with("jaic "));
-    // `--color=always` reaches command-line errors too.
-    let output = Command::new(JAIC)
-        .args(["rnu", "--color=always"])
-        .env("JAIC_DIAGNOSTICS", "plain")
-        .output()
-        .unwrap();
-    assert!(
-        stderr(&output).starts_with("\x1b[1;31merror\x1b[0m"),
-        "{}",
-        stderr(&output)
-    );
+    for flag in ["--version", "-version", "-V"] {
+        let output = jaic(&dir, &[flag], &[]);
+        assert_eq!(output.status.code(), Some(0), "{flag}");
+        assert!(String::from_utf8_lossy(&output.stdout).starts_with("jaic "));
+    }
+    // `-no_color` reaches command-line errors too, `FORCE_COLOR` turns colour on.
+    let colored = |args: &[&str], force: bool| {
+        let mut command = Command::new(JAIC);
+        command.args(args).env("JAIC_DIAGNOSTICS", "plain");
+        if force {
+            command.env("FORCE_COLOR", "1");
+        }
+        stderr(&command.output().unwrap())
+    };
+    assert!(colored(&["-bogus"], true).starts_with("\x1b[1;31merror\x1b[0m"));
+    assert!(colored(&["-bogus", "-no_color"], true).starts_with("error: "));
+    // After a lone `-` or a `+Plugin`, `-no_color` is not jaic's.
+    assert!(colored(&["-bogus", "-", "-no_color"], true).starts_with("\x1b[1;31merror"));
 }
 
 #[test]
@@ -1076,16 +1210,21 @@ fn rich_layouts_on_request() {
     let source =
         "#import \"Basic\";\nmain :: () {\n    counter := 1;\n    print(\"%\\n\", countr);\n}\n";
     std::fs::write(dir.join("u.jai"), source).unwrap();
-    let rich = |layout: &str, color: &str| {
-        let output = Command::new(JAIC)
-            .args(["check", "u.jai", "--color", color])
+    let rich = |layout: &str, color: bool| {
+        let mut command = Command::new(JAIC);
+        command
+            .args(["-check", "u.jai"])
             .current_dir(&dir)
             .env("JAIC_DIAGNOSTICS", layout)
-            .output()
-            .unwrap();
-        stderr(&output)
+            .env_remove("NO_COLOR");
+        if color {
+            command.env("FORCE_COLOR", "1");
+        } else {
+            command.arg("-no_color");
+        }
+        stderr(&command.output().unwrap())
     };
-    let unicode = rich("unicode", "never");
+    let unicode = rich("unicode", false);
     assert_in_order(
         &unicode,
         &[
@@ -1101,7 +1240,7 @@ fn rich_layouts_on_request() {
             " 4 ~     print(\"%\\n\", counter);",
         ],
     );
-    let ascii = rich("ascii", "never");
+    let ascii = rich("ascii", false);
     assert_in_order(
         &ascii,
         &[
@@ -1111,11 +1250,11 @@ fn rich_layouts_on_request() {
         ],
     );
     assert!(ascii.is_ascii(), "{ascii}");
-    let colored = rich("unicode", "always");
+    let colored = rich("unicode", true);
     assert!(colored.contains("\x1b[1;31merror\x1b[0m"), "{colored}");
     // NO_COLOR is honoured when the choice is left to jaic.
     let output = Command::new(JAIC)
-        .args(["check", "u.jai"])
+        .args(["-check", "u.jai"])
         .current_dir(&dir)
         .env("JAIC_DIAGNOSTICS", "unicode")
         .env("FORCE_COLOR", "1")
@@ -1123,6 +1262,23 @@ fn rich_layouts_on_request() {
         .output()
         .unwrap();
     assert!(!stderr(&output).contains('\x1b'));
+    // `-msvc_format`: one located line per item, no snippet and no colour, whatever the layout.
+    let output = Command::new(JAIC)
+        .args(["-check", "u.jai", "-msvc_format"])
+        .current_dir(&dir)
+        .env("JAIC_DIAGNOSTICS", "unicode")
+        .env("FORCE_COLOR", "1")
+        .output()
+        .unwrap();
+    let msvc = stderr(&output);
+    assert_in_order(
+        &msvc,
+        &[
+            "u.jai(4,18): error: unknown identifier `countr`\n",
+            "u.jai(4,18): note: help: a similar name exists: `counter`\n",
+        ],
+    );
+    assert!(!msvc.contains('\x1b') && !msvc.contains('│'), "{msvc}");
 }
 
 /// A literal format string should use as many arguments as the call passes (a warning, as in
@@ -1133,7 +1289,7 @@ fn format_string_argument_count_is_checked() {
     let dir = scratch("format-count");
     let check = |name: &str, body: &str| {
         let source = format!("#import \"Basic\";\nmain :: () {{\n    n := 1;\n{body}\n}}\n");
-        jaic_on(&dir, name, &source, "check", &[])
+        jaic_on(&dir, name, &source, "-check", &[])
     };
 
     let few = check("few.jai", "    print(\"% is %\\n\", n);");
@@ -1177,7 +1333,7 @@ main :: () {
     f(1);
 }
 ";
-    let output = jaic_on(&dir, "t.jai", source, "check", &[]);
+    let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
     assert_in_order(
@@ -1215,7 +1371,7 @@ main :: () {
     open(1); all_enum(.A); with_default(1); forever(); named(); chosen();
 }
 ";
-    let output = jaic_on(&dir, "t.jai", source, "check", &[]);
+    let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
     // `open` and `forever` (a loop whose body does not always return) warn; the switches, the
@@ -1233,12 +1389,12 @@ main :: () {
 fn a_switch_on_a_constant_checks_every_case() {
     let dir = scratch("const-switch");
     let source = "#import \"Basic\";\nMode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A; print(\"a\\n\");\n        case .B; x: int = \"not an int\"; print(\"%\\n\", x);\n    }\n}\n";
-    let output = jaic_on(&dir, "const_switch.jai", source, "check", &[]);
+    let output = jaic_on(&dir, "const_switch.jai", source, "-check", &[]);
     assert!(!output.status.success(), "{}", stderr(&output));
     assert_in_order(&stderr(&output), &["const_switch.jai:7:27", "int"]);
     // The cases that do not match count for `#complete` too.
     let source = "Mode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A;\n    }\n}\n";
-    let output = jaic_on(&dir, "const_complete.jai", source, "check", &[]);
+    let output = jaic_on(&dir, "const_complete.jai", source, "-check", &[]);
     assert!(!output.status.success(), "{}", stderr(&output));
     assert_in_order(&stderr(&output), &["has no case for .B"]);
 }

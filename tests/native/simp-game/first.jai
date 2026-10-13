@@ -1,4 +1,4 @@
-// A game's build script, shaped like many small Simp projects': `jaic run first.jai` compiles
+// A game's build script, shaped like many small Simp projects': `jaic first.jai -interp` compiles
 // src/main.jai in a second workspace into build/game(.exe), then runs it. CI runs it on Windows
 // (windows-native.yml) without Clang on PATH, so the link goes through Visual Studio's link.exe
 // (docs/native/windows.md); the game draws a few frames and exits with 0.

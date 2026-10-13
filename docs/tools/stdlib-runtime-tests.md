@@ -16,10 +16,10 @@ registered. Each test runs in the requested modes:
 
 | Mode | Command | Where |
 |---|---|---|
-| `interp` | `jaic run t.jai` | every host |
-| `native` | `jaic build t.jai -o x` then `./x` | every host |
-| `wasm-interp` | `jaic run t.jai -os wasm` (the browser playground's sandbox: virtual file system, no threads or native libraries) | macOS, Linux |
-| `wasm-native` | `jaic build t.jai -os wasm` then `node tools/wasi_run.mjs x.wasm` (WASI preview 1 with the host's `/` pre-opened: files, a libm and binary128, green threads, but no processes or sockets) | macOS, Linux |
+| `interp` | `jaic t.jai -interp` | every host |
+| `native` | `jaic t.jai -exe x` then `./x` | every host |
+| `wasm-interp` | `jaic t.jai -interp -os wasm` (the browser playground's sandbox: virtual file system, no threads or native libraries) | macOS, Linux |
+| `wasm-native` | `jaic t.jai -os wasm` then `node tools/wasi_run.mjs x.wasm` (WASI preview 1 with the host's `/` pre-opened: files, a libm and binary128, green threads, but no processes or sockets) | macOS, Linux |
 
 A test passes when it exits with 0; output is not compared (tests `assert` what they check). A
 build that writes no executable, or reports `no exported 'main'`, did its work at compile time
@@ -50,7 +50,7 @@ In `native` mode the harness first builds the third-party libraries for the plat
 ([native libraries](native-libs.md)) and points `JAIC_NATIVE_LIBS` at
 them. The MinGW cross builds link static archives that `tools/windows_cross.py build --stdlib`
 cross-builds first (`build_native_libs.py --platform windows-<cpu>-mingw`, with the MinGW-w64 or
-llvm-mingw compilers) and hands to `jaic build` as `JAIC_CROSS_LIBS`, so the executables need no
+llvm-mingw compilers) and hands to `jaic` as `JAIC_CROSS_LIBS`, so the executables need no
 DLL. The window tests need OpenGL 3.3, which the Windows runners lack: the x64 jobs
 unpack Mesa's llvmpipe (`tools/install_ci_mesa_windows.sh`, a pinned and checksum-verified
 mesa-dist-win release) and put its `opengl32.dll` next to `jaic.exe`, next to each native test
@@ -138,7 +138,7 @@ OS-specific parts with `#if OS == ...`, and under `OS == .WASM` keep whatever do
 files, threads, processes or native libraries. Check results, not just that calls return; cover
 empty inputs, non-ASCII text and paths, large inputs and failures (missing files must fail
 cleanly). Put scratch files under `.scratch/<name>/`. Run it in every mode locally, then
-`jaic check t.jai -os windows` and `-os linux` for the other hosts.
+`jaic t.jai -check -os windows` and `-os linux` for the other hosts.
 
 **`tests/stdlib/` and the playground.** `tools/check_playground_stdlib.mjs` also runs every
 `tests/stdlib/*.jai` in the browser engine. It reads the same skip list: a line whose modes include
@@ -158,7 +158,7 @@ needs a reason in the commit message (for example, a procedure was removed).
 **Gotchas.**
 - A two-argument call can pick a different overload than you expect (`Debug.backtrace(frames, 1)`
   is `(trace, skip)`); name or pass the arguments that select the one you mean.
-- `jaic run` changes to the main file's directory, as native runs do through the harness.
+- `jaic -interp` changes to the main file's directory, as native runs do through the harness.
 - Windows `/tmp/x` means `\tmp\x` on the current drive: fine for the File module, but tools that
   resolve paths themselves (clang) need an absolute path.
 

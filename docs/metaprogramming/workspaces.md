@@ -59,9 +59,9 @@ IMPORT, FILE and TYPECHECKED are only produced for intercepted workspaces.
 
 ### Output
 
-When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic build` and `jaic run` pass an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`): `run` differs from `build` only in interpreting the top-level program instead of compiling it, so a build metaprogram (`jaic run first.jai`) writes and can launch what it builds. `jaic check`, `jaic run -no_workspace_output` (used by `tools/jaic-sweep.py`), the browser, jailsp and jailint pass none, so workspaces are only checked {#ws.15}. Without a backend, `BuildEnv::unwritten_output_hint` decides whether a workspace that asks for output is told it was not written: `jaic check` warns ``warning: `jaic check` does not write build/game (workspace `Build` asks for an executable)`` with ``help: `jaic build first.jai` (or `jaic run first.jai`) writes it`` (the path is shown relative to where jaic was started, the main file as it was typed); `-no_workspace_output` and the tools set `None` and say nothing {#ws.17}.
+When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic` and `jaic -interp` pass an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`): `-interp` differs from a build only in interpreting the top-level program instead of compiling it, so a build metaprogram (`jaic first.jai -interp`) writes and can launch what it builds. `jaic -check`, `jaic -interp -no_workspace_output` (used by `tools/jaic-sweep.py`), the browser, jailsp and jailint pass none, so workspaces are only checked {#ws.15}. Without a backend, `BuildEnv::unwritten_output_hint` decides whether a workspace that asks for output is told it was not written: `jaic -check` warns ``warning: `jaic -check` does not write build/game (workspace `Build` asks for an executable)`` with ``help: `jaic first.jai` (or `jaic first.jai -interp`) writes it`` (the path is shown relative to where jaic was started, the main file as it was typed); `-no_workspace_output` and the tools set `None` and say nothing {#ws.17}.
 
-Workspace 2's own settings decide whether `jaic build` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own {#ws.16}.
+Workspace 2's own settings decide whether `jaic` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own {#ws.16}.
 
 ## How to change it
 
@@ -74,7 +74,7 @@ Workspace 2's own settings decide whether `jaic build` writes the top-level prog
 
 Option keys handled by `set_option` are listed in [compiler module](compiler-module.md); `os_target` and `cpu_target` values jaic can't build for, and keys it does not know, are errors. [Build options](build-options.md) says what each does. A workspace with `use_custom_link_command` stops after writing its objects (`Workspace::link`) until `__jaic_custom_link_complete` gives the exit code; the next step sends `POST_WRITE_EXECUTABLE` and `COMPLETE` (`finish_custom_link`). `arithmetic_overflow_check` applies to workspaces a metaprogram creates, not the program's own.
 
-`jaic build build.jai - arg1 arg2` passes `arg1 arg2` to the metaprogram.
+`jaic build.jai - arg1 arg2` passes `arg1 arg2` to the metaprogram.
 
 ## Dependencies
 

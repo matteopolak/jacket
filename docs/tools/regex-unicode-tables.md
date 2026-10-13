@@ -27,7 +27,7 @@ python3 tools/gen_regex_unicode.py --zip FILE   # a local UCD.zip
 python3 tools/gen_regex_unicode.py --check      # exit 1 if the committed file differs
 ```
 
-To move to a new Unicode version change `UCD_VERSION`, `UCD_URL` and `UCD_SHA256` at the top of the script together. The output is deterministic. The generator round-trips every set through a Python decoder and checks that the categories partition the code space; when Python's `unicodedata` is the same Unicode version it also compares every code point's category. Adding a property family means a new reader in `build_sets` and a new kind letter handled in `unicode.jai` (`unicode_property`, `find_name`). If the encoding changes, change `varint`/`encode_*` and `read_number`/`load_fold_table` together. Test: `jaic run stdlib/Extensions/Regex/tests/unicode.jai`.
+To move to a new Unicode version change `UCD_VERSION`, `UCD_URL` and `UCD_SHA256` at the top of the script together. The output is deterministic. The generator round-trips every set through a Python decoder and checks that the categories partition the code space; when Python's `unicodedata` is the same Unicode version it also compares every code point's category. Adding a property family means a new reader in `build_sets` and a new kind letter handled in `unicode.jai` (`unicode_property`, `find_name`). If the encoding changes, change `varint`/`encode_*` and `read_number`/`load_fold_table` together. Test: `jaic stdlib/Extensions/Regex/tests/unicode.jai -interp`.
 
 ## Configuration
 

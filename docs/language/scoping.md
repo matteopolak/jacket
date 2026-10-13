@@ -51,7 +51,7 @@ Tests: `tests/stdlib/module-using-import-reexport.jai`, `module-using-global.jai
 
 ## Configuration
 
-`OS` and `CPU` come from `Options::os` / `cpu`; `jaic check -os linux|windows|macos` overrides the OS.
+`OS` and `CPU` come from `Options::os` / `cpu`; `jaic -check -os linux|windows|macos` overrides the OS.
 
 ## Dependencies
 

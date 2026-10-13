@@ -2,7 +2,7 @@
 // request line, the headers and the body it received, as text. tools/http_conformance.py builds
 // it and probes it over TCP; it is also the program to put in a http-garden image.
 //
-//     jaic build tools/http_garden/server.jai -o echo_server
+//     jaic tools/http_garden/server.jai -exe ./echo_server
 //     ./echo_server 127.0.0.1:8080
 #import "Basic";
 #import "Extensions/Http";

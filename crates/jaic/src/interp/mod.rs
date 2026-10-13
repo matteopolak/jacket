@@ -491,11 +491,11 @@ pub struct Interp {
     trace_loc: Option<Option<(u32, u32, u32)>>,
     /// True while evaluating compile-time code (`#compile_time`).
     pub compile_time: bool,
-    /// The executable `jaic build` would write for the program `jaic run` is running: what the
+    /// The executable `jaic` would write for the program `jaic -interp` is running: what the
     /// program's own executable-path queries return (not `jaic`'s path), so paths relative to
     /// the executable (`../assets`) work the same in both. `None`: no substitution.
     pub run_executable: Option<String>,
-    /// The arguments `jaic run` hands the program (`argv`): what its Windows command-line
+    /// The arguments `jaic -interp` hands the program (`argv`): what its Windows command-line
     /// query (`GetCommandLineW`) returns while `run_executable` is set, not `jaic`'s own.
     pub run_arguments: Vec<String>,
     /// `run_arguments` as a Windows command line, made on the first query and kept for the

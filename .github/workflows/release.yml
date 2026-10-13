@@ -182,7 +182,7 @@ jobs:
           cp README.md CHANGELOG.md "$dir/"
           # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/webgpu.json),
           # where jaic looks for native libraries: <stdlib>/../artifacts/native-libs/<platform>.
-          # The static library is what `jaic build` links, the shared one what `jaic run` loads.
+          # The static library is what `jaic` links, the shared one what `jaic -interp` loads.
           python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
           # The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
           # stb_vorbis, lz4, meshoptimizer, pl_mpeg, FreeType, Dear ImGui and MojoShader; rpmalloc
@@ -199,7 +199,7 @@ jobs:
           ls -l "$dir/artifacts/native-libs/${{ matrix.name }}"
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
           # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
-          "$dir/jaic$exe" build jaifmt/main.jai -O2 --no-debug-info -o "$dir/jaifmt"
+          "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"
           ls "$dir"
           if [ "$RUNNER_OS" = "Windows" ]; then
             7z a -tzip "$dir.zip" "$dir" > /dev/null
@@ -238,14 +238,14 @@ jobs:
             fi
           fi
           set +e
-          "$jaic" run main.jai
+          "$jaic" main.jai -interp
           status=$?
           set -e
           test "$status" = 42
           # jailint finds the packaged stdlib next to itself.
           "$jailint" -D warnings main.jai
           if [ -n "${{ matrix.llvm }}" ]; then
-            "$jaic" build main.jai -o main
+            "$jaic" main.jai -exe main
             set +e
             ./main$exe
             status=$?
@@ -253,24 +253,24 @@ jobs:
             test "$status" = 42
           fi
           # WebGPU programs need nothing beyond the archive: the triangle example links the
-          # packaged static wgpu-native, and `jaic run` loads the packaged shared one (exit 77:
+          # packaged static wgpu-native, and `jaic -interp` loads the packaged shared one (exit 77:
           # the runner has no GPU adapter, which still proves the library loaded).
           cp "$GITHUB_WORKSPACE/examples/webgpu/triangle.jai" "$GITHUB_WORKSPACE/tests/webgpu/headless.jai" .
           if [ -n "${{ matrix.llvm }}" ]; then
-            "$jaic" build triangle.jai -o triangle
+            "$jaic" triangle.jai -exe triangle
             ls -l triangle$exe
           fi
           set +e
-          "$jaic" run headless.jai
+          "$jaic" headless.jai -interp
           status=$?
           set -e
           test "$status" = 0 || test "$status" = 77
-          # Simp and the stb libraries need nothing beyond the archive either: `jaic run` loads
+          # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
           # the packaged shared libraries, and the built executable links the static ones.
           cp "$GITHUB_WORKSPACE/tests/native-libs/simp-image.jai" .
-          "$jaic" run simp-image.jai
+          "$jaic" simp-image.jai -interp
           if [ -n "${{ matrix.llvm }}" ]; then
-            "$jaic" build simp-image.jai -o simp-image
+            "$jaic" simp-image.jai -exe simp-image
             ./simp-image$exe
           fi
           # The other shipped libraries, with the stdlib's own runtime tests: FreeType (a BDF font
@@ -280,9 +280,9 @@ jobs:
           if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(sdl2-geometry-timer); fi
           for lib_test in "${libs[@]}"; do
             cp "$GITHUB_WORKSPACE/tests/stdlib/$lib_test.jai" .
-            "$jaic" run "$lib_test.jai"
+            "$jaic" "$lib_test.jai" -interp
             if [ -n "${{ matrix.llvm }}" ]; then
-              "$jaic" build "$lib_test.jai" -o "$lib_test"
+              "$jaic" "$lib_test.jai" -exe "$lib_test"
               # Executables load SDL2.dll from their own directory.
               if [ -f "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}/SDL2.dll" ]; then
                 cp "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}/SDL2.dll" .
@@ -297,7 +297,7 @@ jobs:
               PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi llvm | paste -sd:)"
               export PATH
               which -a link
-              "$jaic" build simp-image.jai -o simp-image-msvc
+              "$jaic" simp-image.jai -exe simp-image-msvc
               ./simp-image-msvc.exe
             )
           fi
@@ -320,10 +320,10 @@ jobs:
             mkdir -p "$RUNNER_TEMP/bin"
             ln -s "$RUNNER_TEMP/opt-jaic/jaic" "$RUNNER_TEMP/bin/jaic"
             set +e
-            "$RUNNER_TEMP/bin/jaic" run main.jai
+            "$RUNNER_TEMP/bin/jaic" main.jai -interp
             status=$?
             # The native libraries are found beside the real stdlib behind the symlink.
-            "$RUNNER_TEMP/bin/jaic" run simp-image.jai
+            "$RUNNER_TEMP/bin/jaic" simp-image.jai -interp
             simp_status=$?
             # jaifmt is self-contained: it needs neither the stdlib nor a checkout.
             ln -s "$RUNNER_TEMP/opt-jaic/jaifmt" "$RUNNER_TEMP/bin/jaifmt"

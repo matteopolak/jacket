@@ -1,6 +1,6 @@
 // The run-time API: compiling, errors, searching, captures, replacing, splitting and options.
 //
-//     jaic run stdlib/Extensions/Regex/tests/matching.jai
+//     jaic stdlib/Extensions/Regex/tests/matching.jai -interp
 
 #import "Basic";
 Regex :: #import "Extensions/Regex";

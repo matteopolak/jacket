@@ -28,7 +28,7 @@ Warnings and errors use `__jaic_report`'s `mode`, which is `Report` in the Compi
 | --- | --- |
 | `time_report.run_directives` | seconds the interpreter spent executing compile-time code (a `#run` inside another counts once) |
 | `time_report.bytecode_generating` | seconds spent lowering procedure bodies to jaic's IR, without the compile-time code they ran. Type checking happens during the lowering, so it is in here |
-| `time_report.bytecode_inlining` | always `0`: jaic's IR is not inlined; the native backend inlines when it optimizes (`--timings` shows that time) |
+| `time_report.bytecode_inlining` | always `0`: jaic's IR is not inlined; the native backend inlines when it optimizes (`-timings` shows that time) |
 | `bytecode_report.num_calls_total`, `num_instructions_total` | calls and instructions (blocks' terminators included) of the IR lowered in the workspace so far, the runtime support's included |
 | `bytecode_report.num_calls_inlined`, `num_instructions_inlined` | always `0`, for the same reason |
 | `run_directive_report.records` | one per execution of compile-time code, in order: `callee` is the first procedure the code calls (the `f` of `#run f()`; null when it calls none directly), `num_stalls` how many times the run stopped for a body that was not lowered yet and started over, `elapsed_time` the seconds in the interpreter |

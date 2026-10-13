@@ -92,7 +92,7 @@ Offline, the request fails with *could not reach github.com (ENOTFOUND)* and a R
 
 **Formatting.** jailsp has no `textDocument/formatting`, so the extension registers a formatting provider that runs `jaifmt --stdin` with the document's folder as working directory (jaifmt finds the `jaifmt.toml` there or above). Before that it reads the nearest `jaifmt.toml` and skips files its `ignore` globs match, since `--stdin` does not apply them. On success it returns one edit covering only the changed span (common prefix and suffix kept, so the cursor and folds outside it stay put); on failure (unbalanced brackets, text that does not lex) it leaves the text alone and shows jaifmt's message in the status bar and the output channel. `editor.formatOnSave` works through VS Code's normal path; `[jai]` defaults the formatter to this extension.
 
-**Commands.** *Run File*, *Build File* and *Check File* save the file and run `jaic run|build|check <file> <jai.run.arguments>` as a task in its own terminal, in the file's folder, with `JAIC_STDLIB` set when configured. *Restart Language Server* stops and starts the client (also done when a path setting changes). *Show Output* opens the *Jai* channel; server traffic goes to *Jai Language Server* (`jai.trace.server`).
+**Commands.** *Run File*, *Build File* and *Check File* save the file and run `jaic <file> [-interp|-check] <jai.run.arguments>` as a task (*Build* uses neither option) in its own terminal, in the file's folder, with `JAIC_STDLIB` set when configured. *Restart Language Server* stops and starts the client (also done when a path setting changes). *Show Output* opens the *Jai* channel; server traffic goes to *Jai Language Server* (`jai.trace.server`).
 
 ## How to change it
 
@@ -141,7 +141,7 @@ Gotchas:
 | `jai.stdlib.path` | `""` | `JAIC_STDLIB` for jailsp and jaic |
 | `jai.toolchain.autoDownload` | `prompt` | `prompt`, `always` or `never` download the matching release |
 | `jai.completion.autoImport` | `true` | completion offers names from modules and project files the file does not import or load yet, adding the `#import`/`#load` ([auto-import](../compiler/language-server.md#auto-import-completion)) |
-| `jai.run.arguments` | `[]` | extra arguments for `jaic run/build/check` |
+| `jai.run.arguments` | `[]` | extra arguments for the three commands, placed after the file and the mode option |
 | `jai.trace.server` | `off` | `messages`/`verbose` log LSP traffic |
 
 Useful VS Code settings:

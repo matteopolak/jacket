@@ -6,7 +6,7 @@ A module is a set of Jai files compiled as one namespace. `#import` brings a mod
 
 ## How it works
 
-Forms of `#import` (each verified with `jaic run`) {#import.1}:
+Forms of `#import` (each verified with `jaic -interp`) {#import.1}:
 
 ```jai
 #import "Basic";                              // Basic.jai or Basic/module.jai on the search path
@@ -44,7 +44,7 @@ Gotchas:
 
 ## Configuration
 
-- `-I dir` / `-import_dir dir` on `jaic run|check|build` adds an import directory (`options.import_paths`, built in `crates/jaic-cli/src/main.rs`).
+- `-I dir` / `-import_dir dir` adds an import directory (any mode) (`options.import_paths`, built in `crates/jaic-cli/src/main.rs`).
 - `JAIC_STDLIB` overrides the stdlib directory.
 - Metaprograms set `import_path` through the build options (`crates/jaic/src/build.rs`).
 

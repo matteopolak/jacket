@@ -9,7 +9,6 @@
           "name": "build.jai - ai release",
           "kind": "jaic",
           "argv": [
-            "build",
             "build.jai",
             "-",
             "ai",
@@ -70,7 +69,6 @@
           "name": "build.jai - ui release",
           "kind": "jaic",
           "argv": [
-            "build",
             "build.jai",
             "-",
             "ui",
@@ -103,7 +101,6 @@
           "name": "build.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "build.jai"
           ],
           "timeout": 900,
@@ -131,9 +128,8 @@
           "name": "tests.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "tests.jai",
-            "-o",
+            "-exe",
             "tests_bin"
           ],
           "timeout": 600
@@ -157,7 +153,6 @@
           "name": "first.jai - test",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
             "-",
             "test"
@@ -174,9 +169,8 @@
           "name": "test.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "test.jai",
-            "-o",
+            "-exe",
             "xml_test"
           ],
           "timeout": 600
@@ -200,9 +194,8 @@
           "name": "tests/test.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "test.jai",
-            "-o",
+            "-exe",
             "pb_test"
           ],
           "cwd": "tests",
@@ -239,8 +232,8 @@
           ],
           "not_on_reason": "upstream indexes WEEKDAYS[tm_wday - 1], out of bounds when tm_wday is 0",
           "argv": [
-            "run",
-            "rss.jai"
+            "rss.jai",
+            "-interp"
           ],
           "timeout": 300,
           "contains": [
@@ -272,10 +265,9 @@
           "name": "examples/example.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "examples/example.jai",
-            "-o",
-            "wg_example"
+            "-exe",
+            "./wg_example"
           ],
           "timeout": 300
         },
@@ -306,12 +298,11 @@
           "name": "examples/example.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "examples/example.jai",
             "-I",
             "../_modules",
-            "-o",
-            "hs_example"
+            "-exe",
+            "./hs_example"
           ],
           "timeout": 600
         },
@@ -346,7 +337,6 @@
           "name": "first.jai - test",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
             "-",
             "test"
@@ -357,7 +347,6 @@
           "name": "first.jai - release",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
             "-",
             "release"
@@ -390,9 +379,8 @@
           "name": "examples/first.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
-            "-o",
+            "-exe",
             "toml_first"
           ],
           "cwd": "examples",
@@ -409,9 +397,8 @@
           "name": "examples/union_and_overlay.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "union_and_overlay.jai",
-            "-o",
+            "-exe",
             "toml_union_and_overlay"
           ],
           "cwd": "examples",
@@ -428,9 +415,8 @@
           "name": "examples/validation.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "validation.jai",
-            "-o",
+            "-exe",
             "toml_validation"
           ],
           "cwd": "examples",
@@ -447,9 +433,8 @@
           "name": "examples/custom_handlers.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "custom_handlers.jai",
-            "-o",
+            "-exe",
             "toml_custom_handlers"
           ],
           "cwd": "examples",
@@ -466,9 +451,8 @@
           "name": "examples/formatting_control.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "formatting_control.jai",
-            "-o",
+            "-exe",
             "toml_formatting_control"
           ],
           "cwd": "examples",
@@ -502,7 +486,6 @@
           "name": "reflector-tests.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "reflector-tests.jai"
           ],
           "timeout": 900,
@@ -538,8 +521,8 @@
             "macos-x64"
           ],
           "argv": [
-            "run",
-            "modules/Objective_C/LightweightRenderingView/build.jai"
+            "modules/Objective_C/LightweightRenderingView/build.jai",
+            "-interp"
           ],
           "timeout": 300
         },
@@ -547,7 +530,6 @@
           "name": "first.jai - release",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
             "-",
             "release"
@@ -600,19 +582,17 @@
           ]
         },
         {
-          "name": "tests/test.jai -plug tracy",
+          "name": "tests/test.jai +tracy",
           "kind": "jaic",
           "argv": [
-            "build",
             "tests/test.jai",
             "-I",
             "../_mods",
-            "-plug",
-            "tracy",
+            "-exe",
+            "./tracy_test",
+            "+tracy",
             "-min_size",
-            "1",
-            "-o",
-            "tracy_test"
+            "1"
           ],
           "timeout": 600
         },
@@ -640,7 +620,6 @@
           "name": "build.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "build.jai"
           ],
           "timeout": 1200,
@@ -683,9 +662,8 @@
           "name": "first.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
-            "-o",
+            "-exe",
             "smoke_first"
           ],
           "cwd": "examples",
@@ -710,9 +688,8 @@
           "name": "constant.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "constant.jai",
-            "-o",
+            "-exe",
             "smoke_constant"
           ],
           "cwd": "examples",
@@ -731,9 +708,8 @@
           "name": "defer.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "defer.jai",
-            "-o",
+            "-exe",
             "smoke_defer"
           ],
           "cwd": "examples",
@@ -752,9 +728,8 @@
           "name": "first.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "first.jai",
-            "-o",
+            "-exe",
             "smoke_first"
           ],
           "cwd": "examples",
@@ -773,9 +748,8 @@
           "name": "if.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "if.jai",
-            "-o",
+            "-exe",
             "smoke_if"
           ],
           "cwd": "examples",
@@ -794,9 +768,8 @@
           "name": "if_case.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "if_case.jai",
-            "-o",
+            "-exe",
             "smoke_if_case"
           ],
           "cwd": "examples",
@@ -815,9 +788,8 @@
           "name": "while.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "while.jai",
-            "-o",
+            "-exe",
             "smoke_while"
           ],
           "cwd": "examples",
@@ -842,9 +814,8 @@
           "name": "astTests.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "astTests.jai",
-            "-o",
+            "-exe",
             "smoke_astTests"
           ],
           "cwd": "examples",
@@ -869,8 +840,8 @@
           "name": "closure.jai (compile-time tests)",
           "kind": "jaic",
           "argv": [
-            "run",
-            "closure.jai"
+            "closure.jai",
+            "-interp"
           ],
           "timeout": 300
         }
@@ -884,8 +855,8 @@
           "name": "unotest.jai (compile-time tests)",
           "kind": "jaic",
           "argv": [
-            "run",
-            "unotest.jai"
+            "unotest.jai",
+            "-interp"
           ],
           "timeout": 300
         }
@@ -899,9 +870,8 @@
           "name": "build.jai",
           "kind": "jaic",
           "argv": [
-            "build",
             "build.jai",
-            "-o",
+            "-exe",
             "smoke_build"
           ],
           "cwd": "",

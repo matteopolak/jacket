@@ -1,7 +1,7 @@
 // Checks of the Unicode tables behind the regex engines: property names, the Perl classes,
 // range helpers and simple case folding.
 //
-//     jaic run stdlib/Extensions/Regex/tests/unicode.jai
+//     jaic stdlib/Extensions/Regex/tests/unicode.jai -interp
 
 #import "Basic";
 

@@ -4,8 +4,8 @@
     python3 tools/fetch_wgpu_native.py [--platform windows-x64] [--out DIR] [--force]
 
 tools/webgpu.json pins the release tag and the sha256 of each platform's zip. The zip's
-static library (`libwgpu_native.a`, Windows `wgpu_native.lib`), which `jaic build` links, and
-its shared library (`libwgpu_native.dylib`/`.so`, Windows `wgpu_native.dll`), which `jaic run`
+static library (`libwgpu_native.a`, Windows `wgpu_native.lib`), which `jaic` links, and
+its shared library (`libwgpu_native.dylib`/`.so`, Windows `wgpu_native.dll`), which `jaic -interp`
 loads, land next to the libraries tools/build_native_libs.py builds, where `jaic` finds them
 for `#library "libwgpu_native"` (stdlib/Extensions/WebGPU). The release also carries the webgpu.yml it was
 built from; it must match the revision tools/webgpu_gen.py generated the bindings from.

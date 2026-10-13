@@ -2,7 +2,7 @@
 // at a time and, through observe_every_cut, split at every position; the vector and scalar scan
 // paths must agree.
 //
-//     jaic run stdlib/Extensions/Http/tests/codec.jai
+//     jaic stdlib/Extensions/Http/tests/codec.jai -interp
 
 #load "lib/support.jai";
 

@@ -98,7 +98,7 @@ const project = {
   additionalProperties: false,
   properties: {
     build_files: paths(
-      "The files you give `jaic build` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.",
+      "The files you give `jaic` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.",
     ),
     import_path: paths(
       "More folders to import modules from, relative to this file, as `-import_dir` adds (`Build_Options.import_path`). The `modules` folder next to the build file is always searched.",

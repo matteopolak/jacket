@@ -1,7 +1,7 @@
 // Middleware and groups: timing on every request, a token check in front of /admin, and a
 // route prefix with a parameter.
 //
-//     jaic run examples/http/middleware.jai
+//     jaic examples/http/middleware.jai -interp
 //     curl -i localhost:8080/hello
 //     curl -i localhost:8080/admin/stats                                  # 401
 //     curl -i localhost:8080/admin/stats -H 'authorization: Bearer letmein'

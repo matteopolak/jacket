@@ -75,7 +75,7 @@ fn build_and_run(units: &str, level: &str) -> String {
         "out"
     });
     let build = Command::new(JAIC)
-        .args(["build", "main.jai", level, "-o"])
+        .args(["main.jai", level, "-exe"])
         .arg(&exe)
         .env("JAIC_CODEGEN_UNITS", units)
         .current_dir(&dir)
@@ -130,9 +130,9 @@ fn a_function_that_would_absorb_its_callees_keeps_the_largest_out() {
     std::fs::write(dir.join("main.jai"), driver_source()).unwrap();
     let build = |level: &str, exe: &str, ir: Option<&str>| {
         let mut cmd = Command::new(JAIC);
-        cmd.args(["build", "main.jai", level, "-o", exe]);
+        cmd.args(["main.jai", level, "-exe", exe]);
         if let Some(ir) = ir {
-            cmd.args(["--emit-ir", ir]);
+            cmd.args(["-emit_ir", ir]);
         }
         let out = cmd.current_dir(&dir).output().unwrap();
         assert!(

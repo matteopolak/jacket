@@ -1,5 +1,5 @@
 //! The sandbox host: program output captured in memory and a small libc for runs that have no
-//! dynamic linker (the browser playground, `jaic run -os wasm`).
+//! dynamic linker (the browser playground, `jaic -interp -os wasm`).
 //!
 //! Everything here is virtual and deterministic: a clock that advances by a microsecond per query
 //! (and by the requested time on `nanosleep`), a file system that overlays in-memory writes on a

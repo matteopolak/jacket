@@ -1,12 +1,12 @@
 name: windows native
-# Native Windows executables from `jaic build`, for x64 and arm64: built on Windows with the MSVC
+# Native Windows executables from `jaic`, for x64 and arm64: built on Windows with the MSVC
 # toolchain, and cross-built from Linux with MinGW-w64 (llvm-mingw for arm64) then run on
 # Windows. See docs/native/windows.md.
 #
 # Pushes to the two branches run everything their `paths` filter admits. Pushes to `main` pass
 # the same (broad) filter, which cannot differ per branch, and are then narrowed by the `changes`
-# job to the Io, Io_Uring, Http, Json, Tls, Windows and jaic-llvm paths plus this file, so the Windows
-# runners are not spent on every stdlib or compiler change.
+# job to the Io, Io_Uring, Http, Json, Tls, Windows, jaic-llvm, interpreter, CLI and native test paths
+# plus this file, so the Windows runners are not spent on every stdlib or compiler change.
 on:
   push:
     branches: ['main', 'wip/windows-native', 'ci/windows-arm64']
@@ -79,10 +79,10 @@ jobs:
             exit 0
           fi
           echo "$files"
-          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|crates/jaic-llvm/|\.github/workflows/windows-native\.yml$)'; then
+          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "no Io, Http, Json, Tls, Windows or LLVM backend change; skipping"
+            echo "no Io, Http, Json, Tls, Windows, LLVM backend, interpreter or native test change; skipping"
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -142,7 +142,7 @@ jobs:
           python tools/windows_cross.py run --dir cross-exes
 
   native:
-    name: jaic build on Windows (MSVC)
+    name: jaic on Windows (MSVC)
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: windows-2025
@@ -182,7 +182,7 @@ jobs:
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
-          target/x86_64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
+          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/corpus/positive/integer-control.jai -exe native-exes/smoke || echo "jaic exit $?"
           python -u tools/windows_cross.py build --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
       - name: Install Mesa's software OpenGL
@@ -216,7 +216,7 @@ jobs:
           which -a link
           # First with the runner's older Clang in Program Files\LLVM (found off PATH), then
           # with that and Visual Studio's bundled Clang moved away, so link.exe links.
-          "$jaic" run first.jai
+          "$jaic" first.jai -interp
           vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")"
           hidden=()
           for dir in "/c/Program Files/LLVM" "$vs/VC/Tools/Llvm"; do
@@ -224,14 +224,14 @@ jobs:
           done
           rm -f build/game.exe
           set +e
-          "$jaic" run first.jai
+          "$jaic" first.jai -interp
           status=$?
           set -e
           for dir in "${hidden[@]}"; do mv "$dir.hidden" "$dir"; done
           test "$status" = 0
           ls -l build
           # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
-          "$jaic" run src/main.jai
+          "$jaic" src/main.jai -interp
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         # tests/webgpu/headless.jai interpreted and built; docs/stdlib/webgpu.md#tests.
         if: success() || failure()
@@ -345,7 +345,7 @@ jobs:
         run: python tools/windows_cross.py run --dir cross-arm64-exes
 
   native-arm64:
-    name: jaic build on Windows arm64 (MSVC)
+    name: jaic on Windows arm64 (MSVC)
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: windows-11-arm
@@ -388,13 +388,13 @@ jobs:
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
-          target/aarch64-pc-windows-msvc/debug/jaic.exe build tests/corpus/positive/integer-control.jai -o native-exes/smoke || echo "jaic exit $?"
+          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/corpus/positive/integer-control.jai -exe native-exes/smoke || echo "jaic exit $?"
           python -u tools/windows_cross.py build --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
       - name: Interpreter variadic foreign calls
         if: success() || failure()
         run: |
-          out="$(target/aarch64-pc-windows-msvc/debug/jaic.exe run tests/native/windows/variadic.jai | tr -d '\r')"
+          out="$(target/aarch64-pc-windows-msvc/debug/jaic.exe tests/native/windows/variadic.jai -interp | tr -d '\r')"
           echo "$out"
           test "$out" = ok
       - name: Stdlib runtime tests (interpreter and native) and coverage

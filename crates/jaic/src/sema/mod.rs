@@ -133,7 +133,7 @@ pub struct Options {
     /// Maintain `context.stack_trace` while the program runs (`Build_Options.stack_trace`).
     pub stack_trace: bool,
     /// Record variables, scopes and types for native debug information
-    /// (`Build_Options.emit_debug_info != .NONE`; only `jaic build` turns it on).
+    /// (`Build_Options.emit_debug_info != .NONE`; only `jaic` turns it on).
     pub debug_info: bool,
     /// The target C compiler's `long double` when it is wider than `float64` (`None`: it is
     /// `float64`). Decides what `#jaic_type long_double` names; see `long_double_for`.

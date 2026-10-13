@@ -2,7 +2,7 @@
 
 ## What it is
 
-Every message `jaic`, `jailint`, `jaifmt` and `jailsp` show the user: compile errors, lints, runtime check failures (under `jaic run`, in `#run` code, and in built executables) and command-line mistakes. This page is the style guide for writing them, and it explains how they are rendered.
+Every message `jaic`, `jailint`, `jaifmt` and `jailsp` show the user: compile errors, lints, runtime check failures (under `jaic -interp`, in `#run` code, and in built executables) and command-line mistakes. This page is the style guide for writing them, and it explains how they are rendered.
 
 ## Style guide
 
@@ -21,7 +21,7 @@ The other rules:
 - Names, types, tokens and code are quoted with backticks: `` unknown identifier `countr` ``, `` expected `;` after statement, found `}` ``. Not single quotes.
 - Types are shown as jaic names them (`s64`, `float32`); the declared alias (`int`) appears in the snippet.
 - A help that is a code change uses `with_fix` (shown as a diff outside the plain layout); one that is advice uses `with_help`.
-- Prefer naming things the user can type: `jaic check file.jai`, `-import_dir ../libs`, `#import "Basic";`.
+- Prefer naming things the user can type: `jaic file.jai -check`, `-import_dir ../libs`, `#import "Basic";`.
 - Paths are shown relative to where the tool was started when they are inside it (`jaic::display_path`).
 - Internal names stay out: `__`-prefixed procedures, `name#N` polymorphic suffixes, the interpreter's thunks (`#run`/`#const` code is described as such, by the `ir::FuncOrigin` its function and `TrapFrame` carry).
 
@@ -44,13 +44,14 @@ Suggestions that need extra work are computed when the error is rendered, not wh
 
 One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors (`jaifmt` is a Jai program and prints the plain form itself). `Report` is the renderer's input: severity, optional code (a lint's rule), message, a primary `Label`, secondary labels, notes and helps (a help may carry a `Fix`, shown as changed lines). `Diagnostic::report` converts a compiler diagnostic; `Report::from_text` turns text with `help:`/`note:` lines (errors from the backend, the linker or a config parser) into one.
 
-Three layouts, picked once per process (`render::detect`, then `set_style`):
+Four layouts, picked once per process (`render::detect`, then `set_style`; `jaic -msvc_format` sets `msvc` afterwards):
 
 | Layout | When | Looks like |
 |---|---|---|
 | `plain` | stderr is not a terminal, or `TERM=dumb` | `path:line:col: error: message`, the line, carets, then `note:`/`help:` lines. jailint keeps its `-->` block. Stable: tests and tools match it. |
 | `ascii` | a terminal without a UTF-8 locale | rustc-like block: gutter line numbers, a context line either side, labels for every span, multi-line spans with a connector, fixes as `~` lines |
 | `unicode` | a terminal with a UTF-8 locale, or Windows Terminal | the same with box drawing (`╭─[`, `│`, `━`) |
+| `msvc` | `jaic -msvc_format` | one line per item, `path(line,col): error: message`; notes and helps repeat the primary place as `path(line,col): note: ...` (a help reads `note: help: ...`). No snippet and no colour. |
 
 Example (`unicode`):
 
@@ -80,7 +81,7 @@ Colour is separate from the layout: errors red, warnings yellow, notes cyan, hel
 
 ### Compile warnings (`Compiler::warnings`)
 
-Sema records a warning with `Compiler::warn` (once per span and message, since polymorphic instances check the same source again); `jaic check`, `run` and `build` print them before any error, and the playground adds them to its diagnostics. `jailsp` does not show them yet. Warnings never change the exit status.
+Sema records a warning with `Compiler::warn` (once per span and message, since polymorphic instances check the same source again); every mode of `jaic` prints them before any error, and the playground adds them to its diagnostics. `jailsp` does not show them yet. Warnings never change the exit status.
 
 Two warnings read the shape of a procedure body, in `sema/flow.rs`; neither evaluates a condition. ``not all control paths return a value`` (at the procedure's header) fires when a procedure with results has a body none of whose paths is certain to return: a `return` counts, an `if` only with an `else` that returns too, a `switch` only with a default (or `#complete`) and every case returning, a `while` when its body does, a `for` never, an `#if` by the branch it took. So `if true return 1;`, `while true {}` and a `while` loop that may `break` all warn, while `while cond { return x; }` does not, as in Jai itself. A procedure whose results are all named returns them at the end and never warns, and a body that expanded a macro with a backtick `return` is left alone (the macro's own paths are not followed). ``statements in block after `return` are never reached`` (also `break`, `continue`) is reported once per block at the first statement that follows, skipping constants and empty statements; a `case` body is not a block of its own and the statements after a `return` there are not reported. `lower_proc_body` (`sema/procs.rs`) runs both after lowering a body. Each procedure body also records the branch of every `#if` it took (`FnCtx::static_taken`) for the analysis. jailint has no rule that overlaps (`infinite_loop` is about loop conditions).
 
@@ -111,7 +112,7 @@ A metaprogram's own error (`compiler_report`, `compiler_set_workspace_status(.FA
 
 #### Crashes in native code (`interp/crash.rs`)
 
-`jaic run` and `#run` call foreign procedures in jaic's own process, so a bad pointer passed to C faults inside jaic. While a foreign call is in progress, `crash::ForeignCall` publishes the symbol, the calling thread's interpreter state (`ExecState`, set aside for the call) and the program in a thread-local, and a fault handler (POSIX `sigaction` for SIGSEGV, SIGBUS, SIGILL and SIGFPE with `SA_ONSTACK`, so a native stack overflow still has a stack to report on; a vectored exception handler on Windows) prints:
+`jaic -interp` and `#run` call foreign procedures in jaic's own process, so a bad pointer passed to C faults inside jaic. While a foreign call is in progress, `crash::ForeignCall` publishes the symbol, the calling thread's interpreter state (`ExecState`, set aside for the call) and the program in a thread-local, and a fault handler (POSIX `sigaction` for SIGSEGV, SIGBUS, SIGILL and SIGFPE with `SA_ONSTACK`, so a native stack overflow still has a stack to report on; a vectored exception handler on Windows) prints:
 
 ```
 crash.jai:4:5: error: native code crashed (SIGSEGV, invalid memory access at address 0x10) while calling foreign procedure `strlen`
@@ -131,7 +132,7 @@ Tests: `crash_in_native_code_names_the_foreign_call` and `crash_on_a_c_thread_is
 
 `jaic`'s argument parser returns a `CliError` (message + helps): unknown commands and options get the closest match, misplaced files and options say where they go, `-os`/`-cpu` list their values. Input files are checked before compiling (missing file with a close name, a directory with its entry file, permissions). A missing file's suggestion is `suggest::similar_sibling` (`name.jai` when only the extension was left off, else the closest entry of its directory), shared by `jaic`, `jailint` and, through `suggest::similar_entry` over the compiler's file system, a missing `#load`. `jailint`, `jaifmt` and `jailsp` follow the same rules; `jailsp` run by hand says it is a language server and how to check a file instead.
 
-Build problems are caught before the backend runs where possible: an output path that is a directory or cannot be written, a program without `main`, an unknown sanitizer. A linker that is missing says how to install one (and that `jaic run` needs none); a failed link keeps the linker's output and adds a help when it says a library or symbol is missing.
+Build problems are caught before the backend runs where possible: an output path that is a directory or cannot be written, a program without `main`, an unknown sanitizer. A linker that is missing says how to install one (and that `jaic -interp` needs none); a failed link keeps the linker's output and adds a help when it says a library or symbol is missing.
 
 A Rust panic is reported as `error: internal compiler error: ...` with a note and the issue tracker link (`install_panic_hook`).
 
@@ -139,7 +140,7 @@ A Rust panic is reported as `error: internal compiler error: ...` with a note an
 
 | Tool | 0 | 1 | 2 | other |
 |---|---|---|---|---|
-| `jaic` | success (`run`: the program's own status) | compile error, runtime error, build or link failure, unreadable input | command-line mistake | 3 `build` of a program without `main` (nothing to write), 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal compiler error |
+| `jaic` | success (`-interp`: the program's own status) | compile error, runtime error, build or link failure, unreadable input | command-line mistake | 3 a build of a program without `main` (nothing to write), 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal compiler error |
 | `jailint` | no `deny` findings | a `deny` finding | command-line or `jailint.toml` mistake, unreadable path | |
 | `jaifmt` | success | `--check`: files would change | errors (command line, config, unreadable or unformattable files) | |
 | `jailsp` | `exit` after `shutdown` | input ended or the protocol broke | command-line mistake | |
@@ -151,7 +152,7 @@ A Rust panic is reported as `error: internal compiler error: ...` with a note an
 - An error that other code reacts to (a suggestion added at render time, a note added by an enclosing statement, a tool deciding a case cannot run somewhere) gets a `DiagnosticKind` (`source.rs`) with `with_kind`. `kind.code()` is its stable name, which the browser playground's JSON carries as `code`. `with_name_suggestion` finds the scope an unknown identifier was looked up from in its kind, `call_mismatch` passes an unknown name through and wraps anything else (the wrapped error's kind is `Other`), and `return_type_mismatch`/`declared_type_mismatch` only annotate `TypeMismatch`.
 - New runtime check: add an `ir::TRAP_*` reason with its wording in `ir::check_message` (and the same wording in `runtime_support_check_failed` for built executables), raise it with `Interp::check_trap`, and if it is common, a help in `help_for` (`trap_report.rs`). The report decides notes and helps from `Trap::kind`, never from the message text, so messages can be reworded freely.
 - Layout or colour changes: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable; `jailint`'s `tests/lint/*/bad.expected` and the jaic tests depend on it.
-- A command-line tool that prints errors should call `jaic::render::set_style(detect(choice))` once and print `Report`s, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` behave the same everywhere. Code that renders for a caller with its own choice (the browser playground's `run_with`, where tests run concurrently) wraps the work in `render::with_style(style, || ...)` instead: the style applies to that thread until the closure returns, and the process-wide one is untouched.
+- A command-line tool that prints errors should call `jaic::render::set_style(detect(choice))` once and print `Report`s, so a colour option, `NO_COLOR` and `JAIC_DIAGNOSTICS` behave the same everywhere (`jaic` has `-no_color`, `jailint` has `--color`). Code that renders for a caller with its own choice (the browser playground's `run_with`, where tests run concurrently) wraps the work in `render::with_style(style, || ...)` instead: the style applies to that thread until the closure returns, and the process-wide one is untouched.
 
 ## Configuration
 
@@ -172,7 +173,7 @@ No crates beyond the standard library: `render.rs` (layouts, colour), `suggest.r
 
 ## What the upstream corpus shows
 
-`jaic check` (and the curated cases' `run`) over every entry point in `corpus/upstream` (931 invocations, `tools/fetch_upstreams.py` projects) ranked the messages users meet most. Most failures are programs that need their build metaprogram, a module path or an `#import`; the improvements above target those first.
+`jaic -check` (and the curated cases' `-interp` runs) over every entry point in `corpus/upstream` (931 invocations, `tools/fetch_upstreams.py` projects) ranked the messages users meet most. Most failures are programs that need their build metaprogram, a module path or an `#import`; the improvements above target those first.
 
 | Count | Message (first error of a failing invocation) | Before | After |
 |---:|---|---|---|

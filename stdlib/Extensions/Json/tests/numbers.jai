@@ -1,7 +1,7 @@
 // Numbers: exact integers, correctly rounded float parsing (checked against the shortest
 // round-trip printer on random bit patterns, and against known hard cases) and shortest output.
 //
-//     jaic run stdlib/Extensions/Json/tests/numbers.jai
+//     jaic stdlib/Extensions/Json/tests/numbers.jai -interp
 
 #import "Basic";
 #import "Random";

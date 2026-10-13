@@ -4,7 +4,7 @@
 Output: artifacts/native-libs/<os>-<arch>/, which `jaic` searches for `#system_library` /
 `#library` names (see docs/tools/native-libs.md): lib<name>.a and lib<name>.<dylib|so> on macOS
 and Linux, <name>.lib and <name>.dll on Windows (built with Clang for the MSVC toolchain).
-`--platform windows-<cpu>-mingw` cross-builds lib<name>.a for `jaic build -os windows` (MinGW-w64
+`--platform windows-<cpu>-mingw` cross-builds lib<name>.a for `jaic -os windows` (MinGW-w64
 or llvm-mingw on the build host; the directory goes in JAIC_CROSS_LIBS).
 """
 from __future__ import annotations
@@ -265,7 +265,7 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
             subprocess.run(['llvm-lib', '/nologo', f'/out:{static}', *map(str, objects)], check=True)
             definitions = windows_exports(objects, tmp, name, lib.get('cxx_exports', False))
             # The DLL's import library would take the static library's name: it goes to tmp.
-            # The DLL carries its own copy of the static runtime (what `jaic run` loads).
+            # The DLL carries its own copy of the static runtime (what `jaic -interp` loads).
             subprocess.run(['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=static', '-shared',
                             '-o', str(out / f'{name}.dll'), *map(str, objects), f'-Wl,/DEF:{definitions}',
                             '-Wl,/DEFAULTLIB:libcmt', f'-Wl,/IMPLIB:{tmp / "import.lib"}'], check=True)

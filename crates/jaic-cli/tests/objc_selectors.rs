@@ -459,7 +459,7 @@ fn selectors_exist_in_the_objective_c_runtime() {
     if !cfg!(target_os = "macos") {
         // Elsewhere there is no Objective-C runtime to ask; the program must still type-check.
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_jaic"))
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .args(["-os", "macos"])
             .output()
@@ -472,7 +472,7 @@ fn selectors_exist_in_the_objective_c_runtime() {
         return;
     }
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_jaic"))
-        .arg("run")
+        .arg("-interp")
         .arg(&source)
         .output()
         .unwrap();

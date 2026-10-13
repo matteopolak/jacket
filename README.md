@@ -42,11 +42,11 @@ main :: () -> int {
 ```
 
 ```sh
-jaic check examples/compile-time-record.jai        # type-check only
-jaic run examples/compile-time-record.jai          # run in the interpreter
-jaic build examples/compile-time-record.jai -O2    # native executable (-os windows to cross-build)
-jaic check broken.jai --color always               # force coloured errors (or NO_COLOR=1 to turn them off)
-jaic run examples/tour/main.jai                    # the language tour the playground opens with
+jaic examples/compile-time-record.jai -check        # type-check only
+jaic examples/compile-time-record.jai -interp       # run in the interpreter
+jaic examples/compile-time-record.jai               # native executable (-o: optimized; -os windows to cross-build)
+jaic broken.jai -check -no_color                    # plain errors (or FORCE_COLOR=1 to force colour into a pipe)
+jaic examples/tour/main.jai -interp                 # the language tour the playground opens with
 jailint src/                                       # lint every .jai file under src/
 jailint src/ --fix                                 # apply the safe fixes
 ```

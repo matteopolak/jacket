@@ -44,7 +44,7 @@ fn route_program(defs: &str, route: &str) -> String {
 #[track_caller]
 fn rejected(name: &str, defs: &str, route: &str, message: &str) {
     let dir = scratch(name);
-    let output = run_on(&dir, "check", &route_program(defs, route));
+    let output = run_on(&dir, "-check", &route_program(defs, route));
     assert_eq!(
         output.status.code(),
         Some(1),
@@ -73,7 +73,7 @@ fn a_valid_route_compiles() {
         "h :: (id: Path(\"id\", int)) -> User { return .{ id.value, \"Ada\" }; }",
         "\"/users/{id}\", h",
     );
-    let output = run_on(&dir, "check", &source);
+    let output = run_on(&dir, "-check", &source);
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -179,7 +179,7 @@ fn baked_caller_location_is_the_call_site() {
     let dir = scratch("caller_location");
     let output = run_on(
         &dir,
-        "run",
+        "-interp",
         "#import \"Basic\";\nwhere :: ($loc := #caller_location) {\n    print(\"%:%\\n\", loc.line_number, loc.character_number);\n}\nmain :: () {\n    where();\n    where();\n}\n",
     );
     assert_eq!(output.status.code(), Some(0));

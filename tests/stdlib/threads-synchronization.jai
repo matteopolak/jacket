@@ -2,7 +2,7 @@
 // non-atomic read-modify-write, semaphores with timeouts, a condition variable woken one at a time
 // and all at once, thread_is_done with and without a timeout, and the context a thread starts with.
 //
-// The browser and `jaic run -os wasm` run a started thread on top of the stack of whichever thread
+// The browser and `jaic -interp -os wasm` run a started thread on top of the stack of whichever thread
 // blocks first, and a thread that blocks after that point is abandoned rather than resumed
 // (docs/compiler/interpreter-threads.md). The checks that need a thread to sleep and be woken
 // again later only run where threads really are concurrent.

@@ -219,15 +219,15 @@ def train(bins, args, env, native):
         steps += [("sweep (native -O0)", sweep + ["--opt", "O0", "corpus", "stdlib", "examples"]),
                   ("sweep (native -O2)", sweep + ["--opt", "O2", "corpus", "examples"])]
     for bench in sorted((ROOT / "benchmarks").glob("*.jai")):
-        steps.append((f"run {bench.name}", [bins["jaic"], "run", bench]))
+        steps.append((f"run {bench.name}", [bins["jaic"], bench, "-interp"]))
     scratch = Path(tempfile.mkdtemp(prefix="jaic-pgo-"))
     jaifmt = ROOT / "jaifmt/main.jai"
     if native:
-        steps += [(f"build jaifmt -{o}", [bins["jaic"], "build", jaifmt, f"-{o}", "-o", scratch / f"jaifmt-{o}{EXE}"])
+        steps += [(f"build jaifmt -{o}", [bins["jaic"], jaifmt, f"-{o}", "-exe", scratch / f"jaifmt-{o}{EXE}"])
                   for o in ("O0", "O2")]
     else:
-        steps.append(("check jaifmt", [bins["jaic"], "check", jaifmt]))
-    steps += [("check tour", [bins["jaic"], "check", ROOT / "examples/tour/main.jai"]),
+        steps.append(("check jaifmt", [bins["jaic"], jaifmt, "-check"]))
+    steps += [("check tour", [bins["jaic"], ROOT / "examples/tour/main.jai", "-check"]),
               ("jailint stdlib", [bins["jailint"], "--color", "never", "-j", str(args.jobs), "stdlib"]),
               ("jailint examples and tests", [bins["jailint"], "--color", "never", "examples", "tests/stdlib"])]
     problems = []

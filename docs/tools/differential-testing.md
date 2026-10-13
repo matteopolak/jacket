@@ -6,11 +6,11 @@ There is no independent implementation to compare against, so jaic is checked ag
 
 | Backend | What runs |
 | --- | --- |
-| `interp` | `jaic run`: the IR interpreter on the host |
-| `native` | `jaic build -O0`, then the executable (LLVM) |
+| `interp` | `jaic -interp`: the IR interpreter on the host |
+| `native` | `jaic -O0`, then the executable (LLVM) |
 | `native-O2` | the same at `-O2`, so LLVM's optimizer is involved |
 | `wasm` | the browser engine (`crates/jai-wasm`, driven by node through `tools/jaic_diff_wasm.mjs`): the interpreter compiled to wasm32, target OS `.WASM`, `SandboxHost` libc |
-| `wasm-native` | `jaic build -os wasm` (LLVM, wasm64, `Wasi_Runtime`), run by node's WASI through `tools/wasi_run.mjs` ([wasm target](../native/wasm-target.md)). Only when named in `--backends`: it needs `wasm-ld` and node 24 |
+| `wasm-native` | `jaic -os wasm` (LLVM, wasm64, `Wasi_Runtime`), run by node's WASI through `tools/wasi_run.mjs` ([wasm target](../native/wasm-target.md)). Only when named in `--backends`: it needs `wasm-ld` and node 24 |
 
 `interp` and `wasm` share the interpreter, but they differ in target (32-bit `.WASM` against the host), constant folding host, file system and libc. `native` and `native-O2` share only the IR with the interpreter.
 
@@ -52,7 +52,7 @@ A backend is excluded from a case only for a stated reason, and as far as possib
 
 - `wasm`, any program: the engine's own refusals, recognised by their diagnostic `code` in the engine's JSON (`unavailable` for a foreign procedure no library there provides, `unknown-library` for a library declared only for other targets), and a stdlib module that rejects the target with `#assert` (`static-assert`). The codes are `DiagnosticKind::code` in `crates/jaic/src/source.rs`; the harness never matches message wording.
 - `wasm`, missing files: a file the sandbox lacks (the sandbox holds the workspace and the stdlib only): a `#load` that fails with `missing-file`, or File's own `Unable to open` log line in the program's output. This counts only when no host backend complained about the same file.
-- `native`, no `main`: `jaic build` exits with status 3 (the program has no `main`), so the program runs only at compile time.
+- `native`, no `main`: `jaic` exits with status 3 (the program has no `main`), so the program runs only at compile time.
 - `native`, no executable: the build wrote nothing at `-o` because the program's metaprogram decides what to write (its own workspaces, `NO_OUTPUT`).
 - `native`, compiler primitives: the program calls a `#compiler` primitive at run time, which exists only inside the compiler. The compiled stub says `is a compiler primitive; it runs only at compile time`.
 
@@ -62,7 +62,7 @@ A program whose source mentions `.WASM` (as in `OS == .WASM`) may skip work in t
 
 - `extensions-long-double` prints which `Long_Double` representation the target ABI has: float64 on arm64 macOS, binary128 on wasm32.
 - `iprof-runtime-manual` prints measured times.
-- `debug-assert-handlers` prints a native stack trace: addresses, and the symbols of whatever executable is running. Under `jaic run` that is the interpreter itself.
+- `debug-assert-handlers` prints a native stack trace: addresses, and the symbols of whatever executable is running. Under `jaic -interp` that is the interpreter itself.
 
 ### The generator (`tools/jaigen.py`)
 
@@ -190,6 +190,6 @@ The stdlib and modules sets build the [third-party native libraries](native-libs
 - Python 3.9+.
 - `tools/jaic-sweep.py`, which provides the process limits and the stale-binary check.
 - node, for the wasm backends (node 24 for `wasm-native`), and `wasm-ld` for `wasm-native`.
-- The LLVM 23 toolchain behind `jaic build`.
+- The LLVM 23 toolchain behind `jaic`.
 - The browser bundle built by `tools/build_scripting_wasm.py`.
 - Unit tests: `tools/test_jaic_diff.py`, which needs no compiler.

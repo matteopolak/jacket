@@ -1,5 +1,5 @@
 // A fiber that recurses until its stack is gone. Natively it hits the guard page and the program
-// stops with a message that names the fiber; under `jaic run` the interpreter's own depth limit
+// stops with a message that names the fiber; under `jaic -interp` the interpreter's own depth limit
 // stops it first.
 #import "Basic";
 Io :: #import "Extensions/Io";

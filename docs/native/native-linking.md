@@ -2,11 +2,11 @@
 
 ## What it is
 
-`jaic build` compiles the program to object files with `jaic-llvm` and links them with the system `cc` on macOS and Linux, or a Windows toolchain (see [Windows](windows.md)). It adds the libraries named by `#library` and `#system_library` that foreign symbols actually use.
+`jaic` compiles the program to object files with `jaic-llvm` and links them with the system `cc` on macOS and Linux, or a Windows toolchain (see [Windows](windows.md)). It adds the libraries named by `#library` and `#system_library` that foreign symbols actually use.
 
 ## How it works
 
-`build` and `LlvmBackend` in `crates/jaic-cli/src/main.rs` pick the output path (`-o`, else the metaprogram's `output_path` plus executable name, else the source file stem), apply `-O0..-O3` over the metaprogram's optimisation setting, and call `jaic_llvm::emit_objects` and `jaic_llvm::link`. A metaprogram can also ask for a shared or static library, an object file, or no output (`jaic::build::OutputType`).
+`build` and `LlvmBackend` in `crates/jaic-cli/src/main.rs` pick the output path (`-output_path` joined with `-exe`, else the metaprogram's `output_path` plus executable name, else the source file stem), apply `-O0..-O3` over the metaprogram's optimisation setting, and call `jaic_llvm::emit_objects` and `jaic_llvm::link`. A metaprogram can also ask for a shared or static library, an object file, or no output (`jaic::build::OutputType`).
 
 `used_libraries` keeps the libraries referenced by a foreign symbol plus `link_always` ones, including unnamed statements like `#library,system,link_always "libc++";` (registered by `declare_library` in `sema/modules.rs`). `library_args` turns each into linker inputs (`LinkArg`), and `render_link_arg` renders them per linker style. On macOS and Linux:
 
@@ -41,7 +41,7 @@ Tests in `crates/jaic-cli/tests/native.rs`: `corpus_runs_natively_like_the_inter
 - `JAIC_STDLIB`: stdlib directory (default `<repo>/stdlib`).
 - `JAIC_NATIVE_LIBS`: path list searched for third-party static archives. Default: `artifacts/native-libs/<os>-<arch>` next to the stdlib (`macos`/`linux`, `arm64`/`x64`), produced by `tools/build_native_libs.py`; see [third-party native libraries](../tools/native-libs.md).
 - `JAIC_LINKER`, `JAIC_AR`: override the linker or archiver (see [Windows](windows.md)).
-- CLI: `-o`, `-O0..-O3`, `--emit-ir file.ll`, `-sanitize address,undefined` (links with the LLVM install's `clang`; see [sanitizers](sanitizers.md)), `-I dir`, `-os windows`, `-cpu x64|arm64`, `-target triple`.
+- CLI: `-exe name`, `-output_path dir`, `-o` (optimized), `-od`, `-very_debug`, `-O0..-O3`, `-no_inline`, `-no_split`, `-emit_ir file.ll`, `-sanitize address,undefined` (links with the LLVM install's `clang`; see [sanitizers](sanitizers.md)), `-I dir`, `-os windows`, `-cpu x64|arm64`, `-target triple`.
 
 ## Dependencies
 

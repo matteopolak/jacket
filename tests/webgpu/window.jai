@@ -5,8 +5,8 @@
 // by CI on Linux under Xvfb with Mesa's lavapipe and on Windows with D3D12's WARP adapter
 // (docs/stdlib/webgpu.md#tests):
 //
-//     jaic run tests/webgpu/window.jai -- frames 30
-//     jaic build tests/webgpu/window.jai -o window && ./window frames 30
+//     jaic tests/webgpu/window.jai -interp -- frames 30
+//     jaic tests/webgpu/window.jai -exe ./window && ./window frames 30
 //
 // Arguments: `frames N` (default 60) and `fallback` (ask for the fallback, software, adapter).
 // Exit codes: 0 passed, 1 a check failed, 2 no window (no display), 77 no adapter here.

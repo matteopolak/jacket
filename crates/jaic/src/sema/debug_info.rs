@@ -1,7 +1,7 @@
 //! Debug information for native builds: what the LLVM backend needs to describe
 //! variables, lexical scopes and types to a debugger (`docs/native/debug-info.md`).
 //!
-//! Recording is off unless `Options::debug_info` is set (by `jaic build`), so the
+//! Recording is off unless `Options::debug_info` is set (by `jaic`), so the
 //! interpreter-only paths pay nothing. Procedures get an `ir::FuncDebug` side table;
 //! the referenced types are converted to `ir::DebugType`s once, when the program is
 //! about to be written (`collect_debug_types`).

@@ -25,7 +25,7 @@ The same declarations in an imported module go unchecked until something calls t
 
 ### Program files and module files
 
-The program's own files are those in the main module: the files given to the compiler (`jaic run/check/build file.jai`, a workspace's `add_build_file` and `add_build_string`) and every file they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load (the program's `modules/` folder too), and every file such a module `#load`s {#dce.7}. Sema tells them apart by `Scope::module == Compiler::main_module`.
+The program's own files are those in the main module: the files given to the compiler (`jaic file.jai`, a workspace's `add_build_file` and `add_build_string`) and every file they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load (the program's `modules/` folder too), and every file such a module `#load`s {#dce.7}. Sema tells them apart by `Scope::module == Compiler::main_module`.
 
 ### The rules
 
@@ -52,7 +52,7 @@ Compiled output contains only the functions that the program's exported entry po
    - `unreferenced_entity_wanted` picks unresolved declarations whose module is checked (`checks_unreferenced_in`). That means module and file scope declarations, struct constants, and procedure-literal constants declared inside bodies. `resolve_entity` checks them.
    - `check_unreferenced_proc` picks procedures with no target yet that are neither macros nor instances. It settles implicit polymorphism (`refresh_implicit_poly`) and skips polymorphic ones. A procedure without a body (`#foreign`, `#compiler`) only gets its signature checked, because a target would add a foreign symbol and link its library. Others get `proc_func` and `drain_bodies`, the same lowering a call triggers.
    - Anything inside a polymorphic instance, a macro expansion or a polymorphic struct instance is skipped (`inside_instance`): it is checked as that instance is used.
-3. Before `check_unreferenced` lowers anything it records `Compiler::unreferenced_from` (how many functions, globals and foreign symbols exist). `prepare_compiled_output` calls `drop_unreferenced_code`, which walks from every function and global older than the mark (plus exported ones) through calls, function and global addresses and relocations. Newer functions it does not reach become `None` (backends skip them), newer globals keep their size but lose their initializer, and newer foreign symbols stop pulling in their libraries. The interpreter (`jaic run`) keeps everything; it only runs what is called.
+3. Before `check_unreferenced` lowers anything it records `Compiler::unreferenced_from` (how many functions, globals and foreign symbols exist). `prepare_compiled_output` calls `drop_unreferenced_code`, which walks from every function and global older than the mark (plus exported ones) through calls, function and global addresses and relocations. Newer functions it does not reach become `None` (backends skip them), newer globals keep their size but lose their initializer, and newer foreign symbols stop pulling in their libraries. The interpreter (`jaic -interp`) keeps everything; it only runs what is called.
 
 The first error ends compilation as usual. Declarations are visited in creation order, which follows source order within a file, so the reported error does not depend on hashing.
 
@@ -74,7 +74,7 @@ Errors from this pass are ordinary compile errors. The language server publishes
 ## Configuration
 
 - `Build_Options.dead_code_elimination` (`stdlib/Compiler/options.jai`): `NONE`, `ALL`, `MODULES_ONLY` (default). A metaprogram sets it per workspace. `set_build_options` sends it only when it changed, so options that never mention it keep the command line's choice. A program may set it for its own workspace too; `finish_program` reads the setting last.
-- `-no_dce` (`jaic run|check|build`): `.NONE` for the program and the workspaces its metaprogram creates.
+- `-no_dce` (in every mode): `.NONE` for the program and the workspaces its metaprogram creates.
 - `sema::Options::dead_code` (`DeadCode`) is the embedder's default; `build::BuildSettings::dead_code_elimination` carries a workspace's setting.
 
 ## Dependencies

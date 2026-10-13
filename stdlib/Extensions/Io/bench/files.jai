@@ -3,7 +3,7 @@
 // single call) and from eight fibers (what overlapping buys). The file is in the page cache, which
 // is the case the inline threshold (`JAI_IO_FILE_INLINE`) is chosen for.
 //
-//     jaic build -O2 stdlib/Extensions/Io/bench/files.jai -o /tmp/io-files-bench
+//     jaic -O2 stdlib/Extensions/Io/bench/files.jai -exe /tmp/io-files-bench
 //     /tmp/io-files-bench
 #import "Basic";
 Io :: #import "Extensions/Io";

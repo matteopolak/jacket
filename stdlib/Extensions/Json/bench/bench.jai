@@ -1,7 +1,7 @@
 // Throughput of the JSON module with the scalar paths and with the vector paths (the structural
 // index and the vector string scans), in MB/s of JSON text.
 //
-//     jaic build -O2 stdlib/Extensions/Json/bench/bench.jai -o /tmp/json-bench
+//     jaic -O2 stdlib/Extensions/Json/bench/bench.jai -exe /tmp/json-bench
 //     /tmp/json-bench                        # a generated 4 MB document of mixed content
 //     /tmp/json-bench twitter.json canada.json citm_catalog.json
 //     /tmp/json-bench floats                 # a generated 2 MB array of coordinates, typed

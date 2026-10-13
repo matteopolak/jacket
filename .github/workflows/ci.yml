@@ -87,7 +87,7 @@ jobs:
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: '1.58.0'
-      # node 24: Memory64 without a flag, for the wasm64 modules `jaic build -os wasm` writes.
+      # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -100,7 +100,7 @@ jobs:
       - name: Install LLVM 23 (macOS)
         if: runner.os == 'macOS'
         run: |
-          # --lld: wasm-ld, which `jaic build -os wasm` links with (docs/native/wasm-target.md).
+          # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
           tools/install_ci_llvm_macos.sh --lld
       - name: Install LLVM 23 (Linux)
         if: runner.os == 'Linux'
@@ -181,7 +181,7 @@ jobs:
         # (docs/native/wasm-target.md).
         run: |
           cargo build --locked -p jaic-cli
-          target/debug/jaic build jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o target/jaifmt.wasm
+          target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40

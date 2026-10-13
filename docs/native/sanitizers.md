@@ -2,10 +2,10 @@
 
 ## What it is
 
-`jaic build -sanitize address,undefined` instruments a native build with LLVM's AddressSanitizer (ASan) and the UBSan checks that exist at the LLVM IR level, and links the matching runtime. The point is to catch native-codegen bugs that happen to run fine today (wrong struct layout, ABI marshalling that writes past a temporary, stack slots that are too small) along with ordinary memory errors in the stdlib and tests. `tools/jaic-sweep.py --sanitize` runs the test sets this way.
+`jaic -sanitize address,undefined` instruments a native build with LLVM's AddressSanitizer (ASan) and the UBSan checks that exist at the LLVM IR level, and links the matching runtime. The point is to catch native-codegen bugs that happen to run fine today (wrong struct layout, ABI marshalling that writes past a temporary, stack slots that are too small) along with ordinary memory errors in the stdlib and tests. `tools/jaic-sweep.py --sanitize` runs the test sets this way.
 
 ```
-$ jaic build uaf.jai -sanitize address && ./uaf
+$ jaic uaf.jai -sanitize address && ./uaf
 ==58208==ERROR: AddressSanitizer: heap-use-after-free on address 0x603000001010 ...
     #0 0x000102c27fa4 in get_s64_from_void_pointer.82 Print.jai:150
     ...
@@ -28,7 +28,7 @@ Jai's `Default_Allocator` calls C `malloc`/`free`, so ASan sees every heap block
 
 ### The sweep
 
-`tools/jaic-sweep.py --sanitize address,undefined corpus stdlib modules` builds every `run` case with `jaic build -sanitize ...` into a scratch directory, runs the executable from the source's directory and applies the same expectation as the interpreter run (exact stdout and exit code for `corpus`, exit 0 otherwise). A case also fails when stderr holds a sanitizer report, whatever its exit code; the report's first line is shown as the failure. `--native` does the same without sanitizers, and `--opt O2` picks the optimization level (default: what the program's metaprogram asks for, usually `-O0`). `check` cases (`negative`) are unchanged. A case's extra arguments go to `jaic build` (those after `--` to the executable); a case built for another platform (`-os`, `-cpu`, `-target`) is listed as not run natively.
+`tools/jaic-sweep.py --sanitize address,undefined corpus stdlib modules` builds every `run` case with `jaic -sanitize ...` into a scratch directory, runs the executable from the source's directory and applies the same expectation as the interpreter run (exact stdout and exit code for `corpus`, exit 0 otherwise). A case also fails when stderr holds a sanitizer report, whatever its exit code; the report's first line is shown as the failure. `--native` does the same without sanitizers, and `--opt O2` picks the optimization level (default: what the program's metaprogram asks for, usually `-O0`). `check` cases (`negative`) are unchanged. A case's extra arguments go to `jaic` (those after `--` to the executable); a case built for another platform (`-os`, `-cpu`, `-target`) is listed as not run natively.
 
 `examples` and `upstream` run the same way but are not expected to pass in full: some upstream `run` entry points do not fit a native build (a build script linking a Windows-only library, a library the interpreter only finds when loading it at run time, SDL window loops that never exit on their own), and two The_Way_to_Jai examples (`ttwj-10-10.4-dangling-pointers`, `ttwj-18-18.8-array-view-misuse`) read freed memory on purpose to show the bug, which ASan reports.
 

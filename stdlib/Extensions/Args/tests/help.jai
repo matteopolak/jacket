@@ -1,7 +1,7 @@
 // Args help output against golden texts (data/golden.jai), plus the colour rules, the
 // subcommand help pages and the error report layout.
 //
-//     jaic run stdlib/Extensions/Args/tests/help.jai
+//     jaic stdlib/Extensions/Args/tests/help.jai -interp
 //
 // After an intended layout change, regenerate the goldens with data/bless.jai.
 

@@ -3,14 +3,14 @@
 
 Usage: tools/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
-`jaic check` must fail and report the recorded text), stdlib (tests/stdlib,
+`jaic -check` must fail and report the recorded text), stdlib (tests/stdlib,
 run must succeed), modules (the stdlib's own tests: stdlib/tests and stdlib/<Module>/tests,
 run must succeed; a test directory's `modules/` folder holds its mock modules), examples (tests/examples.json:
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass, with the output the
 project documents where a case has an `expect` record), or file paths.
 
---native builds each `run` case with `jaic build` and runs the executable instead, with the
+--native builds each `run` case with `jaic` and runs the executable instead, with the
 same expectations; --sanitize address,undefined (implies --native) instruments those builds and
 fails a case on any sanitizer report (docs/native/sanitizers.md).
 """
@@ -124,7 +124,7 @@ def stale_sources(jaic):
 
 # jaic's exit status when JAIC_MEMORY_LIMIT stops it (`jaic::memory_limit::EXIT_CODE`).
 MEMORY_LIMIT_EXIT = 120
-# `jaic build`'s exit status for a program without `main` (NO_MAIN_STATUS in jaic-cli).
+# `jaic`'s exit status for a program without `main` (NO_MAIN_STATUS in jaic-cli).
 NO_MAIN_EXIT = 3
 
 def run_limited(command, cwd, timeout, limit_bytes, jaic=True):
@@ -189,14 +189,14 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, ru
     """Build `path` natively with `build_flags` and run the executable in the source's directory.
     Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
     an `error:` line first in stderr."""
-    # A case's extra arguments are `jaic run` options; the program's own come after `--`.
+    # A case's extra arguments are `jaic -interp` options; the program's own come after `--`.
     split = extra.index("--") if "--" in extra else len(extra)
     jaic_args, program_args = extra[:split], extra[split + 1:]
-    if any(a in jaic_args for a in ("-os", "-cpu", "-target", "--target")):
+    if any(a in jaic_args for a in ("-os", "-cpu", "-target")):
         return "", "", NO_EXECUTABLE  # built for another platform
     exe = Path(tempfile.mkdtemp(dir=scratch)) / path.stem
     try:
-        _, err, code = run_limited([jaic, "build", str(path), "-o", str(exe), *build_flags, *jaic_args],
+        _, err, code = run_limited([jaic, str(path), "-exe", str(exe), *build_flags, *jaic_args],
                                    path.parent, timeout, limit_bytes)
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
@@ -234,7 +234,7 @@ def main():
     ap.add_argument("--headless", action="store_true",
                     help="build (or check) programs that open windows instead of running them")
     ap.add_argument("--native", action="store_true",
-                    help="build `run` cases with `jaic build` and run the executables")
+                    help="build `run` cases with `jaic` and run the executables")
     ap.add_argument("--sanitize", default="",
                     help="sanitizers for native builds (address, undefined or both, comma-separated); implies --native")
     ap.add_argument("--opt", default="", choices=["", "O0", "O1", "O2", "O3"],
@@ -290,7 +290,11 @@ def main():
         else:
             # A sweep only checks what metaprograms' workspaces produce; it writes nothing.
             quiet = ["-no_workspace_output"] if mode == "run" and not windowed else []
-            out, err, code = run_limited([a.jaic, "check" if windowed else mode, str(path), *quiet, *extra],
+            # `run` interprets, `check` only compiles, `build` is jaic's default.
+            mode_flag = {"run": ["-interp"], "check": ["-check"], "build": []}[mode]
+            if windowed:
+                mode_flag = ["-check"]
+            out, err, code = run_limited([a.jaic, str(path), *mode_flag, *quiet, *extra],
                                          path.parent, a.timeout, limit_bytes)
         # `run_after`: the program the build produced is run, and the expectations apply to it.
         if code == 0 and expect and expect.get("run_after"):

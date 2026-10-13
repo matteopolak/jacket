@@ -12,7 +12,7 @@ The whole core language: types, procedures, structs, enums, unions, `using`, `de
 
 ### Compile-time execution
 
-`#run` and `jaic run` use an IR interpreter that calls into C libraries, and C can call back into Jai through procedure pointers passed as arguments or stored in memory, even from threads C starts itself. A crash inside C code names the foreign procedure and the Jai call stack. Metaprograms get the full `Compiler` module: workspaces, the message loop and build options.
+`#run` and `jaic -interp` use an IR interpreter that calls into C libraries, and C can call back into Jai through procedure pointers passed as arguments or stored in memory, even from threads C starts itself. A crash inside C code names the foreign procedure and the Jai call stack. Metaprograms get the full `Compiler` module: workspaces, the message loop and build options.
 
 ### Errors
 
@@ -30,9 +30,9 @@ Native executables through LLVM, with debug information (DWARF on macOS and Linu
 
 ### WebAssembly
 
-WebAssembly modules (wasm64): `jaic build -os wasm` writes a WASI command that runs under node 24, wasmtime or a Memory64 browser, with threads run as cooperative green threads ([threads in WASI builds](native/wasm-threads.md)), and a metaprogram can target it with `os_target = .WASM` ([wasm target](native/wasm-target.md)).
+WebAssembly modules (wasm64): `jaic -os wasm` writes a WASI command that runs under node 24, wasmtime or a Memory64 browser, with threads run as cooperative green threads ([threads in WASI builds](native/wasm-threads.md)), and a metaprogram can target it with `os_target = .WASM` ([wasm target](native/wasm-target.md)).
 
-On macOS and Linux, `jaic build -sanitize address,undefined` adds AddressSanitizer and LLVM's bounds checks ([sanitizers](native/sanitizers.md)); CI runs the test programs that way.
+On macOS and Linux, `jaic -sanitize address,undefined` adds AddressSanitizer and LLVM's bounds checks ([sanitizers](native/sanitizers.md)); CI runs the test programs that way.
 
 ### Standard library
 
@@ -76,7 +76,7 @@ About 4 s of Focus's release build is its build script packaging the app (`dsymu
 
 ## What is missing
 
-- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Extensions/Long_Double`](language/long-double.md) module; C variadic calls cannot pass it, and in `jaic run` C cannot call back into Jai code that takes one.
+- C's 16-byte `long double` (x86-64, arm64 Linux) is available only through jaic's non-standard [`Extensions/Long_Double`](language/long-double.md) module; C variadic calls cannot pass it, and in `jaic -interp` C cannot call back into Jai code that takes one.
 - WebAssembly builds are wasm64 only, run threads cooperatively (a busy wait that never blocks keeps the turn), have no processes or sockets, see only the directories their runtime pre-opens, and can call only the common part of libm (`sin`, `pow`, `fmod` and the like, not `sinh` or `cbrt`).
 
 Anything unsupported fails with a compile error rather than being silently accepted.

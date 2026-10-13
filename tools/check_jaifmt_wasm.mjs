@@ -1,4 +1,4 @@
-// Checks jaifmt.wasm (jaifmt/wasm.jai compiled by `jaic build -os wasm`) the way a page
+// Checks jaifmt.wasm (jaifmt/wasm.jai compiled by `jaic -os wasm`) the way a page
 // uses it: source on stdin, the jaifmt.toml text in --config, the result on stdout. Every
 // Jai_Format golden case must format to its .out.jai, and, given a native jaifmt, to exactly
 // what `jaifmt --stdin --config <file>` prints. Also checks a config error, refused input and

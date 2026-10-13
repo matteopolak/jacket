@@ -19,7 +19,7 @@ let
     cargo = rustToolchain;
     rustc = rustToolchain;
   };
-  # What `jaic build` runs: `cc` as the linker driver, `ar` for static libraries and, on
+  # What `jaic` runs: `cc` as the linker driver, `ar` for static libraries and, on
   # macOS, `dsymutil` for debug information. Appended to PATH so a user's own `cc` wins.
   toolPath = lib.makeBinPath (
     [
@@ -107,13 +107,13 @@ rustPlatform.buildRustPackage {
     cp examples/compile-time-record.jai $work/record.jai
     printf '#import "Basic";\nmain :: () { print("hello from nix\\n"); }\n' > $work/hello.jai
     pushd $work
-    status=0; $out/bin/jaic run record.jai || status=$?
+    status=0; $out/bin/jaic record.jai -interp || status=$?
     test "$status" = 42
-    $out/bin/jaic run hello.jai | grep -qx 'hello from nix'
+    $out/bin/jaic hello.jai -interp | grep -qx 'hello from nix'
     $out/bin/jailint -D warnings hello.jai
-    $out/bin/jaic build hello.jai -o hello
+    $out/bin/jaic hello.jai -exe hello
     ./hello | grep -qx 'hello from nix'
-    $out/bin/jaic build record.jai -o record
+    $out/bin/jaic record.jai -exe record
     status=0; ./record || status=$?
     test "$status" = 42
     popd

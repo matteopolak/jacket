@@ -89,11 +89,11 @@ main :: () {
     args := get_command_line_arguments();
     for args check(it.count > 0, "command line argument");
 
-    // Built, argv[0] is the executable. `jaic run runtime.jai -- runtime-arg` passes the source
+    // Built, argv[0] is the executable. `jaic runtime.jai -interp -- runtime-arg` passes the source
     // file and that argument; on Windows they are read again from the wide command line, which
-    // must be the program's and not jaic's own (`jaic.exe run runtime.jai -- runtime-arg`).
+    // must be the program's and not jaic's own (`jaic.exe runtime.jai -interp -- runtime-arg`).
     if args.count > 1 {
-        check(args.count == 2 && ends_with(args[0], "runtime.jai") && args[1] == "runtime-arg", "arguments under jaic run");
+        check(args.count == 2 && ends_with(args[0], "runtime.jai") && args[1] == "runtime-arg", "arguments under jaic -interp");
     } else {
         #if OS == .WINDOWS check(args.count == 1 && ends_with(args[0], ".exe"), "argv[0] from the wide command line");
     }

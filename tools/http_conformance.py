@@ -135,7 +135,7 @@ def check_server(jaic):
     print("== echo server probes")
     work = Path(tempfile.mkdtemp(prefix="http-conformance-"))
     binary = work / "echo_server"
-    build = subprocess.run([str(jaic), "build", str(ROOT / "tools" / "http_garden" / "server.jai"), "-o", str(binary)],
+    build = subprocess.run([str(jaic), str(ROOT / "tools" / "http_garden" / "server.jai"), "-exe", str(binary)],
                            capture_output=True, text=True, cwd=ROOT)
 
     if build.returncode != 0:
@@ -253,7 +253,7 @@ def check_server(jaic):
 
 
 def llhttp_summary(jaic):
-    result = subprocess.run([str(jaic), "run", str(HTTP_TESTS / "llhttp.jai")], capture_output=True, text=True, cwd=ROOT)
+    result = subprocess.run([str(jaic), str(HTTP_TESTS / "llhttp.jai"), "-interp"], capture_output=True, text=True, cwd=ROOT)
     match = re.search(r"(\d+) cases: (\d+) match llhttp, (\d+) deviate on purpose, (\d+) need a lenient mode", result.stdout)
 
     if match:

@@ -1,5 +1,5 @@
 // Bit patterns of x87 extended-precision arithmetic on pseudo-random operands. The interpreter's
-// soft-float output (`jaic run -target x86_64-...`) must match the hardware's (a native x86-64
+// soft-float output (`jaic -interp -target x86_64-...`) must match the hardware's (a native x86-64
 // build) byte for byte.
 #import "Basic";
 #import "Extensions/Long_Double";

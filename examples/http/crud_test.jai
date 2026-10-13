@@ -1,6 +1,6 @@
 // End-to-end tests for the notes API (notes.jai), with no socket and no setup.
 //
-//     jaic run examples/http/crud_test.jai
+//     jaic examples/http/crud_test.jai -interp
 //
 // `test_client` is the ordinary HTTP client wired to the app in memory: every request goes
 // through the real connection loop (parsing, routing, extractors, error mapping, the response

@@ -1,7 +1,7 @@
 // Matches random patterns against random texts and compares every match and capture span with
 // what Rust's regex crate found (data/differential_cases.jai, from tools/gen_regex_corpus.py).
 //
-//     jaic run stdlib/Extensions/Regex/tests/differential.jai
+//     jaic stdlib/Extensions/Regex/tests/differential.jai -interp
 
 #import "Basic";
 Regex :: #import "Extensions/Regex";

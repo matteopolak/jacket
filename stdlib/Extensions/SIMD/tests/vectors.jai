@@ -1,6 +1,6 @@
 // Every operation of Extensions/SIMD against a scalar expectation.
 //
-//     jaic run stdlib/Extensions/SIMD/tests/vectors.jai
+//     jaic stdlib/Extensions/SIMD/tests/vectors.jai -interp
 
 #import "Basic";
 #import "Math";

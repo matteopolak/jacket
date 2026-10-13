@@ -1,4 +1,4 @@
-//! The project a document belongs to: its program's entry file (what `jaic build` is given),
+//! The project a document belongs to: its program's entry file (what `jaic` is given),
 //! the files that entry `#load`s, and the folders modules are imported from. Auto-import
 //! completion (`auto_import.rs`) uses it to tell a name the program already sees from one a
 //! `#load` or `#import` would bring in.
@@ -22,7 +22,7 @@ pub const INFERRED_ENTRIES: &[&str] = &["build.jai", "first.jai", "main.jai", "s
 /// The settings of a `jai.toml`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProjectConfig {
-    /// `build_files = ["first.jai"]`: the files given to `jaic build` (or `add_build_file`).
+    /// `build_files = ["first.jai"]`: the files given to `jaic` (or `add_build_file`).
     pub build_files: Vec<String>,
     /// `import_path = ["vendor"]`: more module folders, as `-import_dir` (and
     /// `Build_Options.import_path`) add.

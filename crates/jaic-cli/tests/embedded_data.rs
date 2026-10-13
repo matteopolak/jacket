@@ -46,7 +46,7 @@ fn build_and_run(level: &str) -> String {
         "out"
     });
     let build = Command::new(JAIC)
-        .args(["build", "main.jai", level, "-o"])
+        .args(["main.jai", level, "-exe"])
         .arg(&exe)
         .current_dir(&dir)
         .output()

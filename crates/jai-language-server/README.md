@@ -120,7 +120,7 @@ Jails is not modified in `corpus/upstream`; the copy below goes to a scratch dir
 ```sh
 J=/tmp/jails-build
 mkdir -p $J && cp -RL corpus/upstream/SogoCZE--Jails/. $J/ && rm -rf $J/bin/*
-(cd $J && /path/to/jaic build build.jai - -release)      # writes $J/bin/jails
+(cd $J && /path/to/jaic build.jai - -release)      # writes $J/bin/jails
 # For the patched build, replace `table_reset(*declarations);` in $J/server/program.jai with:
 #   declarations.entries = .{}; declarations.count = 0; declarations.allocated = 0; declarations.slots_filled = 0; declarations.allocator = .{};
 

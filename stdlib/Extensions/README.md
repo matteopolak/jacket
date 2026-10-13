@@ -17,6 +17,6 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Io";` | Cooperative fibers: a per-thread scheduler, `spawn`/`sleep`/`cancel`, bounded channels, wait groups (not on wasm) |
 | `#import "Extensions/Io_Uring";` | Linux io_uring: kernel constants and structs generated from the UAPI header, the three system calls, and a mapped `Ring` (Linux only) |
 | `#import "Extensions/Tls";` | TLS 1.2 and 1.3 on a vendored mbedTLS: client and server handshakes over any `Io` reader/writer pair, system or private roots, ALPN; used by Http for HTTPS (not on wasm) |
-| `#import "Extensions/Wasi_Runtime";` | The C library and `_start` a wasm64 program needs as a WASI command (added by `jaic build -os wasm`) |
+| `#import "Extensions/Wasi_Runtime";` | The C library and `_start` a wasm64 program needs as a WASI command (added by `jaic -os wasm`) |
 
 They may change between jaic releases. Details: `docs/stdlib/extensions.md` in the jaic repository.

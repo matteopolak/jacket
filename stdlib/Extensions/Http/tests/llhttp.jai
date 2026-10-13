@@ -5,7 +5,7 @@
 // deviation that no longer differs. Fixtures that ran with an llhttp leniency flag may differ
 // (the codec has no lenient mode). Every case also has to give one result however its input is cut.
 //
-//     jaic run stdlib/Extensions/Http/tests/llhttp.jai
+//     jaic stdlib/Extensions/Http/tests/llhttp.jai -interp
 
 #load "lib/support.jai";
 #load "data/llhttp_cases.jai";

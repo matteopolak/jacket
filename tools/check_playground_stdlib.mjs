@@ -2,7 +2,7 @@
 // Usage:
 //   node tools/check_playground_stdlib.mjs <staged-dir> [name.jai...]
 // A test passes when it finishes with exit code 0 and no error diagnostics, the same bar as the native loop
-// (`jaic run` exits 0). A test that cannot pass in the browser (it needs processes, native libraries, a window
+// (`jaic -interp` exits 0). A test that cannot pass in the browser (it needs processes, native libraries, a window
 // system) has a line in tests/stdlib-runtime-skips.txt whose modes include `playground` (platform `browser`);
 // it still runs, and passing then fails the check as stale, as `stdlib_runtime.py --strict` does.
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";

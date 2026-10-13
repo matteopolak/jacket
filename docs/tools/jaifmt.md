@@ -2,10 +2,10 @@
 
 ## What it is
 
-`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic run` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
+`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
 
 ```sh
-target/debug/jaic build jaifmt/build.jai   # or: jaic build jaifmt/main.jai -O2 -o target/jaifmt
+target/debug/jaic jaifmt/build.jai   # or: jaic jaifmt/main.jai -O2 -exe target/jaifmt
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
 target/jaifmt --stdin < in.jai > out.jai   # editor integration
@@ -48,22 +48,22 @@ error: `<PATHS>` cannot be used with `--stdin`
 
 A bad `jaifmt.toml` is reported as ``in `path`, line N: ...`` with the fix.
 
-Under the interpreter: `jaic run jaifmt/main.jai -- --check "$PWD/stdlib"`. `jaic run` starts programs in the main file's directory, so pass absolute paths.
+Under the interpreter: `jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"`. `jaic -interp` starts programs in the main file's directory, so pass absolute paths.
 
 ### Building with the metaprogram (`jaifmt/build.jai`)
 
 The program lives in the top-level `jaifmt/` directory (`main.jai`, the browser drivers `playground.jai` and `wasm.jai`, and `build.jai`); `tools/` is for repository-maintenance scripts. `build.jai` is a [Compiler module](../metaprogramming/compiler-module.md) metaprogram that builds an optimised jaifmt in a workspace of its own:
 
 ```sh
-jaic build jaifmt/build.jai                     # target/jaifmt (native, optimised, no debug info)
-jaic build jaifmt/build.jai - wasm              # target/jaifmt.wasm (WASI, same as -os wasm)
-jaic build jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
-jaic build jaifmt/build.jai - --help            # the options, parsed by Extensions/Args
+jaic jaifmt/build.jai                     # target/jaifmt (native, optimised, no debug info)
+jaic jaifmt/build.jai - wasm              # target/jaifmt.wasm (WASI, same as -os wasm)
+jaic jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
+jaic jaifmt/build.jai - --help            # the options, parsed by Extensions/Args
 ```
 
-- It must be `jaic build` (or `jaic run`): `jaic check` has no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
+- It must be `jaic` (or `jaic -interp`): `jaic -check` has no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
 - The default output is `target/` at the repository root (anchored on `#filepath`), wherever `jaic` was started. A relative `-o` path is relative to `jaifmt/`, because `jaic`, like `jai`, runs from the main file's directory. The default is not `jaifmt` at the root because that is the source directory.
-- `set_optimization(.OPTIMIZED)` means `-O2` code with bounds, null and cast checks off, as a shipping build. The plain `jaic build jaifmt/main.jai -O2` (used by CI, the Nix package and the tests) keeps the checks. Both pass the token-equivalence check, which is what guards the output.
+- `set_optimization(.OPTIMIZED)` means `-O2` code with bounds, null and cast checks off, as a shipping build. The plain `jaic jaifmt/main.jai -O2` (used by CI, the Nix package and the tests) keeps the checks. Both pass the token-equivalence check, which is what guards the output.
 - The wasm build sets `os_target = .WASM`, `cpu_target = .CUSTOM` and the triple `wasm64-unknown-wasi`, which makes `jaic` link `Wasi_Runtime` exactly as `-os wasm` does.
 
 ## How it works
@@ -287,7 +287,7 @@ Binary versus prefix is decided from the previous code token: an operand (identi
 - New indentation behavior: `line_indent` (where a line starts) and `track` (what a token does to the frame stack). `starts_statement` decides statement versus continuation lines.
 - Lexer changes must mirror `crates/jaic/src/lexer.rs`; if the two disagree about where a token ends, the safety check can accept output that `jaic` lexes differently. Likewise, if the parser starts to depend on whitespace somewhere new (look for `newline_before` and `span.start == ...end` in `crates/jaic/src/parser/`), teach `check_equivalent` about it and make the formatter keep that spacing.
 - The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and `corpus/upstream` (point a worktree's `corpus/upstream` symlink at the copy) and run the sweep. This is how the directive-flag adjacency rule was found.
-- Golden tests: `stdlib/Extensions/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (with `<name>.toml` as config if present). Run `jaic run stdlib/Extensions/Jai_Format/tests/golden.jai` (part of the sweep's `modules` set); after an intended change, regenerate with `jaic run stdlib/Extensions/Jai_Format/tests/golden.jai -- --bless` and review the diff. The same test checks idempotence, the refusal of malformed input, the safety check, config parsing and globs, and that the formatter's own sources are formatted.
+- Golden tests: `stdlib/Extensions/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (with `<name>.toml` as config if present). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp` (part of the sweep's `modules` set); after an intended change, regenerate with `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp -- --bless` and review the diff. The same test checks idempotence, the refusal of malformed input, the safety check, config parsing and globs, and that the formatter's own sources are formatted.
 - `tests/stdlib/jai-format-api.jai` exercises the public API on in-memory text only, so it runs unchanged in the browser engine (`tools/check_playground_stdlib.mjs`). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | staged-dir>` runs the browser driver through the wasm engine on every golden case (CI runs it on the debug wasm).
 - Moving or renaming `jaifmt/`: CI (`ci.yml`), `nix/jaifmt.nix`, `tools/build_scripting_wasm.py` (and its test), `tools/build_pgo.py`, `tools/check_jaifmt_wasm.mjs`, `tools/check_jai_format_wasm.mjs`, the jaic-cli tests and the last entry of `SOURCES` in `stdlib/Extensions/Jai_Format/tests/golden.jai` all name its files. The browser bundle's names (`jaifmt-playground.jai`, `jaifmt.wasm`) are what pages fetch, so they do not follow the source path.
 - Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
@@ -324,8 +324,8 @@ Ignore globs are relative to the config file's directory: `*` and `?` stay withi
 | Run | Time |
 | --- | --- |
 | native `-O2`, ~650 files / 180k lines | 0.4 s (building the tool: about 1 s) |
-| `jaic run` (release `jaic`), whole repository | 30 s |
-| `jaic run`, one 327-line file / one 814-line file | 0.14 s / 0.21 s |
+| `jaic -interp` (release `jaic`), whole repository | 30 s |
+| `jaic -interp`, one 327-line file / one 814-line file | 0.14 s / 0.21 s |
 | browser engine (release wasm), 327-line file | 75 ms (a golden case: ~25 ms) |
 | browser engine (debug wasm, as in CI), 327-line file | 375 ms |
 | `jaifmt.wasm` under node 24, 327-line file / a golden case | 2.2 ms / 0.7 ms (a fresh instance each run; compiling the module: under 1 ms) |
@@ -363,7 +363,7 @@ else showError(result.stderr);                                // "jaifmt: main.j
 `jaifmt/wasm.jai` is jaifmt as a WASI command, compiled by a native `jaic` ([wasm target](../native/wasm-target.md)):
 
 ```sh
-jaic build jaifmt/wasm.jai -os wasm -O2 --no-debug-info -o jaifmt.wasm
+jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm
 node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai > out.jai
 node --no-warnings tools/check_jaifmt_wasm.mjs jaifmt.wasm target/jaifmt   # golden cases, byte-identical to native
 ```
@@ -379,7 +379,7 @@ It is about 35 times faster than interpreting `jaifmt-playground.jai` in the eng
 | golden case | ~25 ms | 0.7 ms |
 | runtimes | any wasm32 browser | Memory64: Chrome 133, Firefox 134, node 24; not Safari yet |
 
-(Apple M5, LLVM 23, `-O2 --no-debug-info`, no `wasm-opt`; node 24.12.)
+(Apple M5, LLVM 23, `-O2 -no_debug_info`, no `wasm-opt`; node 24.12.)
 
 `tools/build_scripting_wasm.py --jaic <native jaic>` stages it as `jaifmt.wasm` and records `jaifmt_wasm_sha256` in `build-metadata.json`; release bundles require it ([compiler releases](../browser/compiler-releases.md)). To use it, a page:
 
@@ -391,4 +391,4 @@ It is about 35 times faster than interpreting `jaifmt-playground.jai` in the eng
 
 ## Dependencies
 
-`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities` and `Sort`, plus `POSIX` (or `Windows` on Windows) to read standard input; it keeps paths with forward slashes, so it runs on Windows too (release archives ship `jaifmt.exe`); the playground driver adds `File`. The browser path needs the wasm engine (`crates/jai-wasm/js/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)), or, for `jaifmt.wasm`, a native `jaic` with `wasm-ld` to build it, `Wasi_Runtime`, and a Memory64 runtime. Running it under the interpreter needs `jaic run ... -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.
+`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities` and `Sort`, plus `POSIX` (or `Windows` on Windows) to read standard input; it keeps paths with forward slashes, so it runs on Windows too (release archives ship `jaifmt.exe`); the playground driver adds `File`. The browser path needs the wasm engine (`crates/jai-wasm/js/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)), or, for `jaifmt.wasm`, a native `jaic` with `wasm-ld` to build it, `Wasi_Runtime`, and a Memory64 runtime. Running it under the interpreter needs `jaic ... -interp -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.

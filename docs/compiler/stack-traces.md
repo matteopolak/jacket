@@ -2,7 +2,7 @@
 
 ## What it is
 
-While a program runs, under `jaic run` or as a `jaic build` executable, `context.stack_trace` points at a linked list of `Stack_Trace_Node`s, innermost procedure first, as in Jai. `print_stack_trace`, assertion failures and the memory debugger's leak reports read it.
+While a program runs, under `jaic -interp` or as a `jaic` executable, `context.stack_trace` points at a linked list of `Stack_Trace_Node`s, innermost procedure first, as in Jai. `print_stack_trace`, assertion failures and the memory debugger's leak reports read it.
 
 ## How it works
 
@@ -26,7 +26,7 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
   `Compiler::enable_stack_traces`, called from `run_program` and
   from `call_thunk` (so `#run` code also gets traces; the thunk itself has no node, so the first
   node's `next` is null). Nothing is pushed when the layout is `None`, which is also what a Preload whose fields have other sizes gets.
-- **Compiled output**: `Compiler::prepare_compiled_output` (called by both `jaic build` and the
+- **Compiled output**: `Compiler::prepare_compiled_output` (called by both `jaic` and the
   metaprogram's output path before the backend writes) runs `stack_trace::instrument`
   (`crates/jaic/src/stack_trace.rs`), an IR pass. Each traced function gets a node slot; a new
   entry block links it (depth and hash from the previous top, or 1 and a seed for the first node) and
@@ -39,7 +39,7 @@ While a program runs, under `jaic run` or as a `jaic build` executable, `context
 - `runtime_support_assertion_failed` (`stdlib/Runtime_Support.jai`) prints
   `path:line:col: error: assertion failed: message` (`assertion failed` alone when there is
   none), then `call stack (innermost first):` and one `name at path:line` per node, the same
-  layout `jaic run` uses for runtime errors (see [diagnostics](diagnostics.md)).
+  layout `jaic -interp` uses for runtime errors (see [diagnostics](diagnostics.md)).
   The stack starts at the node running the line the assertion names (`loc`), which leaves out
   the assertion machinery above it (`assert_helper`, the context's handler, the report itself)
   without naming it; the interpreter's report skips its frames the same way (`trap_report.rs`).

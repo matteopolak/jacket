@@ -1,4 +1,4 @@
-//! `jaic build -os wasm`: wasm64 modules linked by wasm-ld, run under node's WASI
+//! `jaic -os wasm`: wasm64 modules linked by wasm-ld, run under node's WASI
 //! (docs/native/wasm-target.md). Each test is skipped, with a note, when node or wasm-ld is
 //! missing, unless `JAIC_REQUIRE_WASM_TESTS=1` (CI sets it).
 use std::path::{Path, PathBuf};
@@ -129,12 +129,7 @@ main :: () -> s32 {
 "#,
     )
     .unwrap();
-    if jaic(
-        &dir,
-        &["build", "hello.jai", "-os", "wasm", "-o", "hello.wasm"],
-    )
-    .is_none()
-    {
+    if jaic(&dir, &["hello.jai", "-os", "wasm", "-exe", "hello.wasm"]).is_none() {
         return;
     }
     let module = dir.join("hello.wasm");
@@ -169,10 +164,11 @@ fn wasm_allocation_heavy_program() {
     let dir = scratch("wasm-program");
     let source = repo_root().join("tests/native/wasm/program.jai");
     let source = source.to_str().unwrap();
+    let module = dir.join("program.wasm");
     for opt in ["-O0", "-O2"] {
         if jaic(
             &dir,
-            &["build", source, "-os", "wasm", opt, "-o", "program.wasm"],
+            &[source, "-os", "wasm", opt, "-exe", module.to_str().unwrap()],
         )
         .is_none()
         {
@@ -212,11 +208,10 @@ fn wasm_tour_runs_as_a_wasi_command() {
     if jaic(
         &tour,
         &[
-            "build",
             main.to_str().unwrap(),
             "-os",
             "wasm",
-            "-o",
+            "-exe",
             module.to_str().unwrap(),
         ],
     )
@@ -262,7 +257,7 @@ fn wasm_build_options_from_a_metaprogram() {
         )
         .unwrap();
     }
-    if jaic(&dir, &["build", "build_wasi.jai"]).is_none() {
+    if jaic(&dir, &["build_wasi.jai"]).is_none() {
         return;
     }
     let output = wasi_run(&dir.join("program.wasm"), &[], "");
@@ -282,14 +277,14 @@ fn wasm_build_options_from_a_metaprogram() {
 fn wasm_bare_module_imports_and_exports() {
     let dir = scratch("wasm-exports");
     let source = repo_root().join("tests/native/wasm/exports.jai");
+    let module = dir.join("exports.wasm");
     let args = [
-        "build",
         source.to_str().unwrap(),
         "-target",
         "wasm64-unknown-unknown",
         "-O2",
-        "-o",
-        "exports.wasm",
+        "-exe",
+        module.to_str().unwrap(),
     ];
     if jaic(&dir, &args).is_none() {
         return;
@@ -329,15 +324,15 @@ fn wasm_bare_module_imports_and_exports() {
 fn jaifmt_wasm_formats_the_golden_cases() {
     let dir = scratch("wasm-jaifmt");
     let source = repo_root().join("jaifmt/wasm.jai");
+    let module = dir.join("jaifmt.wasm");
     let args = [
-        "build",
         source.to_str().unwrap(),
         "-os",
         "wasm",
         "-O2",
-        "--no-debug-info",
-        "-o",
-        "jaifmt.wasm",
+        "-no_debug_info",
+        "-exe",
+        module.to_str().unwrap(),
     ];
     if jaic(&dir, &args).is_none() {
         return;
@@ -359,14 +354,13 @@ fn jaifmt_wasm_formats_the_golden_cases() {
     assert_eq!(piped.status.code(), Some(0));
 }
 
-/// `jaic build jaifmt/build.jai - wasm` builds the same WASI module through the Compiler module.
+/// `jaic jaifmt/build.jai - wasm` builds the same WASI module through the Compiler module.
 #[test]
 fn jaifmt_wasm_from_the_build_metaprogram() {
     let dir = scratch("wasm-jaifmt-metaprogram");
     let build = repo_root().join("jaifmt/build.jai");
     let module = dir.join("jaifmt.wasm");
     let args = [
-        "build",
         build.to_str().unwrap(),
         "-",
         "wasm",
@@ -388,7 +382,7 @@ fn corpus_runs_as_wasm_like_the_interpreter() {
     let (mut checked, mut failures) = (0, Vec::new());
     for case in corpus_cases() {
         let interp = Command::new(JAIC)
-            .arg("run")
+            .arg("-interp")
             .arg(&case.source)
             .current_dir(case.source.parent().unwrap())
             .output()
@@ -398,11 +392,10 @@ fn corpus_runs_as_wasm_like_the_interpreter() {
         }
         let module = dir.join(format!("{}.wasm", case.id));
         let args = [
-            "build",
             case.source.to_str().unwrap(),
             "-os",
             "wasm",
-            "-o",
+            "-exe",
             module.to_str().unwrap(),
         ];
         let Some(_) = jaic(case.source.parent().unwrap(), &args) else {

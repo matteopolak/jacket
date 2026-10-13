@@ -25,7 +25,7 @@ instead.
   yet in the OS file cache (jaic has no on-disk cache). The median of the remaining runs is **warm**, and
   `--compare` uses warm numbers. Builds write into a temporary directory or the project's own output path.
 - **Peak RSS** comes from `os.wait4` on the jaic process. Children such as the linker are not included.
-- **Phases**: the script passes `--timings` (placed before any `-` so the metaprogram does not get it). jaic
+- **Phases**: the script passes `-timings` (placed before any `-` so the metaprogram does not get it). jaic
   then prints `jaic-timing: <phase> <seconds> <calls>` on stderr. The phases are `total`, `front end`
   (parse, sema, compile-time code, including metaprogram workspaces built inside it), `workspaces`, `run`,
   `prepare output`, `codegen` (LLVM), `link` and `debug info` (dsymutil; only builds that run it, so not `-O0` on macOS, see [debug info](../native/debug-info.md)). Phases nest, so they do not add up
@@ -77,7 +77,7 @@ them.
   `--list`.
 - `JAIC_NATIVE_LIBS` when the checkout has no `artifacts/native-libs` (worktrees): chess-jai and focus link
   stb libraries.
-- jaic's `--timings` flag works with any command.
+- jaic's `-timings` flag works with any command.
 
 ## Dependencies
 

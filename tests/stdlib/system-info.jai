@@ -17,7 +17,7 @@ main :: () {
             directory, found := is_directory(executable);
             assert(found && !directory, "'%' is a file", executable);
         } else {
-            // Under `jaic run` it is the executable `jaic build` would write, which may not exist.
+            // Under `jaic -interp` it is the executable `jaic` would write, which may not exist.
             assert(contains(path_filename(executable), "system-info"), "'%' names the program", executable);
         }
 

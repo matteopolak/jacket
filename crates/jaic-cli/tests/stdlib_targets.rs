@@ -1,6 +1,6 @@
 //! Every stdlib module type-checks for every target OS, including the code nothing calls.
 //!
-//! `jaic check -no_dce -os <os> -cpu <cpu>` on a program that only imports the module checks every
+//! `jaic -check -no_dce -os <os> -cpu <cpu>` on a program that only imports the module checks every
 //! procedure body and declaration in it, so code for other platforms and procedures no test
 //! calls cannot hide type errors. Modules that refuse a target on purpose (`#assert(OS == ...)`)
 //! are listed in `tests/stdlib-targets.txt` with the first error they stop at; the test fails when
@@ -130,7 +130,7 @@ fn every_stdlib_module_checks_for_every_target() {
                     let (target_os, cpu) = os.split_once('-').unwrap_or((os, ""));
                     let mut command = Command::new(JAIC);
                     command
-                        .arg("check")
+                        .arg("-check")
                         .arg(&source)
                         .args(["-no_dce", "-os", target_os]);
                     if !cpu.is_empty() {

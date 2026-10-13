@@ -3,7 +3,7 @@
 // byte replaced in turn, and followed by trailing data, in the scalar and the vector paths. It
 // also checks free_json on the values that decoded.
 //
-//     jaic run stdlib/Extensions/Json/tests/leaks.jai
+//     jaic stdlib/Extensions/Json/tests/leaks.jai -interp
 
 #import "Basic";
 #import "String";

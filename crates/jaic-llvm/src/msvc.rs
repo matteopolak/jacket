@@ -1,6 +1,6 @@
 //! Finding the Microsoft toolchain on a Windows host without a developer prompt.
 //!
-//! `jaic build` prefers Clang's driver, which locates Visual Studio and the Windows SDK itself.
+//! `jaic` prefers Clang's driver, which locates Visual Studio and the Windows SDK itself.
 //! Without one on `PATH`, `link.exe` (or `lld-link`) needs the `LIB` variable that a developer
 //! prompt sets. This module finds Visual Studio (through `vswhere`, then the default folders),
 //! its `link.exe` and `lib.exe`, a Clang installed outside `PATH`, and the library folders for

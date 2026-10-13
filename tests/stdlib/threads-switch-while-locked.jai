@@ -1,5 +1,5 @@
 // A started thread's work is never lost to a lock its starter holds. The browser sandbox and
-// `jaic run -os wasm` run every thread on one host thread; a thread that gets its turn while main
+// `jaic -interp -os wasm` run every thread on one host thread; a thread that gets its turn while main
 // holds a mutex or spin lock must wait for main to run again and release it, not be given up on
 // ("ran 0") or spin forever. A busy wait on an atomic still lets the other thread run.
 #import "Basic";

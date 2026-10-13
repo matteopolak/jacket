@@ -6,7 +6,7 @@ mod common;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-/// `jaic run file.jai -- args` hands the arguments to the program; `-` arguments still go to
+/// `jaic file.jai -interp -- args` hands the arguments to the program; `-` arguments still go to
 /// the metaprogram, up to a `--`.
 #[test]
 fn run_passes_program_arguments() {
@@ -25,7 +25,7 @@ fn run_passes_program_arguments() {
     .unwrap();
     let run = |extra: &[&str]| {
         let output = Command::new(JAIC)
-            .arg("run")
+            .arg("-interp")
             .arg(&source)
             .args(extra)
             .output()
@@ -64,7 +64,7 @@ fn long_double_extension_on_wide_targets() {
         "wasm32-unknown-unknown",
     ] {
         let output = Command::new(JAIC)
-            .arg("run")
+            .arg("-interp")
             .arg(&source)
             .args(["-target", target])
             .output()
@@ -103,7 +103,7 @@ fn long_double_extension_on_wide_targets() {
         let source = dir.join(format!("{name}.jai"));
         std::fs::write(&source, text).unwrap();
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .output()
             .unwrap();
@@ -128,7 +128,7 @@ fn long_double_extension_on_wide_targets() {
         "wasm32-unknown-unknown",
     ] {
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .args(["-target", target])
             .output()
@@ -165,7 +165,7 @@ fn long_double_extension_on_wide_targets() {
         )
         .unwrap();
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .args(["-target", "x86_64-linux-gnu"])
             .output()
@@ -176,8 +176,8 @@ fn long_double_extension_on_wide_targets() {
     }
 }
 
-/// `-plug Name` compiles the program in a workspace with the plugin's hooks; options jaic does
-/// not know go to the plugins, and `run` refuses plugins.
+/// `+Name` compiles the program in a workspace with the plugin's hooks; the arguments after it
+/// go to the plugin, and `-interp` refuses plugins.
 // rules: plugin.1 plugin.2 plugin.7 plugin.9 plugin.10
 #[test]
 fn plug_hooks_a_plugin_into_check() {
@@ -185,13 +185,13 @@ fn plug_hooks_a_plugin_into_check() {
     let source = common::write_plugin_program(&dir);
     let check = |extra: &[&str]| {
         Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .args(extra)
             .output()
             .unwrap()
     };
-    let output = check(&["-plug", "Echo_Plugin", "-shout"]);
+    let output = check(&["+Echo_Plugin", "-shout"]);
     assert!(
         output.status.success(),
         "{}",
@@ -203,19 +203,19 @@ fn plug_hooks_a_plugin_into_check() {
     );
     // Without the plugin the program does not compile; a refused option fails the build.
     assert!(!check(&[]).status.success());
-    assert!(!check(&["-plug", "Echo_Plugin", "-refuse"]).status.success());
-    // Unknown options without plugins, and plugins with `run`, are usage errors.
+    assert!(!check(&["+Echo_Plugin", "-refuse"]).status.success());
+    // Unknown options without plugins, and plugins with `-interp`, are usage errors.
     assert_eq!(check(&["-shout"]).status.code(), Some(2));
     let run = Command::new(JAIC)
-        .arg("run")
+        .arg("-interp")
         .arg(&source)
-        .args(["-plug", "Echo_Plugin"])
+        .arg("+Echo_Plugin")
         .output()
         .unwrap();
     assert_eq!(run.status.code(), Some(2));
 }
 
-/// `--timings` prints one `jaic-timing: <phase> <seconds> <calls>` line per phase (read by
+/// `-timings` prints one `jaic-timing: <phase> <seconds> <calls>` line per phase (read by
 /// `tools/compile_bench.py`); without it nothing is printed.
 #[test]
 fn timings_report_phases() {
@@ -225,7 +225,7 @@ fn timings_report_phases() {
     std::fs::write(&source, "main :: () {}\n").unwrap();
     let stderr = |extra: &[&str]| {
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .args(extra)
             .output()
@@ -233,7 +233,7 @@ fn timings_report_phases() {
         assert!(output.status.success());
         String::from_utf8_lossy(&output.stderr).into_owned()
     };
-    let report = stderr(&["--timings"]);
+    let report = stderr(&["-timings"]);
     for phase in ["front end", "workspaces", "total"] {
         let line = report
             .lines()
@@ -283,7 +283,7 @@ fn memory_limit_stops_unbounded_allocation() {
     .unwrap();
     let run = |source: &Path, extra: &[&str]| {
         Command::new(JAIC)
-            .arg("run")
+            .arg("-interp")
             .arg(source)
             .args(extra)
             .env("JAIC_MEMORY_LIMIT", "128M")
@@ -378,7 +378,7 @@ fn sandbox_threads_wake_waiters_and_report_deadlocks() {
         let path = dir.join(name);
         std::fs::write(&path, format!("{header}{body}")).unwrap();
         let output = Command::new(JAIC)
-            .arg("run")
+            .arg("-interp")
             .arg(&path)
             .args(["-os", "wasm"])
             .output()
@@ -425,8 +425,8 @@ get_plugin :: () -> *Metaprogram_Plugin {
 }
 "#;
 
-/// Hook order, repeated `-plug`/`-plugin` with module parameters, jaic's own options among
-/// plugin options, and a failing program under a plugin.
+/// Hook order, repeated `+Name` plugins with module parameters and each its own options, jaic's
+/// own options before the first plugin, and a failing program under a plugin.
 // rules: plugin.3 plugin.4 plugin.5 plugin.6 plugin.8
 #[test]
 fn plug_hook_order_parameters_and_failures() {
@@ -443,7 +443,7 @@ fn plug_hook_order_parameters_and_failures() {
     std::fs::write(&bad, "main :: () { x: int = \"no\"; }\n").unwrap();
     let check = |source: &Path, extra: &[&str]| {
         Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(source)
             .args(extra)
             .output()
@@ -458,7 +458,7 @@ fn plug_hook_order_parameters_and_failures() {
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
     assert_eq!(
-        stdout(&check(&good, &["-plug", "Order_Plugin"])),
+        stdout(&check(&good, &["+Order_Plugin"])),
         "default init []\ndefault before_intercept\ndefault add_source\n\
          default finish\ndefault shutdown\n"
     );
@@ -466,29 +466,30 @@ fn plug_hook_order_parameters_and_failures() {
         stdout(&check(
             &good,
             &[
-                "-plug",
-                "Order_Plugin(TAG=\"one\")",
-                "-plugin",
-                "Order_Plugin(TAG=\"two\")",
+                "+Order_Plugin(TAG=\"one\")",
                 "-x",
                 "y",
+                "+Order_Plugin(TAG=\"two\")",
+                "-z",
             ],
         )),
-        "one init [\"-x\", \"y\"]\ntwo init [\"-x\", \"y\"]\n\
+        "one init [\"-x\", \"y\"]\ntwo init [\"-z\"]\n\
          one before_intercept\ntwo before_intercept\none add_source\ntwo add_source\n\
          one finish\ntwo finish\none shutdown\ntwo shutdown\n"
     );
-    // `-I` after a plugin option is still jaic's, with its value.
-    let with_import = stdout(&check(
+    // Options before the first plugin are jaic's; the same options after it are the plugin's.
+    let before = stdout(&check(&good, &["-I", "elsewhere", "+Order_Plugin", "-x"]));
+    assert!(before.starts_with("default init [\"-x\"]\n"), "{before}");
+    let after = stdout(&check(
         &good,
-        &["-plug", "Order_Plugin", "-x", "-I", "elsewhere", "y"],
+        &["+Order_Plugin", "-x", "-I", "elsewhere", "y"],
     ));
     assert!(
-        with_import.starts_with("default init [\"-x\", \"y\"]\n"),
-        "{with_import}"
+        after.starts_with("default init [\"-x\", \"-I\", \"elsewhere\", \"y\"]\n"),
+        "{after}"
     );
     // A program that fails to compile under a plugin still fails the command.
-    let failed = check(&bad, &["-plug", "Order_Plugin"]);
+    let failed = check(&bad, &["+Order_Plugin"]);
     assert_eq!(failed.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&failed.stderr).contains("type mismatch"));
 }
@@ -508,7 +509,11 @@ fn compile_time_print_precedes_program_output() {
          #run print(\"compile time\\n\");\n",
     )
     .unwrap();
-    let output = Command::new(JAIC).arg("run").arg(&source).output().unwrap();
+    let output = Command::new(JAIC)
+        .arg("-interp")
+        .arg(&source)
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "{}",
@@ -520,9 +525,9 @@ fn compile_time_print_precedes_program_output() {
     );
 }
 
-/// `jaic check` only checks workspaces: one asking for an executable compiles, writes nothing
-/// and gets a warning that points to `jaic build`. `jaic run -no_workspace_output` skips the
-/// output quietly. (`jaic build` and plain `jaic run` write it:
+/// `jaic -check` only checks workspaces: one asking for an executable compiles, writes nothing
+/// and gets a warning that points to `jaic`. `jaic -interp -no_workspace_output` skips the
+/// output quietly. (`jaic` and plain `jaic -interp` write it:
 /// `run_writes_workspace_output` in native.rs.)
 // rules: ws.15 ws.17
 #[test]
@@ -532,7 +537,7 @@ fn check_writes_no_workspace_output() {
     std::fs::create_dir_all(&dir).unwrap();
     let source = dir.join("meta.jai");
     std::fs::write(&source, WORKSPACE_ASKING_FOR_OUTPUT).unwrap();
-    for args in [&["check"][..], &["run", "-no_workspace_output"][..]] {
+    for args in [&["-check"][..], &["-interp", "-no_workspace_output"][..]] {
         let output = Command::new(JAIC)
             .arg(args[0])
             .arg(&source)
@@ -548,14 +553,14 @@ fn check_writes_no_workspace_output() {
             .filter(|name| name.to_string_lossy().starts_with("target-prog"))
             .collect();
         assert!(written.is_empty(), "{args:?} wrote {written:?}");
-        // `check` says so, naming the command that would write it; the flag asked for silence.
-        let warned = stderr.contains("target-prog") && stderr.contains("`jaic build ");
-        assert_eq!(warned, args[0] == "check", "{args:?}: {stderr}");
-        if args[0] == "check" {
+        // `-check` says so, naming the command that would write it; the flag asked for silence.
+        let warned = stderr.contains("target-prog") && stderr.contains("writes it");
+        assert_eq!(warned, args[0] == "-check", "{args:?}: {stderr}");
+        if args[0] == "-check" {
             assert!(
                 stderr.contains(&format!(
-                    "warning: `jaic check` does not write target-prog (workspace `target` asks for an executable)\n\
-                     help: `jaic build {main}` (or `jaic run {main}`) writes it\n",
+                    "warning: `jaic -check` does not write target-prog (workspace `target` asks for an executable)\n\
+                     help: `jaic {main}` (or `jaic {main} -interp`) writes it\n",
                     main = source.display()
                 )),
                 "{stderr}"
@@ -579,7 +584,7 @@ const WORKSPACE_ASKING_FOR_OUTPUT: &str = r##"#import "Basic";
 }
 "##;
 
-/// The output path in the `check` warning is shown relative to where jaic was started, and the
+/// The output path in the `-check` warning is shown relative to where jaic was started, and the
 /// help names the main file as it was typed.
 // rules: ws.17
 #[test]
@@ -620,7 +625,7 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
     )
     .unwrap();
     let output = Command::new(JAIC)
-        .args(["check", "first.jai"])
+        .args(["-check", "first.jai"])
         .current_dir(&dir)
         .output()
         .unwrap();
@@ -628,8 +633,8 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
     assert!(output.status.success(), "{stderr}");
     assert!(
         stderr.contains(
-            "warning: `jaic check` does not write build/game (workspace `Build` asks for an executable)\n\
-             help: `jaic build first.jai` (or `jaic run first.jai`) writes it\n"
+            "warning: `jaic -check` does not write build/game (workspace `Build` asks for an executable)\n\
+             help: `jaic first.jai` (or `jaic first.jai -interp`) writes it\n"
         ),
         "{stderr}"
     );
@@ -658,7 +663,7 @@ fn dead_code_elimination_flag() {
     .unwrap();
     let check = |source: &Path, extra: &[&str]| {
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(source)
             .args(extra)
             .current_dir(&dir)
@@ -699,7 +704,7 @@ fn unreferenced_struct_constant_names_a_member() {
     .unwrap();
     for extra in [&[][..], &["-no_dce"][..]] {
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .args(extra)
             .output()
@@ -756,7 +761,7 @@ fn ignored_build_options_are_reported() {
     )
     .unwrap();
     let output = Command::new(JAIC)
-        .arg("check")
+        .arg("-check")
         .arg("meta.jai")
         .current_dir(&dir)
         .output()
@@ -834,7 +839,7 @@ fn unsupported_compiler_requests_are_errors() {
         )
         .unwrap();
         let output = Command::new(JAIC)
-            .arg("check")
+            .arg("-check")
             .arg(&source)
             .output()
             .unwrap();
@@ -860,7 +865,7 @@ fn default_metaprogram_options() {
     .unwrap();
     let run = |options: &[&str]| {
         Command::new(JAIC)
-            .args(["check", "meta.jai", "-"])
+            .args(["-check", "meta.jai", "-"])
             .args(options)
             .arg("hello.jai")
             .current_dir(&dir)
@@ -899,14 +904,14 @@ fn default_metaprogram_options() {
         );
     }
     let missing = Command::new(JAIC)
-        .args(["check", "meta.jai", "-", "-os"])
+        .args(["-check", "meta.jai", "-", "-os"])
         .current_dir(&dir)
         .output()
         .unwrap();
     assert!(!missing.status.success());
     assert!(String::from_utf8_lossy(&missing.stderr).contains("The option -os needs a value"));
     let version = Command::new(JAIC)
-        .args(["check", "meta.jai", "-", "-version"])
+        .args(["-check", "meta.jai", "-", "-version"])
         .current_dir(&dir)
         .output()
         .unwrap();
@@ -947,7 +952,7 @@ main :: () {
     )
     .unwrap();
     let output = Command::new(JAIC)
-        .arg("check")
+        .arg("-check")
         .arg(&source)
         .args(["-target", "x86_64-linux-gnu"])
         .output()
@@ -960,7 +965,7 @@ main :: () {
 
     // The sandbox refuses the call with -EPERM instead of running it.
     let output = Command::new(JAIC)
-        .arg("run")
+        .arg("-interp")
         .arg(&source)
         .args(["-os", "wasm"])
         .output()
@@ -999,7 +1004,11 @@ main :: () {
 "#,
     )
     .unwrap();
-    let output = Command::new(JAIC).arg("run").arg(&source).output().unwrap();
+    let output = Command::new(JAIC)
+        .arg("-interp")
+        .arg(&source)
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "{}",
@@ -1009,9 +1018,8 @@ main :: () {
 
     let exe = dir.join("getpid");
     let build = Command::new(JAIC)
-        .arg("build")
         .arg(&source)
-        .arg("-o")
+        .arg("-exe")
         .arg(&exe)
         .output()
         .unwrap();
@@ -1023,4 +1031,102 @@ main :: () {
     let output = Command::new(&exe).output().unwrap();
     assert!(output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "true\n");
+}
+
+/// `-add` code joins the target program and `-run` code runs at compile time, with `-check` and
+/// `-interp` alike.
+#[test]
+fn add_and_run_strings_join_the_program() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-add-run");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("added.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\nmain :: () { print(\"%\\n\", added); }\n",
+    )
+    .unwrap();
+    let jaic = |extra: &[&str]| {
+        Command::new(JAIC)
+            .arg(&source)
+            .args(extra)
+            .output()
+            .unwrap()
+    };
+    let output = jaic(&[
+        "-interp",
+        "-add",
+        "added :: 41 + 1;",
+        "-run",
+        "print(\"compile time\\n\")",
+        "-run",
+        "print(\"twice\\n\");",
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "compile time\ntwice\n42\n"
+    );
+    // Without `-add` the program does not compile; `-check` runs the `-run` code too.
+    assert!(!jaic(&["-check"]).status.success());
+    let checked = jaic(&[
+        "-check",
+        "-add",
+        "added :: 1;",
+        "-run",
+        "print(\"ran\\n\");",
+    ]);
+    assert!(checked.status.success());
+    assert_eq!(String::from_utf8_lossy(&checked.stdout), "ran\n");
+    // The option needs its code.
+    let missing = jaic(&["-add"]);
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("`-add` needs the code to add"));
+}
+
+/// Options may come before or after the file; `-quiet` leaves out warnings, `-verbose` says what
+/// is being done, `-no_color` and `NO_COLOR` agree, and `-interp -- args` still passes arguments.
+#[test]
+fn options_around_the_file_and_chatter_levels() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-chatter");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("warns.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n",
+    )
+    .unwrap();
+    let jaic = |args: &[&str]| {
+        Command::new(JAIC)
+            .args(args)
+            .env_remove("FORCE_COLOR")
+            .env_remove("CLICOLOR_FORCE")
+            .env_remove("JAIC_DIAGNOSTICS")
+            .output()
+            .unwrap()
+    };
+    let file = source.to_str().unwrap();
+    let before = jaic(&["-check", file]);
+    let after = jaic(&[file, "-check"]);
+    assert!(before.status.success() && after.status.success());
+    assert_eq!(before.stderr, after.stderr);
+    assert!(
+        String::from_utf8_lossy(&before.stderr).contains("warning"),
+        "{}",
+        String::from_utf8_lossy(&before.stderr)
+    );
+    let quiet = jaic(&[file, "-check", "-quiet"]);
+    assert!(quiet.status.success());
+    assert!(
+        quiet.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&quiet.stderr)
+    );
+    let verbose = jaic(&[file, "-check", "-verbose"]);
+    assert!(String::from_utf8_lossy(&verbose.stderr).contains("jaic: checking "));
+    let interp = jaic(&[file, "-interp", "-quiet", "-", "meta", "--", "one"]);
+    assert!(interp.status.success());
 }

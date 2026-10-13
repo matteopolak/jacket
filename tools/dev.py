@@ -100,7 +100,7 @@ def ensure_jaifmt(jobs: str) -> Path:
     jaic = TARGET / "debug" / ("jaic" + EXE)
     out = TARGET / ("jaifmt" + EXE)
     if not out.exists() or out.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
-        if run([str(jaic), "build", "jaifmt/main.jai", "-O2", "-o", str(out)]):
+        if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]):
             sys.exit("could not build jaifmt")
     return out
 
@@ -111,7 +111,7 @@ def cmd_build(args) -> int:
                    args.jobs):
         return 1
     jaic = TARGET / ("release" if args.release else "debug") / ("jaic" + EXE)
-    return run([str(jaic), "build", "jaifmt/main.jai", "-O2", "-o", str(TARGET / ("jaifmt" + EXE))])
+    return run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(TARGET / ("jaifmt" + EXE))])
 
 
 def cmd_fmt(args) -> int:

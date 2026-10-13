@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Breaking changes
+
+`jaic` has one command line, `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`, and no subcommands. A build is the default. See [the command line](docs/tools/cli.md).
+
+| Was | Now |
+|---|---|
+| `jaic run file.jai [-- args]` | `jaic file.jai -interp [-- args]` |
+| `jaic check file.jai` | `jaic file.jai -check` |
+| `jaic build file.jai` | `jaic file.jai` |
+| `-o path` (the output file) | `-exe name` and `-output_path dir`; `-exe` may carry a directory and extension. `-o` now means an optimized build |
+| `--emit-ir file.ll` | `-emit_ir file.ll` |
+| `--no-debug-info` | `-no_debug_info` |
+| `--timings` | `-timings` (read by `tools/compile_bench.py`) |
+| `--sanitize`, `--target` | `-sanitize`, `-target` |
+| `--color never`, `-color` | `-no_color`; `FORCE_COLOR=1` forces colour on |
+| `-plug Name`, `-plugin Name` | `+Name`; every argument after it, up to the next `+Name`, `-` or `--`, is that plugin's own option |
+| `jaic help`, `jaic version` | `-help`, `-version` |
+
+The old forms are errors that name their replacement, including `jaic run|check|build file.jai`, which prints the equivalent new command. Plugins now receive only their own options (`Metaprogram_Plugins.build_with_plugin_groups`; `build_with_plugins` keeps its shared list). `--` with a build or `-check` is an error.
+
+### Added
+
+- `-add "code"` and `-run "code"` add code to the target program and run code at compile time; `-exe` and `-output_path` name the executable.
+- `-o`/`-optimized`, `-od`/`-optimized_debug` and `-very_debug` pick a build flavor; `-no_inline`, `-no_split` and `-no_backtrace_on_crash` switch single behaviors off.
+- `-no_color`, `-msvc_format` (`path(line,col): error: message` lines), `-quiet`, `-verbose`, `-no_check` and `-no_check_bindings`.
+
 ## [0.16.1] - 2026-10-13
 
 Optimized builds of large programs, faster TLS and JSON encoding, and fixes in `Io`, `Http` and `Input`.

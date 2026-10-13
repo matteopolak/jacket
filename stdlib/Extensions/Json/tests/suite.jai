@@ -3,7 +3,7 @@
 // not crash. The choices made for the `i_` cases are listed in docs/stdlib/json.md and pinned
 // here, so a change in behavior is noticed.
 //
-//     jaic run stdlib/Extensions/Json/tests/suite.jai
+//     jaic stdlib/Extensions/Json/tests/suite.jai -interp
 
 #import "Basic";
 #import "String";

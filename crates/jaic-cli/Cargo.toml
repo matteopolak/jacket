@@ -16,7 +16,7 @@ jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 
 [features]
 default = ["dynamic-llvm"]
-# Native output (`jaic build`); without it jaic only checks and interprets.
+# Native output (`jaic`); without it jaic only checks and interprets.
 llvm = ["dep:jaic-llvm"]
 # LLVM as a shared library (development) or statically linked (release archives).
 dynamic-llvm = ["llvm", "jaic-llvm/dynamic"]

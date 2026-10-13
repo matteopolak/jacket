@@ -4,7 +4,7 @@
 // single stream's rate on one core, not the machine's network. A plain TCP transfer of the same
 // size is printed first for reference.
 //
-//     jaic build stdlib/Extensions/Tls/bench/bench.jai -O2 -o /tmp/tls-bench
+//     jaic stdlib/Extensions/Tls/bench/bench.jai -O2 -exe /tmp/tls-bench
 //     /tmp/tls-bench                  # 512 MiB per transfer, 5 rounds, 300 handshakes
 //     /tmp/tls-bench 256 7 500        # MiB per transfer, rounds, handshakes
 //     JAI_IO_BACKEND=epoll /tmp/tls-bench

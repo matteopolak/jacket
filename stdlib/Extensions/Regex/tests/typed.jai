@@ -1,7 +1,7 @@
 // Patterns known at compile time: typed groups, parse and parse_into, and the static versions
 // of the search procedures.
 //
-//     jaic run stdlib/Extensions/Regex/tests/typed.jai
+//     jaic stdlib/Extensions/Regex/tests/typed.jai -interp
 
 #import "Basic";
 Regex :: #import "Extensions/Regex";

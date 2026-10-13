@@ -120,7 +120,7 @@ local function polymorphs()
   end)
 end
 
----`jaic <command> <file>` in a terminal split.
+---`jaic <file> [-interp|-check]` in a terminal split.
 ---@param command 'run'|'build'|'check'
 local function compile(command)
   local file = vim.api.nvim_buf_get_name(0)
@@ -132,7 +132,9 @@ local function compile(command)
     return notify('jaic was not found: set compiler.path, put jaic on PATH, or run :Jai install', vim.log.levels.WARN)
   end
   vim.cmd('silent update')
-  local cmd = vim.list_extend({ compiler.path, command, file }, config.get().run.arguments)
+  -- Running interprets, checking only compiles, building is jaic's default.
+  local mode = ({ run = { '-interp' }, check = { '-check' } })[command] or {}
+  local cmd = vim.list_extend(vim.list_extend({ compiler.path, file }, mode), config.get().run.arguments)
   vim.cmd('botright 15split')
   vim.fn.jobstart(cmd, { term = true, cwd = vim.fs.dirname(file), env = config.tool_env() })
 end
