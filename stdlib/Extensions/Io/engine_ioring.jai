@@ -75,8 +75,14 @@
     ring_probe_state: s32;
     ring_probe_reason: string;
 
-    // IORING_VERSION_2 is the one with file writes (Windows 11 22H2).
-    RING_VERSION :: 2;
+    // The ring versions to try, newest first: IORING_VERSION_3 is 300 in ioringapi.h. File writes
+    // need one of the later versions; the self test builds a write entry to find out which a
+    // system accepts.
+    RING_VERSION_NEWEST :: 300;
+    RING_VERSION_OLDER :: 2;
+
+    // The version the self test accepted.
+    ring_version: u32;
     RING_SUBMISSION :: 128;
     RING_COMPLETION :: 256;
     RING_POLL_MILLISECONDS :: 50;
@@ -119,39 +125,53 @@
         query := cast(Ring_Query) api.query;
 
         if query(*capabilities) < 0 return "QueryIoRingCapabilities failed";
-        if capabilities.max_version < RING_VERSION return "this IoRing cannot write files (it needs Windows 11 22H2 or newer)";
+        if capabilities.max_version < RING_VERSION_OLDER return "this IoRing cannot write files (it needs Windows 11 22H2 or newer)";
 
         create := cast(Ring_Create) api.create;
         close := cast(Ring_Close) api.close;
         set_event := cast(Ring_Set_Event) api.set_event;
 
-        ring: s64;
+        reason := "the IoRing self test failed";
 
-        if create(RING_VERSION, Io_Ring_Flags.{}, 8, 16, *ring) < 0 || ring == 0 return "CreateIoRing failed";
+        for version: u32.[RING_VERSION_NEWEST, RING_VERSION_OLDER] {
+            if version > capabilities.max_version continue;
 
-        event := win_create_event(null, 0, 0, null);
+            ring: s64;
 
-        if event == 0 {
+            if create(version, Io_Ring_Flags.{}, 8, 16, *ring) < 0 || ring == 0 {
+                reason = "CreateIoRing failed";
+
+                continue;
+            }
+
+            event := win_create_event(null, 0, 0, null);
+
+            if event == 0 {
+                close(ring);
+
+                return "could not create an event for the IoRing";
+            }
+
+            ok := false;
+
+            if set_event(ring, event) >= 0 ok = ring_self_test(api, ring, event);
+
             close(ring);
+            win_close_handle(event);
 
-            return "could not create an event for the IoRing";
+            if ok {
+                ring_version = version;
+                ring_api = api;
+
+                return "";
+            }
         }
 
-        ok := false;
-
-        if set_event(ring, event) >= 0 ok = ring_self_test(api, ring, event);
-
-        close(ring);
-        win_close_handle(event);
-
-        if !ok return "the IoRing self test failed";
-
-        ring_api = api;
-
-        return "";
+        return reason;
     }
 
-    // Reads the first two bytes of the running executable through `ring` and waits for the event.
+    // Reads the first two bytes of the running executable through `ring` and waits for the event,
+    // then checks that the ring accepts a write entry.
     ring_self_test :: (api: Ring_Api, ring: s64, event: s64) -> bool {
         name: [520] u16;
 
@@ -182,7 +202,12 @@
         if pop(ring, *cqe) != 0 return false;
 
         // "MZ", the first bytes of every executable.
-        return cqe.user_data == 77 && cqe.result >= 0 && cqe.information == 2 && buffer[0] == 77 && buffer[1] == 90;
+        if !(cqe.user_data == 77 && cqe.result >= 0 && cqe.information == 2 && buffer[0] == 77 && buffer[1] == 90) return false;
+
+        // Only built, never submitted: an old ring version refuses the entry.
+        write := cast(Ring_Write) api.write;
+
+        return write(ring, Io_Ring_Ref.{ 0, cast(u64) file }, Io_Ring_Ref.{ 0, cast(u64) buffer.data }, 1, 0, 0, 78, 0) >= 0;
     }
 
     // Makes this engine's ring. Returns why it cannot, or "" if files now use it.
@@ -196,7 +221,7 @@
 
         ring: s64;
 
-        if create(RING_VERSION, Io_Ring_Flags.{}, RING_SUBMISSION, RING_COMPLETION, *ring) < 0 || ring == 0 return "CreateIoRing failed";
+        if create(ring_version, Io_Ring_Flags.{}, RING_SUBMISSION, RING_COMPLETION, *ring) < 0 || ring == 0 return "CreateIoRing failed";
 
         event := win_create_event(null, 0, 0, null);
         stop := win_create_event(null, 1, 0, null);
@@ -313,7 +338,6 @@
                 return true;
             }
 
-            print("DEBUG ring build failed: kind % result 0x%\n", op.kind, formatInt(cast(u32) result, base = 16));
             // The queue may be full of entries the kernel has not seen yet.
             ring_flush(state);
         }

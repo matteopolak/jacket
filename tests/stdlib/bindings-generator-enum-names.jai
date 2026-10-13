@@ -78,7 +78,7 @@ check_enum_names :: () {
     text := generate("bindgen-enum-names", false);
 
     // Names that share a camel-case word prefix lose it; the C names stay as aliases.
-    assert(has(text, "PlotFormatEnum :: enum u32 {\n    Number :: 0;\n    Memory :: 1;\n    Watt   :: 2;\n"), "DEBUG [%]", text);
+    assert(has(text, "PlotFormatEnum :: enum u32 {\n    Number :: 0;\n    Memory :: 1;\n    Watt   :: 2;\n"), "DEBUG [%]", string.{ 400, text.data });
     assert(has(text, "    PlotFormatNumber :: Number;\n"));
     assert(has(text, "Severity :: enum u32 {\n    Trace :: 0;\n    Debug :: 1;\n    Fatal :: 2;\n"));
     assert(has(text, "    SeverityFatal :: Fatal;\n"));
