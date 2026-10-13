@@ -341,6 +341,7 @@ fn emit_module(
     shard: Option<Shard>,
     split_after_opt: bool,
     leak: bool,
+    no_inline: &[bool],
 ) -> Result<Vec<PathBuf>, String> {
     if options.sanitize.any() {
         check_sanitizer_target(options.target.as_deref())?;
@@ -368,6 +369,7 @@ fn emit_module(
         shard,
         debug,
         options.opt_level == OptLevel::O0,
+        no_inline,
         simd::Target::resolve(
             arch,
             &machine.get_cpu().to_string_lossy(),
@@ -553,7 +555,16 @@ fn apply_codegen_attributes(
 pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
     let instrumented = green::instrument(program);
     let program = instrumented.as_ref().unwrap_or(program);
-    emit_module(program, options, path, None, false, false).map(drop)
+    emit_module(
+        program,
+        options,
+        path,
+        None,
+        false,
+        false,
+        &inline_cuts(program, options),
+    )
+    .map(drop)
 }
 
 /// IR instructions per codegen unit below which splitting does not pay for itself.
@@ -610,6 +621,14 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
 
 use partition::func_weight;
 
+/// The functions kept out of their callers in an optimized build (`partition::inline_cuts`).
+fn inline_cuts(program: &Program, options: &Options) -> Vec<bool> {
+    if options.opt_level == OptLevel::O0 {
+        return Vec::new();
+    }
+    partition::inline_cuts(program, partition::INLINE_CAP)
+}
+
 /// Translate `program` to native object files, splitting codegen across threads when it
 /// is large. Returns the objects written: `path` itself, then `path.1.o`, `path.2.o`...
 pub fn emit_objects(
@@ -621,6 +640,7 @@ pub fn emit_objects(
     let instrumented = green::instrument(program);
     let program = instrumented.as_ref().unwrap_or(program);
     let units = codegen_units(program, options);
+    let cuts = inline_cuts(program, options);
     if units == 1 {
         // A program too small to divide before the optimizer is optimized whole and only
         // machine code generation is split, unless `JAIC_CODEGEN_UNITS` asked for exactly one
@@ -628,7 +648,7 @@ pub fn emit_objects(
         let split = options.opt_level != OptLevel::O0
             && options.emit_ir.is_none()
             && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
-        return emit_module(program, options, path, None, split, true);
+        return emit_module(program, options, path, None, split, true, &cuts);
     }
     let plan = if options.opt_level == OptLevel::O0 {
         partition::flat(program, units)
@@ -651,12 +671,13 @@ pub fn emit_objects(
             .enumerate()
             .map(|(u, p)| {
                 let plan = &plan;
+                let cuts = &cuts[..];
                 scope.spawn(move || {
                     let shard = Shard {
                         plan,
                         index: u as u32,
                     };
-                    emit_module(program, options, p, Some(shard), false, true).map(drop)
+                    emit_module(program, options, p, Some(shard), false, true, cuts).map(drop)
                 })
             })
             .collect();

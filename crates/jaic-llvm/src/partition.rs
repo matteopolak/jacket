@@ -380,3 +380,133 @@ pub(crate) fn plan(program: &Program, units: usize) -> Plan {
         imports,
     }
 }
+
+/// Instructions a function may reach once the optimizer has inlined what it will inline into it.
+pub(crate) const INLINE_CAP: usize = 4_000;
+
+/// IR instructions in a function up to which the inliner takes it at every call site.
+const INLINE_SMALL: usize = 50;
+
+/// The functions to keep out of their callers (`noinline`) so that no function grows past
+/// `cap` instructions by inlining.
+///
+/// The inliner takes a function with a single caller whatever its size, bottom up, so a function
+/// that calls many drivers ends up holding all of their trees: a procedure that is `main` or an
+/// `init` of a large program becomes tens of thousands of instructions, and the loop passes
+/// (`LoopFullUnroll`, `LoopUnroll`, `LoopVectorize`, `IndVarSimplify`) cost more than linear in
+/// the size of the function they run on. This estimates what the inliner will produce (a callee
+/// counts at each call site when it has one caller or is small) and, bottom up, cuts the largest
+/// callees of a function that would outgrow the cap.
+pub(crate) fn inline_cuts(program: &Program, cap: usize) -> Vec<bool> {
+    let nf = program.funcs.len();
+    let weight: Vec<usize> = program
+        .funcs
+        .iter()
+        .map(|f| f.as_ref().map_or(0, func_weight))
+        .collect();
+    let mut sites: Vec<Vec<u32>> = vec![Vec::new(); nf];
+    let mut calls = vec![0u32; nf];
+    let mut address_taken = vec![false; nf];
+    for (i, func) in program.funcs.iter().enumerate() {
+        let Some(func) = func else {
+            continue;
+        };
+        if matches!(func.linkage, Linkage::Export(_)) {
+            address_taken[i] = true;
+        }
+        for block in &func.blocks {
+            for inst in &block.insts {
+                match inst {
+                    Inst::Call(call) => {
+                        if let Callee::Func(id) = &call.callee {
+                            let g = id.0 as usize;
+                            if g != i {
+                                sites[i].push(id.0);
+                                calls[g] += 1;
+                            }
+                        }
+                    }
+                    Inst::FuncAddr {
+                        func: id, ..
+                    } => address_taken[id.0 as usize] = true,
+                    _ => {}
+                }
+            }
+        }
+    }
+    for g in &program.globals {
+        for r in &g.relocs {
+            if let RelocTarget::Func(id) = r.target {
+                address_taken[id.0 as usize] = true;
+            }
+        }
+    }
+    let inlinable = |g: usize| -> bool {
+        let Some(func) = &program.funcs[g] else {
+            return false;
+        };
+        if func.linkage != Linkage::Internal || func.inline == jaic::ir::InlineHint::Never {
+            return false;
+        }
+        func.inline == jaic::ir::InlineHint::Always
+            || weight[g] <= INLINE_SMALL
+            || (calls[g] == 1 && !address_taken[g])
+    };
+    let cuttable = |g: usize| {
+        program.funcs[g]
+            .as_ref()
+            .is_some_and(|f| f.inline == jaic::ir::InlineHint::Default)
+    };
+
+    // Callees before callers; a call back to a function still being visited is a cycle and is
+    // taken as not inlined.
+    let mut state = vec![0u8; nf]; // 0 new, 1 visiting, 2 done
+    let mut estimate = vec![0usize; nf];
+    let mut cut = vec![false; nf];
+    for root in 0..nf {
+        if state[root] != 0 {
+            continue;
+        }
+        let mut stack: Vec<(u32, usize)> = vec![(root as u32, 0)];
+        state[root] = 1;
+        while let Some(&(f, next)) = stack.last() {
+            let f = f as usize;
+            if let Some(&g) = sites[f].get(next) {
+                if let Some(top) = stack.last_mut() {
+                    top.1 += 1;
+                }
+                if state[g as usize] == 0 {
+                    state[g as usize] = 1;
+                    stack.push((g, 0));
+                }
+                continue;
+            }
+            stack.pop();
+            state[f] = 2;
+            // What each inlinable callee adds, summed over its call sites.
+            let mut parts: Vec<(usize, u32)> = Vec::new(); // (total, callee)
+            let mut seen: HashMap<u32, usize> = HashMap::new();
+            for &g in &sites[f] {
+                if state[g as usize] == 2 && inlinable(g as usize) && !cut[g as usize] {
+                    *seen.entry(g).or_insert(0) += estimate[g as usize];
+                }
+            }
+            parts.extend(seen.into_iter().map(|(g, total)| (total, g)));
+            let mut sum = weight[f] + parts.iter().map(|p| p.0).sum::<usize>();
+            if sum > cap {
+                parts.sort_unstable_by_key(|&(total, g)| (std::cmp::Reverse(total), g));
+                for &(total, g) in &parts {
+                    if sum <= cap {
+                        break;
+                    }
+                    if cuttable(g as usize) {
+                        cut[g as usize] = true;
+                        sum -= total;
+                    }
+                }
+            }
+            estimate[f] = sum;
+        }
+    }
+    cut
+}

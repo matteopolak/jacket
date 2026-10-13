@@ -37,6 +37,14 @@ The optimizer is about 65% of an `-O2` build of Focus and runs on one thread whe
 
 Measured cost in generated code is about 1% to 3% more instructions on a search-heavy engine (Chess), none on a numeric and container benchmark. A hot function that is not copied because it is large and sits in another module is called instead of inlined; raise `IMPORT_MAX` to trade compile time for that.
 
+#### Keeping one function from absorbing the program (`partition::inline_cuts`)
+
+The inliner takes a function that has one caller whatever its size, bottom up. A procedure that calls many drivers (`main`, an `init`, a test runner) therefore ends up holding all their trees, and the loop passes cost more than linear in the size of the function they run on (`LoopFullUnroll` 47%, `LoopUnroll` 14%, `LoopVectorize` 14% and `IndVarSimplify` 7% of one unit's `-O2` time, measured with `opt -time-passes` on its bitcode). On a 120,000-line generated program one driver grew to 35,000 IR lines and its unit took 24 s where the other three, with the same amount of code, took 6 s. The call-graph division cannot fix that: the function is one node.
+
+`inline_cuts` runs once per build before any module is lowered (so every unit and a whole-program build agree) and estimates what the inliner will make: a callee counts at each call site when it is internal and has one caller (no address taken), is `inline`, or has at most 50 IR instructions (`INLINE_SMALL`). Callees are visited before callers; when a function's estimate passes `INLINE_CAP` (4,000 instructions) its largest inlinable callees are marked `noinline` until it fits. A cut callee keeps its own body (and its own callees) and costs its callers one call. `no_inline` procedures and `inline` ones are left as declared, and `-O0` does not compute it.
+
+The cap was chosen on the 120,000-line program: 1,000, 2,000, 4,000 and 8,000 all build in 12.5 to 13.9 s (a first sweep, with debug output on; 25.9 s without a cap), 16,000 takes 16.4 s and 32,000 27 s, so the knee is between 8,000 and 16,000 and 4,000 leaves a factor of two. About 7% of the functions of that program are cut; jaifmt has one and the tour none, so ordinary programs are built as before. The generated code of the program that was measured executes 0.06% more instructions (27.80 M against 27.81 M under callgrind).
+
 #### Splitting after the optimizer (`split.rs`)
 
 An optimized program too small to divide before the optimizer is optimized as one module, so inlining sees the whole program. Machine code generation (instruction selection, register allocation) is about half of an `-O2` build and works one function at a time, so `split::emit` runs it in parallel once the passes are done:
@@ -93,7 +101,7 @@ Definitions with C signatures (`#c_call` callbacks that C calls with structs) do
 - `JAIC_VERIFY_IR=1` runs the LLVM verifier in a release jaic (`0` turns it off in a debug one).
 - `JAIC_CODEGEN_UNITS=N` forces the unit count before the optimizer; `1` turns all splitting off, for a whole-program optimisation.
 - `JAIC_SPLIT_UNITS=N` forces the post-optimizer unit count of an optimized build (for tests); `1` turns that split off.
-- `INSTS_PER_UNIT`, `OPT_INSTS_PER_UNIT` and `MAX_OPT_UNITS` in `lib.rs`; `INSTS_PER_UNIT` and `MAX_UNITS` in `split.rs`; `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT` and `GLOBAL_IMPORT_MAX` in `partition.rs`.
+- `INSTS_PER_UNIT`, `OPT_INSTS_PER_UNIT` and `MAX_OPT_UNITS` in `lib.rs`; `INSTS_PER_UNIT` and `MAX_UNITS` in `split.rs`; `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `GLOBAL_IMPORT_MAX`, `INLINE_CAP` and `INLINE_SMALL` in `partition.rs`.
 - `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize, cpu, features }`, set from the CLI flags `-O0..-O3`, `--emit-ir file.ll`, `--no-debug-info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`; `cpu` and `features` come from `llvm_options.target_system_cpu` / `target_system_features` (empty: the baseline CPU; `"native"`: the build machine's).
 - Building the crate needs `LLVM_SYS_231_PREFIX` pointing at LLVM 23 (for example `/opt/homebrew/opt/llvm`); see [LLVM setup](../tools/llvm-setup.md).
 

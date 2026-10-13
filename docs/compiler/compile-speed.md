@@ -144,6 +144,21 @@ Code generation starts after every procedure is lowered to IR because nothing in
 
 A sketch that keeps the risk contained: (1) a "frozen" flag on `Func`, set when sema has finished the procedure and a `PROCEDURE_BODY_READY` message has been delivered and acknowledged (no metaprogram can change it any more); (2) the front end hands frozen procedures to a worker pool that builds LLVM IR for them into per-thread modules (`Backend::define_function` needs only `&Program` plus lazily declared symbols, which the partitioning in `partition.rs` already isolates); (3) at completion, the remaining procedures, globals and type tables are lowered, and the partition plan (which needs the full reference graph) is computed once. Step (3) is why the pieces cannot be finished early at `-O2`: ownership and `internal` versus `external` linkage depend on all references. For `-O0` they do not, so an `-O0` build could stream into shards chosen by a running size count. The costs are a second copy of the IR living while sema still grows the interner (memory), a lock around `Program` growth, and interactions with `#run` (which also reads `Program`). It was not attempted: the possible gain at the default `-O0` is small next to the 1.2 s of front end, and the risk is spread across sema, metaprogram messages and the interpreter.
 
+### Fourth pass: `-O2` time grows linearly
+
+`-O2` builds of large programs were superlinear: 4 times the code cost about 50 times the codegen time. `tools/benchgen.py --seed 1` programs, release `jaic`, `-O2` with debug info, 4-core x86-64 Linux VM, single runs (wall / CPU seconds; codegen is most of it, the front end is 0.2 to 1.6 s):
+
+| Lines | Before | After | JAIC_CODEGEN_UNITS=1 before / after |
+| --- | --- | --- | --- |
+| 30k | 2.8 / 8.1 | 2.1 / 6.9 | 7.4 / 6.4 |
+| 60k | 5.9 / 15.7 | 4.1 / 13.5 | 15.9 / 11.9 |
+| 120k | 25.8 / 44.1 | 8.3 / 26.7 | 41.2 / 24.2 |
+| 250k | 301 / 335 | 16.9 / 56.4 | not run |
+
+Where it went: the call-graph division was balanced (four units of the same size, 4 x 243,000 IR instructions at 120k), but one unit took 24 s and the others 6 s. That unit held `drive_misc`, the generated driver that calls a few hundred procedures once each. The inliner took them all into it (35,000 IR lines), and the loop passes are more than linear in function size: `opt -time-passes` on the unit's bitcode gave `LoopFullUnroll` 9.8 s, `LoopUnroll` 2.9 s, `LoopVectorize` 2.8 s and `IndVarSimplify` 1.4 s of 21 s; with the function removed, the same module took 4.3 s. Corpus programs have the shape (`main`, `init` and test-runner procedures that call whole subsystems), so the 140 s a 10-core Mac spent on a large project was the same effect. More units did not help (4, 8 and 16 units took the same 25 s), because it was one node of the graph.
+
+The fix is `partition::inline_cuts` ([LLVM backend](../native/llvm-backend.md#keeping-one-function-from-absorbing-the-program-partitioninline_cuts)): no function is allowed to grow past 4,000 instructions by inlining; its largest single-caller callees stay calls. Generated code: the checksum is the same as at `-O0` at every size (30k to 250k); the 120k program executes 27.80 M instructions before and 27.81 M after (+0.06%); jaifmt `-O2` builds in 1.85 s before and 1.95 s after (one cut, executable 16 bytes larger). Programs without a function over the cap are unchanged. The Chess, Focus and Jails corpus projects are not available offline here, so their compile times were not re-measured.
+
 ### Runtime of unoptimized code
 
 The default build also had to run fast enough to be usable, and call-heavy code was slow: `fib(40)` took 1.6 s against 0.67 s at `-O2`. Most of that was the work generated around the program, not the program. Best of five wall times (interleaved, on a busy machine) and instructions retired, release `jaic` before and after, `-O0` with debug info:

@@ -94,6 +94,7 @@ pub fn lower_program<'ctx>(
     shard: Option<Shard>,
     debug: Option<(DebugFormat, bool)>,
     unoptimized: bool,
+    no_inline: &[bool],
     simd: crate::simd::Target,
 ) -> Result<(), String> {
     let debug = debug
@@ -129,6 +130,7 @@ pub fn lower_program<'ctx>(
         check_files: RefCell::new(HashMap::new()),
         debug,
         inline_small_copies: unoptimized && !arch.is_wasm(),
+        no_inline: no_inline.to_vec(),
         simd,
     };
     backend.run().map_err(|e| e.0)
@@ -209,6 +211,8 @@ struct Backend<'ctx, 'p> {
     /// Functions of other modules this one holds a copy of (empty without a shard).
     imported: Vec<bool>,
     imported_globals: Vec<bool>,
+    /// Functions kept out of their callers so none outgrows the optimizer's reach (`partition::inline_cuts`).
+    no_inline: Vec<bool>,
     /// Declaration of each program function, made on first use: a codegen unit declares the
     /// functions it defines and the ones those refer to, not the whole program.
     funcs: Vec<OnceCell<FunctionValue<'ctx>>>,
@@ -828,6 +832,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let inline = match func.inline {
             jaic::ir::InlineHint::Always => Some("alwaysinline"),
             jaic::ir::InlineHint::Never => Some("noinline"),
+            jaic::ir::InlineHint::Default if self.no_inline.get(i).copied().unwrap_or(false) => {
+                Some("noinline")
+            }
             jaic::ir::InlineHint::Default => None,
         };
         if let Some(name) = inline {

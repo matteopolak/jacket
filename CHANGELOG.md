@@ -4,6 +4,7 @@
 
 ### Performance
 
+- `-O1` and up: a function that would grow past about 4,000 IR instructions by absorbing the single-caller procedures below it (a `main` or driver that calls many subsystems) now keeps the largest of them out (`noinline`), so optimized build time grows linearly with program size. On 4-core x86-64 a 250,000-line synthetic program took 301 s at `-O2` and takes 17 s; 120,000 lines went from 26 s to 8 s; programs without such a function build exactly as before. Details: [compile speed](docs/compiler/compile-speed.md#fourth-pass-o2-time-grows-linearly).
 - `Extensions/Tls`: a write sends up to 64 KiB of records at once and a read takes up to 64 KiB from the connection at once, which cuts the calls into the IO engine by 15 times. One stream moves about 10% more (110-112 to 123 MiB/s each way on a 4-core VM, loopback, both ends on one thread; `Tls/bench/bench.jai`); the cipher is the limit, see [tls](https://github.com/matteopolak/jai/blob/main/docs/stdlib/tls.md#throughput).
 
 ### Added
