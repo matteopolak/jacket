@@ -13,23 +13,9 @@
 // The default backend and the forced ones must pass the same tests.
 #load "lib/suite.jai";
 
-#if OS == .WINDOWS {
-    kernel32 :: #system_library "kernel32";
-    SetEnvironmentVariableA :: (name: *u8, value: *u8) -> s32 #foreign kernel32;
-
-    set_env :: (name: string, value: string) {
-        SetEnvironmentVariableA(temp_c_string(name), temp_c_string(value));
-    }
-} else {
-    libc :: #system_library "libc";
-    setenv :: (name: *u8, value: *u8, overwrite: s32) -> s32 #foreign libc;
-
-    set_env :: (name: string, value: string) {
-        setenv(temp_c_string(name), temp_c_string(value), 1);
-    }
-}
-
 #if OS == .LINUX {
+    libc :: #system_library "libc";
+
     c_readlink :: (path: *u8, buffer: *u8, size: u64) -> s64 #foreign libc "readlink";
     c_open :: (path: *u8, flags: s32) -> s32 #foreign libc "open";
     c_dup2 :: (from: s32, to: s32) -> s32 #foreign libc "dup2";

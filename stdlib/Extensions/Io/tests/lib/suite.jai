@@ -1139,7 +1139,9 @@ burst_client :: (job: Burst_Job) {
     count: s64;
     read_error: Io.Io_Error;
 
-    Io.with_deadline(5000, #code {
+    // Generous: a connection the server lost would wait forever, while a busy machine (the stress
+    // runs start a dozen of these programs at once) can take seconds to get to one.
+    Io.with_deadline(30_000, #code {
         Io.write(client, byte);
         count, read_error = Io.read(client, byte);
     });
@@ -2161,8 +2163,6 @@ run_timeouts :: () {
     test_cancel_accept();
     test_cancel_read();
     test_cancel_write();
-    test_cancel_resolve();
-    test_cancel_shared_lookup();
     test_run_ends_blocked_fibers();
 }
 
@@ -2185,10 +2185,38 @@ run_all :: () {
     test_threads_share_a_port();
 }
 
-// Runs `group` on a new scheduler and the checks that need the scheduler to be over.
+#if OS == .WINDOWS {
+    SetEnvironmentVariableA :: (name: *u8, value: *u8) -> s32 #foreign suite_kernel32;
+    suite_kernel32 :: #system_library "kernel32";
+
+    set_env :: (name: string, value: string) {
+        SetEnvironmentVariableA(temp_c_string(name), temp_c_string(value));
+    }
+} else {
+    suite_setenv :: (name: *u8, value: *u8, overwrite: s32) -> s32 #foreign suite_libc "setenv";
+    suite_libc :: #system_library "libc";
+
+    set_env :: (name: string, value: string) {
+        suite_setenv(temp_c_string(name), temp_c_string(value), 1);
+    }
+}
+
+slow_lookup_checks :: () {
+    test_cancel_resolve();
+    test_cancel_shared_lookup();
+}
+
+// Runs `group` on a new scheduler and the checks that need the scheduler to be over. The lookup
+// cancel checks run on schedulers of their own whose lookups are slowed down
+// (`JAI_IO_RESOLVE_DELAY_MS`), so the cancel always finds a lookup that is still under way; a real
+// lookup of "localhost" can answer before the fiber that asked has even parked.
 run_group :: (group: () -> ()) {
     Io.io_run(group);
+
+    set_env("JAI_IO_RESOLVE_DELAY_MS", "200");
+    Io.io_run(slow_lookup_checks);
     Io.io_run(test_run_ends_with_lookup_under_way);
+    set_env("JAI_IO_RESOLVE_DELAY_MS", "");
 
     if acceptor_started {
         assert(acceptor_finished, "the blocked accept never returned");

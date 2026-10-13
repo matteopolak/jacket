@@ -8,10 +8,12 @@
 
 ### Added
 
+- `Http/bench/server_bench.jai` prints p50, p90, p99, p99.9 and the largest latency per route, and takes a rate for an open load (each request timed from when it was due). Numbers and what they showed: [io-engine](https://github.com/matteopolak/jai/blob/main/docs/stdlib/io-engine.md#latency).
 - `Tls.cipher_suite(stream)`, the name of the negotiated cipher suite, and `Tls.ended_without_close_notify(reader)`.
 
 ### Fixes
 
+- `Extensions/Io` on epoll: timers fire on time. The wait for the next timer was rounded up to a whole millisecond, so a fiber that slept could wake up to a millisecond late (`epoll_pwait2` now takes nanoseconds; the median latency of an HTTP request at a fixed rate fell from 1.0 ms to 0.4 ms in the open-load bench, whose clients sleep between requests).
 - `Extensions/Io` on io_uring: a burst of more than 128 connections arriving while the acceptor was busy could strand the connections the engine had queued ahead of time, so their clients waited for a server that had already accepted them (found by an open-load HTTP bench: about 1 run in 8 hung at the end). `accept` takes queued sockets before anything else.
 - `Http` client: a read-until-close response body over TLS ends normally when the server closes the connection without close_notify (as in browsers and Python's `ssl`); Content-Length and chunked bodies still fail when cut, and a pooled TLS connection dropped that way is retried. `Tls.ended_without_close_notify(reader)` tells the two ends apart.
 

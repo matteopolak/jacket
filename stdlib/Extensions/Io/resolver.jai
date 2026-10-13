@@ -75,6 +75,10 @@ Wake_State :: struct {
 
     helpers: [RESOLVER_MAX_THREADS] Thread.Thread;
     helpers_started: s64;
+
+    // For tests: `JAI_IO_RESOLVE_DELAY_MS` makes every lookup wait that long first, so a test can
+    // cancel a lookup that is certainly still under way. Read once per scheduler; 0 normally.
+    delay_ms: s64;
 }
 
 resolve_with_helper :: (host: string, port: u16) -> Address, Io_Error {
@@ -219,6 +223,7 @@ wake_ensure :: (scheduler: *Scheduler) -> *Wake_State {
     Thread.init(*state.work);
 
     scheduler.waker = state;
+    state.delay_ms = env_number("JAI_IO_RESOLVE_DELAY_MS", 0);
 
     wake_grow(state, RESOLVER_MIN_THREADS);
 
@@ -410,6 +415,8 @@ helper_main :: (thread: *Thread.Thread) -> s64 {
 
             continue;
         }
+
+        if state.delay_ms > 0 sleep_milliseconds(cast(s32) min(state.delay_ms, 60_000));
 
         lookup(job);
 

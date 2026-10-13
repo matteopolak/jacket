@@ -475,6 +475,21 @@ KQ_WRITE :: -2;
     c_epoll_ctl :: (epfd: s32, operation: s32, fd: s32, event: *Epoll_Event) -> s32 #foreign libc "epoll_ctl";
     c_epoll_wait :: (epfd: s32, events: *Epoll_Event, max_events: s32, milliseconds: s32) -> s32 #foreign libc "epoll_wait";
 
+    // `epoll_pwait2` (Linux 5.11) takes the timeout in nanoseconds; `epoll_wait` rounds it up to a
+    // whole millisecond, which delays a timer 100 us away by up to 1 ms. The raw system call: libc
+    // before 2.35 has no wrapper. The number is the same on x86-64 and arm64.
+    SYS_epoll_pwait2 :: 441;
+
+    Poll_Timespec :: struct {
+        seconds: s64;
+        nanoseconds: s64;
+    }
+
+    raw_syscall :: (number: s64, a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64) -> s64 #foreign libc "syscall";
+
+    // Set when the kernel answers ENOSYS (or a sandbox refuses the call): `epoll_wait` from then on.
+    epoll_pwait2_missing: bool;
+
     // Whether epoll can be had at all; it always can on a Linux this module supports.
     epoll_start :: (engine: *Engine) {
         engine.backend = .EPOLL;
@@ -532,7 +547,32 @@ KQ_WRITE :: -2;
 
         if timeout >= 0 milliseconds = cast(s32) min((timeout + 999_999) / 1_000_000, 0x7fff_ffff);
 
-        count := c_epoll_wait(engine.poll_fd, events.data, 64, milliseconds);
+        count: s32;
+
+        // A wait that is not a whole number of milliseconds is worth the finer call.
+        if timeout > 0 && timeout % 1_000_000 != 0 && !epoll_pwait2_missing {
+            limit: Poll_Timespec;
+            limit.seconds = timeout / 1_000_000_000;
+            limit.nanoseconds = timeout % 1_000_000_000;
+
+            result := raw_syscall(SYS_epoll_pwait2, engine.poll_fd, cast(s64) events.data, 64, cast(s64) *limit, 0, 0);
+
+            if result < 0 {
+                code := errno_now();
+
+                if code == E_NOSYS || code == E_PERM || code == E_INVAL {
+                    epoll_pwait2_missing = true;
+                    count = c_epoll_wait(engine.poll_fd, events.data, 64, milliseconds);
+                } else {
+                    count = -1;
+                }
+            } else {
+                count = cast(s32) result;
+            }
+        } else {
+            count = c_epoll_wait(engine.poll_fd, events.data, 64, milliseconds);
+        }
+
         if count < 0 {
             assert(errno_now() == E_INTR, "Io: epoll_wait failed");
 
