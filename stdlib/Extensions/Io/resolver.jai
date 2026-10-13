@@ -78,14 +78,18 @@ resolve_with_helper :: (host: string, port: u16) -> Address, Io_Error {
 
     Thread.signal(*state.work);
 
+    // On a readiness backend the pipe READ can complete here and collect this very job, if the
+    // helper was quick; `wake_fiber` then leaves the answer without waking this running fiber.
     wake_arm(scheduler);
 
-    if fiber.deadline != 0 timer_add(scheduler, fiber, fiber.deadline);
+    if fiber.job {
+        if fiber.deadline != 0 timer_add(scheduler, fiber, fiber.deadline);
 
-    reason := park(scheduler, fiber);
+        reason := park(scheduler, fiber);
 
-    // A cancel or a deadline already gave the job up.
-    if reason != .NONE return .{}, reason;
+        // A cancel or a deadline already gave the job up.
+        if reason != .NONE return .{}, reason;
+    }
 
     fiber.job = null;
 
@@ -226,6 +230,10 @@ wake_fiber :: (job: *Resolve_Job) {
     fiber := job.fiber;
 
     fiber.job = null;
+
+    // The fiber that queued the job and has not parked yet finds its answer when `wake_arm` returns.
+    if fiber.state == .RUNNING return;
+
     wake(fiber);
 }
 

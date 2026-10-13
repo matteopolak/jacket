@@ -807,21 +807,40 @@ resolving_fiber :: (job: Resolve_Cancel) {
     _, job.result.* = Io.resolve("localhost", 1);
 }
 
-// A fiber that waits for a name lookup stops waiting when it is canceled; the lookup's own answer
-// arrives later and is dropped.
-test_cancel_resolve :: () {
+// Starts a lookup in another fiber and cancels it once that fiber waits, and returns what the
+// lookup gave. A helper thread can answer before the cancel lands (on a busy machine), and then
+// the lookup succeeds instead, so either result is fine here.
+cancel_a_lookup :: () -> Io.Io_Error {
     group: Io.Wait_Group;
     result := Io.Io_Error.NONE;
 
     Io.add(*group);
     handle := Io.spawn(resolving_fiber, Resolve_Cancel.{ *result, *group });
 
-    // The fiber runs until it waits for its lookup, then this one cancels it.
     Io.yield();
     Io.cancel(handle);
     Io.wait(*group);
 
-    assert(result == .CANCELED, "resolve after cancel gave %", result);
+    assert(result == .CANCELED || result == .NONE, "resolve after cancel gave %", result);
+
+    return result;
+}
+
+// A fiber that waits for a name lookup stops waiting when it is canceled; the lookup's own answer
+// arrives later and is dropped.
+test_cancel_resolve :: () {
+    // Quick answers can beat the cancel, but not five times in a row.
+    canceled := false;
+
+    for 1..5 {
+        if cancel_a_lookup() == .CANCELED {
+            canceled = true;
+
+            break;
+        }
+    }
+
+    assert(canceled, "no lookup was canceled in five tries");
 
     // Let the abandoned answer arrive, then check lookups still work.
     Io.sleep(30);
@@ -840,17 +859,7 @@ test_cancel_resolve :: () {
 // A scheduler that ends right after a lookup was given up: it waits for the helper's answer before
 // it releases the engine, so the late answer cannot touch freed memory.
 test_run_ends_with_lookup_under_way :: () {
-    group: Io.Wait_Group;
-    result := Io.Io_Error.NONE;
-
-    Io.add(*group);
-    handle := Io.spawn(resolving_fiber, Resolve_Cancel.{ *result, *group });
-
-    Io.yield();
-    Io.cancel(handle);
-    Io.wait(*group);
-
-    assert(result == .CANCELED);
+    cancel_a_lookup();
 }
 
 acceptor_started: bool;
