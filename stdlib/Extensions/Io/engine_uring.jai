@@ -27,6 +27,7 @@
     UNTRACKED :: 1;
 
     MSG_NOSIGNAL :: 0x4000;
+    POLLIN :: 0x1;
     // Accepted sockets block: io_uring waits for them itself.
     SOCK_CLOEXEC :: 0x80000;
 
@@ -67,7 +68,7 @@
         probe: Uring.Probe;
         probed := Uring.probe_ops(ring, *probe);
 
-        needed := Uring.io_uring_op.[.ACCEPT, .CONNECT, .RECV, .SEND, .READ, .WRITE, .CLOSE, .ASYNC_CANCEL, .SENDMSG_ZC];
+        needed := Uring.io_uring_op.[.ACCEPT, .CONNECT, .RECV, .SEND, .READ, .WRITE, .CLOSE, .ASYNC_CANCEL, .POLL_ADD, .SENDMSG_ZC];
         usable := probed == 0 && (ring.features & Uring.IORING_FEAT_EXT_ARG) != 0;
 
         for needed {
@@ -155,6 +156,11 @@
 
             case .CLOSE;
                 Uring.prep_rw(sqe, .CLOSE, fd, null, 0, 0);
+
+            case .WAIT_READABLE;
+                // One shot; the result is the events that fired, which `wait_readable` ignores.
+                Uring.prep_rw(sqe, .POLL_ADD, fd, null, 0, 0);
+                sqe.poll32_events = POLLIN;
         }
 
         sqe.user_data = cast(u64) cast(*void) op;
@@ -225,18 +231,20 @@
     uring_reap :: (scheduler: *Scheduler, engine: *Engine) {
         ring := *engine.uring.ring;
 
-        head := ring.cq_head.*;
+        // `finish_op` can re-enter this function (through `uring_entry` when the submission queue is
+        // full), and the inner call consumes entries too: `head` is read again for every entry and
+        // each one is consumed before its handler runs.
         tail := atomic_load(ring.cq_tail, .ACQUIRE);
 
-        while head != tail {
+        while ring.cq_head.* != tail {
+            head := ring.cq_head.*;
             cqe := cast(*Uring.io_uring_cqe) byte_offset(ring.cqes, (head & ring.cq_mask) * ring.cqe_bytes);
 
             user_data := cqe.user_data;
             result := cqe.res;
             flags := cqe.flags;
 
-            head += 1;
-            atomic_store(ring.cq_head, head, .RELEASE);
+            atomic_store(ring.cq_head, head + 1, .RELEASE);
 
             if user_data > 15 {
                 op := cast(*Op) cast(*void) user_data;

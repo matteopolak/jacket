@@ -345,6 +345,20 @@ read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
     return count, .NONE;
 }
 
+// Waits until `read` would not wait: bytes have arrived, the peer closed its end, or the connection
+// failed (`read` then says which). Nothing is consumed and no buffer is needed, so a fiber can wait
+// for a quiet connection and take its memory only when there is something to read. Ends with
+// `.TIMED_OUT` or `.CANCELED` like any other wait, and `.CLOSED` if the socket is closed meanwhile.
+wait_readable :: (stream: Tcp_Stream) -> Io_Error {
+    op := begin_op(.WAIT_READABLE, stream.handle);
+
+    error := await_op(op);
+
+    end_op(op);
+
+    return error;
+}
+
 // Reads until `buffer` is full. `.END_OF_FILE` if the peer closed first, with the bytes read.
 read_full :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
     return read_full(reader_of(stream), buffer);

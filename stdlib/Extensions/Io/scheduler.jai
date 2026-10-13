@@ -82,7 +82,7 @@ Fiber :: struct {
     timer_slot: s64 = -1;
     // The engine operation this fiber is blocked in, and the name lookup, if any.
     op: *Op;
-    job: *Resolve_Job;
+    job: *Resolve_Waiter;
     // Absolute `now_nanoseconds()` limit for every IO call (0: none), set by `with_deadline`.
     deadline: s64;
     // The system's error number behind the last failed IO call.

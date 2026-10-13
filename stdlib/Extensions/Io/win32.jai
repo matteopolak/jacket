@@ -423,6 +423,10 @@
         return -E_UNSUPPORTED;
     }
 
+    sys_peek :: (fd: s64) -> s64 {
+        return -E_UNSUPPORTED;
+    }
+
     sys_send :: (fd: s64, buffer: *void, length: s64) -> s64 {
         return -E_UNSUPPORTED;
     }

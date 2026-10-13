@@ -6,25 +6,48 @@
 // is woken the same way, with no backend-specific cross-thread call): it appends the finished job
 // to a list under a mutex and writes a byte. The scheduler then wakes the fibers.
 //
-// A fiber that is canceled, or whose deadline passes, stops waiting at once; the lookup itself
-// cannot be interrupted, so the job is abandoned and freed when its answer arrives.
+// Lookups for the same name that are under way share one job: later fibers join the job's waiter
+// list, and each gets the answer with its own port. A fiber that is canceled, or whose deadline
+// passes, stops waiting at once and only leaves the list; the lookup itself cannot be
+// interrupted, so the job (with or without waiters) is freed when its answer is collected. Helper
+// threads start one at a time as lookups queue up, up to `RESOLVER_MAX_THREADS`.
 //
 // On Windows there is no pipe: a helper posts a `KEY_WAKE` packet to the scheduler's completion
 // port, which `iocp_wait` turns into `wake_collect`, and `write_fd` holds that port.
 
 Thread :: #import "Thread";
 
-RESOLVER_THREADS :: 2;
+// Helper threads at least one lookup needs, and the most a scheduler starts. A helper stays busy
+// until the OS answers, so a lookup that finds every helper busy starts another.
+RESOLVER_MIN_THREADS :: 1;
+RESOLVER_MAX_THREADS :: 8;
 
+// One `getaddrinfo` call, shared by every fiber that asked for the same name while it was under way.
 Resolve_Job :: struct {
     host: *u8;
+    host_length: s64;
+    // 0, or the `getaddrinfo` error code. Written by the helper, read after it is collected.
+    code: s32;
+    // The answer with port 0; each waiter applies its own port.
+    address: Address;
+    // Fibers waiting for the answer (scheduler thread only).
+    waiters: *Resolve_Waiter;
+    // The helper queues (mutex-protected).
+    next: *Resolve_Job;
+    // Jobs not yet collected, to find one to join (scheduler thread only).
+    inflight_next: *Resolve_Job;
+}
+
+// One fiber's wait for a job. It lives on that fiber's stack, which is alive while the fiber waits
+// (a canceled fiber leaves the list before it runs again).
+Resolve_Waiter :: struct {
+    job: *Resolve_Job;
+    fiber: *Fiber;
     port: u16;
-    // 0, or the `getaddrinfo` error code.
     code: s32;
     address: Address;
-    fiber: *Fiber;
-    abandoned: bool;
-    next: *Resolve_Job;
+    next: *Resolve_Waiter;
+    prev: *Resolve_Waiter;
 }
 
 Wake_State :: struct {
@@ -34,8 +57,12 @@ Wake_State :: struct {
     op: *Op;
     buffer: [64] u8;
 
-    // Lookups handed out whose answer has not been processed yet, abandoned ones included.
+    // Jobs handed out whose answer has not been collected yet, ones nobody waits for included. A
+    // job holds a helper from the time it is queued, so this is also the number of helpers needed.
     outstanding: s64;
+    inflight: *Resolve_Job;
+    // Jobs made over this scheduler's life (for tests and diagnostics).
+    jobs_made: s64;
 
     // Shared with the helper threads.
     mutex: Thread.Mutex;
@@ -46,7 +73,7 @@ Wake_State :: struct {
     done_tail: *Resolve_Job;
     quitting: bool;
 
-    helpers: [RESOLVER_THREADS] Thread.Thread;
+    helpers: [RESOLVER_MAX_THREADS] Thread.Thread;
     helpers_started: s64;
 }
 
@@ -60,23 +87,43 @@ resolve_with_helper :: (host: string, port: u16) -> Address, Io_Error {
     state := wake_ensure(scheduler);
     if !state return .{}, .UNSUPPORTED;
 
-    job := New(Resolve_Job);
-    job.host = to_c_string(host);
-    job.port = port;
-    job.fiber = fiber;
+    job := find_job(state, host);
 
-    fiber.job = job;
+    if !job {
+        // Every helper may be stuck in a slow lookup: one more for this job.
+        wake_grow(state, state.outstanding + 1);
+        if state.helpers_started == 0 return .{}, .UNSUPPORTED;
+
+        job = New(Resolve_Job);
+        job.host = to_c_string(host);
+        job.host_length = host.count;
+        job.inflight_next = state.inflight;
+
+        state.inflight = job;
+        state.outstanding += 1;
+        state.jobs_made += 1;
+
+        Thread.lock(*state.mutex);
+        if state.queue_tail state.queue_tail.next = job;
+        else state.queue_head = job;
+
+        state.queue_tail = job;
+        Thread.unlock(*state.mutex);
+
+        Thread.signal(*state.work);
+    }
+
+    waiter: Resolve_Waiter;
+    waiter.job = job;
+    waiter.fiber = fiber;
+    waiter.port = port;
+    waiter.next = job.waiters;
+    if job.waiters job.waiters.prev = *waiter;
+
+    job.waiters = *waiter;
+
+    fiber.job = *waiter;
     scheduler.pending += 1;
-    state.outstanding += 1;
-
-    Thread.lock(*state.mutex);
-    if state.queue_tail state.queue_tail.next = job;
-    else state.queue_head = job;
-
-    state.queue_tail = job;
-    Thread.unlock(*state.mutex);
-
-    Thread.signal(*state.work);
 
     // On a readiness backend the pipe READ can complete here and collect this very job, if the
     // helper was quick; `wake_fiber` then leaves the answer without waking this running fiber.
@@ -87,34 +134,60 @@ resolve_with_helper :: (host: string, port: u16) -> Address, Io_Error {
 
         reason := park(scheduler, fiber);
 
-        // A cancel or a deadline already gave the job up.
+        // A cancel or a deadline already took this fiber off the job.
         if reason != .NONE return .{}, reason;
     }
 
     fiber.job = null;
 
-    address := job.address;
-    code := job.code;
-
-    free(job.host);
-    free(job);
-
-    if code != 0 {
-        fiber.platform_code = code;
+    if waiter.code != 0 {
+        fiber.platform_code = waiter.code;
 
         return .{}, .RESOLVE_FAILED;
     }
 
-    return address, .NONE;
+    return waiter.address, .NONE;
 }
 
-// Stops `fiber` waiting for its lookup. The helper still holds the job, so it is freed when the
-// answer comes.
-abandon_job :: (fiber: *Fiber) {
-    job := fiber.job;
+// The job for `host` that is queued or running, if any.
+find_job :: (state: *Wake_State, host: string) -> *Resolve_Job {
+    job := state.inflight;
 
-    job.abandoned = true;
-    job.fiber = null;
+    while job {
+        if job.host_length == host.count {
+            same := true;
+
+            for 0..host.count - 1 {
+                if job.host[it] != host[it] {
+                    same = false;
+
+                    break;
+                }
+            }
+
+            if same return job;
+        }
+
+        job = job.inflight_next;
+    }
+
+    return null;
+}
+
+// Stops `fiber` waiting for its lookup. The job stays: a helper may be running it, and others may
+// wait for it. It is freed when its answer is collected.
+abandon_job :: (fiber: *Fiber) {
+    waiter := fiber.job;
+    job := waiter.job;
+
+    if waiter.prev waiter.prev.next = waiter.next;
+    else job.waiters = waiter.next;
+
+    if waiter.next waiter.next.prev = waiter.prev;
+
+    waiter.next = null;
+    waiter.prev = null;
+
     fiber.job = null;
     fiber.scheduler.pending -= 1;
 }
@@ -147,16 +220,24 @@ wake_ensure :: (scheduler: *Scheduler) -> *Wake_State {
 
     scheduler.waker = state;
 
-    for 0..RESOLVER_THREADS - 1 {
-        helper := *state.helpers[it];
+    wake_grow(state, RESOLVER_MIN_THREADS);
+
+    return state;
+}
+
+// Starts helpers until there are `wanted` (at most `RESOLVER_MAX_THREADS`). A helper that cannot be
+// started is left out; the caller checks `helpers_started`.
+wake_grow :: (state: *Wake_State, wanted: s64) {
+    while state.helpers_started < min(wanted, RESOLVER_MAX_THREADS) {
+        helper := *state.helpers[state.helpers_started];
 
         Thread.thread_init(helper, helper_main);
         helper.data = state;
 
-        if Thread.thread_start(helper) state.helpers_started += 1;
-    }
+        if !Thread.thread_start(helper) break;
 
-    return state;
+        state.helpers_started += 1;
+    }
 }
 
 // Makes sure a READ on the pipe is outstanding while lookups are, and takes answers that are
@@ -214,20 +295,41 @@ wake_collect :: (scheduler: *Scheduler) {
 
         state.outstanding -= 1;
 
-        if job.abandoned {
-            free(job.host);
-            free(job);
-        } else {
+        link := *state.inflight;
+
+        while link.* != job link = *link.*.inflight_next;
+
+        link.* = job.inflight_next;
+
+        // Each waiter keeps its own copy: the job goes now, the waiters run later.
+        waiter := job.waiters;
+
+        job.waiters = null;
+
+        while waiter {
+            following := waiter.next;
+
+            waiter.next = null;
+            waiter.prev = null;
+            waiter.code = job.code;
+            waiter.address = job.address;
+            waiter.address.port = waiter.port;
+
             scheduler.pending -= 1;
-            wake_fiber(job);
+            wake_fiber(waiter);
+
+            waiter = following;
         }
+
+        free(job.host);
+        free(job);
 
         job = next;
     }
 }
 
-wake_fiber :: (job: *Resolve_Job) {
-    fiber := job.fiber;
+wake_fiber :: (waiter: *Resolve_Waiter) {
+    fiber := waiter.fiber;
 
     fiber.job = null;
 
@@ -257,8 +359,16 @@ wake_stop :: (scheduler: *Scheduler) {
     state.quitting = true;
     Thread.unlock(*state.mutex);
 
+    // Every helper started so far, later ones included, is joined.
     for 1..state.helpers_started Thread.signal(*state.work);
-    for 0..state.helpers_started - 1 Thread.thread_deinit(*state.helpers[it]);
+
+    index := 0;
+
+    while index < state.helpers_started {
+        Thread.thread_deinit(*state.helpers[index]);
+
+        index += 1;
+    }
 
     #if OS != .WINDOWS {
         sys_close(state.read_handle.fd);
@@ -408,10 +518,24 @@ lookup :: (job: *Resolve_Job) {
 
     if best {
         job.address = from_sockaddr(best.address);
-        job.address.port = job.port;
     } else {
         job.code = -1;
     }
 
     free_address_info(found);
 }
+
+#scope_export
+
+// Lookups made and helper threads started on the running scheduler so far, for tests and
+// diagnostics. Both are 0 before the first name lookup.
+resolver_statistics :: () -> s64, s64 {
+    scheduler := current_scheduler();
+    state := scheduler.waker;
+
+    if !state return 0, 0;
+
+    return state.jobs_made, state.helpers_started;
+}
+
+#scope_module

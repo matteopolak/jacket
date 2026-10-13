@@ -405,6 +405,25 @@ MAX_TRANSFER :: 0x4000_0000;
         return 0;
     }
 
+    // Whether a `sys_recv` would not wait, without taking anything: 0 if a byte, the end of the
+    // stream or an error is there (the receive reports which), `-E_AGAIN` if not.
+    sys_peek :: (fd: s64) -> s64 {
+        MSG_PEEK :: 0x2;
+
+        byte: u8;
+
+        while true {
+            result := c_recv(cast(s32) fd, *byte, 1, MSG_PEEK);
+            if result >= 0 return 0;
+
+            code := errno_now();
+            if code == E_AGAIN return -E_AGAIN;
+            if code != E_INTR return 0;
+        }
+
+        return 0;
+    }
+
     sys_send :: (fd: s64, buffer: *void, length: s64) -> s64 {
         while true {
             #if OS == .MACOS flags: s32 = 0;

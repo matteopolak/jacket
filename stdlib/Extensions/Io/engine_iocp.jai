@@ -149,6 +149,16 @@ Iocp_State :: struct {
 
                 return iocp_started(op, result == 0, win_wsa_error());
 
+            case .WAIT_READABLE;
+                // A receive of no bytes completes when a real one would not wait: data, the end
+                // of the stream or an error.
+                buffer := Wsa_Buffer.{ 0, *op.address };
+                flags: u32;
+
+                result := win_receive(handle, *buffer, 1, null, *flags, *op.overlapped, null);
+
+                return iocp_started(op, result == 0, win_wsa_error());
+
             case .SEND;
                 buffer := Wsa_Buffer.{ cast(u32) min(op.length, SEND_CHUNK), op.buffer };
 
@@ -329,6 +339,10 @@ Iocp_State :: struct {
                 } else {
                     result = -error;
                 }
+
+            case .WAIT_READABLE;
+                // A failed connection is readable too: the receive that follows reports why.
+                result = ifx error == E_CANCELED then -error else 0;
 
             case .RECV; #through;
             case .SEND; #through;

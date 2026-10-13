@@ -38,6 +38,9 @@ Op_Kind :: enum u8 {
     READ;
     WRITE;
     CLOSE;
+    // Completes (with 0) when a `RECV` would not wait: bytes, the end of the stream or an error
+    // are there. Takes no buffer and consumes nothing. Sockets only.
+    WAIT_READABLE;
 }
 
 Op_State :: enum u8 {

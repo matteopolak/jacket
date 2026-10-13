@@ -38,6 +38,10 @@ Read_Proc :: #type (data: *void, buffer: [] u8) -> s64, Io_Error;
 // Writes at least one byte of `bytes` (all of it for a sink that never waits) and returns how many.
 Write_Proc :: #type (data: *void, bytes: [] u8) -> s64, Io_Error;
 
+// Waits until `read` would not have to wait: a byte is there, the source ended, or it failed (the
+// `read` that follows says which). Nothing is consumed, so it needs no buffer.
+Wait_Proc :: #type (data: *void) -> Io_Error;
+
 // Closes the source. `now` asks for a close that does not wait, for code that cannot block.
 Close_Proc :: #type (data: *void, now: bool) -> Io_Error;
 
@@ -46,6 +50,9 @@ Reader :: struct {
     read_proc: Read_Proc;
     // Null for a source that has nothing to close.
     close_proc: Close_Proc;
+    // Null for a source that cannot say when a read would not wait (`wait_readable` then returns
+    // `.UNSUPPORTED`). A TCP stream can.
+    wait_proc: Wait_Proc;
 }
 
 Writer :: struct {
@@ -63,6 +70,21 @@ read :: (reader: Reader, buffer: [] u8) -> s64, Io_Error {
     if !reader.read_proc return 0, .UNSUPPORTED;
 
     return reader.read_proc(reader.data, buffer);
+}
+
+// Waits until a `read` would return at once: bytes are there, the source ended, or it failed (the
+// `read` then reports which). It takes no buffer and consumes nothing, so a connection can sit idle
+// without holding memory and allocate only when something arrives. Deadlines and `cancel` end it
+// like any other wait. `.UNSUPPORTED` for a reader that cannot tell (a file, a pipe, a source of
+// your own without `wait_proc`): `can_wait_readable` says beforehand.
+wait_readable :: (reader: Reader) -> Io_Error {
+    if !reader.wait_proc return .UNSUPPORTED;
+
+    return reader.wait_proc(reader.data);
+}
+
+can_wait_readable :: (reader: Reader) -> bool {
+    return reader.wait_proc != null;
 }
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the source ended first, with the bytes read.
@@ -167,7 +189,7 @@ reader_of :: (file: *Io_File) -> Reader {
 }
 
 reader_of :: (stream: Tcp_Stream) -> Reader {
-    return .{ cast(*void) stream.handle.fd, tcp_read_proc, tcp_close_proc };
+    return .{ cast(*void) stream.handle.fd, tcp_read_proc, tcp_close_proc, tcp_wait_proc };
 }
 
 reader_of :: (stream: *Pipe_Stream) -> Reader {
@@ -210,6 +232,10 @@ tcp_of :: (data: *void) -> Tcp_Stream {
 
 tcp_read_proc :: (data: *void, buffer: [] u8) -> s64, Io_Error {
     return read(tcp_of(data), buffer);
+}
+
+tcp_wait_proc :: (data: *void) -> Io_Error {
+    return wait_readable(tcp_of(data));
 }
 
 tcp_write_proc :: (data: *void, bytes: [] u8) -> s64, Io_Error {

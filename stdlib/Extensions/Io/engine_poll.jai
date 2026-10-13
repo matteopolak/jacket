@@ -73,7 +73,7 @@ poll_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {
 
 // One non-blocking try. True: finished, `op.result` is set. False: it must wait for readiness
 // (`op.wants_write` says which).
-poll_attempt :: (op: *Op) -> bool {
+poll_attempt :: (op: *Op, ready := false) -> bool {
     fd := op.handle.fd;
     result: s64;
 
@@ -104,6 +104,12 @@ poll_attempt :: (op: *Op) -> bool {
             op.wants_write = false;
             result = sys_recv(fd, op.buffer, op.length);
 
+        case .WAIT_READABLE;
+            op.wants_write = false;
+
+            // The descriptor was reported readable: nothing to look at.
+            result = ifx ready then 0 else sys_peek(fd);
+
         case .SEND;
             op.wants_write = true;
             result = sys_send(fd, op.buffer, op.length);
@@ -133,9 +139,15 @@ poll_ready :: (scheduler: *Scheduler, engine: *Engine, fd: s64, readable: bool, 
 
     state := *engine.fds[fd];
 
+    // The first reader in line was reported ready; the ones behind it have to look, since an
+    // operation ahead of them may have taken what there was.
+    reported := true;
+
     while readable && state.read_head {
         op := state.read_head;
-        if !poll_attempt(op) break;
+        if !poll_attempt(op, reported) break;
+
+        reported = false;
 
         wait_unlink(state, op);
         finish_op(scheduler, op, op.result);
