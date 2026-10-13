@@ -78,7 +78,7 @@ window program (`--dlls`), as the stdlib window tests do.
 
 **Deviations from the projects' own steps** (each is a step of the check):
 
-- Focus builds with `first.jai - release`, using its own `src/meow_hash.jai` unedited (the stdlib's `meow_hash` has an x64 implementation).
+- Focus builds with `first.jai - release`, using its own `src/meow_hash.jai` unedited (the stdlib's `meow_hash` has an x64 implementation). On Windows it is built (its custom MSVC link, with the built FreeType library copied to `modules/freetype-bin/windows/`) but not run: its Simp backend sets the texture anisotropy to 0 and turns any GL error into a breakpoint, which Mesa's software OpenGL reports as `GL_INVALID_VALUE` (real drivers ignore it).
 - reflector's `build.jai` also builds a Windows-only benchmark, so the check builds `reflector-tests.jai`, a
   driver that makes the same test workspace calls (see [upstream corpus](upstream-corpus.md)).
 - jai-tracy: `generate.jai` would rewrite the pinned bindings, so libtracy is compiled from the pinned Tracy client.
