@@ -2,22 +2,24 @@
 
 ## [Unreleased]
 
-### Performance
+## [0.16.1] - 2026-10-13
 
-- `-O1` and up: a function that would grow past about 4,000 IR instructions by absorbing the single-caller procedures below it (a `main` or driver that calls many subsystems) now keeps the largest of them out (`noinline`), so optimized build time grows linearly with program size. On 4-core x86-64 a 250,000-line synthetic program took 301 s at `-O2` and takes 17 s; 120,000 lines went from 26 s to 8 s; programs without such a function build exactly as before. Details: [compile speed](docs/compiler/compile-speed.md#fourth-pass-o2-time-grows-linearly).
-- `Extensions/Tls`: a write sends up to 64 KiB of records at once and a read takes up to 64 KiB from the connection at once, which cuts the calls into the IO engine by 15 times. One stream moves about 10% more (110-112 to 123 MiB/s each way on a 4-core VM, loopback, both ends on one thread; `Tls/bench/bench.jai`); the cipher is the limit, see [tls](https://github.com/matteopolak/jai/blob/main/docs/stdlib/tls.md#throughput).
+Optimized builds of large programs, faster TLS and JSON encoding, and fixes in `Io`, `Http` and `Input`.
 
-### Added
+### Highlights
 
-- `Http/bench/server_bench.jai` prints p50, p90, p99, p99.9 and the largest latency per route, and takes a rate for an open load (each request timed from when it was due). Numbers and what they showed: [io-engine](https://github.com/matteopolak/jai/blob/main/docs/stdlib/io-engine.md#latency).
-- `Tls.cipher_suite(stream)`, the name of the negotiated cipher suite, and `Tls.ended_without_close_notify(reader)`.
+- `-O2` build time now grows linearly with program size: a 250,000-line program builds in 17 s instead of 301 s on 4 cores. See [compile speed](https://github.com/matteopolak/jai/blob/main/docs/compiler/compile-speed.md#fourth-pass--o2-time-grows-linearly).
+- Typed `to_json` is 1.2x to 1.5x faster, with byte-identical output.
+- TLS streams batch records into fewer system calls, about 10% more throughput per stream.
+- `Http/bench/server_bench.jai` reports p50 to p99.9 latency and can run at a fixed request rate.
+- New: `Tls.cipher_suite(stream)` and `Tls.ended_without_close_notify(reader)`.
 
 ### Fixes
 
-- `Input` on Windows: scrolling down, and the mouse or a window left of or above the primary monitor, no longer fail a checked cast (`cast of 65416 to s16 overflows`); the wheel delta and coordinates are signed 16-bit values.
-- `Extensions/Io` on epoll: timers fire on time. The wait for the next timer was rounded up to a whole millisecond, so a fiber that slept could wake up to a millisecond late (`epoll_pwait2` now takes nanoseconds; the median latency of an HTTP request at a fixed rate fell from 1.0 ms to 0.4 ms in the open-load bench, whose clients sleep between requests).
-- `Extensions/Io` on io_uring: a burst of more than 128 connections arriving while the acceptor was busy could strand the connections the engine had queued ahead of time, so their clients waited for a server that had already accepted them (found by an open-load HTTP bench: about 1 run in 8 hung at the end). `accept` takes queued sockets before anything else.
-- `Http` client: a read-until-close response body over TLS ends normally when the server closes the connection without close_notify (as in browsers and Python's `ssl`); Content-Length and chunked bodies still fail when cut, and a pooled TLS connection dropped that way is retried. `Tls.ended_without_close_notify(reader)` tells the two ends apart.
+- Windows `Input`: scrolling down, or a cursor or window left of or above the primary monitor, no longer crashes with a cast overflow ([#1](https://github.com/matteopolak/jai/issues/1)).
+- `Http` client: an https body read until the connection closes ends normally when the server skips close_notify.
+- io_uring: a burst of over 128 connections could leave queued connections unaccepted.
+- epoll: timers no longer fire up to a millisecond late.
 
 ## [0.16.0] - 2026-10-13
 
