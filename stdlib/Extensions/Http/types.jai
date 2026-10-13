@@ -287,14 +287,14 @@ lookup_header_name :: (name: string) -> Header_Name {
 // One header field line. `name` keeps the spelling on the wire; `id` says which well-known
 // header it is (.UNKNOWN for others). `value` has no leading or trailing blanks. Strings of a
 // parsed head point into the parser's buffer.
-Header :: struct {
+Header_Field :: struct {
     name: string;
     value: string;
     id: Header_Name;
 }
 
 // The first header called `name` (any case); `found` says whether there was one.
-find_header :: (headers: [] Header, name: string) -> value: string, found: bool {
+find_header :: (headers: [] Header_Field, name: string) -> value: string, found: bool {
     id := lookup_header_name(name);
 
     for headers {
@@ -308,7 +308,7 @@ find_header :: (headers: [] Header, name: string) -> value: string, found: bool 
     return "", false;
 }
 
-find_header :: (headers: [] Header, id: Header_Name) -> value: string, found: bool {
+find_header :: (headers: [] Header_Field, id: Header_Name) -> value: string, found: bool {
     for headers {
         if it.id == id return it.value, true;
     }
@@ -382,7 +382,7 @@ Error_Kind :: enum u8 {
 }
 
 // Why parsing stopped. `message` is a static string.
-Http_Error :: struct {
+Parse_Error :: struct {
     kind: Error_Kind;
     message: string;
     offset: int; // bytes of the current message consumed before the fault
@@ -437,7 +437,7 @@ Head :: struct {
     informational: bool; // 1xx other than 101: a final response follows
 
     version: Version;
-    headers: [] Header;
+    headers: [] Header_Field;
 
     // How the body is delimited and what the connection should do afterwards.
     body: Body_Kind;

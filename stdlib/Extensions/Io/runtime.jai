@@ -236,6 +236,7 @@ close_now :: (stream: Tcp_Stream) {
 
 drop_locals :: (scheduler: *Scheduler) {
     previous := context.io_scheduler;
+
     context.io_scheduler = scheduler;
 
     defer context.io_scheduler = previous;

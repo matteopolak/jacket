@@ -80,7 +80,7 @@ status_reason :: (status: int) -> string {
 // length is not known, `Transfer-Encoding: chunked` is added and the body goes through
 // write_chunk and write_last_chunk (.CHUNKED). `ok` is false, and `out` is left as it was,
 // when a header is not valid or sets the framing itself.
-write_request_head :: (out: *[..] u8, method: string, target: string, headers: [] Header, body_length: s64) -> Body_Kind, bool {
+write_request_head :: (out: *[..] u8, method: string, target: string, headers: [] Header_Field, body_length: s64) -> Body_Kind, bool {
     mark := out.count;
 
     valid := method.count > 0 && target.count > 0 && find_bad_target_byte(target.data, 0, target.count) < 0;
@@ -132,7 +132,7 @@ write_request_head :: (out: *[..] u8, method: string, target: string, headers: [
 // 204 and CONNECT 2xx responses get no framing headers. A length of -1 means unknown: chunked on
 // HTTP/1.1, and for HTTP/1.0 the body ends when the connection closes (`Connection: close` is
 // added and the caller must close).
-write_response_head :: (out: *[..] u8, status: int, headers: [] Header, body_length: s64, options := Response_Options.{}) -> Body_Kind, bool {
+write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, body_length: s64, options := Response_Options.{}) -> Body_Kind, bool {
     mark := out.count;
 
     if status < 100 || status > 599 || !fields_ok(headers) {
@@ -241,12 +241,12 @@ write_chunk :: (out: *[..] u8, data: string) {
 // The zero-size chunk with optional trailers, which ends a chunked body. False, with nothing
 // written, when a trailer is not valid or is a field a trailer may not be (framing, Host).
 write_last_chunk :: (out: *[..] u8) -> bool {
-    trailers: [] Header;
+    trailers: [] Header_Field;
 
     return write_last_chunk(out, trailers);
 }
 
-write_last_chunk :: (out: *[..] u8, trailers: [] Header) -> bool {
+write_last_chunk :: (out: *[..] u8, trailers: [] Header_Field) -> bool {
     if !fields_ok(trailers) return false;
 
     for trailers {
@@ -309,7 +309,7 @@ put_hex :: (out: *[..] u8, value: s64) {
     }
 }
 
-put_headers :: (out: *[..] u8, headers: [] Header) {
+put_headers :: (out: *[..] u8, headers: [] Header_Field) {
     for headers {
         put(out, it.name);
         put(out, ": ");
@@ -320,7 +320,7 @@ put_headers :: (out: *[..] u8, headers: [] Header) {
 
 // Every header has a token name and a value without control bytes (a CR or LF in a value would
 // let the caller's data start a new header or a new response), and none sets the framing.
-fields_ok :: (headers: [] Header) -> bool {
+fields_ok :: (headers: [] Header_Field) -> bool {
     for header: headers {
         if header.name.count == 0 return false;
 

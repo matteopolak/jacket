@@ -1,0 +1,261 @@
+// Shared by the server and client tests: an in-process server on a free port, the client to
+// drive it, raw TCP for the things the client will not do (pipelining, half requests), and
+// checks that count failures instead of stopping at the first.
+#import "Basic";
+#import "String";
+#import "Extensions/Http";
+Io :: #import "Extensions/Io";
+
+failures := 0;
+
+check :: (ok: bool, format: string, args: ..Any) {
+    if ok return;
+
+    failures += 1;
+
+    print("FAIL: ");
+    print(format, ..args);
+    print("\n");
+}
+
+finish :: () {
+    if failures {
+        print("% checks failed\n", failures);
+        exit(1);
+    }
+
+    print("ok\n");
+}
+
+// Runs `body` on a scheduler with `app` listening on a free local port. The server is stopped
+// and drained afterwards.
+Server_Test :: #type (base: string, server: *Server);
+
+run_server :: (app: *App, body: Server_Test) {
+    entry :: (data: *Run_Data) {
+        data.app.config.address = "127.0.0.1:0";
+        data.app.config.handle_signals = false;
+
+        server, error := start(data.app);
+
+        if error != .NONE {
+            print("FAIL: cannot listen: %\n", error);
+            exit(1);
+        }
+
+        data.body(server_url(server), server);
+
+        stop(server);
+        wait(server);
+    }
+
+    data := Run_Data.{ app, body };
+
+    Io.io_run(entry, *data);
+}
+
+Run_Data :: struct {
+    app: *App;
+    body: Server_Test;
+}
+
+// Whether this platform can run the tests (Windows has no IO engine yet).
+supported :: () -> bool {
+    #if OS == .WINDOWS {
+        print("skipped: Extensions/Io has no IO on Windows yet\n");
+
+        return false;
+    }
+
+    return true;
+}
+
+// A request through the client; a transport failure fails the check and returns an empty response.
+fetch :: (base: string, method: Method, path: string, body := "", headers: [] Header_Field = .[]) -> Client_Response {
+    request: Client_Request;
+
+    request.method = method;
+    request.url = tprint("%%", base, path);
+    request.headers = headers;
+    request.body = .{ body.count, body.data };
+    request.timeout = 5000;
+    request.follow_redirects = false;
+
+    response, error := send(request);
+
+    check(error.kind == .NONE, "% % failed: %", method_name(method), path, error_text(error));
+
+    return response;
+}
+
+get_path :: (base: string, path: string, headers: [] Header_Field = .[]) -> Client_Response {
+    return fetch(base, .GET, path, "", headers);
+}
+
+post_body :: (base: string, path: string, body: string, content_type := "application/json") -> Client_Response {
+    headers := Header_Field.[.{ "Content-Type", content_type }];
+
+    return fetch(base, .POST, path, body, headers);
+}
+
+// The response body as text.
+body_of :: (response: Client_Response) -> string {
+    return string.{ response.body.count, response.body.data };
+}
+
+// `"title"` of a problem document, or "" when the body is not one.
+contains :: (text: string, needle: string) -> bool {
+    return find_index_from_left(text, needle) >= 0;
+}
+
+header_of :: (response: Client_Response, name: string) -> string {
+    value, _ := find_header(response.headers, name);
+
+    return value;
+}
+
+has_header :: (response: Client_Response, name: string) -> bool {
+    _, found := find_header(response.headers, name);
+
+    return found;
+}
+
+// ---- Raw TCP
+
+// Opens a connection to the server's address.
+raw_connect :: (server: *Server) -> Io.Tcp_Stream {
+    stream, error := Io.connect(server.address);
+
+    check(error == .NONE, "raw connect failed: %", error);
+
+    return stream;
+}
+
+// Reads until the server closes the connection or `milliseconds` pass; returns what came.
+read_until_closed :: (stream: Io.Tcp_Stream, milliseconds: s64) -> string {
+    builder: String_Builder;
+    buffer: [4096] u8;
+
+    previous := Io.set_deadline(milliseconds);
+
+    while true {
+        count, error := Io.read(stream, buffer);
+
+        if error != .NONE || count == 0 break;
+
+        append(*builder, string.{ count, buffer.data });
+    }
+
+    Io.restore_deadline(previous);
+
+    return builder_to_string(*builder,, temp);
+}
+
+// One response read from a raw connection.
+Raw_Response :: struct {
+    status: int;
+    headers: [..] Header_Field;
+    body: string;
+    closed: bool; // the connection ended with it
+}
+
+// Reads `count` responses from `stream` with the response codec, as a pipelining client would.
+read_responses :: (stream: Io.Tcp_Stream, count: int, milliseconds: s64, method := Method.GET) -> [..] Raw_Response {
+    results: [..] Raw_Response;
+
+    parser: Parser;
+
+    parser_init(*parser, .RESPONSE);
+    parser.response_to = method;
+
+    defer parser_free(*parser);
+
+    buffer: [4096] u8;
+    current: Raw_Response;
+    body: [..] u8;
+
+    previous := Io.set_deadline(milliseconds);
+
+    defer Io.restore_deadline(previous);
+
+    while results.count < count {
+        read, error := Io.read(stream, buffer);
+
+        if error != .NONE || read == 0 {
+            if results.count < count {
+                check(false, "the connection ended after % of % responses (%)", results.count, count, error);
+            }
+
+            break;
+        }
+
+        data: [] u8 = .{ read, buffer.data };
+
+        while true {
+            used, event := parse(*parser, data);
+
+            data = advance(data, used);
+
+            if event.kind == .NEED_MORE break;
+
+            if event.kind == .HEAD {
+                current = .{};
+                current.status = parser.head.status;
+                body.count = 0;
+
+                for parser.head.headers {
+                    copy := it;
+
+                    copy.name = copy_string(it.name,, temp);
+                    copy.value = copy_string(it.value,, temp);
+
+                    array_add(*current.headers, copy,, temp);
+                }
+            } else if event.kind == .BODY {
+                for event.data array_add(*body, it);
+            } else if event.kind == .END {
+                current.body = copy_string(string.{ body.count, body.data },, temp);
+
+                array_add(*results, current,, temp);
+
+                if results.count == count break;
+            } else if event.kind == .ERROR {
+                check(false, "the server sent something that is not HTTP: %", parser.error.message);
+
+                return results;
+            }
+        }
+    }
+
+    return results;
+}
+
+raw_header :: (response: Raw_Response, name: string) -> string {
+    value, _ := find_header(response.headers, name);
+
+    return value;
+}
+
+send_text :: (stream: Io.Tcp_Stream, text: string) {
+    _, error := Io.write(stream, text);
+
+    check(error == .NONE, "raw write failed: %", error);
+}
+
+// Waits until the connection reports an end (the server closed it), up to `milliseconds`.
+closes_within :: (stream: Io.Tcp_Stream, milliseconds: s64) -> bool {
+    buffer: [256] u8;
+
+    previous := Io.set_deadline(milliseconds);
+
+    defer Io.restore_deadline(previous);
+
+    while true {
+        count, error := Io.read(stream, buffer);
+
+        if error == .TIMED_OUT return false;
+        if error != .NONE || count == 0 return true;
+    }
+
+    return false;
+}

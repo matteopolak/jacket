@@ -21,7 +21,7 @@ check :: (condition: bool, what: string) {
     failures += 1;
 }
 
-NO_HEADERS: [] Header;
+NO_HEADERS: [] Header_Field;
 
 as_string :: (data: *u8, count: int) -> string {
     result: string;
@@ -74,7 +74,7 @@ default_run :: (kind: Parser_Kind) -> Run {
 
 // Feeds `input` as `cut` says and returns what the parser reported, in the text form above. The
 // parser's error, when it failed, is left in `error`.
-observe :: (run: Run, input: string, cut: Cut, error: *Http_Error = null) -> string {
+observe :: (run: Run, input: string, cut: Cut, error: *Parse_Error = null) -> string {
     positions: [..] int;
 
     defer array_reset(*positions);
@@ -89,7 +89,7 @@ observe :: (run: Run, input: string, cut: Cut, error: *Http_Error = null) -> str
 }
 
 // Feeds `input` cut at the given ascending positions (pieces may be empty if positions repeat).
-observe_at :: (run: Run, input: string, positions: [] int, error: *Http_Error = null) -> string {
+observe_at :: (run: Run, input: string, positions: [] int, error: *Parse_Error = null) -> string {
     parser: Parser;
 
     parser_init(*parser, run.kind, run.limits);

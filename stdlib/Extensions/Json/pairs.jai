@@ -47,6 +47,7 @@ from_pairs :: ($T: Type, pairs: [] Text_Pair, options := Json_Options.{}) -> T, 
         if kind == .UNKNOWN_DENIED kind = .TEXT;
 
         if !first append(*builder, ",");
+
         first = false;
 
         append_json_string(*builder, pair.key);
@@ -65,6 +66,7 @@ from_pairs :: ($T: Type, pairs: [] Text_Pair, options := Json_Options.{}) -> T, 
                 used[j] = true;
 
                 if separated append(*builder, ",");
+
                 separated = true;
 
                 append_pair_value(*builder, item_kind, later.value);

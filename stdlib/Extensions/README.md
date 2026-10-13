@@ -9,7 +9,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Args";` | A typed command-line parser generated at compile time (clap-style: notes, subcommands, help, completions) |
 | `#import "Extensions/Regex";` | Regular expressions like Rust's `regex` crate: Unicode, linear time, and patterns compiled at compile time with typed groups |
 | `#import "Extensions/Json";` | Typed JSON like Rust's serde_json: encoders and decoders generated from your types at compile time, `@json` attributes, strict parsing |
-| `#import "Extensions/Http";` | A sans-IO HTTP/1.x codec: strict incremental request and response parsers (chunked, trailers, pipelining), writers that pick the framing; no sockets, builds for wasm |
+| `#import "Extensions/Http";` | HTTP/1.1: a strict sans-IO codec (builds for wasm), plus on fibers a router-based server whose handlers declare typed extractors checked against the route at compile time, and a client with a connection pool |
 | `#import "Extensions/SIMD";` | Portable fixed-width vectors (`u8x16`, `f32x4`, ...) with masks, shuffles and table lookups, the same on every target |
 | `#import "Extensions/Byte_Search";` | Vectorized byte and substring search (`memchr`/`memmem`), linear time |
 | `#import "Extensions/Jai_Format";` | The Jai source formatter behind `jaifmt` (text in, text out) |

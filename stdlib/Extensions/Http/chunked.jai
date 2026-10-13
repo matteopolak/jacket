@@ -144,7 +144,7 @@ parse_chunked :: (p: *Parser, data: [] u8) -> consumed: int, event: Event {
                     base := p.tbytes.data;
 
                     for span: p.tspans {
-                        header: Header;
+                        header: Header_Field;
                         header.name = view(base, span.name_start, span.name_end);
                         header.value = view(base, span.value_start, span.value_end);
                         header.id = lookup_header_name(header.name);

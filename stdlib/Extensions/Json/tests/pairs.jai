@@ -3,16 +3,20 @@
 #import "Basic";
 #import "Extensions/Json";
 
-Color :: enum { red; green; blue; }
+Color :: enum {
+    red;
+    green;
+    blue;
+}
 
 Search :: struct @json(rename_all=camelCase) {
     q: string;
-    page_size := 20;     @json(default)
-    tags: [..] string;   @json(default)
-    ratio: float64;      @json(default)
-    exact: bool;         @json(default)
+    page_size := 20; @json(default)
+    tags: [..] string; @json(default)
+    ratio: float64; @json(default)
+    exact: bool; @json(default)
     color := Color.green; @json(default,alias=colour)
-    ids: [..] int;       @json(default)
+    ids: [..] int; @json(default)
 }
 
 Strict :: struct @json(deny_unknown_fields) {
@@ -48,15 +52,18 @@ main :: () {
 
     // Defaults and missing fields.
     only_q, only_error := from_pairs(Search, pairs("q", "x"));
+
     expect(only_error.kind == .NONE && only_q.page_size == 20 && only_q.color == .green && only_q.tags.count == 0, "defaults");
     free_json(*only_q);
 
-    nothing, missing := from_pairs(Search, pairs());
+    _, missing := from_pairs(Search, pairs());
+
     expect(missing.kind == .MISSING_FIELD, tprint("missing q: %", json_error_text(missing)));
     free_json_error(*missing);
 
     // Wrong types name the field.
     bad, bad_error := from_pairs(Search, pairs("q", "x", "pageSize", "many"));
+
     expect(bad_error.kind == .TYPE && bad_error.path == "pageSize", tprint("bad int: %", json_error_text(bad_error)));
     free_json_error(*bad_error);
 
@@ -77,44 +84,55 @@ main :: () {
     free_json_error(*bad_error);
 
     // Unknown keys.
-    strict, strict_error := from_pairs(Strict, pairs("name", "a", "extra", "b"));
+    _, strict_error := from_pairs(Strict, pairs("name", "a", "extra", "b"));
+
     expect(strict_error.kind == .UNKNOWN_FIELD, tprint("deny_unknown_fields: %", json_error_text(strict_error)));
     free_json_error(*strict_error);
 
     // Text that needs escaping survives.
     quoted, quoted_error := from_pairs(Strict, pairs("name", "say \"hi\"\n\\"));
+
     expect(quoted_error.kind == .NONE && quoted.name == "say \"hi\"\n\\", "escapes");
     free_json(*quoted);
 
     // from_text.
     number, number_error := from_text(int, "42");
+
     expect(number_error.kind == .NONE && number == 42, "from_text int");
 
     negative, negative_error := from_text(s8, "-128");
+
     expect(negative_error.kind == .NONE && negative == -128, "from_text s8");
 
     _, range_error := from_text(u8, "300");
+
     expect(range_error.kind == .OUT_OF_RANGE, tprint("from_text range: %", json_error_text(range_error)));
     free_json_error(*range_error);
 
     _, text_error := from_text(int, "abc");
+
     expect(text_error.kind == .TYPE, "from_text type");
     free_json_error(*text_error);
 
     _, empty_error := from_text(int, "");
+
     expect(empty_error.kind == .TYPE, "empty is not a number");
     free_json_error(*empty_error);
 
     ratio, ratio_error := from_text(float64, "1e3");
+
     expect(ratio_error.kind == .NONE && ratio == 1000, "from_text float");
 
     flag, flag_error := from_text(bool, "true");
+
     expect(flag_error.kind == .NONE && flag, "from_text bool");
 
     color, color_error := from_text(Color, "blue");
+
     expect(color_error.kind == .NONE && color == .blue, "from_text enum");
 
     word, word_error := from_text(string, "he said \"x\"");
+
     expect(word_error.kind == .NONE && word == "he said \"x\"", "from_text string");
     free_json(*word);
 

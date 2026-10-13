@@ -25,6 +25,18 @@ http_use_simd := true;
 #load "writer.jai";
 #load "date.jai";
 
+// The server and client need fibers, which WebAssembly code cannot switch: there the module is
+// the codec alone.
+#if OS != .WASM {
+    #load "url.jai";
+    #load "message.jai";
+    #load "router.jai";
+    #load "extract.jai";
+    #load "app.jai";
+    #load "server.jai";
+    #load "client.jai";
+}
+
 #scope_module
 
 #load "scan.jai";
@@ -32,3 +44,10 @@ http_use_simd := true;
 #import "Basic";
 #import "String";
 #import "Extensions/SIMD";
+
+#if OS != .WASM {
+    Io :: #import "Extensions/Io";
+    #import "Extensions/Json";
+    #import "Compiler";
+    #import "Atomics";
+}

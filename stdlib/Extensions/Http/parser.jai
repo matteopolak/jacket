@@ -68,8 +68,8 @@ Parser :: struct {
     response_to: Method;
 
     head: Head; // valid after a HEAD event, until the next message begins
-    trailers: [] Header; // valid after END of a chunked body, until the next message begins
-    error: Http_Error;
+    trailers: [] Header_Field; // valid after END of a chunked body, until the next message begins
+    error: Parse_Error;
 
     state: Parser_State;
 
@@ -79,7 +79,7 @@ Parser :: struct {
     bytes: [..] u8; // the head: start line and header lines, CRLFs included
     line_start: int;
     spans: [..] Span;
-    list: [..] Header;
+    list: [..] Header_Field;
     skipped_lines: int;
 
     // The start line, as offsets into `bytes`.
@@ -118,7 +118,7 @@ Parser :: struct {
     tbytes: [..] u8; // trailers
     tline_start: int;
     tspans: [..] Span;
-    tlist: [..] Header;
+    tlist: [..] Header_Field;
 }
 
 parser_init :: (p: *Parser, kind: Parser_Kind, limits := Limits.{}) {
@@ -837,7 +837,7 @@ finish_head :: (p: *Parser) -> int {
     array_reserve(*p.list, p.spans.count);
 
     for span: p.spans {
-        header: Header;
+        header: Header_Field;
         header.name = view(base, span.name_start, span.name_end);
         header.value = view(base, span.value_start, span.value_end);
         header.id = span.id;

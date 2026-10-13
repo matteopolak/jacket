@@ -14,8 +14,18 @@
 - `Extensions/Io` on Windows (x64 and arm64): I/O completion ports for sockets (AcceptEx, ConnectEx, WSARecv, WSASend, CancelIoEx) and files, and an IoRing for files on Windows 11 22H2 and newer, loaded from KernelBase.dll at run time so older Windows keeps using completion ports. `JAI_IO_BACKEND=iocp` or `ioring` forces one; `backend_reason()` says why a fallback happened. Name lookups work too. The Io tests, which printed a skip on Windows, now run there.
 - `Extensions/Io` file thread pool for epoll and kqueue: reads and writes longer than `JAI_IO_FILE_INLINE` bytes (default 32768) run on `JAI_IO_FILE_THREADS` worker threads (default 4, 0 for none) instead of blocking the scheduler's thread, and wake it through an eventfd or an `EVFILT_USER` event. `Backend` gains `.IOCP` and `.IORING`.
 
+- `Extensions/Http` server: `get(*app, "/users/{id}", handler)` registers a plain function; its parameter types (`Path`, `Params`, `Rest`, `Query`, `Json`, `Form`, `Header`, `Header_Optional`, `Bytes`, `Text`, `*Request`, `*State(T)`) say what it needs and are checked against the route at compile time, with errors that point at the route. A radix router with 405/`Allow`, automatic HEAD and OPTIONS and startup conflict detection; return values map to JSON, text, bytes or `Response`; `Http_Error` helpers send RFC 9457 problem documents; middleware and nested groups; `serve` with one scheduler per core, limits and timeouts, keep-alive, pipelining, `Expect: 100-continue` and graceful shutdown on SIGINT/SIGTERM.
+- `Extensions/Http` client: `get_json`, `post_json`, `send`, a per-scheduler connection pool, timeouts, redirects and DNS through Io. Plain http only.
+- `Extensions/Json`: `from_pairs` and `from_text` decode query strings, forms and path text into typed values. `Extensions/Io`: scheduler-local storage and an interrupt flag (`catch_interrupts`, `interrupted`).
+- `tools/http_conformance.py` also builds an echo server and probes it with smuggling shapes, limits and a SIGINT shutdown. `stdlib/Extensions/Http/bench/server_bench.jai` measures requests per second.
+
+### Changes
+
+- `Extensions/Http` codec: `Http_Error` is now `Parse_Error` and `Header` is `Header_Field`, freeing those names for the server.
+
 ### Fixes
 
+- A baked `$loc := #caller_location` default is the location of the call, not of the declaration.
 - `string_to_float64`, `string_to_float` and the Json float decoder are correctly rounded: about 1 in 600 random doubles used to parse one ulp off, and float32 results are now rounded once from the digits instead of through a float64. Json shares Basic's conversion; its own copy is gone.
 - `from_json` frees everything it allocated when decoding fails (and returns a default value), including the error message of an indexed attempt that was parsed again; a repeated key in a `Hash_Table` object no longer leaks the earlier value. New `free_json(*value)` releases a decoded value.
 

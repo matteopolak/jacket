@@ -110,6 +110,8 @@ The clean-room `stdlib/`. Contributors must not read the source of an official J
 - [Regex: regular expressions with compile-time typed patterns (jaic extension)](specs/stdlib/README.md)
 - [Json: typed JSON generated at compile time (jaic extension)](specs/stdlib/README.md)
 - [Http: the HTTP/1 codec, strict and sans-IO (jaic extension)](specs/stdlib/README.md)
+- [Http server: routes, extractors checked at compile time, middleware, graceful shutdown (jaic extension)](specs/stdlib/README.md)
+- [Http client: typed JSON calls, a connection pool, redirects and timeouts (jaic extension)](specs/stdlib/README.md)
 - [SIMD: portable fixed-width vectors (jaic extension)](specs/stdlib/README.md)
 - [Byte_Search: vectorized byte and substring search (jaic extension)](specs/stdlib/README.md)
 - [Compiler API, reflection and metaprogram support](specs/stdlib/README.md)

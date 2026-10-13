@@ -368,7 +368,7 @@ test_writers :: () {
 
     defer array_reset(*out);
 
-    headers := Header.[.{ "Content-Type", "text/plain" }, .{ "X-Id", "7" }];
+    headers := Header_Field.[.{ "Content-Type", "text/plain" }, .{ "X-Id", "7" }];
     kind, ok := write_response_head(*out, 200, headers, 5);
 
     check(ok && kind == .LENGTH, "a response with a length");

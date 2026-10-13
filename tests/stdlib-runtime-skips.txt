@@ -91,3 +91,8 @@ imgui-headless-frames windows-*-mingw * the Windows bindings name MSVC-decorated
 mojoshader-translate * wasm-interp,wasm-native,playground MojoShader is a C library with no wasm build
 sdl2-geometry-timer * wasm-interp,wasm-native,playground SDL2 has no wasm build here
 sdl2-geometry-timer windows-arm64,windows-arm64-mingw * the official SDL2 Windows release has no arm64 binaries (tools/native-libs.json)
+Extensions/Http/tests/server_routing * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm
+Extensions/Http/tests/server_extractors * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm
+Extensions/Http/tests/server_responses * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm
+Extensions/Http/tests/server_connections * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm
+Extensions/Http/tests/client * wasm-interp,wasm-native the HTTP server and client run on Extensions/Io, which does not build for wasm
