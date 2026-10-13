@@ -2,9 +2,13 @@
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-13
+
+One `jaic` command line instead of the `run`, `check` and `build` subcommands, with more options for the program being built.
+
 ### Breaking changes
 
-`jaic` has one command line, `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`, and no subcommands. A build is the default. See [the command line](docs/tools/cli.md).
+`jaic` has one command line, `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`, and no subcommands. A build is the default. See [the command line](https://github.com/matteopolak/jai/blob/main/docs/tools/cli.md).
 
 | Was | Now |
 |---|---|
