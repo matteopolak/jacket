@@ -12,8 +12,9 @@ Tls_Error_Kind :: enum u8 {
     CLOSED; // the stream was closed
 }
 
-// `detail` is a sentence for people ("the certificate has expired"); `code` is mbedTLS's own negative
-// error number (0 when the error did not come from it). Use `error_text` to print one.
+// The sentence for people ("the certificate has expired") is kept inside the error in `detail_bytes`;
+// read it with `detail(*error)` or print the whole error with `error_text`. `code` is mbedTLS's own
+// negative error number (0 when the error did not come from it).
 Tls_Error :: struct {
     kind: Tls_Error_Kind;
     // For IO, and the closest `Io_Error` for the other kinds that end a read or write.
@@ -25,12 +26,17 @@ Tls_Error :: struct {
     detail_bytes: [191] u8;
 }
 
-// The detail as a string (it points into `error`, so keep the error where it is).
+// The sentence behind an error ("the certificate has expired"), or "". It is a copy in temporary
+// storage, so it stays valid when the error is copied or goes out of scope, until the temporary
+// storage is reset; copy it with `copy_string` to keep it longer.
 detail :: (error: *Tls_Error) -> string {
-    return string.{ error.detail_count, error.detail_bytes.data };
+    if error.detail_count == 0 return "";
+
+    return copy_temporary_string(string.{ error.detail_count, error.detail_bytes.data });
 }
 
 // One line for logs and messages: "certificate verification failed: the certificate has expired".
+// Like `detail`, the text is in temporary storage, never inside the error.
 error_text :: (error: Tls_Error) -> string {
     if error.kind == .NONE return "no error";
 

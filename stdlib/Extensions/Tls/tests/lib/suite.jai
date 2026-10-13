@@ -929,6 +929,14 @@ test_verify_proc :: () {
 
     assert(pair.client.error.kind == .VERIFY, "%", Tls.error_text(pair.client.error));
     assert(Tls.detail(*pair.client.error) == "this test says no");
+
+    // The text does not point into the error: it survives the error being copied over.
+    kept_detail := Tls.detail(*pair.client.error);
+    kept_text := Tls.error_text(pair.client.error);
+
+    pair.client.error = .{};
+    assert(kept_detail == "this test says no" && Tls.error_text(pair.client.error) == "no error", "'%'", kept_detail);
+    assert(kept_text == "certificate verification failed: this test says no", "'%'", kept_text);
     assert(pair.client.stream == null);
     assert(seen.calls == 2);
 
