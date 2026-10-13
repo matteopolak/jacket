@@ -165,7 +165,7 @@ types :: () {
     text := to_json(e);
     back, error := from_json(Everything, text);
 
-    check(error.kind == .NONE, tprint("decode: %", json_error_text(error)));
+    check(error.kind == .NONE, tprint("decode: %", error_text(error)));
     check(back.a == e.a && back.b == e.b && back.c == e.c && back.d == e.d, "signed integers are exact");
     check(back.e == e.e && back.f == e.f && back.g == e.g && back.h == e.h, "unsigned integers are exact");
     check(back.i == e.i && back.j == e.j, "floats round trip");
@@ -213,7 +213,7 @@ attributes :: () {
 
     back, error := from_json(User, text);
 
-    check(error.kind == .NONE, json_error_text(error));
+    check(error.kind == .NONE, error_text(error));
     check(back.id == 7 && back.display_name == "Ann" && back.created_at == "yesterday", "fields");
     check(back.role == .SUPER_USER && back.address.zip == 12 && back.address.street == "Elm", "enum and flatten");
     check(back.spent.cents == 1250, "with=");
@@ -330,15 +330,15 @@ rules :: () {
 errors :: () {
     _, error := from_json(Address, "{\"street\": \"a\",\n  \"zip\": \"nope\"}");
 
-    check(error.kind == .TYPE && error.path == "zip" && error.line == 2 && error.column == 10, tprint("type error: %", json_error_text(error)));
+    check(error.kind == .TYPE && error.path == "zip" && error.line == 2 && error.column == 10, tprint("type error: %", error_text(error)));
 
     _, error2 := from_json(Everything, "{\"p\":[1,2]}");
 
-    check(error2.kind != .NONE && error2.path == "p", tprint("short fixed array: %", json_error_text(error2)));
+    check(error2.kind != .NONE && error2.path == "p", tprint("short fixed array: %", error_text(error2)));
 
     _, error3 := from_json(Node, "{\"value\":1,\"next\":null,\"children\":[{\"value\":1,\"next\":null,\"children\":[]},{\"value\":true}]}");
 
-    check(error3.kind == .TYPE && error3.path == "children[1].value", tprint("deep path: %", json_error_text(error3)));
+    check(error3.kind == .TYPE && error3.path == "children[1].value", tprint("deep path: %", error_text(error3)));
 
     _, error4 := from_json(Address, "{\"street\":\"a\",\"zip\":99999999999999999999}");
 
@@ -346,7 +346,7 @@ errors :: () {
 
     _, error5 := from_json([3] s8, "[1,2,300]");
 
-    check(error5.kind == .OUT_OF_RANGE && error5.path == "[2]", tprint("s8 range: %", json_error_text(error5)));
+    check(error5.kind == .OUT_OF_RANGE && error5.path == "[2]", tprint("s8 range: %", error_text(error5)));
 
     _, error6 := from_json(Role, "\"NOBODY\"");
 
@@ -388,10 +388,10 @@ errors :: () {
 
     _, error14 := from_json(Json_Value, "\n\n  [1, ?]");
 
-    check(error14.kind == .SYNTAX && error14.line == 3 && error14.column == 7, tprint("position: %", json_error_text(error14)));
+    check(error14.kind == .SYNTAX && error14.line == 3 && error14.column == 7, tprint("position: %", error_text(error14)));
     _, error15 := from_json(Json_Value, "[\"é\", x]");
 
-    check(error15.line == 1 && error15.column == 7, tprint("column counts characters: %", json_error_text(error15)));
+    check(error15.line == 1 && error15.column == 7, tprint("column counts characters: %", error_text(error15)));
 }
 
 values :: () {

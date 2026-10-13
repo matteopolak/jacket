@@ -219,7 +219,7 @@ expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller
     value, failure := from_json(T, body);
 
     if failure.kind != .NONE {
-        fail_response(loc, tprint("the body is not the JSON expected (a %): %", T, json_error_text(failure)), response);
+        fail_response(loc, tprint("the body is not the JSON expected (a %): %", T, error_text(failure)), response);
 
         free_json(*failure);
 
@@ -261,7 +261,7 @@ expect_problem :: (response: Client_Response, status: int, detail := "", loc := 
     problem, failure := from_json(Problem, body);
 
     if failure.kind != .NONE {
-        fail_response(loc, tprint("the body is not a problem document: %", json_error_text(failure)), response);
+        fail_response(loc, tprint("the body is not a problem document: %", error_text(failure)), response);
 
         free_json(*failure);
 

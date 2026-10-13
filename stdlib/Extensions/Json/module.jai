@@ -64,7 +64,7 @@ Json_Index_Stats :: struct {
 json_index_stats: Json_Index_Stats;
 
 // `message at line 3, column 5 (tags[2])`
-json_error_text :: (error: Json_Error) -> string {
+error_text :: (error: Json_Error) -> string {
     if error.kind == .NONE return "no error";
 
     if error.path.count return tprint("% at line %, column % (%)", error.message, error.line, error.column, error.path);

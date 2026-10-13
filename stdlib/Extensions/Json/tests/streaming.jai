@@ -59,7 +59,7 @@ main :: () {
 
             person, error := from_json(Person, source_of(*pieces));
 
-            assert(error.kind == .NONE, "step %: %", step, json_error_text(error));
+            assert(error.kind == .NONE, "step %: %", step, error_text(error));
 
             check_person(person, tprint("step %", step));
             free_json(*person);
@@ -89,7 +89,7 @@ main :: () {
 
     numbers, numbers_error := from_json([] int, source_of(*pieces));
 
-    assert(numbers_error.kind == .NONE && numbers.count == 10_000 && numbers[9_999] == 9_999, "a long document: %", json_error_text(numbers_error));
+    assert(numbers_error.kind == .NONE && numbers.count == 10_000 && numbers[9_999] == 9_999, "a long document: %", error_text(numbers_error));
 
     free_json(*numbers);
 
@@ -101,7 +101,7 @@ main :: () {
     _, streamed := from_json(Person, source_of(*pieces));
     _, direct := from_json(Person, bad);
 
-    assert(streamed.kind == .TYPE && streamed.kind == direct.kind && streamed.offset == direct.offset && streamed.line == direct.line && streamed.column == direct.column && streamed.path == direct.path, "same error: %", json_error_text(streamed));
+    assert(streamed.kind == .TYPE && streamed.kind == direct.kind && streamed.offset == direct.offset && streamed.line == direct.line && streamed.column == direct.column && streamed.path == direct.path, "same error: %", error_text(streamed));
 
     free_json(*streamed);
     free_json(*direct);
@@ -120,7 +120,7 @@ main :: () {
 
     _, limited := from_json(Person, source_of(*pieces), Json_Options.{ max_size = 16 });
 
-    assert(limited.kind == .LIMIT, "the size limit: %", json_error_text(limited));
+    assert(limited.kind == .LIMIT, "the size limit: %", error_text(limited));
     assert(pieces.at <= 16 + 4, "the source was read to % of % bytes after passing the limit", pieces.at, TEXT.count);
 
     free_json(*limited);
@@ -130,7 +130,7 @@ main :: () {
 
     _, empty := from_json(Person, source_of(*pieces));
 
-    assert(empty.kind == .SYNTAX, "an empty source: %", json_error_text(empty));
+    assert(empty.kind == .SYNTAX, "an empty source: %", error_text(empty));
 
     free_json(*empty);
 

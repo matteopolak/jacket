@@ -37,7 +37,7 @@ run_suite :: () {
         }
 
         if begins_with(it.name, "y_") {
-            check(accepted, tprint("% must be accepted: %", it.name, json_error_text(error)));
+            check(accepted, tprint("% must be accepted: %", it.name, error_text(error)));
             if accepted accepted_y += 1;
         } else if begins_with(it.name, "n_") {
             check(!accepted, tprint("% must be rejected", it.name));

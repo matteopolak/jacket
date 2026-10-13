@@ -133,7 +133,7 @@ error_text :: (error: Client_Error) -> string {
     }
 
     if error.kind == .DECODE {
-        return tprint("%: %", error.detail, json_error_text(error.json));
+        return tprint("%: %", error.detail, error_text(error.json));
     }
 
     if error.kind == .TRANSPORT && error.transport != .NONE return tprint("%: %", error.detail, error.transport);

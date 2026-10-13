@@ -43,7 +43,7 @@ expect :: (ok: bool, message: string) {
 main :: () {
     search, error := from_query(Search, pairs("q", "jai", "pageSize", "50", "tags", "a", "tags", "b", "ratio", "0.5", "exact", "true", "colour", "blue", "ids", "3", "ids", "4", "other", "ignored"));
 
-    expect(error.kind == .NONE, tprint("pairs: %", json_error_text(error)));
+    expect(error.kind == .NONE, tprint("pairs: %", error_text(error)));
     expect(search.q == "jai" && search.page_size == 50, "strings and numbers");
     expect(search.tags.count == 2 && search.tags[1] == "b", "repeated keys make an array");
     expect(search.ratio == 0.5 && search.exact && search.color == .blue, "float, bool, alias and enum");
@@ -58,13 +58,13 @@ main :: () {
 
     _, missing := from_query(Search, pairs());
 
-    expect(missing.kind == .MISSING_FIELD, tprint("missing q: %", json_error_text(missing)));
+    expect(missing.kind == .MISSING_FIELD, tprint("missing q: %", error_text(missing)));
     free_json(*missing);
 
     // Wrong types name the field.
     bad, bad_error := from_query(Search, pairs("q", "x", "pageSize", "many"));
 
-    expect(bad_error.kind == .TYPE && bad_error.path == "pageSize", tprint("bad int: %", json_error_text(bad_error)));
+    expect(bad_error.kind == .TYPE && bad_error.path == "pageSize", tprint("bad int: %", error_text(bad_error)));
     free_json(*bad_error);
 
     bad, bad_error = from_query(Search, pairs("q", "x", "pageSize", "1.5"));
@@ -72,11 +72,11 @@ main :: () {
     free_json(*bad_error);
 
     bad, bad_error = from_query(Search, pairs("q", "x", "color", "purple"));
-    expect(bad_error.kind == .INVALID_VALUE, tprint("bad enum: %", json_error_text(bad_error)));
+    expect(bad_error.kind == .INVALID_VALUE, tprint("bad enum: %", error_text(bad_error)));
     free_json(*bad_error);
 
     bad, bad_error = from_query(Search, pairs("q", "x", "q", "y"));
-    expect(bad_error.kind == .DUPLICATE_FIELD, tprint("duplicate: %", json_error_text(bad_error)));
+    expect(bad_error.kind == .DUPLICATE_FIELD, tprint("duplicate: %", error_text(bad_error)));
     free_json(*bad_error);
 
     bad, bad_error = from_query(Search, pairs("q", "x", "exact", "yes"));
@@ -86,7 +86,7 @@ main :: () {
     // Unknown keys.
     _, strict_error := from_query(Strict, pairs("name", "a", "extra", "b"));
 
-    expect(strict_error.kind == .UNKNOWN_FIELD, tprint("deny_unknown_fields: %", json_error_text(strict_error)));
+    expect(strict_error.kind == .UNKNOWN_FIELD, tprint("deny_unknown_fields: %", error_text(strict_error)));
     free_json(*strict_error);
 
     // Text that needs escaping survives.
@@ -106,7 +106,7 @@ main :: () {
 
     _, range_error := from_param(u8, "300");
 
-    expect(range_error.kind == .OUT_OF_RANGE, tprint("from_param range: %", json_error_text(range_error)));
+    expect(range_error.kind == .OUT_OF_RANGE, tprint("from_param range: %", error_text(range_error)));
     free_json(*range_error);
 
     _, text_error := from_param(int, "abc");

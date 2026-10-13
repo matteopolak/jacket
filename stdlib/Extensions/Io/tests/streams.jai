@@ -471,7 +471,7 @@ test_read_json :: () {
 
         person, error := Io.read_json(Io.reader_of(far), Person);
 
-        assert(error.kind == .NONE, "step %: %", step, json_error_text(error));
+        assert(error.kind == .NONE, "step %: %", step, error_text(error));
 
         check_person(person, tprint("step %", step));
 
@@ -499,7 +499,7 @@ test_read_json :: () {
 
     from_file, file_error := Io.read_json(Io.reader_of(*file), Person);
 
-    assert(file_error.kind == .NONE, "file: %", json_error_text(file_error));
+    assert(file_error.kind == .NONE, "file: %", error_text(file_error));
     check_person(from_file, "file");
 
     free_json(*from_file);
@@ -515,7 +515,7 @@ test_read_json :: () {
 
     from_socket, socket_error := Io.read_json(Io.reader_of(pair.server), Person);
 
-    assert(socket_error.kind == .NONE, "socket: %", json_error_text(socket_error));
+    assert(socket_error.kind == .NONE, "socket: %", error_text(socket_error));
     check_person(from_socket, "socket");
 
     free_json(*from_socket);
@@ -532,7 +532,7 @@ test_read_json :: () {
     _, streamed_error := Io.read_json(Io.reader_of(far), Person);
     _, text_error := from_json(Person, bad);
 
-    assert(streamed_error.kind == .TYPE && streamed_error.kind == text_error.kind && streamed_error.offset == text_error.offset && streamed_error.path == text_error.path, "a type error: %", json_error_text(streamed_error));
+    assert(streamed_error.kind == .TYPE && streamed_error.kind == text_error.kind && streamed_error.offset == text_error.offset && streamed_error.path == text_error.path, "a type error: %", error_text(streamed_error));
 
     free_json(*streamed_error);
     free_json(*text_error);
@@ -562,7 +562,7 @@ test_read_json :: () {
 
     _, limit_error := Io.read_json(Io.reader_of(far), Person, Json_Options.{ max_size = 20 });
 
-    assert(limit_error.kind == .LIMIT, "the size limit: %", json_error_text(limit_error));
+    assert(limit_error.kind == .LIMIT, "the size limit: %", error_text(limit_error));
 
     free_json(*limit_error);
     Io.close(far);
@@ -573,7 +573,7 @@ test_read_json :: () {
 
     _, empty_error := Io.read_json(Io.reader_of(far), Person);
 
-    assert(empty_error.kind == .SYNTAX, "an empty stream: %", json_error_text(empty_error));
+    assert(empty_error.kind == .SYNTAX, "an empty stream: %", error_text(empty_error));
 
     free_json(*empty_error);
     Io.close(far);
