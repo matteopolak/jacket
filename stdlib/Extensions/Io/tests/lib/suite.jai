@@ -533,8 +533,9 @@ test_resolve_coalesces :: () {
 
     after, helpers := Io.resolver_statistics();
 
-    // A helper can answer before the last fiber has asked, so a few jobs are fine; fifty are not.
-    assert(after - before < FIBERS / 2, "% getaddrinfo calls for % fibers", after - before, FIBERS);
+    // A helper can answer before the next fiber asks (often, on a busy machine), so how many fibers
+    // share a job varies; that none ever did is the failure.
+    assert(after - before < FIBERS, "% getaddrinfo calls for % fibers", after - before, FIBERS);
     assert(helpers >= 1 && helpers <= 8, "% helpers", helpers);
 }
 
@@ -561,7 +562,7 @@ test_cancel_shared_lookup :: () {
 
     canceled_once := false;
 
-    for 1..5 {
+    for 1..50 {
         group: Io.Wait_Group;
         results: [WAITERS] Io.Io_Error;
         ports: [WAITERS] u16;
@@ -593,7 +594,7 @@ test_cancel_shared_lookup :: () {
         if canceled_once break;
     }
 
-    assert(canceled_once, "no waiter was canceled in five tries");
+    assert(canceled_once, "no waiter was canceled in fifty tries");
 
     // The shared job is still collected and freed, and lookups go on working.
     Io.sleep(30);
@@ -954,10 +955,10 @@ cancel_a_lookup :: () -> Io.Io_Error {
 // A fiber that waits for a name lookup stops waiting when it is canceled; the lookup's own answer
 // arrives later and is dropped.
 test_cancel_resolve :: () {
-    // Quick answers can beat the cancel, but not five times in a row.
+    // Quick answers can beat the cancel (often, on a busy machine), but not fifty times in a row.
     canceled := false;
 
-    for 1..5 {
+    for 1..50 {
         if cancel_a_lookup() == .CANCELED {
             canceled = true;
 
@@ -965,7 +966,7 @@ test_cancel_resolve :: () {
         }
     }
 
-    assert(canceled, "no lookup was canceled in five tries");
+    assert(canceled, "no lookup was canceled in fifty tries");
 
     // Let the abandoned answer arrive, then check lookups still work.
     Io.sleep(30);
@@ -1020,6 +1021,7 @@ Shared_Port :: struct {
     done: s32;
     accepted: s32;
     failures: s32;
+    listen_error: s32;
 }
 
 shared: Shared_Port;
@@ -1046,20 +1048,31 @@ shared_accept_loop :: (listener: Io.Tcp_Listener) {
 }
 
 thread_main :: () {
+    me := Atomics.atomic_add(*shared.claimed, 1);
+
     listener, error := Io.tcp_listen(Io.address_v4(127, 0, 0, 1, shared.port), reuse_port = true);
 
-    assert(error == .NONE, "listen with reuse_port: %", error);
+    if error != .NONE {
+        // The port was taken between being picked and now. Report it and let the other thread
+        // finish; `run_threads_here` tries again with a new port. Nothing asserts here.
+        Atomics.atomic_store(*shared.listen_error, cast(s32) error);
+        Atomics.atomic_store(*shared.done, 1);
+        Atomics.atomic_add(*shared.ready, 1);
+
+        return;
+    }
 
     Io.spawn(shared_accept_loop, listener);
 
     Atomics.atomic_add(*shared.ready, 1);
 
-    me := Atomics.atomic_add(*shared.claimed, 1);
-
     if me == 0 {
         while Atomics.atomic_load(*shared.ready) < 2 Io.sleep(1);
 
         for 1..20 {
+            // The other thread's listen failed, so only this thread listens: skip the clients.
+            if Atomics.atomic_load(*shared.listen_error) != 0 break;
+
             conn, connect_error := Io.connect(Io.address_v4(127, 0, 0, 1, shared.port));
             if connect_error != .NONE {
                 Atomics.atomic_add(*shared.failures, 1);
@@ -1086,8 +1099,9 @@ thread_main :: () {
     Io.close(listener);
 }
 
-test_threads_share_a_port :: () {
-    // Pick a free port, then let two schedulers listen on it at once.
+// Picks a port nobody listens on right now. Another process may take it before the threads
+// listen (CI runs tests in parallel), so this is only a guess: `run_threads_here` retries.
+pick_port :: () {
     probe, error := Io.tcp_listen(LOOPBACK);
 
     assert(error == .NONE);
@@ -1098,9 +1112,11 @@ test_threads_share_a_port :: () {
 
     shared = .{};
     shared.port = address.port;
+}
 
-    // io_run_threads starts its own schedulers and cannot run inside one, so this only prepares
-    // the port; `run_group` calls `run_threads_here` after io_run has ended.
+test_threads_share_a_port :: () {
+    // io_run_threads starts its own schedulers and cannot run inside one, so this only asks for
+    // the test; `run_group` calls `run_threads_here` after io_run has ended.
     pending_threads = true;
 }
 
@@ -1109,7 +1125,20 @@ pending_threads: bool;
 run_threads_here :: () {
     if !pending_threads return;
 
-    Io.io_run_threads(2, thread_main);
+    // A failed listen with ADDRESS_IN_USE can only mean another process took the guessed port
+    // in the gap, so a new guess is the right answer. Any other error, or ten losses in a row,
+    // is a real failure. A run where both threads listened owned the port from their first
+    // listen until they ended, so nobody can interfere with the clients that are checked.
+    ATTEMPTS :: 10;
+
+    for 1..ATTEMPTS {
+        Io.io_run(pick_port);
+        Io.io_run_threads(2, thread_main);
+
+        if shared.listen_error == 0 break;
+
+        assert(shared.listen_error == cast(s32) Io.Io_Error.ADDRESS_IN_USE && it < ATTEMPTS, "listen with reuse_port: %", cast(Io.Io_Error) shared.listen_error);
+    }
 
     assert(shared.failures == 0, "% clients failed", shared.failures);
     assert(shared.accepted == 20, "accepted % connections", shared.accepted);

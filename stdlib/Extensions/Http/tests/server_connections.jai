@@ -252,6 +252,140 @@ timeouts :: (base: string, server: *Server) {
     Io.close(stream);
 }
 
+// 4b. Memory: a connection that waits holds no read buffer, whatever it was doing before.
+buffers_held :: () -> int {
+    held, _ := read_buffer_counts();
+
+    return held;
+}
+
+// How long a hot connection (a request just now) may still hold its buffer is `HOT_MS` in the
+// server; waiting this long is enough for every connection to be waiting without one.
+SETTLE :: 120;
+
+idle_holds_no_buffer :: (base: string, server: *Server) {
+    COUNT :: 20;
+
+    streams: [COUNT] Io.Tcp_Stream;
+
+    for 0..COUNT - 1 {
+        streams[it] = raw_connect(server);
+
+        send_text(streams[it], "GET /echo/idle HTTP/1.1\r\nHost: t\r\n\r\n");
+    }
+
+    for 0..COUNT - 1 {
+        responses := read_responses(streams[it], 1, 3000);
+
+        check(responses.count == 1 && responses[0].body == "/echo/idle", "request % before idling", it);
+    }
+
+    Io.sleep(SETTLE);
+    check(buffers_held() == 0, "% idle keep-alive connections hold % read buffers", COUNT, buffers_held());
+
+    _, kept := read_buffer_counts();
+
+    check(kept >= 1, "the buffers went back to the pool: %", kept);
+
+    // The next request on each of them works, buffer or not, and they go idle again.
+    for 0..COUNT - 1 {
+        send_text(streams[it], "GET /echo/again HTTP/1.1\r\nHost: t\r\n\r\n");
+    }
+
+    for 0..COUNT - 1 {
+        responses := read_responses(streams[it], 1, 3000);
+
+        check(responses.count == 1 && responses[0].body == "/echo/again", "second request % after idling", it);
+    }
+
+    Io.sleep(SETTLE);
+    check(buffers_held() == 0, "idle again: % read buffers held", buffers_held());
+
+    // Half a head: the parser holds what came, the connection holds no buffer while it waits for
+    // the rest, and the request is answered when it arrives.
+    send_text(streams[0], "GET /echo/split HTTP/1.1\r\nHo");
+    Io.sleep(SETTLE);
+    check(buffers_held() == 0, "a connection waiting for the rest of a head holds % read buffers", buffers_held());
+    send_text(streams[0], "st: t\r\n\r\n");
+
+    responses := read_responses(streams[0], 1, 3000);
+
+    check(responses.count == 1 && responses[0].body == "/echo/split", "a head split across an idle wait: %", responses.count);
+
+    // Pipelined requests with the buffer given back in the middle: the first is answered from one
+    // segment, the second completes after a pause.
+    send_text(streams[1], "GET /echo/p1 HTTP/1.1\r\nHost: t\r\n\r\nGET /echo/p2 HTTP/1.1\r\nHost: t\r\n");
+    responses = read_responses(streams[1], 1, 3000);
+    check(responses.count == 1 && responses[0].body == "/echo/p1", "the first of two pipelined requests");
+
+    Io.sleep(SETTLE);
+    check(buffers_held() == 0, "between pipelined requests: % read buffers held", buffers_held());
+
+    send_text(streams[1], "\r\nGET /echo/p3 HTTP/1.1\r\nHost: t\r\n\r\n");
+    responses = read_responses(streams[1], 2, 3000);
+    check(responses.count == 2 && responses[0].body == "/echo/p2" && responses[1].body == "/echo/p3", "pipelined requests after the pause: %", responses.count);
+
+    // A big head and a big response, then small ones: the connection shrinks back and still works.
+    builder: String_Builder;
+
+    append(*builder, "GET /echo/big HTTP/1.1\r\nHost: t\r\n");
+
+    // 90 header lines of about 250 bytes: a 22 KB head, past what the parser keeps between requests.
+    filler: [240] u8;
+
+    for *filler it.* = #char "a";
+
+    for 1..90 print(*builder, "X-H%: %\r\n", it, string.{ filler.count, filler.data });
+
+    append(*builder, "\r\n");
+
+    big := builder_to_string(*builder,, temp);
+
+    send_text(streams[2], big);
+    responses = read_responses(streams[2], 1, 3000);
+    check(responses.count == 1 && responses[0].body == "/echo/big", "a request with a 22 KB head");
+
+    send_text(streams[2], "GET /echo/small HTTP/1.1\r\nHost: t\r\n\r\n");
+    responses = read_responses(streams[2], 1, 3000);
+    check(responses.count == 1 && responses[0].body == "/echo/small", "a small request after a big head");
+
+    // A body in pieces keeps working across the wait (the body is read with the buffer held).
+    send_text(streams[3], "POST /text HTTP/1.1\r\nHost: t\r\nContent-Length: 10\r\n\r\n01234");
+    Io.sleep(SETTLE);
+    send_text(streams[3], "56789");
+    responses = read_responses(streams[3], 1, 3000);
+    check(responses.count == 1 && responses[0].body == "10:0123456789", "a body in two parts after a pause");
+
+    for streams Io.close(it);
+
+    // Closing returns every buffer.
+    Io.sleep(SETTLE);
+    check(buffers_held() == 0, "after closing every connection: % read buffers held", buffers_held());
+}
+
+// A connection that was busy a moment ago and then goes quiet still times out at idle_timeout, not
+// later: the time it held its buffer counts.
+busy_then_idle :: (base: string, server: *Server) {
+    stream := raw_connect(server);
+
+    for 1..3 {
+        send_text(stream, "GET /ping HTTP/1.1\r\nHost: t\r\n\r\n");
+
+        responses := read_responses(stream, 1, 2000);
+
+        check(responses.count == 1, "busy request %", it);
+    }
+
+    started := current_time_monotonic();
+
+    check(closes_within(stream, 3000), "a connection that went quiet is closed");
+
+    elapsed := to_milliseconds(current_time_monotonic() - started);
+
+    check(elapsed >= 300 && elapsed < 1500, "the idle timeout was about 500 ms: % ms", elapsed);
+    Io.close(stream);
+}
+
 // 5. Expect: 100-continue and bad requests.
 expectations :: (base: string, server: *Server) {
     stream := raw_connect(server);
@@ -477,6 +611,7 @@ main :: () {
 
     run_with(plain, keep_alive);
     run_with(plain, pipelining);
+    run_with(plain, idle_holds_no_buffer);
     run_with(plain, crowd);
 
     small: Server_Config;
@@ -496,6 +631,7 @@ main :: () {
     quick.idle_timeout = 500;
 
     run_with(quick, timeouts);
+    run_with(quick, busy_then_idle);
 
     cap: Server_Config;
 

@@ -166,6 +166,51 @@ parser_free :: (p: *Parser) {
     array_reset(*p.tlist);
 }
 
+// Between messages: gives back the head and trailer storage that grew past `limit` bytes (each of
+// the six arrays on its own), so a connection that once saw a huge head does not keep it. The
+// previous message's `head` and `trailers` are gone afterwards, like when the next message begins.
+// Does nothing while a message is under way.
+parser_trim :: (p: *Parser, limit: int) {
+    if p.started return;
+
+    freed := false;
+
+    if p.bytes.allocated > limit {
+        array_reset(*p.bytes);
+        freed = true;
+    }
+
+    if p.spans.allocated * size_of(Span) > limit {
+        array_reset(*p.spans);
+        freed = true;
+    }
+
+    if p.list.allocated * size_of(Header_Field) > limit {
+        array_reset(*p.list);
+        freed = true;
+    }
+
+    if p.tbytes.allocated > limit {
+        array_reset(*p.tbytes);
+        freed = true;
+    }
+
+    if p.tspans.allocated * size_of(Span) > limit {
+        array_reset(*p.tspans);
+        freed = true;
+    }
+
+    if p.tlist.allocated * size_of(Header_Field) > limit {
+        array_reset(*p.tlist);
+        freed = true;
+    }
+
+    if freed {
+        p.head = .{};
+        p.trailers = .[];
+    }
+}
+
 // True when no message has begun: the connection may close without it being an error.
 parser_idle :: (p: *Parser) -> bool {
     if p.state != .START return false;

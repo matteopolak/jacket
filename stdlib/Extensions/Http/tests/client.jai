@@ -196,6 +196,87 @@ pooling :: (base: string, server: *Server) {
     client_settings.idle_timeout = 30_000;
 }
 
+// The state and read buffer of a response are recycled per scheduler: sequential requests reuse
+// one, a complete body does not hold its buffer, and the pools are capped.
+response_memory :: (base: string, server: *Server) {
+    _, _, created := source_pool_counts();
+
+    for 1..30 {
+        text, error := fetch_text(tprint("%/text", base));
+
+        check(error.kind == .NONE && text == "hello text", "sequential get: % %", text, error_text(error));
+        free(text.data);
+    }
+
+    _, _, now_created := source_pool_counts();
+
+    check(now_created - created <= 1, "30 sequential requests allocated % response states", now_created - created);
+
+    kept, buffers, _ := source_pool_counts();
+
+    check(kept >= 1 && buffers >= 1, "and left them for the next one: % states, % buffers", kept, buffers);
+
+    // Responses that are complete when the head arrives hold no buffer, so many of them need one.
+    held: [..] Client_Response;
+
+    for 1..10 {
+        response, error := get(*api, tprint("%/text", base));
+
+        check(error.kind == .NONE, "held response: %", error_text(error));
+        array_add(*held, response);
+    }
+
+    _, _, after_held := source_pool_counts();
+
+    check(after_held - now_created <= 10, "ten open responses needed % states", after_held - now_created);
+
+    for *held {
+        text, error := read_text(it);
+
+        check(error.kind == .NONE && text == "hello text", "a held response still reads: %", text);
+        free(text.data);
+        close(it);
+    }
+
+    array_reset(*held);
+
+    // A body that has not arrived keeps its buffer until the response is closed, then both go back.
+    big, error := get(*api, tprint("%/big", base));
+
+    check(error.kind == .NONE && big.status == 200, "big response");
+
+    buffers_before := 0;
+
+    _, buffers_before, _ = source_pool_counts();
+    close(*big);
+
+    _, buffers_after, _ := source_pool_counts();
+
+    check(buffers_after == buffers_before + 1, "closing an unread big response returned its buffer: % to %", buffers_before, buffers_after);
+
+    // The pools are capped (64 each), also when more responses than that are open at once.
+    saved := client_settings.max_open_responses;
+
+    client_settings.max_open_responses = 1000;
+
+    for 1..100 {
+        response, failure := get(*api, tprint("%/big", base));
+
+        if failure.kind == .NONE array_add(*held, response);
+    }
+
+    for *held close(it);
+
+    array_reset(*held);
+
+    client_settings.max_open_responses = saved;
+
+    kept, buffers, _ = source_pool_counts();
+
+    check(kept > 0 && kept <= 64 && buffers > 0 && buffers <= 64, "the pools are capped: % states, % buffers", kept, buffers);
+    close_idle_connections();
+}
+
 ParallelArgs :: struct {
     url: string;
     group: *Io.Wait_Group;
@@ -1061,6 +1142,7 @@ main :: () {
     get(*app, "/to-other", to_other);
 
     run_server(*app, pooling);
+    run_server(*app, response_memory);
     run_server(*app, json_calls);
     run_server(*app, body_readers);
     run_server(*app, large_bodies);

@@ -89,6 +89,14 @@ stop :: (server: *Server) {
     Io.spawn(drain, server);
 }
 
+// How many read buffers the running scheduler's connections hold right now, and how many it keeps
+// free, for tests: a connection that is waiting for its next request holds none.
+read_buffer_counts :: () -> held: int, free: int {
+    pool := read_buffers();
+
+    return pool.held, pool.free.count;
+}
+
 // Blocks the calling fiber until the server has stopped and its connections are gone. The
 // `Server` itself stays valid (its fibers may still be winding down) and costs a few hundred
 // bytes; nothing needs it afterwards.
@@ -198,9 +206,17 @@ serve_connection :: (connection: *Connection) {
 
     defer parser_free(*parser);
 
-    buffer := NewArray(max(config.read_buffer_size, 512), u8);
+    // The read buffer comes from the scheduler's pool. A connection whose reader can wait for
+    // readability (a TCP stream) holds none while it is idle or waiting for more of a head, and
+    // takes one only when bytes are there; any other connection keeps one for its whole life.
+    buffers := read_buffers();
+    buffer_size := max(config.read_buffer_size, 512);
+    can_wait := Io.can_wait_readable(stream.reader);
+    buffer: [] u8;
 
-    defer free(buffer.data);
+    defer if buffer.data give_buffer(buffers, buffer);
+
+    if !can_wait buffer = take_buffer(buffers, buffer_size);
 
     out: [..] u8;
     body_buffer: [..] u8;
@@ -211,6 +227,10 @@ serve_connection :: (connection: *Connection) {
     pending: [] u8;
     served_here := 0;
     head_started: s64 = 0;
+
+    // When the previous request began, and whether the client is sending them back to back.
+    last_started: s64 = 0;
+    hot := false;
 
     while true {
         // ---- The head of the next request.
@@ -227,6 +247,8 @@ serve_connection :: (connection: *Connection) {
                     if write_error != .NONE return;
 
                     out.count = 0;
+
+                    trim(*out, RETAIN_OUTPUT);
                 }
 
                 idle := parser_idle(*parser);
@@ -255,9 +277,63 @@ serve_connection :: (connection: *Connection) {
                 count: s64;
                 error: Io.Io_Error;
 
-                Io.with_deadline(within(timeout), #code {
-                    count, error = Io.read(stream.reader, buffer);
-                });
+                // Nothing is pending, so nothing points into the buffer.
+                if can_wait && !hot && buffer.data {
+                    give_buffer(buffers, buffer);
+                    buffer = .[];
+                }
+
+                // A connection that is not busy also keeps none of its scratch memory (the
+                // response buffer and the parser's storage grow again when it needs them).
+                if can_wait && !hot {
+                    trim(*out, 0);
+                    trim(*body_buffer, 0);
+                    parser_trim(*parser, 0);
+                }
+
+                if hot {
+                    // A client that sent its last request a moment ago most likely sends the next
+                    // one at once, and the read below completes without a second operation. It
+                    // holds a buffer for that; if the client stays quiet for HOT_MS the buffer
+                    // goes back and the wait continues without one.
+                    if !buffer.data buffer = take_buffer(buffers, buffer_size);
+
+                    limit := ifx timeout > 0 then min(timeout, HOT_MS) else HOT_MS;
+
+                    Io.with_deadline(limit, #code {
+                        count, error = Io.read(stream.reader, buffer);
+                    });
+
+                    if error == .TIMED_OUT && (timeout <= 0 || timeout > HOT_MS) {
+                        give_buffer(buffers, buffer);
+                        buffer = .[];
+
+                        hot = false;
+                        error = .NONE;
+
+                        if timeout > 0 timeout -= HOT_MS;
+                    }
+                }
+
+                if !hot && error == .NONE && count == 0 {
+                    if can_wait {
+                        Io.with_deadline(within(timeout), #code {
+                            error = Io.wait_readable(stream.reader);
+                        });
+
+                        if error == .NONE {
+                            buffer = take_buffer(buffers, buffer_size);
+
+                            Io.with_deadline(within(timeout), #code {
+                                count, error = Io.read(stream.reader, buffer);
+                            });
+                        }
+                    } else {
+                        Io.with_deadline(within(timeout), #code {
+                            count, error = Io.read(stream.reader, buffer);
+                        });
+                    }
+                }
 
                 connection.idle = false;
 
@@ -269,7 +345,11 @@ serve_connection :: (connection: *Connection) {
 
                 if error != .NONE || count == 0 return;
 
-                if idle head_started = now_ms();
+                if idle {
+                    head_started = now_ms();
+
+                    hot = can_wait && last_started != 0 && head_started - last_started < HOT_MS;
+                }
 
                 pending = .{ count, buffer.data };
             }
@@ -383,6 +463,8 @@ serve_connection :: (connection: *Connection) {
         // ---- The request and its response.
         started := now_ms();
 
+        last_started = started;
+
         request: Request;
 
         request.method = head.method;
@@ -420,6 +502,8 @@ serve_connection :: (connection: *Connection) {
 
             out.count = 0;
 
+            trim(*out, RETAIN_OUTPUT);
+
             Io.with_deadline(within(config.write_timeout), #code {
                 _, write_error = Io.write(stream.writer, response.body);
             });
@@ -428,6 +512,10 @@ serve_connection :: (connection: *Connection) {
         }
 
         reset_temporary_storage();
+
+        // One big request must not make the connection heavy for the rest of its life.
+        trim(*body_buffer, RETAIN_OUTPUT);
+        parser_trim(*parser, RETAIN_HEAD);
 
         if !keep_alive {
             Io.with_deadline(within(config.write_timeout), #code {
@@ -442,6 +530,91 @@ serve_connection :: (connection: *Connection) {
 }
 
 LARGE_BODY :: 64 * 1024;
+
+// A connection whose last two requests began less than this many milliseconds apart keeps its read
+// buffer while it waits for the next one, for at most this long. Waiting without a buffer costs a
+// second operation per request (the readiness wait, then the read), which a client that is busy
+// does not need.
+HOT_MS :: 10;
+
+// A connection keeps what it grew to between requests up to this much per array (a response
+// buffer, the collected body, the parser's head storage); past it the memory is returned once the
+// request is done, so one large request does not weigh on an idle connection.
+RETAIN_OUTPUT :: 64 * 1024;
+RETAIN_HEAD :: 16 * 1024;
+
+// Frees `array` when it is empty and has grown past `limit` bytes.
+trim :: (array: *[..] u8, limit: int) {
+    if array.count == 0 && array.allocated > limit array_reset(array);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Read buffers
+
+// The free read buffers of one scheduler. A connection takes one when bytes are waiting for it and
+// gives it back when it has nothing pending, so a server with many quiet connections needs about as
+// many buffers as it has requests in flight, not connections.
+Read_Buffers :: struct {
+    size: int; // of the buffers in `free`
+    free: [..] *u8;
+    held: int; // taken and not yet given back
+}
+
+// Buffers kept for reuse per scheduler; more are freed as they come back.
+READ_BUFFERS_KEPT :: 64;
+
+read_buffers_key: s32;
+
+read_buffers :: () -> *Read_Buffers {
+    pool := cast(*Read_Buffers) Io.scheduler_local(*read_buffers_key);
+
+    if pool return pool;
+
+    pool = New(Read_Buffers);
+
+    Io.set_scheduler_local(*read_buffers_key, pool, drop_read_buffers);
+
+    return pool;
+}
+
+drop_read_buffers :: (value: *void) {
+    pool := cast(*Read_Buffers) value;
+
+    for pool.free free(it);
+
+    array_reset(*pool.free);
+    free(pool);
+}
+
+// A buffer of `size` bytes. Its contents are whatever the last user left.
+take_buffer :: (pool: *Read_Buffers, size: int) -> [] u8 {
+    pool.held += 1;
+
+    // Servers with different `read_buffer_size`s on one scheduler: the pool follows the one that
+    // finds it empty.
+    if pool.free.count == 0 pool.size = size;
+
+    if pool.size == size && pool.free.count > 0 {
+        data := pool.free[pool.free.count - 1];
+        pool.free.count -= 1;
+
+        return .{ size, data };
+    }
+
+    return .{ size, alloc(size) };
+}
+
+give_buffer :: (pool: *Read_Buffers, buffer: [] u8) {
+    pool.held -= 1;
+
+    if buffer.count == pool.size && pool.free.count < READ_BUFFERS_KEPT {
+        array_add(*pool.free, buffer.data);
+
+        return;
+    }
+
+    free(buffer.data);
+}
 
 body_allowed :: (status: int) -> bool {
     return status >= 200 && status != 204 && status != 304;

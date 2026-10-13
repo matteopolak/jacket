@@ -186,6 +186,50 @@ test_pipelining :: () {
     check(whole == expected, tprint("pipelined requests: %", whole));
 }
 
+// A parser that saw a huge head gives its storage back between messages and goes on working; the
+// trim leaves alone what is under its limit and a message that has begun.
+test_trim :: () {
+    d := make_driver(.REQUEST);
+
+    defer free_driver(d);
+
+    builder: String_Builder;
+
+    append(*builder, "GET /big HTTP/1.1\r\nHost: a\r\n");
+
+    for 1..60 print(*builder, "X-H%: %\r\n", it, "0123456789012345678901234567890123456789012345678901234567890123456789");
+
+    append(*builder, "\r\n");
+
+    drive(d, builder_to_string(*builder,, temp));
+
+    p := *d.parser;
+
+    check(d.ends == 1 && p.head.headers.count == 61, "the big request");
+    check(p.bytes.allocated > 4096, "its head storage grew");
+
+    parser_trim(p, 1 << 20);
+    check(p.bytes.allocated > 4096, "a limit above the size frees nothing");
+
+    parser_trim(p, 4096);
+    check(p.bytes.allocated == 0, "a limit below the size frees the head storage");
+
+    drive(d, "GET /small HTTP/1.1\r\nHost: a\r\n\r\n");
+
+    check(d.ends == 2 && p.head.target == "/small" && p.head.headers.count == 1, "the next request parses after a trim");
+
+    // Half a request: nothing is freed under it.
+    drive(d, "GET /half HTTP/1.1\r\nHost: b\r\n");
+
+    used := p.bytes.allocated;
+
+    parser_trim(p, 1);
+    check(p.bytes.allocated == used && p.bytes.count > 0, "a message in progress is left alone");
+
+    drive(d, "\r\n");
+    check(d.ends == 3 && p.head.target == "/half", "and it completes");
+}
+
 test_responses :: () {
     d := make_driver(.RESPONSE);
 
@@ -586,6 +630,7 @@ main :: () {
     test_request_bodies();
     test_expect();
     test_pipelining();
+    test_trim();
     test_responses();
     test_eof();
     test_limits();

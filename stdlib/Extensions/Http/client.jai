@@ -569,6 +569,14 @@ connections_opened :: () -> int {
     return client_pool().opened;
 }
 
+// How many response states with their read buffers the running scheduler keeps for reuse, and how
+// many it has had to allocate, for tests.
+source_pool_counts :: () -> kept: int, buffers: int, created: int {
+    pool := client_pool();
+
+    return pool.sources.count, pool.buffers.count, pool.sources_created;
+}
+
 // How many responses of the running scheduler still hold a connection (their body is neither
 // read to the end nor closed), for tests.
 open_response_count :: () -> int {
@@ -639,6 +647,9 @@ Outside_Call :: struct {
 }
 
 run_outside_call :: (call: *Outside_Call) {
+    // The response outlives this scheduler, so its memory must not come from the scheduler's pool.
+    client_pool().recycle = false;
+
     call.response, call.error = send_on_fiber(call.client, call.request);
 
     // The scheduler ends with this call, and so does the connection: take the body now. A body
@@ -930,7 +941,7 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
 
     if write_error != .NONE return .{}, false, io_failure(write_error, "sending the request");
 
-    source := New(Body_Source);
+    source := take_source();
     success := false;
 
     defer {
@@ -951,7 +962,6 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
     parser_init(*source.parser, .RESPONSE, limits);
 
     source.parser.response_to = method;
-    source.buffer = NewArray(16 * 1024, u8);
 
     status := 0;
     reason: string;
@@ -1033,6 +1043,9 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
             source.has_stored = true;
         }
     }
+
+    // Everything that arrived is in memory (or the read failed): the buffer is not needed.
+    if arrived release_buffer(source);
 
     if source.held register_source(source);
 
@@ -1141,6 +1154,9 @@ Body_Source :: struct {
     sample: [..] u8; // the first bytes handed over, for failure messages
     sample_total: int;
 
+    // The scheduler's pool gave it out and takes it back (`take_source`, `discard_source`).
+    pooled: bool;
+
     max_size: int;
     deadline_ms: s64; // an absolute `now_ms()` (0: none)
 }
@@ -1151,17 +1167,90 @@ SAMPLE_KEPT :: 512;
 DRAIN_LIMIT :: 64 * 1024;
 DRAIN_TIMEOUT :: 500;
 
-// Frees the memory of a source; the connection must be released first.
+// A response state with a read buffer: recycled ones come from the scheduler's pool. A call made
+// outside a scheduler gets new ones every time, since its response outlives the scheduler.
+take_source :: () -> *Body_Source {
+    pool := client_pool();
+    source: *Body_Source;
+
+    if pool.recycle && pool.sources.count > 0 {
+        source = pool.sources[pool.sources.count - 1];
+        pool.sources.count -= 1;
+    } else {
+        source = New(Body_Source);
+        source.pooled = pool.recycle;
+
+        pool.sources_created += 1;
+    }
+
+    if pool.recycle && pool.buffers.count > 0 {
+        source.buffer = .{ SOURCE_BUFFER_BYTES, pool.buffers[pool.buffers.count - 1] };
+        pool.buffers.count -= 1;
+    } else {
+        source.buffer = NewArray(SOURCE_BUFFER_BYTES, u8, false);
+    }
+
+    return source;
+}
+
+// What `read_some` reads the connection into, and the most sources and buffers a scheduler keeps
+// for reuse (each).
+SOURCE_BUFFER_BYTES :: 16 * 1024;
+SOURCES_KEPT :: 64;
+
+// The read buffer is not needed once the body is in memory or the connection is gone: it goes back
+// to the scheduler's pool (or is freed, outside a scheduler), so a response that is held but
+// already complete costs only its state.
+release_buffer :: (source: *Body_Source) {
+    if !source.buffer.data return;
+
+    // Nothing may still point into it.
+    source.input = .{};
+    source.pending = .{};
+
+    if Io.in_scheduler() {
+        pool := client_pool();
+
+        if pool.recycle && pool.buffers.count < SOURCES_KEPT {
+            array_add(*pool.buffers, source.buffer.data);
+            source.buffer = .[];
+
+            return;
+        }
+    }
+
+    free(source.buffer.data);
+
+    source.buffer = .[];
+}
+
+// Frees the memory of a source, or puts it back in the pool; the connection must be released first.
 discard_source :: (source: *Body_Source) {
     parser_free(*source.parser);
+    release_buffer(source);
 
-    if source.buffer.data free(source.buffer.data);
     if source.host.count free(source.host.data);
 
     array_reset(*source.stored);
     array_reset(*source.sample);
 
     free_error(*source.deferred);
+
+    // Back to the pool of the scheduler it is released on (any: it is plain memory), unless that
+    // is full or there is none, which is the case for a response from a call outside a scheduler.
+    if source.pooled && Io.in_scheduler() {
+        pool := client_pool();
+
+        if pool.recycle && pool.sources.count < SOURCES_KEPT {
+            source.* = .{};
+            source.pooled = true;
+
+            array_add(*pool.sources, source);
+
+            return;
+        }
+    }
+
     free(source);
 }
 
@@ -1487,6 +1576,12 @@ Client_Pool :: struct {
     idle: [..] Pool_Entry;
     opened: int;
     open: [..] *Body_Source; // responses holding a connection, oldest first
+
+    // Response bodies' state and read buffers, kept for the next response.
+    sources: [..] *Body_Source;
+    buffers: [..] *u8;
+    sources_created: int;
+    recycle := true; // false in the scheduler of a call made outside one
 }
 
 pool_key: s32;
@@ -1520,8 +1615,13 @@ drop_pool :: (value: *void) {
         it.why = "the scheduler ended before the body was read";
     }
 
+    for pool.sources free(it);
+    for pool.buffers free(it);
+
     array_reset(*pool.idle);
     array_reset(*pool.open);
+    array_reset(*pool.sources);
+    array_reset(*pool.buffers);
     free(pool);
 }
 
