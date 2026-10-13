@@ -53,6 +53,12 @@ Server_Config :: struct {
 
     // Stop on SIGINT and SIGTERM (Ctrl-C): see `serve`.
     handle_signals := true;
+
+    // Serve HTTPS: every accepted connection does a TLS handshake first (within `header_timeout`).
+    // A `Tls_Config` that went through `Tls.tls_config_init`, with a certificate chain and private
+    // key, that outlives the server; its `alpn` should be empty or `.["http/1.1"]`. Null: plain
+    // HTTP.
+    tls: *Tls.Tls_Config;
 }
 
 // Called for every error response (a handler's `Http_Error`, a failed extractor, 404, 405, 413...)

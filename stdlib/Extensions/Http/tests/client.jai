@@ -1,6 +1,6 @@
 // The client against the server and against hand-made servers: the body readers and their
 // errors, how a response holds and releases its connection, the pool (reuse, eviction, stale
-// connections), redirects, timeouts, refused connections, https and URL errors, chunked and
+// connections), redirects, timeouts, refused connections, https URLs and URL errors, chunked and
 // until-close responses.
 #load "lib/server_support.jai";
 
@@ -934,12 +934,13 @@ failures_of_transport :: (base: string, server: *Server) {
     free_error(*error);
 
     // URLs.
-    response, error = send(*api, .{ url = "https://example.com/" });
-    check(error.kind == .UNSUPPORTED && contains(error.detail, "https is not supported yet"), "https: %", error_text(error));
+    // https is a scheme like http: a closed port refuses the connection before any TLS starts.
+    response, error = send(*api, .{ url = tprint("https%", slice(refused_url, 4, refused_url.count - 4)), timeout = 2000 });
+    check(error.kind == .TRANSPORT && error.transport == .CONNECTION_REFUSED, "https to a closed port: % %", error_text(error), error.transport);
     free_error(*error);
 
     response, error = send(*api, .{ url = "ftp://example.com/" });
-    check(error.kind == .INVALID_URL && contains(error.detail, "scheme `ftp`"), "other schemes: %", error_text(error));
+    check(error.kind == .INVALID_URL && contains(error.detail, "scheme `ftp`") && contains(error.detail, "http or https"), "other schemes: %", error_text(error));
     free_error(*error);
 
     response, error = send(*api, .{ url = "example.com/path" });

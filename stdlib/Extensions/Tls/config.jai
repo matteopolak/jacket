@@ -107,6 +107,11 @@ tls_config_free :: (config: *Tls_Config) {
     config.native = null;
 }
 
+// Whether `tls_accept` works with this config: it was set up, and has a certificate and key.
+can_accept :: (config: *Tls_Config) -> bool {
+    return config.native != null && config.native.server != null;
+}
+
 #scope_module
 
 SYSTEM_VERIFIER :: OS == .MACOS || OS == .WINDOWS;

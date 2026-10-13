@@ -105,10 +105,11 @@ percent_encode :: (text: string) -> string {
     return builder_to_string(*builder);
 }
 
-// The parts of an `http://host:port/path?query` URL. All strings point into the text given to
-// `parse_url`.
+// The parts of an `http://host:port/path?query` (or `https://`) URL. All strings point into the
+// text given to `parse_url`.
 Url :: struct {
     scheme: string;
+    secure: bool; // `https`
     host: string; // without the brackets of an IPv6 literal
     port: u16;
     target: string; // path and query as sent: always starts with `/`
@@ -120,13 +121,13 @@ Url :: struct {
 Url_Problem :: enum u8 {
     NONE;
     NOT_A_URL; // no `scheme://`
-    UNSUPPORTED_SCHEME; // `https` and anything else but `http`
+    UNSUPPORTED_SCHEME; // anything but `http` and `https`
     NO_HOST;
     BAD_PORT;
     BAD_HOST;
 }
 
-// Reads an absolute `http://` URL. `https` is its own problem: TLS is not implemented yet.
+// Reads an absolute `http://` or `https://` URL (the port defaults to 80 and 443).
 parse_url :: (text: string) -> Url, Url_Problem {
     url: Url;
 
@@ -136,7 +137,9 @@ parse_url :: (text: string) -> Url, Url_Problem {
 
     url.scheme = slice(text, 0, marker);
 
-    if !equal_nocase(url.scheme, "http") return url, .UNSUPPORTED_SCHEME;
+    url.secure = equal_nocase(url.scheme, "https");
+
+    if !url.secure && !equal_nocase(url.scheme, "http") return url, .UNSUPPORTED_SCHEME;
 
     rest := slice(text, marker + 3, text.count - marker - 3);
 
@@ -194,7 +197,7 @@ parse_url :: (text: string) -> Url, Url_Problem {
 
     if url.host.count == 0 return url, .NO_HOST;
 
-    url.port = 80;
+    url.port = default_port(url);
 
     if port_text.count > 0 {
         value := 0;
@@ -227,6 +230,11 @@ parse_url :: (text: string) -> Url, Url_Problem {
     }
 
     return url, .NONE;
+}
+
+// The port a URL without one means.
+default_port :: (url: Url) -> u16 {
+    return ifx url.secure then 443 else 80;
 }
 
 #scope_module

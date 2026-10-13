@@ -1,4 +1,5 @@
-// The client: requests over plain HTTP/1.1 on fibers, with a connection pool per scheduler.
+// The client: requests over HTTP/1.1, plain or over TLS, on fibers, with a connection pool per
+// scheduler.
 //
 //     api: Client;
 //     api.base_url = "http://localhost:8080";
@@ -26,8 +27,14 @@
 // `Io.io_run` runs a scheduler of its own for that one call and reads the body before it returns
 // (a connection cannot outlive its scheduler), so a script needs no setup; inside a scheduler it
 // runs on the calling fiber and only that fiber waits. Idle connections are kept for the next
-// request to the same host, so repeated calls on one scheduler reuse a TCP connection. `https://`
-// is not supported yet and says so.
+// request to the same host, so repeated calls on one scheduler reuse a connection.
+//
+// `https://` URLs work like `http://` ones: the connection is a TLS 1.2 or 1.3 session, the server's
+// certificate is checked against the system's trusted roots (macOS and Windows ask the operating
+// system) and the name in the URL, and ALPN offers `http/1.1`. `client.tls` replaces that with a
+// `Tls_Config` of your own (private roots, a client certificate); see docs/stdlib/tls.md. A failed
+// handshake or certificate check is a `.TLS` error. There is no way to turn certificate
+// checking off from the client except a config with `verify = false`.
 //
 // A client's `transport` decides how it reaches a server. The default opens TCP connections;
 // `test_client` (test_client.jai) connects to an `App` in memory, so the same calls drive an
@@ -37,7 +44,8 @@
 Client_Request :: struct {
     method := Method.GET;
 
-    // `http://host[:port]/path?query`, or `/path?query` relative to the client's `base_url`.
+    // `http://host[:port]/path?query` (or `https://`), or `/path?query` relative to the client's
+    // `base_url`.
     url: string;
     headers: [] Header_Field; // `Host`, `Content-Length` and `User-Agent` are added when missing
     body: [] u8;
@@ -86,7 +94,7 @@ Client_Error_Kind :: enum u8 {
     TRANSPORT; // connecting, sending or receiving failed (`transport` says how)
     TIMEOUT; // the request took longer than its timeout
     INVALID_URL; // the URL cannot be requested
-    UNSUPPORTED; // not implemented yet (https)
+    TLS; // the TLS handshake or the check of the server's certificate failed (`detail` says why)
     REDIRECTS; // too many redirects
     DECODE; // the body was not what `read_json` asked for (`json` says why)
     BODY; // the body cannot be read: it was read already, or the response was closed
@@ -174,6 +182,11 @@ Client :: struct {
     max_redirects := 10;
 
     transport: Transport;
+
+    // The TLS settings for `https://` URLs; null: trust the system's roots and offer `http/1.1`
+    // (a config the client makes once for the whole program). A config of your own must have gone
+    // through `Tls.tls_config_init` and must outlive the client's connections.
+    tls: *Tls.Tls_Config;
 }
 
 // Pool settings, for the whole program. Idle connections are closed when they have waited
@@ -793,7 +806,7 @@ same_origin :: (a: string, b: string) -> bool {
 
     if problem_a != .NONE || problem_b != .NONE return false;
 
-    return equal_nocase(first.host, second.host) && first.port == second.port;
+    return equal_nocase(first.scheme, second.scheme) && equal_nocase(first.host, second.host) && first.port == second.port;
 }
 
 without_credentials :: (headers: [] Header_Field) -> [] Header_Field {
@@ -816,9 +829,9 @@ resolve_location :: (base: string, location: string) -> string {
 
     if problem != .NONE return copy_string(location,, temp);
 
-    origin := tprint("http://%", host_with_port(url));
+    origin := tprint("%://%", url.scheme, host_with_port(url));
 
-    if begins_with(location, "//") return tprint("http:%", location);
+    if begins_with(location, "//") return tprint("%:%", url.scheme, location);
     if begins_with(location, "/") return tprint("%%", origin, location);
 
     slash := find_index_from_right(url.path, #char "/");
@@ -830,7 +843,7 @@ resolve_location :: (base: string, location: string) -> string {
 host_with_port :: (url: Url) -> string {
     host := ifx url.ipv6 then tprint("[%]", url.host) else url.host;
 
-    if url.port == 80 return host;
+    if url.port == default_port(url) return host;
 
     return tprint("%:%", host, url.port);
 }
@@ -841,11 +854,7 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
 
     if problem != .NONE {
         if problem == .UNSUPPORTED_SCHEME {
-            if equal_nocase(url.scheme, "https") {
-                return .{}, client_error(.UNSUPPORTED, .NONE, tprint("`%`: https is not supported yet, the client speaks plain http (TLS is planned)", url_text));
-            }
-
-            return .{}, client_error(.INVALID_URL, .NONE, tprint("`%`: the scheme `%` is not supported, use http", url_text, url.scheme));
+            return .{}, client_error(.INVALID_URL, .NONE, tprint("`%`: the scheme `%` is not supported, use http or https", url_text, url.scheme));
         }
 
         what := ifx problem == .NOT_A_URL then "it is not an absolute URL such as http://host/path"
@@ -952,6 +961,7 @@ converse :: (client: *Client, stream: Link, method: Method, method_text: string,
     source.owner = client.transport.data;
     source.host = copy_string(url.host);
     source.port = url.port;
+    source.tls = tls_config_of(client, url);
     source.max_size = max_response_size;
 
     // The parser does not limit the body: `read_text` and friends do, and `read_some` streams.
@@ -1125,6 +1135,7 @@ Body_Source :: struct {
     owner: *void;
     host: string;
     port: u16;
+    tls: *Tls.Tls_Config; // null: plain http
     held := false; // the connection is checked out: this body is still on the wire
 
     parser: Parser;
@@ -1283,7 +1294,7 @@ connection_done :: (source: *Body_Source) {
     source.held = false;
 
     if source.keep_alive && source.kind != .UNTIL_CLOSE && source.input.count == 0 {
-        checkin(source.owner, source.host, source.port, source.stream);
+        checkin(source.owner, source.host, source.port, source.tls, source.stream);
     } else {
         close(source.stream);
     }
@@ -1567,6 +1578,7 @@ unregister_source :: (source: *Body_Source) {
 Pool_Entry :: struct {
     host: string;
     port: u16;
+    tls: *Tls.Tls_Config; // null for plain http: a TLS connection is only reused under the same config
     owner: *void; // the transport's data: a connection is only reused by the transport that made it
     stream: Link;
     since: s64;
@@ -1630,6 +1642,7 @@ checkout :: (client: *Client, url: Url) -> Link, reused: bool, Client_Error {
     pool := client_pool();
     now := now_ms();
     owner := client.transport.data;
+    tls := tls_config_of(client, url);
 
     // Newest first; connections that waited too long are closed on the way.
     index := pool.idle.count - 1;
@@ -1639,7 +1652,7 @@ checkout :: (client: *Client, url: Url) -> Link, reused: bool, Client_Error {
 
         if now - entry.since > client_settings.idle_timeout {
             drop_entry(pool, index);
-        } else if entry.owner == owner && entry.port == url.port && entry.host == url.host {
+        } else if entry.owner == owner && entry.port == url.port && entry.tls == tls && entry.host == url.host {
             stream := entry.stream;
 
             free(entry.host.data);
@@ -1671,6 +1684,18 @@ checkout :: (client: *Client, url: Url) -> Link, reused: bool, Client_Error {
         return .{}, false, io_failure(error, tprint("connecting to %:%", url.host, url.port));
     }
 
+    if url.secure {
+        secured, failure := secure_link(client, stream, url);
+
+        if failure.kind != .NONE {
+            close(stream);
+
+            return .{}, false, failure;
+        }
+
+        stream = secured;
+    }
+
     pool.opened += 1;
 
     return stream, false, .{};
@@ -1686,7 +1711,7 @@ drop_entry :: (pool: *Client_Pool, index: int) {
     close(entry.stream);
 }
 
-checkin :: (owner: *void, host: string, port: u16, stream: Link) {
+checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream: Link) {
     pool := client_pool();
 
     if client_settings.max_idle_per_host <= 0 {
@@ -1699,6 +1724,7 @@ checkin :: (owner: *void, host: string, port: u16, stream: Link) {
 
     entry.host = copy_string(host);
     entry.port = port;
+    entry.tls = tls;
     entry.owner = owner;
     entry.stream = stream;
     entry.since = now_ms();
@@ -1710,7 +1736,7 @@ checkin :: (owner: *void, host: string, port: u16, stream: Link) {
     count := 0;
 
     for pool.idle {
-        if it.owner == owner && it.port == port && it.host == host count += 1;
+        if it.owner == owner && it.port == port && it.tls == tls && it.host == host count += 1;
     }
 
     excess: [..] Link;
@@ -1721,7 +1747,7 @@ checkin :: (owner: *void, host: string, port: u16, stream: Link) {
     while count > client_settings.max_idle_per_host && index < pool.idle.count {
         it := pool.idle[index];
 
-        if it.owner == owner && it.port == port && it.host == host {
+        if it.owner == owner && it.port == port && it.tls == tls && it.host == host {
             array_add(*excess, it.stream);
             free(it.host.data);
             array_ordered_remove_by_index(*pool.idle, index);
@@ -1732,4 +1758,83 @@ checkin :: (owner: *void, host: string, port: u16, stream: Link) {
     }
 
     for excess close(it);
+}
+
+// ---------------------------------------------------------------------------------------------
+// TLS
+
+// The config an `https://` URL's connection is made with (null for plain http): the client's own,
+// or the program's default.
+tls_config_of :: (client: *Client, url: Url) -> *Tls.Tls_Config {
+    if !url.secure return null;
+
+    if client.tls return client.tls;
+
+    return *default_tls;
+}
+
+// The default for clients with no `tls`: system roots, ALPN `http/1.1`. Built once by whichever
+// scheduler thread needs it first; the others wait for it.
+default_tls: Tls.Tls_Config;
+default_tls_error: Tls.Tls_Error;
+default_tls_state: s32; // 0: not built, 1: being built, 2: ready, 3: failed
+
+default_tls_ready :: () -> Tls.Tls_Error {
+    while true {
+        state := atomic_load(*default_tls_state);
+
+        if state == 2 return .{};
+        if state == 3 return default_tls_error;
+
+        if state == 0 {
+            exchanged, _ := atomic_compare_exchange(*default_tls_state, 0, 1);
+
+            if exchanged {
+                default_tls.alpn = string.["http/1.1"];
+                default_tls_error = Tls.tls_config_init(*default_tls);
+
+                atomic_store(*default_tls_state, ifx default_tls_error.kind == .NONE then 2 else 3);
+
+                continue;
+            }
+        }
+
+        Io.sleep(1);
+    }
+
+    return .{};
+}
+
+// Starts TLS on a new connection: the handshake runs on the calling fiber, under the request's
+// deadline. The link it returns replaces `link` (it closes the connection underneath); on a
+// failure `link` is still the caller's to close.
+secure_link :: (client: *Client, link: Link, url: Url) -> Link, Client_Error {
+    config := tls_config_of(client, url);
+
+    if config == *default_tls {
+        error := default_tls_ready();
+
+        if error.kind != .NONE return .{}, tls_failure(error, url);
+    } else if !config.native {
+        return .{}, client_error(.TLS, .NONE, "the client's tls config was not set up: call Tls.tls_config_init on it first");
+    }
+
+    stream, error := Tls.tls_connect(config, link.reader, link.writer, url.host);
+
+    if error.kind != .NONE return .{}, tls_failure(error, url);
+
+    secured: Link;
+
+    secured.reader = Tls.reader_of(stream);
+    secured.writer = Tls.writer_of(stream);
+    secured.peer = link.peer;
+
+    return secured, .{};
+}
+
+tls_failure :: (error: Tls.Tls_Error, url: Url) -> Client_Error {
+    // A timeout or cancellation is the request's, like any other wait.
+    if error.kind == .IO return io_failure(error.io, tprint("the TLS handshake with %:%", url.host, url.port));
+
+    return client_error(.TLS, .NONE, tprint("TLS with %:%: %", url.host, url.port, Tls.error_text(error)));
 }

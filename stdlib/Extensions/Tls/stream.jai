@@ -475,7 +475,12 @@ bio_receive :: (context_data: *void, buffer: *u8, length: u64) -> s32 #c_call {
 
             count, error := Io.read(stream.reader, .{ cast(s64) length, buffer });
 
-            if error != .NONE {
+            if error != .NONE && stream.can_wait && (error == .TIMED_OUT || error == .CANCELED || error == .CLOSED) {
+                // The deadline passed or the fiber was canceled between the wait and this read.
+                // The library has lost nothing, so let it ask again: the wait outside reports the
+                // same error, and the stream stays usable.
+                result = ERR_SSL_WANT_READ;
+            } else if error != .NONE {
                 stream.io_error = error;
                 result = ERR_NET_RECV_FAILED;
             } else {

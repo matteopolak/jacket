@@ -31,6 +31,7 @@ Connection :: struct {
     server: *Server;
     stream: Link;
     fiber: Io.Fiber_Handle;
+    secure: bool; // the TLS handshake is still to be done (`config.tls`)
     idle: bool; // waiting for the first byte of a request: safe to cut off
 }
 
@@ -40,6 +41,12 @@ Connection :: struct {
 start :: (app: *App, reuse_port := false) -> *Server, Io.Io_Error {
     if app.setup_errors.count {
         for app.setup_errors print("Http: %\n", it, to_standard_error = true);
+
+        return null, .INVALID;
+    }
+
+    if app.config.tls && !Tls.can_accept(app.config.tls) {
+        print("Http: config.tls has no certificate and key, or Tls.tls_config_init was not called on it\n", to_standard_error = true);
 
         return null, .INVALID;
     }
@@ -64,7 +71,8 @@ start :: (app: *App, reuse_port := false) -> *Server, Io.Io_Error {
     return server, .NONE;
 }
 
-// The `http://host:port` the server is reachable at (a wildcard address shows as 127.0.0.1).
+// The `http://host:port` (`https://` with `config.tls`) the server is reachable at (a wildcard
+// address shows as 127.0.0.1).
 server_url :: (server: *Server) -> string {
     address := server.address;
 
@@ -73,7 +81,7 @@ server_url :: (server: *Server) -> string {
         address.bytes[3] = 1;
     }
 
-    return tprint("http://%", Io.address_to_string(address));
+    return tprint("%://%", ifx server.app.config.tls then "https" else "http", Io.address_to_string(address));
 }
 
 // Starts the graceful shutdown: no new connections, idle ones close, requests in progress finish
@@ -119,16 +127,18 @@ accept_loop :: (server: *Server) {
             continue;
         }
 
-        adopt(server, tcp_link(stream));
+        adopt(server, tcp_link(stream), server.app.config.tls != null);
     }
 }
 
-// Serves `stream` on a new fiber of the running scheduler.
-adopt :: (server: *Server, stream: Link) {
+// Serves `stream` on a new fiber of the running scheduler. With `secure` the fiber first does the
+// TLS handshake (`config.tls`) on it.
+adopt :: (server: *Server, stream: Link, secure := false) {
     connection := New(Connection);
 
     connection.server = server;
     connection.stream = stream;
+    connection.secure = secure;
     connection.next = server.connections;
 
     if server.connections server.connections.previous = connection;
@@ -170,6 +180,48 @@ upgrade_connection :: (connection: *Connection, head: *Head) -> bool {
     return false;
 }
 
+// Runs the TLS handshake of a new connection, which has `header_timeout` to finish it, and returns
+// the link that carries HTTP from here on (or, when the connection must be dropped, the link to
+// close). The protocol is chosen here too: ALPN `http/1.1` (or none)
+// speaks HTTP/1.1. `choose_protocol` is where `h2` would branch off to an HTTP/2 connection.
+accept_tls :: (connection: *Connection) -> Link, bool {
+    config := *connection.server.app.config;
+    link := connection.stream;
+
+    stream: *Tls.Tls_Stream;
+    error: Tls.Tls_Error;
+
+    Io.with_deadline(within(config.header_timeout), #code {
+        stream, error = Tls.tls_accept(config.tls, link.reader, link.writer);
+    });
+
+    if error.kind != .NONE {
+        if config.log_requests print("TLS handshake from % failed: %\n", Io.address_to_string(link.peer), Tls.error_text(error));
+
+        return link, false;
+    }
+
+    secured: Link;
+
+    secured.reader = Tls.reader_of(stream);
+    secured.writer = Tls.writer_of(stream);
+    secured.peer = link.peer;
+
+    if !choose_protocol(Tls.alpn_protocol(stream)) {
+        if config.log_requests print("TLS connection from % negotiated ALPN %, which this server does not speak\n", Io.address_to_string(link.peer), Tls.alpn_protocol(stream));
+
+        return secured, false;
+    }
+
+    return secured, true;
+}
+
+// Whether the connection can speak the protocol ALPN chose. HTTP/1.1 is all there is; HTTP/2
+// (milestone 11) turns `h2` into a different connection loop here.
+choose_protocol :: (alpn: string) -> bool {
+    return alpn.count == 0 || alpn == "http/1.1";
+}
+
 serve_connection :: (connection: *Connection) {
     server := connection.server;
     app := server.app;
@@ -186,6 +238,20 @@ serve_connection :: (connection: *Connection) {
         server.count -= 1;
 
         free(connection);
+    }
+
+    if connection.secure {
+        secured, ok := accept_tls(connection);
+
+        // A client that fails the handshake is dropped without an answer: there is no HTTP yet.
+        // `secured` is then the link to close: the TCP one, or the TLS one when it is up.
+        if !ok {
+            close(secured);
+
+            return;
+        }
+
+        stream = secured;
     }
 
     defer close(stream);

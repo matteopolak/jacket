@@ -50,6 +50,7 @@ http_use_simd := true;
 
 #if OS != .WASM {
     Io :: #import "Extensions/Io";
+    Tls :: #import "Extensions/Tls";
     #import "Extensions/Json";
     #import "Compiler";
     #import "Atomics";
