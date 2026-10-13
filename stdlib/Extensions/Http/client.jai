@@ -572,28 +572,35 @@ close_idle_connections :: () {
     while pool.idle.count drop_entry(pool, pool.idle.count - 1);
 }
 
-// How many idle connections the running scheduler keeps, for tests.
-idle_connection_count :: () -> int {
-    return client_pool().idle.count;
+// What the running scheduler's pools hold right now, for tests and diagnostics (nothing here is
+// needed to use the module). Call it on a scheduler: inside `Io.io_run` or a test client call.
+Http_Statistics :: struct {
+    read_buffers_in_use: int; // server read buffers held by connections that are reading a request
+    read_buffers_free: int; // read buffers kept for reuse (a connection between requests holds none)
+    idle_connections: int; // client connections waiting in the pool
+    connections_opened: int; // client connections opened over the scheduler's life
+    open_responses: int; // responses that still hold their connection (body neither read to the end nor closed)
+    body_sources_free: int; // response states kept for reuse
+    body_buffers_free: int; // response read buffers kept for reuse
+    body_sources_created: int; // response states allocated over the scheduler's life
 }
 
-// How many connections the running scheduler has opened, for tests.
-connections_opened :: () -> int {
-    return client_pool().opened;
-}
+http_statistics :: () -> Http_Statistics {
+    statistics: Http_Statistics;
 
-// How many response states with their read buffers the running scheduler keeps for reuse, and how
-// many it has had to allocate, for tests.
-source_pool_counts :: () -> kept: int, buffers: int, created: int {
+    buffers := read_buffers();
     pool := client_pool();
 
-    return pool.sources.count, pool.buffers.count, pool.sources_created;
-}
+    statistics.read_buffers_in_use = buffers.held;
+    statistics.read_buffers_free = buffers.free.count;
+    statistics.idle_connections = pool.idle.count;
+    statistics.connections_opened = pool.opened;
+    statistics.open_responses = pool.open.count;
+    statistics.body_sources_free = pool.sources.count;
+    statistics.body_buffers_free = pool.buffers.count;
+    statistics.body_sources_created = pool.sources_created;
 
-// How many responses of the running scheduler still hold a connection (their body is neither
-// read to the end nor closed), for tests.
-open_response_count :: () -> int {
-    return client_pool().open.count;
+    return statistics;
 }
 
 #scope_module

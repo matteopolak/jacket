@@ -382,17 +382,17 @@ keep_alive_inside :: () {
 
     for 1..5 expect_status(get(api, "/hello"), 200);
 
-    expect_equal(connections_opened(), 1, "five requests, one connection");
-    expect_equal(idle_connection_count(), 1);
+    expect_equal(http_statistics().connections_opened, 1, "five requests, one connection");
+    expect_equal(http_statistics().idle_connections, 1);
 
     // Connection: close ends it; the next request opens another.
     closing := get(api, "/hello", .[.{ "Connection", "close" }]);
 
     expect_header(closing, "Connection", "close");
-    expect_equal(idle_connection_count(), 0);
+    expect_equal(http_statistics().idle_connections, 0);
 
     expect_status(get(api, "/hello"), 200);
-    expect_equal(connections_opened(), 2);
+    expect_equal(http_statistics().connections_opened, 2);
 
     // The server closes after its request limit, and the client opens a new connection.
     app.config.max_requests_per_connection = 2;
@@ -401,15 +401,15 @@ keep_alive_inside :: () {
 
     app.config.max_requests_per_connection = 10_000;
 
-    expect(connections_opened() >= 4, tprint("a limit of 2 requests per connection opened % connections", connections_opened()));
+    expect(http_statistics().connections_opened >= 4, tprint("a limit of 2 requests per connection opened % connections", http_statistics().connections_opened));
 
     // Another client has connections of its own.
     other := test_client(*app);
 
-    opened := connections_opened();
+    opened := http_statistics().connections_opened;
 
     expect_status(get(other, "/hello"), 200);
-    expect_equal(connections_opened(), opened + 1);
+    expect_equal(http_statistics().connections_opened, opened + 1);
 }
 
 Several :: struct {
@@ -441,7 +441,7 @@ concurrently :: () {
     Io.wait(*several.group);
 
     expect_equal(world.hits, 20, "twenty requests in flight at once");
-    expect(connections_opened() > 1, "concurrent requests use separate connections");
+    expect(http_statistics().connections_opened > 1, "concurrent requests use separate connections");
 }
 
 handlers_may_use_io :: () {
@@ -521,7 +521,7 @@ socket_inside :: () {
 
     for 1..3 expect_status(get(api, "/hello"), 200);
 
-    expect_equal(connections_opened(), 1);
+    expect_equal(http_statistics().connections_opened, 1);
 }
 
 conflicting_routes :: () {

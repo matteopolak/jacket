@@ -529,7 +529,7 @@ test_resolve_coalesces :: () {
         group: Io.Wait_Group;
         failures := 0;
 
-        before, _ := Io.resolver_statistics();
+        before := Io.io_statistics().resolver_jobs;
 
         Io.add(*group, FIBERS);
         for 1..FIBERS Io.spawn(lookup_fiber, Lookup_Job.{ *group, *failures });
@@ -537,7 +537,9 @@ test_resolve_coalesces :: () {
         Io.wait(*group);
         assert(failures == 0, "% of % lookups failed", failures, FIBERS);
 
-        after, helpers := Io.resolver_statistics();
+        statistics := Io.io_statistics();
+        after := statistics.resolver_jobs;
+        helpers := statistics.resolver_helpers;
 
         assert(helpers >= 1 && helpers <= 8, "% helpers", helpers);
 
@@ -638,7 +640,7 @@ test_resolver_helpers_bounded :: () {
     group: Io.Wait_Group;
     failures := 0;
 
-    before, _ := Io.resolver_statistics();
+    before := Io.io_statistics().resolver_jobs;
 
     Io.add(*group, NAME_VARIANTS.count * 3);
 
@@ -648,7 +650,9 @@ test_resolver_helpers_bounded :: () {
 
     Io.wait(*group);
 
-    jobs, helpers := Io.resolver_statistics();
+    statistics := Io.io_statistics();
+    jobs := statistics.resolver_jobs;
+    helpers := statistics.resolver_helpers;
 
     assert(jobs - before >= 1 && jobs - before <= NAME_VARIANTS.count * 3, "% jobs", jobs - before);
     assert(helpers >= 1 && helpers <= 8, "% helpers", helpers);

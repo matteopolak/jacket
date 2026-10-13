@@ -101,14 +101,6 @@ stop :: (server: *Server) {
     Io.spawn(drain, server);
 }
 
-// How many read buffers the running scheduler's connections hold right now, and how many it keeps
-// free, for tests: a connection that is waiting for its next request holds none.
-read_buffer_counts :: () -> held: int, free: int {
-    pool := read_buffers();
-
-    return pool.held, pool.free.count;
-}
-
 // Blocks the calling fiber until the server has stopped and its connections are gone. The
 // `Server` itself stays valid (its fibers may still be winding down) and costs a few hundred
 // bytes; nothing needs it afterwards.

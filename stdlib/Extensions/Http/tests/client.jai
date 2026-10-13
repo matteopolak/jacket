@@ -148,7 +148,7 @@ fetch_text :: (url: string) -> string, Client_Error {
 pooling :: (base: string, server: *Server) {
     check(Io.backend_name().count > 0, "backend: %", Io.backend_name());
 
-    before := connections_opened();
+    before := http_statistics().connections_opened;
 
     for 1..5 {
         text, error := fetch_text(tprint("%/text", base));
@@ -156,8 +156,8 @@ pooling :: (base: string, server: *Server) {
         free(text.data);
     }
 
-    check(connections_opened() - before == 1, "five requests, one connection: % opened", connections_opened() - before);
-    check(idle_connection_count() == 1, "and it is kept: % idle", idle_connection_count());
+    check(http_statistics().connections_opened - before == 1, "five requests, one connection: % opened", http_statistics().connections_opened - before);
+    check(http_statistics().idle_connections == 1, "and it is kept: % idle", http_statistics().idle_connections);
 
     // Concurrent requests need their own connections; afterwards at most max_idle_per_host stay.
     saved := client_settings.max_idle_per_host;
@@ -172,26 +172,26 @@ pooling :: (base: string, server: *Server) {
 
     Io.wait(*group);
 
-    check(idle_connection_count() == 2, "idle connections are capped at max_idle_per_host: %", idle_connection_count());
+    check(http_statistics().idle_connections == 2, "idle connections are capped at max_idle_per_host: %", http_statistics().idle_connections);
 
     client_settings.max_idle_per_host = saved;
 
     close_idle_connections();
-    check(idle_connection_count() == 0, "close_idle_connections");
+    check(http_statistics().idle_connections == 0, "close_idle_connections");
 
     // Idle connections are evicted after idle_timeout.
-    opened := connections_opened();
+    opened := http_statistics().connections_opened;
     text, error := fetch_text(tprint("%/text", base));
 
     free(text.data);
-    check(idle_connection_count() == 1, "one idle again");
+    check(http_statistics().idle_connections == 1, "one idle again");
 
     client_settings.idle_timeout = 60;
     Io.sleep(120);
 
     text, error = fetch_text(tprint("%/text", base));
     free(text.data);
-    check(connections_opened() == opened + 2, "a connection that idled too long is not reused: % opened", connections_opened() - opened);
+    check(http_statistics().connections_opened == opened + 2, "a connection that idled too long is not reused: % opened", http_statistics().connections_opened - opened);
 
     client_settings.idle_timeout = 30_000;
 }
@@ -199,7 +199,7 @@ pooling :: (base: string, server: *Server) {
 // The state and read buffer of a response are recycled per scheduler: sequential requests reuse
 // one, a complete body does not hold its buffer, and the pools are capped.
 response_memory :: (base: string, server: *Server) {
-    _, _, created := source_pool_counts();
+    created := http_statistics().body_sources_created;
 
     for 1..30 {
         text, error := fetch_text(tprint("%/text", base));
@@ -208,11 +208,13 @@ response_memory :: (base: string, server: *Server) {
         free(text.data);
     }
 
-    _, _, now_created := source_pool_counts();
+    now_created := http_statistics().body_sources_created;
 
     check(now_created - created <= 1, "30 sequential requests allocated % response states", now_created - created);
 
-    kept, buffers, _ := source_pool_counts();
+    statistics := http_statistics();
+    kept := statistics.body_sources_free;
+    buffers := statistics.body_buffers_free;
 
     check(kept >= 1 && buffers >= 1, "and left them for the next one: % states, % buffers", kept, buffers);
 
@@ -226,7 +228,7 @@ response_memory :: (base: string, server: *Server) {
         array_add(*held, response);
     }
 
-    _, _, after_held := source_pool_counts();
+    after_held := http_statistics().body_sources_created;
 
     check(after_held - now_created <= 10, "ten open responses needed % states", after_held - now_created);
 
@@ -247,10 +249,10 @@ response_memory :: (base: string, server: *Server) {
 
     buffers_before := 0;
 
-    _, buffers_before, _ = source_pool_counts();
+    buffers_before = http_statistics().body_buffers_free;
     close(*big);
 
-    _, buffers_after, _ := source_pool_counts();
+    buffers_after := http_statistics().body_buffers_free;
 
     check(buffers_after == buffers_before + 1, "closing an unread big response returned its buffer: % to %", buffers_before, buffers_after);
 
@@ -271,7 +273,9 @@ response_memory :: (base: string, server: *Server) {
 
     client_settings.max_open_responses = saved;
 
-    kept, buffers, _ = source_pool_counts();
+    statistics = http_statistics();
+    kept = statistics.body_sources_free;
+    buffers = statistics.body_buffers_free;
 
     check(kept > 0 && kept <= 64 && buffers > 0 && buffers <= 64, "the pools are capped: % states, % buffers", kept, buffers);
     close_idle_connections();
@@ -621,7 +625,7 @@ body_readers :: (base: string, server: *Server) {
 
         array_add(*framed.replies, framing_replies(kind));
 
-        before := connections_opened();
+        before := http_statistics().connections_opened;
 
         for 1..3 {
             text, error := fetch_text(framed.url);
@@ -629,14 +633,14 @@ body_readers :: (base: string, server: *Server) {
             free(text.data);
         }
 
-        opened := connections_opened() - before;
+        opened := http_statistics().connections_opened - before;
 
         if kind == 2 {
             check(opened == 3, "read until close: a connection each: %", opened);
-            check(idle_connection_count() == 0, "read until close: nothing kept: %", idle_connection_count());
+            check(http_statistics().idle_connections == 0, "read until close: nothing kept: %", http_statistics().idle_connections);
         } else {
             check(opened == 1, "% reading to the end keeps the connection: % opened", FRAMING_NAMES[kind], opened);
-            check(idle_connection_count() == 1, "% and it is idle: %", FRAMING_NAMES[kind], idle_connection_count());
+            check(http_statistics().idle_connections == 1, "% and it is idle: %", FRAMING_NAMES[kind], http_statistics().idle_connections);
         }
 
         close_idle_connections();
@@ -677,7 +681,7 @@ large_bodies :: (base: string, server: *Server) {
     buffer: [4096] u8;
     total := 0;
     sum := 0;
-    before := connections_opened();
+    before := http_statistics().connections_opened;
 
     while true {
         count, some_error := read_some(*response, buffer);
@@ -701,7 +705,7 @@ large_bodies :: (base: string, server: *Server) {
     // The connection survived the streamed body.
     text := fetch_text(tprint("%/text", base));
 
-    check(text == "hello text" && connections_opened() == before, "the streamed connection was reused: % % ", text, connections_opened() - before);
+    check(text == "hello text" && http_statistics().connections_opened == before, "the streamed connection was reused: % % ", text, http_statistics().connections_opened - before);
     free(text.data);
 }
 
@@ -709,52 +713,52 @@ large_bodies :: (base: string, server: *Server) {
 unread_responses :: (base: string, server: *Server) {
     close_idle_connections();
 
-    opened := connections_opened();
+    opened := http_statistics().connections_opened;
 
     // 1. Unread, then a new request on the same client: both work.
     first, error := get(*api, tprint("%/big", base));
 
     check(error.kind == .NONE && first.status == 200, "the first response");
-    check(open_response_count() == 1, "it holds its connection: %", open_response_count());
+    check(http_statistics().open_responses == 1, "it holds its connection: %", http_statistics().open_responses);
 
     text, text_error := fetch_text(tprint("%/text", base));
 
     check(text == "hello text", "a request while a response is unread: % %", text, error_text(text_error));
     free(text.data);
 
-    check(connections_opened() == opened + 2, "on a connection of its own: % opened", connections_opened() - opened);
-    check(idle_connection_count() == 1, "only the finished one went back: %", idle_connection_count());
+    check(http_statistics().connections_opened == opened + 2, "on a connection of its own: % opened", http_statistics().connections_opened - opened);
+    check(http_statistics().idle_connections == 1, "only the finished one went back: %", http_statistics().idle_connections);
 
     // The unread one can still be read afterwards, completely.
     big, big_error := read_bytes(*first);
 
     check(big_error.kind == .NONE && big.count == 200_000, "the first response is intact: % %", big.count, error_text(big_error));
     free(big.data);
-    check(open_response_count() == 0 && idle_connection_count() == 2, "reading released its connection: % open, % idle", open_response_count(), idle_connection_count());
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 2, "reading released its connection: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
     close(*first);
 
     // 2. close() on an unread short body drains it and keeps the connection.
     close_idle_connections();
-    opened = connections_opened();
+    opened = http_statistics().connections_opened;
 
     short := get(*api, tprint("%/text", base));
 
     close(*short);
     close(*short);
-    check(open_response_count() == 0 && idle_connection_count() == 1, "close of a short unread body keeps the connection: % open, % idle", open_response_count(), idle_connection_count());
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 1, "close of a short unread body keeps the connection: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
 
     text, text_error = fetch_text(tprint("%/text", base));
-    check(text == "hello text" && connections_opened() == opened + 1, "and the next request reuses it: % opened", connections_opened() - opened);
+    check(text == "hello text" && http_statistics().connections_opened == opened + 1, "and the next request reuses it: % opened", http_statistics().connections_opened - opened);
     free(text.data);
 
     // 3. close() on an unread long body closes the connection instead.
     close_idle_connections();
-    opened = connections_opened();
+    opened = http_statistics().connections_opened;
 
     long := get(*api, tprint("%/big", base));
 
     close(*long);
-    check(open_response_count() == 0 && idle_connection_count() == 0, "close of a long unread body closes the connection: % open, % idle", open_response_count(), idle_connection_count());
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 0, "close of a long unread body closes the connection: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
 
     text, text_error = fetch_text(tprint("%/text", base));
     check(text == "hello text", "the client is fine after that: %", text);
@@ -768,27 +772,27 @@ unread_responses :: (base: string, server: *Server) {
 
     check(count > 0 && some_error.kind == .NONE, "a first piece");
     close(*partial);
-    check(open_response_count() == 0, "partly streamed, then closed: %", open_response_count());
+    check(http_statistics().open_responses == 0, "partly streamed, then closed: %", http_statistics().open_responses);
 
     // 5. A response with no body never holds a connection.
     close_idle_connections();
 
     empty := head(*api, tprint("%/text", base));
 
-    check(open_response_count() == 0 && idle_connection_count() == 1, "a HEAD response has nothing to wait for: % open, % idle", open_response_count(), idle_connection_count());
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 1, "a HEAD response has nothing to wait for: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
     close(*empty);
 
     // 5b. Neither does a small answer that is dropped unread: it came with its head and is
     // kept in memory, so the connection was free at once and the body is still readable.
     close_idle_connections();
-    opened = connections_opened();
+    opened = http_statistics().connections_opened;
 
     small := get(*api, tprint("%/text", base));
 
-    check(open_response_count() == 0 && idle_connection_count() == 1, "a small unread response holds nothing: % open, % idle", open_response_count(), idle_connection_count());
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 1, "a small unread response holds nothing: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
 
     text, text_error = fetch_text(tprint("%/text", base));
-    check(text == "hello text" && connections_opened() == opened + 1, "the next request reuses the connection: % opened", connections_opened() - opened);
+    check(text == "hello text" && http_statistics().connections_opened == opened + 1, "the next request reuses the connection: % opened", http_statistics().connections_opened - opened);
     free(text.data);
 
     text, text_error = read_text(*small);
@@ -807,7 +811,7 @@ unread_responses :: (base: string, server: *Server) {
 
     for 0..4 abandoned[it], error = get(*api, tprint("%/big", base));
 
-    check(open_response_count() == 3, "no more than the limit are held: %", open_response_count());
+    check(http_statistics().open_responses == 3, "no more than the limit are held: %", http_statistics().open_responses);
 
     _, evicted := read_text(*abandoned[0]);
 
@@ -821,7 +825,7 @@ unread_responses :: (base: string, server: *Server) {
 
     for 0..4 close(*abandoned[it]);
 
-    check(open_response_count() == 0, "all closed: %", open_response_count());
+    check(http_statistics().open_responses == 0, "all closed: %", http_statistics().open_responses);
 
     client_settings.max_open_responses = saved;
     close_idle_connections();
@@ -875,25 +879,25 @@ redirects :: (base: string, server: *Server) {
     // The answers in between are released, and one connection served the whole chain.
     close_idle_connections();
 
-    opened := connections_opened();
+    opened := http_statistics().connections_opened;
 
     raw, error = send(*api, .{ url = tprint("%/moved", base) });
     check(error.kind == .NONE && raw.status == 200, "a followed redirect: %", error_text(error));
-    check(open_response_count() == 0, "a small answer is in memory, its connection is back: %", open_response_count());
+    check(http_statistics().open_responses == 0, "a small answer is in memory, its connection is back: %", http_statistics().open_responses);
 
     text := read_text(*raw);
 
     check(contains(text, "GET /inspect?moved=1"), "its body: %", text);
     free(text.data);
     close(*raw);
-    check(open_response_count() == 0 && connections_opened() == opened + 1 && idle_connection_count() == 1, "one connection for the chain: % open, % opened, % idle", open_response_count(), connections_opened() - opened, idle_connection_count());
+    check(http_statistics().open_responses == 0 && http_statistics().connections_opened == opened + 1 && http_statistics().idle_connections == 1, "one connection for the chain: % open, % opened, % idle", http_statistics().open_responses, http_statistics().connections_opened - opened, http_statistics().idle_connections);
 
     // A chain that fails holds nothing.
     close_idle_connections();
 
     raw, error = send(*api, .{ url = tprint("%/loop", base), max_redirects = 4 });
     free_error(*error);
-    check(open_response_count() == 0, "a failed redirect chain holds nothing: %", open_response_count());
+    check(http_statistics().open_responses == 0, "a failed redirect chain holds nothing: %", http_statistics().open_responses);
 }
 
 failures_of_transport :: (base: string, server: *Server) {
@@ -962,7 +966,7 @@ failures_of_transport :: (base: string, server: *Server) {
 
 // A stale pooled connection: the server closes it while idle, and the next request still works.
 stale :: (base: string, server: *Server) {
-    opened := connections_opened();
+    opened := http_statistics().connections_opened;
 
     text, error := fetch_text(tprint("%/text", base));
 
@@ -975,7 +979,7 @@ stale :: (base: string, server: *Server) {
     text, error = fetch_text(tprint("%/text", base));
     check(error.kind == .NONE && text == "hello text", "a request on a stale connection is retried: %", error_text(error));
     free(text.data);
-    check(connections_opened() == opened + 2, "on a new connection: % opened", connections_opened() - opened);
+    check(http_statistics().connections_opened == opened + 2, "on a new connection: % opened", http_statistics().connections_opened - opened);
 
     // A POST is not repeated behind the caller's back.
     Io.sleep(300);
@@ -1086,7 +1090,7 @@ scripted :: (base: string, server: *Server) {
     check(again_error.kind == .BODY, "and the body stays failed: %", error_text(again_error));
     free_error(*again_error);
     close(*response);
-    check(open_response_count() == 0, "a failed read holds nothing: %", open_response_count());
+    check(http_statistics().open_responses == 0, "a failed read holds nothing: %", http_statistics().open_responses);
 
     response, send_error = send(*api, .{ url = url });
     check(send_error.kind == .TRANSPORT && contains(send_error.detail, "not valid HTTP"), "garbage: %", error_text(send_error));

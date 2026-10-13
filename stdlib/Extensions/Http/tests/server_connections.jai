@@ -254,9 +254,7 @@ timeouts :: (base: string, server: *Server) {
 
 // 4b. Memory: a connection that waits holds no read buffer, whatever it was doing before.
 buffers_held :: () -> int {
-    held, _ := read_buffer_counts();
-
-    return held;
+    return http_statistics().read_buffers_in_use;
 }
 
 // How long a hot connection (a request just now) may still hold its buffer is `HOT_MS` in the
@@ -283,7 +281,7 @@ idle_holds_no_buffer :: (base: string, server: *Server) {
     Io.sleep(SETTLE);
     check(buffers_held() == 0, "% idle keep-alive connections hold % read buffers", COUNT, buffers_held());
 
-    _, kept := read_buffer_counts();
+    kept := http_statistics().read_buffers_free;
 
     check(kept >= 1, "the buffers went back to the pool: %", kept);
 

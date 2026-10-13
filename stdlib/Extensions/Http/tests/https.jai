@@ -127,7 +127,7 @@ round_trips :: (base: string, server: *Server) {
     check(reply.body == "/echo/some", "the path: '%'", reply.body);
 
     // Five requests reuse one TLS connection: one handshake.
-    before := connections_opened();
+    before := http_statistics().connections_opened;
 
     for 1..5 {
         reply = get_path(*api, "/ping");
@@ -135,7 +135,7 @@ round_trips :: (base: string, server: *Server) {
         check(reply.status == 200 && reply.body == "pong", "keep-alive request %", it);
     }
 
-    check(connections_opened() == before, "keep-alive: % connections opened for five requests", connections_opened() - before);
+    check(http_statistics().connections_opened == before, "keep-alive: % connections opened for five requests", http_statistics().connections_opened - before);
 
     // Bodies bigger than a record and than the socket buffers, both ways.
     reply = fetch_long(*api, .GET, "/big");
@@ -362,9 +362,7 @@ bad_handshakes :: (base: string, server: *Server) {
 }
 
 buffers_held :: () -> int {
-    held, _ := read_buffer_counts();
-
-    return held;
+    return http_statistics().read_buffers_in_use;
 }
 
 // 7. A connection that waits holds no read buffer, over TLS too.
@@ -404,7 +402,7 @@ idle_holds_no_buffer :: (base: string, server: *Server) {
 
     check(buffers_held() == 0, "% idle TLS connections hold % read buffers", COUNT, buffers_held());
 
-    _, kept := read_buffer_counts();
+    kept := http_statistics().read_buffers_free;
 
     check(kept >= 1, "the buffers went back to the pool: %", kept);
 

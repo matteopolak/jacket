@@ -527,15 +527,25 @@ lookup :: (job: *Resolve_Job) {
 
 #scope_export
 
-// Lookups made and helper threads started on the running scheduler so far, for tests and
-// diagnostics. Both are 0 before the first name lookup.
-resolver_statistics :: () -> s64, s64 {
+// What the running scheduler has done so far, for tests and diagnostics (nothing here is needed to
+// use the module). Every field is 0 before the first name lookup.
+Io_Statistics :: struct {
+    resolver_jobs: s64; // name lookups made
+    resolver_helpers: s64; // helper threads started for them
+}
+
+io_statistics :: () -> Io_Statistics {
+    statistics: Io_Statistics;
+
     scheduler := current_scheduler();
     state := scheduler.waker;
 
-    if !state return 0, 0;
+    if !state return statistics;
 
-    return state.jobs_made, state.helpers_started;
+    statistics.resolver_jobs = state.jobs_made;
+    statistics.resolver_helpers = state.helpers_started;
+
+    return statistics;
 }
 
 #scope_module
