@@ -15,22 +15,28 @@ Server_Config :: struct {
     // Where to listen: `":8080"`, `"127.0.0.1:3000"`, `"[::1]:8080"`. Port 0 picks a free one.
     address := ":8080";
 
-    // Schedulers (OS threads), each with its own listener. 0 is one per processor.
+    // Schedulers (OS threads), each with its own listener. 0 (or less) is one per processor.
     threads := 0;
 
-    // How long a client may take to send the request head, from its first byte.
+    // Every timeout below is in milliseconds, and 0 or less means no limit, except `shutdown_timeout`.
+
+    // How long a client may take to send the request head, from its first byte; also the limit for
+    // the TLS handshake of an https connection. Over it: 408.
     header_timeout := 10_000;
 
-    // How long a client may stay silent while sending a request body.
+    // How long a client may stay silent while sending a request body. Over it: 408.
     body_timeout := 30_000;
 
-    // How long a keep-alive connection may wait for its next request.
+    // How long a keep-alive connection may wait for its next request before it is closed. With no
+    // limit it waits until the client sends something or hangs up (`stop` still closes it).
     idle_timeout := 60_000;
 
-    // How long one write of a response may take.
+    // How long one write of a response may take; a slower client is disconnected.
     write_timeout := 30_000;
 
-    // How long `stop` waits for requests in progress before it cuts connections off.
+    // How long `stop` waits for requests in progress before it cuts connections off. Here 0 or less
+    // does not mean no limit: the wait is over at once and connections are cut without waiting, so
+    // there is no way to wait forever.
     shutdown_timeout := 10_000;
 
     // Request limits. A request over one is refused with 413, 414 or 431 and the connection closes.
@@ -39,7 +45,7 @@ Server_Config :: struct {
     max_headers := 100;
     max_line_size := 8 * 1024;
 
-    // Requests served on one connection before it is closed (0: no limit).
+    // Requests served on one connection before it is closed (0 or less: no limit).
     max_requests_per_connection := 10_000;
 
     // Bytes read from a socket at a time (one buffer per connection).

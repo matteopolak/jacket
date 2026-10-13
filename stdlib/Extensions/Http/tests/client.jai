@@ -74,6 +74,11 @@ big_body :: () -> [] u8 {
     return big_bytes;
 }
 
+// 30 000 bytes: more than the first read brings, less than the client drains on close.
+medium_body :: () -> [] u8 {
+    return .{ 30_000, big_bytes.data };
+}
+
 slow :: (ms: Path("ms", int)) -> string {
     Io.sleep(ms.value);
     return "late";
@@ -751,6 +756,26 @@ unread_responses :: (base: string, server: *Server) {
     check(text == "hello text" && http_statistics().connections_opened == opened + 1, "and the next request reuses it: % opened", http_statistics().connections_opened - opened);
     free(text.data);
 
+    // 2b. close(response, now = true) skips the drain: the connection is closed, not kept.
+    close_idle_connections();
+    opened = http_statistics().connections_opened;
+
+    medium := get(*api, tprint("%/medium", base));
+
+    check(http_statistics().open_responses == 1, "a body longer than the first read holds its connection: %", http_statistics().open_responses);
+    close(*medium);
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 1, "close drains a medium unread body and keeps the connection: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
+
+    close_idle_connections();
+
+    medium = get(*api, tprint("%/medium", base));
+    close(*medium, now = true);
+    check(http_statistics().open_responses == 0 && http_statistics().idle_connections == 0, "close(now = true) closes the connection without draining: % open, % idle", http_statistics().open_responses, http_statistics().idle_connections);
+
+    text, text_error = fetch_text(tprint("%/text", base));
+    check(text == "hello text", "the client is fine after that: %", text);
+    free(text.data);
+
     // 3. close() on an unread long body closes the connection instead.
     close_idle_connections();
     opened = http_statistics().connections_opened;
@@ -1125,6 +1150,7 @@ main :: () {
 
     get(*app, "/text", text_hello);
     get(*app, "/big", big_body);
+    get(*app, "/medium", medium_body);
     get(*app, "/not-json", not_json);
     get(*app, "/slow/{ms}", slow);
     get(*app, "/users/{id}", get_user);

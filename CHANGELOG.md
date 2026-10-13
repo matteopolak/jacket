@@ -6,6 +6,22 @@
 
 - `Extensions/Tls`: TLS 1.2 and 1.3 on a vendored mbedTLS 3.6.7 (built by `tools/build_native_libs.py` from a pinned release tarball with a repo-owned configuration). `tls_connect` and `tls_accept` run the handshake as an ordinary blocking call on a fiber over any `Io.Reader`/`Io.Writer`; the stream is again a reader and writer (with `wait_proc`), so deadlines, `cancel` and the HTTP connection loops work over it unchanged. SNI, ALPN, client certificates, a custom `verify_proc`; trust from the Linux certificate bundles (`SSL_CERT_FILE`, `SSL_CERT_DIR`), `Security.framework` on macOS and CryptoAPI on Windows, or your own `roots_pem`. See `docs/stdlib/tls.md`.
 - `Extensions/Http`: `https://` URLs in the client (system trust by default, `client.tls` for your own roots or client certificate, `Client_Error.TLS`) and `app.config.tls` to serve HTTPS (handshake under `header_timeout`, ALPN `http/1.1`). `Client_Error_Kind.UNSUPPORTED` is gone: https is supported. A redirect keeps its scheme and drops credentials when it changes it. Programs that use Http now link about 1 MB of mbedTLS.
+- `Extensions/Http`: `close(*response, now := false)`: with `now = true` the connection is closed at once instead of draining the rest of the body, like every other `close(x, now)`. `docs/stdlib/extensions-conventions.md` states the rules Io, Tls, Http and Json follow (values and pointers, `close`, errors, who frees, milliseconds), and `docs/stdlib/http-server.md` says what 0 and negative mean for each `Server_Config` timeout.
+
+### Breaking changes
+
+Names made consistent across Io, Tls, Http and Json, and internals no longer exported. Update the left column to the right.
+
+| Was | Now |
+| --- | --- |
+| `Json.json_error_text(error)` | `error_text(error)` |
+| `Client_Error_Kind.TIMEOUT` | `Client_Error_Kind.TIMED_OUT` |
+| `Http.Error_Kind` (the parser's) | `Parse_Error_Kind` |
+| `Io.resolver_statistics()` | `Io.io_statistics()`, an `Io_Statistics` with `resolver_jobs` and `resolver_helpers` |
+| `read_buffer_counts()`, `idle_connection_count()`, `connections_opened()`, `open_response_count()`, `source_pool_counts()` | `http_statistics()`, an `Http_Statistics` with `read_buffers_in_use`, `read_buffers_free`, `idle_connections`, `connections_opened`, `open_responses`, `body_sources_free`, `body_buffers_free`, `body_sources_created` |
+| `Io.Fiber_Context`, `Io.fiber_init`, `Io.fiber_switch`, `Io.fiber_free`, `Io.Timer`, `Io.Scheduler`, `Io.Pipe_Link` | private to the module (declare the compiler intrinsics yourself, as `tests/native/fibers/switch.jai` does) |
+| `Http.header_table`, `HEADER_TABLE_SIZE`, `header_hash`, `make_header_table`, `DAY_NAMES`, `MONTH_NAMES`, `Connection` | private to the module |
+| `Json.decode_document`, `pair_kind`, `Pair_Kind` | private to the module |
 
 ## [0.15.0] - 2026-10-12
 

@@ -252,10 +252,13 @@ bytes_of :: (text: string) -> [] u8 {
 // Releases a response: its connection and its memory. If the body was read to the end the
 // connection is already back in the pool. Otherwise a short rest of the body is read and thrown
 // away so the connection can serve the next request, and a connection with more left, or one that
-// fails while draining, is closed. Safe to call at any time and more than once (it leaves
+// fails while draining, is closed. With `now = true` nothing is drained: the connection is closed
+// at once, for code that cannot wait. Safe to call at any time and more than once (it leaves
 // `response` empty), so `defer close(*response)` is always right. After it the body cannot be read.
-close :: (response: *Client_Response) {
+close :: (response: *Client_Response, now := false) {
     if response.source {
+        if now drop_connection(response.source);
+
         release_source(response.source);
         discard_source(response.source);
     }
