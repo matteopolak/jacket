@@ -563,6 +563,9 @@
           "argv": [
             "./build_release/focus"
           ],
+          "env": {
+            "MESA_NO_ERROR": "1"
+          },
           "seconds": 10
         }
       ],

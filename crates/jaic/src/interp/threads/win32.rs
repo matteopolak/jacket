@@ -13,6 +13,7 @@
 //! - Thread ids and TLS need nothing: each scheduler thread is a real OS thread, so
 //!   `GetCurrentThreadId` and `TlsGetValue` already answer per thread.
 use super::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 const INFINITE: u32 = u32::MAX;
 const WAIT_OBJECT_0: u64 = 0;
@@ -107,11 +108,20 @@ unsafe extern "system" {
     fn WaitForSingleObject(handle: usize, milliseconds: u32) -> u32;
 }
 
+/// How many kernel events the program holds open.
+static REAL_EVENTS: AtomicUsize = AtomicUsize::new(0);
+
 /// A kernel event, or 0 where there is none to make.
 fn real_event_new(manual: bool, set: bool) -> u64 {
     #[cfg(windows)]
-    // SAFETY: CreateEventW with no attributes or name has no preconditions.
-    return unsafe { CreateEventW(0, manual as i32, set as i32, 0) as u64 };
+    {
+        // SAFETY: CreateEventW with no attributes or name has no preconditions.
+        let handle = unsafe { CreateEventW(0, manual as i32, set as i32, 0) as u64 };
+        if handle != 0 {
+            REAL_EVENTS.fetch_add(1, Ordering::Relaxed);
+        }
+        return handle;
+    }
     #[cfg(not(windows))]
     {
         let _ = (manual, set);
@@ -139,6 +149,7 @@ fn real_event_close(handle: u64) {
     // SAFETY: the handle is an event this module made; the program has just closed it.
     unsafe {
         CloseHandle(handle as usize);
+        REAL_EVENTS.fetch_sub(1, Ordering::Relaxed);
     };
     #[cfg(not(windows))]
     let _ = handle;
@@ -376,6 +387,12 @@ impl Interp {
     }
 
     fn owns(&mut self, handle: u64) -> bool {
+        // A handle below the scheduler's own range can only be a kernel event it made; programs
+        // that make none (most of them) never touch the scheduler for a real handle.
+        if handle < HANDLE_BASE && REAL_EVENTS.load(Ordering::Relaxed) == 0 {
+            return false;
+        }
+
         handle != 0 && self.with_sched(|s| s.objects.contains_key(&handle))
     }
 
