@@ -56,7 +56,7 @@ local function fake_release(tools)
   for _, tool in ipairs(tools) do
     h.script(pack .. '/' .. tool, 'echo fake ' .. tool)
   end
-  vim.fn.mkdir(pack .. '/stdlib', 'p')
+  vim.fn.mkdir(pack .. '/stdlib/prelude', 'p')
   vim.fn.writefile({ '' }, pack .. '/stdlib/prelude/module.jai')
   local made = vim.system({ 'tar', '-czf', dir .. '/jai-linux-x64.tar.gz', '-C', dir .. '/pack', 'jai-linux-x64' }):wait()
   assert(made.code == 0, made.stderr)
@@ -108,6 +108,8 @@ h.test('pinned checksums are used instead of SHA256SUMS', function()
   local pinned = { version = '9.9.9', sha256 = { ['jai-linux-x64.tar.gz'] = hash } }
   local err = run_install({ version = '9.9.9', asset = 'jai-linux-x64.tar.gz', root = root, base_url = base, pinned = pinned })
   assert(not err, err)
+  local marker = vim.json.decode(table.concat(vim.fn.readfile(root .. '/9.9.9/.jai-installed.json'), '\n'))
+  assert(marker.version == '9.9.9' and marker.asset == 'jai-linux-x64.tar.gz' and marker.sha256 == hash, vim.inspect(marker))
 end)
 
 h.test('a wrong checksum installs nothing', function()

@@ -189,6 +189,24 @@ impl Compiler {
         self.interp.missing_func = None;
         self.interp.run_effects = outer;
         self.flush_interp_output();
+        for data in std::mem::take(&mut self.interp.pending_data_globals) {
+            let init = self.program_bytes(data.address(), data.size as usize, span)?;
+            let global = self.program.add_global(ir::Global {
+                name: "compiler.global_data".into(),
+                size: data.size,
+                align: data.align,
+                init,
+                relocs: Vec::new(),
+                read_only: data.read_only,
+                export: None,
+            });
+            self.registered_data_segments
+                .insert(global, data.segment_tag);
+            if !data.read_only {
+                self.program.reset_globals.push(global);
+            }
+            self.interp.adopt_data_global(global, data);
+        }
         if !self.interp.pending_type_flags.is_empty() {
             self.apply_type_info_flags(span)?;
         }
@@ -653,13 +671,13 @@ impl Compiler {
                 bits: 32,
             } => {
                 let b = self.program_bytes(addr, 4, span)?;
-                Ok(Value::Float(
+                Ok(Value::float(
                     f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64
                 ))
             }
             TypeKind::Float {
                 ..
-            } => Ok(Value::Float(f64::from_bits(self.program_u64(addr, span)?))),
+            } => Ok(Value::float(f64::from_bits(self.program_u64(addr, span)?))),
             TypeKind::Enum(_) | TypeKind::Distinct(_) => {
                 let r = self.types.repr(ty);
                 if r != ty && self.ir_ty(r).is_some() && !self.types.is_pointer(r) {
@@ -968,7 +986,7 @@ impl Compiler {
         for arg in args {
             shown.push(match self.eval_const_value(scope, arg)? {
                 Value::Int(i) => i.to_string(),
-                Value::Float(x) => x.to_string(),
+                Value::Float(x, _) => x.to_string(),
                 Value::Bool(b) => b.to_string(),
                 Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
                 Value::Type(t) => self.types.name(t),

@@ -776,10 +776,16 @@ impl Compiler {
                 self.add_entity(scope, name.name, name.span, kind, false);
             }
             if decl.using {
-                self.scope_mut(target).usings.push(UsingEntry::Place {
-                    ty,
-                    entity: e,
-                });
+                let entry = self.filter_using_entry(
+                    scope,
+                    UsingEntry::Place {
+                        ty,
+                        entity: e,
+                    },
+                    decl.using_filter().unwrap_or(&ast::UsingFilter::None),
+                    name.span,
+                )?;
+                self.scope_mut(target).usings.push(entry);
             }
         }
         Ok(())
@@ -1443,10 +1449,16 @@ impl Compiler {
                         ty, ..
                     } => {
                         self.check_using_target(ty, value.span)?;
-                        self.scope_mut(scope).usings.push(UsingEntry::Place {
-                            ty,
-                            entity: id,
-                        });
+                        let entry = self.filter_using_entry(
+                            scope,
+                            UsingEntry::Place {
+                                ty,
+                                entity: id,
+                            },
+                            filter,
+                            value.span,
+                        )?;
+                        self.scope_mut(scope).usings.push(entry);
                         return Ok(());
                     }
                     _ => {
@@ -1454,10 +1466,16 @@ impl Compiler {
                             ty, ..
                         } = self.resolve_entity(id)?
                         {
-                            self.scope_mut(scope).usings.push(UsingEntry::Place {
-                                ty,
-                                entity: id,
-                            });
+                            let entry = self.filter_using_entry(
+                                scope,
+                                UsingEntry::Place {
+                                    ty,
+                                    entity: id,
+                                },
+                                filter,
+                                value.span,
+                            )?;
+                            self.scope_mut(scope).usings.push(entry);
                             return Ok(());
                         }
                     }
@@ -1466,14 +1484,7 @@ impl Compiler {
         }
         let op = self.check_expr(f, scope, value, None)?;
         let entry = match op {
-            Operand::Module(m) => UsingEntry::Module(
-                m,
-                matches!(
-                    filter,
-                    ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_)
-                )
-                .then(|| Rc::new(filter.clone())),
-            ),
+            Operand::Module(m) => UsingEntry::Module(m, None),
             Operand::Type(t) => UsingEntry::Type(t),
             // `using fruit.tag;` on an enum value brings in the enum's names (match-jai).
             op if matches!(self.types.kind(op.ty()), TypeKind::Enum(_)) => {
@@ -1550,6 +1561,7 @@ impl Compiler {
                 );
             }
         };
+        let entry = self.filter_using_entry(scope, entry, filter, value.span)?;
         self.scope_mut(scope).usings.push(entry);
         Ok(())
     }
@@ -1879,8 +1891,8 @@ impl Compiler {
 
     fn const_equal(&self, a: &Operand, b: &Operand) -> bool {
         match (a.const_value(), b.const_value()) {
-            (Some(Value::Int(x)), Some(Value::Float(y)))
-            | (Some(Value::Float(y)), Some(Value::Int(x))) => x as f64 == y,
+            (Some(Value::Int(x)), Some(Value::Float(y, _)))
+            | (Some(Value::Float(y, _)), Some(Value::Int(x))) => x as f64 == y,
             (Some(x), Some(y)) => x == y,
             _ => false,
         }

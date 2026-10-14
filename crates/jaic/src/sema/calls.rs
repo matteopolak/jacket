@@ -935,14 +935,17 @@ impl Compiler {
             );
             let fits = match arg.expr.as_ref().map(|e| &e.kind) {
                 // `.{...}` and `.[...]` build aggregates, `.NAME` picks an enum member.
-                Some(
-                    E::StructLit {
-                        ..
-                    }
-                    | E::ArrayLit {
-                        ..
-                    },
-                ) => !scalar,
+                Some(E::StructLit {
+                    ..
+                }) => {
+                    !scalar
+                        || !self
+                            .builtin_members(self.types.repr(param), arg.span)?
+                            .is_empty()
+                }
+                Some(E::ArrayLit {
+                    ..
+                }) => !scalar,
                 Some(_) if arg.expr.as_ref().is_some_and(inferred_flags) => matches!(
                     self.types.kind(param),
                     TypeKind::Enum(_) | TypeKind::Struct(_)
@@ -1040,6 +1043,16 @@ impl Compiler {
                 } else {
                     convert::LITERAL
                 });
+            }
+            Operand::Const {
+                value: Value::Float(_, precision),
+                untyped: true,
+                ..
+            } if precision.requires_float64 && self.types.repr(param) == TypeId::F32 => {
+                return err(
+                    arg.span,
+                    "this floating literal requires float64 precision (use an explicit cast to round it)",
+                );
             }
             // A string literal is NUL-terminated, so it converts to a C string.
             Operand::Const {
@@ -3477,7 +3490,7 @@ impl Compiler {
                     Value::String(_)
                         | Value::Int(_)
                         | Value::Bool(_)
-                        | Value::Float(_)
+                        | Value::Float(_, _)
                         | Value::Proc(_)
                         | Value::Type(_)
                 ) && !self.text_may_write(&body, name)
@@ -3486,12 +3499,14 @@ impl Compiler {
                 }
             }
             if param.using {
-                self.scope_mut(mscope)
-                    .usings
-                    .push(scope::UsingEntry::Place {
-                        ty: param.ty,
-                        entity: e,
-                    });
+                let mut entry = scope::UsingEntry::Place {
+                    ty: param.ty,
+                    entity: e,
+                };
+                if let Some(filter) = &param.using_filter {
+                    entry = self.filter_using_entry(mscope, entry, filter, param.span)?;
+                }
+                self.scope_mut(mscope).usings.push(entry);
             }
         }
         if self.ide.is_some() {

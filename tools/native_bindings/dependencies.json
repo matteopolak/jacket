@@ -1,0 +1,140 @@
+{
+  "lz4": {
+    "repository": "lz4/lz4",
+    "revision": "v1.9.4",
+    "files": {
+      "lib/lz4.c": "b6a85fd8f9be0fedb568abd1338719b23b999583ccda6f3404d5ae11e4ce7b8e",
+      "lib/lz4.h": "c1614ecf7ada7b0be1acb560d4239595f96fbb7aa6a79a7c40cb358753830be6",
+      "lib/lz4hc.c": "bca2cf3a014b21919da4fa92db5adbfbfc9aee2f0938107885a3a8f49a750aa8",
+      "lib/lz4hc.h": "6bc1efeb79571807da2ca084809de1760e0cd87064e40eccf9624d95088dce7d",
+      "lib/LICENSE": "8b58c446121a109ccf32edc094bba3010a3d85e4ee3702950db55e4d3e87736c"
+    }
+  },
+  "xxhash": {
+    "repository": "Cyan4973/xxHash",
+    "revision": "v0.7.0",
+    "files": {
+      "xxhash.c": "276a80f25635bac48bc84826afd0f76af14ed910b89b55396c78fb0fbb2b64f5",
+      "xxhash.h": "b053e67b672e8e66e3d51be6fb7b9c0c71d350220ca0a3dc8df0a59acf008a41",
+      "LICENSE": "86ec6953794503942b70fcd4f35b565d44f63f703b7037ce44dad965c4aaae91",
+      "xxh3.h": "519171910e5842acf0bdc3b561be23233b6b8ef11f1c4a6a8356b3d98374d62a"
+    }
+  },
+  "stb": {
+    "repository": "nothings/stb",
+    "revision": "2c980bb59875b0d32144a71867fbdebb2f77cd20",
+    "files": {
+      "stb_image.h": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+      "stb_image_write.h": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
+      "deprecated/stb_image_resize.h": "6a0e75adbabb48df9031c2e39ccd97437bb226fe31e7d4a01c7bf70a18d32ec6",
+      "stb_vorbis.c": "4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636",
+      "LICENSE": "bebfe904b14301657e4e5d655c811d51fd31b97c455b9cc2d8600d6bac6cff63"
+    },
+    "license": [
+      "LICENSE"
+    ]
+  },
+  "meshoptimizer": {
+    "repository": "zeux/meshoptimizer",
+    "revision": "v0.11",
+    "files": {
+      "src/meshoptimizer.h": "ca3d9f29fdc23ae2ea9d233d4847132512216fa61a3ecf25513595f275648526",
+      "src/allocator.cpp": "dbe1febe4965d4d81e59131dfd13d2f01771dfa99a912853257459fa22fc2dff",
+      "src/indexgenerator.cpp": "8867aff7855de1770364c709bd0299a33ece69581b53f045dfd62c44c85377dc",
+      "src/indexcodec.cpp": "75e9162aacb194ac753b11cc2cf5752ea2a308d99734ee21b02adbdd22ec885e",
+      "src/vertexcodec.cpp": "2d2b70696ddcc6897c38ec4da14b3d66c31a0aa5782c94433ce48c1438c0e268",
+      "src/vcacheoptimizer.cpp": "1dff27378530d1c54d11991f20aa6aae5e2d9ded9b384c0cbd94725ecd19691a",
+      "src/vfetchoptimizer.cpp": "bf0c01c1d8e9bc474fda3882c630b440553e9fd221c96d785ba08e7c0f0221ff",
+      "src/overdrawoptimizer.cpp": "07958e87c3e4d00e1e40fe59834e0d0df89e0326ef5c4db177b67c5380a85d0d",
+      "src/simplifier.cpp": "9776226047e21c0c5b3d4ac9f8d2326ed518bb807ba9c6a41b212f50f448c0a6",
+      "src/stripifier.cpp": "1d42ec7d1ef5d15d58f4cf20b0ff95c32f698c3ced7078ba0a67b7210245edf9",
+      "src/clusterizer.cpp": "79c97d166c86a338d92230bb557e20d941d5a4fbb7df5dc0541d051bbd0f9c6e",
+      "src/vcacheanalyzer.cpp": "f4e5cbb759f8b02505d9017302eef41da6ce365ddcab39435e6a8212b3659bc9",
+      "src/vfetchanalyzer.cpp": "d293e0c6e41df55e3e7259eaefd4453398a53066d4e8e43cea8e7715f36633e2",
+      "src/overdrawanalyzer.cpp": "d0fcf73a49cc88edcc940dbe07f2c486a5a654642ff200a289877d2ea0af633c",
+      "LICENSE.md": "edbe0afc70ea26a220ef88e9612d9ab88807b771b3a6bdc345bbbe266c61499c"
+    }
+  },
+  "mojoshader": {
+    "repository": "icculus/mojoshader",
+    "revision": "cf2661bcb55d9a8732e86f79922592d7efdf5383",
+    "files": {
+      "mojoshader.h": "f4f658f0aa37c9ffebf777952d4b17a47da56a91eb00d228deb568e6835dd253",
+      "LICENSE.txt": "5ed333fa2c0bcfa3e593b69545998426cdf5ba3d100892b1387206e0565dae27"
+    },
+    "archive": {
+      "url": "https://codeload.github.com/icculus/mojoshader/tar.gz/cf2661bcb55d9a8732e86f79922592d7efdf5383",
+      "sha256": "a8ae7c9a7ec09e855b46b80f6dcddd65a94bb09188a53a1500fbd0381423c729",
+      "root": "mojoshader-cf2661bcb55d9a8732e86f79922592d7efdf5383"
+    }
+  },
+  "windows-sdk": {
+    "repository": "microsoft/win32metadata",
+    "revision": "76c04c2021ef4a831a6f1e06d9566002d746139b",
+    "files": {
+      "generation/WinSDK/RecompiledIdlHeaders/um/d3d11.h": "ff082b8df5a18dab59939df3b5d041b5abe9206a0d1c8e2e75dc1be1cbe22135",
+      "generation/WinSDK/RecompiledIdlHeaders/shared/hidclass.h": "6ad68a5d2bfc2c50d59c3dbfc9325d8ac1d7b47e335e0118ccc3743936ee0f7b",
+      "generation/WinSDK/RecompiledIdlHeaders/um/d3d12.h": "f5c5a1325f94bf70fd1e1a607b7ff36f5559fae032101d0afef1275598e4738f"
+    }
+  },
+  "imgui": {
+    "repository": "ocornut/imgui",
+    "revision": "5319d1cffafd5045c4742892c38c9e5cfa23d195",
+    "archive": {
+      "url": "https://github.com/ocornut/imgui/archive/5319d1cffafd5045c4742892c38c9e5cfa23d195.tar.gz",
+      "sha256": "b649193495892e199ab6e8a04d281832c96f50afceade461f966ef9bcf20bde2",
+      "root": "imgui-5319d1cffafd5045c4742892c38c9e5cfa23d195"
+    },
+    "files": {
+      "imgui.h": "27ce505daa602cc7cb69345606b14cccd8d4bc8b248c30765093416dead73ec8"
+    }
+  },
+  "nvtt": {
+    "repository": "castano/nvidia-texture-tools",
+    "revision": "fa6ebda53f1be0bb40513057d13b154771344528",
+    "files": {
+      "src/nvtt/nvtt.h": "06bdfde6d3b4b71564c070d3ed47d86cdd40ad54d3279f7b11210cffc755c898",
+      "src/nvtt/nvtt.cpp": "e32a64345c78e4ec79ab00b543bf630edb341e2ffb6764ed534f1e771212dd9f",
+      "LICENSE": "e7de3e03a8ce91832f9fa1edf97e4e4b84b55ff0c30a4676814a11c75a5d6e89"
+    }
+  },
+  "x11": {
+    "repository": "mirror/libX11",
+    "revision": "libX11-1.8.12",
+    "files": {
+      "include/X11/Xlib.h": "7430c535c4e2b0a31d002d5f9d8f21c6b9f7232e9aad2e297662b90c2591f64d"
+    },
+    "archive": {
+      "url": "https://www.x.org/releases/individual/lib/libX11-1.8.12.tar.xz",
+      "sha256": "fa026f9bb0124f4d6c808f9aef4057aad65e7b35d8ff43951cef0abe06bb9a9a",
+      "root": "libX11-1.8.12"
+    }
+  },
+  "rpmalloc": {
+    "repository": "mjansson/rpmalloc",
+    "revision": "e4393ff85585d91400bcbad2e7266c011075b673",
+    "files": {
+      "rpmalloc/rpmalloc.c": "f9005d0e75ab052063ed8f574661557df56c161dba75277e700f1aee445a222a",
+      "rpmalloc/rpmalloc.h": "a45bfebb3122146c23b564f510d8605d32e201789e4668ea1a054da1b36f8ab1",
+      "LICENSE": "992dc09524f6c215f1ae0ff7d26e8ce548b7212df65a09919dbafc98e2323b41"
+    }
+  },
+  "sdl2-oracle": {
+    "repository": "libsdl-org/SDL",
+    "revision": "release-2.0.1",
+    "files": {
+      "include/SDL.h": "285d8e35b8380d2dddbbe3094e988cf12e8cba4725e11877706f5ad268cfe95f",
+      "include/SDL_version.h": "97fe54106d411f49af2bdb79d942533cd0151e7afe9b0c1693273f4f1dfbb8bd",
+      "include/SDL_rwops.h": "049a08f59b0acf8d49684adda6bd1f4878d2007b64cff01f6ad9f43fac49aa6f",
+      "include/SDL_rect.h": "236500556eb28305382eb142d7c0520ac1a94e7810c34db5d19e35fed43d194f",
+      "include/SDL_events.h": "178d2382155b74bd2594706dc2ff93ba2911d22e8dc911e35eb5e949ba67d4e0",
+      "include/SDL_pixels.h": "2d060297f616fa2a3eae36ad06af7b5f5616674d91c569f212073d87114ad8d5",
+      "COPYING.txt": "222d3c20d95f7e0f6874c7908bbac8e931e829161108eefae1feae61560d761f"
+    },
+    "archive": {
+      "url": "https://www.libsdl.org/release/SDL2-2.0.1.tar.gz",
+      "sha256": "0ae7e902a26777614a011fe7053ca7e8b14843db3c42ca117564d208cf6732f0",
+      "root": "SDL2-2.0.1"
+    }
+  }
+}

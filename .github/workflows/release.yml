@@ -2,8 +2,10 @@ name: release
 # Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
 # Windows (x86-64 and arm64), optimized with PGO (except Windows arm64) and BOLT on Linux x86-64
 # (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
-# A `v*` tag push publishes a GitHub release with the archives and the tag's CHANGELOG.md section;
-# a manual run without a tag only builds and smoke-tests the archives (kept as workflow artifacts).
+# A `v*` tag push builds and publishes the matching compiler version. Manual runs from the default
+# branch also require a tag matching that workflow revision's Cargo version. Historical releases
+# are rebuilt by dispatching each historical workflow from its own tag, preserving its toolchain
+# and platform matrix.
 on:
   push:
     tags: ['v*']
@@ -15,7 +17,11 @@ on:
         required: false
         default: false
       tag:
-        description: Existing tag to publish (empty = build and test only)
+        description: Compiler tag matching this workflow revision (historical tags use their own workflow revision)
+        required: false
+        default: ''
+      editor_version:
+        description: Optional VS Code and Neovim plugin version; defaults to the compiler tag (for editor-only repins, e.g. 0.17.1)
         required: false
         default: ''
 permissions:
@@ -24,8 +30,41 @@ env:
   CARGO_INCREMENTAL: '0'
   LLVM_VERSION: 23.1.2
 jobs:
+  release-meta:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Read this workflow revision's compiler version
+        id: version
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  validate-release:
+    needs: release-meta
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected tag to match this workflow revision
+        env:
+          RELEASE_VERSION: ${{ needs.release-meta.outputs.version }}
+          RELEASE_TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+        run: |
+          if [ -n "$RELEASE_TAG" ] && [ "$RELEASE_TAG" != "v$RELEASE_VERSION" ]; then
+            echo "This workflow builds v$RELEASE_VERSION. Dispatch historical versions from their own tag workflow; selected $RELEASE_TAG." >&2
+            exit 1
+          fi
+
   build:
     name: ${{ matrix.name }}
+    needs: validate-release
+    if: >-
+      github.event_name != 'push' || !github.event.forced &&
+      (github.event_name != 'push' || !github.event.forced)
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +94,6 @@ jobs:
             runner: windows-11-arm
             llvm: clang+llvm-23.1.2-aarch64-pc-windows-msvc.tar.xz
             rust_target: aarch64-pc-windows-msvc
-    if: github.event_name != 'push' || !github.event.forced
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     defaults:
@@ -177,7 +215,7 @@ jobs:
           esac
           ls -l "$out"
           cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$dir/"
-          # stdlib/prelude/module.jai loads ../stdlib/prelude/module.jai.
+          # Bootstrap definitions are packaged with the standard library.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
           # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/webgpu.json),
@@ -342,17 +380,19 @@ jobs:
           path: ${{ env.ARCHIVE }}
           if-no-files-found: error
 
-  # The VS Code extension, versioned like the release and pinned to the SHA-256 of the archives
-  # the build jobs just made, so it downloads exactly those (docs/tools/vscode-extension.md).
+  # The VS Code extension can have an editor-only version while pinning the compiler release's
+  # archive checksums (docs/tools/vscode-extension.md).
   vscode:
     needs: build
+    outputs:
+      editor_version: ${{ steps.versions.outputs.editor_version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -360,15 +400,22 @@ jobs:
         with:
           path: archives
           merge-multiple: true
-      - name: Version from the tag (or Cargo.toml for a dry run)
+      - name: Compiler and editor versions
+        id: versions
         run: |
           cargo_version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
           tag="${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}"
-          version="${tag#v}"
-          if [ -z "$version" ]; then version="$cargo_version"; fi
-          # The extension downloads jaic v<its version>, so the two must agree.
-          test "$version" = "$cargo_version" || { echo "tag $tag does not match Cargo.toml version $cargo_version"; exit 1; }
-          echo "VERSION=$version" >> "$GITHUB_ENV"
+          toolchain_version="${tag#v}"
+          if [ -z "$toolchain_version" ]; then toolchain_version="$cargo_version"; fi
+          [[ "$toolchain_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid compiler tag $tag"; exit 1; }
+          editor_version="${{ inputs.editor_version }}"
+          if [ -z "$editor_version" ]; then
+            editor_version="$toolchain_version"
+          fi
+          [[ "$editor_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "editor_version must be x.y.z"; exit 1; }
+          echo "TOOLCHAIN_VERSION=$toolchain_version" >> "$GITHUB_ENV"
+          echo "EDITOR_VERSION=$editor_version" >> "$GITHUB_ENV"
+          echo "editor_version=$editor_version" >> "$GITHUB_OUTPUT"
       - name: Validate dependency ages before installing
         working-directory: editors/vscode
         run: node scripts/check-dependency-age.ts
@@ -379,10 +426,11 @@ jobs:
         working-directory: editors/vscode
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-          node scripts/pin-toolchain.ts --version "$VERSION" --archives ../../archives
-          test "$(node -p 'require("./package.json").version')" = "$VERSION"
-          pnpm run package -o "jai-vscode-$VERSION.vsix"
-          mkdir -p ../../vsix && mv "jai-vscode-$VERSION.vsix" ../../vsix/
+          node scripts/pin-toolchain.ts --toolchain-version "$TOOLCHAIN_VERSION" --extension-version "$EDITOR_VERSION" --archives ../../archives
+          test "$(node -p 'require("./package.json").version')" = "$EDITOR_VERSION"
+          test "$(node -p 'require("./toolchain-checksums.json").version')" = "$TOOLCHAIN_VERSION"
+          pnpm run package -o "jai-vscode-$EDITOR_VERSION.vsix"
+          mkdir -p ../../vsix && mv "jai-vscode-$EDITOR_VERSION.vsix" ../../vsix/
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vscode-extension
@@ -390,8 +438,11 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [build, vscode]
-    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+    needs: [release-meta, validate-release, build, vscode]
+    if: >-
+      ((startsWith(github.ref, 'refs/tags/v') && github.ref_name == format('v{0}', needs.release-meta.outputs.version)) ||
+       (inputs.tag != '' && inputs.tag == format('v{0}', needs.release-meta.outputs.version))) &&
+      (github.event_name == 'workflow_dispatch' || !github.event.forced)
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -420,18 +471,38 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          CURRENT_VERSION: ${{ needs.release-meta.outputs.version }}
         run: |
-          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable > release.json 2> release-error.txt; then
+            if [ "$(node -p 'require("./release.json").isImmutable')" = "true" ]; then
+              echo "GitHub release $TAG is immutable; its archives and checksums cannot be replaced safely." >&2
+              exit 1
+            fi
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+            if [ "$TAG" = "v$CURRENT_VERSION" ]; then
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest
+            else
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md
+            fi
+          elif grep -qi 'release not found' release-error.txt; then
+            if [ "$TAG" = "v$CURRENT_VERSION" ]; then
+              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest --verify-tag
+            else
+              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest=false --verify-tag
+            fi
+          else
+            cat release-error.txt >&2
+            exit 1
+          fi
 
-  # The extension stores, each in its own job after the GitHub release: a store that is down or
-  # rejects the upload fails only its job, never the release or the other store. Each publishes
-  # only when its token is configured (repository secrets VSCE_PAT and OVSX_PAT; see
-  # docs/tools/vscode-extension.md#publishing). --skip-duplicate makes re-running a tag harmless.
+  # Extension stores are only updated for the current compiler release. Historical compiler
+  # rebuilds still attach a freshly checksum-pinned VSIX to GitHub, without republishing old,
+  # immutable store versions.
   marketplace:
-    needs: [vscode, publish]
+    needs: [release-meta, vscode, publish]
     if: >-
       inputs.publish_integrations &&
-      (startsWith(github.ref, 'refs/tags/v') || inputs.tag != '')
+      (((startsWith(github.ref, 'refs/tags/v') && github.ref_name == format('v{0}', needs.release-meta.outputs.version)) || inputs.tag == format('v{0}', needs.release-meta.outputs.version)) && inputs.editor_version != '' && needs.vscode.outputs.editor_version == inputs.editor_version)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -441,7 +512,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -466,10 +537,10 @@ jobs:
           pnpm exec vsce publish --packagePath "$vsix" --skip-duplicate
 
   open-vsx:
-    needs: [vscode, publish]
+    needs: [release-meta, vscode, publish]
     if: >-
       inputs.publish_integrations &&
-      (startsWith(github.ref, 'refs/tags/v') || inputs.tag != '')
+      (((startsWith(github.ref, 'refs/tags/v') && github.ref_name == format('v{0}', needs.release-meta.outputs.version)) || inputs.tag == format('v{0}', needs.release-meta.outputs.version)) && inputs.editor_version != '' && needs.vscode.outputs.editor_version == inputs.editor_version)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -479,7 +550,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
@@ -516,10 +587,10 @@ jobs:
   # job says it skipped). They run after `publish`, so a failure here never holds up the release.
   # A run without a tag renders and validates from this run's archives and publishes nothing.
   homebrew:
-    needs: [build, publish]
+    needs: [release-meta, build, publish]
     if: >-
       inputs.publish_integrations &&
-      (!cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
+      (((startsWith(github.ref, 'refs/tags/v') && github.ref_name == format('v{0}', needs.release-meta.outputs.version)) || inputs.tag == format('v{0}', needs.release-meta.outputs.version) || (!startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')) && !cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -531,7 +602,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
@@ -595,10 +666,10 @@ jobs:
   # tagged vX.Y.Z. It pushes only when the NVIM_MIRROR_DEPLOY_KEY secret (a write-enabled
   # deploy key of that repository) is set; see docs/tools/neovim-plugin.md#publishing.
   neovim:
-    needs: [build, publish]
+    needs: [release-meta, build, publish, vscode]
     if: >-
       inputs.publish_integrations &&
-      (!cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
+      (((startsWith(github.ref, 'refs/tags/v') && github.ref_name == format('v{0}', needs.release-meta.outputs.version)) || inputs.tag == format('v{0}', needs.release-meta.outputs.version) || (!startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')) && ((inputs.editor_version != '' && needs.vscode.outputs.editor_version == inputs.editor_version) || (!startsWith(github.ref, 'refs/tags/v') && inputs.tag == '' && inputs.editor_version == '')) && !cancelled() && needs.build.result == 'success' && (needs.publish.result == 'success' || (needs.publish.result == 'skipped' && !startsWith(github.ref, 'refs/tags/v') && inputs.tag == '')))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -607,7 +678,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
       - name: Stamp the version and the release's checksums into the plugin
         env:
           GH_TOKEN: ${{ github.token }}
@@ -615,9 +686,15 @@ jobs:
           cargo_version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
           version="${TAG#v}"
           if [ -z "$version" ]; then version="$cargo_version"; fi
-          # The plugin downloads jaic v<its version>, so the two must agree.
+          # The plugin downloads the compiler version; its mirror tag can advance separately.
           test "$version" = "$cargo_version" || { echo "tag $TAG does not match Cargo.toml version $cargo_version"; exit 1; }
+          editor_version="${{ inputs.editor_version }}"
+          if [ -z "$editor_version" ]; then
+            editor_version="$version"
+          fi
+          [[ "$editor_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "editor_version must be x.y.z"; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "EDITOR_VERSION=$editor_version" >> "$GITHUB_ENV"
           cd editors/nvim
           sed -i "s/^return '.*'$/return '$version'/" lua/jai/version.lua
           grep -q "^return '$version'$" lua/jai/version.lua
@@ -660,14 +737,21 @@ jobs:
             echo "The mirror already has this content"
           else
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -q -m "jai.nvim $VERSION"
+              commit -q -m "jai.nvim $EDITOR_VERSION (toolchain $VERSION)"
           fi
-          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
-            echo "The mirror already has the tag v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$EDITOR_VERSION" > /dev/null; then
+            git fetch -q origin "refs/tags/v$EDITOR_VERSION:refs/tags/v$EDITOR_VERSION"
+            tagged_commit="$(git rev-parse "refs/tags/v$EDITOR_VERSION^{commit}")"
+            current_commit="$(git rev-parse HEAD)"
+            test "$tagged_commit" = "$current_commit" || {
+              echo "Mirror tag v$EDITOR_VERSION already points to different plugin content; publish a new editor_version instead of retagging." >&2
+              exit 1
+            }
+            echo "The mirror tag v$EDITOR_VERSION already points to this content"
             git push origin main
           else
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              tag -a "v$VERSION" -m "jai.nvim $VERSION"
-            git push origin main "v$VERSION"
+              tag -a "v$EDITOR_VERSION" -m "jai.nvim $EDITOR_VERSION (toolchain $VERSION)"
+            git push origin main "v$EDITOR_VERSION"
           fi
-          echo "Pushed jai.nvim $VERSION to matteopolak/jai.nvim"
+          echo "Pushed jai.nvim $EDITOR_VERSION for toolchain $VERSION to matteopolak/jai.nvim"

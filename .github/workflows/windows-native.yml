@@ -13,7 +13,6 @@ on:
     paths:
       - 'crates/**'
       - 'stdlib/**'
-      - 'prelude/**'
       - 'tests/**'
       - 'tools/windows_cross.py'
       - 'tools/stdlib_runtime.py'

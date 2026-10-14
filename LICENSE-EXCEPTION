@@ -2,7 +2,7 @@ jaic Runtime Library Exception
 
 This exception is an additional permission under section 7 of the GNU Affero
 General Public License, version 3 ("AGPLv3"). It applies to the files in the
-`stdlib/` and `prelude/` directories of this repository (the "Runtime
+`stdlib/` directory of this repository (the "Runtime
 Library"), and to any copy of them that is distributed together with jaic.
 
 1. Definitions

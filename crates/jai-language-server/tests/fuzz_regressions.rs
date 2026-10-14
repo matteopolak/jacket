@@ -15,7 +15,7 @@ fn open_checked(text: &str) -> (Session, DocumentUri) {
         options: Box::new(move |_| {
             let mut options = jaic::sema::Options::host();
             options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join("prelude/module.jai"));
+            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
             options
         }),
     };

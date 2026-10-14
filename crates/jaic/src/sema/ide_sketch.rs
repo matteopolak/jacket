@@ -277,7 +277,7 @@ impl Compiler {
                 | TypeKind::Enum(_) => Value::Int(0),
                 TypeKind::Float {
                     ..
-                } => Value::Float(0.0),
+                } => Value::float(0.0),
                 TypeKind::Bool => Value::Bool(false),
                 TypeKind::String => Value::String(Rc::from(&b""[..])),
                 _ => return None,

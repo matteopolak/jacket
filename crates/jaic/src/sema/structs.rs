@@ -56,7 +56,9 @@ impl MemberAlias {
                 .iter()
                 .find(|(new, _)| new.name == name)
                 .map(|(_, old)| old.name),
-            ast::UsingFilter::Computed(_) => None,
+            ast::UsingFilter::Computed {
+                ..
+            } => None,
         }
     }
 }
@@ -104,6 +106,28 @@ enum FieldItem {
     Place(Sym, Span),
     /// `#overlay(f)`: the next field shares `f`'s storage.
     Overlay(Sym, Span),
+}
+
+/// Candidate fields for a promoted name, applying each embedding's filter.
+fn using_candidates(
+    fields: &[Field],
+    filters: &[(usize, ast::UsingFilter)],
+    name: Sym,
+) -> Vec<(TypeId, u64, Sym)> {
+    fields
+        .iter()
+        .enumerate()
+        .filter_map(|(index, field)| {
+            if !field.using {
+                return None;
+            }
+            let target = match filters.iter().find(|(i, _)| *i == index) {
+                Some((_, filter)) => super::using::filter_target(filter, name)?,
+                None => name,
+            };
+            Some((field.ty, field.offset, target))
+        })
+        .collect()
 }
 
 impl Compiler {
@@ -372,7 +396,7 @@ impl Compiler {
                 for (k, op) in items.into_iter().enumerate() {
                     let v = self.struct_arg_value(param_scope, op, elem, p.span)?;
                     let v = match (v, self.types.is_float(elem)) {
-                        (Value::Int(i), true) => Value::Float(i as f64),
+                        (Value::Int(i), true) => Value::float(i as f64),
                         (v, _) => v,
                     };
                     self.write_value(&mut array, k as u64 * esize, &v, elem, p.span)?;
@@ -402,7 +426,7 @@ impl Compiler {
                 },
             };
             let value = match (value, self.types.is_float(ty)) {
-                (Value::Int(i), true) => Value::Float(i as f64),
+                (Value::Int(i), true) => Value::float(i as f64),
                 (v, _) => v,
             };
             let ty = if ty == TypeId::VOID {
@@ -732,16 +756,40 @@ impl Compiler {
             match item {
                 FieldItem::Alias(alias) => aliases.push(alias),
                 FieldItem::Place(name, span) | FieldItem::Overlay(name, span) => {
-                    let Some(f) = fields.iter().find(|f: &&Field| f.name == Some(name)) else {
-                        return err(span, format!("no field named `{name}` before this point"));
-                    };
-                    if self.ide.is_some() {
-                        self.ide_note_named_field(span, name, f.span, f.ty);
-                    }
-                    if matches!(item, FieldItem::Place(..)) {
-                        cursor = f.offset;
+                    let offset = if let Some(f) =
+                        fields.iter().find(|f: &&Field| f.name == Some(name))
+                    {
+                        if self.ide.is_some() {
+                            self.ide_note_named_field(span, name, f.span, f.ty);
+                        }
+                        f.offset
                     } else {
-                        overlay = Some(f.offset);
+                        let candidates = using_candidates(&fields, &filters, name);
+                        let Some((path, _)) =
+                            self.find_promoted_member(candidates, span, &mut vec![s])?
+                        else {
+                            return err(span, format!("no field named `{name}` before this point"));
+                        };
+                        let mut offset = 0;
+                        for step in path {
+                            match step {
+                                PathStep::Offset(at) => offset += at,
+                                PathStep::Deref => {
+                                    return err(
+                                        span,
+                                        format!(
+                                            "`{name}` is behind a using pointer and has no inline storage offset"
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                        offset
+                    };
+                    if matches!(item, FieldItem::Place(..)) {
+                        cursor = offset;
+                    } else {
+                        overlay = Some(offset);
                     }
                 }
                 FieldItem::Field(d) => {
@@ -794,6 +842,16 @@ impl Compiler {
                     if d.using
                         && let Some(filter) = d.filter.clone()
                     {
+                        let resolved = self.filter_using_entry(
+                            d.scope,
+                            scope::UsingEntry::Type(d.ty),
+                            &filter,
+                            d.span,
+                        )?;
+                        let filter = match resolved {
+                            scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
+                            _ => filter,
+                        };
                         filters.push((fields.len(), filter));
                     }
                     fields.push(Field {
@@ -1331,24 +1389,10 @@ impl Compiler {
         if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
             return Ok(Some((vec![PathStep::Offset(f.offset)], f.ty)));
         }
-        let usings: Vec<(TypeId, u64)> = fields
-            .iter()
-            .filter(|f| f.using)
-            .map(|f| (f.ty, f.offset))
-            .collect();
-        for (field_ty, offset) in usings {
-            let (inner, deref) = match self.types.pointee(field_ty) {
-                Some(p) if self.types.as_struct(p).is_some() => (p, true),
-                _ => (field_ty, false),
-            };
-            if let Some((mut path, t)) = self.find_member_in(inner, name, span, searched)? {
-                let mut full = vec![PathStep::Offset(offset)];
-                if deref {
-                    full.push(PathStep::Deref);
-                }
-                full.append(&mut path);
-                return Ok(Some((full, t)));
-            }
+        let filters = self.using_filters.get(&s).map_or(&[][..], Vec::as_slice);
+        let candidates = using_candidates(fields, filters, name);
+        if let Some(found) = self.find_promoted_member(candidates, span, searched)? {
+            return Ok(Some(found));
         }
         let aliases = self.member_aliases.get(&s).cloned().unwrap_or_default();
         for alias in aliases {
@@ -1375,6 +1419,31 @@ impl Compiler {
                 at = t;
             }
             return Ok(Some((full, at)));
+        }
+        Ok(None)
+    }
+
+    /// Shared promoted-field resolution for completed structs and the laid-out
+    /// prefix at a #place/#overlay directive. A dynamic pointer step is explicit.
+    fn find_promoted_member(
+        &mut self,
+        candidates: Vec<(TypeId, u64, Sym)>,
+        span: Span,
+        searched: &mut Vec<StructId>,
+    ) -> Result<Option<(Vec<PathStep>, TypeId)>> {
+        for (field_ty, offset, name) in candidates {
+            let (inner, deref) = match self.types.pointee(field_ty) {
+                Some(p) if self.types.as_struct(p).is_some() => (p, true),
+                _ => (field_ty, false),
+            };
+            if let Some((mut path, ty)) = self.find_member_in(inner, name, span, searched)? {
+                let mut full = vec![PathStep::Offset(offset)];
+                if deref {
+                    full.push(PathStep::Deref);
+                }
+                full.append(&mut path);
+                return Ok(Some((full, ty)));
+            }
         }
         Ok(None)
     }
@@ -1702,6 +1771,12 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         match entry {
+            UsingEntry::Filtered(base, filter) => {
+                let Some(target) = super::using::filter_target(&filter, member) else {
+                    return err(span, format!("using filter excludes `{member}`"));
+                };
+                self.using_member(f, *base, target, span)
+            }
             UsingEntry::Type(t) => self.type_member(f, ScopeId(0), t, member, span),
             UsingEntry::Module(m, _) => match self.module_lookup(m, member)? {
                 Found::Using(entry, member) => self.using_member(f, entry, member, span),
@@ -2353,12 +2428,12 @@ impl Compiler {
         match value {
             Value::Int(i) => {
                 if self.types.is_float(r) {
-                    return self.write_value(agg, offset, &Value::Float(*i as f64), ty, span);
+                    return self.write_value(agg, offset, &Value::float(*i as f64), ty, span);
                 }
                 let bytes = (*i as u128).to_le_bytes();
                 agg.bytes[o..o + size as usize].copy_from_slice(&bytes[..size as usize]);
             }
-            Value::Float(x) => {
+            Value::Float(x, _) => {
                 if r == TypeId::F32 {
                     agg.bytes[o..o + 4].copy_from_slice(&(*x as f32).to_le_bytes());
                 } else {

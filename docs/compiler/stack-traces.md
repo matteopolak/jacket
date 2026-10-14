@@ -36,7 +36,7 @@ While a program runs, under `jaic -interp` or as a `jaic` executable, `context.s
   `Stack_Trace_Procedure_Info` global per function holds name, declaration site and address. The pass
   clears `Func.trace`, so the interpreter does not push a second node. Test: `stack_traces` in
   `crates/jaic-cli/tests/native.rs`.
-- `runtime_support_assertion_failed` (`stdlib/Runtime_Support.jai`) prints
+- `runtime_support_assertion_failed` (`stdlib/Runtime_Support/module.jai`) prints
   `path:line:col: error: assertion failed: message` (`assertion failed` alone when there is
   none), then `call stack (innermost first):` and one `name at path:line` per node, the same
   layout `jaic -interp` uses for runtime errors (see [diagnostics](diagnostics.md)).

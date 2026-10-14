@@ -40,6 +40,7 @@ mod structs;
 mod suggestions;
 mod trap_report;
 mod typeinfo;
+mod using;
 mod wide;
 
 use crate::ast;
@@ -116,7 +117,7 @@ pub struct Options {
     pub cpu: TargetCpu,
     /// Directories searched by `#import "Name"`, in order.
     pub import_paths: Vec<PathBuf>,
-    /// Path of the bootstrap module (loaded into every program).
+    /// Bootstrap entry loaded into every program (see `crate::PRELOAD_ENTRY`).
     pub preload: Option<PathBuf>,
     /// Load Runtime_Support (entry point, context initialization) for programs.
     pub runtime_support: bool,
@@ -197,6 +198,13 @@ mod long_double_tests {
 }
 
 impl Options {
+    /// Standard-library root for bootstrap layouts and explicitly supplied preload files.
+    pub fn stdlib_root(&self) -> Option<&std::path::Path> {
+        self.preload
+            .as_deref()
+            .and_then(crate::stdlib_root_from_preload)
+    }
+
     pub fn host() -> Self {
         let os = if cfg!(target_os = "windows") {
             TargetOs::Windows
@@ -339,12 +347,17 @@ pub struct Compiler {
     pub sources: SourceMap,
     pub types: Types,
     pub program: ir::Program,
+    registered_data_segments: HashMap<ir::GlobalId, u16>,
     pub files: Vec<FileInfo>,
-    file_by_path: HashMap<(PathBuf, ModuleId), usize>,
+    /// Lexical provenance of scoped/generated sources, for relative source loads
+    /// and the distribution boundary around library-owned internals.
+    source_origins: HashMap<FileId, FileId>,
+    file_by_path: HashMap<(PathBuf, ModuleId), modules::FileLoadState>,
     /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
     library_files: std::cell::RefCell<HashMap<u32, bool>>,
     pub modules: Vec<Module>,
     module_cache: HashMap<(PathBuf, Vec<ConstArg>), ModuleId>,
+    module_failures: HashMap<ModuleId, Box<Diagnostic>>,
     pub scopes: Vec<scope::Scope>,
     pub entities: Vec<scope::Entity>,
     pub procs: Vec<procs::ProcInfo>,
@@ -600,10 +613,13 @@ impl Compiler {
             sources: SourceMap::default(),
             types: Types::new(),
             program: ir::Program::default(),
+            registered_data_segments: HashMap::default(),
             files: Vec::new(),
+            source_origins: HashMap::default(),
             file_by_path: HashMap::default(),
             modules: Vec::new(),
             module_cache: HashMap::default(),
+            module_failures: HashMap::default(),
             scopes: Vec::new(),
             entities: Vec::new(),
             procs: Vec::new(),

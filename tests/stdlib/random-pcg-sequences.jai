@@ -105,7 +105,7 @@ pcg_module :: () {
         assert(got == it, "pcg default draw %: % vs %", it_index, got, it);
     }
 
-    expected_42 := u32.[0xc2f57bd6, 0x6b07c4a9, 0x72b7b29b, 0x44215383, 0xf5af5ead, 0x68beb632];
+    expected_42 := u32.[0x75830bbd, 0x0e6dfdb2, 0xce19afdf, 0xd8cfe2c3, 0x012b061e];
     state: u64;
 
     P.random_seed(*state, 42);

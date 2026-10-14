@@ -32,7 +32,7 @@ impl Compiler {
                 Ok(v) => wide_float::from_i64(fmt, v),
                 Err(_) => wide_float::from_u64(fmt, u64::try_from(*i).ok()?),
             },
-            Value::Float(x) => wide_float::from_f64(fmt, *x),
+            Value::Float(x, _) => wide_float::from_f64(fmt, *x),
             _ => return None,
         };
         Some(Value::Bytes(Rc::new(Aggregate {
@@ -78,7 +78,7 @@ impl Compiler {
                 (Some(a), Some(b)) if a == b => Some(value.clone()),
                 (Some(fmt), None) if self.types.is_float(to) => Self::wide_const_value(fmt, value)
                     .map(|x| {
-                        Value::Float(if self.types.repr(to) == TypeId::F32 {
+                        Value::float(if self.types.repr(to) == TypeId::F32 {
                             x as f32 as f64
                         } else {
                             x

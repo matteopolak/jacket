@@ -131,6 +131,22 @@ pub trait Host {
 /// Writes to the process's stdout/stderr and links natively.
 pub struct NativeHost;
 
+/// A real allocation registered by a compile-time global-data API call. The
+/// compiler adopts its storage after the active interpreter call returns.
+pub struct PendingDataGlobal {
+    storage: ZeroedBlock,
+    pub size: u64,
+    pub align: u64,
+    pub read_only: bool,
+    pub segment_tag: u16,
+}
+
+impl PendingDataGlobal {
+    pub fn address(&self) -> u64 {
+        self.storage.addr()
+    }
+}
+
 impl Host for NativeHost {
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         use std::io::Write;
@@ -517,6 +533,9 @@ pub struct Interp {
     /// Codes made by compile-time code (`compiler_get_code`): their index and the
     /// index of the code whose scope they take. The compiler adopts them lazily.
     pub made_codes: Vec<(usize, usize)>,
+    pub pending_data_globals: Vec<PendingDataGlobal>,
+    data_segment_tags: HashMap<GlobalId, u16>,
+    runtime_data_snapshots: Vec<Box<[u64]>>,
     /// The codes the current compile-time run made, in order, and how many of them its
     /// current attempt has made again: a repeated run (`export_request`) replays the earlier
     /// attempt, so its `compiler_get_code` calls give the codes the earlier one got.
@@ -742,6 +761,9 @@ impl Interp {
             workspaces: None,
             codes: Vec::new(),
             made_codes: Vec::new(),
+            pending_data_globals: Vec::new(),
+            data_segment_tags: HashMap::default(),
+            runtime_data_snapshots: Vec::new(),
             run_codes: (Vec::new(), 0),
             nodes_codes: Vec::new(),
             effects: 0,
@@ -923,6 +945,77 @@ impl Interp {
     pub fn global_at(&self, addr: u64) -> Option<(GlobalId, u64)> {
         let (&start, &(end, g)) = self.ranges.range(..=addr).next_back()?;
         (addr < end).then_some((g, addr - start))
+    }
+
+    pub fn register_data_global(
+        &mut self,
+        bytes: &[u8],
+        align: u64,
+        read_only: bool,
+        segment_tag: u16,
+    ) -> Res<u64> {
+        let storage = ZeroedBlock::new(bytes.len().max(1), align as usize)
+            .ok_or_else(|| Trap::new("cannot allocate compiler-managed global data"))?;
+        let address = storage.addr();
+        if !self.write(address, bytes) {
+            return Err(Trap::new("cannot initialize compiler-managed global data"));
+        }
+        self.pending_data_globals.push(PendingDataGlobal {
+            storage,
+            size: bytes.len() as u64,
+            align,
+            read_only,
+            segment_tag,
+        });
+        Ok(address)
+    }
+
+    pub fn adopt_data_global(&mut self, global: GlobalId, data: PendingDataGlobal) {
+        let address = data.storage.addr();
+        self.globals
+            .resize_with(self.globals.len().max(global.0 as usize + 1), || None);
+        self.globals[global.0 as usize] = Some(GlobalMem {
+            _storage: data.storage,
+            addr: address,
+        });
+        self.ranges
+            .insert(address, (address + data.size.max(1), global));
+        self.data_segment_tags.insert(global, data.segment_tag);
+    }
+
+    /// Live global addresses in the running program, including registrations made
+    /// earlier in this run that the compiler has not adopted yet. Snapshot records
+    /// remain owned by this interpreter, while the data pointers retain storage identity.
+    pub fn runtime_data_snapshot(&mut self, program: &Program) -> Res<u64> {
+        let mut entries = Vec::new();
+        for (index, data) in program.globals.iter().enumerate() {
+            if data.size == 0 {
+                continue;
+            }
+            let global = GlobalId(index as u32);
+            let address = self.global_addr(program, global)?;
+            let tag = self
+                .data_segment_tags
+                .get(&global)
+                .copied()
+                .unwrap_or(if data.read_only {
+                    2
+                } else {
+                    1
+                });
+            entries.extend_from_slice(&[tag as u64, data.size, address]);
+        }
+        for data in &self.pending_data_globals {
+            if data.size > 0 {
+                entries.extend_from_slice(&[data.segment_tag as u64, data.size, data.address()]);
+            }
+        }
+        let entries = entries.into_boxed_slice();
+        let info = vec![0, entries.len() as u64 / 3, entries.as_ptr() as u64].into_boxed_slice();
+        let address = info.as_ptr() as u64;
+        self.runtime_data_snapshots.push(entries);
+        self.runtime_data_snapshots.push(info);
+        Ok(address)
     }
 
     // The compiler's own accesses to program memory (reading `#run` results, the arguments of
@@ -1545,7 +1638,7 @@ impl Interp {
     /// calls by name in interpreted code use `call_by_name`.
     fn exec(&mut self, program: &Program, id: FuncId, args: &[u64]) -> Res<Rets> {
         if let Some(&Some(hook)) = self.hooks.get(id.0 as usize) {
-            return self.run_hook(hook, args);
+            return self.run_hook(program, hook, args);
         }
         let func = self.body(program, id)?;
         let frame = self.frame(program, id, func);
@@ -1817,7 +1910,7 @@ impl Interp {
         addr
     }
 
-    fn run_hook(&mut self, hook: Hook, args: &[u64]) -> Res<Rets> {
+    fn run_hook(&mut self, program: &Program, hook: Hook, args: &[u64]) -> Res<Rets> {
         match hook {
             Hook::WriteString => {
                 let s = args[0];
@@ -1876,12 +1969,11 @@ impl Interp {
                     return self.trap("this build has no compiler workspaces (Compiler module)");
                 };
                 let loc = self.loc;
-                return crate::build::call(&workspaces, op, has_context, args, self).map_err(
-                    |mut t| {
+                return crate::build::call(&workspaces, op, has_context, args, program, self)
+                    .map_err(|mut t| {
                         t.loc = t.loc.or(loc);
                         t
-                    },
-                );
+                    });
             }
         }
         Ok(Rets::default())

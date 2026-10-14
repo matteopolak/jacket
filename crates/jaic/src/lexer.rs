@@ -503,6 +503,12 @@ impl<'a> Lexer<'a> {
                     .iter()
                     .filter(|&&c| c != b'_')
                     .count();
+                if !matches!(ndigits, 4 | 8 | 16) {
+                    return Err(self.err(
+                        start,
+                        "a hex float bit pattern requires 4, 8 or 16 hex digits",
+                    ));
+                }
                 return Ok(if ndigits <= 8 {
                     Tok::Float(f32::from_bits(value as u32) as f64)
                 } else {
@@ -726,6 +732,41 @@ impl<'a> Lexer<'a> {
         }
         self.at = self.src.len();
         Err(self.err(start, "unterminated here-string"))
+    }
+}
+
+/// Decimal literal precision heuristic documented by the public lexer contract.
+/// This is independent of whether rounding to f32 happens to preserve the value.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct FloatLiteralPrecision {
+    pub defaults_to_float64: bool,
+    pub requires_float64: bool,
+    pub requires_float64_due_to_significant_digits: bool,
+}
+
+pub fn has_big_float32_exponent(value: f64) -> bool {
+    let encoded = ((value.to_bits() >> 52) & 0x7ff) as i32;
+    encoded != 0 && encoded != 0x7ff && !(-126..=127).contains(&(encoded - 1023))
+}
+
+pub fn float_literal_precision(text: &str, value: f64) -> FloatLiteralPrecision {
+    if let Some(hex) = text.strip_prefix("0h").or_else(|| text.strip_prefix("0H")) {
+        return FloatLiteralPrecision {
+            defaults_to_float64: hex.bytes().filter(u8::is_ascii_hexdigit).count() == 16,
+            ..Default::default()
+        };
+    }
+    let mantissa = text.split(['e', 'E']).next().unwrap_or("").replace('_', "");
+    let fractional = mantissa
+        .split_once('.')
+        .map_or("", |(_, fraction)| fraction);
+    let counted = fractional.trim_end_matches('0').len();
+    let significant = counted > 8;
+    let required = significant || has_big_float32_exponent(value);
+    FloatLiteralPrecision {
+        defaults_to_float64: !required && counted >= 8,
+        requires_float64: required,
+        requires_float64_due_to_significant_digits: significant,
     }
 }
 

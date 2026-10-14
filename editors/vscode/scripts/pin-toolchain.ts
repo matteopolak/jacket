@@ -1,10 +1,8 @@
-// Pins the toolchain this build of the extension downloads: sets package.json's version and
-// writes toolchain-checksums.json with the SHA-256 of each release archive, so a release asset
-// that changes after packaging is rejected instead of trusted. The release workflow runs it on
-// the archives it just built; run it by hand after a release to update the committed pins.
+// Pins the toolchain this build of the extension downloads and independently selects the
+// extension's marketplace version. The checksums remain tied to the toolchain release.
 //
-//   node scripts/pin-toolchain.ts --version 0.4.0 --sums path/to/SHA256SUMS
-//   node scripts/pin-toolchain.ts --version 0.4.0 --archives dist/   # hash jai-* archives
+//   node scripts/pin-toolchain.ts --toolchain-version 0.17.0 --extension-version 0.17.1 --sums path/to/SHA256SUMS
+//   node scripts/pin-toolchain.ts --toolchain-version 0.17.0 --extension-version 0.17.1 --archives dist/
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -15,9 +13,12 @@ const arg = (name: string) => {
   const index = process.argv.indexOf(name);
   return index > 0 ? process.argv[index + 1] : undefined;
 };
-const version = arg("--version")?.replace(/^v/, "");
-if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
-  console.error("usage: pin-toolchain.ts --version X.Y.Z (--sums SHA256SUMS | --archives DIR)");
+const toolchainVersion = (arg("--toolchain-version") ?? arg("--version"))?.replace(/^v/, "");
+const extensionVersion = (arg("--extension-version") ?? toolchainVersion)?.replace(/^v/, "");
+const validVersion = (version: string | undefined) =>
+  Boolean(version && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version));
+if (!validVersion(toolchainVersion) || !validVersion(extensionVersion)) {
+  console.error("usage: pin-toolchain.ts --toolchain-version X.Y.Z [--extension-version X.Y.Z] (--sums SHA256SUMS | --archives DIR)");
   process.exit(2);
 }
 
@@ -47,7 +48,7 @@ if (Object.keys(sha256).length === 0) {
 
 const packagePath = join(root, "package.json");
 const manifest = JSON.parse(readFileSync(packagePath, "utf8"));
-manifest.version = version;
+manifest.version = extensionVersion;
 writeFileSync(packagePath, JSON.stringify(manifest, null, 2) + "\n");
-writeFileSync(join(root, "toolchain-checksums.json"), JSON.stringify({ version, sha256 }, null, 2) + "\n");
-console.log(`pinned jaic ${version}: ${Object.keys(sha256).join(", ")}`);
+writeFileSync(join(root, "toolchain-checksums.json"), JSON.stringify({ version: toolchainVersion, sha256 }, null, 2) + "\n");
+console.log(`packaged extension ${extensionVersion} pinned to jaic ${toolchainVersion}: ${Object.keys(sha256).join(", ")}`);

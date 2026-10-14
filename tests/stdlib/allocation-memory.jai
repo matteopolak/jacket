@@ -5,7 +5,7 @@ Memory :: #import "Memory";
 XXH :: #import "xxHash";
 
 check_crc :: () -> bool {
-    return Crc.crc64("") == 0 && Crc.crc64("123456789") == 0x6c40_df5f_0b49_7347 && Crc.crc64_we("123456789") == 0x62ec_59e3_f1a4_f00a;
+    return Crc.crc64("") == 0 && Crc.crc64("123456789") == 0x62ec_59e3_f1a4_f00a;
 }
 
 check_copy :: () -> bool {

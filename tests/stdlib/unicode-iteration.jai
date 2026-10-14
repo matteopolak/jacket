@@ -65,11 +65,10 @@ main :: () {
         assert(status == .CONVERSION_OK && code == #char "a");
         code, status = utf8_next_character(*bad);
         assert(status == .SOURCE_ILLEGAL && code == UNI_REPLACEMENT_CHAR && bad.count == 2);
-        // A truncated sequence needs more bytes.
+        // A truncated trailing sequence is replaced and consumes the incomplete suffix.
         cut := string.{ 2, "€".data };
-
-        _, status = utf8_next_character(*cut);
-        assert(status == .SOURCE_EXHAUSTED && cut.count == 2);
+        code, status = utf8_next_character(*cut);
+        assert(status == .SOURCE_EXHAUSTED && code == UNI_REPLACEMENT_CHAR && cut.count == 0);
         // Overlong encodings are illegal.
         overlong := "\xe0\x80\xaf";
 

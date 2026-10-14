@@ -1,17 +1,10 @@
-// Both annotations must resolve the selected canonical context nominal.
-Basic :: #import "Basic";
-
-copy_context :: (source: *Basic.Context) -> *#Context {
-    return source;
-}
-
-copy_back :: (source: *#Context) -> *Basic.Context {
+// The runtime context is named by the language's #Context type.
+copy_context :: (source: *#Context) -> *#Context {
     return source;
 }
 
 main :: () -> s64 {
     selected: *#Context = *context;
-    qualified: *Basic.Context = copy_back(selected);
-    if copy_context(qualified) != selected return 1;
+    if copy_context(selected) != selected return 1;
     return 0;
 }

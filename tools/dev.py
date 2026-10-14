@@ -187,8 +187,8 @@ def cmd_nvim(args) -> int:
         if cargo_build(["-p", "jai-language-server"], args.jobs):
             return 1
         env["JAILSP"] = str(TARGET / "debug" / ("jailsp" + EXE))
-    print("+ nvim --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'", file=sys.stderr, flush=True)
-    return subprocess.run([nvim, "--headless", "--clean", "-u", "tests/minimal_init.lua", "-c", "luafile tests/run.lua"],
+    print("+ nvim -n --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'", file=sys.stderr, flush=True)
+    return subprocess.run([nvim, "-n", "--headless", "--clean", "-u", "tests/minimal_init.lua", "-c", "luafile tests/run.lua"],
                           cwd=ROOT / "editors" / "nvim", env=env).returncode
 
 

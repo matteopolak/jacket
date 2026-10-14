@@ -2,7 +2,7 @@
 
 ## What it is
 
-Three intrinsics that start a procedure on a stack of its own and switch between stacks: `fiber_init`, `fiber_switch` and `fiber_free`. They are the only compiler support `stdlib/Extensions/Io` ([fibers](../specs/stdlib/README.md)) needs. A module declares them itself (they are not in the prelude), with a context struct of four pointers:
+Three intrinsics that start a procedure on a stack of its own and switch between stacks: `fiber_init`, `fiber_switch` and `fiber_free`. They are the only compiler support `stdlib/Extensions/Io` ([fibers](../extensions/io-fibers.md)) needs. A module declares them itself (they are not in the prelude), with a context struct of four pointers:
 
 ```jai
 Fiber_Context :: struct { sp, stack_low, stack_high, stack_dealloc: *void; }

@@ -20,9 +20,16 @@ main :: () {
     set_all_bits(*bits);
     assert(bits.slots[2] == 3);
     seen := 0;
-    for bits if it seen += 1;
+    for bits {
+        assert(it == (it_index < 130));
+        seen += 1;
+    }
 
     assert(seen == 130);
+    selected: [..] int;
+    for: only_set bits array_add(*selected, it_index);
+    assert(selected.count == 130 && selected[0] == 0 && selected[64] == 64 && selected[129] == 129);
+    array_free(selected);
     deinit(*bits);
     print("ok\n");
 }

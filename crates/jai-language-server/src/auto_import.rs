@@ -543,11 +543,7 @@ impl Sources<'_> {
         let mut options = (self.env.options)(&root);
         let found = self.import_dirs(index, &root, folders).0;
         crate::modules::splice(&mut options.import_paths, &found);
-        let stdlib = options
-            .preload
-            .as_deref()
-            .and_then(Path::parent)
-            .map(Path::to_path_buf);
+        let stdlib = options.stdlib_root().map(Path::to_path_buf);
         let mut module_dirs = vec![root_dir.join("modules")];
         if let Some(base) = &base {
             module_dirs.push(base.join("modules"));

@@ -13,6 +13,10 @@ pub enum ProgramSource {
     String(String),
     /// Source text added to a module of the workspace (`add_build_string` with a message).
     ModuleString(String, u32),
+    /// Source added using a FILE message as the lexical scope selector.
+    FileString(String, FileId),
+    /// Source added to the running compiler using one of its Code values.
+    CodeString(String, value::CodeId),
 }
 
 /// How many functions, globals and foreign symbols the program had at one point.
@@ -28,7 +32,7 @@ impl Compiler {
     pub fn load_bootstrap(&mut self) -> Result<()> {
         let span = Span::NONE;
         if let Some(preload) = self.options.preload.clone() {
-            let m = self.load_module("Preload", &preload, Vec::new(), span)?;
+            let m = self.load_module("prelude", &preload, Vec::new(), span)?;
             self.preload = Some(m);
         }
         if self.options.runtime_support {
@@ -122,6 +126,27 @@ impl Compiler {
             ProgramSource::ModuleString(text, module) => {
                 let label = format!("<added string {}>", self.added_sources);
                 self.load_string(&label, text, ModuleId(*module))
+            }
+            ProgramSource::FileString(text, file) => {
+                let Some(scope) = self.files.iter().find(|f| f.id == *file).map(|f| f.scope) else {
+                    return err(
+                        Span::NONE,
+                        "add_build_string: file scope does not belong to this workspace",
+                    );
+                };
+                let label = format!("<added file string {}>", self.added_sources);
+                self.load_string_in_scope(&label, text, scope)
+            }
+            ProgramSource::CodeString(text, code) => {
+                self.adopt_made_codes();
+                let Some(&scope) = self.code_scopes.get(code.0 as usize) else {
+                    return err(
+                        Span::NONE,
+                        "add_build_string: Code scope does not belong to this workspace",
+                    );
+                };
+                let label = format!("<added code string {}>", self.added_sources);
+                self.load_string_in_scope(&label, text, scope)
             }
         }
     }
@@ -257,7 +282,7 @@ impl Compiler {
         self.check_declared_structs()?;
         self.check_declared_overloads()?;
         if lowered {
-            self.fill_runtime_info();
+            self.fill_runtime_info()?;
         }
         // Last: the runtime information above lists only what the program reaches.
         self.check_unreferenced()

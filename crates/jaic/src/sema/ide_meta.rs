@@ -335,7 +335,7 @@ impl Compiler {
     fn ide_literal(&self, value: &Value) -> Option<String> {
         Some(match value {
             Value::Int(v) => v.to_string(),
-            Value::Float(v) => {
+            Value::Float(v, _) => {
                 let text = format!("{v}");
                 if text.contains(['.', 'e', 'i', 'N']) {
                     text

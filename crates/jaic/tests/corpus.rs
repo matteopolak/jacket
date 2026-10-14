@@ -1,5 +1,5 @@
 //! Corpus sweep: `JAIC_CORPUS_ROOT=<repo> JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture`.
-//! Walks corpus/upstream/ and stdlib/ and reports failures.
+//! Walks public upstream projects and standard-library sources and reports failures.
 use std::path::{Path, PathBuf};
 
 fn collect(dir: &Path, out: &mut Vec<PathBuf>) {

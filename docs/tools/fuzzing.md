@@ -63,7 +63,7 @@ Input the formatter refuses (it does not lex, or brackets do not balance) is not
 
 ### Corpora and dictionary
 
-`fuzz/seed_corpus.py` builds `fuzz/corpus/<target>/` from the repository's own Jai files: `tests/stdlib`, `tests/corpus/{positive,negative}`, `examples` and `fuzz/seeds` for the compiling targets, plus `stdlib/` for the lexer and parser. Size caps keep execution fast, and `lsp_json` gets each file wrapped in a JSON-RPC session. Saved regressions for the target are added too. `fuzz/seeds/` holds small hand-written programs that probe the compiler's limits: overflowing constants, recursive and oversized types, metaprogram misuse, odd `#insert`/`#run` use. Corpora are not committed (`fuzz/.gitignore`); CI caches them between runs. `fuzz/jai.dict` lists keywords, directives, operators and literal shapes for libFuzzer's mutator.
+`fuzz/seed_corpus.py` builds `fuzz/corpus/<target>/` from the repository's own Jai files: `tests/stdlib`, `tests/corpus/{positive,negative}`, `examples` and `fuzz/seeds` for the compiling targets, plus `stdlib/` (including `stdlib/prelude/`) for the lexer and parser. Size caps keep execution fast, and `lsp_json` gets each file wrapped in a JSON-RPC session. Saved regressions for the target are added too. `fuzz/seeds/` holds small hand-written programs that probe the compiler's limits: overflowing constants, recursive and oversized types, metaprogram misuse, odd `#insert`/`#run` use. Corpora are not committed (`fuzz/.gitignore`); CI caches them between runs. `fuzz/jai.dict` lists keywords, directives, operators and literal shapes for libFuzzer's mutator.
 
 ## Running locally
 

@@ -868,7 +868,17 @@ pub enum UsingFilter {
     Except(Vec<Ident>),
     Map(Vec<(Ident, Ident)>),
     /// A filter given as an expression: `using,only(.["+", "-"]) Basic;`, `using,except NAMES x: T;`.
-    Computed(Expr),
+    Computed {
+        kind: UsingFilterKind,
+        expr: Expr,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UsingFilterKind {
+    Only,
+    Except,
+    Map,
 }
 
 #[derive(Clone, Debug)]

@@ -122,7 +122,7 @@ pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
     fs
 }
 
-fn options(main: &str) -> Options {
+fn options(main: &str, fs: &dyn FileSystem) -> Options {
     let mut options = Options::host();
     options.os = TargetOs::Wasm;
     options.cpu = TargetCpu::Wasm;
@@ -133,7 +133,10 @@ fn options(main: &str) -> Options {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(WORKSPACE_ROOT));
     options.import_paths = vec![main_dir.join("modules"), PathBuf::from(STDLIB_ROOT)];
-    options.preload = Some(PathBuf::from(format!("{STDLIB_ROOT}/module.jai")));
+    options.preload = Some(
+        jaic::find_preload(fs, std::path::Path::new(STDLIB_ROOT))
+            .unwrap_or_else(|| PathBuf::from(STDLIB_ROOT).join(jaic::PRELOAD_ENTRY)),
+    );
     options
 }
 
@@ -274,7 +277,7 @@ fn run_styled(
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: fs.clone(),
-        options: options(main),
+        options: options(main, &*fs),
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
@@ -285,7 +288,7 @@ fn run_styled(
         }),
         observer: None,
     });
-    let mut compiler = Compiler::new(options(main), fs);
+    let mut compiler = Compiler::new(options(main, &*fs), fs);
     compiler.interp.host = Box::new(crate::host_bridge::PlayHost::new(
         SharedHost(host.clone()),
         limits.budget,
@@ -425,7 +428,11 @@ mod tests {
             &["prog", "a b", ""],
             "",
         );
-        assert_eq!(r.stdout, "<prog><a b><>");
+        assert_eq!(
+            r.stdout, "<prog><a b><>",
+            "{:?}\n{}",
+            r.diagnostics, r.rendered
+        );
     }
 
     #[test]
@@ -440,6 +447,36 @@ mod tests {
         assert_eq!(r.stdout, "Hello, 42!\n");
         assert_eq!(r.exit_code, Some(0));
         assert!(r.to_json().contains("\"stdout\":\"Hello, 42!\\n\""));
+    }
+
+    #[test]
+    fn independent_compiler_records_and_registered_data_work_in_browser_host() {
+        let r = single(
+            r#"
+            #import "Basic";
+            C :: #import "Compiler";
+            bytes :: #run C.add_global_data(u8.[17, 31], .WRITABLE);
+            #run {
+                root := C.compiler_get_nodes(#code 7 + 9);
+                assert(root && root.kind == .BINARY_OPERATOR);
+                info := C.get_runtime_info();
+                assert(info.global_data_info != null);
+            }
+            main :: () {
+                assert(bytes.count == 2 && bytes[0] == 17);
+                assert(C.get_runtime_info().global_data_info != null);
+                print("browser compiler ok\n");
+            }
+        "#,
+        );
+        assert!(
+            r.diagnostics.is_empty(),
+            "{:?}\n{}",
+            r.diagnostics,
+            r.rendered
+        );
+        assert_eq!(r.stdout, "browser compiler ok\n");
+        assert_eq!(r.exit_code, Some(0));
     }
 
     #[test]
@@ -729,7 +766,7 @@ mod tests {
         let r = single(
             "#import \"Basic\";\nmain :: () {\n    print(\"before\\n\");\n    exit(7);\n    print(\"after\\n\");\n}\n",
         );
-        assert_eq!(r.stdout, "before\n");
+        assert_eq!(r.stdout, "before\n", "{:?}\n{}", r.diagnostics, r.rendered);
         assert_eq!(r.exit_code, Some(7), "{}", r.rendered);
         assert!(r.diagnostics.is_empty(), "{:?}", r.diagnostics);
     }

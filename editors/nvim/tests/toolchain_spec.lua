@@ -6,6 +6,7 @@ end
 
 local config = require('jai.config')
 local toolchain = require('jai.toolchain')
+local install = require('jai.install')
 
 local saved_path = vim.env.PATH
 local saved_data = vim.env.XDG_DATA_HOME
@@ -93,6 +94,44 @@ h.test('the downloaded toolchain is the last resort; the wanted version wins', f
     local wanted = assert(toolchain.find('jailsp'))
     assert(wanted.path:find(version, 1, true), wanted.path)
     assert(toolchain.installed_versions()[1] == version, 'newest first')
+  end)
+end)
+
+h.test('a cached toolchain with an obsolete pinned checksum is not selected', function()
+  isolated(function()
+    local version = toolchain.wanted_version()
+    local uname = vim.uv.os_uname()
+    local asset = assert(install.asset_for(uname.sysname, uname.machine))
+    local dir = toolchain.version_dir(version)
+    make_tools(dir, { 'jailsp' })
+    vim.fn.writefile({ vim.json.encode({ version = version, asset = asset, sha256 = ('a'):rep(64) }) }, dir .. '/.jai-installed.json')
+    local prior = package.loaded['jai.checksums']
+    package.loaded['jai.checksums'] = { version = version, sha256 = { [asset] = ('b'):rep(64) } }
+    local ok, versions = pcall(toolchain.installed_versions)
+    package.loaded['jai.checksums'] = prior
+    assert(ok, versions)
+    assert(not vim.list_contains(versions, version), vim.inspect(versions))
+  end)
+end)
+
+h.test('missing or malformed cache markers do not break checksum validation', function()
+  isolated(function()
+    local version = toolchain.wanted_version()
+    local uname = vim.uv.os_uname()
+    local asset = assert(install.asset_for(uname.sysname, uname.machine))
+    local dir = toolchain.version_dir(version)
+    make_tools(dir, { 'jailsp' })
+    local prior = package.loaded['jai.checksums']
+    package.loaded['jai.checksums'] = { version = version, sha256 = { [asset] = ('b'):rep(64) } }
+    for _, contents in ipairs({ false, '{ invalid json' }) do
+      local marker = dir .. '/.jai-installed.json'
+      os.remove(marker)
+      if contents then vim.fn.writefile({ contents }, marker) end
+      local ok, versions = pcall(toolchain.installed_versions)
+      assert(ok, versions)
+      assert(not vim.list_contains(versions, version), vim.inspect(versions))
+    end
+    package.loaded['jai.checksums'] = prior
   end)
 end)
 

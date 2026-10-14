@@ -83,15 +83,20 @@ impl Bridge {
 
 /// Hover and completion type-check against the bundled stdlib, as the playground compiles.
 pub fn lsp_environment() -> Environment {
+    let fs = Rc::new(virtual_fs(&BTreeMap::new()));
+    let option_fs = fs.clone();
     Environment {
-        fs: Rc::new(virtual_fs(&BTreeMap::new())),
-        options: Box::new(|main| {
+        fs,
+        options: Box::new(move |main| {
             let mut options = Options::host();
             options.os = TargetOs::Wasm;
             options.cpu = TargetCpu::Wasm;
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
             options.import_paths = vec![dir.join("modules"), PathBuf::from(STDLIB_ROOT)];
-            options.preload = Some(PathBuf::from(format!("{STDLIB_ROOT}/module.jai")));
+            options.preload = Some(
+                jaic::find_preload(&*option_fs, std::path::Path::new(STDLIB_ROOT))
+                    .unwrap_or_else(|| PathBuf::from(STDLIB_ROOT).join(jaic::PRELOAD_ENTRY)),
+            );
             options
         }),
     }

@@ -1,4 +1,5 @@
 /target/
+/.work/
 .build/
 /artifacts/
 /corpus/upstream

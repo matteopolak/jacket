@@ -413,13 +413,19 @@ impl Compiler {
                 Value::Int(*i)
             }
             Value::Int(i) if self.types.is_float(tr) && untyped => {
-                Value::Float(int_to_float(*i, tr))
+                Value::float(int_to_float(*i, tr))
             }
-            Value::Float(x)
+            Value::Float(x, _)
                 if self.types.is_float(tr)
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 if tr == TypeId::F32 {
+                    if untyped && value.requires_float64() {
+                        return err(
+                            span,
+                            "this floating literal requires float64 precision (use an explicit cast to round it)",
+                        );
+                    }
                     // A literal outside float32's normal range would become infinity or lose
                     // its precision: it needs an explicit cast.
                     let magnitude = x.abs();
@@ -437,9 +443,9 @@ impl Compiler {
                             ),
                         );
                     }
-                    Value::Float(*x as f32 as f64)
+                    Value::float(*x as f32 as f64)
                 } else {
-                    Value::Float(*x)
+                    Value::float(*x)
                 }
             }
             Value::Null
@@ -858,13 +864,13 @@ impl Compiler {
             let folded = match value {
                 // `cast,force` between same-size ints and floats reinterprets the bits.
                 Value::Int(i) if flags.force && self.types.is_float(tr) => {
-                    Some(Value::Float(if tr == TypeId::F32 {
+                    Some(Value::float(if tr == TypeId::F32 {
                         f32::from_bits(*i as u32) as f64
                     } else {
                         f64::from_bits(*i as u64)
                     }))
                 }
-                Value::Float(x) if flags.force && self.types.is_integer(tr) => {
+                Value::Float(x, _) if flags.force && self.types.is_integer(tr) => {
                     let bits = if fr == TypeId::F32 {
                         (*x as f32).to_bits() as i128
                     } else {
@@ -878,16 +884,16 @@ impl Compiler {
                     Some(Value::Int(expr::wrap_int(*i, bits, signed)))
                 }
                 Value::Int(i) if self.types.is_float(tr) => {
-                    Some(Value::Float(int_to_float(*i, tr)))
+                    Some(Value::float(int_to_float(*i, tr)))
                 }
-                Value::Float(x) if self.types.is_float(tr) => {
-                    Some(Value::Float(if tr == TypeId::F32 {
+                Value::Float(x, _) if self.types.is_float(tr) => {
+                    Some(Value::float(if tr == TypeId::F32 {
                         *x as f32 as f64
                     } else {
                         *x
                     }))
                 }
-                Value::Float(x) if self.types.is_integer(tr) => {
+                Value::Float(x, _) if self.types.is_integer(tr) => {
                     let (bits, signed) = self.types.int_info(tr).unwrap();
                     Some(Value::Int(expr::wrap_int(*x as i128, bits, signed)))
                 }

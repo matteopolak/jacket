@@ -177,14 +177,29 @@ impl Compiler {
         } else if Some(m) == self.main_module {
             3
         } else {
-            0
+            4
         };
         let module = &self.modules[m.0 as usize];
+        let entry = module
+            .path
+            .as_ref()
+            .map(|p| self.fs.canonical(p).display().to_string())
+            .or_else(|| {
+                module
+                    .files
+                    .first()
+                    .map(|&f| self.sources.get(f).path.clone())
+            })
+            .unwrap_or_default();
         let mut rec = Record::new("Message_Import");
         rec.int("kind", message_kind::IMPORT)
             .int("workspace", self.workspace)
             .int("module_type", module_type)
             .str("module_name", module.name.as_bytes())
+            .str(
+                "fully_pathed_filename",
+                super::expr::forward_slashes(&entry).as_bytes(),
+            )
             .int("__module", m.0 as i64);
         let id = r.add(rec);
         self.export.modules.insert(m, id);
@@ -227,8 +242,13 @@ impl Compiler {
         }
         if self.export.system_dir.is_none() {
             let dir = self
-                .find_module("Runtime_Support", std::path::Path::new(""))
-                .and_then(|p| p.parent().map(|d| self.fs.canonical(d)));
+                .options
+                .stdlib_root()
+                .map(|root| self.fs.canonical(root))
+                .or_else(|| {
+                    self.find_module("Runtime_Support", std::path::Path::new(""))
+                        .and_then(|p| p.parent().map(|d| self.fs.canonical(d)))
+                });
             self.export.system_dir = Some(dir);
         }
         if let Some(&system) = self.export.system_modules.get(&m) {
@@ -571,14 +591,23 @@ impl Compiler {
         // Bodies of procedure literals without a procedure of their own (nested
         // in other bodies) cannot be modified; they keep their code.
         let Some(&p) = self.export.bodies.get(&body) else {
-            return Ok(());
+            return err(
+                Span::NONE,
+                "compiler_modify_procedure: body record does not belong to this workspace procedure",
+            );
         };
         if self.proc(p).body_state == procs::BodyState::Lowering {
-            return Ok(());
+            return err(
+                self.proc(p).span,
+                "compiler_modify_procedure: cannot modify a procedure while it is being lowered",
+            );
         }
         let old = self.proc(p).lit.clone();
         let Some(old_body) = &old.body else {
-            return Ok(());
+            return err(
+                self.proc(p).span,
+                "compiler_modify_procedure: procedure has no body",
+            );
         };
         let mut new_stmts = Vec::new();
         for stmt in stmts {
@@ -965,7 +994,12 @@ impl Exporter<'_> {
             return rec;
         };
         if (span.file.0 as usize) < c.sources.len() {
-            let file = c.file_record(self.r, span.file);
+            let module = c
+                .files
+                .iter()
+                .find(|f| f.id == span.file)
+                .map_or(c.scope(self.scope).module, |f| f.module);
+            let file = c.file_record_in(self.r, span.file, module);
             let source = c.sources.get(span.file);
             let (l0, c0) = source.line_col(span.start);
             let (l1, c1) = source.line_col(span.end);
@@ -1324,6 +1358,62 @@ impl Exporter<'_> {
         rec
     }
 
+    fn using_filter(&mut self, filter: &ast::UsingFilter) -> (i64, i64) {
+        use ast::{UsingFilter, UsingFilterKind};
+        match filter {
+            UsingFilter::None => (0, 0),
+            // Static name-list/map expression shapes are not established by the
+            // reviewed public record contract. Preserve their category without
+            // fabricating a replacement expression that looks reference-derived.
+            UsingFilter::Only(_) => (1, 0),
+            UsingFilter::Except(_) => (2, 0),
+            UsingFilter::Map(_) => (3, 0),
+            UsingFilter::Computed {
+                kind,
+                expr,
+            } => {
+                let kind = match kind {
+                    UsingFilterKind::Only => 1,
+                    UsingFilterKind::Except => 2,
+                    UsingFilterKind::Map => 3,
+                };
+                (kind, self.expr(expr))
+            }
+        }
+    }
+
+    fn literal_number_flags(&self, span: Span, float: Option<f64>, negative: bool) -> i64 {
+        let text = self.c.as_ref().map_or("", |c| c.sources.snippet(span));
+        let spelling = text.trim_start_matches('-').trim_start();
+        let mut flags = 0x1
+            | if negative {
+                0x40
+            } else {
+                0
+            };
+        if spelling.starts_with("0x")
+            || spelling.starts_with("0X")
+            || spelling.starts_with("0h")
+            || spelling.starts_with("0H")
+        {
+            flags |= 0x2;
+        }
+        if spelling.starts_with("0b") || spelling.starts_with("0B") {
+            flags |= 0x20;
+        }
+        if let Some(value) = float {
+            flags |= 0x4;
+            let precision = crate::lexer::float_literal_precision(spelling, value);
+            if precision.defaults_to_float64 {
+                flags |= 0x100;
+            }
+            if precision.requires_float64 {
+                flags |= 0x200;
+            }
+        }
+        flags
+    }
+
     fn expr(&mut self, e: &ast::Expr) -> i64 {
         use ast::ExprKind as E;
         let span = e.span;
@@ -1331,7 +1421,8 @@ impl Exporter<'_> {
             E::Ident(name) => return self.ident(*name, span),
             E::Int(v) => {
                 let mut rec = self.literal(span, 1);
-                rec.int("_s64", v.get() as i64).int("value_flags", 0x1);
+                rec.int("_s64", v.get() as i64)
+                    .int("value_flags", self.literal_number_flags(span, None, false));
                 rec
             }
             E::Char(v) => {
@@ -1341,8 +1432,10 @@ impl Exporter<'_> {
             }
             E::Float(v) => {
                 let mut rec = self.literal(span, 1);
-                rec.int("_float64", v.to_bits() as i64)
-                    .int("value_flags", 0x1 | 0x4);
+                rec.int("_float64", v.to_bits() as i64).int(
+                    "value_flags",
+                    self.literal_number_flags(span, Some(*v), false),
+                );
                 rec
             }
             E::Str(s) => {
@@ -1380,13 +1473,15 @@ impl Exporter<'_> {
                     E::Int(v) => {
                         let mut rec = self.literal(span, 1);
                         rec.int("_s64", (v.get() as i64).wrapping_neg())
-                            .int("value_flags", 0x1);
+                            .int("value_flags", self.literal_number_flags(span, None, true));
                         rec
                     }
                     E::Float(v) => {
                         let mut rec = self.literal(span, 1);
-                        rec.int("_float64", (-v).to_bits() as i64)
-                            .int("value_flags", 0x1 | 0x4);
+                        rec.int("_float64", (-v).to_bits() as i64).int(
+                            "value_flags",
+                            self.literal_number_flags(span, Some(-v), true),
+                        );
                         rec
                     }
                     _ => unreachable!(),
@@ -2020,11 +2115,15 @@ impl Exporter<'_> {
             }
             S::Using(boxed) => {
                 let crate::ast::UsingStmt {
-                    value, ..
+                    value,
+                    filter,
                 } = &**boxed;
                 let value = self.expr(value);
+                let (filter_type, filter_expression) = self.using_filter(filter);
                 let mut rec = self.node("Code_Using", node::USING, span);
-                rec.ptr("expression", value);
+                rec.ptr("expression", value)
+                    .int("filter_type", filter_type)
+                    .ptr("filter_expression", filter_expression);
                 self.add(rec)
             }
             S::PushContext(boxed) => {
@@ -2573,8 +2672,16 @@ impl Exporter<'_> {
                     .str("name", name.as_str().as_bytes())
                     .ptr("resolved_declaration", arg);
                 let ident = self.add(ident);
+                let (filter_type, filter_expression) = param
+                    .using_filter
+                    .as_ref()
+                    .map(|filter| self.using_filter(filter))
+                    .unwrap_or((0, 0));
                 let mut using = self.node("Code_Using", node::USING, param.span);
-                using.ptr("expression", ident);
+                using
+                    .ptr("expression", ident)
+                    .int("filter_type", filter_type)
+                    .ptr("filter_expression", filter_expression);
                 usings.push(self.add(using));
             }
         }

@@ -46,7 +46,7 @@ Libraries: `#system_library "kernel32"` becomes `-lkernel32` / `kernel32.lib`. C
 
 Struct layout: a member's `#align N` sets its alignment even below the natural one, as `#pragma pack` does in C. `Windows.jai`'s `FILETIME` (`QuadPart: u64 #align 4`) depends on it: otherwise `WIN32_FIND_DATAW.cFileName` lands at byte 48 instead of 44 and directory listings return garbage names (`tests/stdlib/member-align-lowers-alignment.jai`).
 
-Runtime (`stdlib/Runtime_Support.jai`):
+Runtime (`stdlib/Runtime_Support/module.jai`):
 
 - The C runtime's start-up calls the exported `main(argc, argv)`. `__jai_runtime_init` then replaces the ANSI `argv` with UTF-8 copies from `GetCommandLineW` + `CommandLineToArgvW` (`windows_utf8_arguments`; links `shell32`).
 - Output goes through `GetStdHandle` + `WriteFile`; the default allocator, threads (`CreateThread`, critical sections, condition variables), files, time and `Process` use their existing `OS == .WINDOWS` branches.
@@ -57,7 +57,7 @@ Runtime (`stdlib/Runtime_Support.jai`):
 
 - ABI rules: `crates/jaic/src/abi.rs` (`Arch::Win64` and `Arch::Win64Arm`, `classify_vararg`; unit tests there compare with Clang's IR).
 - Linker discovery, CRT choice, library naming: `LinkFlavor`, `linker_command`, `library_args` in `crates/jaic-llvm/src/lib.rs` (unit tests at the bottom); Visual Studio and Windows SDK discovery in `crates/jaic-llvm/src/msvc.rs`.
-- Start-up and console output: `stdlib/Runtime_Support.jai`, Windows block at the end.
+- Start-up and console output: `stdlib/Runtime_Support/module.jai`, Windows block at the end.
 - Gotchas:
   - Foreign *data* (`x: T #elsewhere lib`) of a `#system_library` is declared `dllimport`, so the code loads it through the DLL's `__imp_x` pointer: import libraries define no `x` for data, and MSVC's linker does not fix such references up as MinGW's does. Data of a `#library` (a static library next to the source) and of the C runtime (`libc`, `msvcrt`...; `is_windows_c_runtime`) is referenced directly. `tests/stdlib/rules-external-data.jai` reads the C runtime's `_HUGE`.
   - System library names are passed to the linker in lowercase (`#system_library "Gdi32"` links `gdi32`): Windows ignores case, but MinGW toolchains on Linux and macOS ship only lowercase `lib<name>.a` files.
@@ -86,6 +86,6 @@ Runtime (`stdlib/Runtime_Support.jai`):
 
 ## Dependencies
 
-- `jaic::abi`, `jaic-llvm` (`lib.rs`, `lower.rs`), `stdlib/Runtime_Support.jai`, `stdlib/Runtime_Support_Crash_Handler.jai`, the `OS == .WINDOWS` paths in `Basic`, `File`, `Thread`, `Process`, `Default_Allocator`.
+- `jaic::abi`, `jaic-llvm` (`lib.rs`, `lower.rs`), `stdlib/Runtime_Support/module.jai`, `stdlib/Runtime_Support_Crash_Handler.jai`, the `OS == .WINDOWS` paths in `Basic`, `File`, `Thread`, `Process`, `Default_Allocator`.
 - Tests: `tests/native/windows/runtime.jai` (Basic, String, Hash_Table, File, Thread, small-struct `#c_call`), `tests/stdlib/c-variadic-foreign-calls.jai`, the C struct fixture `tests/native/c-structs-by-value`. `crates/jaic-cli/tests/native.rs` (`windows_runtime_program`) builds the runtime program natively and, when `x86_64-w64-mingw32-gcc` or `aarch64-w64-mingw32-clang` is installed, cross-builds it for that CPU and checks the PE header's machine. `tools/windows_cross.py` builds the corpus runtime cases, those programs and the C fixture (`build`, with `--host` on Windows and `--cpu arm64` for llvm-mingw cross builds) and runs them on Windows (`run`).
 - CI: `.github/workflows/windows-native.yml`, for each CPU: cross-builds on Linux and runs the executables on Windows (`windows-2025`, `windows-11-arm`), and separately builds `jaic` with LLVM on that Windows runner and runs the same programs plus `cargo test --test native` there.

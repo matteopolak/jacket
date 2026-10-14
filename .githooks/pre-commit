@@ -84,7 +84,7 @@ find_jailint() {
     bin=""
     for p in "$root/target/release/jailint" "$root/target/debug/jailint"; do
         b=$(exe "$p") || continue
-        if ! stale "$b" crates/jailint crates/jaic crates/jaic-cli stdlib/Preload.jai Cargo.lock; then
+        if ! stale "$b" crates/jailint crates/jaic crates/jaic-cli stdlib/prelude/module.jai Cargo.lock; then
             bin=$b
             break
         fi

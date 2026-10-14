@@ -23,6 +23,14 @@ pub trait FileSystem {
 
 pub struct NativeFs;
 
+/// A cached source request may be in a recursive load, complete, or failed.
+/// Failure must never be mistaken for an already-loaded successful file.
+pub(super) enum FileLoadState {
+    Loading,
+    Ready,
+    Failed(Box<Diagnostic>),
+}
+
 impl FileSystem for NativeFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         std::fs::read(path).ok()
@@ -110,7 +118,12 @@ pub fn normalize(path: &Path) -> PathBuf {
             std::path::Component::ParentDir => {
                 // `/..` is `/`, as on a real filesystem; a relative path keeps leading `..`.
                 if out.has_root() && out.parent().is_none() {
-                } else if !out.pop() {
+                } else if out
+                    .components()
+                    .next_back()
+                    .is_none_or(|c| c == std::path::Component::ParentDir)
+                    || !out.pop()
+                {
                     out.push("..");
                 }
             }
@@ -121,6 +134,7 @@ pub fn normalize(path: &Path) -> PathBuf {
 }
 
 /// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
+/// The public `Preload` protocol name also aliases the single bootstrap entry.
 pub fn find_module_in(
     fs: &dyn FileSystem,
     import_paths: &[PathBuf],
@@ -129,7 +143,7 @@ pub fn find_module_in(
 ) -> Option<PathBuf> {
     let mut dirs: Vec<PathBuf> = vec![from_dir.join("modules")];
     dirs.extend(import_paths.iter().cloned());
-    for dir in dirs {
+    for dir in &dirs {
         let file = dir.join(format!("{name}.jai"));
         if fs.is_file(&file) {
             return Some(file);
@@ -139,7 +153,11 @@ pub fn find_module_in(
             return Some(entry);
         }
     }
-    None
+    if name == "Preload" {
+        dirs.iter().find_map(|dir| crate::find_preload(fs, dir))
+    } else {
+        None
+    }
 }
 
 /// The entry file an `#import` written in a file of `dir` loads: a module found on the import
@@ -188,7 +206,7 @@ impl Compiler {
         span: Span,
     ) -> std::result::Result<Diagnostic, Diagnostic> {
         let folder = crate::STDLIB_EXTENSIONS_DIR;
-        let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent) else {
+        let Some(stdlib) = self.options.stdlib_root() else {
             return Err(d);
         };
         if name == folder {
@@ -260,7 +278,7 @@ impl Compiler {
         };
         // A misspelled `Extensions/Name`: the closest extension module.
         if name.starts_with(&format!("{}/", crate::STDLIB_EXTENSIONS_DIR))
-            && let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent)
+            && let Some(stdlib) = self.options.stdlib_root()
         {
             available.extend(
                 self.stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR)
@@ -413,22 +431,64 @@ impl Compiler {
         Ok(self.sources.add(path.display().to_string(), text))
     }
 
+    /// Distribution boundary for library-owned helpers, checked before cache hits.
+    /// Canonical paths cover relative traversal and native filesystem aliases alike.
+    fn check_source_access(&self, path: &Path, span: Span) -> Result<()> {
+        let Some(stdlib) = self.options.stdlib_root() else {
+            return Ok(());
+        };
+        let internal = self.fs.canonical(&stdlib.join("internal"));
+        if !self.fs.canonical(path).starts_with(&internal) {
+            return Ok(());
+        }
+        let from_library = self
+            .sources
+            .try_get(self.source_origin(span.file))
+            .is_some_and(|source| {
+                self.fs
+                    .canonical(Path::new(&source.path))
+                    .starts_with(self.fs.canonical(stdlib))
+            });
+        if from_library {
+            return Ok(());
+        }
+        err(
+            span,
+            "standard-library internal sources are private; import a public library module",
+        )
+    }
+
     /// Load a file into `module`, declaring its top-level statements.
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
+        self.check_source_access(path, span)?;
         let path = self.fs.canonical(path);
-        if self.file_by_path.contains_key(&(path.clone(), module)) {
-            return Ok(()); // `#load` of an already-loaded file is a no-op.
+        let key = (path.clone(), module);
+        if let Some(state) = self.file_by_path.get(&key) {
+            return match state {
+                FileLoadState::Loading | FileLoadState::Ready => Ok(()),
+                FileLoadState::Failed(error) => Err(error.clone()),
+            };
         }
-        let file = self.read_source(&path, span)?;
         self.file_by_path
-            .insert((path.clone(), module), self.files.len());
+            .insert(key.clone(), FileLoadState::Loading);
+        let result = self.load_file_inner(&path, module, span);
+        let state = match &result {
+            Ok(()) => FileLoadState::Ready,
+            Err(error) => FileLoadState::Failed(error.clone()),
+        };
+        self.file_by_path.insert(key, state);
+        result
+    }
+
+    fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
+        let file = self.read_source(path, span)?;
         let text = self.sources.get(file).text.clone();
         let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
         let module_scope = self.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
         self.files.push(FileInfo {
             id: file,
-            path,
+            path: path.to_path_buf(),
             module,
             scope: file_scope,
         });
@@ -438,7 +498,7 @@ impl Compiler {
     }
 
     pub fn file_dir(&self, file: FileId) -> PathBuf {
-        let path = PathBuf::from(&self.sources.get(file).path);
+        let path = PathBuf::from(&self.sources.get(self.source_origin(file)).path);
         path.parent().map(Path::to_path_buf).unwrap_or_default()
     }
 
@@ -450,20 +510,20 @@ impl Compiler {
         params: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<ModuleId> {
-        // Named arguments in any order pick the same instance; positional ones (`$0`, ...)
-        // keep their own names, so sorting never mixes the two.
-        let mut key_params = params.clone();
-        key_params.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
-        let key = (self.fs.canonical(entry), key_params);
+        self.check_source_access(entry, span)?;
+        // Jai identifies an instance by the argument list as written. Reordering
+        // named arguments creates another instance, even when the effective values match.
+        // Keep positional names and explicit/default argument differences in the key too.
+        let key = (self.fs.canonical(entry), params.clone());
         if let Some(&id) = self.module_cache.get(&key) {
-            return Ok(id);
+            return self.module_load_result(id);
         }
         // Program parameters (`#import "Basic"()(MEMORY_DEBUGGER=true)`) configure the
         // one instance every importer shares.
         if !params.is_empty()
             && let Some(id) = self.program_instance(&key.0, &params, span)?
         {
-            return Ok(id);
+            return self.module_load_result(id);
         }
         // A plain `#import "M"` joins an instance already configured elsewhere
         // (`#import "Basic"()(MEMORY_DEBUGGER=true)` in the program applies to all), but not
@@ -480,7 +540,7 @@ impl Compiler {
                 })
                 .min_by_key(|id| id.0)
         {
-            return Ok(id);
+            return self.module_load_result(id);
         }
         let id = ModuleId(self.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.root_scope), id, None);
@@ -496,9 +556,19 @@ impl Compiler {
             files: Vec::new(),
         });
         self.module_cache.insert(key, id);
-        self.load_file(entry, id, span)?;
+        if let Err(error) = self.load_file(entry, id, span) {
+            self.module_failures.insert(id, error.clone());
+            return Err(error);
+        }
         self.apply_program_params(id);
         Ok(id)
+    }
+
+    fn module_load_result(&self, id: ModuleId) -> Result<ModuleId> {
+        match self.module_failures.get(&id) {
+            Some(error) => Err(error.clone()),
+            None => Ok(id),
+        }
     }
 
     /// Record the named parameters of an import so a program parameter among them reaches
@@ -599,6 +669,7 @@ impl Compiler {
         {
             return Ok(None);
         }
+        self.module_load_result(id)?;
         for (name, value, ty) in params {
             let entity = self.modules[id.0 as usize]
                 .param_entities
@@ -631,6 +702,13 @@ impl Compiler {
 
     /// Find `Name.jai` or `Name/module.jai` on the import path (and next to `from_dir`).
     pub fn find_module(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
+        // The public protocol name denotes the selected bootstrap even when a local
+        // module happens to have that name. Otherwise its types and storage diverge.
+        if name == "Preload"
+            && let Some(preload) = &self.options.preload
+        {
+            return Some(preload.clone());
+        }
         find_module_in(&*self.fs, &self.options.import_paths, name, from_dir)
     }
 
@@ -1162,36 +1240,48 @@ impl Compiler {
             );
         }
         if let Some((value, ty)) = provided {
-            // A scalar for a parameter with a written type (`DEFAULT_MSAA: s32 = 4`) takes
-            // that type: it becomes the declaration's value instead of an untyped constant.
-            let literal = match &value {
-                Value::Int(i) if *i >= 0 => Some(ast::ExprKind::Int(ast::Int128::new(*i as u128))),
-                Value::Bool(b) => Some(ast::ExprKind::Bool(*b)),
-                Value::Float(x) => Some(ast::ExprKind::Float(*x)),
-                Value::String(s) => Some(ast::ExprKind::Str(s.clone())),
-                _ => None,
-            };
-            let scalar_type = ty == TypeId::VOID
-                || (!matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
-                    && (self.types.is_integer(ty) || self.types.is_float(ty)));
-            if scalar_type
-                && let Some(kind) = literal
-                && let EntityKind::Decl {
-                    decl, ..
-                } = &mut self.entity_mut(id).kind
-                && decl.ty.is_some()
-            {
-                Rc::make_mut(decl).value = Some(ast::Expr {
-                    kind,
-                    span: param.span,
-                });
+            // Convert the original constant rather than reconstructing a literal AST:
+            // reconstruction loses lexical precision, relocation identity and declared types.
+            if let Some(target) = param.ty.as_ref().filter(|t| !procs::has_poly(t)) {
+                let expected = self.eval_type(scope, target)?;
+                let actual = if ty == TypeId::VOID {
+                    self.type_of_value(&value)
+                } else {
+                    ty
+                };
+                let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, self.scope_file(scope));
+                let op = self.convert(
+                    &mut f,
+                    lower::Operand::Const {
+                        ty: actual,
+                        value,
+                        untyped: ty == TypeId::VOID,
+                    },
+                    expected,
+                    param.span,
+                )?;
+                let op = if op.is_const() {
+                    op
+                } else {
+                    self.run_thunk(f, op, param.span)?
+                };
+                let Some(value) = op.const_value() else {
+                    return err(
+                        param.span,
+                        "module parameter conversion did not produce a constant",
+                    );
+                };
+                self.entity_mut(id).kind = EntityKind::Const {
+                    value,
+                    ty: expected,
+                };
                 return Ok(());
             }
             // A parameter without a written type is a constant like `NAME :: value`: given an
             // untyped number it stays untyped, so `MAX_FRAMES := 3` passes to a `u64`.
             let untyped = ty == TypeId::VOID
                 && param.ty.is_none()
-                && matches!(value, Value::Int(_) | Value::Float(_));
+                && matches!(value, Value::Int(_) | Value::Float(_, _));
             let entity = self.entity_mut(id);
             entity.kind = EntityKind::Const {
                 value,
@@ -1263,36 +1353,10 @@ impl Compiler {
                     filter,
                 } = &**boxed;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
-                let mut entry = self.using_target(eval_scope, value)?;
-                if let super::scope::UsingEntry::Module(_, slot) = &mut entry
-                    && matches!(
-                        filter,
-                        ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_)
-                    )
-                {
-                    *slot = Some(Rc::new(filter.clone()));
-                }
+                let entry = self.using_target(eval_scope, value)?;
+                let entry = self.filter_using_entry(eval_scope, entry, filter, stmt.span)?;
                 if exported
-                    && let super::scope::UsingEntry::Type(ty) = &entry
-                    && let crate::types::TypeKind::Enum(e) = *self.types.kind(*ty)
-                {
-                    // An exported `using Enum :: enum {...}` exports the members as constants.
-                    let members = self.types.enum_info(e).members.clone();
-                    for (name, v) in members {
-                        self.add_entity(
-                            scope,
-                            name,
-                            stmt.span,
-                            EntityKind::Const {
-                                value: Value::Int(v),
-                                ty: *ty,
-                            },
-                            true,
-                        );
-                    }
-                }
-                if exported
-                    && matches!(entry, super::scope::UsingEntry::Place { .. })
+                    && entry.member_type().is_some()
                     && self.scope(scope).kind == ScopeKind::Module
                 {
                     let module = self.scope(scope).module;
@@ -1317,7 +1381,13 @@ impl Compiler {
             return Ok(None);
         }
         self.scope_mut(scope).imports[index].loading = true;
-        let module = self.resolve_import(entry.from_scope, &entry.import)?;
+        let resolved = (|| {
+            let filter = self.resolve_name_filter(entry.from_scope, &entry.filter)?;
+            self.scope_mut(scope).imports[index].filter = filter;
+            self.resolve_import(entry.from_scope, &entry.import)
+        })();
+        self.scope_mut(scope).imports[index].loading = false;
+        let module = resolved?;
         self.scope_mut(scope).imports[index].module = Some(module);
         Ok(Some(module))
     }
@@ -1344,7 +1414,7 @@ impl Compiler {
                     let (value, ty, untyped) = self.eval_const_literal(from_scope, &arg.value)?;
                     let typed = matches!(value, Value::Bytes(_))
                         || matches!(self.types.kind(ty), crate::types::TypeKind::Enum(_))
-                        || (!untyped && matches!(value, Value::Int(_) | Value::Float(_)));
+                        || (!untyped && matches!(value, Value::Int(_) | Value::Float(_, _)));
                     (
                         value,
                         if typed {
@@ -1484,11 +1554,29 @@ impl Compiler {
     /// Add source text (an `#import,string` or a workspace build string) as a
     /// file of `module`. `label` names it in diagnostics.
     pub fn load_string(&mut self, label: &str, source: &str, module: ModuleId) -> Result<()> {
+        let scope = self.modules[module.0 as usize].scope;
+        self.load_string_in_scope(label, source, scope)
+    }
+
+    pub(super) fn load_string_in_scope(
+        &mut self,
+        label: &str,
+        source: &str,
+        target: ScopeId,
+    ) -> Result<()> {
+        let module = self.scope(target).module;
         let path = PathBuf::from(label);
         let file = self.sources.add(label.to_string(), source.into());
+        let mut origin_scope = Some(target);
+        while let Some(scope) = origin_scope {
+            if let Some(origin) = self.scope(scope).file {
+                self.source_origins.insert(file, self.source_origin(origin));
+                break;
+            }
+            origin_scope = self.scope(scope).parent;
+        }
         let ast = crate::parser::parse_file(file, source).map_err(Box::new)?;
-        let module_scope = self.modules[module.0 as usize].scope;
-        let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
+        let file_scope = self.new_scope(ScopeKind::File, Some(target), module, Some(file));
         self.files.push(FileInfo {
             id: file,
             path,
@@ -1496,8 +1584,12 @@ impl Compiler {
             scope: file_scope,
         });
         self.modules[module.0 as usize].files.push(file);
-        self.declare_stmts(module_scope, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
+        self.declare_stmts(target, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
         Ok(())
+    }
+
+    fn source_origin(&self, file: FileId) -> FileId {
+        self.source_origins.get(&file).copied().unwrap_or(file)
     }
 
     /// Load every module reachable through imports and expand all pending
@@ -1631,7 +1723,7 @@ fn value_class(value: &Value) -> Option<&'static str> {
         Value::Bool(_) => Some("bool"),
         Value::String(_) => Some("string"),
         Value::Int(_) => Some("integer"),
-        Value::Float(_) => Some("float"),
+        Value::Float(_, _) => Some("float"),
         _ => None,
     }
 }

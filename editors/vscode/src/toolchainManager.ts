@@ -28,13 +28,15 @@ export class ToolchainManager {
   /** This version's archive; undefined on a platform without prebuilt releases. */
   readonly asset: string | undefined;
   readonly store: ToolchainStore;
+  private readonly pinnedChecksums: PinnedChecksums | undefined;
   private downloading: Promise<Installed | undefined> | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly log: vscode.LogOutputChannel,
   ) {
-    this.version = context.extension.packageJSON.version as string;
+    this.pinnedChecksums = this.readPinned();
+    this.version = this.pinnedChecksums?.version ?? (context.extension.packageJSON.version as string);
     this.asset = assetFor(process.platform, process.arch, this.version);
     this.store = new ToolchainStore(context.globalStorageUri.fsPath);
   }
@@ -45,6 +47,10 @@ export class ToolchainManager {
 
   /** Checksums pinned into this build of the extension by the release workflow. */
   pinned(): PinnedChecksums | undefined {
+    return this.pinnedChecksums;
+  }
+
+  private readPinned(): PinnedChecksums | undefined {
     try {
       const file = path.join(this.context.extensionPath, "toolchain-checksums.json");
       return JSON.parse(fs.readFileSync(file, "utf8")) as PinnedChecksums;
@@ -56,11 +62,17 @@ export class ToolchainManager {
   /** The installed toolchain: this extension's version if present, else the newest other one. */
   async installed(): Promise<Installed | undefined> {
     if (!this.asset) return undefined;
-    if (this.store.isInstalled(this.version, this.asset)) {
+    const hasPinsForVersion = this.pinnedChecksums?.version === this.version;
+    const expected = hasPinsForVersion ? this.pinnedChecksums!.sha256[this.asset] : undefined;
+    const currentInstalled = hasPinsForVersion
+      ? Boolean(expected && this.store.isInstalled(this.version, this.asset, expected))
+      : this.store.isInstalled(this.version, this.asset);
+    if (currentInstalled) {
       return { version: this.version, dir: this.store.binDir(this.version, this.asset) };
     }
     // Each version's own archive name: one downloaded by an older extension unpacked as jaic-*.
     for (const version of await this.store.installedVersions()) {
+      if (version === this.version) continue; // this version was checked against the current pin above
       const asset = assetFor(process.platform, process.arch, version);
       if (asset && this.store.isInstalled(version, asset)) {
         return { version, dir: this.store.binDir(version, asset) };

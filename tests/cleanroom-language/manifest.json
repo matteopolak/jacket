@@ -1,0 +1,79 @@
+[
+  {
+    "name": "declarations-ranges",
+    "main": "cases/declarations-ranges/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "enums, named struct fields, fixed arrays, inclusive range iteration, and explicit conversions"
+  },
+  {
+    "name": "procedures-defer",
+    "main": "cases/procedures-defer/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "typed and inferred defaults, named argument skipping, pointer mutation, and defer at scope exit"
+  },
+  {
+    "name": "load-scope",
+    "main": "cases/load-scope/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "a loaded file starts in export scope even when the caller is in file scope"
+  },
+  {
+    "name": "module-scopes",
+    "main": "cases/module-scopes/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "module and export declarations, plus an independently scoped loaded file"
+  },
+  {
+    "name": "private-module-member",
+    "main": "cases/private-module-member/main.jai",
+    "mode": "check_error",
+    "expected_stderr_contains": "module_private",
+    "expected_error_reason": "A #scope_module declaration is visible inside its module but is not importer-visible."
+  },
+  {
+    "name": "import-only",
+    "main": "cases/import-only/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "using,only on a named module import and qualified access through its alias"
+  },
+  {
+    "name": "import-except",
+    "main": "cases/import-except/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "using,except with a computed-nonexistent name and remaining qualified access"
+  },
+  {
+    "name": "aggregate-map",
+    "main": "cases/aggregate-map/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "using,map rename, omission, and lvalue access to original aggregate storage"
+  },
+  {
+    "name": "module-parameters",
+    "main": "cases/module-parameters/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "module parameter defaults, distinct instances, and deduplication of identical argument lists"
+  },
+  {
+    "name": "compile-time-polymorphism",
+    "main": "cases/compile-time-polymorphism/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "polymorphic type inference, #run, #assert, #if, and range evaluation"
+  },
+  {
+    "name": "expansion-insertion",
+    "main": "cases/expansion-insertion/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "#expand caller-scope name access through a caller-scope name and #insert of source text"
+  }
+]

@@ -54,10 +54,12 @@ Environment: `JAILSP` (tests only) names the `jailsp` for the end-to-end spec; `
 `editors/nvim/tests/` holds plain-Lua specs run by `tests/run.lua` with a tiny harness (`harness.lua`), no dependencies:
 
 ```sh
-cd editors/nvim && JAILSP=target/debug/jailsp nvim --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'
+cd editors/nvim && JAILSP=target/debug/jailsp nvim -n --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'
 just nvim-test          # builds a debug jailsp, then runs everything
 just nvim-test --unit   # without the end-to-end spec (what `just check` runs)
 ```
+
+The test runner disables swap files (`-n`) so isolated temporary buffers do not depend on the user's swap directory.
 
 | Spec | Covers |
 | --- | --- |
@@ -71,7 +73,7 @@ Specs that use shell scripts skip on Windows. `just check` runs the unit specs o
 
 ### Publishing
 
-`vim.pack` and plugin managers need a repository whose root is the plugin, so the `neovim` job in `release.yml` (after `publish`, like `homebrew`) copies `editors/nvim/` to `matteopolak/jai.nvim` (`main`, replaced each time) and tags it `vX.Y.Z`. Before pushing it writes the tag's version into `lua/jai/version.lua` (the tag must equal `Cargo.toml`'s version) and the release's archive checksums into `lua/jai/checksums.lua`.
+`vim.pack` and plugin managers need a repository whose root is the plugin, so the `neovim` job in `release.yml` copies `editors/nvim/` to `matteopolak/jai.nvim` (`main`, replaced each time) and tags it with the editor version. The plugin manifest keeps the compiler version and its archive checksums; the optional `editor_version` workflow input can advance the mirror tag independently. Existing tags are never moved: an identical rerun is allowed, while different content under an existing tag fails and requires a new editor version. The installer records the verified archive hash and will not select a cached same-version toolchain whose hash differs from the new pin.
 
 Setup, once: create the empty repository `matteopolak/jai.nvim`, generate a key pair (`ssh-keygen -t ed25519 -N '' -f nvim-mirror`), add the public key as a deploy key of `jai.nvim` with write access, and store the private key as the `NVIM_MIRROR_DEPLOY_KEY` secret of this repository. Without the secret the job says it skipped. The job checks GitHub's published ed25519 host key fingerprint before pushing. A dry run (workflow started without a tag) stamps and stops.
 

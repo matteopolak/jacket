@@ -35,6 +35,9 @@ Derived :: struct { #as using base: Base; kind = .B; value: int; }
 
 Elsewhere:
 
+- Aggregate `using,only(...)` and `using,except(...)` keep their filters on local declarations and standalone statements. Computed name arrays retain whether the filter includes or excludes names. Nonexistent names in a filter are allowed.
+- `using,map(mapper) value;` runs a compile-time procedure on a writable array of copied member-name string views. A replacement name resolves back to the original member; an empty replacement omits the short name. Qualification through the original aggregate still works, and writes through mapped names update the original storage. Module-import mapping is not established by the reviewed guide and is rejected.
+
 - `using p;` in a block, or a `using p: *Pt` parameter, brings the fields into scope {#using.11}.
 - `using basket.tag;` on an enum-typed value brings in the enum's members, so `case MANGO;` works in a switch {#using.14}.
 - `using Type.{...};` in a procedure copies the literal into an anonymous local. It is writable, where Jai uses read-only data {#using.12}.
@@ -46,6 +49,12 @@ Elsewhere:
 ## How to change it
 
 Member lookup order is in `find_member`: direct members come before promoted ones, so a direct member shadows a promoted one {#using.15}. Default overrides resolve through `override_target`/`override_path` and apply when `default_initializer` builds the default value.
+
+Inline `#overlay` and `#place` targets use the same promoted-field resolver as
+ordinary member lookup, constrained to fields already laid out. Nested `using`
+embedding preserves its accumulated offset and each embedding's filter.
+Pointer-backed promoted storage has no inline layout offset and is rejected as
+an overlay/place target.
 
 Tests: `tests/stdlib/using-pointer-member.jai`, `using-member-default-override.jai`, `struct-body-member-path-override.jai`, `module-using-global.jai`, `module-using-import-reexport.jai`, `using-discard-struct-constants.jai`, `using-global-of-own-struct.jai`.
 

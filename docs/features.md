@@ -40,13 +40,13 @@ An independently written `stdlib/` covering the modules real programs use (Basic
 
 ### Extensions
 
-Modules only jaic has live in [`stdlib/Extensions/`](specs/stdlib/README.md) and are imported by that path:
+Modules only jaic has live in [`stdlib/Extensions/`](extensions/extensions.md) and are imported by that path:
 
 | Module | What it is |
 | --- | --- |
-| [`Extensions/WebGPU`](specs/stdlib/README.md) | The whole `webgpu.h` API: one program draws in a window on macOS, Linux and Windows (wgpu-native ships in the release archives) and in the playground's Render tab (browsers with WebGPU and JSPI) |
+| [`Extensions/WebGPU`](extensions/webgpu.md) | The whole `webgpu.h` API: one program draws in a window on macOS, Linux and Windows (wgpu-native ships in the release archives) and in the playground's Render tab (browsers with WebGPU and JSPI) |
 | [`Extensions/Long_Double`](language/long-double.md) | C's 16-byte `long double` |
-| [`Extensions/Args`](specs/stdlib/README.md) | A clap-style command-line parser generated at compile time: option notes, subcommands, help, completions |
+| [`Extensions/Args`](extensions/args.md) | A clap-style command-line parser generated at compile time: option notes, subcommands, help, completions |
 | `Extensions/Jai_Format` | The formatter `jaifmt` is built on, as a library |
 | `Extensions/Wasi_Runtime` | The runtime of `-os wasm` builds, imported automatically |
 

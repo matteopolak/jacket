@@ -1,5 +1,5 @@
 // Base64 at run time: the RFC 4648 vectors with and without padding, base64url, custom
-// alphabets, strict decoding (bad lengths, stray bits, characters after the padding) and round
+// alphabets, permissive partial tails and invalid-byte handling, and round
 // trips of every byte value over many lengths.
 #import "Basic";
 #import "Base64";
@@ -49,15 +49,26 @@ main :: () {
     free(url);
     free(url_padded);
 
-    // Whitespace is skipped; everything else that is not in the alphabet fails.
-    decoded, ok = base64_decode("Zm9v\r\nYm Fy\t");
+    // Line feed is the only ignored whitespace. Other invalid bytes stop decoding with
+    // whatever output was already produced.
+    decoded, ok = base64_decode("Zm9v\nYmFy\n");
     assert(ok && decoded == "foobar");
     free(decoded);
-    bad := string.["Z", "Zg=", "Zg===", "Zm9vY", "Zh==", "Zm9=", "Zm9v!", "Zg==Zg==", "Z=g=", "====", "Zm9vYmF=y"];
-    for bad {
-        result, success := base64_decode(it);
-        assert(!success && result == "", "'%' must be rejected (got '%')", it, result);
-    }
+    decoded, ok = base64_decode("Zm9v\r\nYmFy");
+    assert(!ok && decoded == "foo");
+    free(decoded);
+    decoded, ok = base64_decode("Zm9v!");
+    assert(!ok && decoded == "foo");
+    free(decoded);
+    decoded, ok = base64_decode("Zg==Zg==");
+    assert(ok && decoded == "f");
+    free(decoded);
+    decoded, ok = base64_decode("Zg=");
+    assert(ok && decoded == "f");
+    free(decoded);
+    decoded, ok = base64_decode("Z");
+    assert(ok && decoded == "");
+    free(decoded);
 
     // Custom alphabets.
     reversed := "/+9876543210zyxwvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA";

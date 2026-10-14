@@ -171,7 +171,7 @@ function M.install(opts, done)
     end)
   end
 
-  local function unpack(archive)
+  local function unpack(archive, actual_hash)
     local unpacked = vim.fs.joinpath(staging, 'unpacked')
     vim.fn.mkdir(unpacked, 'p')
     run({ tar_program(), '-xf', archive, '-C', unpacked, '--strip-components=1' }, function(out)
@@ -183,6 +183,7 @@ function M.install(opts, done)
           return fail(('%s has no %s'):format(asset, toolchain.executable_name(tool)))
         end
       end
+      vim.fn.writefile({ vim.json.encode({ version = opts.version, asset = asset, sha256 = actual_hash }) }, vim.fs.joinpath(unpacked, '.jai-installed.json'))
       local target = vim.fs.joinpath(root, opts.version)
       remove(target)
       local renamed, err = vim.uv.fs_rename(unpacked, target)
@@ -216,7 +217,7 @@ function M.install(opts, done)
           return fail(verify_err)
         end
         log(('%s: SHA-256 %s (verified)'):format(asset, actual))
-        unpack(archive)
+        unpack(archive, actual)
       end)
     end)
   end

@@ -906,7 +906,7 @@ impl Compiler {
                 value, ..
             } => match value {
                 Value::Int(v) => Ok(Opd::Imm(Imm::Int(v))),
-                Value::Float(v) => Ok(Opd::Imm(Imm::Float(v))),
+                Value::Float(v, _) => Ok(Opd::Imm(Imm::Float(v))),
                 Value::Bool(v) => Ok(Opd::Imm(Imm::Int(v as i128))),
                 Value::Null => Ok(Opd::Imm(Imm::Int(0))),
                 _ => err(e.span, "unsupported constant in an #asm operand"),

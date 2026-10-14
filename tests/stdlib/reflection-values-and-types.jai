@@ -94,7 +94,9 @@ other_values :: () {
     flag: bool;
 
     assert(set_value_from_string(flag, "true") && flag && set_value_from_string(flag, "false") && !flag);
-    assert(!set_value_from_string(flag, "truest") && !set_value_from_string(flag, "TRUE") && !set_value_from_string(flag, "1"));
+    bool_suffix := "truest";
+    assert(set_value_from_string(flag, *bool_suffix) && flag && bool_suffix == "st", "boolean parsing consumes the true prefix");
+    assert(!set_value_from_string(flag, "TRUE") && !set_value_from_string(flag, "1"));
     rest := "true)";
 
     assert(set_value_from_string(flag, *rest) && flag && rest == ")");

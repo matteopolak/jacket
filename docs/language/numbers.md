@@ -6,13 +6,13 @@ The scalar number types: `s8`..`s64`, `u8`..`u64`, `float32`/`float`, `float64`,
 
 ## How it works
 
-Literals are untyped constants until a declaration, argument or operator gives them a type. An untyped integer defaults to `s64` {#num.2}. An untyped float is `float32` unless it has 8 or more significant digits, or is nonzero and outside `float32`'s normal range (above `3.4e38` or below `1.2e-38`); then it is `float64` (`float_literal_type` in `sema/expr.rs`) {#num.3}. Leading zeros and the fraction's trailing zeros do not count, so `16777216.0` is `float64` and `0.12345670` is `float32`. Such a literal can't be stored in a `float32` without a cast: `x: float32 = 1.0e39;` is an error, `cast(float32) 1.0e39` is infinity {#num.18}. An integer literal must fit in 64 bits {#num.19}. A `0h` bit-pattern literal is `float32` with up to 8 hex digits and `float64` with more (`0h7FEFFFFF_FFFFFFFF`), whatever its value; either converts to an expected float type.
+Literals are untyped constants until a declaration, argument or operator gives them a type. An untyped integer defaults to `s64` {#num.2}. Decimal float default precision uses the reviewed public lexer heuristic: digits before the decimal are excluded, trailing fractional zeros are ignored, and eight or more counted fractional digits select `float64`. A normal binary exponent outside -126 through 127 also selects `float64`; zero, subnormal float64 values, infinity and NaN do not have a big normal exponent under this rule {#num.3}. The compiler exports the documented default/required precision flags with literal AST records. A magnitude outside float32's normal range cannot be stored implicitly in a `float32`: `x: float32 = 1.0e39;` is an error, while `cast(float32) 1.0e39` is infinity {#num.18}. An integer literal must fit in 64 bits {#num.19}. A `0h` bit-pattern literal requires exactly 4, 8 or 16 hex digits (underscores excluded); 4/8 digits select `float32` and 16 select `float64`.
 
 ```jai
 a := 5;                    // s64
 b := 2.25193;              // float32
-c := 12342345234.0;        // float64: too many significant digits
-d := 16777216.0;           // float64: 8 significant digits
+c := 0.12345678;          // float64: 8 counted fractional digits
+d := 16777216.0;          // float32: whole digits do not count in the heuristic
 u: u8 = 200;
 w: u16 = u;                // widening is implicit
 ```

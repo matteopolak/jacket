@@ -39,7 +39,7 @@ pub const COMMON_MODULES: &[&str] = &[
 const MAX_IMPORTS: usize = 4;
 
 /// Modules the compiler loads itself; they are never imported by name.
-pub const COMPILER_INTERNAL_MODULES: &[&str] = &["Preload", "Runtime_Support"];
+pub const COMPILER_INTERNAL_MODULES: &[&str] = &["prelude", "Preload", "Runtime_Support"];
 
 /// Whether the module file `text` declares `name` for its importers: at its top level (or in a
 /// top-level `#if`), outside `#scope_file` and `#scope_module` sections. Only a file whose lines
@@ -222,7 +222,7 @@ impl Compiler {
         if name.len() < 2 || name.starts_with("__") {
             return found;
         }
-        let Some(stdlib) = self.options.preload.as_deref().and_then(Path::parent) else {
+        let Some(stdlib) = self.options.stdlib_root() else {
             return found;
         };
         let mut modules: Vec<(String, bool)> = self

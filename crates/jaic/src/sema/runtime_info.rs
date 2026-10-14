@@ -67,9 +67,9 @@ impl Compiler {
     }
 
     /// Fill `__runtime_info` (if the program uses it) from the final program.
-    pub(super) fn fill_runtime_info(&mut self) {
+    pub(super) fn fill_runtime_info(&mut self) -> Result<()> {
         let Some(info) = self.runtime_info else {
-            return;
+            return Ok(());
         };
         let reloc = |offset: u64, target: ir::GlobalId| ir::Reloc {
             offset,
@@ -106,11 +106,15 @@ impl Compiler {
         let mut segment_relocs = Vec::new();
         for (i, &(global, size, read_only)) in data_globals.iter().enumerate() {
             let at = i * SEGMENT_INFO_SIZE as usize;
-            let tag = if read_only {
-                SEGMENT_RDATA
-            } else {
-                SEGMENT_DATA
-            };
+            let tag = self
+                .registered_data_segments
+                .get(&global)
+                .copied()
+                .unwrap_or(if read_only {
+                    SEGMENT_RDATA
+                } else {
+                    SEGMENT_DATA
+                });
             segments[at..at + 2].copy_from_slice(&tag.to_le_bytes());
             segments[at + 8..at + 16].copy_from_slice(&size.to_le_bytes());
             segment_relocs.push(reloc(at as u64 + 16, global));
@@ -136,6 +140,9 @@ impl Compiler {
         let g = &mut self.program.globals[info.0 as usize];
         g.init = bytes;
         g.relocs = vec![reloc(8, table), reloc(16, gdi)];
+        self.interp
+            .refresh_global(&self.program, info)
+            .map_err(|t| Box::new(Diagnostic::error(Span::NONE, t.into_message())))
     }
 
     /// Whether the compile-time function `root` can reach the `get_type_table` primitive

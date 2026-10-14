@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import {
   type Fetch,
   RELEASE_ASSETS,
+  INSTALLED_MARKER,
   ToolchainError,
   ToolchainStore,
   archivePrefix,
@@ -112,6 +113,20 @@ describe("versions", () => {
     assert.ok(compareVersions("1.0.0", "1.0.0") === 0);
     assert.deepEqual(["0.2.0", "0.10.1", "0.3.0"].toSorted(compareVersions), ["0.2.0", "0.3.0", "0.10.1"]);
   });
+
+  it("does not reuse a cached toolchain when the pinned archive checksum changed", async () => {
+    const storage = await fs.mkdtemp(path.join(tmpdir(), "jai-toolchain-pin-"));
+    const store = new ToolchainStore(storage, "linux");
+    const asset = assetFor("linux", "x64", "0.17.0")!;
+    const bin = store.binDir("0.17.0", asset);
+    await fs.mkdir(bin, { recursive: true });
+    await fs.writeFile(store.toolPath("0.17.0", asset, "jailsp"), "old binary");
+    await fs.writeFile(path.join(store.versionDir("0.17.0"), INSTALLED_MARKER), JSON.stringify({ version: "0.17.0", asset, sha256: "a".repeat(64) }));
+    assert.ok(store.isInstalled("0.17.0", asset));
+    assert.ok(!store.isInstalled("0.17.0", asset, "b".repeat(64)));
+    assert.ok(store.isInstalled("0.17.0", asset, "a".repeat(64)));
+    await fs.rm(storage, { recursive: true, force: true });
+  });
 });
 
 // A fake release: archives are directories written by `unpack`, so no tar is needed.
@@ -131,8 +146,8 @@ function fakeRelease(files: Record<string, Uint8Array | string>) {
 function fakeUnpack(asset: string, tools = ["jaic", "jailsp", "jailint", "jaifmt"]) {
   return async (_archive: string, into: string) => {
     const dir = path.join(into, archiveRoot(asset));
-    await fs.mkdir(path.join(dir, "stdlib"), { recursive: true });
-    await fs.writeFile(path.join(dir, "stdlib", "module.jai"), "");
+    await fs.mkdir(path.join(dir, "stdlib", "prelude"), { recursive: true });
+    await fs.writeFile(path.join(dir, "stdlib", "prelude", "module.jai"), "");
     for (const tool of tools) await fs.writeFile(path.join(dir, tool), "#!/bin/sh\n");
   };
 }
@@ -181,7 +196,7 @@ describe("install", () => {
     });
     assert.equal(dir, path.join(storage, "toolchain", "0.4.0", "jaic-linux-x64"));
     assert.ok(store.isInstalled("0.4.0", asset));
-    assert.ok(existsSync(path.join(dir, "stdlib", "module.jai")), "the stdlib stays next to the binaries");
+    assert.ok(existsSync(path.join(dir, "stdlib", "prelude", "module.jai")), "the stdlib stays next to the binaries");
     assert.equal(statSync(path.join(dir, "jailsp")).mode & 0o111, 0o111, "executable bits are set");
     assert.deepEqual(await fs.readdir(store.root), ["0.4.0"], "older versions and staging leftovers are removed");
     assert.deepEqual(requests, [downloadUrl("0.4.0", asset)], "pinned checksums need no SHA256SUMS request");
@@ -282,7 +297,7 @@ describe("install", () => {
       pinned: { version: "0.4.0", sha256: { [asset]: sha256(bytes) } },
       log: () => {},
     });
-    assert.ok(existsSync(path.join(dir, "stdlib", "module.jai")));
+    assert.ok(existsSync(path.join(dir, "stdlib", "prelude", "module.jai")));
     assert.ok(store.isInstalled("0.4.0", asset));
   });
 

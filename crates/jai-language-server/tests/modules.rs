@@ -11,7 +11,7 @@ fn environment() -> Environment {
             let mut options = jaic::sema::Options::host();
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
             options.import_paths = vec![dir.join("modules"), stdlib.clone()];
-            options.preload = Some(stdlib.join("prelude/module.jai"));
+            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
             options
         }),
     }

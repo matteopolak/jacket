@@ -324,7 +324,7 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         .import_paths
         .extend(options.import_dirs.iter().cloned());
     copts.import_paths.push(options.stdlib.clone());
-    copts.preload = Some(options.stdlib.join("prelude/module.jai"));
+    copts.preload = Some(options.stdlib.join(jaic::PRELOAD_ENTRY));
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
         base: main_dir.clone(),
     });

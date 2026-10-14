@@ -72,10 +72,9 @@ hashes :: (long: string) {
 }
 
 crc :: (long: string) {
-    assert(crc64("123456789") == 0x6c40df5f0b497347, "CRC-64/ECMA-182 check value: %", formatInt(crc64("123456789"), base = 16));
-    assert(crc64_we("123456789") == 0x62ec59e3f1a4f00a, "CRC-64/WE check value: %", formatInt(crc64_we("123456789"), base = 16));
-    assert(crc64("") == 0 && crc64_we("") == 0 && crc64("a") == 0x548f120162451c62);
-    assert(crc64(long) == 0x98aba5ce5ce043a1 && crc64_we(long) == 0x6a0ff4f988a7174d);
+    assert(crc64("123456789") == 0x62ec59e3f1a4f00a, "CRC-64/WE check value: %", formatInt(crc64("123456789"), base = 16));
+    assert(crc64("") == 0 && crc64("a") == 0xce73f427acc0a99a);
+    assert(crc64(long) == 0x6a0ff4f988a7174d);
 }
 
 md5_digests :: (long: string) {

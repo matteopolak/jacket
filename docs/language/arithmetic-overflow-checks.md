@@ -6,7 +6,7 @@
 
 ## How it works
 
-`check_binary` in `sema/expr.rs` emits the operation, then calls `emit_overflow_check` when the option is on, the frame is not `no_aoc`, and the type is a non-enum integer. That emits `Intrinsic::{S,U}{Add,Sub,Mul}Overflow` (`(a, b, width_bytes) -> bool`) and, if it is set, a call to `__arithmetic_overflow(left, right, type_code, line, filename)` in `stdlib/Runtime_Support.jai`.
+`check_binary` in `sema/expr.rs` emits the operation, then calls `emit_overflow_check` when the option is on, the frame is not `no_aoc`, and the type is a non-enum integer. That emits `Intrinsic::{S,U}{Add,Sub,Mul}Overflow` (`(a, b, width_bytes) -> bool`) and, if it is set, a call to `__arithmetic_overflow(left, right, type_code, line, filename)` in `stdlib/Runtime_Support/module.jai`.
 
 The interpreter computes the intrinsic in 128-bit arithmetic; LLVM uses `llvm.{s,u}{add,sub,mul}.with.overflow`.
 
@@ -32,4 +32,4 @@ Not checked: constant folding (wraps), unary minus, shifts, pointer arithmetic, 
 
 ## Dependencies
 
-`sema/expr.rs`, `sema/stmt.rs`, `sema/procs.rs`, `ir.rs`, `interp/mod.rs`, `jaic-llvm/src/lower.rs`, `stdlib/Runtime_Support.jai`, `build.rs`.
+`sema/expr.rs`, `sema/stmt.rs`, `sema/procs.rs`, `ir.rs`, `interp/mod.rs`, `jaic-llvm/src/lower.rs`, `stdlib/Runtime_Support/module.jai`, `build.rs`.

@@ -64,9 +64,27 @@ end
 function M.installed_versions()
   local versions = {}
   local jailsp = M.executable_name('jailsp')
+  local wanted = M.wanted_version()
+  local expected
+  local pinned_version = false
+  local pins_ok, pins = pcall(require, 'jai.checksums')
+  if pins_ok and pins.version == wanted then
+    pinned_version = true
+    local uname = vim.uv.os_uname()
+    local asset = require('jai.install').asset_for(uname.sysname, uname.machine)
+    expected = asset and pins.sha256[asset] or nil
+  end
   for name, kind in vim.fs.dir(M.root()) do
     if kind == 'directory' and name:match('^%d+%.%d+%.%d+') and vim.uv.fs_stat(vim.fs.joinpath(M.root(), name, jailsp)) then
-      versions[#versions + 1] = name
+      local usable = true
+      if name == wanted and pinned_version then
+        local marker = vim.fs.joinpath(M.version_dir(name), '.jai-installed.json')
+        local ok, data = pcall(function()
+          return vim.json.decode(table.concat(vim.fn.readfile(marker), '\n'))
+        end)
+        usable = expected ~= nil and ok and type(data) == 'table' and data.version == name and data.sha256 == expected
+      end
+      if usable then versions[#versions + 1] = name end
     end
   end
   table.sort(versions, newer)

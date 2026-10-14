@@ -6,7 +6,7 @@ Every ordinary procedure receives a hidden pointer to a `Context` record: alloca
 
 ## How it works
 
-The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default {#ctx.3}.
+The record starts from `Context_Base` in `stdlib/Runtime_Support/module.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default {#ctx.3}.
 
 ```jai
 #add_context depth: int = 7;
@@ -45,4 +45,4 @@ Tests: `tests/stdlib/push-context-defer-pop.jai`, `tests/stdlib/add-context-cons
 
 ## Dependencies
 
-`stdlib/Runtime_Support.jai`, `stdlib/prelude/module.jai`, `sema/procs.rs`, `sema/stmt.rs`, `sema/structs.rs`, `sema/modules.rs`.
+`stdlib/Runtime_Support/module.jai`, `stdlib/prelude/module.jai`, `sema/procs.rs`, `sema/stmt.rs`, `sema/structs.rs`, `sema/modules.rs`.

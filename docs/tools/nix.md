@@ -6,7 +6,7 @@
 
 | Output | Contents |
 | --- | --- |
-| `packages.<system>.jaic` (also `default`) | `bin/jaic`, `bin/jailsp` and `bin/jailint`, with `stdlib/` and `prelude/` |
+| `packages.<system>.jaic` (also `default`) | `bin/jaic`, `bin/jailsp` and `bin/jailint`, with `stdlib/` |
 | `packages.<system>.jaifmt` | `bin/jaifmt`, compiled from `jaifmt/main.jai` by the `jaic` package |
 | `apps.<system>.{default,jaic,jailsp,jailint,jaifmt}` | `nix run` entry points |
 | `devShells.<system>.default` | pinned nightly Rust, LLVM 23 and Clang, Python 3.14, Node, the env vars below |
@@ -54,7 +54,7 @@ Development shell (from a checkout): `nix develop`, then `cargo build -p jaic-cl
 
 - **Rust**: `rust-toolchain.toml` pins a nightly, which nixpkgs does not ship. The flake reads that file through oxalica's `rust-overlay` (`rust-bin.fromRustupToolchainFile`) and builds with `makeRustPlatform`, so Nix and rustup use the same compiler. `.cargo/config.toml` (the crate publish-age policy, which needs crates.io) is left out of the build source.
 - **LLVM**: nixpkgs' `llvmPackages_23`. `LLVM_SYS_231_PREFIX` points at `llvm.dev`, which holds `bin/llvm-config`; `libLLVM` is linked dynamically from the store.
-- **Layout**: `jaic` finds its standard library in `stdlib/` next to the executable (`jaic::stdlib_dir`; `JAIC_STDLIB` overrides it), and `stdlib/prelude/module.jai` loads `prelude`. The real binaries therefore live in `libexec/jaic/` beside `stdlib/` and `prelude/`, the same layout as the release archives ([releases](releases.md)). `bin/` holds `makeWrapper` scripts that exec the real path.
+- **Layout**: `jaic` finds its standard library in `stdlib/` next to the executable (`jaic::stdlib_dir`; `JAIC_STDLIB` overrides it), with bootstrap at `stdlib/prelude/module.jai`. The real binaries therefore live in `libexec/jaic/` beside `stdlib/`, the same layout as the release archives ([releases](releases.md)). `bin/` holds `makeWrapper` scripts that exec the real path.
 - **Wrapper**: `bin/jaic` sets `JAI_LIBCLANG` (only if unset) to nixpkgs' libclang 23 for the bindings generator, and appends the stdenv C compiler, its binutils (`cc`, `ar`) and, on macOS, LLVM's `dsymutil` to `PATH`. `jaic` needs those to link. They are appended, so a `cc` already on the user's `PATH` wins.
 - **Install check**: after installing, the derivation runs `examples/compile-time-record.jai` (exit 42) and a hello world under `jaic -interp`, then builds and runs both natively, and lints the hello world with `jailint -D warnings`. A broken wrapper or layout fails the build.
 - **jaifmt**: `nix/jaifmt.nix` runs `jaic jaifmt/main.jai -O2 -no_debug_info` with the `jaic` package as a build input, then formats a snippet as its check.

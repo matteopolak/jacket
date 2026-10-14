@@ -14,13 +14,14 @@ How `crates/jaic/src/sema` loads modules, binds module parameters, and expands t
 
 ### Member lookup
 
-Every way of reaching a module's names goes through `module_lookup` in `scope.rs`: a plain `#import`, `M.name`, `using M;`, re-exporting modules, sibling-file imports and IDE completion. It returns declarations, re-exports, exported `using` members (`Found::Using`) and module parameters.
+Every way of reaching a module's names goes through `module_lookup` in `scope.rs`: a plain `#import`, `M.name`, `using M;` and re-exporting modules. It returns declarations, re-exports, exported `using` members (`Found::Using`) and module parameters. Qualified lookup respects the same export boundary.
 
 This is deliberate. Separate per-path lookups once diverged: `GL.glViewport` failed while a plain `glViewport` worked, because only one path knew about GL's `using gl;` procedure table. `tests/stdlib/module-member-resolution.jai` checks that the paths agree.
 
 - A module-level `using global;` outside `#scope_file` is recorded in `Module.exported_usings`. An exported `using X :: #import "Y";` re-exports `Y`'s names (`Module.exported_using_imports`, followed with a cycle guard).
 - `module_declarations` sees only the module's own declarations and re-exports. Use it only for fixed compiler names (`Context`, `__arithmetic_overflow`), never for user-written names.
-- As a last resort an unknown name is looked up in the `#scope_file` imports of the module's other files (`lookup_sibling_file_imports`).
+- File-local imports participate only in lookup from that file. Excluded import names and sibling-file private imports are never consulted as a fallback.
+- Reexport lookup applies the originating import's `only`/`except` filter to both declarations and exported aggregate members. A separately exported named alias retains qualified access to all of its module's exports. Explicit procedure aliases preserve their overload set and default/named arguments; unfiltered reexports preserve mutable storage and nominal type identity. Merging separate filtered overload sources remains unspecified by the reviewed guide.
 
 ### Top-level expansion
 

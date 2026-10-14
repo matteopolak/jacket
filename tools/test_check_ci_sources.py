@@ -33,7 +33,7 @@ class PublicIncludes(unittest.TestCase):
         self.assertEqual(self.inspect("../../../stdlib/prelude/module.jai", "stdlib/prelude/module.jai"), (1, []))
 
     def test_vendor_inputs_are_excluded_without_exceptions(self):
-        for path in ("vendor/compiler/modules/module.jai", "vendor/other/module.jai"):
+        for path in ("vendor/dependency/module.jai", "vendor/other/module.jai"):
             _, errors = self.inspect("../../../" + path, path)
             self.assertIn("excluded input", errors[0])
 

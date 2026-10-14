@@ -38,6 +38,7 @@ Jai language behavior as implemented by `jaic`.
 - [Type values, identity and type info](language/type-values-and-info.md)
 - [Unions and tagged unions](language/unions.md)
 - [using](language/using.md)
+- [Compiler compatibility questions](specs/stdlib/compiler-questions.md): unresolved API contracts and implementation limits
 
 ## Metaprogramming
 
@@ -48,9 +49,15 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 - [Compile-time values, globals and runtime info](metaprogramming/compile-time-data-and-state.md)
 - [Compile-time execution (`#run`)](metaprogramming/compile-time-execution.md)
 - [Compiler module (Jai side)](metaprogramming/compiler-module.md)
+- [Independent compiler facades](compiler/compiler-facades.md): current supported helpers, traversal/printing and focused test overlay
+- [Compiler-managed global data](compiler/compiler-global-data.md): registered storage identity, segment handles and compile-time/target runtime records
+- [Literal precision](compiler/literal-precision.md): contextual defaults, required precision, aliases, folding, overloads and module arguments
+- [Browser integration status](compiler/browser-integration-status.md): explicit source-library embedding, supported Compiler regression and remaining integration failures
+- [Using-filter propagation](compiler/using-filter-propagation.md): parameter/macro bindings, embedded filters, mapped storage and safe Code reconstruction
+- [Independent runtime Jai lexer](compiler/runtime-jai-lexer.md): implementation, supported recovery and interpreter/native verification
 - [Compiler records (messages, syntax trees, type descriptors)](metaprogramming/compiler-records.md)
 - [Metaprogram plugins (`+Name`)](metaprogramming/metaprogram-plugins.md)
-- [Preload and Runtime_Support bootstrap](specs/jai/README.md)
+- [Bootstrap and Runtime_Support](specs/jai/README.md)
 - [Reflection and Type_Info](metaprogramming/reflection-and-type-info.md)
 - [Workspaces and metaprograms](metaprogramming/workspaces.md)
 
@@ -59,6 +66,8 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 How `crates/jaic`, the interpreter and the language server work.
 
 - [Compiler architecture](compiler/architecture.md)
+- [Compiler integration handoff](compiler-integration-handoff.md): source build, canonical bootstrap and runtime contract for independent library workers
+- [Clean-room compiler implementation plan](compiler/cleanroom-implementation-plan.md)
 - [Diagnostics](compiler/diagnostics.md): error message style guide, rendering, runtime failures, exit statuses
 - [Format string check](compiler/format-string-check.md): `print` format strings against their argument count
 - [jaic `#asm` blocks](compiler/asm.md)
@@ -73,6 +82,8 @@ How `crates/jaic`, the interpreter and the language server work.
 - [Doc comments](compiler/doc-comments.md): the Markdown comment convention (parameters, intra-doc links) and how the server and the VS Code grammar use it
 - [Language server refactorings](compiler/language-server-refactorings.md): extract, inline, fill in cases and fields, `ifx` rewrites, call hierarchy, selection ranges
 - [Parser](compiler/parser.md)
+- [Module instance identity](compiler/module-instance-identity.md): ordered module arguments and module specialization identity
+- [Private standard-library source loading](compiler/internal-source-policy.md): canonical import/load provenance and cache checks
 - [Sema: module loading and top-level expansion](compiler/sema-modules.md)
 - [Sema: polymorphism and declarations](compiler/sema-polymorphism-and-declarations.md)
 - [Stack traces (`context.stack_trace`)](compiler/stack-traces.md)
@@ -94,48 +105,46 @@ The LLVM backend, C ABI and linking.
 
 ## Standard library
 
-The clean-room `stdlib/`. Contributors must not read the source of an official Jai distribution at all.
+- [Core foundations implementation handoff](foundations-handoff.md)
+- [Core foundations native ABI notes](foundations-native-abi.md)
+- [Core foundations deviations and remaining limits](status/foundations-deviations.md)
+- [Core foundations contract questions](specs/stdlib/foundations-questions.md)
+- [Numerics implementation status](status/numerics.md)
+- [Numerics corrective review and tool evidence](status/numerics-corrective-plan.md)
+- [Numerics compiler restriction handoff](status/numerics-compiler-handoff.md)
+- [Numerics implementation and verification](numerics.md)
+- [Numerics implementation plan](status/numerics-plan.md)
+- [Numerics contract questions](specs/stdlib/numerics-questions.md)
+- [Window/render worker coverage and verification](window-render.md)
+- [Window/render API coverage ledger](window-render-coverage.md)
+- [Window/render worker handoff and integration gates](window-render-handoff.md)
+- [Native GL format mapping ledger](window-render-gl-formats.json)
+- [Focused window/render verification runner](../tools/check_window_render.py)
+- [Window/render contract questions](specs/stdlib/window-render-questions.md)
+- [jaic Extensions](extensions/README.md)
+- [Portable implementation module ledger](portable-stdlib-ledger.md)
+- [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
+- [Portable implementation gaps](portable-stdlib-gaps.md): focused pending reproducers and unresolved behavior
+- [Owned source format/lint runner](../tools/format_portable_stdlib.py): explicit scope and source-built jaifmt/jailint
+- [WAV parser design and validation](portable-wav.md)
+- [SMTP/MIME transport and loopback validation](portable-mail.md)
+- [POSIX crash diagnostics and native startup verification](portable-crash-handler.md)
+- [Portable worker progress](status/stdlib-progress.md) and [deviations](status/stdlib-deviations.md)
+- [Socket native declaration ledger](socket-native-ledger.json)
+- [Focused portable regression runner](../tools/check_portable_stdlib.py)
+- [Portable implementation plan](plans/portable-stdlib.md)
+- [Unresolved portable contracts](specs/stdlib/questions.md)
 
-- [Standard library layout](specs/stdlib/README.md)
-- [Basic and collection modules](specs/stdlib/README.md)
-- [Basic calendar time, working directory and platform exports](specs/stdlib/README.md)
-- [Binary formats and checksums](specs/stdlib/README.md)
-- [Bindings_Generator](specs/stdlib/README.md)
-- [Stdlib extensions: jaic-only modules in `stdlib/Extensions/`](specs/stdlib/README.md)
-- [Io: fibers, scheduler, channels (jaic extension)](specs/stdlib/README.md)
-- [Io engine: TCP, files, deadlines, io_uring/epoll/kqueue backends (jaic extension)](specs/stdlib/README.md)
-- [Io readers and writers: one set of operations over files, TCP and pipes, one deadline primitive, JSON from a reader (jaic extension)](specs/stdlib/README.md)
-- [Io_Uring: raw io_uring bindings generated from the kernel header, and ring helpers (jaic extension, Linux)](specs/stdlib/README.md)
-- [Command_Line](specs/stdlib/README.md)
-- [Args: a compile-time-generated command-line parser (jaic extension)](specs/stdlib/README.md)
-- [Regex: regular expressions with compile-time typed patterns (jaic extension)](specs/stdlib/README.md)
-- [Json: typed JSON generated at compile time (jaic extension)](specs/stdlib/README.md)
-- [Http: the HTTP/1 codec, strict and sans-IO (jaic extension)](specs/stdlib/README.md)
-- [Tls: TLS 1.2 and 1.3 over Io readers and writers on mbedTLS, system trust per OS (jaic extension)](specs/stdlib/README.md)
-- [Http server: routes, extractors checked at compile time, middleware, graceful shutdown (jaic extension)](specs/stdlib/README.md)
-- [Http client: requests that return a response, body readers, a connection pool, redirects and timeouts (jaic extension)](specs/stdlib/README.md)
-- [Http testing: a client wired to an App in memory, expectations with readable failures, a small test runner (jaic extension)](specs/stdlib/README.md)
-- [Conventions of Io, Tls, Http and Json: values and pointers, close, errors, who frees, milliseconds](specs/stdlib/README.md)
-- [SIMD: portable fixed-width vectors (jaic extension)](specs/stdlib/README.md)
-- [Byte_Search: vectorized byte and substring search (jaic extension)](specs/stdlib/README.md)
-- [Compiler API, reflection and metaprogram support](specs/stdlib/README.md)
-- [Files, processes and OS services](specs/stdlib/README.md)
-- [GetRect](specs/stdlib/README.md)
-- [Iprof profiler module](specs/stdlib/README.md)
-- [Math, random numbers and color/float helpers](specs/stdlib/README.md)
-- [Memory, allocators and hashing](specs/stdlib/README.md)
-- [meow_hash: AES-based 128-bit hash for x64](specs/stdlib/README.md)
-- [Native and platform bindings](specs/stdlib/README.md)
-- [Program_Print](specs/stdlib/README.md)
-- [Strings, Unicode and text files](specs/stdlib/README.md)
-- [Atomics: ordered loads, stores, exchanges and fetch operations](specs/stdlib/README.md)
-- [Threads, atomics, sockets and input](specs/stdlib/README.md)
-- [Toolchains: macOS SDK and Android NDK helpers](specs/stdlib/README.md)
-- [Tooling modules: Debug, MacOS_Bundler, BuildCpp, Autorun, Performance_Report](specs/stdlib/README.md)
-- [Drawing, windows and audio](specs/stdlib/README.md)
-- [Simp (2D renderer)](specs/stdlib/README.md)
-- [Sound_Player (audio mixing and output)](specs/stdlib/README.md)
-- [WebGPU (generated bindings, native and in the playground; support matrix, callback modes, tests)](specs/stdlib/README.md)
+Implementation work uses the API specification as its compatibility contract. Implementers do not read the source of a Jai distribution; specification review supplies public declarations and behavior through the documented clean-room workflow.
+
+- [Standard-library public-contract fixtures](../tests/stdlib-contract/README.md)
+- [Native binding implementation coverage](native/bindings-coverage.md)
+- [Native binding generation and tool verification](native/bindings-generation.md)
+- [Native SDL2 runtime input identities](native/sdl-sdk-inputs.json)
+- [Native binding verified snapshot evidence](native/bindings-verified-snapshot.json)
+- [Native binding contract questions](specs/stdlib/native-bindings-questions.md)
+- [Native binding implementation deviations](status/bindings-deviations.md)
+- [Jai language guide](specs/jai/README.md)
 
 ## Browser
 
@@ -168,6 +177,10 @@ Scripts, CI and project policies.
 - [Fuzzing](tools/fuzzing.md)
 - [jaic regression sweep](tools/jaic-sweep.md)
 - [Stdlib target check](tools/stdlib-target-check.md): every stdlib module type-checked for every target, unreferenced code included
+- [Standard library API auditor](tools/stdlib-api-audit.md): compare documented public module names with importer-visible source declarations
+- [Public-language contract fixtures](../tests/cleanroom-language/README.md): original self-checking cases from the language guide, run against an explicit local source build
+- [Clean-room implementation workspaces](tools/cleanroom-workspaces.md): prepare independent source snapshots and enforce implementer filesystem isolation
+- [Standard library integration decisions](tools/stdlib-integration-decisions.md): bootstrap layout, internal imports, public facade identity, and compatibility test corrections
 - [Stdlib runtime tests](tools/stdlib-runtime-tests.md): every stdlib test run in the interpreter, natively and on wasm on every platform; skip list; per-module coverage ratchet
 - [Objective-C selector check](tools/objc-selector-check.md): every selector the stdlib sends matches its arguments and exists in the runtime
 - [jaifmt (Jai formatter)](tools/jaifmt.md) (front page: [jaifmt README](../jaifmt/README.md)): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`
@@ -192,8 +205,3 @@ Scripts, CI and project policies.
 Agreed designs that are not built yet.
 
 - [Async IO, HTTP and JSON](plans/async-io.md): fibers over io_uring/epoll/kqueue/IOCP, typed JSON, and an HTTP server and client
-
-## Language and library specifications
-
-- [Jai language guide](specs/jai/README.md)
-- [Standard library API specification](specs/stdlib/README.md)

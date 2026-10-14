@@ -24,7 +24,7 @@
 | `files/files.jai` | `visit_files` over the tour's own folder (`#filepath`), reading `tour.md`, writing `/tmp/jai-tour-log.txt` with `file_open`/`file_write`, reading it back and deleting it |
 | `machine/machine.jai` | `#asm` (`bswap`, `popcnt`, `lzcnt`, a 128-bit `mul`) and `Long_Double` from `Extensions/Long_Double`, 128-bit on WebAssembly, against `float64` on a Newton square root |
 | `finale/raymarch.jai` | An ASCII ray marcher (signed distance fields, smooth union, soft lighting, shadows, fog) built on `Math`'s `Vector3` |
-| `gpu/raymarch_gpu.jai` | Encore: the same kind of scene as a WGSL fragment shader through [WebGPU](../specs/stdlib/README.md), drawn in the playground's Render tab for 20 seconds; prints a skip line where the browser has no WebGPU. Natively (`jaic -interp`, or a built tour) it draws into a `Window_Creation` window of its own for the same 20 seconds, and skips without a display, a surface or a GPU adapter |
+| `gpu/raymarch_gpu.jai` | Encore: the same kind of scene as a WGSL fragment shader through [WebGPU](../extensions/webgpu.md), drawn in the playground's Render tab for 20 seconds; prints a skip line where the browser has no WebGPU. Natively (`jaic -interp`, or a built tour) it draws into a `Window_Creation` window of its own for the same 20 seconds, and skips without a display, a surface or a GPU adapter |
 
 ## How it works
 

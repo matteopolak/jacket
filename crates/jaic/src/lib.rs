@@ -31,6 +31,30 @@ pub mod wide_float;
 /// path, as `#import "Extensions/Long_Double";`, so the import itself says it is jaic-only.
 pub const STDLIB_EXTENSIONS_DIR: &str = "Extensions";
 
+/// The sole bootstrap entry, relative to the standard-library root.
+pub const PRELOAD_ENTRY: &str = "prelude/module.jai";
+
+/// Find a bootstrap entry through the same filesystem used to compile the program.
+/// Native tools and the browser therefore accept the same standard-library layouts.
+pub fn find_preload(
+    fs: &dyn sema::FileSystem,
+    stdlib: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    let entry = stdlib.join(PRELOAD_ENTRY);
+    fs.is_file(&entry).then_some(entry)
+}
+
+/// Recover the library root from a selected bootstrap entry. Explicit custom preload
+/// files retain the established convention that their parent is the library root.
+pub fn stdlib_root_from_preload(preload: &std::path::Path) -> Option<&std::path::Path> {
+    let parent = preload.parent()?;
+    if preload.ends_with(PRELOAD_ENTRY) {
+        parent.parent()
+    } else {
+        Some(parent)
+    }
+}
+
 /// The standard library directory for a native `jaic` or `jailsp`: `JAIC_STDLIB`, else `stdlib/`
 /// next to the executable (release archives), else `fallback` (the repository's, for development).
 /// "Next to the executable" is checked both where it was started from and, through symlinks, where
@@ -48,7 +72,7 @@ pub fn stdlib_dir(fallback: std::path::PathBuf) -> std::path::PathBuf {
         .into_iter()
         .flatten()
         .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
-        .find(|dir| dir.join("prelude/module.jai").is_file())
+        .find(|dir| find_preload(&sema::NativeFs, dir).is_some())
         .unwrap_or(fallback)
 }
 
@@ -132,16 +156,16 @@ pub fn strip_verbatim(path: &str) -> Option<String> {
     (!odd).then_some(plain)
 }
 
-/// The error for a standard library directory without `prelude/module.jai`, or `None` when it has one.
+/// The error for a standard library directory without a bootstrap entry.
 pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
-    if dir.join("prelude/module.jai").is_file() {
+    if find_preload(&sema::NativeFs, dir).is_some() {
         return None;
     }
     Some(format!(
-        "cannot find the standard library (looked in {}).\n\
+        "cannot find the standard library (looked for bootstrap {}).\n\
          Keep the `stdlib` folder from the release archive next to the executable (a symlink to \
          the executable is fine), or set JAIC_STDLIB to its path.",
-        dir.display()
+        dir.join(PRELOAD_ENTRY).display()
     ))
 }
 

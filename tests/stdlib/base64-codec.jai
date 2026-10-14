@@ -1,5 +1,5 @@
 // Base64: the RFC 4648 vectors in both alphabets, padding on and off, binary round trips of
-// every length, custom alphabets, whitespace, and the inputs a decoder must reject.
+// every length, custom alphabets, accepted partial tails, and invalid-byte behavior.
 #import "Basic";
 #import "Base64";
 
@@ -58,18 +58,27 @@ main :: () {
         free(back);
     }
 
-    // Whitespace (as in wrapped MIME text) is skipped.
-    decoded, ok = base64_decode("Zm9v\r\nYmFy\n");
+    // Only line feed is ignored. Other whitespace returns the bytes decoded before it.
+    decoded, ok = base64_decode("Zm9v\nYmFy\n");
     assert(ok && decoded == "foobar");
-    decoded, ok = base64_decode(" Zm 9v\tYg == ");
-    assert(ok && decoded == "foob", "spaced '%'", decoded);
+    decoded, ok = base64_decode("Zm9v\r\nYmFy");
+    assert(!ok && decoded == "foo");
+    decoded, ok = base64_decode(" Zm9v");
+    assert(!ok && decoded == "");
 
-    // Malformed input fails without a partial result.
-    bad :: string.["Z", "Zg=", "Zg===", "Zm9=v", "Zm9vY", "Zm!v", "Zh==", "Zm9w=", "=Zm9", "Zg==Zg=="];
-    for bad {
-        out, out_ok := base64_decode(it);
-        assert(!out_ok && out.count == 0, "'%' is rejected", it);
-    }
+    // Decoding is permissive about partial groups, padding placement and trailing bytes.
+    decoded, ok = base64_decode("Z");
+    assert(ok && decoded == "");
+    decoded, ok = base64_decode("Zg=");
+    assert(ok && decoded == "f");
+    decoded, ok = base64_decode("Zg===");
+    assert(ok && decoded == "f");
+    decoded, ok = base64_decode("Zh==");
+    assert(ok && decoded == "f");
+    decoded, ok = base64_decode("Zg==ignored");
+    assert(ok && decoded == "f");
+    decoded, ok = base64_decode("Zm9v!");
+    assert(!ok && decoded == "foo");
 
     // A custom alphabet.
     REVERSED :: "/+9876543210zyxwvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA";

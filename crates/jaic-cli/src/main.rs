@@ -1208,7 +1208,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     options.import_paths = vec![main_dir.join("modules")];
     options.import_paths.extend(cli.imports.iter().cloned());
     options.import_paths.push(stdlib.clone());
-    options.preload = Some(stdlib.join("prelude/module.jai"));
+    options.preload = Some(
+        jaic::find_preload(&NativeFs, &stdlib)
+            .unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)),
+    );
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
     // What workspaces created by metaprograms ask for is written by a build and `-interp` alike:
     // `-interp` differs only in interpreting the top-level program instead of compiling it.

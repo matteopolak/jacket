@@ -19,6 +19,7 @@ pub struct ParamInfo {
     pub default: Option<ast::Expr>,
     pub variadic: bool,
     pub using: bool,
+    pub using_filter: Option<ast::UsingFilter>,
     /// `#discard`: callers pass no real value and the body may not name it.
     pub discard: bool,
     pub span: Span,
@@ -385,6 +386,7 @@ impl Compiler {
                 default: param.default.clone(),
                 variadic: param.variadic,
                 using: param.using,
+                using_filter: param.using_filter.clone(),
                 discard: param.discard,
                 span: param.span,
             })
@@ -1224,10 +1226,14 @@ impl Compiler {
                     false,
                 );
                 if param.using {
-                    self.scope_mut(scope).usings.push(UsingEntry::Place {
+                    let mut entry = UsingEntry::Place {
                         ty: param.ty,
                         entity: e,
-                    });
+                    };
+                    if let Some(filter) = &param.using_filter {
+                        entry = self.filter_using_entry(scope, entry, filter, param.span)?;
+                    }
+                    self.scope_mut(scope).usings.push(entry);
                 }
             }
         }

@@ -3,7 +3,7 @@
 // it under plain node with a fake `fetch`.
 import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
-import { existsSync, promises as fs } from "node:fs";
+import { existsSync, promises as fs, readFileSync } from "node:fs";
 import * as path from "node:path";
 
 export const REPOSITORY = "matteopolak/jai";
@@ -218,8 +218,16 @@ export class ToolchainStore {
     return path.join(this.versionDir(version), archiveRoot(asset));
   }
 
-  isInstalled(version: string, asset: string): boolean {
-    return existsSync(path.join(this.versionDir(version), INSTALLED_MARKER)) && existsSync(this.toolPath(version, asset, "jailsp"));
+  isInstalled(version: string, asset: string, expectedSha256?: string): boolean {
+    const markerPath = path.join(this.versionDir(version), INSTALLED_MARKER);
+    if (!existsSync(markerPath) || !existsSync(this.toolPath(version, asset, "jailsp"))) return false;
+    if (!expectedSha256) return true;
+    try {
+      const marker = JSON.parse(readFileSync(markerPath, "utf8")) as { version?: string; asset?: string; sha256?: string };
+      return marker.version === version && marker.asset === asset && marker.sha256?.toLowerCase() === expectedSha256.toLowerCase();
+    } catch {
+      return false;
+    }
   }
 
   toolPath(version: string, asset: string, tool: Tool): string {

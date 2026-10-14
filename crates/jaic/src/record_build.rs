@@ -120,6 +120,7 @@ struct Fill<'a> {
     kept: &'a mut Vec<Rc<[u8]>>,
     /// Records built and not filled yet: (id, memory, type).
     queue: Vec<(i64, u64, u64)>,
+    created: Vec<i64>,
 }
 
 impl Builder {
@@ -199,34 +200,51 @@ impl Builder {
             records,
             kept,
             queue: Vec::new(),
+            created: Vec::new(),
         };
-        let root = self.obtain(&mut fill, id, expected);
-        while let Some((id, memory, info)) = fill.queue.pop() {
-            let plan = self.plans[&info].clone();
-            self.fill_struct(&mut fill, interp, memory, &plan, id)?;
-            if let Some(at) = plan.constant_storage {
-                self.patch_constant_pointers(&mut fill, interp, memory + at, id)?;
+        let result = (|| {
+            let root = self.obtain(&mut fill, id, expected)?;
+            while let Some((id, memory, info)) = fill.queue.pop() {
+                let plan = self.plans[&info].clone();
+                self.fill_struct(&mut fill, interp, memory, &plan, id)?;
+                if let Some(at) = plan.constant_storage {
+                    self.patch_constant_pointers(&mut fill, interp, memory + at, id)?;
+                }
+            }
+            Ok(root)
+        })();
+        if result.is_err() {
+            for id in fill.created {
+                let pointer = std::mem::take(&mut self.built[id as usize]);
+                if self.ids.get(&pointer) == Some(&id) {
+                    self.ids.remove(&pointer);
+                }
             }
         }
-        Ok(root)
+        result
     }
 
     /// The struct for record `id`: built already, or allocated now and queued to be filled.
-    fn obtain(&mut self, fill: &mut Fill, id: i64, expected: u64) -> u64 {
-        if id <= 0 {
-            return 0;
+    fn obtain(&mut self, fill: &mut Fill, id: i64, expected: u64) -> Result<u64, Trap> {
+        if id == 0 {
+            return Ok(0);
         }
         if let Some(&p) = self.built.get(id as usize)
             && p != 0
         {
-            return p;
+            return Ok(p);
         }
-        let record = fill.records.get(id);
+        let record = fill
+            .records
+            .get(id)
+            .ok_or_else(|| Trap::new(format!("records: no record with id {id}")))?;
+        let record = Some(record);
         if let Some(record) = record {
             // A descriptor of the program reading the records: the real one.
             if let Some(FieldRef::Int(address)) = record.field("__address") {
                 self.remember(id, address as u64);
-                return address as u64;
+                fill.created.push(id);
+                return Ok(address as u64);
             }
             if let Some(FieldRef::Str(name)) = record.field("__builtin")
                 && let Some(&info) = std::str::from_utf8(name)
@@ -234,21 +252,28 @@ impl Builder {
                     .and_then(|name| self.builtins.get(name))
             {
                 self.remember(id, info);
-                return info;
+                fill.created.push(id);
+                return Ok(info);
             }
         }
         let tagged = record.and_then(|r| self.tags.get(r.tag)).copied();
         let Some(info) = tagged.or_else(|| self.plans.contains_key(&expected).then_some(expected))
         else {
-            return 0;
+            return Err(Trap::new(format!("records: no type plan for record {id}")));
         };
-        let memory = self.alloc(self.plans[&info].size as usize);
+        let plan = self.plans.get(&info).ok_or_else(|| {
+            Trap::new(format!(
+                "records: type {info:#x} was registered without a plan"
+            ))
+        })?;
+        let memory = self.alloc(plan.size as usize);
         // Before filling: records may refer to themselves.
         self.remember(id, memory);
+        fill.created.push(id);
         if record.is_some() {
             fill.queue.push((id, memory, info));
         }
-        memory
+        Ok(memory)
     }
 
     fn remember(&mut self, id: i64, pointer: u64) {
@@ -289,18 +314,26 @@ impl Builder {
         plan: &Plan,
         id: i64,
     ) -> Result<(), Trap> {
-        let Some(record) = fill.records.get(id) else {
-            return Ok(());
-        };
+        let record = fill
+            .records
+            .get(id)
+            .ok_or_else(|| Trap::new(format!("records: no record with id {id}")))?;
         for entry in &plan.entries {
             let Some(field) = record.field_named(entry.name) else {
                 continue;
             };
             let target = memory + entry.offset;
             match field {
-                FieldRef::List(items) if entry.kind == PLAN_ARRAY && !items.is_empty() => {
+                FieldRef::List(items) if entry.kind == PLAN_ARRAY => {
+                    if items.is_empty() {
+                        continue;
+                    }
                     let size = entry.element_size;
-                    let data = self.alloc((items.len() as u64 * size) as usize);
+                    let bytes = (items.len() as u64)
+                        .checked_mul(size)
+                        .filter(|&n| n <= crate::sema::value::MAX_IMAGE)
+                        .ok_or_else(|| Trap::new("records: array size overflow"))?;
+                    let data = self.alloc(bytes as usize);
                     for (k, item) in items.iter().enumerate() {
                         let item = &item;
                         self.fill_item(
@@ -318,8 +351,12 @@ impl Builder {
                         store(interp, target + 16, &(items.len() as u64).to_le_bytes())?;
                     }
                 }
-                // A list read as a single value is zero, and the memory is zeroed already.
-                FieldRef::List(_) => {}
+                FieldRef::List(_) => {
+                    return Err(Trap::new(format!(
+                        "records: field `{}` is a list but its plan expects a scalar",
+                        entry.name.as_str()
+                    )));
+                }
                 single => {
                     let Some(item) = single.item() else {
                         continue;
@@ -359,16 +396,30 @@ impl Builder {
                 fill.kept.push(s.clone());
                 store_pair(interp, target, s.len() as u64, s.as_ptr() as u64)
             }
-            (PLAN_POINTER, item) => match number(item).map(|r| self.obtain(fill, r, type_target)) {
-                Some(p) if p != 0 => store(interp, target, &p.to_le_bytes()),
-                _ => Ok(()),
-            },
-            (PLAN_STRUCT, item) => match (number(item), self.plans.get(&type_target).cloned()) {
-                (Some(r), Some(plan)) if r != 0 => self.fill_struct(fill, interp, target, &plan, r),
-                _ => Ok(()),
-            },
-            // Mismatched shapes read as zero, and the memory is zeroed already.
-            _ => Ok(()),
+            (PLAN_POINTER, item) => {
+                let id = number(item).ok_or_else(|| {
+                    Trap::new("records: pointer field requires a record reference")
+                })?;
+                let p = self.obtain(fill, id, type_target)?;
+                store(interp, target, &p.to_le_bytes())
+            }
+            (PLAN_STRUCT, item) => {
+                let id = number(item).ok_or_else(|| {
+                    Trap::new("records: struct field requires a record reference")
+                })?;
+                if id == 0 {
+                    return Ok(());
+                }
+                let plan = self
+                    .plans
+                    .get(&type_target)
+                    .cloned()
+                    .ok_or_else(|| Trap::new("records: nested struct has no plan"))?;
+                self.fill_struct(fill, interp, target, &plan, id)
+            }
+            _ => Err(Trap::new(format!(
+                "records: value shape does not match plan kind {kind}"
+            ))),
         }
     }
 
@@ -393,9 +444,73 @@ impl Builder {
             let (Some(offset), Some(record)) = (number(offset), number(record)) else {
                 continue;
             };
-            let pointer = self.obtain(fill, record, 0);
+            let pointer = self.obtain(fill, record, 0)?;
             store(interp, data + offset as u64, &pointer.to_le_bytes())?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::records::Record;
+
+    #[test]
+    fn missing_record_is_an_error_and_null_remains_null() {
+        let mut b = Builder::default();
+        let records = Records::default();
+        let mut kept = Vec::new();
+        let mut interp = Interp::default();
+        assert_eq!(b.build(&records, &mut kept, &mut interp, 0, 0).unwrap(), 0);
+        assert!(b.build(&records, &mut kept, &mut interp, 17, 0).is_err());
+    }
+
+    #[test]
+    fn tagged_type_without_plan_is_an_error_not_a_panic() {
+        let mut b = Builder::default();
+        b.add_type("Node".into(), 1);
+        let mut records = Records::default();
+        let id = records.add(Record::new("Node"));
+        assert!(
+            b.build(&records, &mut Vec::new(), &mut Interp::default(), id, 0)
+                .is_err()
+        );
+        // A failed fill must not leave a cached zero/partially filled success.
+        assert!(
+            b.build(&records, &mut Vec::new(), &mut Interp::default(), id, 0)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn malformed_field_shape_is_an_error() {
+        let mut b = Builder::default();
+        b.add_type("Node".into(), 1);
+        b.plans.insert(
+            1,
+            Rc::new(Plan {
+                size: 8,
+                entries: vec![Entry {
+                    offset: 0,
+                    kind: PLAN_INT,
+                    size: 8,
+                    name: Name::intern("value"),
+                    element_kind: 0,
+                    element_size: 0,
+                    target: 0,
+                    resizable: false,
+                }],
+                constant_storage: None,
+            }),
+        );
+        let mut records = Records::default();
+        let mut record = Record::new("Node");
+        record.str("value", b"not an integer");
+        let id = records.add(record);
+        assert!(
+            b.build(&records, &mut Vec::new(), &mut Interp::default(), id, 0)
+                .is_err()
+        );
     }
 }

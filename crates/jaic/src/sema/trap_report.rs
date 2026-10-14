@@ -250,9 +250,8 @@ impl Compiler {
         Span::new(FileId(file), start, start + len)
     }
 
-    /// The directories of the standard library its `module.jai` loads from
-    /// beside it, canonical through the compiler's file system (the browser's is virtual).
-    /// Whether `file` is in the stdlib or the prelude, worked out once per file.
+    /// Whether `file` belongs to the standard library, including bootstrap support,
+    /// canonical through the compiler's file system (the browser's is virtual).
     fn is_library_file(&self, file: FileId) -> bool {
         if file.0 as usize >= self.sources.len() {
             return true;
@@ -260,17 +259,10 @@ impl Compiler {
         if let Some(&known) = self.library_files.borrow().get(&file.0) {
             return known;
         }
-        let known = self
-            .options
-            .preload
-            .as_deref()
-            .and_then(Path::parent)
-            .is_some_and(|stdlib| {
-                let path = self.fs.canonical(Path::new(&self.sources.get(file).path));
-                [stdlib.to_path_buf(), stdlib.join("prelude")]
-                    .iter()
-                    .any(|root| path.starts_with(self.fs.canonical(root)))
-            });
+        let known = self.options.stdlib_root().is_some_and(|stdlib| {
+            let path = self.fs.canonical(Path::new(&self.sources.get(file).path));
+            path.starts_with(self.fs.canonical(stdlib))
+        });
         self.library_files.borrow_mut().insert(file.0, known);
         known
     }

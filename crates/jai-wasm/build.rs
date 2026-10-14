@@ -25,26 +25,24 @@ fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     println!("cargo:rerun-if-changed=build.rs");
     let mut code = String::from("pub static BUNDLED: &[(&str, &[u8])] = &[\n");
-    // `stdlib/prelude/module.jai` loads `../stdlib/prelude/module.jai`, so both trees are bundled.
-    for tree in ["stdlib"] {
-        let root = manifest
-            .join("../..")
-            .join(tree)
-            .canonicalize()
-            .expect("source tree");
-        println!("cargo:rerun-if-changed={}", root.display());
-        let mut files = Vec::new();
-        collect(&root, &root, &mut files);
-        for relative in &files {
-            let name = format!("{tree}/{}", relative.to_string_lossy().replace('\\', "/"));
-            let absolute = root.join(relative);
-            println!("cargo:rerun-if-changed={}", absolute.display());
-            let _ = writeln!(
-                code,
-                "    ({name:?}, include_bytes!({:?})),",
-                absolute.to_string_lossy()
-            );
-        }
+    // Bootstrap support is part of stdlib, so one tree is sufficient for every host.
+    println!("cargo:rerun-if-env-changed=JAIC_STDLIB");
+    let source = std::env::var_os("JAIC_STDLIB")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| manifest.join("../../stdlib"));
+    println!("cargo:rerun-if-changed={}", source.display());
+    let root = source.canonicalize().expect("standard-library source tree");
+    let mut files = Vec::new();
+    collect(&root, &root, &mut files);
+    for relative in &files {
+        let name = format!("stdlib/{}", relative.to_string_lossy().replace('\\', "/"));
+        let absolute = root.join(relative);
+        println!("cargo:rerun-if-changed={}", absolute.display());
+        let _ = writeln!(
+            code,
+            "    ({name:?}, include_bytes!({:?})),",
+            absolute.to_string_lossy()
+        );
     }
     code.push_str("];\n");
     let out = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("stdlib_files.rs");

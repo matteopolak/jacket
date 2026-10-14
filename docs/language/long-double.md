@@ -2,7 +2,7 @@
 
 ## What it is
 
-`stdlib/Extensions/Long_Double/module.jai` gives Jai C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one {#ext.2}. Like every module under [`stdlib/Extensions/`](../specs/stdlib/README.md) it is not official Jai: no other compiler knows it, and it may change between jaic releases. A program sees none of it unless it writes `#import "Extensions/Long_Double";` {#ext.1}, so code that doesn't opt in stays portable.
+`stdlib/Extensions/Long_Double/module.jai` gives Jai C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one {#ext.2}. Like every module under [`stdlib/Extensions/`](../extensions/extensions.md) it is not official Jai: no other compiler knows it, and it may change between jaic releases. A program sees none of it unless it writes `#import "Extensions/Long_Double";` {#ext.1}, so code that doesn't opt in stays portable.
 
 ```jai
 #import "Basic";
@@ -66,11 +66,11 @@ The IR has no wide scalar register: like a small struct, a `Long_Double` lives i
 
 ### Other jaic-only additions
 
-The other modules under `stdlib/Extensions/` are listed in [stdlib extensions](../specs/stdlib/README.md). `#intrinsic "llvm.<name>"`, which calls an LLVM intrinsic directly ([intrinsics](intrinsics.md)), is a directive rather than a module.
+The other modules under `stdlib/Extensions/` are listed in [stdlib extensions](../extensions/extensions.md). `#intrinsic "llvm.<name>"`, which calls an LLVM intrinsic directly ([intrinsics](intrinsics.md)), is a directive rather than a module.
 
 ## How to change it
 
-- Another `#jaic_type` builtin: add a name to `jaic_type` in `sema/expr.rs`, export it from a new module `stdlib/Extensions/<Name>/module.jai` (see [stdlib extensions](../specs/stdlib/README.md)), and document it on a page like this one.
+- Another `#jaic_type` builtin: add a name to `jaic_type` in `sema/expr.rs`, export it from a new module `stdlib/Extensions/<Name>/module.jai` (see [stdlib extensions](../extensions/extensions.md)), and document it on a page like this one.
 - Long_Double format for a target: `long_double_for` in `sema/mod.rs`, plus the C ABI rules in `abi.rs`. Check against `clang -target <triple> -S -emit-llvm`.
 - New operation: add a `WideOp`, implement it in `wide_float.rs`, `interp/mod.rs` (`wide`) and `jaic-llvm` (`wide`), and emit it from `sema/wide.rs`.
 - Gotcha: `ir_ty` returns `None` for the wide type (it is memory-class); `materialize` and `convert_const` encode constants into 16 bytes with `wide_const`.
@@ -78,7 +78,7 @@ The other modules under `stdlib/Extensions/` are listed in [stdlib extensions](.
 ## Configuration
 
 - `-target <triple>` / `-os` pick the format (`Options.long_double`).
-- `Generate_Bindings_Options.use_jaic_long_double` (default `true`) makes `Bindings_Generator` emit `Long_Double`; see [Bindings_Generator](../specs/stdlib/README.md).
+- `Generate_Bindings_Options.use_jaic_long_double` (default `true`) makes `Bindings_Generator` emit `Long_Double`; see [Bindings_Generator](../specs/stdlib/modules/bindings-generator.md).
 
 ## Dependencies
 

@@ -1,5 +1,5 @@
-# jaic, jailsp and jailint, built with the LLVM 23 backend and installed next to `stdlib/` and
-# `prelude/` the way the release archives lay them out (see docs/tools/nix.md).
+# jaic, jailsp and jailint, built with the LLVM 23 backend and installed next to `stdlib/`
+# the way the release archives lay them out (see docs/tools/nix.md).
 {
   lib,
   stdenv,
@@ -44,6 +44,7 @@ rustPlatform.buildRustPackage {
       ../Cargo.lock
       ../crates
       ../stdlib
+      ../tools/stdlib-api-audit
       ../examples
     ];
   };
@@ -85,13 +86,13 @@ rustPlatform.buildRustPackage {
   env.LLVM_SYS_231_PREFIX = "${llvmPackages.llvm.dev}";
 
   # jaic looks for its standard library in `stdlib/` next to the executable, and
-  # `stdlib/prelude/module.jai` loads `prelude`, so the binaries live in libexec beside them.
+  # its bootstrap is `stdlib/prelude/module.jai`, so binaries live beside the library.
   # bin/ holds wrappers, which exec the real path, so that lookup still works.
   postInstall = ''
     dir=$out/libexec/jaic
     mkdir -p $dir
     mv $out/bin/jaic $out/bin/jailsp $out/bin/jailint $dir/
-    cp -R stdlib prelude $dir/
+    cp -R stdlib $dir/
     makeWrapper $dir/jaic $out/bin/jaic \
       --set-default JAI_LIBCLANG ${libclang} \
       --suffix PATH : ${toolPath}

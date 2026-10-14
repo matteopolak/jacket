@@ -4,7 +4,8 @@ use std::rc::Rc;
 use super::{PResult, Parser};
 use crate::ast::{
     AssignOp, BinOp, Block, Case, Expr, For, ForOver, Ident, Notes, PushContextDeferStmt,
-    PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter, UsingStmt, WhileStmt,
+    PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter, UsingFilterKind, UsingStmt,
+    WhileStmt,
 };
 use crate::lexer::{P, Tok};
 
@@ -764,15 +765,26 @@ impl Parser<'_> {
         }
         self.bump();
         let kind = self.ident("as using filter")?;
+        let computed_kind = match kind.name.as_str() {
+            "only" => UsingFilterKind::Only,
+            "except" => UsingFilterKind::Except,
+            _ => UsingFilterKind::Map,
+        };
         // `using,except .["x", "y"] name: T;`
         if !self.at(P::LParen) {
-            return Ok(UsingFilter::Computed(self.parse_postfix(true)?));
+            return Ok(UsingFilter::Computed {
+                kind: computed_kind,
+                expr: self.parse_postfix(true)?,
+            });
         }
         self.bump();
-        if self.at(P::DotBracket) {
+        if self.at(P::DotBracket) || computed_kind == UsingFilterKind::Map && !self.at_n(1, P::Eq) {
             let list = self.parse_expr()?;
             self.expect(P::RParen, "to end the using filter")?;
-            return Ok(UsingFilter::Computed(list));
+            return Ok(UsingFilter::Computed {
+                kind: computed_kind,
+                expr: list,
+            });
         }
         let mut names = Vec::new();
         let mut pairs = Vec::new();

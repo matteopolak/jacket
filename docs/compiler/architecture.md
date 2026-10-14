@@ -34,7 +34,7 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 - `ir.rs`: the shared [IR](ir.md).
 - `build.rs`, `records.rs`: workspaces and compiler messages for metaprograms ([workspaces](../metaprogramming/workspaces.md)).
 - `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. Raw memory access is confined to `interp::memory`.
-- `stdlib/` are plain Jai, loaded through `sema::FileSystem` (real or virtual).
+- `stdlib/` (including `stdlib/prelude/`) are plain Jai, loaded through `sema::FileSystem` (real or virtual).
 
 ## How to change it
 

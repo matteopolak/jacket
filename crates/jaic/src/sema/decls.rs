@@ -169,7 +169,13 @@ impl Compiler {
     pub fn type_of_value(&mut self, value: &Value) -> TypeId {
         match value {
             Value::Int(_) => TypeId::S64,
-            Value::Float(_) => TypeId::F32,
+            Value::Float(_, p) => {
+                if p.defaults_to_float64 || p.requires_float64 {
+                    TypeId::F64
+                } else {
+                    TypeId::F32
+                }
+            }
             Value::Bool(_) => TypeId::BOOL,
             Value::String(_) => TypeId::STRING,
             Value::Type(_) => TypeId::TYPE,
@@ -334,7 +340,7 @@ impl Compiler {
                 };
                 let value = if self.types.is_float(ty) {
                     match value {
-                        Value::Int(i) => Value::Float(i as f64),
+                        Value::Int(i) => Value::float(i as f64),
                         v => v,
                     }
                 } else {
