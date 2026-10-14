@@ -187,6 +187,8 @@ pub struct MacroFrame {
 
 #[derive(Clone)]
 pub struct ForBody {
+    /// The actual custom-loop call site; overload selection may record its keyword.
+    pub call_span: Span,
     /// The `Code` value standing for the loop body.
     pub code: super::value::CodeId,
     pub body: Rc<ast::Stmt>,

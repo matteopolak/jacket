@@ -191,9 +191,57 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         // block for a 25k-line file and copying at every step.
         out: Vec::with_capacity(text.len() / 4 + 16),
         newline: true,
+        regions: None,
     };
     lx.run()?;
     Ok(lx.out)
+}
+
+/// Editor-only lexing. Retain good tokens, report lexical errors, and restart after
+/// the malformed literal's line. Offsets always refer to the original UTF-8 text.
+pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
+    let mut lx = Lexer {
+        file,
+        text,
+        src: text.as_bytes(),
+        at: 0,
+        out: Vec::with_capacity(text.len() / 4 + 16),
+        newline: true,
+        regions: None,
+    };
+    let mut errors = Vec::new();
+    while let Err(mut error) = lx.run() {
+        let start = error.span.start as usize;
+        let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
+        error.span.end = end as u32;
+        // An unclosed comment/here-string has no trustworthy internal token boundaries.
+        let opaque =
+            error.message.contains("block comment") || error.message.contains("here-string");
+        errors.push(error);
+        lx.at = if opaque {
+            text.len()
+        } else {
+            end
+        };
+        lx.newline = true;
+    }
+    (lx.out, errors)
+}
+
+/// Verified literal/comment boundaries for incremental IDE lexical recovery.
+/// No tokens or semantic facts from an older version are reused.
+pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic> {
+    let mut lx = Lexer {
+        file,
+        text,
+        src: text.as_bytes(),
+        at: 0,
+        out: Vec::new(),
+        newline: true,
+        regions: Some(Vec::new()),
+    };
+    lx.run()?;
+    Ok(lx.regions.unwrap())
 }
 
 /// `span` widened to balance its parentheses: the parser leaves grouping parentheses out of
@@ -246,6 +294,7 @@ struct Lexer<'a> {
     at: usize,
     out: Vec<Token>,
     newline: bool,
+    regions: Option<Vec<Span>>,
 }
 
 fn is_ident_start(c: u8) -> bool {
@@ -271,6 +320,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn push(&mut self, tok: Tok, start: usize) {
+        if matches!(tok, Tok::Str(_))
+            && let Some(regions) = self.regions.as_mut()
+        {
+            regions.push(Span::new(self.file, start, self.at));
+        }
         self.out.push(Token {
             tok,
             span: Span::new(self.file, start, self.at),
@@ -281,7 +335,7 @@ impl<'a> Lexer<'a> {
 
     fn run(&mut self) -> Result<(), Diagnostic> {
         // Skip a UTF-8 byte order mark.
-        if self.src.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        if self.at == 0 && self.src.starts_with(&[0xEF, 0xBB, 0xBF]) {
             self.at = 3;
         }
         // A `#!` line at the very start (`#!/usr/bin/env jai`) is ignored, so a script can be run
@@ -430,8 +484,12 @@ impl<'a> Lexer<'a> {
                 // U+00A0 (no-break space) separates tokens like a space.
                 self.at += 2;
             } else if c == b'/' && self.peek(1) == b'/' {
+                let start = self.at;
                 while self.at < self.src.len() && self.src[self.at] != b'\n' {
                     self.at += 1;
+                }
+                if let Some(regions) = self.regions.as_mut() {
+                    regions.push(Span::new(self.file, start, self.at));
                 }
             } else if c == b'/' && self.peek(1) == b'*' {
                 let start = self.at;
@@ -453,6 +511,9 @@ impl<'a> Lexer<'a> {
                         }
                         self.at += 1;
                     }
+                }
+                if let Some(regions) = self.regions.as_mut() {
+                    regions.push(Span::new(self.file, start, self.at));
                 }
             } else {
                 return Ok(());

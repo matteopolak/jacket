@@ -96,7 +96,7 @@ impl Session {
         let target = DocumentUri::parse(&format!("file://{path}")).ok()?;
         let span = Span::new(start, end);
         let range = match self.documents.get(&target) {
-            Some(open) if *open.text == **text => open.index.range(&open.text, span).ok()?,
+            Some(open) if open.same_positions(text) => open.index.range(&open.text, span).ok()?,
             _ => crate::position::LineIndex::new(text)
                 .range(text, span)
                 .ok()?,

@@ -50,6 +50,9 @@ pub struct IdeFacts {
     /// Calls and the procedure and parameters they resolved to.
     pub calls: Vec<super::ide_meta::IdeCall>,
     pub(super) call_spans: HashSet<Span>,
+    /// Actual custom-iteration selections per keyword, across real instantiations.
+    /// `None` means an ambiguous selection; sketches never populate this map.
+    pub(super) for_expansions: HashMap<Span, Option<Vec<ProcId>>>,
     /// The compile-time output channel, to tell what each `#run` printed.
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the identifier being checked resolved to (set by `check_ident`).
@@ -111,6 +114,9 @@ pub struct IdeFacts {
     /// Errors of procedure bodies that failed while the program compiled, beyond the one the
     /// compile stopped at.
     pub errors: Vec<Diagnostic>,
+    /// Original lexical/syntax errors. Bodies covering them may supply editor facts,
+    /// but must not be executed by compile-time code after malformed statements vanish.
+    pub parse_errors: Vec<Diagnostic>,
     /// Where each enum member's name is declared.
     pub(super) enum_decls: HashMap<(crate::types::EnumId, Sym), Span>,
     /// The types an inferred member (`.NAME`) of the recorded files was expected to have, by
@@ -504,9 +510,21 @@ impl Compiler {
         }
     }
 
+    /// Recovered bodies supply facts but cannot be executed as valid procedures or code.
+    pub(super) fn ide_require_parsed_body(&self, span: Span) -> Result<()> {
+        if let Some(error) = self.ide.as_ref().and_then(|ide| {
+            ide.parse_errors.iter().find(|e| {
+                e.span.file == span.file && span.start <= e.span.start && e.span.start < span.end
+            })
+        }) {
+            return Err(Box::new(error.clone()));
+        }
+        Ok(())
+    }
+
     /// After compiling for an editor: check every procedure body and top-level declaration of
-    /// the recorded files, not just what the program reaches. Returns what failed: one error
-    /// per declaration and per procedure body (a body that fails does not stop the others, and
+    /// the recorded files, not just what the program reaches. Returns errors from declarations
+    /// and independent statements (a body that fails does not stop the others, and
     /// a declaration another one depends on reports its own error once, at its own span).
     pub fn ide_check_all(&mut self) -> Vec<Diagnostic> {
         let mut errors: Vec<Diagnostic> = Vec::new();
@@ -515,6 +533,11 @@ impl Compiler {
         } else {
             return errors;
         }
+        // Normal compilation has ended (possibly before finish_program). The IDE
+        // audit has a complete source snapshot: no metaprogram is still supplying
+        // placeholders. Use the compiler's existing finalization rule so a failed
+        // generator cannot stay speculative and recreate nested procedures forever.
+        self.placeholders_final = true;
         for i in 0..self.entities.len() {
             let id = EntityId(i as u32);
             let e = self.entity(id);
@@ -575,6 +598,9 @@ impl Compiler {
             .collect();
         failed.sort_by_key(|e| (e.span.file.0, e.span.start));
         errors.extend(failed);
+        if let Some(ide) = self.ide.as_mut() {
+            errors.append(&mut ide.errors);
+        }
         errors
     }
 
@@ -1428,6 +1454,28 @@ impl Compiler {
     /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
     /// starts the declaration (`name :: ...`).
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        if let Some(selection) = self.ide.as_ref().and_then(|ide| {
+            (0..3).find_map(|delta| {
+                let start = offset.checked_sub(delta)?;
+                let end = start.checked_add(3)?;
+                ide.for_expansions.get(&Span {
+                    file,
+                    start,
+                    end,
+                })
+            })
+        }) {
+            let spans = selection
+                .as_ref()
+                .into_iter()
+                .flatten()
+                .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
+                .collect();
+            let mut definitions = self.ide_narrow_decls(spans);
+            definitions.sort_unstable_by_key(|s| (s.file.0, s.start, s.end));
+            definitions.dedup();
+            return definitions;
+        }
         // A struct field or enum member: the declaration its use was matched to.
         if let Some(ide) = self.ide.as_ref()
             && let Some((_, decl)) = ide.member_use_at(file, offset)

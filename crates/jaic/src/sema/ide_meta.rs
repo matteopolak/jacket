@@ -496,6 +496,36 @@ impl Compiler {
         });
     }
 
+    /// Associate only the custom-loop keyword with the actual overload selection,
+    /// before expansion can fail. Call-summary deduplication and its display budget
+    /// must not discard selections from other real instantiations of this loop.
+    pub(super) fn ide_note_for_keyword(&mut self, span: Span, chosen: ProcId, ambiguous: bool) {
+        if self.sketching() || !self.ide_wants_file(span.file) {
+            return;
+        }
+        let keyword = Span {
+            end: span.start + 3,
+            ..span
+        };
+        let Some(ide) = self.ide.as_mut() else {
+            return;
+        };
+        let selections = ide
+            .for_expansions
+            .entry(keyword)
+            .or_insert_with(|| Some(Vec::new()));
+        if ambiguous {
+            *selections = None;
+            return;
+        }
+        let Some(procs) = selections else {
+            return;
+        };
+        if !procs.contains(&chosen) {
+            procs.push(chosen);
+        }
+    }
+
     /// Each `name = value` argument of a call to `chosen`: hovering `name` shows the
     /// parameter and its type, and go to definition goes to the parameter.
     fn ide_note_named_args(&mut self, chosen: ProcId, slots: &[Slot], args: &[CallArg]) {

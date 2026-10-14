@@ -1,0 +1,2031 @@
+Original notices from pinned SDL3 native sources (including optional backends).
+HIDAPI is used under its BSD-style license.
+
+src/SDL.c, src/SDL_assert.c, src/SDL_assert_c.h, src/SDL_error.c, src/SDL_error_c.h, src/SDL_guid.c, src/SDL_hashtable.c, src/SDL_hashtable.h, src/SDL_hints.c, src/SDL_hints_c.h, src/SDL_internal.h, src/SDL_list.c, src/SDL_list.h, src/SDL_log.c, src/SDL_log_c.h, src/SDL_properties.c, src/SDL_properties_c.h, src/SDL_utils.c, src/SDL_utils_c.h, src/atomic/SDL_atomic.c, src/atomic/SDL_spinlock.c, src/audio/SDL_audio.c, src/audio/SDL_audio_c.h, src/audio/SDL_audio_channel_converters.h, src/audio/SDL_audiocvt.c, src/audio/SDL_audiodev.c, src/audio/SDL_audiodev_c.h, src/audio/SDL_audioqueue.c, src/audio/SDL_audioqueue.h, src/audio/SDL_audioresample.c, src/audio/SDL_audioresample.h, src/audio/SDL_audiotypecvt.c, src/audio/SDL_mixer.c, src/audio/SDL_sysaudio.h, src/audio/SDL_wave.c, src/audio/SDL_wave.h, src/audio/aaudio/SDL_aaudio.c, src/audio/aaudio/SDL_aaudio.h, src/audio/alsa/SDL_alsa_audio.c, src/audio/alsa/SDL_alsa_audio.h, src/audio/coreaudio/SDL_coreaudio.h, src/audio/coreaudio/SDL_coreaudio.m, src/audio/directsound/SDL_directsound.c, src/audio/directsound/SDL_directsound.h, src/audio/disk/SDL_diskaudio.c, src/audio/disk/SDL_diskaudio.h, src/audio/dsp/SDL_dspaudio.c, src/audio/dsp/SDL_dspaudio.h, src/audio/dummy/SDL_dummyaudio.c, src/audio/dummy/SDL_dummyaudio.h, src/audio/emscripten/SDL_emscriptenaudio.c, src/audio/emscripten/SDL_emscriptenaudio.h, src/audio/haiku/SDL_haikuaudio.h, src/audio/jack/SDL_jackaudio.c, src/audio/jack/SDL_jackaudio.h, src/audio/n3ds/SDL_n3dsaudio.c, src/audio/n3ds/SDL_n3dsaudio.h, src/audio/netbsd/SDL_netbsdaudio.c, src/audio/netbsd/SDL_netbsdaudio.h, src/audio/ngage/SDL_ngageaudio.c, src/audio/ngage/SDL_ngageaudio.cpp, src/audio/ngage/SDL_ngageaudio.h, src/audio/openslES/SDL_openslES.c, src/audio/openslES/SDL_openslES.h, src/audio/pipewire/SDL_pipewire.c, src/audio/pipewire/SDL_pipewire.h, src/audio/ps2/SDL_ps2audio.c, src/audio/ps2/SDL_ps2audio.h, src/audio/psp/SDL_pspaudio.c, src/audio/psp/SDL_pspaudio.h, src/audio/pulseaudio/SDL_pulseaudio.c, src/audio/pulseaudio/SDL_pulseaudio.h, src/audio/qnx/SDL_qsa_audio.c, src/audio/qnx/SDL_qsa_audio.h, src/audio/sndio/SDL_sndioaudio.c, src/audio/sndio/SDL_sndioaudio.h, src/audio/vita/SDL_vitaaudio.c, src/audio/vita/SDL_vitaaudio.h, src/audio/wasapi/SDL_wasapi.c, src/audio/wasapi/SDL_wasapi.h, src/camera/SDL_camera.c, src/camera/SDL_camera_c.h, src/camera/SDL_syscamera.h, src/camera/android/SDL_camera_android.c, src/camera/coremedia/SDL_camera_coremedia.m, src/camera/dummy/SDL_camera_dummy.c, src/camera/emscripten/SDL_camera_emscripten.c, src/camera/mediafoundation/SDL_camera_mediafoundation.c, src/camera/v4l2/SDL_camera_v4l2.c, src/camera/vita/SDL_camera_vita.c, src/core/SDL_core_unsupported.c, src/core/SDL_core_unsupported.h, src/core/android/SDL_android.c, src/core/android/SDL_android.h, src/core/freebsd/SDL_evdev_kbd_freebsd.c, src/core/gdk/SDL_gdk.cpp, src/core/gdk/SDL_gdk.h, src/core/haiku/SDL_BApp.h, src/core/haiku/SDL_BeApp.h, src/core/linux/SDL_dbus.c, src/core/linux/SDL_dbus.h, src/core/linux/SDL_evdev.c, src/core/linux/SDL_evdev.h, src/core/linux/SDL_evdev_kbd.c, src/core/linux/SDL_evdev_kbd.h, src/core/linux/SDL_evdev_kbd_default_accents.h, src/core/linux/SDL_evdev_kbd_default_keymap.h, src/core/linux/SDL_fcitx.c, src/core/linux/SDL_fcitx.h, src/core/linux/SDL_ibus.c, src/core/linux/SDL_ibus.h, src/core/linux/SDL_ime.c, src/core/linux/SDL_ime.h, src/core/linux/SDL_progressbar.c, src/core/linux/SDL_progressbar.h, src/core/linux/SDL_system_theme.c, src/core/linux/SDL_system_theme.h, src/core/linux/SDL_threadprio.c, src/core/linux/SDL_udev.c, src/core/linux/SDL_udev.h, src/core/ngage/SDL_ngage.cpp, src/core/ngage/SDL_ngage.h, src/core/openbsd/SDL_wscons.h, src/core/openbsd/SDL_wscons_kbd.c, src/core/openbsd/SDL_wscons_mouse.c, src/core/unix/SDL_appid.c, src/core/unix/SDL_fribidi.c, src/core/unix/SDL_fribidi.h, src/core/unix/SDL_gtk.c, src/core/unix/SDL_gtk.h, src/core/unix/SDL_libthai.c, src/core/unix/SDL_libthai.h, src/core/unix/SDL_poll.c, src/core/unix/SDL_poll.h, src/core/windows/SDL_directx.h, src/core/windows/SDL_gameinput.cpp, src/core/windows/SDL_gameinput.h, src/core/windows/SDL_hid.c, src/core/windows/SDL_hid.h, src/core/windows/SDL_immdevice.c, src/core/windows/SDL_immdevice.h, src/core/windows/SDL_windows.c, src/core/windows/SDL_windows.h, src/core/windows/SDL_xinput.c, src/core/windows/SDL_xinput.h, src/core/windows/pch.c, src/core/windows/pch_cpp.cpp, src/cpuinfo/SDL_cpuinfo.c, src/cpuinfo/SDL_cpuinfo_c.h, src/dialog/SDL_dialog.c, src/dialog/SDL_dialog.h, src/dialog/SDL_dialog_utils.c, src/dialog/SDL_dialog_utils.h, src/dialog/android/SDL_androiddialog.c, src/dialog/cocoa/SDL_cocoadialog.m, src/dialog/dummy/SDL_dummydialog.c, src/dialog/unix/SDL_portaldialog.c, src/dialog/unix/SDL_portaldialog.h, src/dialog/unix/SDL_unixdialog.c, src/dialog/unix/SDL_zenitydialog.c, src/dialog/unix/SDL_zenitydialog.h, src/dialog/unix/SDL_zenitymessagebox.c, src/dialog/unix/SDL_zenitymessagebox.h, src/dialog/windows/SDL_windowsdialog.c, src/dynapi/SDL_dynapi.c, src/dynapi/SDL_dynapi.h, src/dynapi/SDL_dynapi_overrides.h, src/dynapi/SDL_dynapi_procs.h, src/dynapi/SDL_dynapi_unsupported.h, src/events/SDL_categories.c, src/events/SDL_categories_c.h, src/events/SDL_clipboardevents.c, src/events/SDL_clipboardevents_c.h, src/events/SDL_displayevents.c, src/events/SDL_displayevents_c.h, src/events/SDL_dropevents.c, src/events/SDL_dropevents_c.h, src/events/SDL_events.c, src/events/SDL_events_c.h, src/events/SDL_eventwatch.c, src/events/SDL_eventwatch_c.h, src/events/SDL_keyboard.c, src/events/SDL_keyboard_c.h, src/events/SDL_keymap.c, src/events/SDL_keymap_c.h, src/events/SDL_keysym_to_keycode.c, src/events/SDL_keysym_to_keycode_c.h, src/events/SDL_keysym_to_scancode.c, src/events/SDL_keysym_to_scancode_c.h, src/events/SDL_mouse.c, src/events/SDL_mouse_c.h, src/events/SDL_pen.c, src/events/SDL_pen_c.h, src/events/SDL_quit.c, src/events/SDL_scancode_tables.c, src/events/SDL_scancode_tables_c.h, src/events/SDL_touch.c, src/events/SDL_touch_c.h, src/events/SDL_windowevents.c, src/events/SDL_windowevents_c.h, src/events/blank_cursor.h, src/events/default_cursor.h, src/events/scancodes_darwin.h, src/events/scancodes_linux.h, src/events/scancodes_windows.h, src/events/scancodes_xfree86.h, src/filesystem/SDL_filesystem.c, src/filesystem/SDL_filesystem_c.h, src/filesystem/SDL_sysfilesystem.h, src/filesystem/android/SDL_sysfilesystem.c, src/filesystem/cocoa/SDL_sysfilesystem.m, src/filesystem/dummy/SDL_sysfilesystem.c, src/filesystem/dummy/SDL_sysfsops.c, src/filesystem/emscripten/SDL_sysfilesystem.c, src/filesystem/gdk/SDL_sysfilesystem.cpp, src/filesystem/n3ds/SDL_sysfilesystem.c, src/filesystem/ngage/SDL_sysfilesystem.c, src/filesystem/ngage/SDL_sysfilesystem.cpp, src/filesystem/posix/SDL_sysfsops.c, src/filesystem/ps2/SDL_sysfilesystem.c, src/filesystem/psp/SDL_sysfilesystem.c, src/filesystem/riscos/SDL_sysfilesystem.c, src/filesystem/unix/SDL_sysfilesystem.c, src/filesystem/vita/SDL_sysfilesystem.c, src/filesystem/windows/SDL_sysfilesystem.c, src/filesystem/windows/SDL_sysfsops.c, src/gpu/SDL_gpu.c, src/gpu/SDL_sysgpu.h, src/gpu/d3d12/SDL_gpu_d3d12.c, src/gpu/metal/SDL_gpu_metal.m, src/gpu/vulkan/SDL_gpu_vulkan.c, src/gpu/vulkan/SDL_gpu_vulkan_vkfuncs.h, src/haptic/SDL_haptic.c, src/haptic/SDL_haptic_c.h, src/haptic/SDL_syshaptic.h, src/haptic/android/SDL_syshaptic.c, src/haptic/android/SDL_syshaptic_c.h, src/haptic/darwin/SDL_syshaptic.c, src/haptic/darwin/SDL_syshaptic_c.h, src/haptic/dummy/SDL_syshaptic.c, src/haptic/linux/SDL_syshaptic.c, src/haptic/windows/SDL_dinputhaptic.c, src/haptic/windows/SDL_dinputhaptic_c.h, src/haptic/windows/SDL_windowshaptic.c, src/haptic/windows/SDL_windowshaptic_c.h, src/hidapi/SDL_hidapi.c, src/hidapi/SDL_hidapi_android.h, src/hidapi/SDL_hidapi_c.h, src/hidapi/SDL_hidapi_ios.h, src/hidapi/SDL_hidapi_libusb.h, src/hidapi/SDL_hidapi_linux.h, src/hidapi/SDL_hidapi_mac.h, src/hidapi/SDL_hidapi_netbsd.h, src/hidapi/SDL_hidapi_steamxbox.h, src/hidapi/SDL_hidapi_windows.h, src/hidapi/libusb/hidapi_thread_sdl.h, src/io/SDL_asyncio.c, src/io/SDL_asyncio_c.h, src/io/SDL_iostream.c, src/io/SDL_iostream_c.h, src/io/SDL_sysasyncio.h, src/io/generic/SDL_asyncio_generic.c, src/io/io_uring/SDL_asyncio_liburing.c, src/io/n3ds/SDL_iostreamromfs.c, src/io/n3ds/SDL_iostreamromfs.h, src/io/windows/SDL_asyncio_windows_ioring.c, src/joystick/SDL_gamepad.c, src/joystick/SDL_gamepad_c.h, src/joystick/SDL_gamepad_db.h, src/joystick/SDL_joystick.c, src/joystick/SDL_joystick_c.h, src/joystick/SDL_steam_virtual_gamepad.c, src/joystick/SDL_steam_virtual_gamepad.h, src/joystick/SDL_sysjoystick.h, src/joystick/android/SDL_sysjoystick.c, src/joystick/android/SDL_sysjoystick_c.h, src/joystick/apple/SDL_mfijoystick.m, src/joystick/apple/SDL_mfijoystick_c.h, src/joystick/bsd/SDL_bsdjoystick.c, src/joystick/darwin/SDL_iokitjoystick.c, src/joystick/darwin/SDL_iokitjoystick_c.h, src/joystick/dummy/SDL_sysjoystick.c, src/joystick/emscripten/SDL_sysjoystick.c, src/joystick/emscripten/SDL_sysjoystick_c.h, src/joystick/gdk/SDL_gameinputjoystick.cpp, src/joystick/hidapi/SDL_hidapi_8bitdo.c, src/joystick/hidapi/SDL_hidapi_combined.c, src/joystick/hidapi/SDL_hidapi_flydigi.c, src/joystick/hidapi/SDL_hidapi_flydigi.h, src/joystick/hidapi/SDL_hidapi_gamecube.c, src/joystick/hidapi/SDL_hidapi_gip.c, src/joystick/hidapi/SDL_hidapi_luna.c, src/joystick/hidapi/SDL_hidapi_nintendo.h, src/joystick/hidapi/SDL_hidapi_ps3.c, src/joystick/hidapi/SDL_hidapi_ps4.c, src/joystick/hidapi/SDL_hidapi_ps5.c, src/joystick/hidapi/SDL_hidapi_rumble.c, src/joystick/hidapi/SDL_hidapi_rumble.h, src/joystick/hidapi/SDL_hidapi_shield.c, src/joystick/hidapi/SDL_hidapi_stadia.c, src/joystick/hidapi/SDL_hidapi_steam.c, src/joystick/hidapi/SDL_hidapi_steam_hori.c, src/joystick/hidapi/SDL_hidapi_steam_triton.c, src/joystick/hidapi/SDL_hidapi_switch.c, src/joystick/hidapi/SDL_hidapi_switch2.c, src/joystick/hidapi/SDL_hidapi_wii.c, src/joystick/hidapi/SDL_hidapi_xbox360.c, src/joystick/hidapi/SDL_hidapi_xbox360w.c, src/joystick/hidapi/SDL_hidapi_xboxone.c, src/joystick/hidapi/SDL_hidapijoystick.c, src/joystick/hidapi/SDL_hidapijoystick_c.h, src/joystick/hidapi/SDL_report_descriptor.c, src/joystick/hidapi/SDL_report_descriptor.h, src/joystick/linux/SDL_sysjoystick.c, src/joystick/linux/SDL_sysjoystick_c.h, src/joystick/n3ds/SDL_sysjoystick.c, src/joystick/ps2/SDL_sysjoystick.c, src/joystick/psp/SDL_sysjoystick.c, src/joystick/usb_ids.h, src/joystick/virtual/SDL_virtualjoystick.c, src/joystick/virtual/SDL_virtualjoystick_c.h, src/joystick/vita/SDL_sysjoystick.c, src/joystick/windows/SDL_dinputjoystick.c, src/joystick/windows/SDL_dinputjoystick_c.h, src/joystick/windows/SDL_rawinputjoystick_c.h, src/joystick/windows/SDL_windows_gaming_input.c, src/joystick/windows/SDL_windowsjoystick.c, src/joystick/windows/SDL_windowsjoystick_c.h, src/joystick/windows/SDL_xinputjoystick.c, src/joystick/windows/SDL_xinputjoystick_c.h, src/libm/math_libm.h, src/loadso/dlopen/SDL_sysloadso.c, src/loadso/dummy/SDL_sysloadso.c, src/loadso/windows/SDL_sysloadso.c, src/locale/SDL_locale.c, src/locale/SDL_syslocale.h, src/locale/android/SDL_syslocale.c, src/locale/dummy/SDL_syslocale.c, src/locale/emscripten/SDL_syslocale.c, src/locale/macos/SDL_syslocale.m, src/locale/n3ds/SDL_syslocale.c, src/locale/ngage/SDL_syslocale.cpp, src/locale/psp/SDL_syslocale.c, src/locale/unix/SDL_syslocale.c, src/locale/vita/SDL_syslocale.c, src/locale/windows/SDL_syslocale.c, src/main/SDL_main_callbacks.c, src/main/SDL_main_callbacks.h, src/main/SDL_runapp.c, src/main/emscripten/SDL_sysmain_callbacks.c, src/main/emscripten/SDL_sysmain_runapp.c, src/main/gdk/SDL_sysmain_runapp.cpp, src/main/generic/SDL_sysmain_callbacks.c, src/main/ios/SDL_sysmain_callbacks.m, src/main/n3ds/SDL_sysmain_runapp.c, src/main/ngage/SDL_sysmain_callbacks.c, src/main/ngage/SDL_sysmain_main.cpp, src/main/ps2/SDL_sysmain_runapp.c, src/main/psp/SDL_sysmain_runapp.c, src/main/windows/SDL_sysmain_runapp.c, src/misc/SDL_libusb.c, src/misc/SDL_libusb.h, src/misc/SDL_sysurl.h, src/misc/SDL_url.c, src/misc/android/SDL_sysurl.c, src/misc/dummy/SDL_sysurl.c, src/misc/emscripten/SDL_sysurl.c, src/misc/ios/SDL_sysurl.m, src/misc/macos/SDL_sysurl.m, src/misc/riscos/SDL_sysurl.c, src/misc/unix/SDL_sysurl.c, src/misc/vita/SDL_sysurl.c, src/misc/windows/SDL_sysurl.c, src/power/SDL_power.c, src/power/SDL_syspower.h, src/power/android/SDL_syspower.c, src/power/emscripten/SDL_syspower.c, src/power/haiku/SDL_syspower.c, src/power/linux/SDL_syspower.c, src/power/macos/SDL_syspower.c, src/power/n3ds/SDL_syspower.c, src/power/psp/SDL_syspower.c, src/power/uikit/SDL_syspower.h, src/power/uikit/SDL_syspower.m, src/power/vita/SDL_syspower.c, src/power/windows/SDL_syspower.c, src/process/SDL_process.c, src/process/SDL_sysprocess.h, src/process/dummy/SDL_dummyprocess.c, src/process/posix/SDL_posixprocess.c, src/process/windows/SDL_windowsprocess.c, src/render/SDL_d3dmath.h, src/render/SDL_render.c, src/render/SDL_render_debug_font.h, src/render/SDL_render_unsupported.c, src/render/SDL_sysrender.h, src/render/SDL_yuv_sw.c, src/render/SDL_yuv_sw_c.h, src/render/direct3d/SDL_render_d3d.c, src/render/direct3d/SDL_shaders_d3d.c, src/render/direct3d/SDL_shaders_d3d.h, src/render/direct3d11/SDL_render_d3d11.c, src/render/direct3d11/SDL_shaders_d3d11.c, src/render/direct3d11/SDL_shaders_d3d11.h, src/render/direct3d12/SDL_render_d3d12.c, src/render/direct3d12/SDL_render_d3d12_xbox.cpp, src/render/direct3d12/SDL_render_d3d12_xbox.h, src/render/direct3d12/SDL_shaders_d3d12.c, src/render/direct3d12/SDL_shaders_d3d12.h, src/render/direct3d12/SDL_shaders_d3d12_xboxone.cpp, src/render/direct3d12/SDL_shaders_d3d12_xboxseries.cpp, src/render/gpu/SDL_gpu_util.h, src/render/gpu/SDL_pipeline_gpu.c, src/render/gpu/SDL_pipeline_gpu.h, src/render/gpu/SDL_render_gpu.c, src/render/gpu/SDL_shaders_gpu.c, src/render/gpu/SDL_shaders_gpu.h, src/render/metal/SDL_render_metal.m, src/render/ngage/SDL_render_ngage.c, src/render/ngage/SDL_render_ngage.cpp, src/render/ngage/SDL_render_ngage_c.h, src/render/ngage/SDL_render_ops.cpp, src/render/opengl/SDL_glfuncs.h, src/render/opengl/SDL_render_gl.c, src/render/opengl/SDL_shaders_gl.c, src/render/opengl/SDL_shaders_gl.h, src/render/opengles2/SDL_gles2funcs.h, src/render/opengles2/SDL_render_gles2.c, src/render/opengles2/SDL_shaders_gles2.c, src/render/opengles2/SDL_shaders_gles2.h, src/render/ps2/SDL_render_ps2.c, src/render/psp/SDL_render_psp.c, src/render/psp/SDL_render_psp_c.h, src/render/software/SDL_blendfillrect.c, src/render/software/SDL_blendfillrect.h, src/render/software/SDL_blendline.c, src/render/software/SDL_blendline.h, src/render/software/SDL_blendpoint.c, src/render/software/SDL_blendpoint.h, src/render/software/SDL_draw.h, src/render/software/SDL_drawline.c, src/render/software/SDL_drawline.h, src/render/software/SDL_drawpoint.c, src/render/software/SDL_drawpoint.h, src/render/software/SDL_render_sw.c, src/render/software/SDL_render_sw_c.h, src/render/software/SDL_triangle.c, src/render/software/SDL_triangle.h, src/render/vitagxm/SDL_render_vita_gxm.c, src/render/vitagxm/SDL_render_vita_gxm_memory.c, src/render/vitagxm/SDL_render_vita_gxm_memory.h, src/render/vitagxm/SDL_render_vita_gxm_shaders.h, src/render/vitagxm/SDL_render_vita_gxm_tools.c, src/render/vitagxm/SDL_render_vita_gxm_tools.h, src/render/vitagxm/SDL_render_vita_gxm_types.h, src/render/vulkan/SDL_render_vulkan.c, src/render/vulkan/SDL_shaders_vulkan.c, src/render/vulkan/SDL_shaders_vulkan.h, src/sensor/SDL_sensor.c, src/sensor/SDL_sensor_c.h, src/sensor/SDL_syssensor.h, src/sensor/android/SDL_androidsensor.c, src/sensor/android/SDL_androidsensor.h, src/sensor/coremotion/SDL_coremotionsensor.h, src/sensor/coremotion/SDL_coremotionsensor.m, src/sensor/dummy/SDL_dummysensor.c, src/sensor/dummy/SDL_dummysensor.h, src/sensor/emscripten/SDL_emscriptensensor.c, src/sensor/emscripten/SDL_emscriptensensor.h, src/sensor/n3ds/SDL_n3dssensor.c, src/sensor/vita/SDL_vitasensor.c, src/sensor/vita/SDL_vitasensor.h, src/sensor/windows/SDL_windowssensor.c, src/sensor/windows/SDL_windowssensor.h, src/stdlib/SDL_casefolding.h, src/stdlib/SDL_crc16.c, src/stdlib/SDL_crc32.c, src/stdlib/SDL_getenv.c, src/stdlib/SDL_getenv_c.h, src/stdlib/SDL_iconv.c, src/stdlib/SDL_malloc.c, src/stdlib/SDL_memcpy.c, src/stdlib/SDL_memmove.c, src/stdlib/SDL_memset.c, src/stdlib/SDL_mslibc.c, src/stdlib/SDL_murmur3.c, src/stdlib/SDL_qsort.c, src/stdlib/SDL_random.c, src/stdlib/SDL_stdlib.c, src/stdlib/SDL_string.c, src/stdlib/SDL_strtokr.c, src/stdlib/SDL_sysstdlib.h, src/stdlib/SDL_vacopy.h, src/storage/SDL_storage.c, src/storage/SDL_sysstorage.h, src/storage/generic/SDL_genericstorage.c, src/storage/steam/SDL_steamstorage.c, src/test/SDL_test_assert.c, src/test/SDL_test_common.c, src/test/SDL_test_compare.c, src/test/SDL_test_crc32.c, src/test/SDL_test_font.c, src/test/SDL_test_fuzzer.c, src/test/SDL_test_harness.c, src/test/SDL_test_internal.h, src/test/SDL_test_log.c, src/test/SDL_test_md5.c, src/test/SDL_test_memory.c, src/thread/SDL_systhread.h, src/thread/SDL_thread.c, src/thread/SDL_thread_c.h, src/thread/generic/SDL_syscond.c, src/thread/generic/SDL_syscond_c.h, src/thread/generic/SDL_sysmutex.c, src/thread/generic/SDL_sysmutex_c.h, src/thread/generic/SDL_sysrwlock.c, src/thread/generic/SDL_sysrwlock_c.h, src/thread/generic/SDL_syssem.c, src/thread/generic/SDL_systhread.c, src/thread/generic/SDL_systhread_c.h, src/thread/generic/SDL_systls.c, src/thread/n3ds/SDL_sysmutex.c, src/thread/n3ds/SDL_sysmutex_c.h, src/thread/n3ds/SDL_syssem.c, src/thread/n3ds/SDL_systhread.c, src/thread/n3ds/SDL_systhread_c.h, src/thread/ps2/SDL_syssem.c, src/thread/ps2/SDL_systhread.c, src/thread/ps2/SDL_systhread_c.h, src/thread/psp/SDL_sysmutex.c, src/thread/psp/SDL_sysmutex_c.h, src/thread/psp/SDL_syssem.c, src/thread/psp/SDL_systhread.c, src/thread/psp/SDL_systhread_c.h, src/thread/pthread/SDL_syscond.c, src/thread/pthread/SDL_sysmutex.c, src/thread/pthread/SDL_sysmutex_c.h, src/thread/pthread/SDL_sysrwlock.c, src/thread/pthread/SDL_syssem.c, src/thread/pthread/SDL_systhread.c, src/thread/pthread/SDL_systhread_c.h, src/thread/pthread/SDL_systls.c, src/thread/vita/SDL_sysmutex.c, src/thread/vita/SDL_sysmutex_c.h, src/thread/vita/SDL_syssem.c, src/thread/vita/SDL_systhread.c, src/thread/vita/SDL_systhread_c.h, src/thread/windows/SDL_syscond_cv.c, src/thread/windows/SDL_sysmutex.c, src/thread/windows/SDL_sysmutex_c.h, src/thread/windows/SDL_sysrwlock_srw.c, src/thread/windows/SDL_syssem.c, src/thread/windows/SDL_systhread.c, src/thread/windows/SDL_systhread_c.h, src/thread/windows/SDL_systls.c, src/time/SDL_time.c, src/time/SDL_time_c.h, src/time/n3ds/SDL_systime.c, src/time/ngage/SDL_systime.cpp, src/time/ps2/SDL_systime.c, src/time/psp/SDL_systime.c, src/time/unix/SDL_systime.c, src/time/vita/SDL_systime.c, src/time/windows/SDL_systime.c, src/timer/SDL_timer.c, src/timer/SDL_timer_c.h, src/timer/haiku/SDL_systimer.c, src/timer/n3ds/SDL_systimer.c, src/timer/ngage/SDL_systimer.cpp, src/timer/ps2/SDL_systimer.c, src/timer/psp/SDL_systimer.c, src/timer/unix/SDL_systimer.c, src/timer/vita/SDL_systimer.c, src/timer/windows/SDL_systimer.c, src/tray/SDL_tray_utils.c, src/tray/SDL_tray_utils.h, src/tray/cocoa/SDL_tray.m, src/tray/dummy/SDL_tray.c, src/tray/unix/SDL_tray.c, src/tray/windows/SDL_tray.c, src/video/SDL_RLEaccel.c, src/video/SDL_RLEaccel_c.h, src/video/SDL_blit.c, src/video/SDL_blit.h, src/video/SDL_blit_0.c, src/video/SDL_blit_1.c, src/video/SDL_blit_A.c, src/video/SDL_blit_N.c, src/video/SDL_blit_auto.c, src/video/SDL_blit_auto.h, src/video/SDL_blit_copy.c, src/video/SDL_blit_copy.h, src/video/SDL_blit_slow.c, src/video/SDL_blit_slow.h, src/video/SDL_bmp.c, src/video/SDL_clipboard.c, src/video/SDL_clipboard_c.h, src/video/SDL_egl_c.h, src/video/SDL_fillrect.c, src/video/SDL_pixels.c, src/video/SDL_pixels_c.h, src/video/SDL_rect.c, src/video/SDL_rect_c.h, src/video/SDL_rect_impl.h, src/video/SDL_rotate.h, src/video/SDL_stb.c, src/video/SDL_stb_c.h, src/video/SDL_stretch.c, src/video/SDL_surface.c, src/video/SDL_surface_c.h, src/video/SDL_sysvideo.h, src/video/SDL_video.c, src/video/SDL_video_c.h, src/video/SDL_video_unsupported.c, src/video/SDL_video_unsupported.h, src/video/SDL_vulkan_internal.h, src/video/SDL_vulkan_utils.c, src/video/SDL_yuv.c, src/video/SDL_yuv_c.h, src/video/android/SDL_androidclipboard.c, src/video/android/SDL_androidclipboard.h, src/video/android/SDL_androidevents.c, src/video/android/SDL_androidevents.h, src/video/android/SDL_androidgl.c, src/video/android/SDL_androidgl.h, src/video/android/SDL_androidkeyboard.c, src/video/android/SDL_androidkeyboard.h, src/video/android/SDL_androidmessagebox.c, src/video/android/SDL_androidmessagebox.h, src/video/android/SDL_androidmouse.c, src/video/android/SDL_androidmouse.h, src/video/android/SDL_androidpen.c, src/video/android/SDL_androidpen.h, src/video/android/SDL_androidtouch.c, src/video/android/SDL_androidtouch.h, src/video/android/SDL_androidvideo.c, src/video/android/SDL_androidvideo.h, src/video/android/SDL_androidvulkan.c, src/video/android/SDL_androidvulkan.h, src/video/android/SDL_androidwindow.c, src/video/android/SDL_androidwindow.h, src/video/cocoa/SDL_cocoaclipboard.h, src/video/cocoa/SDL_cocoaclipboard.m, src/video/cocoa/SDL_cocoaevents.h, src/video/cocoa/SDL_cocoaevents.m, src/video/cocoa/SDL_cocoakeyboard.h, src/video/cocoa/SDL_cocoakeyboard.m, src/video/cocoa/SDL_cocoamessagebox.h, src/video/cocoa/SDL_cocoamessagebox.m, src/video/cocoa/SDL_cocoametalview.h, src/video/cocoa/SDL_cocoametalview.m, src/video/cocoa/SDL_cocoamodes.h, src/video/cocoa/SDL_cocoamodes.m, src/video/cocoa/SDL_cocoamouse.h, src/video/cocoa/SDL_cocoamouse.m, src/video/cocoa/SDL_cocoaopengl.h, src/video/cocoa/SDL_cocoaopengl.m, src/video/cocoa/SDL_cocoaopengles.h, src/video/cocoa/SDL_cocoaopengles.m, src/video/cocoa/SDL_cocoapen.h, src/video/cocoa/SDL_cocoapen.m, src/video/cocoa/SDL_cocoashape.h, src/video/cocoa/SDL_cocoashape.m, src/video/cocoa/SDL_cocoavideo.h, src/video/cocoa/SDL_cocoavideo.m, src/video/cocoa/SDL_cocoavulkan.h, src/video/cocoa/SDL_cocoavulkan.m, src/video/cocoa/SDL_cocoawindow.h, src/video/cocoa/SDL_cocoawindow.m, src/video/directx/SDL_d3d12.h, src/video/dummy/SDL_nullevents.c, src/video/dummy/SDL_nullevents_c.h, src/video/dummy/SDL_nullframebuffer.c, src/video/dummy/SDL_nullframebuffer_c.h, src/video/dummy/SDL_nullvideo.c, src/video/dummy/SDL_nullvideo.h, src/video/emscripten/SDL_emscriptenevents.c, src/video/emscripten/SDL_emscriptenevents.h, src/video/emscripten/SDL_emscriptenframebuffer.c, src/video/emscripten/SDL_emscriptenframebuffer.h, src/video/emscripten/SDL_emscriptenmouse.c, src/video/emscripten/SDL_emscriptenmouse.h, src/video/emscripten/SDL_emscriptenopengles.c, src/video/emscripten/SDL_emscriptenopengles.h, src/video/emscripten/SDL_emscriptenvideo.c, src/video/emscripten/SDL_emscriptenvideo.h, src/video/gdk/SDL_gdktextinput.cpp, src/video/gdk/SDL_gdktextinput.h, src/video/haiku/SDL_BWin.h, src/video/haiku/SDL_bclipboard.h, src/video/haiku/SDL_bevents.h, src/video/haiku/SDL_bframebuffer.h, src/video/haiku/SDL_bkeyboard.h, src/video/haiku/SDL_bmodes.h, src/video/haiku/SDL_bopengl.h, src/video/haiku/SDL_bvideo.h, src/video/haiku/SDL_bwindow.h, src/video/kmsdrm/SDL_kmsdrmdyn.c, src/video/kmsdrm/SDL_kmsdrmdyn.h, src/video/kmsdrm/SDL_kmsdrmevents.c, src/video/kmsdrm/SDL_kmsdrmevents.h, src/video/kmsdrm/SDL_kmsdrmmouse.c, src/video/kmsdrm/SDL_kmsdrmmouse.h, src/video/kmsdrm/SDL_kmsdrmopengles.c, src/video/kmsdrm/SDL_kmsdrmopengles.h, src/video/kmsdrm/SDL_kmsdrmsym.h, src/video/kmsdrm/SDL_kmsdrmvideo.c, src/video/kmsdrm/SDL_kmsdrmvideo.h, src/video/kmsdrm/SDL_kmsdrmvulkan.c, src/video/kmsdrm/SDL_kmsdrmvulkan.h, src/video/n3ds/SDL_n3dsevents.c, src/video/n3ds/SDL_n3dsevents_c.h, src/video/n3ds/SDL_n3dsframebuffer.c, src/video/n3ds/SDL_n3dsframebuffer_c.h, src/video/n3ds/SDL_n3dsswkb.c, src/video/n3ds/SDL_n3dsswkb.h, src/video/n3ds/SDL_n3dstouch.c, src/video/n3ds/SDL_n3dstouch.h, src/video/n3ds/SDL_n3dsvideo.c, src/video/n3ds/SDL_n3dsvideo.h, src/video/ngage/SDL_ngagevideo.c, src/video/ngage/SDL_ngagevideo.h, src/video/offscreen/SDL_offscreenevents.c, src/video/offscreen/SDL_offscreenevents_c.h, src/video/offscreen/SDL_offscreenframebuffer.c, src/video/offscreen/SDL_offscreenframebuffer_c.h, src/video/offscreen/SDL_offscreenopengles.c, src/video/offscreen/SDL_offscreenopengles.h, src/video/offscreen/SDL_offscreenvideo.c, src/video/offscreen/SDL_offscreenvideo.h, src/video/offscreen/SDL_offscreenvulkan.c, src/video/offscreen/SDL_offscreenvulkan.h, src/video/offscreen/SDL_offscreenwindow.c, src/video/offscreen/SDL_offscreenwindow.h, src/video/ps2/SDL_ps2video.c, src/video/ps2/SDL_ps2video.h, src/video/psp/SDL_pspevents.c, src/video/psp/SDL_pspevents_c.h, src/video/psp/SDL_pspgl.c, src/video/psp/SDL_pspgl_c.h, src/video/psp/SDL_pspvideo.c, src/video/psp/SDL_pspvideo.h, src/video/raspberry/SDL_rpievents.c, src/video/raspberry/SDL_rpievents_c.h, src/video/raspberry/SDL_rpimouse.c, src/video/raspberry/SDL_rpimouse.h, src/video/raspberry/SDL_rpiopengles.c, src/video/raspberry/SDL_rpiopengles.h, src/video/raspberry/SDL_rpivideo.c, src/video/raspberry/SDL_rpivideo.h, src/video/riscos/SDL_riscosdefs.h, src/video/riscos/SDL_riscosevents.c, src/video/riscos/SDL_riscosevents_c.h, src/video/riscos/SDL_riscosframebuffer.c, src/video/riscos/SDL_riscosframebuffer_c.h, src/video/riscos/SDL_riscosmessagebox.c, src/video/riscos/SDL_riscosmessagebox.h, src/video/riscos/SDL_riscosmodes.c, src/video/riscos/SDL_riscosmodes.h, src/video/riscos/SDL_riscosmouse.c, src/video/riscos/SDL_riscosmouse.h, src/video/riscos/SDL_riscosvideo.c, src/video/riscos/SDL_riscosvideo.h, src/video/riscos/SDL_riscoswindow.c, src/video/riscos/SDL_riscoswindow.h, src/video/riscos/scancodes_riscos.h, src/video/uikit/SDL_uikitappdelegate.h, src/video/uikit/SDL_uikitappdelegate.m, src/video/uikit/SDL_uikitclipboard.h, src/video/uikit/SDL_uikitclipboard.m, src/video/uikit/SDL_uikitevents.h, src/video/uikit/SDL_uikitevents.m, src/video/uikit/SDL_uikitmessagebox.h, src/video/uikit/SDL_uikitmessagebox.m, src/video/uikit/SDL_uikitmodes.h, src/video/uikit/SDL_uikitmodes.m, src/video/uikit/SDL_uikitopengles.h, src/video/uikit/SDL_uikitopengles.m, src/video/uikit/SDL_uikitopenglview.h, src/video/uikit/SDL_uikitopenglview.m, src/video/uikit/SDL_uikitpen.h, src/video/uikit/SDL_uikitpen.m, src/video/uikit/SDL_uikitvideo.h, src/video/uikit/SDL_uikitvideo.m, src/video/uikit/SDL_uikitview.h, src/video/uikit/SDL_uikitviewcontroller.h, src/video/uikit/SDL_uikitviewcontroller.m, src/video/uikit/SDL_uikitvulkan.h, src/video/uikit/SDL_uikitvulkan.m, src/video/uikit/SDL_uikitwindow.h, src/video/uikit/SDL_uikitwindow.m, src/video/vita/SDL_vitaframebuffer.c, src/video/vita/SDL_vitaframebuffer.h, src/video/vita/SDL_vitagl_pvr.c, src/video/vita/SDL_vitagles.c, src/video/vita/SDL_vitagles_pvr.c, src/video/vita/SDL_vitakeyboard.c, src/video/vita/SDL_vitakeyboard.h, src/video/vita/SDL_vitamessagebox.c, src/video/vita/SDL_vitamessagebox.h, src/video/vita/SDL_vitamouse.c, src/video/vita/SDL_vitamouse_c.h, src/video/vita/SDL_vitatouch.c, src/video/vita/SDL_vitatouch.h, src/video/vita/SDL_vitavideo.c, src/video/vita/SDL_vitavideo.h, src/video/vivante/SDL_vivanteopengles.c, src/video/vivante/SDL_vivanteopengles.h, src/video/vivante/SDL_vivanteplatform.c, src/video/vivante/SDL_vivanteplatform.h, src/video/vivante/SDL_vivantevideo.c, src/video/vivante/SDL_vivantevideo.h, src/video/vivante/SDL_vivantevulkan.c, src/video/vivante/SDL_vivantevulkan.h, src/video/wayland/SDL_waylandclipboard.c, src/video/wayland/SDL_waylandclipboard.h, src/video/wayland/SDL_waylandcolor.c, src/video/wayland/SDL_waylandcolor.h, src/video/wayland/SDL_waylanddatamanager.c, src/video/wayland/SDL_waylanddatamanager.h, src/video/wayland/SDL_waylanddyn.c, src/video/wayland/SDL_waylanddyn.h, src/video/wayland/SDL_waylandevents.c, src/video/wayland/SDL_waylandevents_c.h, src/video/wayland/SDL_waylandkeyboard.c, src/video/wayland/SDL_waylandkeyboard.h, src/video/wayland/SDL_waylandmessagebox.c, src/video/wayland/SDL_waylandmessagebox.h, src/video/wayland/SDL_waylandmouse.c, src/video/wayland/SDL_waylandmouse.h, src/video/wayland/SDL_waylandopengles.c, src/video/wayland/SDL_waylandopengles.h, src/video/wayland/SDL_waylandshmbuffer.c, src/video/wayland/SDL_waylandshmbuffer.h, src/video/wayland/SDL_waylandsym.h, src/video/wayland/SDL_waylandutil.c, src/video/wayland/SDL_waylandutil.h, src/video/wayland/SDL_waylandvideo.c, src/video/wayland/SDL_waylandvideo.h, src/video/wayland/SDL_waylandvulkan.c, src/video/wayland/SDL_waylandvulkan.h, src/video/wayland/SDL_waylandwindow.c, src/video/wayland/SDL_waylandwindow.h, src/video/windows/SDL_msctf.h, src/video/windows/SDL_windowsclipboard.c, src/video/windows/SDL_windowsclipboard.h, src/video/windows/SDL_windowsevents.c, src/video/windows/SDL_windowsevents.h, src/video/windows/SDL_windowsframebuffer.c, src/video/windows/SDL_windowsframebuffer.h, src/video/windows/SDL_windowsgameinput.cpp, src/video/windows/SDL_windowsgameinput.h, src/video/windows/SDL_windowskeyboard.c, src/video/windows/SDL_windowskeyboard.h, src/video/windows/SDL_windowsmessagebox.c, src/video/windows/SDL_windowsmessagebox.h, src/video/windows/SDL_windowsmodes.c, src/video/windows/SDL_windowsmodes.h, src/video/windows/SDL_windowsmouse.c, src/video/windows/SDL_windowsmouse.h, src/video/windows/SDL_windowsopengl.c, src/video/windows/SDL_windowsopengl.h, src/video/windows/SDL_windowsopengles.c, src/video/windows/SDL_windowsopengles.h, src/video/windows/SDL_windowsrawinput.c, src/video/windows/SDL_windowsrawinput.h, src/video/windows/SDL_windowsshape.c, src/video/windows/SDL_windowsshape.h, src/video/windows/SDL_windowsvideo.c, src/video/windows/SDL_windowsvideo.h, src/video/windows/SDL_windowsvulkan.c, src/video/windows/SDL_windowsvulkan.h, src/video/windows/SDL_windowswindow.c, src/video/windows/SDL_windowswindow.h, src/video/windows/wmmsg.h, src/video/x11/SDL_x11clipboard.c, src/video/x11/SDL_x11clipboard.h, src/video/x11/SDL_x11dyn.c, src/video/x11/SDL_x11dyn.h, src/video/x11/SDL_x11events.c, src/video/x11/SDL_x11events.h, src/video/x11/SDL_x11framebuffer.c, src/video/x11/SDL_x11framebuffer.h, src/video/x11/SDL_x11keyboard.c, src/video/x11/SDL_x11keyboard.h, src/video/x11/SDL_x11messagebox.c, src/video/x11/SDL_x11messagebox.h, src/video/x11/SDL_x11modes.c, src/video/x11/SDL_x11modes.h, src/video/x11/SDL_x11mouse.c, src/video/x11/SDL_x11mouse.h, src/video/x11/SDL_x11opengl.h, src/video/x11/SDL_x11opengles.c, src/video/x11/SDL_x11opengles.h, src/video/x11/SDL_x11pen.c, src/video/x11/SDL_x11pen.h, src/video/x11/SDL_x11shape.c, src/video/x11/SDL_x11shape.h, src/video/x11/SDL_x11sym.h, src/video/x11/SDL_x11toolkit.c, src/video/x11/SDL_x11toolkit.h, src/video/x11/SDL_x11touch.c, src/video/x11/SDL_x11touch.h, src/video/x11/SDL_x11video.c, src/video/x11/SDL_x11video.h, src/video/x11/SDL_x11vulkan.c, src/video/x11/SDL_x11vulkan.h, src/video/x11/SDL_x11window.c, src/video/x11/SDL_x11window.h, src/video/x11/SDL_x11xfixes.c, src/video/x11/SDL_x11xfixes.h, src/video/x11/SDL_x11xinput2.c, src/video/x11/SDL_x11xinput2.h, src/video/x11/SDL_x11xsync.c, src/video/x11/SDL_x11xsync.h, src/video/x11/SDL_x11xtest.c, src/video/x11/SDL_x11xtest.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/audio/aaudio/SDL_aaudiofuncs.h
+/*
+  Simple DirectMedia Layer
+  Copyright , (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/camera/pipewire/SDL_camera_pipewire.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2024 Wim Taymans <wtaymans@redhat.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/core/linux/SDL_evdev_capabilities.c, src/core/linux/SDL_evdev_capabilities.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2020 Collabora Ltd.
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/core/unix/SDL_appid.h
+/*
+Simple DirectMedia Layer
+Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software
+   in a product, an acknowledgment in the product documentation would be
+   appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/events/imKStoUCS.c, src/events/imKStoUCS.h
+/*
+Copyright (C) 2003-2006,2008 Jamey Sharp, Josh Triplett
+Copyright © 2009 Red Hat, Inc.
+Copyright 1990-1992,1999,2000,2004,2009,2010 Oracle and/or its affiliates.
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+*/
+
+src/filesystem/unix/SDL_sysfilesystem.c
+/*
+  The two functions below (prefixed with `xdg_`) have been copied from:
+  https://gitlab.freedesktop.org/xdg/xdg-user-dirs/-/blob/master/xdg-user-dir-lookup.c
+  and have been adapted to work with SDL. They are licensed under the following
+  terms:
+
+  Copyright (c) 2007 Red Hat, Inc.
+
+  Permission is hereby granted, free of charge, to any person
+  obtaining a copy of this software and associated documentation files
+  (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge,
+  publish, distribute, sublicense, and/or sell copies of the Software,
+  and to permit persons to whom the Software is furnished to do so,
+  subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be
+  included in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
+src/haptic/hidapi/SDL_hidapihaptic.c, src/haptic/hidapi/SDL_hidapihaptic.h, src/haptic/hidapi/SDL_hidapihaptic_c.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2025 Katharine Chui <katharine.chui@gmail.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/haptic/hidapi/SDL_hidapihaptic_lg4ff.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2025 Simon Wood <simon@mungewell.org>
+  Copyright (C) 2025 Michal Malý <madcatxster@devoid-pointer.net>
+  Copyright (C) 2025 Bernat Arlandis <berarma@hotmail.com>
+  Copyright (C) 2025 Katharine Chui <katharine.chui@gmail.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/haptic/linux/SDL_syshaptic.c
+/*
+     * Limit amount of checks to MAX_HAPTICS since we may or may not have
+     * permission to some or all devices.
+     */
+
+src/hidapi/android/hid.cpp, src/hidapi/android/hid.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2022 Valve Corporation
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/hidapi/hidapi/hidapi.h
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ Alan Ott
+ Signal 11 Software
+
+ libusb/hidapi Team
+
+ Copyright 2023, All Rights Reserved.
+
+ At the discretion of the user of this library,
+ this software may be licensed under the terms of the
+ GNU General Public License v3, a BSD-Style license, or the
+ original HIDAPI license as outlined in the LICENSE.txt,
+ LICENSE-gpl3.txt, LICENSE-bsd.txt, and LICENSE-orig.txt
+ files located at the root of the source distribution.
+ These files may also be found in the public source
+ code repository located at:
+        https://github.com/libusb/hidapi .
+********************************************************/
+
+src/hidapi/hidtest/test.c
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ Alan Ott
+ Signal 11 Software
+
+ libusb/hidapi Team
+
+ Copyright 2022.
+
+ This contents of this file may be used by anyone
+ for any reason without any conditions and may be
+ used as a starting point for your own applications
+ which use HIDAPI.
+********************************************************/
+
+src/hidapi/ios/hid.m, src/joystick/hidapi/steam/controller_constants.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2021 Valve Corporation
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/hidapi/libusb/hid.c, src/hidapi/linux/hid.c, src/hidapi/mac/hid.c, src/hidapi/windows/hid.c
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ Alan Ott
+ Signal 11 Software
+
+ libusb/hidapi Team
+
+ Copyright 2022, All Rights Reserved.
+
+ At the discretion of the user of this library,
+ this software may be licensed under the terms of the
+ GNU General Public License v3, a BSD-Style license, or the
+ original HIDAPI license as outlined in the LICENSE.txt,
+ LICENSE-gpl3.txt, LICENSE-bsd.txt, and LICENSE-orig.txt
+ files located at the root of the source distribution.
+ These files may also be found in the public source
+ code repository located at:
+        https://github.com/libusb/hidapi .
+********************************************************/
+
+src/hidapi/libusb/hidapi_libusb.h
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ libusb/hidapi Team
+
+ Copyright 2021, All Rights Reserved.
+
+ At the discretion of the user of this library,
+ this software may be licensed under the terms of the
+ GNU General Public License v3, a BSD-Style license, or the
+ original HIDAPI license as outlined in the LICENSE.txt,
+ LICENSE-gpl3.txt, LICENSE-bsd.txt, and LICENSE-orig.txt
+ files located at the root of the source distribution.
+ These files may also be found in the public source
+ code repository located at:
+        https://github.com/libusb/hidapi .
+********************************************************/
+
+src/hidapi/libusb/hidapi_thread_pthread.h
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ Alan Ott
+ Signal 11 Software
+
+ libusb/hidapi Team
+
+ Sam Lantinga
+
+ Copyright 2023, All Rights Reserved.
+
+ At the discretion of the user of this library,
+ this software may be licensed under the terms of the
+ GNU General Public License v3, a BSD-Style license, or the
+ original HIDAPI license as outlined in the LICENSE.txt,
+ LICENSE-gpl3.txt, LICENSE-bsd.txt, and LICENSE-orig.txt
+ files located at the root of the source distribution.
+ These files may also be found in the public source
+ code repository located at:
+        https://github.com/libusb/hidapi .
+********************************************************/
+
+src/hidapi/mac/hidapi_darwin.h, src/hidapi/windows/hidapi_cfgmgr32.h, src/hidapi/windows/hidapi_descriptor_reconstruct.c, src/hidapi/windows/hidapi_descriptor_reconstruct.h, src/hidapi/windows/hidapi_hidclass.h, src/hidapi/windows/hidapi_hidpi.h, src/hidapi/windows/hidapi_hidsdi.h, src/hidapi/windows/hidapi_winapi.h
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ libusb/hidapi Team
+
+ Copyright 2022, All Rights Reserved.
+
+ At the discretion of the user of this library,
+ this software may be licensed under the terms of the
+ GNU General Public License v3, a BSD-Style license, or the
+ original HIDAPI license as outlined in the LICENSE.txt,
+ LICENSE-gpl3.txt, LICENSE-bsd.txt, and LICENSE-orig.txt
+ files located at the root of the source distribution.
+ These files may also be found in the public source
+ code repository located at:
+        https://github.com/libusb/hidapi .
+********************************************************/
+
+src/hidapi/netbsd/hid.c
+/*******************************************************
+ HIDAPI - Multi-Platform library for
+ communication with HID devices.
+
+ James Buren
+ libusb/hidapi Team
+
+ Copyright 2023, All Rights Reserved.
+
+ At the discretion of the user of this library,
+ this software may be licensed under the terms of the
+ GNU General Public License v3, a BSD-Style license, or the
+ original HIDAPI license as outlined in the LICENSE.txt,
+ LICENSE-gpl3.txt, LICENSE-bsd.txt, and LICENSE-orig.txt
+ files located at the root of the source distribution.
+ These files may also be found in the public source
+ code repository located at:
+        https://github.com/libusb/hidapi .
+********************************************************/
+
+src/hidapi/testgui/test.cpp
+/*******************************************************
+ Demo Program for HIDAPI
+ 
+ Alan Ott
+ Signal 11 Software
+
+ 2010-07-20
+
+ Copyright 2010, All Rights Reserved
+ 
+ This contents of this file may be used by anyone
+ for any reason without any conditions and may be
+ used as a starting point for your own applications
+ which use HIDAPI.
+********************************************************/
+
+src/joystick/controller_list.h, src/joystick/controller_type.c, src/joystick/controller_type.h
+/*
+  Copyright (C) Valve Corporation
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/joystick/hidapi/SDL_hidapi_lg4ff.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2025 Simon Wood <simon@mungewell.org>
+  Copyright (C) 2025 Michal Malý <madcatxster@devoid-pointer.net>
+  Copyright (C) 2025 Katharine Chui <katharine.chui@gmail.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/joystick/hidapi/SDL_hidapi_ps4.c
+/* This driver supports both simplified reports and the extended input reports enabled by Steam.
+   Code and logic contributed by Valve Corporation under the SDL zlib license.
+*/
+
+src/joystick/hidapi/SDL_hidapi_sinput.c, src/joystick/hidapi/SDL_hidapi_sinput.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2025 Mitchell Cairns <mitch.cairns@handheldlegend.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/joystick/hidapi/SDL_hidapi_steamdeck.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2023 Max Maisel <max.maisel@posteo.de>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/joystick/hidapi/SDL_hidapi_switch.c, src/joystick/hidapi/SDL_hidapi_switch2.c
+/* This driver supports the Nintendo Switch Pro controller.
+   Code and logic contributed by Valve Corporation under the SDL zlib license.
+*/
+
+src/joystick/hidapi/SDL_hidapi_xboxone.c
+/* GIP protocol handling adapted under the Zlib license with permission from @medusalix:
+ * https://github.com/medusalix/xone/blob/master/bus/protocol.h
+ * https://github.com/medusalix/xone/blob/master/bus/protocol.c
+ */
+
+src/joystick/hidapi/SDL_hidapi_zuiki.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2025 Zuiki Inc.
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/joystick/hidapi/steam/controller_structs.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2020 Valve Corporation
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/joystick/windows/SDL_rawinputjoystick.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2026 Sam Lantinga <slouken@libsdl.org>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+*/
+
+src/libm/e_atan2.c, src/libm/e_exp.c, src/libm/e_fmod.c, src/libm/e_log.c, src/libm/e_log10.c, src/libm/e_pow.c, src/libm/e_rem_pio2.c, src/libm/e_sqrt.c, src/libm/k_cos.c, src/libm/k_rem_pio2.c, src/libm/k_sin.c, src/libm/k_tan.c, src/libm/math_private.h, src/libm/s_atan.c, src/libm/s_copysign.c, src/libm/s_cos.c, src/libm/s_fabs.c, src/libm/s_floor.c, src/libm/s_isnan.c, src/libm/s_isnanf.c, src/libm/s_modf.c, src/libm/s_scalbn.c, src/libm/s_sin.c, src/libm/s_tan.c
+/*
+ * ====================================================
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunPro, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ * ====================================================
+ */
+
+src/libm/s_isinf.c
+/*
+ * Written by J.T. Conklin <jtc@netbsd.org>.
+ * Changed to return -1 for -Inf by Ulrich Drepper <drepper@cygnus.com>.
+ * Public domain.
+ */
+
+src/libm/s_isinff.c
+/*
+ * Written by J.T. Conklin <jtc@netbsd.org>.
+ * Public domain.
+ */
+
+src/main/windows/SDL_sysmain_runapp.c
+/* Win32-specific SDL_RunApp(), which does most of the SDL_main work,
+  based on SDL_windows_main.c, placed in the public domain by Sam Lantinga  4/13/98 */
+
+src/render/SDL_render_debug_font.h
+/*
+; Summary: font8_8.asm
+; 8x8 monochrome bitmap fonts for rendering
+;
+; Author:
+;     Marcel Sondaar
+;     International Business Machines (public domain VGA fonts)
+;
+; License:
+;     Public Domain
+;
+*/
+
+src/stdlib/SDL_crc16.c
+/* Public domain CRC implementation adapted from:
+   http://home.thep.lu.se/~bjorn/crc/crc32_simple.c
+
+   This algorithm is compatible with the 16-bit CRC described here:
+   https://www.lammertbies.nl/comm/info/crc-calculation
+*/
+
+src/stdlib/SDL_crc32.c
+/* Public domain CRC implementation adapted from:
+   http://home.thep.lu.se/~bjorn/crc/crc32_simple.c
+
+   This algorithm is compatible with the 32-bit CRC described here:
+   https://www.lammertbies.nl/comm/info/crc-calculation
+*/
+
+src/stdlib/SDL_malloc.c
+/*
+  This is a version (aka dlmalloc) of malloc/free/realloc written by
+  Doug Lea and released to the public domain, as explained at
+  http://creativecommons.org/publicdomain/zero/1.0/ Send questions,
+  comments, complaints, performance data, etc to dl@cs.oswego.edu
+
+* Version 2.8.6 Wed Aug 29 06:57:58 2012  Doug Lea
+   Note: There may be an updated version of this malloc obtainable at
+           ftp://gee.cs.oswego.edu/pub/misc/malloc.c
+         Check before installing!
+
+* Quickstart
+
+  This library is all in one file to simplify the most common usage:
+  ftp it, compile it (-O3), and link it into another program. All of
+  the compile-time options default to reasonable values for use on
+  most platforms.  You might later want to step through various
+  compile-time and dynamic tuning options.
+
+  For convenience, an include file for code using this malloc is at:
+     ftp://gee.cs.oswego.edu/pub/misc/malloc-2.8.6.h
+  You don't really need this .h file unless you call functions not
+  defined in your system include files.  The .h file contains only the
+  excerpts from this file needed for using this malloc on ANSI C/C++
+  systems, so long as you haven't changed compile-time options about
+  naming and tuning parameters.  If you do, then you can create your
+  own malloc.h that does include all settings by cutting at the point
+  indicated below. Note that you may already by default be using a C
+  library containing a malloc that is based on some version of this
+  malloc (for example in linux). You might still want to use the one
+  in this file to customize settings or to avoid overheads associated
+  with library versions.
+
+* Vital statistics:
+
+  Supported pointer/size_t representation:       4 or 8 bytes
+       size_t MUST be an unsigned type of the same width as
+       pointers. (If you are using an ancient system that declares
+       size_t as a signed type, or need it to be a different width
+       than pointers, you can use a previous release of this malloc
+       (e.g. 2.7.2) supporting these.)
+
+  Alignment:                                     8 bytes (minimum)
+       This suffices for nearly all current machines and C compilers.
+       However, you can define MALLOC_ALIGNMENT to be wider than this
+       if necessary (up to 128bytes), at the expense of using more space.
+
+  Minimum overhead per allocated chunk:   4 or  8 bytes (if 4byte sizes)
+                                          8 or 16 bytes (if 8byte sizes)
+       Each malloced chunk has a hidden word of overhead holding size
+       and status information, and additional cross-check word
+       if FOOTERS is defined.
+
+  Minimum allocated size: 4-byte ptrs:  16 bytes    (including overhead)
+                          8-byte ptrs:  32 bytes    (including overhead)
+
+       Even a request for zero bytes (i.e., malloc(0)) returns a
+       pointer to something of the minimum allocatable size.
+       The maximum overhead wastage (i.e., number of extra bytes
+       allocated than were requested in malloc) is less than or equal
+       to the minimum size, except for requests >= mmap_threshold that
+       are serviced via mmap(), where the worst case wastage is about
+       32 bytes plus the remainder from a system page (the minimal
+       mmap unit); typically 4096 or 8192 bytes.
+
+  Security: static-safe; optionally more or less
+       The "security" of malloc refers to the ability of malicious
+       code to accentuate the effects of errors (for example, freeing
+       space that is not currently malloc'ed or overwriting past the
+       ends of chunks) in code that calls malloc.  This malloc
+       guarantees not to modify any memory locations below the base of
+       heap, i.e., static variables, even in the presence of usage
+       errors.  The routines additionally detect most improper frees
+       and reallocs.  All this holds as long as the static bookkeeping
+       for malloc itself is not corrupted by some other means.  This
+       is only one aspect of security -- these checks do not, and
+       cannot, detect all possible programming errors.
+
+       If FOOTERS is defined nonzero, then each allocated chunk
+       carries an additional check word to verify that it was malloced
+       from its space.  These check words are the same within each
+       execution of a program using malloc, but differ across
+       executions, so externally crafted fake chunks cannot be
+       freed. This improves security by rejecting frees/reallocs that
+       could corrupt heap memory, in addition to the checks preventing
+       writes to statics that are always on.  This may further improve
+       security at the expense of time and space overhead.  (Note that
+       FOOTERS may also be worth using with MSPACES.)
+
+       By default detected errors cause the program to abort (calling
+       "abort()"). You can override this to instead proceed past
+       errors by defining PROCEED_ON_ERROR.  In this case, a bad free
+       has no effect, and a malloc that encounters a bad address
+       caused by user overwrites will ignore the bad address by
+       dropping pointers and indices to all known memory. This may
+       be appropriate for programs that should continue if at all
+       possible in the face of programming errors, although they may
+       run out of memory because dropped memory is never reclaimed.
+
+       If you don't like either of these options, you can define
+       CORRUPTION_ERROR_ACTION and USAGE_ERROR_ACTION to do anything
+       else. And if if you are sure that your program using malloc has
+       no errors or vulnerabilities, you can define INSECURE to 1,
+       which might (or might not) provide a small performance improvement.
+
+       It is also possible to limit the maximum total allocatable
+       space, using malloc_set_footprint_limit. This is not
+       designed as a security feature in itself (calls to set limits
+       are not screened or privileged), but may be useful as one
+       aspect of a secure implementation.
+
+  Thread-safety: NOT thread-safe unless USE_LOCKS defined non-zero
+       When USE_LOCKS is defined, each public call to malloc, free,
+       etc is surrounded with a lock. By default, this uses a plain
+       pthread mutex, win32 critical section, or a spin-lock if if
+       available for the platform and not disabled by setting
+       USE_SPIN_LOCKS=0.  However, if USE_RECURSIVE_LOCKS is defined,
+       recursive versions are used instead (which are not required for
+       base functionality but may be needed in layered extensions).
+       Using a global lock is not especially fast, and can be a major
+       bottleneck.  It is designed only to provide minimal protection
+       in concurrent environments, and to provide a basis for
+       extensions.  If you are using malloc in a concurrent program,
+       consider instead using nedmalloc
+       (http://www.nedprod.com/programs/portable/nedmalloc/) or
+       ptmalloc (See http://www.malloc.de), which are derived from
+       versions of this malloc.
+
+  System requirements: Any combination of MORECORE and/or MMAP/MUNMAP
+       This malloc can use unix sbrk or any emulation (invoked using
+       the CALL_MORECORE macro) and/or mmap/munmap or any emulation
+       (invoked using CALL_MMAP/CALL_MUNMAP) to get and release system
+       memory.  On most unix systems, it tends to work best if both
+       MORECORE and MMAP are enabled.  On Win32, it uses emulations
+       based on VirtualAlloc. It also uses common C library functions
+       like memset.
+
+  Compliance: I believe it is compliant with the Single Unix Specification
+       (See http://www.unix.org). Also SVID/XPG, ANSI C, and probably
+       others as well.
+
+* Overview of algorithms
+
+  This is not the fastest, most space-conserving, most portable, or
+  most tunable malloc ever written. However it is among the fastest
+  while also being among the most space-conserving, portable and
+  tunable.  Consistent balance across these factors results in a good
+  general-purpose allocator for malloc-intensive programs.
+
+  In most ways, this malloc is a best-fit allocator. Generally, it
+  chooses the best-fitting existing chunk for a request, with ties
+  broken in approximately least-recently-used order. (This strategy
+  normally maintains low fragmentation.) However, for requests less
+  than 256bytes, it deviates from best-fit when there is not an
+  exactly fitting available chunk by preferring to use space adjacent
+  to that used for the previous small request, as well as by breaking
+  ties in approximately most-recently-used order. (These enhance
+  locality of series of small allocations.)  And for very large requests
+  (>= 256Kb by default), it relies on system memory mapping
+  facilities, if supported.  (This helps avoid carrying around and
+  possibly fragmenting memory used only for large chunks.)
+
+  All operations (except malloc_stats and mallinfo) have execution
+  times that are bounded by a constant factor of the number of bits in
+  a size_t, not counting any clearing in calloc or copying in realloc,
+  or actions surrounding MORECORE and MMAP that have times
+  proportional to the number of non-contiguous regions returned by
+  system allocation routines, which is often just 1. In real-time
+  applications, you can optionally suppress segment traversals using
+  NO_SEGMENT_TRAVERSAL, which assures bounded execution even when
+  system allocators return non-contiguous spaces, at the typical
+  expense of carrying around more memory and increased fragmentation.
+
+  The implementation is not very modular and seriously overuses
+  macros. Perhaps someday all C compilers will do as good a job
+  inlining modular code as can now be done by brute-force expansion,
+  but now, enough of them seem not to.
+
+  Some compilers issue a lot of warnings about code that is
+  dead/unreachable only on some platforms, and also about intentional
+  uses of negation on unsigned types. All known cases of each can be
+  ignored.
+
+  For a longer but out of date high-level description, see
+     http://gee.cs.oswego.edu/dl/html/malloc.html
+
+* MSPACES
+  If MSPACES is defined, then in addition to malloc, free, etc.,
+  this file also defines mspace_malloc, mspace_free, etc. These
+  are versions of malloc routines that take an "mspace" argument
+  obtained using create_mspace, to control all internal bookkeeping.
+  If ONLY_MSPACES is defined, only these versions are compiled.
+  So if you would like to use this allocator for only some allocations,
+  and your system malloc for others, you can compile with
+  ONLY_MSPACES and then do something like...
+    static mspace mymspace = create_mspace(0,0); // for example
+    #define mymalloc(bytes)  mspace_malloc(mymspace, bytes)
+
+  (Note: If you only need one instance of an mspace, you can instead
+  use "USE_DL_PREFIX" to relabel the global malloc.)
+
+  You can similarly create thread-local allocators by storing
+  mspaces as thread-locals. For example:
+    static __thread mspace tlms = 0;
+    void*  tlmalloc(size_t bytes) {
+      if (tlms == 0) tlms = create_mspace(0, 0);
+      return mspace_malloc(tlms, bytes);
+    }
+    void  tlfree(void* mem) { mspace_free(tlms, mem); }
+
+  Unless FOOTERS is defined, each mspace is completely independent.
+  You cannot allocate from one and free to another (although
+  conformance is only weakly checked, so usage errors are not always
+  caught). If FOOTERS is defined, then each chunk carries around a tag
+  indicating its originating mspace, and frees are directed to their
+  originating spaces. Normally, this requires use of locks.
+
+ -------------------------  Compile-time options ---------------------------
+
+Be careful in setting #define values for numerical constants of type
+size_t. On some systems, literal values are not automatically extended
+to size_t precision unless they are explicitly casted. You can also
+use the symbolic values MAX_SIZE_T, SIZE_T_ONE, etc below.
+
+WIN32                    default: defined if _WIN32 defined
+  Defining WIN32 sets up defaults for MS environment and compilers.
+  Otherwise defaults are for unix. Beware that there seem to be some
+  cases where this malloc might not be a pure drop-in replacement for
+  Win32 malloc: Random-looking failures from Win32 GDI API's (eg;
+  SetDIBits()) may be due to bugs in some video driver implementations
+  when pixel buffers are malloc()ed, and the region spans more than
+  one VirtualAlloc()ed region. Because dlmalloc uses a small (64Kb)
+  default granularity, pixel buffers may straddle virtual allocation
+  regions more often than when using the Microsoft allocator.  You can
+  avoid this by using VirtualAlloc() and VirtualFree() for all pixel
+  buffers rather than using malloc().  If this is not possible,
+  recompile this malloc with a larger DEFAULT_GRANULARITY. Note:
+  in cases where MSC and gcc (cygwin) are known to differ on WIN32,
+  conditions use _MSC_VER to distinguish them.
+
+DLMALLOC_EXPORT       default: extern
+  Defines how public APIs are declared. If you want to export via a
+  Windows DLL, you might define this as
+    #define DLMALLOC_EXPORT extern  __declspec(dllexport)
+  If you want a POSIX ELF shared object, you might use
+    #define DLMALLOC_EXPORT extern __attribute__((visibility("default")))
+
+MALLOC_ALIGNMENT         default: (size_t)(2 * sizeof(void *))
+  Controls the minimum alignment for malloc'ed chunks.  It must be a
+  power of two and at least 8, even on machines for which smaller
+  alignments would suffice. It may be defined as larger than this
+  though. Note however that code and data structures are optimized for
+  the case of 8-byte alignment.
+
+MSPACES                  default: 0 (false)
+  If true, compile in support for independent allocation spaces.
+  This is only supported if HAVE_MMAP is true.
+
+ONLY_MSPACES             default: 0 (false)
+  If true, only compile in mspace versions, not regular versions.
+
+USE_LOCKS                default: 0 (false)
+  Causes each call to each public routine to be surrounded with
+  pthread or WIN32 mutex lock/unlock. (If set true, this can be
+  overridden on a per-mspace basis for mspace versions.) If set to a
+  non-zero value other than 1, locks are used, but their
+  implementation is left out, so lock functions must be supplied manually,
+  as described below.
+
+USE_SPIN_LOCKS           default: 1 iff USE_LOCKS and spin locks available
+  If true, uses custom spin locks for locking. This is currently
+  supported only gcc >= 4.1, older gccs on x86 platforms, and recent
+  MS compilers.  Otherwise, posix locks or win32 critical sections are
+  used.
+
+USE_RECURSIVE_LOCKS      default: not defined
+  If defined nonzero, uses recursive (aka reentrant) locks, otherwise
+  uses plain mutexes. This is not required for malloc proper, but may
+  be needed for layered allocators such as nedmalloc.
+
+LOCK_AT_FORK            default: not defined
+  If defined nonzero, performs pthread_atfork upon initialization
+  to initialize child lock while holding parent lock. The implementation
+  assumes that pthread locks (not custom locks) are being used. In other
+  cases, you may need to customize the implementation.
+
+FOOTERS                  default: 0
+  If true, provide extra checking and dispatching by placing
+  information in the footers of allocated chunks. This adds
+  space and time overhead.
+
+INSECURE                 default: 0
+  If true, omit checks for usage errors and heap space overwrites.
+
+USE_DL_PREFIX            default: NOT defined
+  Causes compiler to prefix all public routines with the string 'dl'.
+  This can be useful when you only want to use this malloc in one part
+  of a program, using your regular system malloc elsewhere.
+
+MALLOC_INSPECT_ALL       default: NOT defined
+  If defined, compiles malloc_inspect_all and mspace_inspect_all, that
+  perform traversal of all heap space.  Unless access to these
+  functions is otherwise restricted, you probably do not want to
+  include them in secure implementations.
+
+ABORT                    default: defined as abort()
+  Defines how to abort on failed checks.  On most systems, a failed
+  check cannot die with an "assert" or even print an informative
+  message, because the underlying print routines in turn call malloc,
+  which will fail again.  Generally, the best policy is to simply call
+  abort(). It's not very useful to do more than this because many
+  errors due to overwriting will show up as address faults (null, odd
+  addresses etc) rather than malloc-triggered checks, so will also
+  abort.  Also, most compilers know that abort() does not return, so
+  can better optimize code conditionally calling it.
+
+PROCEED_ON_ERROR           default: defined as 0 (false)
+  Controls whether detected bad addresses cause them to bypassed
+  rather than aborting. If set, detected bad arguments to free and
+  realloc are ignored. And all bookkeeping information is zeroed out
+  upon a detected overwrite of freed heap space, thus losing the
+  ability to ever return it from malloc again, but enabling the
+  application to proceed. If PROCEED_ON_ERROR is defined, the
+  static variable malloc_corruption_error_count is compiled in
+  and can be examined to see if errors have occurred. This option
+  generates slower code than the default abort policy.
+
+DEBUG                    default: NOT defined
+  The DEBUG setting is mainly intended for people trying to modify
+  this code or diagnose problems when porting to new platforms.
+  However, it may also be able to better isolate user errors than just
+  using runtime checks.  The assertions in the check routines spell
+  out in more detail the assumptions and invariants underlying the
+  algorithms.  The checking is fairly extensive, and will slow down
+  execution noticeably. Calling malloc_stats or mallinfo with DEBUG
+  set will attempt to check every non-mmapped allocated and free chunk
+  in the course of computing the summaries.
+
+ABORT_ON_ASSERT_FAILURE   default: defined as 1 (true)
+  Debugging assertion failures can be nearly impossible if your
+  version of the assert macro causes malloc to be called, which will
+  lead to a cascade of further failures, blowing the runtime stack.
+  ABORT_ON_ASSERT_FAILURE cause assertions failures to call abort(),
+  which will usually make debugging easier.
+
+MALLOC_FAILURE_ACTION     default: sets errno to ENOMEM, or no-op on win32
+  The action to take before "return 0" when malloc fails to be able to
+  return memory because there is none available.
+
+HAVE_MORECORE             default: 1 (true) unless win32 or ONLY_MSPACES
+  True if this system supports sbrk or an emulation of it.
+
+MORECORE                  default: sbrk
+  The name of the sbrk-style system routine to call to obtain more
+  memory.  See below for guidance on writing custom MORECORE
+  functions. The type of the argument to sbrk/MORECORE varies across
+  systems.  It cannot be size_t, because it supports negative
+  arguments, so it is normally the signed type of the same width as
+  size_t (sometimes declared as "intptr_t").  It doesn't much matter
+  though. Internally, we only call it with arguments less than half
+  the max value of a size_t, which should work across all reasonable
+  possibilities, although sometimes generating compiler warnings.
+
+MORECORE_CONTIGUOUS       default: 1 (true) if HAVE_MORECORE
+  If true, take advantage of fact that consecutive calls to MORECORE
+  with positive arguments always return contiguous increasing
+  addresses.  This is true of unix sbrk. It does not hurt too much to
+  set it true anyway, since malloc copes with non-contiguities.
+  Setting it false when definitely non-contiguous saves time
+  and possibly wasted space it would take to discover this though.
+
+MORECORE_CANNOT_TRIM      default: NOT defined
+  True if MORECORE cannot release space back to the system when given
+  negative arguments. This is generally necessary only if you are
+  using a hand-crafted MORECORE function that cannot handle negative
+  arguments.
+
+NO_SEGMENT_TRAVERSAL       default: 0
+  If non-zero, suppresses traversals of memory segments
+  returned by either MORECORE or CALL_MMAP. This disables
+  merging of segments that are contiguous, and selectively
+  releasing them to the OS if unused, but bounds execution times.
+
+HAVE_MMAP                 default: 1 (true)
+  True if this system supports mmap or an emulation of it.  If so, and
+  HAVE_MORECORE is not true, MMAP is used for all system
+  allocation. If set and HAVE_MORECORE is true as well, MMAP is
+  primarily used to directly allocate very large blocks. It is also
+  used as a backup strategy in cases where MORECORE fails to provide
+  space from system. Note: A single call to MUNMAP is assumed to be
+  able to unmap memory that may have be allocated using multiple calls
+  to MMAP, so long as they are adjacent.
+
+HAVE_MREMAP               default: 1 on linux, else 0
+  If true realloc() uses mremap() to re-allocate large blocks and
+  extend or shrink allocation spaces.
+
+MMAP_CLEARS               default: 1 except on WINCE.
+  True if mmap clears memory so calloc doesn't need to. This is true
+  for standard unix mmap using /dev/zero and on WIN32 except for WINCE.
+
+USE_BUILTIN_FFS            default: 0 (i.e., not used)
+  Causes malloc to use the builtin ffs() function to compute indices.
+  Some compilers may recognize and intrinsify ffs to be faster than the
+  supplied C version. Also, the case of x86 using gcc is special-cased
+  to an asm instruction, so is already as fast as it can be, and so
+  this setting has no effect. Similarly for Win32 under recent MS compilers.
+  (On most x86s, the asm version is only slightly faster than the C version.)
+
+malloc_getpagesize         default: derive from system includes, or 4096.
+  The system page size. To the extent possible, this malloc manages
+  memory from the system in page-size units.  This may be (and
+  usually is) a function rather than a constant. This is ignored
+  if WIN32, where page size is determined using getSystemInfo during
+  initialization.
+
+USE_DEV_RANDOM             default: 0 (i.e., not used)
+  Causes malloc to use /dev/random to initialize secure magic seed for
+  stamping footers. Otherwise, the current time is used.
+
+NO_MALLINFO                default: 0
+  If defined, don't compile "mallinfo". This can be a simple way
+  of dealing with mismatches between system declarations and
+  those in this file.
+
+MALLINFO_FIELD_TYPE        default: size_t
+  The type of the fields in the mallinfo struct. This was originally
+  defined as "int" in SVID etc, but is more usefully defined as
+  size_t. The value is used only if  HAVE_USR_INCLUDE_MALLOC_H is not set
+
+NO_MALLOC_STATS            default: 0
+  If defined, don't compile "malloc_stats". This avoids calls to
+  fprintf and bringing in stdio dependencies you might not want.
+
+REALLOC_ZERO_BYTES_FREES    default: not defined
+  This should be set if a call to realloc with zero bytes should
+  be the same as a call to free. Some people think it should. Otherwise,
+  since this malloc returns a unique pointer for malloc(0), so does
+  realloc(p, 0).
+
+LACKS_UNISTD_H, LACKS_FCNTL_H, LACKS_SYS_PARAM_H, LACKS_SYS_MMAN_H
+LACKS_STRINGS_H, LACKS_STRING_H, LACKS_SYS_TYPES_H,  LACKS_ERRNO_H
+LACKS_STDLIB_H LACKS_SCHED_H LACKS_TIME_H  default: NOT defined unless on WIN32
+  Define these if your system does not have these header files.
+  You might need to manually insert some of the declarations they provide.
+
+DEFAULT_GRANULARITY        default: page size if MORECORE_CONTIGUOUS,
+                                system_info.dwAllocationGranularity in WIN32,
+                                otherwise 64K.
+      Also settable using mallopt(M_GRANULARITY, x)
+  The unit for allocating and deallocating memory from the system.  On
+  most systems with contiguous MORECORE, there is no reason to
+  make this more than a page. However, systems with MMAP tend to
+  either require or encourage larger granularities.  You can increase
+  this value to prevent system allocation functions to be called so
+  often, especially if they are slow.  The value must be at least one
+  page and must be a power of two.  Setting to 0 causes initialization
+  to either page size or win32 region size.  (Note: In previous
+  versions of malloc, the equivalent of this option was called
+  "TOP_PAD")
+
+DEFAULT_TRIM_THRESHOLD    default: 2MB
+      Also settable using mallopt(M_TRIM_THRESHOLD, x)
+  The maximum amount of unused top-most memory to keep before
+  releasing via malloc_trim in free().  Automatic trimming is mainly
+  useful in long-lived programs using contiguous MORECORE.  Because
+  trimming via sbrk can be slow on some systems, and can sometimes be
+  wasteful (in cases where programs immediately afterward allocate
+  more large chunks) the value should be high enough so that your
+  overall system performance would improve by releasing this much
+  memory.  As a rough guide, you might set to a value close to the
+  average size of a process (program) running on your system.
+  Releasing this much memory would allow such a process to run in
+  memory.  Generally, it is worth tuning trim thresholds when a
+  program undergoes phases where several large chunks are allocated
+  and released in ways that can reuse each other's storage, perhaps
+  mixed with phases where there are no such chunks at all. The trim
+  value must be greater than page size to have any useful effect.  To
+  disable trimming completely, you can set to MAX_SIZE_T. Note that the trick
+  some people use of mallocing a huge space and then freeing it at
+  program startup, in an attempt to reserve system memory, doesn't
+  have the intended effect under automatic trimming, since that memory
+  will immediately be returned to the system.
+
+DEFAULT_MMAP_THRESHOLD       default: 256K
+      Also settable using mallopt(M_MMAP_THRESHOLD, x)
+  The request size threshold for using MMAP to directly service a
+  request. Requests of at least this size that cannot be allocated
+  using already-existing space will be serviced via mmap.  (If enough
+  normal freed space already exists it is used instead.)  Using mmap
+  segregates relatively large chunks of memory so that they can be
+  individually obtained and released from the host system. A request
+  serviced through mmap is never reused by any other request (at least
+  not directly; the system may just so happen to remap successive
+  requests to the same locations).  Segregating space in this way has
+  the benefits that: Mmapped space can always be individually released
+  back to the system, which helps keep the system level memory demands
+  of a long-lived program low.  Also, mapped memory doesn't become
+  `locked' between other chunks, as can happen with normally allocated
+  chunks, which means that even trimming via malloc_trim would not
+  release them.  However, it has the disadvantage that the space
+  cannot be reclaimed, consolidated, and then used to service later
+  requests, as happens with normal chunks.  The advantages of mmap
+  nearly always outweigh disadvantages for "large" chunks, but the
+  value of "large" may vary across systems.  The default is an
+  empirically derived value that works well in most systems. You can
+  disable mmap by setting to MAX_SIZE_T.
+
+MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
+  The number of consolidated frees between checks to release
+  unused segments when freeing. When using non-contiguous segments,
+  especially with multiple mspaces, checking only for topmost space
+  doesn't always suffice to trigger trimming. To compensate for this,
+  free() will, with a period of MAX_RELEASE_CHECK_RATE (or the
+  current number of segments, if greater) try to release unused
+  segments to the OS when freeing chunks that result in
+  consolidation. The best value for this parameter is a compromise
+  between slowing down frees with relatively costly checks that
+  rarely trigger versus holding on to unused memory. To effectively
+  disable, set to MAX_SIZE_T. This may lead to a very slight speed
+  improvement at the expense of carrying around more memory.
+*/
+
+src/stdlib/SDL_qsort.c
+/*
+This code came from Gareth McCaughan, under the zlib license.
+Specifically this: https://www.mccaughan.org.uk/software/qsort.c-1.16
+
+Everything below this comment until the HAVE_QSORT #endif was from Gareth
+(any minor changes will be noted inline).
+
+Thank you to Gareth for relicensing this code under the zlib license for our
+benefit!
+
+Update for SDL3: we have modified this from a qsort function to qsort_r.
+
+--ryan.
+*/
+
+src/stdlib/SDL_qsort.c
+/* Copyright (c) 1998-2021 Gareth McCaughan
+ *
+ * This software is provided 'as-is', without any express or implied
+ * warranty. In no event will the authors be held liable for any
+ * damages arising from the use of this software.
+ *
+ * Permission is granted to anyone to use this software for any purpose,
+ * including commercial applications, and to alter it and redistribute it
+ * freely, subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented;
+ *    you must not claim that you wrote the original software.
+ *    If you use this software in a product, an acknowledgment
+ *    in the product documentation would be appreciated but
+ *    is not required.
+ *
+ * 2. Altered source versions must be plainly marked as such,
+ *    and must not be misrepresented as being the original software.
+ *
+ * 3. This notice may not be removed or altered from any source
+ *    distribution.
+ */
+
+src/stdlib/SDL_strtokr.c
+/*
+ * Adapted from _PDCLIB_strtok() of PDClib library at
+ * https://github.com/DevSolar/pdclib.git
+ *
+ * The code was under CC0 license:
+ * https://creativecommons.org/publicdomain/zero/1.0/legalcode :
+ *
+ *                        No Copyright
+ *
+ * The person who associated a work with this deed has dedicated the
+ * work to the public domain by waiving all of his or her rights to
+ * the work worldwide under copyright law, including all related and
+ * neighboring rights, to the extent allowed by law.
+ *
+ * You can copy, modify, distribute and perform the work, even for
+ * commercial purposes, all without asking permission. See Other
+ * Information below.
+ */
+
+src/test/SDL_test_md5.c
+/*
+ ***********************************************************************
+ ** Copyright (C) 1990, RSA Data Security, Inc. All rights reserved.  **
+ **                                                                   **
+ ** License to copy and use this software is granted provided that    **
+ ** it is identified as the "RSA Data Security, Inc. MD5 Message-     **
+ ** Digest Algorithm" in all material mentioning or referencing this  **
+ ** software or this function.                                        **
+ **                                                                   **
+ ** License is also granted to make and use derivative works          **
+ ** provided that such works are identified as "derived from the RSA  **
+ ** Data Security, Inc. MD5 Message-Digest Algorithm" in all          **
+ ** material mentioning or referencing the derived work.              **
+ **                                                                   **
+ ** RSA Data Security, Inc. makes no representations concerning       **
+ ** either the merchantability of this software or the suitability    **
+ ** of this software for any particular purpose.  It is provided "as  **
+ ** is" without express or implied warranty of any kind.              **
+ **                                                                   **
+ ** These notices must be retained in any copies of any part of this  **
+ ** documentation and/or software.                                    **
+ ***********************************************************************
+ */
+
+src/time/SDL_time.c
+/* The following algorithms are based on those of Howard Hinnant and are in the public domain.
+ *
+ * http://howardhinnant.github.io/date_algorithms.html
+ */
+
+src/video/SDL_blit_slow.c
+/* Convert from F16 to float
+ * Public domain implementation from https://gist.github.com/rygorous/2144712
+ */
+
+src/video/SDL_blit_slow.c
+/* Convert from float to F16
+ * Public domain implementation from https://stackoverflow.com/questions/76799117/how-to-convert-a-float-to-a-half-type-and-the-other-way-around-in-c
+ */
+
+src/video/SDL_egl.c
+/*
+ *  Simple DirectMedia Layer
+ *  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+ *
+ *  This software is provided 'as-is', without any express or implied
+ *  warranty.  In no event will the authors be held liable for any damages
+ *  arising from the use of this software.
+ *
+ *  Permission is granted to anyone to use this software for any purpose,
+ *  including commercial applications, and to alter it and redistribute it
+ *  freely, subject to the following restrictions:
+ *
+ *  1. The origin of this software must not be misrepresented; you must not
+ *     claim that you wrote the original software. If you use this software
+ *     in a product, an acknowledgment in the product documentation would be
+ *     appreciated but is not required.
+ *  2. Altered source versions must be plainly marked as such, and must not be
+ *     misrepresented as being the original software.
+ *  3. This notice may not be removed or altered from any source distribution.
+ */
+
+src/video/SDL_rotate.c
+/*
+
+SDL_rotate.c: rotates 32bit or 8bit surfaces
+
+Shamelessly stolen from SDL_gfx by Andreas Schiffler. Original copyright follows:
+
+Copyright (C) 2001-2011  Andreas Schiffler
+
+This software is provided 'as-is', without any express or implied
+warranty. In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+   1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software
+   in a product, an acknowledgment in the product documentation would be
+   appreciated but is not required.
+
+   2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+
+   3. This notice may not be removed or altered from any source
+   distribution.
+
+Andreas Schiffler -- aschiffler at ferzkopp dot net
+
+*/
+
+src/video/directx/d3d12.h, src/video/directx/d3d12sdklayers.h
+/*-------------------------------------------------------------------------------------
+ *
+ * Copyright (c) Microsoft Corporation
+ * Licensed under the MIT license
+ *
+ *-------------------------------------------------------------------------------------*/
+
+src/video/haiku/SDL_bmessagebox.h
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2018-2019 EXL <exlmotodev@gmail.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/video/khronos/EGL/egl.h, src/video/khronos/EGL/eglext.h
+/*
+** Copyright 2013-2020 The Khronos Group Inc.
+** SPDX-License-Identifier: Apache-2.0
+**
+** This header is generated from the Khronos EGL XML API Registry.
+** The current version of the Registry, generator scripts
+** used to make the header, and the header can be found at
+**   http://www.khronos.org/registry/egl
+**
+** Khronos $Git commit SHA1: f4cc936b88 $ on $Git commit date: 2023-12-16 01:21:49 -0500 $
+*/
+
+src/video/khronos/EGL/eglplatform.h
+/*
+** Copyright 2007-2020 The Khronos Group Inc.
+** SPDX-License-Identifier: Apache-2.0
+*/
+
+src/video/khronos/GLES2/gl2.h, src/video/khronos/GLES2/gl2ext.h, src/video/khronos/GLES3/gl3.h, src/video/khronos/GLES3/gl31.h, src/video/khronos/GLES3/gl32.h
+/*
+** Copyright 2013-2020 The Khronos Group Inc.
+** SPDX-License-Identifier: MIT
+**
+** This header is generated from the Khronos OpenGL / OpenGL ES XML
+** API Registry. The current version of the Registry, generator scripts
+** used to make the header, and the header can be found at
+**   https://github.com/KhronosGroup/OpenGL-Registry
+*/
+
+src/video/khronos/GLES2/gl2platform.h, src/video/khronos/GLES3/gl3platform.h
+/*
+** Copyright 2017-2020 The Khronos Group Inc.
+** SPDX-License-Identifier: Apache-2.0
+*/
+
+src/video/khronos/KHR/khrplatform.h
+/*
+** Copyright (c) 2008-2018 The Khronos Group Inc.
+**
+** Permission is hereby granted, free of charge, to any person obtaining a
+** copy of this software and/or associated documentation files (the
+** "Materials"), to deal in the Materials without restriction, including
+** without limitation the rights to use, copy, modify, merge, publish,
+** distribute, sublicense, and/or sell copies of the Materials, and to
+** permit persons to whom the Materials are furnished to do so, subject to
+** the following conditions:
+**
+** The above copyright notice and this permission notice shall be included
+** in all copies or substantial portions of the Materials.
+**
+** THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+** EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+** MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+*/
+
+src/video/khronos/vk_video/vulkan_video_codec_av1std.h, src/video/khronos/vk_video/vulkan_video_codec_av1std_decode.h, src/video/khronos/vk_video/vulkan_video_codec_h264std.h, src/video/khronos/vk_video/vulkan_video_codec_h264std_decode.h, src/video/khronos/vk_video/vulkan_video_codec_h264std_encode.h, src/video/khronos/vk_video/vulkan_video_codec_h265std.h, src/video/khronos/vk_video/vulkan_video_codec_h265std_decode.h, src/video/khronos/vk_video/vulkan_video_codec_h265std_encode.h, src/video/khronos/vk_video/vulkan_video_codecs_common.h, src/video/khronos/vulkan/vulkan.h, src/video/khronos/vulkan/vulkan_android.h, src/video/khronos/vulkan/vulkan_beta.h, src/video/khronos/vulkan/vulkan_core.h, src/video/khronos/vulkan/vulkan_directfb.h, src/video/khronos/vulkan/vulkan_fuchsia.h, src/video/khronos/vulkan/vulkan_ggp.h, src/video/khronos/vulkan/vulkan_ios.h, src/video/khronos/vulkan/vulkan_macos.h, src/video/khronos/vulkan/vulkan_metal.h, src/video/khronos/vulkan/vulkan_screen.h, src/video/khronos/vulkan/vulkan_vi.h, src/video/khronos/vulkan/vulkan_wayland.h, src/video/khronos/vulkan/vulkan_win32.h, src/video/khronos/vulkan/vulkan_xcb.h, src/video/khronos/vulkan/vulkan_xlib.h, src/video/khronos/vulkan/vulkan_xlib_xrandr.h
+/*
+** Copyright 2015-2024 The Khronos Group Inc.
+**
+** SPDX-License-Identifier: Apache-2.0
+*/
+
+src/video/khronos/vulkan/vk_icd.h, src/video/khronos/vulkan/vk_layer.h
+/*
+ * Copyright 2015-2023 The Khronos Group Inc.
+ * Copyright 2015-2023 Valve Corporation
+ * Copyright 2015-2023 LunarG, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+src/video/khronos/vulkan/vk_platform.h
+/*
+** Copyright 2014-2024 The Khronos Group Inc.
+**
+** SPDX-License-Identifier: Apache-2.0
+*/
+
+src/video/miniz.h
+/* miniz.c v1.15 - public domain deflate/inflate, zlib-subset, ZIP reading/writing/appending, PNG writing
+   See "unlicense" statement at the end of this file.
+   Rich Geldreich <richgel99@gmail.com>, last updated Oct. 13, 2013
+   Implements RFC 1950: http://www.ietf.org/rfc/rfc1950.txt and RFC 1951: http://www.ietf.org/rfc/rfc1951.txt
+
+   Most API's defined in miniz.c are optional. For example, to disable the archive related functions just define
+   MINIZ_NO_ARCHIVE_APIS, or to get rid of all stdio usage define MINIZ_NO_STDIO (see the list below for more macros).
+
+   * Change History
+     10/13/13 v1.15 r4 - Interim bugfix release while I work on the next major release with Zip64 support (almost there!):
+       - Critical fix for the MZ_ZIP_FLAG_DO_NOT_SORT_CENTRAL_DIRECTORY bug (thanks kahmyong.moon@hp.com) which could cause locate files to not find files. This bug
+        would only have occured in earlier versions if you explicitly used this flag, OR if you used mz_zip_extract_archive_file_to_heap() or mz_zip_add_mem_to_archive_file_in_place()
+        (which used this flag). If you can't switch to v1.15 but want to fix this bug, just remove the uses of this flag from both helper funcs (and of course don't use the flag).
+       - Bugfix in mz_zip_reader_extract_to_mem_no_alloc() from kymoon when pUser_read_buf is not NULL and compressed size is > uncompressed size
+       - Fixing mz_zip_reader_extract_*() funcs so they don't try to extract compressed data from directory entries, to account for weird zipfiles which contain zero-size compressed data on dir entries.
+         Hopefully this fix won't cause any issues on weird zip archives, because it assumes the low 16-bits of zip external attributes are DOS attributes (which I believe they always are in practice).
+       - Fixing mz_zip_reader_is_file_a_directory() so it doesn't check the internal attributes, just the filename and external attributes
+       - mz_zip_reader_init_file() - missing MZ_FCLOSE() call if the seek failed
+       - Added cmake support for Linux builds which builds all the examples, tested with clang v3.3 and gcc v4.6.
+       - Clang fix for tdefl_write_image_to_png_file_in_memory() from toffaletti
+       - Merged MZ_FORCEINLINE fix from hdeanclark
+       - Fix <time.h> include before config #ifdef, thanks emil.brink
+       - Added tdefl_write_image_to_png_file_in_memory_ex(): supports Y flipping (super useful for OpenGL apps), and explicit control over the compression level (so you can
+        set it to 1 for real-time compression).
+       - Merged in some compiler fixes from paulharris's github repro.
+       - Retested this build under Windows (VS 2010, including static analysis), tcc  0.9.26, gcc v4.6 and clang v3.3.
+       - Added example6.c, which dumps an image of the mandelbrot set to a PNG file.
+       - Modified example2 to help test the MZ_ZIP_FLAG_DO_NOT_SORT_CENTRAL_DIRECTORY flag more.
+       - In r3: Bugfix to mz_zip_writer_add_file() found during merge: Fix possible src file fclose() leak if alignment bytes+local header file write faiiled
+       - In r4: Minor bugfix to mz_zip_writer_add_from_zip_reader(): Was pushing the wrong central dir header offset, appears harmless in this release, but it became a problem in the zip64 branch
+     5/20/12 v1.14 - MinGW32/64 GCC 4.6.1 compiler fixes: added MZ_FORCEINLINE, #include <time.h> (thanks fermtect).
+     5/19/12 v1.13 - From jason@cornsyrup.org and kelwert@mtu.edu - Fix mz_crc32() so it doesn't compute the wrong CRC-32's when mz_ulong is 64-bit.
+       - Temporarily/locally slammed in "typedef unsigned long mz_ulong" and re-ran a randomized regression test on ~500k files.
+       - Eliminated a bunch of warnings when compiling with GCC 32-bit/64.
+       - Ran all examples, miniz.c, and tinfl.c through MSVC 2008's /analyze (static analysis) option and fixed all warnings (except for the silly
+        "Use of the comma-operator in a tested expression.." analysis warning, which I purposely use to work around a MSVC compiler warning).
+       - Created 32-bit and 64-bit Codeblocks projects/workspace. Built and tested Linux executables. The codeblocks workspace is compatible with Linux+Win32/x64.
+       - Added miniz_tester solution/project, which is a useful little app derived from LZHAM's tester app that I use as part of the regression test.
+       - Ran miniz.c and tinfl.c through another series of regression testing on ~500,000 files and archives.
+       - Modified example5.c so it purposely disables a bunch of high-level functionality (MINIZ_NO_STDIO, etc.). (Thanks to corysama for the MINIZ_NO_STDIO bug report.)
+       - Fix ftell() usage in examples so they exit with an error on files which are too large (a limitation of the examples, not miniz itself).
+     4/12/12 v1.12 - More comments, added low-level example5.c, fixed a couple minor level_and_flags issues in the archive API's.
+      level_and_flags can now be set to MZ_DEFAULT_COMPRESSION. Thanks to Bruce Dawson <bruced@valvesoftware.com> for the feedback/bug report.
+     5/28/11 v1.11 - Added statement from unlicense.org
+     5/27/11 v1.10 - Substantial compressor optimizations:
+      - Level 1 is now ~4x faster than before. The L1 compressor's throughput now varies between 70-110MB/sec. on a
+      - Core i7 (actual throughput varies depending on the type of data, and x64 vs. x86).
+      - Improved baseline L2-L9 compression perf. Also, greatly improved compression perf. issues on some file types.
+      - Refactored the compression code for better readability and maintainability.
+      - Added level 10 compression level (L10 has slightly better ratio than level 9, but could have a potentially large
+       drop in throughput on some files).
+     5/15/11 v1.09 - Initial stable release.
+
+   * Low-level Deflate/Inflate implementation notes:
+
+     Compression: Use the "tdefl" API's. The compressor supports raw, static, and dynamic blocks, lazy or
+     greedy parsing, match length filtering, RLE-only, and Huffman-only streams. It performs and compresses
+     approximately as well as zlib.
+
+     Decompression: Use the "tinfl" API's. The entire decompressor is implemented as a single function
+     coroutine: see tinfl_decompress(). It supports decompression into a 32KB (or larger power of 2) wrapping buffer, or into a memory
+     block large enough to hold the entire file.
+
+     The low-level tdefl/tinfl API's do not make any use of dynamic memory allocation.
+
+   * zlib-style API notes:
+
+     miniz.c implements a fairly large subset of zlib. There's enough functionality present for it to be a drop-in
+     zlib replacement in many apps:
+        The z_stream struct, optional memory allocation callbacks
+        deflateInit/deflateInit2/deflate/deflateReset/deflateEnd/deflateBound
+        inflateInit/inflateInit2/inflate/inflateEnd
+        compress, compress2, compressBound, uncompress
+        CRC-32, Adler-32 - Using modern, minimal code size, CPU cache friendly routines.
+        Supports raw deflate streams or standard zlib streams with adler-32 checking.
+
+     Limitations:
+      The callback API's are not implemented yet. No support for gzip headers or zlib static dictionaries.
+      I've tried to closely emulate zlib's various flavors of stream flushing and return status codes, but
+      there are no guarantees that miniz.c pulls this off perfectly.
+
+   * PNG writing: See the tdefl_write_image_to_png_file_in_memory() function, originally written by
+     Alex Evans. Supports 1-4 bytes/pixel images.
+
+   * ZIP archive API notes:
+
+     The ZIP archive API's where designed with simplicity and efficiency in mind, with just enough abstraction to
+     get the job done with minimal fuss. There are simple API's to retrieve file information, read files from
+     existing archives, create new archives, append new files to existing archives, or clone archive data from
+     one archive to another. It supports archives located in memory or the heap, on disk (using stdio.h),
+     or you can specify custom file read/write callbacks.
+
+     - Archive reading: Just call this function to read a single file from a disk archive:
+
+      void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char *pArchive_name,
+        size_t *pSize, mz_uint zip_flags);
+
+     For more complex cases, use the "mz_zip_reader" functions. Upon opening an archive, the entire central
+     directory is located and read as-is into memory, and subsequent file access only occurs when reading individual files.
+
+     - Archives file scanning: The simple way is to use this function to scan a loaded archive for a specific file:
+
+     int mz_zip_reader_locate_file(mz_zip_archive *pZip, const char *pName, const char *pComment, mz_uint flags);
+
+     The locate operation can optionally check file comments too, which (as one example) can be used to identify
+     multiple versions of the same file in an archive. This function uses a simple linear search through the central
+     directory, so it's not very fast.
+
+     Alternately, you can iterate through all the files in an archive (using mz_zip_reader_get_num_files()) and
+     retrieve detailed info on each file by calling mz_zip_reader_file_stat().
+
+     - Archive creation: Use the "mz_zip_writer" functions. The ZIP writer immediately writes compressed file data
+     to disk and builds an exact image of the central directory in memory. The central directory image is written
+     all at once at the end of the archive file when the archive is finalized.
+
+     The archive writer can optionally align each file's local header and file data to any power of 2 alignment,
+     which can be useful when the archive will be read from optical media. Also, the writer supports placing
+     arbitrary data blobs at the very beginning of ZIP archives. Archives written using either feature are still
+     readable by any ZIP tool.
+
+     - Archive appending: The simple way to add a single file to an archive is to call this function:
+
+      mz_bool mz_zip_add_mem_to_archive_file_in_place(const char *pZip_filename, const char *pArchive_name,
+        const void *pBuf, size_t buf_size, const void *pComment, mz_uint16 comment_size, mz_uint level_and_flags);
+
+     The archive will be created if it doesn't already exist, otherwise it'll be appended to.
+     Note the appending is done in-place and is not an atomic operation, so if something goes wrong
+     during the operation it's possible the archive could be left without a central directory (although the local
+     file headers and file data will be fine, so the archive will be recoverable).
+
+     For more complex archive modification scenarios:
+     1. The safest way is to use a mz_zip_reader to read the existing archive, cloning only those bits you want to
+     preserve into a new archive using using the mz_zip_writer_add_from_zip_reader() function (which compiles the
+     compressed file data as-is). When you're done, delete the old archive and rename the newly written archive, and
+     you're done. This is safe but requires a bunch of temporary disk space or heap memory.
+
+     2. Or, you can convert an mz_zip_reader in-place to an mz_zip_writer using mz_zip_writer_init_from_reader(),
+     append new files as needed, then finalize the archive which will write an updated central directory to the
+     original archive. (This is basically what mz_zip_add_mem_to_archive_file_in_place() does.) There's a
+     possibility that the archive's central directory could be lost with this method if anything goes wrong, though.
+
+     - ZIP archive support limitations:
+     No zip64 or spanning support. Extraction functions can only handle unencrypted, stored or deflated files.
+     Requires streams capable of seeking.
+
+   * This is a header file library, like stb_image.c. To get only a header file, either cut and paste the
+     below header, or create miniz.h, #define MINIZ_HEADER_FILE_ONLY, and then include miniz.c from it.
+
+   * Important: For best perf. be sure to customize the below macros for your target platform:
+     #define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 1
+     #define MINIZ_LITTLE_ENDIAN 1
+     #define MINIZ_HAS_64BIT_REGISTERS 1
+
+   * On platforms using glibc, Be sure to "#define _LARGEFILE64_SOURCE 1" before including miniz.c to ensure miniz
+     uses the 64-bit variants: fopen64(), stat64(), etc. Otherwise you won't be able to process large files
+     (i.e. 32-bit stat() fails for me on files > 0x7FFFFFFF bytes).
+*/
+
+src/video/miniz.h
+/*
+  This is free and unencumbered software released into the public domain.
+
+  Anyone is free to copy, modify, publish, use, compile, sell, or
+  distribute this software, either in source code form or as a compiled
+  binary, for any purpose, commercial or non-commercial, and by any
+  means.
+
+  In jurisdictions that recognize copyright laws, the author or authors
+  of this software dedicate any and all copyright interest in the
+  software to the public domain. We make this dedication for the benefit
+  of the public at large and to the detriment of our heirs and
+  successors. We intend this dedication to be an overt act of
+  relinquishment in perpetuity of all present and future rights to this
+  software under copyright law.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+  OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+  OTHER DEALINGS IN THE SOFTWARE.
+
+  For more information, please refer to <http://unlicense.org/>
+*/
+
+src/video/openvr/SDL_openvrvideo.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2022 Charles Lohr <charlesl@valvesoftware.com>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/video/openvr/openvr_capi.h
+/*
+  Copyright (c) 2015, Valve Corporation
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without modification,
+  are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+     list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation and/or
+     other materials provided with the distribution.
+
+  3. Neither the name of the copyright holder nor the names of its contributors
+     may be used to endorse or promote products derived from this software without
+     specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+src/video/qnx/SDL_qnx.h, src/video/qnx/SDL_qnxgl.c, src/video/qnx/SDL_qnxkeyboard.c, src/video/qnx/SDL_qnxvideo.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 2017 BlackBerry Limited
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/video/stb_image.h
+/* stb_image - v2.30 - public domain image loader - http://nothings.org/stb
+                                  no warranty implied; use at your own risk
+
+   Do this:
+      #define STB_IMAGE_IMPLEMENTATION
+   before you include this file in *one* C or C++ file to create the implementation.
+
+   // i.e. it should look like this:
+   #include ...
+   #include ...
+   #include ...
+   #define STB_IMAGE_IMPLEMENTATION
+   #include "stb_image.h"
+
+   You can #define STBI_ASSERT(x) before the #include to avoid using assert.h.
+   And #define STBI_MALLOC, STBI_REALLOC, and STBI_FREE to avoid using malloc,realloc,free
+
+
+   QUICK NOTES:
+      Primarily of interest to game developers and other people who can
+          avoid problematic images and only need the trivial interface
+
+      JPEG baseline & progressive (12 bpc/arithmetic not supported, same as stock IJG lib)
+      PNG 1/2/4/8/16-bit-per-channel
+
+      TGA (not sure what subset, if a subset)
+      BMP non-1bpp, non-RLE
+      PSD (composited view only, no extra channels, 8/16 bit-per-channel)
+
+      GIF (*comp always reports as 4-channel)
+      HDR (radiance rgbE format)
+      PIC (Softimage PIC)
+      PNM (PPM and PGM binary only)
+
+      Animated GIF still needs a proper API, but here's one way to do it:
+          http://gist.github.com/urraka/685d9a6340b26b830d49
+
+      - decode from memory or through FILE (define STBI_NO_STDIO to remove code)
+      - decode from arbitrary I/O callbacks
+      - SIMD acceleration on x86/x64 (SSE2) and ARM (NEON)
+
+   Full documentation under "DOCUMENTATION" below.
+
+
+LICENSE
+
+  See end of file for license information.
+
+RECENT REVISION HISTORY:
+
+      2.30  (2024-05-31) avoid erroneous gcc warning
+      2.29  (2023-05-xx) optimizations
+      2.28  (2023-01-29) many error fixes, security errors, just tons of stuff
+      2.27  (2021-07-11) document stbi_info better, 16-bit PNM support, bug fixes
+      2.26  (2020-07-13) many minor fixes
+      2.25  (2020-02-02) fix warnings
+      2.24  (2020-02-02) fix warnings; thread-local failure_reason and flip_vertically
+      2.23  (2019-08-11) fix clang static analysis warning
+      2.22  (2019-03-04) gif fixes, fix warnings
+      2.21  (2019-02-25) fix typo in comment
+      2.20  (2019-02-07) support utf8 filenames in Windows; fix warnings and platform ifdefs
+      2.19  (2018-02-11) fix warning
+      2.18  (2018-01-30) fix warnings
+      2.17  (2018-01-29) bugfix, 1-bit BMP, 16-bitness query, fix warnings
+      2.16  (2017-07-23) all functions have 16-bit variants; optimizations; bugfixes
+      2.15  (2017-03-18) fix png-1,2,4; all Imagenet JPGs; no runtime SSE detection on GCC
+      2.14  (2017-03-03) remove deprecated STBI_JPEG_OLD; fixes for Imagenet JPGs
+      2.13  (2016-12-04) experimental 16-bit API, only for PNG so far; fixes
+      2.12  (2016-04-02) fix typo in 2.11 PSD fix that caused crashes
+      2.11  (2016-04-02) 16-bit PNGS; enable SSE2 in non-gcc x64
+                         RGB-format JPEG; remove white matting in PSD;
+                         allocate large structures on the stack;
+                         correct channel count for PNG & BMP
+      2.10  (2016-01-22) avoid warning introduced in 2.09
+      2.09  (2016-01-16) 16-bit TGA; comments in PNM files; STBI_REALLOC_SIZED
+
+   See end of file for full revision history.
+
+
+ ============================    Contributors    =========================
+
+ Image formats                          Extensions, features
+    Sean Barrett (jpeg, png, bmp)          Jetro Lauha (stbi_info)
+    Nicolas Schulz (hdr, psd)              Martin "SpartanJ" Golini (stbi_info)
+    Jonathan Dummer (tga)                  James "moose2000" Brown (iPhone PNG)
+    Jean-Marc Lienher (gif)                Ben "Disch" Wenger (io callbacks)
+    Tom Seddon (pic)                       Omar Cornut (1/2/4-bit PNG)
+    Thatcher Ulrich (psd)                  Nicolas Guillemot (vertical flip)
+    Ken Miller (pgm, ppm)                  Richard Mitton (16-bit PSD)
+    github:urraka (animated gif)           Junggon Kim (PNM comments)
+    Christopher Forseth (animated gif)     Daniel Gibson (16-bit TGA)
+                                           socks-the-fox (16-bit PNG)
+                                           Jeremy Sawicki (handle all ImageNet JPGs)
+ Optimizations & bugfixes                  Mikhail Morozov (1-bit BMP)
+    Fabian "ryg" Giesen                    Anael Seghezzi (is-16-bit query)
+    Arseny Kapoulkine                      Simon Breuss (16-bit PNM)
+    John-Mark Allen                        Katelyn Gadd (indexed color loading)
+    Carmelo J Fdez-Aguera
+
+ Bug & warning fixes
+    Marc LeBlanc            David Woo          Guillaume George     Martins Mozeiko
+    Christpher Lloyd        Jerry Jansson      Joseph Thomson       Blazej Dariusz Roszkowski
+    Phil Jordan             Henner Zeller      Dave Moore           Roy Eltham
+    Hayaki Saito            Nathan Reed        Won Chun             Björn Wahlstrand
+    Luke Graham             Johan Duparc       Nick Verigakis       the Horde3D community
+    Thomas Ruf              Ronny Chevalier                         github:rlyeh
+    Janez Zemva             John Bartholomew   Michal Cichon        github:romigrou
+    Jonathan Blow           Ken Hamada         Tero Hanninen        github:svdijk
+    Eugene Golushkov        Laurent Gomila     Cort Stratton        github:snagar
+    Aruelien Pocheville     Sergio Gonzalez    Thibault Reuille     github:Zelex
+    Cass Everitt            Ryamond Barbiero                        github:grim210
+    Paul Du Bois            Engin Manap        Aldo Culquicondor    github:sammyhw
+    Philipp Wiesemann       Dale Weiler        Oriol Ferrer Mesia   github:phprus
+    Josh Tobin              Neil Bickford      Matthew Gregan       github:poppolopoppo
+    Julian Raschke          Gregory Mullen     Christian Floisand   github:darealshinji
+    Baldur Karlsson         Kevin Schmidt      JR Smith             github:Michaelangel007
+                            Brad Weinberger    Matvey Cherevko      github:mosra
+    Luca Sas                Alexander Veselov  Zack Middleton       [reserved]
+    Ryan C. Gordon          [reserved]                              [reserved]
+                     DO NOT ADD YOUR NAME HERE
+
+                     Jacko Dirks
+
+  To add your name to the credits, pick a random blank space in the middle and fill it.
+  80% of merge conflicts on stb PRs are due to people adding their name at the end
+  of the credits.
+*/
+
+src/video/stb_image.h
+/*
+------------------------------------------------------------------------------
+This software is available under 2 licenses -- choose whichever you prefer.
+------------------------------------------------------------------------------
+ALTERNATIVE A - MIT License
+Copyright (c) 2017 Sean Barrett
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+------------------------------------------------------------------------------
+ALTERNATIVE B - Public Domain (www.unlicense.org)
+This is free and unencumbered software released into the public domain.
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute this
+software, either in source code form or as a compiled binary, for any purpose,
+commercial or non-commercial, and by any means.
+In jurisdictions that recognize copyright laws, the author or authors of this
+software dedicate any and all copyright interest in the software to the public
+domain. We make this dedication for the benefit of the public at large and to
+the detriment of our heirs and successors. We intend this dedication to be an
+overt act of relinquishment in perpetuity of all present and future rights to
+this software under copyright law.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+------------------------------------------------------------------------------
+*/
+
+src/video/uikit/SDL_uikitmetalview.h, src/video/uikit/SDL_uikitmetalview.m
+/*
+ Simple DirectMedia Layer
+ Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+ This software is provided 'as-is', without any express or implied
+ warranty.  In no event will the authors be held liable for any damages
+ arising from the use of this software.
+
+ Permission is granted to anyone to use this software for any purpose,
+ including commercial applications, and to alter it and redistribute it
+ freely, subject to the following restrictions:
+
+ 1. The origin of this software must not be misrepresented; you must not
+ claim that you wrote the original software. If you use this software
+ in a product, an acknowledgment in the product documentation would be
+ appreciated but is not required.
+ 2. Altered source versions must be plainly marked as such, and must not be
+ misrepresented as being the original software.
+ 3. This notice may not be removed or altered from any source distribution.
+ */
+
+src/video/uikit/SDL_uikitview.m
+/*
+ Simple DirectMedia Layer
+ Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+ This software is provided 'as-is', without any express or implied
+ warranty.  In no event will the authors be held liable for any damages
+ arising from the use of this software.
+
+ Permission is granted to anyone to use this software for any purpose,
+ including commercial applications, and to alter it and redistribute it
+ freely, subject to the following restrictions:
+
+ 1. The origin of this software must not be misrepresented; you must not
+    claim that you wrote the original software. If you use this software
+    in a product, an acknowledgment in the product documentation would be
+    appreciated but is not required.
+ 2. Altered source versions must be plainly marked as such, and must not be
+    misrepresented as being the original software.
+ 3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/video/x11/SDL_x11opengl.c
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2021 NVIDIA Corporation
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/video/x11/SDL_x11settings.c, src/video/x11/SDL_x11settings.h
+/*
+  Simple DirectMedia Layer
+  Copyright 2024 Igalia S.L.
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+
+src/video/x11/edid-parse.c, src/video/x11/edid.h
+/*
+ * Copyright 2007 Red Hat, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * on the rights to use, copy, modify, merge, publish, distribute, sub
+ * license, and/or sell copies of the Software, and to permit persons to whom
+ * the Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+src/video/x11/xsettings-client.c, src/video/x11/xsettings-client.h
+/*
+ * Copyright © 2001, 2007 Red Hat, Inc.
+ * Copyright 2024 Igalia S.L.
+ *
+ * Permission to use, copy, modify, distribute, and sell this software and its
+ * documentation for any purpose is hereby granted without fee, provided that
+ * the above copyright notice appear in all copies and that both that
+ * copyright notice and this permission notice appear in supporting
+ * documentation, and that the name of Red Hat not be used in advertising or
+ * publicity pertaining to distribution of the software without specific,
+ * written prior permission.  Red Hat makes no representations about the
+ * suitability of this software for any purpose.  It is provided "as is"
+ * without express or implied warranty.
+ *
+ * RED HAT DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL RED HAT
+ * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Author:  Owen Taylor, Red Hat, Inc.
+ */

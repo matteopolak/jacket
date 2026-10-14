@@ -8,7 +8,7 @@ use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
 use jaic::sema::{Compiler, FileSystem, Options, TargetCpu, TargetOs};
 use jaic::source::{FileId, ImportSuggestion};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -223,6 +223,7 @@ impl Analysis {
             return Vec::new();
         };
         let mut out: Vec<(usize, usize, String)> = Vec::new();
+        let mut seen = HashSet::new();
         for error in diagnostics {
             let found = if error.span.file == file {
                 let span = error.span;
@@ -245,7 +246,7 @@ impl Analysis {
                     })
             };
             if let Some(found) = found
-                && !out.iter().any(|o| o.0 == found.0 && o.1 == found.1)
+                && seen.insert(found.clone())
             {
                 out.push(found);
             }
@@ -735,11 +736,9 @@ fn check_rest(
     compiler: &mut Compiler,
     mut errors: Vec<jaic::source::Diagnostic>,
 ) -> Vec<jaic::source::Diagnostic> {
+    let mut seen: HashSet<_> = errors.iter().map(|e| (e.span, e.message.clone())).collect();
     for e in compiler.ide_check_all() {
-        if !errors
-            .iter()
-            .any(|o| o.span == e.span && o.message == e.message)
-        {
+        if seen.insert((e.span, e.message.clone())) {
             errors.push(e);
         }
     }

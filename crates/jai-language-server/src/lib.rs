@@ -16,6 +16,7 @@ pub(crate) mod hover;
 mod imports;
 #[cfg(unix)]
 pub mod large_alloc;
+mod lexical_recovery;
 mod links;
 pub mod lints;
 mod model;

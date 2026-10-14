@@ -21,13 +21,15 @@ impl Compiler {
         let file_scope = self.file_scope_of(scope);
         self.hoist_body_imports(file_scope, stmts, false);
         // Constants are visible throughout their block, also before their declaration.
+        let mut failed = None;
         for stmt in stmts {
             if let S::Decl(decl) = &stmt.kind
                 && decl.kind == ast::DeclKind::Const
                 && !decl.backtick
                 && f.hoisted_consts.insert((scope, decl.id))
+                && let Err(error) = self.declare_local_consts(scope, scope, decl)
             {
-                self.declare_local_consts(scope, scope, decl)?;
+                self.check_block_error_ide(f, &mut failed, error)?;
             }
         }
         for (i, stmt) in stmts.iter().enumerate() {
@@ -37,15 +39,21 @@ impl Compiler {
                     bare,
                 } = &**defer;
                 // `push_context,defer_pop ctx;` holds for the rest of the block.
-                let addr = self.push_context_addr(f, scope, context, *bare, stmt.span)?;
+                let addr = match self.push_context_addr(f, scope, context, *bare, stmt.span) {
+                    Ok(addr) => addr,
+                    Err(error) => {
+                        self.check_block_error_ide(f, &mut failed, error)?;
+                        continue;
+                    }
+                };
                 let saved = f.context.replace(addr);
                 let result = self.check_block_stmts_from(f, scope, &stmts[i + 1..]);
                 f.context = saved;
-                return result;
+                return failed.map_or(result, Err);
             }
-            self.check_block_stmt(f, scope, stmt)?;
+            self.check_block_stmt_ide(f, scope, stmt, &mut failed)?;
         }
-        Ok(())
+        failed.map_or(Ok(()), Err)
     }
 
     /// The tail of a block: its constants and imports were already hoisted.
@@ -55,15 +63,48 @@ impl Compiler {
         scope: ScopeId,
         stmts: &[ast::Stmt],
     ) -> Result<()> {
+        let mut failed = None;
         for (i, stmt) in stmts.iter().enumerate() {
             if matches!(stmt.kind, S::PushContextDefer(_)) {
-                return self.check_block_stmts(f, scope, &stmts[i..]);
+                let result = self.check_block_stmts(f, scope, &stmts[i..]);
+                return failed.map_or(result, Err);
             }
-            self.check_block_stmt(f, scope, stmt)?;
+            self.check_block_stmt_ide(f, scope, stmt, &mut failed)?;
+        }
+        failed.map_or(Ok(()), Err)
+    }
+
+    /// Keep checking independent statements for editor facts, but return a real error
+    /// for the body afterward. Invalid IR must never become an executable procedure.
+    fn check_block_stmt_ide(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        stmt: &ast::Stmt,
+        failed: &mut Option<Box<Diagnostic>>,
+    ) -> Result<()> {
+        if let Err(error) = self.check_block_stmt(f, scope, stmt) {
+            self.check_block_error_ide(f, failed, error)?;
         }
         Ok(())
     }
 
+    fn check_block_error_ide(
+        &mut self,
+        f: &mut FnCtx,
+        failed: &mut Option<Box<Diagnostic>>,
+        error: Box<Diagnostic>,
+    ) -> Result<()> {
+        if self.ide.is_none() || self.sketching() {
+            return Err(error);
+        }
+        self.ide.as_mut().unwrap().errors.push((*error).clone());
+        if failed.is_none() {
+            *failed = Some(error);
+        }
+        self.sketch_reopen(f);
+        Ok(())
+    }
 
     /// A statement of a block. A sketch goes on past a statement it cannot check, for the
     /// facts of the rest.
@@ -2627,6 +2668,7 @@ impl Compiler {
             },
         ]);
         f.pending_for_body = Some(ForBody {
+            call_span: span,
             code,
             body: body_stmt,
             scope: loop_scope,
@@ -2751,7 +2793,9 @@ impl Compiler {
             }
             let result = match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
-                ast::CodeBody::Block(b) => self.check_block_stmts(f, inner, &b.stmts),
+                ast::CodeBody::Block(b) => self
+                    .check_block_stmts(f, inner, &b.stmts)
+                    .and_then(|_| self.ide_require_parsed_body(b.span)),
             };
             // Names resolve in the target's scope, but what the code declares lives where it
             // is inserted (yield-jai: `#insert,scope(call) #run make_args();` then `Args`).

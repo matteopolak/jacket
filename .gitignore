@@ -3,6 +3,7 @@
 .build/
 /artifacts/
 /corpus/upstream
+/corpus/lsp-applications/
 **/__pycache__/
 *.jai-output
 /rustc-ice-*.txt

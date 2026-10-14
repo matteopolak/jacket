@@ -253,6 +253,10 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
     if 'prebuilt' in lib:
         install_prebuilt(lib, src, out, plat)
         return
+    if lib.get('builder') == 'sdl3':
+        import sdl3_native
+        sdl3_native.build(out, plat)
+        return
     with tempfile.TemporaryDirectory() as tmp_name:
         tmp = Path(tmp_name)
         objects = compile_units(name, lib, src, tmp, plat)
@@ -299,6 +303,10 @@ def shipped_files(manifest: dict, plat: str) -> list[str]:
             files.append(f'{name}.dll')
         elif plat not in MINGW_PREFIXES:
             files.append(f'lib{name}.{"dylib" if plat.startswith("macos") else "so"}')
+        if lib.get('builder') == 'sdl3':
+            files += ['sdl3/build.json', 'sdl3/static-link-libraries.txt', 'sdl3/SDL_build_config.h', 'sdl3/installed-headers.json', 'licenses/sdl3/THIRD-PARTY-NOTICES.txt']
+            if plat.startswith('windows'):
+                files.append('SDL3-import.lib')
         sources.add(lib['source'])
     for source in sorted(sources):
         for entry in manifest['sources'][source].get('license', []):
@@ -340,15 +348,21 @@ def main() -> None:
         sys.exit(f'{plat}: not one of {", ".join([*WINDOWS_TRIPLES, *MINGW_PREFIXES])}')
     manifest = json.loads(MANIFEST.read_text())
     names = args.names or sorted(n for n, lib in manifest['libraries'].items() if wanted(lib, plat))
-    out = (args.out or output_dir(plat)).resolve()
+    # SDL3's clean-room cache and default output stay in this worktree.
+    sdl3_only = names == ['SDL3']
+    out = (args.out or (ROOT / 'artifacts/native-libs' / plat if sdl3_only else output_dir(plat))).resolve()
     out.mkdir(parents=True, exist_ok=True)
     # Downloaded sources stay in the shared cache, never in --out (which may be a package).
-    cache = output_dir(plat).parent / 'sources'
+    cache = ROOT / 'artifacts/sdl3' if sdl3_only else output_dir(plat).parent / 'sources'
     licensed = set()
     for name in names:
         lib = manifest['libraries'].get(name)
         if lib is None:
             sys.exit(f'unknown library {name!r}')
+        if lib.get('builder') == 'sdl3':
+            build(name, lib, ROOT, out, plat)
+            print(f'built {name} -> {out}')
+            continue
         # A library with official binaries (`prebuilt`) names its source per platform.
         source_name = lib['prebuilt'][plat]['source'] if 'prebuilt' in lib else lib['source']
         src = fetch(manifest['sources'][source_name], cache / source_name)

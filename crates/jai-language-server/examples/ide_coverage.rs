@@ -94,13 +94,15 @@ struct Gap {
     context: String,
 }
 
-fn environment(stdlib: PathBuf) -> Environment {
+fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
     Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
             let mut options = jaic::sema::Options::host();
             options.import_paths = vec![stdlib.clone()];
             options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+            options.runtime_support = runtime_support;
+            options.stack_trace = runtime_support;
             options
         }),
     }
@@ -161,6 +163,7 @@ fn main() {
     let mut list = false;
     let mut show_errors = false;
     let mut stats = false;
+    let mut runtime_support = true;
     let mut stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut dirs = Vec::new();
     let mut args = std::env::args().skip(1);
@@ -169,16 +172,21 @@ fn main() {
             "--list" => list = true,
             "--errors" => show_errors = true,
             "--stats" => stats = true,
+            "--no-runtime" => runtime_support = false,
             "--stdlib" => stdlib = PathBuf::from(args.next().expect("--stdlib DIR")),
             _ => dirs.push(PathBuf::from(arg)),
         }
     }
     let mut totals = BTreeMap::<(&str, Role), usize>::new();
+    let stdlib = stdlib.canonicalize().expect("stdlib directory");
     for dir in dirs {
         let dir = std::fs::canonicalize(&dir).expect("a directory");
         let mut files = Vec::new();
         jai_files(&dir, &mut files);
-        let mut session = Session::with_environment(Limits::default(), environment(stdlib.clone()));
+        let mut session = Session::with_environment(
+            Limits::default(),
+            environment(stdlib.clone(), runtime_support),
+        );
         session.set_workspace_folders(vec![dir.clone()]);
         let mut opened = Vec::new();
         for path in &files {

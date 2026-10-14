@@ -1296,6 +1296,7 @@ impl Compiler {
         let body_scope = self.new_block_scope(scope);
         self.ide_scope_span(body_scope, body.span);
         self.check_block_stmts(&mut f, body_scope, &body.stmts)?;
+        self.ide_require_parsed_body(body.span)?;
         // The body is read for what Jai warns about: a result still owed at its end, and
         // statements written after one that leaves the block.
         // Named results are returned at the end (a feature newer than the warning), so a body

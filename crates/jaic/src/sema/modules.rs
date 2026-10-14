@@ -483,7 +483,14 @@ impl Compiler {
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         let file = self.read_source(path, span)?;
         let text = self.sources.get(file).text.clone();
-        let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
+        let ast = if let Some(ide) = self.ide.as_mut() {
+            let parsed = crate::parser::parse_file_ide(file, &text);
+            ide.parse_errors.extend(parsed.diagnostics.iter().cloned());
+            ide.errors.extend(parsed.diagnostics);
+            parsed.file
+        } else {
+            crate::parser::parse_file(file, &text).map_err(Box::new)?
+        };
         let module_scope = self.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
         self.files.push(FileInfo {
@@ -720,10 +727,18 @@ impl Compiler {
         stmts: &[ast::Stmt],
         mut vis: ast::ScopeKind,
     ) -> Result<ast::ScopeKind> {
+        let mut failed = None;
         for stmt in stmts {
-            vis = self.declare_stmt(scope, file_scope, stmt, vis)?;
+            match self.declare_stmt(scope, file_scope, stmt, vis) {
+                Ok(next) => vis = next,
+                Err(error) if self.ide.is_some() => {
+                    self.ide.as_mut().unwrap().errors.push((*error).clone());
+                    failed.get_or_insert(error);
+                }
+                Err(error) => return Err(error),
+            }
         }
-        Ok(vis)
+        failed.map_or(Ok(vis), Err)
     }
 
     fn target_scope(&self, scope: ScopeId, file_scope: ScopeId, vis: ast::ScopeKind) -> ScopeId {

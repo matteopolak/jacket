@@ -84,7 +84,7 @@ impl Parser<'_> {
     pub(super) fn parse_block(&mut self) -> PResult<Block> {
         let start = self.expect(P::LBrace, "to start a block")?;
         let stmts = self.parse_stmts_until_close()?;
-        let end = self.expect(P::RBrace, "to end the block")?;
+        let end = self.ide_close_block(start, "to end the block")?;
         Ok(Block {
             stmts,
             span: start.to(end),
@@ -95,13 +95,22 @@ impl Parser<'_> {
 
     /// Statements up to (not including) the closing `}`.
     pub(super) fn parse_stmts_until_close(&mut self) -> PResult<Vec<Stmt>> {
+        let open = self.prev_span();
         let saved = std::mem::replace(&mut self.in_list, false);
         let mut stmts = Vec::new();
         while !self.at(P::RBrace) {
             if self.at_eof() {
+                if self.recovery.is_some() {
+                    break;
+                }
                 return Err(self.expected("`}`", "to close the block"));
             }
-            stmts.push(self.parse_stmt()?);
+            if self.ide_block_boundary(open) {
+                break;
+            }
+            if let Some(stmt) = self.parse_stmt_recovering(Some(open))? {
+                stmts.push(stmt);
+            }
         }
         self.in_list = saved;
         Ok(stmts)

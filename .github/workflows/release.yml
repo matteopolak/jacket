@@ -182,7 +182,7 @@ jobs:
         timeout-minutes: 15
         run: |
           apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-          "${apt[@]}" update && "${apt[@]}" install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev
+          "${apt[@]}" update && "${apt[@]}" install -y zlib1g-dev libzstd-dev libxml2-dev libx11-dev libgl-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libdrm-dev libgbm-dev libegl-dev libudev-dev libusb-1.0-0-dev libdecor-0-dev
       # Instrumented build, training run over this repository's tests and examples, then the
       # profile-guided build into target/pgo/dist. On Linux x86-64 the result is also rewritten by
       # the llvm-bolt that ships in the official LLVM release (elsewhere: PGO only).
@@ -238,6 +238,11 @@ jobs:
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
           # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
           "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"
+          # SDL3's generated source must satisfy the real repository formatter and linter.
+          # No missing dependency or syntax-only lint fallback is accepted by these checks.
+          "$dir/jaifmt$exe" --check stdlib/Extensions/SDL3 tests/sdl3
+          python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
+          python3 tools/sdl3_lint.py --jailint "$PWD/$dir/jailint$exe" --stdlib "$PWD/$dir/stdlib"
           ls "$dir"
           if [ "$RUNNER_OS" = "Windows" ]; then
             7z a -tzip "$dir.zip" "$dir" > /dev/null
@@ -303,6 +308,12 @@ jobs:
           status=$?
           set -e
           test "$status" = 0 || test "$status" = 77
+          # SDL3 is source-built and packaged on all six current release targets. Audit every
+          # declared runtime export and artifact hash, then compile/run ABI + headless tests
+          # with the packaged static archive, outside the checkout and without system SDL3.
+          python3 "$GITHUB_WORKSPACE/tools/test_sdl3.py" --jaic "$jaic" \
+            --native "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}" \
+            --platform "${{ matrix.name }}" --work "$work/sdl3"
           # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
           # the packaged shared libraries, and the built executable links the static ones.
           cp "$GITHUB_WORKSPACE/tests/native-libs/simp-image.jai" .

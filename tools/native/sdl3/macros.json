@@ -1,0 +1,777 @@
+{
+  "SDL_VERSIONNUM": [
+    "int",
+    [
+      [
+        "int",
+        "major"
+      ],
+      [
+        "int",
+        "minor"
+      ],
+      [
+        "int",
+        "patch"
+      ]
+    ]
+  ],
+  "SDL_VERSIONNUM_MAJOR": [
+    "int",
+    [
+      [
+        "int",
+        "version"
+      ]
+    ]
+  ],
+  "SDL_VERSIONNUM_MINOR": [
+    "int",
+    [
+      [
+        "int",
+        "version"
+      ]
+    ]
+  ],
+  "SDL_VERSIONNUM_MICRO": [
+    "int",
+    [
+      [
+        "int",
+        "version"
+      ]
+    ]
+  ],
+  "SDL_VERSION_ATLEAST": [
+    "bool",
+    [
+      [
+        "int",
+        "X"
+      ],
+      [
+        "int",
+        "Y"
+      ],
+      [
+        "int",
+        "Z"
+      ]
+    ]
+  ],
+  "SDL_BUTTON_MASK": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "X"
+      ]
+    ]
+  ],
+  "SDL_SCANCODE_TO_KEYCODE": [
+    "SDL_Keycode",
+    [
+      [
+        "Uint32",
+        "X"
+      ]
+    ]
+  ],
+  "SDL_FOURCC": [
+    "Uint32",
+    [
+      [
+        "Uint8",
+        "A"
+      ],
+      [
+        "Uint8",
+        "B"
+      ],
+      [
+        "Uint8",
+        "C"
+      ],
+      [
+        "Uint8",
+        "D"
+      ]
+    ]
+  ],
+  "SDL_DEFINE_PIXELFOURCC": [
+    "Uint32",
+    [
+      [
+        "Uint8",
+        "A"
+      ],
+      [
+        "Uint8",
+        "B"
+      ],
+      [
+        "Uint8",
+        "C"
+      ],
+      [
+        "Uint8",
+        "D"
+      ]
+    ]
+  ],
+  "SDL_DEFINE_PIXELFORMAT": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "type"
+      ],
+      [
+        "Uint32",
+        "order"
+      ],
+      [
+        "Uint32",
+        "layout"
+      ],
+      [
+        "Uint32",
+        "bits"
+      ],
+      [
+        "Uint32",
+        "bytes"
+      ]
+    ]
+  ],
+  "SDL_DEFINE_COLORSPACE": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "type"
+      ],
+      [
+        "Uint32",
+        "range"
+      ],
+      [
+        "Uint32",
+        "primaries"
+      ],
+      [
+        "Uint32",
+        "transfer"
+      ],
+      [
+        "Uint32",
+        "matrix"
+      ],
+      [
+        "Uint32",
+        "chroma"
+      ]
+    ]
+  ],
+  "SDL_DEFINE_AUDIO_FORMAT": [
+    "Uint16",
+    [
+      [
+        "Uint16",
+        "signed"
+      ],
+      [
+        "Uint16",
+        "bigendian"
+      ],
+      [
+        "Uint16",
+        "flt"
+      ],
+      [
+        "Uint16",
+        "size"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_BITSIZE": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_BYTESIZE": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_ISFLOAT": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_ISBIGENDIAN": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_ISLITTLEENDIAN": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_ISSIGNED": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_ISINT": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_ISUNSIGNED": [
+    "int",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_AUDIO_FRAMESIZE": [
+    "int",
+    [
+      [
+        "SDL_AudioSpec",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_PIXELFLAG": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_PIXELTYPE": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_PIXELORDER": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_PIXELLAYOUT": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_BITSPERPIXEL": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_BYTESPERPIXEL": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_INDEXED": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_PACKED": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_ARRAY": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_10BIT": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_FLOAT": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_ALPHA": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_ISPIXELFORMAT_FOURCC": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "format"
+      ]
+    ]
+  ],
+  "SDL_COLORSPACETYPE": [
+    "SDL_ColorType",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_COLORSPACERANGE": [
+    "SDL_ColorRange",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_COLORSPACECHROMA": [
+    "SDL_ChromaLocation",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_COLORSPACEPRIMARIES": [
+    "SDL_ColorPrimaries",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_COLORSPACETRANSFER": [
+    "SDL_TransferCharacteristics",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_COLORSPACEMATRIX": [
+    "SDL_MatrixCoefficients",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_ISCOLORSPACE_MATRIX_BT601": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_ISCOLORSPACE_MATRIX_BT709": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_ISCOLORSPACE_MATRIX_BT2020_NCL": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_ISCOLORSPACE_LIMITED_RANGE": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_ISCOLORSPACE_FULL_RANGE": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "cspace"
+      ]
+    ]
+  ],
+  "SDL_Swap16": [
+    "Uint16",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap16LE": [
+    "Uint16",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap16BE": [
+    "Uint16",
+    [
+      [
+        "Uint16",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap32": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap32LE": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap32BE": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap64": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap64LE": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_Swap64BE": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_SwapFloatLE": [
+    "float",
+    [
+      [
+        "float",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_SwapFloatBE": [
+    "float",
+    [
+      [
+        "float",
+        "x"
+      ]
+    ]
+  ],
+  "SDL_CreateThread": [
+    "SDL_Thread *",
+    [
+      [
+        "SDL_ThreadFunction",
+        "fn"
+      ],
+      [
+        "const char *",
+        "name"
+      ],
+      [
+        "void *",
+        "data"
+      ]
+    ]
+  ],
+  "SDL_CreateThreadWithProperties": [
+    "SDL_Thread *",
+    [
+      [
+        "SDL_PropertiesID",
+        "props"
+      ]
+    ]
+  ],
+  "SDL_SECONDS_TO_NS": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "S"
+      ]
+    ]
+  ],
+  "SDL_NS_TO_SECONDS": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "NS"
+      ]
+    ]
+  ],
+  "SDL_MS_TO_NS": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "MS"
+      ]
+    ]
+  ],
+  "SDL_NS_TO_MS": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "NS"
+      ]
+    ]
+  ],
+  "SDL_US_TO_NS": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "US"
+      ]
+    ]
+  ],
+  "SDL_NS_TO_US": [
+    "Uint64",
+    [
+      [
+        "Uint64",
+        "NS"
+      ]
+    ]
+  ],
+  "SDL_WINDOWPOS_UNDEFINED_DISPLAY": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "X"
+      ]
+    ]
+  ],
+  "SDL_WINDOWPOS_CENTERED_DISPLAY": [
+    "Uint32",
+    [
+      [
+        "Uint32",
+        "X"
+      ]
+    ]
+  ],
+  "SDL_WINDOWPOS_ISUNDEFINED": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "X"
+      ]
+    ]
+  ],
+  "SDL_WINDOWPOS_ISCENTERED": [
+    "bool",
+    [
+      [
+        "Uint32",
+        "X"
+      ]
+    ]
+  ],
+  "SDL_MUSTLOCK": [
+    "bool",
+    [
+      [
+        "SDL_Surface *",
+        "S"
+      ]
+    ]
+  ],
+  "SDL_iconv_utf8_locale": [
+    "char *",
+    [
+      [
+        "const char *",
+        "S"
+      ]
+    ]
+  ],
+  "SDL_iconv_utf8_ucs2": [
+    "Uint16 *",
+    [
+      [
+        "const char *",
+        "S"
+      ]
+    ]
+  ],
+  "SDL_iconv_utf8_ucs4": [
+    "Uint32 *",
+    [
+      [
+        "const char *",
+        "S"
+      ]
+    ]
+  ],
+  "SDL_AtomicIncRef": [
+    "int",
+    [
+      [
+        "SDL_AtomicInt *",
+        "a"
+      ]
+    ]
+  ],
+  "SDL_AtomicDecRef": [
+    "bool",
+    [
+      [
+        "SDL_AtomicInt *",
+        "a"
+      ]
+    ]
+  ],
+  "SDL_Unsupported": [
+    "bool",
+    []
+  ],
+  "SDL_InvalidParamError": [
+    "bool",
+    [
+      [
+        "const char *",
+        "param"
+      ]
+    ]
+  ]
+}

@@ -126,9 +126,9 @@ impl Parser<'_> {
         if !self.at(P::LBrace) {
             return Ok(vec![self.parse_stmt()?]);
         }
-        self.bump();
+        let open = self.bump();
         let stmts = self.parse_stmts_until_close()?;
-        self.expect(P::RBrace, "to end the `#if` body")?;
+        self.ide_close_block(open, "to end the `#if` body")?;
         Ok(stmts)
     }
 

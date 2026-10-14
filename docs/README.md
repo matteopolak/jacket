@@ -105,6 +105,9 @@ The LLVM backend, C ABI and linking.
 
 ## Standard library
 
+- [Independent integration commands and limits](tools/cleanroom-integration.md)
+- [Integration deviations audit](status/integration-deviations.md) and [requests](integration-requests.md)
+
 - [Core foundations implementation handoff](foundations-handoff.md)
 - [Core foundations native ABI notes](foundations-native-abi.md)
 - [Core foundations deviations and remaining limits](status/foundations-deviations.md)
@@ -134,6 +137,8 @@ The LLVM backend, C ABI and linking.
 - [Focused portable regression runner](../tools/check_portable_stdlib.py)
 - [Portable implementation plan](plans/portable-stdlib.md)
 - [Unresolved portable contracts](specs/stdlib/questions.md)
+- [SDL3 desktop bindings, generation and native packaging](extensions/sdl3.md)
+- [SDL3 comprehensive header/GPU coverage, organization and verification](extensions/sdl3-coverage.md)
 
 Implementation work uses the API specification as its compatibility contract. Implementers do not read the source of a Jai distribution; specification review supplies public declarations and behavior through the documented clean-room workflow.
 
@@ -164,6 +169,8 @@ Scripts, CI and project policies.
 - [Compile-time benchmark](tools/compile-time-benchmark.md): wall time, peak RSS and phases of real projects, `-timings`
 - [Regex benchmark](tools/regex-benchmark.md): `Extensions/Regex` against Rust `regex`, RE2, PCRE2, CTRE and Hyperscan on a generated corpus
 - [Edit benchmark](tools/edit-bench.md): how long `jailsp` takes to answer after an edit inside a body, compiles per edit
+- [LSP partial-edit implementation plan](plans/lsp-partial-edits.md) and [open questions](specs/lsp-questions.md)
+- [LSP partial-edit regression harness](tools/lsp-partial-edits.md): IDE recovery, custom `for` navigation, UTF-16 suffix edits and corpus checks; [0.17.1 worker validation](tools/lsp-validation-0171.md)
 - [IDE coverage](tools/ide-coverage.md): which identifiers of a project get no hover or go to definition from `jailsp`
 - [Language server benchmark](tools/lsp-benchmark.md): latency, CPU time and RSS of `jailsp` (or another server) on real and generated projects and very large files
 - [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`

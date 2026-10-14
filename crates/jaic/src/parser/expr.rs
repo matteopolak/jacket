@@ -98,6 +98,9 @@ impl Parser<'_> {
         if self.continues_after_block() && matches!(p, P::Star | P::Minus | P::Plus | P::Shl) {
             return None;
         }
+        if self.recovery.is_some() && self.continues_after_block() {
+            return None;
+        }
         binary_op(*p)
     }
 

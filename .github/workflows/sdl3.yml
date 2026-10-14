@@ -1,0 +1,50 @@
+name: SDL3 native artifacts
+on:
+  push:
+    paths: ['stdlib/Extensions/SDL3/**', 'tools/sdl3*.py', 'tools/test_sdl3*.py', 'tools/native/sdl3/**', 'tools/native-libs.json', 'tools/build_native_libs.py', 'tests/sdl3/**', '.github/workflows/sdl3.yml']
+  pull_request:
+    paths: ['stdlib/Extensions/SDL3/**', 'tools/sdl3*.py', 'tools/test_sdl3*.py', 'tools/native/sdl3/**', 'tools/native-libs.json', 'tools/build_native_libs.py', 'tests/sdl3/**', '.github/workflows/sdl3.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {platform: macos-arm64, runner: macos-15}
+          - {platform: macos-x64, runner: macos-15-intel}
+          - {platform: linux-x64, runner: ubuntu-24.04}
+          - {platform: linux-arm64, runner: ubuntu-24.04-arm}
+          - {platform: windows-x64, runner: windows-2025}
+          - {platform: windows-arm64, runner: windows-11-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install Linux backend SDKs
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang pkg-config libasound2-dev libpulse-dev libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libdrm-dev libgbm-dev libegl-dev libgl-dev libudev-dev libusb-1.0-0-dev libdecor-0-dev
+      - name: Generator and build contract tests
+        run: |
+          mkdir -p artifacts/sdl3/tmp
+          python3 -m unittest discover -s tools -p 'test_sdl3*.py'
+      - name: Build static and shared SDL3 and run both C headless smoke tests
+        run: python3 tools/build_native_libs.py SDL3 --platform "${{ matrix.platform }}"
+      - name: Offline rebuild uses verified durable source cache
+        run: python3 tools/sdl3_native.py --platform "${{ matrix.platform }}" --offline
+      - name: Audit version, every runtime symbol, licenses and artifact hashes
+        run: python3 tools/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "artifacts/native-libs/${{ matrix.platform }}"
+      - name: Check reproducible generation for every target
+        if: matrix.platform == 'linux-x64'
+        run: python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --check

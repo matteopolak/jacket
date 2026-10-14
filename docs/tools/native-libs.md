@@ -28,6 +28,7 @@ carry the library), "shared" the `.dylib` / `.so` / `.dll` that `jaic -interp` l
 | Dear ImGui (`imgui`, C++) | built | built | built | not built (see below) |
 | `rpmalloc` | built | built | not built | not built |
 | mbedTLS (`mbedtls`) | built | built | built | built (static) |
+| SDL3 (`SDL3`) | built from pinned source (static + runtime) | same | same, plus import library | not shipped |
 | SDL2 (`SDL2`) | system copy | system copy | official prebuilt release, x64 only | official prebuilt release, x64 only |
 | wgpu-native | downloaded (`tools/fetch_wgpu_native.py`), static and shared | same | same | not shipped |
 
@@ -236,3 +237,7 @@ the default search directory. See [WebGPU](../extensions/webgpu.md). The release
 the script also downloads wgpu-native's `LICENSE.MIT` and `LICENSE.APACHE` from the pinned tag (sha256 in
 `tools/webgpu.json`) into `licenses/wgpu-native/`. The static library contains Rust dependencies under their
 own licences, which the zip does not list; upstream's repository is the place to find them.
+
+## SDL3
+
+The new `Extensions/SDL3` module is independent of SDL2. `build_native_libs.py SDL3` delegates to the pinned, checksum-verified CMake builder and builds static/shared artifacts for all six current release targets, with native smoke tests and per-artifact checksums. See [SDL3 build, API and packaging details](../extensions/sdl3.md). Existing SDL2 behavior is unchanged.

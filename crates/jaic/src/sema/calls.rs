@@ -455,6 +455,12 @@ impl Compiler {
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
         if self.ide.is_some() {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args, ambiguous);
+            if f.pending_for_body
+                .as_ref()
+                .is_some_and(|body| body.call_span == span)
+            {
+                self.ide_note_for_keyword(span, chosen.proc, ambiguous);
+            }
         }
         self.emit_call(f, scope, chosen, args, span)
     }
@@ -3534,6 +3540,7 @@ impl Compiler {
         f.backtick_scope = saved_backtick;
         let frame = f.macros.pop().unwrap();
         result?;
+        self.ide_require_parsed_body(body.span)?;
         if !f.b.is_terminated() {
             self.emit_defers(f, frame.defer_depth, span)?;
             f.b.jump(exit);

@@ -2,7 +2,7 @@
 //!
 //! From the token under the cursor outwards: the expressions around it, the statements, the
 //! bodies between braces and with them, the declaration, and the whole file. A document that
-//! does not parse still has its token and the whole file.
+//! does not parse still has ranges for its recovered, unaffected syntax.
 use crate::analysis::{Span, TokenKind};
 use crate::refactor::{extent, stmt_extent, trim};
 use crate::session::Session;
@@ -78,7 +78,7 @@ impl Session {
     ) -> Result<Vec<SelectionRange>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
-        let parsed = jaic::parser::parse_file(FileId(0), text).ok();
+        let parsed = jaic::parser::parse_file_ide(FileId(0), &doc.ide_text()).file;
         let mut result = Vec::new();
         for &position in positions {
             let byte = doc.index.byte(text, position)?;
@@ -99,9 +99,7 @@ impl Session {
                     }
                 }
             }
-            if let Some(file) = &parsed {
-                around(text, &file.stmts, byte, &mut found);
-            }
+            around(text, &parsed.stmts, byte, &mut found);
             found.push((0, text.len()));
             // Smallest first, each range holding the one before it.
             found.sort_by_key(|&(a, b)| (b - a, a));

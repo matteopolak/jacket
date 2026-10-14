@@ -44,6 +44,7 @@ impl Compiler {
 
     /// `run_thunk` keeping every value of a multi-value result (`a, b :: #run f();`).
     pub fn run_thunk_all(&mut self, mut f: FnCtx, op: Operand, span: Span) -> Result<Vec<Operand>> {
+        self.ide_require_parsed_body(span)?;
         let op = self.settle_untyped(op, None);
         let values = match op {
             Operand::Void => Vec::new(),
@@ -403,6 +404,7 @@ impl Compiler {
                 let module = self.scope(tscope).module;
                 let inner = self.new_scope(scope::ScopeKind::Block, Some(tscope), module, None);
                 self.check_block_stmts(&mut f, inner, &block.stmts)?;
+                self.ide_require_parsed_body(block.span)?;
                 if !f.b.is_terminated() {
                     self.emit_defers(&mut f, 0, span)?;
                 }

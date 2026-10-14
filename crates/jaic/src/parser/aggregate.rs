@@ -29,7 +29,7 @@ impl Parser<'_> {
         let mut modify = self.parse_struct_flags(&mut flags)?;
         self.expect(P::LBrace, "to start the body")?;
         let body = self.parse_stmts_until_close()?;
-        let end = self.expect(P::RBrace, "to end the body")?;
+        let end = self.ide_close_block(start, "to end the body")?;
         modify = self.parse_struct_flags(&mut flags)?.or(modify);
         self.block_end = self.pos;
         let lit = StructLit {
@@ -135,7 +135,7 @@ impl Parser<'_> {
         }
         self.expect(P::LBrace, "to start the enum body")?;
         let items = self.parse_enum_items()?;
-        let end = self.expect(P::RBrace, "to end the enum body")?;
+        let end = self.ide_close_block(start, "to end the enum body")?;
         let lit = EnumLit {
             id: AstId::fresh(),
             flags_enum,
@@ -151,19 +151,36 @@ impl Parser<'_> {
 
     /// Enum items up to (not including) the closing brace.
     fn parse_enum_items(&mut self) -> PResult<Vec<EnumItem>> {
+        let open = self.prev_span();
         let mut items = Vec::new();
         while !self.at(P::RBrace) {
+            if self.recovery.is_some() && (self.at_eof() || self.ide_block_boundary(open)) {
+                break;
+            }
             if self.eat(P::Semi) {
                 continue;
             }
-            if self.at_directive("insert") {
+            let start = self.pos;
+            let item = if self.at_directive("insert") {
                 self.bump();
-                let value = self.parse_expr()?;
-                items.push(EnumItem::Insert(value));
+                self.parse_expr().map(EnumItem::Insert)
             } else if self.at_directive("if") {
-                items.push(self.parse_enum_if()?);
+                self.parse_enum_if()
             } else {
-                items.push(EnumItem::Member(self.parse_enum_member()?));
+                self.parse_enum_member().map(EnumItem::Member)
+            };
+            match item {
+                Ok(item) => items.push(item),
+                Err(error) => {
+                    let Some(errors) = self.recovery.as_mut() else {
+                        return Err(error);
+                    };
+                    errors.push(crate::source::Diagnostic::error(
+                        self.toks[start].span,
+                        error.message,
+                    ));
+                    self.ide_synchronize(start, true);
+                }
             }
         }
         Ok(items)
@@ -215,9 +232,9 @@ impl Parser<'_> {
     }
 
     fn parse_enum_branch(&mut self) -> PResult<Vec<EnumItem>> {
-        self.expect(P::LBrace, "to start the `#if` body")?;
+        let open = self.expect(P::LBrace, "to start the `#if` body")?;
         let items = self.parse_enum_items()?;
-        self.expect(P::RBrace, "to end the `#if` body")?;
+        self.ide_close_block(open, "to end the `#if` body")?;
         Ok(items)
     }
 }

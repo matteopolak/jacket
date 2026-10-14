@@ -3,7 +3,8 @@
 //! The parser works on the token vector from `lexer::lex`. Keywords are plain
 //! identifiers, so every keyword check is made in a syntactic position where a
 //! keyword is expected (`if`, `for`, `cast`, ...). Types are parsed as ordinary
-//! expressions. Parsing stops at the first error; there is no recovery.
+//! expressions. Strict parsing stops at the first error. Separate IDE entry points
+//! recover independent statements without changing CLI acceptance.
 //!
 //! Layout:
 //! - `expr`      precedence climbing, unary/postfix operators, primaries
@@ -20,6 +21,7 @@ mod decl;
 mod directive;
 mod directive_stmt;
 mod expr;
+mod ide;
 mod procedure;
 mod stmt;
 #[cfg(test)]
@@ -28,6 +30,7 @@ mod tests;
 use crate::ast::{File, Ident, Note, Stmt};
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Diagnostic, FileId, Span};
+pub use ide::{IdeParse, parse_file_ide, parse_tokens_ide};
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
 
@@ -78,6 +81,9 @@ pub(crate) struct Parser<'a> {
     pending_notes: Vec<Note>,
     /// Expressions and statements currently open (see `MAX_NESTING`).
     depth: usize,
+    /// Set only by the editor entry points. Strict parsing never resynchronizes.
+    recovery: Option<Vec<Diagnostic>>,
+    ide_closed_braces: crate::fxhash::HashSet<u32>,
 }
 
 impl<'a> Parser<'a> {
@@ -92,6 +98,8 @@ impl<'a> Parser<'a> {
             block_end: usize::MAX,
             pending_notes: Vec::new(),
             depth: 0,
+            recovery: None,
+            ide_closed_braces: crate::fxhash::HashSet::default(),
         }
     }
 
@@ -111,7 +119,9 @@ impl<'a> Parser<'a> {
     fn parse_file_stmts(&mut self) -> PResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
         while !self.at_eof() {
-            stmts.push(self.parse_stmt()?);
+            if let Some(stmt) = self.parse_stmt_recovering(None)? {
+                stmts.push(stmt);
+            }
         }
         Ok(stmts)
     }

@@ -31,9 +31,7 @@ struct Site {
 
 /// Every procedure declaration in `text`, at any depth.
 fn sites(text: &str) -> Vec<Site> {
-    let Ok(file) = jaic::parser::parse_file(FileId(0), text) else {
-        return Vec::new();
-    };
+    let file = jaic::parser::parse_file_ide(FileId(0), text).file;
     let mut out = Vec::new();
     collect(text, &file.stmts, &mut out, &mut HashSet::new());
     out

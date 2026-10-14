@@ -1,6 +1,29 @@
 {
   "format": 1,
   "sources": {
+    "sdl3": {
+      "repository": "libsdl-org/SDL",
+      "revision": "release-3.4.18",
+      "archive": {
+        "url": "https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz",
+        "sha256": "9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3",
+        "root": "SDL3-3.4.18"
+      },
+      "license": [
+        "LICENSE.txt",
+        {
+          "file": "src/hidapi/LICENSE.txt",
+          "as": "hidapi-LICENSE.txt"
+        },
+        "src/hidapi/LICENSE-bsd.txt",
+        "src/hidapi/LICENSE-orig.txt",
+        "src/hidapi/LICENSE-gpl3.txt",
+        {
+          "file": "src/video/yuv2rgb/LICENSE",
+          "as": "yuv2rgb-LICENSE.txt"
+        }
+      ]
+    },
     "stb": {
       "repository": "nothings/stb",
       "revision": "2c980bb59875b0d32144a71867fbdebb2f77cd20",
@@ -113,6 +136,7 @@
     }
   },
   "libraries": {
+    "SDL3": {"source": "sdl3", "builder": "sdl3", "except": ["windows-x64-mingw", "windows-arm64-mingw"]},
     "SDL2": {
       "prebuilt": {
         "windows-x64": {"source": "sdl2", "files": {"lib/x64/SDL2.lib": "SDL2.lib", "lib/x64/SDL2.dll": "SDL2.dll"}},
