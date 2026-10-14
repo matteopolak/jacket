@@ -2304,7 +2304,12 @@ impl Interp {
                     if a[0] < 4096 || a[1] < 4096 {
                         return self.null_trap("memcpy through a null pointer");
                     }
-                    unsafe { std::ptr::copy(a[1] as *const u8, a[0] as *mut u8, a[2] as usize) };
+                    let Ok(len) = usize::try_from(a[2]) else {
+                        return self.trap("memcpy length exceeds the host address space");
+                    };
+                    if !self.probe.copy(a[0], a[1], len) {
+                        return self.trap("memcpy through inaccessible memory");
+                    }
                 }
                 Rets::default()
             }
@@ -2313,16 +2318,26 @@ impl Interp {
                     if a[0] < 4096 {
                         return self.null_trap("memset through a null pointer");
                     }
-                    unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, a[2] as usize) };
+                    let Ok(len) = usize::try_from(a[2]) else {
+                        return self.trap("memset length exceeds the host address space");
+                    };
+                    if !self.probe.fill(a[0], a[1] as u8, len) {
+                        return self.trap("memset through unwritable memory");
+                    }
                 }
                 Rets::default()
             }
             I::Memcmp => {
-                let n = a[2] as usize;
+                let Ok(n) = usize::try_from(a[2]) else {
+                    return self.trap("memcmp length exceeds the host address space");
+                };
                 if n > 0 && (a[0] < 4096 || a[1] < 4096) {
                     return self.null_trap("memcmp through a null pointer");
                 }
-                let r: i16 = match self.probe.compare(a[0], a[1], n) {
+                let Some(ordering) = self.probe.compare(a[0], a[1], n) else {
+                    return self.trap("memcmp through unreadable memory");
+                };
+                let r: i16 = match ordering {
                     std::cmp::Ordering::Less => -1,
                     std::cmp::Ordering::Equal => 0,
                     std::cmp::Ordering::Greater => 1,
