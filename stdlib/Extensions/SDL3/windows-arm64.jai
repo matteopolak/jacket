@@ -2,7 +2,6 @@
 // Altered translation; original copyright/license retained in LICENSE.txt.
 // Do not edit. Regenerate all six targets together.
 
-
 // Foundation — values and types, then lifecycle operations.
 using SDL_DUMMY_ENUM :: enum u32 {
     DUMMY_ENUM_VALUE :: 0;
@@ -44,8 +43,7 @@ SDL_AtomicU32 :: struct {
     value: Uint32;
 }
 
-SDL_Environment :: struct {
-}
+SDL_Environment :: struct {}
 
 SDL_GUID :: struct {
     data: [16] Uint8;
@@ -56,8 +54,7 @@ SDL_alignment_test :: struct {
     b: *void;
 }
 
-SDL_iconv_data_t :: struct {
-}
+SDL_iconv_data_t :: struct {}
 
 SDL_CompareCallback :: (a: *void, b: *void) -> s32 #c_call;
 
@@ -1131,7 +1128,6 @@ SDL_PRIx64 :: "I64x";
 
 SDL_SIZE_MAX :: 18446744073709551615;
 
-
 // Lifecycle — values and types, then lifecycle operations.
 using SDL_AppResult :: enum u32 {
     SDL_APP_CONTINUE :: 0;
@@ -1226,11 +1222,9 @@ SDL_AssertData :: struct {
     next: *SDL_AssertData;
 }
 
-_XEvent :: union {
-}
+_XEvent :: union {}
 
-tagMSG :: struct {
-}
+tagMSG :: struct {}
 
 SDL_AppEvent_func :: (appstate: *void, event: *SDL_Event) -> SDL_AppResult #c_call;
 
@@ -1464,7 +1458,6 @@ SDL_VERSION :: 3004018;
 
 SDL_WINAPI_FAMILY_PHONE :: 0;
 
-
 // Resources — values and types, then lifecycle operations.
 using SDL_AsyncIOResult :: enum u32 {
     SDL_ASYNCIO_COMPLETE :: 0;
@@ -1568,8 +1561,7 @@ SDL_ThreadID :: Uint64;
 
 SDL_TimerID :: Uint32;
 
-SDL_AsyncIO :: struct {
-}
+SDL_AsyncIO :: struct {}
 
 SDL_AsyncIOOutcome :: struct {
     asyncio: *SDL_AsyncIO;
@@ -1582,11 +1574,9 @@ SDL_AsyncIOOutcome :: struct {
     userdata: *void;
 }
 
-SDL_AsyncIOQueue :: struct {
-}
+SDL_AsyncIOQueue :: struct {}
 
-SDL_Condition :: struct {
-}
+SDL_Condition :: struct {}
 
 SDL_DateTime :: struct {
     year: s32;
@@ -1600,8 +1590,7 @@ SDL_DateTime :: struct {
     utc_offset: s32;
 }
 
-SDL_IOStream :: struct {
-}
+SDL_IOStream :: struct {}
 
 SDL_IOStreamInterface :: struct {
     version: Uint32;
@@ -1624,8 +1613,7 @@ SDL_Locale :: struct {
     country: *u8;
 }
 
-SDL_Mutex :: struct {
-}
+SDL_Mutex :: struct {}
 
 SDL_PathInfo :: struct {
     type: SDL_PathType;
@@ -1635,20 +1623,15 @@ SDL_PathInfo :: struct {
     access_time: SDL_Time;
 }
 
-SDL_Process :: struct {
-}
+SDL_Process :: struct {}
 
-SDL_RWLock :: struct {
-}
+SDL_RWLock :: struct {}
 
-SDL_Semaphore :: struct {
-}
+SDL_Semaphore :: struct {}
 
-SDL_SharedObject :: struct {
-}
+SDL_SharedObject :: struct {}
 
-SDL_Storage :: struct {
-}
+SDL_Storage :: struct {}
 
 SDL_StorageInterface :: struct {
     version: Uint32;
@@ -1665,8 +1648,7 @@ SDL_StorageInterface :: struct {
     space_remaining: (userdata: *void) -> Uint64 #c_call;
 }
 
-SDL_Thread :: struct {
-}
+SDL_Thread :: struct {}
 
 SDL_EnumerateDirectoryCallback :: (userdata: *void, dirname: *u8, fname: *u8) -> SDL_EnumerationResult #c_call;
 
@@ -2067,7 +2049,6 @@ SDL_PROP_THREAD_CREATE_STACKSIZE_NUMBER :: "SDL.thread.create.stacksize";
 SDL_PROP_THREAD_CREATE_USERDATA_POINTER :: "SDL.thread.create.userdata";
 
 SDL_US_PER_SECOND :: 1000000;
-
 
 // Interaction — values and types, then lifecycle operations.
 using SDL_Capitalization :: enum u32 {
@@ -2732,8 +2713,7 @@ SDL_CommonEvent :: struct {
     timestamp: Uint64;
 }
 
-SDL_Cursor :: struct {
-}
+SDL_Cursor :: struct {}
 
 SDL_CursorFrameInfo :: struct {
     surface: *SDL_Surface;
@@ -2815,8 +2795,7 @@ SDL_Finger :: struct {
     pressure: float32;
 }
 
-SDL_Gamepad :: struct {
-}
+SDL_Gamepad :: struct {}
 
 SDL_GamepadAxisEvent :: struct {
     type: SDL_EventType;
@@ -2896,8 +2875,7 @@ SDL_GamepadTouchpadEvent :: struct {
     pressure: float32;
 }
 
-SDL_Haptic :: struct {
-}
+SDL_Haptic :: struct {}
 
 SDL_HapticCondition :: struct {
     type: SDL_HapticEffectType;
@@ -3063,8 +3041,7 @@ SDL_JoyHatEvent :: struct {
     padding2: Uint8;
 }
 
-SDL_Joystick :: struct {
-}
+SDL_Joystick :: struct {}
 
 SDL_KeyboardDeviceEvent :: struct {
     type: SDL_EventType;
@@ -3247,8 +3224,7 @@ SDL_RenderEvent :: struct {
     windowID: SDL_WindowID;
 }
 
-SDL_Sensor :: struct {
-}
+SDL_Sensor :: struct {}
 
 SDL_SensorEvent :: struct {
     type: SDL_EventType;
@@ -3305,14 +3281,11 @@ SDL_TouchFingerEvent :: struct {
     windowID: SDL_WindowID;
 }
 
-SDL_Tray :: struct {
-}
+SDL_Tray :: struct {}
 
-SDL_TrayEntry :: struct {
-}
+SDL_TrayEntry :: struct {}
 
-SDL_TrayMenu :: struct {
-}
+SDL_TrayMenu :: struct {}
 
 SDL_UserEvent :: struct {
     type: Uint32;
@@ -3372,8 +3345,7 @@ SDL_WindowEvent :: struct {
     data2: Sint32;
 }
 
-SDL_hid_device :: struct {
-}
+SDL_hid_device :: struct {}
 
 SDL_hid_device_info :: struct {
     path: *u8;
@@ -4773,7 +4745,6 @@ SDL_TRAYENTRY_DISABLED :: 2147483648;
 
 SDL_TRAYENTRY_SUBMENU :: 4;
 
-
 // Presentation — values and types, then lifecycle operations.
 using SDL_ArrayOrder :: enum u32 {
     SDL_ARRAYORDER_NONE :: 0;
@@ -5180,8 +5151,7 @@ VkPhysicalDevice :: *VkPhysicalDevice_T;
 
 VkSurfaceKHR :: *VkSurfaceKHR_T;
 
-SDL_Camera :: struct {
-}
+SDL_Camera :: struct {}
 
 SDL_CameraSpec :: struct {
     format: SDL_PixelFormat;
@@ -5211,8 +5181,7 @@ SDL_DisplayMode :: struct {
     internal: *SDL_DisplayModeData;
 }
 
-SDL_DisplayModeData :: struct {
-}
+SDL_DisplayModeData :: struct {}
 
 SDL_FColor :: struct {
     r: float32;
@@ -5233,11 +5202,9 @@ SDL_FRect :: struct {
     h: float32;
 }
 
-SDL_GLContextState :: struct {
-}
+SDL_GLContextState :: struct {}
 
-SDL_GPURenderState :: struct {
-}
+SDL_GPURenderState :: struct {}
 
 SDL_GPURenderStateCreateInfo :: struct {
     fragment_shader: *SDL_GPUShader;
@@ -5288,8 +5255,7 @@ SDL_Rect :: struct {
     h: s32;
 }
 
-SDL_Renderer :: struct {
-}
+SDL_Renderer :: struct {}
 
 SDL_Surface :: struct {
     flags: SDL_SurfaceFlags;
@@ -5315,20 +5281,15 @@ SDL_Vertex :: struct {
     tex_coord: SDL_FPoint;
 }
 
-SDL_Window :: struct {
-}
+SDL_Window :: struct {}
 
-VkAllocationCallbacks :: struct {
-}
+VkAllocationCallbacks :: struct {}
 
-VkInstance_T :: struct {
-}
+VkInstance_T :: struct {}
 
-VkPhysicalDevice_T :: struct {
-}
+VkPhysicalDevice_T :: struct {}
 
-VkSurfaceKHR_T :: struct {
-}
+VkSurfaceKHR_T :: struct {}
 
 SDL_EGLAttribArrayCallback :: (userdata: *void) -> *SDL_EGLAttrib #c_call;
 
@@ -6506,7 +6467,6 @@ SDL_WINDOW_UTILITY :: 131072;
 
 SDL_WINDOW_VULKAN :: 268435456;
 
-
 // Gpu — values and types, then lifecycle operations.
 using SDL_GPUBlendFactor :: enum u32 {
     SDL_GPU_BLENDFACTOR_INVALID :: 0;
@@ -6841,8 +6801,7 @@ SDL_GPUBlitRegion :: struct {
     h: Uint32;
 }
 
-SDL_GPUBuffer :: struct {
-}
+SDL_GPUBuffer :: struct {}
 
 SDL_GPUBufferBinding :: struct {
     buffer: *SDL_GPUBuffer;
@@ -6901,14 +6860,11 @@ SDL_GPUColorTargetInfo :: struct {
     padding2: Uint8;
 }
 
-SDL_GPUCommandBuffer :: struct {
-}
+SDL_GPUCommandBuffer :: struct {}
 
-SDL_GPUComputePass :: struct {
-}
+SDL_GPUComputePass :: struct {}
 
-SDL_GPUComputePipeline :: struct {
-}
+SDL_GPUComputePipeline :: struct {}
 
 SDL_GPUComputePipelineCreateInfo :: struct {
     code_size: u64;
@@ -6927,8 +6883,7 @@ SDL_GPUComputePipelineCreateInfo :: struct {
     props: SDL_PropertiesID;
 }
 
-SDL_GPUCopyPass :: struct {
-}
+SDL_GPUCopyPass :: struct {}
 
 SDL_GPUDepthStencilState :: struct {
     compare_op: SDL_GPUCompareOp;
@@ -6957,14 +6912,11 @@ SDL_GPUDepthStencilTargetInfo :: struct {
     layer: Uint8;
 }
 
-SDL_GPUDevice :: struct {
-}
+SDL_GPUDevice :: struct {}
 
-SDL_GPUFence :: struct {
-}
+SDL_GPUFence :: struct {}
 
-SDL_GPUGraphicsPipeline :: struct {
-}
+SDL_GPUGraphicsPipeline :: struct {}
 
 SDL_GPUGraphicsPipelineCreateInfo :: struct {
     vertex_shader: *SDL_GPUShader;
@@ -7031,11 +6983,9 @@ SDL_GPURasterizerState :: struct {
     padding2: Uint8;
 }
 
-SDL_GPURenderPass :: struct {
-}
+SDL_GPURenderPass :: struct {}
 
-SDL_GPUSampler :: struct {
-}
+SDL_GPUSampler :: struct {}
 
 SDL_GPUSamplerCreateInfo :: struct {
     min_filter: SDL_GPUFilter;
@@ -7056,8 +7006,7 @@ SDL_GPUSamplerCreateInfo :: struct {
     props: SDL_PropertiesID;
 }
 
-SDL_GPUShader :: struct {
-}
+SDL_GPUShader :: struct {}
 
 SDL_GPUShaderCreateInfo :: struct {
     code_size: u64;
@@ -7097,8 +7046,7 @@ SDL_GPUStorageTextureReadWriteBinding :: struct {
     padding3: Uint8;
 }
 
-SDL_GPUTexture :: struct {
-}
+SDL_GPUTexture :: struct {}
 
 SDL_GPUTextureCreateInfo :: struct {
     type: SDL_GPUTextureType;
@@ -7145,8 +7093,7 @@ SDL_GPUTextureTransferInfo :: struct {
     rows_per_layer: Uint32;
 }
 
-SDL_GPUTransferBuffer :: struct {
-}
+SDL_GPUTransferBuffer :: struct {}
 
 SDL_GPUTransferBufferCreateInfo :: struct {
     usage: SDL_GPUTransferBufferUsage;
@@ -7513,7 +7460,6 @@ SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING :: "SDL.gpu.texture.create.name";
 
 SDL_PROP_GPU_TRANSFERBUFFER_CREATE_NAME_STRING :: "SDL.gpu.transferbuffer.create.name";
 
-
 // Audio — values and types, then lifecycle operations.
 using SDL_AudioFormat :: enum u32 {
     SDL_AUDIO_UNKNOWN :: 0;
@@ -7538,8 +7484,7 @@ SDL_AudioSpec :: struct {
     freq: s32;
 }
 
-SDL_AudioStream :: struct {
-}
+SDL_AudioStream :: struct {}
 
 SDL_AudioPostmixCallback :: (userdata: *void, spec: *SDL_AudioSpec, buffer: *float32, buflen: s32) -> void #c_call;
 

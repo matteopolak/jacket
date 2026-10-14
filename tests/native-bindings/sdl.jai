@@ -1,6 +1,6 @@
 S :: #import "SDL";
 
-probe :: #library "../../.work/native/sdl_abi_probe";
+probe :: #library "sdl_abi_probe";
 libc :: #library,system "c";
 abort :: () #foreign libc;
 

@@ -434,6 +434,12 @@ impl Compiler {
     /// Distribution boundary for library-owned helpers, checked before cache hits.
     /// Canonical paths cover relative traversal and native filesystem aliases alike.
     fn check_source_access(&self, path: &Path, span: Span) -> Result<()> {
+        if span == Span::NONE
+            && self.ide.is_some()
+            && self.ide_selected_entry.as_ref() == Some(&self.fs.canonical(path))
+        {
+            return Ok(());
+        }
         let Some(stdlib) = self.options.stdlib_root() else {
             return Ok(());
         };
@@ -552,6 +558,9 @@ impl Compiler {
         let id = ModuleId(self.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.root_scope), id, None);
         self.modules.push(Module {
+            loading: true,
+            argument_span: span,
+            arguments_validated: false,
             name: name.to_string(),
             path: Some(entry.to_path_buf()),
             scope,
@@ -563,12 +572,69 @@ impl Compiler {
             files: Vec::new(),
         });
         self.module_cache.insert(key, id);
-        if let Err(error) = self.load_file(entry, id, span) {
+        let loaded = self.load_file(entry, id, span);
+        self.modules[id.0 as usize].loading = false;
+        if let Err(error) = loaded {
             self.module_failures.insert(id, error.clone());
             return Err(error);
         }
         self.apply_program_params(id);
+        if self
+            .scope(scope)
+            .pending
+            .iter()
+            .all(|p| p.state == PendingState::Done)
+            && let Err(error) = self.validate_module_arguments(id, span)
+        {
+            self.module_failures.insert(id, error.clone());
+            return Err(error);
+        }
         Ok(id)
+    }
+
+    /// Bind each written argument to one declared slot. Library provenance does
+    /// not relax this contract; excess positions and duplicate bindings are errors.
+    pub(super) fn validate_module_arguments(&mut self, id: ModuleId, span: Span) -> Result<()> {
+        let module = &self.modules[id.0 as usize];
+        if module.arguments_validated {
+            return Ok(());
+        }
+        let span = if span == Span::NONE {
+            module.argument_span
+        } else {
+            span
+        };
+        let mut used = HashSet::default();
+        for (name, ..) in &module.params {
+            let position = if let Some(position) = name.as_str().strip_prefix('$') {
+                position
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|&p| p < module.param_entities.len())
+            } else {
+                module
+                    .param_entities
+                    .iter()
+                    .position(|&id| self.entity(id).name == *name)
+            };
+            let Some(position) = position else {
+                return err(
+                    span,
+                    format!("argument `{name}` is not a parameter of this module"),
+                );
+            };
+            if !used.insert(position) {
+                return err(
+                    span,
+                    format!(
+                        "module parameter `{}` is supplied more than once",
+                        self.entity(module.param_entities[position]).name
+                    ),
+                );
+            }
+        }
+        self.modules[id.0 as usize].arguments_validated = true;
+        Ok(())
     }
 
     fn module_load_result(&self, id: ModuleId) -> Result<ModuleId> {
@@ -1026,31 +1092,18 @@ impl Compiler {
                     body,
                 } = &**boxed;
                 let module = self.scope(scope).module;
+                let eval_scope = file_scope_for_eval(self, scope, file_scope);
                 for (position, param) in params.iter().chain(runtime_params).enumerate() {
-                    self.declare_module_parameter(scope, module, position, param)?;
+                    self.declare_module_parameter(
+                        scope,
+                        module,
+                        position,
+                        param,
+                        eval_scope,
+                        position >= params.len(),
+                    )?;
                 }
-                // An argument must name a parameter the module declares.
-                let given: Vec<Sym> = self.modules[module.0 as usize]
-                    .params
-                    .iter()
-                    .map(|(n, ..)| *n)
-                    .filter(|n| !n.as_str().starts_with('$'))
-                    .collect();
-                for name in given {
-                    if !params
-                        .iter()
-                        .chain(runtime_params)
-                        .any(|p| p.name.is_some_and(|n| n.name == name))
-                        // Bundled modules vary between Jai releases: a program may pass a
-                        // parameter this copy of one does not declare.
-                        && !self.is_system_module(module)
-                    {
-                        return err(
-                            stmt.span,
-                            format!("argument `{name}` is not a parameter of this module"),
-                        );
-                    }
-                }
+                self.validate_module_arguments(module, stmt.span)?;
                 let program = runtime_params.iter().filter_map(|p| p.name.map(|n| n.name));
                 self.modules[module.0 as usize]
                     .program_params
@@ -1058,6 +1111,48 @@ impl Compiler {
                 // The trailing block declares names the parameter defaults may use.
                 if let Some(body) = body {
                     self.declare_stmts(scope, file_scope, &body.stmts, vis)?;
+                }
+                // Constraints are import contracts even when the parameter is
+                // never referenced by a module body. Defaults may name the
+                // trailing declaration block, so validate after declaring it.
+                for param in params.iter().chain(runtime_params) {
+                    if let Some(pattern) = param.ty.as_ref().filter(|p| procs::has_poly(p)) {
+                        let name = param.name.unwrap().name;
+                        let id = self.modules[module.0 as usize]
+                            .param_entities
+                            .iter()
+                            .copied()
+                            .find(|&id| self.entity(id).name == name)
+                            .unwrap();
+                        let scope::Resolved::Const {
+                            value,
+                            ty,
+                        } = self.resolve_entity(id)?
+                        else {
+                            return err(param.span, "a module parameter must bind a constant");
+                        };
+                        let represented = if let Value::Type(t) = value {
+                            Some(t)
+                        } else {
+                            None
+                        };
+                        let actual = if ty == TypeId::VOID {
+                            self.type_of_value(&value)
+                        } else {
+                            ty
+                        };
+                        let mut bindings = Vec::new();
+                        self.match_pattern_value(
+                            pattern,
+                            actual,
+                            &mut bindings,
+                            eval_scope,
+                            represented,
+                        )?;
+                        for (name, value, ty) in bindings {
+                            self.add_const(scope, name, param.span, value, ty);
+                        }
+                    }
                 }
             }
             ast::StmtKind::Placeholder(names) => {
@@ -1161,6 +1256,8 @@ impl Compiler {
         module: ModuleId,
         position: usize,
         param: &ast::Param,
+        eval_scope: ScopeId,
+        program_parameter: bool,
     ) -> Result<()> {
         let Some(name) = param.name else {
             return err(param.span, "module parameter needs a name");
@@ -1170,6 +1267,14 @@ impl Compiler {
             .iter()
             .find(|(n, ..)| *n == name.name || n.as_str() == format!("${position}"))
             .map(|(_, v, ty)| (v.clone(), *ty));
+        // Ordinary parameters are bound by this import. Program parameters may
+        // still receive a workspace-wide value before their first use.
+        if !program_parameter && provided.is_none() && param.default.is_none() {
+            return err(
+                param.span,
+                format!("missing argument for module parameter `{}`", name.name),
+            );
+        }
         let decl = Rc::new(ast::Decl {
             id: ast::AstId::fresh(),
             names: vec![name],
@@ -1194,7 +1299,11 @@ impl Compiler {
             },
             false,
         );
+        // Parameter storage belongs to the module; its declaration expressions
+        // retain the lexical file environment, just like ordinary declarations.
+        self.entity_mut(id).home = eval_scope;
         self.modules[module.0 as usize].param_entities.push(id);
+        self.modules[module.0 as usize].arguments_validated = false;
         if let Some((Value::String(text), _)) = &provided
             && let Some(member) = std::str::from_utf8(text)
                 .ok()
@@ -1258,13 +1367,13 @@ impl Compiler {
             // Convert the original constant rather than reconstructing a literal AST:
             // reconstruction loses lexical precision, relocation identity and declared types.
             if let Some(target) = param.ty.as_ref().filter(|t| !procs::has_poly(t)) {
-                let expected = self.eval_type(scope, target)?;
+                let expected = self.eval_type(eval_scope, target)?;
                 let actual = if ty == TypeId::VOID {
                     self.type_of_value(&value)
                 } else {
                     ty
                 };
-                let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, self.scope_file(scope));
+                let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, self.scope_file(eval_scope));
                 let op = self.convert(
                     &mut f,
                     lower::Operand::Const {
@@ -1449,8 +1558,40 @@ impl Compiler {
             ast::ImportSource::Module(name)
                 if &**name == "Runtime_Support" && self.runtime_support.is_some() =>
             {
-                // One runtime per program, whatever parameters the importer asks for.
-                Ok(self.runtime_support.unwrap())
+                // One runtime per program; explicit arguments must describe that
+                // configured instance rather than silently changing or ignoring it.
+                let id = self.runtime_support.unwrap();
+                let entities = self.modules[id.0 as usize].param_entities.clone();
+                for (name, value, _) in params {
+                    let entity = if let Some(position) = name.as_str().strip_prefix('$') {
+                        position
+                            .parse::<usize>()
+                            .ok()
+                            .and_then(|p| entities.get(p).copied())
+                    } else {
+                        entities
+                            .iter()
+                            .copied()
+                            .find(|id| self.entity(*id).name == name)
+                    };
+                    let Some(entity) = entity else {
+                        return err(
+                            import.span,
+                            format!("argument `{name}` is not a parameter of this module"),
+                        );
+                    };
+                    let expected = self.resolve_entity(entity)?;
+                    if !matches!(expected, scope::Resolved::Const { value: ref existing, .. } if *existing == value)
+                    {
+                        return err(
+                            import.span,
+                            format!(
+                                "argument `{name}` conflicts with the configured runtime instance"
+                            ),
+                        );
+                    }
+                }
+                Ok(id)
             }
             ast::ImportSource::Module(name) => {
                 let host = self.scope(from_scope).module;
@@ -1483,6 +1624,7 @@ impl Compiler {
                 let id = self.new_module("string", None, params);
                 let label = format!("<import string {}>", self.sources.len());
                 self.load_string(&label, source, id)?;
+                self.validate_module_arguments(id, import.span)?;
                 Ok(id)
             }
         }
@@ -1520,6 +1662,7 @@ impl Compiler {
                 let id = self.new_module(name, None, params.to_vec());
                 let label = format!("<provided import {name}>");
                 self.load_string(&label, &provided.value, id)?;
+                self.validate_module_arguments(id, span)?;
                 self.provided_texts.insert(provided.value.clone(), id);
                 return Ok(Some(id));
             }
@@ -1553,6 +1696,9 @@ impl Compiler {
         let id = ModuleId(self.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.root_scope), id, None);
         self.modules.push(Module {
+            loading: false,
+            argument_span: Span::NONE,
+            arguments_validated: false,
             name: name.into(),
             path,
             scope,
@@ -1671,6 +1817,11 @@ impl Compiler {
             }
             // Resolving a named import may have loaded a module: its scopes come next.
             if self.unsettled.range(ScopeId(next)..).next().is_none() {
+                for index in 0..self.modules.len() {
+                    if !self.modules[index].loading {
+                        self.validate_module_arguments(ModuleId(index as u32), Span::NONE)?;
+                    }
+                }
                 return Ok(());
             }
         }

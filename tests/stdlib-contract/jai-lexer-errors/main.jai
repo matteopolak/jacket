@@ -3,12 +3,15 @@ L :: #import "Jai_Lexer";
 
 main :: () {
     lexer: L.Lexer;
+
     L.set_input_from_string(*lexer, "g");
     digit, success := L.get_hex_digit(*lexer, .ASCII_8_BIT);
+
     assert(!success && digit == 0 && lexer.reported_error && lexer.input_cursor == 0);
     assert(L.peek_next_character(*lexer) == #char "g");
     L.set_input_from_string(*lexer, "18446744073709551616");
     token := L.peek_next_token(*lexer);
+
     assert(token.type == .NUMBER && token.integer_value == 0);
     assert(lexer.reported_error && (token.value_flags & .OVERFLOWED) != 0);
     L.set_input_from_string(*lexer, "0b102");

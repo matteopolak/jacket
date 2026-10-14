@@ -9,6 +9,7 @@
 //! C-callable thunks (`native/callbacks.rs`).
 #![allow(unsafe_code)]
 
+mod atomics;
 mod code;
 #[cfg(not(target_arch = "wasm32"))]
 mod crash;
@@ -604,8 +605,16 @@ pub struct Interp {
     #[cfg(not(target_arch = "wasm32"))]
     callback_stacks: Vec<ValueStack>,
     /// Fibers by the address of their `Fiber_Context` (`fibers.rs`).
+    #[cfg(all(
+        any(unix, windows),
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     fibers: HashMap<u64, Box<fibers::FiberRec>>,
     /// A trap a fiber ended in, for the context that started it to return.
+    #[cfg(all(
+        any(unix, windows),
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     fiber_trap: Option<Trap>,
     /// `release_code` ran: no code runs anymore.
     closed: bool,
@@ -673,6 +682,10 @@ impl ValueStack {
     }
 
     /// `len` words of memory that outlives the stack and is zeroed.
+    #[cfg(all(
+        any(unix, windows),
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
     fn borrowed(words: *mut u64, len: usize) -> Self {
         ValueStack {
             words,
@@ -794,7 +807,15 @@ impl Interp {
             unseen_thunks: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             callback_stacks: Vec::new(),
+            #[cfg(all(
+                any(unix, windows),
+                any(target_arch = "x86_64", target_arch = "aarch64")
+            ))]
             fibers: HashMap::default(),
+            #[cfg(all(
+                any(unix, windows),
+                any(target_arch = "x86_64", target_arch = "aarch64")
+            ))]
             fiber_trap: None,
             closed: false,
             covered: profile::coverage_file().map(|_| Vec::new()),
@@ -1148,7 +1169,13 @@ impl Interp {
         self.ct_type_table = (0, 0);
         self.stack = ValueStack::default();
         self.sp = 0;
-        self.fibers = HashMap::default();
+        #[cfg(all(
+            any(unix, windows),
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ))]
+        {
+            self.fibers = HashMap::default();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.callback_stacks = Vec::new();
@@ -1986,8 +2013,33 @@ impl Interp {
         vals: &mut [u64],
         frame: &Frame,
         stack_base: u64,
+        value_types: &[Ty],
     ) -> Res<()> {
         match inst {
+            Inst::StackAlloc {
+                dst,
+                size,
+                align,
+            } => {
+                let size = vals[size.0 as usize];
+                let base = self.stack.as_mut_ptr() as u64;
+                let start = base
+                    .checked_add(self.sp)
+                    .and_then(|v| v.checked_add(align - 1))
+                    .map(|v| (v & !(align - 1)) - base);
+                let end = start.and_then(|v| v.checked_add(size.max(1)));
+                let Some((start, end)) = start
+                    .zip(end)
+                    .filter(|(_, end)| *end <= self.stack.len() as u64 * 8)
+                else {
+                    return self.trap_of(
+                        TrapKind::StackOverflow,
+                        "dynamic interpreter stack allocation exceeds the frame stack",
+                    );
+                };
+                self.sp = end;
+                vals[dst.0 as usize] = base + start;
+            }
             Inst::IConst {
                 dst,
                 ty,
@@ -2162,7 +2214,8 @@ impl Interp {
                 ) {
                     return self.fiber_intrinsic(program, *op, argv);
                 }
-                let out = self.intrinsic(*op, argv)?;
+                let result_type = results.first().map(|r| value_types[r.0 as usize]);
+                let out = self.intrinsic(*op, argv, result_type)?;
                 for (r, &v) in results.iter().zip(out.iter()) {
                     vals[r.0 as usize] = v;
                 }
@@ -2236,9 +2289,15 @@ impl Interp {
         Ok(())
     }
 
-    fn intrinsic(&mut self, op: ir::Intrinsic, a: &[u64]) -> Res<Rets> {
+    fn intrinsic(&mut self, op: ir::Intrinsic, a: &[u64], result_type: Option<Ty>) -> Res<Rets> {
         use ir::Intrinsic as I;
-        let f64_of = |x: u64| f64::from_bits(x);
+        let unary_float = |value: u64, narrow: fn(f32) -> f32, wide: fn(f64) -> f64| {
+            if result_type == Some(Ty::F32) {
+                narrow(f32::from_bits(value as u32)).to_bits() as u64
+            } else {
+                wide(f64::from_bits(value)).to_bits()
+            }
+        };
         Ok(match op {
             I::Memcpy => {
                 if a[2] > 0 {
@@ -2270,72 +2329,18 @@ impl Interp {
                 };
                 Rets::one(r as u16 as u64)
             }
-            I::CompareAndSwap => {
-                // (ptr, old, new, width) -> (success, previous)
-                let width = a.get(3).copied().unwrap_or(8);
-                let ty = Ty::int(width);
-                let current = self.load(ty, a[0])?;
-                let success = current == mask(ty, a[1]);
-                if success {
-                    self.store(ty, a[0], a[2])?;
-                }
-                // A failed or no-op swap is a thread waiting for another one.
-                if self.multi
-                    && self.host.cooperative_threads()
-                    && (!success || mask(ty, a[2]) == current)
-                {
-                    self.inline_poll();
-                }
-                Rets::collect([success as u64, current].into_iter())
-            }
-            // The interpreter runs one thread at a time, so every order behaves as sequentially
-            // consistent. A load that sees nothing new is a thread waiting for another one.
-            I::AtomicLoad(_) => {
-                let ty = Ty::int(a.get(1).copied().unwrap_or(8));
-                let value = self.load(ty, a[0])?;
+            I::CompareAndSwap
+            | I::AtomicLoad(_)
+            | I::AtomicStore(_)
+            | I::AtomicRmw(..)
+            | I::AtomicCas(..) => {
+                let result = self.atomic_access(op, a)?;
+                // Poll after the indivisible operation, so waiting cooperative
+                // threads can make progress without weakening native atomicity.
                 if self.multi && self.host.cooperative_threads() {
                     self.inline_poll();
                 }
-                Rets::one(value)
-            }
-            I::AtomicStore(_) => {
-                let ty = Ty::int(a.get(2).copied().unwrap_or(8));
-                self.store(ty, a[0], a[1])?;
-                Rets::default()
-            }
-            I::AtomicRmw(op, _) => {
-                let ty = Ty::int(a.get(2).copied().unwrap_or(8));
-                let current = self.load(ty, a[0])?;
-                let operand = mask(ty, a[1]);
-                let next = match op {
-                    ir::AtomicOp::Xchg => operand,
-                    ir::AtomicOp::Add => current.wrapping_add(operand),
-                    ir::AtomicOp::Sub => current.wrapping_sub(operand),
-                    ir::AtomicOp::And => current & operand,
-                    ir::AtomicOp::Or => current | operand,
-                    ir::AtomicOp::Xor => current ^ operand,
-                };
-                let next = mask(ty, next);
-                self.store(ty, a[0], next)?;
-                if self.multi && self.host.cooperative_threads() && next == current {
-                    self.inline_poll();
-                }
-                Rets::one(current)
-            }
-            I::AtomicCas(..) => {
-                let ty = Ty::int(a.get(3).copied().unwrap_or(8));
-                let current = self.load(ty, a[0])?;
-                let success = current == mask(ty, a[1]);
-                if success {
-                    self.store(ty, a[0], a[2])?;
-                }
-                if self.multi
-                    && self.host.cooperative_threads()
-                    && (!success || mask(ty, a[2]) == current)
-                {
-                    self.inline_poll();
-                }
-                Rets::collect([success as u64, current].into_iter())
+                result
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
             I::Trap => {
@@ -2359,15 +2364,23 @@ impl Interp {
                 self.host.write(&bytes, a.get(2).is_some_and(|&v| v != 0));
                 Rets::default()
             }
-            I::Sqrt => Rets::one(f64_of(a[0]).sqrt().to_bits()),
-            I::Sin => Rets::one(f64_of(a[0]).sin().to_bits()),
-            I::Cos => Rets::one(f64_of(a[0]).cos().to_bits()),
-            I::Floor => Rets::one(f64_of(a[0]).floor().to_bits()),
-            I::Ceil => Rets::one(f64_of(a[0]).ceil().to_bits()),
-            I::Round => Rets::one(f64_of(a[0]).round().to_bits()),
-            I::Trunc => Rets::one(f64_of(a[0]).trunc().to_bits()),
-            I::Fabs => Rets::one(f64_of(a[0]).abs().to_bits()),
-            I::Fma => Rets::one(f64_of(a[0]).mul_add(f64_of(a[1]), f64_of(a[2])).to_bits()),
+            I::Sqrt => Rets::one(unary_float(a[0], f32::sqrt, f64::sqrt)),
+            I::Sin => Rets::one(unary_float(a[0], f32::sin, f64::sin)),
+            I::Cos => Rets::one(unary_float(a[0], f32::cos, f64::cos)),
+            I::Floor => Rets::one(unary_float(a[0], f32::floor, f64::floor)),
+            I::Ceil => Rets::one(unary_float(a[0], f32::ceil, f64::ceil)),
+            I::Round => Rets::one(unary_float(a[0], f32::round, f64::round)),
+            I::Trunc => Rets::one(unary_float(a[0], f32::trunc, f64::trunc)),
+            I::Fabs => Rets::one(unary_float(a[0], f32::abs, f64::abs)),
+            I::Fma => Rets::one(if result_type == Some(Ty::F32) {
+                f32::from_bits(a[0] as u32)
+                    .mul_add(f32::from_bits(a[1] as u32), f32::from_bits(a[2] as u32))
+                    .to_bits() as u64
+            } else {
+                f64::from_bits(a[0])
+                    .mul_add(f64::from_bits(a[1]), f64::from_bits(a[2]))
+                    .to_bits()
+            }),
             I::ReturnAddress => Rets::one(0),
             I::CycleCounter => Rets::one(cycle_counter()),
             I::Syscall => {
@@ -2875,5 +2888,83 @@ impl Drop for Interp {
             let gate: std::sync::Arc<dyn native::Gate> = shared;
             native::release_callbacks(&gate);
         }
+    }
+}
+
+
+#[cfg(test)]
+mod atomic_contention_tests {
+    use super::*;
+    use std::sync::{
+        Arc, Barrier,
+        atomic::{AtomicU64, Ordering},
+    };
+
+    #[test]
+    fn interpreted_cas_is_atomic_against_simultaneous_host_access() {
+        let value = Arc::new(AtomicU64::new(0));
+        let barrier = Arc::new(Barrier::new(4));
+        let workers: Vec<_> = (0..4)
+            .map(|_| {
+                let value = value.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let mut interp = Interp::new(Box::new(NativeHost));
+                    let address = Arc::as_ptr(&value) as u64;
+                    barrier.wait();
+                    for _ in 0..20_000 {
+                        loop {
+                            let before = value.load(Ordering::SeqCst);
+                            let result = interp
+                                .intrinsic(
+                                    ir::Intrinsic::AtomicCas(4, 4),
+                                    &[address, before, before + 1, 8],
+                                    None,
+                                )
+                                .unwrap()
+                                .into_vec();
+                            if result[0] != 0 {
+                                break;
+                            }
+                        }
+                    }
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        assert_eq!(value.load(Ordering::SeqCst), 80_000);
+    }
+
+    #[test]
+    fn interpreted_exchange_preserves_all_prior_values_under_contention() {
+        let value = Arc::new(AtomicU64::new(0));
+        let barrier = Arc::new(Barrier::new(4));
+        let workers: Vec<_> = (0..4)
+            .map(|index| {
+                let value = value.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let mut interp = Interp::new(Box::new(NativeHost));
+                    let address = Arc::as_ptr(&value) as u64;
+                    barrier.wait();
+                    let mut sum = 0;
+                    for i in 1..=20_000 {
+                        sum += interp
+                            .intrinsic(
+                                ir::Intrinsic::AtomicRmw(ir::AtomicOp::Xchg, ir::ORDER_SEQ_CST),
+                                &[address, index * 20_000 + i, 8],
+                                None,
+                            )
+                            .unwrap()
+                            .into_vec()[0];
+                    }
+                    sum
+                })
+            })
+            .collect();
+        let sum: u64 = workers.into_iter().map(|w| w.join().unwrap()).sum();
+        assert_eq!(sum + value.load(Ordering::SeqCst), 80_000 * 80_001 / 2);
     }
 }

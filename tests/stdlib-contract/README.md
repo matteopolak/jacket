@@ -35,3 +35,5 @@ These fixtures and the listed legacy migrations encode the documented public con
 - `rules-compiler-records.jai` still checks import-before-file events and the presence of file messages, but no longer assumes the `Basic` module consists of multiple source files.
 
 The suite does not settle underspecified behavior such as allocator-specific failure diagnostics, malformed strict Unicode variants beyond the documented cursor case, or invalid Hash_Table generic parameters.
+
+Compiler worker additions cover real-prelude atomic scalars/procedure identity, caller-owned context cleanup and AST flags, evaluated generic default reflection, and measured performance messages with nested records. These original fixtures run in both interpreter/native modes and pass repository jaifmt/jailint.

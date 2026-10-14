@@ -1,7 +1,7 @@
 //! Statement checking and lowering.
 use super::calls::CallArg;
 use super::lower::{
-    DeferEntry, FnCtx, ForBody, InsertReplacements, LoopFrame, MacroFrame, Operand,
+    DeferAction, DeferEntry, FnCtx, ForBody, InsertReplacements, LoopFrame, MacroFrame, Operand,
 };
 use super::scope::{EntityId, EntityKind, Resolved, ScopeKind, UsingEntry};
 use super::*;
@@ -32,43 +32,7 @@ impl Compiler {
                 self.check_block_error_ide(f, &mut failed, error)?;
             }
         }
-        for (i, stmt) in stmts.iter().enumerate() {
-            if let S::PushContextDefer(defer) = &stmt.kind {
-                let ast::PushContextDeferStmt {
-                    context,
-                    bare,
-                } = &**defer;
-                // `push_context,defer_pop ctx;` holds for the rest of the block.
-                let addr = match self.push_context_addr(f, scope, context, *bare, stmt.span) {
-                    Ok(addr) => addr,
-                    Err(error) => {
-                        self.check_block_error_ide(f, &mut failed, error)?;
-                        continue;
-                    }
-                };
-                let saved = f.context.replace(addr);
-                let result = self.check_block_stmts_from(f, scope, &stmts[i + 1..]);
-                f.context = saved;
-                return failed.map_or(result, Err);
-            }
-            self.check_block_stmt_ide(f, scope, stmt, &mut failed)?;
-        }
-        failed.map_or(Ok(()), Err)
-    }
-
-    /// The tail of a block: its constants and imports were already hoisted.
-    fn check_block_stmts_from(
-        &mut self,
-        f: &mut FnCtx,
-        scope: ScopeId,
-        stmts: &[ast::Stmt],
-    ) -> Result<()> {
-        let mut failed = None;
-        for (i, stmt) in stmts.iter().enumerate() {
-            if matches!(stmt.kind, S::PushContextDefer(_)) {
-                let result = self.check_block_stmts(f, scope, &stmts[i..]);
-                return failed.map_or(result, Err);
-            }
+        for stmt in stmts {
             self.check_block_stmt_ide(f, scope, stmt, &mut failed)?;
         }
         failed.map_or(Ok(()), Err)
@@ -87,6 +51,20 @@ impl Compiler {
             self.check_block_error_ide(f, failed, error)?;
         }
         Ok(())
+    }
+
+    fn register_defer(&mut self, f: &mut FnCtx, mut entry: DeferEntry, caller_owned: bool) {
+        if caller_owned && let Some(frame) = f.macros.last() {
+            let at = frame.defer_depth.position();
+            let caller = frame.caller_cleanup_serial;
+            let active = f.b.entry_zeroed_slot(Ty::I8, 1, 1);
+            let yes = f.b.iconst(Ty::I8, 1);
+            f.b.store(Ty::I8, active, yes);
+            entry.active = Some(active);
+            f.insert_caller_defer(at, caller, entry);
+        } else {
+            f.defers.push(entry);
+        }
     }
 
     fn check_block_error_ide(
@@ -195,7 +173,7 @@ impl Compiler {
         span: Span,
     ) -> Result<crate::ir::Val> {
         let ctx_ty = self.context_type(span)?;
-        let op = if matches!(context.kind, E::Context) && f.context.is_none() {
+        let op = if matches!(context.kind, E::Context) && f.context_binding().is_none() {
             // `push_context { }` in #c_call code: a fresh default context.
             let size = self.size_of(ctx_ty, span)?;
             let align = self.align_of(ctx_ty, span)?;
@@ -300,7 +278,7 @@ impl Compiler {
     fn check_scoped(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
         let inner = self.new_block_scope(scope);
         self.ide_scope_span(inner, stmt.span);
-        let depth = f.defers.len();
+        let depth = f.mark_defers();
         match &stmt.kind {
             S::Block(b) if (b.no_abc && !f.no_abc) || (b.no_aoc && !f.no_aoc) => {
                 let saved = (f.no_abc, f.no_aoc);
@@ -314,9 +292,9 @@ impl Compiler {
             _ => self.check_stmt(f, inner, stmt)?,
         }
         if !f.b.is_terminated() {
-            self.emit_defers(f, depth, stmt.span)?;
+            self.emit_defers(f, depth.position(), stmt.span)?;
         }
-        f.defers.truncate(depth);
+        f.truncate_defers(depth.position());
         Ok(())
     }
 
@@ -369,10 +347,25 @@ impl Compiler {
                 }
             }
             S::Overlay(_) => err(span, "`#overlay` is only allowed in a struct body"),
-            S::PushContextDefer(_) => err(
-                span,
-                "push_context,defer_pop must be a statement of a block",
-            ),
+            S::PushContextDefer(defer) => {
+                let addr = self.push_context_addr(f, scope, &defer.context, defer.bare, span)?;
+                let previous = f.current_context();
+                let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
+                let saved = previous.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
+                f.b.store(Ty::Ptr, saved_slot, saved);
+                f.set_context(Some(addr));
+                let entry = DeferEntry {
+                    action: DeferAction::RestoreContext {
+                        previous,
+                        saved_slot,
+                    },
+                    scope,
+                    active: None,
+                    caller_scope: None,
+                };
+                self.register_defer(f, entry, defer.backtick);
+                Ok(())
+            }
             S::While(boxed) => {
                 let crate::ast::WhileStmt {
                     label,
@@ -431,7 +424,8 @@ impl Compiler {
                 backtick,
             } => {
                 let entry = DeferEntry {
-                    stmt: (**body).clone(),
+                    action: DeferAction::Statement((**body).clone()),
+                    active: None,
                     scope,
                     caller_scope: f
                         .macros
@@ -439,14 +433,7 @@ impl Compiler {
                         .filter(|_| *backtick)
                         .map(|m| m.caller_scope),
                 };
-                if *backtick && let Some(frame) = f.macros.last_mut() {
-                    // Runs when the macro caller's block exits.
-                    let at = frame.defer_depth;
-                    f.defers.insert(at, entry);
-                    frame.defer_depth += 1;
-                } else {
-                    f.defers.push(entry);
-                }
+                self.register_defer(f, entry, *backtick);
                 Ok(())
             }
             S::Using(boxed) => {
@@ -461,11 +448,29 @@ impl Compiler {
                     context,
                     body,
                     bare,
+                    ..
                 } = &**boxed;
+                let depth = f.mark_defers();
                 let addr = self.push_context_addr(f, scope, context, *bare, span)?;
-                let saved = f.context.replace(addr);
+                let saved = f.current_context();
+                let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
+                let previous = saved.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
+                f.b.store(Ty::Ptr, saved_slot, previous);
+                f.set_context(Some(addr));
+                f.defers.push(DeferEntry {
+                    action: DeferAction::RestoreContext {
+                        previous: saved,
+                        saved_slot,
+                    },
+                    active: None,
+                    scope,
+                    caller_scope: None,
+                });
                 let result = self.check_scoped(f, scope, body);
-                f.context = saved;
+                if result.is_ok() && !f.b.is_terminated() {
+                    self.emit_defers(f, depth.position(), span)?;
+                }
+                f.truncate_defers(depth.position());
                 result
             }
             S::StaticIf(boxed) => {
@@ -692,7 +697,10 @@ impl Compiler {
                 };
                 // `ok:, t.str = f()` assigns to a member, index or dereference.
                 let place = match decl.targets().get(i) {
-                    Some(Some(e)) => self.check_expr(f, scope, e, None)?,
+                    Some(Some(e)) => {
+                        self.reject_constant_target(f, scope, e)?;
+                        self.check_expr(f, scope, e, None)?
+                    }
                     _ => {
                         let place = self.check_ident(f, scope, name.name, name.span)?;
                         if self.ide.is_some() {
@@ -757,6 +765,7 @@ impl Compiler {
                 }
                 (None, None) => return err(span, "declaration needs a type or a value"),
             };
+            self.ensure_storage_type(ty, span)?;
             // Metaprograms read local declaration types from the exported syntax tree.
             self.local_decl_types.entry((decl.id, i)).or_insert(ty);
             let size = self.size_of(ty, span)?;
@@ -1179,30 +1188,39 @@ impl Compiler {
         Ok(true)
     }
 
-    /// `arr[0] = 5` or `k.x = 1` where `arr` or `k` is a constant: the element or member
-    /// would be written to a temporary copy, so it is an error.
-    fn reject_constant_target(&mut self, scope: ScopeId, target: &ast::Expr) -> Result<()> {
-        let mut root = target;
-        let mut nested = false;
-        while let E::Index(base, _) | E::Member(base, _) = &root.kind {
-            root = base;
-            nested = true;
-        }
-        if !nested || !matches!(root.kind, E::Ident(_)) {
-            return Ok(());
-        }
-        if let Ok(Operand::Const {
-            value, ..
-        }) = self.check_expr_no_emit(scope, root)
-            && !matches!(value, Value::Type(_) | Value::Null)
-        {
-            return err(
-                target.span,
-                format!(
-                    "cannot assign into the constant `{}`",
-                    self.sources.snippet(root.span).trim()
-                ),
-            );
+    /// A member/index write must not materialize a constant container as a
+    /// writable temporary. Qualifiers may themselves be modules or types;
+    /// pointer indirection instead selects separate pointee storage.
+    fn reject_constant_target(
+        &mut self,
+        f: &FnCtx,
+        scope: ScopeId,
+        target: &ast::Expr,
+    ) -> Result<()> {
+        let mut container = target;
+        while let E::Index(base, _) | E::Member(base, _) = &container.kind {
+            let mut scratch = self.scratch_ctx(scope);
+            scratch.backtick_scope = f
+                .backtick_scope
+                .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
+            let operand = self.check_expr(&mut scratch, scope, base, None)?;
+            if self.types.is_pointer(operand.ty()) {
+                return Ok(());
+            }
+            if let Operand::Const {
+                value, ..
+            } = operand
+                && !matches!(value, Value::Type(_) | Value::Null)
+            {
+                return err(
+                    target.span,
+                    format!(
+                        "cannot assign into the constant `{}`",
+                        self.sources.snippet(base.span).trim()
+                    ),
+                );
+            }
+            container = base;
         }
         Ok(())
     }
@@ -1236,7 +1254,7 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         for target in lhs {
-            self.reject_constant_target(scope, target)?;
+            self.reject_constant_target(f, scope, target)?;
         }
         if lhs.len() == 1
             && rhs.len() == 1
@@ -1709,12 +1727,12 @@ impl Compiler {
                     taken.push(i);
                     let inner = self.new_block_scope(scope);
                     self.ide_scope_span(inner, cases[i].span);
-                    let depth = f.defers.len();
+                    let depth = f.mark_defers();
                     self.check_block_stmts(f, inner, &cases[i].body)?;
                     if !f.b.is_terminated() {
-                        self.emit_defers(f, depth, span)?;
+                        self.emit_defers(f, depth.position(), span)?;
                     }
-                    f.defers.truncate(depth);
+                    f.truncate_defers(depth.position());
                     if !cases[i].through || i + 1 >= cases.len() {
                         break;
                     }
@@ -1791,12 +1809,12 @@ impl Compiler {
             f.b.switch_to(bodies[i]);
             let inner = self.new_block_scope(scope);
             self.ide_scope_span(inner, case.span);
-            let depth = f.defers.len();
+            let depth = f.mark_defers();
             self.check_block_stmts(f, inner, &case.body)?;
             if !f.b.is_terminated() {
-                self.emit_defers(f, depth, span)?;
+                self.emit_defers(f, depth.position(), span)?;
             }
-            f.defers.truncate(depth);
+            f.truncate_defers(depth.position());
             let next = if case.through && i + 1 < cases.len() {
                 bodies[i + 1]
             } else {
@@ -1842,12 +1860,12 @@ impl Compiler {
             }
             let inner = self.new_block_scope(scope);
             self.ide_scope_span(inner, case.span);
-            let depth = f.defers.len();
+            let depth = f.mark_defers();
             self.check_block_stmts(f, inner, &case.body)?;
             if !f.b.is_terminated() {
-                self.emit_defers(f, depth, span)?;
+                self.emit_defers(f, depth.position(), span)?;
             }
-            f.defers.truncate(depth);
+            f.truncate_defers(depth.position());
             if f.b.is_terminated() {
                 let next = f.b.new_block();
                 f.b.switch_to(next);
@@ -2040,11 +2058,12 @@ impl Compiler {
             f.b.branch(c, body_block, exit);
         }
         f.b.switch_to(body_block);
+        let defer_depth = f.mark_defers();
         f.loops.push(LoopFrame {
             label,
             break_block: exit,
             continue_block: head,
-            defer_depth: f.defers.len(),
+            defer_depth,
             remove: None,
         });
         let result = self.check_scoped(f, scope, body);
@@ -2077,7 +2096,7 @@ impl Compiler {
                 None => err(span, format!("{what} outside of a loop")),
             };
         };
-        self.emit_defers(f, frame.defer_depth, span)?;
+        self.emit_defers(f, frame.defer_depth.position(), span)?;
         f.b.jump(if is_break {
             frame.break_block
         } else {
@@ -2288,11 +2307,12 @@ impl Compiler {
                 ],
                 span,
             );
+            let defer_depth = f.mark_defers();
             f.loops.push(LoopFrame {
                 label: Some(it_name),
                 break_block: exit,
                 continue_block: step,
-                defer_depth: f.defers.len(),
+                defer_depth,
                 remove: None,
             });
             let result = self.check_scoped(f, loop_scope, &for_.body);
@@ -2534,11 +2554,12 @@ impl Compiler {
         } else {
             None
         };
+        let defer_depth = f.mark_defers();
         f.loops.push(LoopFrame {
             label: Some(it_name),
             break_block: exit,
             continue_block: step,
-            defer_depth: f.defers.len(),
+            defer_depth,
             remove,
         });
         let result = self.check_scoped(f, loop_scope, &for_.body);
@@ -2885,9 +2906,13 @@ impl Compiler {
         // the macro registered inside it (`defer i += 1;` before `#insert body;`).
         let (brk, cont, defer_depth) = match f.loops.last() {
             Some(l) if f.loops.len() > frame.loop_depth => {
-                (l.break_block, l.continue_block, l.defer_depth)
+                (l.break_block, l.continue_block, l.defer_depth.clone())
             }
-            _ => (frame.exit_block, frame.exit_block, frame.defer_depth),
+            _ => (
+                frame.exit_block,
+                frame.exit_block,
+                frame.defer_depth.clone(),
+            ),
         };
         f.loops.push(LoopFrame {
             label: body.label,
@@ -2982,7 +3007,7 @@ impl Compiler {
                 let (_, v) = self.rvalue(f, op, span)?;
                 self.store_value(f, *ty, *slot, v, span)?;
             }
-            self.emit_defers(f, frame.defer_depth, span)?;
+            self.emit_defers(f, frame.defer_depth.position(), span)?;
             f.b.jump(frame.exit_block);
             return Ok(());
         }
@@ -3153,16 +3178,52 @@ impl Compiler {
             return Ok(());
         }
         let saved = f.defers.clone();
-        for i in (depth..saved.len()).rev() {
-            f.defers.truncate(i);
-            let entry = saved[i].clone();
-            let inner = self.new_block_scope(entry.scope);
-            let saved_backtick = std::mem::replace(&mut f.backtick_scope, entry.caller_scope);
-            let result = self.check_stmt(f, inner, &entry.stmt);
-            f.backtick_scope = saved_backtick;
-            result?;
-        }
+        let saved_context = f.context_binding();
+        let result = (|| {
+            for i in (depth..saved.len()).rev() {
+                // Keep only earlier cleanups visible to a return in deferred code.
+                f.defers.truncate(i);
+                let entry = &saved[i];
+                let after = entry.active.map(|active| {
+                    let run = f.b.new_block();
+                    let after = f.b.new_block();
+                    let enabled = f.b.load(Ty::I8, active);
+                    f.b.branch(enabled, run, after);
+                    f.b.switch_to(run);
+                    let no = f.b.iconst(Ty::I8, 0);
+                    f.b.store(Ty::I8, active, no);
+                    after
+                });
+                match &entry.action {
+                    DeferAction::RestoreContext {
+                        previous,
+                        saved_slot,
+                    } => {
+                        let previous_ptr = f.b.load(Ty::Ptr, *saved_slot);
+                        f.set_context(Some(previous_ptr));
+                        f.restore_context_binding(*previous);
+                    }
+                    DeferAction::Statement(stmt) => {
+                        let inner = self.new_block_scope(entry.scope);
+                        let saved_backtick =
+                            std::mem::replace(&mut f.backtick_scope, entry.caller_scope);
+                        let result = self.check_stmt(f, inner, stmt);
+                        f.backtick_scope = saved_backtick;
+                        result?;
+                    }
+                }
+                if let Some(after) = after {
+                    if !f.b.is_terminated() {
+                        f.b.jump(after);
+                    }
+                    f.b.switch_to(after);
+                }
+            }
+            Ok(())
+        })();
         f.defers = saved;
-        Ok(())
+        // Exit branches do not change the context used to compile other paths.
+        f.restore_context_binding(saved_context);
+        result
     }
 }

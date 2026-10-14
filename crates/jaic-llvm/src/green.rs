@@ -306,6 +306,9 @@ fn defs(inst: &Inst) -> Vec<Val> {
         }
         | Inst::PtrAdd {
             dst, ..
+        }
+        | Inst::StackAlloc {
+            dst, ..
         } => vec![*dst],
         Inst::Call(call) => call.results.clone(),
         Inst::Intrinsic(call) => call.results.clone(),
@@ -326,6 +329,9 @@ fn defs(inst: &Inst) -> Vec<Val> {
 
 fn uses_mut(inst: &mut Inst, f: &mut impl FnMut(&mut Val)) {
     match inst {
+        Inst::StackAlloc {
+            size, ..
+        } => f(size),
         Inst::Bin {
             a,
             b,
@@ -567,7 +573,8 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
 
     // Frame: the resume point, the slots, then the stored values.
     let mut align = 16u64;
-    let mut size = 8u64;
+    // Resume point and the persistent top after dynamic frame allocations.
+    let mut size = 16u64;
     let slot_offsets: Vec<u64> = func
         .slots
         .iter()
@@ -644,6 +651,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         to: Ty::Ptr,
         src: frame_int,
     });
+    let dynamic_top_addr = body.at(&mut entry, frame, 8);
     let new_top = body.at(&mut entry, frame, size);
     let new_top_int = body.int_of(&mut entry, new_top);
     let limit_addr = body.at(&mut entry, control, LIMIT);
@@ -729,7 +737,11 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
             else_block: BlockId(store_params as u32),
         },
     };
-    let mut insts = Vec::new();
+    let mut insts = vec![Inst::Store {
+        ty: Ty::Ptr,
+        addr: dynamic_top_addr,
+        value: new_top,
+    }];
     for p in 0..params {
         if let Some(addr) = spill_addr[p] {
             insts.push(Inst::Store {
@@ -867,7 +879,123 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
                 fetch(v, current, &mut body, &mut loads, &mut reloaded)
             });
             let results = defs(&inst);
-            insts.push(inst);
+            if let Inst::StackAlloc {
+                dst,
+                size,
+                align,
+            } = inst
+            {
+                // Continuations cannot retain native alloca storage. Allocate from
+                // the thread frame stack and save its top for the rewind walk.
+                let top = body.val(Ty::Ptr);
+                insts.push(Inst::Load {
+                    dst: top,
+                    ty: Ty::Ptr,
+                    addr: top_addr,
+                });
+                let top_int = body.int_of(&mut insts, top);
+                let padding = body.konst(&mut insts, Ty::I64, align - 1);
+                let rounded = body.val(Ty::I64);
+                insts.push(Inst::Bin {
+                    dst: rounded,
+                    op: jaic::ir::BinOp::Add,
+                    ty: Ty::I64,
+                    a: top_int,
+                    b: padding,
+                });
+                let mask = body.konst(&mut insts, Ty::I64, !(align - 1));
+                let start = body.val(Ty::I64);
+                insts.push(Inst::Bin {
+                    dst: start,
+                    op: jaic::ir::BinOp::And,
+                    ty: Ty::I64,
+                    a: rounded,
+                    b: mask,
+                });
+                insts.push(Inst::Conv {
+                    dst,
+                    op: ConvOp::Bitcast,
+                    from: Ty::I64,
+                    to: Ty::Ptr,
+                    src: start,
+                });
+                let end = body.val(Ty::Ptr);
+                insts.push(Inst::PtrAdd {
+                    dst: end,
+                    base: dst,
+                    offset: size,
+                });
+                let remaining = body.val(Ty::I64);
+                insts.push(Inst::Bin {
+                    dst: remaining,
+                    op: jaic::ir::BinOp::Sub,
+                    ty: Ty::I64,
+                    a: limit_int,
+                    b: start,
+                });
+                let over = body.val(Ty::I8);
+                insts.push(Inst::Cmp {
+                    dst: over,
+                    op: CmpOp::UGt,
+                    ty: Ty::I64,
+                    a: size,
+                    b: remaining,
+                });
+                let past = body.val(Ty::I8);
+                insts.push(Inst::Cmp {
+                    dst: past,
+                    op: CmpOp::UGt,
+                    ty: Ty::I64,
+                    a: start,
+                    b: limit_int,
+                });
+                let wrap = body.val(Ty::I8);
+                insts.push(Inst::Cmp {
+                    dst: wrap,
+                    op: CmpOp::ULt,
+                    ty: Ty::I64,
+                    a: rounded,
+                    b: top_int,
+                });
+                let bad = body.val(Ty::I8);
+                insts.push(Inst::Bin {
+                    dst: bad,
+                    op: jaic::ir::BinOp::Or,
+                    ty: Ty::I8,
+                    a: over,
+                    b: past,
+                });
+                let invalid = body.val(Ty::I8);
+                insts.push(Inst::Bin {
+                    dst: invalid,
+                    op: jaic::ir::BinOp::Or,
+                    ty: Ty::I8,
+                    a: bad,
+                    b: wrap,
+                });
+                let ready = body.block();
+                body.blocks[at] = Block {
+                    insts: std::mem::take(&mut insts),
+                    term: Term::Branch {
+                        cond: invalid,
+                        then_block: BlockId(exhausted as u32),
+                        else_block: BlockId(ready as u32),
+                    },
+                };
+                at = ready;
+                insts.push(Inst::Store {
+                    ty: Ty::Ptr,
+                    addr: top_addr,
+                    value: end,
+                });
+                insts.push(Inst::Store {
+                    ty: Ty::Ptr,
+                    addr: dynamic_top_addr,
+                    value: end,
+                });
+            } else {
+                insts.push(inst);
+            }
             for r in results {
                 store(r, &body, &mut insts);
             }
@@ -892,12 +1020,25 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         body.blocks[start].insts.splice(0..0, loads);
     }
     let index = body.val(Ty::I64);
+    let saved_top = body.val(Ty::Ptr);
     body.blocks[dispatch] = Block {
-        insts: vec![Inst::Load {
-            dst: index,
-            ty: Ty::I64,
-            addr: frame,
-        }],
+        insts: vec![
+            Inst::Load {
+                dst: saved_top,
+                ty: Ty::Ptr,
+                addr: dynamic_top_addr,
+            },
+            Inst::Store {
+                ty: Ty::Ptr,
+                addr: top_addr,
+                value: saved_top,
+            },
+            Inst::Load {
+                dst: index,
+                ty: Ty::I64,
+                addr: frame,
+            },
+        ],
         term: Term::Switch {
             value: index,
             ty: Ty::I64,

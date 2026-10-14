@@ -29,5 +29,21 @@ main :: () {
 
     assert(!S.bitmap_load_from_memory(*decoded, empty));
     assert(decoded.width == 3 && decoded.data[3] == 200);
+    assert(S.bitmap_save(*bitmap, path, false));
+    assert(S.bitmap_load(*decoded, path));
+    assert(decoded.format == .RGB8 && decoded.data.count == 18);
+    for i: 0..5 for channel : 0..2 assert(decoded.data[i * 3 + channel] == bitmap.data[i * 4 + channel]);
+
+    unsupported: S.Bitmap;
+
+    S.bitmap_alloc(*unsupported, 2, 2, .R8);
+    defer S.deinit(*unsupported);
+    assert(!S.bitmap_save(*unsupported, path));
+    // Original two-pixel PGM asset exercises the decoder's single-channel result.
+    gray := u8.[80, 53, 10, 50, 32, 49, 10, 50, 53, 53, 10, 17, 99];
+
+    assert(S.bitmap_load_from_memory(*decoded, gray));
+    assert(decoded.width == 2 && decoded.height == 1 && decoded.format == .R8);
+    assert(decoded.data.count == 2 && decoded.data[0] == 17 && decoded.data[1] == 99);
     print("ok\n");
 }

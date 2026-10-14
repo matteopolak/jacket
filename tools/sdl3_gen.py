@@ -125,12 +125,19 @@ def system_headers(work):
     return d
 
 
+def stable_c_type(ctype, source):
+    if ctype is None:
+        return None
+    for prefix in (str(source.resolve()/'include')+'/',str(source/'include')+'/'):
+        ctype=ctype.replace(prefix,'')
+    # Clang versions differ in redundant diagnostic words for anonymous members.
+    # The enclosing record kind and source location remain part of the contract.
+    return re.sub(r'\((unnamed|anonymous) (?:union|struct) at ', r'(\1 at ', ctype)
+
+
 def generate(src, plat, work, clang):
     def stable_type(ctype):
-        if ctype is None:return None
-        for prefix in (str(src.resolve()/'include')+'/',str(src/'include')+'/'):
-            ctype=ctype.replace(prefix,'')
-        return ctype
+        return stable_c_type(ctype, src)
     BUILTINS.update({'wchar_t':'u16' if plat.startswith('windows') else 's32',
                      'long':'s32' if plat.startswith('windows') else 's64',
                      'unsigned long':'u32' if plat.startswith('windows') else 'u64'})

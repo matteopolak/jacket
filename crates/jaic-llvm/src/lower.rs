@@ -1733,6 +1733,23 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
+            Inst::StackAlloc {
+                dst,
+                size,
+                align,
+            } => {
+                let count = self.get(st, *size)?.into_int_value();
+                let pointer =
+                    self.builder
+                        .build_array_alloca(self.ctx.i8_type(), count, "dynamic.frame")?;
+                pointer
+                    .as_instruction_value()
+                    .unwrap()
+                    .set_alignment(*align as u32)
+                    .map_err(|e| Error(format!("dynamic stack alignment: {e:?}")))?;
+                st.nonnull[dst.0 as usize] = true;
+                self.set(st, *dst, pointer.into());
+            }
             Inst::GlobalAddr {
                 dst,
                 global,

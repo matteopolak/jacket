@@ -102,6 +102,71 @@ fn offers_stdlib_names_with_the_import() {
 }
 
 #[test]
+fn facade_aliases_show_underlying_overloads_without_exporting_helpers() {
+    let dir = project(
+        "facade-metadata",
+        &[
+            ("main.jai", "main :: () { emi }"),
+            (
+                "modules/Facade/module.jai",
+                "emit :: Impl.write;\n#scope_file\nImpl :: #import \"implementation\";",
+            ),
+            (
+                "modules/implementation/module.jai",
+                "// Writes a number.\nwrite :: (number: s64) {}\nwrite :: (text: string) {}\n#scope_module\nhidden :: () {}",
+            ),
+        ],
+    );
+    let mut s = session();
+    let list = complete_at(&mut s, &dir.join("main.jai"), "main :: () { emi }", "emi");
+    let items = auto(&list, "emit");
+    assert_eq!(items.len(), 1);
+    let item = items[0];
+    assert_eq!(item.kind, jai_language_server::CompletionKind::Function);
+    let doc = item.documentation.as_deref().unwrap();
+    assert!(doc.contains("emit :: (number: s64)"), "{doc}");
+    assert!(doc.contains("emit :: (text: string)"), "{doc}");
+    assert!(doc.contains("Writes a number."), "{doc}");
+    assert!(!doc.contains("hidden"));
+}
+
+#[test]
+fn facade_metadata_alias_cycles_terminate_and_chains_keep_the_public_name() {
+    let dir = project(
+        "facade-chain",
+        &[
+            ("main.jai", "main :: () { emi }"),
+            (
+                "modules/Facade/module.jai",
+                "emit :: M.relay;\n#scope_file\nM :: #import \"Middle\";",
+            ),
+            (
+                "modules/Middle/module.jai",
+                "relay :: T.target;\n#scope_file\nT :: #import \"Target\";",
+            ),
+            ("modules/Target/module.jai", "target :: (value: s64) {}"),
+            (
+                "modules/Cycle/module.jai",
+                "emit_cycle :: M.emit_cycle;\n#scope_file\nM :: #import \"Cycle\";",
+            ),
+        ],
+    );
+    let mut s = session();
+    let list = complete_at(&mut s, &dir.join("main.jai"), "main :: () { emi }", "emi");
+    let items = auto(&list, "emit");
+    assert_eq!(items.len(), 1);
+    assert!(
+        items[0]
+            .documentation
+            .as_deref()
+            .unwrap()
+            .contains("emit :: (value: s64)")
+    );
+    assert_eq!(auto(&list, "emit_cycle").len(), 1);
+    assert!(auto(&list, "relay").is_empty());
+}
+
+#[test]
 fn import_goes_after_the_existing_imports() {
     let mut s = session();
     let text = "// A program.\n#import \"Math\";\n#if OS == .WINDOWS {\n    #import \"Windows\";\n}\n\nmain :: () {\n    x := sqrt(2.0);\n    prin\n}\n";

@@ -21,7 +21,7 @@ impl Compiler {
         let mut f = FnCtx::new(origin.thunk_name().into(), sig, file);
         f.b.func.origin = origin;
         f.compile_time = true;
-        f.context = Some(f.b.param(0));
+        f.set_context(Some(f.b.param(0)));
         f
     }
 
@@ -1020,7 +1020,7 @@ impl Compiler {
     }
 
     /// The `u64` at `addr` in compile-time memory.
-    fn program_u64(&self, addr: u64, span: Span) -> Result<u64> {
+    pub(super) fn program_u64(&self, addr: u64, span: Span) -> Result<u64> {
         match self.interp.read_u64(addr) {
             Some(v) => Ok(v),
             None => unreadable(addr, span),

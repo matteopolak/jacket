@@ -230,7 +230,7 @@ impl Compiler {
     /// `Table(int, string)`: instantiate a polymorphic struct.
     /// The constant value of a polymorphic struct argument. An aggregate whose type
     /// differs from the parameter's (a fixed array for a `[] T` parameter) is converted.
-    fn struct_arg_value(
+    pub(super) fn struct_arg_value(
         &mut self,
         scope: ScopeId,
         op: Operand,
@@ -368,7 +368,11 @@ impl Compiler {
                     other => other.ty(),
                 };
                 let mut found = Vec::new();
-                self.match_pattern(t, arg_ty, &mut found, param_scope)?;
+                let represented = match op.const_value() {
+                    Some(Value::Type(t)) => Some(t),
+                    _ => None,
+                };
+                self.match_pattern_value(t, arg_ty, &mut found, param_scope, represented)?;
                 for (n, v, vty) in found {
                     self.add_const(param_scope, n, p.span, v.clone(), vty);
                     key.push(v.clone());
@@ -793,6 +797,7 @@ impl Compiler {
                     }
                 }
                 FieldItem::Field(d) => {
+                    self.ensure_storage_type(d.ty, d.span)?;
                     let size = self.size_of(d.ty, d.span)?;
                     // A member's `#align N` replaces its natural alignment, also when smaller:
                     // generated bindings use it for fields that C packs (`#pragma pack`).
@@ -2048,7 +2053,7 @@ impl Compiler {
             file,
         );
         scratch.compile_time = true;
-        scratch.context = Some(scratch.b.param(0));
+        scratch.set_context(Some(scratch.b.param(0)));
         let converted = self.convert(&mut scratch, op, ty, span)?;
         match converted {
             Operand::Const {

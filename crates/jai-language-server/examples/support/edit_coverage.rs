@@ -12,6 +12,7 @@ use std::{
 // Context is application-defined and may itself be edited. These independent
 // probes explicitly have no context dependency.
 const HEAD: &str = "__lsp_edit_head :: () #no_context {\n    __head_local := 17;\n    __head_result := __head_local + 1;\n}\n";
+
 const TAIL: &str = "\n__lsp_edit_tail :: () #no_context {\n    __tail_local := 23;\n    __tail_result := __tail_local + 1;\n    for __tail_index: 0..1 { __tail_loop := __tail_index; }\n}\n";
 
 #[derive(Default, Serialize, Debug)]

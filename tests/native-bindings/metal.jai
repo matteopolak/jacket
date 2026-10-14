@@ -3,7 +3,7 @@ O :: #import "Objective_C";
 
 libc :: #library,system "c";
 abort :: () #foreign libc;
-probe :: #library "../../.work/native/apple_abi_probe";
+probe :: #library "apple_abi_probe";
 native_size :: (record: u32) -> u64 #foreign probe "binding_apple_size";
 native_offset :: (member: u32) -> u64 #foreign probe "binding_apple_offset";
 

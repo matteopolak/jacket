@@ -156,9 +156,10 @@ impl Compiler {
             let (overrides, plain): (Vec<ast::Arg>, Vec<ast::Arg>) =
                 args.iter().cloned().partition(|a| a.context);
             let ctx = self.context_with_overrides(f, scope, &overrides, span)?;
-            let saved = f.context.replace(ctx);
+            let saved = f.current_context();
+            f.set_context(Some(ctx));
             let result = self.check_call(f, scope, callee, &plain, expected, span);
-            f.context = saved;
+            f.set_context(saved);
             return result;
         }
         let callee_op = self.check_expr(f, scope, callee, None)?;
@@ -229,7 +230,7 @@ impl Compiler {
         overrides: &[ast::Arg],
         span: Span,
     ) -> Result<ir::Val> {
-        let Some(current) = f.context else {
+        let Some(current) = f.current_context() else {
             return err(
                 span,
                 "`,,` context arguments need a context (not in #c_call code)",
@@ -491,8 +492,12 @@ impl Compiler {
                 span
             },
             message: format!("in call to `{name}`: {}", error.message),
-            // The call's problem now, whatever the argument's was.
-            kind: DiagnosticKind::Other,
+            // Structural binding failures retain their machine-readable contract kind.
+            kind: if error.kind == DiagnosticKind::InterfaceConstraint {
+                error.kind
+            } else {
+                DiagnosticKind::Other
+            },
             ..error
         };
         let header = self.proc(proc).lit.header.span;
@@ -579,6 +584,16 @@ impl Compiler {
         let is_macro = self.proc(proc).is_macro;
         for (k, &i) in runtime_params.iter().enumerate() {
             let param = &sig.params[k];
+            if sig.c_varargs
+                && param.variadic
+                && match &slots[i] {
+                    Slot::Spread(_) => true,
+                    Slot::Variadic(list) => list.iter().any(|&a| args[a].spread),
+                    _ => false,
+                }
+            {
+                return err(span, "a runtime spread cannot determine a C variadic ABI");
+            }
             match &slots[i] {
                 Slot::Default => {
                     if param.default.is_none() && !param.variadic {
@@ -607,7 +622,12 @@ impl Compiler {
                         if sig.c_varargs {
                             continue;
                         }
-                        cost += self.arg_cost(&args[a], elem, is_macro)?;
+                        let target = if args[a].spread {
+                            param.ty
+                        } else {
+                            elem
+                        };
+                        cost += self.arg_cost(&args[a], target, is_macro)?;
                     }
                 }
             }
@@ -868,6 +888,21 @@ impl Compiler {
 
     /// `macro_call`: a Code parameter of a macro also binds a variable by name.
     fn arg_cost(&mut self, arg: &CallArg, param: TypeId, macro_call: bool) -> Result<u32> {
+        if self.is_register_operand_type(param, arg.span) {
+            if !macro_call {
+                return err(arg.span, "register operands require an expanded procedure");
+            }
+            if let Some(expr) = &arg.expr
+                && let Some((asm::AsmReg::Vec, _)) = self.asm_reg_named(arg.scope, expr)?
+            {
+                return Ok(convert::EXACT);
+            }
+            return err(
+                arg.span,
+                "expected a SIMD register operand, not a scalar or memory value",
+            );
+        }
+
         let Some(op) = &arg.op else {
             if let Some(ast::Expr {
                 kind: E::Lambda {
@@ -1083,7 +1118,7 @@ impl Compiler {
         if self.auto_deref_arg(from, param) {
             return Ok(convert::SUBTYPE);
         }
-        // `__reg` (Code) macro parameters bind to the caller's variable by name.
+        // Code macro parameters may quote a caller variable by name.
         if param == TypeId::CODE
             && macro_call
             && matches!(op, Operand::Place { .. })
@@ -1271,7 +1306,12 @@ impl Compiler {
                         TypeId::VOID => op_ty,
                         vt => vt,
                     };
-                    self.match_pattern(t, vt, &mut bindings, def_scope)?;
+                    let represented = if let Value::Type(t) = &value {
+                        Some(*t)
+                    } else {
+                        None
+                    };
+                    self.match_pattern_value(t, vt, &mut bindings, def_scope, represented)?;
                 }
                 bindings.push((name, value, ty));
                 continue;
@@ -1347,24 +1387,30 @@ impl Compiler {
                     other => other.ty(),
                 };
                 if param.variadic
-                    && matches!(slots[i], Slot::Spread(_))
+                    && arg.spread
                     && let TypeKind::Array {
                         elem, ..
                     } = self.types.kind(ty)
                 {
                     ty = *elem;
                 }
+                let represented = match op.const_value() {
+                    Some(Value::Type(t)) => Some(t),
+                    _ => None,
+                };
                 if k > 0 && param.variadic {
                     // Later variadic elements must match the first binding.
                     let mut probe = bindings.clone();
-                    if self
-                        .match_pattern(pattern, ty, &mut probe, def_scope)
-                        .is_err()
+                    if let Err(error) =
+                        self.match_pattern_value(pattern, ty, &mut probe, def_scope, represented)
                     {
+                        if error.kind == DiagnosticKind::InterfaceConstraint {
+                            return Err(error);
+                        }
                         continue;
                     }
                 }
-                self.match_pattern(pattern, ty, &mut bindings, def_scope)?;
+                self.match_pattern_value(pattern, ty, &mut bindings, def_scope, represented)?;
                 // Later parameter types may use this one's instance (`item: array.type`).
                 if implicit
                     && k == 0
@@ -1625,31 +1671,90 @@ impl Compiler {
             _ => TypeId::TYPE,
         };
         let esize = self.size_of(elem, span)?;
-        let mut array = value::Aggregate::zeroed(esize.saturating_mul(args.len() as u64), span)?;
-        for (i, arg) in args.iter().enumerate() {
-            // `$args: ..Code` quotes each argument like a single `$c: Code` does.
-            if elem == TypeId::CODE
-                && let Some(id) = self.quote_code_arg(arg)
-            {
-                self.write_value(
-                    &mut array,
-                    i as u64 * esize,
-                    &Value::Code(id),
-                    elem,
-                    arg.span,
-                )?;
+        let mut array = value::Aggregate::zeroed(0, span)?;
+        let mut count = 0u64;
+        for arg in args {
+            if arg.spread {
+                let (view, _) = self.baked_spread(def_scope, param, arg)?;
+                self.append_constant_spread(&mut array, &mut count, elem, view, arg.span)?;
                 continue;
             }
-            let op = match (&arg.op, &arg.expr) {
-                (Some(op), _) => op.clone(),
-                (None, Some(e)) => self.eval_const(arg.scope, e, Some(elem))?,
-                (None, None) => return err(arg.span, "missing value"),
+            let size = (count + 1)
+                .checked_mul(esize)
+                .filter(|&n| n <= value::MAX_IMAGE)
+                .ok_or_else(|| {
+                    Box::new(Diagnostic::error(
+                        arg.span,
+                        "baked variadic pack is too large",
+                    ))
+                })?;
+            array.bytes.resize(size as usize, 0);
+            let value = if elem == TypeId::CODE
+                && let Some(id) = self.quote_code_arg(arg)
+            {
+                Value::Code(id)
+            } else {
+                let op = match (&arg.op, &arg.expr) {
+                    (Some(op), _) => op.clone(),
+                    (None, Some(e)) => self.eval_const(arg.scope, e, Some(elem))?,
+                    (None, None) => return err(arg.span, "missing value"),
+                };
+                self.const_value_of_operand(arg.scope, op, elem, arg.span)?
             };
-            let op = self.const_value_of_operand(arg.scope, op, elem, arg.span)?;
-            self.write_value(&mut array, i as u64 * esize, &op, elem, arg.span)?;
+            self.write_value(&mut array, count * esize, &value, elem, arg.span)?;
+            count += 1;
         }
-        let view = self.const_pack(elem, array, args.len() as u64, span)?;
+        let view = self.const_pack(elem, array, count, span)?;
         Ok((view, self.types.array(elem, ArrayKind::View)))
+    }
+
+    /// Snapshot a constant view through interpreter memory so changed compile-time
+    /// globals and pointer/type relocations are retained, rather than reading stale initializers.
+    fn append_constant_spread(
+        &mut self,
+        array: &mut value::Aggregate,
+        count: &mut u64,
+        elem: TypeId,
+        view: Value,
+        span: Span,
+    ) -> Result<()> {
+        let ty = self.types.array(elem, ArrayKind::View);
+        let mut image = value::Aggregate::zeroed(16, span)?;
+        self.write_value(&mut image, 0, &view, ty, span)?;
+        let g = self.program.add_global(ir::Global {
+            name: "baked.spread.view".into(),
+            size: 16,
+            align: 8,
+            init: image.bytes,
+            relocs: image.relocs,
+            read_only: true,
+            export: None,
+        });
+        let addr = self
+            .interp
+            .global_addr(&self.program, g)
+            .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+        let n = self.program_u64(addr, span)?;
+        let data = self.program_u64(addr + 8, span)?;
+        let esize = self.size_of(elem, span)?;
+        let total = count
+            .checked_add(n)
+            .filter(|&n| n <= value::MAX_IMAGE)
+            .ok_or_else(|| Box::new(Diagnostic::error(span, "baked variadic pack is too large")))?;
+        let size = total
+            .checked_mul(esize)
+            .filter(|&n| n <= value::MAX_IMAGE)
+            .ok_or_else(|| Box::new(Diagnostic::error(span, "baked variadic pack is too large")))?;
+        array.bytes.resize(size as usize, 0);
+        for i in 0..n {
+            let at = data.checked_add(i * esize).ok_or_else(|| {
+                Box::new(Diagnostic::error(span, "baked spread pointer overflow"))
+            })?;
+            let value = self.read_value(at, elem, span)?;
+            self.write_value(array, (*count + i) * esize, &value, elem, span)?;
+        }
+        *count = total;
+        Ok(())
     }
 
     /// A constant `[] elem` view over `count` elements laid out in `array`. Equal contents
@@ -1768,6 +1873,17 @@ impl Compiler {
         bindings: &mut Vec<(Sym, Value, TypeId)>,
         scope: ScopeId,
     ) -> Result<()> {
+        self.match_pattern_value(pattern, ty, bindings, scope, None)
+    }
+
+    pub(super) fn match_pattern_value(
+        &mut self,
+        pattern: &ast::Expr,
+        ty: TypeId,
+        bindings: &mut Vec<(Sym, Value, TypeId)>,
+        scope: ScopeId,
+        represented: Option<TypeId>,
+    ) -> Result<()> {
         let span = pattern.span;
         let bind = |c: &mut Compiler,
                     bindings: &mut Vec<(Sym, Value, TypeId)>,
@@ -1825,6 +1941,25 @@ impl Compiler {
                 restriction,
                 interface,
             } => {
+                if *interface {
+                    let checked = (|| {
+                        let candidate = if ty == TypeId::TYPE {
+                            represented.ok_or_else(|| {
+                                Box::new(Diagnostic::error(
+                                    span,
+                                    "interface constraint requires a concrete type binding",
+                                ))
+                            })?
+                        } else {
+                            ty
+                        };
+                        let required = self.eval_type(scope, restriction)?;
+                        self.validate_interface(candidate, required, span)
+                    })();
+                    checked.map_err(|error| {
+                        Box::new((*error).with_kind(DiagnosticKind::InterfaceConstraint))
+                    })?;
+                }
                 // `$T/Table`: T must be an instance of the polymorphic struct `Table` (or hold one
                 // as an `#as` member).
                 let mut ty = ty;
@@ -2067,7 +2202,7 @@ impl Compiler {
         }
         let mut values = Vec::new();
         if sig.has_context {
-            let Some(ctx) = f.context else {
+            let Some(ctx) = f.current_context() else {
                 return err(
                     span,
                     format!(
@@ -2198,6 +2333,81 @@ impl Compiler {
     }
 
     /// Produce the lowered value passed for one parameter.
+    /// Join scalar and spread segments in their original argument order. The
+    /// resulting storage belongs to the caller's frame, just as a fixed pack.
+    fn mixed_variadic_value(
+        &mut self,
+        f: &mut FnCtx,
+        param: &procs::ParamInfo,
+        args: &[CallArg],
+        list: &[usize],
+        span: Span,
+    ) -> Result<ir::Val> {
+        let TypeKind::Array {
+            elem, ..
+        } = *self.types.kind(param.ty)
+        else {
+            return err(span, "variadic pack requires an array-view parameter");
+        };
+        let size = self.size_of(elem, span)?;
+        let align = self.align_of(elem, span)?;
+        let limit = f.b.iconst(Ty::I64, crate::types::MAX_SIZE / size.max(1));
+        let one = f.b.iconst(Ty::I64, 1);
+        let mut count = f.b.iconst(Ty::I64, 0);
+        let mut segments = Vec::new();
+        for &a in list {
+            let target = if args[a].spread {
+                param.ty
+            } else {
+                elem
+            };
+            let op = self.arg_operand(f, &args[a], Some(target))?;
+            let op = self.convert(f, op, target, args[a].span)?;
+            let (_, value) = self.rvalue(f, op, args[a].span)?;
+            let (n, source) = if args[a].spread {
+                let n = f.b.load(Ty::I64, value);
+                let field = f.b.ptr_offset(value, 8);
+                (n, f.b.load(Ty::Ptr, field))
+            } else {
+                (one, value)
+            };
+            let remaining = f.b.bin(ir::BinOp::Sub, Ty::I64, limit, count);
+            let bad = f.b.cmp(ir::CmpOp::UGt, Ty::I64, n, remaining);
+            let fail = f.b.new_block();
+            let ready = f.b.new_block();
+            f.b.branch(bad, fail, ready);
+            f.b.switch_to(fail);
+            self.emit_check_failed(f, ir::TRAP_VARIADIC_SIZE, n, remaining, true, span);
+            f.b.jump(ready);
+            f.b.switch_to(ready);
+            count = f.b.bin(ir::BinOp::Add, Ty::I64, count, n);
+            segments.push((args[a].spread, n, source));
+        }
+        let width = f.b.iconst(Ty::I64, size);
+        let bytes = f.b.bin(ir::BinOp::Mul, Ty::I64, count, width);
+        let base = f.b.new_val(Ty::Ptr);
+        f.b.push(ir::Inst::StackAlloc {
+            dst: base,
+            size: bytes,
+            align,
+        });
+        let mut cursor = base;
+        for (spread, n, source) in segments {
+            let bytes = f.b.bin(ir::BinOp::Mul, Ty::I64, n, width);
+            if spread {
+                f.b.intrinsic(ir::Intrinsic::Memcpy, vec![cursor, source, bytes], &[]);
+            } else {
+                self.store_value(f, elem, cursor, source, span)?;
+            }
+            cursor = f.b.ptr_add(cursor, bytes);
+        }
+        let view = f.b.alloca(16, 8);
+        f.b.store(Ty::I64, view, count);
+        let data = f.b.ptr_offset(view, 8);
+        f.b.store(Ty::Ptr, data, base);
+        Ok(view)
+    }
+
     fn param_value(
         &mut self,
         f: &mut FnCtx,
@@ -2266,6 +2476,9 @@ impl Compiler {
                 self.convert(f, op, param.ty, d.span)?
             }
             Slot::Variadic(list) => {
+                if list.iter().any(|&a| args[a].spread) {
+                    return self.mixed_variadic_value(f, param, args, list, span);
+                }
                 let TypeKind::Array {
                     elem, ..
                 } = self.types.kind(param.ty).clone()
@@ -2408,7 +2621,7 @@ impl Compiler {
         let mut values = Vec::new();
         if !pt.no_context {
             // Without a context (e.g. inside #c_call code) the callee receives null.
-            let ctx = match f.context {
+            let ctx = match f.current_context() {
                 Some(c) => c,
                 None => f.b.iconst(Ty::Ptr, 0),
             };
@@ -2482,7 +2695,10 @@ impl Compiler {
             "memcpy" => ir::Intrinsic::Memcpy,
             "memset" => ir::Intrinsic::Memset,
             "memcmp" => ir::Intrinsic::Memcmp,
-            "compare_and_swap" => ir::Intrinsic::CompareAndSwap,
+            "compare_and_swap" => ir::Intrinsic::AtomicCas(ir::ORDER_SEQ_CST, ir::ORDER_SEQ_CST),
+            "atomic_load" => ir::Intrinsic::AtomicLoad(ir::ORDER_SEQ_CST),
+            "atomic_store" => ir::Intrinsic::AtomicStore(ir::ORDER_SEQ_CST),
+            "atomic_exchange" => ir::Intrinsic::AtomicRmw(ir::AtomicOp::Xchg, ir::ORDER_SEQ_CST),
             "atomic_load_order"
             | "atomic_store_order"
             | "atomic_exchange_order"
@@ -2495,7 +2711,9 @@ impl Compiler {
                 // The last parameter is the memory order, a compile-time constant that the IR
                 // op carries (a compare-exchange packs success | failure << 4).
                 let mode = self.const_int_arg(f, slots, &args, name.as_str(), span)?;
-                values.pop();
+                if !header.params.last().is_some_and(|p| p.baked) {
+                    values.pop();
+                }
                 self.atomic_intrinsic(name.as_str(), mode, span)?
             }
             "debug_break" => ir::Intrinsic::DebugBreak,
@@ -2529,6 +2747,27 @@ impl Compiler {
             .iter()
             .map(|&t| self.ir_ty(t).unwrap_or(Ty::Ptr))
             .collect();
+        if matches!(
+            op,
+            ir::Intrinsic::Sqrt
+                | ir::Intrinsic::Sin
+                | ir::Intrinsic::Cos
+                | ir::Intrinsic::Floor
+                | ir::Intrinsic::Ceil
+                | ir::Intrinsic::Round
+                | ir::Intrinsic::Trunc
+                | ir::Intrinsic::Fabs
+        ) && (values.len() != 1
+            || sig.params.len() != 1
+            || sig.returns.len() != 1
+            || !matches!(returns.as_slice(), [Ty::F32 | Ty::F64])
+            || sig.params[0].ty != sig.returns[0])
+        {
+            return err(
+                span,
+                "floating intrinsic signature requires one float32/float64 argument and the same result type",
+            );
+        }
         let atomic = matches!(
             op,
             ir::Intrinsic::AtomicLoad(_)
@@ -2539,12 +2778,67 @@ impl Compiler {
         if (op == ir::Intrinsic::CompareAndSwap && values.len() == 3) || atomic {
             // The interpreter needs the operand width: 1, 2, 4 or 8 bytes. A load has only the
             // pointer; the other operations take the value as their second parameter.
-            let pointee = if matches!(op, ir::Intrinsic::AtomicLoad(_)) {
-                sig.returns[0]
-            } else {
-                sig.params[1].ty
-            };
+            let pointee = sig
+                .params
+                .first()
+                .and_then(|p| self.types.pointee(p.ty))
+                .ok_or_else(|| {
+                    Box::new(Diagnostic::error(
+                        span,
+                        "an atomic operation requires a pointer to an atomic scalar",
+                    ))
+                })?;
+            let repr = self.types.repr(pointee);
             let width = self.size_of(pointee, span)?;
+            if !matches!(
+                self.types.kind(repr),
+                TypeKind::Int { .. }
+                    | TypeKind::Float { .. }
+                    | TypeKind::Bool
+                    | TypeKind::Pointer(_)
+                    | TypeKind::Proc(_)
+            ) || !matches!(width, 1 | 2 | 4 | 8)
+            {
+                return err(
+                    span,
+                    "an atomic scalar must be an integer, enum, bool, float, pointer or procedure of 1, 2, 4 or 8 bytes",
+                );
+            }
+            let (arguments, expected_returns) = match op {
+                ir::Intrinsic::AtomicLoad(_) => (1, vec![pointee]),
+                ir::Intrinsic::AtomicStore(_) => (2, vec![]),
+                ir::Intrinsic::AtomicCas(..) | ir::Intrinsic::CompareAndSwap => {
+                    (3, vec![TypeId::BOOL, pointee])
+                }
+                _ => (2, vec![pointee]),
+            };
+            if values.len() != arguments
+                || sig.returns != expected_returns
+                || sig
+                    .params
+                    .iter()
+                    .take(arguments)
+                    .skip(1)
+                    .any(|p| p.ty != pointee)
+            {
+                return err(
+                    span,
+                    "atomic intrinsic signature must preserve its pointer's scalar type and documented results",
+                );
+            }
+            let address = f.b.conv(ir::ConvOp::Bitcast, Ty::Ptr, Ty::I64, values[0]);
+            let required = f.b.iconst(Ty::I64, width);
+            let mask = f.b.iconst(Ty::I64, width - 1);
+            let low = f.b.bin(ir::BinOp::And, Ty::I64, address, mask);
+            let zero = f.b.iconst(Ty::I64, 0);
+            let bad = f.b.cmp(ir::CmpOp::Ne, Ty::I64, low, zero);
+            let fail = f.b.new_block();
+            let ready = f.b.new_block();
+            f.b.branch(bad, fail, ready);
+            f.b.switch_to(fail);
+            self.emit_check_failed(f, ir::TRAP_ATOMIC_ALIGNMENT, address, required, true, span);
+            f.b.jump(ready);
+            f.b.switch_to(ready);
             values.push(f.b.iconst(Ty::I64, width));
         }
         let results = f.b.intrinsic(op, values, &returns);
@@ -2594,7 +2888,15 @@ impl Compiler {
                 _ => err(span, format!("`{name}` was given an unknown memory order")),
             }
         };
-        let (first, second) = (order(mode & 15)?, order((mode >> 4) & 15)?);
+        let cas = name == "atomic_compare_exchange_order";
+        if cas && !(0..=0xff).contains(&mode) {
+            return err(span, format!("`{name}` was given an unknown memory order"));
+        }
+        let (first, second) = if cas {
+            (order(mode & 15)?, order(mode >> 4)?)
+        } else {
+            (order(mode)?, ir::ORDER_RELAXED)
+        };
         let released = |o: u8| o == ir::ORDER_RELEASE || o == ir::ORDER_ACQ_REL;
         Ok(match name {
             "atomic_load_order" => {
@@ -2626,6 +2928,12 @@ impl Compiler {
                     return err(
                         span,
                         "the failure ordering of a compare-exchange cannot be release or acq_rel",
+                    );
+                }
+                if !matches!((first, second), (0..=4, 0) | (1 | 3 | 4, 1) | (4, 4)) {
+                    return err(
+                        span,
+                        "compare-exchange failure ordering cannot be stronger than success ordering",
                     );
                 }
                 ir::Intrinsic::AtomicCas(first, second)
@@ -2833,7 +3141,7 @@ impl Compiler {
                         let p = &self.poly_structs[ps.0 as usize];
                         (p.lit.id, p.name)
                     };
-                    let global = self.generic_struct_info_global(Some(key), name, desc, span)?;
+                    let global = self.generic_struct_info_global(key, name, desc, span)?;
                     let v = f.b.global_addr(global);
                     return Ok(Operand::Value {
                         ty: self.types.pointer(desc),
@@ -3024,7 +3332,7 @@ impl Compiler {
             },
             file,
         );
-        scratch.context = Some(scratch.b.param(0));
+        scratch.set_context(Some(scratch.b.param(0)));
         scratch.type_only = true;
         scratch
     }
@@ -3319,6 +3627,32 @@ impl Compiler {
                 self.discard_params.insert(e);
                 continue;
             }
+            if self.is_register_operand_type(param.ty, param.span) {
+                let Slot::Arg(a) = slot else {
+                    return err(param.span, "register operands need an explicit argument");
+                };
+                let Some(expr) = &args[*a].expr else {
+                    return err(param.span, "register operands need a caller register");
+                };
+                let Some((asm::AsmReg::Vec, addr)) = self.asm_reg_named(args[*a].scope, expr)?
+                else {
+                    return err(args[*a].span, "expected a SIMD register operand");
+                };
+                let depth = self.scope(mscope).proc_depth;
+                let entity = self.add_entity(
+                    mscope,
+                    name,
+                    param.span,
+                    EntityKind::Local {
+                        ty: param.ty,
+                        addr,
+                        depth,
+                    },
+                    false,
+                );
+                self.asm_regs.insert(entity, asm::AsmReg::Vec);
+                continue;
+            }
             if param.ty == TypeId::CODE {
                 // Code arguments are passed unevaluated, bound to the caller's scope.
                 let code = match slot {
@@ -3525,11 +3859,14 @@ impl Compiler {
             let align = self.align_of(rt, span)?;
             result_slots.push((rt, f.b.alloca(size.max(1), align)));
         }
+        let caller_cleanup_serial = f.current_cleanup_serial();
+        let defer_depth = f.mark_defers();
         f.macros.push(MacroFrame {
             caller_scope: caller,
+            caller_cleanup_serial,
             exit_block: exit,
             result_slots: result_slots.clone(),
-            defer_depth: f.defers.len(),
+            defer_depth,
             loop_depth: f.loops.len(),
             caller_macro_depth: f.macros.len(),
             for_body: f.pending_for_body.take(),
@@ -3542,10 +3879,10 @@ impl Compiler {
         result?;
         self.ide_require_parsed_body(body.span)?;
         if !f.b.is_terminated() {
-            self.emit_defers(f, frame.defer_depth, span)?;
+            self.emit_defers(f, frame.defer_depth.position(), span)?;
             f.b.jump(exit);
         }
-        f.defers.truncate(frame.defer_depth);
+        f.truncate_defers(frame.defer_depth.position());
         f.b.switch_to(exit);
         let mut values = Vec::new();
         for (rt, addr) in result_slots {
@@ -4043,15 +4380,22 @@ fn assign_slots(
             ));
         }
         if Some(positional) == variadic_index {
-            if arg.spread {
-                slots[positional] = Some(Slot::Spread(i));
-                positional += 1;
-                continue;
-            }
             match &mut slots[positional] {
                 Some(Slot::Variadic(list)) => list.push(i),
-                None => slots[positional] = Some(Slot::Variadic(vec![i])),
+                Some(Slot::Spread(first)) => {
+                    slots[positional] = Some(Slot::Variadic(vec![*first, i]))
+                }
+                None => {
+                    slots[positional] = Some(if arg.spread {
+                        Slot::Spread(i)
+                    } else {
+                        Slot::Variadic(vec![i])
+                    })
+                }
                 _ => return err(arg.span, "variadic parameter already given"),
+            }
+            if arg.spread && positional + 1 < params.len() {
+                positional += 1;
             }
             continue;
         }

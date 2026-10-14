@@ -19,6 +19,7 @@
 // Source-built jaic workspace primitives; append without replacing caller linker options.
 __jaic_current_workspace :: () -> s64 #compiler;
 __jaic_workspace_set_option :: (w: s64, key: string, value: string) #compiler;
+
 #run {
     w := __jaic_current_workspace();
     __jaic_workspace_set_option(w, "additional_linker_argument", "-Wl,-weak_framework,CoreHaptics");

@@ -23,8 +23,9 @@ def main():
     output = ROOT / "target/window-native"
     source.mkdir(parents=True, exist_ok=True)
     output.mkdir(parents=True, exist_ok=True)
-    for name in ["stb_image.h", "stb_image_write.h", "LICENSE"]:
+    for name in ["stb_image.h", "stb_image_write.h", "deprecated/stb_image_resize.h", "LICENSE"]:
         path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             url = f'https://raw.githubusercontent.com/{spec["repository"]}/{spec["revision"]}/{name}'
             path.write_bytes(urllib.request.urlopen(url, timeout=30).read())
@@ -32,7 +33,7 @@ def main():
             raise RuntimeError(f"native source digest mismatch: {name}")
     extension = "dylib" if platform.system() == "Darwin" else "so"
     shared_flag = "-dynamiclib" if platform.system() == "Darwin" else "-shared"
-    for name in ["stb_image", "stb_image_write"]:
+    for name in ["stb_image", "stb_image_write", "stb_image_resize"]:
         unit = source / f"{name}.c"
         unit.write_text(metadata["libraries"][name]["code"])
         obj = output / f"{name}.o"
@@ -47,6 +48,12 @@ def main():
         subprocess.run(["ar", "rcs", str(output / "libwindow_clipboard_probe.a"), str(obj), str(decoder)], check=True)
         subprocess.run(["cc", "-dynamiclib", str(obj), str(decoder), "-framework", "AppKit", "-o",
                         str(output / "libwindow_clipboard_probe.dylib")], check=True)
+        gl_probe = ROOT / "tests/window-render/gl-context.m"
+        gl_obj = output / "window_gl_probe.o"
+        subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", "-c", str(gl_probe), "-o", str(gl_obj)], check=True)
+        subprocess.run(["ar", "rcs", str(output / "libwindow_gl_probe.a"), str(gl_obj)], check=True)
+        subprocess.run(["cc", "-dynamiclib", str(gl_obj), "-framework", "AppKit", "-framework", "OpenGL", "-o",
+                        str(output / "libwindow_gl_probe.dylib")], check=True)
     print(output)
 
 

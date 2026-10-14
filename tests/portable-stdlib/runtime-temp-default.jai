@@ -1,5 +1,5 @@
 #import "Basic";
-R :: #import "Runtime_Support"(DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = true, ENABLE_BACKTRACE_ON_CRASH = false);
+R :: #import "Runtime_Support";
 
 main :: () {
     assert(context.temporary_storage != null);

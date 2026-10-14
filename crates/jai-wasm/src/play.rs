@@ -393,7 +393,14 @@ mod tests {
     fn standard_input_is_read_through_the_c_stream() {
         let r = with_input(
             concat!(
-                "#import \"Basic\";\n#import \"POSIX\";\n",
+                "#import \"Basic\";\n",
+                "libc :: #system_library \"libc\";\n",
+                "stdin: *void #elsewhere libc;\n",
+                "fgets :: (buffer: *u8, count: s32, stream: *void) -> *u8 #foreign libc;\n",
+                "getline :: (buffer: **u8, count: *u64, stream: *void) -> s64 #foreign libc;\n",
+                "getc :: (stream: *void) -> s32 #foreign libc;\n",
+                "fread :: (buffer: *void, size: u64, count: u64, stream: *void) -> u64 #foreign libc;\n",
+                "feof :: (stream: *void) -> s32 #foreign libc;\n",
                 "main :: () {\n",
                 "    line: [32] u8;\n",
                 "    p := fgets(line.data, 32, stdin);\n",
@@ -668,7 +675,7 @@ mod tests {
             "BIG: [1 << 48] u8;\n",
             "main :: () {\n",
             "    p := alloc(1 << 60);\n",
-            "    q := alloc(-1);\n",
+            "    q := alloc(0x7fffffffffffffff);\n",
             "    print(\"% %\\n\", p == null, q == null);\n",
             "    BIG[1] = 1;\n",
             "}\n",
@@ -680,6 +687,20 @@ mod tests {
         );
         let text = format!("{:?}", r.diagnostics);
         assert!(text.contains("cannot allocate"), "{text}");
+    }
+
+    #[test]
+    fn negative_basic_allocation_reports_its_assertion_without_aborting_the_host() {
+        let r = single("#import \"Basic\"; main :: () { alloc(-1); }\n");
+        assert_eq!(r.exit_code, None);
+        assert_eq!(r.diagnostics.len(), 1, "{}", r.rendered);
+        assert_eq!(r.diagnostics[0].code, Some("runtime-error"));
+        assert!(
+            r.diagnostics[0].message.contains("abort()"),
+            "{}",
+            r.rendered
+        );
+        assert!(r.rendered.contains("`alloc`"), "{}", r.rendered);
     }
 
     #[test]
@@ -736,18 +757,25 @@ mod tests {
         assert!(r.to_json().contains("\"code\":\"unknown-identifier\""));
     }
 
-    /// `read_stdin_line()` drops each newline (and a carriage return), returns a last
-    /// line that has none, and reports the end of input.
+    /// C stream input retains empty and unterminated lines. The test program
+    /// trims CRLF for display; it does not depend on an unreviewed stdlib helper.
     #[test]
-    fn lines_are_read_with_file_read_line() {
+    fn c_stream_lines_include_empty_and_unterminated_lines() {
         let r = with_input(
             concat!(
-                "#import \"Basic\";\n#import \"File\";\n",
+                "#import \"Basic\";\n",
+                "libc :: #system_library \"libc\";\n",
+                "stdin: *void #elsewhere libc;\n",
+                "getline :: (buffer: **u8, count: *u64, stream: *void) -> s64 #foreign libc;\n",
                 "main :: () {\n",
+                "    line: *u8; capacity: u64;\n",
+                "    defer free(line);\n",
                 "    while true {\n",
-                "        line, ok := read_stdin_line();\n",
-                "        if !ok break;\n",
-                "        print(\"[%]\", line);\n",
+                "        count := getline(*line, *capacity, stdin);\n",
+                "        if count < 0 break;\n",
+                "        if count > 0 && line[count - 1] == 10 count -= 1;\n",
+                "        if count > 0 && line[count - 1] == 13 count -= 1;\n",
+                "        print(\"[%]\", string.{count, line});\n",
                 "    }\n",
                 "    print(\"\\n\");\n",
                 "}\n",
@@ -759,12 +787,12 @@ mod tests {
         assert_eq!(r.stdout, "[one][][two words][last]\n");
     }
 
-    /// `exit` ends the program with its code, as returning from `main` does: output so far is
-    /// kept and nothing is reported as a runtime error.
+    /// The C process-exit bridge retains output and returns the supplied status.
+    /// Basic.exit is reviewed only for native POSIX/Windows targets.
     #[test]
     fn exit_ends_the_program_with_its_code() {
         let r = single(
-            "#import \"Basic\";\nmain :: () {\n    print(\"before\\n\");\n    exit(7);\n    print(\"after\\n\");\n}\n",
+            "#import \"Basic\";\nlibc :: #system_library \"libc\";\nc_exit :: (status: s32) #foreign libc \"exit\";\nmain :: () {\n    print(\"before\\n\");\n    c_exit(7);\n    print(\"after\\n\");\n}\n",
         );
         assert_eq!(r.stdout, "before\n", "{:?}\n{}", r.diagnostics, r.rendered);
         assert_eq!(r.exit_code, Some(7), "{}", r.rendered);

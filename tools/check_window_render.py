@@ -28,56 +28,108 @@ def main():
     output = ROOT / "target/window-test-binaries"
     output.mkdir(parents=True, exist_ok=True)
     count = 0
+    failures = []
+
+    def test_source(name):
+        module = {"signed-native-fields": "Input", "texture-packing": "Simp",
+                  "glyph-atlas": "Simp", "macos-events": "Window_Creation",
+                  "macos-window": "Window_Creation"}.get(name)
+        return ROOT / (f"stdlib/{module}/tests/{name}.jai" if module else f"tests/window-render/{name}.jai")
 
     def run(command, expected=None):
         nonlocal count
         result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
                                 capture_output=True, text=True, timeout=60)
         if result.returncode or result.stderr or (expected is not None and result.stdout != expected):
-            raise RuntimeError(f'{command}\nexit {result.returncode}\n{result.stdout}{result.stderr}')
+            failures.append(f'{command}\nexit {result.returncode}\n{result.stdout}{result.stderr}')
+            return False
         count += 1
+        return True
 
-    host = ["srgb", "mapping", "bitmap-native"]
+    host = ["srgb", "mapping", "bitmap-codec", "signed-native-fields", "keymap-behavior", "mipmap", "font-effects"]
     if platform.system() in {"Darwin", "Windows"}:
         host.append("clipboard-host")
     if args.font:
-        host.append("font-native")
+        host.append("font-public")
+        host.append("glyph-atlas")
+        host.append("dynamic-font")
+        if platform.system() == "Darwin":
+            host.append("render-driver")
+    if platform.system() == "Windows":
+        host.append("windows-events")
+        host.append("windows-committed-text")
+        host.append("windows-render-events")
+        host.append("windows-class-parameters")
+        host.append("windows-layout-keys")
+        host.append("windows-render-lifecycle")
+        host.append("public-window")
+    if platform.system() == "Darwin":
+        host.append("macos-window")
+        host.append("macos-events")
+        host.append("public-window")
+        host.append("texture-driver")
+        host.append("shader-driver")
+        host.append("depth-driver")
+        host.append("window-render-host")
     for name in host:
-        source = ROOT / f"tests/window-render/{name}.jai"
-        parameters = [args.font.resolve()] if name == "font-native" else []
+        source = test_source(name)
+        parameters = [args.font.resolve()] if name in {"font-public", "glyph-atlas", "dynamic-font", "render-driver"} else []
         program_args = ["--", *parameters] if parameters else []
-        run([compiler, source, "-interp", "-I", ROOT / "stdlib", *program_args], "ok\n")
+        before = len(failures)
+        run([compiler, source, "-interp", "-I", args.stdlib, *program_args], "ok\n")
         for optimization in ["O0", "O2"]:
             binary = output / f"{name}-{optimization}"
-            run([compiler, source, f"-{optimization}", "-exe", binary, "-I", ROOT / "stdlib"])
-            run([binary, *parameters], "ok\n")
-        print(f"passed host interpreter and native O0/O2: {name}", flush=True)
+            if run([compiler, source, f"-{optimization}", "-exe", binary, "-I", args.stdlib]):
+                run([binary, *parameters], "ok\n")
+        outcome = "passed" if len(failures) == before else "FAILED"
+        print(f"{outcome} host interpreter and native O0/O2: {name}", flush=True)
 
-    linux = ["types", "portable", "callback-types", "keycodes", "window-invalid", "bitmap-codec", "gamepad-virtual", "gamepad-shared-sdk", "texture-packing", "simp-none"]
+    linux = ["types", "portable", "callback-types", "keycodes", "window-invalid", "bitmap-codec", "gamepad-virtual", "gamepad-shared-sdk", "texture-packing", "simp-none", "font-effects"]
     for name in linux:
-        source = ROOT / f"tests/window-render/{name}.jai"
-        run([compiler, source, "-interp", "-os", "linux", "-I", ROOT / "stdlib"], "ok\n")
-        print(f"passed Linux-target interpreter: {name}", flush=True)
+        source = test_source(name)
+        passed = run([compiler, source, "-interp", "-os", "linux", "-I", args.stdlib], "ok\n")
+        print(f"{'passed' if passed else 'FAILED'} Linux-target interpreter: {name}", flush=True)
 
     if args.font:
-        run([compiler, ROOT / "tests/window-render/font-public.jai", "-interp", "-os", "linux",
-             "-I", ROOT / "stdlib", "--", args.font.resolve()], "ok\n")
-        print("passed public font facade with native FreeType (Linux-target interpreter)", flush=True)
+        passed = run([compiler, ROOT / "tests/window-render/font-public.jai", "-interp", "-os", "linux",
+                      "-I", args.stdlib, "--", args.font.resolve()], "ok\n")
+        print(f"{'passed' if passed else 'FAILED'} public font facade with native FreeType (Linux-target interpreter)", flush=True)
 
     for os_name in ["linux", "windows"]:
         for cpu in ["x64", "arm64"]:
-            cases = ["types", "callback-types", "keycodes", "window-types", "texture-signatures", "simp-none"]
-            cases += ["evdev-signatures", "window-invalid"] if os_name == "linux" else ["clipboard-host", "windows-queries"]
+            cases = ["types", "callback-types", "keycodes", "window-types", "texture-signatures", "simp-none", "public-window", "keymap-behavior"]
+            cases += ["evdev-signatures", "window-invalid", "font-effects"] if os_name == "linux" else ["clipboard-host", "windows-queries", "windows-events", "windows-committed-text", "windows-render-events", "windows-class-parameters", "windows-layout-keys", "windows-render-lifecycle", "font-public", "font-effects"]
             for name in cases:
                 run([compiler, ROOT / f"tests/window-render/{name}.jai", "-check", "-os", os_name,
-                     "-cpu", cpu, "-I", ROOT / "stdlib"])
-    visibility = subprocess.run([str(compiler), str(ROOT / "tests/window-render/private-helper-negative.jai"),
-                                 "-check", "-os", "linux", "-I", str(ROOT / "stdlib")],
-                                cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
-    if visibility.returncode != 1 or visibility.stdout or "has no exported member `pack_bitmap`" not in visibility.stderr:
-        raise RuntimeError(f"private-helper visibility regression: {visibility.stdout}{visibility.stderr}")
-    count += 1
-    print(f"passed {count} focused compiler/program invocations", flush=True)
+                     "-cpu", cpu, "-I", args.stdlib])
+            if os_name == "windows":
+                run([compiler, ROOT / "tests/window-render/font-public.jai", "-check", "-no_dce",
+                     "-os", os_name, "-cpu", cpu, "-I", args.stdlib])
+    for case, member in [("private-helper-negative", "pack_bitmap"), ("private-atlas-negative", "atlas_create_page")]:
+        visibility = subprocess.run([str(compiler), str(ROOT / f"tests/window-render/{case}.jai"),
+                                     "-check", "-os", "linux", "-I", str(args.stdlib)],
+                                    cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        if visibility.returncode != 1 or visibility.stdout or f"has no exported member `{member}`" not in visibility.stderr:
+            failures.append(f"private-helper visibility regression: {visibility.stdout}{visibility.stderr}")
+        else:
+            count += 1
+    checked_cast = subprocess.run([str(compiler), str(ROOT / "tests/window-render/checked-narrow-negative.jai"),
+                                   "-interp", "-I", str(args.stdlib)],
+                                  cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+    if checked_cast.returncode != 1 or checked_cast.stdout or "cast of 65416 to `s16` overflows" not in checked_cast.stderr:
+        failures.append(f"checked narrowing regression: {checked_cast.stdout}{checked_cast.stderr}")
+    else:
+        count += 1
+    unsupported = subprocess.run([str(compiler), str(ROOT / "tests/window-render/keymap-meta-persistence-negative.jai"),
+                                  "-interp", "-I", str(args.stdlib)], cwd=ROOT, env=env,
+                                 capture_output=True, text=True, timeout=60)
+    if unsupported.returncode == 0 or unsupported.stdout or "reviewed keymap persistence grammar has no Meta modifier prefix" not in unsupported.stderr:
+        failures.append(f"unsupported Meta persistence diagnostic regression: {unsupported.stdout}{unsupported.stderr}")
+    else:
+        count += 1
+    print(f"{count} focused compiler/program invocations passed; {len(failures)} failed", flush=True)
+    if failures:
+        raise RuntimeError("\n\n".join(failures))
 
 
 if __name__ == "__main__":

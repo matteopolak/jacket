@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Emit the runtime lexer's public data declarations from the reviewed API page."""
 from pathlib import Path
+import argparse
 import re
+from jai_codegen import DEFAULT_FORMATTER, emit_generated
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--formatter", type=Path, default=DEFAULT_FORMATTER)
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
     source = (ROOT / "docs/specs/stdlib/modules/jai-lexer.md").read_text()
     inventory = source.split("## Public type members")[0]
     constants = re.findall(r"^- `([A-Z_]+) :: (\d+|false)`$", inventory, re.M)
@@ -35,7 +41,7 @@ def main():
     chunks.append('#scope_file\nP :: #import "Pool";\nImpl :: #import "internal/jai-lexer";')
     out = ROOT / "stdlib/Jai_Lexer/module.jai"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n\n".join(chunks) + "\n")
+    emit_generated(out, "\n\n".join(chunks) + "\n", args.formatter, args.check)
     keyword_names = re.findall(r"^- `(KEYWORD_[A-Z_]+)\s*::", source, re.M)
     lines = ["// Generated keyword spellings and documented input operators.", "check_for_keyword :: (token: *J.Token) -> J.Token_Type {"]
     for name in sorted(keyword_names):
@@ -56,7 +62,7 @@ def main():
     lines += ["    return cast(J.Token_Type) look(lexer, 0), 1;", "}", '#scope_file', 'J :: #import "Jai_Lexer";']
     helper = ROOT / "stdlib/internal/jai-lexer/keywords.jai"
     helper.parent.mkdir(parents=True, exist_ok=True)
-    helper.write_text("\n".join(lines) + "\n")
+    emit_generated(helper, "\n".join(lines) + "\n", args.formatter, args.check)
     print(out)
 
 

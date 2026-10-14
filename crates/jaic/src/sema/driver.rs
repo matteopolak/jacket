@@ -36,6 +36,7 @@ impl Compiler {
             self.preload = Some(m);
         }
         if self.options.runtime_support {
+            self.validate_runtime_storage()?;
             let Some(entry) = self.find_module("Runtime_Support", Path::new("")) else {
                 return err(span, "Runtime_Support module not found on the import path");
             };
@@ -55,14 +56,34 @@ impl Compiler {
                     Value::Bool(self.options.backtrace_on_crash),
                     TypeId::BOOL,
                 ),
-                (
-                    Sym::intern("TEMPORARY_STORAGE_SIZE"),
-                    Value::Int(self.options.temporary_storage_size as i128),
-                    TypeId::S64,
-                ),
             ];
             let m = self.load_module("Runtime_Support", &entry, params, span)?;
             self.runtime_support = Some(m);
+        }
+        Ok(())
+    }
+
+    fn validate_runtime_storage(&self) -> Result<()> {
+        if !self.options.runtime_support || !self.options.runtime_initialization {
+            return Ok(());
+        }
+        let (has_runtime, size) = self
+            .interp
+            .workspaces
+            .as_ref()
+            .and_then(|workspaces| {
+                crate::build::runtime_storage_setting(
+                    workspaces,
+                    self.workspace,
+                    self.options.temporary_storage_size,
+                )
+            })
+            .unwrap_or((true, self.options.temporary_storage_size));
+        if has_runtime && size != DEFAULT_TEMPORARY_STORAGE_SIZE {
+            return err(
+                Span::NONE,
+                "nondefault temporary_storage_size needs a compiler/runtime initialization contract; it cannot be passed as an unreviewed Runtime_Support module argument",
+            );
         }
         Ok(())
     }
@@ -102,6 +123,14 @@ impl Compiler {
     }
 
     fn begin_sources_inner(&mut self, sources: &[ProgramSource]) -> Result<()> {
+        self.ide_selected_entry = if self.ide.is_some() {
+            sources.iter().find_map(|source| match source {
+                ProgramSource::File(path) => Some(self.fs.canonical(path)),
+                _ => None,
+            })
+        } else {
+            None
+        };
         self.load_bootstrap()?;
         let m = self.new_module("main", None, Vec::new());
         self.main_module = Some(m);
@@ -278,6 +307,8 @@ impl Compiler {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
         self.placeholders_final = true;
         self.settle()?;
+        // Root workspace setters may have changed the requested target storage.
+        self.validate_runtime_storage()?;
         let lowered = self.lower_reachable_inner(false)?;
         self.check_declared_structs()?;
         self.check_declared_overloads()?;

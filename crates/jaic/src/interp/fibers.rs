@@ -17,11 +17,19 @@
 #![allow(unsafe_code)]
 
 use super::*;
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 use crate::fiber::Context;
 
 /// Native stack for the interpreter's own frames in a fiber: address space the OS commits as the
 /// fiber touches it, with an inaccessible guard at the low end. Windows commits it up front, so
 /// it is smaller there and fibers nest less deeply.
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 const NATIVE_STACK: usize = if cfg!(windows) {
     1 << 20
 } else if cfg!(debug_assertions) {
@@ -31,10 +39,18 @@ const NATIVE_STACK: usize = if cfg!(windows) {
 };
 
 /// Bytes at the low end of a native stack that fault when touched: a multiple of every page size.
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 const GUARD: usize = 64 << 10;
 
 /// Native stack one interpreted call can use, at the very most: a tiny recursive call takes about
 /// 800 bytes in a release build, and the paths through foreign calls and `#c_call` thunks more.
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 const BYTES_PER_CALL: usize = if cfg!(debug_assertions) {
     16 << 10
 } else {
@@ -42,11 +58,23 @@ const BYTES_PER_CALL: usize = if cfg!(debug_assertions) {
 };
 
 /// Interpreted call depth a fiber gets, set so that its native stack cannot run out first.
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 const FIBER_DEPTH: usize = (NATIVE_STACK - GUARD) / BYTES_PER_CALL;
 
 /// Value stack for interpreted frames, in the same mapping as the native stack.
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 const VALUE_STACK: usize = 512 << 10;
 
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 pub(super) struct FiberRec {
     ctx: Context,
     /// Saved while the fiber is not running; `None` while it is.
@@ -64,6 +92,10 @@ pub(super) struct FiberRec {
     started: bool,
 }
 
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 impl FiberRec {
     fn root(key: u64) -> Self {
         FiberRec {
@@ -82,11 +114,19 @@ impl FiberRec {
 }
 
 /// A stack's worth of address space, mapped with its guard. Unmapped when dropped.
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 struct Region {
     base: *mut u8,
     len: usize,
 }
 
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
 impl Region {
     fn empty() -> Self {
         Region {
@@ -205,7 +245,7 @@ mod map {
 
 /// The unsupported-host message (wasm32 builds of the compiler, CPUs without the assembly).
 #[cfg(not(all(
-    not(target_arch = "wasm32"),
+    any(unix, windows),
     any(target_arch = "x86_64", target_arch = "aarch64")
 )))]
 impl Interp {
@@ -220,7 +260,7 @@ impl Interp {
 }
 
 #[cfg(all(
-    not(target_arch = "wasm32"),
+    any(unix, windows),
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 impl Interp {
@@ -371,7 +411,7 @@ impl Interp {
 
 /// First code of a fiber on its own native stack: runs the entry procedure.
 #[cfg(all(
-    not(target_arch = "wasm32"),
+    any(unix, windows),
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 extern "C" fn fiber_main(rec: u64) -> ! {

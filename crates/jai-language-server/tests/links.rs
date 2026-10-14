@@ -75,7 +75,12 @@ fn open_all() -> Session {
 
 fn target(s: &Session, position: Position) -> (String, Position) {
     let found = s.definition(&doc("main.jai"), position).unwrap();
-    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(
+        found.len(),
+        1,
+        "at {position:?}: {found:?}; diagnostics: {:?}",
+        s.diagnostics(&doc("main.jai"))
+    );
     (found[0].uri.clone(), found[0].range.start)
 }
 
@@ -132,15 +137,17 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
         target(&s, at(MAIN, "B.print", 0)),
         (basic, Position::default())
     );
-    // `print` through the qualified name: its declaration in Basic.
+    // A public alias navigates to the canonical implementation declaration.
     let print = s
         .definition(&doc("main.jai"), at(MAIN, "B.print", 3))
         .unwrap();
     assert!(
-        print.iter().all(|l| l.uri.contains("/stdlib/Basic/")),
+        print
+            .iter()
+            .all(|l| l.uri.contains("/stdlib/internal/basic/")),
         "{print:?}"
     );
-    assert!(!print.is_empty());
+    assert_eq!(print.len(), 2, "both reviewed print overloads: {print:?}");
     // `deep` reaches main through Mine's exported `using Inner :: #import`.
     assert_eq!(
         target(&s, at(MAIN, "deep()", 1)),

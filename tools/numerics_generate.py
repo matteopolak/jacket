@@ -40,7 +40,7 @@ for n in [2,3,4]:
     def aggregate(expr): return '.{'+', '.join(expr(f) for f in fs)+'}'
     ops += [f'dot_product :: (a: {T}, b: {T}) -> float {{ return '+ ' + '.join(f'a.{f}*b.{f}' for f in fs)+'; }',
             f'length_squared :: inline (a: {T}) -> float {{ return dot_product(a,a); }}',
-            f'length :: (a: {T}) -> float {{ largest:float=0; for x:a.component {{ if isnan(x) return FLOAT32_NAN; largest=max(largest,abs(x)); }} if largest==0 || isinf(largest) return largest; sum:float=0; for x:a.component sum+=square(x/largest); return largest*sqrt(sum); }}',
+            f'length :: (a: {T}) -> float {{ return cast(float) length_wide(a); }}',
             f'abs :: inline (using v: {T}) -> {T} {{ return '+aggregate(lambda f:f'abs(v.{f})')+'; }',
             f'saturate :: (a: {T}) -> {T} {{ return '+aggregate(lambda f:f'saturate(a.{f})')+'; }',
             f'lerp :: (a: {T}, b: {T}, t: float) -> {T} {{ return '+aggregate(lambda f:f'lerp(a.{f},b.{f},t)')+'; }']
@@ -59,11 +59,11 @@ for n in [2,3,4]:
     if n < 4:
         ops += [f'multiply :: (v: {T}, f: float) -> {T} {{ return v*f; }}',
                 f'distance_squared :: inline (a: {T}, b: {T}) -> float {{ return length_squared(a-b); }}',
-                f'unit_vector :: (v: {T}) -> {T} {{ return normalize(v); }}']
+                f'unit_vector :: (v: {T}) -> {T} {{ return unit_vector_wide(v); }}']
     ops.append(f'distance :: (a: {T}, b: {T}) -> float {{ return length(a-b); }}')
 ops += ['dot :: dot_product;', 'rgb :: xyz;', 'rgba :: xyzw;',
         'MyVectors :: .[Vector2,Vector3,Vector4,Quaternion];',
-        'normalize :: (v: *$T/MyVectors, epsilon := 0.0, fallback := T.{}) -> float { n := length(v.*); if n <= epsilon v.* = fallback; else { for *x: v.component x.* /= n; } return n; }',
+        'normalize :: (v: *$T/MyVectors, epsilon := 0.0, fallback := T.{}) -> float { wide := length_wide(v.*); n := cast(float) wide; if n <= epsilon v.* = fallback; else { for *x: v.component x.* = cast(float) (cast(float64) x.* / wide); } return n; }',
         'normalize :: (v: $T/MyVectors, epsilon := 0.0, fallback := T.{}) -> T { r := v; normalize(*r, epsilon, fallback); return r; }',
         'make_vector3 :: (c: [3]float) -> Vector3 { return .{c[0],c[1],c[2]}; }',
         'make_vector3 :: (using v: Vector2, z: float) -> Vector3 { return .{x,y,z}; }',
@@ -77,7 +77,34 @@ ops += ['dot :: dot_product;', 'rgb :: xyz;', 'rgba :: xyzw;',
         'cross_product :: (a: Vector3, b: Vector3) -> Vector3 { return .{a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x}; }',
         'rotate :: (v: Vector2, theta: float) -> Vector2 { c := cos(theta); s := sin(theta); return .{c*v.x-s*v.y,s*v.x+c*v.y}; }',
         'rotate :: (v: *Vector2, theta: float) { v.* = rotate(v.*,theta); }']
-write('math_vectors.jai','\n'.join(ops)+'\n#scope_file\n#import "Basic";\n')
+wide_norm_helpers = '''
+#scope_module
+// Preserve range and significand precision until the final public binary32
+// result. Normalization must not divide by that rounded/overflowed result.
+length_wide :: (v: $T/MyVectors) -> float64 {
+    largest: float64 = 0;
+    for x: v.component {
+        if isnan(x) return FLOAT64_NAN;
+        largest = max(largest, abs(cast(float64) x));
+    }
+    if largest == 0 || isinf(largest) return largest;
+    sum: float64 = 0;
+    for x: v.component {
+        scaled := cast(float64) x / largest;
+        sum += scaled * scaled;
+    }
+    return largest * sqrt(sum);
+}
+
+unit_vector_wide :: (v: $T/MyVectors) -> T {
+    wide := length_wide(v);
+    if wide == 0 return v;
+    r := v;
+    for *x: r.component x.* = cast(float) (cast(float64) x.* / wide);
+    return r;
+}
+'''
+write('math_vectors.jai','\n'.join(ops)+wide_norm_helpers+'\n#scope_file\n#import "Basic";\n')
 
 def facade(module,spec,impl):
     text=(ROOT/'docs/specs/stdlib/modules'/spec).read_text().split('## Public type members')[0].split('## Behavioral')[0]

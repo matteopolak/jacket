@@ -47,4 +47,11 @@ jobs:
         run: python3 tools/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "artifacts/native-libs/${{ matrix.platform }}"
       - name: Check reproducible generation for every target
         if: matrix.platform == 'linux-x64'
-        run: python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --check
+        run: |
+          rustup toolchain install nightly-2026-08-29 --profile minimal
+          bash tools/install_ci_llvm_linux.sh
+          export LLVM_SYS_231_PREFIX=/usr/lib/llvm-23
+          export PATH="/usr/lib/llvm-23/bin:$PATH"
+          cargo build --locked -p jaic-cli
+          JAIC_STDLIB="$PWD/stdlib" target/debug/jaic jaifmt/main.jai -O2 -exe "$PWD/target/jaifmt"
+          python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --jaifmt "$PWD/target/jaifmt" --check

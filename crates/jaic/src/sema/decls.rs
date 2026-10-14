@@ -44,6 +44,13 @@ impl Compiler {
         let entity = self.entity(id);
         let (name, span, scope) = (entity.name, entity.span, entity.home);
         match entity.kind.clone() {
+            EntityKind::UnboundGenericParameter => Err(Box::new(
+                Diagnostic::error(
+                    span,
+                    format!("generic parameter `{name}` has no concrete binding"),
+                )
+                .with_kind(crate::source::DiagnosticKind::UnboundGenericParameter),
+            )),
             EntityKind::Const {
                 value,
                 ty,
@@ -414,6 +421,7 @@ impl Compiler {
             }
             (None, None) => return err(span, "global needs a type or initializer"),
         };
+        self.ensure_storage_type(ty, span)?;
         if let Some(foreign) = &decl.foreign() {
             return self.foreign_global(scope, name, foreign, ty, span);
         }

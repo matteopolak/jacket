@@ -31,6 +31,234 @@ fn rejects(c: &mut Compiler, name: &str) {
 }
 
 #[test]
+fn qualified_constant_aggregate_members_are_not_writable_places() {
+    for target in [
+        "M.values[0]",
+        "M.record.value",
+        "M.records[0].value",
+        "M.Alias.values[0]",
+    ] {
+        let source = format!("M :: #import \"Data\"; main :: () {{ {target} = 9; }}");
+        let mut c = compiler(
+            &[
+                (
+                    "/lib/Data/module.jai",
+                    "R :: struct { value:int; } values :: int.[1,2]; record :: R.{3}; records :: R.[R.{4}]; Alias :: #import \"Data\";",
+                ),
+                ("/app/main.jai", &source),
+            ],
+            false,
+        );
+        rejects(&mut c, "constant");
+    }
+    let mut c = compiler(
+        &[
+            (
+                "/lib/Data/module.jai",
+                "R :: struct { value:int; } record :: R.{3};",
+            ),
+            (
+                "/app/main.jai",
+                "M :: #import \"Data\"; pair :: () -> (bool,int) { return true,9; } main :: () { ok:, M.record.value = pair(); }",
+            ),
+        ],
+        false,
+    );
+    rejects(&mut c, "constant");
+}
+
+#[test]
+fn aggregate_assignment_validation_keeps_macro_caller_scope() {
+    let mut c = compiler(
+        &[(
+            "/app/main.jai",
+            "R :: struct { value:int; } write :: () #expand { `value.value = 9; } check :: () -> int { value:R; write(); return value.value; } #assert(check()==9); main :: () {}",
+        )],
+        false,
+    );
+    succeeds(&mut c);
+}
+
+#[test]
+fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
+    let mut fs = VirtualFs::default();
+    fs.insert("/lib/Runtime_Support/module.jai",r#"
+        #module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
+        #assert(DEFINE_SYSTEM_ENTRY_POINT);
+        #assert(!DEFINE_INITIALIZATION);
+        #assert(ENABLE_BACKTRACE_ON_CRASH);
+    "#.as_bytes());
+    let mut options = Options::host();
+    options.runtime_support = true;
+    options.runtime_entry_point = true;
+    options.runtime_initialization = false;
+    options.backtrace_on_crash = true;
+    options.import_paths = vec!["/lib".into()];
+    let mut c = Compiler::new(options, Rc::new(fs));
+    if let Err(error) = c.load_bootstrap() {
+        panic!("{}", error.render(&c.sources));
+    }
+}
+
+#[test]
+fn nondefault_runtime_storage_cannot_be_silently_ignored() {
+    let mut options = Options::host();
+    options.temporary_storage_size = 65536;
+    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let error = c
+        .load_bootstrap()
+        .expect_err("missing runtime configuration must diagnose");
+    assert!(error.message.contains("temporary_storage_size"));
+}
+
+#[test]
+fn library_modules_do_not_ignore_unknown_excess_or_duplicate_arguments() {
+    for (module, args) in [
+        (
+            "#module_parameters(N:int=0); touch::()->int{return N;}",
+            "UNKNOWN=1",
+        ),
+        (
+            "#module_parameters(N:int=0); touch::()->int{return N;}",
+            "1,2",
+        ),
+        (
+            "#module_parameters(N:int=0); touch::()->int{return N;}",
+            "1,N=2",
+        ),
+        ("touch::()->int{return 0;}", "UNKNOWN=1"),
+        ("#if true { touch::()->int{return 0;} }", "UNKNOWN=1"),
+        ("#module_parameters(N:int); touch::()->int{return 7;}", ""),
+    ] {
+        let source = format!("M::#import \"Contract\"({args}); main::(){{ n:=M.touch(); }}");
+        let mut c = compiler(
+            &[
+                ("/lib/prelude/module.jai", ""),
+                ("/lib/Contract/module.jai", module),
+                ("/app/main.jai", &source),
+            ],
+            true,
+        );
+        let error = c
+            .compile_program(Path::new("/app/main.jai"))
+            .expect_err("library imports obey ordinary module binding rules");
+        assert!(
+            error.message.contains("parameter") || error.message.contains("argument"),
+            "{}",
+            error.render(&c.sources)
+        );
+    }
+}
+
+#[test]
+fn loaded_constructor_and_generic_factory_keep_the_declaring_type_namespace() {
+    let mut c = compiler(
+        &[
+            (
+                "/lib/Record/module.jai",
+                "#load \"types.jai\"; #load \"constructor.jai\"; Alias :: Buffer;",
+            ),
+            (
+                "/lib/Record/types.jai",
+                "Buffer :: struct { value:int=seed; next:*Buffer; } #scope_file seed :: 37;",
+            ),
+            (
+                "/lib/Record/constructor.jai",
+                "create :: () -> Buffer { return F.build(Buffer); } #scope_file F :: #import \"Factory\";",
+            ),
+            (
+                "/lib/Factory/module.jai",
+                "Buffer :: struct { other:u8=99; } build :: ($T:Type) -> T { return T.{}; }",
+            ),
+            (
+                "/app/main.jai",
+                "R :: #import \"Record\"; F :: #import \"Factory\"; #assert(R.Buffer==R.Alias); #assert(R.Buffer!=F.Buffer); #assert(type_of(R.create())==R.Buffer); #assert(R.create().value==37); main :: () {}",
+            ),
+        ],
+        false,
+    );
+    succeeds(&mut c);
+}
+
+#[test]
+fn loaded_module_parameters_resolve_private_file_types_and_interfaces() {
+    for (declaration, args, assertion) in [
+        (
+            "#module_parameters(N: C.Count = 7); #scope_export touch :: () -> C.Count { return N; }",
+            "",
+            "#assert(M.touch()==7); #assert(type_of(M.N)==D.Count);",
+        ),
+        (
+            "#module_parameters(N: C.Count = 7); #scope_export touch :: () -> C.Count { return N; }",
+            "N=8",
+            "#assert(M.touch()==8); #assert(type_of(M.N)==D.Count);",
+        ),
+        (
+            "#module_parameters(HOOKS: $I/interface C.Required = C.Required); #scope_export touch :: () -> int { return 7; }",
+            "",
+            "#assert(M.HOOKS==D.Required);",
+        ),
+        (
+            "#module_parameters(HOOKS: $I/interface C.Required = C.Required); #scope_export touch :: () -> int { return 7; }",
+            "HOOKS=Good",
+            "#assert(M.HOOKS==Good);",
+        ),
+    ] {
+        let header = format!("#scope_file C :: #import \"Contract\"; {declaration}");
+        let source = format!(
+            "D :: #import \"Contract\"; Good :: struct {{ run :: inline (value:int) {{}} }} M :: #import \"Record\"({args}); {assertion} main :: () {{}}"
+        );
+        let mut c = compiler(
+            &[
+                (
+                    "/lib/Contract/module.jai",
+                    "Count :: #type,distinct s32; Required :: struct { run :: inline (value:int) {} }",
+                ),
+                ("/lib/Record/module.jai", "#load \"parameters.jai\";"),
+                ("/lib/Record/parameters.jai", &header),
+                ("/app/main.jai", &source),
+            ],
+            false,
+        );
+        succeeds(&mut c);
+    }
+    let mut c = compiler(
+        &[
+            (
+                "/lib/Contract/module.jai",
+                "Required :: struct { run :: inline (value:int) {} }",
+            ),
+            ("/lib/Record/module.jai", "#load \"parameters.jai\";"),
+            (
+                "/lib/Record/parameters.jai",
+                "#scope_file C :: #import \"Contract\"; #module_parameters(HOOKS: $I/interface C.Required); #scope_export touch :: () -> int { return 7; }",
+            ),
+            (
+                "/app/main.jai",
+                "Broken :: struct {} M :: #import \"Record\"(HOOKS=Broken); main :: () {}",
+            ),
+        ],
+        false,
+    );
+    rejects(&mut c, "run");
+}
+
+#[test]
+fn unused_program_parameters_can_bind_after_the_initial_import() {
+    let mut c = compiler(
+        &[
+            ("/lib/Record/module.jai", "#module_parameters()(N:int);"),
+            (
+                "/app/main.jai",
+                "A :: #import \"Record\"; B :: #import \"Record\"(N=9); #assert(A.N==9); #assert(B.N==9); main :: () {}",
+            ),
+        ],
+        false,
+    );
+    succeeds(&mut c);
+}
+
+#[test]
 fn module_arguments_retain_literal_precision_and_use_real_conversion() {
     let mut c = compiler(
         &[
@@ -736,4 +964,146 @@ fn failed_source_loads_cannot_become_successful_cache_hits() {
             .is_err()
         );
     }
+}
+
+#[path = "support/namespace_source.rs"]
+mod namespace_source;
+
+#[test]
+fn loaded_pointer_constructor_keeps_public_type_and_storage_identity() {
+    let mut files = namespace_source::FILES.to_vec();
+    let main = format!("{}\n#assert(check()==0);", namespace_source::SOURCE);
+    files.push(("/app/main.jai", &main));
+    let mut c = compiler(&files, false);
+    succeeds(&mut c);
+}
+
+#[test]
+fn module_interface_constraints_use_the_declaring_private_file_namespace() {
+    for (arguments, valid) in [
+        ("", true),
+        ("(HOOKS = Good)", true),
+        ("(HOOKS = Broken)", false),
+    ] {
+        let main = format!(
+            "Good :: struct {{ run :: inline (value: int) {{}} }} Broken :: struct {{}} M :: #import \"Contract\"{arguments}; #assert !#exists(M.Required); main :: () {{ result := M.touch(); }}"
+        );
+        let mut c = compiler(
+            &[
+                (
+                    "/lib/Contract/module.jai",
+                    "#module_parameters(HOOKS: $I/interface Required = Required) { #scope_file Required :: struct { run :: inline (value: int) {} } } touch :: () -> int { return 7; }",
+                ),
+                ("/app/main.jai", &main),
+            ],
+            false,
+        );
+        if valid {
+            succeeds(&mut c);
+        } else {
+            rejects(&mut c, "run");
+        }
+    }
+}
+
+#[test]
+fn module_parameter_defaults_use_the_declaring_private_file_namespace() {
+    let mut c = compiler(
+        &[
+            (
+                "/lib/Config/module.jai",
+                "#module_parameters(value: int = hidden_default, Record: Type = Hidden_Record) { #scope_file hidden_default :: 37; Hidden_Record :: struct { value: u64; } } exposed :: value; record_size :: size_of(Record);",
+            ),
+            (
+                "/app/main.jai",
+                "M :: #import \"Config\"; #assert(M.exposed == 37); #assert(M.record_size == 8); #assert !#exists(M.hidden_default); #assert !#exists(M.Hidden_Record);",
+            ),
+        ],
+        false,
+    );
+    succeeds(&mut c);
+}
+
+#[test]
+fn bundled_modules_reject_unknown_and_excess_positional_arguments() {
+    for arguments in ["misspelled = true", "true, false"] {
+        let main = format!("M :: #import \"Config\"({arguments});");
+        let mut c = compiler(
+            &[
+                ("/lib/prelude/module.jai", ""),
+                (
+                    "/lib/Config/module.jai",
+                    "#module_parameters(enabled: bool);",
+                ),
+                ("/app/main.jai", &main),
+            ],
+            true,
+        );
+        rejects(&mut c, "not a parameter");
+    }
+}
+
+#[test]
+fn implicit_runtime_does_not_ignore_explicit_import_arguments() {
+    let mut c = compiler(
+        &[
+            ("/lib/prelude/module.jai", ""),
+            (
+                "/lib/Runtime_Support/module.jai",
+                "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool);",
+            ),
+            (
+                "/app/main.jai",
+                "R :: #import \"Runtime_Support\"(unknown = true);",
+            ),
+        ],
+        true,
+    );
+    c.options.runtime_support = true;
+    rejects(&mut c, "not a parameter");
+}
+
+#[test]
+fn ide_selected_internal_entry_is_admitted_without_opening_application_imports() {
+    let files = [
+        ("/lib/prelude/module.jai", ""),
+        ("/lib/internal/helper/module.jai", "value :: 4;"),
+        ("/app/main.jai", "H :: #import \"internal/helper\";"),
+    ];
+    let mut c = compiler(&files, true);
+    c.ide = Some(Box::default());
+    c.compile_program(Path::new("/lib/internal/helper/module.jai"))
+        .unwrap_or_else(|e| panic!("{}", e.render(&c.sources)));
+
+    let mut c = compiler(&files, true);
+    c.ide = Some(Box::default());
+    rejects(&mut c, "private");
+    let mut c = compiler(&files, true);
+    assert!(
+        c.compile_program(Path::new("/lib/internal/helper/module.jai"))
+            .is_err()
+    );
+}
+
+#[test]
+fn bootstrap_runtime_passes_only_reviewed_parameters() {
+    let mut c = compiler(
+        &[
+            ("/lib/prelude/module.jai", ""),
+            (
+                "/lib/Runtime_Support/module.jai",
+                "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool);",
+            ),
+            ("/app/main.jai", ""),
+        ],
+        true,
+    );
+    c.options.runtime_support = true;
+    succeeds(&mut c);
+    assert_eq!(
+        c.modules[c.runtime_support.unwrap().0 as usize]
+            .params
+            .len(),
+        3
+    );
 }

@@ -6,18 +6,22 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--compiler',type=Path,required=True)
 parser.add_argument('--stdlib',type=Path,required=True)
 parser.add_argument('--quick',action='store_true')
-parser.add_argument('--canonical-dependencies',action='store_true',help='Use actual Input/Window_Type/Hash_Table instead of the explicitly marked UI fixtures')
+parser.add_argument('--canonical-dependencies',action='store_true',default=True,help='Canonical dependencies are required; this explicit flag is retained for callers')
+parser.add_argument('--output',type=Path,default=root/'artifacts/numerics-verification')
 args=parser.parse_args()
 compiler=args.compiler.resolve(); env=dict(os.environ,JAIC_STDLIB=str(args.stdlib.resolve()))
-out=root/'artifacts/numerics-verification'; out.mkdir(parents=True,exist_ok=True)
+out=args.output.resolve()
+if not out.is_relative_to(root/'artifacts'): raise SystemExit('evidence must remain in this workspace artifacts')
+out.mkdir(parents=True,exist_ok=True)
 records=[]
-imports=[] if args.canonical_dependencies else ['-I','tests/numerics/dependencies']
+imports=[]
 def run(label,cmd,sentinel=None,expect_fail=False):
     started=time.monotonic()
     result=subprocess.run([str(x) for x in cmd],cwd=root,env=env,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     log=result.stdout
     (out/(label+'.log')).write_text(log)
-    passed=(result.returncode!=0 and 'overflow assertion was missed' not in log and 'half float overflow' in log) if expect_fail else result.returncode==0 and (sentinel is None or sentinel in log) and 'assertion failed' not in log
+    markers=[] if sentinel is None else (sentinel if isinstance(sentinel,tuple) else [sentinel])
+    passed=(result.returncode!=0 and 'overflow assertion was missed' not in log and 'half float overflow' in log) if expect_fail else result.returncode==0 and all(marker in log for marker in markers) and 'assertion failed' not in log
     records.append(dict(label=label,passed=passed,exit=result.returncode,seconds=round(time.monotonic()-started,3)))
     print(('PASS ' if passed else 'FAIL ')+label,flush=True)
     if not passed: print(log)
@@ -35,6 +39,15 @@ tests={
     'ui-smoke':('tests/numerics/ui_smoke.jai','ui smoke ok'),
     'ui-interaction':('tests/numerics/ui_interaction.jai','ui interaction ok'),
     'render-callbacks':('tests/numerics/render_callbacks.jai','render callbacks ok'),
+    'precision-rounding':('tests/numerics/precision_rounding.jai','explicit precision rounding ok'),
+    'canonical-rendering':('tests/numerics/canonical_rendering.jai','canonical rendering types and metrics ok'),
+    'type-indicator':('tests/numerics/type_indicator.jai','alternate type indicator ok'),
+    'decimal-precision':('tests/numerics/decimal_precision.jai','canonical decimal precision ok'),
+    'text-capacity':('tests/numerics/text_capacity.jai',('text capacity rejection ok','rejected input because capacity was exceeded')),
+    'wheel-events':('tests/numerics/wheel_events.jai','canonical wheel events ok'),
+    'keyboard-shortcuts':('tests/numerics/keyboard_shortcuts.jai','canonical keyboard shortcuts ok'),
+    'normalization-ieee':('tests/numerics/normalization_ieee.jai','IEEE normalization ok'),
+    'abs-ieee':('tests/numerics/abs_ieee.jai','IEEE absolute value ok'),
     'oracle':('artifacts/numeric_oracle.jai','independent oracle ok'),
     'public-contract':('tests/stdlib-contract/math-float16/main.jai','ok'),
 }

@@ -293,5 +293,33 @@
     "mode": "interp",
     "timeout_seconds": 30,
     "stdout": "ok\n"
+  },
+  {
+    "name": "compiler-context-cleanup-and-flags",
+    "source": "compiler-context/main.jai",
+    "mode": "interp",
+    "timeout_seconds": 30,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "generic-default-reflection",
+    "source": "generic-default-reflection/main.jai",
+    "mode": "interp",
+    "timeout_seconds": 30,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bootstrap-atomic-scalar-intrinsics",
+    "source": "bootstrap-atomics/main.jai",
+    "mode": "interp",
+    "timeout_seconds": 30,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "compiler-measured-performance-reports",
+    "source": "compiler-performance/main.jai",
+    "mode": "interp",
+    "timeout_seconds": 30,
+    "stdout": "ok\n"
   }
 ]

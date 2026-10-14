@@ -4,7 +4,7 @@ import math, random, struct
 from fractions import Fraction
 root=Path(__file__).resolve().parents[2]
 rng=random.Random(0x986831)
-lines=['#import "Basic";', 'M :: #import "Math";', 'H :: #import "Float16";',
+lines=['#import "Basic";', 'M :: #import "Math";', 'H :: #import "Float16";', 'C :: #import "Color_Interpolation";',
        'B :: union { f:float32; u:u32; }', 'main :: () {']
 def check(expr, expected, relative=3e-14, absolute=1e-300):
     lines.append(f'    assert(M.abs(({expr})-cast(float64) {expected!r}) <= cast(float64) {max(absolute,abs(expected)*relative)!r}, "oracle {len(lines)}");')
@@ -59,9 +59,38 @@ for _ in range(32):
     vector=[rng.uniform(-10,10) for _ in range(3)]; angle=rng.uniform(-math.pi,math.pi)
     dot=sum(a*b for a,b in zip(axis,vector)); cross=[axis[1]*vector[2]-axis[2]*vector[1],axis[2]*vector[0]-axis[0]*vector[2],axis[0]*vector[1]-axis[1]*vector[0]]
     expected=[v*math.cos(angle)+c*math.sin(angle)+a*dot*(1-math.cos(angle)) for v,c,a in zip(vector,cross,axis)]
-    lines.append('    { q:M.Quaternion; M.set_from_axis_and_angle(*q,M.xyz('+','.join(repr(x) for x in axis)+'),'+repr(angle)+');')
-    lines.append('      rotated:=M.rotate(M.xyz('+','.join(repr(x) for x in vector)+'),q);')
+    lines.append('    { q:M.Quaternion; M.set_from_axis_and_angle(*q,M.xyz('+','.join('cast(float32) '+repr(x) for x in axis)+'),cast(float32) '+repr(angle)+');')
+    lines.append('      rotated:=M.rotate(M.xyz('+','.join('cast(float32) '+repr(x) for x in vector)+'),q);')
     for i,value in enumerate(expected): lines.append(f'      assert(M.abs(rotated.component[{i}]-cast(float32) {value!r})<0.00001);')
+    lines.append('    }')
+def f32(value):
+    return struct.unpack('<f',struct.pack('<f',value))[0]
+
+# Independent Python libm cube roots and double matrix arithmetic. Inputs and
+# externally stored intermediate vectors are rounded to actual binary32 values.
+colors=[(0,0,0),(1,1,1),(1,0,0),(0,1,0),(0,0,1)]
+colors += [tuple(f32(rng.uniform(-1,2)) for _ in range(3)) for _ in range(64)]
+for r,g,b in colors:
+    l=math.cbrt(0.4122214708*r+0.5363325363*g+0.0514459929*b)
+    m=math.cbrt(0.2119034982*r+0.6806995451*g+0.1073969566*b)
+    s=math.cbrt(0.0883024619*r+0.2817188376*g+0.6299787005*b)
+    lab=[f32(0.2104542553*l+0.793617785*m-0.0040720468*s),
+         f32(1.9779984951*l-2.428592205*m+0.4505937099*s),
+         f32(0.0259040371*l+0.7827717662*m-0.808675766*s)]
+    lines.append('    { lab:=C.linear_srgb_to_oklab(M.xyz('+','.join('cast(float32) '+repr(v) for v in [r,g,b])+'));')
+    for i,value in enumerate(lab):
+        lines.append(f'      assert(M.abs(cast(float64) lab.component[{i}]-cast(float64) {value!r})<0.000001);')
+    x,y,z=lab
+    l=(x+0.3963377774*y+0.2158037573*z)**3
+    m=(x-0.1055613458*y-0.0638541728*z)**3
+    s=(x-0.0894841775*y-1.291485548*z)**3
+    rgb=[4.0767416621*l-3.3077115913*m+0.2309699292*s,
+         -1.2684380046*l+2.6097574011*m-0.3413193965*s,
+         -0.0041960863*l-0.7034186147*m+1.707614701*s]
+    lines.append('      rgb:=C.oklab_to_linear_srgb(lab);')
+    for i,value in enumerate(rgb):
+        value=f32(min(1,max(0,value)))
+        lines.append(f'      assert(M.abs(cast(float64) rgb.component[{i}]-cast(float64) {value!r})<0.000001);')
     lines.append('    }')
 lines += ['    print("independent oracle ok\\n");','}']
 p=root/'artifacts/numeric_oracle.jai'; p.parent.mkdir(exist_ok=True); p.write_text('\n'.join(lines)+'\n')

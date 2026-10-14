@@ -11,6 +11,7 @@ main :: () {
     binary.left = left;
     binary.right = right;
     builder: String_Builder;
+
     init_string_builder(*builder);
     assert(P.print_expression(*builder, *binary));
     assert(builder_to_string(*builder) == "(-13 + 29)");

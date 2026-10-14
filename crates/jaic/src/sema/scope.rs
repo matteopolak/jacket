@@ -148,6 +148,8 @@ pub enum EntityKind {
     },
     /// `#placeholder` name awaiting a later definition.
     Placeholder,
+    /// A generic declaration parameter before an instance supplies its value.
+    UnboundGenericParameter,
 }
 
 #[derive(Clone, Debug)]
@@ -412,6 +414,11 @@ impl Compiler {
 
     pub(super) fn declare_builtins(&mut self) {
         let root = self.root_scope;
+        let register = self.types.new_distinct(crate::types::DistinctInfo {
+            name: Sym::intern("__reg"),
+            base: TypeId::U16,
+            isa: false,
+        });
         let types: &[(&str, TypeId)] = &[
             ("void", TypeId::VOID),
             ("bool", TypeId::BOOL),
@@ -431,8 +438,8 @@ impl Compiler {
             ("Type", TypeId::TYPE),
             ("Any", TypeId::ANY),
             ("Code", TypeId::CODE),
-            // `#asm` register parameters of macros bind to the caller's operand expression.
-            ("__reg", TypeId::CODE),
+            // Source-level identity; operand binding is handled independently of Code.
+            ("__reg", register),
         ];
         for &(name, ty) in types {
             self.add_const(
@@ -830,6 +837,9 @@ impl Compiler {
     pub fn module_declarations(&mut self, module: ModuleId, name: Sym) -> Result<Vec<EntityId>> {
         let scope = self.modules[module.0 as usize].scope;
         self.expand_pending(scope)?;
+        if !self.modules[module.0 as usize].loading {
+            self.validate_module_arguments(module, Span::NONE)?;
+        }
         let own: Vec<EntityId> = self
             .scope(scope)
             .names

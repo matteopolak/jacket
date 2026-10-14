@@ -30,9 +30,16 @@ help: loop over the elements: `for names`, with `it` and `it_index`
    = note: `index_only_loop` is `warn` by default
 ```
 
-Options: `--fix`, `--config <file>`, `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all` names every rule, `-D warnings` turns every warning into an error), `-I <dir>` (import directory), `-j <n>` (programs compiled at once), `--list`, `--color auto|always|never`, `-v` (each program as it is compiled, and programs that did not compile completely).
+Options: `--fix`, `--config <file>`, `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all` names every rule, `-D warnings` turns every warning into an error), `-I <dir>` (import directory), `--os windows|linux|macos|wasm` and `--cpu x64|arm64|wasm` (default host), `--checked-files <file>` (write the actual checked source paths, one per line), `-j <n>` (programs compiled at once), `--list`, `--color auto|always|never`, `-v` (each program as it is compiled).
 
-Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a usage or configuration error. A summary goes to stderr.
+`--add <source>` (also `-add`) supplies additional source in the program scope,
+matching jaic's build-configuration mechanism. Use the real definitions required
+by a metaprogram when linting it; module isolation remains unchanged. The linter
+also checks workspaces that the metaprogram creates.
+
+Exit status: 0 when checking finished and nothing at level `deny` was found, 1 for a denied finding or incomplete compilation, 2 on a usage or configuration error. Incomplete roots always report their first compiler error. A summary goes to stderr.
+
+Files nested under an import directory are module roots. A private library module is imported through an in-memory source owned by that library, retaining the compiler's normal import-privacy rules. No wrapper is written to disk. Existing bootstrap module instances retain their configured parameters. Loaded files outside a root's directory are checked in their containing module or program, and appear in the checked-file manifest. Library-call rules recognize the canonical procedures exported by a public facade, including aliases whose bodies live in private modules.
 
 Findings and command-line errors go through jaic's shared renderer (`jaic::render`), so they look like compiler diagnostics and follow `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` the same way (see [diagnostics](../compiler/diagnostics.md)). Mistakes say what to change: an unknown option or rule suggests the closest one, a missing path says so, and a bad `jailint.toml` is reported as ``in `path`, line N: ...`` with a `help:` line.
 

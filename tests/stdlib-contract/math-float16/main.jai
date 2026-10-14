@@ -5,6 +5,7 @@ Float16 :: #import "Float16";
 
 main :: () {
     v := Math.xyz(2.0, -3.0, 6.0);
+
     assert(v.x == 2.0 && v.y == -3.0 && v.z == 6.0);
     assert(Math.dot_product(v, Math.xyz(1.0, 2.0, 0.5)) == -1.0);
     assert(Math.frac(-1.25) == 0.75);
@@ -16,10 +17,13 @@ main :: () {
     matrix := Math.Matrix4x3_Identity;
     matrix._14 = 5.0;
     point := Math.transform_point(matrix, Math.xyz(1.0, 2.0, 3.0));
+
     assert(point.x == 6.0 && point.y == 2.0 && point.z == 3.0);
     invertible, inverse := Math.inverse(Math.Matrix4_Identity);
+
     assert(invertible && inverse._11 == 1.0 && inverse._44 == 1.0);
     singular: Math.Matrix4 = .{};
+
     invertible, inverse = Math.inverse(singular);
     assert(!invertible);
     assert(type_info(Math.Vector3).name == "Vector3");
@@ -29,7 +33,8 @@ main :: () {
     negative_zero := Float16.float32_to_float16(-0.0);
     largest_finite := Float16.float32_to_float16(65504.0);
     overflow := Float16.float32_to_float16(70000.0);
-    tie_even := Float16.float32_to_float16(1.00048828125);
+    tie_even := Float16.float32_to_float16(cast(float32) 1.00048828125);
+
     assert(cast(u16) one == 0x3c00);
     assert(cast(u16) negative_zero == 0x8000);
     assert(cast(u16) largest_finite == 0x7bff);

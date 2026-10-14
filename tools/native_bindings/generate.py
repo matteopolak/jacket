@@ -10,7 +10,7 @@ import re
 import subprocess
 
 from spec import parse_spec
-from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS
+from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS
 from wrappers import simple_body, forwarding_body
 from objc import materialize_methods
 from bitfields import body as bitfield_body
@@ -94,11 +94,17 @@ def authored_signatures(text):
     for match in re.finditer(r'^[ \t]*\w+\s*::\s*(?:inline\s+)?\(',text,re.M):
         fragment = text[match.start():]
         parts = procedure_parts(fragment)
-        if not parts or '{' not in parts[3]:
+        if not parts:
+            continue
+        delimiters = [m for m in re.finditer(r'"(?:\\.|[^"\\])*"|[{};]', parts[3])
+                      if not m[0].startswith('"')]
+        if not delimiters or delimiters[0][0] != '{':
+            continue
+        if re.search(r'#foreign\b', parts[3][:delimiters[0].start()]):
             continue
         # Parameter defaults may contain aggregate literals. Only a brace in
         # the tail after the balanced parameter list starts the authored body.
-        end = len(fragment)-len(parts[3])+parts[3].index('{')
+        end = len(fragment)-len(parts[3])+delimiters[0].start()
         signatures.add(normalized_signature(fragment[:end]))
     return signatures
 
@@ -221,6 +227,18 @@ def generate_facade(module, spec):
         condition = condition_for(module, d, spec)
         if condition != d.condition:
             record['effective_condition'] = condition
+        adapter = NATIVE_ABI_ADAPTERS.get((module, d.name))
+        if adapter and '#foreign' in d.code:
+            wrapper_signature = re.sub(r'#foreign\s+\w+(?:\s+"[^"]*")?\s*;?$', '#c_call', d.code)
+            if normalized_signature(wrapper_signature) in manual_signatures:
+                record.update(status='implemented_manual', artifact=str(manual_path.relative_to(ROOT)),
+                              native_abi_adapter=adapter)
+                ledger.append(record)
+                continue
+            record.update(status='unresolved', reason='Required native ABI adapter body does not match the complete public signature',
+                          native_abi_adapter=adapter)
+            ledger.append(record)
+            continue
         if normalized_signature(d.code) in manual_signatures:
             record.update(status='implemented_manual', artifact=str(manual_path.relative_to(ROOT)))
             ledger.append(record)
@@ -377,6 +395,24 @@ def main():
                               'member_counts':dict(Counter(m['status'] for e in entries for m in e.get('members',[]))),
                               'contextual_shapes':spec.contextual_blocks,
                               'declarations': entries}
+        if module == 'Objective_C':
+            appkit = ROOT/'stdlib/Objective_C/AppKit/module.jai'
+            if appkit.exists():
+                methods = []
+                for signature in sorted(authored_signatures(appkit.read_text().split('#scope_file',1)[0])):
+                    # Read only the public section; helper names do not need
+                    # to be guessed or enumerated to preserve privacy.
+                    methods.append({'signature':signature,
+                                    'status':'implemented',
+                                    'verification':'Source presence only; native tests are recorded separately.'})
+                all_ledger[module]['supplemental_facades'] = [{
+                    'module':'Objective_C/AppKit', 'artifact':str(appkit.relative_to(ROOT)),
+                    'artifact_sha256':hashlib.sha256(appkit.read_bytes()).hexdigest(),
+                    'public_types':['NSBackingStoreType','NSResponder','NSWindow','NSWindowCollectionBehavior','NSWindowStyleMask'],
+                    'private_pointer_only_types':['NSView','NSScreen'],
+                    'members':methods,
+                    'aliases':[{'name':'NSWindow.frame','signature':'(self: *NSView) -> NSRect','target':'private NSView.frame','status':'implemented'}],
+                    'note':'Contextual AppKit contract from reviewed prose, not additional root exports. The reviewed setTitle id result is unspecified and must be ignored; native dispatch uses void.'}]
         if args.module and module not in args.module:
             continue
         path = ROOT / 'stdlib' / module / 'declarations.jai'

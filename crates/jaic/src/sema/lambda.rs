@@ -193,7 +193,7 @@ impl Compiler {
             },
             file,
         );
-        scratch.context = Some(scratch.b.param(0));
+        scratch.set_context(Some(scratch.b.param(0)));
         let module = self.scope(scope).module;
         let body_scope = self.new_scope(ScopeKind::Proc, Some(scope), module, None);
         for param in params {

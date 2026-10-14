@@ -1062,7 +1062,7 @@ impl Compiler {
     }
 
     /// The register an identifier names, if it is one declared by `#asm`.
-    pub(super) fn asm_reg_named(
+    pub(in crate::sema) fn asm_reg_named(
         &mut self,
         scope: ScopeId,
         e: &Expr,

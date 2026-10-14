@@ -136,5 +136,22 @@
       "sha256": "0ae7e902a26777614a011fe7053ca7e8b14843db3c42ca117564d208cf6732f0",
       "root": "SDL2-2.0.1"
     }
+  },
+  "sdl2-runtime-oracle": {
+    "repository": "libsdl-org/sdl2-compat",
+    "revision": "release-2.32.70",
+    "files": {},
+    "archive": {
+      "url": "https://codeload.github.com/libsdl-org/sdl2-compat/tar.gz/refs/tags/release-2.32.70",
+      "sha256": "e4a8bd5a7052418b8f9cb031e31927389051c22b81d9069806d70b047d856d12",
+      "root": "sdl2-compat-release-2.32.70"
+    }
+  },
+  "libglvnd": {
+    "repository": "NVIDIA/libglvnd",
+    "revision": "v1.7.0",
+    "files": {
+      "include/GL/glx.h": "bfdd02a03fcc60e04a902107277bf42711cf325b4aeca6b9491a754923ad544f"
+    }
   }
 }

@@ -19,7 +19,9 @@ use crate::config::Config;
 use crate::{Lint, lint_files};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::interp::{SandboxHost, SharedHost};
-use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
+use jaic::sema::{
+    Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource, TargetCpu, TargetOs,
+};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -38,6 +40,10 @@ pub struct Options {
     pub jobs: usize,
     /// Print each root as it is compiled.
     pub verbose: bool,
+    pub target_os: Option<TargetOs>,
+    pub target_cpu: Option<TargetCpu>,
+    /// Additional source strings, in the program's scope (same as jaic -add).
+    pub add_sources: Vec<String>,
 }
 
 pub struct Outcome {
@@ -123,6 +129,22 @@ fn loads(file: &Path, seen: &mut BTreeSet<PathBuf>) {
 /// The module `file` is the entry of, if it is one: `module.jai`, or a file directly in an
 /// import directory.
 fn module_of(file: &Path, import_dirs: &[PathBuf]) -> Option<Root> {
+    let mut dirs: Vec<_> = import_dirs.iter().map(|d| canonical(d)).collect();
+    dirs.sort_by_key(|d| std::cmp::Reverse(d.components().count()));
+    for dir in dirs {
+        if let Ok(relative) = file.strip_prefix(&dir) {
+            let name = if relative.file_name().is_some_and(|n| n == "module.jai") {
+                relative.parent()?.to_path_buf()
+            } else {
+                relative.with_extension("")
+            };
+            return Some(Root::Module {
+                entry: file.to_path_buf(),
+                name: name.to_string_lossy().replace('\\', "/"),
+                dir,
+            });
+        }
+    }
     let dir = file.parent()?;
     if file.file_name().is_some_and(|n| n == "module.jai") {
         return Some(Root::Module {
@@ -226,9 +248,9 @@ fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
         .iter()
         .filter(|f| !loaded_by_listed.contains(*f))
         .map(|f| {
-            module_of(f, &import_dirs)
-                .or_else(|| enclosing_module(f, &import_dirs))
+            enclosing_module(f, &import_dirs)
                 .or_else(|| enclosing_program(f, &mut loader_cache))
+                .or_else(|| module_of(f, &import_dirs))
                 .unwrap_or_else(|| Root::Program(f.clone()))
         })
         .collect();
@@ -250,6 +272,7 @@ struct RootResult {
 /// the compiler ran there: metaprograms name files relative to where they are built from.
 struct RootedFs {
     base: PathBuf,
+    virtual_source: Option<(PathBuf, Vec<u8>)>,
 }
 
 impl RootedFs {
@@ -264,10 +287,22 @@ impl RootedFs {
 
 impl FileSystem for RootedFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
+        if let Some((source, text)) = &self.virtual_source
+            && self.at(path) == *source
+        {
+            return Some(text.clone());
+        }
         NativeFs.read(&self.at(path))
     }
 
     fn is_file(&self, path: &Path) -> bool {
+        if self
+            .virtual_source
+            .as_ref()
+            .is_some_and(|(source, _)| self.at(path) == *source)
+        {
+            return true;
+        }
         NativeFs.is_file(&self.at(path))
     }
 
@@ -289,13 +324,13 @@ type Finished = Rc<RefCell<Vec<(Box<Compiler>, bool)>>>;
 
 /// Collects the compilers of the workspaces a metaprogram creates, with lint facts on.
 struct Collect {
-    prefix: String,
+    prefixes: Vec<String>,
     done: Finished,
 }
 
 impl WorkspaceObserver for Collect {
     fn created(&mut self, compiler: &mut Compiler) {
-        crate::facts::enable(compiler, vec![self.prefix.clone()]);
+        crate::facts::enable(compiler, self.prefixes.clone());
     }
 
     fn finished(&mut self, compiler: Box<Compiler>, failed: bool) {
@@ -313,6 +348,12 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         Root::Program(p) => p.parent().map(Path::to_path_buf).unwrap_or_default(),
     };
     let mut copts = CompilerOptions::host();
+    if let Some(os) = options.target_os {
+        copts.os = os;
+    }
+    if let Some(cpu) = options.target_cpu {
+        copts.cpu = cpu;
+    }
     copts.import_paths = vec![main_dir.join("modules")];
     if let Root::Module {
         dir, ..
@@ -325,26 +366,29 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         .extend(options.import_dirs.iter().cloned());
     copts.import_paths.push(options.stdlib.clone());
     copts.preload = Some(options.stdlib.join(jaic::PRELOAD_ENTRY));
+    let virtual_source = match root {
+        Root::Module {
+            name,
+            dir,
+            ..
+        } => Some((
+            dir.join(".jailint-module-root.jai"),
+            format!("#import \"{name}\";\nmain :: () {{}}\n").into_bytes(),
+        )),
+        Root::Program(_) => None,
+    };
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
         base: main_dir.clone(),
+        virtual_source,
     });
     let host = Rc::new(RefCell::new(SandboxHost::with_files(
         fs.clone(),
         &main_dir.to_string_lossy(),
     )));
-    let prefix = match root {
-        Root::Module {
-            entry, ..
-        } if entry.file_name().is_some_and(|n| n == "module.jai") => {
-            format!("{}/", entry.parent().unwrap_or(entry).to_string_lossy())
-        }
-        Root::Module {
-            entry, ..
-        } => entry.to_string_lossy().into_owned(),
-        Root::Program(p) => {
-            format!("{}/", p.parent().unwrap_or(p).to_string_lossy())
-        }
-    };
+    let prefixes: Vec<String> = report
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
     let done = Rc::new(RefCell::new(Vec::new()));
     let reports = Rc::new(RefCell::new(Vec::<String>::new()));
     let workspace_host = host.clone();
@@ -358,7 +402,7 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(move |text| sink.borrow_mut().push(text.to_string())),
         observer: Some(Box::new(Collect {
-            prefix: prefix.clone(),
+            prefixes: prefixes.clone(),
             done: done.clone(),
         })),
     });
@@ -366,15 +410,39 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     compiler.interp.host = Box::new(SharedHost(host));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
     compiler.attach_workspaces(workspaces.clone());
-    crate::facts::enable(&mut compiler, vec![prefix.clone()]);
-    let result = match root {
-        Root::Program(p) => compiler.compile_program(p),
-        Root::Module {
-            name, ..
-        } => compiler.compile_sources(&[ProgramSource::String(format!(
-            "#import \"{name}\";\nmain :: () {{}}\n"
-        ))]),
-    };
+    crate::facts::enable(&mut compiler, prefixes);
+    let result = compiler.load_bootstrap().and_then(|()| {
+        let primary = match root {
+            Root::Program(p) => ProgramSource::File(p.clone()),
+            Root::Module {
+                entry,
+                dir,
+                ..
+            } => {
+                // Bootstrap imports may require parameters. Reuse their real configured
+                // instances rather than guessing defaults or importing them a second time.
+                if compiler
+                    .modules
+                    .iter()
+                    .any(|module| module.path.as_ref().is_some_and(|p| canonical(p) == *entry))
+                {
+                    ProgramSource::String("main :: () {}".into())
+                } else {
+                    ProgramSource::File(dir.join(".jailint-module-root.jai"))
+                }
+            }
+        };
+        let sources: Vec<_> = std::iter::once(primary)
+            .chain(
+                options
+                    .add_sources
+                    .iter()
+                    .cloned()
+                    .map(ProgramSource::String),
+            )
+            .collect();
+        compiler.compile_sources(&sources)
+    });
     let mut error = result.err().map(|e| e.message.clone());
     let top_complete = error.is_none();
     if top_complete
@@ -400,14 +468,20 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     let mut texts = BTreeMap::new();
     let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
     for (mut compiler, failed) in compilers {
-        compiler.ide_check_all();
-        // Facts were recorded for files under the prefix only.
+        let diagnostics = compiler.ide_check_all();
+        if error.is_none()
+            && let Some(diagnostic) = diagnostics.first()
+        {
+            error = Some(diagnostic.message.clone());
+        }
+        // Facts cover the requested files, including #load files outside the
+        // root's directory. Their real containing program supplies context.
         let files: Vec<jaic::source::FileId> = (0..compiler.sources.len() as u32)
             .map(jaic::source::FileId)
             .filter(|&f| {
                 let path = &compiler.sources.get(f).path;
                 let path_buf = canonical(Path::new(path));
-                path.starts_with(&prefix) && report.contains(&path_buf) && seen.insert(path_buf)
+                report.contains(&path_buf) && seen.insert(path_buf)
             })
             .collect();
         for &f in &files {

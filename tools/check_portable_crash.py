@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shutil
 import signal
 import subprocess
 
@@ -15,13 +14,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jaic", type=Path, default=ROOT / "target/compiler/debug/jaic")
     parser.add_argument("--stdlib", type=Path, required=True)
-    parser.add_argument("--compiler-stdlib", type=Path, default=ROOT.parent / "compiler/stdlib")
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
     if not compiler.is_relative_to(ROOT / "target"):
         parser.error("compiler must be a source build under this checkout's target")
-    for module in ["Compiler", "internal/compiler-api"]:
-        shutil.copytree(args.compiler_stdlib / module, args.stdlib / module, dirs_exist_ok=True)
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve()))
     fixtures = ROOT / "tests/portable-stdlib/startup-crash"
     for enabled in [False, True]:

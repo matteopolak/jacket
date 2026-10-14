@@ -18,6 +18,12 @@ Foreign_Context :: struct {
     unmatched: s64;
 }
 
+early :: () -> s64 {
+    R.Remap_Context();
+    context.remap_number = 83;
+    return context.remap_number;
+}
+
 main :: () {
     marker: s64 = 123;
     foreign: Foreign_Context;
@@ -38,5 +44,21 @@ main :: () {
     context.remap_number = 55;
     result = R.remap_context();
     assert(result.remap_number == 55 && result.context_info == type_info(#Context));
+
+    {
+        R.Remap_Context();
+        context.remap_number = 91;
+
+        {
+            R.Remap_Context();
+            context.remap_number = 123;
+            assert(context.remap_number == 123);
+        }
+
+        assert(context.remap_number == 91);
+    }
+
+    assert(context.remap_number == 55);
+    assert(early() == 83 && context.remap_number == 55);
     print("ok\n");
 }

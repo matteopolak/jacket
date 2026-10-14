@@ -16,19 +16,19 @@ app_init :: (appstate: **void, argc: s32, argv: **u8) -> SDL_AppResult #c_call {
 }
 
 app_iterate :: (appstate: *void) -> SDL_AppResult #c_call {
-    push_context,defer_pop;
+    push_context, defer_pop;
     assert(false);
     return SDL_APP_FAILURE;
 }
 
 app_event :: (appstate: *void, event: *SDL_Event) -> SDL_AppResult #c_call {
-    push_context,defer_pop;
+    push_context, defer_pop;
     assert(false);
     return SDL_APP_FAILURE;
 }
 
 app_quit :: (appstate: *void, result: SDL_AppResult) #c_call {
-    push_context,defer_pop;
+    push_context, defer_pop;
     assert(appstate == *state);
     assert(result == SDL_APP_SUCCESS);
     calls += 1;

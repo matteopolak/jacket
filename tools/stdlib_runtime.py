@@ -182,6 +182,11 @@ def run_mode(args, test, path, mode, scratch):
         shutil.rmtree(exe.parent, ignore_errors=True)
 
 
+def unknown_skip_tests(skips, known):
+    """Inventory errors fail the run after every available test has executed."""
+    return sorted({test for test, *_ in skips if test not in known})
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
@@ -211,9 +216,9 @@ def main():
         use_native_libs(args.platform)
     todo = [(t, p) for t, p in cases() if args.filter in t]
     known = {t for t, _ in cases()}
-    for test, *_ in skips:
-        if test not in known:
-            sys.exit(f"stdlib_runtime: {SKIPS.name} names {test!r}, which is not a test")
+    unknown = unknown_skip_tests(skips, known)
+    for test in unknown:
+        print(f"ERROR: {SKIPS.name} names {test!r}, which is not a test", flush=True)
     scratch = tempfile.mkdtemp(prefix="jaic-stdlib-runtime-")
     jobs = args.jobs or min(8, os.cpu_count() or 2)
 
@@ -258,7 +263,7 @@ def main():
     for mode in modes:
         p, f, s, b = counts[mode]
         print(f"  {mode:<12} {p} passed, {f} failed, {s} skipped, {b} compile-time only")
-    return 1 if failures or (args.strict and stale) else 0
+    return 1 if unknown or failures or (args.strict and stale) else 0
 
 
 if __name__ == "__main__":

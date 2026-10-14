@@ -76,7 +76,8 @@ def stage(destination, foundation=None):
         raise SystemExit('The independent foundation bootstrap is not ready')
     shutil.copytree(foundation, destination, dirs_exist_ok=True)
     for worker, modules, internals in [
-        ('foundations',['Basic','String','Hash','File_Utilities'],['basic','string','hash','files']),
+        ('foundations',['Basic','String','Hash','File_Utilities'],['basic','basic-interface','string','hash','files','native-path']),
+        ('window-render',['Window_Creation','Window_Type','Input','Keymap','Gamepad','Simp','sRGB','Clipboard'],['window','rendering','input','gamepad','clipboard']),
         ('numerics',['Math','Sloppy_Math','Float16','Color_Interpolation','GetRect','GetRect_LeftHanded'],['numerics']),
         ('compiler',['Compiler','Jai_Lexer','Code_Visit','Program_Print'],['compiler-api','jai-lexer','code-visit','program-print'])
     ]:
@@ -100,21 +101,42 @@ def invoke(command, env, timeout=120):
         return {'exit': None, 'stdout': str(e.stdout or ''), 'stderr': 'Timeout after ' + str(timeout) + ' seconds'}
 
 
+def select_stdlib(work, foundation=None, production=None):
+    if production is not None:
+        if foundation is not None:
+            raise ValueError('production --stdlib cannot be combined with --foundation overlays')
+        root = production.resolve(strict=True)
+        if not (root / 'prelude/module.jai').is_file():
+            raise ValueError('production library requires its canonical prelude/module.jai')
+        return root
+    destination = work / 'stdlib'
+    stage(destination, foundation)
+    return destination
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compiler', type=Path, required=True)
     parser.add_argument('--module', action='append', choices=MODULES)
     parser.add_argument('--runtime', action='store_true')
+    parser.add_argument('--native-libs', type=Path, default=ROOT/'.work/native', help='Actual source-built native libraries used by runtime checks')
+    parser.add_argument('--privacy-only', action='store_true', help='Run the full target privacy matrix without repeating declaration/runtime suites')
     parser.add_argument('--report', type=Path, default=ROOT/'.work/verification.json')
     parser.add_argument('--foundation', type=Path, help='Explicit previously staged NEW independent foundation sources')
+    parser.add_argument('--stdlib', type=Path, help='Verify this production library directly, without any source overlays')
     args = parser.parse_args()
     compiler = args.compiler.resolve(strict=True)
-    work = ROOT/'.work/runs'/(args.report.stem+'-'+str(os.getpid()))
+    if not compiler.is_relative_to(ROOT/'target'):
+        parser.error('compiler must be source-built under this checkout target directory')
+    native_libraries = args.native_libs.resolve()
+    work = args.report.resolve().parent/'runs'/(args.report.stem+'-'+str(os.getpid()))
     work.mkdir(parents=True, exist_ok=True)
-    stdlib = work/'stdlib'
-    stage(stdlib, args.foundation)
-    env = dict(os.environ, JAIC_STDLIB=str(stdlib), JAIC_NATIVE_LIBS=str(ROOT/'.work/native'), TMPDIR=str(ROOT/'.work/tmp'))
+    stdlib = select_stdlib(work, args.foundation, args.stdlib)
+    temporary = work / 'tmp'
+    temporary.mkdir()
+    env = dict(os.environ, JAIC_STDLIB=str(stdlib), JAIC_NATIVE_LIBS=str(native_libraries), TMPDIR=str(temporary))
     report = {'compiler': str(compiler), 'compiler_sha256': hashlib.sha256(compiler.read_bytes()).hexdigest(), 'staging_root': str(work),
+              'stdlib_root': str(stdlib), 'production': args.stdlib is not None, 'native_libraries': str(native_libraries),
               'targets': [], 'native': [], 'privacy': []}
     report['staged_sources'] = {str(p.relative_to(stdlib)):hashlib.sha256(p.read_bytes()).hexdigest()
                                 for p in sorted(stdlib.rglob('*.jai')) if 'Extensions' not in p.parts}
@@ -122,8 +144,9 @@ def main():
     report['symbols'] = []
     report['test_sources'] = {}
     report['native_artifacts'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest()
-                                  for p in sorted((ROOT/'.work/native').glob('lib*')) if p.is_file()} if args.runtime else {}
-    for module, slug in MODULES.items():
+                                  for p in sorted(native_libraries.glob('lib*')) if p.is_file()} if args.runtime else {}
+    report['privacy_only'] = args.privacy_only
+    for module, slug in ([] if args.privacy_only else MODULES.items()):
         if args.module and module not in args.module:
             continue
         spec = parse_spec((ROOT/'docs/specs/stdlib/modules'/f'{slug}.md').read_text())
@@ -132,7 +155,7 @@ def main():
             coverage = json.loads((ROOT/'docs/native/bindings-coverage.json').read_text())['modules'][module]
             members = [Declaration(m['signature'],m['condition']) for d in coverage['declarations'] for m in d.get('members',[])]
             symbols = Spec(declarations=spec.declarations+members)
-            report['symbols'].extend(check_symbols(module, symbols, enabled, ROOT/'.work/native'))
+            report['symbols'].extend(check_symbols(module, symbols, enabled, native_libraries))
         for os_name, cpu in TARGET_CONFIGS:
             file = work/'module-check.jai'
             file.write_text('#import "' + module + '"; main :: () {}\n')
@@ -151,30 +174,75 @@ def main():
                                      status='passed' if public_result['exit'] == 0 else 'failed')
                 report['targets'].append(public_result)
             print(module, os_name+'-'+cpu, result['status'])
-    for module, private in [('lz4', 'liblz4'), ('xxHash', 'binding_XXH32'), ('stb_image', 'FILE'),
-                            ('Curl', 'Native'), ('Curl', 'Varargs'), ('dxc_compiler', 'IMalloc'),
-                            ('MojoShader', 'MOJOSHADER_uniformType'), ('Objective_C', 'binding_objc_class')]:
+    for module, filename, configs in [
+        ('Objective_C', 'appkit.jai', [('macos','x64'),('macos','arm64')]),
+        ('GL', 'gl-output-buffers.jai', TARGET_CONFIGS),
+        ('GL', 'glx-context.jai', [('linux','x64'),('linux','arm64')]),
+        ('GL', 'wgl-context.jai', [('windows','x64'),('windows','arm64')]),
+        ('GL', 'gl-debug-output.jai', TARGET_CONFIGS),
+    ]:
+        if args.privacy_only:
+            continue
         if args.module and module not in args.module:
             continue
-        file = work/'privacy-check.jai'
-        file.write_text('M :: #import "'+module+'"; leaked :: M.'+private+'; main :: () {}\n')
-        result = invoke([compiler,file,'-check','-os','windows' if module=='dxc_compiler' else 'macos','-cpu','x64'], env)
-        result.update(module=module, member=private)
-        result['status'] = 'passed' if result['exit'] != 0 and ('has no exported member `'+private+'`') in result['stderr'] else 'failed'
-        report['privacy'].append(result)
-    if args.runtime:
-        for name in ['lz4', 'xxhash', 'images', 'meshoptimizer', 'freetype', 'posix', 'curl', 'ios', 'objective-c', 'mojoshader', 'macos', 'metal', 'gl', 'graphics-math', 'sdl', 'sdl-layout']:
+        source = ROOT/'tests/native-bindings'/filename
+        report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
+        for os_name, cpu in configs:
+            result = invoke([compiler,source,'-check','-no_dce','-os',os_name,'-cpu',cpu],env)
+            result.update(module=module, os=os_name, cpu=cpu, check='source_regression',
+                          source=str(source.relative_to(ROOT)), status='passed' if result['exit']==0 else 'failed')
+            report['targets'].append(result)
+    for module, private in [('lz4', 'liblz4'), ('xxHash', 'binding_XXH32'), ('stb_image', 'FILE'),
+                            ('Curl', 'Native'), ('Curl', 'Varargs'), ('dxc_compiler', 'IMalloc'),
+                            ('MojoShader', 'MOJOSHADER_uniformType'), ('Objective_C', 'binding_objc_class'),
+                            ('Objective_C', 'NSWindow'), ('Objective_C/AppKit', 'NSView'),
+                            ('Objective_C/AppKit', 'NSScreen'), ('Objective_C/AppKit', 'send_result'),
+                            ('SDL', 'NativeSDL')]:
+        if args.module and module.split('/')[0] not in args.module and module not in args.module:
+            continue
+        for os_name, cpu in TARGET_CONFIGS:
+            result = {'module':module, 'member':private, 'os':os_name, 'cpu':cpu}
+            target = TARGETS.get(module.split('/')[0], '')
+            if target and not enabled(target,os_name,cpu):
+                result.update(status='unsupported', reason='Reviewed module target condition: '+target)
+                report['privacy'].append(result)
+                continue
+            file = work/('privacy-'+module.replace('/','_')+'-'+private+'-'+os_name+'-'+cpu+'.jai')
+            file.write_text('M :: #import "'+module+'"; leaked :: M.'+private+'; main :: () {}\n')
+            result.update(invoke([compiler,file,'-check','-os',os_name,'-cpu',cpu], env))
+            result['status'] = 'passed' if result['exit'] != 0 and ('has no exported member `'+private+'`') in result['stderr'] else 'failed'
+            if result['status'] == 'failed':
+                result['reason'] = 'Required privacy diagnostic was not reached; failure is not evidence that privacy passed'
+            report['privacy'].append(result)
+    if args.runtime and not args.privacy_only:
+        runtime_tests = ['lz4', 'xxhash', 'images', 'meshoptimizer', 'freetype', 'posix', 'posix-abi', 'curl', 'ios', 'objective-c', 'appkit', 'mojoshader', 'macos', 'metal', 'gl', 'nsgl', 'gl-context', 'reflection-procedure-flags', 'graphics-math', 'sdl', 'sdl-wm', 'sdl-layout']
+        if sys.platform == 'win32':
+            runtime_tests.append('wgl-context')
+        for name in runtime_tests:
             relevant = {'xxhash': ['xxHash'], 'images': ['stb_image', 'stb_image_write', 'stb_image_resize', 'stb_vorbis'], 'posix': ['POSIX'], 'curl':['Curl'], 'ios':['iOS'], 'objective-c':['Objective_C'], 'mojoshader':['MojoShader'], 'macos':['macOS'], 'metal':['Metal'], 'gl':['GL'], 'graphics-math':['d3d12'], 'sdl':['SDL'], 'sdl-layout':['SDL']}.get(name, [name])
+            if name == 'appkit':
+                relevant = ['Objective_C']
+            if name == 'sdl-wm':
+                relevant = ['SDL']
+            if name == 'posix-abi':
+                relevant = ['POSIX']
+            if name == 'wgl-context':
+                relevant = ['GL']
+            if name in ('gl-context','reflection-procedure-flags','nsgl'):
+                relevant = ['GL']
             if args.module and not any(m in args.module for m in relevant):
                 continue
             source = ROOT/'tests/native-bindings'/f'{name}.jai'
+            if name == 'sdl-wm':
+                source = ROOT/'stdlib/SDL/tests/sdl-wm.jai'
             if not source.is_file():
                 report['native'].append({'name': name, 'status': 'not_implemented'})
                 continue
             exe = work/(name+'-test')
             report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
             result = invoke([compiler, source, '-exe', exe], env)
-            result.update(name=name, phase='build',scope='private_arithmetic' if name=='graphics-math' else 'library_runtime',status='passed' if result['exit']==0 else 'failed')
+            scope = 'private_arithmetic' if name=='graphics-math' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
+            result.update(name=name, phase='build',scope=scope,status='passed' if result['exit']==0 else 'failed')
             report['native'].append(result)
             if result['exit'] == 0:
                 result = invoke([exe], env)
@@ -186,8 +254,8 @@ def main():
             source = ROOT/'tests/native-bindings/imgui_ffi.cpp'
             report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
             command = ['c++','-std=c++17','-Wall','-Wextra','-Werror','-isystem',ROOT/'.work/vendor'/pin['archive']['root'],
-                       ROOT/'tests/native-bindings/imgui_ffi.cpp',ROOT/'.work/native/libimgui.a',
-                       ROOT/'.work/native/libbinding_ffi.a','-lffi','-o',exe]
+                       ROOT/'tests/native-bindings/imgui_ffi.cpp',native_libraries/'libimgui.a',
+                       native_libraries/'libbinding_ffi.a','-lffi','-o',exe]
             result = invoke(command,env)
             result.update(name='imgui-ffi',language='C++',phase='build',header_sha256=pin['files']['imgui.h'],
                           status='passed' if result['exit']==0 else 'failed')

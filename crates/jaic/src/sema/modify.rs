@@ -201,7 +201,7 @@ impl Compiler {
         };
         let mut f = FnCtx::new("modify".into(), sig, self.scope_file(def_scope));
         f.compile_time = true;
-        f.context = Some(f.b.param(0));
+        f.set_context(Some(f.b.param(0)));
         // `return false, "message"`: the optional message goes to a global (empty by default).
         let message = self.program.add_global(ir::Global {
             name: "modify.message".into(),

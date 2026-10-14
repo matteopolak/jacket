@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         # macos-15-intel only on pushes to main (its runners queue for a long time); see docs/tools/continuous-integration.md
-        include: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"},{"runner":"macos-15-intel","architecture":"x86_64"}]' || '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"}]') }}
+        include: ${{ fromJSON(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cleanroom-integration') && '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"},{"runner":"macos-15-intel","architecture":"x86_64"}]' || '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"}]') }}
     concurrency:
       group: ${{ github.workflow }}-test-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.runner == 'macos-15-intel' && 'newest' || github.sha }}
       cancel-in-progress: true
@@ -181,6 +181,7 @@ jobs:
         # (docs/native/wasm-target.md).
         run: |
           cargo build --locked -p jaic-cli
+          python3 tools/check_platform_io.py --jaic target/debug/jaic --stdlib stdlib --wasm --case file-contract
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
@@ -280,7 +281,7 @@ jobs:
       fail-fast: false
       matrix:
         # macos-15-intel only on pushes to main, as in `test`
-        include: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},{"runner":"macos-15-intel","platform":"macos-x64"}]' || '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]') }}
+        include: ${{ fromJSON(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cleanroom-integration') && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},{"runner":"macos-15-intel","platform":"macos-x64"}]' || '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]') }}
     concurrency:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}
       cancel-in-progress: true

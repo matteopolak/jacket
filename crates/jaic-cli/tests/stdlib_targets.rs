@@ -63,9 +63,63 @@ fn modules_in(stdlib: &Path, folder: &str, skip: &[String]) -> Vec<String> {
         })
         .filter(|name| !skip.contains(name))
         .collect();
+    for entry in std::fs::read_dir(stdlib.join(folder)).unwrap() {
+        let entry = entry.unwrap();
+        if !entry.file_type().unwrap().is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        // Private implementation roots are checked through their importing
+        // facades; application imports must not admit them. Extensions are
+        // collected separately with their public prefix.
+        if folder.is_empty() && matches!(name.as_str(), "internal" | "Extensions") {
+            continue;
+        }
+        nested_modules(&entry.path(), &format!("{prefix}{name}"), &mut names);
+    }
+    names.retain(|name| !skip.contains(name));
     names.sort();
     names.dedup();
     names
+}
+
+fn nested_modules(directory: &Path, prefix: &str, names: &mut Vec<String>) {
+    for entry in std::fs::read_dir(directory).unwrap() {
+        let entry = entry.unwrap();
+        if !entry.file_type().unwrap().is_dir() {
+            continue;
+        }
+        let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+        if entry.path().join("module.jai").is_file() {
+            names.push(name.clone());
+        }
+        nested_modules(&entry.path(), &name, names);
+    }
+}
+
+#[test]
+fn discovery_covers_nested_public_facades_without_importing_private_fragments() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("nested-module-discovery-{}", std::process::id()));
+    if root.exists() {
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+    for file in [
+        "A/module.jai",
+        "A/Child/module.jai",
+        "A/fragments/helper.jai",
+        "internal/Hidden/module.jai",
+        "Extensions/Test/module.jai",
+    ] {
+        let file = root.join(file);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, "").unwrap();
+    }
+    assert_eq!(modules(&root, &[]), ["A", "A/Child", "Extensions/Test"]);
+    assert_eq!(
+        modules(&root, &["A/Child".into()]),
+        ["A", "Extensions/Test"]
+    );
 }
 
 /// The expectations file: `skip Module` lines and `Module os: file: message` lines.
@@ -106,7 +160,8 @@ fn every_stdlib_module_checks_for_every_target() {
     let stdlib_prefix = format!("{}/", stdlib.display());
     let listed = root.join("tests/stdlib-targets.txt");
     let (skip, expected) = expectations(&std::fs::read_to_string(&listed).unwrap());
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("stdlib-targets");
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("stdlib-targets-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
 

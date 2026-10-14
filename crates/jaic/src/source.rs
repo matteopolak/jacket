@@ -142,6 +142,8 @@ pub enum DiagnosticKind {
     UnknownIdentifier { scope: Option<u32> },
     /// A value whose type does not convert to the type expected there.
     TypeMismatch,
+    /// A concrete generic argument fails a structural interface restriction.
+    InterfaceConstraint,
     /// A failed `#assert`.
     StaticAssert,
     /// A `#foreign` procedure names a library no `#library` declares (often one declared only
@@ -152,6 +154,10 @@ pub enum DiagnosticKind {
     /// The program called a foreign procedure this host cannot provide (the browser's sandbox
     /// has no native libraries).
     Unavailable,
+    /// A declaration is being reflected without concrete generic arguments.
+    /// Consumers may retain symbolic metadata; ordinary semantic failures must
+    /// still propagate rather than being mistaken for an absent default.
+    UnboundGenericParameter,
     /// A `#modify` block on a procedure or struct with no polymorph variables, which would
     /// never run. Reported at the declaration, not as a call's mismatch.
     ModifyWithoutPolymorphs,
@@ -170,10 +176,12 @@ impl DiagnosticKind {
                 ..
             } => Some("unknown-identifier"),
             DiagnosticKind::TypeMismatch => Some("type-mismatch"),
+            DiagnosticKind::InterfaceConstraint => Some("interface-constraint"),
             DiagnosticKind::StaticAssert => Some("static-assert"),
             DiagnosticKind::UnknownLibrary => Some("unknown-library"),
             DiagnosticKind::MissingFile => Some("missing-file"),
             DiagnosticKind::Unavailable => Some("unavailable"),
+            DiagnosticKind::UnboundGenericParameter => Some("unbound-generic-parameter"),
             DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
             DiagnosticKind::Runtime => Some("runtime-error"),
         }

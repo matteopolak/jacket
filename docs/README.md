@@ -3,7 +3,15 @@
 Start with [compiler architecture](compiler/architecture.md). Real projects that compile are listed in [upstream corpus](tools/upstream-corpus.md#project-status).
 
 - [Features](features.md): what works, performance and what is missing
+- [Window/render progress](status/window-render-progress.md): scoped native window,
+  native input and keyboard layouts, Keymap, window lifecycle, original native-font
+  feature regressions and real font-atlas/text rendering,
+  textures, depth/stencil and asynchronous readback evidence;
+  [remaining deviations](status/window-render-deviations.md).
+- [Window/render clean-room incident](status/window-render-cleanroom-incident-2026-10-14.md):
+  reviewed metadata-only exposure, clearance and implementation resumption.
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
+- [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
 
 ## Language
 
@@ -51,6 +59,14 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 - [Compiler module (Jai side)](metaprogramming/compiler-module.md)
 - [Independent compiler facades](compiler/compiler-facades.md): current supported helpers, traversal/printing and focused test overlay
 - [Compiler-managed global data](compiler/compiler-global-data.md): registered storage identity, segment handles and compile-time/target runtime records
+- [Bootstrap atomics](compiler/bootstrap-atomics.md): scalar validation, host/native/WASM atomic semantics and contention regressions
+- [Ordered variadics and interfaces](compiler/mixed-variadics-and-interfaces.md): mixed packs, continuation lifetime, binding-time structural checks and loaded-file parameter scope
+- [Register operands](compiler/register-operands.md): canonical SIMD operand identity, generic expansion and scalar lane results
+- [Context cleanup](compiler/context-cleanup.md): conditional caller-scope macro context and lexical exit behavior
+- [Generic default reflection](compiler/generic-default-reflection.md): source identity, evaluated instance defaults and storage contract
+- [Measured performance messages](compiler/performance-messages.md): reviewed run records, actual counters and host timing boundary
+- [Compiler progress](status/compiler-progress.md) and [deviations](status/compiler-deviations.md): producer checkpoints, verification evidence, gaps and required long-term fixes
+- [Completeness follow-up](compiler/completeness-follow-up.md): qualified constant writes, runtime configuration, suspended threads and alias documentation
 - [Literal precision](compiler/literal-precision.md): contextual defaults, required precision, aliases, folding, overloads and module arguments
 - [Browser integration status](compiler/browser-integration-status.md): explicit source-library embedding, supported Compiler regression and remaining integration failures
 - [Using-filter propagation](compiler/using-filter-propagation.md): parameter/macro bindings, embedded filters, mapped storage and safe Code reconstruction
@@ -66,7 +82,9 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 How `crates/jaic`, the interpreter and the language server work.
 
 - [Compiler architecture](compiler/architecture.md)
+- [Owned compiler formatting verification](compiler/formatting-verification.md): source-built formatter/linter and generated-source idempotence
 - [Compiler integration handoff](compiler-integration-handoff.md): source build, canonical bootstrap and runtime contract for independent library workers
+- [Producer integration requests](compiler/producer-integration-requests.md): remaining Autorun path repair and independent safety/reflection review
 - [Clean-room compiler implementation plan](compiler/cleanroom-implementation-plan.md)
 - [Diagnostics](compiler/diagnostics.md): error message style guide, rendering, runtime failures, exit statuses
 - [Format string check](compiler/format-string-check.md): `print` format strings against their argument count
@@ -107,14 +125,24 @@ The LLVM backend, C ABI and linking.
 
 - [Independent integration commands and limits](tools/cleanroom-integration.md)
 - [Integration deviations audit](status/integration-deviations.md) and [requests](integration-requests.md)
+- [Integration contract questions](specs/questions/cleanroom-integration.md): unresolved runtime instance and ABI labels, distinct from specified implementation gaps
+- [Legacy contract audit](tools/legacy-contract-audit.md): exact API evidence, reasoned fixture migrations and genuine failures retained for repair
 
 - [Core foundations implementation handoff](foundations-handoff.md)
+- [Basic public surface audit and outstanding exports](foundations-api-audit.md)
+- [Remaining Basic implementation plan](status/foundations-completion-plan.md)
+- [Public alias completion signature request](status/foundations-lsp-request.md)
 - [Core foundations native ABI notes](foundations-native-abi.md)
 - [Core foundations deviations and remaining limits](status/foundations-deviations.md)
+- [Core foundations live progress](status/foundations-progress.md)
+- [Exact shortest-float boundary audit](../tools/check_float_power_sweep.py): independent rational checks of every normal binary32/binary64 power-of-two interval
 - [Core foundations contract questions](specs/stdlib/foundations-questions.md)
 - [Numerics implementation status](status/numerics.md)
+- [Numerics current progress](status/numerics-progress.md)
+- [Numerics deviations register](status/numerics-deviations.md)
 - [Numerics corrective review and tool evidence](status/numerics-corrective-plan.md)
 - [Numerics compiler restriction handoff](status/numerics-compiler-handoff.md)
+- [Numerics current canonical dependency reproducers](status/numerics-dependency-handoff.md)
 - [Numerics implementation and verification](numerics.md)
 - [Numerics implementation plan](status/numerics-plan.md)
 - [Numerics contract questions](specs/stdlib/numerics-questions.md)
@@ -124,6 +152,8 @@ The LLVM backend, C ABI and linking.
 - [Native GL format mapping ledger](window-render-gl-formats.json)
 - [Focused window/render verification runner](../tools/check_window_render.py)
 - [Window/render contract questions](specs/stdlib/window-render-questions.md)
+- [Platform I/O backends and native/WASI runner](platform-io.md), [worker progress](status/platform-io-progress.md), and [deviations](status/platform-io-deviations.md)
+- [Platform I/O compiler and lint handoff](platform-io-compiler-handoff.md)
 - [jaic Extensions](extensions/README.md)
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
@@ -132,6 +162,13 @@ The LLVM backend, C ABI and linking.
 - [WAV parser design and validation](portable-wav.md)
 - [SMTP/MIME transport and loopback validation](portable-mail.md)
 - [POSIX crash diagnostics and native startup verification](portable-crash-handler.md)
+- [Classic ZIP directory parsing and ownership](portable-zip-directory.md)
+- [Atomics and verified bootstrap aliases](portable-atomics.md)
+- [Deep_Copy verified graphs and remaining contracts](portable-deep-copy.md)
+- [Unix BuildCpp artifacts, cleanup and toolchain limits](portable-buildcpp.md)
+- [Treemap weights, stable nodes and rectangle layout](portable-treemap.md)
+- [POSIX shared-memory channels and mixed-process verification](portable-shared-memory.md)
+- [Autorun lifecycle and compiler integration gaps](portable-autorun.md)
 - [Portable worker progress](status/stdlib-progress.md) and [deviations](status/stdlib-deviations.md)
 - [Socket native declaration ledger](socket-native-ledger.json)
 - [Focused portable regression runner](../tools/check_portable_stdlib.py)
@@ -149,6 +186,10 @@ Implementation work uses the API specification as its compatibility contract. Im
 - [Native binding verified snapshot evidence](native/bindings-verified-snapshot.json)
 - [Native binding contract questions](specs/stdlib/native-bindings-questions.md)
 - [Native binding implementation deviations](status/bindings-deviations.md)
+- [Bindings worker progress and remaining scope](status/bindings-progress.md)
+- [Native WGL context implementation and verification boundary](native/wgl-context.md)
+- [Real GL SDK validation and reviewable integration fixes](native/gl-sdk-validation.md)
+- [Current compiler context-probing regression](native/compiler-context-probe.md)
 - [Jai language guide](specs/jai/README.md)
 
 ## Browser
@@ -209,6 +250,12 @@ Scripts, CI and project policies.
 
 ## Plans
 
+- [Window/render progress](status/window-render-progress.md) and [deviations](status/window-render-deviations.md): production gaps, staged evidence and next verification steps.
+- [Window/render compiler build](../tools/window_render_compiler.py): builds the integrated compiler/linter directly; the reflection correction is production compiler code.
+- [Window/render coverage](window-render-coverage.md): public native windows, Keymap and renderer contracts, with verification limits.
+
 Agreed designs that are not built yet.
 
 - [Async IO, HTTP and JSON](plans/async-io.md): fibers over io_uring/epoll/kqueue/IOCP, typed JSON, and an HTTP server and client
+
+- [Native integration CI](tools/native-integration-ci.md): temporary branch checks and real Windows File execution

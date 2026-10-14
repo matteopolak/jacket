@@ -36,10 +36,13 @@ fn lint(file: &Path, levels: &[(&str, Level)]) -> (Vec<Lint>, String) {
     let options = jailint::driver::Options {
         paths: vec![file.to_path_buf()],
         import_dirs: Vec::new(),
-        stdlib: repo().join("stdlib"),
+        stdlib: jaic::stdlib_dir(repo().join("stdlib")),
         config,
         jobs: 1,
         verbose: false,
+        target_os: None,
+        target_cpu: None,
+        add_sources: Vec::new(),
     };
     let outcome = jailint::driver::run(&options);
     assert!(

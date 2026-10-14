@@ -1209,8 +1209,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     options.import_paths.extend(cli.imports.iter().cloned());
     options.import_paths.push(stdlib.clone());
     options.preload = Some(
-        jaic::find_preload(&NativeFs, &stdlib)
-            .unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)),
+        jaic::find_preload(&NativeFs, &stdlib).unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)),
     );
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
     // What workspaces created by metaprograms ask for is written by a build and `-interp` alike:
@@ -1314,7 +1313,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         }
         timings::time("front end", || compiler.compile_sources(&sources))
     } else {
-        let source = plugin_metaprogram(&cli, &path);
+        let source = plugin_metaprogram(&cli, &path, wasi);
         timings::time("front end", || {
             compiler.compile_sources(&[ProgramSource::String(source)])
         })
@@ -1460,8 +1459,8 @@ fn flush_sandbox(host: &Rc<RefCell<SandboxHost>>) {
 }
 
 /// The metaprogram `+Plugin` stands for: import each plugin module, then compile `path` in a
-/// workspace with their hooks (`build_with_plugin_groups` in `Metaprogram_Plugins`).
-fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
+/// workspace using the reviewed public Compiler lifecycle primitives.
+fn plugin_metaprogram(cli: &Cli, path: &Path, wasi: bool) -> String {
     let quote = |s: &str| {
         let escaped = s
             .replace('\\', "\\\\")
@@ -1470,37 +1469,6 @@ fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
             .replace('\r', "\\r");
         format!("\"{escaped}\"")
     };
-    let mut text = String::from(
-        "Compiler :: #import \"Compiler\";\nPlugins :: #import \"Metaprogram_Plugins\";\n#import \"Basic\";\n",
-    );
-    for (i, plugin) in cli.plugins.iter().enumerate() {
-        // `Name(PARAM=value)` passes module parameters along.
-        let (name, params) = plugin
-            .name
-            .split_at(plugin.name.find('(').unwrap_or(plugin.name.len()));
-        let params = if cli.no_check_bindings && name == "Check" {
-            check_bindings_off(params)
-        } else {
-            params.to_string()
-        };
-        text += &format!("__plugin_{i} :: #import {}{params};\n", quote(name));
-    }
-    text += "#run,stallable {\n    plugins: [..] *Compiler.Metaprogram_Plugin;\n";
-    for i in 0..cli.plugins.len() {
-        text += &format!("    array_add(*plugins, __plugin_{i}.get_plugin());\n");
-    }
-    // Each plugin's own options, one after the other, with how many belong to each.
-    text += "    options: [..] string;\n    counts: [..] s64;\n";
-    for plugin in &cli.plugins {
-        for option in &plugin.options {
-            text += &format!("    array_add(*options, {});\n", quote(option));
-        }
-        text += &format!("    array_add(*counts, {});\n", plugin.options.len());
-    }
-    text += "    added: [..] string;\n";
-    for added in &cli.added {
-        text += &format!("    array_add(*added, {});\n", quote(&added.source()));
-    }
     // `-exe` and `-output_path` name the executable; otherwise it is named after the file, next
     // to it.
     let lossy = |p: Option<&std::ffi::OsStr>| p.map(|n| n.to_string_lossy().into_owned());
@@ -1517,12 +1485,72 @@ fn plugin_metaprogram(cli: &Cli, path: &Path) -> String {
         ),
         None => (lossy(path.file_stem()), None),
     };
+    let mut text = String::from("Compiler :: #import \"Compiler\";\n");
+    for (i, plugin) in cli.plugins.iter().enumerate() {
+        // `Name(PARAM=value)` passes module parameters along.
+        let (name, params) = plugin
+            .name
+            .split_at(plugin.name.find('(').unwrap_or(plugin.name.len()));
+        let params = if cli.no_check_bindings && name == "Check" {
+            check_bindings_off(params)
+        } else {
+            params.to_string()
+        };
+        text += &format!("__plugin_{i} :: #import {}{params};\n", quote(name));
+    }
+    text += "#scope_file\n__jaic_plugin_failure :: (plugins: [] *Compiler.Metaprogram_Plugin, initialized: s64, w: Workspace, message: string) {\n    for p: plugins {\n        if it_index >= initialized break;\n        if p.shutdown p.shutdown(p);\n    }\n    Compiler.compiler_set_workspace_status(.FAILED, w);\n    Compiler.compiler_report(\"\", 0, 0, message);\n}\n";
     text += &format!(
-        "    Plugins.build_with_plugin_groups({}, plugins, options, counts, added, {}, {});\n}}\n",
-        quote(&path.to_string_lossy()),
+        "#run,stallable {{\n    w := Compiler.compiler_create_workspace(\"Target Program\");\n    plugins: [{}] *Compiler.Metaprogram_Plugin;\n",
+        cli.plugins.len()
+    );
+    text += &format!(
+        "    build := Compiler.get_build_options();\n    metaprogram := build;\n    metaprogram.output_type = .NO_OUTPUT;\n    Compiler.set_build_options(metaprogram);\n    build.output_executable_name = {};\n    build.output_path = {};\n    Compiler.set_build_options(build, w);\n",
         quote(&name.unwrap_or_default()),
         quote(&dir.unwrap_or_default()),
     );
+    for (i, plugin) in cli.plugins.iter().enumerate() {
+        text += &format!(
+            "    plugins[{i}] = __plugin_{i}.get_plugin();\n    if plugins[{i}] == null __jaic_plugin_failure(plugins, {i}, w, \"plugin get_plugin returned null\");\n    plugins[{i}].workspace = w;\n"
+        );
+        let options = plugin
+            .options
+            .iter()
+            .map(|s| quote(s))
+            .collect::<Vec<_>>()
+            .join(", ");
+        text += &format!(
+            "    options_{i}: [{}] string = .[{options}];\n",
+            plugin.options.len()
+        );
+        if !plugin.options.is_empty() {
+            text += &format!(
+                "    if !plugins[{i}].init __jaic_plugin_failure(plugins, {}, w, \"plugin has options but no init hook\");\n",
+                i + 1
+            );
+        }
+        text += &format!(
+            "    if plugins[{i}].init && !plugins[{i}].init(plugins[{i}], options_{i}) __jaic_plugin_failure(plugins, {}, w, \"plugin initialization failed\");\n",
+            i + 1
+        );
+    }
+    text += "    flags: Compiler.Intercept_Flags;\n    for p: plugins if p.before_intercept p.before_intercept(p, *flags);\n    Compiler.compiler_begin_intercept(w, flags);\n    for p: plugins if p.add_source p.add_source(p);\n";
+    text += &format!(
+        "    Compiler.add_build_file({}, w);\n",
+        quote(&path.to_string_lossy())
+    );
+    for added in &cli.added {
+        text += &format!(
+            "    Compiler.add_build_string({}, w);\n",
+            quote(&added.source())
+        );
+    }
+    if wasi {
+        text += &format!(
+            "    Compiler.add_build_string({}, w);\n",
+            quote(jaic::build::WASI_RUNTIME_IMPORT)
+        );
+    }
+    text += "    failed := false;\n    while true {\n        message := Compiler.compiler_wait_for_message();\n        if message == null Compiler.compiler_report(\"\", 0, 0, \"plugin workspace ended without COMPLETE\");\n        for p: plugins if p.message p.message(p, message);\n        if message.workspace == w && message.kind == .COMPLETE {\n            complete := cast(*Compiler.Message_Complete) message;\n            failed = complete.error_code != .NONE;\n            break;\n        }\n    }\n    Compiler.compiler_end_intercept(w);\n    for p: plugins if p.finish p.finish(p);\n    for p: plugins if p.shutdown p.shutdown(p);\n    if failed Compiler.compiler_set_workspace_status(.FAILED, w);\n}\n";
     text
 }
 

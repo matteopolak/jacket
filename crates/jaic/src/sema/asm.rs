@@ -665,6 +665,45 @@ fn wide_mul(f: &mut FnCtx, sz: Ty, a: Val, b: Val, signed: bool) -> (Val, Val) {
 }
 
 impl Compiler {
+    /// Canonical bootstrap operand marker, retaining its distinct source type.
+    pub(super) fn register_operand_type(&mut self, span: Span) -> Result<TypeId> {
+        if self.preload.is_some() {
+            return self.preload_type("__reg", span);
+        }
+        let id = self.scope(self.root_scope).names[&Sym::intern("__reg")][0];
+        match self.resolve_entity(id)? {
+            scope::Resolved::Const {
+                value: Value::Type(ty),
+                ..
+            } => Ok(ty),
+            _ => err(span, "bootstrap __reg must be a type"),
+        }
+    }
+
+    pub(super) fn is_register_operand_type(&mut self, ty: TypeId, span: Span) -> bool {
+        matches!(self.types.kind(ty), crate::types::TypeKind::Distinct(_))
+            && self.register_operand_type(span).ok() == Some(ty)
+    }
+
+    /// Operand markers have no standalone runtime storage or procedure ABI.
+    pub(super) fn ensure_storage_type(&mut self, ty: TypeId, span: Span) -> Result<()> {
+        if self.is_register_operand_type(ty, span) {
+            return err(
+                span,
+                "a SIMD register operand has no standalone storage or runtime ABI; use #asm and expanded parameters",
+            );
+        }
+        match self.types.kind(ty).clone() {
+            crate::types::TypeKind::Array {
+                elem, ..
+            } => self.ensure_storage_type(elem, span),
+            crate::types::TypeKind::Distinct(d) => {
+                self.ensure_storage_type(self.types.distincts[d.0 as usize].base, span)
+            }
+            _ => Ok(()),
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Entry point
     // -----------------------------------------------------------------------
@@ -815,12 +854,17 @@ impl Compiler {
             self.asm_record_pin(decl, addr);
         }
         let depth = self.scope(cx.scope).proc_depth;
+        let ty = if kind == AsmReg::Vec {
+            self.register_operand_type(decl.name.span)?
+        } else {
+            TypeId::U64
+        };
         let id = self.add_entity(
             cx.scope,
             name,
             decl.name.span,
             EntityKind::Local {
-                ty: TypeId::U64,
+                ty,
                 addr,
                 depth,
             },
@@ -891,7 +935,7 @@ impl Compiler {
                 value: Value::Code(code),
                 ..
             } => {
-                // A `__reg` macro parameter: the caller's operand expression.
+                // An explicitly quoted Code expression keeps its lexical scope.
                 if depth > 8 {
                     return err(e.span, "#asm register argument is nested too deeply");
                 }

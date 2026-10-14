@@ -113,7 +113,7 @@ that is not pinned reads 0; a pin is `=== a`, `=== di`, `=== 10`, or `r10`), and
   `F64` bit patterns, single rounding). They are implemented in `interp/mod.rs` and in `jaic-llvm`
   (`llvm.ctpop/ctlz/cttz/bswap/fma`). AES S-box and inverse tables are generated in Rust into one read-only global
   (`Compiler::asm_aes_tables`) on first use.
-- `__reg` (alias of `Code`) macro parameters bind to the caller's operand by name.
+- Canonical `__reg` retains its distinct source type and binds an expanded parameter to the caller SIMD register storage. Generic expanded parameters preserve the operand marker; ordinary scalar/storage/ABI use diagnoses an unsupported operation. Code remains a separate quoted-expression type.
 
 ### Supported instructions
 

@@ -830,6 +830,15 @@ impl Builder<'_> {
             loc: NO_LOC,
         };
         match *inst {
+            Inst::StackAlloc {
+                dst,
+                size,
+                ..
+            } => {
+                self.v(size);
+                self.v(dst);
+                self.push(slow, None);
+            }
             Inst::IConst {
                 dst,
                 ty,
@@ -2055,7 +2064,8 @@ impl Interp {
                     let inst = &func.blocks[block as usize].insts[inst as usize];
                     // SAFETY: the same registers, borrowed for this one step only.
                     let vals = unsafe { std::slice::from_raw_parts_mut(regs, code.regs) };
-                    if let Err(trap) = self.step(program, inst, vals, frame, stack_base) {
+                    if let Err(trap) = self.step(program, inst, vals, frame, stack_base, &func.vals)
+                    {
                         if trap.kind == Some(TrapKind::Suspended) {
                             self.suspend_at = Some(here);
                         }

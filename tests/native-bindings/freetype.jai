@@ -7,7 +7,7 @@ check :: (value: bool) {
     if !value abort();
 }
 
-probe :: #library "../../.work/native/abi_probe";
+probe :: #library "abi_probe";
 check_size :: (which: s32) -> u64 #foreign probe "binding_size";
 check_offset :: (which: s32) -> u64 #foreign probe "binding_offset";
 

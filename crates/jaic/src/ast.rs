@@ -983,6 +983,7 @@ pub struct UsingStmt {
 
 #[derive(Clone, Debug)]
 pub struct PushContextStmt {
+    pub backtick: bool,
     pub context: Expr,
     pub body: Box<Stmt>,
     /// No context was named (`push_context { }`): `context` is the current one, and a copy
@@ -995,6 +996,8 @@ pub struct PushContextDeferStmt {
     pub context: Expr,
     /// `push_context,defer_pop;`: as `PushContextStmt::bare`.
     pub bare: bool,
+    /// A macro backtick gives the restoration lifetime to the caller's scope.
+    pub backtick: bool,
 }
 
 #[derive(Clone, Debug)]

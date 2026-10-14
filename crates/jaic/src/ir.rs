@@ -173,6 +173,9 @@ pub const TRAP_DIVIDE_BY_ZERO: u64 = 6;
 /// a member of a null struct pointer (a: `NULL_READ`..`NULL_FILL`, b: the address).
 pub const TRAP_NULL_POINTER: u64 = 7;
 
+pub const TRAP_ATOMIC_ALIGNMENT: u64 = 8;
+pub const TRAP_VARIADIC_SIZE: u64 = 9;
+
 /// `a` of a `TRAP_NULL_POINTER` failure: what the access did.
 pub const NULL_READ: u64 = 0;
 
@@ -248,6 +251,10 @@ pub fn check_message(reason: u64, a: u64, b: u64) -> String {
                 "no case of the `#complete` switch matches its value, {}",
                 a as i64
             )
+        }
+        TRAP_ATOMIC_ALIGNMENT => format!("atomic address {a:#x} must be aligned to {b} bytes"),
+        TRAP_VARIADIC_SIZE => {
+            format!("variadic segment count {a} exceeds the remaining pack capacity {b}")
         }
         _ => "runtime check failed".into(),
     }
@@ -528,6 +535,12 @@ pub enum Inst {
         dst: Val,
         base: Val,
         offset: Val,
+    },
+    /// Allocate runtime-sized, aligned storage until the current procedure returns.
+    StackAlloc {
+        dst: Val,
+        size: Val,
+        align: u64,
     },
     /// Copy `size` bytes (non-overlapping).
     Copy {
@@ -1084,6 +1097,35 @@ impl Builder {
         SlotId(self.func.slots.len() as u32 - 1)
     }
 
+    /// A zero-initialized scalar slot whose address dominates every block.
+    /// Used for state that can be registered conditionally and consumed after
+    /// the control-flow paths join (including caller-owned macro cleanups).
+    pub fn entry_zeroed_slot(&mut self, ty: Ty, size: u64, align: u64) -> Val {
+        let slot = self.slot(size, align);
+        let addr = self.new_val(Ty::Ptr);
+        let zero = self.new_val(ty);
+        self.func.blocks[0].insts.splice(
+            0..0,
+            [
+                Inst::SlotAddr {
+                    dst: addr,
+                    slot,
+                },
+                Inst::IConst {
+                    dst: zero,
+                    ty,
+                    value: 0,
+                },
+                Inst::Store {
+                    ty,
+                    addr,
+                    value: zero,
+                },
+            ],
+        );
+        addr
+    }
+
     pub fn push(&mut self, inst: Inst) {
         if self.is_terminated() {
             // Code after return/break is unreachable; emit into a fresh dead block.
@@ -1401,6 +1443,14 @@ impl fmt::Display for Func {
 /// Calls `def` for each value `inst` defines and `use_` for each it reads.
 pub fn inst_vals(inst: &Inst, def: &mut impl FnMut(Val), use_: &mut impl FnMut(Val)) {
     match inst {
+        Inst::StackAlloc {
+            dst,
+            size,
+            ..
+        } => {
+            def(*dst);
+            use_(*size);
+        }
         Inst::IConst {
             dst, ..
         }

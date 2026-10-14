@@ -3,10 +3,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from stdlib_coverage import code_lines, declarations
-from stdlib_runtime import load_skips, skip_reason
+from stdlib_runtime import load_skips, skip_reason, unknown_skip_tests
 
 
 class SkipListTests(unittest.TestCase):
+    def test_unknown_skip_entries_remain_failures_without_removing_real_cases(self):
+        skips = self.skips("present * native reason\nmissing * * stale inventory\n")
+        known = {"present", "new-case"}
+        self.assertEqual(unknown_skip_tests(skips, known), ["missing"])
+        self.assertEqual(known, {"present", "new-case"})
+        self.assertEqual(skip_reason(skips, "present", "macos-arm64", "native"), "reason")
+
     def skips(self, text):
         with TemporaryDirectory() as d:
             path = Path(d) / "skips.txt"

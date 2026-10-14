@@ -58,7 +58,11 @@ describe("platform to release archive", () => {
 
   it("matches the archives release.yml builds", () => {
     const workflow = readFileSync(path.join(repository, ".github", "workflows", "release.yml"), "utf8");
-    const matrix = workflow.slice(workflow.indexOf("include:"), workflow.indexOf("runs-on:"));
+    const matrixStart = workflow.indexOf("include:");
+    assert.ok(matrixStart >= 0, "release.yml declares a platform matrix");
+    const matrixEnd = workflow.indexOf("runs-on:", matrixStart);
+    assert.ok(matrixEnd > matrixStart, "the build runner follows its platform matrix");
+    const matrix = workflow.slice(matrixStart, matrixEnd);
     const built = [...matrix.matchAll(/- name: ([a-z0-9-]+)/g)].map((m) => m[1]);
     assert.ok(built.length >= 4, `found ${built.join(", ")}`);
     assert.match(workflow, /dir="jai-\$\{\{ matrix\.name \}\}"/, "release.yml packages jai-<platform>");

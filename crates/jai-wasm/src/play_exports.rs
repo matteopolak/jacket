@@ -260,7 +260,9 @@ mod tests {
         push(
             1,
             concat!(
-                "#import \"Basic\";\n#import \"POSIX\";\n",
+                "#import \"Basic\";\n",
+                "libc :: #system_library \"libc\";\n",
+                "read :: (fd: s32, data: *void, count: u64) -> s64 #foreign libc;\n",
                 "main :: () {\n",
                 "    args := get_command_line_arguments();\n",
                 "    for args print(\"[%]\", it);\n",

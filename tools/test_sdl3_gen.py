@@ -2,6 +2,16 @@ import unittest
 import sdl3_gen as gen
 
 class Types(unittest.TestCase):
+    def test_anonymous_record_metadata_is_independent_of_clang_diagnostic_spelling(self):
+        source = gen.Path('/cache/SDL3')
+        old = 'union (unnamed union at /cache/SDL3/include/SDL3/SDL_gamepad.h:271:5)'
+        new = 'union (unnamed at /cache/SDL3/include/SDL3/SDL_gamepad.h:271:5)'
+        expected = 'union (unnamed at SDL3/SDL_gamepad.h:271:5)'
+        self.assertEqual(gen.stable_c_type(old, source), expected)
+        self.assertEqual(gen.stable_c_type(new, source), expected)
+        self.assertEqual(gen.stable_c_type('const SDL_Event *', source), 'const SDL_Event *')
+        self.assertIsNone(gen.stable_c_type(None, source))
+
     def test_c_pointer_constness_and_arrays(self):
         self.assertEqual(gen.jai_type('const char *const *'), '**u8')
         self.assertEqual(gen.jai_type('Uint8[128]'), '[128] Uint8')

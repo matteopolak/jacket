@@ -69,6 +69,30 @@ main :: () {
 "#;
 
 #[test]
+fn resolved_procedure_aliases_complete_as_functions_with_public_names() {
+    let text = r#"
+worker :: (value: s32) -> s32 { return value; }
+worker :: (value: string) -> string { return value; }
+dispatch :: worker;
+single :: (value: s64) -> s64 { return value; }
+forward :: single;
+main :: () {
+    dispatch(cast(s32) 4);
+    forward(5);
+
+}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, text.into()).unwrap();
+    let items = labels(&s, after(text, "    forward(5);\n", 0, 0));
+    for name in ["dispatch", "forward"] {
+        let item = items.iter().find(|(label, ..)| label == name).unwrap();
+        assert_eq!(item.1, CompletionKind::Function, "{item:?}");
+        assert!(item.2.contains("value:"), "{item:?}");
+    }
+}
+
+#[test]
 fn hover_shows_types_of_locals_procedures_structs_and_members() {
     let mut s = session();
     s.open(uri(), 1, PROGRAM.into()).unwrap();

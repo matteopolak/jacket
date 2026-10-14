@@ -3,7 +3,7 @@
 This is a format parser, not a Jai semantic evaluator. Unknown conditions are
 retained for the generator to reject explicitly rather than guessed away.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import re
 
 
@@ -64,6 +64,30 @@ def shape_blocks(code):
         start = match.start()
     return [(name, code[begin:blocks[i + 1][1] if i + 1 < len(blocks) else len(code)].rstrip())
             for i, (name, begin) in enumerate(blocks)]
+
+
+def associate_shared_cpu_variants(spec):
+    """Associate deduplicated OS shapes with their declared CPU availability.
+
+    Reviewed inventories list every target declaration, whereas shape sections
+    list distinct shapes. A sole CPU-labeled shape for an OS is shared by that
+    OS's declared CPUs. Multiple shapes for an OS remain strictly CPU-specific;
+    no shape is borrowed across operating systems.
+    """
+    label = re.compile(r'^OS == (\.\w+) && CPU == \.\w+$')
+    for index, shape in enumerate(spec.shapes):
+        match = label.fullmatch(shape.condition)
+        if not match:
+            continue
+        siblings = [s for s in spec.shapes if s.name == shape.name and
+                    (m := label.fullmatch(s.condition)) and m[1] == match[1]]
+        if len(siblings) != 1:
+            continue
+        declarations = [d for d in spec.declarations if d.name == shape.name and
+                        (m := label.fullmatch(d.condition)) and m[1] == match[1]]
+        conditions = list(dict.fromkeys(d.condition for d in declarations))
+        if len(conditions) > 1:
+            spec.shapes[index] = replace(shape, condition=' || '.join('('+c+')' for c in conditions))
 
 
 def parse_spec(text):
@@ -176,4 +200,5 @@ def parse_spec(text):
             elif section == "Public type members" and shape_header:
                 shape_members.append(code)
     finish_list()
+    associate_shared_cpu_variants(result)
     return result

@@ -37,7 +37,8 @@ for spec,variant in [('getrect.md','right'),('getrect-lefthanded.md','left')]:
     write_generated(path,'\n\n'.join(out)+'\n')
     public='GetRect' if variant=='right' else 'GetRect_LeftHanded'
     p=ROOT/'stdlib'/public; p.mkdir(parents=True,exist_ok=True)
-    write_generated(p/'module.jai',f'''#load "../internal/numerics/ui_types_{variant}.jai";
+    write_generated(p/'module.jai',f'''#module_parameters(Type_Indicator: Type = void);
+#load "../internal/numerics/ui_types_{variant}.jai";
 #load "../internal/numerics/ui_context.jai";
 #load "../internal/numerics/ui_geometry.jai";
 #load "../internal/numerics/ui_core.jai";
@@ -51,6 +52,5 @@ LEFT_HANDED :: {'true' if variant=='left' else 'false'};
 #import "Math";
 #import "Color_Interpolation";
 #import "Input";
-#import "Window_Type";
 #import "Hash_Table";
 ''')

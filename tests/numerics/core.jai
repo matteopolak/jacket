@@ -49,8 +49,8 @@ main :: () {
     }
 
     assert(cast(u16) H.float32_to_float16(65520.0) == 0x7c00);
-    assert(cast(u16) H.float32_to_float16(1.00048828125) == 0x3c00);
-    assert(cast(u16) H.float32_to_float16(1.00146484375) == 0x3c02);
+    assert(cast(u16) H.float32_to_float16(cast(float32) 1.00048828125) == 0x3c00);
+    assert(cast(u16) H.float32_to_float16(cast(float32) 1.00146484375) == 0x3c02);
     assert(S.values_are_close(M.xy(0), M.xy(0.0001)));
     r := C.hsv_to_rgb(M.xyz(120, 1, 1));
 

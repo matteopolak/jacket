@@ -27,6 +27,7 @@ mod format_check;
 pub mod ide;
 pub mod ide_meta;
 mod ide_sketch;
+mod interfaces;
 mod lambda;
 mod lower;
 mod modify;
@@ -110,6 +111,8 @@ impl DeadCode {
         })
     }
 }
+
+pub const DEFAULT_TEMPORARY_STORAGE_SIZE: i64 = 32768;
 
 #[derive(Clone)]
 pub struct Options {
@@ -228,7 +231,7 @@ impl Options {
             import_paths: Vec::new(),
             preload: None,
             runtime_support: true,
-            temporary_storage_size: 32768,
+            temporary_storage_size: DEFAULT_TEMPORARY_STORAGE_SIZE,
             array_bounds_check: true,
             null_pointer_check: true,
             arithmetic_overflow_check: 0,
@@ -254,6 +257,10 @@ pub struct FileInfo {
 }
 
 pub struct Module {
+    /// Entry declarations are still being registered (recursive imports may see this instance).
+    pub loading: bool,
+    pub argument_span: Span,
+    pub arguments_validated: bool,
     pub name: String,
     pub path: Option<PathBuf>,
     /// Names visible module-wide (`#scope_export` and `#scope_module`).
@@ -352,6 +359,8 @@ pub struct Compiler {
     /// Lexical provenance of scoped/generated sources, for relative source loads
     /// and the distribution boundary around library-owned internals.
     source_origins: HashMap<FileId, FileId>,
+    /// Explicit editor entry, admitted for inspection without authorizing imports.
+    ide_selected_entry: Option<PathBuf>,
     file_by_path: HashMap<(PathBuf, ModuleId), modules::FileLoadState>,
     /// Whether each source file is the stdlib's, for trap reports (a `#run` can trap often).
     library_files: std::cell::RefCell<HashMap<u32, bool>>,
@@ -616,6 +625,7 @@ impl Compiler {
             registered_data_segments: HashMap::default(),
             files: Vec::new(),
             source_origins: HashMap::default(),
+            ide_selected_entry: None,
             file_by_path: HashMap::default(),
             modules: Vec::new(),
             module_cache: HashMap::default(),

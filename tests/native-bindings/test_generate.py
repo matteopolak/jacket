@@ -9,6 +9,32 @@ from spec import parse_spec
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_foreign_prototype_before_record_is_not_an_authored_body(self):
+        text = '''native :: () #foreign lib "call";
+Record :: struct { value: u32; }
+wrapper :: (value: u32) -> u32 { return value; }
+'''
+        signatures = authored_signatures(text)
+        self.assertEqual(signatures, {normalized_signature('wrapper :: (value: u32) -> u32')})
+        self.assertEqual(authored_signatures(text.replace('"call";', '"call"')), signatures)
+
+    def test_native_sdl_wm_shape_uses_explicit_safe_adapter(self):
+        spec = parse_spec('''# SDL
+## Public declaration inventory
+- `SDL_GetWindowWMInfo :: (window: *SDL_Window, info: *SDL_SysWMinfo) -> SDL_bool #foreign SDL2`
+''')
+        code, ledger = generate_facade('SDL', spec)
+        self.assertNotIn('SDL_GetWindowWMInfo ::', code)
+        self.assertEqual(ledger[0]['status'], 'implemented_manual')
+        self.assertEqual(ledger[0]['native_abi_adapter'], 'SDL_GetWindowWMInfo')
+        changed = parse_spec('''# SDL
+## Public declaration inventory
+- `SDL_GetWindowWMInfo :: (window: *SDL_Window, different_name: *SDL_SysWMinfo) -> SDL_bool #foreign SDL2`
+''')
+        code, ledger = generate_facade('SDL', changed)
+        self.assertNotIn('SDL_GetWindowWMInfo ::', code)
+        self.assertEqual(ledger[0]['status'], 'unresolved')
+
     def test_arguments_handle_nested_function_types(self):
         self.assertEqual(split_arguments('a: s32, cb: #type (x: s32, y: s32) #c_call, b: [2]u32'),
                          ['a: s32', 'cb: #type (x: s32, y: s32) #c_call', 'b: [2]u32'])

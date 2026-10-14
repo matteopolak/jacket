@@ -11,7 +11,15 @@ IMPORTS = {
     'Android/AAudio': [], 'Android/EGL': ['Android'],
     'Vulkan': [],
 }
+
+# These facade entry points need independently authored native storage adapters.
+# This is an explicit reviewed safety exception to direct foreign forwarding;
+# signatures are still matched in full, including argument names and defaults.
+NATIVE_ABI_ADAPTERS = {
+    ('SDL', 'SDL_GetWindowWMInfo'): 'SDL_GetWindowWMInfo',
+}
 LIBRARIES = {
+    'glx': 'GLX', 'libX11': 'X11',
     'xxh_vendor': 'xxhash070', 'lib_stb_vorbis': 'stb_vorbis',
     'liblz4': 'lz4', 'meshopt_lib': 'meshoptimizer', 'libcurl': 'curl',
     'libfreetype': 'freetype', 'freetype': 'freetype', 'libvulkan': 'vulkan',

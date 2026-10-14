@@ -9,7 +9,7 @@ name: windows native
 # plus this file, so the Windows runners are not spent on every stdlib or compiler change.
 on:
   push:
-    branches: ['main', 'wip/windows-native', 'ci/windows-arm64']
+    branches: ['main', 'wip/windows-native', 'ci/windows-arm64', 'codex/cleanroom-integration']
     paths:
       - 'crates/**'
       - 'stdlib/**'
@@ -178,10 +178,13 @@ jobs:
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+      - name: Platform I/O (interpreter and native O0/O2)
+        if: success() || failure()
+        run: python -u tools/check_platform_io.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
-          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/corpus/positive/integer-control.jai -exe native-exes/smoke || echo "jaic exit $?"
+          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/corpus/positive/integer-control.jai -exe native-exes/smoke
           python -u tools/windows_cross.py build --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
       - name: Install Mesa's software OpenGL
@@ -240,6 +243,25 @@ jobs:
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames presented and read back.
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --require-adapter --test window --frames 120
+      - name: Signed mouse wheel event propagation (issue 1)
+        if: success() || failure()
+        run: |
+          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/window-render/signed-wheel-windows.jai -interp
+          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/window-render/signed-wheel-windows.jai -exe native-exes/signed-wheel
+          native-exes/signed-wheel.exe
+      - name: Public renderer wheel propagation interpreter (issue 1)
+        if: success() || failure()
+        run: target/x86_64-pc-windows-msvc/debug/jaic.exe tests/window-render/windows-render-events.jai -interp
+      - name: Public renderer wheel propagation native O0 (issue 1)
+        if: success() || failure()
+        run: |
+          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/window-render/windows-render-events.jai -O0 -exe native-exes/render-wheel-O0
+          native-exes/render-wheel-O0.exe
+      - name: Public renderer wheel propagation native O2 (issue 1)
+        if: success() || failure()
+        run: |
+          target/x86_64-pc-windows-msvc/debug/jaic.exe tests/window-render/windows-render-events.jai -O2 -exe native-exes/render-wheel-O2
+          native-exes/render-wheel-O2.exe
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
@@ -384,10 +406,13 @@ jobs:
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+      - name: Platform I/O (interpreter and native O0/O2)
+        if: success() || failure()
+        run: python -u tools/check_platform_io.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
-          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/corpus/positive/integer-control.jai -exe native-exes/smoke || echo "jaic exit $?"
+          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/corpus/positive/integer-control.jai -exe native-exes/smoke
           python -u tools/windows_cross.py build --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --out native-exes --host --keep-going
           python -u tools/windows_cross.py run --dir native-exes
       - name: Interpreter variadic foreign calls
@@ -408,6 +433,25 @@ jobs:
       - name: WebGPU in a window (HWND surface on WARP, presented)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter --test window --frames 120
+      - name: Signed mouse wheel event propagation (issue 1)
+        if: success() || failure()
+        run: |
+          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/window-render/signed-wheel-windows.jai -interp
+          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/window-render/signed-wheel-windows.jai -exe native-exes/signed-wheel
+          native-exes/signed-wheel.exe
+      - name: Public renderer wheel propagation interpreter (issue 1)
+        if: success() || failure()
+        run: target/aarch64-pc-windows-msvc/debug/jaic.exe tests/window-render/windows-render-events.jai -interp
+      - name: Public renderer wheel propagation native O0 (issue 1)
+        if: success() || failure()
+        run: |
+          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/window-render/windows-render-events.jai -O0 -exe native-exes/render-wheel-O0
+          native-exes/render-wheel-O0.exe
+      - name: Public renderer wheel propagation native O2 (issue 1)
+        if: success() || failure()
+        run: |
+          target/aarch64-pc-windows-msvc/debug/jaic.exe tests/window-render/windows-render-events.jai -O2 -exe native-exes/render-wheel-O2
+          native-exes/render-wheel-O2.exe
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2

@@ -160,7 +160,7 @@ impl Parser<'_> {
             Some(Keyword::Return) => self.parse_return(backtick),
             Some(Keyword::Defer) => self.parse_defer(backtick),
             Some(Keyword::Using) => self.parse_using(),
-            Some(Keyword::PushContext) => self.parse_push_context(),
+            Some(Keyword::PushContext) => self.parse_push_context(backtick),
             Some(Keyword::Case) => Err(self.error("`case` outside of a switch")),
             None => self.parse_terminated_simple(),
         }
@@ -692,7 +692,7 @@ impl Parser<'_> {
         ))
     }
 
-    fn parse_push_context(&mut self) -> PResult<Stmt> {
+    fn parse_push_context(&mut self, backtick: bool) -> PResult<Stmt> {
         let start = self.bump();
         if self.at(P::LBrace) {
             // `push_context { ... }` pushes a copy of the current context.
@@ -700,6 +700,7 @@ impl Parser<'_> {
             let body = Box::new(self.parse_stmt()?);
             return Ok(stmt(
                 StmtKind::PushContext(Box::new(PushContextStmt {
+                    backtick,
                     context,
                     body,
                     bare: true,
@@ -722,6 +723,7 @@ impl Parser<'_> {
                 StmtKind::PushContextDefer(Box::new(PushContextDeferStmt {
                     context,
                     bare,
+                    backtick,
                 })),
                 start.to(self.prev_span()),
             ));
@@ -730,6 +732,7 @@ impl Parser<'_> {
         let body = Box::new(self.parse_stmt()?);
         Ok(stmt(
             StmtKind::PushContext(Box::new(PushContextStmt {
+                backtick,
                 context,
                 body,
                 bare: false,

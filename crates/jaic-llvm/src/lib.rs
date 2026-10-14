@@ -23,7 +23,7 @@ use inkwell::passes::PassBuilderOptions;
 use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
-use jaic::ir::{Library, Program};
+use jaic::ir::{self, Library, Program};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -346,6 +346,27 @@ fn emit_module(
     leak: bool,
     no_inline: &[bool],
 ) -> Result<Vec<PathBuf>, String> {
+    // Without +atomics LLVM may lower atomic IR to ordinary wasm accesses.
+    // Select the required target feature from the program, not a module name or
+    // fixture. An explicit contradictory feature is a configuration error.
+    let atomic_options;
+    let options = if options.target.as_deref().is_some_and(|t| t.starts_with("wasm"))
+        && program.funcs.iter().flatten().flat_map(|f| &f.blocks).flat_map(|b| &b.insts).any(|i| {
+            matches!(i, ir::Inst::Intrinsic(call) if matches!(call.op,
+                ir::Intrinsic::CompareAndSwap | ir::Intrinsic::AtomicLoad(_) |
+                ir::Intrinsic::AtomicStore(_) | ir::Intrinsic::AtomicRmw(..) | ir::Intrinsic::AtomicCas(..)))
+        }) {
+        let mut selected = options.clone();
+        let features = selected.features.get_or_insert_default();
+        if features.split(',').rev().find(|f| matches!(f.trim(), "+atomics" | "-atomics"))
+            .is_some_and(|f| f.trim() == "-atomics") {
+            return Err("atomic operations require the WebAssembly atomics target feature".into());
+        }
+        if !features.is_empty() { features.push(','); }
+        features.push_str("+atomics");
+        atomic_options = selected;
+        &atomic_options
+    } else { options };
     if options.sanitize.any() {
         check_sanitizer_target(options.target.as_deref())?;
     }

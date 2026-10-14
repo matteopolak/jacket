@@ -102,7 +102,7 @@ pub struct LoopFrame {
     pub break_block: ir::BlockId,
     pub continue_block: ir::BlockId,
     /// Defer depth at loop entry.
-    pub defer_depth: usize,
+    pub defer_depth: CleanupMark,
     /// For `remove`: (container place, index slot, element type, reverse loop).
     pub remove: Option<(Operand, Val, TypeId, bool)>,
 }
@@ -120,8 +120,30 @@ pub struct InsertReplacements {
 }
 
 #[derive(Clone)]
+pub struct CleanupMark {
+    position: Rc<std::cell::Cell<usize>>,
+    serial: usize,
+}
+
+impl CleanupMark {
+    pub fn position(&self) -> usize {
+        self.position.get()
+    }
+}
+
+#[derive(Clone)]
+pub enum DeferAction {
+    Statement(ast::Stmt),
+    RestoreContext {
+        previous: Option<Val>,
+        saved_slot: Val,
+    },
+}
+
+#[derive(Clone)]
 pub struct DeferEntry {
-    pub stmt: ast::Stmt,
+    pub action: DeferAction,
+    pub active: Option<Val>,
     pub scope: ScopeId,
     /// For a `` `defer `` in a macro: the caller's scope, where backtick names in the
     /// deferred code resolve once the macro has returned.
@@ -133,13 +155,17 @@ pub struct FnCtx {
     pub b: Builder,
     pub proc: Option<ProcId>,
     /// Current `context` pointer (absent in #c_call/#no_context code).
-    pub context: Option<Val>,
+    context: Option<Val>,
+    context_slot: Option<Val>,
     pub return_types: Vec<TypeId>,
     /// Out-pointers for aggregate results, by result index.
     pub return_outs: Vec<Option<Val>>,
     /// Named result slots (`-> (x: int)`), by result index.
     pub named_results: Vec<Option<Val>>,
     pub defers: Vec<DeferEntry>,
+    _cleanup_root: CleanupMark,
+    cleanup_marks: Vec<(usize, std::rc::Weak<std::cell::Cell<usize>>)>,
+    next_cleanup_mark: usize,
     pub loops: Vec<LoopFrame>,
     pub file: FileId,
     /// Set when the body runs only at compile time.
@@ -177,7 +203,8 @@ pub struct MacroFrame {
     pub caller_scope: ScopeId,
     pub exit_block: ir::BlockId,
     pub result_slots: Vec<(TypeId, Val)>,
-    pub defer_depth: usize,
+    pub defer_depth: CleanupMark,
+    pub caller_cleanup_serial: usize,
     pub loop_depth: usize,
     /// Caller's macro depth for nested backticks.
     pub caller_macro_depth: usize,
@@ -201,15 +228,105 @@ pub struct ForBody {
 }
 
 impl FnCtx {
+    pub fn context_binding(&self) -> Option<Val> {
+        self.context
+    }
+
+    /// Restore lexical availability while compiling another control-flow path.
+    /// Runtime restoration is emitted by the cleanup action, not this method.
+    pub fn restore_context_binding(&mut self, binding: Option<Val>) {
+        self.context = binding;
+    }
+
+    /// Context selection is runtime state: caller-owned macros can push a
+    /// context on only one arm of a branch. SSA pointers chosen while walking
+    /// the syntax cannot represent that join.
+    pub fn current_context(&mut self) -> Option<Val> {
+        self.context?;
+        Some(
+            self.b
+                .load(Ty::Ptr, self.context_slot.expect("context storage")),
+        )
+    }
+
+    pub fn set_context(&mut self, context: Option<Val>) {
+        let slot = *self
+            .context_slot
+            .get_or_insert_with(|| self.b.entry_zeroed_slot(Ty::Ptr, 8, 8));
+        let value = context.unwrap_or_else(|| self.b.iconst(Ty::Ptr, 0));
+        self.b.store(Ty::Ptr, slot, value);
+        self.context = context;
+    }
+
+    pub fn mark_defers(&mut self) -> CleanupMark {
+        self.cleanup_marks
+            .retain(|(_, mark)| mark.strong_count() != 0);
+        let mark = CleanupMark {
+            position: Rc::new(std::cell::Cell::new(self.defers.len())),
+            serial: self.next_cleanup_mark,
+        };
+        self.next_cleanup_mark += 1;
+        self.cleanup_marks
+            .push((mark.serial, Rc::downgrade(&mark.position)));
+        mark
+    }
+
+    pub fn current_cleanup_serial(&self) -> usize {
+        self.cleanup_marks
+            .iter()
+            .rev()
+            .find(|(_, m)| m.strong_count() != 0)
+            .map_or(0, |(s, _)| *s)
+    }
+
+    /// Caller-owned cleanup is inserted before an expansion's local cleanups.
+    /// All active nested boundaries move with that prefix; the caller's own
+    /// boundary stays before the inserted entry. Raw depth snapshots lose this
+    /// distinction when a macro inserts cleanup inside a nested block.
+    pub fn insert_caller_defer(&mut self, at: usize, caller_serial: usize, entry: DeferEntry) {
+        for (serial, weak) in &self.cleanup_marks {
+            if *serial > caller_serial
+                && let Some(mark) = weak.upgrade()
+                && mark.get() >= at
+            {
+                mark.set(mark.get() + 1);
+            }
+        }
+        self.defers.insert(at, entry);
+    }
+
+    /// Leave a lexical cleanup region while compiling the following source.
+    /// Runtime exit paths emit the same restoration in cleanup order; this
+    /// updates the compiler's current context without emitting duplicate code.
+    pub fn truncate_defers(&mut self, depth: usize) {
+        for entry in self.defers.iter().skip(depth).rev() {
+            if let DeferAction::RestoreContext {
+                previous, ..
+            } = entry.action
+            {
+                self.context = previous;
+            }
+        }
+        self.defers.truncate(depth);
+    }
+
     pub fn new(name: String, sig: ir::Sig, file: FileId) -> Self {
+        let root = CleanupMark {
+            position: Rc::new(std::cell::Cell::new(0)),
+            serial: 0,
+        };
         Self {
             b: Builder::new(name, sig),
             proc: None,
             context: None,
+            context_slot: None,
             return_types: Vec::new(),
             return_outs: Vec::new(),
             named_results: Vec::new(),
             defers: Vec::new(),
+            cleanup_marks: vec![(0, Rc::downgrade(&root.position))],
+            _cleanup_root: root,
+            next_cleanup_mark: 1,
             loops: Vec::new(),
             file,
             compile_time: false,
@@ -315,6 +432,13 @@ impl Compiler {
 
     /// Turn an operand into a runtime value (loading places, materializing constants).
     pub fn rvalue(&mut self, f: &mut FnCtx, op: Operand, span: Span) -> Result<(TypeId, Val)> {
+        if self.is_register_operand_type(op.ty(), span) {
+            return err(
+                span,
+                "a SIMD register operand cannot be loaded as a scalar; extract a lane in #asm",
+            );
+        }
+
         match op {
             Operand::Value {
                 ty,

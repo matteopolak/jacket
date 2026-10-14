@@ -13,14 +13,13 @@ main :: () {
 
     assert(font != null && font.face != null);
     assert(font.face.num_glyphs > 0 && font.face.units_per_EM > 0);
-    assert(font.data.count == bytes.count && font.data.data != bytes.data);
-    original := font.data[0];
-
-    bytes[0] ^= 1;
-    assert(font.data[0] == original);
+    assert(font.data.count == bytes.count && font.data.data == bytes.data);
     assert(S.find_loaded_font("caller-font") == font);
+    original_face := font.face;
+
     S.destroy(font);
-    assert(S.find_loaded_font("caller-font") == null);
+    assert(font.name.count == 0 && font.face == original_face);
+    assert(S.find_loaded_font("caller-font") == font);
     invalid := u8.[0, 1, 2, 3];
 
     assert(S.make_loaded_font("invalid", invalid) == null);
@@ -29,7 +28,8 @@ main :: () {
 
     assert(file_font != null && file_font.face.num_glyphs > 0);
     S.destroy(file_font);
-    bytes[0] = original;
+    assert(S.make_loaded_font(args[1]) == file_font);
+    assert(file_font.face != null);
     original_allocator := context.allocator;
     tracking: Font_Test_Allocator;
     tracking.base = original_allocator;

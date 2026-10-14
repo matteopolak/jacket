@@ -18,6 +18,10 @@ options:
   -W <rule>           warn on a rule
   -D <rule>           deny a rule; `-D warnings` makes every warning an error
   -I <dir>            add an import directory (also -import_dir)
+  --os <target>       windows, linux, macos or wasm (default host)
+  --cpu <target>      x64, arm64 or wasm (default host)
+  --checked-files <file> write the paths actually checked, one per line
+  --add <source>      add source in the program's scope (also -add)
   -j <n>              compile n programs at once (default 1)
   --list              list the rules and their default levels
   --color <when>      auto, always or never
@@ -56,6 +60,10 @@ struct Args {
     jobs: usize,
     color: jaic::render::ColorChoice,
     verbose: bool,
+    target_os: Option<jaic::sema::TargetOs>,
+    target_cpu: Option<jaic::sema::TargetCpu>,
+    checked_files: Option<PathBuf>,
+    add_sources: Vec<String>,
 }
 
 fn parse_args() -> Result<Option<Args>, String> {
@@ -68,6 +76,10 @@ fn parse_args() -> Result<Option<Args>, String> {
         jobs: 1,
         color: jaic::render::ColorChoice::Auto,
         verbose: false,
+        target_os: None,
+        target_cpu: None,
+        checked_files: None,
+        add_sources: Vec::new(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -86,6 +98,25 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--fix" => args.fix = true,
             "-v" | "--verbose" => args.verbose = true,
             "--config" => args.config = Some(PathBuf::from(value("--config")?)),
+            "--checked-files" => args.checked_files = Some(value(&a)?.into()),
+            "--add" | "-add" => args.add_sources.push(value(&a)?),
+            "--os" | "-os" => {
+                args.target_os = Some(match value(&a)?.as_str() {
+                    "windows" => jaic::sema::TargetOs::Windows,
+                    "linux" => jaic::sema::TargetOs::Linux,
+                    "macos" => jaic::sema::TargetOs::MacOS,
+                    "wasm" => jaic::sema::TargetOs::Wasm,
+                    target => return Err(format!("unknown OS target `{target}`")),
+                });
+            }
+            "--cpu" | "-cpu" => {
+                args.target_cpu = Some(match value(&a)?.as_str() {
+                    "x64" => jaic::sema::TargetCpu::X64,
+                    "arm64" => jaic::sema::TargetCpu::Arm64,
+                    "wasm" => jaic::sema::TargetCpu::Wasm,
+                    target => return Err(format!("unknown CPU target `{target}`")),
+                });
+            }
             "-I" | "-import_dir" | "--import-dir" => args.imports.push(value(&a)?.into()),
             "-j" | "--jobs" => {
                 args.jobs = value(&a)?
@@ -111,6 +142,10 @@ fn parse_args() -> Result<Option<Args>, String> {
                 let known = [
                     "--fix",
                     "--config",
+                    "--os",
+                    "--cpu",
+                    "--checked-files",
+                    "--add",
                     "-A",
                     "-W",
                     "-D",
@@ -212,8 +247,16 @@ fn run() -> Result<ExitCode, String> {
         config,
         jobs: args.jobs,
         verbose: args.verbose,
+        target_os: args.target_os,
+        target_cpu: args.target_cpu,
+        add_sources: args.add_sources,
     };
     let outcome = jailint::driver::run(&options);
+    if let Some(path) = &args.checked_files {
+        let mut paths = outcome.texts.keys().cloned().collect::<Vec<_>>().join("\n");
+        paths.push('\n');
+        std::fs::write(path, paths).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
     // Lints go to stdout: its terminal decides the layout.
     let style = jaic::render::detect_with(args.color, std::io::stdout().is_terminal(), |key| {
         std::env::var(key).ok()
@@ -243,13 +286,11 @@ fn run() -> Result<ExitCode, String> {
             _ => warnings += 1,
         }
     }
-    if args.verbose {
-        for (root, error) in &outcome.incomplete {
-            eprintln!(
-                "jailint: {} did not compile completely ({error}); bodies that failed were not linted",
-                shown(&root.to_string_lossy())
-            );
-        }
+    for (root, error) in &outcome.incomplete {
+        eprintln!(
+            "jailint: {} did not compile completely ({error}); bodies that failed were not linted",
+            shown(&root.to_string_lossy())
+        );
     }
     if args.fix {
         // Fixes that wrap or overlap another are left for the next pass, which lints the
@@ -295,7 +336,7 @@ fn run() -> Result<ExitCode, String> {
             count(outcome.roots, "program"),
         );
     }
-    Ok(if errors > 0 {
+    Ok(if errors > 0 || !outcome.incomplete.is_empty() {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS

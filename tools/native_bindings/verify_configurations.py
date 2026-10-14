@@ -9,7 +9,7 @@ import sys
 
 from generate import MODULES
 from spec import parse_spec
-from verify import ROOT, TARGET_CONFIGS, stage, invoke, public_source
+from verify import ROOT, TARGET_CONFIGS, select_stdlib, invoke, public_source
 
 # (module, parameter values, import suffix, applicable OS values)
 CONFIGURATIONS = [
@@ -37,16 +37,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compiler', type=Path, required=True)
     parser.add_argument('--foundation', type=Path)
+    parser.add_argument('--stdlib', type=Path, help='Production library, without peer overlays')
     parser.add_argument('--module', action='append', choices=MODULES)
     parser.add_argument('--report', type=Path, default=ROOT/'.work/configuration-verification.json')
     args = parser.parse_args()
     compiler = args.compiler.resolve(strict=True)
-    work = ROOT/'.work/runs'/(args.report.stem+'-'+str(os.getpid()))
+    work = args.report.resolve().parent/'runs'/(args.report.stem+'-'+str(os.getpid()))
     work.mkdir(parents=True,exist_ok=True)
-    stdlib = work/'stdlib'
-    stage(stdlib,args.foundation)
-    env = dict(os.environ,JAIC_STDLIB=str(stdlib),JAIC_NATIVE_LIBS=str(ROOT/'.work/native'),TMPDIR=str(ROOT/'.work/tmp'))
+    stdlib = select_stdlib(work, args.foundation, args.stdlib)
+    temporary = work / 'tmp'
+    temporary.mkdir()
+    env = dict(os.environ,JAIC_STDLIB=str(stdlib),JAIC_NATIVE_LIBS=str(ROOT/'.work/native'),TMPDIR=str(temporary))
     report = {'compiler':str(compiler),'compiler_sha256':hashlib.sha256(compiler.read_bytes()).hexdigest(),
+              'stdlib_root':str(stdlib),'production':args.stdlib is not None,
               'staging_root':str(work),'staged_sources':{
                   str(p.relative_to(stdlib)):hashlib.sha256(p.read_bytes()).hexdigest()
                   for p in sorted(stdlib.rglob('*.jai')) if 'Extensions' not in p.parts}, 'checks':[]}

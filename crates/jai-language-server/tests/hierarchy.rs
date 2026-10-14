@@ -145,7 +145,10 @@ main :: () { helper(); }
     assert_eq!(helper.len(), 1);
     assert_eq!(helper[0].item.name, "print");
     assert!(
-        helper[0].item.uri.ends_with("Basic/print.jai") || helper[0].item.uri.contains("Basic")
+        helper[0]
+            .item
+            .uri
+            .ends_with("/stdlib/internal/basic/scalar.jai")
     );
 }
 

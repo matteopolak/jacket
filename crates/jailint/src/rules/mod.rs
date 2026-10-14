@@ -370,6 +370,48 @@ pub(crate) fn calls_library(cx: &Cx, callee: &Expr, modules: &[&str], names: &[&
             let file = cx.compiler.procs[p.0 as usize].lit.header.span.file;
             library_module(cx, &cx.compiler.sources.get(file).path)
                 .is_some_and(|m| modules.contains(&m))
+                || cx.compiler.modules.iter().any(|module| {
+                    let Some(path) = &module.path else {
+                        return false;
+                    };
+                    let Some(path) = path.to_str() else {
+                        return false;
+                    };
+                    if !library_module(cx, path).is_some_and(|m| modules.contains(&m)) {
+                        return false;
+                    }
+                    // A public facade can export the canonical private procedure
+                    // unchanged. Match actual exported identity, never just its name
+                    // or an implementation-directory spelling.
+                    cx.compiler
+                        .scope(module.scope)
+                        .names
+                        .get(&name)
+                        .is_some_and(|ids| {
+                            ids.iter().any(|&id| {
+                                use jaic::sema::scope::{EntityState, Resolved};
+                                let entity = cx.compiler.entity(id);
+                                if !entity.exported {
+                                    return false;
+                                }
+                                let same = |candidate: jaic::sema::ProcId| {
+                                    cx.compiler.procs[candidate.0 as usize].lit.header.span
+                                        == cx.compiler.procs[p.0 as usize].lit.header.span
+                                };
+                                match &entity.state {
+                                    EntityState::Done(Resolved::Proc(candidate))
+                                    | EntityState::Done(Resolved::Const {
+                                        value: jaic::sema::Value::Proc(candidate),
+                                        ..
+                                    }) => same(*candidate),
+                                    EntityState::Done(Resolved::ProcSet(candidates)) => {
+                                        candidates.iter().copied().any(same)
+                                    }
+                                    _ => false,
+                                }
+                            })
+                        })
+                })
         })
 }
 

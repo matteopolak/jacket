@@ -10,6 +10,30 @@ from spec import parse_spec
 
 
 class SpecTests(unittest.TestCase):
+    def test_distinct_shape_inventory_associates_shared_cpu_availability(self):
+        page = '''# Example
+## Public declaration inventory
+- [OS == .MACOS && CPU == .ARM64] `Clock :: struct`
+- [OS == .MACOS && CPU == .X64] `Clock :: struct`
+- [OS == .ANDROID && CPU == .X64] `Clock :: struct`
+## Public aggregate shapes and enum values
+### `Clock`
+Variant 1 (macOS, ARM64):
+```jai
+Clock :: struct { value: s64; }
+```
+'''
+        spec = parse_spec(page)
+        self.assertIn('CPU == .X64', spec.shapes[0].condition)
+        self.assertNotIn('ANDROID', spec.shapes[0].condition)
+        distinct = page + '''Variant 2 (macOS, x64):
+```jai
+Clock :: struct { value: s32; }
+```
+'''
+        self.assertEqual([s.condition for s in parse_spec(distinct).shapes],
+                         ['OS == .MACOS && CPU == .ARM64', 'OS == .MACOS && CPU == .X64'])
+
     def test_conditional_shapes_stay_separate(self):
         page = '''# Example
 ## Public declaration inventory

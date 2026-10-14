@@ -7,6 +7,7 @@ callback_count: int;
 expected_widget: *Widget;
 
 main :: () {
+    assert(type_of(G.pointers[0]) == type_of(L.pointers[0]), "cursor pointer types must share identity across variants");
     G.init_pointers();
     for pointer: G.pointers assert(pointer != null);
 

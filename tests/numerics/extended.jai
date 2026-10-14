@@ -53,7 +53,7 @@ main :: () {
     samples: [3] Vector4;
 
     C.generate_color_samples(keys, .{ .RGB, .LINEAR, false }, samples);
-    assert(samples[0].x == 0 && samples[2].x == 1 && abs(samples[1].x - 0.7297400528) < 0.000001 && samples[1].w == 0.5);
+    assert(samples[0].x == 0 && samples[2].x == 1 && abs(cast(float64) samples[1].x - 0.7297400528) < 0.000001 && samples[1].w == 0.5);
     k0.color_rgb = xyzw(C.hsv_to_rgb(xyz(350, 1, 1)), 1);
     k1.color_rgb = xyzw(C.hsv_to_rgb(xyz(10, 1, 1)), 1);
     C.generate_color_samples(keys, .{ .HSV, .LINEAR, false }, samples);

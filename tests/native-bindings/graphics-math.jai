@@ -1,6 +1,6 @@
 #load "../../stdlib/internal/bindings/graphics-math/module.jai";
 
-probe :: #library "../../.work/native/graphics_macro_probe";
+probe :: #library "graphics_macro_probe";
 libc :: #library,system "c";
 abort :: () #foreign libc;
 

@@ -18,6 +18,14 @@ main :: () {
     assert(sprint("%", formatFloat(cast(float64) 0.1, mode = .SHORTEST)) == "0.1");
     assert(sprint("%", formatFloat(cast(float32) 0.1, mode = .SHORTEST)) == "0.1");
     assert(sprint("%", formatFloat(cast(float64) 1.23456789012345, mode = .SHORTEST)) == "1.23456789012345");
+    power_bits: u64 = 0x0060000000000000; // 2^-1017 has an asymmetric rounding interval.
+    power := (cast(*float64) *power_bits).*;
+
+    assert(sprint("%", formatFloat(power, mode = .SHORTEST)) == "7.120236347223045e-307");
+    single_power_bits: u32 = 0x0f800000; // 2^-96.
+    single_power := (cast(*float32) *single_power_bits).*;
+
+    assert(sprint("%", formatFloat(single_power, mode = .SHORTEST)) == "1.2621775e-29");
     vectors: [8] u64 = .[1, 0x000fffffffffffff, 0x0010000000000000, 0x3fefffffffffffff,
                           0x3ff0000000000001, 0x7fefffffffffffff, 0x8000000000000001, 0xffefffffffffffff];
     for bits: vectors {
