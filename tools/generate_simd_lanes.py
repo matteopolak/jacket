@@ -19,6 +19,41 @@ store :: (base: *void, a: $T/SIMD_Array) #no_abc #no_aoc {
     B.assert(base != null || a.count == 0, "SIMD store requires writable storage");
     memcpy(base, a.data.data, size_of(T));
 }
+
+load :: (base: *void, $N: int, $F: Type) -> SIMD_Array(N, F) #no_abc #no_aoc {
+    B.assert(base != null || N == 0, "SIMD load requires readable storage");
+    result: SIMD_Array(N, F);
+    memcpy(result.data.data, base, size_of(result));
+    return result;
+}
+
+load_from_offsets :: (base: *void, offsets: $O/SIMD_Array, $F: Type) -> SIMD_Array(offsets.count, F) #no_abc #no_aoc {
+    #assert type_info(O.type).type == .INTEGER;
+    B.assert(base != null || offsets.count == 0, "SIMD gather requires readable storage");
+    result: SIMD_Array(offsets.count, F);
+    for 0..offsets.count - 1 {
+        source := cast(*u8) base + cast(s64) offsets.data[it];
+        memcpy(*result.data[it], source, size_of(F));
+    }
+    return result;
+}
+
+store_with_offsets :: (a: $T/SIMD_Array, base: *void, offsets: $O/SIMD_Array) #no_abc #no_aoc {
+    #assert type_info(O.type).type == .INTEGER;
+    #assert a.count == offsets.count;
+    B.assert(base != null || a.count == 0, "SIMD scatter requires writable storage");
+    for 0..a.count - 1 {
+        target := cast(*u8) base + cast(s64) offsets.data[it];
+        memcpy(target, *a.data[it], size_of(a.type));
+    }
+}
+
+get_looping_indices :: ($N: int, $I: Type, $STEP := 1) -> SIMD_Array(N, I) #no_abc #no_aoc {
+    #assert N > 0;
+    result: SIMD_Array(N, I);
+    for 0..N - 1 result.data[it] = cast(I) (it * STEP);
+    return result;
+}
 """]
 for operation in ["+", "-", "*", "/"]:
     for scalar in [False, True]:
@@ -39,7 +74,7 @@ for operation in ["==", "!=", ">", ">=", "<", "<="]:
         parts.append(f"""
 operator {operation} :: (a: $T/SIMD_Array, {other}) -> T #no_abc #no_aoc {{
     result: T;
-    for 0..a.count - 1 write_mask(*result.data[it], size_of(a.type), a.data[it] {operation} {expression});
+    for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] {operation} {expression});
     return result;
 }}
 """)
@@ -56,20 +91,27 @@ for operation in ["min", "max"]:
 """)
 parts.append("""
 horizontal_sum :: (a: $T/SIMD_Array) -> a.type {
-    return sum_lanes(a);
+    result: a.type;
+    for a.data result += it;
+    return result;
+}
+
+horizontal_add :: (a: $T/SIMD_Array, b: T) -> (interleaved_result: T) {
+    #assert (a.count % 2) == 0;
+    result: T;
+    for 0..a.count / 2 - 1 {
+        result.data[it * 2] = a.data[it * 2] + a.data[it * 2 + 1];
+        result.data[it * 2 + 1] = b.data[it * 2] + b.data[it * 2 + 1];
+    }
+    return result;
 }
 
 get_mask :: (a: $T/SIMD_Array) -> s64 {
     #assert a.count <= 64;
-    #assert size_of(a.type) == 1 || size_of(a.type) == 2 || size_of(a.type) == 4 || size_of(a.type) == 8;
-    probe: u16 = 1;
-    byte_index: s64;
-    if (cast(*u8) *probe)[0] == 1 byte_index = size_of(a.type) - 1;
     bits: u64;
     one: u64 = 1;
     for 0..a.count - 1 {
-        p := cast(*u8) *a.data[it];
-        if (p[byte_index] & 0x80) != 0 bits |= one << it;
+        if cast(bool) a.data[it] bits |= one << it;
     }
     result: s64;
     memcpy(*result, *bits, 8);
@@ -79,17 +121,6 @@ get_mask :: (a: $T/SIMD_Array) -> s64 {
 #scope_file
 B :: #import "Basic";
 
-write_mask :: (target: *void, bytes: s64, condition: bool) {
-    value: u8;
-    if condition value = 255;
-    memset(target, value, bytes);
-}
-
-sum_lanes :: (a: $T/SIMD_Array) -> a.type #no_aoc {
-    result: a.type;
-    for a.data result += it;
-    return result;
-}
 """)
 path = ROOT / "stdlib/internal/simd/lanes.jai"
 path.write_text("\n".join(parts))

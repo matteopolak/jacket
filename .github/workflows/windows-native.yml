@@ -375,7 +375,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: windows-11-arm
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       # As on x64: the official LLVM release uses the static C runtime.
       CARGO_BUILD_TARGET: aarch64-pc-windows-msvc
@@ -438,11 +438,27 @@ jobs:
       - name: WebGPU in a window (HWND surface on WARP, presented)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter --test window --frames 120
+      - name: Build native ARM64 Mesa from pinned upstream sources
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio ARM64 C++ tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
+          if ($env:VSCMD_ARG_TGT_ARCH -ne 'arm64') { throw 'ARM64 developer environment was not initialized' }
+          python -m venv target/mesa-python
+          $python = Join-Path $PWD 'target/mesa-python/Scripts/python.exe'
+          & $python -m pip install cmake==3.31.6 ninja==1.13.2 meson==1.8.3 Mako==1.3.10 MarkupSafe==3.0.3 packaging==25.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PATH = (Join-Path $PWD 'target/mesa-python/Scripts') + ';' + $env:PATH
+          & $python -u tools/window_render_mesa_windows.py --out target/window-mesa-arm64 --jobs 4
+          exit $LASTEXITCODE
       - name: Native WGL driver diagnostics and public rendering
         if: success() || failure()
         run: |
           mkdir -p artifacts/native-libs/windows-arm64
-          python -u tools/window_render_wgl_ci.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --jailint target/aarch64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-arm64
+          python -u tools/window_render_wgl_ci.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --jailint target/aarch64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-arm64 --driver-dir target/window-mesa-arm64/driver
       - name: Signed mouse wheel event propagation (issue 1)
         if: success() || failure()
         run: |

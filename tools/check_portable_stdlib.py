@@ -127,6 +127,8 @@ def main():
     output = ROOT / "target/portable-tests"
     output.mkdir(parents=True, exist_ok=True)
     if args.native:
+        subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_runtime_configuration.py"),
+                        "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
         integrations = ["plist", "meow"]
         if sys.platform == "darwin":
             integrations.append("bundle")

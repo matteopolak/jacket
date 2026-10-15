@@ -19,10 +19,11 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 - [SDL native ABI and prefix safety](native/sdl-native-abi.md): exact public layouts, complete private C records, native pointers, field probes and canaries
 - [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
 - [File watcher execution and ABI blocker](portable-file-watcher.md): real macOS event queues, sanitizer coverage and preserved FSEvents binding regression
+- [File watcher and ABI dependency](portable-file-watcher.md): real native events and preserved FSEvents binding regression
 - [macOS bundles and plist helpers](portable-macos-bundler.md): native bundle/icon tools, validated XML and new formatting dependency
 - [Portable sound](portable-sound-player.md): canonical audio records, real sample arithmetic and shared mutable topology
 - [Executable containers](portable-executable-formats.md): bounded ar parsing, symbol indexes, ownership and native format inputs
-- [Portable SIMD](portable-simd.md): allocation-free scalar lane kernels and unresolved load/interleaving contracts
+- [Portable SIMD](portable-simd.md): reviewed scalar kernels, byte gathers/scatters and complete reductions
 - [Portable Meow](portable-meow.md): canonical register macros, real calico hashing and native C vector provenance
 
 ## Language
@@ -190,6 +191,7 @@ The LLVM backend, C ABI and linking.
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
 - [Portable implementation gaps](portable-stdlib-gaps.md): focused pending reproducers and unresolved behavior
+- [Runtime configuration adoption](portable-runtime-configuration.md): actual settled allocations, CAPS and ownership handoff
 - [Owned source format/lint runner](../tools/format_portable_stdlib.py): explicit scope and source-built jaifmt/jailint
 - [WAV parser design and validation](portable-wav.md)
 - [SMTP/MIME transport and loopback validation](portable-mail.md)

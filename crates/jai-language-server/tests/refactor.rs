@@ -636,7 +636,11 @@ fn declines_to_extract_what_cannot_be_a_procedure() {
 fn offered_refactorings_always_parse() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut offered = 0;
-    for name in ["Autorun.jai", "Example_Plugin.jai", "MacOS_Bundler.jai"] {
+    for name in [
+        "internal/build/autorun.jai",
+        "internal/developer-tools/performance-report.jai",
+        "internal/tooling/bundle.jai",
+    ] {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();
         let s = open(&text);
         let starts: Vec<usize> = std::iter::once(0)

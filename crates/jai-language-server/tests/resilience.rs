@@ -130,17 +130,22 @@ fn settings_files_that_do_not_parse_are_reported_once() {
 }
 
 #[test]
-fn a_bad_project_file_is_reported_while_completing() {
+fn a_bad_project_file_is_reported_once_by_open_or_completion() {
     let mut s = with_environment();
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
     let dir = "file:///resilience-project";
-    open(&mut s, &format!("{dir}/jai.toml"), 1, "colour = \"red\"\n");
+    let mut found = messages(&open(
+        &mut s,
+        &format!("{dir}/jai.toml"),
+        1,
+        "colour = \"red\"\n",
+    ));
     let main = format!("{dir}/main.jai");
     let text = "main :: () {\n    prin\n}\n";
-    open(&mut s, &main, 1, text);
+    found.extend(messages(&open(&mut s, &main, 1, text)));
     let out = send(
         &mut s,
         json!({
@@ -153,10 +158,12 @@ fn a_bad_project_file_is_reported_while_completing() {
             },
         }),
     );
-    let found = messages(&out);
+    found.extend(messages(&out));
     assert_eq!(found.len(), 1, "{out:?}");
     assert!(found[0].contains("jai.toml"), "{found:?}");
     assert!(found[0].contains("unknown setting"), "{found:?}");
+    let again = complete(&mut s, &main, 1, 8);
+    assert!(messages(&again).is_empty(), "{again:?}");
 }
 
 fn complete(s: &mut JsonSession, uri: &str, line: u32, character: u32) -> Vec<Value> {
