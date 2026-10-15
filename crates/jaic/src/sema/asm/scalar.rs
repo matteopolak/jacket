@@ -292,7 +292,7 @@ impl Compiler {
                     let hi = resize(f, hi, Ty::I16, Ty::I8, false);
                     let lo = resize(f, ax, Ty::I16, Ty::I8, false);
                     let d = self.asm_read(f, opds[1], Ty::I8, span)?;
-                    let (q, r) = self.asm_divide(f, Ty::I8, (hi, lo), d, signed, span);
+                    let (q, r) = self.asm_divide(f, Ty::I8, (hi, lo), d, signed, span)?;
                     let q = resize(f, q, Ty::I8, Ty::I16, false);
                     let r = resize(f, r, Ty::I8, Ty::I16, false);
                     let r = bin(f, BinOp::Shl, Ty::I16, r, eight);
@@ -302,7 +302,7 @@ impl Compiler {
                     let hi = self.asm_read(f, opds[0], sz, span)?;
                     let lo = self.asm_read(f, opds[1], sz, span)?;
                     let d = self.asm_read(f, opds[2], sz, span)?;
-                    let (q, r) = self.asm_divide(f, sz, (hi, lo), d, signed, span);
+                    let (q, r) = self.asm_divide(f, sz, (hi, lo), d, signed, span)?;
                     self.asm_write(f, opds[1], sz, q, span)?;
                     self.asm_write(f, opds[0], sz, r, span)?;
                 }
@@ -664,14 +664,15 @@ impl Compiler {
     }
 
     /// Branch to a trap (`#DE` on hardware) when `cond` is set.
-    fn divide_trap_if(&mut self, f: &mut FnCtx, span: Span, cond: Val) {
+    fn divide_trap_if(&mut self, f: &mut FnCtx, span: Span, cond: Val) -> Result<()> {
         let bad = f.b.new_block();
         let ok = f.b.new_block();
         f.b.branch(cond, bad, ok);
         f.b.switch_to(bad);
-        self.emit_trap(f, crate::ir::TRAP_ASM_DIVIDE, span);
+        self.emit_trap(f, crate::ir::TRAP_ASM_DIVIDE, span)?;
         f.b.terminate(crate::ir::Term::Unreachable);
         f.b.switch_to(ok);
+        Ok(())
     }
 
     /// Quotient and remainder of the dividend `hi:lo` divided by `d` at size `sz`, trapping
@@ -684,7 +685,7 @@ impl Compiler {
         d: Val,
         signed: bool,
         span: Span,
-    ) -> (Val, Val) {
+    ) -> Result<(Val, Val)> {
         let w = bits(sz);
         // Magnitudes of the dividend (as 64-bit halves) and divisor.
         let (dividend_neg, divisor_neg, hi, lo, d) = if sz == Ty::I64 {
@@ -727,11 +728,11 @@ impl Compiler {
         };
         let zero = konst(f, Ty::I64, 0);
         let by_zero = cmp(f, CmpOp::Eq, Ty::I64, d, zero);
-        self.divide_trap_if(f, span, by_zero);
+        self.divide_trap_if(f, span, by_zero)?;
         // Unsigned magnitude limit: the quotient must stay below 2^w (2^(w-1) + sign when signed).
         let (q, r) = if sz == Ty::I64 {
             let too_big = cmp(f, CmpOp::UGe, Ty::I64, hi, d);
-            self.divide_trap_if(f, span, too_big);
+            self.divide_trap_if(f, span, too_big)?;
             udiv128(f, hi, lo, d)
         } else {
             (
@@ -739,14 +740,14 @@ impl Compiler {
                 bin(f, BinOp::URem, Ty::I64, lo, d),
             )
         };
-        match (dividend_neg, divisor_neg) {
+        Ok(match (dividend_neg, divisor_neg) {
             (Some(dn), Some(sn)) => {
                 let qneg = flag_xor(f, dn, sn);
                 let max_pos = konst(f, Ty::I64, (1u64 << (w - 1)) - 1);
                 let max_neg = konst(f, Ty::I64, 1u64 << (w - 1));
                 let limit = select(f, Ty::I64, qneg, max_neg, max_pos);
                 let over = cmp(f, CmpOp::UGt, Ty::I64, q, limit);
-                self.divide_trap_if(f, span, over);
+                self.divide_trap_if(f, span, over)?;
                 let nq = neg(f, Ty::I64, q);
                 let q = select(f, Ty::I64, qneg, nq, q);
                 let nr = neg(f, Ty::I64, r);
@@ -760,14 +761,14 @@ impl Compiler {
                 if sz != Ty::I64 {
                     let limit = konst(f, Ty::I64, (1u64 << w) - 1);
                     let over = cmp(f, CmpOp::UGt, Ty::I64, q, limit);
-                    self.divide_trap_if(f, span, over);
+                    self.divide_trap_if(f, span, over)?;
                 }
                 (
                     resize(f, q, Ty::I64, sz, false),
                     resize(f, r, Ty::I64, sz, false),
                 )
             }
-        }
+        })
     }
 
     /// `shld`/`shrd` by a count in 1..width (masked by the caller): (result, CF).

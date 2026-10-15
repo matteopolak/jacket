@@ -1773,7 +1773,7 @@ impl Compiler {
         }
         if matches!(op, BinOp::Div | BinOp::Rem) && !t.is_float() && !f.type_only {
             // Native code reports a division by zero through Runtime_Support.
-            self.note_check_handler(span);
+            self.note_check_handler(span)?;
         }
         let ir_op = arith_op(op, t.is_float(), signed).ok_or_else(|| {
             Box::new(Diagnostic::error(
@@ -1914,39 +1914,85 @@ impl Compiler {
         Ok(())
     }
 
-    /// Runtime_Support's `runtime_support_check_failed`, which native code calls to report a
-    /// failed check (`ir::Program::check_failed`). Resolved once, when the first check is
-    /// emitted; without it native code traps without a message.
-    pub(crate) fn note_check_handler(&mut self, span: Span) {
+    /// Resolve the compiler-private native error reporter from the runtime's own
+    /// file scopes. This transport hook is not a public library export.
+    pub(crate) fn note_check_handler(&mut self, span: Span) -> Result<()> {
         if self.check_handler_resolved {
-            return;
+            return Ok(());
         }
         self.check_handler_resolved = true;
-        let Some(runtime) = self.runtime_support else {
-            return;
-        };
-        let Ok(found) =
-            self.module_declarations(runtime, Sym::intern("runtime_support_check_failed"))
-        else {
-            return;
-        };
-        let Some(&entity) = found.first() else {
-            return;
-        };
-        if let Ok(Resolved::Proc(proc)) = self.resolve_entity(entity)
-            && let Ok(super::procs::ProcTarget::Func(func)) = self.proc_func(proc, span)
-        {
+        let result = (|| {
+            let Some(runtime) = self.runtime_support else {
+                return Ok(());
+            };
+            let name = Sym::intern("__jaic_check_failed");
+            let mut found = Vec::new();
+            for file in &self.files {
+                if file.module == runtime
+                    && let Some(ids) = self.scope(file.scope).names.get(&name)
+                {
+                    found.extend(ids.iter().copied());
+                }
+            }
+            let entity = match found.as_slice() {
+                [entity] => *entity,
+                [] => return err(span, "runtime lacks its private native check reporter"),
+                _ => {
+                    return err(
+                        span,
+                        "runtime defines multiple private native check reporters",
+                    );
+                }
+            };
+            self.ide_note_use(entity);
+            let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
+                return err(span, "private native check reporter must be a procedure");
+            };
+            let signature = self.signature(proc, span)?;
+            let expected = [
+                TypeId::S64,
+                TypeId::S64,
+                TypeId::S64,
+                TypeId::BOOL,
+                TypeId::S64,
+            ];
+            if signature.has_context
+                || signature.c_call
+                || signature.c_varargs
+                || !signature.returns.is_empty()
+                || signature.params.len() != 6
+                || signature.params.iter().any(|p| p.variadic || p.discard)
+                || signature.params[..5]
+                    .iter()
+                    .zip(expected)
+                    .any(|(p, ty)| p.ty != ty)
+                || !matches!(self.types.kind(signature.params[5].ty), TypeKind::Pointer(ty) if *ty == TypeId::U8)
+            {
+                return err(
+                    span,
+                    "private native check reporter must take (s64, s64, s64, bool, s64, *u8), return nothing, and have no context",
+                );
+            }
+            let super::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
+                return err(span, "private native check reporter must be defined in Jai");
+            };
             self.program.check_failed = Some(func);
+            Ok(())
+        })();
+        if result.is_err() {
+            self.check_handler_resolved = false;
         }
+        result
     }
 
     /// Stop the program at a failed check that has no details (`ir::Intrinsic::Trap` with an
     /// `ir::TRAP_*` reason). Every trap with a reason goes through here or `emit_check_failed`,
     /// so native code always has the reporting procedure.
-    pub(crate) fn emit_trap(&mut self, f: &mut FnCtx, reason: u64, span: Span) {
-        self.note_check_handler(span);
+    pub(crate) fn emit_trap(&mut self, f: &mut FnCtx, reason: u64, span: Span) -> Result<()> {
+        self.note_check_handler(span)?;
         let reason = f.b.iconst(Ty::I64, reason);
         f.b.intrinsic(ir::Intrinsic::Trap, vec![reason], &[]);
+        Ok(())
     }
 
     /// Report a failed check (`ir::Intrinsic::CheckFailed`): `reason` is an `ir::TRAP_*`, `a`
@@ -1959,12 +2005,13 @@ impl Compiler {
         b: ir::Val,
         fatal: bool,
         span: Span,
-    ) {
-        self.note_check_handler(span);
+    ) -> Result<()> {
+        self.note_check_handler(span)?;
         f.b.repeat_loc();
         let reason = f.b.iconst(Ty::I64, reason);
         let fatal = f.b.iconst(Ty::I8, u64::from(fatal));
         f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
+        Ok(())
     }
 
     /// The type an untyped literal takes next to a typed operand: the operand's
@@ -2796,7 +2843,7 @@ impl Compiler {
         // Views, dynamic arrays and strings start with their count.
         let check = !f.no_abc && !f.type_only;
         if check {
-            self.note_check_handler(span);
+            self.note_check_handler(span)?;
         }
         let (elem, data) = match self.types.kind(self.types.repr(bty)).clone() {
             TypeKind::Array {

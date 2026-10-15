@@ -396,7 +396,7 @@ pub struct Compiler {
     pub root_scope: ScopeId,
     pub preload: Option<ModuleId>,
     pub runtime_support: Option<ModuleId>,
-    /// `runtime_support_check_failed` was looked up (`note_check_handler`).
+    /// `__jaic_check_failed` was looked up (`note_check_handler`).
     pub check_handler_resolved: bool,
     pub main_module: Option<ModuleId>,
     /// `#add_context` declarations with their declaring scope, in load order.

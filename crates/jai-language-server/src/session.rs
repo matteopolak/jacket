@@ -1056,7 +1056,7 @@ impl Session {
             let files = a.decl_files(&names);
             Some((names, files))
         };
-        if let Some((names, files)) = self.with_compiled_before(uri, text, at, &ask) {
+        if let Some((names, files)) = self.with_compiled_before(uri, text, at, ask) {
             return Some((prefix, names, files));
         }
         let probe = self.probe(uri, text, None)?;

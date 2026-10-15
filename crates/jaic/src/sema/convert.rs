@@ -761,7 +761,7 @@ impl Compiler {
             };
             let code = ir::cast_check_code(u64::from(tbits / 8), tsigned, ssigned);
             let code = f.b.iconst(Ty::I64, code);
-            self.emit_check_failed(f, ir::TRAP_CAST_OVERFLOW, value, code, mode == 2, span);
+            self.emit_check_failed(f, ir::TRAP_CAST_OVERFLOW, value, code, mode == 2, span)?;
             f.b.jump(cont);
             f.b.switch_to(cont);
         }

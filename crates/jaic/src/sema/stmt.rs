@@ -1800,7 +1800,7 @@ impl Compiler {
             && missing.is_ok()
             && default == done
             && !f.type_only
-            && let Some(fail) = self.unmatched_switch_check(f, vty, val, value.span)
+            && let Some(fail) = self.unmatched_switch_check(f, vty, val, value.span)?
         {
             default = fail;
         }
@@ -1890,15 +1890,19 @@ impl Compiler {
         ty: TypeId,
         val: ir::Val,
         span: Span,
-    ) -> Option<ir::BlockId> {
+    ) -> Result<Option<ir::BlockId>> {
         let TypeKind::Enum(id) = *self.types.kind(ty) else {
-            return None;
+            return Ok(None);
         };
         if self.types.enums[id.0 as usize].is_flags {
-            return None;
+            return Ok(None);
         }
-        let t = self.ir_ty(ty)?;
-        let (_, signed) = self.types.int_info(self.types.repr(ty))?;
+        let Some(t) = self.ir_ty(ty) else {
+            return Ok(None);
+        };
+        let Some((_, signed)) = self.types.int_info(self.types.repr(ty)) else {
+            return Ok(None);
+        };
         let here = f.b.current;
         let fail = f.b.new_block();
         f.b.switch_to(fail);
@@ -1913,10 +1917,10 @@ impl Compiler {
             f.b.conv(op, t, Ty::I64, val)
         };
         let zero = f.b.iconst(Ty::I64, 0);
-        self.emit_check_failed(f, ir::TRAP_SWITCH_UNMATCHED, wide, zero, true, span);
+        self.emit_check_failed(f, ir::TRAP_SWITCH_UNMATCHED, wide, zero, true, span)?;
         f.b.terminate(ir::Term::Unreachable);
         f.b.switch_to(here);
-        Some(fail)
+        Ok(Some(fail))
     }
 
     /// `if #complete x == {`: every member of x's enum needs a case of its own, default or

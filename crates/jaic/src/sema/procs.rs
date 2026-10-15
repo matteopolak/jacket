@@ -1211,7 +1211,7 @@ impl Compiler {
         };
         if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc {
             f.b.func.null_checks = true;
-            self.note_check_handler(span);
+            self.note_check_handler(span)?;
         }
         if let Some(name) = &self.proc(id).export {
             f.b.func.linkage = ir::Linkage::Export(name.clone());
@@ -1401,7 +1401,7 @@ impl Compiler {
             return Ok(());
         }
         // Missing return: trap at runtime (Jai reports this only for reachable ends).
-        self.emit_trap(f, ir::TRAP_MISSING_RETURN, span);
+        self.emit_trap(f, ir::TRAP_MISSING_RETURN, span)?;
         f.b.terminate(ir::Term::Unreachable);
         Ok(())
     }

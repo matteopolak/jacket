@@ -2377,7 +2377,7 @@ impl Compiler {
             let ready = f.b.new_block();
             f.b.branch(bad, fail, ready);
             f.b.switch_to(fail);
-            self.emit_check_failed(f, ir::TRAP_VARIADIC_SIZE, n, remaining, true, span);
+            self.emit_check_failed(f, ir::TRAP_VARIADIC_SIZE, n, remaining, true, span)?;
             f.b.jump(ready);
             f.b.switch_to(ready);
             count = f.b.bin(ir::BinOp::Add, Ty::I64, count, n);
@@ -2839,7 +2839,7 @@ impl Compiler {
             let ready = f.b.new_block();
             f.b.branch(bad, fail, ready);
             f.b.switch_to(fail);
-            self.emit_check_failed(f, ir::TRAP_ATOMIC_ALIGNMENT, address, required, true, span);
+            self.emit_check_failed(f, ir::TRAP_ATOMIC_ALIGNMENT, address, required, true, span)?;
             f.b.jump(ready);
             f.b.switch_to(ready);
             values.push(f.b.iconst(Ty::I64, width));

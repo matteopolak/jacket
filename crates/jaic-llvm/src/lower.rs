@@ -1101,7 +1101,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             reg_ret: None,
             dbg: None,
             loc: (func.source_file, 0),
-            null_checks: func.null_checks && self.program.check_failed.is_some(),
+            null_checks: func.null_checks,
             nonnull: vec![false; func.vals.len()],
             facts: NullFacts::default(),
             flags: vec![None; func.vals.len()],
@@ -1423,26 +1423,6 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         if let Some(&f) = self.null_fail.get() {
             return Ok(f);
         }
-        let handler = self
-            .program
-            .check_failed
-            .ok_or("null checks need Runtime_Support's check handler")?;
-        let sig = self
-            .program
-            .func(handler)
-            .map(|f| &f.sig)
-            .ok_or("Runtime_Support's `runtime_support_check_failed` has no body")?;
-        if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
-            return Err("Runtime_Support's `runtime_support_check_failed` must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
-        }
-        let lowered = self.lower_sig(sig);
-        if !lowered
-            .params
-            .iter()
-            .all(|p| matches!(p, ParamPlan::Scalar(_)))
-        {
-            return Err("Runtime_Support's check handler takes only scalars".into());
-        }
         let i64t = self.ctx.i64_type();
         let ty = self
             .ctx
@@ -1460,6 +1440,34 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         }
         let b = self.ctx.create_builder();
         b.position_at_end(self.ctx.append_basic_block(f, "entry"));
+        if self.program.check_failed.is_none() {
+            // Disabling runtime support removes diagnostics, not memory checks.
+            let trap = self.intrinsic_fn("llvm.trap", &[])?;
+            b.build_call(trap, &[], "")?;
+            b.build_unreachable()?;
+            let _ = self.null_fail.set(f);
+            return Ok(f);
+        }
+        let handler = self
+            .program
+            .check_failed
+            .ok_or("null checks need Runtime_Support's check handler")?;
+        let sig = self
+            .program
+            .func(handler)
+            .map(|f| &f.sig)
+            .ok_or("private native check reporter has no body")?;
+        if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
+            return Err("private native check reporter must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
+        }
+        let lowered = self.lower_sig(sig);
+        if !lowered
+            .params
+            .iter()
+            .all(|p| matches!(p, ParamPlan::Scalar(_)))
+        {
+            return Err("Runtime_Support's check handler takes only scalars".into());
+        }
         let param = |i: u32| -> R<BasicValueEnum<'ctx>> {
             f.get_nth_param(i)
                 .ok_or_else(|| "jaic.null_fail parameter".into())
@@ -1509,10 +1517,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             return Ok(());
         };
         let Some(sig) = self.program.func(handler).map(|f| &f.sig) else {
-            return Err("Runtime_Support's `runtime_support_check_failed` has no body".into());
+            return Err("private native check reporter has no body".into());
         };
         if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
-            return Err("Runtime_Support's `runtime_support_check_failed` must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
+            return Err("private native check reporter must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
         }
         let (file, line) = st.loc;
         let filename = self.check_file(file);

@@ -204,7 +204,7 @@ pub fn cast_check_target(code: u64) -> String {
 }
 
 /// What a failed runtime check says, the same in the interpreter and in native code
-/// (`stdlib/Runtime_Support.jai`, `runtime_support_check_failed`).
+/// (`stdlib/internal/runtime/checks.jai`, `__jaic_check_failed`).
 pub fn check_message(reason: u64, a: u64, b: u64) -> String {
     match reason {
         TRAP_MISSING_RETURN => "reached the end of a procedure that must return a value".into(),
@@ -973,7 +973,7 @@ pub struct Program {
     /// Types named by debug information (`FuncDebug`, `debug_globals`), by key.
     pub debug_types: crate::fxhash::HashMap<u32, DebugType>,
     pub debug_globals: Vec<DebugGlobal>,
-    /// Runtime_Support's `runtime_support_check_failed(reason, a, b, fatal, line, filename)`,
+    /// Runtime_Support's `__jaic_check_failed(reason, a, b, fatal, line, filename)`,
     /// which native code calls when a check fails (bounds, casts, `#complete` switches, a
     /// missing return) to say which one and where, before it traps.
     pub check_failed: Option<FuncId>,

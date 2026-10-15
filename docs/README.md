@@ -313,3 +313,5 @@ Agreed designs that are not built yet.
 - [Native integration CI](tools/native-integration-ci.md): temporary branch checks and real Windows File execution
 
 - [Sound_Player implementation and verification](features/sound-player.md)
+
+- [Private native check transport and safety regressions](compiler/private-native-checks.md)
