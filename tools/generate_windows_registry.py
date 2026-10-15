@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate reviewed registry bindings; unresolved pseudo-handle widths omitted."""
+"""Generate reviewed registry ABI, preserving explicit positive handle values."""
 from pathlib import Path
 import re
 import subprocess
@@ -10,14 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     spec = parse_spec((ROOT/'docs/specs/stdlib/modules/windows-registry.md').read_text())
-    groups = {0: [], 1: [], 2: []}
+    groups = {0: [], 1: [], 2: [], 3: []}
     exports = []
     for declaration in spec.declarations:
         name = declaration.name
-        if name.startswith('HKEY_'):
-            continue  # Reviewed zero-extension versus native SDK sign-extension question.
         code = declaration.code.rstrip(';')
-        group = 0 if name in ['REGSAM', 'LSTATUS'] else 1 if '#foreign' in code else 2
+        group = 0 if name in ['REGSAM', 'LSTATUS'] else 1 if '#foreign' in code else 3 if name.startswith('HKEY_') else 2
         groups[group].append((name, code+';'))
     lines = ['#assert OS == .WINDOWS;']
     for group in groups.values():
@@ -37,7 +35,7 @@ def main():
     for flags in [[], ['--check']]:
         subprocess.run([str(ROOT/'target/jaifmt'), '--config', str(ROOT/'jaifmt.toml'),
                         *flags, str(private), str(facade)], check=True)
-    print(f'Generated {len(exports)} real registry declarations;10 pseudo-handles pending ABI review')
+    print(f'Generated {len(exports)} real registry declarations, including ten reviewed positive pseudo-handles')
 
 
 if __name__ == '__main__':

@@ -33,7 +33,9 @@ main :: () {
 
         read: W.HKEY;
 
-        status = R.RegOpenKeyExW(root, wide, 0, R.KEY_READ, *read);
+        // Exercise the exact reviewed zero-extended pseudo-handle at the real
+        // Advapi32 boundary. Source checking alone cannot establish acceptance.
+        status = R.RegOpenKeyExW(R.HKEY_CURRENT_USER, wide, 0, R.KEY_READ, *read);
         assert(status == 0 && read != null);
         count: u32;
         kind: u32;
@@ -52,7 +54,7 @@ main :: () {
 
         narrow := temp_c_string(path);
 
-        status = R.RegOpenKeyExA(root, narrow, 0, R.KEY_READ, *read);
+        status = R.RegOpenKeyExA(R.HKEY_CURRENT_USER, narrow, 0, R.KEY_READ, *read);
         assert(status == 0 && read != null);
         count = 4;
         status = R.RegQueryValueExA(read, temp_c_string("sample"), null, *kind, cast(*u8) *received, *count);
@@ -61,7 +63,7 @@ main :: () {
         assert(status == 0);
         count = 4;
         received = 0;
-        status = R.RegGetValueA(root, narrow, temp_c_string("sample"), R.RRF_RT_REG_DWORD, *kind, *received, *count);
+        status = R.RegGetValueA(R.HKEY_CURRENT_USER, narrow, temp_c_string("sample"), R.RRF_RT_REG_DWORD, *kind, *received, *count);
         assert(status == 0 && kind == 4 && count == 4 && received == value);
         child: W.HKEY;
         child_name, child_valid, child_bytes := U.utf8_to_wide("child");

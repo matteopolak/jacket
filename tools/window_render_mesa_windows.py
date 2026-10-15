@@ -5,7 +5,9 @@ Run inside a native ARM64 VS2022 developer environment. --plan works on any OS
 and records configuration only; it never means the driver built or executed.
 """
 import argparse
+import errno
 import hashlib
+import http.client
 import importlib.metadata
 import json
 import os
@@ -13,10 +15,16 @@ from pathlib import Path
 import platform
 import re
 import shutil
+import socket
+import ssl
+
 import stat
 import subprocess
 import sys
 import tarfile
+import tempfile
+import time
+import urllib.error
 import urllib.request
 
 from window_render_wgl_ci import pe_machine
@@ -238,19 +246,69 @@ def write_native_machine_file(destination, executable):
     destination.write_text(f"[binaries]\npython3 = [{quoted}]\npython = [{quoted}]\n", encoding="utf-8")
 
 
+def transient_download_error(error):
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in {408, 425, 429, 500, 502, 503, 504}
+    if isinstance(error, urllib.error.URLError):
+        error = error.reason
+    # SSLError is also an OSError. Certificate/protocol failures are never an
+    # excuse to weaken TLS or retry an untrusted response.
+    if isinstance(error, ssl.SSLError):
+        return False
+    if isinstance(error, (TimeoutError, http.client.IncompleteRead, http.client.RemoteDisconnected)):
+        return True
+    if isinstance(error, socket.gaierror):
+        return error.errno == socket.EAI_AGAIN
+    return isinstance(error, OSError) and (
+        error.errno in {errno.ECONNRESET, errno.ECONNABORTED, errno.ECONNREFUSED,
+                        errno.ETIMEDOUT, errno.ENETDOWN, errno.ENETUNREACH, errno.EHOSTUNREACH}
+        or getattr(error, "winerror", None) in {10050, 10051, 10053, 10054, 10060, 10061, 10065})
+
+
+def download_source(url, digest, archive):
+    if archive.exists():
+        if file_hash(archive) != digest:
+            raise ValueError(f"upstream source digest mismatch: {archive.name}")
+        return
+    for attempt in range(4):
+        # A unique sibling on each attempt prevents appending to any interrupted
+        # transfer. Only a closed, hash-verified file is atomically promoted.
+        descriptor, name = tempfile.mkstemp(prefix=archive.name + ".", suffix=".partial", dir=archive.parent)
+        partial = Path(name)
+        network_operation = False
+        try:
+            with os.fdopen(descriptor, "wb") as output:
+                network_operation = True
+                with urllib.request.urlopen(url, timeout=120) as response:
+                    while True:
+                        network_operation = True
+                        chunk = response.read(1024 * 1024)
+                        network_operation = False
+                        if not chunk:
+                            break
+                        output.write(chunk)
+            if file_hash(partial) != digest:
+                raise ValueError(f"upstream source digest mismatch: {archive.name}")
+            partial.replace(archive)
+            return
+        except Exception as error:
+            retry = network_operation and transient_download_error(error) and attempt < 3
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+            if not retry:
+                raise
+            delay = 2 ** (attempt + 1)
+            print(f"source download {archive.name}: transient {type(error).__name__}; "
+                  f"retry {attempt + 2}/4 in {delay}s", file=sys.stderr)
+        finally:
+            partial.unlink(missing_ok=True)
+        time.sleep(delay)
+
+
 def source_tree(name, directory):
     url, digest, top = SOURCES[name]
     archive = directory / (name + ".archive")
-    if not archive.exists():
-        # Interrupted downloads are never promoted into the verified source cache.
-        partial = archive.with_suffix(".partial")
-        with urllib.request.urlopen(url, timeout=120) as response, partial.open("wb") as output:
-            shutil.copyfileobj(response, output)
-        partial.replace(archive)
-    with archive.open("rb") as verified:
-        measured = hashlib.file_digest(verified, "sha256").hexdigest()
-    if measured != digest:
-        raise ValueError(f"upstream source digest mismatch: {name}")
+    download_source(url, digest, archive)
     destination = directory / top
     if destination.exists():
         raise ValueError(f"refusing stale/modified extracted source; use a fresh --out: {destination}")

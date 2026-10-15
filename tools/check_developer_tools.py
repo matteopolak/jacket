@@ -18,6 +18,8 @@ import check_developer_dwarf_lines
 import check_developer_dwarf_frames
 import check_developer_eh_frames
 import check_developer_sdk_configuration
+import check_developer_dwarf_types
+import check_developer_codeview_strings
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -67,18 +69,28 @@ def prepare_cpp_visitors(prefix):
     return visitor_oracle
 
 
-def check_bridge_consumers(prefix, emitter):
+def check_bridge_consumers(prefix, emitter, workflow=False):
+    stem = "cpp-workflow" if workflow else "bridge"
+    library = "cpp_workflow" if workflow else "bridge"
+    if workflow:
+        for suffix in ["generated", "linux", "windows"]:
+            generated = ROOT / f"target/developer-tools-cpp-workflow-{suffix}.jai"
+            run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
+            run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", generated])
+            run([ROOT / "target/debug/jailint", "-D", "warnings", generated])
+        for os_name in ["linux", "windows"]:
+            run([JAIC, "tests/developer-tools/bindings-cpp-workflow-target.jai", "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
     extension = "dylib" if platform.system() == "Darwin" else "so"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     for cpp_optimization in [0, 2]:
         run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
-             *flags, ROOT / "target/developer-tools-bridge.cpp", ROOT / "tests/developer-tools/bindings-bridge-native.cpp",
-             "-o", ROOT / f"target/libdeveloper_tools_bridge.{extension}"])
-        source = ROOT / "tests/developer-tools/bindings-bridge-roundtrip.jai"
-        run([JAIC, source, "-interp"], output="ok\n")
+             *flags, ROOT / f"target/developer-tools-{stem}.cpp", ROOT / f"tests/developer-tools/bindings-{stem}-native.cpp",
+             "-o", ROOT / f"target/libdeveloper_tools_{library}.{extension}"])
+        source = ROOT / f"tests/developer-tools/bindings-{stem}-roundtrip.jai"
+        run([JAIC, source, "-interp", "-I", ROOT / "target"], output="ok\n")
         for optimization in [0, 2]:
-            exe = ROOT / f"target/developer-tools-bridge-{emitter}-cpp{cpp_optimization}-jai{optimization}"
-            run([JAIC, source, f"-O{optimization}", "-exe", exe])
+            exe = ROOT / f"target/developer-tools-{stem}-{emitter}-cpp{cpp_optimization}-jai{optimization}"
+            run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
             run([exe], output="ok\n")
 
 
@@ -92,6 +104,8 @@ def main():
     check_developer_dwarf_lines.main()
     check_developer_dwarf_frames.main()
     check_developer_eh_frames.main()
+    check_developer_dwarf_types.main()
+    check_developer_codeview_strings.main()
     prefix = build_developer_bindings.llvm_prefix()
     framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
     (framework / "Modules").mkdir(parents=True, exist_ok=True)
@@ -180,6 +194,9 @@ def main():
     cases.extend(["bindings-bridge", "bindings-bridge-roundtrip"])
     cases.append("bindings-equivalence")
     cases.extend(["iprof-history-values", "iprof-stack-depth"])
+    cases.append("dwarf-type-lookup")
+    cases.extend(["bindings-cpp-workflow", "bindings-cpp-workflow-roundtrip"])
+    cases.append("codeview-strings")
     run([JAIC, "tests/developer-tools/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"
@@ -199,6 +216,8 @@ def main():
             check_framework_consumer(prefix, "interp")
         if case == "bindings-bridge":
             check_bridge_consumers(prefix, "interp")
+        if case == "bindings-cpp-workflow":
+            check_bridge_consumers(prefix, "interp", workflow=True)
         if case == "bindings-cpp-fragments":
             for cpp_optimization in [0, 2]:
                 cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-interp-cxx{cpp_optimization}"
@@ -213,6 +232,8 @@ def main():
                 check_framework_consumer(prefix, f"o{optimization}")
             if case == "bindings-bridge":
                 check_bridge_consumers(prefix, f"o{optimization}")
+            if case == "bindings-cpp-workflow":
+                check_bridge_consumers(prefix, f"o{optimization}", workflow=True)
             if case == "bindings-cpp-fragments":
                 for cpp_optimization in [0, 2]:
                     cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}"
@@ -264,7 +285,7 @@ def main():
              ROOT / "stdlib/Performance_Report/module.jai",
              ROOT / "stdlib/Print_Vars/module.jai",
              ROOT / "stdlib/Rewrite/module.jai",
-             ROOT / "stdlib/Debug_Info/module.jai",
+             *sorted((ROOT / "stdlib/Debug_Info").glob("*.jai")),
              ROOT / "stdlib/Debug/module.jai",
              ROOT / "stdlib/Iprof/module.jai",
              ROOT / "stdlib/Codex/module.jai",
@@ -275,7 +296,9 @@ def main():
              ROOT / "target/developer-tools-native-abi.jai", visitor_oracle,
              ROOT / "target/developer-tools-dwarf-line-oracle.jai",
              ROOT / "target/developer-tools-dwarf-frame-oracle.jai",
-             ROOT / "target/developer-tools-eh-frame-oracle.jai"]
+             ROOT / "target/developer-tools-eh-frame-oracle.jai",
+             ROOT / "target/developer-tools-dwarf-type-oracle.jai",
+             ROOT / "target/developer-tools-codeview-string-oracle.jai"]
     format_paths = [*paths, *sorted((ROOT / "tests/developer-tools/rejections").glob("*.jai")),
                     *sorted((ROOT / "tests/developer-tools/compiler-requests").glob("*.jai"))]
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *format_paths])
@@ -291,7 +314,7 @@ def main():
     for cpu in ["x64", "arm64"]:
         run([JAIC, "tests/developer-tools/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
         for os_name in ["linux", "windows"]:
-            for case in ["msf-wire", "msf-public", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-fde", "bindings-equivalence", "iprof-history-values", "iprof-stack-depth", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
+            for case in ["msf-wire", "msf-public", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-type-lookup", "dwarf-fde", "codeview-strings", "bindings-equivalence", "iprof-history-values", "iprof-stack-depth", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
                 run([JAIC, f"tests/developer-tools/{case}.jai", "-check", "-os", os_name, "-cpu", cpu])
     for case, reason in [("check-array", "fixed array used as a pointer in assignment"),
                          ("check-small-driver", "small integer addition requires an explicit intermediate integer cast")]:

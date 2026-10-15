@@ -3,3 +3,5 @@
 Record :: struct {
     value: s64;
 }
+
+state: s64;

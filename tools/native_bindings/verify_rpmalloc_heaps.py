@@ -20,6 +20,17 @@ from verify import select_stdlib, place_private_unit, ROOT
 from configure_rpmalloc import select_for_verification
 
 
+def run_check(command, env):
+    """Retain a failed launch as evidence and continue the remaining checks."""
+    command = [str(x) for x in command]
+    try:
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)
+        return dict(command=command, exit=result.returncode, stdout=result.stdout, stderr=result.stderr)
+    except subprocess.TimeoutExpired:
+        return dict(command=command, exit=None, stderr='Timeout after 120 seconds')
+    except OSError as error:
+        return dict(command=command, exit=None, stderr=f'Could not execute check: {error}')
+
 
 def verify(cleanup):
     parser = argparse.ArgumentParser(description=__doc__)
@@ -43,10 +54,12 @@ def verify(cleanup):
     work.mkdir(parents=True)
     stdlib = select_stdlib(work, production=args.stdlib)
     select_for_verification(stdlib, args.rpmalloc_first_class_heaps, args.stdlib is not None)
+    facade_sources = sorted((stdlib/'rpmalloc').glob('*.jai'))
 
     unit = place_private_unit('rpmalloc-heap-marshalling',
                               ROOT/'tests/native-bindings/rpmalloc-heap-marshalling.jai', stdlib, {}, cleanup)
     prepared = prepare(ROOT/'.work/vendor/rpmalloc', work/'rpmalloc-source')
+    (ROOT/'.work/tmp').mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, TMPDIR=str(ROOT/'.work/tmp'), JAIC_STDLIB=str(stdlib),
                JAIC_NATIVE_LIBS=str(libraries))
     programs = [ROOT/'tests/native-bindings'/name for name in
@@ -90,7 +103,7 @@ def verify(cleanup):
                              '-DBINDING_RPMALLOC_RAW='+str(raw),
                              ROOT/'stdlib/internal/bindings/rpmalloc-heaps/public-layout.h'])
     scopes = ['stdlib/rpmalloc', 'stdlib/internal/bindings/rpmalloc-heaps',
-              *[str(p.relative_to(ROOT)) for p in programs[:-1]],
+              *[str(p.relative_to(ROOT)) for p in programs],
               'tests/native-bindings/rpmalloc-heap-marshalling.jai',
               'tests/native-bindings/generated/rpmalloc-heap-facade-layout.jai',
               'stdlib/internal/bindings/rpmalloc-build',
@@ -101,7 +114,7 @@ def verify(cleanup):
                    'tests/native-bindings/generated/rpmalloc-raw-heap-facade-layout.jai']
     commands += [[formatter, '--check', '--config', 'jaifmt.toml', *scopes],
                  [compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jailint.toml',
-                  *[stdlib/'rpmalloc'/p.name for p in sorted((ROOT/'stdlib/rpmalloc').glob('*.jai'))],
+                  *facade_sources,
                   *[stdlib/'internal/bindings'/name for name in
                     ('rpmalloc-heaps', 'rpmalloc-sdk', 'rpmalloc-callbacks', 'rpmalloc-checked', 'rpmalloc-build')]],
                  ['clang-format', '--style=LLVM', '--dry-run', '--Werror',
@@ -122,7 +135,7 @@ def verify(cleanup):
                                     for p in libraries.glob('lib*rpmalloc*') if p.is_file()},
                   prepared_sdk=json.loads((prepared/'provenance.json').read_text()),
                   sources={str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-                           for p in [*programs[:-1],
+                           for p in [*programs,
                                      *sorted((ROOT/'stdlib/rpmalloc').glob('*.jai')),
                                      *sorted((ROOT/'stdlib/internal/bindings/rpmalloc-heaps').iterdir()),
                                      ROOT/'tests/native-bindings/rpmalloc_heap_safety.c',
@@ -132,15 +145,10 @@ def verify(cleanup):
                   checks=[])
     args.report.parent.mkdir(parents=True, exist_ok=True)
     for command in commands:
-        command = [str(x) for x in command]
-        try:
-            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)
-            row = dict(command=command, exit=result.returncode, stdout=result.stdout, stderr=result.stderr)
-        except subprocess.TimeoutExpired:
-            row = dict(command=command, exit=None, stderr='Timeout after 120 seconds')
+        row = run_check(command, env)
         report['checks'].append(row)
         args.report.write_text(json.dumps(report, indent=2)+'\n')
-        print(row['exit'], ' '.join(command[:5]), flush=True)
+        print(row['exit'], ' '.join(row['command'][:5]), flush=True)
     raise SystemExit(any(row['exit'] != 0 for row in report['checks']))
 
 

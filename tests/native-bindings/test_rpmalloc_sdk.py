@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import unittest
 import hashlib
+from contextlib import ExitStack
 import tempfile
 import json
 import re
@@ -74,12 +75,15 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
             public.parent.mkdir(parents=True)
             public.write_bytes(b'// facade must remain untouched\n')
             hashes = {}
-            unit = place_private_unit('rpmalloc-native-sdk',source,stdlib,hashes)
-            self.assertEqual(unit.read_bytes(),source.read_bytes())
-            dependency = stdlib/'rpmalloc/generated/rpmalloc-sdk-layout.jai'
-            original = ROOT/'tests/native-bindings/generated/rpmalloc-sdk-layout.jai'
-            self.assertEqual(dependency.read_bytes(),original.read_bytes())
-            self.assertEqual(hashes[str(unit.relative_to(stdlib))],hashlib.sha256(source.read_bytes()).hexdigest())
+            with ExitStack() as cleanup:
+                unit = place_private_unit('rpmalloc-native-sdk',source,stdlib,hashes,cleanup)
+                self.assertEqual(unit.read_bytes(),source.read_bytes())
+                dependency = stdlib/'rpmalloc/generated/rpmalloc-sdk-layout.jai'
+                original = ROOT/'tests/native-bindings/generated/rpmalloc-sdk-layout.jai'
+                self.assertEqual(dependency.read_bytes(),original.read_bytes())
+                self.assertEqual(hashes[str(unit.relative_to(stdlib))],hashlib.sha256(source.read_bytes()).hexdigest())
+            self.assertFalse(unit.exists())
+            self.assertFalse(dependency.exists())
             self.assertEqual(public.read_bytes(),b'// facade must remain untouched\n')
 
     def test_callbacks_have_c_abi_and_pointer_width_types(self):

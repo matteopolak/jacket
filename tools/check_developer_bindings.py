@@ -61,9 +61,9 @@ def main():
     for triple in ["aarch64-apple-macos", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]:
         rejected.write_text("existing output must survive")
         run([tool, cpp_header, rejected, "native", f"--target={triple}", "-x", "c++", "-std=c++17"],
-            returncode=1, diagnostic="native linkage requires pending symbol/mangling support")
+            returncode=1, diagnostic="duplicate C bridge output name")
         if rejected.read_text() != "existing output must survive":
-            raise RuntimeError("Unsupported C++ linkage replaced the destination")
+            raise RuntimeError("Colliding C++ adapter names replaced the destination")
     for triple, os_name, spelling in [("x86_64-unknown-linux-gnu", "linux", "NativeLong :: s64;"),
                                       ("x86_64-pc-windows-msvc", "windows", "NativeLong :: s32;")]:
         run([tool, header, output, "developer_tools_bindings", f"--target={triple}"])
