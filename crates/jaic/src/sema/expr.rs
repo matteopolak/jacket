@@ -672,7 +672,7 @@ impl Compiler {
                 }
                 let op = self.entities_operand(f, scope, &ids, span);
                 if let Some(ide) = self.ide.as_mut() {
-                    ide.last_entity = Some(ids[0]);
+                    ide.last_entity = Some((span, ids[0]));
                     if ide.lint {
                         ide.used.extend(ids.iter().copied());
                     }

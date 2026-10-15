@@ -55,10 +55,9 @@ pub struct IdeFacts {
     pub(super) for_expansions: HashMap<Span, Option<Vec<ProcId>>>,
     /// The compile-time output channel, to tell what each `#run` printed.
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
-    /// Entity the identifier being checked resolved to (set by `check_ident`).
-    pub(super) last_entity: Option<EntityId>,
-    /// Entity selected by a qualified module lookup, consumed at its member token.
-    pub(super) last_module_entity: Option<(Span, EntityId)>,
+    /// Entity the named expression being checked resolved to (set by identifier
+    /// lookup or explicit module-member lookup, after resolving its operand).
+    pub(super) last_entity: Option<(Span, EntityId)>,
     /// Field the identifier being checked reached through a `using` (set by `check_ident`).
     pub(super) last_using_member: Option<Sym>,
     /// Names of a type that is neither a struct nor an enum (a polymorph's `T`, an alias of a
@@ -374,9 +373,20 @@ impl Compiler {
             return;
         }
         let (span, what) = match &expr.kind {
-            ast::ExprKind::Ident(_) => {
-                let entity = self.ide.as_mut().and_then(|i| i.last_entity.take());
-                let member = self.ide.as_mut().and_then(|i| i.last_using_member.take());
+            ast::ExprKind::Ident(_) | ast::ExprKind::Member(_, _) => {
+                let (span, qualified_member) = match &expr.kind {
+                    ast::ExprKind::Member(_, name) => (name.span, Some(name.name)),
+                    _ => (expr.span, None),
+                };
+                // Failed expressions can leave scratch state behind. Only consume
+                // the association made for this exact source expression.
+                let entity = self
+                    .ide
+                    .as_mut()
+                    .and_then(|i| i.last_entity.take())
+                    .and_then(|(at, id)| (at == span).then_some(id));
+                let using_member = self.ide.as_mut().and_then(|i| i.last_using_member.take());
+                let member = qualified_member.or(using_member);
                 let what = match op {
                     Operand::Type(t) => {
                         if let Some(e) = entity
@@ -386,7 +396,7 @@ impl Compiler {
                             )
                             && let Some(ide) = self.ide.as_mut()
                         {
-                            ide.type_names.insert(expr.span, e);
+                            ide.type_names.insert(span, e);
                         }
                         IdeWhat::Type(*t)
                     }
@@ -398,38 +408,7 @@ impl Compiler {
                         (None, None) => return,
                     },
                 };
-                (expr.span, what)
-            }
-            // `Module.name`: what the module exports, so definition and references follow it.
-            ast::ExprKind::Member(_, name) => {
-                let entity = self
-                    .ide
-                    .as_mut()
-                    .and_then(|ide| ide.last_module_entity.take())
-                    .filter(|(span, _)| *span == name.span)
-                    .map(|(_, entity)| entity);
-                match op {
-                    Operand::Procs(p) => (name.span, IdeWhat::Procs(p.clone())),
-                    Operand::Type(t) => {
-                        if let Some(entity) = entity
-                            && !matches!(
-                                self.types.kind(*t),
-                                TypeKind::Struct(_) | TypeKind::Enum(_)
-                            )
-                            && let Some(ide) = self.ide.as_mut()
-                        {
-                            ide.type_names.insert(name.span, entity);
-                        }
-                        (name.span, IdeWhat::Type(*t))
-                    }
-                    Operand::Module(m) => (name.span, IdeWhat::Module(*m)),
-                    _ => (
-                        name.span,
-                        entity
-                            .map(IdeWhat::Entity)
-                            .unwrap_or(IdeWhat::Member(name.name)),
-                    ),
-                }
+                (span, what)
             }
             ast::ExprKind::InferredMember(name) => (name.span, IdeWhat::Member(name.name)),
             _ => return,

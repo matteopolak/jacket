@@ -458,6 +458,8 @@ Scripts, CI and project policies.
 - [Edit benchmark](tools/edit-bench.md): how long `jailsp` takes to answer after an edit inside a body, compiles per edit
 - [LSP partial-edit implementation plan](plans/lsp-partial-edits.md) and [open questions](specs/lsp-questions.md)
 - [LSP partial-edit regression harness](tools/lsp-partial-edits.md): IDE recovery, custom `for` navigation, UTF-16 suffix edits and corpus checks; [0.17.1 worker validation](tools/lsp-validation-0171.md)
+- [Basic temp / exit LSP investigation](tools/lsp-basic-resolution-verification.md): actual native candidate requests, general qualified-value identity fix and mandatory final merged verification
+- [LSP progress](status/lsp-progress.md) and [implementation deviations](status/lsp-deviations.md): current isolated-worker evidence, ownership overlaps and remaining integration limits
 - [IDE coverage](tools/ide-coverage.md): which identifiers of a project get no hover or go to definition from `jailsp`
 - [Language server benchmark](tools/lsp-benchmark.md): latency, CPU time and RSS of `jailsp` (or another server) on real and generated projects and very large files
 - [Code formatting](tools/code-formatting.md): rustfmt and jaifmt checks, format-only commits and `.git-blame-ignore-revs`

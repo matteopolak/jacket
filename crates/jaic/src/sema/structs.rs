@@ -1653,9 +1653,6 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Result<Operand> {
-        if let Some(ide) = self.ide.as_mut() {
-            ide.last_module_entity = None;
-        }
         match base {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
             Operand::Module(m) => {
@@ -1670,11 +1667,13 @@ impl Compiler {
                     ),
                     Found::Entities(ids) => {
                         let result = self.entities_operand(f, scope, &ids, span);
+                        // Preserve the actual lookup identity for IDE references, just
+                        // as check_ident does. Set it after operand resolution because
+                        // an initializer may itself resolve other named expressions.
                         if result.is_ok()
-                            && ids.len() == 1
                             && let Some(ide) = self.ide.as_mut()
                         {
-                            ide.last_module_entity = Some((span, ids[0]));
+                            ide.last_entity = ids.first().map(|&id| (span, id));
                         }
                         result
                     }
