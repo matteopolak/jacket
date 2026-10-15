@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import ntpath
 import os
 import platform
 import re
@@ -15,6 +16,9 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 PLATFORMS=('macos-x64','macos-arm64','linux-x64','linux-arm64','windows-x64','windows-arm64')
+WINDOWS_ARTIFACTS={'SDL3.lib':('lib/SDL3-static.lib','static'),
+                   'SDL3-import.lib':('lib/SDL3.lib','import'),
+                   'SDL3.dll':('bin/SDL3.dll','shared')}
 
 def checked_archive(cache, offline=False):
     source=json.loads((ROOT/'tools/native-libs.json').read_text())['sources']['sdl3']
@@ -76,9 +80,79 @@ def configure_options(plat):
                     '-DSDL_LIBUSB_SHARED=ON','-DSDL_LIBUDEV_SHARED=ON','-DSDL_KMSDRM_SHARED=ON',
                     '-DSDL_LIBICONV=OFF']
     if system=='windows':
-        options += ['-G','Visual Studio 17 2022','-A','x64' if cpu=='x64' else 'ARM64',
-                    '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded','-DSDL_LIBC=ON']
+        options += ['-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded','-DSDL_LIBC=ON']
     return options
+
+def select_windows_toolchain(instances, generators, plat, env):
+    """Match real, component-filtered vswhere instances to this CMake's generators.
+
+    No release-year mapping: new VS versions work when CMake advertises their
+    matching generator. An explicit environment selection must also be installed.
+    """
+    cpu={'windows-x64':'x64','windows-arm64':'ARM64'}[plat]
+    requested=env.get('CMAKE_GENERATOR')
+    location=env.get('CMAKE_GENERATOR_INSTANCE') or env.get('VSINSTALLDIR')
+    if env.get('CMAKE_GENERATOR_PLATFORM',cpu)!=cpu:
+        raise RuntimeError(f'CMAKE_GENERATOR_PLATFORM conflicts with {plat}; expected {cpu}')
+    toolset=f'host={cpu}'
+    if env.get('CMAKE_GENERATOR_TOOLSET',toolset)!=toolset:
+        raise RuntimeError(f'CMAKE_GENERATOR_TOOLSET conflicts with native MSVC selection; expected {toolset}')
+    available={int(m[1]):g for g in generators if (m:=re.fullmatch(r'Visual Studio (\d+) \d{4}',g))}
+    compatible=[]
+    for instance in instances:
+        if not instance.get('isComplete') or not instance.get('isLaunchable'):continue
+        version=tuple(int(part) for part in instance['installationVersion'].split('.'))
+        generator=available.get(version[0])
+        path=instance['installationPath']
+        if not generator or (requested and generator!=requested):continue
+        if location and ntpath.normcase(ntpath.normpath(location))!=ntpath.normcase(ntpath.normpath(path)):continue
+        compatible.append((version,path,generator))
+    if not compatible:
+        raise RuntimeError(f'No compatible installed Visual Studio C++ toolchain for {plat}. '
+                           f'CMake generators: {generators}; component-filtered VS instances: {instances}. '
+                           'Install native MSVC target tools and a Windows SDK; upgrade CMake if it '
+                           'does not support the installed VS. Remove conflicting CMAKE_GENERATOR* '
+                           'or VSINSTALLDIR overrides. Ninja/MinGW are not used by this MSVC builder.')
+    version,path,generator=max(compatible)
+    return ['-G',generator,'-A',cpu,'-T',toolset,f'-DCMAKE_GENERATOR_INSTANCE={path}']
+
+def windows_toolchain(plat, env=None):
+    env=dict(os.environ if env is None else env)
+    # Microsoft's installer location is stable; PATH supports custom installations.
+    candidates=[Path(env[key])/'Microsoft Visual Studio/Installer/vswhere.exe'
+                for key in ('ProgramFiles(x86)','ProgramFiles') if env.get(key)]
+    vswhere=next((str(p) for p in candidates if p.is_file()),None) or shutil.which('vswhere.exe')
+    if not vswhere:raise RuntimeError('vswhere.exe not found: install Visual Studio C++ Build Tools and Windows SDK')
+    component='ARM64' if plat=='windows-arm64' else 'x86.x64'
+    result=subprocess.run([vswhere,'-products','*','-requires','Microsoft.Component.MSBuild',
+                           f'Microsoft.VisualStudio.Component.VC.Tools.{component}',
+                           '-format','json','-utf8'],check=True,capture_output=True,encoding='utf-8-sig')
+    instances=json.loads(result.stdout)
+    result=subprocess.run(['cmake','-E','capabilities'],check=True,capture_output=True,encoding='utf-8')
+    generators=[g['name'] for g in json.loads(result.stdout)['generators']]
+    return select_windows_toolchain(instances,generators,plat,env)
+
+def prepare_windows_build_tree(builddir, args):
+    """CMake forbids changing generator/instance/platform/toolset in an existing tree."""
+    cache=builddir/'CMakeCache.txt'
+    if not cache.exists():return
+    values=dict(re.findall(r'^(CMAKE_GENERATOR(?:_INSTANCE|_PLATFORM|_TOOLSET)?):[^=]*=(.*)$',
+                           cache.read_text(),re.MULTILINE))
+    expected={'CMAKE_GENERATOR':args[args.index('-G')+1],
+              'CMAKE_GENERATOR_PLATFORM':args[args.index('-A')+1],
+              'CMAKE_GENERATOR_TOOLSET':args[args.index('-T')+1],
+              'CMAKE_GENERATOR_INSTANCE':next(a.split('=',1)[1] for a in args if a.startswith('-DCMAKE_GENERATOR_INSTANCE='))}
+    if any(values.get(key)!=value for key,value in expected.items()):
+        print(f'SDL3: clearing incompatible generated CMake tree {builddir}')
+        shutil.rmtree(builddir)
+
+def package_windows_artifacts(stage, out):
+    # CMake's static target and DLL linker target both end in .lib; never conflate them.
+    if (stage/'lib/SDL3-static.lib').read_bytes()==(stage/'lib/SDL3.lib').read_bytes():
+        raise RuntimeError('SDL3 static archive and DLL import library are identical')
+    for name,(source,role) in WINDOWS_ARTIFACTS.items():
+        shutil.copy2(stage/source,out/name)
+    return list(WINDOWS_ARTIFACTS)
 
 def check_dependencies(text,plat):
     """Reject optional packages that became hard static dependencies unexpectedly.
@@ -99,15 +173,21 @@ def check_dependencies(text,plat):
 def build(out,plat,cache=None,offline=False,jobs=2):
     if plat not in PLATFORMS: raise ValueError(plat)
     if plat.split('-')[0]!=host().split('-')[0]: raise ValueError('build SDL3 on the target OS with its native SDK')
-    if plat.startswith('linux') and plat!=host(): raise ValueError('Linux SDL3 release builds require a native target runner (no host-architecture fallback)')
+    if plat.startswith(('linux','windows')) and plat!=host(): raise ValueError('Linux/Windows SDL3 release builds require a native target runner (no host-architecture fallback)')
     cache=(cache or ROOT/'artifacts/sdl3').resolve()
     src,source=checked_archive(cache,offline)
     builddir=ROOT/'artifacts/sdl3/build'/plat
     stage=ROOT/'artifacts/sdl3/install'/plat
+    options=configure_options(plat)
+    if plat.startswith('windows'):
+        toolchain=windows_toolchain(plat)
+        print('SDL3 Windows toolchain: '+json.dumps(toolchain),flush=True)
+        prepare_windows_build_tree(builddir,toolchain)
+        options=toolchain+options
     if stage.exists(): shutil.rmtree(stage)
     subprocess.run(['cmake','-S',str(ROOT/'tools/native/sdl3'),'-B',str(builddir),
                     f'-DSDL_SOURCE={src}',f'-DSDL_JAI_PLATFORM={plat}',f'-DCMAKE_INSTALL_PREFIX={stage}',
-                    *configure_options(plat)],check=True)
+                    *options],check=True)
     subprocess.run(['cmake','--build',str(builddir),'--config','Release','--parallel',str(jobs)],check=True)
     if plat == host():
         for mode in ('static','shared'):
@@ -132,10 +212,7 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     # jaic searches SDL3.lib/libSDL3.a first: these are the actual static archives.
     # Keep the distinct official Windows DLL import library as SDL3-import.lib.
     if plat.startswith('windows'):
-        shutil.copy2(stage/'lib/SDL3-static.lib',out/'SDL3.lib')
-        shutil.copy2(stage/'lib/SDL3.lib',out/'SDL3-import.lib')
-        shutil.copy2(stage/'bin/SDL3.dll',out/'SDL3.dll')
-        names=['SDL3.lib','SDL3-import.lib','SDL3.dll']
+        names=package_windows_artifacts(stage,out)
     else:
         shutil.copy2(stage/'lib/libSDL3.a',out/'libSDL3.a')
         ext='dylib' if plat.startswith('macos') else 'so'
@@ -165,9 +242,11 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     (metadata/'static-link-libraries.txt').write_text(dependencies)
     # Package CMake targets for native consumers and dependency auditing.
     shutil.copytree(stage/'lib/cmake/SDL3',metadata/'cmake',dirs_exist_ok=True)
-    record={'platform':plat,'version':'3.4.18','source':source,'cmake_options':configure_options(plat),
+    record={'platform':plat,'version':'3.4.18','source':source,'cmake_options':options,
             'native_smoke_executed': plat==host(),
             'artifacts':{n:hashlib.sha256((out/n).read_bytes()).hexdigest() for n in sorted(names)}}
+    if plat.startswith('windows'):
+        record['artifact_roles']={name:role for name,(source,role) in WINDOWS_ARTIFACTS.items()}
     (metadata/'build.json').write_text(json.dumps(record,indent=2)+'\n')
     print(f'SDL3 {plat}: '+', '.join(sorted(names)))
 
@@ -178,4 +257,10 @@ if __name__=='__main__':
     p.add_argument('--cache',type=Path)
     p.add_argument('--offline',action='store_true')
     p.add_argument('--jobs',type=int,default=2)
-    a=p.parse_args();build(a.out or ROOT/'artifacts/native-libs'/a.platform,a.platform,a.cache,a.offline,a.jobs)
+    p.add_argument('--show-toolchain',action='store_true',help='print discovered Windows CMake arguments without downloading/building')
+    a=p.parse_args()
+    if a.show_toolchain:
+        if not a.platform.startswith('windows'):p.error('--show-toolchain requires a Windows platform')
+        print(json.dumps(windows_toolchain(a.platform),indent=2))
+    else:
+        build(a.out or ROOT/'artifacts/native-libs'/a.platform,a.platform,a.cache,a.offline,a.jobs)

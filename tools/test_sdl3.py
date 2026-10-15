@@ -20,6 +20,10 @@ def audit(native,plat):
     assert meta['platform']==plat and meta['version']=='3.4.18'
     for name,digest in meta['artifacts'].items():
         assert hashlib.sha256((native/name).read_bytes()).hexdigest()==digest,name
+    if plat.startswith('windows'):
+        from sdl3_native import WINDOWS_ARTIFACTS
+        assert meta['artifact_roles']=={name:role for name,(source,role) in WINDOWS_ARTIFACTS.items()}
+        assert (native/'SDL3.lib').read_bytes()!=(native/'SDL3-import.lib').read_bytes()
     filename='SDL3.dll' if plat.startswith('windows') else 'libSDL3.'+('dylib' if plat.startswith('macos') else 'so')
     library=ctypes.CDLL(str(native/filename))
     library.SDL_GetVersion.restype=ctypes.c_int

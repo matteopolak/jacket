@@ -380,11 +380,7 @@ SDL_sinf :: (x: float32) -> float32 #foreign SDL3;
 
 SDL_size_add_check_overflow :: (a: u64, b: u64, ret: *u64) -> bool #foreign SDL3 "JAI_SDL3_SDL_size_add_check_overflow";
 
-SDL_size_add_check_overflow_builtin :: (a: u64, b: u64, ret: *u64) -> bool #foreign SDL3 "JAI_SDL3_SDL_size_add_check_overflow_builtin";
-
 SDL_size_mul_check_overflow :: (a: u64, b: u64, ret: *u64) -> bool #foreign SDL3 "JAI_SDL3_SDL_size_mul_check_overflow";
-
-SDL_size_mul_check_overflow_builtin :: (a: u64, b: u64, ret: *u64) -> bool #foreign SDL3 "JAI_SDL3_SDL_size_mul_check_overflow_builtin";
 
 SDL_snprintf :: (text: *u8, maxlen: u64, fmt: *u8, args: ..Any) -> s32 #foreign SDL3;
 

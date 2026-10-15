@@ -125,22 +125,30 @@ def system_headers(work):
     return d
 
 
-def stable_c_type(ctype, source):
-    if ctype is None:
-        return None
-    # Clang locations use forward slashes even when Python uses native Windows
-    # separators. Normalize both spellings before removing the source root.
-    ctype = ctype.replace('\\', '/')
-    for prefix in ((source.resolve()/'include').as_posix()+'/', (source/'include').as_posix()+'/'):
-        ctype=ctype.replace(prefix,'')
-    # Clang versions differ in redundant diagnostic words for anonymous members.
-    # The enclosing record kind and source location remain part of the contract.
-    return re.sub(r'\((unnamed|anonymous) (?:union|struct) at ', r'(\1 at ', ctype)
+def stable_c_type(ctype, src):
+    """Canonical audit spelling, retaining anonymous record kind and source location.
 
+    Clang versions differ in repeated record keywords in unnamed-type diagnostic names.
+    This is metadata only; translation and layout probes use the actual AST/types.
+    """
+    if ctype is None:return None
+    ctype=ctype.replace('\\','/')
+    for prefix in ((src.resolve()/'include').as_posix()+'/',(src/'include').as_posix()+'/'):
+        ctype=ctype.replace(prefix,'')
+    return re.sub(r'\((unnamed|anonymous) (?:union|struct) at ',r'(\1 at ',ctype)
+
+def header_profile_flags(plat):
+    """Parse Windows for the native MSVC package, not Clang's extra GNU builtins.
+
+    SDL_begin_code.h explicitly permits overriding SDL_HAS_BUILTIN. MSVC has
+    neither __builtin_add_overflow nor __builtin_mul_overflow. SDL's own public
+    portable inline helpers remain; no substitute helper implementation is added.
+    """
+    if plat not in TARGETS:raise ValueError(f'unsupported SDL3 platform: {plat}')
+    return ['-U__clang__','-U__GNUC__','-DSDL_HAS_BUILTIN(x)=0'] if plat.startswith('windows') else []
 
 def generate(src, plat, work, clang):
-    def stable_type(ctype):
-        return stable_c_type(ctype, src)
+    def stable_type(ctype):return stable_c_type(ctype,src)
     BUILTINS.update({'wchar_t':'u16' if plat.startswith('windows') else 's32',
                      'long':'s32' if plat.startswith('windows') else 's64',
                      'unsigned long':'u32' if plat.startswith('windows') else 'u64'})
@@ -148,7 +156,11 @@ def generate(src, plat, work, clang):
     iso = system_headers(work)
     unit = work / 'api.c'; unit.write_text(HEADER)
     flags = [clang, '-target', TARGETS[plat], '-std=c11', '-nostdinc', '-I', str(iso), '-I', str(inc),
-             '-Wno-pragma-pack', '-Wno-ignored-attributes']
+             '-Wno-pragma-pack', '-Wno-ignored-attributes',*header_profile_flags(plat)]
+    # The MSVC ARM64 barrier branch includes arm64intr.h. Use the frontend's
+    # actual public intrinsic header (enum/constants), never invented SDK values.
+    resource=Path(run([clang,'-print-resource-dir']).strip())/'include'
+    flags += ['-idirafter',str(resource)]
     # Apple's public platform detection needs TargetConditionals; desktop only.
     (iso / 'AvailabilityMacros.h').write_text('#define MAC_OS_X_VERSION_MIN_REQUIRED 101200\n')
     (iso / 'TargetConditionals.h').write_text('#define TARGET_OS_OSX 1\n#define TARGET_OS_MAC 1\n#define TARGET_OS_IPHONE 0\n#define TARGET_OS_SIMULATOR 0\n')
@@ -310,7 +322,13 @@ def generate(src, plat, work, clang):
     assertions += [f'#assert(size_of(type_of({name})) == 8);' for name in functions if name not in excluded]
     assertions += [f'#assert({j} == {layouts[i]});' for i,(_,j) in enumerate(checks)]
     c_assertions=HEADER+'\n#include <stddef.h>\n'+'\n'.join(f'_Static_assert(({c.replace("__builtin_offsetof","offsetof")}) == {layouts[i]}, "SDL3 C layout {i}");' for i,(c,_) in enumerate(checks))+'\n'
+    # Compile every emitted call in the same header feature profile used for its
+    # AST. A wrapper may never silently introduce an implicit external reference.
+    unit.write_text(HEADER+'\n'.join(glue)+'\n')
+    run(flags+['-Werror=implicit-function-declaration','-Werror=incompatible-pointer-types','-fsyntax-only',str(unit)])
     return '\n'.join(lines).rstrip()+'\n', '\n'.join(assertions)+'\n', c_assertions, glue, {
+        'header_profile':{'parser':'Clang C11','target':TARGETS[plat],
+                          'feature_flags':header_profile_flags(plat)},
         'ast_declarations': {n['kind']+':'+n['name']:{'name':n['name'],'kind':n['kind'],'header':n['_header'],'c_type':stable_type(n.get('type',{}).get('qualType')), 'parameters':[{'name':f.get('name'),'c_type':stable_type(f.get('type',{}).get('qualType'))} for f in n.get('inner',[]) if f['kind']=='ParmVarDecl'], 'fields':[{'name':f.get('name'),'c_type':stable_type(f.get('type',{}).get('qualType'))} for f in n.get('inner',[]) if f['kind']=='FieldDecl']} for n in [*records.values(),*enums.values(),*typedefs.values(),*functions.values()]},
         'layout_checks':[{'c':c,'jai':j,'expected':layouts[i]} for i,(c,j) in enumerate(checks)],
         'enum_members':{k:name for name,n in enums.items() for k,_ in enum_values(n)},
@@ -391,6 +409,7 @@ def main():
         contracts += [json.dumps({'layout':entry['c'],'jai':entry['jai'],'expected':entry['expected']},sort_keys=True) for entry in report.pop('layout_checks')]
         report['contracts']=f'contracts-{plat}.jsonl'
         files[OUT/report['contracts']]='\n'.join(contracts)+'\n'
+        report['contracts_sha256']=hashlib.sha256(files[OUT/report['contracts']].encode()).hexdigest()
         inventory[plat]=report
         exports={m[1]:f'{plat}.jai::{m[1]}' for m in re.finditer(r'^(?:using )?(\w+) ::',data,re.M)}
         exports.update({k:f'{plat}.jai::{enum}.{k}' for k,enum in report['enum_members'].items()})

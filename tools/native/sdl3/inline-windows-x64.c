@@ -7,9 +7,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_vulkan.h>
 SDL_DECLSPEC bool SDLCALL JAI_SDL3_SDL_size_mul_check_overflow(size_t a, size_t b, size_t * ret) { return SDL_size_mul_check_overflow(a, b, ret); }
-SDL_DECLSPEC bool SDLCALL JAI_SDL3_SDL_size_mul_check_overflow_builtin(size_t a, size_t b, size_t * ret) { return SDL_size_mul_check_overflow_builtin(a, b, ret); }
 SDL_DECLSPEC bool SDLCALL JAI_SDL3_SDL_size_add_check_overflow(size_t a, size_t b, size_t * ret) { return SDL_size_add_check_overflow(a, b, ret); }
-SDL_DECLSPEC bool SDLCALL JAI_SDL3_SDL_size_add_check_overflow_builtin(size_t a, size_t b, size_t * ret) { return SDL_size_add_check_overflow_builtin(a, b, ret); }
 SDL_DECLSPEC float SDLCALL JAI_SDL3_SDL_SwapFloat(float x) { return SDL_SwapFloat(x); }
 SDL_DECLSPEC int SDLCALL JAI_SDL3_SDL_MostSignificantBitIndex32(Uint32 x) { return SDL_MostSignificantBitIndex32(x); }
 SDL_DECLSPEC bool SDLCALL JAI_SDL3_SDL_HasExactlyOneBitSet32(Uint32 x) { return SDL_HasExactlyOneBitSet32(x); }

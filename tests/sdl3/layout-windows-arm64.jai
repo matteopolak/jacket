@@ -261,9 +261,7 @@
 #assert(size_of(type_of(SDL_iconv)) == 8);
 #assert(size_of(type_of(SDL_iconv_string)) == 8);
 #assert(size_of(type_of(SDL_size_mul_check_overflow)) == 8);
-#assert(size_of(type_of(SDL_size_mul_check_overflow_builtin)) == 8);
 #assert(size_of(type_of(SDL_size_add_check_overflow)) == 8);
-#assert(size_of(type_of(SDL_size_add_check_overflow_builtin)) == 8);
 #assert(size_of(type_of(SDL_ReportAssertion)) == 8);
 #assert(size_of(type_of(SDL_SetAssertionHandler)) == 8);
 #assert(size_of(type_of(SDL_GetDefaultAssertionHandler)) == 8);

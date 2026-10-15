@@ -1,6 +1,7 @@
 {
   "linux-arm64": {
     "contracts": "contracts-linux-arm64.jsonl",
+    "contracts_sha256": "742cd53d7a3359f57639585ca9a9d46350517cf4aa71e5a5d5bea85d683a3fab",
     "enum_members": {
       "DUMMY_ENUM_VALUE": "SDL_DUMMY_ENUM",
       "SDL_ADDEVENT": "SDL_EventAction",
@@ -2791,6 +2792,11 @@
       "SDL_wcsstr",
       "SDL_wcstol"
     ],
+    "header_profile": {
+      "feature_flags": [],
+      "parser": "Clang C11",
+      "target": "aarch64-unknown-linux-gnu"
+    },
     "integer_macros": [
       "SDLK_0",
       "SDLK_1",
@@ -4548,6 +4554,7 @@
   },
   "linux-x64": {
     "contracts": "contracts-linux-x64.jsonl",
+    "contracts_sha256": "00267ebd22d0ad88f87b04ee3d769ec2b2b6058fa1e9a563af9897bb06782ed5",
     "enum_members": {
       "DUMMY_ENUM_VALUE": "SDL_DUMMY_ENUM",
       "SDL_ADDEVENT": "SDL_EventAction",
@@ -7338,6 +7345,11 @@
       "SDL_wcsstr",
       "SDL_wcstol"
     ],
+    "header_profile": {
+      "feature_flags": [],
+      "parser": "Clang C11",
+      "target": "x86_64-unknown-linux-gnu"
+    },
     "integer_macros": [
       "SDLK_0",
       "SDLK_1",
@@ -9095,6 +9107,7 @@
   },
   "macos-arm64": {
     "contracts": "contracts-macos-arm64.jsonl",
+    "contracts_sha256": "d1cb7ee61b343ddaab606f8dbbfcb8b8e00dd026634994070ef37a2003c85654",
     "enum_members": {
       "DUMMY_ENUM_VALUE": "SDL_DUMMY_ENUM",
       "SDL_ADDEVENT": "SDL_EventAction",
@@ -11869,6 +11882,11 @@
       "SDL_wcsstr",
       "SDL_wcstol"
     ],
+    "header_profile": {
+      "feature_flags": [],
+      "parser": "Clang C11",
+      "target": "arm64-apple-macos11"
+    },
     "integer_macros": [
       "SDLK_0",
       "SDLK_1",
@@ -13610,6 +13628,7 @@
   },
   "macos-x64": {
     "contracts": "contracts-macos-x64.jsonl",
+    "contracts_sha256": "ae2a481830a8c42a5936ec79b37532ecd27f07fa2789ff395dd7c35173198829",
     "enum_members": {
       "DUMMY_ENUM_VALUE": "SDL_DUMMY_ENUM",
       "SDL_ADDEVENT": "SDL_EventAction",
@@ -16384,6 +16403,11 @@
       "SDL_wcsstr",
       "SDL_wcstol"
     ],
+    "header_profile": {
+      "feature_flags": [],
+      "parser": "Clang C11",
+      "target": "x86_64-apple-macos10.12"
+    },
     "integer_macros": [
       "SDLK_0",
       "SDLK_1",
@@ -18125,6 +18149,7 @@
   },
   "windows-arm64": {
     "contracts": "contracts-windows-arm64.jsonl",
+    "contracts_sha256": "244eb37935adc453926c99d2715d7667926e4e3b25ffccb9dc5b805539245b60",
     "enum_members": {
       "DUMMY_ENUM_VALUE": "SDL_DUMMY_ENUM",
       "SDL_ADDEVENT": "SDL_EventAction",
@@ -19421,7 +19446,7 @@
       "SDL_LINE": "call-site dependent preprocessor macro",
       "SDL_MAIN_HANDLED": "preprocessor configuration, annotation or header guard",
       "SDL_MALLOC": "preprocessor configuration, annotation or header guard",
-      "SDL_NODISCARD": "non-value preprocessor surface: __attribute__((warn_unused_result))",
+      "SDL_NODISCARD": "non-value preprocessor surface: _Check_return_",
       "SDL_NORETURN": "preprocessor configuration, annotation or header guard",
       "SDL_NO_THREAD_SAFETY_ANALYSIS": "non-value preprocessor surface: SDL_THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)",
       "SDL_PLATFORM_WIN32": "preprocessor configuration, annotation or header guard",
@@ -19505,9 +19530,9 @@
       "SDL_ACQUIRED_AFTER": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(acquired_after(x))",
       "SDL_ACQUIRED_BEFORE": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(x))",
       "SDL_ACQUIRE_SHARED": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(acquire_shared_capability(x))",
-      "SDL_ALIGNED": "__attribute__((aligned(x)))",
-      "SDL_ALLOC_SIZE": "__attribute__((alloc_size(p)))",
-      "SDL_ALLOC_SIZE2": "__attribute__((alloc_size(p1, p2)))",
+      "SDL_ALIGNED": "__declspec(align(x))",
+      "SDL_ALLOC_SIZE": "",
+      "SDL_ALLOC_SIZE2": "",
       "SDL_ASSERT_CAPABILITY": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))",
       "SDL_ASSERT_SHARED_CAPABILITY": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(x))",
       "SDL_AUDIO_BITSIZE": "((x) & SDL_AUDIO_MASK_BITSIZE)",
@@ -19534,7 +19559,7 @@
       "SDL_COLORSPACETYPE": "(SDL_ColorType)(((cspace) >> 28) & 0x0F)",
       "SDL_COMPILE_TIME_ASSERT": "_Static_assert(x, #x)",
       "SDL_CPUPauseInstruction": "__asm__ __volatile__(\"yield\" ::: \"memory\")",
-      "SDL_CompilerBarrier": "__atomic_signal_fence(__ATOMIC_SEQ_CST)",
+      "SDL_CompilerBarrier": "_ReadWriteBarrier()",
       "SDL_CreateThread": "SDL_CreateThreadRuntime((fn), (name), (data), (SDL_FunctionPointer) (SDL_BeginThreadFunction), (SDL_FunctionPointer) (SDL_EndThreadFunction))",
       "SDL_CreateThreadWithProperties": "SDL_CreateThreadWithPropertiesRuntime((props), (SDL_FunctionPointer) (SDL_BeginThreadFunction), (SDL_FunctionPointer) (SDL_EndThreadFunction))",
       "SDL_DEFINE_AUDIO_FORMAT": "(((Uint16)(signed) << 15) | ((Uint16)(bigendian) << 12) | ((Uint16)(flt) << 8) | ((size) & SDL_AUDIO_MASK_BITSIZE))",
@@ -19545,7 +19570,7 @@
       "SDL_EXCLUDES": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(x))",
       "SDL_FOURCC": "((SDL_static_cast(Uint32, SDL_static_cast(Uint8, (A))) << 0) | (SDL_static_cast(Uint32, SDL_static_cast(Uint8, (B))) << 8) | (SDL_static_cast(Uint32, SDL_static_cast(Uint8, (C))) << 16) | (SDL_static_cast(Uint32, SDL_static_cast(Uint8, (D))) << 24))",
       "SDL_GUARDED_BY": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))",
-      "SDL_HAS_BUILTIN": "__has_builtin(x)",
+      "SDL_HAS_BUILTIN": "0",
       "SDL_INIT_INTERFACE": "do { SDL_zerop(iface); (iface)->version = sizeof(*(iface)); } while (0)",
       "SDL_INOUT_Z_CAP": "",
       "SDL_IN_BYTECAP": "",
@@ -19564,8 +19589,8 @@
       "SDL_InvalidParamError": "SDL_SetError(\"Parameter '%s' is invalid\", (param))",
       "SDL_MS_TO_NS": "(((Uint64)(MS)) * SDL_NS_PER_MS)",
       "SDL_MUSTLOCK": "(((S)->flags & SDL_SURFACE_LOCK_NEEDED) == SDL_SURFACE_LOCK_NEEDED)",
-      "SDL_MemoryBarrierAcquire": "__atomic_thread_fence(__ATOMIC_ACQUIRE)",
-      "SDL_MemoryBarrierRelease": "__atomic_thread_fence(__ATOMIC_RELEASE)",
+      "SDL_MemoryBarrierAcquire": "__dmb(_ARM64_BARRIER_ISHLD)",
+      "SDL_MemoryBarrierRelease": "__dmb(_ARM64_BARRIER_ISH)",
       "SDL_NS_TO_MS": "((NS) / SDL_NS_PER_MS)",
       "SDL_NS_TO_SECONDS": "((NS) / SDL_NS_PER_SECOND)",
       "SDL_NS_TO_US": "((NS) / SDL_NS_PER_US)",
@@ -19592,13 +19617,13 @@
       "SDL_SECONDS_TO_NS": "(((Uint64)(S)) * SDL_NS_PER_SECOND)",
       "SDL_SINT64_C": "INT64_C(c)",
       "SDL_STRINGIFY_ARG": "#arg",
-      "SDL_Swap16": "__builtin_bswap16(x)",
+      "SDL_Swap16": "_byteswap_ushort(x)",
       "SDL_Swap16BE": "SDL_Swap16(x)",
       "SDL_Swap16LE": "(x)",
-      "SDL_Swap32": "__builtin_bswap32(x)",
+      "SDL_Swap32": "_byteswap_ulong(x)",
       "SDL_Swap32BE": "SDL_Swap32(x)",
       "SDL_Swap32LE": "(x)",
-      "SDL_Swap64": "__builtin_bswap64(x)",
+      "SDL_Swap64": "_byteswap_uint64(x)",
       "SDL_Swap64BE": "SDL_Swap64(x)",
       "SDL_Swap64LE": "(x)",
       "SDL_SwapFloatBE": "SDL_SwapFloat(x)",
@@ -19638,8 +19663,6 @@
       "SDL_max": "(((x) > (y)) ? (x) : (y))",
       "SDL_min": "(((x) < (y)) ? (x) : (y))",
       "SDL_reinterpret_cast": "((type)(expression))",
-      "SDL_size_add_check_overflow": "SDL_size_add_check_overflow_builtin(a, b, ret)",
-      "SDL_size_mul_check_overflow": "SDL_size_mul_check_overflow_builtin(a, b, ret)",
       "SDL_stack_alloc": "(type*)SDL_malloc(sizeof(type)*(count))",
       "SDL_stack_free": "SDL_free(data)",
       "SDL_static_cast": "((type)(expression))",
@@ -20844,9 +20867,7 @@
       "SDL_sin",
       "SDL_sinf",
       "SDL_size_add_check_overflow",
-      "SDL_size_add_check_overflow_builtin",
       "SDL_size_mul_check_overflow",
-      "SDL_size_mul_check_overflow_builtin",
       "SDL_snprintf",
       "SDL_sqrt",
       "SDL_sqrtf",
@@ -20904,6 +20925,15 @@
       "SDL_wcsstr",
       "SDL_wcstol"
     ],
+    "header_profile": {
+      "feature_flags": [
+        "-U__clang__",
+        "-U__GNUC__",
+        "-DSDL_HAS_BUILTIN(x)=0"
+      ],
+      "parser": "Clang C11",
+      "target": "aarch64-pc-windows-msvc"
+    },
     "integer_macros": [
       "SDLK_0",
       "SDLK_1",
@@ -22642,13 +22672,12 @@
       "SDL_WINDOWPOS_UNDEFINED_DISPLAY",
       "SDL_iconv_utf8_locale",
       "SDL_iconv_utf8_ucs2",
-      "SDL_iconv_utf8_ucs4",
-      "SDL_size_add_check_overflow",
-      "SDL_size_mul_check_overflow"
+      "SDL_iconv_utf8_ucs4"
     ]
   },
   "windows-x64": {
     "contracts": "contracts-windows-x64.jsonl",
+    "contracts_sha256": "930fd44a43e1065987dbf7dfe4a02bf353f98675bbc78e661093b8a0fe462f4d",
     "enum_members": {
       "DUMMY_ENUM_VALUE": "SDL_DUMMY_ENUM",
       "SDL_ADDEVENT": "SDL_EventAction",
@@ -23945,7 +23974,7 @@
       "SDL_LINE": "call-site dependent preprocessor macro",
       "SDL_MAIN_HANDLED": "preprocessor configuration, annotation or header guard",
       "SDL_MALLOC": "preprocessor configuration, annotation or header guard",
-      "SDL_NODISCARD": "non-value preprocessor surface: __attribute__((warn_unused_result))",
+      "SDL_NODISCARD": "non-value preprocessor surface: _Check_return_",
       "SDL_NORETURN": "preprocessor configuration, annotation or header guard",
       "SDL_NO_THREAD_SAFETY_ANALYSIS": "non-value preprocessor surface: SDL_THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)",
       "SDL_PLATFORM_WIN32": "preprocessor configuration, annotation or header guard",
@@ -24029,9 +24058,9 @@
       "SDL_ACQUIRED_AFTER": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(acquired_after(x))",
       "SDL_ACQUIRED_BEFORE": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(acquired_before(x))",
       "SDL_ACQUIRE_SHARED": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(acquire_shared_capability(x))",
-      "SDL_ALIGNED": "__attribute__((aligned(x)))",
-      "SDL_ALLOC_SIZE": "__attribute__((alloc_size(p)))",
-      "SDL_ALLOC_SIZE2": "__attribute__((alloc_size(p1, p2)))",
+      "SDL_ALIGNED": "__declspec(align(x))",
+      "SDL_ALLOC_SIZE": "",
+      "SDL_ALLOC_SIZE2": "",
       "SDL_ASSERT_CAPABILITY": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(assert_capability(x))",
       "SDL_ASSERT_SHARED_CAPABILITY": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(assert_shared_capability(x))",
       "SDL_AUDIO_BITSIZE": "((x) & SDL_AUDIO_MASK_BITSIZE)",
@@ -24057,8 +24086,8 @@
       "SDL_COLORSPACETRANSFER": "(SDL_TransferCharacteristics)(((cspace) >> 5) & 0x1F)",
       "SDL_COLORSPACETYPE": "(SDL_ColorType)(((cspace) >> 28) & 0x0F)",
       "SDL_COMPILE_TIME_ASSERT": "_Static_assert(x, #x)",
-      "SDL_CPUPauseInstruction": "__asm__ __volatile__(\"pause\\n\")",
-      "SDL_CompilerBarrier": "__atomic_signal_fence(__ATOMIC_SEQ_CST)",
+      "SDL_CPUPauseInstruction": "_mm_pause()",
+      "SDL_CompilerBarrier": "_ReadWriteBarrier()",
       "SDL_CreateThread": "SDL_CreateThreadRuntime((fn), (name), (data), (SDL_FunctionPointer) (SDL_BeginThreadFunction), (SDL_FunctionPointer) (SDL_EndThreadFunction))",
       "SDL_CreateThreadWithProperties": "SDL_CreateThreadWithPropertiesRuntime((props), (SDL_FunctionPointer) (SDL_BeginThreadFunction), (SDL_FunctionPointer) (SDL_EndThreadFunction))",
       "SDL_DEFINE_AUDIO_FORMAT": "(((Uint16)(signed) << 15) | ((Uint16)(bigendian) << 12) | ((Uint16)(flt) << 8) | ((size) & SDL_AUDIO_MASK_BITSIZE))",
@@ -24069,7 +24098,7 @@
       "SDL_EXCLUDES": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(locks_excluded(x))",
       "SDL_FOURCC": "((SDL_static_cast(Uint32, SDL_static_cast(Uint8, (A))) << 0) | (SDL_static_cast(Uint32, SDL_static_cast(Uint8, (B))) << 8) | (SDL_static_cast(Uint32, SDL_static_cast(Uint8, (C))) << 16) | (SDL_static_cast(Uint32, SDL_static_cast(Uint8, (D))) << 24))",
       "SDL_GUARDED_BY": "SDL_THREAD_ANNOTATION_ATTRIBUTE__(guarded_by(x))",
-      "SDL_HAS_BUILTIN": "__has_builtin(x)",
+      "SDL_HAS_BUILTIN": "0",
       "SDL_INIT_INTERFACE": "do { SDL_zerop(iface); (iface)->version = sizeof(*(iface)); } while (0)",
       "SDL_INOUT_Z_CAP": "",
       "SDL_IN_BYTECAP": "",
@@ -24088,8 +24117,8 @@
       "SDL_InvalidParamError": "SDL_SetError(\"Parameter '%s' is invalid\", (param))",
       "SDL_MS_TO_NS": "(((Uint64)(MS)) * SDL_NS_PER_MS)",
       "SDL_MUSTLOCK": "(((S)->flags & SDL_SURFACE_LOCK_NEEDED) == SDL_SURFACE_LOCK_NEEDED)",
-      "SDL_MemoryBarrierAcquire": "__atomic_thread_fence(__ATOMIC_ACQUIRE)",
-      "SDL_MemoryBarrierRelease": "__atomic_thread_fence(__ATOMIC_RELEASE)",
+      "SDL_MemoryBarrierAcquire": "SDL_CompilerBarrier()",
+      "SDL_MemoryBarrierRelease": "SDL_CompilerBarrier()",
       "SDL_NS_TO_MS": "((NS) / SDL_NS_PER_MS)",
       "SDL_NS_TO_SECONDS": "((NS) / SDL_NS_PER_SECOND)",
       "SDL_NS_TO_US": "((NS) / SDL_NS_PER_US)",
@@ -24116,13 +24145,13 @@
       "SDL_SECONDS_TO_NS": "(((Uint64)(S)) * SDL_NS_PER_SECOND)",
       "SDL_SINT64_C": "INT64_C(c)",
       "SDL_STRINGIFY_ARG": "#arg",
-      "SDL_Swap16": "__builtin_bswap16(x)",
+      "SDL_Swap16": "_byteswap_ushort(x)",
       "SDL_Swap16BE": "SDL_Swap16(x)",
       "SDL_Swap16LE": "(x)",
-      "SDL_Swap32": "__builtin_bswap32(x)",
+      "SDL_Swap32": "_byteswap_ulong(x)",
       "SDL_Swap32BE": "SDL_Swap32(x)",
       "SDL_Swap32LE": "(x)",
-      "SDL_Swap64": "__builtin_bswap64(x)",
+      "SDL_Swap64": "_byteswap_uint64(x)",
       "SDL_Swap64BE": "SDL_Swap64(x)",
       "SDL_Swap64LE": "(x)",
       "SDL_SwapFloatBE": "SDL_SwapFloat(x)",
@@ -24162,8 +24191,6 @@
       "SDL_max": "(((x) > (y)) ? (x) : (y))",
       "SDL_min": "(((x) < (y)) ? (x) : (y))",
       "SDL_reinterpret_cast": "((type)(expression))",
-      "SDL_size_add_check_overflow": "SDL_size_add_check_overflow_builtin(a, b, ret)",
-      "SDL_size_mul_check_overflow": "SDL_size_mul_check_overflow_builtin(a, b, ret)",
       "SDL_stack_alloc": "(type*)SDL_malloc(sizeof(type)*(count))",
       "SDL_stack_free": "SDL_free(data)",
       "SDL_static_cast": "((type)(expression))",
@@ -25368,9 +25395,7 @@
       "SDL_sin",
       "SDL_sinf",
       "SDL_size_add_check_overflow",
-      "SDL_size_add_check_overflow_builtin",
       "SDL_size_mul_check_overflow",
-      "SDL_size_mul_check_overflow_builtin",
       "SDL_snprintf",
       "SDL_sqrt",
       "SDL_sqrtf",
@@ -25428,6 +25453,15 @@
       "SDL_wcsstr",
       "SDL_wcstol"
     ],
+    "header_profile": {
+      "feature_flags": [
+        "-U__clang__",
+        "-U__GNUC__",
+        "-DSDL_HAS_BUILTIN(x)=0"
+      ],
+      "parser": "Clang C11",
+      "target": "x86_64-pc-windows-msvc"
+    },
     "integer_macros": [
       "SDLK_0",
       "SDLK_1",
@@ -27166,9 +27200,7 @@
       "SDL_WINDOWPOS_UNDEFINED_DISPLAY",
       "SDL_iconv_utf8_locale",
       "SDL_iconv_utf8_ucs2",
-      "SDL_iconv_utf8_ucs4",
-      "SDL_size_add_check_overflow",
-      "SDL_size_mul_check_overflow"
+      "SDL_iconv_utf8_ucs4"
     ]
   }
 }

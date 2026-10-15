@@ -32,7 +32,14 @@ static OPENED: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 
 /// The C runtime and Win32 core: where library-less foreign symbols and the stdlib's `libc`
 /// names resolve.
-const DEFAULT_MODULES: [&str; 4] = ["msvcrt.dll", "ucrtbase.dll", "kernel32.dll", "ntdll.dll"];
+const DEFAULT_MODULES: [&str; 5] = [
+    "msvcrt.dll",
+    "ucrtbase.dll",
+    "kernel32.dll",
+    // Windows 10 1607 / Server 2016 expose thread descriptions only here.
+    "kernelbase.dll",
+    "ntdll.dll",
+];
 
 fn load(path: &str) -> Option<usize> {
     let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();

@@ -133,13 +133,41 @@ unsafe extern "system" {
 }
 
 #[cfg(windows)]
-#[link(name = "kernelbase")]
+#[link(name = "kernel32")]
 unsafe extern "system" {
-    fn CompareObjectHandles(first: usize, second: usize) -> i32;
+    fn GetModuleHandleExW(flags: u32, name: *const u16, module: *mut *mut std::ffi::c_void) -> i32;
+    fn GetProcAddress(module: *mut std::ffi::c_void, name: *const u8) -> *mut std::ffi::c_void;
 }
 
 #[cfg(windows)]
-#[link(name = "ucrt")]
+type CompareHandles = unsafe extern "system" fn(usize, usize) -> i32;
+
+/// Resolve the Windows 10 API without requiring the SDK's optional Kernelbase.lib.
+/// Pin the already loaded system DLL so the cached pointer cannot outlive its module.
+#[cfg(windows)]
+fn compare_handles_api() -> Option<CompareHandles> {
+    static API: std::sync::OnceLock<Option<CompareHandles>> = std::sync::OnceLock::new();
+    *API.get_or_init(|| {
+        let name: Vec<u16> = "kernelbase.dll".encode_utf16().chain(Some(0)).collect();
+        let mut module = std::ptr::null_mut();
+        // SAFETY: name is terminated and module is writable. Flag 1 pins until process exit.
+        if unsafe { GetModuleHandleExW(1, name.as_ptr(), &mut module) } == 0 {
+            return None;
+        }
+        // SAFETY: module is pinned; the name identifies the documented exact API signature.
+        let address = unsafe { GetProcAddress(module, c"CompareObjectHandles".as_ptr().cast()) };
+        if address.is_null() {
+            None
+        } else {
+            // SAFETY: the named SDK export has the CompareHandles system ABI on both CPUs.
+            Some(unsafe { std::mem::transmute::<*mut std::ffi::c_void, CompareHandles>(address) })
+        }
+    })
+}
+
+#[cfg(windows)]
+// These symbols belong to the same CRT that Rust std selects (crt-static or dynamic).
+// An explicit ucrt import library would mix DLL UCRT with a /MT static Rust/LLVM build.
 unsafe extern "C" {
     fn _beginthreadex(
         security: *mut std::ffi::c_void,
@@ -470,9 +498,13 @@ impl Interp {
                 }
             }
             #[cfg(windows)]
-            "SuspendThread" | "ResumeThread" if self.is_unmanaged_thread_alias(arg(0)) => {
-                return Some(self.trap("suspending or resuming an unmanaged duplicate of an interpreted thread handle is unsupported; use its scheduler-managed handle"));
-            }
+            "SuspendThread" | "ResumeThread" => match self.is_unmanaged_thread_alias(arg(0)) {
+                Ok(true) => {
+                    return Some(self.trap("suspending or resuming an unmanaged duplicate of an interpreted thread handle is unsupported; use its scheduler-managed handle"));
+                }
+                Ok(false) => return None,
+                Err(message) => return Some(self.trap(message)),
+            },
             "WaitForSingleObject" | "WaitForSingleObjectEx" if self.owns(arg(0)) => {
                 self.wait_objects(&[arg(0)], false, arg(1) as u32)
             }
@@ -725,23 +757,37 @@ impl Interp {
     }
 
     #[cfg(windows)]
-    fn is_unmanaged_thread_alias(&self, handle: u64) -> bool {
+    fn is_unmanaged_thread_alias(&self, handle: u64) -> Result<bool, &'static str> {
         let Some(shared) = &self.shared else {
-            return false;
+            return Ok(false);
         };
         use std::os::windows::io::AsRawHandle;
-        shared.lock().threads.iter().any(|thread| {
-            !thread_signaled(thread)
-                && thread.worker.as_ref().is_some_and(|worker| {
-                    // Identity comparison requires no query access. GetThreadId would miss
-                    // suspend-only duplicates and could allow an unscheduled native suspend.
-                    // SAFETY: Windows validates handle and the private handle stays live under
-                    // the mutex. Both are handles in this process; no foreign memory is read.
-                    unsafe {
-                        CompareObjectHandles(handle as usize, worker.as_raw_handle() as usize) != 0
-                    }
-                })
-        })
+        let scheduler = shared.lock();
+        // SAFETY: thread-local SDK calls have no preconditions. Preserve the foreign caller's
+        // error across both availability probing and private identity comparisons.
+        let saved_error = unsafe { GetLastError() };
+        let result = (|| {
+            let mut workers = scheduler
+                .threads
+                .iter()
+                .filter(|thread| !thread_signaled(thread))
+                .filter_map(|thread| thread.worker.as_ref())
+                .peekable();
+            if workers.peek().is_none() {
+                return Ok(false);
+            }
+            let compare = compare_handles_api().ok_or(
+                "native thread alias detection requires CompareObjectHandles (Windows 10 / Windows Server 2016 or later)",
+            )?;
+            Ok(workers.any(|worker| {
+                // SAFETY: Windows validates handle; the mutex keeps the private handle live.
+                // No query rights are required, including for suspend-only duplicates.
+                unsafe { compare(handle as usize, worker.as_raw_handle() as usize) != 0 }
+            }))
+        })();
+        // SAFETY: restore the calling OS thread's error value.
+        unsafe { SetLastError(saved_error) };
+        result
     }
 
     /// Like `new_object`, but the object is known by `handle` when that is not 0 (a kernel
@@ -908,6 +954,27 @@ mod handle_registry_tests {
 
     #[cfg(windows)]
     #[test]
+    fn sdk_thread_entrypoints_resolve_at_runtime() {
+        assert!(
+            compare_handles_api().is_some(),
+            "Windows 10 / Server 2016 API required"
+        );
+        for symbol in ["SetThreadDescription", "GetThreadDescription"] {
+            // Resolve from the documented original DLL as well as the modern SDK facade.
+            // No static import of either description API is introduced by this test.
+            for library in ["kernelbase", "kernel32"] {
+                let module =
+                    native::Library::open(library, true, "").expect("system DLL must load");
+                assert!(
+                    native::lookup(Some(&module), symbol).is_some(),
+                    "{library}!{symbol}"
+                );
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
     fn suspend_only_aliases_are_identified_without_query_rights() {
         use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
         #[link(name = "kernel32")]
@@ -945,9 +1012,14 @@ mod handle_registry_tests {
         thread.worker = Some(worker);
         shared.lock().threads.push(thread);
         let alias_raw = alias.as_raw_handle() as u64;
-        assert!(interp.is_unmanaged_thread_alias(alias_raw));
+        // SAFETY: SetLastError/GetLastError operate on this OS thread only.
+        unsafe { SetLastError(1234) };
+        assert_eq!(interp.is_unmanaged_thread_alias(alias_raw), Ok(true));
+        assert_eq!(unsafe { GetLastError() }, 1234);
         drop(alias);
-        assert!(!interp.is_unmanaged_thread_alias(alias_raw));
+        unsafe { SetLastError(5678) };
+        assert_eq!(interp.is_unmanaged_thread_alias(alias_raw), Ok(false));
+        assert_eq!(unsafe { GetLastError() }, 5678);
         drop(stop_worker);
         drop(interp);
     }

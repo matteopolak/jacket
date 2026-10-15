@@ -46,6 +46,9 @@ Jai language behavior as implemented by `jaic`.
 - [Casts and conversions](language/casts-and-conversions.md)
 - [Full available compiler suite and triage](compiler/full-suite-triage.md)
 - [Native interpreter thread entry and ownership](compiler/windows-thread-entry-lifecycle.md)
+- [Windows SDK runtime resolution and native build gate](compiler/windows-sdk-runtime-resolution.md)
+- [Windows compiler CRT selection and tool build gate](compiler/windows-crt-linkage.md)
+- [Independent cast/shift reduction and open grammar contract](compiler/cast-shift-widths.md)
 - [Checked expression result metadata](compiler/typed-expression-metadata.md)
 - [Real x64 CPUID execution](compiler/cpuid.md)
 - [Forward overlay declaration and layout resolution](compiler/forward-overlay-layout.md)
@@ -241,6 +244,9 @@ The LLVM backend, C ABI and linking.
 - [Unresolved portable contracts](specs/stdlib/questions.md)
 - [SDL3 desktop bindings, generation and native packaging](extensions/sdl3.md)
 - [SDL3 comprehensive header/GPU coverage, organization and verification](extensions/sdl3-coverage.md)
+- [SDL3 current native CI corrections and verification](status/sdl3-progress.md)
+- [SDL3 MSVC header profiles, canonical ledger hashes and clean CI repairs](extensions/sdl3-ci-repairs.md)
+- [SDL3 implementation deviations and remaining limits](status/sdl3-deviations.md)
 
 Implementation work uses the API specification as its compatibility contract. Implementers do not read the source of a Jai distribution; specification review supplies public declarations and behavior through the documented clean-room workflow.
 

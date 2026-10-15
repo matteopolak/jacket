@@ -39,6 +39,12 @@ jobs:
         run: |
           mkdir -p artifacts/sdl3/tmp
           python3 -m unittest discover -s tools -p 'test_sdl3*.py'
+      - name: Discover installed native Windows MSVC toolchain
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --version
+          python tools/sdl3_native.py --platform "${{ matrix.platform }}" --show-toolchain
       - name: Build static and shared SDL3 and run both C headless smoke tests
         run: python3 tools/build_native_libs.py SDL3 --platform "${{ matrix.platform }}"
       - name: Offline rebuild uses verified durable source cache
