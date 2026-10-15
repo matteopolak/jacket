@@ -78,7 +78,7 @@ impl Compiler {
     /// Load the bootstrap modules and `sources`, then run every top-level
     /// directive: the program is parsed and its compile-time code has run.
     pub fn begin_sources(&mut self, sources: &[ProgramSource]) -> Result<()> {
-        let result = self.begin_sources_inner(sources);
+        let result = self.prepare_sources(sources).and_then(|()| self.settle());
         self.with_deferred_errors(result)
     }
 
@@ -97,7 +97,11 @@ impl Compiler {
         })
     }
 
-    fn begin_sources_inner(&mut self, sources: &[ProgramSource]) -> Result<()> {
+    /// Load bootstrap and program declarations without settling top-level code or
+    /// lowering program exports. Tools may expand imports to discover configured modules,
+    /// then add further sources before `settle` and `finish_program`. In particular,
+    /// all module context extensions must be present before compile-time execution.
+    pub fn prepare_sources(&mut self, sources: &[ProgramSource]) -> Result<()> {
         self.ide_selected_entry = if self.ide.is_some() {
             sources.iter().find_map(|source| match source {
                 ProgramSource::File(path) => Some(self.fs.canonical(path)),
@@ -112,7 +116,7 @@ impl Compiler {
         for source in sources {
             self.add_source(source)?;
         }
-        self.settle()
+        Ok(())
     }
 
     /// Load one more file or string into the main module; `settle` runs it.

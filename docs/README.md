@@ -3,6 +3,12 @@
 - [Mac Extensions dependency repairs](extensions/mac-dependency-repairs.md):
   Json ownership/numerics, Http time/atomics, and test-only dependency migrations;
   [measured results and remaining lint-context failure](status/extensions-mac-repairs.md).
+- [Focused Mac compiler catalogue classifications and repairs](compiler/mac-catalogue-repairs.md),
+  including reviewed decimal inference and narrowing rejection regressions.
+- [Rejected generic overload lint audit roots](compiler/rejected-overload-audit.md):
+  cached instance identity, selected-body diagnostics and independent regressions.
+- [Module-root context/import ordering](compiler/module-root-context-ordering.md):
+  configured bootstrap reuse before execution and context layout, with strict lint regressions.
 
 - [Extensions Io/Args dependency migration](extensions/dependency-migration.md):
   allocator ownership, fiber scratch lifecycle and actual WASI termination;

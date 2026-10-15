@@ -455,28 +455,33 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
             dir,
             ..
         } => {
-            // Strictly prepare bootstrap exports first: their lazy dependencies
-            // may carry required parameters. Never invent a second binding.
-            compiler
-                .compile_sources(&[ProgramSource::String("main :: () {}".into())])
-                .and_then(|()| {
-                    for source in &options.add_sources {
-                        compiler.add_source(&ProgramSource::String(source.clone()))?;
-                    }
-                    if compiler.modules.iter().any(|module| {
-                        module
-                            .path
-                            .as_ref()
-                            .is_some_and(|path| canonical(path) == *entry)
-                    }) {
-                        compiler.settle()?;
-                        return compiler.finish_program();
-                    }
+            // Discover bootstrap imports before supplying a fallback root import:
+            // their dependencies may carry required parameters. Do not execute
+            // top-level code or finish an empty program first: either can freeze
+            // Context before the requested module registers its extensions.
+            let sources: Vec<_> = std::iter::once(ProgramSource::String("main :: () {}".into()))
+                .chain(
+                    options
+                        .add_sources
+                        .iter()
+                        .cloned()
+                        .map(ProgramSource::String),
+                )
+                .collect();
+            compiler.prepare_sources(&sources).and_then(|()| {
+                compiler.expand_all()?;
+                if !compiler.modules.iter().any(|module| {
+                    module
+                        .path
+                        .as_ref()
+                        .is_some_and(|path| canonical(path) == *entry)
+                }) {
                     compiler
                         .add_source(&ProgramSource::File(dir.join(".jailint-module-root.jai")))?;
-                    compiler.settle()?;
-                    compiler.finish_program()
-                })
+                }
+                compiler.settle()?;
+                compiler.finish_program()
+            })
         }
     };
     let mut error = result.err().map(|e| e.message.clone());

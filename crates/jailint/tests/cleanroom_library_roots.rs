@@ -92,6 +92,79 @@ fn lazy_bootstrap_dependencies_keep_their_real_parameter_bindings() {
 }
 
 #[test]
+fn module_context_extensions_precede_bootstrap_body_layout() {
+    let root = fixture("context-extension");
+    std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); #program_export \"marker\" marker :: () {}").unwrap();
+    let module = root.join("stdlib/Probe/module.jai");
+    std::fs::create_dir_all(module.parent().unwrap()).unwrap();
+    std::fs::write(
+        &module,
+        "#add_context independent_probe:bool; set :: () { context.independent_probe=true; }",
+    )
+    .unwrap();
+    let result = run(&options(&root, module));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}
+
+#[test]
+fn independent_context_producer_lints_with_integrated_bootstrap() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let module =
+        root.join("tests/producer-requests/profiler-context/modules/Context_Probe/module.jai");
+    let result = run(&options(&root, module));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+    assert!(result.lints.is_empty(), "{:?}", result.lints);
+}
+
+#[test]
+fn configured_context_extensions_precede_bootstrap_compile_time_execution() {
+    let root = fixture("configured-context-extension");
+    let helper = root.join("stdlib/internal/tools/context.jai");
+    std::fs::write(&helper, "#module_parameters(MODE:int); #assert MODE==7; #add_context configured_probe:bool; set :: () { context.configured_probe=true; }").unwrap();
+    std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); #scope_file H :: #import \"internal/tools/context\"(MODE=7); #run { #assert size_of(#Context)==1; } #program_export \"marker\" marker :: () { H.set(); }").unwrap();
+    let result = run(&options(&root, helper));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}
+
+#[test]
+fn module_import_precedes_bootstrap_context_query() {
+    let root = fixture("context-query-order");
+    std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); #run { #assert size_of(#Context)==1; }").unwrap();
+    let module = root.join("stdlib/Probe/module.jai");
+    std::fs::create_dir_all(module.parent().unwrap()).unwrap();
+    std::fs::write(
+        &module,
+        "#add_context independent_probe:bool; set :: () { context.independent_probe=true; }",
+    )
+    .unwrap();
+    let result = run(&options(&root, module));
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+}
+
+#[test]
+fn supplemental_configured_import_is_loaded_before_root_fallback_and_execution() {
+    let root = fixture("supplemental-context");
+    let module = root.join("stdlib/Probe/module.jai");
+    std::fs::create_dir_all(module.parent().unwrap()).unwrap();
+    std::fs::write(&module, "#module_parameters(MODE:int); #assert MODE==7; #add_context supplemental_probe:bool; set :: () { context.supplemental_probe=true; }").unwrap();
+    std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); #run { #assert size_of(#Context)==1; }").unwrap();
+    let mut opts = options(&root, module.clone());
+    opts.add_sources.push("#import \"Probe\"(MODE=7);".into());
+    let result = run(&opts);
+    assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
+    std::fs::write(&module, "#module_parameters(MODE:int); #assert MODE==7; #add_context supplemental_probe:bool; broken :: () { missing_in_context_module(); }").unwrap();
+    let result = run(&opts);
+    assert!(
+        result
+            .incomplete
+            .iter()
+            .any(|(_, error)| error.contains("missing_in_context_module")),
+        "{:?}",
+        result.incomplete
+    );
+}
+
+#[test]
 fn incomplete_requested_body_is_an_unconditional_cli_failure() {
     let root = fixture("failure");
     let helper = root.join("stdlib/internal/tools/broken.jai");

@@ -59,6 +59,22 @@ fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
 }
 
 #[test]
+fn adding_context_after_layout_remains_an_error() {
+    let (mut compiler, result) = compile("#run size_of(#Context);");
+    result.unwrap();
+    let error = compiler
+        .add_source(&jaic::sema::ProgramSource::String(
+            "#add_context late_field:bool;".into(),
+        ))
+        .expect_err("a finalized Context must not silently change layout");
+    assert!(
+        error
+            .message
+            .contains("#add_context after the Context type was laid out")
+    );
+}
+
+#[test]
 fn generic_source_defaults_have_types_values_and_shared_identity() {
     check(
         r#"
