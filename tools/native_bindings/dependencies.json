@@ -153,5 +153,16 @@
     "files": {
       "include/GL/glx.h": "bfdd02a03fcc60e04a902107277bf42711cf325b4aeca6b9491a754923ad544f"
     }
+  },
+  "bionic": {
+    "repository": "aosp-mirror/platform_bionic",
+    "revision": "android-16.0.0_r1",
+    "files": {},
+    "archive": {
+      "url": "https://codeload.github.com/aosp-mirror/platform_bionic/tar.gz/refs/tags/android-16.0.0_r1",
+      "sha256": "460f484a244bdf3bfd5a683e6ee8dbde1c15b0489dbb65608969b6ece7c9751d",
+      "root": "platform_bionic-android-16.0.0_r1"
+    },
+    "usage": "Complete official native C headers for explicit Android LP64 POSIX record delegates; no runtime library is built"
   }
 }

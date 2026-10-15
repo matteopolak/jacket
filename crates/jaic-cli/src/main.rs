@@ -1351,6 +1351,10 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         }
     }
     let settings = workspaces.borrow().top_level_settings();
+    if let Err(diagnostic) = compiler.finalize_runtime_configuration() {
+        eprintln!("{}", compiler.render(&diagnostic));
+        return ExitCode::from(1);
+    }
     match cli.mode {
         Mode::Check => ExitCode::SUCCESS,
         Mode::Interp => {
@@ -1605,7 +1609,8 @@ fn build(
                 .into(),
         );
     }
-    timings::time("prepare output", || compiler.prepare_compiled_output());
+    timings::time("prepare output", || compiler.prepare_compiled_output())
+        .map_err(|error| compiler.render(&error))?;
     native_backend(cli).write_output(&compiler.program, &settings, &output)?;
     if cli.verbose {
         eprintln!("jaic: wrote {}", shown(&output));

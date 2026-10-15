@@ -22,7 +22,11 @@ main :: () {
             if encoded < 0 encoded += 65536;
 
             // Native MK_SHIFT (0x4) and MK_CONTROL (0x8), plus unrelated upper bits.
-            packed := (cast(u64) encoded << 16) | 0x000c | (cast(u64) 0x12345678 << 32);
+            native_word: u64 = cast(u64) encoded;
+            upper: u64 = 0x12345678;
+            packed := (native_word << 16) | 0x000c | (upper << 32);
+
+            assert((packed >> 32) == upper);
 
             assert(post_message(window, message, packed, 0) != 0);
             I.update_window_events();

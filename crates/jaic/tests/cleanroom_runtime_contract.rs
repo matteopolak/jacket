@@ -22,16 +22,22 @@ fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
 }
 
 #[test]
-fn windows_arm64_backtrace_has_an_explicit_unsupported_diagnostic() {
+fn windows_arm64_entry_backtrace_uses_the_private_native_backend() {
     let (compiler, result) = compile(true, true);
-    let error = result.expect_err("the reviewed handler has no Windows ARM64 contract");
-    assert!(
-        error
-            .message
-            .contains("the reviewed Windows crash handler supports x64 only"),
-        "{}",
-        error.render(&compiler.sources)
-    );
+    if let Err(error) = result {
+        panic!("{}", error.render(&compiler.sources));
+    }
+    assert!(compiler.modules.iter().any(|module| module.path.as_ref().is_some_and(|path| path.ends_with("internal/runtime/windows-arm64-crash/module.jai"))));
+    assert!(!compiler.modules.iter().any(|module| module.path.as_ref().is_some_and(|path| path.ends_with("Runtime_Support_Crash_Handler/module.jai"))));
+}
+
+#[test]
+fn public_x64_crash_record_facade_still_rejects_windows_arm64() {
+    let (mut compiler, result) = compile(false, false);
+    result.unwrap();
+    let error = compiler.compile_sources(&[ProgramSource::String("C :: #import \"Runtime_Support_Crash_Handler\"; main :: () {}".into())])
+        .expect_err("public x64 records cannot represent a native ARM64 context");
+    assert!(error.message.contains("the reviewed Windows crash handler supports x64 only"), "{}", error.render(&compiler.sources));
 }
 
 #[test]

@@ -16,10 +16,10 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(command, env, expected=None):
+def run(command, env, expected=None, expected_stderr=b""):
     result = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
                             capture_output=True, timeout=60)
-    if result.returncode or result.stderr or (expected is not None and result.stdout != expected.encode()):
+    if result.returncode or result.stderr.replace(b"\\", b"/") != expected_stderr or (expected is not None and result.stdout != expected.encode()):
         raise RuntimeError(f"{' '.join(map(str, command))}\n"
                            f"exit={result.returncode}\n{result.stdout.decode(errors='replace')}{result.stderr.decode(errors='replace')}")
 
@@ -49,9 +49,9 @@ def main():
     args = parser.parse_args()
     failures = []
 
-    def attempt(command, env, expected=None):
+    def attempt(command, env, expected=None, expected_stderr=b""):
         try:
-            run(command, env, expected)
+            run(command, env, expected, expected_stderr)
             return True
         except (RuntimeError, OSError, subprocess.SubprocessError) as error:
             failures.append(str(error))
@@ -82,11 +82,28 @@ def main():
     output = ROOT / "target/platform-io-tests"
     output.mkdir(parents=True, exist_ok=True)
     cpu = args.windows_build or ("arm64" if platform.machine().lower() in {"arm64", "aarch64"} and os.name == "nt" else "x64")
-    if cpu == "x64" and (os.name == "nt" or args.windows_build or args.windows_crash):
+    if os.name == "nt" or args.windows_build or (args.windows_crash and cpu == "x64"):
         subprocess.run([sys.executable, str(ROOT / "tools/build_platform_io_runtime.py"),
                         "--stdlib", str(args.stdlib.resolve()), "--cpu", cpu], cwd=ROOT, check=True)
         shutil.copy2(args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.dll",
                      output / "platform_io_windows_crash.dll")
+    if cpu == "x64" and (os.name == "nt" or args.windows_build or args.windows_crash):
+        # This SDK oracle supplies real host-image probes for the test only.
+        # It neither replaces nor links into the production crash backend.
+        sdk_dll = output / "platform_io_section_sdk.dll"
+        sdk_library = output / ("platform_io_section_sdk.lib" if os.name == "nt" else "libplatform_io_section_sdk.dll.a")
+        sdk_dll.unlink(missing_ok=True)
+        sdk_library.unlink(missing_ok=True)
+        if os.name == "nt":
+            c_compiler = "clang"
+            c_target = ["--target=x86_64-pc-windows-msvc"]
+            c_linker = [f"-Wl,/IMPLIB:{sdk_library}"]
+        else:
+            c_compiler = shutil.which("x86_64-w64-mingw32-clang") or "x86_64-w64-mingw32-gcc"
+            c_target = []
+            c_linker = [f"-Wl,--out-implib,{sdk_library}"]
+        attempt([c_compiler, *c_target, "-std=c11", "-shared", "-O2", "-Wall", "-Wextra", "-Werror",
+                 ROOT / "tests/platform-io/windows-section-sdk.c", "-o", sdk_dll, *c_linker, "-ldbghelp"], env)
     helper = output / "process-helper.exe"
     if os.name == "nt":
         helper.unlink(missing_ok=True)
@@ -101,6 +118,10 @@ def main():
                                 ("macos", "arm64"), ("linux", "x64")]:
                 attempt([compiler, source, "-check", "-no_dce", "-os", system, "-cpu", target_cpu], env)
         fixture_args = [helper] if os.name == "nt" and source.stem == "process-contract" else []
+        if not fixture_args:
+            # Exercise ordinary CLI startup as well as the explicit argv form.
+            # Always supplying -- hid the Windows zero-vector SDK hook failure.
+            attempt([compiler, source, "-interp"], env, "ok\n")
         attempt([compiler, source, "-interp", "--", *fixture_args], env, "ok\n")
         if args.native:
             for optimization in ["-O0", "-O2"]:
@@ -163,50 +184,90 @@ def main():
                         finally:
                             marker.unlink(missing_ok=True)
         report(before, "public Windows Process", "native execution" if os.name == "nt" else "source/cross-build only")
+    native_sections = ROOT / "tests/platform-io/windows-crash-native-sections.jai"
+    if args.cross_check:
+        attempt([compiler, native_sections, "-os", "windows", "-cpu", "x64", "-check", "-no_dce"], env)
+    if cpu == "x64" and ((os.name == "nt" and (args.native or args.windows_crash)) or args.windows_build == "x64"):
+        before = len(failures)
+        target = [] if os.name == "nt" else ["-os", "windows", "-cpu", "x64"]
+        for optimization in ["-O0", "-O2"]:
+            executable = output / ("windows-crash-native-sections" + optimization + ".exe")
+            if attempt([compiler, native_sections, *target, optimization, "-exe", executable], env) and os.name == "nt":
+                attempt([executable], env, "ok\n")
+        report(before, "native compiled-symbol PE sections", "execution" if os.name == "nt" else "cross-build only")
     if args.windows_crash:
+        if os.name == "nt" and cpu == "arm64":
+            # Native SDK lifecycle assertions execute only on an actual ARM64 OS.
+            library = args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.lib"
+            for optimization in ["-O0", "-O2"]:
+                executable = output / ("arm64-crash-lifecycle" + optimization + ".exe")
+                if attempt(["clang", "--target=aarch64-pc-windows-msvc", "-std=c11",
+                            "-Wall", "-Wextra", "-Werror", optimization,
+                            ROOT / "tests/platform-io/windows-arm64-crash-lifecycle.c",
+                            library, "-o", executable], env):
+                    attempt([executable], env, "")
         bootstrap = ROOT / "stdlib/Runtime_Support/tests/windows-crash-bootstrap.jai"
         for target_cpu in ["x64", "arm64"]:
             attempt([compiler, bootstrap, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
         diagnostic([compiler, ROOT / "tests/platform-io/pending/windows-arm64-crash-handler.jai",
                            "-os", "windows", "-cpu", "arm64", "-check", "-no_dce"], env,
                           "the reviewed Windows crash handler supports x64 only")
-        builder = ROOT / "tests/platform-io/windows-startup-build.jai"
         for optimized in [False, True]:
-            for enabled in [False, True]:
-                label = f"{cpu}-O{2 if optimized else 0}-{'on' if enabled else 'off'}"
-                crash_output = output / "windows-crash" / label
-                crash_output.mkdir(parents=True, exist_ok=True)
-                definitions = (f'OPTIMIZED :: {str(optimized).lower()}; BACKTRACE_ENABLED :: {str(enabled).lower()}; '
-                               f'OUTPUT_PATH :: "{crash_output.as_posix()}"; '
-                               f'CHILD_SOURCE :: "{(ROOT / "tests/platform-io/windows-fault.jai").as_posix()}";')
-                command = [compiler, builder, "-os", "windows", "-cpu", cpu, "-add", definitions,
-                           "-exe", crash_output / "builder.exe"]
-                if cpu == "arm64" and enabled:
-                    before = len(failures)
-                    diagnostic(command, env, "the reviewed Windows crash handler supports x64 only")
-                    report(before, "required unsupported-handler diagnostic", label)
-                    continue
-                if not attempt(command, env):
-                    continue
-                if enabled:
-                    shutil.copy2(args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.dll",
-                                 crash_output / "platform_io_windows_crash.dll")
-                if os.name == "nt":
-                    try:
-                        result = subprocess.run([str(crash_output / "startup-crash.exe")], cwd=ROOT, env=env,
-                                                capture_output=True, timeout=60)
-                    except (OSError, subprocess.SubprocessError) as error:
-                        failures.append(f"Windows fault execution failed ({label}): {error}")
-                        print("FAILED", failures[-1], file=sys.stderr, flush=True)
+            for policy in ["off", "on", "default"]:
+                for child_name in ["startup-arguments-contract", "windows-fault"]:
+                    enabled = policy != "off"
+                    builder = ROOT / "tests/platform-io" / (
+                        "windows-default-startup-build.jai" if policy == "default" else "windows-startup-build.jai")
+                    label = f"{cpu}-O{2 if optimized else 0}-{policy}-{child_name}"
+                    crash_output = output / "windows-crash" / label
+                    crash_output.mkdir(parents=True, exist_ok=True)
+                    definitions = (f'OPTIMIZED :: {str(optimized).lower()}; BACKTRACE_ENABLED :: {str(enabled).lower()}; '
+                                   f'OUTPUT_PATH :: "{crash_output.as_posix()}"; '
+                                   f'CHILD_SOURCE :: "{(ROOT / "tests/platform-io" / (child_name + ".jai")).as_posix()}";')
+                    command = [compiler, builder, "-os", "windows", "-cpu", cpu, "-add", definitions,
+                               "-exe", crash_output / "builder.exe"]
+                    if args.cross_check:
+                        other_cpu = "arm64" if cpu == "x64" else "x64"
+                        workspace = "default Windows startup" if policy == "default" else "Windows entry contract"
+                        # The CLI deliberately warns that a checked metaprogram's
+                        # child executable is unwritten. Require exactly that
+                        # diagnostic; every other warning/error still fails.
+                        expected_warning = (
+                            f"warning: `jaic -check` does not write {crash_output.relative_to(ROOT).as_posix()}/startup-crash "
+                            f"(workspace `{workspace}` asks for an executable)\n"
+                            f"help: `jaic {builder.as_posix()}` (or `jaic {builder.as_posix()} -interp`) writes it\n").encode()
+                        attempt([compiler, builder, "-os", "windows", "-cpu", other_cpu,
+                                 "-check", "-no_dce", "-add", definitions], env, "", expected_warning)
+                    if not attempt(command, env):
                         continue
-                    diagnostic_ok = (b"Windows exception 0x00000000c0000005" in result.stderr and b"native stack:" in result.stderr) if enabled else not result.stderr
-                    if (result.returncode & 0xffffffff) != 0xc0000005 or result.stdout or not diagnostic_ok:
-                        failures.append(f"Windows exception diagnostic mismatch ({label}): {result}")
-                        print("FAILED native Windows exception option", label, file=sys.stderr, flush=True)
+                    if enabled:
+                        shutil.copy2(args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.dll",
+                                     crash_output / "platform_io_windows_crash.dll")
+                    if os.name == "nt":
+                        if child_name != "windows-fault":
+                            before = len(failures)
+                            attempt([crash_output / "startup-crash.exe"], env, "ok\n")
+                            report(before, "native Windows startup option", label)
+                            continue
+                        try:
+                            result = subprocess.run([str(crash_output / "startup-crash.exe")], cwd=ROOT, env=env,
+                                                    capture_output=True, timeout=60)
+                        except (OSError, subprocess.SubprocessError) as error:
+                            failures.append(f"Windows fault execution failed ({label}): {error}")
+                            print("FAILED", failures[-1], file=sys.stderr, flush=True)
+                            continue
+                        frames = [line for line in result.stderr.splitlines() if line.startswith(b"  0x")]
+                        diagnostic_ok = (b"Windows exception 0x00000000c0000005" in result.stderr and
+                                         b"native stack:" in result.stderr and len(frames) >= 2 and
+                                         not any(text in result.stderr for text in [b"unwind failed", b"invalid native stack",
+                                                                                   b"no progress", b"stack unavailable"])) if enabled else not result.stderr
+                        if (result.returncode & 0xffffffff) != 0xc0000005 or result.stdout or not diagnostic_ok:
+                            failures.append(f"Windows exception diagnostic mismatch ({label}): {result}")
+                            print("FAILED native Windows exception option", label, file=sys.stderr, flush=True)
+                        else:
+                            print("passed native Windows exception option", label, flush=True)
                     else:
-                        print("passed native Windows exception option", label, flush=True)
-                else:
-                    print("cross-built Windows exception option; native execution outstanding", label, flush=True)
+                        print("cross-built Windows exception option; native execution outstanding", label, flush=True)
     if failures:
         raise RuntimeError(f"{len(failures)} platform I/O checks failed; all independent checks above were retained\n" + "\n".join(failures))
 

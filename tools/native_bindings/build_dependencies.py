@@ -85,6 +85,7 @@ def main():
         'sdl_abi_probe': [ROOT/'tests/native-bindings/sdl_abi_probe.c'],
         'sdl_runtime_abi_probe': [ROOT/'tests/native-bindings/sdl_runtime_abi_probe.c'],
         'posix_abi_probe': [ROOT/'tests/native-bindings/posix_abi_probe.c'],
+        'imgui_abi_probe': [ROOT/'tests/native-bindings/imgui_abi_probe.cpp'],
         'imgui': [vendor/manifest['imgui']['archive']['root']/name for name in
                   ('imgui.cpp','imgui_draw.cpp','imgui_tables.cpp','imgui_widgets.cpp','imgui_demo.cpp')],
     }
@@ -106,6 +107,8 @@ def main():
             includes = ['-isystem',vendor/manifest['sdl2-oracle']['archive']['root']/'include'] if name=='sdl_abi_probe' else []
             if name == 'sdl_runtime_abi_probe':
                 includes = ['-isystem',vendor/manifest['sdl2-runtime-oracle']['archive']['root']/'include/SDL2']
+            if name == 'imgui_abi_probe':
+                includes = ['-isystem',vendor/manifest['imgui']['archive']['root']]
             run(['c++' if path.suffix == '.cpp' else 'cc', '-O2', '-fPIC', '-I', vendor/'stb', *includes, '-c', path, '-o', obj])
             compiled.append(obj)
         run(['ar', 'rcs', args.output / ('lib' + name + '.a'), *compiled])

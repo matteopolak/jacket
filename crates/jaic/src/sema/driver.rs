@@ -36,7 +36,6 @@ impl Compiler {
             self.preload = Some(m);
         }
         if self.options.runtime_support {
-            self.validate_runtime_storage()?;
             let Some(entry) = self.find_module("Runtime_Support", Path::new("")) else {
                 return err(span, "Runtime_Support module not found on the import path");
             };
@@ -59,31 +58,6 @@ impl Compiler {
             ];
             let m = self.load_module("Runtime_Support", &entry, params, span)?;
             self.runtime_support = Some(m);
-        }
-        Ok(())
-    }
-
-    fn validate_runtime_storage(&self) -> Result<()> {
-        if !self.options.runtime_support || !self.options.runtime_initialization {
-            return Ok(());
-        }
-        let (has_runtime, size) = self
-            .interp
-            .workspaces
-            .as_ref()
-            .and_then(|workspaces| {
-                crate::build::runtime_storage_setting(
-                    workspaces,
-                    self.workspace,
-                    self.options.temporary_storage_size,
-                )
-            })
-            .unwrap_or((true, self.options.temporary_storage_size));
-        if has_runtime && size != DEFAULT_TEMPORARY_STORAGE_SIZE {
-            return err(
-                Span::NONE,
-                "nondefault temporary_storage_size needs a compiler/runtime initialization contract; it cannot be passed as an unreviewed Runtime_Support module argument",
-            );
         }
         Ok(())
     }
@@ -307,8 +281,6 @@ impl Compiler {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
         self.placeholders_final = true;
         self.settle()?;
-        // Root workspace setters may have changed the requested target storage.
-        self.validate_runtime_storage()?;
         let lowered = self.lower_reachable_inner(false)?;
         self.check_declared_structs()?;
         self.check_declared_overloads()?;
@@ -316,7 +288,10 @@ impl Compiler {
             self.fill_runtime_info()?;
         }
         // Last: the runtime information above lists only what the program reaches.
-        self.check_unreferenced()
+        self.check_unreferenced()?;
+        // Root workspace setters may have changed target initialization options
+        // while settling or lowering. Update the private target data last.
+        self.finalize_runtime_configuration()
     }
 
     /// Type-check the declarations that nothing the program reaches names but that
@@ -718,7 +693,8 @@ impl Compiler {
 
     /// Before a backend writes the program: compiled code keeps `context.stack_trace` itself
     /// (`stack_trace::instrument`; the interpreter does it at run time). Idempotent.
-    pub fn prepare_compiled_output(&mut self) {
+    pub fn prepare_compiled_output(&mut self) -> Result<()> {
+        self.finalize_runtime_configuration()?;
         self.bake_no_reset_globals();
         self.drop_unreferenced_code();
         self.enable_stack_traces(Span::NONE);
@@ -728,6 +704,7 @@ impl Compiler {
         if self.options.debug_info {
             self.collect_debug_types();
         }
+        Ok(())
     }
 
     /// A `#no_reset` global keeps what compile-time code stored in it: its initializer becomes
@@ -756,6 +733,7 @@ impl Compiler {
     /// `get_command_line_arguments` returns). `args[0]` is conventionally the program name;
     /// an empty slice passes `argc = 0, argv = null`. The strings live for the whole process.
     pub fn run_program_with_args(&mut self, args: &[String]) -> Result<i32> {
+        self.finalize_runtime_configuration()?;
         self.interp.run_arguments = args.to_vec();
         let (argc, argv) = if args.is_empty() {
             (0, 0)

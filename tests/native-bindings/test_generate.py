@@ -4,11 +4,54 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "native_bindings"))
-from generate import generate_facade, split_arguments, authored_signatures, normalized_signature
+from generate import (generate_facade, split_arguments, authored_signatures, normalized_signature,
+                      normalize_member_lines, member_declarations_with_owners)
 from spec import parse_spec
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_body_omission_marker_and_nested_comments_do_not_change_record_scope(self):
+        code = '''Outer :: struct {
+/* outer { /* nested } */ comment */
+method :: (label: *u8 = "}") #no_context {
+}
+'''
+        normalized = normalize_member_lines(code)
+        rows = member_declarations_with_owners(normalized, 'Outer', '')
+        self.assertEqual([(d.name, owner) for d, owner in rows.values()], [('method', 'Outer')])
+        self.assertNotIn('#no_context {', normalized)
+
+    def test_nested_cpp_methods_keep_their_declaring_record_owner(self):
+        spec = parse_spec('''# Example
+## Public declaration inventory
+- `Outer :: struct`
+## Public aggregate shapes and enum values
+### `Outer`
+```jai
+Outer :: struct {
+    root :: (label: *u8 = "{ignored}") #foreign imgui;
+    Inner :: struct { nested :: (this: *Inner) #cpp_method #foreign imgui; };
+    other :: () #foreign imgui;
+}
+```
+''')
+        code, ledger = generate_facade('ImGui', spec)
+        self.assertEqual([(m['signature'].split('::')[0].strip(), m['owner'])
+                          for m in ledger[0]['members']],
+                         [('root', 'Outer'), ('nested', 'Outer.Inner'), ('other', 'Outer')])
+        self.assertIn('Inner :: struct', code)
+
+    def test_sdk_owned_rwops_pointers_keep_real_foreign_entry_points(self):
+        signatures = [
+            'SDL_RWFromFile :: (path: *u8, mode: *u8) -> *SDL_RWops #foreign SDL2',
+            'SDL_LoadBMP_RW :: (src: *SDL_RWops, freesrc: int) -> *SDL_Surface #foreign SDL2',
+        ]
+        for signature in signatures:
+            spec = parse_spec('# SDL\n## Public declaration inventory\n- `'+signature+'`\n')
+            code, ledger = generate_facade('SDL', spec)
+            self.assertIn(signature+';', code)
+            self.assertEqual(ledger[0]['status'], 'declared')
+
     def test_foreign_prototype_before_record_is_not_an_authored_body(self):
         text = '''native :: () #foreign lib "call";
 Record :: struct { value: u32; }

@@ -22,11 +22,7 @@ impl Interp {
     ) -> Option<Res<Vec<u64>>> {
         if !matches!(
             symbol,
-            "_NSGetExecutablePath"
-                | "readlink"
-                | "GetModuleFileNameW"
-                | "GetCommandLineW"
-                | "CommandLineToArgvW"
+            "_NSGetExecutablePath" | "readlink" | "GetModuleFileNameW" | "GetCommandLineW"
         ) {
             return None;
         }
@@ -79,14 +75,6 @@ impl Interp {
             })(),
             // LPWSTR GetCommandLineW(void): the program's arguments, not jaic's.
             "GetCommandLineW" => Ok(self.run_command_line()),
-            // No arguments at all (`jaic -interp` without `--`) has no Windows spelling: an empty
-            // command line splits into the executable's path. Report the split as failed, which
-            // keeps the empty `argv` the program started with.
-            "CommandLineToArgvW"
-                if self.run_arguments.is_empty() && arg(0) == self.run_command_line() =>
-            {
-                self.store(Ty::I32, arg(1), 0).map(|()| 0)
-            }
             _ => return None,
         };
         Some(result.map(|value| vec![value]))
@@ -94,9 +82,16 @@ impl Interp {
 
     fn run_command_line(&mut self) -> u64 {
         *self.run_command_line.get_or_insert_with(|| {
-            let mut wide: Vec<u16> = windows_command_line(&self.run_arguments)
-                .encode_utf16()
-                .collect();
+            // An omitted argv vector means no caller-supplied arguments. Windows
+            // still has an executable name; an empty command line would make
+            // Shell32 return the compiler's real path instead of the program's.
+            // Supplied argv (including explicit empty strings) stays unchanged.
+            let arguments = if self.run_arguments.is_empty() {
+                self.run_executable.as_slice()
+            } else {
+                &self.run_arguments
+            };
+            let mut wide: Vec<u16> = windows_command_line(arguments).encode_utf16().collect();
             wide.push(0);
             Box::leak(wide.into_boxed_slice()).as_ptr() as u64
         })
@@ -166,6 +161,76 @@ pub fn windows_command_line(args: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::windows_command_line;
+    use crate::interp::{Interp, NativeHost};
+    use crate::ir::Ty;
+
+    fn wide_text(interp: &Interp, address: u64) -> String {
+        let mut units = Vec::new();
+        loop {
+            let unit = interp
+                .load(Ty::I16, address + 2 * units.len() as u64)
+                .unwrap() as u16;
+            if unit == 0 {
+                break;
+            }
+            units.push(unit);
+        }
+        String::from_utf16(&units).unwrap()
+    }
+
+    #[test]
+    fn omitted_interpreter_arguments_still_name_the_windows_executable() {
+        let mut interp = Interp::new(Box::new(NativeHost));
+        interp.run_executable = Some(r"C:\program files\雪\probe.exe".into());
+        let address = interp
+            .executable_path_foreign("GetCommandLineW", &[])
+            .unwrap()
+            .unwrap()[0];
+        assert_eq!(
+            wide_text(&interp, address),
+            r#""C:\program files\雪\probe.exe""#
+        );
+    }
+
+    #[test]
+    fn command_line_parser_keeps_native_success_and_error_semantics() {
+        let mut interp = Interp::new(Box::new(NativeHost));
+        interp.run_executable = Some(r"C:\probe.exe".into());
+        let address = interp
+            .executable_path_foreign("GetCommandLineW", &[])
+            .unwrap()
+            .unwrap()[0];
+        let mut count: i32 = -1;
+        // Argument parsing must reach Shell32. A virtual executable is not an
+        // allocation failure, and the runtime must never need to accept NULL.
+        assert!(
+            interp
+                .executable_path_foreign(
+                    "CommandLineToArgvW",
+                    &[address, (&mut count as *mut i32) as u64]
+                )
+                .is_none()
+        );
+        assert_eq!(count, -1);
+    }
+
+    #[test]
+    fn explicit_program_arguments_are_not_replaced_by_the_executable_path() {
+        for args in [
+            vec!["provided.jai", "雪😀", "", "quote\" slash\\"],
+            vec!["", "explicit empty argv zero"],
+        ] {
+            let mut interp = Interp::new(Box::new(NativeHost));
+            interp.run_executable = Some(r"C:\probe.exe".into());
+            interp.run_arguments = args.into_iter().map(String::from).collect();
+            let expected = windows_command_line(&interp.run_arguments);
+            let address = interp
+                .executable_path_foreign("GetCommandLineW", &[])
+                .unwrap()
+                .unwrap()[0];
+            assert_eq!(wide_text(&interp, address), expected);
+        }
+    }
 
     fn line(args: &[&str]) -> String {
         let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();

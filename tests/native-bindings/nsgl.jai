@@ -100,4 +100,14 @@ main :: () {
     defer native_release(window_context, O.selector("release"));
     check(native_get(window_context, O.selector("view")) == cast(*void) A.NSWindow.contentView(native_window));
     check(get_current() == before);
+
+    G.gl_create_context(native_window, major_version = 4, minor_version = 1, wanted_msaa = 0);
+    generic_context := native_get(O.objc_getClass("NSOpenGLContext"), O.selector("currentContext"));
+
+    check(generic_context != null);
+    check(native_get(generic_context, O.selector("view")) == cast(*void) A.NSWindow.contentView(native_window));
+    check(get_current() == native_get(generic_context, O.selector("CGLContextObj")));
+    check(G.gl_get_version() >= 4);
+    check(set_current(before) == 0);
+    native_release(generic_context, O.selector("release"));
 }

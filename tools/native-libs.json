@@ -46,6 +46,19 @@
       },
       "license": ["LICENSE"]
     },
+    "xxhash070": {
+      "repository": "Cyan4973/xxHash",
+      "revision": "v0.7.0",
+      "files": {
+        "xxhash.c": "276a80f25635bac48bc84826afd0f76af14ed910b89b55396c78fb0fbb2b64f5",
+        "xxhash.h": "b053e67b672e8e66e3d51be6fb7b9c0c71d350220ca0a3dc8df0a59acf008a41",
+        "LICENSE": "86ec6953794503942b70fcd4f35b565d44f63f703b7037ce44dad965c4aaae91",
+        "xxh3.h": "519171910e5842acf0bdc3b561be23233b6b8ef11f1c4a6a8356b3d98374d62a"
+      },
+      "license": [
+        "LICENSE"
+      ]
+    },
     "lz4": {
       "repository": "lz4/lz4",
       "revision": "v1.10.0",
@@ -147,6 +160,15 @@
     "stb_image_write": {"source": "stb", "code": "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#include \"stb_image_write.h\"\n"},
     "stb_image_resize": {"source": "stb", "code": "#define STB_IMAGE_RESIZE_IMPLEMENTATION\n#include \"deprecated/stb_image_resize.h\"\n"},
     "stb_vorbis": {"source": "stb", "code": "#include \"stb_vorbis.c\"\n"},
+    "xxhash070": {
+      "source": "xxhash070",
+      "include": [
+        "."
+      ],
+      "units": [
+        "xxhash.c"
+      ]
+    },
     "lz4": {
       "source": "lz4",
       "include": ["lib"],

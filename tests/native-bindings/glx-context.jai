@@ -14,4 +14,6 @@ main :: () {
     #assert type_of(modern) == X.GLXContext;
     #assert type_of(modern_config) == X.GLXFBConfig;
     #assert type_of(modern_samples) == s32;
+    G.gl_create_context(window, major_version = 4, minor_version = 6,
+                        compatibility = false, debug = true, wanted_msaa = 0);
 }

@@ -4,7 +4,8 @@
 
 The stdlib binds some third-party libraries that no system ships: `stb_image`, `stb_image_write`,
 `stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, FreeType, Dear ImGui, MojoShader,
-`rpmalloc` (built with first-class heaps; macOS and Linux only), mbedTLS (for [`Extensions/Tls`](../extensions/tls.md)) and, on Windows, SDL2.
+`rpmalloc` (built with first-class heaps; macOS and Linux only), xxHash 0.7.0
+(`xxhash070` for the reviewed state layouts), mbedTLS (for [`Extensions/Tls`](../extensions/tls.md)) and, on Windows, SDL2.
 `tools/build_native_libs.py` builds them from pinned, hash-checked
 sources into `artifacts/native-libs/<os>-<arch>/`. `jaic` searches that directory when it resolves a
 library name, both for foreign calls at compile time or under `jaic -interp` and when linking `jaic`
@@ -22,7 +23,7 @@ carry the library), "shared" the `.dylib` / `.so` / `.dll` that `jaic -interp` l
 
 | Library | macOS arm64/x64 | Linux x64/arm64 | Windows x64/arm64 (MSVC) | MinGW cross (`windows-*-mingw`) |
 |---|---|---|---|---|
-| `stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg` | built | built | built | built (static) |
+| `stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, `xxhash070` | built | built | built | built (static) |
 | FreeType (`freetype`) | built (was the system's) | built (was the system's) | built | built (static) |
 | MojoShader (`mojoshader`) | built | built | built | built (static) |
 | Dear ImGui (`imgui`, C++) | built | built | built | not built (see below) |

@@ -371,18 +371,12 @@ pub(crate) fn calls_library(cx: &Cx, callee: &Expr, modules: &[&str], names: &[&
             library_module(cx, &cx.compiler.sources.get(file).path)
                 .is_some_and(|m| modules.contains(&m))
                 || cx.compiler.modules.iter().any(|module| {
-                    let Some(path) = &module.path else {
+                    let Some(path) = module.path.as_ref().and_then(|path| path.to_str()) else {
                         return false;
                     };
-                    let Some(path) = path.to_str() else {
-                        return false;
-                    };
-                    if !library_module(cx, path).is_some_and(|m| modules.contains(&m)) {
+                    if !library_module(cx, path).is_some_and(|module| modules.contains(&module)) {
                         return false;
                     }
-                    // A public facade can export the canonical private procedure
-                    // unchanged. Match actual exported identity, never just its name
-                    // or an implementation-directory spelling.
                     cx.compiler
                         .scope(module.scope)
                         .names
@@ -394,19 +388,15 @@ pub(crate) fn calls_library(cx: &Cx, callee: &Expr, modules: &[&str], names: &[&
                                 if !entity.exported {
                                     return false;
                                 }
-                                let same = |candidate: jaic::sema::ProcId| {
-                                    cx.compiler.procs[candidate.0 as usize].lit.header.span
-                                        == cx.compiler.procs[p.0 as usize].lit.header.span
-                                };
                                 match &entity.state {
                                     EntityState::Done(Resolved::Proc(candidate))
                                     | EntityState::Done(Resolved::Const {
                                         value: jaic::sema::Value::Proc(candidate),
                                         ..
-                                    }) => same(*candidate),
-                                    EntityState::Done(Resolved::ProcSet(candidates)) => {
-                                        candidates.iter().copied().any(same)
-                                    }
+                                    }) => procedure_or_instance(cx, *candidate, p),
+                                    EntityState::Done(Resolved::ProcSet(candidates)) => candidates
+                                        .iter()
+                                        .any(|&candidate| procedure_or_instance(cx, candidate, p)),
                                     _ => false,
                                 }
                             })
@@ -415,13 +405,33 @@ pub(crate) fn calls_library(cx: &Cx, callee: &Expr, modules: &[&str], names: &[&
         })
 }
 
+/// Exact declared procedure identity and its explicit generic instance tree;
+/// equal source text/spans in independently inserted code do not imply identity.
+fn procedure_or_instance(cx: &Cx, candidate: ProcId, actual: ProcId) -> bool {
+    let mut pending = vec![candidate];
+    let mut seen = std::collections::HashSet::new();
+    while let Some(candidate) = pending.pop() {
+        if candidate == actual {
+            return true;
+        }
+        if seen.insert(candidate) {
+            pending.extend(
+                cx.compiler.procs[candidate.0 as usize]
+                    .instances
+                    .values()
+                    .copied(),
+            );
+        }
+    }
+    false
+}
+
 /// The module a file in an import directory belongs to: `Basic` for `<dir>/Basic/Array.jai`
 /// or `<dir>/Basic.jai`.
 fn library_module<'p>(cx: &Cx, path: &'p str) -> Option<&'p str> {
     cx.compiler.options.import_paths.iter().find_map(|dir| {
-        let dir = dir.to_str()?;
-        let rest = path.strip_prefix(dir)?.trim_start_matches(['/', '\\']);
-        let first = rest.split(['/', '\\']).next()?;
+        let rest = std::path::Path::new(path).strip_prefix(dir).ok()?;
+        let first = rest.components().next()?.as_os_str().to_str()?;
         Some(first.strip_suffix(".jai").unwrap_or(first))
     })
 }

@@ -26,7 +26,13 @@ main :: () {
     assert(packed[0].hash == 3 && packed[0].line_number == 11 && packed[0].call_depth == 2);
     assert(pack_stack_trace(null).count == 0);
 
+    backing: [4096] u8;
+    storage: Temporary_Storage_Paged_Alloc;
+    storage.data = backing.data;
+    storage.size = backing.count;
+
     push_context {
+        context.temporary_storage = *storage;
         context.stack_trace = *first;
         context.logger = capture;
         context.log_source_identifier = 177;
@@ -36,18 +42,20 @@ main :: () {
         assert(implicit.count == 2 && implicit[0].info == *first_info);
         strings := get_stack_trace_strings(packed.data);
 
-        defer {
-            for strings free(it);
-            array_free(strings);
-        }
-
         assert(strings.count == 2);
+        assert(strings.allocator.proc == temp.proc);
+        assert(cast(*u8) strings.data >= backing.data && cast(*u8) strings.data < backing.data + backing.count);
+        assert(strings[0].data >= backing.data && strings[0].data < backing.data + backing.count);
         assert(contains(strings[0], "inner") && contains(strings[0], "inside.jai") && contains(strings[0], "11"));
         assert(contains(strings[1], "outer") && contains(strings[1], "outside.jai") && contains(strings[1], "29"));
         log_stack_trace(log_flags = .WARNING, prefix = "trace: ");
         assert(calls == 2 && contains(message, "trace: ") && contains(message, "outer"));
         assert(received.common_flags == .WARNING && received.source_identifier == 177);
-        assert(received.location.fully_pathed_filename == "outside.jai" && received.location.line_number == 29);
+        assert(contains(message, "outside.jai:29\n"));
+        unknown := Stack_Trace_Node.{ next = packed.data };
+        with_unknown := get_stack_trace_strings(*unknown);
+
+        assert(with_unknown.count == 2 && with_unknown[0] == strings[0]);
     }
 
     free(message);

@@ -2681,6 +2681,9 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let name = self.proc(proc).name;
+        if name.as_str() == "__jaic_runtime_temporary_storage_size" {
+            return self.runtime_storage_operand(f, sig, span);
+        }
         let mut values = Vec::new();
         let mut k = 0;
         for (i, slot) in slots.iter().enumerate() {

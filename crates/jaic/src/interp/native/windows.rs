@@ -13,6 +13,7 @@
 use super::{read_bytes, write_bytes};
 #[cfg(target_arch = "x86_64")]
 use crate::abi::{self, Arch, Passing};
+#[cfg(target_arch = "x86_64")]
 use crate::interp::Rets;
 #[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};

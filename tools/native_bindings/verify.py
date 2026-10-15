@@ -48,7 +48,7 @@ def public_source(module, spec, os_name, cpu, parameters=None, arguments=''):
             expression = 'type_of(M.'+name+')' if variable else 'M.'+name
             lines.append('visible_'+str(i)+' :: '+expression+';')
     coverage = json.loads((ROOT/'docs/native/bindings-coverage.json').read_text())['modules'][module]
-    members = sorted(set((d['name'],m['signature'].split('::',1)[0].strip(),m['condition'])
+    members = sorted(set((m.get('owner',d['name']),m['signature'].split('::',1)[0].strip(),m['condition'])
                          for d in coverage['declarations'] for m in d.get('members',[])))
     for i, (owner, member, condition) in enumerate(members):
         if enabled(condition,os_name,cpu,parameters):
@@ -76,7 +76,7 @@ def stage(destination, foundation=None):
         raise SystemExit('The independent foundation bootstrap is not ready')
     shutil.copytree(foundation, destination, dirs_exist_ok=True)
     for worker, modules, internals in [
-        ('foundations',['Basic','String','Hash','File_Utilities'],['basic','basic-interface','string','hash','files','native-path']),
+        ('foundations',['Basic','String','Hash','File_Utilities'],['basic','basic-interface','basic-context','string','hash','files','native-path']),
         ('window-render',['Window_Creation','Window_Type','Input','Keymap','Gamepad','Simp','sRGB','Clipboard'],['window','rendering','input','gamepad','clipboard']),
         ('numerics',['Math','Sloppy_Math','Float16','Color_Interpolation','GetRect','GetRect_LeftHanded'],['numerics']),
         ('compiler',['Compiler','Jai_Lexer','Code_Visit','Program_Print'],['compiler-api','jai-lexer','code-visit','program-print'])
@@ -90,6 +90,16 @@ def stage(destination, foundation=None):
                 shutil.copytree(source/'internal'/name,destination/'internal'/name,dirs_exist_ok=True)
     for module in MODULES:
         shutil.copytree(ROOT/'stdlib'/module, destination/module, dirs_exist_ok=True)
+    # The File owner supplies its new Windows/Unix backend. Keep foundation
+    # File_Utilities internals intact; only overlay the File implementation.
+    file_owner = ROOT.parent/'platform-io'/'stdlib'
+    if (file_owner/'File/module.jai').is_file():
+        shutil.copytree(file_owner/'File', destination/'File', dirs_exist_ok=True)
+        for name in ('file.jai', 'native-unix.jai', 'native-windows.jai'):
+            shutil.copy2(file_owner/'internal/files'/name, destination/'internal/files'/name)
+        (destination/'internal/platform-io').mkdir(exist_ok=True)
+        shutil.copy2(file_owner/'internal/platform-io/windows-text.jai',
+                     destination/'internal/platform-io/windows-text.jai')
     shutil.copytree(ROOT/'stdlib/internal/bindings', destination/'internal/bindings', dirs_exist_ok=True)
 
 
@@ -179,6 +189,11 @@ def main():
         ('GL', 'gl-output-buffers.jai', TARGET_CONFIGS),
         ('GL', 'glx-context.jai', [('linux','x64'),('linux','arm64')]),
         ('GL', 'wgl-context.jai', [('windows','x64'),('windows','arm64')]),
+        ('X11', 'x11-window-helpers.jai', [('linux','x64'),('linux','arm64')]),
+        ('Android/EGL', 'android-egl-context.jai', [('android','x64'),('android','arm64')]),
+        ('iOS', 'ios.jai', [('ios','x64'),('ios','arm64')]),
+        ('ImGui', 'imgui-nested.jai', TARGET_CONFIGS),
+        ('POSIX', 'posix-stat.jai', [('linux','x64'),('linux','arm64'),('macos','x64'),('macos','arm64')]),
         ('GL', 'gl-debug-output.jai', TARGET_CONFIGS),
     ]:
         if args.privacy_only:
@@ -197,7 +212,9 @@ def main():
                             ('MojoShader', 'MOJOSHADER_uniformType'), ('Objective_C', 'binding_objc_class'),
                             ('Objective_C', 'NSWindow'), ('Objective_C/AppKit', 'NSView'),
                             ('Objective_C/AppKit', 'NSScreen'), ('Objective_C/AppKit', 'send_result'),
-                            ('SDL', 'NativeSDL')]:
+                            ('SDL', 'NativeSDL'), ('SDL', 'Binding_File_RWops'),
+                            ('SDL', 'Binding_RW_State'), ('SDL', 'binding_files'),
+                            ('GL', 'NativeWGL'), ('X11', 'Native')]:
         if args.module and module.split('/')[0] not in args.module and module not in args.module:
             continue
         for os_name, cpu in TARGET_CONFIGS:
@@ -214,10 +231,29 @@ def main():
             if result['status'] == 'failed':
                 result['reason'] = 'Required privacy diagnostic was not reached; failure is not evidence that privacy passed'
             report['privacy'].append(result)
+    if not args.module or 'iOS' in args.module:
+        # The reviewed target condition makes all three iOS exports unavailable
+        # on desktop. Validate absence, rather than inventing host conveniences.
+        for os_name, cpu in TARGET_CONFIGS:
+            for member in ('get_ios_target_triple','get_ios_sdk_path','get_ios_simulator_sdk_path'):
+                source = work/('ios-availability-'+member+'-'+os_name+'-'+cpu+'.jai')
+                source.write_text('M :: #import "iOS"; leaked :: M.'+member+'; main :: () {}\n')
+                result = invoke([compiler,source,'-check','-os',os_name,'-cpu',cpu],env)
+                result.update(module='iOS',member=member,os=os_name,cpu=cpu,check='reviewed_target_absence',
+                              status='passed' if result['exit'] != 0 and 'has no exported member `'+member+'`' in result['stderr'] else 'failed')
+                report['privacy'].append(result)
     if args.runtime and not args.privacy_only:
-        runtime_tests = ['lz4', 'xxhash', 'images', 'meshoptimizer', 'freetype', 'posix', 'posix-abi', 'curl', 'ios', 'objective-c', 'appkit', 'mojoshader', 'macos', 'metal', 'gl', 'nsgl', 'gl-context', 'reflection-procedure-flags', 'graphics-math', 'sdl', 'sdl-wm', 'sdl-layout']
+        runtime_tests = ['lz4', 'xxhash', 'images', 'meshoptimizer', 'freetype', 'posix', 'posix-abi', 'curl', 'ios-sdk-host', 'objective-c', 'appkit', 'mojoshader', 'macos', 'metal', 'gl', 'nsgl', 'gl-context', 'reflection-procedure-flags', 'graphics-math', 'sdl', 'sdl-wm', 'sdl-layout']
+        if not args.module or 'iOS' in args.module:
+            report['native'].append({'name':'ios-public-facade','status':'unsupported',
+                                     'reason':'Reviewed iOS-only exports are absent on the desktop host; required mobile source checks remain active'})
         if sys.platform == 'win32':
             runtime_tests.append('wgl-context')
+        runtime_tests.append('sdl-rwops')
+        runtime_tests.append('imgui-nested')
+        runtime_tests.append('posix-stat')
+        if sys.platform.startswith('linux'):
+            runtime_tests.append('x11-window-helpers')
         for name in runtime_tests:
             relevant = {'xxhash': ['xxHash'], 'images': ['stb_image', 'stb_image_write', 'stb_image_resize', 'stb_vorbis'], 'posix': ['POSIX'], 'curl':['Curl'], 'ios':['iOS'], 'objective-c':['Objective_C'], 'mojoshader':['MojoShader'], 'macos':['macOS'], 'metal':['Metal'], 'gl':['GL'], 'graphics-math':['d3d12'], 'sdl':['SDL'], 'sdl-layout':['SDL']}.get(name, [name])
             if name == 'appkit':
@@ -228,6 +264,16 @@ def main():
                 relevant = ['POSIX']
             if name == 'wgl-context':
                 relevant = ['GL']
+            if name == 'sdl-rwops':
+                relevant = ['SDL']
+            if name == 'x11-window-helpers':
+                relevant = ['X11']
+            if name == 'ios-sdk-host':
+                relevant = ['iOS']
+            if name == 'imgui-nested':
+                relevant = ['ImGui']
+            if name == 'posix-stat':
+                relevant = ['POSIX']
             if name in ('gl-context','reflection-procedure-flags','nsgl'):
                 relevant = ['GL']
             if args.module and not any(m in args.module for m in relevant):
@@ -240,9 +286,19 @@ def main():
                 continue
             exe = work/(name+'-test')
             report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
-            result = invoke([compiler, source, '-exe', exe], env)
-            scope = 'private_arithmetic' if name=='graphics-math' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
+            compiled_source = source
+            if name == 'ios-sdk-host':
+                # A private unit belongs inside the staged library boundary.
+                # Copy bytes unchanged; do not expose a public testing backdoor
+                # or disable the compiler's private-import guard.
+                compiled_source = stdlib/'iOS/sdk-host-unit.jai'
+                shutil.copy2(source, compiled_source)
+                report['staged_sources'][str(compiled_source.relative_to(stdlib))] = hashlib.sha256(compiled_source.read_bytes()).hexdigest()
+            result = invoke([compiler, compiled_source, '-exe', exe], env)
+            scope = 'private_arithmetic' if name=='graphics-math' else 'private_toolchain_host' if name=='ios-sdk-host' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
             result.update(name=name, phase='build',scope=scope,status='passed' if result['exit']==0 else 'failed')
+            if compiled_source != source:
+                result['private_unit_placement'] = str(compiled_source)
             report['native'].append(result)
             if result['exit'] == 0:
                 result = invoke([exe], env)

@@ -16,6 +16,8 @@ pub enum Visibility {
     Export,
     /// The files of its module or program only (`#scope_module`).
     Module,
+    /// Only the declaring file, retained for resolving exported aliases.
+    File,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -29,6 +31,8 @@ pub struct Decl {
     pub signature: String,
     /// The `//` comment lines right above it.
     pub doc: String,
+    /// A simple constant alias path, without calls or other computed expressions.
+    pub alias: Option<Vec<String>>,
 }
 
 /// A top-level `#import "Name"` (bound to `name` for `Name :: #import`), or `#load`.
@@ -40,6 +44,7 @@ pub struct Directive {
     pub end: usize,
     /// Inside an `#if` block rather than directly at the top level.
     pub nested: bool,
+    pub visibility: Visibility,
 }
 
 /// A top-level name and where it is declared, whatever its visibility (workspace symbols).
@@ -57,6 +62,8 @@ pub struct FileScan {
     pub symbols: Vec<Symbol>,
     /// Top-level declarations outside `#scope_file`.
     pub decls: Vec<Decl>,
+    /// Declarations including file-private ones, for lexical alias resolution.
+    pub local_decls: Vec<Decl>,
     pub imports: Vec<Directive>,
     pub loads: Vec<Directive>,
     /// Files a build metaprogram compiles: the string literal of each `add_build_file("x", w)`
@@ -92,7 +99,7 @@ pub fn scan(text: &str) -> FileScan {
 fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
     let mut out = FileScan::default();
     let mut frames: Vec<Frame> = Vec::new();
-    let mut visibility = Some(Visibility::Export);
+    let mut visibility = Visibility::Export;
     // The next `{` belongs to `#if` (or its `else`).
     let mut static_block = false;
     // The last `}` closed an `#if` block (so `else {` continues it).
@@ -125,11 +132,12 @@ fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
             }
             Tok::Directive(name) if at_top => match name.as_str() {
                 "if" => static_block = true,
-                "scope_file" => visibility = None,
-                "scope_module" => visibility = Some(Visibility::Module),
-                "scope_export" => visibility = Some(Visibility::Export),
+                "scope_file" => visibility = Visibility::File,
+                "scope_module" => visibility = Visibility::Module,
+                "scope_export" => visibility = Visibility::Export,
                 "load" | "import" => {
-                    if let Some(directive) = directive_at(tokens, i, None, !frames.is_empty()) {
+                    if let Some(mut directive) = directive_at(tokens, i, None, !frames.is_empty()) {
+                        directive.visibility = visibility;
                         if name.as_str() == "load" {
                             out.loads.push(directive);
                         } else {
@@ -164,9 +172,10 @@ fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
                         && let Some(Tok::Directive(d)) = tokens.get(i + 2).map(|t| &t.tok)
                         && d.as_str() == "import"
                     {
-                        if let Some(directive) =
+                        if let Some(mut directive) =
                             directive_at(tokens, i + 2, Some(name.as_str()), !frames.is_empty())
                         {
+                            directive.visibility = visibility;
                             out.imports.push(directive);
                         }
                         i += 2;
@@ -181,17 +190,20 @@ fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
                                 offset: token.span.start as usize,
                             });
                         }
-                        if let Some(visibility) = visibility
-                            && let Some(kind) = kind_of(tokens, i + 2, constant)
-                        {
-                            out.decls.push(Decl {
+                        if let Some(kind) = kind_of(tokens, i + 2, constant) {
+                            let decl = Decl {
                                 name: name.as_str().into(),
                                 lower: name.as_str().to_lowercase(),
                                 kind,
                                 visibility,
                                 signature: signature(text, tokens, i),
                                 doc: doc_above(text, token.span.start as usize),
-                            });
+                                alias: constant.then(|| alias_path(tokens, i + 2)).flatten(),
+                            };
+                            if visibility != Visibility::File {
+                                out.decls.push(decl.clone());
+                            }
+                            out.local_decls.push(decl);
                         }
                     }
                 }
@@ -201,6 +213,22 @@ fn scan_tokens(text: &str, tokens: &[Token]) -> FileScan {
         i += 1;
     }
     out
+}
+
+fn alias_path(tokens: &[Token], mut i: usize) -> Option<Vec<String>> {
+    let mut path = Vec::new();
+    loop {
+        let Tok::Ident(name) = &tokens.get(i)?.tok else {
+            return None;
+        };
+        path.push(name.as_str().into());
+        i += 1;
+        match &tokens.get(i)?.tok {
+            Tok::Punct(P::Semi) | Tok::Eof => return Some(path),
+            Tok::Punct(P::Dot) => i += 1,
+            _ => return None,
+        }
+    }
 }
 
 /// Whether the identifier at `i` begins a statement: first in the file, after `;`, a brace or
@@ -239,6 +267,7 @@ fn directive_at(tokens: &[Token], i: usize, name: Option<&str>, nested: bool) ->
         name: name.map(Into::into),
         end: end as usize,
         nested,
+        visibility: Visibility::Export,
     })
 }
 

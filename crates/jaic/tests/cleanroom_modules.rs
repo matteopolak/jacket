@@ -104,9 +104,13 @@ fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
 fn nondefault_runtime_storage_cannot_be_silently_ignored() {
     let mut options = Options::host();
     options.temporary_storage_size = 65536;
-    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    options.import_paths = vec!["/lib".into()];
+    let mut fs = VirtualFs::default();
+    fs.insert("/lib/Runtime_Support/module.jai", "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);".as_bytes());
+    fs.insert("/app/main.jai", "main :: () {}".as_bytes());
+    let mut c = Compiler::new(options, Rc::new(fs));
     let error = c
-        .load_bootstrap()
+        .compile_program(Path::new("/app/main.jai"))
         .expect_err("missing runtime configuration must diagnose");
     assert!(error.message.contains("temporary_storage_size"));
 }

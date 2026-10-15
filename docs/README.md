@@ -4,20 +4,27 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 
 - [Features](features.md): what works, performance and what is missing
 - [Window/render progress](status/window-render-progress.md): scoped native window,
-  native input and keyboard layouts, Keymap, window lifecycle, original native-font
-  feature regressions and real font-atlas/text rendering,
+  native input, Windows pointer tracking and keyboard layouts, Keymap, window lifecycle, original native-font
+  feature regressions, real font-atlas/text rendering and texture color-space transitions,
   textures, depth/stencil and asynchronous readback evidence;
   [remaining deviations](status/window-render-deviations.md).
 - [Window/render clean-room incident](status/window-render-cleanroom-incident-2026-10-14.md):
   reviewed metadata-only exposure, clearance and implementation resumption.
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
 - [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
+- [File watcher work and ABI blocker](portable-file-watcher.md): native lifecycle design and preserved FSEvents binding regression
+- [macOS bundles and plist helpers](portable-macos-bundler.md): native bundle/icon tools, validated XML and new formatting dependency
+- [Portable sound](portable-sound-player.md): canonical audio records, real sample arithmetic and shared mutable topology
+- [Executable containers](portable-executable-formats.md): bounded ar parsing, symbol indexes, ownership and native format inputs
+- [Portable SIMD](portable-simd.md): allocation-free scalar lane kernels and unresolved load/interleaving contracts
+- [Portable Meow](portable-meow.md): canonical register macros, real calico hashing and native C vector provenance
 
 ## Language
 
 Jai language behavior as implemented by `jaic`.
 
 - [Casts and conversions](language/casts-and-conversions.md)
+- [Compiler host and output target constants](compiler/host-target-constants.md)
 - [The implicit context](language/context.md)
 - [Control flow: loops, cases and defer](language/control-flow.md)
 - [Dead-code elimination: what is checked when unused](language/dead-code-elimination.md)
@@ -67,6 +74,8 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 - [Measured performance messages](compiler/performance-messages.md): reviewed run records, actual counters and host timing boundary
 - [Compiler progress](status/compiler-progress.md) and [deviations](status/compiler-deviations.md): producer checkpoints, verification evidence, gaps and required long-term fixes
 - [Completeness follow-up](compiler/completeness-follow-up.md): qualified constant writes, runtime configuration, suspended threads and alias documentation
+- [Private runtime configuration](compiler/runtime-configuration.md): settled workspace sizes, real target data and the staged producer allocation contract
+- [Complete library lint context](tools/linter-library-context.md): private roots, real bootstrap bindings, alias identity and failure on incomplete checks
 - [Literal precision](compiler/literal-precision.md): contextual defaults, required precision, aliases, folding, overloads and module arguments
 - [Browser integration status](compiler/browser-integration-status.md): explicit source-library embedding, supported Compiler regression and remaining integration failures
 - [Using-filter propagation](compiler/using-filter-propagation.md): parameter/macro bindings, embedded filters, mapped storage and safe Code reconstruction
@@ -131,6 +140,8 @@ The LLVM backend, C ABI and linking.
 - [Core foundations implementation handoff](foundations-handoff.md)
 - [Basic public surface audit and outstanding exports](foundations-api-audit.md)
 - [Remaining Basic implementation plan](status/foundations-completion-plan.md)
+- [Basic producer dependency requests](status/foundations-dependencies.md)
+- [General cross-compilation predicate request](status/foundations-preamble-request.md)
 - [Public alias completion signature request](status/foundations-lsp-request.md)
 - [Core foundations native ABI notes](foundations-native-abi.md)
 - [Core foundations deviations and remaining limits](status/foundations-deviations.md)
@@ -154,6 +165,15 @@ The LLVM backend, C ABI and linking.
 - [Window/render contract questions](specs/stdlib/window-render-questions.md)
 - [Platform I/O backends and native/WASI runner](platform-io.md), [worker progress](status/platform-io-progress.md), and [deviations](status/platform-io-deviations.md)
 - [Platform I/O compiler and lint handoff](platform-io-compiler-handoff.md)
+- [Windows startup CI regressions and default-policy review](platform-io-startup-regressions.md)
+- [Windows device notifications](native/window-render-device-notifications.md): real
+  interface registration, bounded payload decoding, callbacks and native verification limits.
+
+- [Windows startup CI regressions and native verification](platform-io-startup-regressions.md)
+- [Interpreter/native Windows section queries and 0100a1f CI](platform-io-section-query-regression.md)
+- [Private ARM64 exception backend design and checks](platform-io-arm64-crash-plan.md)
+- [Native WGL investigation](native/window-render-wgl-investigation.md): filtered CI
+  failure evidence, production diagnostics, actual driver probe and explicit real-driver CI deployment.
 - [jaic Extensions](extensions/README.md)
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
@@ -188,6 +208,15 @@ Implementation work uses the API specification as its compatibility contract. Im
 - [Native binding implementation deviations](status/bindings-deviations.md)
 - [Bindings worker progress and remaining scope](status/bindings-progress.md)
 - [Native WGL context implementation and verification boundary](native/wgl-context.md)
+- [Windows render integration fixed-array literal blocker](native/compiler-fixed-array-literal.md)
+- [iOS helper availability and private native host verification](native/apple-toolchain.md)
+- [Android EGL native header input and verification boundary](native/egl-sdk-inputs.json)
+- [SDL native RWops pointer forwarding and contract limits](native/sdl-rwops.md)
+- [Explicit Android POSIX C header delegates](native/android-posix-delegates.md)
+- [ImGui nested member scopes and real native C++ calls](native/imgui-nested-methods.md)
+- [Safe Linux ARM64 stat syscall and record marshalling](native/linux-arm64-stat.md)
+- [Generic GL current-context wrapper](native/gl-dispatch.md)
+- [Native binding lint target/root context blockers](native/lint-target-context.md)
 - [Real GL SDK validation and reviewable integration fixes](native/gl-sdk-validation.md)
 - [Current compiler context-probing regression](native/compiler-context-probe.md)
 - [Jai language guide](specs/jai/README.md)

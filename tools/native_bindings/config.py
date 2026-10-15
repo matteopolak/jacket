@@ -18,6 +18,7 @@ IMPORTS = {
 NATIVE_ABI_ADAPTERS = {
     ('SDL', 'SDL_GetWindowWMInfo'): 'SDL_GetWindowWMInfo',
 }
+NATIVE_SHAPE_DELEGATES = {'POSIX':'android-posix-shapes.json'}
 LIBRARIES = {
     'gdi': 'gdi32', 'gl': 'opengl32',
     'glx': 'GLX', 'libX11': 'X11',
@@ -37,13 +38,16 @@ PARAMETERS = {
     'GL': '#module_parameters(DUMP_GL_ERRORS := false, ENABLE_ALL_EXTENSIONS := false, DEFAULT_MSAA: s32 = 4)();',
     'telemetry3': '#module_parameters(ENABLED := false)();',
 }
+CXX_RUNTIME = '''#if OS == .MACOS { #library,system,link_always "c++"; }
+else #if OS == .LINUX { #library,system,link_always "stdc++"; }'''
+
 PRIVATE = {
     'd3d12': 'Binding_Math :: #import "internal/bindings/graphics-math";',
-    'nvtt': '#if OS == .WINDOWS { #import "Windows"; }',
+    'nvtt': '#if OS == .WINDOWS { #import "Windows"; }\n'+CXX_RUNTIME,
     'd3d11': '__MIDL___MIDL_itf_d3d11_0000_0034_0001 :: struct { __bitfield: u32; }',
     'X11': 'wchar_t :: s32;',
     'SDL': '#if OS == .LINUX { #import "X11"; }',
-    'ImGui': '#import "Math";\nNative :: #import "internal/bindings/native";\nVarargs :: #import "internal/bindings/varargs";',
+    'ImGui': '#import "Math";\nNative :: #import "internal/bindings/native";\nVarargs :: #import "internal/bindings/varargs";\n'+CXX_RUNTIME,
     'macOS': '''Boolean :: u8;
 UTF32Char :: u32;
 UTF16Char :: u16;
@@ -55,7 +59,7 @@ RegionCode :: s16;
 ScriptCode :: s16;
 Block :: *Objective_C_Block_Basic;''',
     'Vulkan': 'Binding_Arrays :: #import "internal/bindings/arrays";\nbinding_abort :: () #foreign libc "abort";\n#if OS == .WINDOWS { #import "Windows"; }',
-    'meshoptimizer': '#if OS != .WINDOWS { #library,system,link_always "c++"; }',
+    'meshoptimizer': CXX_RUNTIME,
     'xxHash': '''binding_XXH_versionNumber :: () -> u32 #foreign xxh_vendor "XXH_versionNumber";
 binding_XXH32 :: (input: *void, len: u64, seed: u32) -> u32 #foreign xxh_vendor "XXH32";
 binding_XXH64 :: (input: *void, len: u64, seed: u64) -> u64 #foreign xxh_vendor "XXH64";

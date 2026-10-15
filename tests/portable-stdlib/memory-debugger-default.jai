@@ -1,4 +1,5 @@
 #import "Basic";
+S :: #import "String";
 D :: #import "Basic"(MEMORY_DEBUGGER = true);
 Quiet :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 
@@ -7,7 +8,7 @@ errors: int;
 received: string;
 
 logger :: (message: string, data: *void, info: Log_Info) {
-    assert(info.common_flags == .VERBOSE_ONLY);
+    assert(info.common_flags == .ERROR);
     messages += 1;
     received = copy_string(message);
 }
@@ -41,9 +42,7 @@ main :: () {
     defer free(received);
     assert(errors == 2);
     assert(messages == 1);
-    assert(received == "Memory: allocated 1 blocks / 24 bytes; freed 1 blocks / 24 bytes");
-    free(received);
-    received = "";
+    assert(S.contains(received, "visualization"));
 
     push_context {
         context.logger = logger;
@@ -63,8 +62,7 @@ main :: () {
     }
 
     assert(heap_destroyed && heap_blocks_freed == 2);
-    assert(messages == 2);
-    assert(received == "Memory: allocated 2 blocks / 32 bytes; freed 2 blocks / 32 bytes");
+    assert(messages == 1);
     bytes: [16] u8;
     pool := Reuse_Pool.{ block = bytes.data };
 

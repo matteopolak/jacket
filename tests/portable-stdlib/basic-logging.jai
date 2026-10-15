@@ -36,6 +36,8 @@ main :: () {
         context.logger_data = *state;
         context.log_source_identifier = 0x123456789abcdef0;
         log("value % / %", 17, "text");
+        log("");
+        log_error("");
         log(*section, "section %", true, loc = explicit, flags = .WARNING, user_flags = 0xa5);
         log_error("failure %", 9, loc = explicit, flags = .CONTENT, user_flags = 3, section = *section);
         log_error(*section, "section failure", flags = .WARNING);

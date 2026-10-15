@@ -16,14 +16,13 @@ def main():
     parser.add_argument("--cpu", choices=["x64", "arm64"], default="x64")
     parser.add_argument("--compiler", help="native C compiler; defaults to clang or the target MinGW compiler")
     args = parser.parse_args()
-    if args.cpu != "x64":
-        parser.error("the reviewed public Windows crash-backtrace contract supports x64 only")
     stdlib = args.stdlib.resolve(strict=True)
     if not stdlib.is_relative_to(ROOT):
         parser.error("build outputs must stay in this checkout; use a local staged stdlib")
     directory = stdlib / "internal/runtime/crash-native"
     directory.mkdir(parents=True, exist_ok=True)
-    source = ROOT / "stdlib/internal/runtime/crash-native/runtime-windows.c"
+    source = ROOT / "stdlib/internal/runtime/crash-native" / (
+        "runtime-windows-arm64.c" if args.cpu == "arm64" else "runtime-windows.c")
     native = os.name == "nt"
     if native:
         compiler = args.compiler or "clang"

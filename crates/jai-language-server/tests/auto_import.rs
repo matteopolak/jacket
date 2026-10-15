@@ -8,7 +8,9 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 fn environment(os: jaic::sema::TargetOs) -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+    let stdlib = std::env::var_os("JAIC_STDLIB")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
     Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
@@ -64,6 +66,111 @@ fn auto<'a>(list: &'a CompletionList, label: &str) -> Vec<&'a CompletionItem> {
         .iter()
         .filter(|i| i.label == label && !i.additional_edits.is_empty())
         .collect()
+}
+
+#[test]
+fn public_alias_documentation_resolves_loaded_overloads_and_private_qualifiers() {
+    let dir = project(
+        "alias-signatures",
+        &[
+            ("main.jai", "main :: () { meas }"),
+            ("modules/Facade/module.jai", "#load \"exports.jai\";"),
+            (
+                "modules/Facade/exports.jai",
+                "measure :: Impl.measure; #scope_file Impl :: #import \"Helper\"; secret :: (value:u8) {}",
+            ),
+            ("modules/Helper/module.jai", "#load \"overloads.jai\";"),
+            (
+                "modules/Helper/overloads.jai",
+                "measure :: (count:int=7) -> int { return count; } measure :: (text:string) -> int { return text.count; }",
+            ),
+        ],
+    );
+    let mut s = session();
+    let list = complete_at(&mut s, &dir.join("main.jai"), "main :: () { meas }", "meas");
+    let candidates = auto(&list, "measure");
+    let facade = candidates
+        .iter()
+        .find(|item| item.label_description.as_deref() == Some("Facade"))
+        .unwrap();
+    let doc = facade.documentation.as_deref().unwrap();
+    assert!(doc.contains("measure :: (count:int=7) -> int"), "{doc}");
+    assert!(doc.contains("measure :: (text:string) -> int"), "{doc}");
+    assert!(
+        facade.additional_edits[0]
+            .new_text
+            .contains("#import \"Facade\";")
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn alias_documentation_renames_headers_without_leaking_private_names_or_looping() {
+    let dir = project(
+        "alias-privacy",
+        &[
+            ("main.jai", "main :: () { good }"),
+            (
+                "modules/Facade/module.jai",
+                "good :: Impl.exported; broken :: Impl.hidden; cycle :: again; again :: cycle; #scope_file Impl :: #import \"Helper\";",
+            ),
+            (
+                "modules/Helper/module.jai",
+                "exported :: hidden; #scope_file hidden :: (value:u8=2) -> u8 { return value; }",
+            ),
+        ],
+    );
+    for (prefix, expected, forbidden) in [
+        ("good", "good :: (value:u8=2) -> u8", "hidden ::"),
+        ("broken", "broken :: Impl.hidden", "value:u8"),
+        ("cycle", "cycle :: again", "value:u8"),
+    ] {
+        let mut s = session();
+        let text = format!("main :: () {{ {prefix} }}");
+        let list = complete_at(&mut s, &dir.join("main.jai"), &text, prefix);
+        let candidates = auto(&list, prefix);
+        let item = candidates
+            .iter()
+            .find(|item| item.label_description.as_deref() == Some("Facade"))
+            .unwrap();
+        let doc = item.documentation.as_deref().unwrap();
+        assert!(doc.contains(expected), "{doc}");
+        assert!(!doc.contains(forbidden), "{doc}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn unloaded_project_file_alias_keeps_its_own_declaration_environment() {
+    let dir = project(
+        "alias-load",
+        &[
+            ("main.jai", "main :: () { public_c }"),
+            (
+                "utility.jai",
+                "public_call :: implementation; implementation :: (number:int=12) -> int { return number; }",
+            ),
+        ],
+    );
+    let mut s = session();
+    let list = complete_at(
+        &mut s,
+        &dir.join("main.jai"),
+        "main :: () { public_c }",
+        "public_c",
+    );
+    let item = auto(&list, "public_call")[0];
+    let doc = item.documentation.as_deref().unwrap();
+    assert!(
+        doc.contains("public_call :: (number:int=12) -> int"),
+        "{doc}"
+    );
+    assert!(
+        item.additional_edits[0]
+            .new_text
+            .contains("#load \"utility.jai\";")
+    );
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]

@@ -83,6 +83,10 @@ impl Block {
 
 struct GThread {
     finished: bool,
+    /// Win32 suspension gates scheduling independently of waits/deadlines.
+    suspend_count: u32,
+    /// Actual Windows OS id, recorded before the thread waits for its baton.
+    native_id: u32,
     block: Block,
     /// A timed condition wait ended because its deadline passed.
     timed_out: bool,
@@ -99,6 +103,8 @@ impl GThread {
     fn new(adopted: bool, start: Option<ExecState>) -> Self {
         GThread {
             finished: false,
+            suspend_count: 0,
+            native_id: 0,
             block: Block::None,
             timed_out: false,
             deadlocked: false,
@@ -150,7 +156,9 @@ pub(super) struct Sched {
 
 impl Sched {
     fn runnable(&self, t: usize) -> bool {
-        !self.threads[t].finished && self.threads[t].block == Block::None
+        !self.threads[t].finished
+            && self.threads[t].suspend_count == 0
+            && self.threads[t].block == Block::None
     }
 
     /// Make runnable every thread whose sleep or timed wait is over.
@@ -213,6 +221,7 @@ impl Sched {
     fn stuck(&self) -> bool {
         self.threads.iter().all(|t| {
             t.finished
+                || t.suspend_count != 0
                 || (t.block != Block::None
                     && t.block != Block::Native
                     && t.block.deadline().is_none())
@@ -232,7 +241,8 @@ impl Sched {
     }
 
     fn report_deadlock(&mut self, report: Option<usize>) {
-        let first = (0..self.threads.len()).find(|&t| !self.threads[t].finished);
+        let first = (0..self.threads.len())
+            .find(|&t| !self.threads[t].finished && self.threads[t].suspend_count == 0);
         if let Some(t) = report.or(first) {
             self.threads[t].block = Block::None;
             self.threads[t].deadlocked = true;
@@ -600,6 +610,16 @@ impl Interp {
 
     /// Start a Jai thread running `start(argument)`: its id, or `None` when the OS refused.
     fn spawn_thread(&mut self, program: &Program, start: u64, argument: u64) -> Res<Option<usize>> {
+        self.spawn_gated_thread(program, start, argument, false)
+    }
+
+    fn spawn_gated_thread(
+        &mut self,
+        program: &Program,
+        start: u64,
+        argument: u64,
+        suspended: bool,
+    ) -> Res<Option<usize>> {
         let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
         };
@@ -613,6 +633,7 @@ impl Interp {
                 ..ExecState::default()
             };
             s.threads.push(GThread::new(false, Some(state)));
+            s.threads.last_mut().unwrap().suspend_count = u32::from(suspended);
             s.threads.len() - 1
         };
         let program = program as *const Program as usize;
@@ -845,7 +866,9 @@ fn absolute_deadline(secs: u64, nanos: u64) -> Instant {
 /// Body of the OS thread that runs Jai thread `id`.
 fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argument: u64) {
     let (interp, state) = {
-        let s = shared.lock();
+        let mut s = shared.lock();
+        s.threads[id].native_id = win32::native_thread_id(id);
+        shared.cv.notify_all();
         let mut s = shared.acquire(s, id);
         (s.interp, s.threads[id].start.take().unwrap_or_default())
     };
@@ -858,6 +881,10 @@ fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argumen
     let value = match result {
         Ok(values) => values.first().copied().unwrap_or(0),
         Err(trap) => {
+            if let Some(TrapKind::ThreadExit(code)) = trap.kind {
+                interp.finish_thread(id, code as u64);
+                return;
+            }
             let at = trap
                 .loc
                 .map(|(_, line, col)| format!(" (line {line}, column {col})"))

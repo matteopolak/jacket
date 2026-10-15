@@ -34,6 +34,7 @@ mod modify;
 mod modules;
 pub mod perf;
 pub mod procs;
+mod runtime_config;
 mod runtime_info;
 pub mod scope;
 mod stmt;
@@ -83,6 +84,40 @@ pub enum TargetCpu {
     X64,
     Arm64,
     Wasm,
+}
+
+/// Platform on which this compiler binary executes, independent of output options.
+fn compiler_host() -> (TargetOs, TargetCpu) {
+    #[cfg(not(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_arch = "wasm32"
+    )))]
+    compile_error!("compiler host OS has no supported Operating_System_Tag mapping");
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "wasm32"
+    )))]
+    compile_error!("compiler host architecture has no supported CPU_Tag mapping");
+    let os = if cfg!(target_os = "windows") {
+        TargetOs::Windows
+    } else if cfg!(target_os = "macos") {
+        TargetOs::MacOS
+    } else if cfg!(target_arch = "wasm32") {
+        TargetOs::Wasm
+    } else {
+        TargetOs::Linux
+    };
+    let cpu = if cfg!(target_arch = "aarch64") {
+        TargetCpu::Arm64
+    } else if cfg!(target_arch = "wasm32") {
+        TargetCpu::Wasm
+    } else {
+        TargetCpu::X64
+    };
+    (os, cpu)
 }
 
 /// `Build_Options.dead_code_elimination`: which declarations that nothing the program reaches
@@ -209,22 +244,7 @@ impl Options {
     }
 
     pub fn host() -> Self {
-        let os = if cfg!(target_os = "windows") {
-            TargetOs::Windows
-        } else if cfg!(target_os = "macos") {
-            TargetOs::MacOS
-        } else if cfg!(target_arch = "wasm32") {
-            TargetOs::Wasm
-        } else {
-            TargetOs::Linux
-        };
-        let cpu = if cfg!(target_arch = "aarch64") {
-            TargetCpu::Arm64
-        } else if cfg!(target_arch = "wasm32") {
-            TargetCpu::Wasm
-        } else {
-            TargetCpu::X64
-        };
+        let (os, cpu) = compiler_host();
         Self {
             os,
             cpu,
@@ -393,6 +413,7 @@ pub struct Compiler {
     asserts_done: usize,
     /// `__runtime_info`, when the program references it.
     runtime_info: Option<ir::GlobalId>,
+    runtime_storage_global: Option<ir::GlobalId>,
     /// Id of the workspace this compiler builds (1: the top-level program).
     pub workspace: i64,
     /// Sources added so far (labels of added strings).
@@ -651,6 +672,7 @@ impl Compiler {
             asserts_done: 0,
             workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
+            runtime_storage_global: None,
             added_sources: 0,
             lenient_failures: HashMap::default(),
             default_scopes: HashMap::default(),

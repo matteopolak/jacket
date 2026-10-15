@@ -108,10 +108,15 @@ impl Compiler {
     }
 
     fn target_constant(&mut self, sym: Sym, span: Span) -> Result<Resolved> {
+        let (host_os, host_cpu) = compiler_host();
         let (enum_name, member) = match sym.as_str() {
             "OS" | "BUILD_OS" => (
                 "Operating_System_Tag",
-                match self.options.os {
+                match if sym.as_str() == "BUILD_OS" {
+                    host_os
+                } else {
+                    self.options.os
+                } {
                     TargetOs::Windows => "WINDOWS",
                     TargetOs::Linux => "LINUX",
                     TargetOs::MacOS => "MACOS",
@@ -120,7 +125,11 @@ impl Compiler {
             ),
             "CPU" | "BUILD_CPU" => (
                 "CPU_Tag",
-                match self.options.cpu {
+                match if sym.as_str() == "BUILD_CPU" {
+                    host_cpu
+                } else {
+                    self.options.cpu
+                } {
                     TargetCpu::X64 => "X64",
                     TargetCpu::Arm64 => "ARM64",
                     TargetCpu::Wasm => "CUSTOM",

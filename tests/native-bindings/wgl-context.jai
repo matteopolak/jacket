@@ -46,4 +46,14 @@ main :: () {
     check(W.wglDeleteContext(shared) != 0);
     check(W.ReleaseDC(window, shared_dc) != 0);
     check(W.wglMakeCurrent(previous_dc, previous) != 0);
+
+    G.gl_create_context(window, wanted_msaa = 0);
+    generic_context := W.wglGetCurrentContext();
+    generic_dc := W.wglGetCurrentDC();
+
+    check(generic_context != null && generic_dc != null);
+    check(G.gl.glGetString(G.GL_VERSION) != null);
+    check(W.wglMakeCurrent(previous_dc, previous) != 0);
+    check(W.wglDeleteContext(generic_context) != 0);
+    check(W.ReleaseDC(window, generic_dc) != 0);
 }

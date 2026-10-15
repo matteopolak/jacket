@@ -49,13 +49,27 @@ def main():
     parser.add_argument("--jaic", type=Path, required=True)
     parser.add_argument("--stdlib", type=Path, required=True)
     parser.add_argument("--wasm", action="store_true")
+    interpreter = parser.add_mutually_exclusive_group()
+    interpreter.add_argument("--interp", action="store_true", help="also verify interpreter output")
+    interpreter.add_argument("--interp-only", action="store_true", help="verify only interpreter output")
     args = parser.parse_args()
+    if args.interp_only and args.wasm:
+        parser.error("--interp-only cannot select --wasm")
     compiler = args.jaic.resolve(strict=True)
     if not compiler.is_relative_to(ROOT / "target"):
         parser.error("use a source-built independent compiler under target")
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
     directory = ROOT / "target/foundations-tests"
     directory.mkdir(exist_ok=True, parents=True)
+    if args.interp or args.interp_only:
+        result = subprocess.run([compiler, ROOT / "tests/portable-stdlib/float-power-sweep.jai", "-interp"],
+                                cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+        if result.returncode or result.stderr:
+            raise RuntimeError(f"interpreter execution failed: {result}")
+        verify(result.stdout)
+        print("verified 2300 shortest power intervals: interpreter", flush=True)
+        if args.interp_only:
+            return
     for target in (("native", "wasm") if args.wasm else ("native",)):
         for level in ("O0", "O2"):
             suffix = ".wasm" if target == "wasm" else ""

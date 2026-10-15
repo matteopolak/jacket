@@ -96,6 +96,21 @@ impl Object {
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn SetLastError(code: u32);
+    fn GetCurrentThreadId() -> u32;
+}
+
+pub(super) fn native_thread_id(scheduler_id: usize) -> u32 {
+    #[cfg(windows)]
+    {
+        let _ = scheduler_id;
+        // SAFETY: GetCurrentThreadId has no preconditions.
+        unsafe { GetCurrentThreadId() }
+    }
+    #[cfg(not(windows))]
+    {
+        // Host-independent scheduler tests have no Windows OS thread identity.
+        scheduler_id as u32 + 1
+    }
 }
 
 #[cfg(windows)]
@@ -120,7 +135,7 @@ fn real_event_new(manual: bool, set: bool) -> u64 {
         if handle != 0 {
             REAL_EVENTS.fetch_add(1, Ordering::Relaxed);
         }
-        return handle;
+        handle
     }
     #[cfg(not(windows))]
     {
@@ -191,7 +206,90 @@ impl Interp {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let started = self.multi;
         let result: Res<u64> = match symbol {
-            "CreateThread" => self.create_thread(program, arg(2), arg(3), arg(4), arg(5)),
+            "CreateThread" | "_beginthreadex" => {
+                self.create_thread(program, arg(2), arg(3), arg(4), arg(5))
+            }
+            "ExitThread" | "_endthreadex" => {
+                let me = self.me();
+                if !started || me == 0 || self.with_sched(|s| s.threads[me].adopted) {
+                    return Some(self.trap(
+                        "terminating the interpreter's entry thread through a native thread API is unsupported",
+                    ));
+                }
+                return Some(Err(Trap::new("managed thread exited")
+                    .of_kind(Some(TrapKind::ThreadExit(arg(0) as u32)))));
+            }
+            "GetThreadId" if self.owns(arg(0)) => {
+                let id = self.with_sched(|s| match s.objects.get(&arg(0)) {
+                    Some(&Object::Thread(id)) => Some(s.threads[id].native_id),
+                    _ => None,
+                });
+                match id {
+                    Some(id) => Ok(id as u64),
+                    None => {
+                        set_last_error(ERROR_INVALID_PARAMETER);
+                        Ok(0)
+                    }
+                }
+            }
+            "ResumeThread" if self.owns(arg(0)) => {
+                let previous = self.with_sched(|s| {
+                    let &Object::Thread(id) = s.objects.get(&arg(0))? else {
+                        return None;
+                    };
+                    let thread = &mut s.threads[id];
+                    let previous = thread.suspend_count;
+                    thread.suspend_count = previous.saturating_sub(1);
+                    if previous == 1 {
+                        s.woke = true;
+                    }
+                    Some(previous)
+                });
+                match previous {
+                    Some(count) => Ok(count as u64),
+                    None => {
+                        set_last_error(ERROR_INVALID_PARAMETER);
+                        Ok(u32::MAX as u64)
+                    }
+                }
+            }
+            "SuspendThread" if self.owns(arg(0)) => {
+                let previous = self.with_sched(|s| {
+                    let Some(&Object::Thread(id)) = s.objects.get(&arg(0)) else {
+                        return Ok(None);
+                    };
+                    if s.threads[id].block == Block::Native {
+                        return Err(());
+                    }
+                    let thread = &mut s.threads[id];
+                    if thread.finished || thread.suspend_count == 127 {
+                        return Ok(None);
+                    }
+                    let previous = thread.suspend_count;
+                    thread.suspend_count += 1;
+                    Ok(Some((previous, s.current == Some(id))))
+                });
+                match previous {
+                    Ok(Some((count, current))) => {
+                        if current {
+                            // The call returns only after another thread resumes it.
+                            if let Err(trap) = self.block(Block::None) {
+                                return Some(Err(trap));
+                            }
+                        }
+                        Ok(count as u64)
+                    }
+                    Ok(None) => {
+                        set_last_error(ERROR_INVALID_PARAMETER);
+                        Ok(u32::MAX as u64)
+                    }
+                    Err(()) => {
+                        return Some(self.trap(
+                            "SuspendThread cannot suspend an interpreted thread inside native code",
+                        ));
+                    }
+                }
+            }
             "WaitForSingleObject" | "WaitForSingleObjectEx" if self.owns(arg(0)) => {
                 self.wait_objects(&[arg(0)], false, arg(1) as u32)
             }
@@ -426,14 +524,35 @@ impl Interp {
         id_out: u64,
     ) -> Res<u64> {
         const CREATE_SUSPENDED: u64 = 4;
-        if flags & CREATE_SUSPENDED != 0 {
-            return self.trap("CreateThread: the interpreter cannot start a thread suspended");
+        let valid_entry = self
+            .func_of(start)
+            .and_then(|func| program.funcs[func.0 as usize].as_ref())
+            .is_some_and(|function| {
+                let signature = &function.sig;
+                signature.conv == ir::Conv::C
+                    && signature.params == [Ty::Ptr]
+                    && signature.returns == [Ty::I32]
+                    && !signature.c_varargs
+                    && signature.c_abi.is_none()
+            });
+        if !valid_entry {
+            return self.trap("Win32 thread entry ABI requires one pointer argument and one 32-bit result with C convention");
         }
-        let Some(id) = self.spawn_thread(program, start, parameter)? else {
+        let Some(id) =
+            self.spawn_gated_thread(program, start, parameter, flags & CREATE_SUSPENDED != 0)?
+        else {
             return Ok(0);
         };
+        let shared = self.shared();
+        let native_id = {
+            let mut s = shared.lock();
+            while s.threads[id].native_id == 0 {
+                s = shared.cv.wait(s).unwrap_or_else(|e| e.into_inner());
+            }
+            s.threads[id].native_id
+        };
         if id_out != 0 {
-            self.put(id_out, &(id as u32 + 1).to_le_bytes())?;
+            self.put(id_out, &native_id.to_le_bytes())?;
         }
         Ok(self.new_object(Object::Thread(id)))
     }

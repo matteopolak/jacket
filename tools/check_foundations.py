@@ -13,15 +13,18 @@ CASES = ("builder-format", "integer-format", "string-patterns", "hash-floats", "
          "formatter-parameter-defaults", "wasm-basic-minimal", "float-roundtrip",
          "memory-debugger-interface", "memory-debugger-default", "filesystem-invalid-paths",
          "basic-logging", "basic-logging-output", "basic-reflection",
-         "basic-helpers", "basic-print-bytes", "basic-stack-traces", "basic-stack-output")
+         "basic-helpers", "basic-print-bytes", "basic-stack-traces", "basic-stack-output",
+         "basic-scalars-ownership", "basic-leak-reports", "basic-leak-graphs",
+         "basic-visualization-disabled", "basic-visualization-channel", "basic-visualization-timing",
+         "basic-capabilities", "basic-preamble")
 
 
 def expected_output(name):
     return {
         "basic-output": ("out 7++", "err true", 17),
         "basic-logging-output": ("out 7", "err true", 0),
-        "basic-print-bytes": ("0 1 127 255 \n[0][1]\n", "", 0),
-        "basic-stack-output": ("OUT walk (tree.jai:3)\n", "ERR walk (tree.jai:3)\n", 0),
+        "basic-print-bytes": ("0 1 7f ff \n[0][1]\n\n", "", 0),
+        "basic-stack-output": ("OUT 'walk' at tree.jai:3\n", "ERR 'walk' at tree.jai:3\n", 0),
     }.get(name, ("ok\n", "", 0))
 
 
@@ -33,6 +36,10 @@ def owned_sources():
     paths.extend(ROOT / f"stdlib/internal/basic/{name}.jai"
                  for name in ("builder", "scalar", "integer128", "parsing", "numeric-conversion", "temporary", "allocation", "arrays", "memory-debugger", "logging", "reflection", "stream-helpers", "stack-traces", "module"))
     paths.append(ROOT / "stdlib/internal/basic-interface/module.jai")
+    paths.append(ROOT / "stdlib/internal/basic-context/module.jai")
+    paths.append(ROOT / "stdlib/internal/basic/preamble.jai")
+    paths.extend((ROOT / "stdlib/internal/basic").glob("leak-*.jai"))
+    paths.extend((ROOT / "stdlib/internal/basic").glob("visualization*.jai"))
     paths.append(ROOT / "stdlib/internal/native-path/module.jai")
     paths.append(ROOT / "stdlib/internal/basic/filesystem.jai")
     paths.extend((ROOT / "stdlib/internal/string").glob("*.jai"))
@@ -42,7 +49,12 @@ def owned_sources():
     paths.extend((ROOT / "tests/portable-stdlib/negative").glob("format-*.jai"))
     paths.append(ROOT / "tests/portable-stdlib/negative/builder-ensured-range.jai")
     paths.append(ROOT / "tests/portable-stdlib/negative/stack-trace-cycle.jai")
+    paths.append(ROOT / "tests/portable-stdlib/negative/basic-scalar-bool.jai")
+    paths.append(ROOT / "tests/portable-stdlib/negative/leak-unknown-allocation.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/context-overload-probe.jai")
+    paths.append(ROOT / "tests/portable-stdlib/pending/basic-unused-platform-dependency.jai")
+    paths.append(ROOT / "tests/portable-stdlib/pending/host-target-predicate.jai")
+    paths.append(ROOT / "tests/portable-stdlib/pending/pool-capabilities-name.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/alias-signature-probe.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/alias-signature-facade/module.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/alias-signature-helper/module.jai")
@@ -154,7 +166,8 @@ def main():
                              ("basic-replacement-interface", "check_"),
                              ("basic-interface-import-visibility", "no exported member `Interface_Definition`"),
                              ("basic-parameter-interface-visibility", "no exported member `Memory_Debugger_Interface`"),
-                             ("basic-private-formatter", "standard-library internal sources are private")):
+                             ("basic-private-formatter", "standard-library internal sources are private"),
+                             ("basic-scalar-bool", "clamp requires a scalar type")):
         source = ROOT / f"tests/portable-stdlib/negative/{name}.jai"
         if args.jaifmt:
             run([formatter,"--check",source], "")
@@ -174,7 +187,8 @@ def main():
                              ("format-int-base", "assertion failed"),
                              ("format-int-minimum", "assertion failed"),
                              ("builder-ensured-range", "assertion failed"),
-                             ("stack-trace-cycle", "a stack trace must not contain a cycle")):
+                             ("stack-trace-cycle", "a stack trace must not contain a cycle"),
+                             ("leak-unknown-allocation", "unknown allocation marked as non-leak")):
         source = ROOT / f"tests/portable-stdlib/negative/{name}.jai"
         commands = [[compiler, "-interp", source]]
         for level in ("O0", "O2"):
@@ -184,7 +198,7 @@ def main():
         for command in commands:
             rejected = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
                                       capture_output=True, text=True, timeout=60)
-            if rejected.returncode == 0 or diagnostic not in rejected.stderr:
+            if rejected.returncode == 0 or diagnostic not in rejected.stderr or (name == "leak-unknown-allocation" and rejected.returncode != 1):
                 raise RuntimeError(f"expected formatter assertion {name}: {rejected}")
         print(f"passed interpreter/native O0/O2 assertion: {name}", flush=True)
 
@@ -203,7 +217,7 @@ def main():
         print(f"passed interpreter/native O0/O2: {name}", flush=True)
     if args.wasm:
         for name in CASES:
-            if name in ("basic-filesystem", "foundation-filesystem", "file-visitation", "basic-sleep", "basic-output", "filesystem-invalid-paths"):
+            if name in ("basic-filesystem", "foundation-filesystem", "file-visitation", "basic-sleep", "basic-output", "filesystem-invalid-paths", "basic-visualization-channel", "basic-visualization-timing"):
                 continue
             source = ROOT / f"tests/portable-stdlib/{name}.jai"
             for level in ("O0", "O2"):
@@ -212,6 +226,13 @@ def main():
                 expected = expected_output(name)
                 run(["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary], *expected)
             print(f"passed production WASI O0/O2: {name}", flush=True)
+        for level in ("O0", "O2"):
+            binary = output / f"leak-unknown-allocation-{level}.wasm"
+            run([compiler, ROOT / "tests/portable-stdlib/negative/leak-unknown-allocation.jai",
+                 "-os", "wasm", f"-{level}", "-exe", binary])
+            run(["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary],
+                "", "memory debugger: unknown allocation marked as non-leak", 1)
+        print("passed production WASI O0/O2 unknown-allocation misuse status 1", flush=True)
     failures = []
     if args.cross:
         for os_name, cpu in (("linux", "x64"), ("linux", "arm64"), ("macos", "arm64"), ("macos", "x64"), ("windows", "x64"), ("windows", "arm64"), ("wasm", "wasm64")):
@@ -222,6 +243,8 @@ def main():
                     if name in ("basic-filesystem", "foundation-filesystem", "file-visitation", "basic-sleep", "filesystem-invalid-paths") and os_name == "wasm":
                         continue
                     if name == "basic-output" and os_name == "wasm":
+                        continue
+                    if name in ("basic-visualization-channel", "basic-visualization-timing") and os_name in ("windows", "wasm"):
                         continue
                     target = ["-target", "wasm64-unknown-wasi"] if os_name == "wasm" else ["-os", os_name, "-cpu", cpu]
                     run([compiler, "-check", "-no_dce", *target,

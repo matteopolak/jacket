@@ -1,6 +1,6 @@
 P :: #import "POSIX";
 
-probe :: #library "../../.work/native/posix_abi_probe";
+probe :: #library,system "posix_abi_probe";
 native_size :: (record: u32) -> u64 #foreign probe "binding_posix_size";
 native_offset :: (field: u32) -> u64 #foreign probe "binding_posix_offset";
 libc :: #library,system "c";

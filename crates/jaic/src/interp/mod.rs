@@ -272,6 +272,8 @@ pub enum TrapKind {
     /// Not a failure: the program called `exit` where the sandbox ends it itself instead of
     /// the process. Carries the exit code.
     Exit(i32),
+    /// Unwind one managed native-host thread, preserving its Windows exit code.
+    ThreadExit(u32),
     /// Not a failure: unwinds a thread of the sandbox's scheduler that blocks or yields, its
     /// frames saved so it can resume later (`threads_inline.rs`). Never reported.
     Suspended,

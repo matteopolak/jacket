@@ -1202,7 +1202,9 @@ fn write_output(
         ints: vec![PHASE_PRE_WRITE_EXECUTABLE, 0],
         strings: vec![name.clone()],
     });
-    compiler.prepare_compiled_output();
+    compiler
+        .prepare_compiled_output()
+        .map_err(|error| compiler.render(&error))?;
     let links = matches!(
         settings.output_type,
         OutputType::Executable | OutputType::DynamicLibrary

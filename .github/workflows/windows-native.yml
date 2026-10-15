@@ -177,10 +177,10 @@ jobs:
           # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
-        run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+        run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
       - name: Platform I/O (interpreter and native O0/O2)
         if: success() || failure()
-        run: python -u tools/check_platform_io.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+        run: python -u tools/check_platform_io.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native --windows-crash
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
@@ -243,6 +243,11 @@ jobs:
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames presented and read back.
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --require-adapter --test window --frames 120
+      - name: Native WGL driver diagnostics and public rendering
+        if: success() || failure()
+        run: |
+          mkdir -p artifacts/native-libs/windows-x64
+          python -u tools/window_render_wgl_ci.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --jailint target/x86_64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-x64 --driver-dir "$RUNNER_TEMP/mesa"
       - name: Signed mouse wheel event propagation (issue 1)
         if: success() || failure()
         run: |
@@ -405,10 +410,10 @@ jobs:
           # As on x64 (see the x64 job).
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
-        run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+        run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
       - name: Platform I/O (interpreter and native O0/O2)
         if: success() || failure()
-        run: python -u tools/check_platform_io.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+        run: python -u tools/check_platform_io.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native --windows-crash
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
@@ -433,6 +438,11 @@ jobs:
       - name: WebGPU in a window (HWND surface on WARP, presented)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter --test window --frames 120
+      - name: Native WGL driver diagnostics and public rendering
+        if: success() || failure()
+        run: |
+          mkdir -p artifacts/native-libs/windows-arm64
+          python -u tools/window_render_wgl_ci.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --jailint target/aarch64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-arm64
       - name: Signed mouse wheel event propagation (issue 1)
         if: success() || failure()
         run: |

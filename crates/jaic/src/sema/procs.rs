@@ -1416,6 +1416,17 @@ impl Compiler {
         _header: &ast::ProcHeader,
     ) -> Result<()> {
         let name = self.proc(id).name;
+        if name.as_str() == "__jaic_runtime_temporary_storage_size" {
+            let Operand::Value {
+                val, ..
+            } = self.runtime_storage_operand(&mut f, sig, self.proc(id).span)?
+            else {
+                unreachable!();
+            };
+            f.b.ret(vec![val]);
+            self.program.funcs[func_id.0 as usize] = Some(f.b.finish());
+            return Ok(());
+        }
         let start = usize::from(sig.has_context);
         let args: Vec<ir::Val> = (start..f.b.func.sig.params.len())
             .map(|i| f.b.param(i))

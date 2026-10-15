@@ -10,11 +10,11 @@ import re
 import subprocess
 
 from spec import parse_spec
-from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS
+from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES
 from wrappers import simple_body, forwarding_body
 from objc import materialize_methods
 from bitfields import body as bitfield_body
-from spec import Declaration
+from spec import Declaration, Shape
 from conditions import possible
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -78,6 +78,88 @@ def procedure_parts(code):
                 names = [p.split(':', 1)[0].strip().removeprefix('using ') for p in params]
                 return match[1].strip(), params, names, code[i + 1:]
     raise ValueError('Unclosed procedure signature: ' + code)
+
+
+def mask_literals_and_comments(code):
+    """Retain offsets/newlines while hiding non-syntactic braces, including nested comments."""
+    masked = list(code)
+    i = 0
+    while i < len(code):
+        start = i
+        if code.startswith('//', i):
+            i = code.find('\n', i)
+            if i < 0:
+                i = len(code)
+        elif code.startswith('/*', i):
+            depth = 1
+            i += 2
+            while i < len(code) and depth:
+                if code.startswith('/*', i):
+                    depth += 1
+                    i += 2
+                elif code.startswith('*/', i):
+                    depth -= 1
+                    i += 2
+                else:
+                    i += 1
+            if depth:
+                raise ValueError('Unclosed comment in reviewed aggregate shape')
+        elif code[i] == '"':
+            i += 1
+            while i < len(code) and code[i] != '"':
+                i += 2 if code[i] == '\\' else 1
+            if i >= len(code):
+                raise ValueError('Unclosed string in reviewed aggregate shape')
+            i += 1
+        else:
+            i += 1
+            continue
+        for offset in range(start, i):
+            if masked[offset] != '\n':
+                masked[offset] = ' '
+    return ''.join(masked)
+
+
+def normalize_member_lines(code):
+    masked = mask_literals_and_comments(code)
+    boundaries = list(re.finditer(r'(?<=[{;])[ \t]*(?=\w+\s*::\s*(?:inline\s+)?\()', masked))
+    for match in reversed(boundaries):
+        code = code[:match.start()]+'\n'+code[match.end():]
+    # Public member lists may retain an opening procedure marker while
+    # intentionally omitting its body. Normalize that prototype before type
+    # scope tracking; forwarding below must still supply a real implementation.
+    lines = []
+    for line in code.splitlines():
+        signature = line.strip().rstrip(' {;')
+        if line.rstrip().endswith('{') and procedure_parts(signature):
+            line = line.rstrip()[:-1].rstrip()
+        lines.append(line)
+    return '\n'.join(lines)
+
+
+def member_declarations_with_owners(code, root, condition):
+    """Nested nominal records keep their scope; anonymous/conditional braces add no name."""
+    masked = mask_literals_and_comments(code)
+    headers = re.finditer(r'(?:^|(?<=[;{}]))\s*(?:using\s+)?(\w+)\s*::\s*'
+                          r'(?:struct|union|enum(?:_flags)?)\b[^{};]*\{', masked, re.M)
+    names = {match.end()-1:match[1] for match in headers}
+    stack, rows, offset = [], {}, 0
+    for index, line in enumerate(code.splitlines(keepends=True)):
+        signature = line.strip().rstrip(' {};')
+        if procedure_parts(signature):
+            owner = '.'.join(name for name in stack if name) or root
+            rows[index] = (Declaration(signature,condition),owner)
+        for match in re.finditer(r'[{}]',masked[offset:offset+len(line)]):
+            if match[0] == '{':
+                stack.append(names.get(offset+match.start()))
+            elif stack:
+                stack.pop()
+            else:
+                raise ValueError('Unbalanced closing brace in reviewed aggregate shape')
+        offset += len(line)
+    if stack:
+        raise ValueError('Unbalanced aggregate shape braces: '+root)
+    return rows
 
 
 def guard(code, condition):
@@ -217,6 +299,31 @@ def generate_facade(module, spec):
     shapes = defaultdict(list)
     for shape in spec.shapes:
         shapes[shape.name].append(shape)
+    native_shape_provenance = {}
+    if module in NATIVE_SHAPE_DELEGATES:
+        path = ROOT/'stdlib/internal/bindings/vendor'/NATIVE_SHAPE_DELEGATES[module]
+        native = json.loads(path.read_text())
+        for cpu, target in native['targets'].items():
+            condition = target['condition']
+            for shape in target['shapes']:
+                name = shape['name']
+                # The public inventory controls names and availability. Native
+                # headers never introduce extra exports or override a reviewed
+                # target shape (including an intentional public ABI mismatch).
+                declarations = [d for d in spec.declarations if d.name==name and
+                                re.search(r'::\s*struct\b',d.code) and
+                                possible('('+condition+') && ('+(d.condition or 'true')+')')]
+                reviewed = ' || '.join('('+(s.condition or 'true')+')' for s in shapes[name]) or 'false'
+                if not declarations or not possible('('+condition+') && !('+reviewed+')'):
+                    continue
+                candidate = Shape(name,shape['code'],condition)
+                shapes[name].append(candidate)
+                native_shape_provenance[(name,condition)] = {
+                    'metadata':str(path.relative_to(ROOT)),
+                    'metadata_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+                    'archive_sha256':native['archive_sha256'],'revision':native['revision'],
+                    'cpu':cpu,'verification':'C header/layout assertions; not Android Jai/runtime execution',
+                    'layout':{k:shape[k] for k in ('size','alignment','fields')}}
     ledger, output, emitted = [], [], set()
     constants_path = ROOT/'stdlib/internal/bindings/vendor/constants.json'
     native_constants = json.loads(constants_path.read_text()) if constants_path.exists() else {}
@@ -288,6 +395,8 @@ def generate_facade(module, spec):
                 record['unresolved_shape_condition'] = missing_shape
             for s in selected:
                 body = s.code
+                if (s.name,s.condition) in native_shape_provenance:
+                    record.setdefault('native_shape_delegates',[]).append(native_shape_provenance[(s.name,s.condition)])
                 if module in ('ImGui', 'nvtt'):
                     if module == 'ImGui' and d.name == 'TextFilter':
                         metadata = json.loads((ROOT/'stdlib/internal/bindings/vendor/imgui-symbols.json').read_text())
@@ -297,18 +406,19 @@ def generate_facade(module, spec):
                     # Public C++ shapes can put several prototypes on a line.
                     # Split only at statement boundaries before a procedure;
                     # aggregate member and overload order remain unchanged.
-                    body = re.sub(r';[ \t]*(?=\w+\s*::\s*(?:inline\s+)?\()', ';\n', body)
+                    body = normalize_member_lines(body)
                     if module == 'nvtt':
                         body, native_members = supplement_nvtt_members(d.name, body, s.condition)
                         record['native_header_members'] = native_members
-                    member_declarations = [Declaration(line.strip().rstrip(' {;'),s.condition)
-                                           for line in body.splitlines() if procedure_parts(line.strip().rstrip(' {;'))]
+                    member_rows = member_declarations_with_owners(body, d.name, s.condition)
+                    member_declarations = [entry[0] for entry in member_rows.values()]
                     lines = []
-                    for line in body.splitlines():
-                        signature = line.strip().rstrip(' {;')
-                        parts = procedure_parts(signature)
-                        if parts:
-                            member = {'signature': signature, 'condition': s.condition, 'status': 'declared'}
+                    for index, line in enumerate(body.splitlines()):
+                        if index in member_rows:
+                            declaration, owner = member_rows[index]
+                            signature = declaration.code
+                            parts = procedure_parts(signature)
+                            member = {'signature': signature, 'condition': s.condition, 'owner': owner, 'status': 'declared'}
                             if '#foreign' not in signature:
                                 wrapper = forwarding_body(module,Declaration(signature,s.condition),member_declarations,parts,procedure_parts)
                                 if wrapper is not None:
@@ -462,7 +572,7 @@ def main():
         else:
             entry.write_text(entry_code)
     path = ROOT / 'docs/native/bindings-coverage.json'
-    serialized = json.dumps({'format': 1, 'note': 'Declared is not ABI or runtime verified. Unresolved entries are not implemented.', 'modules': all_ledger}, indent=2) + '\n'
+    serialized = json.dumps({'format': 1, 'note': 'Statuses describe source dispositions, not native verification. Manual bodies may remain unverified on unavailable targets. Unresolved entries are not implemented.', 'modules': all_ledger}, indent=2) + '\n'
     if args.check:
         if not path.exists() or path.read_text() != serialized:
             stale.append(str(path.relative_to(ROOT)))

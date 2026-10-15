@@ -7,6 +7,7 @@ Unimplemented module fixtures remain unchanged in tests/stdlib-contract.
 import argparse
 import os
 from pathlib import Path
+import plistlib
 import shutil
 import signal
 import subprocess
@@ -14,20 +15,34 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def valid_bundle_plist(output, require_reals=False):
+    expected = {"a<&\"'": "value<&\"'\r\né", "true": True, "false": False,
+                "negative": -9223372036854775808, "unsigned": 18446744073709551615}
+    if require_reals:
+        expected.update({"real": 0.125, "large-real": 1.25e100})
+    return plistlib.loads(output.encode("utf-8")) == expected
+
+
 CONTRACTS = [
     "basic", "string", "memory", "pcg", "codec", "bit-array", "reflection",
     "unicode", "pool", "adpcm", "bucket-array", "file-utils", "socket", "thread", "process", "command-line",
 ]
 EXPECTED = {
+    "bundle-plist": valid_bundle_plist,
     "print-color": "\x1b[1;31mcolor 42\x1b[0m\x1b[4;32mscope\x1b[0mok\n",
     "basic-output": "out 7++",
     "runtime": "runtime -9223372036854775808 ff\n",
     "foundations": "-42 true text 55\n",
+    "meow-dump": "state\n0: 1 2\n1: 3 4\n2: 5 6\n3: 7 8\n4: 9 10\n5: 11 12\n6: 13 14\n7: 15 16\nok\n",
     "command-help": lambda out: all(text in out for text in ["configuration comment", "last option", "--alpha", "--zeta", "--help"]) and out.index("--alpha") < out.index("--zeta") and out.endswith("ok\n"),
 }
 EXPECTED_STDERR = {"print-color": "\x1b[0;44merror\x1b[0m", "basic-output": "err true"}
 EXPECTED_EXIT = {"basic-output": 17}
 FAULT_EXPECTATIONS = {
+    "sound-channels": ("assertion failed", "audio sample input/channel range invalid"),
+    "sound-magic": ("assertion failed", "audio magic read outside input"),
     "atomic-bit-index": ("assertion failed", "atomic bit index out of range"),
     "deep-copy-fixed": ("assertion failed", "Deep_Copy does not support fixed arrays"),
     "deep-copy-any": ("assertion failed", "Deep_Copy does not support this reflected value kind"),
@@ -41,6 +56,7 @@ FAULT_EXPECTATIONS = {
     "mpeg-program-pts": ("assertion failed", "invalid MPEG timestamp marker"),
     "mpeg-program-truncated": ("assertion failed", "truncated MPEG PES packet"),
     "mpeg-no-delay-b": ("assertion failed", "MPEG B picture violates no-delay assumption"),
+    "meow-null": ("assertion failed", "MeowHash invalid source/length"),
     "overwriting-double-free": ("assertion failed", "invalid overwriting-allocator pointer"),
     "xar-capacity": ("assertion failed", "Xar configured capacity exceeded"),
     "crash-handler": ("crash signal 11", "native stack:"),
@@ -84,6 +100,7 @@ def main():
         parser.error("compiler must be a source build under this checkout's target directory")
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_runtime.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_zip_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_archive_fixtures.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_mpeg_matrix.py")], cwd=ROOT, check=True)
     if args.stdlib:
         root = args.stdlib.resolve(strict=True)
@@ -102,17 +119,30 @@ def main():
         shutil.copytree(curl_root, root / "Curl", dirs_exist_ok=True)
         shutil.copytree(curl_root.parent / "internal/bindings", root / "internal/bindings", dirs_exist_ok=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_mpeg_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_meow_fixtures.py")], cwd=ROOT, check=True)
     env = dict(os.environ, JAIC_STDLIB=str(root))
     output = ROOT / "target/portable-tests"
     output.mkdir(parents=True, exist_ok=True)
     cases = [(p, EXPECTED.get(p.stem, "ok\n"))
              for p in sorted((ROOT / "tests/portable-stdlib").glob("*.jai"))
-             if p.stem not in {"bootstrap", "process-parent"} and (p.stem != "windows-foundations" or sys.platform == "win32")]
+             if p.stem not in {"bootstrap", "process-parent", "float-power-sweep"} and (p.stem != "windows-foundations" or sys.platform == "win32")]
     if sys.platform != "win32":
         print("Windows filesystem runtime fixture requires a Windows host; retained for Windows target checking", flush=True)
     cases += [(ROOT / f"tests/stdlib-contract/{name}/main.jai", "ok\n") for name in CONTRACTS]
     run([str(compiler), "-check", str(ROOT / "tests/portable-stdlib/bootstrap.jai")], env)
     failures = []
+    # This fixture emits 2300 numerical rows, not the ordinary "ok" protocol.
+    # Its independent rational oracle remains mandatory, including interpreter execution.
+    sweep = [sys.executable, str(ROOT / "tools/check_float_power_sweep.py"),
+             "--jaic", str(compiler), "--stdlib", str(root)]
+    sweep += ["--interp", "--wasm"] if args.native else ["--interp-only"]
+    try:
+        subprocess.run(sweep, cwd=ROOT, env=env, check=True)
+    except (subprocess.CalledProcessError, OSError) as error:
+        if not args.keep_going:
+            raise
+        failures.append("float-power-sweep exact-rational audit")
+        print("FAILED specialized float-power audit:", error, flush=True)
     for index, (source, expected) in enumerate(cases):
         try:
             run([str(compiler), "-interp", str(source), "--"], env, expected,
@@ -174,6 +204,8 @@ def main():
         ("buildcpp-target", "BuildCpp object target validation failed"),
         ("mpeg-scalar-store", "cannot assign to constant"),
         ("adpcm-field-visibility", "no exported member `nChannels`"),
+        ("register-scalar", "expected a SIMD register operand"),
+        ("meow-lane", "INDEX >= 0 && INDEX < 2"),
     ]:
         negative = ROOT / f"tests/portable-stdlib/negative/{name}.jai"
         result = subprocess.run([str(compiler), "-check", str(negative)], cwd=ROOT,

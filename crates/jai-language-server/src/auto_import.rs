@@ -26,6 +26,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+mod aliases;
+
 /// The most auto-import items one completion offers.
 pub const MAX_ITEMS: usize = 50;
 
@@ -304,19 +306,13 @@ impl Sources<'_> {
             let only_os = self.scan(index, &file).only_os.clone();
             let mut decls = Vec::new();
             for part in self.closure(index, &file) {
-                for decl in self
-                    .scan(index, &part)
+                let scan = self.scan(index, &part);
+                for decl in scan
                     .decls
                     .iter()
                     .filter(|d| d.visibility == Visibility::Export)
                 {
-                    decls.extend(self.alias_metadata(
-                        index,
-                        &part,
-                        dir,
-                        decl,
-                        &mut BTreeSet::new(),
-                    ));
+                    decls.extend(self.alias_documentation(index, &file, &part, decl, dir));
                 }
             }
             modules.push(Module {
@@ -326,84 +322,6 @@ impl Sources<'_> {
             });
         }
         modules
-    }
-
-    /// Follow qualified facade aliases for documentation only. The facade's
-    /// exported name set stays unchanged; implementation imports never become
-    /// additional completion candidates. Cycles retain the written alias.
-    fn alias_metadata(
-        &self,
-        index: &mut Index,
-        file: &Path,
-        module_dir: &Path,
-        decl: &Decl,
-        visiting: &mut BTreeSet<(PathBuf, String)>,
-    ) -> Vec<Decl> {
-        let fallback = || vec![decl.clone()];
-        let Some((_, rhs)) = decl.signature.split_once("::") else {
-            return fallback();
-        };
-        let Some((namespace, member)) = rhs.trim().trim_end_matches(';').split_once('.') else {
-            return fallback();
-        };
-        let identifier =
-            |s: &str| !s.is_empty() && s.chars().all(|c| c.is_alphanumeric() || c == '_');
-        if !identifier(namespace) || !identifier(member) || visiting.len() >= MAX_DEPTH {
-            return fallback();
-        }
-        let key = (file.to_path_buf(), decl.name.clone());
-        if !visiting.insert(key.clone()) {
-            return fallback();
-        }
-        let scan = self.scan(index, file);
-        let Some(import) = scan
-            .imports
-            .iter()
-            .find(|i| i.name.as_deref() == Some(namespace))
-        else {
-            visiting.remove(&key);
-            return fallback();
-        };
-        let mut paths = (self.env.options)(file).import_paths;
-        paths.insert(0, module_dir.to_path_buf());
-        let entry = jaic::sema::find_module_in(
-            &*self.env.fs,
-            &paths,
-            &import.path,
-            file.parent().unwrap_or(Path::new("/")),
-        );
-        let mut resolved = Vec::new();
-        if let Some(entry) = entry {
-            for part in self.closure(index, &entry) {
-                for target in self
-                    .scan(index, &part)
-                    .decls
-                    .iter()
-                    .filter(|d| d.name == member && d.visibility == Visibility::Export)
-                {
-                    for mut metadata in
-                        self.alias_metadata(index, &part, module_dir, target, visiting)
-                    {
-                        if let Some((_, signature)) = metadata.signature.split_once("::") {
-                            metadata.signature = format!("{} ::{}", decl.name, signature);
-                        }
-                        metadata.name = decl.name.clone();
-                        metadata.lower = decl.lower.clone();
-                        metadata.visibility = decl.visibility;
-                        if !decl.doc.is_empty() {
-                            metadata.doc = decl.doc.clone();
-                        }
-                        resolved.push(metadata);
-                    }
-                }
-            }
-        }
-        visiting.remove(&key);
-        if resolved.is_empty() {
-            fallback()
-        } else {
-            resolved
-        }
     }
 
     fn stdlib(&self, index: &mut Index, dir: &Path) -> Rc<Vec<Module>> {
@@ -857,8 +775,21 @@ impl Session {
             } else {
                 1
             };
+            let declaration_root = if program.closure.contains(&f) {
+                &program.root
+            } else {
+                &f
+            };
             for d in scan.decls.iter().filter(|d| matches(d)) {
-                found.push((rank, source.clone(), d.clone()));
+                for declaration in sources.alias_documentation(
+                    &mut index,
+                    declaration_root,
+                    &f,
+                    d,
+                    &program.dir.join("modules"),
+                ) {
+                    found.push((rank, source.clone(), declaration));
+                }
             }
         }
         // Modules: the project's, then the stdlib's (one the project has hides it).

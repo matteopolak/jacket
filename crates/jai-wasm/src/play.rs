@@ -2,7 +2,7 @@
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::interp::{Host, SandboxHost, SharedHost};
 use jaic::sema::{Compiler, FileSystem, Options, TargetCpu, TargetOs, VirtualFs};
-use jaic::source::{Diagnostic, Severity};
+use jaic::source::{Diagnostic, Severity, Span};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -298,19 +298,15 @@ fn run_styled(
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
     workspaces.borrow_mut().main_file = entry.display().to_string();
     let outcome = match compiler.compile_program(&entry) {
-        Ok(()) => {
-            if let Err(message) =
-                jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget)
-            {
-                let text = format!("error: {message}\n");
-                host.borrow_mut().write(text.as_bytes(), true);
-            }
-            if limits.compile_only {
-                Ok(None)
-            } else {
-                compiler.run_program_with_args(&io.args).map(Some)
-            }
-        }
+        Ok(()) => match jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget) {
+            Err(message) => Err(Box::new(Diagnostic::error(Span::NONE, message))),
+            Ok(()) if workspaces.borrow().any_failed() => Err(Box::new(Diagnostic::error(
+                Span::NONE,
+                "compilation failed in a metaprogram workspace (see stderr for diagnostics)",
+            ))),
+            Ok(()) if limits.compile_only => Ok(None),
+            Ok(()) => compiler.run_program_with_args(&io.args).map(Some),
+        },
         Err(d) => Err(d),
     };
     match outcome {
@@ -348,6 +344,46 @@ mod tests {
         let mut files = BTreeMap::new();
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         run(&files, "main.jai")
+    }
+
+    #[test]
+    fn failed_child_workspace_prevents_parent_execution_and_compile_only_success() {
+        let source = r##"
+            C :: #import "Compiler";
+            #run {
+                w := C.compiler_create_workspace("invalid child");
+                options := C.get_build_options(w);
+                options.output_type = .NO_OUTPUT;
+                C.set_build_options(options, w);
+                C.add_build_string("#assert false; main :: () {}", w);
+            }
+            main :: () -> int { return 42; }
+        "##;
+        let files = BTreeMap::from([("main.jai".into(), source.as_bytes().to_vec())]);
+        for compile_only in [false, true] {
+            let result = run_with(
+                &files,
+                "main.jai",
+                PlayOptions {
+                    compile_only,
+                    ..PlayOptions::default()
+                },
+            );
+            assert_eq!(result.exit_code, None);
+            assert!(
+                result
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.message.contains("workspace")),
+                "{}",
+                result.rendered
+            );
+            assert!(
+                result.stderr.contains("#assert failed"),
+                "{}",
+                result.stderr
+            );
+        }
     }
 
     /// `styled` errors carry ANSI colour and box drawing for the browser's output pane; the

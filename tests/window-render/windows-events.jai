@@ -21,7 +21,10 @@ main :: () {
             if encoded < 0 encoded += 65536;
 
             // Nonzero upper pointer-width bits and every native mouse-key bit.
-            packed := 0x123456780000007f | (cast(u64) encoded << 16);
+            native_word: u64 = cast(u64) encoded;
+            packed := 0x123456780000007f | (native_word << 16);
+
+            assert((packed >> 32) == 0x12345678);
 
             assert(post_message(win, message, packed, 0x8000ffff) != 0);
             I.update_window_events();
