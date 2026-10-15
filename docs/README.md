@@ -1,5 +1,11 @@
 # Developer documentation
 
+- [Extensions Io/Args dependency migration](extensions/dependency-migration.md):
+  allocator ownership, fiber scratch lifecycle and actual WASI termination;
+  [measured status and remaining dependency handoff](status/extensions-dependencies.md).
+- [Io_Uring canonical atomics](extensions/io-uring.md#canonical-atomics-and-protocol-verification):
+  preserved ring ownership, stronger ordering cost, host protocol tests and Linux evidence limits.
+
 - Sound_Player: [plan](status/audio-plan.md), [progress](status/audio-progress.md),
   [deviations](status/audio-deviations.md), [questions](specs/questions/sound-player.md),
   [playback and independent entity phases](features/sound-player.md)
@@ -9,14 +15,20 @@
   close-failure tests, NEW spec provenance, independent
   review request, hardware/source distinctions and legacy-gate migration.
 
-Current replacement integration: [commands and results](tools/cleanroom-integration.md), [deviations](status/integration-deviations.md), [module inventory](status/integration-module-inventory.json).111/135 reviewed module facades are present; presence does not establish complete functionality. Native CI and opaque public corpus/Focus remain coordinator work; publication is held.
+Current replacement integration: [commands and results](tools/cleanroom-integration.md), [deviations](status/integration-deviations.md), [module inventory](status/integration-module-inventory.json).129/135 reviewed module facades are present; six modules and one constant-table supplement remain absent. Presence does not establish complete functionality. Native CI and opaque public corpus/Focus remain coordinator work; publication is held.
+
+[macOS resolver candidate](portable-socket-resolver.md) records native C ABI
+evidence and the genuine forward-enum compiler gate, without a Jai success claim.
 
 Android host [ADB operations](portable-adb.md) now include app lifecycle status,
-force-stop and installation queries, with protocol tests and device gaps recorded.
+force-stop, installation queries and reviewed SDK discovery/cache/startup, with
+protocol/assertion-configuration tests and device gaps recorded.
 [JAVA_HOME discovery](portable-java-discovery.md) validates real launcher status
 and records its interpreter/native protocol coverage and Windows dependency.
 [Android configuration flags](portable-android-values.md) covers actual manifest
 mask parsing, diagnosed invalid input and independent target checks.
+[ASN.1 readers](portable-asn1.md) now follow refreshed value/TLV, known-array,
+OID equality/text and length-prefix contracts, with separate test corrections.
 
 
 Start with [compiler architecture](compiler/architecture.md). Real projects that compile are listed in [upstream corpus](tools/upstream-corpus.md#project-status).
@@ -180,6 +192,14 @@ The LLVM backend, C ABI and linking.
 - [Threads in WASI builds (green threads)](native/wasm-threads.md)
 
 ## Standard library
+
+- [Data/resource handoff](portable-data-handoff.md).
+- [Data/resource tests and dependencies](portable-data-testing.md);
+  [Windows resources and native gate](portable-windows-resources.md).
+- [Subtitles implementation and per-API evidence](portable-subtitles.md).
+- Data/resource [plan](portable-data-plan.md), [public API evidence](portable-data-api.md),
+  [progress](status/portable-data-progress.md), [deviations](status/portable-data-deviations.md),
+  and [questions](specs/questions/portable-data.md).
 
 - [Independent integration commands and limits](tools/cleanroom-integration.md)
 - [Integration deviations audit](status/integration-deviations.md) and [requests](integration-requests.md)
@@ -405,3 +425,5 @@ Agreed designs that are not built yet.
 - [Catalogue output and compile-only verification](tools/stdlib-runtime-tests.md#independent-catalogue-channel-and-compile-only-checks): separate exact diagnostic channels and preserved failure status.
 
 - [Refresh22 combined verification](tools/cleanroom-integration.md#refresh22-combined-checkpoint): workspace counts, production allocator artifacts and remaining gates.
+
+- [Foreign native storage reexports](compiler/foreign-data-reexports.md): reviewed immutable-binding boundary, general filtered export fix and actual Socket identity verification.

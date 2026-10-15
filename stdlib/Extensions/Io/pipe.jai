@@ -178,7 +178,7 @@ close :: (stream: *Pipe_Stream, now := false) -> Io_Error {
         array_reset(*link.halves[0].data);
         array_reset(*link.halves[1].data);
 
-        free(link, link.allocator);
+        release_owned(link, link.allocator);
     }
 
     return .NONE;

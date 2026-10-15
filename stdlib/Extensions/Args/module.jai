@@ -123,12 +123,12 @@ parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
 
     if error.kind == .HELP || error.kind == .VERSION {
         print("%", error.text);
-        exit(0);
+        terminate_process(0);
     }
 
     if error.kind != .NONE {
         report(error);
-        exit(2);
+        terminate_process(2);
     }
 
     return out, set;

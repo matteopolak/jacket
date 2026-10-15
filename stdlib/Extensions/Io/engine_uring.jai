@@ -50,6 +50,7 @@ Accept_Wait :: struct {
     SOCK_CLOEXEC :: 0x80000;
 
     Uring_State :: struct {
+        allocator: Allocator;
         ring: Uring.Ring;
         // Listeners that have (or had) a multishot accept armed.
         accepts: [..] *Accept_Slot;
@@ -62,6 +63,7 @@ Accept_Wait :: struct {
     // Tries to make the ring; returns why it could not, or "" if `engine` now uses io_uring.
     uring_start :: (engine: *Engine) -> string {
         state := New(Uring_State);
+        state.allocator = context.allocator;
 
         flags := u32.[
             Uring.IORING_SETUP_SINGLE_ISSUER | Uring.IORING_SETUP_DEFER_TASKRUN | Uring.IORING_SETUP_COOP_TASKRUN,
@@ -130,13 +132,13 @@ Accept_Wait :: struct {
             for i: it.head..it.queue.count - 1 sys_close(it.queue[i]);
 
             array_reset(*it.queue);
-            free(it);
+            release_owned(it, engine.uring.allocator);
         }
 
         array_reset(*engine.uring.accepts);
 
         Uring.ring_deinit(*engine.uring.ring);
-        free(engine.uring);
+        release_owned(engine.uring, engine.uring.allocator);
         engine.uring = null;
     }
 
@@ -271,7 +273,7 @@ Accept_Wait :: struct {
         // `finish_op` can re-enter this function (through `uring_entry` when the submission queue is
         // full), and the inner call consumes entries too: `head` is read again for every entry and
         // each one is consumed before its handler runs.
-        tail := atomic_load(ring.cq_tail, .ACQUIRE);
+        tail := atomic_load(ring.cq_tail);
 
         while ring.cq_head.* != tail {
             head := ring.cq_head.*;
@@ -281,14 +283,14 @@ Accept_Wait :: struct {
             result := cqe.res;
             flags := cqe.flags;
 
-            atomic_store(ring.cq_head, head + 1, .RELEASE);
+            atomic_store(ring.cq_head, head + 1);
 
             if user_data > 15 {
                 op := cast(*Op) cast(*void) user_data;
 
                 if op.slot {
                     accept_completed(scheduler, op, result, flags);
-                    tail = atomic_load(ring.cq_tail, .ACQUIRE);
+                    tail = atomic_load(ring.cq_tail);
 
                     continue;
                 }
@@ -298,7 +300,7 @@ Accept_Wait :: struct {
                 finish_op(scheduler, op, result, flags, (flags & Uring.IORING_CQE_F_MORE) != 0);
             }
 
-            tail = atomic_load(ring.cq_tail, .ACQUIRE);
+            tail = atomic_load(ring.cq_tail);
         }
     }
 
@@ -321,7 +323,7 @@ Accept_Wait :: struct {
         slot := accept_slot(state, handle.fd);
 
         if !slot {
-            slot = New(Accept_Slot);
+            slot = allocate_owned(Accept_Slot, state.allocator);
             slot.fd = handle.fd;
             array_add(*state.accepts, slot);
         }
@@ -456,7 +458,7 @@ Accept_Wait :: struct {
         }
 
         array_reset(*slot.queue);
-        free(slot);
+        release_owned(slot, state.allocator);
     }
 
     // The listener `fd` is being closed: sockets accepted ahead of time are closed, and the slot

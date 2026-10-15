@@ -2,6 +2,18 @@
 
 #scope_module
 
+#if OS == .WASM {
+    wasi :: #system_library "wasi_snapshot_preview1";
+    wasi_proc_exit :: (status: u32) #foreign wasi "proc_exit";
+}
+
+// Basic exposes exit on native targets. WASI commands terminate through the
+// preview1 process ABI, rather than an unresolved host libc import.
+terminate_process :: (status: s32) {
+    #if OS == .WASM wasi_proc_exit(cast(u32) status);
+    else exit(status);
+}
+
 #if OS == .WINDOWS {
     Windows :: #import "Windows";
 } else {

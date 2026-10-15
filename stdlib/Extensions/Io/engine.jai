@@ -117,6 +117,7 @@ Internal_Tag :: enum u8 {
 }
 
 Engine :: struct {
+    allocator: Allocator;
     backend: Backend;
     caps: Capabilities;
     // Why this is not the backend that was asked for or would have been first choice. Empty if it is.
@@ -165,6 +166,7 @@ Fd_State :: struct {
 
 engine_start :: (scheduler: *Scheduler) {
     engine := New(Engine);
+    engine.allocator = context.allocator;
 
     scheduler.engine = engine;
 
@@ -212,11 +214,11 @@ engine_stop :: (scheduler: *Scheduler) {
     op := engine.free_ops;
     while op {
         next := op.next;
-        free(op);
+        release_owned(op, engine.allocator);
         op = next;
     }
 
-    free(engine);
+    release_owned(engine, engine.allocator);
     scheduler.engine = null;
 }
 
@@ -244,7 +246,7 @@ requested_backend :: () -> Backend {
 new_op :: (engine: *Engine, kind: Op_Kind, handle: Handle) -> *Op {
     op := engine.free_ops;
     if op engine.free_ops = op.next;
-    else op = New(Op);
+    else op = allocate_owned(Op, engine.allocator);
 
     op.* = .{};
     op.kind = kind;

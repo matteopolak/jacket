@@ -6,11 +6,18 @@ Io :: #import "Extensions/Io";
 wake_order: [..] int;
 // When each sleep was due, in the order the sleepers woke. A slow interpreter can take a while to
 // start ten fibers, so the order is checked against these, not against the delays alone.
-wake_deadlines: [..] Apollo_Time;
+wake_deadlines: [..] s64;
 group: Io.Wait_Group;
 
+monotonic_nanoseconds :: () -> s64 {
+    value, ok := to_nanoseconds(current_time_monotonic());
+    assert(ok, "monotonic time must fit the duration calculation");
+
+    return value;
+}
+
 sleeper :: (milliseconds: int) {
-    deadline := current_time_monotonic() + milliseconds_to_apollo(milliseconds);
+    deadline := monotonic_nanoseconds() + milliseconds * 1_000_000;
     error := Io.sleep(milliseconds);
 
     assert(error == .NONE);
@@ -34,7 +41,12 @@ test_sleep_order :: () {
 
     Io.wait(*group);
 
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    start_ns, start_ok := to_nanoseconds(started);
+    end_ns, end_ok := to_nanoseconds(current_time_monotonic());
+
+    assert(start_ok && end_ok, "monotonic timestamps must fit the duration calculation");
+
+    elapsed := (end_ns - start_ns) / 1_000_000;
 
     assert(elapsed >= 100, "everything ended after % ms", elapsed);
     assert(elapsed < 1500, "sleeping fibers overlap: % ms", elapsed);
@@ -56,7 +68,7 @@ test_sleep_order :: () {
 equal_order: [..] int;
 
 equal_sleeper :: (index: int) {
-    deadline := current_time_monotonic() + milliseconds_to_apollo(25);
+    deadline := monotonic_nanoseconds() + 25_000_000;
 
     Io.sleep(25);
     array_add(*equal_order, index);

@@ -43,7 +43,7 @@
 
 #scope_module
 #import "Basic";
-#import "Atomics";
+#load "ownership.jai";
 Json :: #import "Extensions/Json";
 #load "stacks.jai";
 #load "overflow.jai";

@@ -6,6 +6,58 @@
 
 It is Linux only: importing it anywhere else is a compile error (`Extensions/Io_Uring is Linux only`).
 
+## Canonical atomics and protocol verification
+
+The ring uses the reviewed `atomic_load(pointer)` and
+`atomic_store(pointer, value)` intrinsics, without extra ordering parameters.
+The supplied compiler lowers both to sequentially consistent operations. This
+preserves the required acquire observation of kernel-published SQ heads/CQ tails
+and release publication of userspace SQ tails/CQ heads. The SQPOLL wakeup flag
+read stays sequentially consistent; the former relaxed task/overflow flag read
+is now stronger too. Index ownership is unchanged: userspace alone writes SQ
+tail and CQ head, while the kernel alone writes SQ head and CQ tail. A Ring
+still has one userspace owner at a time.
+
+Sequential consistency can impose stronger barriers or locked instructions and
+restrict reordering beyond the required acquire/release or relaxed operation.
+The cost depends on target and workload; no Linux benchmark was run here. Kernel
+records, generated ABI assertions, syscalls and mapping ownership are unchanged.
+The OS owns mapped storage; real mmap/munmap remain the allocation/release path,
+so no Basic allocator adapter or heap free is appropriate for these mappings.
+The `cqe_seen` pointer parameter and its existing head-advance behavior are
+retained, with the intentionally unused pointer explicitly discarded rather
+than renaming a public parameter or suppressing a lint rule.
+
+`tests/extensions/io-uring-protocol.jai` loads the production queue source
+directly on the actual host. Caller-owned memory exercises SQ reservation/full
+capacity, partial consumption, idempotent publication, u32 rollover, optional
+index arrays, 64/128-byte SQE and 16/32-byte CQE strides, and completion consumption.
+A second real host thread also exchanges 1000 submissions/completions through the
+actual atomic publication paths. Interpreter/native O0/O2 pass on Darwin arm64.
+These are userspace protocol tests; no kernel syscall is called or substituted.
+
+`python3 tests/extensions/run-uring-protocol.py` repeats the host protocol,
+Linux source checks on both CPUs, contextual strict lint and formatting checks,
+writing actual command results to ignored
+`artifacts/extensions-dependencies/uring-protocol/results.json`.
+
+```sh
+JAIC_STDLIB="$PWD/stdlib" target/debug/jaic -interp tests/extensions/io-uring-protocol.jai
+JAIC_STDLIB="$PWD/stdlib" target/debug/jaic tests/extensions/io-uring-protocol.jai -O0 -exe artifacts/extensions-dependencies/uring-protocol-o0
+artifacts/extensions-dependencies/uring-protocol-o0
+JAIC_STDLIB="$PWD/stdlib" target/debug/jaic tests/extensions/io-uring-protocol.jai -O2 -exe artifacts/extensions-dependencies/uring-protocol-o2
+artifacts/extensions-dependencies/uring-protocol-o2
+```
+
+The original dependency reduction and existing raw kernel test source-check on
+Linux x64 and arm64. Strict lint passes on both Linux CPUs in the raw test's
+actual context, and on the host protocol test. All 122 focused integration checks,
+the original three fiber tests and two required-WASI formatter tests pass.
+Actual Linux kernel execution is unavailable on this host. Mapping/fd teardown,
+SQPOLL wakeup, timed waits and real kernel acceptance still need native Linux
+evidence; source checks and caller-memory threads do not provide it. The raw
+kernel suite was not run on macOS to turn its platform skip into a passing test.
+
 ## How it works
 
 Three layers, loaded by `module.jai`:

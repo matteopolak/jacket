@@ -24,9 +24,9 @@
 //     and `io_uring_params` of C), and `#assert`s that jaic lays each one out like C does.
 //   - syscalls.jai: io_uring_setup, io_uring_enter and io_uring_register, which return what the
 //     kernel returns: a result of 0 or more, or a negative errno.
-//   - ring.jai: a Ring that maps the shared memory and keeps the head and tail protocol (acquire
-//     and release atomics, see Atomics): get_sqe, submit, peek_cqe, wait_cqe, cqe_seen, and
-//     probe_ops to ask which operations this kernel supports.
+//   - ring.jai: a Ring that maps the shared memory and keeps the head and tail protocol (canonical
+//     sequentially consistent atomics, stronger than acquire/release): get_sqe, submit, peek_cqe,
+//     wait_cqe, cqe_seen, and probe_ops to ask which operations this kernel supports.
 //
 // This is a binding, not an IO API: use Extensions/Io for fibers over files and sockets. Linux
 // only (the kernel interface exists nowhere else); the module is a compile error on other

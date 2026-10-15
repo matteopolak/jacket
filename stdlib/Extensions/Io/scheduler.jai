@@ -307,7 +307,13 @@ start_fiber :: (scheduler: *Scheduler, block: Spawn_Block) -> Fiber_Handle {
         scheduler.pool = fiber.next;
         if fiber.stack.base scheduler.pooled_stacks -= 1;
     } else {
-        fiber = New(Fiber, allocator = scheduler.allocator);
+        // Only allocation uses the scheduler's owner. The new fiber below must
+        // still inherit the spawning context, including its allocator.
+        {
+            push_allocator(scheduler.allocator);
+            fiber = New(Fiber);
+        }
+
         fiber.scheduler = scheduler;
     }
 
@@ -317,7 +323,7 @@ start_fiber :: (scheduler: *Scheduler, block: Spawn_Block) -> Fiber_Handle {
     }
 
     if !fiber.temporary_ready {
-        init_temporary_storage(*fiber.temporary_storage, TEMPORARY_BYTES, null, scheduler.allocator);
+        prepare_scratch(*fiber.temporary_storage, scheduler.allocator);
         fiber.temporary_ready = true;
     }
 
@@ -399,7 +405,7 @@ release_stack :: (scheduler: *Scheduler, fiber: *Fiber) {
     fiber.stack = .{};
 
     if fiber.temporary_ready {
-        deinit_temporary_storage(*fiber.temporary_storage, scheduler.allocator, true);
+        release_scratch(*fiber.temporary_storage, scheduler.allocator);
         fiber.temporary_ready = false;
     }
 }
@@ -601,7 +607,7 @@ run_scheduler :: (block: Spawn_Block) {
     while pooled {
         next := pooled.next;
         release_stack(scheduler, pooled);
-        free(pooled, scheduler.allocator);
+        release_owned(pooled, scheduler.allocator);
         pooled = next;
     }
 

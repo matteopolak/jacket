@@ -4,9 +4,12 @@
 // then publishes them by moving the submission tail; the kernel moves the submission head as it
 // takes them. The kernel fills completion entries (CQEs) and publishes them by moving the
 // completion tail; the program consumes them and moves the completion head. Whoever advances an
-// index writes it with a release store after writing the entries, and whoever reads an index to
-// learn what is ready reads it with an acquire load, so the entries are visible by then. An index
-// the program owns (the submission tail, the completion head) is read plainly: nobody else writes
+// index publishes entries after writing them, and whoever reads an index to learn what is ready
+// must acquire those entries. Canonical atomic_load/store are sequentially consistent in this
+// compiler, stronger than the required acquire/release protocol (including the former relaxed
+// flags observation). This can cost stronger barriers or locked stores; no ordering argument is
+// part of their reviewed signature. An index the program owns (the submission tail, completion
+// head) is read plainly: nobody else writes
 // it. One thread at a time may use a Ring; nothing here locks.
 
 Ring :: struct {
@@ -181,7 +184,7 @@ ring_deinit :: (ring: *Ring) {
 // ask again). Fill it in (prep_rw, prep_nop or by hand), set `user_data`, and call submit. With
 // IORING_SETUP_SQE128 the entry is 128 bytes: cast it to io_uring_sqe128.
 get_sqe :: (ring: *Ring) -> *io_uring_sqe {
-    head := atomic_load(ring.sq_head, .ACQUIRE);
+    head := atomic_load(ring.sq_head);
     if ring.sqe_tail - head >= ring.sq_entries return null;
 
     sqe := cast(*io_uring_sqe) byte_offset(ring.sqes, (ring.sqe_tail & ring.sq_mask) * ring.sqe_bytes);
@@ -216,10 +219,10 @@ publish_sqes :: (ring: *Ring) -> u32 {
             ring.sqe_head += count;
         }
 
-        atomic_store(ring.sq_tail, tail, .RELEASE);
+        atomic_store(ring.sq_tail, tail);
     }
 
-    return tail - atomic_load(ring.sq_head, .ACQUIRE);
+    return tail - atomic_load(ring.sq_head);
 }
 
 // Publishes the pending entries and tells the kernel about them. Returns how many it took, or a
@@ -238,7 +241,7 @@ submit_and_wait :: (ring: *Ring, wait_for: u32) -> s32 {
 
     if ring.flags & IORING_SETUP_SQPOLL {
         // A polling thread takes entries on its own; only wake it when it went to sleep.
-        if atomic_load(ring.sq_flags, .SEQ_CST) & IORING_SQ_NEED_WAKEUP {
+        if atomic_load(ring.sq_flags) & IORING_SQ_NEED_WAKEUP {
             flags |= IORING_ENTER_SQ_WAKEUP;
         } else if flags == 0 {
             return cast(s32) unconsumed;
@@ -252,7 +255,7 @@ submit_and_wait :: (ring: *Ring, wait_for: u32) -> s32 {
 
 // Completions ready to be consumed.
 cq_ready :: (ring: *Ring) -> u32 {
-    return atomic_load(ring.cq_tail, .ACQUIRE) - ring.cq_head.*;
+    return atomic_load(ring.cq_tail) - ring.cq_head.*;
 }
 
 // The oldest unconsumed completion in `cqe`, without waiting: returns 0, or -EAGAIN when there is
@@ -264,7 +267,7 @@ peek_cqe :: (ring: *Ring, cqe: **io_uring_cqe) -> s32 {
 
     while true {
         head := ring.cq_head.*;
-        tail := atomic_load(ring.cq_tail, .ACQUIRE);
+        tail := atomic_load(ring.cq_tail);
 
         if head != tail {
             cqe.* = cast(*io_uring_cqe) byte_offset(ring.cqes, (head & ring.cq_mask) * ring.cqe_bytes);
@@ -325,12 +328,15 @@ wait_cqe_timeout :: (ring: *Ring, cqe: **io_uring_cqe, nanoseconds: s64) -> s32 
 // Marks `cqe`, the one peek_cqe or wait_cqe returned, as consumed, handing its slot back to the
 // kernel. The pointer must not be used afterwards.
 cqe_seen :: (ring: *Ring, cqe: *io_uring_cqe) {
+    // Keep the public argument; ownership is represented by the current head,
+    // so consuming one entry does not depend on the caller's pointer value.
+    _ := cqe;
     cq_advance(ring, 1);
 }
 
 // Consumes `count` completions at once (each CQE32 counts as one).
 cq_advance :: (ring: *Ring, count: u32) {
-    atomic_store(ring.cq_head, ring.cq_head.* + count, .RELEASE);
+    atomic_store(ring.cq_head, ring.cq_head.* + count);
 }
 
 // The buffer id of a completion that used a provided buffer (IORING_CQE_F_BUFFER).
@@ -391,7 +397,6 @@ supports :: (probe: *Probe, opcode: io_uring_op) -> bool {
 }
 
 #scope_file
-#import "Atomics";
 
 libc :: #system_library "libc";
 
@@ -418,5 +423,5 @@ byte_offset :: (base: *void, bytes: $T) -> *void {
 needs_enter :: (ring: *Ring) -> bool {
     if ring.flags & (IORING_SETUP_DEFER_TASKRUN | IORING_SETUP_IOPOLL) return true;
 
-    return (atomic_load(ring.sq_flags, .RELAXED) & (IORING_SQ_CQ_OVERFLOW | IORING_SQ_TASKRUN)) != 0;
+    return (atomic_load(ring.sq_flags) & (IORING_SQ_CQ_OVERFLOW | IORING_SQ_TASKRUN)) != 0;
 }

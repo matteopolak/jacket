@@ -1025,6 +1025,19 @@ impl Compiler {
                         );
                     }
                 } else {
+                    // Anonymous `using,only/except(...) #import` exposes the
+                    // selected original declarations just like its named form,
+                    // without introducing a public namespace alias.
+                    if import.using.is_some()
+                        && exported
+                        && self.scope(target).kind == ScopeKind::Module
+                    {
+                        let index = self.scope(target).imports.len();
+                        let module = self.scope(target).module;
+                        self.modules[module.0 as usize]
+                            .exported_using_imports
+                            .push(index);
+                    }
                     self.push_import(
                         target,
                         ImportEntry {

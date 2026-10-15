@@ -1,5 +1,6 @@
 /* Independent SDK CLI protocol fixture. No device, server, keys or auth access. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int arguments(int argc, char **argv, int count, const char **expected) {
@@ -13,7 +14,15 @@ int main(int argc, char **argv) {
     if (argc > 2 && !strcmp(argv[1], "-s")) first = 3;
     if (first >= argc) return 90;
     const char *command = argv[first];
-    if (!strcmp(command, "echo-args")) {
+    const char *log_path = getenv("JAI_ADB_PROTOCOL_LOG");
+    if (log_path) {
+        FILE *log = fopen(log_path, "a");
+        if (!log) return 99;
+        fprintf(log, "%s\n", command);
+        if (fclose(log)) return 99;
+    }
+    if (!strcmp(command, "start-server")) return strstr(argv[0], "start failure") ? 6 : 0;
+    if (!strcmp(command, "echo-args") || (!strcmp(command, "shell") && argc > first + 1 && !strcmp(argv[first + 1], "echo-args"))) {
         for (int i = 1; i < argc; ++i) puts(argv[i]);
         return 0;
     }

@@ -24,6 +24,7 @@ RESOLVER_MAX_THREADS :: 8;
 
 // One `getaddrinfo` call, shared by every fiber that asked for the same name while it was under way.
 Resolve_Job :: struct {
+    allocator: Allocator;
     host: *u8;
     host_length: s64;
     // 0, or the `getaddrinfo` error code. Written by the helper, read after it is collected.
@@ -51,6 +52,7 @@ Resolve_Waiter :: struct {
 }
 
 Wake_State :: struct {
+    allocator: Allocator;
     read_handle: Handle;
     write_fd: s64;
     // The READ on the pipe, while one is outstanding.
@@ -99,6 +101,7 @@ resolve_with_helper :: (host: string, port: u16) -> Address, Io_Error {
         if state.helpers_started == 0 return .{}, .UNSUPPORTED;
 
         job = New(Resolve_Job);
+        job.allocator = context.allocator;
         job.host = to_c_string(host);
         job.host_length = host.count;
         job.inflight_next = state.inflight;
@@ -203,6 +206,7 @@ wake_ensure :: (scheduler: *Scheduler) -> *Wake_State {
     if scheduler.waker return scheduler.waker;
 
     state := New(Wake_State);
+    state.allocator = context.allocator;
 
     #if OS == .WINDOWS {
         state.write_fd = scheduler.engine.iocp.port;
@@ -210,7 +214,7 @@ wake_ensure :: (scheduler: *Scheduler) -> *Wake_State {
         pipe: [2] s32;
 
         if sys_pipe(*pipe, scheduler.engine.backend != .IO_URING) < 0 {
-            free(state);
+            release_owned(state, state.allocator);
 
             return null;
         }
@@ -236,10 +240,11 @@ wake_grow :: (state: *Wake_State, wanted: s64) {
     while state.helpers_started < min(wanted, RESOLVER_MAX_THREADS) {
         helper := *state.helpers[state.helpers_started];
 
-        Thread.thread_init(helper, helper_main);
+        if !Thread.thread_init(helper, helper_main) break;
+
         helper.data = state;
 
-        if !Thread.thread_start(helper) break;
+        Thread.thread_start(helper);
 
         state.helpers_started += 1;
     }
@@ -326,8 +331,8 @@ wake_collect :: (scheduler: *Scheduler) {
             waiter = following;
         }
 
-        free(job.host);
-        free(job);
+        release_owned(job.host, job.allocator);
+        release_owned(job, job.allocator);
 
         job = next;
     }
@@ -370,7 +375,7 @@ wake_stop :: (scheduler: *Scheduler) {
     index := 0;
 
     while index < state.helpers_started {
-        Thread.thread_deinit(*state.helpers[index]);
+        finish_thread(*state.helpers[index]);
 
         index += 1;
     }
@@ -383,7 +388,7 @@ wake_stop :: (scheduler: *Scheduler) {
     Thread.destroy(*state.mutex);
     Thread.destroy(*state.work);
 
-    free(state);
+    release_owned(state, state.allocator);
     scheduler.waker = null;
 }
 

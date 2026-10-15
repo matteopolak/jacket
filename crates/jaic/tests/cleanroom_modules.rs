@@ -763,6 +763,43 @@ fn unfiltered_reexport_preserves_mutable_storage() {
 }
 
 #[test]
+fn anonymous_filtered_reexports_preserve_storage_and_visibility() {
+    for filter in ["only(state)", "except(hidden, native)"] {
+        let facade = format!("using,{filter} #import \"Impl\";");
+        let files = [
+            ("/lib/Impl/module.jai", "state: int; hidden: int;"),
+            ("/lib/Facade/module.jai", facade.as_str()),
+            (
+                "/app/main.jai",
+                "I :: #import \"Impl\"; F :: #import \"Facade\"; #assert(*I.state == *F.state); main :: () { F.state = 9; }",
+            ),
+        ];
+        succeeds(&mut compiler(&files, false));
+        let mut invalid = files;
+        invalid[2].1 = "F :: #import \"Facade\"; main :: () { F.hidden = 9; }";
+        rejects(&mut compiler(&invalid, false), "hidden");
+        invalid[1].1 = "#scope_module using,only(state) #import \"Impl\";";
+        invalid[2].1 = "F :: #import \"Facade\"; main :: () { F.state = 9; }";
+        rejects(&mut compiler(&invalid, false), "state");
+    }
+    let files = [
+        (
+            "/lib/Impl/module.jai",
+            "state: s32 #elsewhere native \"absent_storage\"; #scope_file native :: #library,system \"absent_library\";",
+        ),
+        (
+            "/lib/Facade/module.jai",
+            "using,only(state) #import \"Impl\";",
+        ),
+        (
+            "/app/main.jai",
+            "F :: #import \"Facade\"; #assert type_of(F.state) == s32; main :: () {}",
+        ),
+    ];
+    succeeds(&mut compiler(&files, false));
+}
+
+#[test]
 fn module_pointer_arguments_preserve_relocation_identity() {
     let mut c = compiler(
         &[

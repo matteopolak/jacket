@@ -197,6 +197,7 @@ def main():
     cases.append("dwarf-type-lookup")
     cases.extend(["bindings-cpp-workflow", "bindings-cpp-workflow-roundtrip"])
     cases.append("codeview-strings")
+    cases.append("codeview-sentinels")
     run([JAIC, "tests/developer-tools/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"

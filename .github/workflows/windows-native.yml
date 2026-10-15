@@ -207,6 +207,22 @@ jobs:
       - name: Reviewed contract native O2
         if: success() || failure()
         run: python -u tests/stdlib-contract/run.py --jaic "$PWD/target/x86_64-pc-windows-msvc/debug/jaic.exe" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+      - name: Reviewed data resource discovery and Icon effects
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          $env:JAIC_STDLIB = (Resolve-Path stdlib).Path
+          $compiler = 'target/x86_64-pc-windows-msvc/debug/jaic.exe'
+          & $compiler jaifmt/main.jai -O2 -exe target/jaifmt.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Production formatter build failed' }
+          python tests/portable-data/build_windows_images.py --cpu x64
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned native image SDK build failed' }
+          python -u tests/portable-data/run.py --compiler $compiler --linter target/x86_64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native data/resource suite failed' }
       - name: A Simp game's metaprogram build without Clang on PATH
         # tests/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
         # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
@@ -507,6 +523,22 @@ jobs:
       - name: Reviewed contract native O2
         if: success() || failure()
         run: python -u tests/stdlib-contract/run.py --jaic "$PWD/target/aarch64-pc-windows-msvc/debug/jaic.exe" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+      - name: Reviewed data resource discovery and Icon effects
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
+          $env:JAIC_STDLIB = (Resolve-Path stdlib).Path
+          $compiler = 'target/aarch64-pc-windows-msvc/debug/jaic.exe'
+          & $compiler jaifmt/main.jai -O2 -exe target/jaifmt.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Production formatter build failed' }
+          python tests/portable-data/build_windows_images.py --cpu arm64
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned native image SDK build failed' }
+          python -u tests/portable-data/run.py --compiler $compiler --linter target/aarch64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native data/resource suite failed' }
       - name: Signed mouse wheel event propagation (issue 1)
         if: success() || failure()
         run: |

@@ -31,8 +31,8 @@ make_channel :: ($T: Type, capacity := 0) -> *Channel(T) {
 free_channel :: (channel: *Channel($T)) {
     assert(waiters_empty(*channel.senders) && waiters_empty(*channel.receivers), "Io: a channel was freed while fibers wait on it");
 
-    if channel.buffer free(channel.buffer, channel.allocator);
-    free(channel, channel.allocator);
+    if channel.buffer release_owned(channel.buffer, channel.allocator);
+    release_owned(channel, channel.allocator);
 }
 
 // Puts `value` into the channel, blocking while it is full. `.CLOSED` if the channel is (or becomes)

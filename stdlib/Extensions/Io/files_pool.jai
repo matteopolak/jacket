@@ -34,6 +34,7 @@ DEFAULT_FILE_INLINE :: 32768;
 
 // A scheduler's end of the pool.
 Pool_Link :: struct {
+    allocator: Allocator;
     mutex: Thread.Mutex;
     done_head: *Op;
     done_tail: *Op;
@@ -49,6 +50,7 @@ Pool_Link :: struct {
 }
 
 File_Pool :: struct {
+    allocator: Allocator;
     mutex: Thread.Mutex;
     work: Thread.Semaphore;
     head: *Op;
@@ -86,8 +88,7 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
 #if OS == .LINUX || OS == .MACOS {
     pool_lock :: () {
         while true {
-            exchanged, _ := atomic_compare_exchange(*file_pool_lock, cast(s32) 0, cast(s32) 1);
-            if exchanged break;
+            if compare_and_swap(*file_pool_lock, cast(s32) 0, cast(s32) 1) break;
 
             sleep_milliseconds(0);
         }
@@ -119,6 +120,7 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
 
         if !file_pool {
             pool := New(File_Pool);
+            pool.allocator = context.allocator;
 
             Thread.init(*pool.mutex);
             Thread.init(*pool.work);
@@ -126,17 +128,17 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
             for 0..engine.file_threads - 1 {
                 worker := *pool.workers[it];
 
-                Thread.thread_init(worker, pool_worker);
-                worker.data = pool;
+                if !Thread.thread_init(worker, pool_worker) break;
 
-                if Thread.thread_start(worker) pool.started += 1;
-                else Thread.thread_deinit(worker);
+                worker.data = pool;
+                Thread.thread_start(worker);
+                pool.started += 1;
             }
 
             if pool.started == 0 {
                 Thread.destroy(*pool.mutex);
                 Thread.destroy(*pool.work);
-                free(pool);
+                release_owned(pool, pool.allocator);
 
                 pool_unlock();
 
@@ -151,12 +153,13 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
         pool_unlock();
 
         link := New(Pool_Link);
+        link.allocator = context.allocator;
 
         Thread.init(*link.mutex);
 
         if !pool_open_wake(engine, link) {
             Thread.destroy(*link.mutex);
-            free(link);
+            release_owned(link, link.allocator);
             pool_release();
 
             return null;
@@ -189,12 +192,12 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
         Thread.unlock(*pool.mutex);
 
         for 1..pool.started Thread.signal(*pool.work);
-        for 0..pool.started - 1 Thread.thread_deinit(*pool.workers[it]);
+        for 0..pool.started - 1 finish_thread(*pool.workers[it]);
 
         Thread.destroy(*pool.mutex);
         Thread.destroy(*pool.work);
 
-        free(pool);
+        release_owned(pool, pool.allocator);
     }
 
     // Hands the read or write `op` to a worker. False if the pool is not available.
@@ -322,7 +325,7 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
         Thread.unlock(*link.mutex);
         Thread.destroy(*link.mutex);
 
-        free(link);
+        release_owned(link, link.allocator);
         engine.pool = null;
 
         pool_release();
