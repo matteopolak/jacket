@@ -26,7 +26,7 @@ pub struct PolyStruct {
     pub name: Sym,
     pub lit: Rc<ast::StructLit>,
     pub scope: ScopeId,
-    pub instances: HashMap<Vec<Value>, TypeId>,
+    pub instances: HashMap<Vec<InstanceKeyValue>, TypeId>,
     /// Parameters fixed by `#bake_arguments`: constants of every instance.
     pub baked: Vec<(Sym, Value, TypeId)>,
     /// For `#bake_arguments S(...)`: the struct baked from. Instances are
@@ -500,18 +500,17 @@ impl Compiler {
                 let value = self.const_pack(elem, array, count, p.span)?;
                 let ty = self.types.array(elem, ArrayKind::View);
                 self.add_const(param_scope, pname, p.span, value.clone(), ty);
-                key.push(super::instance_key_value(&self.types, &value, ty));
+                key.push(super::instance_key_value(&self.types, &value, ty).value);
                 bindings.push((pname, value, ty));
                 continue;
             }
-            let value = match values[i].take() {
-                Some(op) => self.struct_arg_value(param_scope, op, ty, p.span)?,
+            let argument = match values[i].take() {
+                Some(op) => op,
                 None => match &p.default {
                     Some(d) => {
                         // The declared type lets `.FIRST` defaults find their enum.
                         let expected = (ty != TypeId::VOID).then_some(ty);
-                        let op = self.eval_const_or_run(param_scope, d, expected)?;
-                        self.struct_arg_value(param_scope, op, ty, d.span)?
+                        self.eval_const_or_run(param_scope, d, expected)?
                     }
                     None => {
                         return err(
@@ -521,11 +520,22 @@ impl Compiler {
                     }
                 },
             };
+            let argument_ty = match &argument {
+                Operand::Const {
+                    ty,
+                    value,
+                    untyped: true,
+                } => self.default_untyped(*ty, value),
+                other => other.ty(),
+            };
+            let value = self.struct_arg_value(param_scope, argument, ty, p.span)?;
             let value = match (value, self.types.is_float(ty)) {
                 (Value::Int(i), true) => Value::float(i as f64),
                 (v, _) => v,
             };
-            let ty = if ty == TypeId::VOID {
+            let ty = if ty == TypeId::VOID && argument_ty != TypeId::COMPILE_TIME {
+                argument_ty
+            } else if ty == TypeId::VOID {
                 self.type_of_value(&value)
             } else {
                 ty
@@ -540,18 +550,24 @@ impl Compiler {
             let modified = self.run_struct_modify(def_scope, name, block, params, span)?;
             key = modified
                 .iter()
-                .map(|(_, v, t)| super::instance_key_value(&self.types, v, *t))
+                .map(|(_, v, t)| super::instance_key_value(&self.types, v, *t).value)
                 .collect();
             bindings.extend(modified);
         }
-        if let Some(&t) = self.poly_structs[ps.0 as usize].instances.get(&key) {
+        let cache_key = bindings
+            .iter()
+            .map(|(_, value, ty)| super::instance_key_value(&self.types, value, *ty))
+            .collect::<Vec<_>>();
+        if let Some(&t) = self.poly_structs[ps.0 as usize].instances.get(&cache_key) {
             return Ok(t);
         }
         if self.poly_structs[ps.0 as usize].instances.len() >= super::MAX_INSTANCES {
             return err(span, super::too_many_instances(name));
         }
         let t = self.new_struct_type(name, lit, def_scope, bindings, Some((ps, key.clone())));
-        self.poly_structs[ps.0 as usize].instances.insert(key, t);
+        self.poly_structs[ps.0 as usize]
+            .instances
+            .insert(cache_key, t);
         Ok(t)
     }
 

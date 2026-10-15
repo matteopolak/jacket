@@ -718,8 +718,14 @@ impl Compiler {
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Pointer(_) | TypeKind::Null => {
-                if self.program_u64(addr, span)? == 0 {
+                let pointer = self.program_u64(addr, span)?;
+                if pointer == 0 {
                     return Ok(Value::Null);
+                }
+                if self.types.pointee(ty) == Some(TypeId::VOID)
+                    && self.interp.global_at(pointer).is_none()
+                {
+                    return Ok(Value::Int(pointer as i128));
                 }
                 self.read_aggregate(addr, ty, span)
             }
@@ -907,11 +913,12 @@ impl Compiler {
             agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
             return Ok(());
         }
-        if bytes == 0 && count > 0 {
-            return err(
-                span,
-                "a compile-time value holds a pointer to memory of unknown size",
-            );
+        if bytes == 0 {
+            // Opaque pointers carry addresses, not an inferred readable allocation.
+            // Globals above still relocate; without a pointee extent there is no data
+            // to capture. Dereferencing remains a separate operation with its own checks.
+            agg.bytes[offset as usize..offset as usize + 8].copy_from_slice(&p.to_le_bytes());
+            return Ok(());
         }
         // Nothing to copy where nothing can be read: an integer cast to a pointer that the
         // range above does not catch (`cast(*T) 80000000`). It stays a number, like those.

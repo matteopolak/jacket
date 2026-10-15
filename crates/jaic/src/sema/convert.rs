@@ -862,6 +862,20 @@ impl Compiler {
             let tr = self.types.repr(to);
             let fr = self.types.repr(op.ty());
             let folded = match value {
+                Value::Int(i)
+                    if self.types.is_pointer(tr)
+                        && (self.types.is_integer(fr) || self.types.is_pointer(fr)) =>
+                {
+                    // A raw address is a scalar bit pattern, not a request to capture
+                    // pointed-to memory. Use the target width, never the host's usize.
+                    let bits = (self.types.pointer_size * 8) as u8;
+                    let address = expr::wrap_int(*i, bits, false);
+                    Some(if address == 0 {
+                        Value::Null
+                    } else {
+                        Value::Int(address)
+                    })
+                }
                 // `cast,force` between same-size ints and floats reinterprets the bits.
                 Value::Int(i) if flags.force && self.types.is_float(tr) => {
                     Some(Value::float(if tr == TypeId::F32 {
@@ -900,9 +914,6 @@ impl Compiler {
                 Value::Bool(b) if self.types.is_integer(tr) => Some(Value::Int(*b as i128)),
                 Value::Int(i) if tr == TypeId::BOOL => Some(Value::Bool(*i != 0)),
                 Value::Null if self.ir_ty(tr) == Some(Ty::Ptr) => Some(Value::Null),
-                Value::Int(0) if self.ir_ty(tr) == Some(Ty::Ptr) && self.types.is_pointer(tr) => {
-                    Some(Value::Null)
-                }
                 _ => None,
             };
             if let Some(value) = folded {

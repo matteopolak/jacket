@@ -1249,6 +1249,18 @@ impl Compiler {
                     }
                 };
                 let op_ty = op.ty();
+                let value_ty = match &op {
+                    Operand::Const {
+                        ty,
+                        value,
+                        untyped: true,
+                    } => self.default_untyped(*ty, value),
+                    Operand::Const {
+                        ..
+                    }
+                    | Operand::Type(_) => op_ty,
+                    _ => TypeId::VOID,
+                };
                 let value = match op {
                     Operand::Type(t) => Value::Type(t),
                     Operand::Const {
@@ -1281,31 +1293,30 @@ impl Compiler {
                         }
                     }
                 };
+                let value_ty = if value_ty == TypeId::VOID {
+                    match self.type_of_value(&value) {
+                        TypeId::VOID => op_ty,
+                        ty => ty,
+                    }
+                } else {
+                    value_ty
+                };
                 // The declared type may itself be polymorphic (`$T: Type`), or mention
                 // another parameter's binding (`$compare: (T, T) -> bool`).
                 let ty = match &param.ty {
                     Some(t) if !procs::has_poly(t) => match self.eval_type(def_scope, t) {
                         Ok(ty) => ty,
                         // The declared type names an earlier binding (`$help: Help(T)`).
-                        Err(_) => match self.type_of_value(&value) {
-                            TypeId::VOID => op_ty,
-                            t => t,
-                        },
+                        Err(_) => value_ty,
                     },
                     // Aggregate constants carry no type of their own.
-                    _ => match self.type_of_value(&value) {
-                        TypeId::VOID => op_ty,
-                        t => t,
-                    },
+                    _ => value_ty,
                 };
                 if let Some(t) = &param.ty
                     && procs::has_poly(t)
                 {
                     // Aggregate constants (`.[1, 2]`) carry no type of their own.
-                    let vt = match self.type_of_value(&value) {
-                        TypeId::VOID => op_ty,
-                        vt => vt,
-                    };
+                    let vt = value_ty;
                     let represented = if let Value::Type(t) = &value {
                         Some(*t)
                     } else {

@@ -307,10 +307,16 @@ pub const MAX_INSTANCES: usize = 2000;
 /// Contents of a constant view's data global: alignment, bytes and relocations.
 pub type PackKey = (u64, Vec<u8>, Vec<(u64, ir::RelocTarget, i64)>);
 
-/// The form of a binding's value that keys polymorphic instances. `Value` equality looks at
-/// an aggregate's bytes only, which for a constant view (`$args: ..T`) is just its count, so
-/// the key also names the globals the view points at.
-fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> Value {
+/// Canonical type and value of a compile-time binding used to key polymorphic instances.
+/// Identical bits of different types must not share an instance. Constant view keys also
+/// retain the globals they point at rather than only their descriptor bytes.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct InstanceKeyValue {
+    ty: TypeId,
+    value: Value,
+}
+
+fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> InstanceKeyValue {
     let view = matches!(
         types.kind(ty),
         crate::types::TypeKind::Array {
@@ -318,7 +324,7 @@ fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> Value {
             ..
         }
     );
-    match value {
+    let value = match value {
         Value::Bytes(agg) if view && !agg.relocs.is_empty() => {
             let mut bytes = agg.bytes.clone();
             for r in &agg.relocs {
@@ -338,6 +344,10 @@ fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> Value {
             }))
         }
         other => other.clone(),
+    };
+    InstanceKeyValue {
+        ty,
+        value,
     }
 }
 

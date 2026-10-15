@@ -93,7 +93,9 @@ impl Root {
 }
 
 fn canonical(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    std::fs::canonicalize(path)
+        .or_else(|_| std::path::absolute(path))
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 /// The `.jai` files under `path`, sorted, excluding what the configuration excludes.
@@ -382,6 +384,12 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         .import_paths
         .extend(options.import_dirs.iter().cloned());
     copts.import_paths.push(options.stdlib.clone());
+    // RootedFs resolves program-generated relative paths from the source root. Import
+    // directories are invocation configuration, so anchor them before that rebasing.
+    // Also anchor nonexistent roots: they must not accidentally find a source-local shadow.
+    for path in &mut copts.import_paths {
+        *path = canonical(path);
+    }
     copts
         .preload
         .get_or_insert_with(|| options.stdlib.join(jaic::PRELOAD_ENTRY));

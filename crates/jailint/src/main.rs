@@ -17,7 +17,7 @@ options:
   -A <rule>           allow a rule (repeatable; `all` for every rule)
   -W <rule>           warn on a rule
   -D <rule>           deny a rule; `-D warnings` makes every warning an error
-  -I <dir>            add an import directory (also -import_dir)
+  -I <dir>            add an import directory relative to invocation cwd (also -import_dir)
   -os <os>           check linux, windows, macos or wasm (default: host)
   -cpu <cpu>         check x64/x86_64 or arm64/aarch64 (default: target/host)
   -target <triple>   select a target triple (overrides -os/-cpu; includes WASI)

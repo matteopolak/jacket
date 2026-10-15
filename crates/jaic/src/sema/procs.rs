@@ -52,7 +52,7 @@ pub struct ProcInfo {
     pub sig_resolving: bool,
     pub target: Option<ProcTarget>,
     pub body_state: BodyState,
-    pub instances: HashMap<Vec<Value>, ProcId>,
+    pub instances: HashMap<Vec<InstanceKeyValue>, ProcId>,
     /// For instances: scope with the polymorphic bindings (parent = defining scope).
     pub bindings: Option<ScopeId>,
     pub export: Option<String>,
@@ -1489,7 +1489,7 @@ impl Compiler {
         bindings: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<ProcId> {
-        let key: Vec<Value> = bindings
+        let key: Vec<InstanceKeyValue> = bindings
             .iter()
             .map(|(_, v, t)| super::instance_key_value(&self.types, v, *t))
             .collect();

@@ -37,6 +37,72 @@ fn expect(output: Output, code: i32) -> (String, String) {
 }
 
 #[test]
+fn relative_include_roots_are_relative_to_invocation_not_each_source() {
+    let root = fixture("relative-includes");
+    std::fs::create_dir_all(root.join("external/Probe")).unwrap();
+    std::fs::write(
+        root.join("external/Probe/module.jai"),
+        "original :: () -> int {return 42;}",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("app/fragment.jai"),
+        "M :: #import \"Probe\"; verify :: () -> int {return M.original();}",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("app/main.jai"),
+        "#load \"fragment.jai\"; #assert verify()==42; main :: () {} ",
+    )
+    .unwrap();
+    expect(
+        lint(
+            &root,
+            &[
+                "-I",
+                root.join("external").to_str().unwrap(),
+                "-D",
+                "warnings",
+            ],
+            "app/main.jai",
+        ),
+        0,
+    );
+    let (_, stderr) = expect(lint(&root, &[], "app/main.jai"), 1);
+    assert!(stderr.contains("Probe"), "{stderr}");
+    for include in ["external", "./external", "app/../external"] {
+        expect(
+            lint(&root, &["-I", include, "-D", "warnings"], "app/main.jai"),
+            0,
+        );
+        expect(
+            lint(
+                &root,
+                &["-I", include, "-D", "warnings"],
+                "app/fragment.jai",
+            ),
+            0,
+        );
+    }
+    // A missing invocation-relative root must not resolve a source-relative shadow.
+    std::fs::create_dir_all(root.join("app/missing/Probe")).unwrap();
+    std::fs::write(
+        root.join("app/missing/Probe/module.jai"),
+        "original :: () -> int {return 42;}",
+    )
+    .unwrap();
+    let (_, stderr) = expect(lint(&root, &["-I", "missing"], "app/main.jai"), 1);
+    assert!(stderr.contains("Probe"), "{stderr}");
+    std::fs::write(
+        root.join("external/Probe/module.jai"),
+        "original :: () -> int {return unresolved_body();}",
+    )
+    .unwrap();
+    let (_, stderr) = expect(lint(&root, &["-I", "external"], "app/main.jai"), 1);
+    assert!(stderr.contains("unresolved_body"), "{stderr}");
+}
+
+#[test]
 fn selected_target_branches_check_with_unchanged_compiler_host() {
     let root = fixture("matrix");
     let host = jaic::sema::Options::host();

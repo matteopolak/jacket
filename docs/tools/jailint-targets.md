@@ -1,5 +1,25 @@
 # Target-aware jailint source checking
 
+Import roots supplied by -I/-import_dir (or driver compiler_options.import_paths)
+are resolved relative to the invocation working directory, consistent with jaic.
+They are anchored before each source/module root is compiled, including loaded
+fragments and child workspaces. Missing roots stay missing; source-local directories
+with the same relative name cannot accidentally supply a module. Absolute roots
+retain their behavior. The original staged developer-tools reproducer and an
+independent CLI regression cover relative/absolute/no-I controls, ./ and .. paths,
+loaded fragment context, source-local shadows and invalid imported bodies. No
+warning is relaxed and failed imports/bodies remain incomplete/fatal.
+
+Verification: target/lint-relative-includes-red.log retains the original failure;
+the complete configured jailint suite and clippy -D warnings are in
+target/lint-relative-includes-suite-configured.log and lint-relative-includes-clippy.log.
+Own jaic -check and strict jailint both accept the staged producer input with
+the same relative -I path (target/lint-relative-producer-{jaic,jailint}.log).
+An initial suite invocation omitted JAIC_STDLIB and failed three existing CLI
+cases for missing prelude; that log is retained without assertion/test changes.
+The configured complete run passes all 39 jailint tests; final clippy evidence is
+target/lint-relative-includes-clippy-final.log. Rustfmt and item-spacing checks pass.
+
 Jailint accepts the compiler's source-checking target flags:
 
 ```sh
