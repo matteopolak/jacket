@@ -19,6 +19,7 @@ NATIVE_ABI_ADAPTERS = {
     ('SDL', 'SDL_GetWindowWMInfo'): 'SDL_GetWindowWMInfo',
 }
 LIBRARIES = {
+    'gdi': 'gdi32', 'gl': 'opengl32',
     'glx': 'GLX', 'libX11': 'X11',
     'xxh_vendor': 'xxhash070', 'lib_stb_vorbis': 'stb_vorbis',
     'liblz4': 'lz4', 'meshopt_lib': 'meshoptimizer', 'libcurl': 'curl',
