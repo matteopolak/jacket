@@ -645,3 +645,5 @@ non-defect classifications. [Its scoped findings](status/optional-assert-side-ef
 include exact file/line/source hashes and required platform limits.
 
 - [Stdlib completion backlog](tools/stdlib-completion-backlog.md): exact owner/API gaps, dependencies and acceptance evidence
+
+- [Shared rpmalloc verification](tools/shared-rpmalloc-verification.md): mandatory diagnostic domains, real SDK instrumentation and explicit remaining configurations.

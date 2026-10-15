@@ -233,14 +233,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--formatter', type=Path, required=True)
+    parser.add_argument('--vendor', type=Path, default=ROOT/'.work/vendor/rpmalloc')
+    parser.add_argument('--work', type=Path, default=ROOT/'.work/rpmalloc-sdk-generation')
     args = parser.parse_args()
     pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['rpmalloc']
-    vendor = ROOT/'.work/vendor/rpmalloc'
+    vendor = args.vendor.resolve()
     for name, expected in pin['files'].items():
         if hashlib.sha256((vendor/name).read_bytes()).hexdigest() != expected:
             raise SystemExit('Pinned official rpmalloc input mismatch: '+name)
     header = vendor/'rpmalloc/rpmalloc.h'
-    work = ROOT/'.work/rpmalloc-sdk-generation'
+    work = args.work.resolve()
     work.mkdir(exist_ok=True)
     resource = run(['clang', '-print-resource-dir']).stdout.strip()
     profiles, record_profiles = {}, {}

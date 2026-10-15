@@ -10,7 +10,7 @@ import re
 import subprocess
 
 from spec import parse_spec
-from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES
+from config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
 from wrappers import simple_body, forwarding_body
 from objc import materialize_methods
 from bitfields import body as bitfield_body
@@ -391,7 +391,7 @@ def generate_facade(module, spec):
             if module == 'rpmalloc':
                 record.update(status='partially_implemented',
                               implemented_condition='Native_Profile_Matches' + (' && ('+condition+')' if condition else ''),
-                              reason='Real native boundaries for twenty-four raw/rewrite/layout/statistics/cache profiles; adaptive-cache/assertion/page-advice and numeric build options remain incomplete')
+                              reason='Real native allocation/ownership boundaries with independent statistics/cache/assertion/argument-validation selections; adaptive-cache/unmap/unlimited/page-advice and numeric build options remain incomplete; native verification is per recorded configuration')
             if module == 'Objective_C' and d.name in {
                     'objc_type_encode', 'objc_func_encode', 'type_check_objc_method_type',
                     'objc_create_class', 'objc_add_instance_method', 'objc_add_class_method'}:
@@ -584,7 +584,7 @@ def main():
                         'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in sorted(callback_backend.iterdir()) if p.is_file()},
                         'scope':'Owned callback/name lifetime, bounded wide public offset registry, actual init failure; raw/rewrite and both statistics profiles',
-                        'limitations':'Adaptive-cache/assertion/validation/page-advice/numeric profiles and exact native-error Jai location provenance unresolved',
+                        'limitations':'Adaptive-cache/unmap/unlimited/page-advice/numeric options and exact native-error Jai location provenance remain incomplete',
                         'caller_context_artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                                     for p in sorted((ROOT/'stdlib/internal/bindings/callback-context').iterdir()) if p.is_file()},
                         'tests':['tests/native-bindings/rpmalloc-public-callbacks.jai',
@@ -660,6 +660,9 @@ def main():
         entry_code = '\n'.join(spec.parameter_blocks or [PARAMETERS.get(module, '')]) + '\n'
         if module in TARGETS:
             entry_code += '#assert ' + TARGETS[module] + ', "' + module + ' requires its documented native platform";\n'
+        if module == 'rpmalloc':
+            entry_code += ''.join('#assert '+condition+', "'+message+'";\n'
+                                  for condition, message in RPMALLOC_PUBLIC_CONSTRAINTS)
         contextual = ROOT / 'stdlib' / module / 'context.jai'
         sources = MANUAL_FACADE_SOURCES.get(module, ('wrappers.jai',))
         if 'configuration.jai' in sources:
