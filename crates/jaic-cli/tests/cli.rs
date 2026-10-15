@@ -6,6 +6,48 @@ mod common;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
+/// A native library may require the OS main thread without exposing Cocoa names.
+#[cfg(target_os = "macos")]
+#[test]
+fn native_root_foreign_calls_route_without_symbol_name_hints() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-main-route");
+    std::fs::create_dir_all(&dir).unwrap();
+    let provider = dir.join("provider.c");
+    std::fs::write(
+        &provider,
+        "#include <pthread.h>\nint cleanroom_root_thread(void) { return pthread_main_np(); }\n",
+    )
+    .unwrap();
+    let library = dir.join("libmain-route-probe.dylib");
+    let built = Command::new("clang")
+        .args(["-dynamiclib", "-Wall", "-Wextra", "-Werror"])
+        .arg(&provider)
+        .arg("-o")
+        .arg(&library)
+        .output()
+        .unwrap();
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+    let source = dir.join("main.jai");
+    std::fs::write(&source, "lib :: #library \"main-route-probe\";\nprobe :: () -> s32 #foreign lib \"cleanroom_root_thread\";\nmain :: () -> s32 { return ifx probe() == 1 then 0 else 1; }\n").unwrap();
+    let output = Command::new(JAIC)
+        .arg(&source)
+        .arg("-interp")
+        .env("JAIC_NATIVE_LIBS", &dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{:?}: {}{}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 /// `jaic file.jai -interp -- args` hands the arguments to the program; `-` arguments still go to
 /// the metaprogram, up to a `--`.
 #[test]
@@ -818,12 +860,16 @@ fn unsupported_compiler_requests_are_errors() {
 }
 
 /// `Default_Metaprogram` reads the Jai command-line options that map onto `Build_Options`
-/// (`-os`, `-cpu`, `-exe`, `-no_dce`, `-no_color`, ...) and names an option it does not know.
+/// through its explicit build entry; unsupported old conveniences remain errors.
 #[test]
 fn default_metaprogram_options() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-default-metaprogram");
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("meta.jai"), "#import \"Default_Metaprogram\";\n").unwrap();
+    std::fs::write(
+        dir.join("meta.jai"),
+        "D :: #import \"Default_Metaprogram\";\n#run,stallable D.build();\n",
+    )
+    .unwrap();
     std::fs::write(
         dir.join("hello.jai"),
         "#import \"Basic\";\nmain :: () { print(\"hi\\n\"); }\n",
@@ -831,7 +877,7 @@ fn default_metaprogram_options() {
     .unwrap();
     let run = |options: &[&str]| {
         Command::new(JAIC)
-            .args(["-check", "meta.jai", "-"])
+            .args(["meta.jai", "-", "-no_check"])
             .args(options)
             .arg("hello.jai")
             .current_dir(&dir)
@@ -843,45 +889,68 @@ fn default_metaprogram_options() {
         "-no_color",
         "-no_dce",
         "-msvc_format",
-        "-natvis",
-        "-os",
-        "linux",
-        "-cpu",
-        "x64",
         "-exe",
         "hello_x",
-        "-no_output",
     ]);
     assert!(
         ok.status.success(),
         "{}",
         String::from_utf8_lossy(&ok.stderr)
     );
+    let executable = dir.join(if cfg!(windows) {
+        "hello_x.exe"
+    } else {
+        "hello_x"
+    });
+    let child = Command::new(executable).output().unwrap();
+    assert!(
+        child.status.success(),
+        "{}",
+        String::from_utf8_lossy(&child.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&child.stdout), "hi\n");
     for (options, message) in [
         (&["-bogus"][..], "Unknown option '-bogus'"),
-        (&["-os", "plan9"][..], "Unknown -os value 'plan9'"),
-        (&["-cpu", "mips"][..], "Unknown -cpu value 'mips'"),
+        (&["-os", "plan9"][..], "Unknown option '-os'"),
+        (&["-cpu", "mips"][..], "Unknown option '-cpu'"),
+        (&["-no_output"][..], "Unknown option '-no_output'"),
+        (
+            &["-natvis"][..],
+            "Natvis-compatible type emission is unavailable",
+        ),
     ] {
         let output = run(options);
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         assert!(
             !output.status.success() && stderr.contains(message),
             "{options:?}: {stderr}"
         );
     }
     let missing = Command::new(JAIC)
-        .args(["-check", "meta.jai", "-", "-os"])
+        .args(["-check", "meta.jai", "-", "-no_check", "-exe"])
         .current_dir(&dir)
         .output()
         .unwrap();
     assert!(!missing.status.success());
-    assert!(String::from_utf8_lossy(&missing.stderr).contains("The option -os needs a value"));
+    assert!(
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&missing.stdout),
+            String::from_utf8_lossy(&missing.stderr)
+        )
+        .contains("Missing value after -exe")
+    );
     let version = Command::new(JAIC)
-        .args(["-check", "meta.jai", "-", "-version"])
+        .args(["-check", "meta.jai", "-", "-no_check", "-version"])
         .current_dir(&dir)
         .output()
         .unwrap();
-    assert!(String::from_utf8_lossy(&version.stdout).contains("beta"));
+    assert!(version.status.success());
+    assert!(String::from_utf8_lossy(&version.stdout).contains("jaic"));
 }
 
 /// A Linux futex wrapper written with `#asm` `syscall` type-checks for x86-64 Linux, and the

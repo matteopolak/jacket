@@ -49,7 +49,7 @@ prepare :: (base: *C.Metaprogram_Plugin, flags: *C.Intercept_Flags) {
         assert(!options.llvm_options.enable_split_modules);
         assert(!options.use_ansi_color);
         assert(options.use_visual_studio_message_format);
-        assert(options.use_natvis_compatible_types);
+        assert(!options.use_natvis_compatible_types);
         assert(options.debug_for_expansions);
         assert(options.backtrace_on_crash == .OFF);
         assert(options.text_output_flags == 0);

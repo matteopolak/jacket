@@ -19,7 +19,7 @@
   close-failure tests, NEW spec provenance, independent
   review request, hardware/source distinctions and legacy-gate migration.
 
-Current replacement integration: [commands and results](tools/cleanroom-integration.md), [deviations](status/integration-deviations.md), [module inventory](status/integration-module-inventory.json).129/135 reviewed module facades are present; six modules and one constant-table supplement remain absent. Presence does not establish complete functionality. Native CI and opaque public corpus/Focus remain coordinator work; publication is held.
+Current replacement integration: [commands and results](tools/cleanroom-integration.md), [deviations](status/integration-deviations.md), [module inventory](status/integration-module-inventory.json).132/135 reviewed module facades are available (including canonical Preload); three modules and one constant-table supplement remain absent. The [native ARM64 baseline report](status/mac-integration-baseline.json) records the exact combined snapshot, commands and outstanding failures. Presence does not establish complete functionality. Native CI and opaque public corpus/Focus remain coordinator work; publication is held.
 
 [macOS resolver candidate](portable-socket-resolver.md) records native C ABI
 evidence and the genuine forward-enum compiler gate, without a Jai success claim.
@@ -491,3 +491,10 @@ restoration and bounded child cleanup; no clipboard substitute is used.
 - [Rejected-overload lint audit](compiler/rejected-overload-audit.md): speculative instances stay outside declaration audit roots; selected and invalid concrete bodies remain checked.
 
 - [Developer tools status and remaining APIs](status/developer-tools-remaining.md): canonical model emission, native Check/Debug subsets and unresolved integration gates.
+
+- [Generator model helpers](generator-model.md) and [native platform helpers](generator-platform.md): shared canonical Generator/Token_Info/Library_Symbols, supported subsets and ownership limits.
+
+Shared candidate7467b49d combines the new committed producer snapshots. All19
+CLI tests and original SDL WM now pass after general Mac foreign-call affinity
+repair. Json's unchanged interpreter numbers suite completes in149.449 seconds;
+the earlier120-second timeout is retained. Full aggregate replay remains required.

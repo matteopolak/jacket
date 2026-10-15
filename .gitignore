@@ -1,4 +1,8 @@
 /target/
+/stdlib/internal/developer-tools/libgenerator_platform.dylib
+/stdlib/internal/developer-tools/libgenerator_platform.so
+/stdlib/internal/developer-tools/libgenerator_platform.dll
+/stdlib/internal/developer-tools/generator-platform-nm.txt
 /.work/
 .build/
 /artifacts/

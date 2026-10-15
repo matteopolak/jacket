@@ -519,11 +519,10 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
 }
 
 /// AppKit only works on the process's main thread, but the interpreter runs on a worker
-/// with a big stack. The driver parks the main thread in `main_thread::serve`. Once the
-/// program first calls into the Objective-C runtime or AppKit (`note_symbol`), the program's
-/// primary thread hands every later foreign call over to it (the worker waits, so the
-/// interpreter is never running on two threads at once). Until then calls stay on the worker:
-/// a handoff costs microseconds, which programs that never open a window should not pay.
+/// with a big stack. The driver parks the main thread in `main_thread::serve`. The
+/// primary thread forwards calls according to their owning native image, including the
+/// first call into an unfamiliar library. The worker waits for each forwarded call.
+/// Thread-safe system-library calls retain their existing direct fast path.
 #[cfg(target_os = "macos")]
 pub mod main_thread {
     use super::*;
@@ -541,20 +540,6 @@ pub mod main_thread {
     static ROUTE: OnceLock<Route> = OnceLock::new();
 
     static DISABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    static ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-    /// Start forwarding at the first call into the Objective-C runtime or a Cocoa framework:
-    /// from then on window, event and GL calls must share the main thread.
-    pub fn note_symbol(symbol: &str) {
-        if !ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
-            && (symbol.starts_with("objc_")
-                || symbol.starts_with("NS")
-                || symbol.starts_with("CGL")
-                || symbol.starts_with("sel_"))
-        {
-            ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
-        }
-    }
 
     /// Stop forwarding for good (a forked child has no main thread serving jobs).
     pub fn disable() {
@@ -659,10 +644,7 @@ pub mod main_thread {
 
     pub(super) fn forward(addr: u64, args: &[u64], sig: &Sig) -> Option<Result<Rets, String>> {
         let route = ROUTE.get()?;
-        if !ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
-            || DISABLED.load(std::sync::atomic::Ordering::SeqCst)
-            || DIRECT.with(|d| d.get())
-        {
+        if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(|d| d.get()) {
             return None;
         }
         if std::thread::current().id() != route.worker || !needs_main_thread(addr) {

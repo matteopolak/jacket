@@ -27,6 +27,7 @@ import check_developer_dwarf_types
 import check_developer_codeview_strings
 import check_developer_dwarf_line_wire
 import check_developer_profiler_windows
+import check_generator_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -125,6 +126,7 @@ def check_profiler_client_children():
 
 def main():
     check_developer_bindings.main()
+    check_generator_platform.main()
     check_developer_cpp_custom.main()
     check_developer_type_emission.main()
     check_developer_check.main()

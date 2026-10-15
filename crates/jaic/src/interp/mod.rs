@@ -1384,8 +1384,6 @@ impl Interp {
             trap.kind = Some(TrapKind::Unavailable);
             return Err(trap);
         }
-        #[cfg(target_os = "macos")]
-        native::main_thread::note_symbol(symbol);
         // The child of a fork has only the forking thread: it must not wait for the others.
         let forks = matches!(symbol, "fork" | "vfork");
         #[cfg(target_os = "macos")]
