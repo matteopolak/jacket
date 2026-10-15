@@ -9,6 +9,16 @@
 
 static HANDLE session;
 
+static unsigned named_leaf_address(DWORD64 address) {
+    _Alignas(SYMBOL_INFO) unsigned char storage[sizeof(SYMBOL_INFO) + 256] = {0};
+    SYMBOL_INFO *symbol = (SYMBOL_INFO *)storage;
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+    symbol->MaxNameLen = 256;
+    DWORD64 displacement = 0;
+    return SymFromAddr(session, address, &displacement, symbol) &&
+           strstr(symbol->Name, "sdk_walk_leaf") != NULL;
+}
+
 __declspec(dllexport) __declspec(noinline) unsigned sdk_walk_leaf(void) {
     CONTEXT context;
     RtlCaptureContext(&context);
@@ -18,7 +28,8 @@ __declspec(dllexport) __declspec(noinline) unsigned sdk_walk_leaf(void) {
     frame.AddrFrame.Offset = context.Rbp;
     frame.AddrPC.Mode = frame.AddrStack.Mode = frame.AddrFrame.Mode = AddrModeFlat;
     DWORD64 last_pc = frame.AddrPC.Offset, last_sp = frame.AddrStack.Offset;
-    unsigned distinct = 0, steps = 0, first_same = 0, named_leaf = 0;
+    unsigned distinct = 0, steps = 0, first_same = 0;
+    unsigned named_leaf = named_leaf_address(context.Rip);
     while (steps < 64 && StackWalk64(IMAGE_FILE_MACHINE_AMD64, session,
            GetCurrentThread(), &frame, &context, NULL, SymFunctionTableAccess64,
            SymGetModuleBase64, NULL)) {
@@ -28,13 +39,7 @@ __declspec(dllexport) __declspec(noinline) unsigned sdk_walk_leaf(void) {
         if (frame.AddrPC.Offset != last_pc || frame.AddrStack.Offset != last_sp) ++distinct;
         last_pc = frame.AddrPC.Offset;
         last_sp = frame.AddrStack.Offset;
-        _Alignas(SYMBOL_INFO) unsigned char storage[sizeof(SYMBOL_INFO) + 256] = {0};
-        SYMBOL_INFO *symbol = (SYMBOL_INFO *)storage;
-        symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-        symbol->MaxNameLen = 256;
-        DWORD64 displacement = 0;
-        if (SymFromAddr(session, frame.AddrPC.Offset, &displacement, symbol) &&
-            strstr(symbol->Name, "sdk_walk_leaf") != NULL) named_leaf = 1;
+        named_leaf |= named_leaf_address(frame.AddrPC.Offset);
         ++steps;
     }
     printf("SDK StackWalk64: first_same=%u steps=%u distinct=%u named_leaf=%u\n",

@@ -16,7 +16,7 @@ CASES = ("builder-format", "integer-format", "string-patterns", "hash-floats", "
          "basic-helpers", "basic-print-bytes", "basic-stack-traces", "basic-stack-output",
          "basic-scalars-ownership", "basic-leak-reports", "basic-leak-graphs",
          "basic-visualization-disabled", "basic-visualization-channel", "basic-visualization-timing",
-         "basic-capabilities", "basic-preamble", "basic-array-aliasing")
+         "basic-capabilities", "basic-preamble", "basic-array-aliasing", "basic-leak-filters", "string-reviewed-contracts")
 
 
 def expected_output(name):
@@ -55,6 +55,8 @@ def owned_sources():
     paths.append(ROOT / "tests/portable-stdlib/pending/basic-unused-platform-dependency.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/host-target-predicate.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/pool-capabilities-name.jai")
+    paths.append(ROOT / "tests/portable-stdlib/pending/hash-scalar-fnv.jai")
+    paths.append(ROOT / "tests/portable-stdlib/pending/basic-division-exercise.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/alias-signature-probe.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/alias-signature-facade/module.jai")
     paths.append(ROOT / "tests/portable-stdlib/pending/alias-signature-helper/module.jai")
@@ -251,6 +253,13 @@ def main():
                 "", "memory debugger: unknown allocation marked as non-leak", 1)
         print("passed production WASI O0/O2 unknown-allocation misuse status 1", flush=True)
     failures = []
+    for name, target in (("hash-scalar-fnv", []), ("basic-division-exercise", ["-os", "windows", "-cpu", "x64"])):
+        try:
+            run([compiler, "-check", *target, ROOT / f"tests/portable-stdlib/pending/{name}.jai"])
+            print(f"checked reviewed public API: {name}", flush=True)
+        except RuntimeError as error:
+            failures.append(f"reviewed public API gap {name}: {error}")
+            print(f"FAILED reviewed public API {name}; continuing independent targets", flush=True)
     if args.cross:
         for os_name, cpu in (("linux", "x64"), ("linux", "arm64"), ("macos", "arm64"), ("macos", "x64"), ("windows", "x64"), ("windows", "arm64"), ("wasm", "wasm64")):
             try:

@@ -43,7 +43,7 @@ main :: () {
 
     memset(memory, 0, 24);
     D.add_allocation_to_table(memory, 24, context.allocator, *leaf);
-    leaves: [1] D.Procedure_To_Elide = .[.{ procedure_name = "allocator_leaf" }];
+    leaves: [1] D.Procedure_To_Elide = .[.{ procedure_name = "user_site" }];
     roots: [1] D.Procedure_To_Elide = .[.{ procedure_name = "root_caller" }];
     groups: [1] D.Procedure_To_Elide = .[.{ procedure_name = "user_site" }];
 

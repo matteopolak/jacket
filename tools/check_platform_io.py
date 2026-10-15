@@ -36,7 +36,7 @@ def fault_failures(result, enabled, symbols=()):
     frames = [line for line in result.stderr.splitlines() if line.startswith(b"  0x")]
     if len(frames) < 2:
         failed.append(f"frame_count={len(frames)}")
-    for text in [b"unwind failed", b"invalid native stack", b"no progress", b"stack unavailable"]:
+    for text in [b"unwind failed", b"invalid native stack", b"no progress", b"stack unavailable", b"stack truncated"]:
         if text in result.stderr:
             failed.append(text.decode())
     for symbol in symbols:
@@ -126,6 +126,12 @@ def main():
             raise RuntimeError(f"expected original runtime configuration conflict: {rejected}")
     output = ROOT / "target/platform-io-tests"
     output.mkdir(parents=True, exist_ok=True)
+    # Portable control-flow unit test only; SDK/native fixtures below prove OS behavior.
+    if args.windows_crash:
+        iterator_exe = output / ("stack-iteration" + (".exe" if os.name == "nt" else ""))
+        if attempt(["clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+                    ROOT / "tests/platform-io/stack-iteration.c", "-o", iterator_exe], env):
+            attempt([iterator_exe], env, "")
     cpu = args.windows_build or ("arm64" if platform.machine().lower() in {"arm64", "aarch64"} and os.name == "nt" else "x64")
     if os.name == "nt" or args.windows_build or (args.windows_crash and cpu == "x64"):
         subprocess.run([sys.executable, str(ROOT / "tools/build_platform_io_runtime.py"),

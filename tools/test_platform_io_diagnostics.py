@@ -30,6 +30,8 @@ class FaultDiagnosticTests(unittest.TestCase):
         text = (b"Windows exception 0x00000000c0000005\nnative stack:\n"
                 b"  0x0000000000000001\n  0x0000000000000002\nnative unwind failed\n")
         self.assertIn("unwind failed", fault_failures(self.result(text), True))
+        self.assertIn("stack truncated", fault_failures(self.result(text.replace(
+            b"native unwind failed", b"native stack truncated at 64 frames")), True))
 
 
 if __name__ == "__main__":

@@ -147,7 +147,7 @@ The LLVM backend, C ABI and linking.
 - [Legacy contract audit](tools/legacy-contract-audit.md): exact API evidence, reasoned fixture migrations and genuine failures retained for repair
 
 - [Core foundations implementation handoff](foundations-handoff.md)
-- [Basic public surface audit and outstanding exports](foundations-api-audit.md)
+- [Basic/String/Hash/File_Utilities public surface audit](foundations-api-audit.md)
 - [Remaining Basic implementation plan](status/foundations-completion-plan.md)
 - [Basic producer dependency requests](status/foundations-dependencies.md)
 - [General cross-compilation predicate request](status/foundations-preamble-request.md)

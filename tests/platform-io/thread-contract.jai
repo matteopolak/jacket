@@ -22,6 +22,22 @@ worker :: (thread: *T.Thread) -> s64 {
 }
 
 main :: () {
+    #if OS == .WINDOWS {
+        // A real SDK wait failure must not be reported as thread completion.
+        invalid: T.Thread;
+        errors: s64;
+        saved_logger := context.logger;
+        saved_data := context.logger_data;
+
+        context.logger = count_wait_failure;
+        context.logger_data = *errors;
+        done := T.thread_is_done(*invalid, 0);
+
+        context.logger = saved_logger;
+        context.logger_data = saved_data;
+        assert(!done && errors == 1);
+    }
+
     shared: Shared;
 
     T.init(*shared.mutex);
@@ -50,4 +66,11 @@ main :: () {
     T.destroy(*shared.mutex);
     assert(shared.count == 2);
     print("ok\n");
+}
+
+#scope_file
+#if OS == .WINDOWS count_wait_failure :: (message: string, data: *void, info: Log_Info) {
+    assert(message == "thread completion wait failed\n" && info.common_flags == .ERROR);
+    count := cast(*s64) data;
+    count.* += 1;
 }
