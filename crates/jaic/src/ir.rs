@@ -323,6 +323,8 @@ pub enum Intrinsic {
     ReturnAddress,
     /// Read the cycle counter (`rdtsc`).
     CycleCounter,
+    /// `(leaf: I32, subleaf: I32) -> (eax, ebx, ecx, edx): I32`, real x86-64 CPUID.
+    CpuId,
     Pause,
     /// `(number, a1..a6) -> raw result`, all `I64`: a Linux x86-64 system call (`#asm` `syscall`).
     /// The result is the kernel's raw return value, `-errno` on failure. Native code issues the

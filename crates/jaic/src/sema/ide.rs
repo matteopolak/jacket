@@ -995,6 +995,7 @@ impl Compiler {
         } else {
             let before = info.fields[..site.field]
                 .iter()
+                .filter(|g| !g.overlay)
                 .map(|g| g.offset + self.types.size_of(g.ty))
                 .max()
                 .unwrap_or(0);

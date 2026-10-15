@@ -99,6 +99,7 @@ struct FieldDecl {
 }
 
 enum FieldItem {
+    Declaration(ScopeId, Rc<ast::Decl>),
     Field(FieldDecl),
     /// `using,only(a, b) field.inner;`: names reached through a path of members.
     Alias(MemberAlias),
@@ -106,6 +107,76 @@ enum FieldItem {
     Place(Sym, Span),
     /// `#overlay(f)`: the next field shares `f`'s storage.
     Overlay(Sym, Span),
+}
+
+/// An offset depends on at most one other offset: align(dependency + addend).
+/// Field nodes keep declaration indices; cursor nodes express sequential storage separately.
+#[derive(Clone, Copy)]
+struct OffsetNode {
+    dependency: Option<usize>,
+    addend: u64,
+    align: u64,
+    span: Span,
+}
+
+fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
+    let mut state = vec![0u8; nodes.len()];
+    let mut values = vec![0; nodes.len()];
+    let mut stack = Vec::new();
+    for root in 0..nodes.len() {
+        if state[root] == 2 {
+            continue;
+        }
+        stack.push(root);
+        while let Some(&at) = stack.last() {
+            state[at] = 1;
+            let node = nodes[at];
+            let base = if let Some(dep) = node.dependency {
+                match state[dep] {
+                    0 => {
+                        stack.push(dep);
+                        continue;
+                    }
+                    1 => {
+                        return Err(Box::new(
+                            Diagnostic::error(node.span, "cycle in struct field layout").with_note(
+                                nodes[dep].span,
+                                "this storage offset depends on itself",
+                            ),
+                        ));
+                    }
+                    _ => values[dep],
+                }
+            } else {
+                0u64
+            };
+            values[at] = base
+                .checked_add(node.addend)
+                .and_then(|n| n.checked_next_multiple_of(node.align))
+                .filter(|&n| n <= MAX_SIZE)
+                .ok_or_else(|| {
+                    Box::new(Diagnostic::error(
+                        node.span,
+                        format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
+                    ))
+                })?;
+            state[at] = 2;
+            stack.pop();
+        }
+    }
+    Ok(values)
+}
+
+enum LayoutItem {
+    Field(usize),
+    Place(Sym, Span),
+    Overlay(Sym, Span),
+}
+
+#[derive(Clone)]
+pub(super) enum FieldUsing {
+    Declaration(ScopeId, Rc<ast::Decl>),
+    Inline(TypeId, ast::UsingFilter),
 }
 
 /// Candidate fields for a promoted name, applying each embedding's filter.
@@ -160,6 +231,14 @@ impl Compiler {
         let file_scope = scope;
         for stmt in &lit.body {
             match &stmt.kind {
+                ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
+                    for n in &decl.names {
+                        self.field_declarations
+                            .entry(scope)
+                            .or_default()
+                            .insert(n.name, decl.clone());
+                    }
+                }
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Const => {
                     for (index, n) in decl.names.iter().enumerate() {
                         self.add_entity(
@@ -685,6 +764,7 @@ impl Compiler {
             .expect("struct without source");
         let mut items = Vec::new();
         self.field_types.remove(&src.scope);
+        self.field_using_order.remove(&src.scope);
         if let Some(ast::UnionTag {
             name: tag,
             ty,
@@ -745,99 +825,70 @@ impl Compiler {
         for (decl, scope) in &src.extra {
             self.collect_decl_fields(*scope, decl, &mut items)?;
         }
+        let mut using_order = Vec::new();
+        for item in &mut items {
+            match item {
+                FieldItem::Declaration(scope, decl) if decl.using => {
+                    using_order.push(FieldUsing::Declaration(*scope, decl.clone()))
+                }
+                FieldItem::Field(d) if d.using => {
+                    let filter = match d.filter.as_ref() {
+                        Some(filter) => match self.filter_using_entry(
+                            d.scope,
+                            scope::UsingEntry::Type(d.ty),
+                            filter,
+                            d.span,
+                        )? {
+                            scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
+                            _ => filter.clone(),
+                        },
+                        None => ast::UsingFilter::None,
+                    };
+                    d.filter = Some(filter.clone());
+                    using_order.push(FieldUsing::Inline(d.ty, filter));
+                }
+                _ => {}
+            }
+        }
+        self.field_using_order.insert(src.scope, using_order);
+        let mut typed_items = Vec::with_capacity(items.len());
+        for item in items {
+            match item {
+                FieldItem::Declaration(scope, decl) => {
+                    self.resolve_decl_fields(scope, &decl, &mut typed_items)?
+                }
+                other => typed_items.push(other),
+            }
+        }
+        let items = typed_items;
         let is_union = src.lit.kind == ast::StructKind::Union && src.lit.tag.is_none();
         let no_padding = src.lit.flags.no_padding;
         let mut fields = Vec::new();
         let mut inits = Vec::new();
-        let mut cursor = 0u64;
         let mut end = 0u64;
         let mut align = 1u64;
-        let mut overlay = None;
         let mut aliases = Vec::new();
-        // The filters of `using,only(..)`/`using,except(..)` members, by field index.
-        let mut filters: Vec<(usize, ast::UsingFilter)> = Vec::new();
+        let mut filters = Vec::new();
+        let mut sizes = Vec::new();
+        let mut layout = Vec::new();
+        let mut names = HashMap::default();
         for item in items {
             match item {
+                FieldItem::Declaration(..) => unreachable!("field declarations were resolved"),
                 FieldItem::Alias(alias) => aliases.push(alias),
-                FieldItem::Place(name, span) | FieldItem::Overlay(name, span) => {
-                    let offset = if let Some(f) =
-                        fields.iter().find(|f: &&Field| f.name == Some(name))
-                    {
-                        if self.ide.is_some() {
-                            self.ide_note_named_field(span, name, f.span, f.ty);
-                        }
-                        f.offset
-                    } else {
-                        let candidates = using_candidates(&fields, &filters, name);
-                        let Some((path, _)) =
-                            self.find_promoted_member(candidates, span, &mut vec![s])?
-                        else {
-                            return err(span, format!("no field named `{name}` before this point"));
-                        };
-                        let mut offset = 0;
-                        for step in path {
-                            match step {
-                                PathStep::Offset(at) => offset += at,
-                                PathStep::Deref => {
-                                    return err(
-                                        span,
-                                        format!(
-                                            "`{name}` is behind a using pointer and has no inline storage offset"
-                                        ),
-                                    );
-                                }
-                            }
-                        }
-                        offset
-                    };
-                    if matches!(item, FieldItem::Place(..)) {
-                        cursor = offset;
-                    } else {
-                        overlay = Some(offset);
-                    }
-                }
+                FieldItem::Place(name, span) => layout.push(LayoutItem::Place(name, span)),
+                FieldItem::Overlay(name, span) => layout.push(LayoutItem::Overlay(name, span)),
                 FieldItem::Field(d) => {
                     self.ensure_storage_type(d.ty, d.span)?;
                     let size = self.size_of(d.ty, d.span)?;
-                    // A member's `#align N` replaces its natural alignment, also when smaller:
-                    // generated bindings use it for fields that C packs (`#pragma pack`).
                     let a = match d.align {
                         Some(n) if n > 0 => n,
                         _ => self.align_of(d.ty, d.span)?,
                     };
                     align = align.max(a);
-                    // Every field is at most MAX_SIZE, so the sums below cannot overflow before
-                    // this check sees them.
-                    let too_large = |at: Option<u64>| {
-                        at.and_then(|at| at.checked_add(size))
-                            .is_none_or(|e| e > MAX_SIZE)
-                    };
-                    if too_large(cursor.checked_next_multiple_of(a))
-                        || overlay.is_some_and(|at| too_large(Some(at)))
-                    {
-                        return err(
-                            d.span,
-                            format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
-                        );
-                    }
-                    let overlaid = overlay.is_some();
-                    let offset = if let Some(offset) = overlay.take() {
-                        // Shares storage: the cursor stays where it was.
-                        end = end.max(offset + size);
-                        offset
-                    } else if is_union {
-                        0
-                    } else if no_padding {
-                        cursor
-                    } else {
-                        cursor.next_multiple_of(a)
-                    };
-                    if !is_union && offset >= cursor {
-                        cursor = offset + size;
-                    }
-                    end = end.max(offset + size);
+                    let index = fields.len();
                     if let Some(name) = d.name
-                        && fields.iter().any(|f: &Field| f.name == Some(name))
+                        && names.insert(name, index).is_some()
                     {
                         return err(
                             d.span,
@@ -857,22 +908,115 @@ impl Compiler {
                             scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
                             _ => filter,
                         };
-                        filters.push((fields.len(), filter));
+                        filters.push((index, filter));
                     }
                     fields.push(Field {
                         name: d.name,
                         ty: d.ty,
-                        offset,
+                        offset: 0,
                         align: a,
                         using: d.using,
                         as_: d.as_,
-                        overlay: overlaid,
+                        overlay: false,
                         notes: d.notes,
                         span: d.span,
                     });
+                    sizes.push(size);
                     inits.push((d.init, d.scope));
+                    layout.push(LayoutItem::Field(index));
                 }
             }
+        }
+        // Node zero is the initial cursor, nodes 1..=fields.len() are field offsets.
+        let zero = OffsetNode {
+            dependency: None,
+            addend: 0,
+            align: 1,
+            span: src.lit.span,
+        };
+        let mut nodes = vec![zero; fields.len() + 1];
+        let mut cursor = 0;
+        let mut overlay = None;
+        let mut targets = HashMap::default();
+        for item in layout {
+            match item {
+                LayoutItem::Field(index) => {
+                    let field = &mut fields[index];
+                    let overlaid = overlay.take();
+                    field.overlay = overlaid.is_some();
+                    nodes[index + 1] = OffsetNode {
+                        dependency: Some(overlaid.unwrap_or(if is_union {
+                            0
+                        } else {
+                            cursor
+                        })),
+                        addend: 0,
+                        align: if field.overlay || no_padding || is_union {
+                            1
+                        } else {
+                            field.align
+                        },
+                        span: field.span,
+                    };
+                    if !field.overlay && !is_union {
+                        cursor = nodes.len();
+                        nodes.push(OffsetNode {
+                            dependency: Some(index + 1),
+                            addend: sizes[index],
+                            align: 1,
+                            span: field.span,
+                        });
+                    }
+                }
+                LayoutItem::Place(name, span) | LayoutItem::Overlay(name, span) => {
+                    let (index, relative) = if let Some(&target) = targets.get(&name) {
+                        target
+                    } else {
+                        let target =
+                            self.layout_anchor(s, &fields, &filters, &names, name, span)?;
+                        targets.insert(name, target);
+                        target
+                    };
+                    let node = if relative == 0 {
+                        index + 1
+                    } else {
+                        let node = nodes.len();
+                        nodes.push(OffsetNode {
+                            dependency: Some(index + 1),
+                            addend: relative,
+                            align: 1,
+                            span,
+                        });
+                        node
+                    };
+                    if let Some(&index) = names.get(&name) {
+                        self.ide_note_named_field(span, name, fields[index].span, fields[index].ty);
+                    }
+                    if matches!(item, LayoutItem::Place(..)) {
+                        cursor = node;
+                    } else {
+                        overlay = Some(node);
+                    }
+                }
+            }
+        }
+        if overlay.is_some() {
+            return err(src.lit.span, "#overlay needs a following stored member");
+        }
+        let offsets = solve_offsets(&nodes)?;
+        for (index, field) in fields.iter_mut().enumerate() {
+            field.offset = offsets[index + 1];
+            let extent = field
+                .offset
+                .checked_add(sizes[index])
+                .filter(|&n| n <= MAX_SIZE)
+                .ok_or_else(|| {
+                    Box::new(Diagnostic::error(
+                        field.span,
+                        format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
+                    ))
+                })?;
+            end = end.max(extent);
         }
         if let Some(a) = &src.lit.flags.align {
             let a = self.eval_align(src.scope, a)?;
@@ -906,6 +1050,60 @@ impl Compiler {
             self.ide_note_layout(s);
         }
         Ok(())
+    }
+
+    /// Resolve a storage anchor against all declarations, without needing outer offsets yet.
+    fn layout_anchor(
+        &mut self,
+        owner: StructId,
+        fields: &[Field],
+        filters: &[(usize, ast::UsingFilter)],
+        names: &HashMap<Sym, usize>,
+        name: Sym,
+        span: Span,
+    ) -> Result<(usize, u64)> {
+        if let Some(&index) = names.get(&name) {
+            return Ok((index, 0));
+        }
+        for (index, field) in fields.iter().enumerate().filter(|(_, f)| f.using) {
+            let target = match filters.iter().find(|(i, _)| *i == index) {
+                Some((_, filter)) => match super::using::filter_target(filter, name) {
+                    Some(name) => name,
+                    None => continue,
+                },
+                None => name,
+            };
+            if let Some((path, _)) =
+                self.find_promoted_member(vec![(field.ty, 0, target)], span, &mut vec![owner])?
+            {
+                let mut relative = 0u64;
+                for step in path {
+                    match step {
+                        PathStep::Offset(at) => {
+                            relative = relative
+                                .checked_add(at)
+                                .filter(|&n| n <= MAX_SIZE)
+                                .ok_or_else(|| {
+                                    Box::new(Diagnostic::error(
+                                        span,
+                                        "overlay target offset is too large",
+                                    ))
+                                })?
+                        }
+                        PathStep::Deref => {
+                            return err(
+                                span,
+                                format!(
+                                    "`{name}` is behind a using pointer and has no inline storage offset"
+                                ),
+                            );
+                        }
+                    }
+                }
+                return Ok((index, relative));
+            }
+        }
+        err(span, format!("no field named `{name}` in this struct"))
     }
 
     /// Two `using` members that bring in the same name are an error, as in Jai. A field of the
@@ -1007,60 +1205,6 @@ impl Compiler {
 
     /// An `#align N` value. Generated bindings use odd values (`#align 9`), so only the range is
     /// checked; the bound keeps layout arithmetic from overflowing.
-    /// A directly declared field's type does not depend on its byte offset or
-    /// the layout of later fields. Type-only queries must not request that layout.
-    pub(super) fn declared_struct_field_type(
-        &mut self,
-        ty: TypeId,
-        name: Sym,
-    ) -> Result<Option<TypeId>> {
-        let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) else {
-            return Ok(None);
-        };
-        let Some(source) = self.struct_asts.get(&s).cloned() else {
-            return Ok(None);
-        };
-        if let Some(ty) = self.declared_field_type_in(source.scope, &source.lit.body, name)? {
-            return Ok(Some(ty));
-        }
-        for (decl, scope) in source.extra {
-            if decl.kind == ast::DeclKind::Var && decl.names.iter().any(|n| n.name == name) {
-                return self.field_decl_type(scope, &decl).map(Some);
-            }
-        }
-        Ok(None)
-    }
-
-    fn declared_field_type_in(
-        &mut self,
-        scope: ScopeId,
-        statements: &[ast::Stmt],
-        name: Sym,
-    ) -> Result<Option<TypeId>> {
-        for statement in statements {
-            match &statement.kind {
-                ast::StmtKind::Decl(decl)
-                    if decl.kind == ast::DeclKind::Var
-                        && decl.names.iter().any(|n| n.name == name) =>
-                {
-                    return self.field_decl_type(scope, decl).map(Some);
-                }
-                ast::StmtKind::StaticIf(branch) => {
-                    let selected = if self.eval_static_condition(scope, &branch.cond)? {
-                        &branch.then_branch
-                    } else {
-                        &branch.else_branch
-                    };
-                    if let Some(ty) = self.declared_field_type_in(scope, selected, name)? {
-                        return Ok(Some(ty));
-                    }
-                }
-                _ => {}
-            }
-        }
-        Ok(None)
-    }
-
     fn eval_align(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<u64> {
         const MAX_ALIGN: i128 = 1 << 30;
         let n = self.eval_int(scope, expr)?;
@@ -1212,8 +1356,53 @@ impl Compiler {
         Ok(())
     }
 
-    fn field_decl_type(&mut self, scope: ScopeId, decl: &ast::Decl) -> Result<TypeId> {
-        Ok(match (&decl.ty, &decl.value) {
+    fn collect_decl_fields(
+        &mut self,
+        scope: ScopeId,
+        decl: &Rc<ast::Decl>,
+        out: &mut Vec<FieldItem>,
+    ) -> Result<()> {
+        for name in &decl.names {
+            self.field_declarations
+                .entry(scope)
+                .or_default()
+                .insert(name.name, decl.clone());
+        }
+        out.push(FieldItem::Declaration(scope, decl.clone()));
+        Ok(())
+    }
+
+    pub(super) fn resolve_field_decl_type(
+        &mut self,
+        scope: ScopeId,
+        decl: &Rc<ast::Decl>,
+    ) -> Result<TypeId> {
+        if let Some(ty) = decl
+            .names
+            .first()
+            .and_then(|n| self.field_types.get(&scope)?.get(&n.name))
+        {
+            return Ok(*ty);
+        }
+        let key = (scope, decl.id);
+        if !self.field_type_pending.insert(key) {
+            return err(decl.span, "cycle in struct field types");
+        }
+        let result = self.field_decl_type_inner(scope, decl);
+        self.field_type_pending.remove(&key);
+        if let Ok(ty) = result {
+            for name in &decl.names {
+                self.field_types
+                    .entry(scope)
+                    .or_default()
+                    .insert(name.name, ty);
+            }
+        }
+        result
+    }
+
+    fn field_decl_type_inner(&mut self, scope: ScopeId, decl: &Rc<ast::Decl>) -> Result<TypeId> {
+        let ty = match (&decl.ty, &decl.value) {
             (Some(t), _) => self.eval_type(scope, t)?,
             (None, Some(v)) => {
                 let op = self.eval_const(scope, v, None)?;
@@ -1229,26 +1418,24 @@ impl Compiler {
                 }
             }
             (None, None) => return err(decl.span, "field needs a type"),
-        })
+        };
+        Ok(ty)
     }
 
-    fn collect_decl_fields(
+    fn resolve_decl_fields(
         &mut self,
         scope: ScopeId,
         decl: &Rc<ast::Decl>,
         out: &mut Vec<FieldItem>,
     ) -> Result<()> {
-        let ty = self.field_decl_type(scope, decl)?;
+        let ty = self.resolve_field_decl_type(scope, decl)?;
+        let filter = self.field_using_filter(scope, decl, ty)?;
         let align = match &decl.align() {
             Some(a) => Some(self.eval_align(scope, a)?),
             None => None,
         };
         let notes: Vec<Rc<str>> = decl.notes.iter().map(|n| n.text.clone()).collect();
         for name in &decl.names {
-            self.field_types
-                .entry(scope)
-                .or_default()
-                .push((name.name, ty));
             out.push(FieldItem::Field(FieldDecl {
                 name: Some(name.name),
                 ty,
@@ -1259,7 +1446,7 @@ impl Compiler {
                 init: decl.value.clone(),
                 scope,
                 align,
-                filter: decl.using_filter().cloned(),
+                filter: filter.clone(),
             }));
         }
         Ok(())
@@ -1579,19 +1766,18 @@ impl Compiler {
         }
         // A name looked up while this struct is being laid out, through a `using g;` of a
         // global of its type (no_api's `using gpu_context;`), from its own body. Layout goes
-        // through the body in order, so the struct's members are what it has so far: its tag
-        // and the fields above (`field_types`); later fields do not exist yet, and laying it
-        // out again would be a false cycle.
+        // through declarations independently of offsets; asking only whether a declared
+        // field exists must not request storage layout recursively.
         if let Some(s) = self.types.as_struct(self.types.repr_struct(target))
             && self.types.struct_info(s).layout == LayoutState::InProgress
             && let Some(src) = self.struct_asts.get(&s)
         {
             let tag = src.lit.tag.as_ref().map(|t| t.name.name);
-            let above = self
-                .field_types
+            let declared = self
+                .field_declarations
                 .get(&src.scope)
-                .is_some_and(|fields| fields.iter().any(|&(n, _)| n == name));
-            return Ok(tag == Some(name) || above);
+                .is_some_and(|fields| fields.contains_key(&name));
+            return Ok(tag == Some(name) || declared);
         }
         Ok(self.find_member(target, name, Span::NONE)?.is_some())
     }
@@ -1762,6 +1948,113 @@ impl Compiler {
         Err(Box::new(self.no_member(target, name, span)))
     }
 
+    fn field_using_filter(
+        &mut self,
+        scope: ScopeId,
+        decl: &Rc<ast::Decl>,
+        ty: TypeId,
+    ) -> Result<Option<ast::UsingFilter>> {
+        let Some(filter) = decl.using_filter().filter(|_| decl.using) else {
+            return Ok(None);
+        };
+        let key = (scope, decl.id);
+        if let Some(filter) = self.field_filter_cache.get(&key) {
+            return Ok(Some(filter.clone()));
+        }
+        if !self.field_filter_pending.insert(key) {
+            return err(decl.span, "cycle in struct using filters");
+        }
+        let result = self.filter_using_entry(scope, scope::UsingEntry::Type(ty), filter, decl.span);
+        self.field_filter_pending.remove(&key);
+        let resolved = match result? {
+            scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
+            _ => filter.clone(),
+        };
+        self.field_filter_cache.insert(key, resolved.clone());
+        Ok(Some(resolved))
+    }
+
+    pub(super) fn declared_promoted_field_type(
+        &mut self,
+        scope: ScopeId,
+        name: Sym,
+        span: Span,
+    ) -> Result<Option<TypeId>> {
+        let ScopeKind::Struct(owner_ty) = self.scope(scope).kind else {
+            return Ok(None);
+        };
+        let owner = self.types.as_struct(owner_ty).unwrap();
+        let candidates = self
+            .field_using_order
+            .get(&scope)
+            .cloned()
+            .unwrap_or_else(|| {
+                // Before conditional/insert expansion, only direct declarations are available.
+                self.struct_asts[&owner]
+                    .lit
+                    .body
+                    .iter()
+                    .filter_map(|stmt| match &stmt.kind {
+                        ast::StmtKind::Decl(decl)
+                            if decl.using && decl.kind == ast::DeclKind::Var =>
+                        {
+                            Some(FieldUsing::Declaration(scope, decl.clone()))
+                        }
+                        _ => None,
+                    })
+                    .collect()
+            });
+        for candidate in candidates {
+            let (ty, filter) = match candidate {
+                FieldUsing::Declaration(home, decl) => {
+                    let ty = self.resolve_field_decl_type(home, &decl)?;
+                    let filter = self
+                        .field_using_filter(home, &decl, ty)?
+                        .unwrap_or(ast::UsingFilter::None);
+                    (ty, filter)
+                }
+                FieldUsing::Inline(ty, filter) => (ty, filter),
+            };
+            let Some(target) = super::using::filter_target(&filter, name) else {
+                continue;
+            };
+            if let Some((_, member_ty)) =
+                self.find_promoted_member(vec![(ty, 0, target)], span, &mut vec![owner])?
+            {
+                self.ide_note_member_use(span, self.types.pointee(ty).unwrap_or(ty), target);
+                return Ok(Some(member_ty));
+            }
+        }
+        Ok(None)
+    }
+
+    pub(super) fn pending_struct_field_type(
+        &mut self,
+        ty: TypeId,
+        name: Sym,
+        span: Span,
+    ) -> Result<Option<TypeId>> {
+        let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) else {
+            return Ok(None);
+        };
+        if self.types.struct_info(s).layout != LayoutState::InProgress {
+            return Ok(None);
+        }
+        let scope = self.struct_asts[&s].scope;
+        let Some(decl) = self
+            .field_declarations
+            .get(&scope)
+            .and_then(|fields| fields.get(&name))
+            .cloned()
+        else {
+            return self.declared_promoted_field_type(scope, name, span);
+        };
+        let ty = self.resolve_field_decl_type(scope, &decl)?;
+        let declared = decl.names.iter().find(|n| n.name == name).unwrap().span;
+        self.ide_note_named_field(span, name, declared, ty);
+        Ok(Some(ty))
+    }
+
     fn type_member(
         &mut self,
         f: &mut FnCtx,
@@ -1800,6 +2093,9 @@ impl Compiler {
             TypeKind::Struct(_) => {
                 if let Some(ids) = self.struct_constant(t, name)? {
                     return self.entities_operand(f, scope, &ids, span);
+                }
+                if let Some(ty) = self.pending_struct_field_type(t, name, span)? {
+                    return Ok(Operand::Type(ty));
                 }
                 // `Type.field` without an instance names the field's type, for reaching its
                 // constants (`Anim.joint_map.Entry`).

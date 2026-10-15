@@ -23,6 +23,22 @@ fn hidden_procedure_members_keep_the_marker_and_struct_alignment() {
     );
 }
 
+#[test]
+fn forward_overlay_reflection_preserves_declaration_order_offsets_and_flags() {
+    check(
+        r#"
+        R :: struct { #overlay(anchor) alias:u32; tag:u32; anchor:u64; }
+        info :: type_info(R);
+        #assert info.members.count==3 && info.alignment==8 && info.runtime_size==16;
+        #assert info.members[0].name=="alias" && info.members[0].offset_in_bytes==8;
+        #assert info.members[1].name=="tag" && info.members[1].offset_in_bytes==0;
+        #assert info.members[2].name=="anchor" && info.members[2].offset_in_bytes==8;
+        #assert (info.members[0].flags & 0x20)!=0;
+        #assert (info.members[1].flags & 0x20)==0 && (info.members[2].flags & 0x20)==0;
+    "#,
+    );
+}
+
 fn check(source: &str) {
     let (c, result) = compile(source);
     if let Err(e) = result {

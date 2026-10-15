@@ -4,8 +4,8 @@
 //!
 //! Each top-level declaration of a user module (anything outside the system
 //! module directory and Preload) is resolved and exported once, with the
-//! procedure headers, bodies and structs it contains. Global declarations get
-//! their resolved types; local declarations and other expressions do not.
+//! procedure headers, bodies and structs it contains. Lowered expression results
+//! retain their checked procedure-instance types; untyped syntax remains untyped.
 //! The record of every exported procedure body remembers its procedure, so
 //! `compiler_modify_procedure` can map a modified statement list back.
 use super::scope::{EntityKind, Resolved, ScopeKind};
@@ -112,6 +112,9 @@ pub struct ExportState {
     /// The polymorph instances made for each call (by the call's span), so a call's
     /// `resolved_procedure_expression` is the instance it called, not the generic procedure.
     pub call_instances: HashMap<Span, Vec<ProcId>>,
+    /// Checked results, scoped to a concrete procedure instance. Repeated source
+    /// spans with incompatible expansion types are ambiguous rather than guessed.
+    pub(super) expression_types: HashMap<ProcId, HashMap<Span, Option<TypeId>>>,
 }
 
 impl ExportState {
@@ -315,6 +318,7 @@ impl Compiler {
                     scope: home,
                     sub: Vec::new(),
                     locals: Vec::new(),
+                    procedure: None,
                     compound_members: Vec::new(),
                     own: false,
                     out: &mut out,
@@ -472,6 +476,7 @@ impl Compiler {
             scope,
             sub: Vec::new(),
             locals: Vec::new(),
+            procedure: None,
             compound_members: Vec::new(),
             own: false,
             out: &mut out,
@@ -499,6 +504,7 @@ impl Compiler {
                 scope,
                 sub: Vec::new(),
                 locals: Vec::new(),
+                procedure: None,
                 compound_members: Vec::new(),
                 own: false,
                 out,
@@ -919,6 +925,8 @@ pub(super) struct Exporter<'a> {
     /// Declaration records in scope inside the tree being exported (parameters and
     /// earlier local declarations, innermost last): what an identifier resolves to first.
     locals: Vec<(Sym, i64)>,
+    /// Body whose checked results are being exported (templates have no snapshot).
+    procedure: Option<ProcId>,
     /// The records are for this compiler's own compile-time code (`compiler_get_nodes`):
     /// types refer to its real descriptors.
     own: bool,
@@ -1415,6 +1423,28 @@ impl Exporter<'_> {
     }
 
     fn expr(&mut self, e: &ast::Expr) -> i64 {
+        let id = self.expr_inner(e);
+        // Use the result of actual checking in the correct instance/scope, not
+        // another check in the global scope (which loses locals and overloads).
+        let checked = self.procedure.and_then(|procedure| {
+            self.c
+                .as_ref()
+                .and_then(|c| c.export.expression_types.get(&procedure))
+                .and_then(|types| types.get(&e.span))
+                .copied()
+        });
+        if let Some(checked) = checked {
+            // An ambiguous expansion must not inherit a guessed identifier/call type.
+            let ty = checked.map_or(0, |ty| self.ty(ty));
+            self.r
+                .get_mut(id)
+                .unwrap()
+                .set("type", Field::Item(Item::Ref(ty)));
+        }
+        id
+    }
+
+    fn expr_inner(&mut self, e: &ast::Expr) -> i64 {
         use ast::ExprKind as E;
         let span = e.span;
         let rec = match &e.kind {
@@ -1867,6 +1897,9 @@ impl Exporter<'_> {
 
     /// The type `e` checks to in the exported code's scope, when it checks there.
     fn expr_type(&mut self, e: &ast::Expr) -> Option<TypeId> {
+        if self.procedure.is_some() {
+            return None;
+        }
         // Locals are not in that scope: checking would fail after a costly search for the
         // name, or find a global the local shadows.
         if self.reads_local(e) {
@@ -2629,7 +2662,9 @@ impl Exporter<'_> {
                 }
             }
         }
+        let previous = std::mem::replace(&mut self.procedure, proc);
         let block = self.block(&body.stmts, 1, body.span);
+        self.procedure = previous;
         self.locals.truncate(locals);
         let mut rec = self.node("Code_Procedure_Body", node::PROCEDURE_BODY, body.span);
         rec.ptr("block", block).ptr("header", header_id);
@@ -2856,6 +2891,7 @@ fn export_code_in(
         scope,
         sub: Vec::new(),
         locals: Vec::new(),
+        procedure: None,
         compound_members: Vec::new(),
         own,
         out: &mut out,

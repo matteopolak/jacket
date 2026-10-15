@@ -1165,11 +1165,15 @@ impl Compiler {
 
     /// Lower one procedure body to IR.
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
+        self.export.expression_types.remove(&id);
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
         let outermost = (self.lowering_depth == 0).then(|| self.perf.start_lowering());
         self.lowering_depth += 1;
         let result = self.lower_body_inner(id);
         self.lowering_depth -= 1;
+        if result.is_err() {
+            self.export.expression_types.remove(&id);
+        }
         if let Some(mark) = outermost {
             self.perf.finish_lowering(mark);
         }

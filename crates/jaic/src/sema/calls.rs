@@ -3293,7 +3293,7 @@ impl Compiler {
             && self.types.as_struct(self.types.repr_struct(t)).is_some()
             && self.struct_constant(t, field.name)?.is_none()
         {
-            if let Some(ty) = self.declared_struct_field_type(t, field.name)? {
+            if let Some(ty) = self.pending_struct_field_type(t, field.name, expr.span)? {
                 return Ok(Some(ty));
             }
             if let Some((_, fty)) = self.find_member(t, field.name, expr.span)? {
@@ -3311,15 +3311,18 @@ impl Compiler {
         expr: &ast::Expr,
     ) -> Result<Option<TypeId>> {
         if let E::Ident(name) = &expr.kind {
+            if let Some(ty) = self.struct_field_type(scope, *name, expr.span)? {
+                return Ok(Some(ty));
+            }
             let mut s = Some(scope);
             while let Some(sid) = s {
-                if let ScopeKind::Struct(t) = self.scope(sid).kind {
-                    if let Some(ty) = self.declared_struct_field_type(t, *name)? {
-                        return Ok(Some(ty));
-                    }
-                    if let Some((_, fty)) = self.find_member(t, *name, expr.span)? {
-                        return Ok(Some(fty));
-                    }
+                if let ScopeKind::Struct(t) = self.scope(sid).kind
+                    && self.types.as_struct(t).is_none_or(|s| {
+                        self.types.struct_info(s).layout != crate::types::LayoutState::InProgress
+                    })
+                    && let Some((_, fty)) = self.find_member(t, *name, expr.span)?
+                {
+                    return Ok(Some(fty));
                 }
                 s = self.scope(sid).parent;
             }

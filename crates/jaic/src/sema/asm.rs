@@ -1,9 +1,9 @@
 //! `#asm` lowering.
 //!
-//! jaic never emits machine code for `#asm`. Each x64 instruction is lowered to
-//! ordinary IR operations on the Jai variables used as operands, so a block
-//! behaves identically in the interpreter, in the browser and in the LLVM
-//! backend, on any CPU.
+//! Instructions lower to IR operations on the Jai variables used as operands.
+//! Arithmetic and vector operations are portable; architectural queries such as
+//! CPUID use explicit intrinsics and require a supported execution host/target.
+//! The LLVM backend emits the real instruction for those queries.
 //!
 //! Model:
 //! - Operands are Jai variables (read and written in place), integer
@@ -1395,11 +1395,25 @@ impl Compiler {
                 };
             }
             Op::Cpuid => {
-                // No CPU features are reported: eax, ebx, ecx and edx become 0.
                 want(4, 4)?;
-                for &o in &opds {
-                    let z = konst(f, Ty::I32, 0);
-                    self.asm_write(f, o, Ty::I32, z, span)?;
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, "cpuid requires an x86-64 target");
+                }
+                if opds
+                    .iter()
+                    .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage,Ty::I32|Ty::I64)))
+                {
+                    return err(
+                        span,
+                        "cpuid operands must be 32- or 64-bit integer registers",
+                    );
+                }
+                let leaf = self.asm_read(f, opds[0], Ty::I32, span)?;
+                let subleaf = self.asm_read(f, opds[2], Ty::I32, span)?;
+                let results =
+                    f.b.intrinsic(Intrinsic::CpuId, vec![leaf, subleaf], &[Ty::I32; 4]);
+                for (&o, value) in opds.iter().zip(results) {
+                    self.asm_write(f, o, Ty::I32, value, span)?;
                 }
             }
             Op::Syscall => {

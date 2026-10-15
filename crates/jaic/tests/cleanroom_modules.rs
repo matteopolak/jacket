@@ -23,6 +23,31 @@ fn succeeds(c: &mut Compiler) {
     }
 }
 
+#[test]
+fn forward_overlay_field_types_keep_the_loaded_declaration_file_scope() {
+    let files = [
+        (
+            "/lib/Views/module.jai",
+            "#load \"record.jai\"; #load \"private.jai\";",
+        ),
+        (
+            "/lib/Views/record.jai",
+            "#scope_file Local :: u64; #scope_export Record :: struct { #overlay(anchor) alias:type_of(anchor); anchor:Local; }",
+        ),
+        ("/lib/Views/private.jai", "#scope_file Local :: u8;"),
+        (
+            "/app/main.jai",
+            "V :: #import \"Views\"; #assert size_of(V.Record)==8; #assert offset_of(V.Record,\"alias\")==0; main :: () {}",
+        ),
+    ];
+    let mut c = compiler(&files, false);
+    succeeds(&mut c);
+    let mut invalid = files;
+    invalid[3].1 = "V :: #import \"Views\"; bad:V.Local; main :: () {}";
+    let mut c = compiler(&invalid, false);
+    rejects(&mut c, "Local");
+}
+
 fn rejects(c: &mut Compiler, name: &str) {
     let error = c
         .compile_program(Path::new("/app/main.jai"))

@@ -2734,6 +2734,31 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .ok_or("returnaddress produced no value")?;
                 Ok(vec![v])
             }
+            Intrinsic::CpuId => {
+                if !self.arch.is_x86_64() {
+                    return Err("CPUID requires an x86-64 target".into());
+                }
+                let i32t = self.ctx.i32_type();
+                let outputs = self.ctx.struct_type(&[i32t.into(); 4], false);
+                let ty = self.fn_type(Some(outputs.into()), &[i32t.into(); 2], false);
+                // Tied EAX/ECX inputs select leaf/subleaf. LLVM owns saving EBX under
+                // each platform ABI. Side effects and the memory clobber retain
+                // the architectural serialization boundary through optimization.
+                let asm = self.ctx.create_inline_asm(
+                    ty,
+                    "cpuid".into(),
+                    "={ax},={bx},={cx},={dx},0,2,~{memory},~{dirflag},~{fpsr},~{flags}".into(),
+                    true, false, None, false,
+                );
+                let call_args = args.iter()
+                    .map(|&v| self.as_int(v).map(Into::into))
+                    .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
+                let value = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
+                    .ok_or("CPUID produced no value")?.into_struct_value();
+                (0..4).map(|i| {
+                    self.builder.build_extract_value(value, i, "").map_err(Into::into)
+                }).collect()
+            }
             Intrinsic::CycleCounter => {
                 let v = match self.arch {
                     // The user-space virtual counter; PMCCNTR is not readable from EL0.
