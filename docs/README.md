@@ -451,7 +451,7 @@ Scripts, CI and project policies.
 - [Standard library API auditor](tools/stdlib-api-audit.md): compare documented public module names with importer-visible source declarations
 - [Public-language contract fixtures](../tests/cleanroom-language/README.md): original self-checking cases from the language guide, run against an explicit local source build
 - [Clean-room implementation workspaces](tools/cleanroom-workspaces.md): prepare independent source snapshots and enforce implementer filesystem isolation
-- [Standard library integration decisions](tools/stdlib-integration-decisions.md): bootstrap layout, internal imports, public facade identity, and compatibility test corrections
+- [Standard library integration decisions](tools/stdlib-integration-decisions.md): bootstrap layout, distribution native libraries, internal imports, public facade identity, and compatibility test corrections
 - [Stdlib runtime tests](tools/stdlib-runtime-tests.md): reviewed public contracts, producer suites and preserved compiler/ABI/Extensions regressions; explicit platform limits and migration provenance
 - [Objective-C selector check](tools/objc-selector-check.md): every selector the stdlib sends matches its arguments and exists in the runtime
 - [jaifmt (Jai formatter)](tools/jaifmt.md) (front page: [jaifmt README](../jaifmt/README.md)): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`

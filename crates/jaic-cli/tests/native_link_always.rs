@@ -22,8 +22,9 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
     let provider = dir.join("provider.c");
     std::fs::write(
         &provider,
-        "#include <stdio.h>\n#include <stdlib.h>\n\
+        "#include <stdio.h>\n#include <stdlib.h>\n#include <pthread.h>\n\
          __attribute__((constructor)) static void original_constructor(void) {\n\
+         #ifdef __APPLE__\nif (!pthread_main_np()) abort();\n#endif\n\
          const char *path = getenv(\"JAIC_TEST_LIBRARY_MARKER\");\n\
          if (!path) abort();\n\
          FILE *file = fopen(path, \"ab\"); if (!file) abort();\n\

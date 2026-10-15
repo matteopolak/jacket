@@ -185,6 +185,35 @@ impl Library {
             let Ok(path) = CString::new(c) else {
                 continue;
             };
+            #[cfg(target_os = "macos")]
+            let forwarded = {
+                // Loading runs native initializers, including ones that require
+                // the process main thread. The worker retains the CString until
+                // the existing synchronous dispatcher finishes the load.
+                let sig = Sig {
+                    params: vec![crate::ir::Ty::Ptr, crate::ir::Ty::I32],
+                    returns: vec![crate::ir::Ty::Ptr],
+                    conv: crate::ir::Conv::C,
+                    c_varargs: false,
+                    c_fixed: 2,
+                    c_abi: None,
+                };
+                main_thread::forward_loader(
+                    sys::dlopen as *const () as u64,
+                    &[path.as_ptr() as u64, sys::RTLD_NOW as u64],
+                    &sig,
+                )
+            };
+            #[cfg(target_os = "macos")]
+            let handle = match forwarded {
+                Some(result) => result.ok()?.first().copied()? as *mut std::ffi::c_void,
+                None => {
+                    // SAFETY: this is a live NUL-terminated CString. A root,
+                    // foreign callback or explicitly direct caller stays direct.
+                    unsafe { sys::dlopen(path.as_ptr(), sys::RTLD_NOW) }
+                }
+            };
+            #[cfg(not(target_os = "macos"))]
             let handle = unsafe { sys::dlopen(path.as_ptr(), sys::RTLD_NOW) };
             if !handle.is_null() {
                 return Some(Library {
@@ -643,11 +672,30 @@ pub mod main_thread {
     }
 
     pub(super) fn forward(addr: u64, args: &[u64], sig: &Sig) -> Option<Result<Rets, String>> {
+        forward_inner(addr, args, sig, false)
+    }
+
+    pub(super) fn forward_loader(
+        addr: u64,
+        args: &[u64],
+        sig: &Sig,
+    ) -> Option<Result<Rets, String>> {
+        forward_inner(addr, args, sig, true)
+    }
+
+    fn forward_inner(
+        addr: u64,
+        args: &[u64],
+        sig: &Sig,
+        initializing_library: bool,
+    ) -> Option<Result<Rets, String>> {
         let route = ROUTE.get()?;
         if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(|d| d.get()) {
             return None;
         }
-        if std::thread::current().id() != route.worker || !needs_main_thread(addr) {
+        if std::thread::current().id() != route.worker
+            || (!initializing_library && !needs_main_thread(addr))
+        {
             return None;
         }
         let (done_tx, done_rx) = channel();
