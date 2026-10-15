@@ -10,6 +10,11 @@ capture :: (_text: string, _data: *void, info: Log_Info) {
 }
 
 main :: () {
+    empty: [] B.CXToken;
+
+    assert(B.count_asterisks(empty) == 0);
+    assert(B.find_closing_paren_token_index(empty, 0) == -1);
+
     index := B.clang_createIndex(0, 0);
 
     assert(index != null);

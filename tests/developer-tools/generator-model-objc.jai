@@ -81,6 +81,15 @@ main :: () {
         defer array_free(parameters.children);
         assert(parameters.children.count == 1);
         assert(B.create_objc_type_param(parameters.children[0]) == box.template_type_params[0]);
+        // Full scopes stay complete even if a consumer removes all their members.
+        box.template_type_params.count = 0;
+        box.declarations.count = 0;
+        assert(B.create_objc_interface(capture.children[3]) == box);
+        assert(box.template_type_params.count == 0 && box.declarations.count == 0);
+        root.parents.count = 0;
+        root.declarations.count = 0;
+        assert(B.create_objc_interface(capture.children[1]) == root);
+        assert(root.parents.count == 0 && root.declarations.count == 0);
         assert(!session.failed);
     }
 

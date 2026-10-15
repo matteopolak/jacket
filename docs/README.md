@@ -1,5 +1,7 @@
 # Developer documentation
 
+Current frozen native ARM64 measurement: [machine-readable current baseline](status/mac-current-baseline.json), with exact candidate path/ref/snapshot and separate coordinator gates.
+
 - [Required native library initialization](compiler/native-required-libraries.md):
   real constructor effects in interpreted/linked programs, precise load failures
   and compile-time/SandboxHost capability boundaries.
@@ -77,12 +79,14 @@ operations, shared producer staging and the precise remaining archive contracts.
 Start with [compiler architecture](compiler/architecture.md). Real projects that compile are listed in [upstream corpus](tools/upstream-corpus.md#project-status).
 
 - [Features](features.md): what works, performance and what is missing
-- [Generator model helpers](generator-model.md): canonical model operations, ownership, verification and integration dependencies
+- [Generator model helpers](generator-model.md): canonical model operations, type parameters, aggregate defaults, ownership, verification and integration dependencies
 - [Generator configured-SDK path check](status/generator-sdk-path.md): native test repair for symlinked T7 build storage
 - [Private generator protocol](generator-session.md): the single active slot, ownership and nested callback restoration
 - [Module Context lint repair](status/generator-lint-context.md): independent reduction and general finalization fix
 - [Generator Mac integration repairs](status/generator-integration-repairs.md): real macro failure diagnostics and framework metadata hygiene
 - [Generator modifier helpers](generator-modifiers.md): all eight integrated public helpers, canonical shared context protocol, and measured public-import host/target verification
+- [Generator Mac integration repairs](status/generator-integration-repairs.md): real macro failure diagnostics, framework metadata hygiene and timestamp fixture storage
+- [Generator lint file identity reduction](status/generator-lint-path-alias.md): canonical path aliases in compile-time sandbox file overlays
 - [Window/render progress](status/window-render-progress.md): scoped native window,
   native input, Windows pointer tracking and keyboard layouts, Keymap, window lifecycle, original native-font
   feature regressions, real font-atlas/text rendering and texture color-space transitions,

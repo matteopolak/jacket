@@ -131,9 +131,15 @@ main :: () {
     assert(!B.is_operator(null));
     comment: B.Comment;
     comment.text = "/// before";
+    assert(!B.is_prefix_comment(comment));
+    comment.location.line = 3;
     assert(B.is_prefix_comment(comment));
     comment.text = "///< after";
+    assert(B.is_prefix_comment(comment));
+    comment.location.line = 0;
     assert(!B.is_prefix_comment(comment));
+    comment.text = "one\ntwo";
+    assert(B.is_prefix_comment(comment));
     comment.text = "";
     assert(!B.is_prefix_comment(comment));
     alias.name = "va_list";
@@ -272,6 +278,50 @@ main :: () {
     }
 
     assert(errors == 6);
+    missing_return: B.Function_Type;
+    missing_return_type: B.CType;
+    missing_return_type.type_of_function = *missing_return;
+    incomplete: B.Function;
+    incomplete.type = *missing_return_type;
+
+    push_context {
+        context.logger = capture;
+        assert(!B.functions_are_equivalent(*incomplete, *incomplete));
+    }
+
+    assert(errors == 7);
+    primary: B.Struct;
+    bad_template: B.CType;
+    bad_template.type_of_struct = *primary;
+    bad_template.template_instantiation_params.count = 1;
+    left_arg.type = *bad_template;
+    right_arg.type = *bad_template;
+
+    push_context {
+        context.logger = capture;
+        assert(!B.functions_are_equivalent(*first, *second));
+    }
+
+    assert(errors == 8);
+    cycle_left, cycle_right: B.CType;
+    cycle_left.pointer_to = *cycle_left;
+    cycle_right.pointer_to = *cycle_right;
+    left_arg.type = *cycle_left;
+    right_arg.type = *cycle_right;
+
+    push_context {
+        context.logger = capture;
+        assert(!B.functions_are_equivalent(*first, *second));
+    }
+
+    assert(errors == 9);
+    unsigned_wide: B.CType;
+    unsigned_wide.size = 16;
+    qualified_wide := unsigned_wide;
+    qualified_wide.flags = .CONST;
+    left_arg.type = *unsigned_wide;
+    right_arg.type = *qualified_wide;
+    assert(B.functions_are_equivalent(*first, *second));
     print("ok\n");
 }
 

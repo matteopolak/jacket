@@ -61,6 +61,25 @@ def check_framework_consumer(prefix, emitter):
         run([exe])
 
 
+def prepare_clang_time_inputs():
+    # Some external filesystems clamp pre-epoch times or change distant dates.
+    # These are generated test inputs, not build outputs/caches. Keep them in
+    # the owned worktree and verify storage before testing libclang's time_t.
+    directory = ROOT / ".work/developer-tools-time"
+    if not directory.resolve().is_relative_to(ROOT.resolve()):
+        raise RuntimeError("Timestamp fixture directory must remain inside this worktree")
+    directory.mkdir(parents=True, exist_ok=True)
+    for suffix, timestamp in [("future", 0x100000123), ("past", -12345)]:
+        timed_file = directory / f"developer-tools-time-{suffix}.h"
+        if timed_file.is_symlink():
+            raise RuntimeError("Timestamp fixture must be an owned file")
+        timed_file.write_text("int original_time_value;\n")
+        nanoseconds = timestamp * 1_000_000_000
+        os.utime(timed_file, ns=(nanoseconds, nanoseconds))
+        if timed_file.stat().st_mtime_ns != nanoseconds:
+            raise RuntimeError("Owned timestamp fixture filesystem cannot preserve the requested time_t values")
+
+
 def prepare_cpp_visitors(prefix):
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
          ROOT / "tests/developer-tools/bindings-cpp-visitors.c", "-L", prefix / "lib", "-lclang",
@@ -158,10 +177,7 @@ def main():
     (framework / "Headers").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT / "tests/developer-tools/bindings-module-header.h", framework / "Headers/OriginalNative.h")
     visitor_oracle = prepare_cpp_visitors(prefix)
-    for suffix, timestamp in [("future", 0x100000123), ("past", -12345)]:
-        timed_file = ROOT / f"target/developer-tools-time-{suffix}.h"
-        timed_file.write_text("int original_time_value;\n")
-        os.utime(timed_file, (timestamp, timestamp))
+    prepare_clang_time_inputs()
     run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-g", "-fno-omit-frame-pointer",
          "-c", "tests/developer-tools/dwarf-native.c", "-o", "target/developer-tools-dwarf.o"])
     run([prefix / "bin/llvm-objcopy", "--dump-section", ".eh_frame=target/developer-tools-eh-frame.bin",

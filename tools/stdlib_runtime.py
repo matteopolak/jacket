@@ -6,6 +6,7 @@ and graphics cases are reported unavailable in WASM modes, not counted passed.
 Producer-owned specialized suites remain required separate integration gates.
 """
 import argparse
+import json
 import threading
 import os
 import platform
@@ -15,7 +16,7 @@ import sys
 import tempfile
 import time
 from stdlib_test_catalog import validated_entries, unavailable_reason
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -197,6 +198,7 @@ def main():
     ap.add_argument("--filter", default="", help="only tests whose id contains this")
     ap.add_argument("--case", action="append", default=[], help="select an exact catalogue ID (repeatable)")
     ap.add_argument("--coverage", type=Path, help="append the procedures the interpreter runs to this file")
+    ap.add_argument("--report", type=Path, help="write completed case results and measured elapsed times as JSON")
     ap.add_argument("--strict", action="store_true", help="retained CLI spelling; selected supported failures are always fatal")
     ap.add_argument("--timeout", type=float, default=180)
     ap.add_argument("--jobs", "-j", type=int, default=0, help="tests at once (default: CPU count, at most 8)")
@@ -240,6 +242,8 @@ def main():
                 check = ["-check"] if case.get("mode") == "check-fail" else ["-interp", "-no_workspace_output"]
                 code, stdout, stderr = run_command([args.jaic, str(path), *target, *check], path.parent, args.timeout, dict(os.environ))
                 detail = stdout + stderr
+                if code is None:
+                    detail = f"timed out after {args.timeout:.0f}s\n{detail}"
                 passed = contract_result(case, code, stdout, stderr)
                 if case.get("positive_baseline"):
                     baseline = next(c for c in catalogue if c["id"] == "contracts/" + case["positive_baseline"])
@@ -253,10 +257,27 @@ def main():
         return test, results
 
     failures, unavailable, counts = [], [], {m: [0, 0, 0, 0, 0] for m in modes}  # passed, failed, skipped, built only
+    records = []
+
+    def write_report(status):
+        if args.report:
+            args.report.parent.mkdir(parents=True, exist_ok=True)
+            args.report.write_text(json.dumps({
+                "schema": 1, "status": status, "platform": args.platform,
+                "compiler": args.jaic, "selected_cases": len(todo),
+                "timeout_seconds": args.timeout, "results": records,
+                "counts": {mode: dict(zip(
+                    ("passed", "failed", "platform_unavailable", "compile_time_only", "expected_negative_checks"), count))
+                    for mode, count in counts.items()},
+            }, indent=2) + "\n")
+
+    write_report("running")
     try:
         with ThreadPoolExecutor(max_workers=jobs) as pool:
-            for test, results in pool.map(run_test, todo):
-                for mode, passed, detail, reason, negative, _ in results:
+            futures = [pool.submit(run_test, case) for case in todo]
+            for future in as_completed(futures):
+                test, results = future.result()
+                for mode, passed, detail, reason, negative, elapsed in results:
                     c = counts[mode]
                     if reason is not None:
                         c[2] += 1
@@ -270,8 +291,17 @@ def main():
                     else:
                         c[1] += 1
                         failures.append((test, mode, detail))
+                    records.append({
+                        "name": test, "mode": mode, "passed": passed,
+                        "platform_unavailable": reason, "expected_negative": negative,
+                        "elapsed_seconds": elapsed,
+                        "timed_out": detail.startswith("timed out after "),
+                        "failure_detail": detail if passed is False else None,
+                    })
+                write_report("running")
     finally:
         shutil.rmtree(scratch)
+    write_report("finished")
     for test, mode, detail in failures:
         lines = detail.strip().splitlines()
         shown = lines if args.verbose else lines[-25:]

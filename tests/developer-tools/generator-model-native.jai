@@ -89,6 +89,7 @@ main :: () {
     assert(decl.kind == .DECLARATION && decl.name == "original_value" && decl.type == type);
     assert(decl.location.file != null && decl.location.line == 2 && decl.location.column == 12);
     assert(decl.comment.text == "/** retained after native disposal */");
+    assert(decl.comment.location.line == 1 && B.is_prefix_comment(decl.comment));
     print("ok\n");
 }
 

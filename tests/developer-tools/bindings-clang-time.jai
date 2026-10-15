@@ -18,7 +18,7 @@ main :: () {
     defer B.clang_disposeIndex(index);
 
     for suffix, number: suffixes {
-        path := to_c_string(tprint("%../../target/developer-tools-time-%.h", #filepath, suffix));
+        path := to_c_string(tprint("%../../.work/developer-tools-time/developer-tools-time-%.h", #filepath, suffix));
 
         defer free(path);
         unit: B.CXTranslationUnit;

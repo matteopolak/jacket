@@ -55,7 +55,7 @@ def validated_entries(root=ROOT):
     result = list(entries(root))
     names = set()
     for case in result:
-        if case["id"] in {"native/clipboard-round-trip", "native/macos-clipboard-utf8"}:
+        if case["id"] in {"native/clipboard-round-trip", "native/macos-clipboard-utf8", "graphics/getrect-widgets-driven"}:
             case["clipboard_guard"] = True
         if case["id"] in PROGRAM_INPUTS:
             case["input"] = PROGRAM_INPUTS[case["id"]]
