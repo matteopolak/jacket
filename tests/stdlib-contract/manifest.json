@@ -321,5 +321,33 @@
     "mode": "interp",
     "timeout_seconds": 30,
     "stdout": "ok\n"
+  },
+  {
+    "name": "basic-format-selection-and-builder-contracts",
+    "source": "basic/format-contracts.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "basic-slice-resize-and-monotonic-time-contracts",
+    "source": "basic/storage-time-contracts.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "hash-scalar-mixing-contract",
+    "source": "hash/scalar-mixing.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "sound-player-pure-public-contracts",
+    "source": "audio/contracts.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
   }
 ]

@@ -1936,7 +1936,9 @@ impl Compiler {
             }
             let entity = match found.as_slice() {
                 [entity] => *entity,
-                [] => return err(span, "runtime lacks its private native check reporter"),
+                // Custom/minimal runtimes implement only the public contract.
+                // Their checks retain the backend's explicit trap fallback.
+                [] => return Ok(()),
                 _ => {
                     return err(
                         span,

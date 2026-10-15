@@ -10,7 +10,16 @@ main :: () {
     assert(Base64.BASE64_DECODER_TABLE[61] == 65);
     assert(Base64.BASE64_DECODER_TABLE[0] == 66);
 
+    assert(Base64.base64_encode("Man") == "TWFu");
+    assert(Base64.base64_encode("M") == "TQ==");
+    assert(Base64.base64_encode("M", pad = false) == "TQ");
+    assert(Base64.base64url_encode("??") == "Pz8");
+    url_text, valid := Base64.base64url_decode("Pz8");
+
+    assert(valid && url_text == "??");
+
     text, valid := Base64.base64_decode("TWE");
+
     assert(valid && text == "Ma");
     text, valid = Base64.base64_decode("T");
     assert(valid && text == "");
