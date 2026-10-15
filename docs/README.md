@@ -19,8 +19,6 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
   feature regressions, real font-atlas/text rendering and texture color-space transitions,
   textures, depth/stencil and asynchronous readback evidence;
   [remaining deviations](status/window-render-deviations.md).
-- [Window/render clean-room incident](status/window-render-cleanroom-incident-2026-10-14.md):
-  reviewed metadata-only exposure, clearance and implementation resumption.
 
 - [FSEvents context adapter](native/fsevents-context.md): exact public order,
   private SDK marshalling, callback lifetime and native canary/event checks
@@ -37,8 +35,7 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
 - [SDL native ABI and prefix safety](native/sdl-native-abi.md): exact public layouts, complete private C records, native pointers, field probes and canaries
 - [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
-- [File watcher execution and ABI blocker](portable-file-watcher.md): real macOS event queues, sanitizer coverage and preserved FSEvents binding regression
-- [File watcher and ABI dependency](portable-file-watcher.md): real native events and preserved FSEvents binding regression
+- [File watcher and ABI dependency](portable-file-watcher.md): real native events, retryable close ownership and preserved FSEvents binding regression
 - [macOS bundles and plist helpers](portable-macos-bundler.md): native bundle/icon tools, validated XML and new formatting dependency
 - [Portable sound](portable-sound-player.md): canonical audio records, real sample arithmetic and shared mutable topology
 - [Executable containers](portable-executable-formats.md): bounded ar parsing, symbol indexes, ownership and native format inputs
@@ -369,3 +366,7 @@ Agreed designs that are not built yet.
 
 - Sound_Player [per-public-API inventory](status/audio-api-inventory.md) and
   [minimal dependency requests](status/audio-dependency-requests.md)
+
+- [Integration target/context lint plan](plans/2026-10-15-quality-contexts.md): actual-source coverage, incomplete contexts and remaining gates.
+
+- [Partial-edit probe boundary verification](tools/cleanroom-integration.md#partial-edit-probe-boundary-correction): original edit coverage and two reproduced directive cases.

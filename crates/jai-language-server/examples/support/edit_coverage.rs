@@ -13,7 +13,11 @@ use std::{
 // probes explicitly have no context dependency.
 const HEAD: &str = "__lsp_edit_head :: () #no_context {\n    __head_local := 17;\n    __head_result := __head_local + 1;\n}\n";
 
-const TAIL: &str = "\n__lsp_edit_tail :: () #no_context {\n    __tail_local := 23;\n    __tail_result := __tail_local + 1;\n    for __tail_index: 0..1 { __tail_loop := __tail_index; }\n}\n";
+// A truncated directive may consume the following statement without producing a
+// syntax error (for example, #add_context followed by a declaration). Keep a
+// statement boundary between the edited input and this independent probe. The
+// boundary is outside the edit range; all original source cuts remain exercised.
+const TAIL: &str = "\n;\n__lsp_edit_tail :: () #no_context {\n    __tail_local := 23;\n    __tail_result := __tail_local + 1;\n    for __tail_index: 0..1 { __tail_loop := __tail_index; }\n}\n";
 
 #[derive(Default, Serialize, Debug)]
 pub struct Report {

@@ -32,12 +32,22 @@ result = subprocess.run([str(native), str(fixture.resolve())], cwd=ROOT, check=T
 assert result.stdout == "native watcher queue/overflow/lifetime checks passed\n" and result.stderr == "", result
 shutil.rmtree(fixture)
 compiler = args.jaic.resolve(strict=True)
-source = ROOT / "tests/portable-stdlib/file-watcher/main.jai"
-program = output / "file-watcher"
 env = dict(os.environ, JAIC_STDLIB=str(stdlib))
-subprocess.run([str(compiler), str(source), "-exe", str(program)], cwd=ROOT, env=env, check=True, timeout=60)
-for command in [[str(compiler), "-interp", str(source), "--"], [str(program)]]:
+commands = []
+targets = [([], "host")]
+if platform.machine() == "arm64":
+    targets.append((["-target", "x86_64-apple-darwin", "-cpu", "x64"], "translated-x64"))
+for fixture_name in ["main", "diagnostics"]:
+    source = ROOT / f"tests/portable-stdlib/file-watcher/{fixture_name}.jai"
+    commands.append([str(compiler), "-interp", str(source), "--"])
+    for flags, name in targets:
+        for optimization in ["-O0", "-O2"]:
+            program = output / f"file-watcher-{fixture_name}-{name}{optimization}"
+            subprocess.run([str(compiler), str(source), *flags, optimization, "-exe", str(program)],
+                           cwd=ROOT, env=env, check=True, timeout=60)
+            commands.append([str(program)])
+for command in commands:
     result = subprocess.run(command, cwd=ROOT, env=env, check=True,
                             text=True, capture_output=True, timeout=30)
     assert result.stdout == "ok\n" and result.stderr == "", result
-print("Real FSEvents create/modify/remove/rename, typed/coalesced callbacks, recursion, overflow and captured allocation cleanup pass both modes; native queue passes ASan/UBSan and allocation tracking")
+print(f"Real FSEvents event/callback/recursion/overflow/captured cleanup passes interpreter and {','.join(name for _, name in targets)} native O0/O2; actual SDK mutex close/retry ownership checks pass ASan/UBSan and allocation tracking")

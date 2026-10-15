@@ -30,3 +30,24 @@ fn failed_pending_generator_keeps_real_errors_and_independent_features() {
     assert!(report.edits >= 20, "{report:?}");
     assert!(report.failures.is_empty(), "{report:#?}");
 }
+
+#[test]
+fn truncated_directives_do_not_capture_independent_tail_probes() {
+    edit_coverage::set_progress(false);
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/lsp/partial");
+    for (name, source) in [
+        (
+            "context_boundary.jai",
+            "#add_context application_level := 5;\n",
+        ),
+        (
+            "conditional_boundary.jai",
+            "#if false #import \"Absent_Module\";\n",
+        ),
+    ] {
+        let report = edit_coverage::check(&root.join(name), source, None, 0);
+        assert!(report.edits >= 4, "{report:?}");
+        assert!(report.assertions >= 100, "{report:?}");
+        assert!(report.failures.is_empty(), "{report:#?}");
+    }
+}

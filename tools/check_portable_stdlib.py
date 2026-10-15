@@ -44,6 +44,7 @@ EXPECTED_EXIT = {"basic-output": 17}
 for name in ("basic-logging-output", "basic-print-bytes", "basic-stack-output"):
     EXPECTED[name], EXPECTED_STDERR[name], EXPECTED_EXIT[name] = foundation_output(name)
 FAULT_EXPECTATIONS = {
+    "android-oid-count": ("assertion failed", "ASN.1 identifier count is outside its fixed storage"),
     "android-abi-name": ("assertion failed", "Android NDK ABI is unavailable for this CPU"),
     "socket-cmsg-negative": ("assertion failed", "ancillary size cannot be aligned"),
     "socket-cmsg-overflow": ("assertion failed", "ancillary length exceeds u32"),
@@ -216,6 +217,8 @@ def main():
         print("passed expected runtime fault", source.name, flush=True)
     for name, diagnostic in [
         ("runtime-configuration-conflict", "conflicts with the configured runtime instance"),
+        ("android-oid-store", "cannot assign into the constant `A.OID_SUN_JKS_ENCRYPTION`"),
+        ("android-jks-magic-store", "cannot assign to constant"),
         ("xar-reverse", "reverse Xar iteration is unsupported"),
         ("atomic-byte-bit", "atomic bit test requires a 2-, 4-, or 8-byte target"),
         ("buildcpp-compile", "BuildCpp tool failed"),

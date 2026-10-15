@@ -447,6 +447,15 @@ jobs:
       - name: WebGPU in a window (HWND surface on WARP, presented)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter --test window --frames 120
+      - name: Restore verified native LLVM installations
+        if: success() || failure()
+        id: mesa-llvm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/window-mesa-cache
+          key: windows-arm64-mesa-llvm-${{ hashFiles('tools/window_render_mesa_windows.py') }}-${{ github.run_id }}
+          restore-keys: |
+            windows-arm64-mesa-llvm-${{ hashFiles('tools/window_render_mesa_windows.py') }}-
       - name: Build native ARM64 Mesa from pinned upstream sources
         if: success() || failure()
         shell: pwsh
@@ -463,6 +472,27 @@ jobs:
           $env:PATH = (Join-Path $PWD 'target/mesa-python/Scripts') + ';' + $env:PATH
           & $python -u tools/window_render_mesa_windows.py --out target/window-mesa-arm64 --jobs 4
           exit $LASTEXITCODE
+      - name: Inspect completed native LLVM cache
+        if: always() && !cancelled()
+        id: mesa-llvm-completion
+        shell: pwsh
+        run: |
+          $planPath = 'target/window-mesa-arm64/source-build.json'
+          $save = $false
+          if (Test-Path $planPath) {
+            $plan = Get-Content -Raw $planPath | ConvertFrom-Json
+            if ($plan.llvm_cache -and -not $plan.llvm_cache.hit) {
+              $receipt = Join-Path 'target/window-mesa-cache' ($plan.llvm_cache.key + '/complete.json')
+              $save = Test-Path $receipt
+            }
+          }
+          "save=$($save.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      - name: Save verified native LLVM installation
+        if: always() && !cancelled() && steps.mesa-llvm-completion.outputs.save == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/window-mesa-cache
+          key: ${{ steps.mesa-llvm-cache.outputs.cache-primary-key }}
       - name: Native WGL driver diagnostics and public rendering
         if: success() || failure()
         run: |

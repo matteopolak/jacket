@@ -73,6 +73,64 @@ static void wait_event(void *watch, const char *wanted, uint32_t mask) {
     assert(!"native FSEvents notification did not arrive");
 }
 
+static void close_success(void *watch) {
+    int released = 0;
+    int status = portable_watch_close_v2(watch, &released);
+    assert(status == 0 && released == 1 && atomic_load(&live) == 0);
+}
+
+static Watch *stopped_watch(const char *path) {
+    Watch *watch = portable_watch_create(path, 0.01, 8000);
+    assert(watch);
+    /* Drain actual native callbacks before inducing a native mutex failure. */
+    FSEventStreamStop(watch->stream);
+    FSEventStreamInvalidate(watch->stream);
+    FSEventStreamRelease(watch->stream);
+    dispatch_sync(watch->queue, ^{});
+    dispatch_release(watch->queue);
+    watch->closed = 1;
+    return watch;
+}
+
+static void check_close_ownership(const char *path) {
+    Watch *watch = stopped_watch(path);
+    int rc = pthread_mutex_lock(&watch->mutex);
+    assert(rc == 0);
+    int released = 91;
+    int status = portable_watch_close_v2(watch, &released);
+    assert(status == EBUSY && released == 0 && atomic_load(&live) > 0);
+    rc = pthread_mutex_unlock(&watch->mutex);
+    assert(rc == 0);
+    close_success(watch);
+
+    watch = stopped_watch(path);
+    rc = pthread_mutex_destroy(&watch->mutex);
+    assert(rc == 0);
+    pthread_mutexattr_t attributes;
+    rc = pthread_mutexattr_init(&attributes);
+    assert(rc == 0);
+    rc = pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_ERRORCHECK);
+    assert(rc == 0);
+    rc = pthread_mutex_init(&watch->mutex, &attributes);
+    assert(rc == 0);
+    rc = pthread_mutexattr_destroy(&attributes);
+    assert(rc == 0);
+    rc = pthread_mutex_lock(&watch->mutex);
+    assert(rc == 0);
+    int error = pthread_mutex_lock(&watch->mutex);
+    assert(error == EDEADLK);
+    rc = pthread_mutex_unlock(&watch->mutex);
+    assert(rc == 0);
+    /* Feed the backend's error channel an actual SDK error, not fake success. */
+    atomic_store(&watch->error, error);
+    released = 0;
+    status = portable_watch_close_v2(watch, &released);
+    assert(status == EDEADLK && released == 1 && atomic_load(&live) == 0);
+    released = 0;
+    status = portable_watch_close_v2(NULL, &released);
+    assert(status == 0 && released == 1);
+}
+
 int main(int argc, char **argv) {
     assert(argc == 2);
     char filename[4096];
@@ -82,12 +140,13 @@ int main(int argc, char **argv) {
     assert(watch && portable_watch_stream(watch));
     write_fixture(filename);
     wait_event(watch, filename, kFSEventStreamEventFlagItemCreated);
-    assert(portable_watch_close(watch) == 0 && atomic_load(&live) == 0);
+    close_success(watch);
     watch = portable_watch_create(argv[1], 0.01, 1);
     assert(watch);
     write_fixture(filename);
     wait_event(watch, argv[1], kFSEventStreamEventFlagMustScanSubDirs);
-    assert(portable_watch_close(watch) == 0 && atomic_load(&live) == 0);
+    close_success(watch);
+    check_close_ownership(argv[1]);
     assert(!portable_watch_create(filename, 0.01, 8000));
     assert(atomic_load(&live) == 0);
     assert(puts("native watcher queue/overflow/lifetime checks passed") >= 0);
