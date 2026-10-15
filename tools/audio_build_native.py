@@ -125,6 +125,15 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False)
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-I", ROOT / "stdlib/internal/audio/native",
              ROOT / "tests/audio/native-output.c", archive, "-o", executable, *libraries])
     print(f"{target}: native SDK harness linked (execution not implied).", flush=True)
+    if windows:
+        command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-c",
+                 ROOT / "tests/audio/native-windows-abi.c", "-o", out / ("windows-abi" + objext)])
+        verify_object(out / ("windows-abi" + objext), entry)
+        (out / "audio-sdk-abi.json").write_text(json.dumps({"platform": target,
+            "kind": "official SDK header layout/interface-prefix assertions",
+            "native_execution": False, "object_sha256": hashlib.sha256(
+                (out / ("windows-abi" + objext)).read_bytes()).hexdigest()}, indent=2) + "\n")
+        print(f"{target}: public SDK ABI prefix/layout assertions compiled; no runtime implied.", flush=True)
     failure_test = out / ("native-close-test.exe" if windows else "native-close-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG",
              ROOT / "tests/audio/failure-injection/sdk-close.c",

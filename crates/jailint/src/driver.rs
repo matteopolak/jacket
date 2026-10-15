@@ -19,9 +19,7 @@ use crate::config::Config;
 use crate::{Lint, lint_files};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::interp::{SandboxHost, SharedHost};
-use jaic::sema::{
-    Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource, TargetCpu, TargetOs,
-};
+use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -31,6 +29,11 @@ use std::rc::Rc;
 const BLOCK_BUDGET: u64 = 200_000_000;
 
 pub struct Options {
+    /// Compiler source/target/runtime settings, cloned for each root and workspace.
+    pub compiler_options: CompilerOptions,
+    /// Optional actual enclosing program supplying imports, module arguments and source origin.
+    /// `paths` still determines which files receive lint reports.
+    pub source: Option<PathBuf>,
     pub paths: Vec<PathBuf>,
     /// Extra import directories, searched after the root's `modules/` folder.
     pub import_dirs: Vec<PathBuf>,
@@ -40,8 +43,6 @@ pub struct Options {
     pub jobs: usize,
     /// Print each root as it is compiled.
     pub verbose: bool,
-    pub target_os: Option<TargetOs>,
-    pub target_cpu: Option<TargetCpu>,
     /// Additional source strings, in the program's scope (same as jaic -add).
     pub add_sources: Vec<String>,
 }
@@ -53,6 +54,20 @@ pub struct Outcome {
     /// Roots the compiler could not finish, with its first error (their lints may be fewer).
     pub incomplete: Vec<(PathBuf, String)>,
     pub roots: usize,
+    /// Actual compiler contexts, including child workspaces and failed body checks.
+    pub contexts: Vec<CheckedContext>,
+    /// Requested/load-discovered files absent from every compiled context (e.g. inactive loads).
+    pub unvisited_files: Vec<PathBuf>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CheckedContext {
+    pub root: PathBuf,
+    pub os: jaic::sema::TargetOs,
+    pub cpu: jaic::sema::TargetCpu,
+    pub complete: bool,
+    /// Source files visited by linting; complete=false never establishes full body coverage.
+    pub visited_files: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -247,16 +262,20 @@ fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
     let mut import_dirs = options.import_dirs.clone();
     import_dirs.push(options.stdlib.clone());
     let mut loader_cache = BTreeMap::new();
-    let mut roots: Vec<Root> = listed
-        .iter()
-        .filter(|f| !loaded_by_listed.contains(*f))
-        .map(|f| {
-            enclosing_module(f, &import_dirs)
-                .or_else(|| module_of(f, &import_dirs))
-                .or_else(|| enclosing_program(f, &mut loader_cache))
-                .unwrap_or_else(|| Root::Program(f.clone()))
-        })
-        .collect();
+    let mut roots: Vec<Root> = if let Some(source) = &options.source {
+        vec![Root::Program(canonical(source))]
+    } else {
+        listed
+            .iter()
+            .filter(|f| !loaded_by_listed.contains(*f))
+            .map(|f| {
+                enclosing_module(f, &import_dirs)
+                    .or_else(|| module_of(f, &import_dirs))
+                    .or_else(|| enclosing_program(f, &mut loader_cache))
+                    .unwrap_or_else(|| Root::Program(f.clone()))
+            })
+            .collect()
+    };
     roots.sort();
     roots.dedup();
     let mut report = listed;
@@ -269,6 +288,7 @@ struct RootResult {
     lints: Vec<Lint>,
     texts: BTreeMap<String, Rc<str>>,
     error: Option<String>,
+    contexts: Vec<CheckedContext>,
 }
 
 /// The native file system with relative paths taken from `base` (the root's directory), as if
@@ -350,14 +370,8 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         } => dir.clone(),
         Root::Program(p) => p.parent().map(Path::to_path_buf).unwrap_or_default(),
     };
-    let mut copts = CompilerOptions::host();
-    if let Some(os) = options.target_os {
-        copts.os = os;
-    }
-    if let Some(cpu) = options.target_cpu {
-        copts.cpu = cpu;
-    }
-    copts.import_paths = vec![main_dir.join("modules")];
+    let mut copts = options.compiler_options.clone();
+    copts.import_paths.insert(0, main_dir.join("modules"));
     if let Root::Module {
         dir, ..
     } = root
@@ -368,7 +382,9 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         .import_paths
         .extend(options.import_dirs.iter().cloned());
     copts.import_paths.push(options.stdlib.clone());
-    copts.preload = Some(options.stdlib.join(jaic::PRELOAD_ENTRY));
+    copts
+        .preload
+        .get_or_insert_with(|| options.stdlib.join(jaic::PRELOAD_ENTRY));
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
         base: main_dir.clone(),
         virtual_source: match root {
@@ -478,9 +494,10 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     compilers.push((compiler, !top_complete));
     let mut lints = Vec::new();
     let mut texts = BTreeMap::new();
-    let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
+    let mut contexts = Vec::new();
     for (mut compiler, failed) in compilers {
         let diagnostics = compiler.ide_check_all();
+        let complete = !failed && diagnostics.is_empty();
         if error.is_none()
             && let Some(diagnostic) = diagnostics.first()
         {
@@ -492,7 +509,7 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
             .filter(|&f| {
                 let path = &compiler.sources.get(f).path;
                 let path_buf = canonical(Path::new(path));
-                report.contains(&path_buf) && seen.insert(path_buf)
+                report.contains(&path_buf)
             })
             .collect();
         for &f in &files {
@@ -504,7 +521,17 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
                 src.text.clone(),
             );
         }
-        let mut found = lint_files(&mut compiler, &files, &options.config, !failed);
+        contexts.push(CheckedContext {
+            root: root.path().to_path_buf(),
+            os: compiler.options.os,
+            cpu: compiler.options.cpu,
+            complete,
+            visited_files: files
+                .iter()
+                .map(|&file| canonical(Path::new(&compiler.sources.get(file).path)))
+                .collect(),
+        });
+        let mut found = lint_files(&mut compiler, &files, &options.config, complete);
         for l in &mut found {
             l.path = canonical(Path::new(&l.path)).to_string_lossy().into_owned();
         }
@@ -516,11 +543,17 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         lints,
         texts,
         error,
+        contexts,
     }
 }
 
 /// A root's lints, file texts and compile error, as they cross threads.
-type Sent = (Vec<Lint>, BTreeMap<String, String>, Option<String>);
+type Sent = (
+    Vec<Lint>,
+    BTreeMap<String, String>,
+    Option<String>,
+    Vec<CheckedContext>,
+);
 
 /// Lint what `options` names.
 pub fn run(options: &Options) -> Outcome {
@@ -554,21 +587,21 @@ pub fn run(options: &Options) -> Outcome {
                         collected
                             .lock()
                             .expect("no thread panicked holding the lock")
-                            .push((i, r.lints, texts, r.error));
+                            .push((i, r.lints, texts, r.error, r.contexts));
                     }
                 })
                 .expect("spawn a checking thread");
         }
     });
-    for (i, lints, texts, error) in collected.into_inner().unwrap_or_default() {
-        results[i] = Some((lints, texts, error));
+    for (i, lints, texts, error, contexts) in collected.into_inner().unwrap_or_default() {
+        results[i] = Some((lints, texts, error, contexts));
     }
     let mut lints = Vec::new();
     let mut texts: BTreeMap<String, Rc<str>> = BTreeMap::new();
     let mut incomplete = Vec::new();
     let mut owner: BTreeMap<String, usize> = BTreeMap::new();
     for (i, r) in results.iter().enumerate() {
-        let Some((_, t, error)) = r else {
+        let Some((_, t, error, _)) = r else {
             continue;
         };
         for path in t.keys() {
@@ -578,10 +611,12 @@ pub fn run(options: &Options) -> Outcome {
             incomplete.push((roots[i].path().to_path_buf(), e.clone()));
         }
     }
+    let mut contexts = Vec::new();
     for (i, r) in results.into_iter().enumerate() {
-        let Some((ls, t, _)) = r else {
+        let Some((ls, t, _, compiled)) = r else {
             continue;
         };
+        contexts.extend(compiled);
         for l in ls {
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);
@@ -594,10 +629,34 @@ pub fn run(options: &Options) -> Outcome {
         }
     }
     lints.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
+    lints.dedup_by(|a, b| {
+        a.path == b.path
+            && a.start == b.start
+            && a.end == b.end
+            && a.rule == b.rule
+            && a.message == b.message
+    });
+    let visited: BTreeSet<_> = contexts
+        .iter()
+        .flat_map(|context| context.visited_files.iter().cloned())
+        .collect();
+    let unvisited_files: Vec<_> = report.difference(&visited).cloned().collect();
+    if incomplete.is_empty()
+        && let Some(source) = &options.source
+    {
+        for path in options.paths.iter().filter(|path| path.is_file()) {
+            let path = canonical(path);
+            if unvisited_files.contains(&path) {
+                incomplete.push((source.clone(), format!("context did not visit requested file `{}`; choose its actual enclosing program and target", path.display())));
+            }
+        }
+    }
     Outcome {
         lints,
         texts,
         incomplete,
         roots: roots.len(),
+        contexts,
+        unvisited_files,
     }
 }

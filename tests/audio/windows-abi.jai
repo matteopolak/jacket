@@ -6,6 +6,8 @@ main :: () {
         assert(CONFIG(0x12340004) == .STEREO && GEOMETRY(0x12340004) == 0x34);
         assert(KSAUDIO_SPEAKER_STEREO == 3 && KSAUDIO_SPEAKER_5POINT1 == 0x3f);
         #assert size_of(WAVEFORMATEXTENSIBLE) == 40;
+        #assert size_of(DSBUFFERDESC) == 40;
+        #assert size_of(IDirectSound8Vtable) == 11 * size_of(*void);
         #assert size_of(IDirectSound8) == size_of(*void);
         #assert size_of(IDirectSoundBuffer8Vtable) == 24 * size_of(*void);
         format: WAVEFORMATEXTENSIBLE;

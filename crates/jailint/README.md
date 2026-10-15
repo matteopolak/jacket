@@ -9,7 +9,13 @@ jailint src/                  # lint every .jai file under src/
 jailint main.jai --fix        # apply the fixes that are safe to apply
 jailint -D warnings stdlib    # fail on any finding (CI)
 jailint --list                # the rules and their default levels
+jailint -os windows -cpu arm64 -D warnings src/
+jailint -target wasm64-unknown-wasi --manifest target/wasi-lint.json src/
 ```
+
+Target flags select source-checking contexts; they do not run native target code.
+[Target checking and coverage manifests](../../docs/tools/jailint-targets.md) describe
+ABI defaults, private/library roots, required bindings and incomplete-check failures.
 
 Each finding gives its level and rule, the location, and the source line with the span marked:
 

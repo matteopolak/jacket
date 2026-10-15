@@ -18,10 +18,13 @@ options:
   -W <rule>           warn on a rule
   -D <rule>           deny a rule; `-D warnings` makes every warning an error
   -I <dir>            add an import directory (also -import_dir)
-  --os <target>       windows, linux, macos or wasm (default host)
-  --cpu <target>      x64, arm64 or wasm (default host)
-  --checked-files <file> write the paths actually checked, one per line
-  --add <source>      add source in the program's scope (also -add)
+  -os <os>           check linux, windows, macos or wasm (default: host)
+  -cpu <cpu>         check x64/x86_64 or arm64/aarch64 (default: target/host)
+  -target <triple>   select a target triple (overrides -os/-cpu; includes WASI)
+  --manifest <file> write JSON source-check coverage and actual target contexts
+  --context <file>  check an enclosing program; report only the requested paths
+  --checked-files <file> write the actual checked paths, one per line
+  --add <source>     add source in the program scope (also -add)
   -j <n>              compile n programs at once (default 1)
   --list              list the rules and their default levels
   --color <when>      auto, always or never
@@ -52,6 +55,11 @@ fn color_value(when: &str) -> Result<jaic::render::ColorChoice, String> {
 }
 
 struct Args {
+    context: Option<PathBuf>,
+    manifest: Option<PathBuf>,
+    checked_files: Option<PathBuf>,
+    add_sources: Vec<String>,
+    target: jailint::target::Selection,
     paths: Vec<PathBuf>,
     fix: bool,
     config: Option<PathBuf>,
@@ -60,14 +68,15 @@ struct Args {
     jobs: usize,
     color: jaic::render::ColorChoice,
     verbose: bool,
-    target_os: Option<jaic::sema::TargetOs>,
-    target_cpu: Option<jaic::sema::TargetCpu>,
-    checked_files: Option<PathBuf>,
-    add_sources: Vec<String>,
 }
 
 fn parse_args() -> Result<Option<Args>, String> {
     let mut args = Args {
+        context: None,
+        manifest: None,
+        checked_files: None,
+        add_sources: Vec::new(),
+        target: Default::default(),
         paths: Vec::new(),
         fix: false,
         config: None,
@@ -76,10 +85,6 @@ fn parse_args() -> Result<Option<Args>, String> {
         jobs: 1,
         color: jaic::render::ColorChoice::Auto,
         verbose: false,
-        target_os: None,
-        target_cpu: None,
-        checked_files: None,
-        add_sources: Vec::new(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -98,26 +103,14 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--fix" => args.fix = true,
             "-v" | "--verbose" => args.verbose = true,
             "--config" => args.config = Some(PathBuf::from(value("--config")?)),
-            "--checked-files" => args.checked_files = Some(value(&a)?.into()),
+            "--manifest" => args.manifest = Some(PathBuf::from(value(&a)?)),
+            "--checked-files" => args.checked_files = Some(PathBuf::from(value(&a)?)),
             "--add" | "-add" => args.add_sources.push(value(&a)?),
-            "--os" | "-os" => {
-                args.target_os = Some(match value(&a)?.as_str() {
-                    "windows" => jaic::sema::TargetOs::Windows,
-                    "linux" => jaic::sema::TargetOs::Linux,
-                    "macos" => jaic::sema::TargetOs::MacOS,
-                    "wasm" => jaic::sema::TargetOs::Wasm,
-                    target => return Err(format!("unknown OS target `{target}`")),
-                });
-            }
-            "--cpu" | "-cpu" => {
-                args.target_cpu = Some(match value(&a)?.as_str() {
-                    "x64" => jaic::sema::TargetCpu::X64,
-                    "arm64" => jaic::sema::TargetCpu::Arm64,
-                    "wasm" => jaic::sema::TargetCpu::Wasm,
-                    target => return Err(format!("unknown CPU target `{target}`")),
-                });
-            }
+            "--context" => args.context = Some(PathBuf::from(value(&a)?)),
             "-I" | "-import_dir" | "--import-dir" => args.imports.push(value(&a)?.into()),
+            "-os" | "--os" => args.target.os = Some(jailint::target::parse_os(&value(&a)?)?),
+            "-cpu" | "--cpu" => args.target.cpu = Some(jailint::target::parse_cpu(&value(&a)?)?),
+            "-target" => args.target.triple = Some(value(&a)?),
             "-j" | "--jobs" => {
                 args.jobs = value(&a)?
                     .parse()
@@ -142,15 +135,20 @@ fn parse_args() -> Result<Option<Args>, String> {
                 let known = [
                     "--fix",
                     "--config",
-                    "--os",
-                    "--cpu",
+                    "--manifest",
                     "--checked-files",
                     "--add",
+                    "--os",
+                    "--cpu",
+                    "--context",
                     "-A",
                     "-W",
                     "-D",
                     "-I",
                     "-import_dir",
+                    "-os",
+                    "-cpu",
+                    "-target",
                     "-j",
                     "--jobs",
                     "--list",
@@ -183,6 +181,21 @@ fn run() -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     };
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+    if let Some(source) = &args.context {
+        let metadata = std::fs::metadata(source).map_err(|e| {
+            format!(
+                "cannot read context `{}`: {}",
+                source.display(),
+                jaic::io_reason(&e)
+            )
+        })?;
+        if !metadata.is_file() {
+            return Err(format!(
+                "context `{}` must be a program file",
+                source.display()
+            ));
+        }
+    }
     for path in &args.paths {
         if let Err(e) = std::fs::metadata(path) {
             let shown = path.display();
@@ -240,15 +253,17 @@ fn run() -> Result<ExitCode, String> {
         return Err(message);
     }
     let stdlib = stdlib.canonicalize().unwrap_or(stdlib);
+    let mut compiler_options = jaic::sema::Options::host();
+    args.target.apply(&mut compiler_options)?;
     let options = jailint::driver::Options {
+        compiler_options,
+        source: args.context,
         paths: args.paths.clone(),
         import_dirs: args.imports.clone(),
         stdlib,
         config,
         jobs: args.jobs,
         verbose: args.verbose,
-        target_os: args.target_os,
-        target_cpu: args.target_cpu,
         add_sources: args.add_sources,
     };
     let outcome = jailint::driver::run(&options);
@@ -256,6 +271,9 @@ fn run() -> Result<ExitCode, String> {
         let mut paths = outcome.texts.keys().cloned().collect::<Vec<_>>().join("\n");
         paths.push('\n');
         std::fs::write(path, paths).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
+    if let Some(path) = &args.manifest {
+        write_manifest(path, &options, args.target.triple.as_deref(), &outcome)?;
     }
     // Lints go to stdout: its terminal decides the layout.
     let style = jaic::render::detect_with(args.color, std::io::stdout().is_terminal(), |key| {
@@ -341,6 +359,45 @@ fn run() -> Result<ExitCode, String> {
     } else {
         ExitCode::SUCCESS
     })
+}
+
+fn write_manifest(
+    path: &std::path::Path,
+    options: &jailint::driver::Options,
+    triple: Option<&str>,
+    outcome: &jailint::driver::Outcome,
+) -> Result<(), String> {
+    use jailint::target::{cpu_name, os_name};
+    let contexts: Vec<_> = outcome
+        .contexts
+        .iter()
+        .map(|context| {
+            serde_json::json!({
+                "root": context.root, "os": os_name(context.os), "cpu": cpu_name(context.cpu),
+                "complete": context.complete, "visited_files": context.visited_files,
+            })
+        })
+        .collect();
+    let incomplete: Vec<_> = outcome
+        .incomplete
+        .iter()
+        .map(|(root, error)| serde_json::json!({"root":root,"error":error}))
+        .collect();
+    let document = serde_json::json!({
+        "version": 1,
+        "kind": "source-check",
+        "phase": "initial",
+        "target": {"os":os_name(options.compiler_options.os), "cpu":cpu_name(options.compiler_options.cpu), "triple":triple},
+        "config_source": options.config.source,
+        "source": options.source,
+        "roots": outcome.roots,
+        "contexts": contexts,
+        "unvisited_files": outcome.unvisited_files,
+        "incomplete": incomplete,
+    });
+    let mut text = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
+    text.push(b'\n');
+    std::fs::write(path, text).map_err(|e| format!("cannot write manifest {}: {e}", path.display()))
 }
 
 fn count(n: usize, word: &str) -> String {

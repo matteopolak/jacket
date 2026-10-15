@@ -363,5 +363,15 @@
       "six-platform SDK build/link when toolchains supplied"
     ],
     "hardware": "none; nonzero bytes are never submitted"
+  },
+  "native_windows_abi": {
+    "path": "tests/audio/native-windows-abi.c",
+    "provenance": "Reviewed public format/COM prefix layout, validated against actual official Windows SDK C headers",
+    "modes": [
+      "Windows x64 SDK object compilation",
+      "Windows ARM64 SDK-header object compilation",
+      "Jai ABI fixture native package link where SDK supplied"
+    ],
+    "limitation": "No Windows runtime or DirectSound device/interface execution claimed"
   }
 }

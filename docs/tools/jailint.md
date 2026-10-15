@@ -40,6 +40,15 @@ also checks workspaces that the metaprogram creates.
 Exit status: 0 when checking finished and nothing at level `deny` was found, 1 for a denied finding or incomplete compilation, 2 on a usage or configuration error. Incomplete roots always report their first compiler error. A summary goes to stderr.
 
 Files nested under an import directory are module roots. A private library module is imported through an in-memory source owned by that library, retaining the compiler's normal import-privacy rules. No wrapper is written to disk. Existing bootstrap module instances retain their configured parameters. Loaded files outside a root's directory are checked in their containing module or program, and appear in the checked-file manifest. Library-call rules recognize the canonical procedures exported by a public facade, including aliases whose bodies live in private modules.
+Target source checking accepts `-os linux|windows|macos|wasm`,
+`-cpu x64|arm64` (also x86_64/aarch64), and `-target <triple>`.
+`--manifest <file>` records actual target contexts and source coverage, including
+failed checks and unvisited conditional loads. See [target checking](jailint-targets.md)
+for defaults, ABI selection and full-runner integration. No flags keeps host behavior.
+`--context <program>` supplies a real enclosing program and its module arguments
+while reporting only the requested paths; application/private visibility is retained.
+
+Incomplete compilation remains an unconditional exit1 and appears in the manifest; visiting a file in an incomplete context is not full coverage.
 
 Findings and command-line errors go through jaic's shared renderer (`jaic::render`), so they look like compiler diagnostics and follow `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` the same way (see [diagnostics](../compiler/diagnostics.md)). Mistakes say what to change: an unknown option or rule suggests the closest one, a missing path says so, and a bad `jailint.toml` is reported as ``in `path`, line N: ...`` with a `help:` line.
 

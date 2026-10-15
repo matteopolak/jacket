@@ -110,6 +110,7 @@ Compile-time execution, the `Compiler` module, reflection and code values.
 - [Completeness follow-up](compiler/completeness-follow-up.md): qualified constant writes, runtime configuration, suspended threads and alias documentation
 - [Private runtime configuration](compiler/runtime-configuration.md): settled workspace sizes, real target data and the staged producer allocation contract
 - [Complete library lint context](tools/linter-library-context.md): private roots, real bootstrap bindings, alias identity and failure on incomplete checks
+- [Target-aware jailint and coverage manifests](tools/jailint-targets.md): real compiler targets, checked contexts, conditional loads and integration-runner handoff
 - [Literal precision](compiler/literal-precision.md): contextual defaults, required precision, aliases, folding, overloads and module arguments
 - [Browser integration status](compiler/browser-integration-status.md): explicit source-library embedding, supported Compiler regression and remaining integration failures
 - [Using-filter propagation](compiler/using-filter-propagation.md): parameter/macro bindings, embedded filters, mapped storage and safe Code reconstruction

@@ -15,6 +15,7 @@ pub mod render;
 mod rules;
 mod suppress;
 pub mod syntax;
+pub mod target;
 
 pub use config::{Config, Level};
 pub use rules::{RULES, RuleInfo};
