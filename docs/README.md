@@ -16,6 +16,7 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 - [Window/render clean-room incident](status/window-render-cleanroom-incident-2026-10-14.md):
   reviewed metadata-only exposure, clearance and implementation resumption.
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
+- [SDL native ABI and prefix safety](native/sdl-native-abi.md): exact public layouts, complete private C records, native pointers, field probes and canaries
 - [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
 - [File watcher execution and ABI blocker](portable-file-watcher.md): real macOS event queues, sanitizer coverage and preserved FSEvents binding regression
 - [macOS bundles and plist helpers](portable-macos-bundler.md): native bundle/icon tools, validated XML and new formatting dependency

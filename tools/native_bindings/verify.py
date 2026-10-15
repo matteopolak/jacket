@@ -288,7 +288,7 @@ def main():
             if args.module and not any(m in args.module for m in relevant):
                 continue
             source = ROOT/'tests/native-bindings'/f'{name}.jai'
-            if name in ('sdl-wm', 'sdl-rwops'):
+            if name in ('sdl-wm', 'sdl-rwops', 'sdl-layout'):
                 source = ROOT/'stdlib/SDL/tests'/f'{name}.jai'
             if not source.is_file():
                 report['native'].append({'name': name, 'status': 'not_implemented'})

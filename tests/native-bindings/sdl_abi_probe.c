@@ -39,6 +39,44 @@ uint64_t binding_sdl_offset(unsigned which) {
     }
 }
 
+uint64_t binding_sdl_rw_offset(unsigned which) {
+    static const size_t fields[] = {
+        offsetof(SDL_RWops, size), offsetof(SDL_RWops, seek),
+        offsetof(SDL_RWops, read), offsetof(SDL_RWops, write),
+        offsetof(SDL_RWops, close), offsetof(SDL_RWops, type),
+        offsetof(SDL_RWops, hidden)
+    };
+    if (which >= sizeof(fields) / sizeof(fields[0])) abort();
+    return fields[which];
+}
+
+uint64_t binding_sdl_alignment(unsigned which) {
+    switch (which) {
+        case 0: return _Alignof(SDL_RWops);
+        case 1: return _Alignof(SDL_UserEvent);
+        default: abort();
+    }
+}
+
+uint64_t binding_sdl_user_offset(unsigned which) {
+    static const size_t fields[] = {
+        offsetof(SDL_UserEvent, type), offsetof(SDL_UserEvent, timestamp),
+        offsetof(SDL_UserEvent, windowID), offsetof(SDL_UserEvent, code),
+        offsetof(SDL_UserEvent, data1), offsetof(SDL_UserEvent, data2)
+    };
+    if (which >= sizeof(fields) / sizeof(fields[0])) abort();
+    return fields[which];
+}
+
+void binding_sdl_fill_native_user(SDL_UserEvent *event, void *data1, void *data2) {
+    event->type = SDL_USEREVENT;
+    event->timestamp = UINT32_C(0x89abcdef);
+    event->windowID = 19;
+    event->code = -42;
+    event->data1 = data1;
+    event->data2 = data2;
+}
+
 int32_t binding_sdl_check_size(unsigned which, uint64_t actual) {
     uint64_t expected = binding_sdl_size(which);
     if (actual == expected) return 1;
