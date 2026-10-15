@@ -33,7 +33,7 @@ def main():
     def test_source(name):
         module = {"signed-native-fields": "Input", "texture-packing": "Simp",
                   "glyph-atlas": "Simp", "macos-events": "Window_Creation",
-                  "macos-window": "Window_Creation"}.get(name)
+                  "macos-window": "Window_Creation", "windows-device-decoding": "Input"}.get(name)
         return ROOT / (f"stdlib/{module}/tests/{name}.jai" if module else f"tests/window-render/{name}.jai")
 
     def run(command, expected=None):
@@ -104,13 +104,15 @@ def main():
             cases = ["types", "callback-types", "keycodes", "window-types", "texture-signatures", "simp-none", "public-window", "keymap-behavior"]
             cases += ["evdev-signatures", "window-invalid", "font-effects"] if os_name == "linux" else ["clipboard-host", "windows-queries", "windows-events", "windows-committed-text", "windows-render-events", "windows-class-parameters", "windows-layout-keys", "windows-render-lifecycle", "windows-render-public", "windows-wgl-driver", "windows-device-notifications", "windows-device-decoding", "windows-pointer", "font-public", "font-effects"]
             for name in cases:
-                run([compiler, ROOT / f"tests/window-render/{name}.jai", "-check", "-os", os_name,
+                run([compiler, test_source(name), "-check", "-os", os_name,
                      "-cpu", cpu, "-I", args.stdlib])
             if os_name == "windows":
                 run([compiler, ROOT / "tests/window-render/font-public.jai", "-check", "-no_dce",
                      "-os", os_name, "-cpu", cpu, "-I", args.stdlib])
     for cpu in ["x64", "arm64"]:
-        run([compiler, ROOT / "tests/window-render/windows-device-decoding.jai", "-interp",
+        # Execute pure packet assertions with the target's layouts at compile
+        # time; native Windows startup APIs cannot execute on a foreign host.
+        run([compiler, test_source("windows-device-decoding"), "-check", "-add", "#run main();",
              "-os", "windows", "-cpu", cpu, "-I", args.stdlib], "ok\n")
     for case, member in [("private-helper-negative", "pack_bitmap"), ("private-atlas-negative", "atlas_create_page")]:
         visibility = subprocess.run([str(compiler), str(ROOT / f"tests/window-render/{case}.jai"),

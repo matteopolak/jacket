@@ -11,6 +11,7 @@
 /result-*
 /tests/stdlib/.scratch/
 /stdlib/Extensions/Io/tests/.scratch/
+/stdlib/internal/watching/native/libportable_watch.dylib
 
 # npm and pnpm (editors/vscode and any stray installs)
 node_modules/

@@ -2,6 +2,13 @@ import unittest
 import sdl3_gen as gen
 
 class Types(unittest.TestCase):
+    def test_anonymous_record_paths_normalize_native_and_clang_separators(self):
+        source = gen.Path('cache/SDL3')
+        location = (source.resolve() / 'include/SDL3/SDL_gamepad.h').as_posix()
+        expected = 'union (unnamed at SDL3/SDL_gamepad.h:271:5)'
+        for spelling in [location, location.replace('/', '\\')]:
+            self.assertEqual(gen.stable_c_type(f'union (unnamed at {spelling}:271:5)', source), expected)
+
     def test_anonymous_record_metadata_is_independent_of_clang_diagnostic_spelling(self):
         source = gen.Path('/cache/SDL3')
         old = 'union (unnamed union at /cache/SDL3/include/SDL3/SDL_gamepad.h:271:5)'

@@ -128,12 +128,25 @@ def main():
         if not linter.is_relative_to(ROOT / "target"):
             parser.error("use a jailint source build under this checkout's target")
         files = owned_sources()
+        invalid_scalar = ROOT / "tests/portable-stdlib/negative/basic-scalar-bool.jai"
+        rejected = subprocess.run([str(linter), "-D", "warnings", str(invalid_scalar)],
+                                  cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+        if (rejected.returncode != 1 or rejected.stdout or
+                "clamp requires a scalar type" not in rejected.stderr or
+                "error and" in rejected.stderr):
+            raise RuntimeError(f"negative scalar lint rejection failed: {rejected}")
         covered = set()
         lint_output = output / "lint"
         lint_output.mkdir(exist_ok=True)
         for target_os, target_cpu in [("macos", "arm64"), ("linux", "x64"), ("windows", "x64"), ("windows", "arm64")]:
             selected = []
             for path in files:
+                if path == invalid_scalar:
+                    continue  # Binding intentionally fails; separately required above.
+                if path.name in {"native-unix.jai", "native-windows.jai"} and path.parent == ROOT / "stdlib/internal/files":
+                    continue  # #load fragment needs its actual File parent and Seek_Type.
+                if path.name == "host-target-predicate.jai" and target_os == "macos":
+                    continue  # The fixture asserts cross-compilation; other profiles check it.
                 if "windows" in path.name and target_os != "windows":
                     continue
                 if "unix" in path.name and target_os == "windows":
@@ -142,9 +155,13 @@ def main():
                     ROOT / "stdlib/internal/files/filesystem.jai",
                     ROOT / "stdlib/internal/basic/filesystem.jai",
                     ROOT / "tests/portable-stdlib/file-visitation.jai",
+                    ROOT / "tests/portable-stdlib/basic-visualization-channel.jai",
+                    ROOT / "tests/portable-stdlib/basic-visualization-timing.jai",
                 }:
                     continue  # POSIX implementations/oracle; Windows backends have their own roots.
                 selected.append(path)
+            selected.append(ROOT / "stdlib/File/module.jai")
+            selected.append(ROOT / "stdlib/internal/files/file.jai")
             manifest = lint_output / f"{target_os}-{target_cpu}.txt"
             checked = subprocess.run([str(linter), "-v", "-D", "warnings", "--os", target_os,
                                       "--cpu", target_cpu, "-I", str(ROOT / "tests/portable-stdlib/pending"),
@@ -155,10 +172,10 @@ def main():
                 raise RuntimeError(f"foundation lint {target_os}/{target_cpu} incomplete or failed:\n{checked.stdout}{checked.stderr}")
             covered.update(Path(path).resolve() for path in manifest.read_text().splitlines())
             print(f"passed strict lint {target_os}/{target_cpu}", flush=True)
-        missing = set(files) - covered
+        missing = set(files) - covered - {invalid_scalar}
         if missing:
             raise RuntimeError(f"foundation sources not checked: {sorted(map(str, missing))}")
-        print(f"passed source-built jailint -D warnings with coverage of {len(files)} owned sources", flush=True)
+        print(f"passed source-built jailint -D warnings with coverage of {len(files) - 1} owned sources and one required binding rejection", flush=True)
 
     for name, diagnostic in (("hash-unsupported", "get_hash requires an integer, boolean, enum, pointer, or float"),
                              ("hash-seed-visibility", "no exported member `HASH_INIT`"),

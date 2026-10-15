@@ -78,20 +78,14 @@ fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
             .arg("-check")
             .output()
             .unwrap();
-        if no_output {
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-        } else {
-            assert!(!output.status.success());
-            assert!(
-                String::from_utf8_lossy(&output.stderr)
-                    .contains("nondefault temporary_storage_size"),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stdout.is_empty() && output.stderr.is_empty());
+        // Both metadata-only and initialized production runtimes support this
+        // setting. Real allocation, zero storage and late updates are checked
+        // by cleanroom_runtime_config; the core suite still rejects old consumers.
     }
 }

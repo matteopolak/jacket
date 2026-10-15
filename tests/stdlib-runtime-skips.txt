@@ -37,12 +37,6 @@ simp-left-handed-software * wasm-interp,wasm-native,playground stb_image and Fre
 simp-window-program * wasm-interp,wasm-native,playground wasm has no window system or OpenGL
 
 # Native libraries with no wasm build (tests/stdlib-targets.txt lists the same modules).
-GetRect_LeftHanded/tests/geometry-tests * wasm-interp,wasm-native stb_image has no wasm build
-GetRect_LeftHanded/tests/legacy-compatibility-tests * wasm-interp,wasm-native stb_image has no wasm build
-GetRect_LeftHanded/tests/text-interaction-tests * wasm-interp,wasm-native stb_image has no wasm build
-Simp/tests/readback-tests * wasm-interp,wasm-native stb_image has no wasm build
-Simp/tests/software-render-tests * wasm-interp,wasm-native stb_image has no wasm build
-Sound_Player/tests/offline-mix * wasm-interp,wasm-native stb_vorbis has no wasm build
 
 # WASI builds run threads as green threads that switch only when one blocks
 # (docs/native/wasm-threads.md), so a busy wait never lets the thread it waits for run.

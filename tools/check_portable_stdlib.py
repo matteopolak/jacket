@@ -31,7 +31,7 @@ CONTRACTS = [
     "unicode", "pool", "adpcm", "bucket-array", "file-utils", "socket", "thread", "process", "command-line",
 ]
 EXPECTED = {
-    "bundle-plist": valid_bundle_plist,
+    "bundle-plist": lambda output: valid_bundle_plist(output, require_reals=True),
     "print-color": "\x1b[1;31mcolor 42\x1b[0m\x1b[4;32mscope\x1b[0mok\n",
     "basic-output": "out 7++",
     "runtime": "runtime -9223372036854775808 ff\n",
@@ -132,6 +132,9 @@ def main():
             integrations.append("bundle")
         for name in integrations:
             subprocess.run([sys.executable, "-B", str(ROOT / f"tools/check_portable_{name}_integration.py"),
+                            "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
+        if sys.platform == "darwin":
+            subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_watcher.py"),
                             "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     cases = [(p, EXPECTED.get(p.stem, "ok\n"))
              for p in sorted((ROOT / "tests/portable-stdlib").glob("*.jai"))
@@ -250,7 +253,7 @@ def main():
         subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_crash.py"),
                         "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     dependent = {"file", "filesystem", "socket-loopback", "process", "process-io", "system", "text-handler", "zip-directory", "buildcpp", "shared-channel", "autorun"}
-    posix_only = {"module-identity", "thread-lifetime", "thread-groups", "thread-condition", "thread-shutdown", "overwriting-allocator", "unmapping-allocator", "crash-handler-init", "atomic-cas-threads"}
+    posix_only = {"module-identity", "thread-lifetime", "thread-groups", "thread-condition", "thread-shutdown", "overwriting-allocator", "unmapping-allocator", "crash-handler-init", "atomic-cas-threads", "file-visitation"}
     for target in args.check_target:
         os_name, cpu = target.split("/", 1)
         before = len(failures)

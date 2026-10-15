@@ -288,8 +288,8 @@ def main():
             if args.module and not any(m in args.module for m in relevant):
                 continue
             source = ROOT/'tests/native-bindings'/f'{name}.jai'
-            if name == 'sdl-wm':
-                source = ROOT/'stdlib/SDL/tests/sdl-wm.jai'
+            if name in ('sdl-wm', 'sdl-rwops'):
+                source = ROOT/'stdlib/SDL/tests'/f'{name}.jai'
             if not source.is_file():
                 report['native'].append({'name': name, 'status': 'not_implemented'})
                 continue
@@ -310,9 +310,14 @@ def main():
                 result['private_unit_placement'] = str(compiled_source)
             report['native'].append(result)
             if result['exit'] == 0:
-                result = invoke([exe], env)
+                arguments = [work/'native-rwops-test.bmp'] if name == 'sdl-rwops' else []
+                result = invoke([exe, *arguments], env)
                 result.update(name=name, phase='run', status='passed' if result['exit']==0 else 'failed')
                 report['native'].append(result)
+                if name == 'sdl-rwops':
+                    result = invoke([compiler, compiled_source, '-interp', '--', *arguments], env)
+                    result.update(name=name, phase='interp', status='passed' if result['exit']==0 else 'failed')
+                    report['native'].append(result)
         if not args.module or 'ImGui' in args.module:
             pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['imgui']
             exe = work/'imgui-ffi-test'

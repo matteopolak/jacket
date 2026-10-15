@@ -128,7 +128,10 @@ def system_headers(work):
 def stable_c_type(ctype, source):
     if ctype is None:
         return None
-    for prefix in (str(source.resolve()/'include')+'/',str(source/'include')+'/'):
+    # Clang locations use forward slashes even when Python uses native Windows
+    # separators. Normalize both spellings before removing the source root.
+    ctype = ctype.replace('\\', '/')
+    for prefix in ((source.resolve()/'include').as_posix()+'/', (source/'include').as_posix()+'/'):
         ctype=ctype.replace(prefix,'')
     # Clang versions differ in redundant diagnostic words for anonymous members.
     # The enclosing record kind and source location remain part of the contract.
