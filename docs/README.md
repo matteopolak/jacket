@@ -218,23 +218,25 @@ The LLVM backend, C ABI and linking.
 - [Native WGL investigation](native/window-render-wgl-investigation.md): filtered CI
   failure evidence, real retirement-surface lifetime, native diagnostics and pinned
   official-source ARM64 Mesa build/deployment, deterministic prepared child Python,
-  verified LLVM-only cache, and explicit runtime verification limits.
+  verified LLVM-only cache, pinned Windows WGL target/install validation and SDK
+  dependency evidence, with explicit runtime verification limits.
 - [jaic Extensions](extensions/README.md)
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
 - [Portable implementation gaps](portable-stdlib-gaps.md): focused pending reproducers and unresolved behavior
 - [Runtime configuration adoption](portable-runtime-configuration.md): actual settled allocations, CAPS and ownership handoff
-- [Time and calendar API inventory](portable-time.md): real POSIX clocks, epoch/calendar conversions and remaining contracts
+- [Time and calendar API inventory](portable-time.md): real clocks, calendar conversion, caller-return duration macro and remaining contracts
 - [Machine_X64 compiler gaps](portable-machine-gaps.md): original interpreter/native CPUID failure and genuine native C comparison
 - [Flat_Pool core and container audit](portable-flat-pool.md): real initialization, lazy page commitment, parameterized overwrite and lifecycle
 - [Pool behavior and checked allocation extents](portable-pool.md)
+- [Unix Thread assertion configuration and lifecycle ownership](portable-thread-lifecycles.md)
 - [Windows calendar verification](../tools/check_portable_windows_calendar.py): source/ABI checks, explicit native-host requirement
 - [Windows shared-memory backend and remaining gates](portable-windows-channel.md)
 - [Windows Socket wrappers, native ABI evidence and remaining public gaps](portable-windows-socket.md)
 - [Native Socket field accessors and independent SDK record oracles](portable-socket-fields.md)
 - [Socket ancillary helpers and actual native SDK vectors](portable-socket-cmsg.md)
 - [Windows Registry native APIs and unresolved pseudo-handle ABI](portable-windows-registry.md)
-- [Android toolchain ABI naming and remaining APIs](portable-android-toolchain.md)
+- [Android toolchain ABI naming, OID identity, digests and remaining APIs](portable-android-toolchain.md)
 - [Exact missing owned public declarations](portable-missing-surface.md)
 - [Windows UTF-8 helpers](portable-windows-utf8.md): real Kernel32 conversion code, ABI checks and outstanding native execution
 - [Owned source format/lint runner](../tools/format_portable_stdlib.py): explicit scope and source-built jaifmt/jailint
@@ -300,7 +302,7 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 ## Tools and workflow
 
-- [Developer tooling](developer-tools.md): reflected C headers, native ABI probes, DWARF line/frame decoding and staged MSF parsing; [test provenance](developer-tools-testing.md), [native integration plan](developer-tools-native-integration.md), [remaining functions](status/developer-tools-remaining.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
+- [Developer tooling](developer-tools.md): reflected C headers, configured-SDK binding generation, C++ bridge subset, native ABI probes, DWARF line/frame decoding and canonical MSF read helpers; [test provenance](developer-tools-testing.md), [native integration plan](developer-tools-native-integration.md), [remaining functions](status/developer-tools-remaining.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
 
 Scripts, CI and project policies.
 

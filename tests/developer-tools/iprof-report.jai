@@ -6,8 +6,12 @@ M :: #import "Iprof"(MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = fals
 #assert size_of(I.Zone) - size_of(M.Zone) == 1536;
 
 captured: string;
+errors: s64;
+csv_failures: s64;
 
-capture :: (text: string, _data: *void, _info: Log_Info) {
+capture :: (text: string, _data: *void, info: Log_Info) {
+    if info.common_flags & .ERROR errors += 1;
+    if info.common_flags & .ERROR && contains(text, "Iprof: could not write CSV report") csv_failures += 1;
     free(captured);
     captured = copy_string(text);
 }
@@ -28,7 +32,8 @@ main :: () {
     csv, ok := read_entire_file(path);
 
     defer free(csv);
-    assert(ok && csv == "name,self_time,hier_time,calls,heat\n\"quoted \"\"zone\"\",\nname\",0.25,0.5,3,0.75\n");
+    assert(ok && contains(csv, "\nname,self (ms),hier (ms),calls\n\"quoted \"\"zone\"\",\nname\",250,500,3\n"));
+    assert(starts_with(csv, "Command:"));
 
     push_context {
         context.logger = capture;
@@ -38,6 +43,7 @@ main :: () {
     defer free(captured);
     assert(captured.count > 0);
     assert(contains(captured, "quoted") && !contains(captured, "zero calls"));
+    assert(contains(captured, "250 | 500 | 3"));
 
     push_context {
         context.logger = capture;
@@ -45,6 +51,28 @@ main :: () {
     }
 
     assert(!contains(captured, "quoted"));
+
+    push_context {
+        context.logger = capture;
+        I.log_text_report(*report, min_hier_time = 0.6);
+    }
+
+    assert(!contains(captured, "quoted"));
+
+    push_context {
+        context.logger = capture;
+        I.log_text_report(*report, min_self_time = 0.25, min_hier_time = 0.5);
+    }
+
+    assert(contains(captured, "quoted"));
+    array_add(*report.records, I.Report_Row.{ name = "negative measurement", self_time = -1, hier_time = -2, calls = 1 });
+
+    push_context {
+        context.logger = capture;
+        I.log_text_report(*report, min_self_time = -0.1, min_hier_time = -0.1);
+    }
+
+    assert(contains(captured, "negative measurement"));
     manual: M.Report;
     uninitialized: M.Zone;
     initialized: M.Zone;
@@ -56,7 +84,15 @@ main :: () {
     filtered, filtered_ok := read_entire_file(path);
 
     defer free(filtered);
-    assert(filtered_ok && filtered == "name,self_time,hier_time,calls,heat\n\"initialized\",0,0,4,0\n");
+    assert(filtered_ok && contains(filtered, "\nname,self (ms),hier (ms),calls\n\"initialized\",0,0,4\n"));
+    assert(!contains(filtered, "uninitialized"));
+
+    push_context {
+        context.logger = capture;
+        I.save_csv_report(*report, tprint("%../../target/developer-tools-iprof-absent-parent/report.csv", #filepath));
+    }
+
+    assert(errors >= 1 && csv_failures == 1 && contains(captured, "could not write CSV report"));
     print("ok\n");
 }
 

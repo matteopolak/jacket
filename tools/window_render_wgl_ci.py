@@ -30,6 +30,19 @@ def pe_machine(path):
         return struct.unpack_from("<H", signature, 4)[0]
 
 
+def probe_loaded_expected_driver(stdout, expected, alternatives=()):
+    paths = [line.removeprefix("opengl32=") for line in stdout.splitlines() if line.startswith("opengl32=")]
+    if len(paths) != 1:
+        return False
+    for candidate in [expected, *alternatives]:
+        try:
+            if Path(paths[0]).samefile(candidate):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jaic", required=True, type=Path)
@@ -113,6 +126,12 @@ def main():
             ok = ok and result.stdout.endswith("ok\n")
             if args.driver_dir:
                 ok = ok and "llvmpipe" in result.stdout.lower()
+                expected_driver = (compiler.parent if mode == "interp" else output) / "opengl32.dll"
+                # Interpreter foreign-library search explicitly honors the
+                # supplied JAIC_NATIVE_LIBS driver directory. That fresh file
+                # and its app-local copy are both valid candidate identities.
+                ok = ok and probe_loaded_expected_driver(
+                    result.stdout, expected_driver, [args.driver_dir / "opengl32.dll"])
         records.append({"case": case, "mode": mode, "passed": ok,
                         "exit": result.returncode, "stdout": result.stdout, "stderr": result.stderr})
         return ok

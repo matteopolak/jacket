@@ -61,6 +61,7 @@ def build(prefix=None):
     elif link.exists():
         raise RuntimeError(f"Refusing to replace non-symlink native dependency: {link}")
     link.symlink_to(library)
+    (directory / "compiler-path.txt").write_text(str(prefix / "bin/clang"))
     return output
 
 

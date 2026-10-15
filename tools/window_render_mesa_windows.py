@@ -18,6 +18,7 @@ import tarfile
 import urllib.request
 
 from window_render_wgl_ci import pe_machine
+import window_render_mesa_install as mesa_install
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = {
@@ -37,7 +38,8 @@ SOURCES = {
 PACKAGES = {"cmake": "3.31.6", "ninja": "1.13.2", "meson": "1.8.3",
             "Mako": "1.3.10", "MarkupSafe": "3.0.3", "packaging": "25.0", "PyYAML": "6.0.3"}
 MESA_OPTIONS = ["--buildtype=release", "--wrap-mode=nofallback", "-Db_vscrt=mt",
-                "-Dgallium-drivers=llvmpipe", "-Dvulkan-drivers=[]", "-Dplatforms=[]",
+                "-Dgallium-drivers=llvmpipe", "-Dvulkan-drivers=[]", "-Dplatforms=windows",
+                "-Dgallium-wgl-dll-name=libgallium_wgl",
                 "-Dllvm=enabled", "-Dshared-llvm=disabled", "-Ddraw-use-llvm=true",
                 "-Dglx=disabled", "-Degl=disabled", "-Dgles1=disabled", "-Dgles2=disabled",
                 "-Dopengl=true", "-Dgbm=disabled", "-Dzlib=disabled", "-Dzstd=disabled",
@@ -232,6 +234,11 @@ def main():
         parser.error("run this helper with the prepared venv Python; do not modify global packages")
     if os.environ.get("CMAKE_TOOLCHAIN_FILE"):
         parser.error("this native MSVC configuration does not accept an external CMake toolchain file")
+    if os.environ.get("DESTDIR"):
+        parser.error("use the fresh --out installation prefix; external DESTDIR is unsupported")
+    dumpbin = shutil.which("dumpbin.exe")
+    if not dumpbin or not Path(dumpbin).resolve().is_relative_to(Path(os.environ["VCToolsInstallDir"]).resolve()):
+        parser.error("select the official MSVC dumpbin.exe from the native vcvars environment")
     sdk = os.environ.get("WindowsSDKVersion", "").strip("\\").split(".")
     toolset = os.environ.get("VCToolsVersion", "").strip("\\").split(".")
     if len(sdk) < 3 or not sdk[2].isdigit() or int(sdk[2]) < 20348:
@@ -332,18 +339,47 @@ def main():
     env["PATH"] = str(llvm / "bin") + os.pathsep + env["PATH"]
     env["CMAKE_PREFIX_PATH"] = str(llvm)
     install = output / "install"
+    build = output / "mesa-build"
     run([sys.executable, "-m", "mesonbuild.mesonmain", "setup", output / "mesa-build", trees["mesa"],
          "--native-file", native, f"--prefix={install}", *MESA_OPTIONS])
-    plan["meson_build_options"] = json.loads(subprocess.check_output(
-        [sys.executable, "-m", "mesonbuild.mesonmain", "introspect", output / "mesa-build", "--buildoptions"],
-        env=env, text=True))
+    snapshots = {}
+
+    def introspect(name):
+        data = json.loads(subprocess.check_output(
+            [sys.executable, "-m", "mesonbuild.mesonmain", "introspect", build, f"--{name}"],
+            env=env, text=True))
+        (output / f"meson-{name}.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        snapshots[name] = data
+        plan["meson_introspection"] = [f"meson-{key}.json" for key in snapshots]
+        evidence.write_text(json.dumps(plan, indent=2) + "\n")
+        return data
+
+    for name in ["buildoptions", "machines", "targets", "installed", "install-plan"]:
+        introspect(name)
+    plan["meson_build_options"] = snapshots["buildoptions"]
+    mesa_install.validate_wgl_configuration(snapshots["buildoptions"])
+    mesa_install.wgl_targets(trees["mesa"], build, snapshots["targets"])
+    host = snapshots["machines"]["host"]
+    if host["system"] != "windows" or host["cpu_family"] != "aarch64":
+        raise ValueError(f"Mesa is not targeting native Windows ARM64: {host}")
     run([sys.executable, "-m", "mesonbuild.mesonmain", "compile", "-C", output / "mesa-build", "-j", args.jobs])
-    run([sys.executable, "-m", "mesonbuild.mesonmain", "install", "-C", output / "mesa-build"])
+    try:
+        run([sys.executable, "-m", "mesonbuild.mesonmain", "install", "-C", output / "mesa-build"])
+    finally:
+        # Native SDK output metadata only. Keep actual installation evidence even
+        # if install fails or expected targets are missing; never guess a DLL.
+        filetree = [{"path": path.relative_to(install).as_posix(), "bytes": path.stat().st_size,
+                     "sha256": file_hash(path)} for path in sorted(install.rglob("*")) if path.is_file()]
+        (output / "install-files.json").write_text(json.dumps(filetree, indent=2) + "\n", encoding="utf-8")
+    pair = mesa_install.discover_wgl_install(trees["mesa"], build, install,
+                                            introspect("targets"), introspect("installed"))
+    native_evidence = output / "native-sdk"
+    native_evidence.mkdir()
+    validated = mesa_install.validate_native_install(install, pair, Path(dumpbin), native_evidence)
+    (output / "driver-dependencies.json").write_text(json.dumps(validated, indent=2) + "\n", encoding="utf-8")
     deploy = output / "driver"
-    deploy.mkdir(exist_ok=True)
-    libraries = sorted(install.rglob("*.dll"))
-    if not {"opengl32.dll", "libgallium_wgl.dll"}.issubset({p.name for p in libraries}):
-        raise ValueError("Mesa did not install the actual WGL driver pair")
+    deploy.mkdir()
+    libraries = [Path(image["path"]) for image in validated["images"].values()]
     plan["driver_files"] = []
     for library in libraries:
         if pe_machine(library) != 0xaa64:

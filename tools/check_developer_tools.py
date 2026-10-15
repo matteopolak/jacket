@@ -8,6 +8,7 @@ import re
 import subprocess
 import shutil
 import build_developer_bindings
+import platform
 import check_developer_bindings
 import build_developer_debug
 import check_developer_debug_windows
@@ -16,6 +17,7 @@ import check_developer_native_abi
 import check_developer_dwarf_lines
 import check_developer_dwarf_frames
 import check_developer_eh_frames
+import check_developer_sdk_configuration
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -65,8 +67,24 @@ def prepare_cpp_visitors(prefix):
     return visitor_oracle
 
 
+def check_bridge_consumers(prefix, emitter):
+    extension = "dylib" if platform.system() == "Darwin" else "so"
+    flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
+    for cpp_optimization in [0, 2]:
+        run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
+             *flags, ROOT / "target/developer-tools-bridge.cpp", ROOT / "tests/developer-tools/bindings-bridge-native.cpp",
+             "-o", ROOT / f"target/libdeveloper_tools_bridge.{extension}"])
+        source = ROOT / "tests/developer-tools/bindings-bridge-roundtrip.jai"
+        run([JAIC, source, "-interp"], output="ok\n")
+        for optimization in [0, 2]:
+            exe = ROOT / f"target/developer-tools-bridge-{emitter}-cpp{cpp_optimization}-jai{optimization}"
+            run([JAIC, source, f"-O{optimization}", "-exe", exe])
+            run([exe], output="ok\n")
+
+
 def main():
     check_developer_bindings.main()
+    configured_cases = check_developer_sdk_configuration.main()
     build_developer_debug.main()
     check_developer_debug_windows.main()
     check_developer_msf.main()
@@ -148,6 +166,7 @@ def main():
     run([JAIC, "tests/developer-tools/bindings-model-properties.jai", "-interp"], output="ok\n")
     cases.append("bindings-model-properties-roundtrip")
     cases.append("msf-wire")
+    cases.append("msf-public")
     cases.append("debug-int-set")
     cases.append("bindings-clang-tokens")
     cases.append("bindings-clang-build-system")
@@ -158,6 +177,9 @@ def main():
     cases.append("dwarf-fde")
     cases.append("bindings-clang-time")
     cases.append("dwarf-eh-frame")
+    cases.extend(["bindings-bridge", "bindings-bridge-roundtrip"])
+    cases.append("bindings-equivalence")
+    cases.extend(["iprof-history-values", "iprof-stack-depth"])
     run([JAIC, "tests/developer-tools/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"
@@ -175,6 +197,8 @@ def main():
         run([JAIC, source, "-interp", "-I", ROOT / "target"], output=expected, error=error)
         if case == "bindings-clang-build-system":
             check_framework_consumer(prefix, "interp")
+        if case == "bindings-bridge":
+            check_bridge_consumers(prefix, "interp")
         if case == "bindings-cpp-fragments":
             for cpp_optimization in [0, 2]:
                 cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-interp-cxx{cpp_optimization}"
@@ -187,6 +211,8 @@ def main():
             run([exe], output=expected, error=error)
             if case == "bindings-clang-build-system":
                 check_framework_consumer(prefix, f"o{optimization}")
+            if case == "bindings-bridge":
+                check_bridge_consumers(prefix, f"o{optimization}")
             if case == "bindings-cpp-fragments":
                 for cpp_optimization in [0, 2]:
                     cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}"
@@ -265,7 +291,7 @@ def main():
     for cpu in ["x64", "arm64"]:
         run([JAIC, "tests/developer-tools/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
         for os_name in ["linux", "windows"]:
-            for case in ["msf-wire", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-fde", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
+            for case in ["msf-wire", "msf-public", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-fde", "bindings-equivalence", "iprof-history-values", "iprof-stack-depth", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
                 run([JAIC, f"tests/developer-tools/{case}.jai", "-check", "-os", os_name, "-cpu", cpu])
     for case, reason in [("check-array", "fixed array used as a pointer in assignment"),
                          ("check-small-driver", "small integer addition requires an explicit intermediate integer cast")]:
@@ -277,13 +303,17 @@ def main():
                                   cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
     if private_time.returncode != 1 or "no exported member `time_t`" not in private_time.stderr:
         raise RuntimeError("Bindings_Generator must not export its private native time_t alias")
+    private_page = subprocess.run([str(JAIC), "tests/developer-tools/rejections/msf-private-page.jai", "-check"],
+                                  cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
+    if private_page.returncode != 1 or "no exported member `UPN`" not in private_page.stderr:
+        raise RuntimeError("Debug_Info must not add an export for the contextual page-number alias")
     for os_name, cpu in [("linux", "x64"), ("windows", "x64"), ("wasm", "x64")]:
         run([JAIC, "tests/developer-tools/c-header.jai", "-check", "-os", os_name, "-cpu", cpu])
         run([JAIC, "tests/developer-tools/debug-target.jai", "-check", "-os", os_name, "-cpu", cpu])
         if os_name != "wasm":
             run([JAIC, "tests/developer-tools/bindings-literals.jai", "-check", "-os", os_name, "-cpu", cpu])
             run([JAIC, "tests/developer-tools/bindings-clang-options.jai", "-check", "-os", os_name, "-cpu", cpu])
-    print(f"Developer tooling supported suite: {len(cases)} interpreter/native O0/O2 fixtures, native C/C++ round trips, diagnostics, scoped format/lint and target ABI checks passed")
+    print(f"Developer tooling supported suite: {len(cases) + configured_cases} interpreter/native O0/O2 fixtures, native C/C++ round trips, diagnostics, scoped format/lint and target ABI checks passed")
 
 
 if __name__ == "__main__":

@@ -106,6 +106,8 @@ class SourceIntegrity(unittest.TestCase):
         with patch.object(mesa.shutil, "which", return_value=str(tool)):
             baseline = mesa.llvm_cache_configuration(env)
             key = mesa.build_cache_key(baseline)
+            with patch.object(mesa, "MESA_OPTIONS", ["-Dplatforms=changed-for-driver-only"]):
+                self.assertEqual(key, mesa.build_cache_key(mesa.llvm_cache_configuration(env)))
             self.assertEqual(baseline["toolchain"]["VCToolsVersion"], "14.39")
             self.assertNotEqual(key, mesa.build_cache_key(mesa.llvm_cache_configuration(dict(env, CL="/Od"))))
             self.assertNotEqual(key, mesa.build_cache_key(mesa.llvm_cache_configuration(dict(env, WINDOWSSDKVERSION="changed"))))

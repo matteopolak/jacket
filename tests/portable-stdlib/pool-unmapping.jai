@@ -54,7 +54,7 @@ main :: () {
     assert(!explicit.free_memblocks_on_reset);
     scoped := context;
     scoped.allocator = .{ P.pool_allocator_proc, *explicit };
-    // First-use metadata must not recurse into this same context allocator.
+    // Selecting the backing allocator precedes using this pool as the context.
     push_context scoped {
         allocated := context.allocator.proc(.ALLOCATE, 32, 0, null, context.allocator.data);
         assert(allocated != null);
@@ -64,7 +64,9 @@ main :: () {
     assert(explicit.unused_memblocks != null);
     P.release(*explicit);
     explicit.free_memblocks_on_reset = true;
+    context.logger = capture;
     P.set_allocators(*explicit, context.allocator);
-    assert(explicit.free_memblocks_on_reset);
+    context.logger = previous;
+    assert(errors == 2 && explicit.free_memblocks_on_reset);
     print("ok\n");
 }

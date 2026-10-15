@@ -7,8 +7,15 @@ inspected: bool;
 inspect :: (decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration_Visit_Result {
     if decl.kind == .FUNCTION && decl.name == "inspect_flags" {
         type := decl.type.type_of_function;
+
         assert(type != null && B.is_void_type(type.return_type));
         assert(type.arguments.count == 1 && B.is_bool_type(type.arguments[0].type));
+        returned := type.return_type.*;
+        returned.flags |= .CONST | .VOLATILE;
+        assert(B.is_same_type(type.return_type, *returned));
+        parameter := type.arguments[0].type.*;
+        parameter.flags |= .CONST;
+        assert(B.is_same_type(type.arguments[0].type, *parameter));
         inspected = true;
     }
 
