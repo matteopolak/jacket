@@ -44,6 +44,7 @@ operations, shared producer staging and the precise remaining archive contracts.
 Start with [compiler architecture](compiler/architecture.md). Real projects that compile are listed in [upstream corpus](tools/upstream-corpus.md#project-status).
 
 - [Features](features.md): what works, performance and what is missing
+- [Generator model helpers](generator-model.md): canonical model operations, ownership, verification and integration dependencies
 - [Window/render progress](status/window-render-progress.md): scoped native window,
   native input, Windows pointer tracking and keyboard layouts, Keymap, window lifecycle, original native-font
   feature regressions, real font-atlas/text rendering and texture color-space transitions,
@@ -488,3 +489,5 @@ restoration and bounded child cleanup; no clipboard substitute is used.
 
 - [Mac compiler catalogue repairs](compiler/mac-catalogue-repairs.md): reviewed fixture migrations, live AST links and correct union alignment.
 - [Rejected-overload lint audit](compiler/rejected-overload-audit.md): speculative instances stay outside declaration audit roots; selected and invalid concrete bodies remain checked.
+
+- [Developer tools status and remaining APIs](status/developer-tools-remaining.md): canonical model emission, native Check/Debug subsets and unresolved integration gates.
