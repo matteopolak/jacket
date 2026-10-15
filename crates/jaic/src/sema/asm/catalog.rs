@@ -332,10 +332,10 @@ fn core_feature(name: &str, kind: Kind) -> &'static str {
             Op::Rdtsc => "TSC",
             Op::Rdtscp => "RDTSCP",
             Op::Syscall => "SYSCALL_SYSRET",
-            Op::Rdrand if name == "rdseed" => "RDSEED",
+            Op::Rdseed => "RDSEED",
             Op::Rdrand => "RDRAND",
-            Op::Nop if name == "sfence" => "SSE",
-            Op::Nop if name != "nop" => "SSE2",
+            Op::Fence(crate::ir::X86Fence::Store) => "SSE",
+            Op::Fence(_) => "SSE2",
             Op::Pause => "SSE2",
             Op::Mov if name == "movnti" => "SSE2",
             Op::Mov
@@ -667,10 +667,10 @@ fn forms(name: &str, kind: Kind, vex: bool) -> Vec<String> {
             Op::Mul => vec!["hi: gpr, lo: gpr, src: gpr/mem"],
             Op::Setcc(_) => vec!["dst: gpr/mem"],
             Op::Cmovcc(_) => vec!["dst: gpr, src: gpr/mem"],
-            Op::Nop | Op::Pause | Op::Int3 | Op::SetCarry(_) => vec![""],
+            Op::Nop | Op::Fence(_) | Op::Pause | Op::Int3 | Op::SetCarry(_) => vec![""],
             Op::Rdtsc => vec!["hi: gpr, lo: gpr"],
             Op::Rdtscp => vec!["hi: gpr, lo: gpr, id: gpr"],
-            Op::Rdrand => vec!["dst: gpr"],
+            Op::Rdrand | Op::Rdseed => vec!["dst: gpr"],
             Op::Cpuid => vec!["a: gpr, b: gpr, c: gpr, d: gpr"],
             Op::Syscall => vec!["rcx_out: gpr, r11_out: gpr, rax_inout: gpr"],
         },
@@ -1034,19 +1034,31 @@ fn describe_core(name: &str, op: Op) -> String {
                 condition(c)
             );
         }
-        Op::Nop if name == "nop" => "Do nothing.",
-        Op::Nop => {
-            "Memory fence: order earlier loads/stores before later ones (lowered code is already ordered)."
+        Op::Nop => "Do nothing.",
+        Op::Fence(crate::ir::X86Fence::Load) => {
+            "Execute LFENCE: order loads and instruction execution; preserve flags."
+        }
+        Op::Fence(crate::ir::X86Fence::Store) => "Execute SFENCE: order stores; preserve flags.",
+        Op::Fence(crate::ir::X86Fence::Full) => {
+            "Execute MFENCE: order loads and stores; preserve flags."
         }
         Op::Pause => "Spin-loop hint: lets the core relax while waiting.",
         Op::Int3 => "Breakpoint: stop in the debugger.",
         Op::SetCarry(Some(false)) => "Clear the carry flag.",
         Op::SetCarry(Some(true)) => "Set the carry flag.",
         Op::SetCarry(None) => "Flip the carry flag.",
-        Op::Rdtsc => "Read the time-stamp counter into hi:lo (a monotonic counter here).",
-        Op::Rdtscp => "Read the time-stamp counter into hi:lo, and the processor id (0 here).",
-        Op::Rdrand if name == "rdseed" => "Store a random seed value; CF=1 on success.",
-        Op::Rdrand => "Store a random value; CF=1 on success.",
+        Op::Rdtsc => {
+            "Read the actual x86 time-stamp counter into hi:lo; not a serializing instruction."
+        }
+        Op::Rdtscp => {
+            "Read the actual x86 time-stamp counter into hi:lo and IA32_TSC_AUX into the third output."
+        }
+        Op::Rdseed => {
+            "One RDSEED attempt: CF=1 on success, other arithmetic flags clear; no automatic retry."
+        }
+        Op::Rdrand => {
+            "One RDRAND attempt: CF=1 on success, other arithmetic flags clear; no automatic retry."
+        }
         Op::Syscall => {
             "Linux x86-64 system call: rax is the number in and the raw result out, with arguments in the registers pinned to di, si, d, 10, 8 and 9; clobbers rcx and r11."
         }
@@ -1111,7 +1123,14 @@ fn describe_scalar(name: &str, op: XOp) -> String {
         XOp::Lahf => "Load SF, ZF, PF and CF into the second byte (AH) of the operand.",
         XOp::Sahf => "Store the second byte (AH) of the operand into SF, ZF, PF and CF.",
         XOp::Xlat => "Table lookup: replace the low byte of a with table[a].",
-        XOp::Hint => "Cache hint for the address (no effect here; the address is still evaluated).",
+        XOp::Hint => match name {
+            "prefetcht0" | "prefetcht1" | "prefetcht2" | "prefetchnta" => {
+                "Execute the x86 cache prefetch hint for the address; preserve flags; no guaranteed data fetch."
+            }
+            _ => {
+                "Recognized cache operation; architectural implementation is unavailable and checking diagnoses it."
+            }
+        },
         XOp::Direction(false) => "Clear the direction flag: string instructions walk upwards.",
         XOp::Direction(true) => {
             "Set the direction flag: string instructions in this block walk downwards."
@@ -1534,6 +1553,25 @@ mod tests {
             assert_eq!(instruction(&i.mnemonic), Some(i));
         }
         let vpaddd = instruction("vpaddd").unwrap();
+        assert!(
+            instruction("prefetcht0")
+                .unwrap()
+                .description
+                .contains("Execute the x86")
+        );
+        assert!(
+            instruction("clflush")
+                .unwrap()
+                .description
+                .contains("unavailable")
+        );
+        assert!(
+            instruction("rdtscp")
+                .unwrap()
+                .description
+                .contains("IA32_TSC_AUX")
+        );
+        assert_eq!(instruction("rdseed").unwrap().feature, "RDSEED");
         assert_eq!(vpaddd.forms[0], "vpaddd dst: vec, a: vec, b: vec/mem");
         assert_eq!(vpaddd.feature, "AVX2");
         assert_eq!(instruction("paddd").unwrap().feature, "SSE2");

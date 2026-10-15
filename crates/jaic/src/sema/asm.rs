@@ -361,14 +361,16 @@ enum Op {
     Mul,
     Setcc(Cond),
     Cmovcc(Cond),
-    /// `nop`, fences, `cld`/`std`: no observable effect in this model.
+    /// `nop`: no observable effect.
     Nop,
+    Fence(ir::X86Fence),
     Pause,
     Int3,
     SetCarry(Option<bool>),
     Rdtsc,
     Rdtscp,
     Rdrand,
+    Rdseed,
     Cpuid,
     Syscall,
 }
@@ -437,7 +439,10 @@ fn lookup_op(name: &str) -> Option<Op> {
         "blsmsk" => Op::Blsmsk,
         "imul" => Op::Imul,
         "mul" => Op::Mul,
-        "nop" | "mfence" | "lfence" | "sfence" => Op::Nop,
+        "nop" => Op::Nop,
+        "mfence" => Op::Fence(ir::X86Fence::Full),
+        "lfence" => Op::Fence(ir::X86Fence::Load),
+        "sfence" => Op::Fence(ir::X86Fence::Store),
         "pause" => Op::Pause,
         "int3" => Op::Int3,
         "clc" => Op::SetCarry(Some(false)),
@@ -445,7 +450,8 @@ fn lookup_op(name: &str) -> Option<Op> {
         "cmc" => Op::SetCarry(None),
         "rdtsc" => Op::Rdtsc,
         "rdtscp" => Op::Rdtscp,
-        "rdrand" | "rdseed" => Op::Rdrand,
+        "rdrand" => Op::Rdrand,
+        "rdseed" => Op::Rdseed,
         "cpuid" => Op::Cpuid,
         "syscall" => Op::Syscall,
         "movsxd" => Op::Movsx,
@@ -1332,9 +1338,16 @@ impl Compiler {
             Op::Nop => {
                 want(0, 0)?;
             }
-            Op::Pause => {
+            Op::Pause | Op::Fence(_) => {
                 want(0, 0)?;
-                f.b.intrinsic(Intrinsic::Pause, Vec::new(), &[]);
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, format!("{name} requires an x86-64 target"));
+                }
+                let operation = match op {
+                    Op::Fence(kind) => Intrinsic::X86Fence(kind),
+                    _ => Intrinsic::X86Pause,
+                };
+                f.b.intrinsic(operation, Vec::new(), &[]);
             }
             Op::Int3 => {
                 want(0, 0)?;
@@ -1351,15 +1364,38 @@ impl Compiler {
                 });
             }
             Op::Rdtsc | Op::Rdtscp => {
-                // (edx, eax) = counter; rdtscp also writes the processor id (ecx) as 0.
                 let max = if op == Op::Rdtscp {
                     3
                 } else {
                     2
                 };
                 want(2, max)?;
-                let t =
-                    f.b.intrinsic(Intrinsic::CycleCounter, Vec::new(), &[Ty::I64])[0];
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, format!("{name} requires an x86-64 target"));
+                }
+                if opds
+                    .iter()
+                    .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage, Ty::I32 | Ty::I64)))
+                {
+                    return err(
+                        span,
+                        format!("{name} outputs must be 32- or 64-bit integer registers"),
+                    );
+                }
+                let aux = op == Op::Rdtscp;
+                let result_types: &[Ty] = if aux {
+                    &[Ty::I64, Ty::I32]
+                } else {
+                    &[Ty::I64]
+                };
+                let results = f.b.intrinsic(
+                    Intrinsic::X86Timestamp {
+                        aux,
+                    },
+                    Vec::new(),
+                    result_types,
+                );
+                let t = results[0];
                 let s32 = konst(f, Ty::I64, 32);
                 let hi = bin(f, BinOp::LShr, Ty::I64, t, s32);
                 let hi = resize(f, hi, Ty::I64, Ty::I32, false);
@@ -1367,31 +1403,41 @@ impl Compiler {
                 self.asm_write(f, opds[0], Ty::I32, hi, span)?;
                 self.asm_write(f, opds[1], Ty::I32, lo, span)?;
                 if n == 3 {
-                    let z = konst(f, Ty::I32, 0);
-                    self.asm_write(f, opds[2], Ty::I32, z, span)?;
+                    self.asm_write(f, opds[2], Ty::I32, results[1], span)?;
                 }
             }
-            Op::Rdrand => {
-                // A scrambled cycle counter; CF = 1 reports success.
+            Op::Rdrand | Op::Rdseed => {
                 want(1, 1)?;
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, format!("{name} requires an x86-64 target"));
+                }
                 let sz = self.asm_size(f, cx, inst, &opds)?;
-                let t =
-                    f.b.intrinsic(Intrinsic::CycleCounter, Vec::new(), &[Ty::I64])[0];
-                let k = konst(f, Ty::I64, 0x9E37_79B9_7F4A_7C15);
-                let m = bin(f, BinOp::Mul, Ty::I64, t, k);
-                let s = konst(f, Ty::I64, 29);
-                let h = bin(f, BinOp::LShr, Ty::I64, m, s);
-                let v = bin(f, BinOp::Xor, Ty::I64, m, h);
-                let v = resize(f, v, Ty::I64, sz, false);
-                self.asm_write(f, opds[0], sz, v, span)?;
-                let one = konst(f, Ty::I8, 1);
+                if !matches!(sz, Ty::I16 | Ty::I32 | Ty::I64)
+                    || !matches!(opds[0], Opd::Reg(r) if matches!(r.storage, Ty::I16 | Ty::I32 | Ty::I64) && r.storage.size() >= sz.size())
+                {
+                    return err(
+                        span,
+                        format!(
+                            "{name} requires a 16-, 32- or 64-bit integer register destination"
+                        ),
+                    );
+                }
+                let result = f.b.intrinsic(
+                    Intrinsic::X86Random {
+                        seed: op == Op::Rdseed,
+                        width: sz,
+                    },
+                    Vec::new(),
+                    &[sz, Ty::I8],
+                );
+                self.asm_write(f, opds[0], sz, result[0], span)?;
                 let zero = konst(f, Ty::I8, 0);
                 cx.flags = Flags {
-                    cf: Some(one),
+                    cf: Some(result[1]),
                     zf: Some(zero),
                     sf: Some(zero),
                     of: Some(zero),
-                    pf: Some(one),
+                    pf: Some(zero),
                 };
             }
             Op::Cpuid => {

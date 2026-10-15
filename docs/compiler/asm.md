@@ -122,8 +122,14 @@ cmp, test, inc, dec, neg, not, shl/sal/shr/sar/rol/ror, rcl/rcr, shld/shrd, bt/b
 tzcnt, bswap, mul, imul, div, idiv, cbw/cwde/cdqe, cwd/cdq/cqo, BMI1/2 (andn, bextr, blsr/blsi/blsmsk, bzhi, pdep,
 pext, shlx/shrx/sarx, rorx, mulx), adcx/adox, crc32 (`crc32d`/`crc32q`, CRC-32C), setcc, cmovcc, clc/stc/cmc,
 cld/std, lahf/sahf, xlat, movs/stos/lods/cmps/scas with `rep_`/`repe_`/`repz_`/`repne_`/`repnz_`, nop/pause/fences,
-prefetch*/clflush*/clwb/cldemote (no-ops that still evaluate the address), int3 (`int 3`), rdtsc/rdtscp (a monotonic
-counter), `syscall` (see below), rdrand/rdseed, rdpid (0), cpuid and xgetbv (all outputs 0), stmxcsr (0x1f80), ldmxcsr (ignored).
+prefetcht0/1/2 and prefetchnta (real x64 hints), int3 (`int 3`), rdtsc/rdtscp (actual x64
+counter and AUX), `syscall` (see below), rdrand/rdseed (single hardware attempt with actual CF),
+cpuid (real leaf/subleaf results). Timestamp/random/fence/pause/prefetch operations require
+x64; interpreter execution requires an x64 host and optional instructions check real CPUID.
+See [architectural instruction semantics](x86-machine-instructions.md). Other cache operations
+(prefetchw/wt1, clflush/opt, clwb, cldemote) explicitly diagnose unimplemented support.
+Remaining synthetic gaps are rdpid (0), xgetbv (all outputs 0), stmxcsr (0x1f80),
+ldmxcsr (ignored); these are not implemented architectural behavior.
 
 Op-mask: kmov, kand, kandn, kor, kxor, kxnor, knot, kadd, kshiftl, kshiftr, ktest, kortest (each with b/w/d/q), and
 kunpckbw/wd/dq.

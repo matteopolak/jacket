@@ -57,7 +57,7 @@ pub(super) enum XOp {
     Lahf,
     Sahf,
     Xlat,
-    /// Cache hints (`prefetch*`, `clflush*`, `clwb`): one memory operand, no effect.
+    /// Cache operations: supported prefetch hints lower architecturally; others diagnose.
     Hint,
     /// `cld` (false) / `std` (true).
     Direction(bool),
@@ -589,9 +589,21 @@ impl Compiler {
             }
             XOp::Hint => {
                 want(1, 1)?;
-                if !matches!(opds[0], Opd::Mem(_)) {
+                let Opd::Mem(address) = opds[0] else {
                     return err(span, format!("`{name}` takes a memory operand"));
+                };
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, format!("{name} requires an x86-64 target"));
                 }
+                let hint = match name {
+                    "prefetcht0" => ir::X86Prefetch::T0,
+                    "prefetcht1" => ir::X86Prefetch::T1,
+                    "prefetcht2" => ir::X86Prefetch::T2,
+                    "prefetchnta" => ir::X86Prefetch::NonTemporal,
+                    _ => return err(span, format!("{name} cache operation is not implemented")),
+                };
+                let pointer = ptr_of(f, address);
+                f.b.intrinsic(Intrinsic::X86Prefetch(hint), vec![pointer], &[]);
             }
             XOp::Direction(set) => {
                 want(0, 0)?;

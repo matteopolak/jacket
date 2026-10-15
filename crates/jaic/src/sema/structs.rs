@@ -306,6 +306,16 @@ impl Compiler {
         PolyStructId(self.poly_structs.len() as u32 - 1)
     }
 
+    /// A bare generic name denotes its default instance when every parameter has a default.
+    /// Keep the source type available separately for generic patterns and reflection.
+    pub(super) fn poly_struct_has_defaults(&self, ps: PolyStructId) -> bool {
+        self.poly_structs[ps.0 as usize]
+            .lit
+            .params
+            .iter()
+            .all(|p| p.default.is_some())
+    }
+
     /// `Table(int, string)`: instantiate a polymorphic struct.
     /// The constant value of a polymorphic struct argument. An aggregate whose type
     /// differs from the parameter's (a fixed array for a `[] T` parameter) is converted.
@@ -316,6 +326,9 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Value> {
+        if ty == TypeId::TYPE {
+            return self.operand_as_type(op, span).map(Value::Type);
+        }
         let converts = ty != TypeId::VOID
             && op.ty() != ty
             && matches!(

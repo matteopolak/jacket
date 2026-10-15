@@ -281,6 +281,22 @@ pub enum AtomicOp {
 
 /// Built-in operations with backend-specific implementations.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum X86Fence {
+    Load,
+    Store,
+    Full,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum X86Prefetch {
+    T0,
+    T1,
+    T2,
+    NonTemporal,
+}
+
+/// Built-in operations with backend-specific implementations.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Intrinsic {
     Memcpy,
     Memset,
@@ -323,6 +339,19 @@ pub enum Intrinsic {
     ReturnAddress,
     /// Read the cycle counter (`rdtsc`).
     CycleCounter,
+    /// Real x86 RDTSC (I64), or RDTSCP (I64 timestamp, I32 IA32_TSC_AUX).
+    X86Timestamp {
+        aux: bool,
+    },
+    /// One hardware attempt: (value: width, carry: I8). Width is I16/I32/I64.
+    X86Random {
+        seed: bool,
+        width: Ty,
+    },
+    X86Fence(X86Fence),
+    X86Pause,
+    /// One memory-address argument; a cache hint, not a data load or memory fence.
+    X86Prefetch(X86Prefetch),
     /// `(leaf: I32, subleaf: I32) -> (eax, ebx, ecx, edx): I32`, real x86-64 CPUID.
     CpuId,
     Pause,

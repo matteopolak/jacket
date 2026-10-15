@@ -552,13 +552,7 @@ impl Compiler {
                 self.proc_type(p[0], span)
             }
             // A polymorphic struct whose parameters all have defaults is a type already.
-            Operand::PolyStruct(ps)
-                if self.poly_structs[ps.0 as usize]
-                    .lit
-                    .params
-                    .iter()
-                    .all(|p| p.default.is_some()) =>
-            {
+            Operand::PolyStruct(ps) if self.poly_struct_has_defaults(ps) => {
                 self.instantiate_struct(ps, Vec::new(), span)
             }
             other => err(

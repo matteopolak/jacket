@@ -1088,9 +1088,14 @@ impl Compiler {
                 let inner = self.check_expr(f, scope, a, None)?;
                 match inner {
                     Operand::Type(t) => Ok(Operand::Type(self.types.pointer(t))),
-                    // `*Dict` with the arguments left off: a pointer to the polymorphic struct.
+                    // Concrete default pointees share the explicit instance's identity.
+                    // Required arguments still leave a source type for generic patterns.
                     Operand::PolyStruct(ps) => {
-                        let t = self.poly_struct_type(ps);
+                        let t = if self.poly_struct_has_defaults(ps) {
+                            self.instantiate_struct(ps, Vec::new(), span)?
+                        } else {
+                            self.poly_struct_type(ps)
+                        };
                         Ok(Operand::Type(self.types.pointer(t)))
                     }
                     Operand::Place {

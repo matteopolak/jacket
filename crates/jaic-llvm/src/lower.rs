@@ -2759,6 +2759,84 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     self.builder.build_extract_value(value, i, "").map_err(Into::into)
                 }).collect()
             }
+            Intrinsic::X86Timestamp { aux } => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 timestamp instruction requires an x86-64 target".into());
+                }
+                let i32t = self.ctx.i32_type();
+                let fields = [i32t.into(); 3];
+                let outputs = self.ctx.struct_type(&fields[..if aux { 3 } else { 2 }], false);
+                let (instruction, constraints) = if aux {
+                    ("rdtscp", "={ax},={dx},={cx},~{memory}")
+                } else {
+                    ("rdtsc", "={ax},={dx},~{memory}")
+                };
+                let value = self.inline_asm(instruction, constraints, Some(outputs.into()))?
+                    .ok_or("timestamp instruction produced no value")?.into_struct_value();
+                let lo = self.builder.build_extract_value(value, 0, "")?.into_int_value();
+                let hi = self.builder.build_extract_value(value, 1, "")?.into_int_value();
+                let lo = self.builder.build_int_z_extend(lo, i64t, "")?;
+                let hi = self.builder.build_int_z_extend(hi, i64t, "")?;
+                let hi = self.builder.build_left_shift(hi, i64t.const_int(32, false), "")?;
+                let timestamp = self.builder.build_or(lo, hi, "")?;
+                let mut result = vec![timestamp.into()];
+                if aux { result.push(self.builder.build_extract_value(value, 2, "")?); }
+                Ok(result)
+            }
+            Intrinsic::X86Random { seed, width } => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 random instruction requires an x86-64 target".into());
+                }
+                let (ty, suffix) = match width {
+                    Ty::I16 => (self.ctx.i16_type(), "w"),
+                    Ty::I32 => (self.ctx.i32_type(), "l"),
+                    Ty::I64 => (i64t, "q"),
+                    _ => return Err("invalid x86 random instruction width".into()),
+                };
+                let outputs = self.ctx.struct_type(&[ty.into(), self.ctx.i8_type().into()], false);
+                let instruction = if seed { "rdseed" } else { "rdrand" };
+                let value = self.inline_asm(&format!("{instruction}{suffix} $0; setc $1"), "=&r,=&q,~{flags}", Some(outputs.into()))?
+                    .ok_or("random instruction produced no value")?.into_struct_value();
+                (0..2).map(|i| self.builder.build_extract_value(value, i, "").map_err(Into::into)).collect()
+            }
+            Intrinsic::X86Fence(kind) => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 memory fence requires an x86-64 target".into());
+                }
+                let instruction = match kind {
+                    ir::X86Fence::Load => "lfence",
+                    ir::X86Fence::Store => "sfence",
+                    ir::X86Fence::Full => "mfence",
+                };
+                self.inline_asm(instruction, "~{memory}", None)?;
+                Ok(vec![])
+            }
+            Intrinsic::X86Pause => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 PAUSE requires an x86-64 target".into());
+                }
+                self.inline_asm("pause", "", None)?;
+                Ok(vec![])
+            }
+            Intrinsic::X86Prefetch(hint) => {
+                if !self.arch.is_x86_64() {
+                    return Err("x86 prefetch requires an x86-64 target".into());
+                }
+                let [address] = args else {
+                    return Err("invalid x86 prefetch operands".into());
+                };
+                let pointer = self.coerce(*address, Ty::Ptr)?.into_pointer_value();
+                let ty = self.fn_type(None, &[pointer.get_type().into()], false);
+                let instruction = match hint {
+                    ir::X86Prefetch::T0 => "prefetcht0",
+                    ir::X86Prefetch::T1 => "prefetcht1",
+                    ir::X86Prefetch::T2 => "prefetcht2",
+                    ir::X86Prefetch::NonTemporal => "prefetchnta",
+                };
+                let asm = self.ctx.create_inline_asm(ty, format!("{instruction} ($0)"), "r".into(), true, false, None, false);
+                self.builder.build_indirect_call(ty, asm, &[pointer.into()], "")?;
+                Ok(vec![])
+            }
             Intrinsic::CycleCounter => {
                 let v = match self.arch {
                     // The user-space virtual counter; PMCCNTR is not readable from EL0.
@@ -2769,7 +2847,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                         self.call_intrinsic("llvm.readcyclecounter", &[], &[])?
                     }
                     // No cycle counter is visible to wasm code.
-                    Arch::Wasm64 => Some(i64t.const_zero().into()),
+                    Arch::Wasm64 => return Err("no architectural cycle counter is available on a WebAssembly target".into()),
                 };
                 Ok(vec![v.ok_or("cycle counter produced no value")?])
             }

@@ -2728,7 +2728,23 @@ impl Compiler {
             "round" => ir::Intrinsic::Round,
             "trunc" => ir::Intrinsic::Trunc,
             "abs" | "fabs" => ir::Intrinsic::Fabs,
-            "rdtsc" | "get_cpu_cycle_count" => ir::Intrinsic::CycleCounter,
+            "rdtsc" => {
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, "rdtsc requires an x86-64 target");
+                }
+                ir::Intrinsic::X86Timestamp {
+                    aux: false,
+                }
+            }
+            "get_cpu_cycle_count" => {
+                if self.options.cpu == TargetCpu::Wasm {
+                    return err(
+                        span,
+                        "no architectural cycle counter is available on a WebAssembly target",
+                    );
+                }
+                ir::Intrinsic::CycleCounter
+            }
             "pause" | "mm_pause" => ir::Intrinsic::Pause,
             "fiber_init" => ir::Intrinsic::FiberInit,
             "fiber_switch" => ir::Intrinsic::FiberSwitch,
@@ -2769,6 +2785,16 @@ impl Compiler {
             return err(
                 span,
                 "floating intrinsic signature requires one float32/float64 argument and the same result type",
+            );
+        }
+        if matches!(
+            op,
+            ir::Intrinsic::X86Timestamp { .. } | ir::Intrinsic::CycleCounter
+        ) && (!values.is_empty() || returns.as_slice() != [Ty::I64])
+        {
+            return err(
+                span,
+                format!("{name} requires no arguments and one 64-bit integer result"),
             );
         }
         let atomic = matches!(
