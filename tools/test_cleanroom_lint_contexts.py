@@ -2,7 +2,7 @@
 from pathlib import Path
 import tempfile
 import unittest
-from cleanroom_lint_contexts import checked_coverage, resolve_contexts
+from cleanroom_lint_contexts import checked_coverage, resolve_contexts, target_coverage_gaps
 
 
 class LintContexts(unittest.TestCase):
@@ -44,6 +44,26 @@ class LintContexts(unittest.TestCase):
             data["contexts"][0]["targets"] = ["invented"]
             with self.assertRaisesRegex(ValueError, "unknown source-check target"):
                 resolve_contexts(data, root)
+
+    def test_host_coverage_does_not_cover_inactive_cross_target_sources(self):
+        source = Path("conditional.jai")
+        coverage = {"macos-arm64": {str(source.resolve())}}
+        gaps = target_coverage_gaps([source], coverage, ["macos-arm64", "windows-x64"])
+        self.assertEqual(gaps["macos-arm64"], [])
+        self.assertEqual(gaps["windows-x64"], [source])
+        with self.assertRaisesRegex(ValueError, "nonempty"):
+            target_coverage_gaps([source], coverage, [])
+
+    def test_common_paths_preserve_real_context_selection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            (root / "library").mkdir()
+            (root / "program.jai").write_text("main :: () {}\n")
+            document = {"version": 1, "common_paths": ["library"], "contexts": [
+                {"id": "program", "source": "program.jai", "paths": ["program.jai"],
+                 "targets": ["macos-arm64"]}]}
+            jobs = resolve_contexts(document, root)
+            self.assertEqual(jobs[0]["paths"], [root / "library", root / "program.jai"])
 
 
 if __name__ == "__main__":

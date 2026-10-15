@@ -214,7 +214,8 @@
     "source": "jai-lexer-errors/main.jai",
     "mode": "interp",
     "timeout_seconds": 30,
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "stderr": "1:1: \\x escape requires two hexadecimal digits\n1:21: integer literal overflow\n1:5: invalid binary digit\n1:5: number has a second decimal point\n1:4: exponent requires decimal digits\n1:14: unterminated block comment\n1:6: 0h float bit patterns require 4, 8 or 16 digits\n"
   },
   {
     "name": "compiler-message-records-and-completion",

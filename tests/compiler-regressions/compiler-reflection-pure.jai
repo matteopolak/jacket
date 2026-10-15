@@ -1,5 +1,5 @@
-#load "../../stdlib/Protocol_For_Memory_Visualization.jai";
-#load "../../stdlib/Jai_Lexer/classify.jai";
+#import "Protocol_For_Memory_Visualization";
+#import "Jai_Lexer";
 
 probe :: () -> bool {
     if !starts_identifier(#char "_") || !starts_identifier(#char "Z") return false;

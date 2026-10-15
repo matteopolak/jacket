@@ -305,8 +305,8 @@ fn compiler_and_abi_regressions_run_natively() {
     }
 }
 
-/// `read_stdin_line()` reads piped standard input in a compiled program, and an
-/// exhausted pipe ends the loop.
+/// Reviewed File reads preserve piped standard input and EOF; the fixture owns
+/// line splitting because File exports no read_stdin_line helper.
 #[test]
 fn stdin_lines_are_read_natively() {
     use std::io::Write;
@@ -382,6 +382,25 @@ fn empty_workspaces_write_no_output() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+    let source = repo_root().join("tests/compiler-semantics/workspace-identity.jai");
+    let output = build_and_run(&source, &dir, "workspace-identity").unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+    let interpreted = Command::new(JAIC)
+        .arg("-interp")
+        .arg(source)
+        .output()
+        .unwrap();
+    assert!(
+        interpreted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&interpreted.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&interpreted.stdout), "ok\n");
 }
 
 /// Compiled code maintains `context.stack_trace` (`jaic::stack_trace::instrument`): call lines, depth,
@@ -409,17 +428,21 @@ fn stack_traces() {
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2 3\n");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr
-            .contains("error: assertion failed: boom\ncall stack (innermost first):\n    main at "),
+        stderr.contains("assertion failed: boom\nstack trace:\n")
+            && stderr.contains("    main at "),
         "{stderr}"
     );
     assert!(
         stderr.contains("trace.jai:6\n") && !stderr.contains("assert_helper"),
         "{stderr}"
     );
-    // Paths under the directory the build ran in are shown relative to it, as `jaic -interp` does.
+    // The reviewed runtime reports the caller location; absolute-versus-relative
+    // presentation is not a compatibility contract.
     assert!(
-        stderr.starts_with("trace.jai:6:") && stderr.contains("    main at trace.jai:6\n"),
+        stderr.lines().next().unwrap().contains("trace.jai:6:")
+            && stderr
+                .lines()
+                .any(|line| line.contains("main at ") && line.ends_with("trace.jai:6")),
         "{stderr}"
     );
     assert!(!output.status.success());

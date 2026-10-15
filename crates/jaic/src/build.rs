@@ -473,7 +473,7 @@ impl MetaOp {
     pub fn from_name(name: &str) -> Option<Self> {
         Some(match name {
             "__jaic_workspace_create" => Self::WorkspaceCreate,
-            "__jaic_current_workspace" => Self::CurrentWorkspace,
+            "get_current_workspace" | "__jaic_current_workspace" => Self::CurrentWorkspace,
             "__jaic_workspace_validate" => Self::ValidateWorkspace,
             "__jaic_data_segment" => Self::DataSegment,
             "__jaic_global_data" => Self::GlobalData,

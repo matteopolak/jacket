@@ -4,7 +4,7 @@ F :: #import "File";
 S :: #import "String";
 
 main :: () {
-    filename := sprint("%/../../stdlib/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
+    filename := sprint("%/../../native-regressions/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
 
     defer free(filename);
     clip, loaded := F.read_entire_file(filename);

@@ -30,8 +30,8 @@ def case_passes(case, mode, code, output, error):
     if "error_contains" in case:
         return code == case["exit_code"] and case["error_contains"] in error and output == case["stdout"]
     if mode == "check":
-        return code == 0
-    return code == 0 and output == case["stdout"]
+        return code == 0 and error == case.get("stderr", "")
+    return code == 0 and output == case["stdout"] and error == case.get("stderr", "")
 
 
 def selected_cases(cases, names):

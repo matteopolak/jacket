@@ -1,6 +1,6 @@
-// Over-aligned types (`#align 64`) through the default allocator: New, alloc, NewArray, array
-// growth and resize all return cache-line-aligned blocks for requests of 64 bytes or more, and
-// those blocks free normally. Checked at run time and under #run (the interpreter path).
+// Over-aligned types (`#align 64`) through typed allocation, arrays and local frames.
+// Raw alloc/realloc preserve their requested storage and contents; byte counts do
+// not prescribe an additional cache-line alignment. Checked at runtime and #run.
 // Prints "ok"; also built natively by crates/jaic-cli/tests/native.rs.
 #import "Basic";
 
@@ -52,14 +52,18 @@ check :: () -> string {
         free(scraps[i]);
     }
 
-    // Every size from a cache line up.
+    // Every byte count remains usable; raw allocation has no requested alignment.
     for size: 64..1100 {
         block := alloc(size);
-        if !aligned(block) return "alloc";
+        if !block return "alloc";
+
+        memset(block, 0x37, size);
+        if (cast(*u8) block)[size - 1] != 0x37 return "alloc contents";
+
         free(block);
     }
 
-    // Growing from below a cache line keeps the bytes and becomes aligned.
+    // Growing from below a cache line preserves every originally written byte.
     for start: 1..63 {
         block := alloc(start);
 
@@ -67,7 +71,8 @@ check :: () -> string {
 
         for size: start + 1..start + 300 {
             block = realloc(block, size, size - 1);
-            if size >= 64 && !aligned(block) return "realloc";
+            if !block return "realloc";
+            for k: 0..start - 1 if (cast(*u8) block)[k] != 0x5a return "realloc contents";
         }
 
         for k: 0..start - 1 if (cast(*u8) block)[k] != 0x5a return "realloc contents";
@@ -76,10 +81,10 @@ check :: () -> string {
     }
 
     // Arrays of over-aligned elements, fixed and growing.
-    array := NewArray(37, Line);
+    array, allocation := NewArray(37, Line);
     if !aligned(array.data) return "NewArray";
 
-    array_free(array);
+    free(allocation);
     growing: [..] Line;
 
     for i: 0..999 {

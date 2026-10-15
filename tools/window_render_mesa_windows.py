@@ -11,7 +11,9 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -115,44 +117,93 @@ def seal_llvm_cache(entry, configuration):
     partial.replace(entry / "complete.json")
 
 
+def required_native_inputs(env, roots, search):
+    if env.get("VSCMD_ARG_TGT_ARCH", "").casefold() != "arm64":
+        raise ValueError("required native ARM64 SDK/toolchain selection is missing")
+    version = env.get("WINDOWSSDKVERSION", "").strip("\\/")
+    ucrt_version = env.get("UCRTVERSION", version).strip("\\/")
+    if not all(re.fullmatch(r"\d+\.\d+\.\d+\.\d+", value) for value in [version, ucrt_version]):
+        raise ValueError("required selected Windows SDK/UCRT version is invalid")
+    vc, sdk = roots["VCTOOLSINSTALLDIR"], roots["WINDOWSSDKDIR"]
+    ucrt = roots.get("UNIVERSALCRTSDKDIR", sdk)
+    groups = [
+        ("INCLUDE", vc / "include", ["vcruntime.h", "vector"]),
+        ("INCLUDE", sdk / f"Include/{version}/um", ["Windows.h"]),
+        ("INCLUDE", sdk / f"Include/{version}/shared", ["SDKDDKVer.h"]),
+        ("INCLUDE", ucrt / f"Include/{ucrt_version}/ucrt", ["stdio.h"]),
+        ("LIB", vc / "lib/arm64", ["libcmt.lib", "libcpmt.lib", "libvcruntime.lib"]),
+        ("LIB", sdk / f"Lib/{version}/um/arm64", ["kernel32.lib", "user32.lib", "gdi32.lib", "ws2_32.lib"]),
+        ("LIB", ucrt / f"Lib/{ucrt_version}/ucrt/arm64", ["libucrt.lib"]),
+    ]
+    required = []
+    for variable, directory, names in groups:
+        for name in names:
+            path = directory / name
+            if not path.is_file():
+                raise ValueError(f"missing required selected native input: {path}")
+            # MSVC searches these environment directories left-to-right. Do not
+            # accept an existing selected file if the actual search cannot reach
+            # it or a different SDK/architecture shadows it first.
+            found = next((Path(entry["path"]) / name for entry in search[variable]
+                          if entry["state"] == "directory" and (Path(entry["path"]) / name).is_file()), None)
+            if found is None or found.resolve() != path.resolve():
+                raise ValueError(f"required selected native input is unreachable/shadowed in {variable}: {path}")
+            required.append({"search": variable, "path": str(path.resolve()), "sha256": file_hash(path)})
+    return required
+
+
 def llvm_cache_configuration(env):
     # Only inspect explicitly selected public native SDK directories. Never scan
     # arbitrary process PATHs or unrelated source trees to construct the cache.
     # Windows environment names are case-insensitive. Converting os.environ to
     # a plain dict otherwise loses that property (typically yielding uppercase).
     env = {name.upper(): value for name, value in env.items()}
-    roots = [Path(env[name.upper()]).resolve(strict=True) for name in ["VCToolsInstallDir", "WindowsSdkDir"]]
-    if env.get("NETFXSDKDIR"):
-        roots.append(Path(env["NETFXSDKDIR"]).resolve(strict=True))
+    roots = {}
+    for name in ["VCTOOLSINSTALLDIR", "WINDOWSSDKDIR", "UNIVERSALCRTSDKDIR", "NETFXSDKDIR", "VSINSTALLDIR", "VCINSTALLDIR"]:
+        if env.get(name):
+            roots[name] = Path(env[name]).resolve()
+    for name in ["VCTOOLSINSTALLDIR", "WINDOWSSDKDIR"]:
+        if name not in roots or not roots[name].is_dir():
+            raise ValueError(f"missing required selected native SDK root: {name}")
     native_inputs = {}
     for variable in ["INCLUDE", "LIB"]:
         directories = []
         for item in env.get(variable, "").split(os.pathsep):
             if not item:
                 continue
-            directory = Path(item).resolve(strict=True)
-            if not any(directory.is_relative_to(root) for root in roots):
+            directory = Path(item).resolve()
+            entry = {"configured_path": item, "path": str(directory)}
+            try:
+                info = directory.stat()
+            except (FileNotFoundError, NotADirectoryError):
+                directories.append(dict(entry, state="missing"))
+                continue
+            if not stat.S_ISDIR(info.st_mode):
+                directories.append(dict(entry, state="not-directory"))
+                continue
+            if not any(directory.is_relative_to(root) for root in roots.values()):
                 raise ValueError(f"cache fingerprint requires a selected native SDK directory: {directory}")
             files = tree_manifest(directory)
-            directories.append({"path": str(directory), "files": len(files), "sha256": build_cache_key(files)})
+            directories.append(dict(entry, state="directory", files=len(files), sha256=build_cache_key(files)))
         native_inputs[variable] = directories
         if not directories:
             raise ValueError(f"native SDK {variable} directories are required for verified reuse")
+    required = required_native_inputs(env, roots, native_inputs)
     tools = {}
     for tool in ["cl.exe", "link.exe", "lib.exe", "rc.exe", "mt.exe", "cmake", "ninja"]:
         path = shutil.which(tool, path=env.get("PATH"))
-        if not path:
+        if not path or not Path(path).is_file():
             raise ValueError(f"missing native build tool: {tool}")
         tools[tool] = {"path": path, "sha256": file_hash(Path(path))}
         if tool == "cl.exe":
             # MSVC loads its frontend/code-generator DLLs beside cl.exe.
             tools[tool]["bin_tree_sha256"] = build_cache_key(tree_manifest(Path(path).parent))
-    return {"schema": 1, "source": list(SOURCES["llvm"]), "options": LLVM_OPTIONS,
+    return {"schema": 2, "source": list(SOURCES["llvm"]), "options": LLVM_OPTIONS,
             "python": {"executable": sys.executable, "version": sys.version, "packages": PACKAGES},
             "toolchain": {name: env.get(name.upper()) for name in ["VCToolsVersion", "WindowsSDKVersion",
                           "VSCMD_ARG_TGT_ARCH", "CL", "_CL_", "LINK", "_LINK_", "CC", "CXX",
                           "CFLAGS", "CXXFLAGS", "LDFLAGS", "CMAKE_TOOLCHAIN_FILE"]},
-            "sdk_inputs": native_inputs, "tools": tools}
+            "sdk_inputs": native_inputs, "required_inputs": required, "tools": tools}
 
 
 def llvm_identity(prefix, env):
@@ -170,6 +221,12 @@ def llvm_identity(prefix, env):
                                                for value, path in zip(directories, expected)):
         raise ValueError(f"LLVM cached installation is not relocated to its verified prefix: {directories}")
     return {"version_target_backends": identity, "installation_directories": directories}
+
+
+def complete_cache_configuration(env):
+    configuration = llvm_cache_configuration(env)
+    configuration["tool_packages"] = {name: distribution_fingerprint(name) for name in ["cmake", "ninja"]}
+    return configuration
 
 
 def write_native_machine_file(destination, executable):
@@ -292,8 +349,7 @@ def main():
 
     sources = output / "sources"
     sources.mkdir(exist_ok=True)
-    configuration = llvm_cache_configuration(env)
-    configuration["tool_packages"] = {name: distribution_fingerprint(name) for name in ["cmake", "ninja"]}
+    configuration = complete_cache_configuration(env)
     entry = cache / build_cache_key(configuration)
     hit = verify_llvm_cache(entry, configuration)
     plan["llvm_cache"] = {"key": entry.name, "hit": hit, "configuration": configuration}
@@ -328,6 +384,8 @@ def main():
             run(["cmake", "--build", output / "llvm-build", "--parallel", args.jobs])
             run(["cmake", "--install", output / "llvm-build"])
             plan["llvm_identity"] = llvm_identity(llvm, env)
+            if complete_cache_configuration(env) != configuration:
+                raise ValueError("native search/SDK/tool inputs changed during LLVM build; cache completion refused")
             seal_llvm_cache(entry, configuration)
         finally:
             lock.rmdir()

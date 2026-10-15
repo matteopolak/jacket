@@ -35,16 +35,17 @@ def cases():
         yield case["id"], case["path"]
 
 
-def contract_result(case, code, output):
+def contract_result(case, code, output, error=""):
     if case.get("mode") == "check-fail":
         diagnostic = case.get("diagnostic_contains")
         if not isinstance(diagnostic, str) or not diagnostic.strip():
             raise ValueError("check-fail requires a precise diagnostic")
-        return code is not None and code != 0 and diagnostic in output
+        return code is not None and code != 0 and diagnostic in output + error
     if "error_contains" in case:
-        return code == case["exit_code"] and case["error_contains"] in output
+        return (code == case["exit_code"] and case["error_contains"] in output + error
+                and output == case.get("stdout", ""))
     if "stdout" in case:
-        return code == 0 and output == case["stdout"]
+        return code == 0 and output == case["stdout"] and error == case.get("stderr", "")
     return code == 0
 
 
@@ -66,11 +67,11 @@ def use_native_libs(plat):
 
 
 def run_command(command, cwd, timeout, env):
-    """(exit code, output); exit code None on a timeout. Output goes through a file: a program
+    """(exit code, stdout, stderr); code None on timeout. Streams use separate files: a program
     the test started may outlive a killed one and keep a pipe open."""
-    with tempfile.TemporaryFile() as out:
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as error:
         proc = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=out,
-                                stderr=subprocess.STDOUT)
+                                stderr=error)
         try:
             code = proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -78,7 +79,9 @@ def run_command(command, cwd, timeout, env):
             proc.wait()
             code = None
         out.seek(0)
-        return code, out.read().decode("utf-8", "replace").replace("\r\n", "\n")
+        error.seek(0)
+        return (code, out.read().decode("utf-8", "replace").replace("\r\n", "\n"),
+                error.read().decode("utf-8", "replace").replace("\r\n", "\n"))
 
 
 def run_mode(args, test, path, mode, scratch, metadata=None):
@@ -95,25 +98,35 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
         record = Path(scratch) / f"{test.replace('/', '-')}-{mode}.coverage"
         if args.coverage:
             env["JAIC_COVERAGE"] = str(record)
-        code, out = run_command([args.jaic, str(path), "-interp", *target], path.parent, args.timeout, env)
+        code, stdout, stderr = run_command([args.jaic, str(path), "-interp", *target], path.parent, args.timeout, env)
         if args.coverage and record.exists():
             # One file per run, gathered under a lock: concurrent appends could interleave.
             with COVERAGE_LOCK, open(args.coverage, "a", encoding="utf-8") as into:
                 into.write(record.read_text(encoding="utf-8", errors="replace"))
             record.unlink()
-        return contract_result(metadata or {}, code, out), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
+        out = stdout + stderr
+        return contract_result(metadata or {}, code, stdout, stderr), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     exe = Path(tempfile.mkdtemp(dir=scratch)) / test.replace("/", "-")
     try:
-        code, out = run_command([args.jaic, str(path), *target, "-" + args.opt, "-exe", str(exe)], path.parent,
+        code, stdout, stderr = run_command([args.jaic, str(path), *target, "-" + args.opt, "-exe", str(exe)], path.parent,
                                 args.timeout, env)
+        out = stdout + stderr
         # A program without `main` did all its work at compile time.
-        if code != 0 and ("no exported 'main'" in out or "has no `main` procedure" in out):
-            return None, "no main: compile-time only"
+        if code is not None and code != 0 and ("no exported 'main'" in out or "has no `main` procedure" in out):
+            checked, checked_out, checked_error = run_command(
+                [args.jaic, str(path), *target, "-check"], path.parent, args.timeout, env)
+            if checked == 0:
+                return None, "no main: separately checked compile-time only"
+            return False, "missing-main build also fails strict source checking:\n" + out + checked_out + checked_error
         if code != 0:
             return False, f"build failed ({'timeout' if code is None else f'exit {code}'}):\n{out}"
         built = [p for p in exe.parent.iterdir() if p.name in (exe.name, exe.name + ".exe", exe.name + ".wasm")]
         if not built:
-            return None, "no executable: compile-time only"
+            checked, checked_out, checked_error = run_command(
+                [args.jaic, str(path), *target, "-check"], path.parent, args.timeout, env)
+            if checked == 0:
+                return None, "no executable: separately checked compile-time only"
+            return False, "missing executable also fails strict source checking:\n" + checked_out + checked_error
         if args.dlls and not wasm:
             # Windows loads a DLL from the executable's directory before the system's.
             for dll in args.dlls.glob("*.dll"):
@@ -124,10 +137,11 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             for dll in Path(os.environ["JAIC_NATIVE_LIBS"]).glob("SDL2.dll"):
                 shutil.copy2(dll, exe.parent / dll.name)
         command = ["node", "--no-warnings", str(ROOT / "tools/wasi_run.mjs"), str(built[0])] if wasm else [str(built[0])]
-        code, out = run_command(command, path.parent, args.timeout, env)
-        return contract_result(metadata or {}, code, out), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
+        code, stdout, stderr = run_command(command, path.parent, args.timeout, env)
+        out = stdout + stderr
+        return contract_result(metadata or {}, code, stdout, stderr), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     finally:
-        shutil.rmtree(exe.parent, ignore_errors=True)
+        shutil.rmtree(exe.parent)
 
 
 def main():
@@ -175,14 +189,15 @@ def main():
             elif case.get("mode") == "check-fail" or "error_contains" in case:
                 target = ["-os", "wasm"] if mode.startswith("wasm") else []
                 check = ["-check"] if case.get("mode") == "check-fail" else ["-interp", "-no_workspace_output"]
-                code, detail = run_command([args.jaic, str(path), *target, *check], path.parent, args.timeout, dict(os.environ))
-                passed = contract_result(case, code, detail)
+                code, stdout, stderr = run_command([args.jaic, str(path), *target, *check], path.parent, args.timeout, dict(os.environ))
+                detail = stdout + stderr
+                passed = contract_result(case, code, stdout, stderr)
                 if case.get("positive_baseline"):
                     baseline = next(c for c in catalogue if c["id"] == "contracts/" + case["positive_baseline"])
-                    baseline_code, baseline_output = run_command([args.jaic, str(baseline["path"]), *target, "-check"], baseline["path"].parent, args.timeout, dict(os.environ))
+                    baseline_code, baseline_out, baseline_error = run_command([args.jaic, str(baseline["path"]), *target, "-check"], baseline["path"].parent, args.timeout, dict(os.environ))
                     if baseline_code != 0:
                         passed = False
-                        detail += "\npositive public baseline failed:\n" + baseline_output
+                        detail += "\npositive public baseline failed:\n" + baseline_out + baseline_error
             else:
                 passed, detail = run_mode(args, test, path, mode, scratch, case)
             results.append((mode, passed, detail, reason, "error_contains" in case or case.get("mode") == "check-fail", time.monotonic() - started))
@@ -207,7 +222,7 @@ def main():
                         c[1] += 1
                         failures.append((test, mode, detail))
     finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+        shutil.rmtree(scratch)
     for test, mode, detail in failures:
         lines = detail.strip().splitlines()
         shown = lines if args.verbose else lines[-25:]

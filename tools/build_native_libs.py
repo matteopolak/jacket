@@ -304,7 +304,7 @@ def shipped_files(manifest: dict, plat: str) -> list[str]:
         elif plat not in MINGW_PREFIXES:
             files.append(f'lib{name}.{"dylib" if plat.startswith("macos") else "so"}')
         if lib.get('builder') == 'sdl3':
-            files += ['sdl3/build.json', 'sdl3/static-link-libraries.txt', 'sdl3/SDL_build_config.h', 'sdl3/installed-headers.json', 'licenses/sdl3/THIRD-PARTY-NOTICES.txt']
+            files += ['sdl3/build.json', 'sdl3/static-link-libraries.txt', 'sdl3/SDL_build_config.h', 'sdl3/installed-headers.json', 'sdl3/sdk/include/SDL3/SDL.h', 'licenses/sdl3/THIRD-PARTY-NOTICES.txt']
             if plat.startswith('windows'):
                 files.append('SDL3-import.lib')
         sources.add(lib['source'])

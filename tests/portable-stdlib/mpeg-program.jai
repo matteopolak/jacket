@@ -46,7 +46,7 @@ main :: () {
 
 run_cases :: () {
     #assert !#exists(M.Demux);
-    filename := sprint("%/../stdlib/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
+    filename := sprint("%/../native-regressions/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
 
     defer free(filename);
     plm := M.create_with_filename(filename);

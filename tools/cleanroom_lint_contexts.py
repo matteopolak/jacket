@@ -27,7 +27,8 @@ def resolve_contexts(document, root):
             raise ValueError("duplicate lint context: " + name)
         names.add(name)
         source = (root / context["source"]).resolve(strict=True)
-        paths = [(root / path).resolve(strict=True) for path in context["paths"]]
+        paths = list(dict.fromkeys((root / path).resolve(strict=True)
+                                   for path in document.get("common_paths", []) + context["paths"]))
         if not source.is_file() or not source.is_relative_to(root):
             raise ValueError("lint context must be a real source under this checkout")
         if not paths or any(not path.is_relative_to(root) for path in paths):
@@ -42,6 +43,16 @@ def resolve_contexts(document, root):
     if not jobs:
         raise ValueError("empty lint-context manifest")
     return jobs
+
+
+def target_coverage_gaps(files, coverage, required_targets):
+    """A clean visit on one target cannot cover an inactive file on another."""
+    if not required_targets or len(set(required_targets)) != len(required_targets):
+        raise ValueError("required targets must be nonempty and distinct")
+    if any(target not in TARGETS for target in required_targets):
+        raise ValueError("unknown required source-check target")
+    return {target: [path for path in files if str(path.resolve()) not in coverage.get(target, set())]
+            for target in required_targets}
 
 
 def checked_coverage(document, exit_code):

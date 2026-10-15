@@ -99,3 +99,7 @@ LLVM, correct-architecture libraries and Mesa, plus actual native CI. Source-onl
 or unavailable hardware checks must be stated as such. Corpus vendor library
 bodies remain opaque to the integration worker; coordinator runs the original
 full application corpus and Focus. Release/publication remains held.
+
+## Independent catalogue channel and compile-only checks
+
+Reviewed contract metadata keeps stdout and stderr separate. A positive with a stdout contract also requires exact stderr (empty unless explicitly supplied); intentional lexer diagnostics are declared, not discarded or merged with success output. Native builds diagnosed without main or without an executable must separately pass strict source checking before being counted compile-time-only. Timeouts and unrelated compiler errors stay failures; compile-time-only never counts as native runtime execution. Cleanup errors propagate. The runner's9 protocol tests include original failed stdout/channel and missing-main/timeout regressions. No inherited skip/coverage baseline is used.

@@ -143,7 +143,7 @@ run_cases :: (tracking: *Tracking) {
     assert(!video.has_sequence_header && !video.frames_data && buffer.bit_index == 32 && reports == 1);
     context.logger = previous;
     M.video_destroy(video);
-    filename := sprint("%/../stdlib/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
+    filename := sprint("%/../native-regressions/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
 
     defer free(filename);
     buffer = M.buffer_create_with_filename(filename);

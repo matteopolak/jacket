@@ -18,9 +18,9 @@ main :: () {
     assert(cast(s64) t.on_signal == 1);
     assert(cast(s64) ERROR == -1);
 
-    // The POSIX dispositions have the handler type on every platform.
+    // The reviewed macOS dispositions are raw pointers; Linux types handlers.
     action: sigaction_t;
-    action.sa_handler = SIG_IGN;
-    assert(action.sa_handler == SIG_IGN && action.sa_handler != SIG_DFL);
+    action.sa_handler = cast(Handler) SIG_IGN;
+    assert(action.sa_handler == cast(Handler) SIG_IGN && action.sa_handler != cast(Handler) SIG_DFL);
     print("ok\n");
 }

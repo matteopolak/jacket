@@ -36,7 +36,7 @@ main :: () {
     assert(frame != null && frame.y.data[0] == 128);
     assert(M.video_decode(video) == null);
     M.video_destroy(video);
-    filename := sprint("%/../stdlib/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
+    filename := sprint("%/../native-regressions/pl-mpeg-clip.mpg", S.path_strip_filename(#file));
 
     defer free(filename);
     bytes, loaded := F.read_entire_file(filename);

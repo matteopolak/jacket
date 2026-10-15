@@ -154,6 +154,51 @@ def package_windows_artifacts(stage, out):
         shutil.copy2(stage/source,out/name)
     return list(WINDOWS_ARTIFACTS)
 
+def installed_cmake_dir(stage, manifest):
+    """Use CMake's actual install result, not a Unix directory convention."""
+    configs=[Path(line) for line in manifest.read_text(encoding='utf-8').splitlines()
+             if Path(line).name=='SDL3Config.cmake']
+    if len(configs)!=1:raise RuntimeError(f'expected exactly one installed SDL3Config.cmake in {manifest}: {configs}')
+    config=configs[0].resolve()
+    if not config.is_relative_to(stage.resolve()):raise RuntimeError(f'installed SDL3 config outside package prefix: {config}')
+    directory=config.parent
+    required=('SDL3Config.cmake','SDL3ConfigVersion.cmake','SDL3headersTargets.cmake',
+              'SDL3staticTargets.cmake','SDL3staticTargets-release.cmake',
+              'SDL3sharedTargets.cmake','SDL3sharedTargets-release.cmake')
+    for name in required:
+        if not (directory/name).is_file():raise RuntimeError(f'missing installed CMake export: {directory/name}')
+    return directory
+
+def package_installed_sdk(stage, out, manifest):
+    """Keep the official prefix-relative exports, headers and artifacts together."""
+    directory=installed_cmake_dir(stage,manifest)
+    relative=directory.relative_to(stage.resolve())
+    sdk=out/'sdl3/sdk'
+    if sdk.resolve().is_relative_to(stage.resolve()):raise ValueError('SDL3 SDK output must be outside its install staging tree')
+    if sdk.exists():shutil.rmtree(sdk)
+    # Materialize Unix alias symlinks as identical files so zip extraction also
+    # preserves every imported SONAME/install-name path without symlink support.
+    shutil.copytree(stage,sdk,symlinks=False)
+    print(f'SDL3 installed CMake package: {relative.as_posix()} -> {sdk/relative}',flush=True)
+    return {'prefix':'sdl3/sdk','cmake_dir':relative.as_posix(),
+            'files':{p.relative_to(sdk).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
+                     for p in sorted(sdk.rglob('*')) if p.is_file()}}
+
+def check_relocated_consumers(out, info, plat, cmake_args, jobs):
+    work=ROOT/'artifacts/sdl3/consumers'/plat
+    if work.exists():shutil.rmtree(work)
+    work.mkdir(parents=True)
+    relocated=work/'relocated SDK'
+    shutil.copytree(out/info['prefix'],relocated)
+    builddir=work/'build'
+    subprocess.run(['cmake','-S',str(ROOT/'tools/native/sdl3/consumer'),'-B',str(builddir),
+                    f'-DJAI_SDL3_PREFIX={relocated}',f'-DSDL3_DIR={relocated/info["cmake_dir"]}',
+                    f'-DJAI_SDL3_PLATFORM={plat}','-DCMAKE_BUILD_TYPE=Release',*cmake_args],check=True)
+    subprocess.run(['cmake','--build',str(builddir),'--config','Release','--parallel',str(jobs)],check=True)
+    if plat==host():
+        subprocess.run(['ctest','--test-dir',str(builddir),'-C','Release','--output-on-failure'],check=True)
+    return {'compiled':['c-static','c-shared','cpp-static','cpp-shared'],'native_executed':plat==host()}
+
 def check_dependencies(text,plat):
     """Reject optional packages that became hard static dependencies unexpectedly.
     The module's system dependencies must cover SDL's actual configured link interface.
@@ -179,11 +224,13 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     builddir=ROOT/'artifacts/sdl3/build'/plat
     stage=ROOT/'artifacts/sdl3/install'/plat
     options=configure_options(plat)
+    consumer_args=[option for option in options if option.startswith(('-DCMAKE_OSX_','-DCMAKE_MSVC_RUNTIME_LIBRARY='))]
     if plat.startswith('windows'):
         toolchain=windows_toolchain(plat)
         print('SDL3 Windows toolchain: '+json.dumps(toolchain),flush=True)
         prepare_windows_build_tree(builddir,toolchain)
         options=toolchain+options
+        consumer_args=toolchain+consumer_args
     if stage.exists(): shutil.rmtree(stage)
     subprocess.run(['cmake','-S',str(ROOT/'tools/native/sdl3'),'-B',str(builddir),
                     f'-DSDL_SOURCE={src}',f'-DSDL_JAI_PLATFORM={plat}',f'-DCMAKE_INSTALL_PREFIX={stage}',
@@ -237,13 +284,16 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     for flag in required:
         if f'#define {flag} 1' not in config: raise RuntimeError(f'required SDL backend disabled: {flag}')
     shutil.copy2(configs[0],metadata/'SDL_build_config.h')
-    for f in (stage/'lib/pkgconfig').glob('*.pc'):
-        text=f.read_text().replace(str(stage),'${pcfiledir}/../../..')
-        (metadata/f.name).write_text(text)
     (metadata/'static-link-libraries.txt').write_text(dependencies)
-    # Package CMake targets for native consumers and dependency auditing.
-    shutil.copytree(stage/'lib/cmake/SDL3',metadata/'cmake',dirs_exist_ok=True)
+    # Export files must remain at their installed prefix-relative depth with all
+    # referenced libraries and headers; copying only cmake/ breaks relocation.
+    sdk=package_installed_sdk(stage,out,builddir/'install_manifest.txt')
+    old_metadata=metadata/'cmake'
+    if old_metadata.exists():shutil.rmtree(old_metadata)
+    for old_pc in metadata.glob('*.pc'):old_pc.unlink()
+    consumers=check_relocated_consumers(out,sdk,plat,consumer_args,jobs)
     record={'platform':plat,'version':'3.4.18','source':source,'cmake_options':options,
+            'sdk':sdk,'relocated_consumers':consumers,
             'native_smoke_executed': plat==host(),
             'artifacts':{n:hashlib.sha256((out/n).read_bytes()).hexdigest() for n in sorted(names)}}
     if plat.startswith('windows'):

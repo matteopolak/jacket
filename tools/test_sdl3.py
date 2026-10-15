@@ -20,10 +20,25 @@ def audit(native,plat):
     assert meta['platform']==plat and meta['version']=='3.4.18'
     for name,digest in meta['artifacts'].items():
         assert hashlib.sha256((native/name).read_bytes()).hexdigest()==digest,name
+    sdk=meta['sdk'];prefix=(native/sdk['prefix']).resolve()
+    if not prefix.is_relative_to(native):raise RuntimeError('SDL3 SDK prefix escapes native package')
+    actual={p.relative_to(prefix).as_posix() for p in prefix.rglob('*') if p.is_file()}
+    assert actual==set(sdk['files']),'SDL3 SDK file inventory differs'
+    for name,digest in sdk['files'].items():
+        path=(prefix/name).resolve()
+        if not path.is_relative_to(prefix):raise RuntimeError(f'SDL3 SDK file escapes prefix: {name}')
+        assert hashlib.sha256(path.read_bytes()).hexdigest()==digest,name
+    assert (prefix/sdk['cmake_dir']/'SDL3Config.cmake').is_file()
+    assert (prefix/'include/SDL3/SDL.h').is_file()
     if plat.startswith('windows'):
         from sdl3_native import WINDOWS_ARTIFACTS
         assert meta['artifact_roles']=={name:role for name,(source,role) in WINDOWS_ARTIFACTS.items()}
         assert (native/'SDL3.lib').read_bytes()!=(native/'SDL3-import.lib').read_bytes()
+        for name,(source,role) in WINDOWS_ARTIFACTS.items():
+            assert (native/name).read_bytes()==(prefix/source).read_bytes(),name
+    else:
+        for name in meta['artifacts']:
+            assert (native/name).read_bytes()==(prefix/'lib'/name).read_bytes(),name
     filename='SDL3.dll' if plat.startswith('windows') else 'libSDL3.'+('dylib' if plat.startswith('macos') else 'so')
     library=ctypes.CDLL(str(native/filename))
     library.SDL_GetVersion.restype=ctypes.c_int
@@ -45,6 +60,7 @@ def audit(native,plat):
     gpu=[item['name'] for item in ledger['headers']['SDL_gpu.h']['declarations'] if item['kind']=='procedure' and item['name'] not in {'SDL_GDKSuspendGPU','SDL_GDKResumeGPU'}]
     for symbol in gpu:getattr(library,symbol)
     print(f'audited {len(gpu)} GPU exports (no GPU hardware execution)')
+    print(f'audited {len(actual)} installed SDK files, CMake exports, headers and artifact identities')
     print(f'audited SDL3 {plat}: {len(symbols)} runtime exports and all artifact hashes')
 
 def main():

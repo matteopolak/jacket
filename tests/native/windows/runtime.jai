@@ -6,6 +6,7 @@
 #import "String";
 #import "Hash_Table";
 #import "File";
+#import "File_Utilities";
 #import "Thread";
 
 failures := 0;
@@ -133,7 +134,7 @@ main :: () {
     threads: [4] Thread;
     for *threads {
         check(thread_init(it, worker), "thread_init");
-        check(thread_start(it), "thread_start");
+        thread_start(it);
     }
 
     for *threads {

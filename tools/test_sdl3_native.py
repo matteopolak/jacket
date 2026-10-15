@@ -2,6 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import shutil
 import unittest
 from unittest.mock import patch
 import sdl3_native as sdl
@@ -40,6 +41,55 @@ class BuildContract(unittest.TestCase):
             self.assertIn('licenses/sdl3/LICENSE.txt',files)
             self.assertIn('sdl3/build.json',files)
             if p.startswith('windows'):self.assertIn('SDL3-import.lib',files)
+
+class InstalledSDK(unittest.TestCase):
+    def fixture(self,root,relative):
+        stage=root/'install';directory=stage/relative;directory.mkdir(parents=True)
+        # Layout/copy fixtures only: these are not native artifacts or functional
+        # CMake packages. Real exported-target validation is the native consumer gate.
+        for name in ('SDL3Config.cmake','SDL3ConfigVersion.cmake','SDL3headersTargets.cmake',
+                     'SDL3staticTargets.cmake','SDL3staticTargets-release.cmake',
+                     'SDL3sharedTargets.cmake','SDL3sharedTargets-release.cmake'):
+            (directory/name).write_bytes(b'# installed target metadata fixture\n')
+        header=stage/'include/SDL3/SDL.h';header.parent.mkdir(parents=True);header.write_bytes(b'/* header copy fixture */\n')
+        for name in ('lib/SDL3-static.lib','lib/SDL3.lib','bin/SDL3.dll'):
+            path=stage/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(name.encode())
+        manifest=root/'install_manifest.txt'
+        manifest.write_text(''.join(p.as_posix()+'\n' for p in stage.rglob('*') if p.is_file()))
+        return stage,directory,manifest
+
+    def test_actual_install_manifest_selects_windows_unix_and_custom_layout(self):
+        for relative in ('cmake','lib/cmake/SDL3','custom/export/SDL3'):
+            with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+                stage,directory,manifest=self.fixture(Path(d),relative)
+                self.assertEqual(sdl.installed_cmake_dir(stage,manifest),directory)
+
+    def test_missing_ambiguous_or_external_exports_fail(self):
+        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+            root=Path(d);stage,directory,manifest=self.fixture(root,'cmake')
+            export=directory/'SDL3sharedTargets-release.cmake';export.unlink()
+            with self.assertRaisesRegex(RuntimeError,'missing installed CMake'):sdl.installed_cmake_dir(stage,manifest)
+            export.write_text('# restored layout fixture\n')
+            manifest.write_text(manifest.read_text()+str(root/'other/SDL3Config.cmake')+'\n')
+            with self.assertRaisesRegex(RuntimeError,'exactly one'):sdl.installed_cmake_dir(stage,manifest)
+            manifest.write_text(str(root/'other/SDL3Config.cmake')+'\n')
+            with self.assertRaisesRegex(RuntimeError,'outside'):sdl.installed_cmake_dir(stage,manifest)
+
+    def test_sdk_relocation_preserves_installed_tree_and_artifact_identity(self):
+        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+            root=Path(d);stage,directory,manifest=self.fixture(root,'cmake')
+            package=root/'package';package.mkdir()
+            info=sdl.package_installed_sdk(stage,package,manifest)
+            relocated=root/'relocated package';shutil.move(package,relocated)
+            self.assertEqual(info['prefix'],'sdl3/sdk');self.assertEqual(info['cmake_dir'],'cmake')
+            sdk=relocated/info['prefix']
+            for name,digest in info['files'].items():
+                self.assertEqual(hashlib.sha256((sdk/name).read_bytes()).hexdigest(),digest)
+                self.assertEqual((sdk/name).read_bytes(),(stage/name).read_bytes())
+            self.assertEqual((sdk/'lib/SDL3-static.lib').read_bytes(),b'lib/SDL3-static.lib')
+            self.assertEqual((sdk/'lib/SDL3.lib').read_bytes(),b'lib/SDL3.lib')
+            self.assertEqual((sdk/'bin/SDL3.dll').read_bytes(),b'bin/SDL3.dll')
+            self.assertTrue((sdk/'cmake/SDL3Config.cmake').is_file())
 
 class WindowsDiscovery(unittest.TestCase):
     instances=[

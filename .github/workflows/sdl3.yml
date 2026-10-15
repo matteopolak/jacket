@@ -45,11 +45,11 @@ jobs:
         run: |
           cmake --version
           python tools/sdl3_native.py --platform "${{ matrix.platform }}" --show-toolchain
-      - name: Build static and shared SDL3 and run both C headless smoke tests
+      - name: Build SDL3, preserve installed SDK, and run relocated C/C++ static/shared consumers
         run: python3 tools/build_native_libs.py SDL3 --platform "${{ matrix.platform }}"
       - name: Offline rebuild uses verified durable source cache
         run: python3 tools/sdl3_native.py --platform "${{ matrix.platform }}" --offline
-      - name: Audit version, every runtime symbol, licenses and artifact hashes
+      - name: Audit version, every runtime symbol, licenses, installed SDK and artifact hashes
         run: python3 tools/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "artifacts/native-libs/${{ matrix.platform }}"
       - name: Check reproducible generation for every target
         if: matrix.platform == 'linux-x64'

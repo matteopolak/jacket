@@ -1,9 +1,11 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from stdlib_coverage import code_lines, declarations
-from stdlib_runtime import contract_result
+from stdlib_runtime import contract_result, run_mode
 from stdlib_test_catalog import validated_entries, unavailable_reason
 
 
@@ -23,6 +25,30 @@ class CatalogueTests(unittest.TestCase):
         self.assertFalse(contract_result({"stdout": "ok\n"}, 0, "wrong\n"))
         self.assertIsNone(unavailable_reason({"family": "native"}, "native"))
         self.assertIsNotNone(unavailable_reason({"family": "native"}, "wasm-native"))
+
+    def test_expected_diagnostics_are_separate_from_program_stdout(self):
+        case = {"stdout": "ok\n", "stderr": "expected diagnostic\n"}
+        self.assertTrue(contract_result(case, 0, "ok\n", "expected diagnostic\n"))
+        self.assertFalse(contract_result(case, 0, "ok\n", "unrelated failure\n"))
+        self.assertFalse(contract_result(case, 0, "wrong\n", "expected diagnostic\n"))
+
+    def test_missing_main_does_not_hide_other_compile_errors(self):
+        args = SimpleNamespace(jaic="own-jaic", opt="O0", timeout=5, coverage=None, dlls=None)
+        with TemporaryDirectory() as temporary:
+            path = Path(temporary) / "program.jai"
+            with patch("stdlib_runtime.run_command", side_effect=[
+                (1, "", "program has no `main` procedure; unknown identifier genuine_error"),
+                (1, "", "unknown identifier genuine_error"),
+            ]):
+                passed, detail = run_mode(args, "program", path, "native", temporary)
+                self.assertIs(passed, False, detail)
+
+    def test_timeout_is_not_reclassified_as_compile_time_only(self):
+        args = SimpleNamespace(jaic="own-jaic", opt="O0", timeout=5, coverage=None, dlls=None)
+        with TemporaryDirectory() as temporary:
+            with patch("stdlib_runtime.run_command", return_value=(None, "", "program has no `main` procedure")):
+                passed, detail = run_mode(args, "program", Path(temporary) / "program.jai", "native", temporary)
+                self.assertIs(passed, False, detail)
 
 
 class CoverageParserTests(unittest.TestCase):
