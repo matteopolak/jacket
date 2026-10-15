@@ -30,6 +30,7 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 Jai language behavior as implemented by `jaic`.
 
 - [Casts and conversions](language/casts-and-conversions.md)
+- [Windows ABI unwind tables](compiler/windows-unwind.md)
 - [Compiler host and output target constants](compiler/host-target-constants.md)
 - [The implicit context](language/context.md)
 - [Control flow: loops, cases and defer](language/control-flow.md)

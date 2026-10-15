@@ -400,6 +400,7 @@ fn emit_module(
             &machine.get_feature_string().to_string_lossy(),
         ),
     )?;
+    apply_abi_unwind_attributes(&context, &module, arch)?;
     let unit = shard.map_or(0, |s| s.index);
     if let Some(ir_path) = &options.emit_ir {
         module
@@ -458,6 +459,9 @@ fn emit_module(
             .run_passes(&passes.join(","), &machine, pass_options)
             .map_err(|e| e.to_string())?;
     }
+    // Instrumentation/optimization can introduce definitions. They have the same ABI
+    // obligations as source functions, including when a pass ignores synthesis defaults.
+    apply_abi_unwind_attributes(&context, &module, arch)?;
     if let Some(path) = &options.codegen.ir_after {
         module
             .print_to_file(unit_path(path, unit))
@@ -526,6 +530,42 @@ fn discard_value_names(context: &Context) {
             1,
         )
     };
+}
+
+/// Windows stack walks and asynchronous exceptions need tables even for inferred `nounwind`
+/// functions. Frame pointers and language exception propagation are independent of this ABI.
+fn apply_abi_unwind_attributes<'ctx>(
+    context: &'ctx Context,
+    module: &inkwell::module::Module<'ctx>,
+    arch: jaic::abi::Arch,
+) -> Result<(), String> {
+    if !arch.is_windows() {
+        return Ok(());
+    }
+    // LLVM UWTableKind::Async = 2 (llvm/Support/CodeGen.h). A module default also
+    // covers functions synthesized by instrumentation and outlining passes.
+    if module.get_flag("uwtable").is_none() {
+        // LLVM’s C API exposes no Max flag behavior; construct its documented
+        // metadata record directly (LangRef: Module Flags Metadata, behavior 7).
+        let flag = context.metadata_node(&[
+            context.i32_type().const_int(7, false).into(),
+            context.metadata_string("uwtable").into(),
+            context.i32_type().const_int(2, false).into(),
+        ]);
+        module
+            .add_global_metadata("llvm.module.flags", &flag)
+            .map_err(|error| error.to_string())?;
+    }
+    let kind = Attribute::get_named_enum_kind_id("uwtable");
+    for function in module.get_functions() {
+        if function.count_basic_blocks() > 0 {
+            function.add_attribute(
+                AttributeLoc::Function,
+                context.create_enum_attribute(kind, 2),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// The function attributes `Build_Options` asks for, on every function with a body.
