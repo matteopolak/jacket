@@ -35,6 +35,15 @@ release_scratch :: (storage: *Temporary_Storage, owner: Allocator) {
 
 // thread_deinit reaps a completed worker; it is not a completion wait.
 finish_thread :: (thread: *Thread.Thread) {
-    assert(Thread.thread_is_done(thread, -1), "Io: could not wait for a worker thread");
+    completed := Thread.thread_is_done(thread, -1);
+    assert(completed, "Io: could not wait for a worker thread");
+    if !completed fail_thread_lifecycle("Io: could not wait for a worker thread");
     Thread.thread_deinit(thread);
+}
+
+// These void operations cannot report a partially started/joined worker set.
+// Retain fatal failure even when optional assertion diagnostics are disabled.
+fail_thread_lifecycle :: (message: string) {
+    log_error("%", message);
+    exit(1);
 }

@@ -40,6 +40,12 @@ user's to install; `jaic` finds them the usual way.
 
 ## How it works
 
+xxhash070's pinned v0.7.0 Windows ARM64 source receives a hash-checked,
+build-local intrinsic guard correction: the x86/x64-only __emulu is replaced
+by selecting the same header's existing portable multiplication branch.
+Other targets, exports, CRT flags and cached originals are unchanged. See
+[ARM64 repair, source provenance and mandatory native tests](xxhash-arm64-build.md).
+
 - `tools/native-libs.json` pins each source: a GitHub repository and revision with a sha256 per
   file, or an `archive` URL (`.tar.gz` or `.zip`) with its sha256 and top-level directory, and the
   `license` files to copy out of it (a path, or `{"file", "head", "as"}` when the licence is only

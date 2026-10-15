@@ -142,8 +142,41 @@ def generate_parser(lib: dict, src: Path, tmp: Path, plat: str) -> Path:
     return generated
 
 
+def prepare_xxhash_arm64_source(src: Path, tmp: Path) -> Path:
+    """Audit-patched v0.7.0 build copy; __emulu is an x86/x64-only intrinsic.
+
+    Keep upstream's portable multiplication on ARM64, without changing the pin,
+    cached files, hash algorithm, CRT flags, or any other platform's build.
+    """
+    spec = json.loads(MANIFEST.read_text())['sources']['xxhash070']
+    if spec['revision'] != 'v0.7.0':
+        raise RuntimeError('xxhash070: source revision changed; review the ARM64 intrinsic guard patch')
+    contents = {}
+    for name, expected in spec['files'].items():
+        data = (src / name).read_bytes()
+        actual = hashlib.sha256(data).hexdigest()
+        if actual != expected:
+            raise RuntimeError(f'xxhash070/{name}: sha256 {actual}, expected {expected}')
+        contents[name] = data
+    original = (b'#ifdef _MSC_VER\n#   include <intrin.h>\n'
+                b"    /* MSVC doesn't do a good job with the mull detection. */\n"
+                b'#   define XXH_mult32to64 __emulu\n')
+    replacement = original.replace(b'#ifdef _MSC_VER',
+                                  b'#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))')
+    if contents['xxh3.h'].count(original) != 1:
+        raise RuntimeError('xxhash070: unrecognized intrinsic guard; review the ARM64 source patch')
+    contents['xxh3.h'] = contents['xxh3.h'].replace(original, replacement)
+    staged = tmp / 'xxhash070-arm64'
+    staged.mkdir()
+    for name, data in contents.items():
+        (staged / name).write_bytes(data)
+    return staged
+
+
 def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list[Path]:
     """Object files of one library: its one-line `code` unit, or the `units` of its source."""
+    if name == 'xxhash070' and plat == 'windows-arm64':
+        src = prepare_xxhash_arm64_source(src, tmp)
     if 'code' in lib:
         unit = tmp / f'jai_{name}_unit.c'
         unit.write_text(lib['code'])

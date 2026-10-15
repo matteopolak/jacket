@@ -384,6 +384,7 @@ Scripts, CI and project policies.
 - [Package managers and installers](tools/package-managers.md): Homebrew tap, `install.sh`/`install.ps1`, the release jobs that publish them and their one-time setup
 - [PGO and BOLT](tools/pgo-and-bolt.md): profile-guided and post-link optimisation of the released binaries, `tools/build_pgo.py`
 - [Third-party native libraries](tools/native-libs.md)
+- [Pinned xxhash070 Windows ARM64 build repair and native verification](tools/xxhash-arm64-build.md)
 - [Regex Unicode tables](tools/regex-unicode-tables.md): `tools/gen_regex_unicode.py`, the generated `unicode_data.jai` and the lookup API of `Extensions/Regex`
 - [Third-party smoke test](tools/third-party-smoke-test.md): finding public Jai repositories and trying them
 - [open-jai expectation harness](tools/openjai-expectations.md)
@@ -427,3 +428,5 @@ Agreed designs that are not built yet.
 - [Refresh22 combined verification](tools/cleanroom-integration.md#refresh22-combined-checkpoint): workspace counts, production allocator artifacts and remaining gates.
 
 - [Foreign native storage reexports](compiler/foreign-data-reexports.md): reviewed immutable-binding boundary, general filtered export fix and actual Socket identity verification.
+
+- [Extensions assertion-profile runner](../tests/extensions/run-assert-profiles.py): actual Io worker preparation/completion under enabled and disabled assertions, with unchanged production source hashes.

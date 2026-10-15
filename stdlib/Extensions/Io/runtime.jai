@@ -165,16 +165,22 @@ pop_deadline :: (previous: s64) {
 run_threads :: (count: s64, entry: Thread.Thread_Proc, data: *void) {
     count = ifx count <= 0 then processor_count() else count;
 
-    threads, allocation := NewArray(count, Thread.Thread);
+    threads, allocation := NewArray(count, Thread.Thread, initialized = false);
+    if !threads.data fail_thread_lifecycle("Io: could not allocate thread records");
 
     defer free(allocation);
+    for *threads Initialize(it);
 
     started := 0;
 
     for 0..count - 1 {
         thread := *threads[it];
 
-        assert(Thread.thread_init(thread, entry), "Io: could not prepare a thread");
+        prepared := Thread.thread_init(thread, entry);
+
+        assert(prepared, "Io: could not prepare a thread");
+        if !prepared fail_thread_lifecycle("Io: could not prepare a thread");
+
         thread.data = data;
 
         Thread.thread_start(thread);
