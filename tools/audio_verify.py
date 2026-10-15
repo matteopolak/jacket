@@ -64,7 +64,7 @@ def main():
             print("windows-abi.jai: Windows x64/ARM64 static ABI checks; native execution unavailable", flush=True)
             continue
         expected = "ok\n"
-        if case.stem in {"device-lifecycle", "streams", "compressed-stream", "entity-phase", "entity-lifecycle", "concurrent-render-stop", "region-lifetime"}:
+        if case.stem in {"device-lifecycle", "streams", "compressed-stream", "entity-phase", "entity-lifecycle", "concurrent-render-stop", "concurrent-factories", "region-lifetime"}:
             expected = lambda out: out in {"native-device-opened\nok\n", "native-device-unavailable\nok\n"}
         if case.stem == "controlled-output":
             expected = lambda out: out in {"native-2-channel-output-opened\nok\n", "native-6-channel-output-opened\nok\n", "native-8-channel-output-opened\nok\n", "native-device-unavailable\nok\n"}

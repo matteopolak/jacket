@@ -110,7 +110,7 @@ main :: () {
     fill_sample_buffer(bytes);
 
     if properties.num_channels == 2 {
-        for i: 0..7 assert(output[i] == 32767, "positive stereo clipping");
+        for i: 0..7 assert(output[i] == 32767, "positive stereo clipping at %: %", i, output[i]);
     } else {
         for frame: 0..3 assert(output[frame * properties.num_channels + 2] == 32767, "positive center clipping");
     }

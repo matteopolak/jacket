@@ -24,6 +24,25 @@ main :: () {
     assert(data.samples[0] == 0, "loaded samples must alias supplied storage");
     assert(data.buffer.data == wav.data && data.buffer.count == wav.count);
     assert(get_magic4(.{ wav.count, wav.data }, 0) == 0x46464952);
+    allocation := alloc(wav.count + 1);
+
+    defer free(allocation);
+    odd := cast(*u8) allocation + 1;
+
+    assert((cast(u64) odd & 1) == 1);
+    wav[45] = 64;
+    memcpy(odd, wav.data, wav.count);
+    borrowed := load_audio_data("odd-aligned PCM", .{ wav.count, odd });
+
+    assert(borrowed.loaded && borrowed.buffer.data == odd && borrowed.samples == cast(*s16) (odd + 44));
+    stream: Sound_Stream;
+    stream.num_channels = 1;
+    sample: [1] float;
+
+    sample_n_channels(*stream, borrowed.samples, 0, 2, 0.25, sample, true);
+    assert(sample[0] == 0.25);
+    sample_n_channels(*stream, borrowed.samples, 0, 2, 1.75, sample, true);
+    assert(sample[0] == -0.5, "last odd-aligned PCM frame must be held");
     // Seven channels fit capacity; no invented center-rear layout is assigned.
     seven: [72] u8;
 

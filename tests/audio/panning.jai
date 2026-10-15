@@ -14,6 +14,11 @@ main :: () {
     assert(near(inverse._11, 0.5) && near(inverse._12, -0.125));
     invert(*m, *m);
     assert(near(m._11, inverse._11) && near(m._22, inverse._22));
+    // Uniform scale changes determinant magnitude, not invertibility or condition.
+    tiny: Matrix2 = .{ 0.0001, 0, 0, 0.0001 };
+
+    invert(*tiny, *inverse);
+    assert(near(tiny._11 * inverse._11, 1) && near(tiny._22 * inverse._22, 1));
     stream: Sound_Stream;
     stream.user_flags |= .SPATIALIZED;
     stream.position = .{ 0, 10, 0 };

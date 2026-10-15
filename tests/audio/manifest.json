@@ -279,6 +279,29 @@
         "source-windows-arm64"
       ],
       "hardware": "none"
+    },
+    {
+      "path": "tests/audio/assertion-independent.jai",
+      "provenance": "Compressed page seeking, shutdown drain/join and independent safety with optional assertions disabled",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets",
+        "staged-audio-assertions-disabled"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/concurrent-factories.jai",
+      "provenance": "Reviewed Ogg metadata replacement and independent shared lifetime safety during playback; concurrency smoke, not a race-detector proof",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "real SDK silent playback or explicit unavailable marker"
     }
   ],
   "negative": [
@@ -306,5 +329,28 @@
       "native exact-host silent runtime optional --require-device"
     ],
     "physical_events": "Not tested; controlled pause/resume and reopen only"
+  },
+  "failure_injection": {
+    "paths": [
+      "tests/audio/failure-injection/lifetime.jai",
+      "tests/audio/failure-injection/adapter.c",
+      "tests/audio/failure-injection/sdk-close.c"
+    ],
+    "provenance": "Official SDK cleanup ownership plus independently safe failure handling; real devices with explicitly injected errors",
+    "modes": [
+      "native SDK NDEBUG",
+      "audio assertions disabled interpreter/native O0/O2",
+      "source-desktop-six-targets"
+    ],
+    "limitation": "Controlled errors, not OS-generated faults or physical device event evidence"
+  },
+  "native_routing": {
+    "path": "tests/audio/native-routing.c",
+    "provenance": "Reviewed Audio_Channel identity plus official OS channel maps; independent byte permutation safety",
+    "modes": [
+      "native host controlled memory",
+      "six-platform SDK build/link when toolchains supplied"
+    ],
+    "hardware": "none; nonzero bytes are never submitted"
   }
 }
