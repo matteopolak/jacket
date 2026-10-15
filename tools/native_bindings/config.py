@@ -3,8 +3,8 @@
 These are packaging choices. Public ABI declarations come from the specs.
 """
 IMPORTS = {
-    'd3d11': ['Windows', 'dxgi'], 'd3d12': ['Windows', 'dxgi', 'd3d11'],
-    'd3d_compiler': ['Windows', 'd3d11'], 'dxc_compiler': ['Windows'],
+    'd3d11': ['Windows', 'dxgi', 'd3d_compiler'], 'd3d12': ['Windows', 'dxgi', 'd3d_compiler'],
+    'd3d_compiler': ['Windows'], 'dxc_compiler': ['Windows'],
     'dxgi': ['Windows'], 'Linux': ['POSIX'], 'Metal': ['Objective_C'],
     'Objective_C': [], 'macOS': ['POSIX', 'Objective_C'], 'nvidia_aftermath': ['Windows', 'd3d12'],
     'X11': ['POSIX'], 'Android': ['POSIX'],
@@ -16,10 +16,17 @@ IMPORTS = {
 # This is an explicit reviewed safety exception to direct foreign forwarding;
 # signatures are still matched in full, including argument names and defaults.
 NATIVE_ABI_ADAPTERS = {
+    ('macOS', 'FSEventStreamCreate'): 'FSEventStreamCreate',
     ('SDL', 'SDL_GetWindowWMInfo'): 'SDL_GetWindowWMInfo',
     ('SDL', 'SDL_LoadBMP_RW'): 'SDL_LoadBMP_RW',
 }
 NATIVE_SHAPE_DELEGATES = {'POSIX':'android-posix-shapes.json'}
+# Explicit private C SDK build profile, not reviewed public Jai option defaults.
+RPMALLOC_SDK_BUILD_OPTIONS = {
+    'RPMALLOC_FIRST_CLASS_HEAPS': 1, 'RPMALLOC_CONFIGURABLE': 1,
+    'ENABLE_STATISTICS': 1, 'ENABLE_ASSERTS': 1,
+    'ENABLE_VALIDATE_ARGS': 1, 'ENABLE_OVERRIDE': 0,
+}
 LIBRARIES = {
     'gdi': 'gdi32', 'gl': 'opengl32',
     'glx': 'GLX', 'libX11': 'X11',

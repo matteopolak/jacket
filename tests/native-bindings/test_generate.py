@@ -10,6 +10,26 @@ from spec import parse_spec
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_shader_compiler_is_a_shared_acyclic_interface_dependency(self):
+        from config import IMPORTS
+        self.assertNotIn('d3d11', IMPORTS['d3d_compiler'])
+        self.assertIn('d3d_compiler', IMPORTS['d3d11'])
+        self.assertIn('d3d_compiler', IMPORTS['d3d12'])
+        self.assertNotIn('d3d11', IMPORTS['d3d12'])
+
+    def test_fsevents_context_adapter_requires_complete_public_signature(self):
+        signature = ('FSEventStreamCreate :: (allocator: CFAllocatorRef, callback: FSEventStreamCallback, '
+                     '_context: *FSEventStreamContext, pathsToWatch: CFArrayRef, sinceWhen: FSEventStreamEventId, '
+                     'latency: CFTimeInterval, flags: FSEventStreamCreateFlags) -> ConstFSEventStreamRef #foreign CoreServices')
+        spec = parse_spec('# macOS\n## Public declaration inventory\n- `'+signature+'`\n')
+        code, ledger = generate_facade('macOS', spec)
+        self.assertEqual(ledger[0]['status'], 'implemented_manual')
+        self.assertNotIn('FSEventStreamCreate ::', code)
+        changed = parse_spec('# macOS\n## Public declaration inventory\n- `'+signature.replace('_context:', 'other:')+'`\n')
+        code, ledger = generate_facade('macOS', changed)
+        self.assertEqual(ledger[0]['status'], 'unresolved')
+        self.assertNotIn('FSEventStreamCreate ::', code)
+
     def test_body_omission_marker_and_nested_comments_do_not_change_record_scope(self):
         code = '''Outer :: struct {
 /* outer { /* nested } */ comment */

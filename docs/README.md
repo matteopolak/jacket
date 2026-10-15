@@ -20,6 +20,14 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
   [remaining deviations](status/window-render-deviations.md).
 - [Window/render clean-room incident](status/window-render-cleanroom-incident-2026-10-14.md):
   reviewed metadata-only exposure, clearance and implementation resumption.
+
+- [FSEvents context adapter](native/fsevents-context.md): exact public order,
+  private SDK marshalling, callback lifetime and native canary/event checks
+- [Direct3D canonical interface dependencies and compiler repros](native/d3d-source-dependencies.md)
+- [Private rpmalloc SDK backend](native/rpmalloc-native-backend.md): complete
+  native forwarding, checked alignment boundary and remaining public work
+- [Public rpmalloc adapter progress](native/rpmalloc-public-adapter.md): actual
+  default lifecycle/allocation/statistics tests and remaining profile/heap work
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
 - [SDL native ABI and prefix safety](native/sdl-native-abi.md): exact public layouts, complete private C records, native pointers, field probes and canaries
 - [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
@@ -197,7 +205,7 @@ The LLVM backend, C ABI and linking.
 - [Native WGL investigation](native/window-render-wgl-investigation.md): filtered CI
   failure evidence, real retirement-surface lifetime, native diagnostics and pinned
   official-source ARM64 Mesa build/deployment, deterministic prepared child Python,
-  and explicit runtime verification limits.
+  verified LLVM-only cache, and explicit runtime verification limits.
 - [jaic Extensions](extensions/README.md)
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
@@ -245,7 +253,8 @@ Implementation work uses the API specification as its compatibility contract. Im
 - [Windows render integration fixed-array literal blocker](native/compiler-fixed-array-literal.md)
 - [iOS helper availability and private native host verification](native/apple-toolchain.md)
 - [Android EGL native header input and verification boundary](native/egl-sdk-inputs.json)
-- [SDL native RWops pointer forwarding and contract limits](native/sdl-rwops.md)
+- [SDL native pointers, exact public prefixes and complete private SDK records](native/sdl-rwops.md):
+  ownership, adapter extension/probe instructions and corrected layout oracle
 - [Explicit Android POSIX C header delegates](native/android-posix-delegates.md)
 - [ImGui nested member scopes and real native C++ calls](native/imgui-nested-methods.md)
 - [Safe Linux ARM64 stat syscall and record marshalling](native/linux-arm64-stat.md)
@@ -268,7 +277,7 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 ## Tools and workflow
 
-- [Developer tooling](developer-tools.md): reflected C header generation, original C/Jai round trips, API audit and outstanding tooling scope; [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
+- [Developer tooling](developer-tools.md): reflected C headers, libclang dependency builds and custom binding callbacks; [test provenance and commands](developer-tools-testing.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
 
 Scripts, CI and project policies.
 

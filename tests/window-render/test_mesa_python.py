@@ -47,6 +47,9 @@ class MesonPython(unittest.TestCase):
             control = subprocess.run([*base, directory / "control", project], env=env,
                                      capture_output=True, text=True)
             self.assertNotEqual(control.returncode, 0, control.stdout + control.stderr)
+            expected_wrong = str(binaries / ("python3.exe" if os.name == "nt" else "python3"))
+            self.assertIn(expected_wrong.replace("\\", "/").lower(),
+                          control.stdout.replace("\\", "/").lower())
             self.assertFalse(metadata.exists())
             native = directory / "prepared.ini"
             mesa.write_native_machine_file(native, sys.executable)
@@ -58,6 +61,9 @@ class MesonPython(unittest.TestCase):
             self.assertEqual(actual["prefix"], sys.prefix)
             self.assertEqual(actual["Mako"], mesa.PACKAGES["Mako"])
             self.assertEqual(actual["PyYAML"], mesa.PACKAGES["PyYAML"])
+            fingerprint = mesa.distribution_fingerprint("Mako")
+            self.assertEqual(fingerprint["version"], mesa.PACKAGES["Mako"])
+            self.assertGreater(fingerprint["files"], 0)
 
 
 if __name__ == "__main__":

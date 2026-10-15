@@ -25,7 +25,26 @@ ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [(os_name, cpu) for os_name in ('linux', 'macos', 'windows') for cpu in ('x64', 'arm64')]
 PRIVATE_UNITS = {'ios-sdk-host':'iOS/sdk-host-unit.jai',
                  'dxc-wide':'dxc_compiler/sdk-wide-unit.jai',
-                 'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai'}
+                 'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai',
+                 'rpmalloc-native-sdk':'rpmalloc/sdk-native-unit.jai'}
+PRIVATE_UNIT_DEPENDENCIES = {
+    'rpmalloc-native-sdk': {
+        'tests/native-bindings/generated/rpmalloc-sdk-layout.jai': 'rpmalloc/generated/rpmalloc-sdk-layout.jai',
+    },
+}
+
+
+def place_private_unit(name, source, stdlib, hashes):
+    placed = stdlib/PRIVATE_UNITS[name]
+    placed.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(source,placed)
+    hashes[str(placed.relative_to(stdlib))] = hashlib.sha256(placed.read_bytes()).hexdigest()
+    for relative, destination in PRIVATE_UNIT_DEPENDENCIES.get(name,{}).items():
+        target = stdlib/destination
+        target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(ROOT/relative,target)
+        hashes[destination] = hashlib.sha256(target.read_bytes()).hexdigest()
+    return placed
 
 
 def enabled(condition, os_name, cpu, parameters=None):
@@ -188,6 +207,14 @@ def main():
                 report['targets'].append(public_result)
             print(module, os_name+'-'+cpu, result['status'])
     for module, filename, configs in [
+        ('macOS', 'fsevents-context.jai', [('macos','x64'),('macos','arm64')]),
+        ('rpmalloc', 'rpmalloc-native-sdk.jai', TARGET_CONFIGS),
+        ('rpmalloc', 'rpmalloc-public-allocation.jai', TARGET_CONFIGS),
+        ('d3d11', 'forward-overlay.jai', TARGET_CONFIGS),
+        ('d3d12', 'd3d-interface-identity.jai', [('windows','x64'),('windows','arm64')]),
+        ('SDL', 'sdl-layout.jai', TARGET_CONFIGS),
+        ('SDL', 'sdl-rwops.jai', TARGET_CONFIGS),
+        ('SDL', 'sdl-wm.jai', TARGET_CONFIGS),
         ('Objective_C', 'appkit.jai', [('macos','x64'),('macos','arm64')]),
         ('GL', 'gl-output-buffers.jai', TARGET_CONFIGS),
         ('GL', 'glx-context.jai', [('linux','x64'),('linux','arm64')]),
@@ -210,10 +237,7 @@ def main():
         source = ROOT/'tests/native-bindings'/filename
         report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
         if source.stem in PRIVATE_UNITS:
-            placed = stdlib/PRIVATE_UNITS[source.stem]
-            shutil.copy2(source, placed)
-            source = placed
-            report['staged_sources'][str(source.relative_to(stdlib))] = hashlib.sha256(source.read_bytes()).hexdigest()
+            source = place_private_unit(source.stem,source,stdlib,report['staged_sources'])
         for os_name, cpu in configs:
             result = invoke([compiler,source,'-check','-no_dce','-os',os_name,'-cpu',cpu],env)
             result.update(module=module, os=os_name, cpu=cpu, check='source_regression',
@@ -232,7 +256,11 @@ def main():
                             ('X11', 'Binding_Message_Choices'), ('X11', 'binding_message_event'),
                             ('X11', 'binding_message_button'), ('dxc_compiler', 'ID3D12ShaderReflection'),
                             ('dxc_compiler', 'Win'), ('dxc_compiler', 'D3D'),
-                            ('dxc_compiler', 'NativeCompile')]:
+                            ('dxc_compiler', 'NativeCompile'), ('macOS', 'NativeEvents'),
+                            ('d3d11', 'ID3DBlob'), ('d3d11', 'ID3D11ModuleInstance'),
+                            ('d3d12', 'ID3DBlob'), ('rpmalloc','Heap'),
+                            ('rpmalloc','Span'), ('rpmalloc','Native'),
+                            ('rpmalloc','initialized'), ('rpmalloc','Native_Profile_Matches')]:
         if args.module and module.split('/')[0] not in args.module and module not in args.module:
             continue
         for os_name, cpu in TARGET_CONFIGS:
@@ -270,10 +298,14 @@ def main():
             runtime_tests.append('dxc-reflect')
             runtime_tests.append('dxc-wide')
             runtime_tests.append('dxc-compile-unit')
+        if sys.platform == 'darwin':
+            runtime_tests.append('fsevents-context')
         runtime_tests.append('sdl-rwops')
         runtime_tests.append('imgui-nested')
         runtime_tests.append('posix-stat')
         runtime_tests.append('dxc-options')
+        runtime_tests.append('rpmalloc-native-sdk')
+        runtime_tests.append('rpmalloc-public-allocation')
         if sys.platform.startswith('linux'):
             runtime_tests.append('x11-window-helpers')
             runtime_tests.append('x11-message-box')
@@ -281,6 +313,8 @@ def main():
             relevant = {'xxhash': ['xxHash'], 'images': ['stb_image', 'stb_image_write', 'stb_image_resize', 'stb_vorbis'], 'posix': ['POSIX'], 'curl':['Curl'], 'ios':['iOS'], 'objective-c':['Objective_C'], 'mojoshader':['MojoShader'], 'macos':['macOS'], 'metal':['Metal'], 'gl':['GL'], 'graphics-math':['d3d12'], 'sdl':['SDL'], 'sdl-layout':['SDL']}.get(name, [name])
             if name == 'appkit':
                 relevant = ['Objective_C']
+            if name == 'fsevents-context':
+                relevant = ['macOS']
             if name == 'sdl-wm':
                 relevant = ['SDL']
             if name == 'posix-abi':
@@ -294,11 +328,13 @@ def main():
             if name in ('x11-window-helpers','x11-message-box'):
                 relevant = ['X11']
             if name in PRIVATE_UNITS:
-                relevant = ['iOS']
+                relevant = ['iOS'] if name=='ios-sdk-host' else ['rpmalloc'] if name.startswith('rpmalloc-') else ['dxc_compiler']
             if name == 'imgui-nested':
                 relevant = ['ImGui']
             if name == 'posix-stat':
                 relevant = ['POSIX']
+            if name in ('rpmalloc-native-sdk','rpmalloc-public-allocation'):
+                relevant = ['rpmalloc']
             if name in ('gl-context','reflection-procedure-flags','nsgl'):
                 relevant = ['GL']
             if args.module and not any(m in args.module for m in relevant):
@@ -312,19 +348,21 @@ def main():
             exe = work/(name+'-test')
             report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
             compiled_source = source
-            if name == 'ios-sdk-host':
+            if name in PRIVATE_UNITS:
                 # A private unit belongs inside the staged library boundary.
                 # Copy bytes unchanged; do not expose a public testing backdoor
                 # or disable the compiler's private-import guard.
-                compiled_source = stdlib/PRIVATE_UNITS[name]
-                shutil.copy2(source, compiled_source)
-                report['staged_sources'][str(compiled_source.relative_to(stdlib))] = hashlib.sha256(compiled_source.read_bytes()).hexdigest()
+                compiled_source = place_private_unit(name,source,stdlib,report['staged_sources'])
             result = invoke([compiler, compiled_source, '-exe', exe], env)
             scope = 'private_arithmetic' if name=='graphics-math' else 'private_toolchain_host' if name=='ios-sdk-host' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
             if name in ('dxc-wide','dxc-options'):
                 scope = 'private_argument_conversion' if name=='dxc-wide' else 'private_argument_serialization'
             if name == 'dxc-compile-unit':
                 scope = 'private_native_compile_route'
+            if name == 'rpmalloc-native-sdk':
+                scope = 'private_native_allocator_sdk'
+            if name == 'rpmalloc-public-allocation':
+                scope = 'public_default_allocator_lifecycle_allocation_statistics'
             result.update(name=name, phase='build',scope=scope,status='passed' if result['exit']==0 else 'failed')
             if compiled_source != source:
                 result['private_unit_placement'] = str(compiled_source)

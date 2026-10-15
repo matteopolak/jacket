@@ -51,13 +51,24 @@ main :: () {
 
     check(error != null && error[0] != 0);
     S.SDL_FlushEvents(0, 0xffff);
-    input, output: S.SDL_Event;
+
+    packet: struct {
+        before: u64 = 0x1234567887654321;
+        input: S.SDL_Event;
+        between: u64 = 0x89abcdef76543210;
+        output: S.SDL_Event;
+        after: u64 = 0xfedcba9876543210;
+    }
+
     payload: u32 = 42;
 
     // The C fixture fills a complete native event in the public 56-byte union.
-    // Missing Jai UserEvent members remain a separate layout failure.
-    make_user_event(*input, 17, *payload);
-    check(S.SDL_PushEvent(*input) == 1);
-    check(S.SDL_PollEvent(*output) == 1);
-    check(output.type == .SDL_USEREVENT && user_matches(*output, 17, *payload) == 1);
+    // The public UserEvent prefix cannot express this complete payload.
+    make_user_event(*packet.input, 17, *payload);
+    check(S.SDL_PushEvent(*packet.input) == 1);
+    check(S.SDL_PollEvent(*packet.output) == 1);
+    check(packet.output.type == .SDL_USEREVENT && user_matches(*packet.output, 17, *payload) == 1);
+    check(packet.before == 0x1234567887654321);
+    check(packet.between == 0x89abcdef76543210);
+    check(packet.after == 0xfedcba9876543210);
 }

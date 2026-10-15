@@ -9,7 +9,7 @@ main :: () {
     assert(write_entire_file(path, "preserve existing output"));
     declaration: Code_Declaration;
     declaration.name = "unsafe_abi";
-    declaration.type = type_info(#type (value: s64) -> s64);
+    declaration.type = type_info(#type (value: s64) -> (s64, s64) #c_call);
     info: H.Header_Info;
 
     array_add(*info.exported_procedures, *declaration);

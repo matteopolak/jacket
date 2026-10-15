@@ -193,6 +193,11 @@ def authored_signatures(text):
 
 def condition_for(module, declaration, spec=None):
     condition = declaration.condition
+    alias = re.fullmatch(r'\w+\s*::\s*(\w+)\s*;?', declaration.code.strip())
+    if module == 'rpmalloc' and alias and alias[1] not in ('struct', 'union', 'enum', 'enum_flags') and declaration.name not in ('ENABLE_OVERRIDE', 'RPMALLOC_CONFIGURABLE'):
+        # The alias inventory belongs to the raw transliteration. The rewrite
+        # supplies its own procedures and keeps its contextual Heap private.
+        condition = 'USE_RAW' + (' && ('+condition+')' if condition else '')
     if condition == 'else branch':
         if module == 'Objective_C':
             condition = 'OS != .MACOS' if declaration.name == 'BOOL' else 'CPU != .X64'
@@ -348,6 +353,10 @@ def generate_facade(module, spec):
             continue
         if normalized_signature(d.code) in manual_signatures:
             record.update(status='implemented_manual', artifact=str(manual_path.relative_to(ROOT)))
+            if module == 'rpmalloc':
+                record.update(status='partially_implemented',
+                              implemented_condition='!USE_RAW && Native_Profile_Matches',
+                              reason='Native default cache/statistics/assertion profile only; remaining profiles and raw mode require implementations')
             ledger.append(record)
             continue
         key = (condition, d.code)
@@ -505,6 +514,25 @@ def main():
                               'member_counts':dict(Counter(m['status'] for e in entries for m in e.get('members',[]))),
                               'contextual_shapes':spec.contextual_blocks,
                               'declarations': entries}
+        if module == 'rpmalloc':
+            backend = ROOT/'stdlib/internal/bindings/rpmalloc-sdk'
+            provenance = backend/'provenance.json'
+            if provenance.exists():
+                native = json.loads(provenance.read_text())
+                all_ledger[module]['supplemental_backends'] = [{
+                    'module':'internal/bindings/rpmalloc-sdk',
+                    'artifact':str((backend/'module.jai').relative_to(ROOT)),
+                    'artifact_sha256':hashlib.sha256((backend/'module.jai').read_bytes()).hexdigest(),
+                    'status':'private_native_backend',
+                    'public_support':'Unresolved; this backend does not establish Jai callback/config/heap compatibility',
+                    'provenance':native,
+                    'verification':'Source/header inventory only here; actual private SDK native evidence is indexed separately'}]
+                checked = ROOT/'stdlib/internal/bindings/rpmalloc-checked/module.jai'
+                all_ledger[module]['supplemental_backends'][0]['checked_boundary'] = {
+                    'artifact':str(checked.relative_to(ROOT)),
+                    'artifact_sha256':hashlib.sha256(checked.read_bytes()).hexdigest(),
+                    'signature':'posix_memalign :: (output: **void, alignment: u64, size: u64) -> s32',
+                    'scope':'Private SDK precondition validation and commit-on-success output; not public API completion'}
         if module == 'Objective_C':
             appkit = ROOT/'stdlib/Objective_C/AppKit/module.jai'
             if appkit.exists():
@@ -561,6 +589,9 @@ def main():
         entry_code = '\n'.join(spec.parameter_blocks or [PARAMETERS.get(module, '')]) + '\n'
         if module in TARGETS:
             entry_code += '#assert ' + TARGETS[module] + ', "' + module + ' requires its documented native platform";\n'
+        contextual = ROOT / 'stdlib' / module / 'context.jai'
+        if contextual.exists():
+            entry_code += '#load "context.jai";\n'
         entry_code += '#load "declarations.jai";\n'
         wrappers = ROOT / 'stdlib' / module / 'wrappers.jai'
         if wrappers.exists():

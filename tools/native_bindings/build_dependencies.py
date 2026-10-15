@@ -13,6 +13,7 @@ import subprocess
 import shutil
 import tarfile
 import urllib.request
+from config import RPMALLOC_SDK_BUILD_OPTIONS
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -85,10 +86,14 @@ def main():
         'sdl_abi_probe': [ROOT/'tests/native-bindings/sdl_abi_probe.c'],
         'sdl_runtime_abi_probe': [ROOT/'tests/native-bindings/sdl_runtime_abi_probe.c'],
         'posix_abi_probe': [ROOT/'tests/native-bindings/posix_abi_probe.c'],
+        'binding_rpmalloc_sdk': [vendor/'rpmalloc/rpmalloc/rpmalloc.c'],
+        'rpmalloc_sdk_probe': [ROOT/'tests/native-bindings/generated/rpmalloc_sdk_probe.c'],
         'imgui_abi_probe': [ROOT/'tests/native-bindings/imgui_abi_probe.cpp'],
         'imgui': [vendor/manifest['imgui']['archive']['root']/name for name in
                   ('imgui.cpp','imgui_draw.cpp','imgui_tables.cpp','imgui_widgets.cpp','imgui_demo.cpp')],
     }
+    if platform.system() == 'Darwin':
+        units['fsevents_context_probe'] = [ROOT/'tests/native-bindings/fsevents_context_probe.c']
     macros = {'stb_image': 'STB_IMAGE_IMPLEMENTATION',
               'stb_image_resize': 'STB_IMAGE_RESIZE_IMPLEMENTATION',
               'stb_image_write': 'STB_IMAGE_WRITE_IMPLEMENTATION'}
@@ -109,11 +114,16 @@ def main():
                 includes = ['-isystem',vendor/manifest['sdl2-runtime-oracle']['archive']['root']/'include/SDL2']
             if name == 'imgui_abi_probe':
                 includes = ['-isystem',vendor/manifest['imgui']['archive']['root']]
+            if name in ('binding_rpmalloc_sdk', 'rpmalloc_sdk_probe'):
+                includes = ['-isystem', vendor/'rpmalloc/rpmalloc']
+                includes += ['-D'+name+'='+str(value) for name,value in RPMALLOC_SDK_BUILD_OPTIONS.items()]
             run(['c++' if path.suffix == '.cpp' else 'cc', '-O2', '-fPIC', '-I', vendor/'stb', *includes, '-c', path, '-o', obj])
             compiled.append(obj)
         run(['ar', 'rcs', args.output / ('lib' + name + '.a'), *compiled])
         suffix = '.dylib' if platform.system() == 'Darwin' else '.so'
         extra = ['-lffi'] if name == 'binding_ffi' else []
+        if name == 'fsevents_context_probe':
+            extra = ['-framework', 'CoreServices']
         run(['c++' if name in ('meshoptimizer','imgui') else 'cc', '-dynamiclib' if suffix == '.dylib' else '-shared', *compiled,
              '-lm', *extra, '-o', args.output / ('lib' + name + suffix)])
         print('Built ' + name)

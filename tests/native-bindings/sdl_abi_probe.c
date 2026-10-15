@@ -18,14 +18,19 @@ uint64_t binding_sdl_size(unsigned which) {
     }
 }
 
+static int independent_payload;
 void binding_sdl_user_event(SDL_Event *event, int32_t code, void *data) {
     event->user.type = SDL_USEREVENT;
+    event->user.windowID = 0x5137;
     event->user.code = code;
     event->user.data1 = data;
+    event->user.data2 = &independent_payload;
 }
 
 int32_t binding_sdl_user_matches(const SDL_Event *event, int32_t code, void *data) {
-    return event->user.type == SDL_USEREVENT && event->user.code == code && event->user.data1 == data;
+    return event->user.type == SDL_USEREVENT && event->user.windowID == 0x5137 &&
+        event->user.code == code && event->user.data1 == data &&
+        event->user.data2 == &independent_payload;
 }
 
 uint64_t binding_sdl_offset(unsigned which) {
@@ -35,6 +40,18 @@ uint64_t binding_sdl_offset(unsigned which) {
         case 2: return offsetof(SDL_Surface, pixels);
         case 3: return offsetof(SDL_Surface, clip_rect);
         case 4: return offsetof(SDL_RWops, type);
+        case 5: return offsetof(SDL_RWops, size);
+        case 6: return offsetof(SDL_RWops, seek);
+        case 7: return offsetof(SDL_RWops, read);
+        case 8: return offsetof(SDL_RWops, write);
+        case 9: return offsetof(SDL_RWops, close);
+        case 10: return offsetof(SDL_RWops, hidden);
+        case 11: return offsetof(SDL_UserEvent, type);
+        case 12: return offsetof(SDL_UserEvent, timestamp);
+        case 13: return offsetof(SDL_UserEvent, windowID);
+        case 14: return offsetof(SDL_UserEvent, code);
+        case 15: return offsetof(SDL_UserEvent, data1);
+        case 16: return offsetof(SDL_UserEvent, data2);
         default: abort();
     }
 }
