@@ -1094,16 +1094,25 @@ impl Compiler {
                 let module = self.scope(scope).module;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
                 for (position, param) in params.iter().chain(runtime_params).enumerate() {
-                    self.declare_module_parameter(
-                        scope,
-                        module,
-                        position,
-                        param,
-                        eval_scope,
-                        position >= params.len(),
-                    )?;
+                    self.declare_module_parameter(scope, module, position, param, eval_scope)?;
                 }
                 self.validate_module_arguments(module, stmt.span)?;
+                // Reject unknown/duplicate arguments after all header names are known,
+                // before checking omissions. Program parameters may bind later.
+                for (position, param) in params.iter().enumerate() {
+                    if param.default.is_none()
+                        && let Some(name) = param.name
+                        && !self.modules[module.0 as usize]
+                            .params
+                            .iter()
+                            .any(|(n, ..)| *n == name.name || n.as_str() == format!("${position}"))
+                    {
+                        return err(
+                            param.span,
+                            format!("missing argument for module parameter `{}`", name.name),
+                        );
+                    }
+                }
                 let program = runtime_params.iter().filter_map(|p| p.name.map(|n| n.name));
                 self.modules[module.0 as usize]
                     .program_params
@@ -1257,7 +1266,6 @@ impl Compiler {
         position: usize,
         param: &ast::Param,
         eval_scope: ScopeId,
-        program_parameter: bool,
     ) -> Result<()> {
         let Some(name) = param.name else {
             return err(param.span, "module parameter needs a name");
@@ -1267,14 +1275,6 @@ impl Compiler {
             .iter()
             .find(|(n, ..)| *n == name.name || n.as_str() == format!("${position}"))
             .map(|(_, v, ty)| (v.clone(), *ty));
-        // Ordinary parameters are bound by this import. Program parameters may
-        // still receive a workspace-wide value before their first use.
-        if !program_parameter && provided.is_none() && param.default.is_none() {
-            return err(
-                param.span,
-                format!("missing argument for module parameter `{}`", name.name),
-            );
-        }
         let decl = Rc::new(ast::Decl {
             id: ast::AstId::fresh(),
             names: vec![name],

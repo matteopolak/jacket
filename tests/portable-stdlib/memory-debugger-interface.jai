@@ -15,7 +15,7 @@ Hooks :: struct {
         last_size = size;
     }
     check_free :: inline (allocator: Allocator, memory: *void) {
-        assert(memory != null);
+        assert(memory != null && allocator.proc != null);
         frees += 1;
     }
     check_create_heap :: inline (a: Allocator) {

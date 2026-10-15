@@ -1,16 +1,27 @@
 #import "Basic";
-P :: #import "POSIX";
+#if OS == .WINDOWS W :: #import "Windows";
+else P :: #import "POSIX";
 
 main :: () {
-    before: P.timespec;
-    after: P.timespec;
+    before := monotonic_seconds();
 
-    assert(P.clock_gettime(P.clockid_t.MONOTONIC, *before) == 0);
     sleep_milliseconds(20);
-    assert(P.clock_gettime(P.clockid_t.MONOTONIC, *after) == 0);
-    elapsed := cast(float64) (after.tv_sec - before.tv_sec) + cast(float64) (after.tv_nsec - before.tv_nsec) / 1000000000.0;
+    elapsed := monotonic_seconds() - before;
 
     assert(elapsed >= 0.019);
     sleep_milliseconds(0);
     print("ok\n");
+}
+
+monotonic_seconds :: () -> float64 {
+    #if OS == .WINDOWS {
+        counter, frequency: s64;
+        assert(W.QueryPerformanceCounter(*counter) != 0);
+        assert(W.QueryPerformanceFrequency(*frequency) != 0 && frequency > 0);
+        return cast(float64) counter / cast(float64) frequency;
+    } else {
+        value: P.timespec;
+        assert(P.clock_gettime(P.clockid_t.MONOTONIC, *value) == 0);
+        return cast(float64) value.tv_sec + cast(float64) value.tv_nsec / 1000000000.0;
+    }
 }

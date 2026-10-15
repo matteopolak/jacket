@@ -114,11 +114,32 @@ def main():
         linter = args.jailint.resolve(strict=True)
         if not linter.is_relative_to(ROOT / "target"):
             parser.error("use a jailint source build under this checkout's target")
-        checked = subprocess.run([str(linter), "-v", "-D", "warnings", *map(str, owned_sources())],
-                                 cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
-        if checked.returncode or checked.stdout or "did not compile completely" in checked.stderr:
-            raise RuntimeError(f"foundation lint incomplete or failed:\n{checked.stdout}{checked.stderr}")
-        print("passed source-built jailint -D warnings on owned sources and tests", flush=True)
+        files = owned_sources()
+        covered = set()
+        lint_output = output / "lint"
+        lint_output.mkdir(exist_ok=True)
+        for target_os, target_cpu in [("macos", "arm64"), ("linux", "x64"), ("windows", "x64"), ("windows", "arm64")]:
+            selected = []
+            for path in files:
+                if "windows" in path.name and target_os != "windows":
+                    continue
+                if "unix" in path.name and target_os == "windows":
+                    continue
+                selected.append(path)
+            manifest = lint_output / f"{target_os}-{target_cpu}.txt"
+            checked = subprocess.run([str(linter), "-v", "-D", "warnings", "--os", target_os,
+                                      "--cpu", target_cpu, "-I", str(ROOT / "tests/portable-stdlib/pending"),
+                                      "--checked-files", str(manifest), *map(str, selected)],
+                                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
+            (lint_output / f"{target_os}-{target_cpu}.log").write_text(checked.stdout + checked.stderr)
+            if checked.returncode or checked.stdout or "did not compile completely" in checked.stderr:
+                raise RuntimeError(f"foundation lint {target_os}/{target_cpu} incomplete or failed:\n{checked.stdout}{checked.stderr}")
+            covered.update(Path(path).resolve() for path in manifest.read_text().splitlines())
+            print(f"passed strict lint {target_os}/{target_cpu}", flush=True)
+        missing = set(files) - covered
+        if missing:
+            raise RuntimeError(f"foundation sources not checked: {sorted(map(str, missing))}")
+        print(f"passed source-built jailint -D warnings with coverage of {len(files)} owned sources", flush=True)
 
     for name, diagnostic in (("hash-unsupported", "get_hash requires an integer, boolean, enum, pointer, or float"),
                              ("hash-seed-visibility", "no exported member `HASH_INIT`"),

@@ -3289,9 +3289,13 @@ impl Compiler {
             && let Ok(Operand::Type(t)) = self.check_expr_no_emit(scope, base)
             && self.types.as_struct(self.types.repr_struct(t)).is_some()
             && self.struct_constant(t, field.name)?.is_none()
-            && let Some((_, fty)) = self.find_member(t, field.name, expr.span)?
         {
-            return Ok(Some(fty));
+            if let Some(ty) = self.declared_struct_field_type(t, field.name)? {
+                return Ok(Some(ty));
+            }
+            if let Some((_, fty)) = self.find_member(t, field.name, expr.span)? {
+                return Ok(Some(fty));
+            }
         }
         Ok(None)
     }
@@ -3306,10 +3310,13 @@ impl Compiler {
         if let E::Ident(name) = &expr.kind {
             let mut s = Some(scope);
             while let Some(sid) = s {
-                if let ScopeKind::Struct(t) = self.scope(sid).kind
-                    && let Some((_, fty)) = self.find_member(t, *name, expr.span)?
-                {
-                    return Ok(Some(fty));
+                if let ScopeKind::Struct(t) = self.scope(sid).kind {
+                    if let Some(ty) = self.declared_struct_field_type(t, *name)? {
+                        return Ok(Some(ty));
+                    }
+                    if let Some((_, fty)) = self.find_member(t, *name, expr.span)? {
+                        return Ok(Some(fty));
+                    }
                 }
                 s = self.scope(sid).parent;
             }

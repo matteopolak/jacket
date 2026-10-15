@@ -1007,6 +1007,60 @@ impl Compiler {
 
     /// An `#align N` value. Generated bindings use odd values (`#align 9`), so only the range is
     /// checked; the bound keeps layout arithmetic from overflowing.
+    /// A directly declared field's type does not depend on its byte offset or
+    /// the layout of later fields. Type-only queries must not request that layout.
+    pub(super) fn declared_struct_field_type(
+        &mut self,
+        ty: TypeId,
+        name: Sym,
+    ) -> Result<Option<TypeId>> {
+        let Some(s) = self.types.as_struct(self.types.repr_struct(ty)) else {
+            return Ok(None);
+        };
+        let Some(source) = self.struct_asts.get(&s).cloned() else {
+            return Ok(None);
+        };
+        if let Some(ty) = self.declared_field_type_in(source.scope, &source.lit.body, name)? {
+            return Ok(Some(ty));
+        }
+        for (decl, scope) in source.extra {
+            if decl.kind == ast::DeclKind::Var && decl.names.iter().any(|n| n.name == name) {
+                return self.field_decl_type(scope, &decl).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn declared_field_type_in(
+        &mut self,
+        scope: ScopeId,
+        statements: &[ast::Stmt],
+        name: Sym,
+    ) -> Result<Option<TypeId>> {
+        for statement in statements {
+            match &statement.kind {
+                ast::StmtKind::Decl(decl)
+                    if decl.kind == ast::DeclKind::Var
+                        && decl.names.iter().any(|n| n.name == name) =>
+                {
+                    return self.field_decl_type(scope, decl).map(Some);
+                }
+                ast::StmtKind::StaticIf(branch) => {
+                    let selected = if self.eval_static_condition(scope, &branch.cond)? {
+                        &branch.then_branch
+                    } else {
+                        &branch.else_branch
+                    };
+                    if let Some(ty) = self.declared_field_type_in(scope, selected, name)? {
+                        return Ok(Some(ty));
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(None)
+    }
+
     fn eval_align(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<u64> {
         const MAX_ALIGN: i128 = 1 << 30;
         let n = self.eval_int(scope, expr)?;
@@ -1158,13 +1212,8 @@ impl Compiler {
         Ok(())
     }
 
-    fn collect_decl_fields(
-        &mut self,
-        scope: ScopeId,
-        decl: &Rc<ast::Decl>,
-        out: &mut Vec<FieldItem>,
-    ) -> Result<()> {
-        let ty = match (&decl.ty, &decl.value) {
+    fn field_decl_type(&mut self, scope: ScopeId, decl: &ast::Decl) -> Result<TypeId> {
+        Ok(match (&decl.ty, &decl.value) {
             (Some(t), _) => self.eval_type(scope, t)?,
             (None, Some(v)) => {
                 let op = self.eval_const(scope, v, None)?;
@@ -1180,7 +1229,16 @@ impl Compiler {
                 }
             }
             (None, None) => return err(decl.span, "field needs a type"),
-        };
+        })
+    }
+
+    fn collect_decl_fields(
+        &mut self,
+        scope: ScopeId,
+        decl: &Rc<ast::Decl>,
+        out: &mut Vec<FieldItem>,
+    ) -> Result<()> {
+        let ty = self.field_decl_type(scope, decl)?;
         let align = match &decl.align() {
             Some(a) => Some(self.eval_align(scope, a)?),
             None => None,

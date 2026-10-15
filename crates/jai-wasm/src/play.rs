@@ -490,7 +490,7 @@ mod tests {
     fn output_keeps_the_order_of_stdout_and_stderr_writes() {
         let r = single(concat!(
             "#import \"Basic\";\n",
-            "main :: () { print(\"a\"); print(\"b\\n\"); log_error(\"bad\"); print(\"c\\n\"); }\n",
+            "main :: () { print(\"a\"); print(\"b\\n\"); log_error(\"bad\\n\"); print(\"c\\n\"); }\n",
         ));
         assert_eq!(r.stdout, "ab\nc\n", "{}", r.rendered);
         assert_eq!(r.stderr, "bad\n");
