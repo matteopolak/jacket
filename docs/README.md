@@ -647,3 +647,5 @@ include exact file/line/source hashes and required platform limits.
 - [Stdlib completion backlog](tools/stdlib-completion-backlog.md): exact owner/API gaps, dependencies and acceptance evidence
 
 - [Shared rpmalloc verification](tools/shared-rpmalloc-verification.md): mandatory diagnostic domains, real SDK instrumentation and explicit remaining configurations.
+
+- [Shared MPEG macro verification](status/shared-mpeg-macros-verification.json): three reviewed public macros, real caller effects and enabled/disabled assertion-default controls; Walk_Table remains compiler-dependent.
