@@ -170,3 +170,13 @@ These explain the limits listed under Configuration; each has a regression test.
 ## Dependencies
 
 cargo-fuzz 0.13 and a nightly toolchain (`rust-toolchain.toml`), `libfuzzer-sys` and `arbitrary` (crates.io, under the [dependency policy](dependency-policy.md)), and the internal crates `jaic`, `jai-wasm` (playground sandbox, bundled stdlib, LSP environment) and `jai-language-server`. `jai-wasm/build.rs` lets its unused cdylib leave libFuzzer's coverage hooks undefined on macOS when built with `--cfg fuzzing`.
+
+
+## Workspace dependency changes
+
+The fuzz harness has a separate workspace and `fuzz/Cargo.lock`. When changing
+a dependency of a shared compiler/tool crate, update both workspace lockfiles.
+For example, use `cargo update --manifest-path fuzz/harness/Cargo.toml -p jailint`
+for a jailint dependency change, then run
+`cargo test --locked --manifest-path fuzz/harness/Cargo.toml`. Keep the replay CI
+command locked so stale dependency metadata fails before any replay is claimed.

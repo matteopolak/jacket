@@ -4,12 +4,15 @@
 T :: #import "Thread";
 
 errors: s64;
+assertions: s64;
+#if !#exists(EXPECTED_THREAD_ASSERTIONS) EXPECTED_THREAD_ASSERTIONS :: 1;
 
 capture_log :: (message: string, data: *void, info: Log_Info) {
     if (info.common_flags & .ERROR) != 0 errors += 1;
 }
 
 continue_assertion :: (location: Source_Code_Location, message: string) -> bool {
+    assertions += 1;
     return false;
 }
 
@@ -31,6 +34,7 @@ main :: () {
         context.logger = previous_log;
         context.assertion_failed = previous_assert;
         assert(errors == 1 && semaphore.event == event);
+        assert(assertions == EXPECTED_THREAD_ASSERTIONS);
         semaphore.owner = owner;
     }
 
