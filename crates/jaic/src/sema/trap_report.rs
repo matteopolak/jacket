@@ -323,6 +323,7 @@ fn help_for(kind: TrapKind) -> Option<String> {
         TrapKind::BareAssertion
         | TrapKind::Unavailable
         | TrapKind::Suspended
+        | TrapKind::CompileDependency(_)
         | TrapKind::Exit(_)
         | TrapKind::ThreadExit(_) => return None,
     };

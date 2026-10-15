@@ -101,14 +101,10 @@ impl Compiler {
         let func = f.b.finish();
         let id = self.program.reserve_func(func.name.clone());
         self.program.funcs[id.0 as usize] = Some(func);
-        // Inside another body's lowering, queued bodies may be unrelated code whose own
-        // compile-time runs need what is being lowered right now: lower on demand instead.
+        // The entry thunk is ready. Callee bodies are compiled when execution
+        // actually requests them; taking a procedure value does not need a body.
         let nested = self.lowering_depth > 0;
-        let mut deferred = if nested {
-            self.lower_reachable_from(id)
-        } else {
-            self.drain_bodies_lenient()
-        };
+        let mut deferred = None;
         let ctx = self.compile_time_context(span)?;
         // The trace layout needs the Context type. When it could not be laid out yet (its
         // declarations wait on an import that fails), asking again would expand every pending
@@ -132,24 +128,17 @@ impl Compiler {
             .and_then(|func| func.first_direct_callee());
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
         let clock = self.perf.start_run();
-        let mut result = self.interp.call(&self.program, id, &[ctx]);
+        self.ct_executions += 1;
+        let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);
         elapsed += self.perf.finish_run(clock);
-        // Run again from the start while nothing observable happened, when the run
-        // - asked for a code with resolved names and types (`compiler_get_nodes`), or
-        // - called a procedure whose body is still queued (on-demand lowering).
+        // Typed-code exports retain their existing effect-free retry protocol.
+        // Body dependencies above resume retained frames and never replay a run.
         for _ in 0..10_000 {
             if result.is_ok() || self.interp.run_effects != Some(self.interp.effects) {
                 break;
             }
             if let Some(code) = self.interp.export_request.take() {
                 self.export_code_typed(code);
-            } else if let Some(missing) = self.interp.missing_func.take()
-                && let Some(p) = self.queued_proc_of(missing)
-            {
-                if let Some(e) = self.lower_with_callees(p) {
-                    deferred.get_or_insert(e);
-                    break;
-                }
             } else {
                 break;
             }
@@ -172,7 +161,7 @@ impl Compiler {
             self.interp.run_codes.1 = 0;
             stalls += 1;
             let clock = self.perf.start_run();
-            result = self.interp.call(&self.program, id, &[ctx]);
+            result = self.call_with_dependencies(id, &[ctx], &mut deferred);
             elapsed += self.perf.finish_run(clock);
         }
         self.perf.runs.push(super::perf::RunStat {
@@ -213,7 +202,10 @@ impl Compiler {
         }
         match result {
             Ok(values) => Ok(values),
-            Err(_) if deferred.is_some() => Err(deferred.unwrap()),
+            Err(_) if deferred.is_some() => {
+                self.ct_traps += 1;
+                Err(deferred.unwrap())
+            }
             Err(trap) => {
                 self.ct_traps += 1;
                 let d =
@@ -329,12 +321,8 @@ impl Compiler {
                 });
             }
         }
-        // A body that fails here is reported by the final drain.
-        if self.lowering_depth > 0 {
-            self.lower_reachable_from_global(g);
-        } else {
-            self.drain_bodies_lenient();
-        }
+        // Materializing a procedure value in the context needs its signature,
+        // not its body. Actual calls use the owning dependency controller.
         let addr = self
             .interp
             .global_addr(&self.program, g)
@@ -417,17 +405,45 @@ impl Compiler {
     /// Execute the `#run`/`#assert` directives not executed yet. Sources a
     /// `#run` adds to this compiler's own workspace are loaded right after it.
     pub fn run_top_level(&mut self) -> Result<()> {
-        while self.runs_done < self.top_level_runs.len() {
-            let (expr, scope) = self.top_level_runs[self.runs_done].clone();
-            let misses = self.placeholder_misses;
-            let result = self.eval_const(scope, &expr, None);
-            // Needs a `#placeholder` a metaprogram may define later: retry at the next settle.
-            if result.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
-                return Ok(());
+        let mut progress = true;
+        while progress {
+            progress = false;
+            let mut index = 0;
+            while index < self.top_level_runs.len() {
+                if self.dependencies.running_runs.contains(&index)
+                    || self.dependencies.finished_runs.contains(&index)
+                {
+                    index += 1;
+                    continue;
+                }
+                let (expr, scope) = self.top_level_runs[index].clone();
+                let misses = self.placeholder_misses;
+                let traps = self.ct_traps;
+                let executions = self.ct_executions;
+                self.dependencies.running_runs.insert(index);
+                let result = self.eval_const(scope, &expr, None);
+                self.dependencies.running_runs.remove(&index);
+                // Only an unexecuted thunk may be retried. Executed callers retain
+                // frames in the dependency controller or fail terminally.
+                if result.is_err()
+                    && !self.placeholders_final
+                    && self.placeholder_misses != misses
+                    && self.ct_traps == traps
+                    && self.ct_executions == executions
+                {
+                    index += 1;
+                    continue;
+                }
+                result?;
+                self.dependencies.finished_runs.insert(index);
+                self.runs_done += 1;
+                progress = true;
+                self.pull_workspace_sources()?;
+                index += 1;
             }
-            self.runs_done += 1;
-            result?;
-            self.pull_workspace_sources()?;
+        }
+        if self.dependencies.finished_runs.len() != self.top_level_runs.len() {
+            return Ok(());
         }
         while self.asserts_done < self.asserts.len() {
             let (cond, message, args, scope) = self.asserts[self.asserts_done].clone();

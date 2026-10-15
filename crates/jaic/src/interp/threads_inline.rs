@@ -216,6 +216,23 @@ impl InlineSched {
 }
 
 impl Interp {
+    /// Merely allocating a callback gate does not start a thread. Dependency
+    /// service may retain the main call only while no other managed stack lives.
+    pub(super) fn compiler_threads_idle(&self) -> bool {
+        let inline_idle = self.isched.as_ref().is_none_or(|scheduler| {
+            scheduler
+                .threads
+                .iter()
+                .skip(1)
+                .all(|thread| thread.state == State::Finished)
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        let native_idle = self.compiler_native_threads_idle();
+        #[cfg(target_arch = "wasm32")]
+        let native_idle = true;
+        inline_idle && native_idle
+    }
+
     fn isched(&mut self) -> &mut InlineSched {
         self.isched
             .get_or_insert_with(|| Box::new(InlineSched::new()))
@@ -248,14 +265,14 @@ impl Interp {
     /// Foreign procedures the inline scheduler implements. `None`: not one of them.
     pub(super) fn inline_thread_foreign(
         &mut self,
-        _program: &Program,
+        program: &Program,
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let started = self.multi;
         let result: Res<u64> = match symbol {
-            "pthread_create" => self.inline_create(arg(0), arg(2), arg(3)),
+            "pthread_create" => self.inline_create(program, arg(0), arg(2), arg(3)),
             "pthread_join" => self.inline_join(arg(0), arg(1)),
             "pthread_tryjoin_np" => {
                 let id = arg(0).wrapping_sub(1) as usize;
@@ -341,10 +358,17 @@ impl Interp {
         Some(result.map(|v| vec![v]))
     }
 
-    fn inline_create(&mut self, out: u64, start: u64, argument: u64) -> Res<u64> {
+    fn inline_create(
+        &mut self,
+        program: &Program,
+        out: u64,
+        start: u64,
+        argument: u64,
+    ) -> Res<u64> {
         let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
         };
+        self.require_callable(program, func)?;
         let sched = self.isched();
         sched
             .threads
@@ -746,9 +770,20 @@ impl Interp {
         });
     }
 
+    /// Restore trace/context/call state before releasing a compiler-owned wait.
+    pub(super) fn unwind_compile_frames(&mut self, program: &Program, frames: Vec<SuspFrame>) {
+        let mut result = Err(Trap::new("compile-time dependency cancelled"));
+        for frame in frames {
+            let func = program.funcs[frame.exit.id.0 as usize]
+                .as_ref()
+                .expect("suspended compiler frames retain their bodies");
+            result = self.leave_frame(func, frame.exit, result);
+        }
+    }
+
     /// Continue a suspended thread: run its innermost frame from where it stopped, then each
     /// caller with the results of the frame above it.
-    fn resume_frames(&mut self, program: &Program, frames: Vec<SuspFrame>) -> Res<Rets> {
+    pub(super) fn resume_frames(&mut self, program: &Program, frames: Vec<SuspFrame>) -> Res<Rets> {
         let mut rets: Option<Rets> = None;
         let mut frames = frames.into_iter();
         while let Some(mut f) = frames.next() {

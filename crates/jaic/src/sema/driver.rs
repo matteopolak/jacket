@@ -168,18 +168,19 @@ impl Compiler {
 
     /// Load sources that compile-time code added to this compiler's own
     /// workspace (`add_build_string(s)` from inside a `#run`).
-    pub(super) fn pull_workspace_sources(&mut self) -> Result<()> {
+    pub(super) fn pull_workspace_sources(&mut self) -> Result<bool> {
         let Some(workspaces) = self.interp.workspaces.clone() else {
-            return Ok(());
+            return Ok(false);
         };
         let added = crate::build::take_own_sources(&workspaces, self.workspace);
         if added.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
         for source in &added {
             self.add_source(source)?;
         }
-        self.expand_all()
+        self.expand_all()?;
+        Ok(true)
     }
 
     /// Lower everything reachable from the program's exports.

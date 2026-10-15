@@ -32,6 +32,45 @@ fn uri_of(path: &Path) -> DocumentUri {
     DocumentUri::parse(&format!("file://{}", path.display())).unwrap()
 }
 
+#[test]
+fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() {
+    let text = "Values :: #import \"Values\";\nmain :: () { a := Values.answer; b := Values.enabled; word: Values.Word = 0; }\n";
+    let dir = project(
+        "value-definitions",
+        &[
+            ("main.jai", text),
+            (
+                "modules/Values/module.jai",
+                "answer :: 7;\nenabled: bool;\nWord :: u64;\n",
+            ),
+        ],
+    );
+    let mut s = Session::with_environment(Limits::default(), environment());
+    s.set_workspace_folders(vec![dir.clone()]);
+    let uri = uri_of(&dir.join("main.jai"));
+    s.open(uri.clone(), 1, text.into()).unwrap();
+    for (member, line) in [("answer", 0), ("enabled", 1), ("Word", 2)] {
+        let offset = text.find(&format!("Values.{member}")).unwrap() + 7;
+        let prefix = &text[..offset];
+        let found = s
+            .definition(
+                &uri,
+                jai_language_server::Position {
+                    line: prefix.matches('\n').count() as u32,
+                    character: prefix.rsplit('\n').next().unwrap().len() as u32,
+                },
+            )
+            .unwrap();
+        assert_eq!(found.len(), 1, "{member}: {found:?}");
+        assert!(
+            found[0].uri.ends_with("/modules/Values/module.jai"),
+            "{found:?}"
+        );
+        assert_eq!(found[0].range.start.line, line, "{member}: {found:?}");
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 /// The type-checker errors of `file` when the workspace folder is `folder`.
 fn errors(folder: &Path, file: &str) -> Vec<String> {
     let mut s = Session::with_environment(Limits::default(), environment());

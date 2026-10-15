@@ -14,6 +14,29 @@ pub struct LibraryInfo {
 impl Compiler {
     /// Resolve an entity to its value/storage, checking it on first use.
     pub fn resolve_entity(&mut self, id: EntityId) -> Result<Resolved> {
+        if let Some(definitions) = self.dependencies.bindings.get(&id).cloned() {
+            if definitions.len() == 1 {
+                return self.resolve_entity(definitions[0]);
+            }
+            let mut procedures = Vec::new();
+            for definition in definitions {
+                match self.resolve_entity(definition)? {
+                    Resolved::Proc(procedure)
+                    | Resolved::Const {
+                        value: Value::Proc(procedure),
+                        ..
+                    } => procedures.push(procedure),
+                    Resolved::ProcSet(set) => procedures.extend(set),
+                    _ => {
+                        return err(
+                            self.entity(id).span,
+                            "multiple placeholder definitions must form a procedure overload set",
+                        );
+                    }
+                }
+            }
+            return Ok(Resolved::ProcSet(procedures));
+        }
         match &self.entity(id).state {
             EntityState::Done(r) => return Ok(r.clone()),
             EntityState::Resolving => {
@@ -80,6 +103,7 @@ impl Compiler {
             } => self.resolve_enum_initializer(scope, ty, &initializer, span),
             EntityKind::Placeholder => {
                 // Top-level items that needed it wait for the metaprogram to define it.
+                self.dependencies.read_placeholder(id);
                 self.placeholder_misses += 1;
                 err(
                     span,

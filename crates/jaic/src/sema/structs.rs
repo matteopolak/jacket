@@ -1653,6 +1653,9 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Result<Operand> {
+        if let Some(ide) = self.ide.as_mut() {
+            ide.last_module_entity = None;
+        }
         match base {
             Operand::Type(t) => return self.type_member(f, scope, t, name, span),
             Operand::Module(m) => {
@@ -1665,7 +1668,16 @@ impl Compiler {
                             self.modules[m.0 as usize].name
                         ),
                     ),
-                    Found::Entities(ids) => self.entities_operand(f, scope, &ids, span),
+                    Found::Entities(ids) => {
+                        let result = self.entities_operand(f, scope, &ids, span);
+                        if result.is_ok()
+                            && ids.len() == 1
+                            && let Some(ide) = self.ide.as_mut()
+                        {
+                            ide.last_module_entity = Some((span, ids[0]));
+                        }
+                        result
+                    }
                 };
             }
             Operand::Const {

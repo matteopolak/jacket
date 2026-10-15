@@ -11,6 +11,8 @@
 
 mod atomics;
 mod code;
+mod compile_calls;
+pub(crate) use compile_calls::CompileCall;
 #[cfg(not(target_arch = "wasm32"))]
 mod crash;
 #[cfg(not(target_arch = "wasm32"))]
@@ -278,6 +280,8 @@ pub enum TrapKind {
     /// Not a failure: unwinds a thread of the sandbox's scheduler that blocks or yields, its
     /// frames saved so it can resume later (`threads_inline.rs`). Never reported.
     Suspended,
+    /// A declared compile-time callee needs its body compiled by its owning compiler.
+    CompileDependency(FuncId),
 }
 
 /// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).
@@ -302,6 +306,13 @@ pub struct TrapFrame {
 const MAX_TRAP_FRAMES: usize = 64;
 
 impl Trap {
+    pub(super) fn suspends_frames(&self) -> bool {
+        matches!(
+            self.kind,
+            Some(TrapKind::Suspended | TrapKind::CompileDependency(_))
+        )
+    }
+
     /// The trap as text, for a report made where the compiler's sources are out of reach (a
     /// procedure called from C): the message, where it happened, and the procedures it unwound
     /// through. `file_paths` names files by id (`Program::file_paths`); without them a
@@ -560,6 +571,10 @@ pub struct Interp {
     pub export_request: Option<usize>,
     /// The function a trap found without a body (the compiler may lower it and run again).
     pub missing_func: Option<FuncId>,
+    defer_missing_bodies: bool,
+    callable_request: Option<(FuncId, bool)>,
+    inspected_callables: std::collections::HashSet<FuncId>,
+    ready_callables: std::collections::HashSet<FuncId>,
     /// Those typed exports (root record, node records), by code index, in the order the
     /// run asks for them: each `compiler_get_nodes` call gets nodes of its own, which it may
     /// edit. `code_export_cursor` counts the ones this run took; it starts over on each run.
@@ -654,7 +669,7 @@ struct Entered {
 
 /// Whether `result` is a thread of the sandbox's scheduler switching out (`threads_inline.rs`).
 fn suspended<T>(result: &Res<T>) -> bool {
-    matches!(result, Err(trap) if trap.kind == Some(TrapKind::Suspended))
+    matches!(result, Err(trap) if trap.suspends_frames())
 }
 
 /// The memory interpreted frames live on: the words of an allocation of its own, or of a mapping
@@ -789,6 +804,10 @@ impl Interp {
             run_effects: None,
             export_request: None,
             missing_func: None,
+            defer_missing_bodies: false,
+            callable_request: None,
+            inspected_callables: std::collections::HashSet::new(),
+            ready_callables: std::collections::HashSet::new(),
             code_exports: HashMap::default(),
             code_export_cursor: HashMap::default(),
             forked_child: false,
@@ -1468,7 +1487,7 @@ impl Interp {
             args
         };
         #[cfg(not(target_arch = "wasm32"))]
-        self.hand_thunks_to_c();
+        self.hand_thunks_to_c(program, argv)?;
         let mine = self.take_exec_state();
         let loc = mine.loc;
         // A crash in C names `symbol` and this thread's interpreted call stack.
@@ -1559,11 +1578,25 @@ impl Interp {
     /// through memory the program shares with it), so from now on a thread C started may call
     /// back, and the scheduler must not take all-threads-blocked for a deadlock at once.
     #[cfg(not(target_arch = "wasm32"))]
-    fn hand_thunks_to_c(&mut self) {
+    fn hand_thunks_to_c(&mut self, program: &Program, arguments: &[u64]) -> Res<()> {
+        // A retained procedure value is not itself an exposure to C. Require
+        // readiness for callbacks actually passed at this native boundary.
+        for &address in arguments {
+            if let Some(function) = self.func_of(address) {
+                self.require_callable(program, function)?;
+            }
+        }
+        // Exposure bookkeeping can be cleared after a C call, but unresolved
+        // readiness must survive until source addition permits another probe.
+        let pending: Vec<_> = self.thunk_funcs.values().copied().collect();
+        for function in pending {
+            self.inspect_callable(program, function)?;
+        }
         if !self.unseen_thunks.is_empty() {
             self.unseen_thunks.clear();
             self.shared().callbacks_possible();
         }
+        Ok(())
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -1644,7 +1677,9 @@ impl Interp {
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
         self.call_nesting += 1;
         let mut result = self.exec(program, func, args);
-        if self.call_nesting == 1 && suspended(&result) {
+        if self.call_nesting == 1
+            && matches!(&result, Err(trap) if trap.kind == Some(TrapKind::Suspended))
+        {
             // A thread of the sandbox's scheduler blocked: run the others until this one ends.
             result = self.inline_schedule(program, result);
             if result.is_err() {
@@ -1691,6 +1726,17 @@ impl Interp {
             .get(id.0 as usize)
             .cloned()
             .unwrap_or_default();
+        if self.defer_missing_bodies && self.compile_time {
+            if self.call_nesting != 1 || !self.compiler_threads_idle() {
+                return self.trap(format!(
+                    "cannot suspend compile-time body dependency `{name}` across a native callback or managed thread"
+                ));
+            }
+            return self.trap_of(
+                TrapKind::CompileDependency(id),
+                format!("waiting for the body of `{name}`"),
+            );
+        }
         self.trap(format!(
             "procedure `{name}` has no body available at this point"
         ))

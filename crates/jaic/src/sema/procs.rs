@@ -1175,11 +1175,25 @@ impl Compiler {
 
     /// Lower one procedure body to IR.
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
+        let error_mark = self.ide.as_ref().map(|ide| ide.errors.len());
+        let executions = self.ct_executions;
+        self.dependencies.begin_body(id);
         self.export.expression_types.remove(&id);
         self.procs[id.0 as usize].body_state = BodyState::Lowering;
         let outermost = (self.lowering_depth == 0).then(|| self.perf.start_lowering());
         self.lowering_depth += 1;
         let result = self.lower_body_inner(id);
+        self.dependencies.end_body(id, result.is_err());
+        if result.is_err()
+            && !self.placeholders_final
+            && self.ct_executions == executions
+            && !self.unresolved_body_placeholders(id).is_empty()
+            && let (Some(mark), Some(ide)) = (error_mark, self.ide.as_mut())
+        {
+            // Diagnostics of an unfinished attempt are provisional. A complete
+            // retry owns the final diagnostics, including independent errors.
+            ide.errors.truncate(mark);
+        }
         self.lowering_depth -= 1;
         if result.is_err() {
             self.export.expression_types.remove(&id);
@@ -1188,6 +1202,7 @@ impl Compiler {
             self.perf.finish_lowering(mark);
         }
         self.procs[id.0 as usize].body_state = if result.is_ok() {
+            self.lenient_failures.remove(&id);
             BodyState::Done
         } else {
             BodyState::Queued

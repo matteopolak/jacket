@@ -316,6 +316,12 @@ impl Compiler {
         kind: EntityKind,
         exported: bool,
     ) -> EntityId {
+        let placeholder = matches!(
+            &kind,
+            EntityKind::Decl { .. } | EntityKind::Import(_) | EntityKind::Const { .. }
+        )
+        .then(|| self.generated_placeholder(scope, name, span))
+        .flatten();
         let id = EntityId(self.entities.len() as u32);
         self.entities.push(Entity {
             name,
@@ -333,10 +339,80 @@ impl Compiler {
             .entry(name)
             .or_default()
             .push(id);
+        if let Some(placeholder) = placeholder {
+            self.dependencies
+                .bindings
+                .entry(placeholder)
+                .or_default()
+                .push(id);
+        }
         if self.ide.is_some() {
             self.ide_note_entity(id);
         }
         id
+    }
+
+    /// A scoped source definition fulfills the visible explicit placeholder,
+    /// including when a file Code scope sees its module's declaration. Keep
+    /// the entity identity so other files/importers observe that same binding.
+    fn generated_placeholder(&self, scope: ScopeId, name: Sym, span: Span) -> Option<EntityId> {
+        if let Some(placeholder) = self.scope(scope).names.get(&name).and_then(|entities| {
+            entities
+                .iter()
+                .copied()
+                .find(|&entity| matches!(self.entity(entity).kind, EntityKind::Placeholder))
+        }) {
+            return Some(placeholder);
+        }
+        if self.dependencies.source_scopes.get(&span.file) != Some(&scope) {
+            return None;
+        }
+        let module = self.scope(scope).module;
+        let mut current = Some(scope);
+        while let Some(scope) = current {
+            let info = self.scope(scope);
+            if info.module != module {
+                break;
+            }
+            if let Some(entities) = info.names.get(&name) {
+                if let Some(placeholder) = entities
+                    .iter()
+                    .copied()
+                    .find(|&entity| matches!(self.entity(entity).kind, EntityKind::Placeholder))
+                {
+                    return Some(placeholder);
+                }
+                return self.dependencies.bindings.iter().find_map(
+                    |(&placeholder, definitions)| {
+                        let declaration = self.entity(placeholder);
+                        (declaration.name == name
+                            && self.scope(declaration.scope).module == module
+                            && entities.iter().all(|entity| definitions.contains(entity)))
+                        .then_some(placeholder)
+                    },
+                );
+            }
+            current = info.parent;
+        }
+        None
+    }
+
+    fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
+        let mut result = Vec::new();
+        for &entity in entities {
+            for &definition in self
+                .dependencies
+                .bindings
+                .get(&entity)
+                .map(Vec::as_slice)
+                .unwrap_or(std::slice::from_ref(&entity))
+            {
+                if !result.contains(&definition) {
+                    result.push(definition);
+                }
+            }
+        }
+        result
     }
 
     /// A declaration may not reuse a name declared in the same scope, except for procedures,
@@ -351,17 +427,20 @@ impl Compiler {
         if name.as_str() == "_" {
             return Ok(());
         }
-        let Some(ids) = self.scope(scope).names.get(&name) else {
-            return Ok(());
-        };
-        // A `#placeholder` is defined by code the metaprogram adds, possibly more than once.
-        if ids
-            .iter()
-            .any(|&id| matches!(self.entity(id).kind, EntityKind::Placeholder))
+        let mut ids = self
+            .scope(scope)
+            .names
+            .get(&name)
+            .cloned()
+            .unwrap_or_default();
+        if let Some(placeholder) = self.generated_placeholder(scope, name, span)
+            && let Some(definitions) = self.dependencies.bindings.get(&placeholder)
         {
-            return Ok(());
+            ids.extend(definitions);
         }
-        for &id in ids {
+        // A placeholder permits its definition, not additional definitions after it.
+        // Real declarations retain the ordinary duplicate/overload rules.
+        for id in self.bound_entities(&ids) {
             match (&self.entity(id).kind, decl) {
                 (
                     EntityKind::Decl {
@@ -568,21 +647,25 @@ impl Compiler {
                         .iter()
                         .any(|p| p.body_state == super::procs::BodyState::Lowering);
                 let misses = self.placeholder_misses;
+                let executions = self.ct_executions;
+                let in_progress = self.in_progress_misses;
                 let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
-                // A top-level `#insert` whose generator failed may be waiting for a
-                // `#placeholder` without having looked it up this time (its body failed
-                // earlier and was parked): it gets another try once code stops coming.
-                let insert_waits =
-                    !self.placeholders_final && matches!(stmt.kind, ast::StmtKind::Insert(_));
+                // Retry only unresolved semantic work. A generator that executed
+                // and failed is terminal, even while its enclosing body is lowering.
                 // Compile-time code that spent the whole budget fails the same way every time.
                 let spent = self.interp.block_budget == Some(0);
-                if result.is_err() && !spent && (insert_waits || self.waits_for_placeholder(misses))
+                if result.is_err()
+                    && !spent
+                    && self.ct_executions == executions
+                    && self.waits_for_placeholder(misses)
                 {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
                 if reentrant
                     && !spent
+                    && self.ct_executions == executions
+                    && self.in_progress_misses != in_progress
                     && let Err(e) = result
                 {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
@@ -737,6 +820,7 @@ impl Compiler {
                 self.expand_pending(sid)?;
             }
             if let Some(ids) = self.scope(sid).names.get(&name).cloned() {
+                let ids = self.bound_entities(&ids);
                 // A `#placeholder` gives way to the real declaration (possibly
                 // added later by a metaprogram).
                 let is_placeholder =
@@ -856,7 +940,7 @@ impl Compiler {
             })
             .unwrap_or_default();
         if !own.is_empty() {
-            return Ok(own);
+            return Ok(self.bound_entities(&own));
         }
         // Names of modules this one re-exports with `using M :: #import "M";` (each module
         // once per lookup, so re-export cycles end).

@@ -14,6 +14,17 @@ use super::*;
 use crate::records::{Field, FieldRef, Item, Record, Records};
 use crate::types::{ArrayKind, TypeKind};
 
+/// Reviewed Code_Type_Instantiation.inst_flags ABI (independent of AST enum tags).
+mod inst_flags {
+    pub const VARARGS: i64 = 0x1;
+    pub const RESIZABLE: i64 = 0x2;
+    pub const TYPE_OF_PROCEDURE: i64 = 0x4;
+    pub const TYPE_DIRECTIVE: i64 = 0x8;
+    pub const TYPE_DIRECTIVE_DISTINCT: i64 = 0x10;
+    pub const TYPE_DIRECTIVE_ISA: i64 = 0x20;
+    pub const ARRAY_VIEW: i64 = 0x40;
+}
+
 /// Values of `Message.kind`.
 pub mod message_kind {
     pub const FILE: i64 = 1;
@@ -508,6 +519,43 @@ impl Compiler {
     /// Export the bodies of reported headers that are lowered by now, into `out`. Returns how
     /// many it exported.
     fn export_ready_bodies(&mut self, r: &mut Records, out: &mut Typechecked) -> usize {
+        // A concrete procedure may be reached through a member or procedure value,
+        // without the syntax exporter's call lookup finding it. Lowering is the
+        // authority for these events, not whether its source has a global name.
+        let completed: Vec<_> = self
+            .procs
+            .iter()
+            .enumerate()
+            .filter(|(index, p)| {
+                p.body_state == procs::BodyState::Done
+                    && p.lit.body.is_some()
+                    && !p.is_poly
+                    && !p.is_macro
+                    && !self
+                        .export
+                        .scheduled_bodies
+                        .contains(&ProcId(*index as u32))
+            })
+            .map(|(index, _)| ProcId(index as u32))
+            .collect();
+        for p in completed {
+            let scope = self.proc(p).bindings.unwrap_or(self.proc(p).scope);
+            let header = {
+                let mut exporter = Exporter {
+                    c: Some(self),
+                    r,
+                    scope,
+                    sub: Vec::new(),
+                    locals: Vec::new(),
+                    procedure: None,
+                    compound_members: Vec::new(),
+                    own: false,
+                    out,
+                };
+                exporter.resolved_header(p)
+            };
+            self.export.schedule_body(p, header, scope);
+        }
         let pending = std::mem::take(&mut self.export.pending_bodies);
         let (ready, waiting): (Vec<_>, Vec<_>) = pending
             .into_iter()
@@ -610,8 +658,8 @@ impl Compiler {
         body: i64,
         stmts: &[ModifiedStmt],
     ) -> Result<()> {
-        // Bodies of procedure literals without a procedure of their own (nested
-        // in other bodies) cannot be modified; they keep their code.
+        // Ownership is attached to the actual exported workspace procedure, never
+        // recovered from a display name, copied serial or caller-created header.
         let Some(&p) = self.export.bodies.get(&body) else {
             return err(
                 Span::NONE,
@@ -1204,7 +1252,14 @@ impl Exporter<'_> {
             }
         };
         if let Some(rec) = self.r.get_mut(inst) {
-            rec.set("inst_flags", Field::Item(Item::Int(0x1)));
+            let existing = match rec.field("inst_flags") {
+                Some(FieldRef::Int(flags)) => flags,
+                _ => 0,
+            };
+            rec.set(
+                "inst_flags",
+                Field::Item(Item::Int(existing | inst_flags::VARARGS)),
+            );
         }
     }
 
@@ -1389,10 +1444,10 @@ impl Exporter<'_> {
                         rec.ptr("array_dimension", size);
                     }
                     ast::ArraySize::View => {
-                        rec.int("inst_flags", 0x40);
+                        rec.int("inst_flags", inst_flags::ARRAY_VIEW);
                     }
                     ast::ArraySize::Resizable => {
-                        rec.int("inst_flags", 0x10);
+                        rec.int("inst_flags", inst_flags::RESIZABLE);
                     }
                 }
             }
@@ -1406,7 +1461,8 @@ impl Exporter<'_> {
                     body: None,
                 };
                 let value = self.proc(&lit, &[], None, expr.span);
-                rec.ptr("type_valued_expression", value);
+                rec.ptr("type_valued_expression", value)
+                    .int("inst_flags", inst_flags::TYPE_OF_PROCEDURE);
             }
             ast::ExprKind::TypeDirective {
                 modifier,
@@ -1416,9 +1472,9 @@ impl Exporter<'_> {
                 rec.ptr("type_directive_target", value).int(
                     "inst_flags",
                     match modifier {
-                        ast::TypeModifier::Plain => 2,
-                        ast::TypeModifier::Distinct => 4,
-                        ast::TypeModifier::Isa => 8,
+                        ast::TypeModifier::Plain => inst_flags::TYPE_DIRECTIVE,
+                        ast::TypeModifier::Distinct => inst_flags::TYPE_DIRECTIVE_DISTINCT,
+                        ast::TypeModifier::Isa => inst_flags::TYPE_DIRECTIVE_ISA,
                     },
                 );
             }
@@ -3535,6 +3591,7 @@ impl Exporter<'_> {
         let sub = self.sub[start..].to_vec();
         let first_header = match (resolved.as_ref(), self.c.as_deref_mut()) {
             (Some((p, _)), Some(c)) if !own => c.export.reported_headers.insert(*p),
+            (None, Some(_)) if !own => false,
             _ => true,
         };
         if first_header {
@@ -3545,6 +3602,7 @@ impl Exporter<'_> {
                 c.export.scheduled_bodies.insert(*p);
                 c.export.reported_bodies.insert(*p)
             }
+            (None, Some(_)) if !own => false,
             _ => true,
         };
         if body_id != 0 && first_body {

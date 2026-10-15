@@ -1,6 +1,9 @@
 # Developer documentation
 
 Current frozen native ARM64 measurement: [machine-readable current baseline](status/mac-current-baseline.json), with exact candidate path/ref/snapshot and separate coordinator gates.
+- [Dynamic import factory registration](compiler/plugin-registration.md):
+  reference-confirmed placeholder/indirect-call boundary, retained compile-time
+  frames, scoped source dependencies, tested factories and exact limitations.
 
 - [Required native library initialization](compiler/native-required-libraries.md):
   real constructor effects in interpreted/linked programs, precise load failures
@@ -535,6 +538,10 @@ general AST serialization, public edit handling, original regressions and
 explicit remaining syntax/ownership boundaries.
 See [custom iteration controls](compiler/custom-iteration-controls.md) for array
 removal forwarding and independent operator-name diagnostic coverage.
+See [retained body ownership](compiler/retained-body-ownership.md) for canonical
+member/callback editing, contextual enum members and native/WASI evidence.
+See [type-instantiation flags](compiler/type-instantiation-flags.md) for reviewed
+array/directive mappings, variadic composition and mutable type round trips.
 
 The [machine-readable baseline](status/mac-integration-baseline.json) records the
 exact candidate snapshot, commands, environment, counts and failure names.
@@ -587,3 +594,5 @@ the earlier120-second timeout is retained. Full aggregate replay remains require
 - [Android APK build orchestration](android-build.md): Gradle and SDK command orchestration, ZIP packaging, signing dependencies and verification limits.
 
 - [Android binary manifests](android-manifest.md): valid AXML writer, UTF-8/UTF-16 reader, canonical APK parsing and system-zlib decompression.
+
+- [Basic LSP resolution verification](tools/lsp-basic-resolution-verification.md): reported Basic.temp and exit(1) checks on the merged server

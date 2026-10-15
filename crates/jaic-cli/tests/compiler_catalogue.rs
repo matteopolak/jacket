@@ -2,6 +2,34 @@
 use std::{path::PathBuf, process::Command};
 
 #[test]
+fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .env("JAIC_STDLIB", root.join("stdlib"))
+        .arg(root.join("tests/compiler-semantics/insert-same-scope-declarations.jai"))
+        .arg("-interp")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .env("JAIC_STDLIB", root.join("stdlib"))
+        .arg(root.join("tests/compiler-semantics/insert-same-scope-duplicate-rejected.jai"))
+        .arg("-check")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("`first` is already declared in this scope")
+    );
+}
+
+#[test]
 fn custom_iteration_remove_and_operator_values_preserve_semantics() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for name in ["custom-for-array-remove", "operator-name-values"] {
@@ -84,6 +112,8 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
         "literals",
         "assembly",
         "aliases",
+        "enum-members",
+        "array-flags",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
@@ -122,6 +152,30 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn retained_member_and_real_library_bodies_are_modifiable() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    for path in [
+        "tests/compiler-semantics/code-modify-members.jai",
+        "tests/developer-tools/compiler-requests/profiler-member-modify.jai",
+        "tests/developer-tools/compiler-requests/profiler-stdlib-modify.jai",
+        "tests/developer-tools/compiler-requests/profiler-array-local-modify.jai",
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .env("JAIC_STDLIB", root.join("stdlib"))
+            .arg(root.join(path))
+            .arg("-check")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{path}: {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 #[test]

@@ -30,6 +30,77 @@ fn reference(records: &Records, id: i64, field: &str) -> i64 {
 }
 
 #[test]
+fn retained_member_and_anonymous_bodies_have_canonical_ownership() {
+    use jaic::sema::code_export::ModifiedStmt;
+
+    let mut fs = VirtualFs::default();
+    fs.insert("/lib/prelude/module.jai", "".as_bytes());
+    fs.insert(
+        "/app/main.jai",
+        r#"
+R :: struct { touch :: (x:int)->int {return x+1;} }
+main :: () -> int {
+    callback := (x:int)->int {return x+3;};
+    return R.touch(callback(4));
+}
+"#
+        .as_bytes(),
+    );
+    let mut options = Options::host();
+    options.runtime_support = false;
+    options.preload = Some("/lib/prelude/module.jai".into());
+    let fs = Rc::new(fs);
+    let mut compiler = Compiler::new(options.clone(), fs.clone());
+    compiler
+        .compile_program(Path::new("/app/main.jai"))
+        .unwrap();
+    let mut other = Compiler::new(options, fs);
+    let mut records = Records::default();
+    other.compile_program(Path::new("/app/main.jai")).unwrap();
+    while other.export_typechecked(&mut records).is_some() {}
+    let mut bodies = HashSet::new();
+    let mut headers = HashSet::new();
+    for _ in 0..10 {
+        let Some(message) = compiler.export_typechecked(&mut records) else {
+            break;
+        };
+        for typed in refs(&records, message, "procedure_bodies") {
+            let body = reference(&records, typed, "expression");
+            let header = reference(&records, body, "header");
+            assert!(bodies.insert(body));
+            assert!(headers.insert(header));
+            assert_eq!(reference(&records, header, "body_or_null"), body);
+            let block = reference(&records, body, "block");
+            let statements: Vec<_> = refs(&records, block, "statements")
+                .into_iter()
+                .map(ModifiedStmt::Record)
+                .collect();
+            assert!(
+                other.modify_procedure(&records, body, &statements).is_err(),
+                "foreign workspace body must be rejected"
+            );
+            let copy = records.add(records.get(body).unwrap().clone());
+            assert!(
+                compiler
+                    .modify_procedure(&records, copy, &statements)
+                    .is_err(),
+                "copying fields cannot transfer canonical ownership"
+            );
+            compiler
+                .modify_procedure(&records, body, &statements)
+                .expect("retained body belongs to the actual canonical procedure");
+        }
+    }
+    assert_eq!(
+        bodies.len(),
+        3,
+        "main, member and callback each reported once"
+    );
+    compiler.relower_modified().unwrap();
+    assert!(compiler.modify_procedure(&records, 999999, &[]).is_err());
+}
+
+#[test]
 fn called_library_bodies_have_canonical_headers_and_are_reported_once() {
     let mut fs = VirtualFs::default();
     fs.insert("/lib/prelude/module.jai", "".as_bytes());

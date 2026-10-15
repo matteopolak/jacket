@@ -57,6 +57,8 @@ pub struct IdeFacts {
     pub output: Option<Rc<std::cell::RefCell<crate::interp::SandboxHost>>>,
     /// Entity the identifier being checked resolved to (set by `check_ident`).
     pub(super) last_entity: Option<EntityId>,
+    /// Entity selected by a qualified module lookup, consumed at its member token.
+    pub(super) last_module_entity: Option<(Span, EntityId)>,
     /// Field the identifier being checked reached through a `using` (set by `check_ident`).
     pub(super) last_using_member: Option<Sym>,
     /// Names of a type that is neither a struct nor an enum (a polymorph's `T`, an alias of a
@@ -399,12 +401,36 @@ impl Compiler {
                 (expr.span, what)
             }
             // `Module.name`: what the module exports, so definition and references follow it.
-            ast::ExprKind::Member(_, name) => match op {
-                Operand::Procs(p) => (name.span, IdeWhat::Procs(p.clone())),
-                Operand::Type(t) => (name.span, IdeWhat::Type(*t)),
-                Operand::Module(m) => (name.span, IdeWhat::Module(*m)),
-                _ => (name.span, IdeWhat::Member(name.name)),
-            },
+            ast::ExprKind::Member(_, name) => {
+                let entity = self
+                    .ide
+                    .as_mut()
+                    .and_then(|ide| ide.last_module_entity.take())
+                    .filter(|(span, _)| *span == name.span)
+                    .map(|(_, entity)| entity);
+                match op {
+                    Operand::Procs(p) => (name.span, IdeWhat::Procs(p.clone())),
+                    Operand::Type(t) => {
+                        if let Some(entity) = entity
+                            && !matches!(
+                                self.types.kind(*t),
+                                TypeKind::Struct(_) | TypeKind::Enum(_)
+                            )
+                            && let Some(ide) = self.ide.as_mut()
+                        {
+                            ide.type_names.insert(name.span, entity);
+                        }
+                        (name.span, IdeWhat::Type(*t))
+                    }
+                    Operand::Module(m) => (name.span, IdeWhat::Module(*m)),
+                    _ => (
+                        name.span,
+                        entity
+                            .map(IdeWhat::Entity)
+                            .unwrap_or(IdeWhat::Member(name.name)),
+                    ),
+                }
+            }
             ast::ExprKind::InferredMember(name) => (name.span, IdeWhat::Member(name.name)),
             _ => return,
         };

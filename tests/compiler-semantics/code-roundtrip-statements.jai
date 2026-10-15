@@ -29,11 +29,14 @@ main :: () {
 
     #insert #run rebuild(#code {
         first, second := pair();
+
         existing =, made := pair();
         x, y: int = 11, 13;
+
+        assert(first == 7 && second == 9 && existing == 7 && made == 9);
+        assert(x == 11 && y == 13);
     });
-    assert(first == 7 && second == 9 && existing == 7 && made == 9);
-    assert(x == 11 && y == 13);
+    assert(existing == 7);
     query := #insert #run rebuild(#code #exists(total));
 
     assert(query);

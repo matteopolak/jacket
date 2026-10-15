@@ -20,6 +20,7 @@ mod consteval;
 mod convert;
 mod debug_info;
 mod decls;
+mod dependencies;
 mod driver;
 mod enums;
 mod expr;
@@ -587,6 +588,8 @@ pub struct Compiler {
     /// Lookups that reached an undefined `#placeholder`: a pending top-level item whose
     /// expansion did so waits (a metaprogram may define it later) until `finish_program`.
     pub placeholder_misses: u64,
+    ct_executions: u64,
+    dependencies: dependencies::Dependencies,
     /// Lookups that reached something still being computed (a signature, entity or layout in
     /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
     pub in_progress_misses: u64,
@@ -770,6 +773,8 @@ impl Compiler {
             program_param_settings: Vec::new(),
             retrying_pending: false,
             placeholder_misses: 0,
+            ct_executions: 0,
+            dependencies: dependencies::Dependencies::default(),
             in_progress_misses: 0,
             insert_depth: HashMap::default(),
             frozen: HashMap::default(),
@@ -788,6 +793,16 @@ impl Compiler {
     /// (`compiler_get_nodes` exports it from compile-time code).
     pub fn add_code(&mut self, body: Rc<ast::CodeBody>, scope: ScopeId) -> value::CodeId {
         self.adopt_made_codes();
+        // Constant evaluation uses synthetic procedure scopes to hide runtime
+        // locals. Quoted code belongs to the lexical scope where it was written,
+        // so generated declarations can bind that scope's placeholders.
+        let mut scope = scope;
+        while let Some(parent) = self.scope(scope).parent {
+            if self.thunk_scopes.get(&parent) != Some(&scope) {
+                break;
+            }
+            scope = parent;
+        }
         let id = value::CodeId(self.codes.len() as u32);
         let span = match &*body {
             ast::CodeBody::Expr(e) => e.span,

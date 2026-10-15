@@ -306,6 +306,17 @@ struct FailedLoad {
 }
 
 impl Workspace {
+    fn queue_source(&mut self, source: ProgramSource) -> Result<(), String> {
+        if self.stage == Stage::Done {
+            return Err(format!(
+                "workspace `{}` has already been compiled; add its sources before it completes",
+                self.name
+            ));
+        }
+        self.pending.push(source);
+        Ok(())
+    }
+
     fn new(name: String) -> Self {
         Workspace {
             name,
@@ -610,6 +621,14 @@ impl Workspaces {
     }
 
     fn set_option(&mut self, id: i64, key: &str, value: &str) -> Result<(), String> {
+        let actual = if id == 0 {
+            self.current_id()
+        } else {
+            id
+        };
+        if key == "destroy" && self.current.contains(&actual) {
+            return Err("cannot destroy an active compiler workspace".into());
+        }
         let s = &mut self.ws(id)?.settings;
         let flag = || value == "true";
         match key {
@@ -769,8 +788,9 @@ pub fn take_live_requests(shared: &SharedWorkspaces, id: i64) -> Vec<i64> {
 /// compiler that is building it (`Compiler::pull_workspace_sources`).
 pub fn take_own_sources(shared: &SharedWorkspaces, id: i64) -> Vec<ProgramSource> {
     let mut reg = shared.borrow_mut();
+    let running = reg.current_id() == id;
     match reg.list.get_mut(id as usize) {
-        Some(ws) if ws.stage != Stage::Open => std::mem::take(&mut ws.pending),
+        Some(ws) if running && ws.stage != Stage::Done => std::mem::take(&mut ws.pending),
         _ => Vec::new(),
     }
 }
@@ -878,6 +898,11 @@ fn phase(p: i64) -> Event {
 /// and hands back what is left, so one budget bounds the whole compilation however many
 /// workspaces a metaprogram creates.
 fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<(), String> {
+    if shared.borrow().current.contains(&id) {
+        return Err(format!(
+            "compile-time workspace dependency cycle: workspace {id} is already active"
+        ));
+    }
     if shared.borrow_mut().ws(id)?.link.is_some() {
         return finish_custom_link(shared, id);
     }
@@ -1747,11 +1772,12 @@ pub fn call(
                 }));
             }
             let ws = reg.ws(id).map_err(trap)?;
-            ws.pending.push(if op == MetaOp::AddFile {
+            ws.queue_source(if op == MetaOp::AddFile {
                 ProgramSource::File(path)
             } else {
                 ProgramSource::String(value)
-            });
+            })
+            .map_err(trap)?;
             Ok(Rets::default())
         }
         MetaOp::SetOption => {
@@ -1909,11 +1935,11 @@ pub fn call(
             if let Some(Item::Int(file)) = reg.records.item(record, "__file", None) {
                 reg.ws(id)
                     .map_err(trap)?
-                    .pending
-                    .push(ProgramSource::FileString(
+                    .queue_source(ProgramSource::FileString(
                         value,
                         crate::source::FileId(file as u32),
-                    ));
+                    ))
+                    .map_err(trap)?;
                 return Ok(Rets::default());
             }
             // A FILE message stands for its module (the enclosing import).
@@ -1927,7 +1953,8 @@ pub fn call(
                 _ => return Err(trap("add_build_string: the message names no module".into())),
             };
             let ws = reg.ws(id).map_err(trap)?;
-            ws.pending.push(ProgramSource::ModuleString(value, module));
+            ws.queue_source(ProgramSource::ModuleString(value, module))
+                .map_err(trap)?;
             Ok(Rets::default())
         }
         MetaOp::AddStringToCode => {
@@ -1945,11 +1972,11 @@ pub fn call(
             }
             reg.ws(id)
                 .map_err(trap)?
-                .pending
-                .push(ProgramSource::CodeString(
+                .queue_source(ProgramSource::CodeString(
                     source,
                     crate::sema::value::CodeId(code as u32),
-                ));
+                ))
+                .map_err(trap)?;
             Ok(Rets::default())
         }
         MetaOp::CodeIsNull => {

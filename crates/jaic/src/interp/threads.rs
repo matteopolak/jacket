@@ -593,6 +593,17 @@ impl native::Gate for Shared {
 }
 
 impl Interp {
+    pub(super) fn compiler_native_threads_idle(&self) -> bool {
+        self.shared.as_ref().is_none_or(|shared| {
+            shared
+                .lock()
+                .threads
+                .iter()
+                .skip(1)
+                .all(|thread| thread.finished)
+        })
+    }
+
     /// The scheduler, made on first use (a thread, a lock, or a thunk C may call).
     pub(super) fn shared(&mut self) -> Arc<Shared> {
         if let Some(shared) = &self.shared {
@@ -686,9 +697,8 @@ impl Interp {
     /// Native callback ABI, independent of its nominal pointer types or module.
     fn thread_entry_abi(&self, program: &Program, start: u64, result: Ty) -> bool {
         self.func_of(start)
-            .and_then(|func| program.funcs.get(func.0 as usize).and_then(Option::as_ref))
-            .is_some_and(|function| {
-                let signature = &function.sig;
+            .and_then(|func| program.func_sig(func))
+            .is_some_and(|signature| {
                 signature.conv == ir::Conv::C
                     && signature.params == [Ty::Ptr]
                     && signature.returns == [result]
@@ -712,6 +722,7 @@ impl Interp {
         let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
         };
+        self.require_callable(program, func)?;
         // The scheduler runs this thunk, not C: it gives no thread of C's a way back in.
         self.unseen_thunks.retain(|&t| t != start);
         let shared = self.shared();

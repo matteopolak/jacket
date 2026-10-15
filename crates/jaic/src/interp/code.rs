@@ -2034,7 +2034,7 @@ impl Interp {
                         nrets as usize,
                     );
                     if let Err(trap) = result {
-                        if trap.kind == Some(TrapKind::Suspended) {
+                        if trap.suspends_frames() {
                             self.suspend_at = Some(here);
                         }
                         return Err(trap);
@@ -2066,7 +2066,7 @@ impl Interp {
                     let vals = unsafe { std::slice::from_raw_parts_mut(regs, code.regs) };
                     if let Err(trap) = self.step(program, inst, vals, frame, stack_base, &func.vals)
                     {
-                        if trap.kind == Some(TrapKind::Suspended) {
+                        if trap.suspends_frames() {
                             self.suspend_at = Some(here);
                         }
                         return Err(trap);

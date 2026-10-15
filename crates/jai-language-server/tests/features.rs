@@ -742,6 +742,78 @@ fn opened(text: &str) -> JsonSession {
     json
 }
 
+#[test]
+fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
+    // Semantic requests only: this document has no #run and is never executed.
+    let text = "#import \"Basic\";\nBasic :: #import \"Basic\";\nmain :: () {\n    allocator := Basic.temp;\n    assert(allocator.proc != null);\n    exit(1);\n    Basic.exit(1);\n}\n";
+    let mut json = opened(text);
+    let params = |position| serde_json::json!({"textDocument": {"uri": uri().as_str()}, "position": position});
+    let check = |json: &mut JsonSession| {
+        for (needle, offset, expected) in [("Basic.temp", 6, "Allocator"), ("exit(1)", 0, "s32")] {
+            let position = at(text, needle, 0, offset);
+            let found = request(json, "textDocument/hover", params(position));
+            assert!(
+                found["contents"]["value"]
+                    .as_str()
+                    .is_some_and(|value| value.contains(expected)),
+                "{needle}: {found}"
+            );
+            let found = request(json, "textDocument/definition", params(position));
+            assert!(
+                found
+                    .as_array()
+                    .is_some_and(|locations| !locations.is_empty()),
+                "{needle}: {found}"
+            );
+        }
+        let position = at(text, "Basic.exit", 0, 6);
+        assert!(!request(json, "textDocument/hover", params(position)).is_null());
+    };
+    check(&mut json);
+    let start = at(text, "Basic.temp", 0, 6);
+    let end = at(text, "Basic.temp", 0, 10);
+    notify(
+        &mut json,
+        "textDocument/didChange",
+        serde_json::json!({
+            "textDocument": {"uri": uri().as_str(), "version": 2},
+            "contentChanges": [{"range": Range {start, end}, "text": "te"}]
+        }),
+    );
+    let completion = request(
+        &mut json,
+        "textDocument/completion",
+        params(Position {
+            line: start.line,
+            character: start.character + 2,
+        }),
+    );
+    assert!(
+        completion["items"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item["label"] == "temp")),
+        "{completion}"
+    );
+    let messages = notify(
+        &mut json,
+        "textDocument/didChange",
+        serde_json::json!({
+            "textDocument": {"uri": uri().as_str(), "version": 3},
+            "contentChanges": [{"range": Range {start, end: Position {
+                line: start.line, character: start.character + 2,
+            }}, "text": "temp"}]
+        }),
+    );
+    for message in messages {
+        if message["method"] == "textDocument/publishDiagnostics" {
+            for diagnostic in message["params"]["diagnostics"].as_array().unwrap() {
+                assert_ne!(diagnostic["severity"], 1, "{diagnostic}");
+            }
+        }
+    }
+    check(&mut json);
+}
+
 fn code_actions(
     json: &mut JsonSession,
     range: Range,
