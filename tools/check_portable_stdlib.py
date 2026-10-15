@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 from check_foundations import expected_output as foundation_output
+from portable_toolchain import default_compiler, checked_compiler
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,7 +91,7 @@ def run(command, env, expected=None, cwd=ROOT, expected_stderr="", expected_code
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", type=Path, default=ROOT / "target/compiler/debug/jaic")
+    parser.add_argument("--jaic", type=Path, default=default_compiler())
     parser.add_argument("--stdlib", type=Path, help="Production tree; no source overlays")
     parser.add_argument("--posix-root", type=Path,
                         help="new independently implemented POSIX module directory")
@@ -103,9 +104,7 @@ def main():
     parser.add_argument("--check-target", action="append", default=[],
                         help="OS/CPU pair, e.g. linux/x64; checks portable cases only")
     args = parser.parse_args()
-    compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT / "target"):
-        parser.error("compiler must be a source build under this checkout's target directory")
+    compiler = checked_compiler(args.jaic, parser)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_runtime.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_zip_fixtures.py")], cwd=ROOT, check=True)
     subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_archive_fixtures.py")], cwd=ROOT, check=True)

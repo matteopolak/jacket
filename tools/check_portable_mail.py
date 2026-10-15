@@ -11,6 +11,8 @@ import socket
 import subprocess
 import threading
 
+from portable_toolchain import default_compiler, checked_compiler
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -74,13 +76,11 @@ def receive(listener, mode, outcome):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", type=Path, default=ROOT / "target/compiler/debug/jaic")
+    parser.add_argument("--jaic", type=Path, default=default_compiler())
     parser.add_argument("--stdlib", type=Path, default=ROOT / "target/portable-integration-stdlib")
     parser.add_argument("--native", action="store_true")
     args = parser.parse_args()
-    compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT / "target"):
-        parser.error("compiler must be source-built under this checkout's target")
+    compiler = checked_compiler(args.jaic, parser)
     output = ROOT / "target/mail-tests"
     output.mkdir(parents=True, exist_ok=True)
     attachment = output / "attachment.bin"

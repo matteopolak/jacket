@@ -11,11 +11,11 @@ def main():
     directory = ROOT / "stdlib/internal/runtime/crash-native"
     system = platform.system()
     if system == "Darwin":
-        shared = ["-dynamiclib"]
+        shared = ["-dynamiclib", "-Wl,-install_name,@rpath/libportable_crash.dylib"]
         output = directory / "libportable_crash.dylib"
         libraries = ["-pthread"]
     elif system == "Linux":
-        shared = ["-shared", "-fPIC"]
+        shared = ["-shared", "-fPIC", "-Wl,-soname,libportable_crash.so"]
         output = directory / "libportable_crash.so"
         libraries = ["-pthread", "-ldl"]
     else:

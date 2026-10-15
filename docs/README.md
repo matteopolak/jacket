@@ -50,6 +50,11 @@ Current replacement integration: [commands and results](tools/cleanroom-integrat
 
 [macOS resolver candidate](portable-socket-resolver.md) records native C ABI
 evidence and the genuine forward-enum compiler gate, without a Jai success claim.
+[Deep_Copy timer operations](portable-deep-copy-timing.md) records the real
+disabled-assertion defect, explicit clock/error fix and Mac regression evidence.
+
+[macOS resolver and network database bindings](portable-socket-resolver.md) record
+active C/Jai ABI and native behavior evidence, with the remaining full-lint compiler gate.
 
 Android host [ADB operations](portable-adb.md) now include app lifecycle status,
 force-stop, installation queries and reviewed SDK discovery/cache/startup, with
@@ -358,6 +363,9 @@ The LLVM backend, C ABI and linking.
 - [APK file views and iteration](portable-apk.md): real ZIP32 inputs, ownership, local payload offsets and malformed-boundary regressions
 - [Project generator workflow](portable-project-generator.md): real target builds and deterministic Visual Studio artifacts; precise linter-host/resource gaps
 - [Memory visualizer protocol comparison](portable-memory-protocol.md): opaque pointer-pair equality, packet layouts and genuine compile-time/native regressions
+- [Portable owned implementation inventory](status/implementation-remaining.json): reviewed API denominator, conservative complete/partial/missing source counts, exact names, draft state and transfer estimates
+- [Runtime pending-output discard handoff](portable-runtime-output-discard.md): canonical private hook, exact binding patch and real byte-I/O tests
+- [Canonical signing model handoff](portable-signing-model-handoff.md): shared record/enum defaults, union storage and generator ownership boundary
 - [Android SDK ADB command subsystem](portable-adb.md): native host CLI protocol tests, canonical records and live configuration
 - [ASN.1 primitive parsing and byte cursors](portable-asn1.md): canonical tags, signed integers, full-width OIDs and unresolved value/printer contracts
 - [Exact missing owned public declarations](portable-missing-surface.md)
@@ -381,6 +389,16 @@ The LLVM backend, C ABI and linking.
 - [Bindings generator naming helpers](generator-names.md): eight reviewed helpers, integrated public imports, canonical options and native/source verification
 - [WAV parser design and validation](portable-wav.md)
 - [SMTP/MIME transport and loopback validation](portable-mail.md)
+- [Mail scramble numeric-alphabet review question](portable-mail-questions.md)
+- [Default allocator heaps, ownership and performance tradeoffs](portable-default-allocator.md)
+- [Real direct Android signing keys and crypto-tool dependency](portable-direct-signing-key.md)
+- [Java SDK JKS generation source and honest verification limits](portable-jks-generation.md)
+- [Canonical Android hexadecimal formatter aliases](portable-android-format-helpers.md)
+- [Relocated native crash-helper package lookup and override audit](portable-native-package-lookup.md)
+- [Remaining exact portable contract requests and owned scope](portable-remaining-contract-requests.md)
+- [Reviewed S128/Apollo arithmetic foundation handoff](portable-wide-arithmetic-handoff.md)
+- [Metaprogram plugin public-contract/compiler handoff](metaprogram-plugins-dependency-request.md)
+- [Real compile-time plugin parser/initializer and required compiler capability](portable-metaprogram-plugins.md)
 - [POSIX crash diagnostics and native startup verification](portable-crash-handler.md)
 - [Classic ZIP directory parsing and ownership](portable-zip-directory.md)
 - [Atomics and verified bootstrap aliases](portable-atomics.md)
