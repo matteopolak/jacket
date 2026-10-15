@@ -44,6 +44,8 @@ main :: () {
     append(*cpp, "using Printed_Qualified = int");
     B.append_cpp_type_modifiers(*cpp, *constant, 0);
     append(*cpp, ";\nstatic_assert(__is_same(Printed_Callback, int (*)(double)));\nstatic_assert(__is_same(Printed_Array, int (*)[4]));\nstatic_assert(__is_same(Printed_Reference, int (&)[4]));\nstatic_assert(__is_same(Printed_Qualified, const volatile int));\nextern \"C\" int printed_call(Printed_Callback callback, double value) { return callback(value); }\nextern \"C\" int printed_array(int *data) { Printed_Reference array = *reinterpret_cast<Printed_Array>(data); array[2] += 7; return array[2]; }\n");
+    append(*cpp, "extern \"C\" int printed_identity(int value) { return value; }\n");
+    append(*cpp, "extern \"C\" int printed_bool(bool value) { return value ? 1 : 0; }\n");
     text := builder_to_string(*cpp);
 
     defer free(text);
@@ -55,7 +57,26 @@ main :: () {
     B.print_type_to_builder(*jai, *callback, null);
     append(*jai, ";\n");
     append(*jai, "Printed_Function :: #type ");
+    // The native foreign header below is generated through the same public API.
     B.print_function_type_to_builder(*jai, *function, null);
+    append(*jai, ";\nnative :: #foreign_library \"developer_tools_type_emission\";\ndefault_value :: ");
+    default_literal: B.Literal;
+    default_literal.literal_kind = .INTEGER;
+    default_literal.int_value = 42;
+    default_argument := B.Declaration.{ output_name = "value", type = *integer, expression = cast(*B.Expression) *default_literal };
+    default_function := B.Function_Type.{ return_type = *integer };
+
+    array_add(*default_function.arguments, *default_argument);
+    defer array_free(default_function.arguments);
+    B.print_function_type_to_builder(*jai, *default_function, null);
+    append(*jai, " #foreign native \"printed_identity\"");
+    append(*jai, ";\ndefault_bool :: ");
+    boolean := B.CType.{ flags = .BOOL, size = 1 };
+
+    default_argument.type = *boolean;
+    default_literal.int_value = 1;
+    B.print_function_type_to_builder(*jai, *default_function, null);
+    append(*jai, " #foreign native \"printed_bool\"");
     append(*jai, ";\n");
     assert(!jai.failed);
     jai_text := builder_to_string(*jai);

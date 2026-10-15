@@ -23,7 +23,7 @@ main :: () {
     append(*defaults, "keep");
     integer := B.CType.{ size = 4, number_flags = ._32BIT | .SIGNED };
     literal: B.Literal;
-    literal.literal_kind = .INTEGER;
+    literal.literal_kind = .RAW_CPP_TOKENS;
     argument := B.Declaration.{ output_name = "value", type = *integer, expression = cast(*B.Expression) *literal };
     function := B.Function_Type.{ return_type = *integer };
 

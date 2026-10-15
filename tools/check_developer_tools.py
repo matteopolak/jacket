@@ -13,7 +13,9 @@ import csv
 import check_developer_bindings
 import check_developer_cpp_custom
 import check_developer_type_emission
+import check_developer_value_emission
 import check_developer_check
+import check_developer_check_plugin
 import build_developer_debug
 import check_developer_debug_lifecycle
 import check_developer_debug_windows
@@ -134,7 +136,9 @@ def main():
     check_generator_platform.main()
     check_developer_cpp_custom.main()
     check_developer_type_emission.main()
+    check_developer_value_emission.main()
     check_developer_check.main()
+    check_developer_check_plugin.main()
     configured_cases = check_developer_sdk_configuration.main()
     build_developer_debug.main()
     check_developer_debug_lifecycle.main()
@@ -364,10 +368,11 @@ def main():
     shutil.copyfile(ROOT / "tests/developer-tools/rewrite-input.jai", rewritten)
     # This private source requires the Windows facade's DEBUG_BINDINGS constant;
     # lint it below with the actual public platform active, not in a host main module.
-    host_lint_paths = [path for path in paths if path != ROOT / "stdlib/internal/developer-tools/check-bindings.jai"]
+    checker_contextual = {ROOT / "stdlib/internal/developer-tools/check-bindings.jai",
+                          ROOT / "stdlib/internal/developer-tools/porting-check.jai"}
+    host_lint_paths = [path for path in paths if path not in checker_contextual]
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *host_lint_paths])
-    check_paths = [ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/porting-check.jai",
-                   ROOT / "stdlib/internal/developer-tools/check-bindings.jai",
+    check_paths = [ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai",
                    ROOT / "tests/developer-tools/check-porting.jai"]
     run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64", *check_paths])
     run([JAIC, "tests/developer-tools/check-porting.jai", "-check", "-os", "windows", "-cpu", "x64"])

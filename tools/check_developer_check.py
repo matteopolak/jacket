@@ -24,17 +24,20 @@ def run(command, *, code=0, expected=None):
 
 def prepare():
     prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
-    facade = (ROOT / "stdlib/Check/module.jai").read_text()
-    outer = "#if OS == .WINDOWS {"
-    if not facade.startswith(outer) or not facade.rstrip().endswith("}"):
-        raise RuntimeError("Check staging must only remove its known outer platform guard")
-    body = facade[len(outer):].rstrip()[:-1]
+    # Stage the actual private engine with its reviewed parameter constants;
+    # production public visibility is checked separately under Windows.
+    facade = (ROOT / "stdlib/internal/developer-tools/check-engine/module.jai").read_text()
+    first, body = facade.split("#module_parameters(", 1)
+    parameters, body = body.split(");", 1)
+    if "CHECK_BINDINGS := true" not in parameters or "DEBUG_BINDINGS := false" not in parameters:
+        raise RuntimeError("Unexpected canonical checker engine parameters")
+    body = "CHECK_BINDINGS :: true;\nDEBUG_BINDINGS :: false;\n" + body
     for name in ["porting-check.jai", "check-bindings.jai"]:
         original = ROOT / "stdlib/internal/developer-tools" / name
         if original.exists():
             copied = ROOT / "target" / f"developer-tools-check-staged-{name}"
             copied.write_bytes(original.read_bytes())
-            body = body.replace(f'"../internal/developer-tools/{name}"', json.dumps(str(copied)))
+            body = body.replace(f'"../{name}"', json.dumps(str(copied)))
     native_directory = ROOT / "target/check-native"
     native_directory.mkdir(exist_ok=True)
     for library in (ROOT / "stdlib/internal/developer-tools/check-native").glob("*developer_tools_check.*"):
@@ -44,7 +47,7 @@ def prepare():
         if not link.exists():
             link.symlink_to(library)
     staged = ROOT / "target/developer-tools-check-staged.jai"
-    staged.write_text("// Test staging of NEW production code; Windows guard only removed.\n" + body)
+    staged.write_text("// Test staging of NEW production code; private engine parameters fixed for staged host validation.\n" + body)
     debug_staged = ROOT / "target/developer-tools-check-debug-staged.jai"
     if body.count("DEBUG_BINDINGS :: false;") != 1:
         raise RuntimeError("Debug accounting staging must change only the reviewed debug constant")
@@ -119,7 +122,7 @@ def main():
          ROOT / "stdlib/internal/developer-tools/check-bindings.jai"], expected="")
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths], expected="")
     run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64",
-         ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-bindings.jai"], expected="")
+         ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai"], expected="")
     if platform.system() == "Darwin":
         library = ROOT / "stdlib/internal/developer-tools/check-native/libdeveloper_tools_check.dylib"
         dependencies = run(["otool", "-L", library]).stdout
