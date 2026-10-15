@@ -7,6 +7,12 @@
 - [Combined Mac integration commands and corpus boundaries](tools/cleanroom-integration.md):
   exact frozen workspace/catalogue counts, production helper checks, and permitted
   application staging with manifest provenance and exclusions before access.
+- [Basic shared print context and public arithmetic](features/basic-public-context.md):
+  one field across configurations, preserved builder layouts, supported free/hash and Vector2 APIs;
+  [measured results and remaining dependencies](status/basic-core-public.md).
+
+- [Rejected-overload lint defect](compiler/rejected-overload-lint-request.md):
+  independent reduction and compiler-owner request for the required Http client context.
 
 - [Mac Extensions dependency repairs](extensions/mac-dependency-repairs.md):
   Json ownership/numerics, Http time/atomics, and test-only dependency migrations;
