@@ -33,6 +33,12 @@ and records its interpreter/native protocol coverage and Windows dependency.
 mask parsing, diagnosed invalid input and independent target checks.
 [ASN.1 readers](portable-asn1.md) now follow refreshed value/TLV, known-array,
 OID equality/text and length-prefix contracts, with separate test corrections.
+The same document covers all three diagnostic printer overloads, iterative
+nesting, supported types, actual tests and finer output/platform policy questions.
+[X.509 key-info extraction](portable-x509.md) matches genuine newly generated
+native C certificate vectors and preserves caller-backed encoded/content views.
+[ZIP wire utilities](portable-zip-wire.md) covers real checksum/version/offset/unit
+operations, shared producer staging and the precise remaining archive contracts.
 
 
 Start with [compiler architecture](compiler/architecture.md). Real projects that compile are listed in [upstream corpus](tools/upstream-corpus.md#project-status).
@@ -282,6 +288,10 @@ The LLVM backend, C ABI and linking.
 - [Socket ancillary helpers and actual native SDK vectors](portable-socket-cmsg.md)
 - [Windows Registry native APIs and unresolved pseudo-handle ABI](portable-windows-registry.md)
 - [Android toolchain ABI naming, OID identity, digests and remaining APIs](portable-android-toolchain.md)
+- [Default metaprogram build workflow](portable-default-metaprogram.md): real workspaces and plugin lifecycle, focused Mac evidence and explicit Check/compiler dependency requests
+- [APK file views and iteration](portable-apk.md): real ZIP32 inputs, ownership, local payload offsets and malformed-boundary regressions
+- [Project generator workflow](portable-project-generator.md): real target builds and deterministic Visual Studio artifacts; precise linter-host/resource gaps
+- [Memory visualizer protocol comparison](portable-memory-protocol.md): opaque pointer-pair equality, packet layouts and genuine compile-time/native regressions
 - [Android SDK ADB command subsystem](portable-adb.md): native host CLI protocol tests, canonical records and live configuration
 - [ASN.1 primitive parsing and byte cursors](portable-asn1.md): canonical tags, signed integers, full-width OIDs and unresolved value/printer contracts
 - [Exact missing owned public declarations](portable-missing-surface.md)
