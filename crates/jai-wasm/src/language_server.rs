@@ -375,10 +375,12 @@ mod tests {
             &mut bridge,
             r#"{"jsonrpc":"2.0","id":7,"method":"jai/source","params":{"uri":"file:///stdlib/Basic/module.jai"}}"#,
         );
-        assert!(
-            source.contains("#load"),
-            "{}",
-            &source[..source.len().min(200)]
+        let messages: Vec<serde_json::Value> = serde_json::from_str(&source).unwrap();
+        let response = messages.iter().find(|message| message["id"] == 7).unwrap();
+        assert_eq!(
+            response["result"].as_str().unwrap(),
+            include_str!("../../../stdlib/Basic/module.jai"),
+            "jai/source must return the complete canonical public facade"
         );
     }
 

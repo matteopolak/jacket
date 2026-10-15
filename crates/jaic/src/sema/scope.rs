@@ -768,7 +768,7 @@ impl Compiler {
             }
             let imports = self.scope(sid).imports.len();
             for i in 0..imports {
-                if let Some(module) = self.import_module(sid, i)? {
+                if let Some(module) = self.lookup_import(sid, i)? {
                     if filter_hides(&self.scope(sid).imports[i].filter, name) {
                         continue;
                     }
@@ -865,7 +865,7 @@ impl Compiler {
             .exported_using_imports
             .clone()
         {
-            let ids = match self.import_module(scope, index) {
+            let ids = match self.lookup_import(scope, index) {
                 Ok(Some(inner)) => {
                     if filter_hides(&self.scope(scope).imports[index].filter, name) {
                         continue;
@@ -938,7 +938,7 @@ impl Compiler {
             .exported_using_imports
             .clone()
         {
-            match self.import_module(scope, index) {
+            match self.lookup_import(scope, index) {
                 Ok(Some(inner))
                     if !filter_hides(&self.scope(scope).imports[index].filter, name) =>
                 {

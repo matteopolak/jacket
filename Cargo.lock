@@ -74,6 +74,7 @@ version = "0.17.0"
 dependencies = [
  "jai-language-server",
  "jaic",
+ "serde_json",
 ]
 
 [[package]]

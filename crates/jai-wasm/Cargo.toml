@@ -13,6 +13,9 @@ crate-type = ["cdylib", "rlib"]
 jai-language-server = { path = "../jai-language-server" }
 jaic = { path = "../jaic" }
 
+[dev-dependencies]
+serde_json = "=1.0.151"
+
 # Export-name attributes are the only permitted unsafe syntax, in the play_exports.rs and
 # language_server.rs modules, plus the `unsafe extern` block that declares the page's `jai_host`
 # imports as safe functions taking addresses (host_bridge.rs). The playground and language-server

@@ -1516,6 +1516,29 @@ impl Compiler {
         Ok(Some(module))
     }
 
+    /// A failed import still contributes its diagnostic in editor analysis, but
+    /// cannot hide independent names from the imports that did resolve. Direct
+    /// import admission and normal compilation remain strict.
+    pub(super) fn lookup_import(
+        &mut self,
+        scope: ScopeId,
+        index: usize,
+    ) -> Result<Option<ModuleId>> {
+        match self.import_module(scope, index) {
+            Err(error) if self.ide.is_some() => {
+                let errors = &mut self.ide.as_mut().unwrap().errors;
+                if !errors
+                    .iter()
+                    .any(|known| known.span == error.span && known.message == error.message)
+                {
+                    errors.push(*error);
+                }
+                Ok(None)
+            }
+            result => result,
+        }
+    }
+
     pub fn resolve_import(
         &mut self,
         from_scope: ScopeId,

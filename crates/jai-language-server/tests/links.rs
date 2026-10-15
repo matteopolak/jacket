@@ -46,6 +46,7 @@ B :: #import "Basic";
 #import,dir "pkg";
 #load "part.jai";
 #import "Missing";
+printer :: B.print;
 main :: () {
     B.print("%\n", deep());
     print("%\n", helper_value + pkg_value + part_value + mine_value + both_value);
@@ -131,15 +132,22 @@ fn document_links_span_the_strings() {
 #[test]
 fn module_names_and_reexported_symbols_go_to_their_declarations() {
     let s = open_all();
+    let diagnostics = s.diagnostics(&doc("main.jai")).unwrap();
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("module `Missing` not found")
+    );
     let basic = format!("file://{}/Basic/module.jai", stdlib().display());
     // `B` of `B.print`: the module's entry file.
     assert_eq!(
         target(&s, at(MAIN, "B.print", 0)),
         (basic, Position::default())
     );
-    // A public alias navigates to the canonical implementation declaration.
+    // A resolved call navigates to its selected canonical overload.
     let print = s
-        .definition(&doc("main.jai"), at(MAIN, "B.print", 3))
+        .definition(&doc("main.jai"), at(MAIN, "B.print(", 3))
         .unwrap();
     assert!(
         print
@@ -147,7 +155,20 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
             .all(|l| l.uri.contains("/stdlib/internal/basic/")),
         "{print:?}"
     );
-    assert_eq!(print.len(), 2, "both reviewed print overloads: {print:?}");
+    assert_eq!(print.len(), 1, "selected print overload: {print:?}");
+    let overloads = s
+        .definition(&doc("main.jai"), at(MAIN, "B.print;", 3))
+        .unwrap();
+    assert_eq!(
+        overloads.len(),
+        2,
+        "both reviewed alias overloads: {overloads:?}"
+    );
+    assert!(
+        overloads
+            .iter()
+            .all(|l| l.uri.contains("/stdlib/internal/basic/"))
+    );
     // `deep` reaches main through Mine's exported `using Inner :: #import`.
     assert_eq!(
         target(&s, at(MAIN, "deep()", 1)),

@@ -83,6 +83,7 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
     output = ROOT / "target/foundations-tests"
     output.mkdir(parents=True, exist_ok=True)
+    failures = []
 
     if args.jaifmt:
         formatter = args.jaifmt.resolve(strict=True)
@@ -171,13 +172,16 @@ def main():
                                      cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
             (lint_output / f"{target_os}-{target_cpu}.log").write_text(checked.stdout + checked.stderr)
             if checked.returncode or checked.stdout or "did not compile completely" in checked.stderr:
-                raise RuntimeError(f"foundation lint {target_os}/{target_cpu} incomplete or failed:\n{checked.stdout}{checked.stderr}")
+                failures.append(f"foundation lint {target_os}/{target_cpu} incomplete or failed:\n{checked.stdout}{checked.stderr}")
+                print(f"FAILED strict lint {target_os}/{target_cpu}; continuing independent checks", flush=True)
+                continue
             covered.update(Path(path).resolve() for path in manifest.read_text().splitlines())
             print(f"passed strict lint {target_os}/{target_cpu}", flush=True)
         missing = set(files) - covered - {invalid_scalar}
         if missing:
-            raise RuntimeError(f"foundation sources not checked: {sorted(map(str, missing))}")
-        print(f"passed source-built jailint -D warnings with coverage of {len(files) - 1} owned sources and one required binding rejection", flush=True)
+            failures.append(f"foundation sources not checked: {sorted(map(str, missing))}")
+        if not failures:
+            print(f"passed source-built jailint -D warnings with coverage of {len(files) - 1} owned sources and one required binding rejection", flush=True)
 
     for name, diagnostic in (("hash-unsupported", "get_hash requires an integer, boolean, enum, pointer, or float"),
                              ("hash-seed-visibility", "no exported member `HASH_INIT`"),
@@ -252,7 +256,6 @@ def main():
             run(["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary],
                 "", "memory debugger: unknown allocation marked as non-leak", 1)
         print("passed production WASI O0/O2 unknown-allocation misuse status 1", flush=True)
-    failures = []
     for name, target in (("hash-scalar-fnv", []), ("basic-division-exercise", ["-os", "windows", "-cpu", "x64"])):
         try:
             run([compiler, "-check", *target, ROOT / f"tests/portable-stdlib/pending/{name}.jai"])
