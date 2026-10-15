@@ -65,7 +65,10 @@ def main():
             ledger.append(record)
             continue
         if "#char ," in code:
-            record["status"] = "unresolved incomplete character literal in reviewed declaration"
+            if name == "FIONBIO":
+                record["status"] = "incomplete reviewed literal resolved by official Winsock2 ABI; authored IOW/FIONBIO wrapper"
+            else:
+                record["status"] = "unresolved incomplete character literal in reviewed declaration"
             ledger.append(record)
             continue
         procedure = re.match(r"^\w+\s*::\s*(?:inline\s+)?\((.*?)\)\s*(?:->|#|$)", code)
@@ -101,10 +104,21 @@ def main():
         exported.append(guarded(f"{name} :: ABI.{name};", guard))
         record["status"] = "native declaration; runtime/ABI verification separate"
         ledger.append(record)
-    preamble = """// Generated exclusively from the reviewed Socket API page.
+    # Import only external reviewed Windows names needed by these declarations.
+    # Wildcard imports make native declarations vulnerable to same-named types
+    # (notably the Windows GUI MSG versus the Socket flag enum).
+    windows_spec = parse_spec((ROOT / "docs/specs/stdlib/modules/windows.md").read_text())
+    external_names = {declaration.name for declaration in windows_spec.declarations}
+    local_names = {declaration.name for declaration in spec.declarations}
+    used_names = set(re.findall(r"\b[A-Za-z_]\w*\b", '\n'.join(output)))
+    dependencies = sorted((used_names & external_names) - local_names)
+    windows_import = '#if OS == .WINDOWS {\n    Windows_Native :: #import "Windows";\n'
+    windows_import += ''.join(f"    {name} :: Windows_Native.{name};\n" for name in dependencies)
+    windows_import += '}\n'
+    preamble = """// Generated exclusively from reviewed public declarations.
 #scope_file
 #if OS_IS_UNIX #import "POSIX";
-#if OS == .WINDOWS #import "Windows";
+""" + windows_import + """
 libc :: #system_library "libc";
 ws2_32 :: #system_library "ws2_32";
 #scope_export

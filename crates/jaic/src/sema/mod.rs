@@ -399,6 +399,8 @@ pub struct Compiler {
     pub root_scope: ScopeId,
     pub preload: Option<ModuleId>,
     pub runtime_support: Option<ModuleId>,
+    /// Runtime opt-in to compiler-host assertion faults, keyed by actual procedure identity.
+    pub runtime_interpreter_assertion: Option<ProcId>,
     /// `__jaic_check_failed` was looked up (`note_check_handler`).
     pub check_handler_resolved: bool,
     pub main_module: Option<ModuleId>,
@@ -668,6 +670,7 @@ impl Compiler {
             preload: None,
             runtime_support: None,
             check_handler_resolved: false,
+            runtime_interpreter_assertion: None,
             main_module: None,
             add_contexts: Vec::new(),
             pokes: Vec::new(),

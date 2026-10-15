@@ -14,9 +14,9 @@ main :: () {
     assert(Base64.base64_encode("M") == "TQ==");
     assert(Base64.base64_encode("M", pad = false) == "TQ");
     assert(Base64.base64url_encode("??") == "Pz8");
-    url_text, valid := Base64.base64url_decode("Pz8");
+    url_text, url_valid := Base64.base64url_decode("Pz8");
 
-    assert(valid && url_text == "??");
+    assert(url_valid && url_text == "??");
 
     text, valid := Base64.base64_decode("TWE");
 

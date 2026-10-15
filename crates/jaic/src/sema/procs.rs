@@ -792,6 +792,22 @@ impl Compiler {
             ProcTarget::Func(func)
         };
         self.procs[id.0 as usize].target = Some(target);
+        if self.runtime_interpreter_assertion == Some(id) {
+            let ProcTarget::Func(func) = target else {
+                return err(
+                    span,
+                    "private interpreter assertion handler must be defined in Jai",
+                );
+            };
+            let hook = crate::interp::Hook::AssertionFailed {
+                context: sig.has_context,
+                location: self.location_layout(span)?,
+            };
+            self.interp
+                .hooks
+                .resize(self.interp.hooks.len().max(func.0 as usize + 1), None);
+            self.interp.hooks[func.0 as usize] = Some(hook);
+        }
         if let ProcTarget::Func(func) = target {
             self.func_procs.insert(func, id);
             if header.flags.compiler {
@@ -799,12 +815,6 @@ impl Compiler {
                     "write_string" => Some(crate::interp::Hook::WriteString),
                     "write_strings" => Some(crate::interp::Hook::WriteStrings),
                     "compile_time_debug_break" => Some(crate::interp::Hook::DebugBreak),
-                    "runtime_support_report_assertion" => {
-                        Some(crate::interp::Hook::AssertionFailed {
-                            context: !header.flags.no_context,
-                            location: self.location_layout(span)?,
-                        })
-                    }
                     other => crate::build::MetaOp::from_name(other)
                         .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context)),
                 };
@@ -1222,6 +1232,7 @@ impl Compiler {
         }
         f.b.func.source_file = file.0;
         if func_id.is_some() {
+            f.b.func.debug_hidden = header.flags.no_debug;
             self.begin_func_debug(&mut f, id, span);
         }
         if sig.has_context

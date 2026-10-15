@@ -12,6 +12,7 @@ import platform
 import subprocess
 import shutil
 import tarfile
+import tempfile
 import urllib.request
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 
@@ -24,11 +25,54 @@ INPUTS = {
     'sdl_runtime_abi_probe': {'sdl2-runtime-oracle'},
     'stb_image': {'stb'}, 'stb_image_resize': {'stb'},
     'stb_image_write': {'stb'}, 'stb_vorbis': {'stb'}, 'mojoshader': {'mojoshader'},
+    'binding_rpmalloc_sdk': {'rpmalloc'}, 'rpmalloc_sdk_probe': {'rpmalloc'},
+    'fsevents_context_probe': set(),
 }
 
 
 def run(command):
     subprocess.run([str(x) for x in command], check=True)
+
+
+def prepare_source(name, source, vendor):
+    """Validate a pinned release before using its files; otherwise use pinned raw inputs."""
+    archive_root = None
+    if 'archive' in source:
+        pin = source['archive']
+        archive = vendor / (name + '.tar.gz')
+        if not archive.exists():
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_bytes(urllib.request.urlopen(pin['url'], timeout=60).read())
+        if hashlib.sha256(archive.read_bytes()).hexdigest() != pin['sha256']:
+            raise RuntimeError('Archive hash mismatch: ' + name)
+        archive_root = vendor / pin['root']
+        # Recreate the complete tree from the verified archive. Checking only
+        # listed primary headers leaves cached transitive headers/source mutable.
+        with tempfile.TemporaryDirectory(prefix=name+'-extract-',dir=vendor) as fresh:
+            with tarfile.open(archive) as stream:
+                stream.extractall(fresh, filter='data')
+            extracted = Path(fresh)/pin['root']
+            if not extracted.is_dir() or extracted.is_symlink():
+                raise RuntimeError('Archive source root is missing or invalid: '+name)
+            if archive_root.is_symlink():
+                raise RuntimeError('Archive source root cannot be a symlink: '+name)
+            if archive_root.exists():
+                shutil.rmtree(archive_root)
+            extracted.rename(archive_root)
+    for filename, expected in source['files'].items():
+        path = vendor / name / filename
+        if not path.exists():
+            if archive_root is not None:
+                data = (archive_root / filename).read_bytes()
+            else:
+                url = 'https://raw.githubusercontent.com/' + source['repository'] + '/' + source['revision'] + '/' + filename
+                data = urllib.request.urlopen(url, timeout=60).read()
+            if hashlib.sha256(data).hexdigest() != expected:
+                raise RuntimeError('Native source hash mismatch: ' + name + '/' + filename)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise RuntimeError('Native source hash mismatch: ' + str(path))
 
 
 def main():
@@ -44,28 +88,7 @@ def main():
     # its actual dependency closure; it is not evidence for the other SDK pins.
     dependencies = set().union(*(INPUTS[name] for name in selected)) if args.library else set(manifest)
     for name in sorted(dependencies):
-        source = manifest[name]
-        for filename, expected in source['files'].items():
-            path = vendor / name / filename
-            if not path.exists():
-                url = 'https://raw.githubusercontent.com/' + source['repository'] + '/' + source['revision'] + '/' + filename
-                data = urllib.request.urlopen(url, timeout=60).read()
-                if hashlib.sha256(data).hexdigest() != expected:
-                    raise SystemExit('Hash mismatch: ' + url)
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(data)
-            if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-                raise SystemExit('Hash mismatch: ' + str(path))
-        if 'archive' in source:
-            pin = source['archive']
-            archive = vendor/(name+'.tar.gz')
-            if not archive.exists():
-                archive.write_bytes(urllib.request.urlopen(pin['url'], timeout=60).read())
-            if hashlib.sha256(archive.read_bytes()).hexdigest() != pin['sha256']:
-                raise SystemExit('Archive hash mismatch: '+name)
-            if not (vendor/pin['root']).is_dir():
-                with tarfile.open(archive) as stream:
-                    stream.extractall(vendor, filter='data')
+        prepare_source(name, manifest[name], vendor)
     args.output.mkdir(parents=True, exist_ok=True)
     if platform.system() == 'Darwin':
         apple_object = args.output/'apple_abi_probe.o'

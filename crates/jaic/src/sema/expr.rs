@@ -1967,33 +1967,8 @@ impl Compiler {
         }
         self.check_handler_resolved = true;
         let result = (|| {
-            let Some(runtime) = self.runtime_support else {
+            let Some(proc) = self.private_runtime_procedure("__jaic_check_failed", span)? else {
                 return Ok(());
-            };
-            let name = Sym::intern("__jaic_check_failed");
-            let mut found = Vec::new();
-            for file in &self.files {
-                if file.module == runtime
-                    && let Some(ids) = self.scope(file.scope).names.get(&name)
-                {
-                    found.extend(ids.iter().copied());
-                }
-            }
-            let entity = match found.as_slice() {
-                [entity] => *entity,
-                // Custom/minimal runtimes implement only the public contract.
-                // Their checks retain the backend's explicit trap fallback.
-                [] => return Ok(()),
-                _ => {
-                    return err(
-                        span,
-                        "runtime defines multiple private native check reporters",
-                    );
-                }
-            };
-            self.ide_note_use(entity);
-            let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
-                return err(span, "private native check reporter must be a procedure");
             };
             let signature = self.signature(proc, span)?;
             let expected = [

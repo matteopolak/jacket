@@ -50,7 +50,7 @@ const TAG_MASK: u64 = 0xFFFF_0000_0000_0000;
 const STACK_SIZE: usize = 32 << 20;
 const MAX_DEPTH: usize = 20_000;
 
-/// Interpreter-implemented `#compiler` procedures.
+/// Compiler-host operations for metaprograms and explicit private runtime transports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Hook {
     /// `write_string(s: string, to_standard_error: bool)`
@@ -58,7 +58,7 @@ pub enum Hook {
     /// `write_strings(strings: ..string, to_standard_error: bool)`
     WriteStrings,
     DebugBreak,
-    /// `runtime_support_report_assertion(loc: Source_Code_Location, message: string)`: a failed
+    /// A runtime-opted-in assertion callback: a failed
     /// `assert`, reported by the compiler as a runtime error (`Trap::assertion`) rather than
     /// printed by the runtime. `context` says whether it takes a context pointer.
     AssertionFailed {
@@ -330,6 +330,9 @@ impl Trap {
     }
 
     fn push_frame(&mut self, func: &ir::Func, loc: Option<(u32, u32, u32)>) {
+        if func.debug_hidden {
+            return;
+        }
         if self.frames.len() < MAX_TRAP_FRAMES {
             self.frames.push(TrapFrame {
                 name: func.name.clone(),

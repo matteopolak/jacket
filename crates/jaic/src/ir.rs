@@ -651,6 +651,8 @@ pub struct Func {
     pub source_file: u32,
     /// Present for procedures that take a context: what a stack trace node says about it.
     pub trace: Option<TraceInfo>,
+    /// An explicit `#no_debug` header hides unwind frames in the interpreter too.
+    pub debug_hidden: bool,
     /// Native code checks every load, store and copy through a pointer that may be null
     /// (`Build_Options.null_pointer_check`, off for `#no_abc` procedures).
     pub null_checks: bool,
@@ -1048,6 +1050,7 @@ impl Builder {
             vals,
             source_file: 0,
             trace: None,
+            debug_hidden: false,
             null_checks: false,
             trusted: Vec::new(),
             inline: InlineHint::Default,

@@ -3,7 +3,6 @@
 import argparse
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,13 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true")
+    parser.add_argument("--jaic", type=Path, default=ROOT / "target/debug" / ("jaic.exe" if os.name == "nt" else "jaic"))
+    parser.add_argument("--stdlib", type=Path, default=ROOT / "stdlib", help="combined production library; no overlays")
     args = parser.parse_args()
     if args.native and os.name != "nt":
         parser.error("native calendar verification requires an actual Windows host")
-    library = ROOT / "target/portable-integration-stdlib"
-    for name in ["Basic/module.jai", "internal/basic/module.jai", "internal/basic/windows-calendar.jai"]:
-        shutil.copyfile(ROOT / "stdlib" / name, library / name)
-    compiler = ROOT / ("target/compiler/debug/jaic.exe" if os.name == "nt" else "target/compiler/debug/jaic")
+    library = args.stdlib.resolve(strict=True)
+    compiler = args.jaic.resolve(strict=True)
     source = ROOT / "tests/portable-stdlib/windows-calendar/main.jai"
     env = dict(os.environ, JAIC_STDLIB=str(library))
 

@@ -3,7 +3,6 @@
 import argparse
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
@@ -13,13 +12,13 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--native", action="store_true")
+    parser.add_argument("--jaic", type=Path, default=ROOT / "target/debug" / ("jaic.exe" if os.name == "nt" else "jaic"))
+    parser.add_argument("--stdlib", type=Path, default=ROOT / "stdlib", help="combined production library; no overlays")
     args = parser.parse_args()
     if args.native and os.name != "nt":
         parser.error("Windows channel runtime verification requires an actual Windows host")
-    library = ROOT / "target/portable-integration-stdlib"
-    for relative in ["Shared_Memory_Channel", "internal/ipc"]:
-        shutil.copytree(ROOT / "stdlib" / relative, library / relative, dirs_exist_ok=True)
-    compiler = ROOT / ("target/compiler/debug/jaic.exe" if os.name == "nt" else "target/compiler/debug/jaic")
+    library = args.stdlib.resolve(strict=True)
+    compiler = args.jaic.resolve(strict=True)
     env = dict(os.environ, JAIC_STDLIB=str(library))
     source = ROOT / "tests/portable-stdlib/windows-channel/main.jai"
 

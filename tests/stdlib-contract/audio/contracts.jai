@@ -23,12 +23,17 @@ main :: () {
     assert(!Sound_Player.skip_this_output_channel(.FRONT_LEFT, *stream));
     assert(!Sound_Player.skip_this_output_channel(.SUBWOOFER, *stream));
 
+    samples: [4] s16 = .[1, 2, 3, 4];
+
+    data.type = .LINEAR_SAMPLE_ARRAY;
+    data.loaded = true;
+    data.samples = samples.data;
     data.nsamples_times_nchannels = 4;
     bounds: Sound_Player.Buffer_Bounds;
     success, no_overflow := Sound_Player.get_buffer_bounds(*stream, *data, 1, *bounds);
 
     assert(success && no_overflow);
-    assert(bounds.start == 0 && bounds.end == 4 && bounds.memory == null);
+    assert(bounds.start == 0 && bounds.end == 4 && bounds.memory == samples.data);
 
     stream.repeat_end_position = 3;
     success, no_overflow = Sound_Player.get_buffer_bounds(*stream, *data, 1, *bounds);

@@ -181,6 +181,12 @@ jobs:
       - name: Platform I/O (interpreter and native O0/O2)
         if: success() || failure()
         run: python -u tools/check_platform_io.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native --windows-crash
+      - name: Reviewed Windows Socket calendar and shared-channel execution
+        if: success() || failure()
+        run: |
+          python -u tools/check_portable_windows_socket.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+          python -u tools/check_portable_windows_calendar.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+          python -u tools/check_portable_windows_channel.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
@@ -417,6 +423,12 @@ jobs:
       - name: Platform I/O (interpreter and native O0/O2)
         if: success() || failure()
         run: python -u tools/check_platform_io.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native --windows-crash
+      - name: Reviewed Windows Socket calendar and shared-channel execution
+        if: success() || failure()
+        run: |
+          python -u tools/check_portable_windows_socket.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+          python -u tools/check_portable_windows_calendar.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+          python -u tools/check_portable_windows_channel.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes

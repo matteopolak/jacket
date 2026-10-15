@@ -58,6 +58,7 @@ impl Compiler {
             ];
             let m = self.load_module("Runtime_Support", &entry, params, span)?;
             self.runtime_support = Some(m);
+            self.prepare_interpreter_assertion(span)?;
         }
         Ok(())
     }

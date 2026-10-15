@@ -1,8 +1,85 @@
 //! Target runtime options are private data, finalized after workspace settlement.
 use super::lower::{FnCtx, Operand};
+use super::scope::Resolved;
 use super::*;
 
 impl Compiler {
+    /// Compiler-owned transport extensions live in the selected runtime's private
+    /// file scopes. They are optional; application imports retain normal visibility.
+    pub(super) fn private_runtime_procedure(
+        &mut self,
+        name: &str,
+        span: Span,
+    ) -> Result<Option<ProcId>> {
+        let Some(runtime) = self.runtime_support else {
+            return Ok(None);
+        };
+        let name = Sym::intern(name);
+        let mut found = Vec::new();
+        for file in &self.files {
+            if file.module == runtime
+                && let Some(ids) = self.scope(file.scope).names.get(&name)
+            {
+                found.extend(ids.iter().copied());
+            }
+        }
+        let entity = match found.as_slice() {
+            [] => return Ok(None),
+            [entity] => *entity,
+            _ => {
+                return err(
+                    span,
+                    format!("runtime defines multiple private extensions `{name}`"),
+                );
+            }
+        };
+        self.ide_note_use(entity);
+        let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
+            return err(
+                span,
+                format!("private runtime extension `{name}` must be a procedure"),
+            );
+        };
+        Ok(Some(proc))
+    }
+
+    pub(super) fn prepare_interpreter_assertion(&mut self, span: Span) -> Result<()> {
+        self.runtime_interpreter_assertion = None;
+        let Some(proc) = self.private_runtime_procedure("__jaic_interpreter_assertion", span)?
+        else {
+            return Ok(());
+        };
+        let signature = self.signature(proc, span)?;
+        let location = self.preload_type("Source_Code_Location", span)?;
+        if !signature.has_context
+            || signature.c_call
+            || signature.c_varargs
+            || signature.returns != [TypeId::BOOL]
+            || signature.params.len() != 2
+            || signature.params.iter().any(|p| p.variadic || p.discard)
+            || signature.params[0].ty != location
+            || signature.params[1].ty != TypeId::STRING
+        {
+            return err(
+                span,
+                "private interpreter assertion handler requires (Source_Code_Location, string) -> bool with Jai context",
+            );
+        }
+        let header = &self.proc(proc).lit.header;
+        if self.proc(proc).lit.body.is_none()
+            || header.flags.compiler
+            || header.flags.intrinsic
+            || self.proc(proc).is_macro
+        {
+            return err(
+                span,
+                "private interpreter assertion handler must have an ordinary Jai body for native execution",
+            );
+        }
+        self.runtime_interpreter_assertion = Some(proc);
+        Ok(())
+    }
+
     fn runtime_storage_settings(&self) -> (bool, i64) {
         self.interp
             .workspaces
