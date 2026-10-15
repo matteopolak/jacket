@@ -224,7 +224,8 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     from build_native_libs import copy_licenses
     from sdl3_gen import native_notices
     copy_licenses('sdl3',source,src,out)
-    (lic/'THIRD-PARTY-NOTICES.txt').write_text(native_notices(src))
+    # Match the exact LF/UTF-8 checked-in generated notice asset on Windows too.
+    (lic/'THIRD-PARTY-NOTICES.txt').write_bytes(native_notices(src).encode('utf-8'))
     metadata=out/'sdl3';metadata.mkdir(exist_ok=True)
     (metadata/'installed-headers.json').write_text(json.dumps(header_evidence,indent=2,sort_keys=True)+'\n')
     configs=list(builddir.glob('sdl/include-config-release/build_config/SDL_build_config.h'))

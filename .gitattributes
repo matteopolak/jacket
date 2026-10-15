@@ -1,0 +1,7 @@
+# SDL3 generated assets use exact UTF-8/LF bytes for reproducibility and SHA256.
+# Keep the policy within the new SDL3 module and its generated native/ABI files.
+/stdlib/Extensions/SDL3/* text eol=lf
+/tools/native/sdl3/inline-*.c text eol=lf
+/tools/native/sdl3/macros.c text eol=lf
+/tests/sdl3/layout-*.jai text eol=lf
+/tests/sdl3/c-layout-*.h text eol=lf

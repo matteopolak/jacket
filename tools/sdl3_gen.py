@@ -343,12 +343,28 @@ def generate(src, plat, work, clang):
 
 def native_notices(src):
     notices={}
-    for path in sorted((src/'src').rglob('*')):
+    # PureWindowsPath ordering folds case; canonical notices must use the same
+    # case-sensitive component order as the checked-in source on every host.
+    for path in sorted((src/'src').rglob('*'),key=lambda p:p.relative_to(src).parts):
         if path.suffix not in {'.c','.h','.cpp','.m','.mm'}:continue
-        for comment in re.findall(r'/\*.*?\*/',path.read_text(errors='replace'),re.S):
+        for comment in re.findall(r'/\*.*?\*/',path.read_text(encoding='utf-8'),re.S):
             if re.search(r'copyright|permission to|license|public domain',comment,re.I):
-                notices.setdefault(comment,[]).append(str(path.relative_to(src)))
+                notices.setdefault(comment,[]).append(path.relative_to(src).as_posix())
     return 'Original notices from pinned SDL3 native sources (including optional backends).\nHIDAPI is used under its BSD-style license.\n\n'+'\n\n'.join(', '.join(paths)+'\n'+comment for comment,paths in notices.items())+'\n'
+
+def sync_generated_file(path, data, check):
+    """Generated assets have an exact UTF-8/LF byte contract on every host.
+
+    Text-mode reads hide CRLF mismatches and Windows text-mode writes introduce
+    them. Never normalize a stale asset before checking its recorded bytes.
+    """
+    payload=data.encode('utf-8')
+    if b'\r' in payload:raise ValueError(f'noncanonical generated CR byte: {path}')
+    current=path.read_bytes() if path.exists() else None
+    if check:
+        if current!=payload:raise ValueError(f'stale generated file: {path}')
+    elif current!=payload:
+        path.write_bytes(payload)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -374,7 +390,7 @@ def main():
     files[OUT/'THIRD-PARTY-NOTICES.txt']=native_notices(a.source)
     notices=[]
     for header in sorted((a.source/'include/SDL3').glob('*.h')):
-        text=header.read_text()
+        text=header.read_text(encoding='utf-8')
         match=re.match(r'/\*.*?\*/',text,re.S)
         if match: notices.append(header.name+'\n'+match[0])
     files[OUT/'NOTICES.txt']='Original notices from pinned SDL3 public headers; translations are altered source.\n\n'+'\n\n'.join(notices)+'\n'
@@ -409,7 +425,7 @@ def main():
         contracts += [json.dumps({'layout':entry['c'],'jai':entry['jai'],'expected':entry['expected']},sort_keys=True) for entry in report.pop('layout_checks')]
         report['contracts']=f'contracts-{plat}.jsonl'
         files[OUT/report['contracts']]='\n'.join(contracts)+'\n'
-        report['contracts_sha256']=hashlib.sha256(files[OUT/report['contracts']].encode()).hexdigest()
+        report['contracts_sha256']=hashlib.sha256(files[OUT/report['contracts']].encode('utf-8')).hexdigest()
         inventory[plat]=report
         exports={m[1]:f'{plat}.jai::{m[1]}' for m in re.finditer(r'^(?:using )?(\w+) ::',data,re.M)}
         exports.update({k:f'{plat}.jai::{enum}.{k}' for k,enum in report['enum_members'].items()})
@@ -428,8 +444,6 @@ def main():
             data=result.stdout
             again=subprocess.run([str(a.jaifmt.resolve()),'--stdin','--config',str(ROOT/'jaifmt.toml')],input=data,text=True,capture_output=True,check=True)
             if again.stdout!=data:raise ValueError(f'non-idempotent jaifmt: {path}')
-        if a.check:
-            if path.read_text()!=data: raise ValueError(f'stale generated file: {path}')
-        elif not path.exists() or path.read_text()!=data: path.write_text(data)
+        sync_generated_file(path,data,a.check)
 
 if __name__=='__main__':main()

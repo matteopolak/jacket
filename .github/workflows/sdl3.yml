@@ -1,9 +1,9 @@
 name: SDL3 native artifacts
 on:
   push:
-    paths: ['stdlib/Extensions/SDL3/**', 'tools/sdl3*.py', 'tools/test_sdl3*.py', 'tools/native/sdl3/**', 'tools/native-libs.json', 'tools/build_native_libs.py', 'tests/sdl3/**', '.github/workflows/sdl3.yml']
+    paths: ['stdlib/Extensions/SDL3/**', 'tools/sdl3*.py', 'tools/test_sdl3*.py', 'tools/native/sdl3/**', 'tools/native-libs.json', 'tools/build_native_libs.py', 'tests/sdl3/**', '.github/workflows/sdl3.yml', '.gitattributes']
   pull_request:
-    paths: ['stdlib/Extensions/SDL3/**', 'tools/sdl3*.py', 'tools/test_sdl3*.py', 'tools/native/sdl3/**', 'tools/native-libs.json', 'tools/build_native_libs.py', 'tests/sdl3/**', '.github/workflows/sdl3.yml']
+    paths: ['stdlib/Extensions/SDL3/**', 'tools/sdl3*.py', 'tools/test_sdl3*.py', 'tools/native/sdl3/**', 'tools/native-libs.json', 'tools/build_native_libs.py', 'tests/sdl3/**', '.github/workflows/sdl3.yml', '.gitattributes']
 permissions:
   contents: read
 jobs:

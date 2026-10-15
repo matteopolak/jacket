@@ -1,6 +1,9 @@
 import unittest
 import hashlib
 import json
+import os
+import subprocess
+import tempfile
 from pathlib import Path
 import sdl3_gen as gen
 
@@ -21,6 +24,55 @@ class Types(unittest.TestCase):
         self.assertEqual(gen.stable_c_type(new, source), expected)
         self.assertEqual(gen.stable_c_type('const SDL_Event *', source), 'const SDL_Event *')
         self.assertIsNone(gen.stable_c_type(None, source))
+    def test_autocrlf_checkout_preserves_sdl3_generated_bytes_only(self):
+        payload=(gen.OUT/'contracts-macos-x64.jsonl').read_bytes()
+        self.assertNotIn(b'\r',payload)
+        # A fresh local index exercises Git's real checkout conversion, without
+        # reading another checkout, repository history or user Git configuration.
+        with tempfile.TemporaryDirectory(dir=gen.ROOT/'artifacts/sdl3/tmp') as d:
+            root=Path(d)
+            env=dict(os.environ,GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL=os.devnull)
+            def git(*args):
+                subprocess.run(['git','-c','core.autocrlf=true','-c','init.defaultBranch=sdl3-test',*args],
+                               cwd=root,env=env,check=True,capture_output=True)
+            attributes=gen.ROOT/'.gitattributes'
+            (root/'.gitattributes').write_bytes(attributes.read_bytes() if attributes.exists() else b'')
+            paths=['stdlib/Extensions/SDL3/contracts-macos-x64.jsonl',
+                   'stdlib/Extensions/SDL3/inventory.json','stdlib/Extensions/SDL3/macros.jai',
+                   'stdlib/Extensions/SDL3/THIRD-PARTY-NOTICES.txt',
+                   'tools/native/sdl3/inline-windows-arm64.c','tools/native/sdl3/macros.c',
+                   'tests/sdl3/layout-windows-x64.jai','tests/sdl3/c-layout-linux-arm64.h']
+            for name in paths+['stdlib/Extensions/SDL/module.jai']:
+                path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(payload)
+            git('init','--quiet');git('add','--all')
+            for name in paths+['stdlib/Extensions/SDL/module.jai']:(root/name).unlink()
+            git('checkout-index','--force','--all')
+            for name in paths:
+                self.assertEqual(hashlib.sha256((root/name).read_bytes()).hexdigest(),hashlib.sha256(payload).hexdigest(),name)
+            # The new policy must not change SDL2 or other libraries' defaults.
+            self.assertEqual((root/'stdlib/Extensions/SDL/module.jai').read_bytes(),payload.replace(b'\n',b'\r\n'))
+
+    def test_generated_asset_io_enforces_exact_utf8_lf_bytes(self):
+        data='{"text":"caf\u00e9"}\n'
+        with tempfile.TemporaryDirectory(dir=gen.ROOT/'artifacts/sdl3/tmp') as d:
+            path=Path(d)/'contracts.jsonl'
+            path.write_bytes(data.replace('\n','\r\n').encode('utf-8'))
+            with self.assertRaisesRegex(ValueError,'stale generated file'):gen.sync_generated_file(path,data,True)
+            gen.sync_generated_file(path,data,False)
+            self.assertEqual(path.read_bytes(),data.encode('utf-8'))
+            gen.sync_generated_file(path,data,True)
+            path.write_bytes(data.replace('caf\u00e9','different').encode('utf-8'))
+            with self.assertRaisesRegex(ValueError,'stale generated file'):gen.sync_generated_file(path,data,True)
+
+    def test_native_notice_paths_and_order_are_host_independent(self):
+        with tempfile.TemporaryDirectory(dir=gen.ROOT/'artifacts/sdl3/tmp') as d:
+            root=Path(d);directory=root/'src/nested';directory.mkdir(parents=True)
+            (directory/'Z.c').write_bytes(b'/* Copyright upper fixture */\n')
+            (directory/'a.c').write_bytes(b'/* Copyright lower fixture */\n')
+            notices=gen.native_notices(root)
+            self.assertIn('src/nested/Z.c\n/* Copyright upper fixture */',notices)
+            self.assertIn('src/nested/a.c\n/* Copyright lower fixture */',notices)
+            self.assertLess(notices.index('src/nested/Z.c'),notices.index('src/nested/a.c'))
 
     def test_c_pointer_constness_and_arrays(self):
         self.assertEqual(gen.jai_type('const char *const *'), '**u8')
