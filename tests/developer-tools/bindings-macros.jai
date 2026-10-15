@@ -9,7 +9,7 @@ expected_diagnostic: bool;
 capture_error :: (text: string, _data: *void, info: Log_Info) {
     if info.common_flags & .ERROR {
         errors += 1;
-        if contains(text, "not a supported numeric constant expression") expected_diagnostic = true;
+        if contains(text, "not a supported byte string constant") expected_diagnostic = true;
     }
 }
 
@@ -30,7 +30,9 @@ main :: () {
 
     assert(write_entire_file(path, "existing bindings"));
     options.visitor = visit;
-    options.source_files[0] = tprint("%bindings-macro-string.h", #filepath);
+    // Ordinary byte strings are supported now; wide strings retain the real
+    // unsupported-input diagnostic/preservation regression.
+    options.source_files[0] = tprint("%bindings-macro-wide-string.h", #filepath);
 
     push_context {
         context.logger = capture_error;

@@ -49,7 +49,8 @@ def main():
         raise RuntimeError("Original numeric macro must now generate an actual typed constant")
     for case, reason in [("bitfield", "bitfield member"), ("malformed", "error:"),
                          ("macro-function", "function-like macro"),
-                         ("macro-string", "not a supported numeric constant expression"),
+                         ("macro-wide-string", "not a supported byte string constant"),
+                         ("macro-nul-string", "not a supported byte string constant"),
                          ("macro-nonfinite", "nonfinite floating macro")]:
         rejected.write_text("existing output must survive")
         run([tool, ROOT / f"tests/developer-tools/bindings-{case}.h", rejected, "native"],
