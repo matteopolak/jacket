@@ -552,3 +552,8 @@ Shared candidate7467b49d combines the new committed producer snapshots. All19
 CLI tests and original SDL WM now pass after general Mac foreign-call affinity
 repair. Json's unchanged interpreter numbers suite completes in149.449 seconds;
 the earlier120-second timeout is retained. Full aggregate replay remains required.
+- [Android project generation](android-project.md): canonical project models, escaped Gradle/manifest generation and explicit build dependencies.
+- [Android host orchestration](android-orchestration.md): SDK/NDK discovery, launcher/device helpers, integrated verification and exact signing-dependent drafts.
+- [Android APK build orchestration](android-build.md): Gradle and SDK command orchestration, ZIP packaging, signing dependencies and verification limits.
+
+- [Android binary manifests](android-manifest.md): valid AXML writer, UTF-8/UTF-16 reader, canonical APK parsing and system-zlib decompression.
