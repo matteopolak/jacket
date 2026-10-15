@@ -8,6 +8,7 @@ main :: () {
     assert(RPM.initialize() == 0);
     assert(RPM.is_initialized());
     RPM.thread_initialize();
+    RPM.set_main_thread();
     assert(RPM.is_thread_initialized());
     memory := RPM.rpmalloc(173);
 

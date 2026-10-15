@@ -20,6 +20,22 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
         self.assertEqual(condition_for('rpmalloc',Declaration('rpmalloc_config_t :: struct','')), '')
         self.assertEqual(condition_for('rpmalloc',Declaration('RPMALLOC_CONFIGURABLE :: CONFIGURABLE','')), '')
 
+    def test_raw_and_rewrite_procedure_views_keep_their_mode(self):
+        for signature in ('rpmalloc_initialize :: () -> _int',
+                          'rpmalloc :: inline (size: size_t) -> *void',
+                          'dump_statistics :: (file: *void)'):
+            self.assertEqual(condition_for('rpmalloc',Declaration(signature,'')), 'USE_RAW')
+        self.assertEqual(condition_for('rpmalloc',Declaration('rpmalloc :: inline (size: s64) -> *void','')), '!USE_RAW')
+        self.assertEqual(condition_for('rpmalloc',Declaration('dump_statistics :: (builder: *void) #expand','else branch')), '!USE_RAW && (!ENABLE_STATISTICS)')
+        self.assertEqual(condition_for('rpmalloc',Declaration('rpfree :: inline (ptr: *void)','')), '')
+
+    def test_source_only_sdk_export_is_retained_in_both_heap_profiles(self):
+        metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
+        entry = next(f for f in metadata['functions'] if f['name']=='rpmalloc_set_main_thread')
+        self.assertEqual(entry['origin'],'official_c_source_definition')
+        for exports in metadata['native_storage']['source_export_profiles'].values():
+            self.assertIn('rpmalloc_set_main_thread',exports)
+
     def test_native_program_invokes_every_pinned_sdk_entry_point(self):
         metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
         source = (ROOT/'tests/native-bindings/rpmalloc-native-sdk.jai').read_text()

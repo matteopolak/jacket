@@ -28,7 +28,10 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 - [Private rpmalloc SDK backend](native/rpmalloc-native-backend.md): complete
   native forwarding, checked alignment boundary and remaining public work
 - [Public rpmalloc adapter progress](native/rpmalloc-public-adapter.md): actual
-  default lifecycle/allocation/statistics tests and remaining profile/heap work
+  lifecycle/allocation/statistics and callback/configuration/lifetime tests,
+  generated contextual layouts and remaining profile/heap work
+- [rpmalloc heap ABI evidence](native/rpmalloc-heap-abi.md): complete pinned
+  native storage probes and required separation from canonical public records
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
 - [SDL native ABI and prefix safety](native/sdl-native-abi.md): exact public layouts, complete private C records, native pointers, field probes and canaries
 - [Portable MPEG](portable-mpeg.md): MPEG-1 streams/video/CRC-checked audio, independent fixtures and remaining gaps
@@ -288,7 +291,7 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 ## Tools and workflow
 
-- [Developer tooling](developer-tools.md): reflected C headers, libclang dependency builds and custom binding callbacks; [test provenance and commands](developer-tools-testing.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
+- [Developer tooling](developer-tools.md): reflected C headers, libclang builds/callbacks/location helpers, debug bit sets and staged native MSF parsing; [test provenance and commands](developer-tools-testing.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
 
 Scripts, CI and project policies.
 

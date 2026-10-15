@@ -1,6 +1,5 @@
-#import "Basic";
-
 #if OS == .WINDOWS {
+    #import "Basic";
     C :: #import "Check";
     #import "Compiler";
 
@@ -27,8 +26,4 @@
         module.module_type = .MAIN_PROGRAM;
         assert(!C.should_skip(*fixed, settings));
     }
-}
-
-main :: () {
-    print("ok\n");
 }

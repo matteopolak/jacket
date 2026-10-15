@@ -12,6 +12,12 @@ main :: () {
     assert(rows[1].type == .OFFSET && rows[1].arg1.uvalue == 16 && rows[1].arg2.uvalue == 1);
     assert(rows[2].type == .ADVANCE_LOC && rows[2].arg1.uvalue == 4);
     assert(rows[3].type == .DEF_CFA_SF && rows[3].arg1.uvalue == 6 && rows[3].arg2.svalue == -8);
+    wide: [8] u8 = .[0x03, 0x34, 0x12, 0x04, 0x78, 0x56, 0x34, 0x12];
+    wide_rows, wide_ok := D.decode_cfa_instructions(wide);
+
+    defer array_free(wide_rows);
+    assert(wide_ok && wide_rows.count == 2);
+    assert(wide_rows[0].arg1.uvalue == 0x1234 && wide_rows[1].arg1.uvalue == 0x12345678);
     truncated: [1] u8 = .[0x0c];
     rejected, truncated_ok := D.decode_cfa_instructions(truncated);
 

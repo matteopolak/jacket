@@ -49,6 +49,7 @@ main :: () {
     config.span_size = 65536;
     config.span_map_count = 64;
     check(rpmalloc_initialize_config(*config) == 0);
+    rpmalloc_set_main_thread();
     check(rpmalloc_config().span_size == 65536);
     check(rpmalloc_is_thread_initialized() != 0);
     rpmalloc_thread_initialize();

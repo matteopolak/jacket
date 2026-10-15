@@ -7,6 +7,9 @@ Enum_Value :: struct {
     found: bool;
     parent_is_enum: bool;
     start, end: u32;
+    evaluated: bool;
+    eval_int: s32;
+    eval_long: s64;
 }
 
 visit :: (cursor: B.CXCursor, _parent: B.CXCursor, data: B.CXClientData) -> B.CXChildVisitResult #c_call {
@@ -19,6 +22,23 @@ visit :: (cursor: B.CXCursor, _parent: B.CXCursor, data: B.CXClientData) -> B.CX
 
         B.clang_getSpellingLocation(B.clang_getRangeStart(extent), null, null, null, *value.start);
         B.clang_getSpellingLocation(B.clang_getRangeEnd(extent), null, null, null, *value.end);
+    }
+
+    if cursor.kind == .VarDecl {
+        spelling := B.clang_getCursorSpelling(cursor);
+
+        defer B.clang_disposeString(spelling);
+
+        if to_string(B.clang_getCString(spelling)) == "original_evaluated" {
+            result := B.clang_Cursor_Evaluate(cursor);
+            if result != null {
+                defer B.clang_EvalResult_dispose(result);
+                state := cast(*Enum_Value) data;
+                state.evaluated = B.clang_EvalResult_getKind(result) == .Int;
+                state.eval_int = B.clang_EvalResult_getAsInt(result);
+                state.eval_long = B.clang_EvalResult_getAsLongLong(result);
+            }
+        }
     }
 
     return .Recurse;
@@ -101,5 +121,37 @@ main :: () {
     assert(value.found && value.value == -3 && value.parent_is_enum);
     assert(value.end > value.start && value.end <= fixup.Length);
     assert(slice(to_string(fixup_contents), value.start, value.end - value.start) == "NEGATIVE=-3");
+    range_source :: "int original_evaluated = -2147483647; int bad(void) { return \"x\" + \"y\"; }\n";
+    range_contents := to_c_string(range_source);
+
+    defer free(range_contents);
+    ranged_file := unsaved;
+    ranged_file.Contents = range_contents;
+    ranged_file.Length = cast(type_of(ranged_file.Length)) range_source.count;
+    ranged_unit: B.CXTranslationUnit;
+
+    assert(B.clang_parseTranslationUnit2(index, filename, null, 0, *ranged_file, 1, 0, *ranged_unit) == .Success);
+    defer B.clang_disposeTranslationUnit(ranged_unit);
+    assert(B.clang_getNumDiagnostics(ranged_unit) == 1);
+    ranged_diagnostic := B.clang_getDiagnostic(ranged_unit, 0);
+
+    defer B.clang_disposeDiagnostic(ranged_diagnostic);
+    assert(B.clang_getDiagnosticSeverity(ranged_diagnostic) == .Error);
+    assert(B.clang_getDiagnosticNumRanges(ranged_diagnostic) == 2);
+
+    for index: 0..1 {
+        range := B.clang_getDiagnosticRange(ranged_diagnostic, cast(u32) index);
+        start_file, end_file: B.CXFile;
+
+        B.clang_getSpellingLocation(B.clang_getRangeStart(range), *start_file, null, null, *start);
+        B.clang_getSpellingLocation(B.clang_getRangeEnd(range), *end_file, null, null, *end);
+        assert(start_file != null && start_file == end_file && end > start && end <= range_source.count);
+        text := slice(range_source, start, end - start);
+        if index == 0 assert(text == "\"x\"");
+        else assert(text == "\"y\"");
+    }
+
+    B.clang_visitChildren(B.clang_getTranslationUnitCursor(ranged_unit), visit, *value);
+    assert(value.evaluated && value.eval_int == -2147483647 && value.eval_long == -2147483647);
     print("ok\n");
 }

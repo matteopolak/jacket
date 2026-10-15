@@ -27,10 +27,14 @@ TARGET_CONFIGS = [(os_name, cpu) for os_name in ('linux', 'macos', 'windows') fo
 PRIVATE_UNITS = {'ios-sdk-host':'iOS/sdk-host-unit.jai',
                  'dxc-wide':'dxc_compiler/sdk-wide-unit.jai',
                  'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai',
-                 'rpmalloc-native-sdk':'rpmalloc/sdk-native-unit.jai'}
+                 'rpmalloc-native-sdk':'rpmalloc/sdk-native-unit.jai',
+                 'rpmalloc-native-storage':'rpmalloc/sdk-storage-unit.jai'}
 PRIVATE_UNIT_DEPENDENCIES = {
     'rpmalloc-native-sdk': {
         'tests/native-bindings/generated/rpmalloc-sdk-layout.jai': 'rpmalloc/generated/rpmalloc-sdk-layout.jai',
+    },
+    'rpmalloc-native-storage': {
+        'tests/native-bindings/generated/rpmalloc-storage-layout.jai': 'rpmalloc/generated/rpmalloc-storage-layout.jai',
     },
 }
 
@@ -237,7 +241,10 @@ def verify(cleanup):
     for module, filename, configs in [
         ('macOS', 'fsevents-context.jai', [('macos','x64'),('macos','arm64')]),
         ('rpmalloc', 'rpmalloc-native-sdk.jai', TARGET_CONFIGS),
+        ('rpmalloc', 'rpmalloc-native-storage.jai', TARGET_CONFIGS),
         ('rpmalloc', 'rpmalloc-public-allocation.jai', TARGET_CONFIGS),
+        ('rpmalloc', 'rpmalloc-public-callbacks.jai', TARGET_CONFIGS),
+        ('rpmalloc', 'rpmalloc-public-configurable.jai', TARGET_CONFIGS),
         ('d3d11', 'forward-overlay.jai', TARGET_CONFIGS),
         ('d3d12', 'd3d-interface-identity.jai', [('windows','x64'),('windows','arm64')]),
         ('SDL', 'sdl-layout.jai', TARGET_CONFIGS),
@@ -288,7 +295,13 @@ def verify(cleanup):
                             ('d3d11', 'ID3DBlob'), ('d3d11', 'ID3D11ModuleInstance'),
                             ('d3d12', 'ID3DBlob'), ('rpmalloc','Heap'),
                             ('rpmalloc','Span'), ('rpmalloc','Native'),
-                            ('rpmalloc','initialized'), ('rpmalloc','Native_Profile_Matches')]:
+                            ('rpmalloc','initialized'), ('rpmalloc','Native_Profile_Matches'),
+                            ('rpmalloc','Callbacks'), ('rpmalloc','active_config'),
+                            ('rpmalloc','callback_map'), ('rpmalloc','callback_unmap'),
+                            ('rpmalloc','callback_failure'), ('rpmalloc','callback_error'),
+                            ('rpmalloc','NativeContext'), ('rpmalloc','invoke_map'),
+                            ('rpmalloc','invoke_unmap'), ('rpmalloc','invoke_failure'),
+                            ('rpmalloc','invoke_error')]:
         if args.module and module.split('/')[0] not in args.module and module not in args.module:
             continue
         for os_name, cpu in TARGET_CONFIGS:
@@ -333,7 +346,10 @@ def verify(cleanup):
         runtime_tests.append('posix-stat')
         runtime_tests.append('dxc-options')
         runtime_tests.append('rpmalloc-native-sdk')
+        runtime_tests.append('rpmalloc-native-storage')
         runtime_tests.append('rpmalloc-public-allocation')
+        runtime_tests.append('rpmalloc-public-callbacks')
+        runtime_tests.append('rpmalloc-public-configurable')
         if sys.platform.startswith('linux'):
             runtime_tests.append('x11-window-helpers')
             runtime_tests.append('x11-message-box')
@@ -361,7 +377,7 @@ def verify(cleanup):
                 relevant = ['ImGui']
             if name == 'posix-stat':
                 relevant = ['POSIX']
-            if name in ('rpmalloc-native-sdk','rpmalloc-public-allocation'):
+            if name in ('rpmalloc-native-sdk','rpmalloc-native-storage','rpmalloc-public-allocation','rpmalloc-public-callbacks','rpmalloc-public-configurable'):
                 relevant = ['rpmalloc']
             if name in ('gl-context','reflection-procedure-flags','nsgl'):
                 relevant = ['GL']
@@ -387,8 +403,14 @@ def verify(cleanup):
                 scope = 'private_native_compile_route'
             if name == 'rpmalloc-native-sdk':
                 scope = 'private_native_allocator_sdk'
+            if name == 'rpmalloc-native-storage':
+                scope = 'private_native_allocator_storage_abi'
             if name == 'rpmalloc-public-allocation':
                 scope = 'public_default_allocator_lifecycle_allocation_statistics'
+            if name == 'rpmalloc-public-callbacks':
+                scope = 'public_default_allocator_callbacks_lifetime_failure_concurrency'
+            if name == 'rpmalloc-public-configurable':
+                scope = 'public_configurable_allocator_initialization'
             result.update(name=name, phase='build',scope=scope,status='passed' if result['exit']==0 else 'failed')
             if compiled_source != source:
                 result['private_unit_placement'] = str(compiled_source)

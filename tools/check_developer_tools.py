@@ -8,6 +8,8 @@ import shutil
 import build_developer_bindings
 import check_developer_bindings
 import build_developer_debug
+import check_developer_debug_windows
+import check_developer_msf
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -25,6 +27,8 @@ def run(command, *, output=None, error=""):
 def main():
     check_developer_bindings.main()
     build_developer_debug.main()
+    check_developer_debug_windows.main()
+    check_developer_msf.main()
     prefix = build_developer_bindings.llvm_prefix()
     run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-g", "-fno-omit-frame-pointer",
          "-c", "tests/developer-tools/dwarf-native.c", "-o", "target/developer-tools-dwarf.o"])
@@ -41,7 +45,7 @@ def main():
         run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-target", triple,
              "-c", "tests/developer-tools/codeview-register.c", "-o", register_object])
         run([prefix / "bin/llvm-objcopy", "--dump-section", f".data={register_data}", register_object])
-    cases = ["c-header", "c-header-roundtrip", "c-header-reject", "c-header-modes", "c-header-lifetime", "c-header-support-roundtrip", "bindings-public", "bindings-public-roundtrip", "bindings-literals", "bindings-tree", "bindings-sdk-public", "bindings-sdk-roundtrip", "bindings-clang-api", "print-vars", "rewrite", "dwarf-cfa", "debug-native", "iprof-report", "codex-inspection", "check-porting"]
+    cases = ["c-header", "c-header-roundtrip", "c-header-reject", "c-header-modes", "c-header-lifetime", "c-header-support-roundtrip", "bindings-public", "bindings-public-roundtrip", "bindings-literals", "bindings-tree", "bindings-sdk-public", "bindings-sdk-roundtrip", "bindings-clang-api", "print-vars", "rewrite", "dwarf-cfa", "debug-native", "iprof-report", "codex-inspection"]
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
          "tests/developer-tools/bindings-sdk-layout.c", "-o", "target/developer-tools-sdk-layout"])
     run([ROOT / "target/developer-tools-sdk-layout"], output="CXString=16 CXCursor=32 CXType=24 CXUnsavedFile=24\nCXIndexOptions=24 PreambleStoragePath=8 InvocationEmissionPath=16\n")
@@ -83,6 +87,14 @@ def main():
          "tests/developer-tools/bindings-macro-merge.c", "-o", build_developer_bindings.shared_library("developer_tools_merge")])
     run([JAIC, "tests/developer-tools/bindings-macro-merge.jai", "-interp"], output="ok\n")
     cases.extend(["bindings-macro-merge", "bindings-macro-merge-roundtrip"])
+    cases.append("bindings-cpp-fragments")
+    cases.append("bindings-model-properties")
+    run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(),
+         "tests/developer-tools/bindings-model-properties.c", "-o", build_developer_bindings.shared_library("developer_tools_properties")])
+    run([JAIC, "tests/developer-tools/bindings-model-properties.jai", "-interp"], output="ok\n")
+    cases.append("bindings-model-properties-roundtrip")
+    cases.append("msf-wire")
+    cases.append("debug-int-set")
     run([JAIC, "tests/developer-tools/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"
@@ -98,10 +110,22 @@ def main():
             error = "native debug output\n"
         expected = "x = 7 (s32)\nok\n" if case == "print-vars" else "ok\n"
         run([JAIC, source, "-interp", "-I", ROOT / "target"], output=expected, error=error)
+        if case == "bindings-cpp-fragments":
+            for cpp_optimization in [0, 2]:
+                cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-interp-cxx{cpp_optimization}"
+                run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
+                     ROOT / "target/developer-tools-cpp-fragments.cpp", "-o", cpp_exe])
+                run([cpp_exe])
         for optimization in [0, 2]:
             exe = ROOT / f"target/developer-tools-{case}-o{optimization}"
             run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
             run([exe], output=expected, error=error)
+            if case == "bindings-cpp-fragments":
+                for cpp_optimization in [0, 2]:
+                    cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}"
+                    run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
+                         ROOT / "target/developer-tools-cpp-fragments.cpp", "-o", cpp_exe])
+                    run([cpp_exe])
     for optimization in [0, 2]:
         exe = ROOT / f"target/developer-tools-performance-o{optimization}"
         report = run([JAIC, "tests/developer-tools/performance-target.jai", f"-O{optimization}",
@@ -164,6 +188,14 @@ def main():
                    ROOT / "tests/developer-tools/check-porting.jai"]
     run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64", *check_paths])
     run([JAIC, "tests/developer-tools/check-porting.jai", "-check", "-os", "windows", "-cpu", "x64"])
+    debug_windows = [ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-native.jai",
+                     ROOT / "tests/developer-tools/debug-windows-contract.jai"]
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64", *debug_windows])
+    for cpu in ["x64", "arm64"]:
+        run([JAIC, "tests/developer-tools/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
+        for os_name in ["linux", "windows"]:
+            for case in ["msf-wire", "debug-int-set", "dwarf-cfa"]:
+                run([JAIC, f"tests/developer-tools/{case}.jai", "-check", "-os", os_name, "-cpu", cpu])
     for case, reason in [("check-array", "fixed array used as a pointer in assignment"),
                          ("check-small-driver", "small integer addition requires an explicit intermediate integer cast")]:
         rejected = subprocess.run([str(JAIC), f"tests/developer-tools/rejections/{case}.jai", "-check", "-os", "windows", "-cpu", "x64"],

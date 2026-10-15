@@ -17,6 +17,12 @@ SPEC.loader.exec_module(builder)
 
 
 class NativeReleaseInputs(unittest.TestCase):
+    def test_callback_scoped_build_keeps_shared_allocator_dependency(self):
+        self.assertEqual(builder.library_closure({'rpmalloc_callback_probe'}),
+                         {'rpmalloc_callback_probe', 'binding_rpmalloc_sdk'})
+        self.assertEqual(builder.library_closure({'binding_callback_context'}),
+                         {'binding_callback_context'})
+
     def fixture(self):
         header = b"/* original public C header fixture */\n#define NATIVE_WORD_BITS 64\n"
         archive = io.BytesIO()
