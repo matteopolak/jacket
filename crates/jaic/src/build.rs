@@ -465,6 +465,9 @@ pub enum MetaOp {
     RecPlan,
     RecBuild,
     RecOf,
+    SyntaxInt,
+    SyntaxString,
+    SyntaxChild,
     Clang,
     ClangText,
 }
@@ -524,6 +527,9 @@ impl MetaOp {
             "__jaic_rec_plan" => Self::RecPlan,
             "__jaic_rec_build" => Self::RecBuild,
             "__jaic_rec_of" => Self::RecOf,
+            "__jaic_syntax_int" => Self::SyntaxInt,
+            "__jaic_syntax_string" => Self::SyntaxString,
+            "__jaic_syntax_child" => Self::SyntaxChild,
             "__jaic_clang" => Self::Clang,
             "__jaic_clang_text" => Self::ClangText,
             _ => return None,
@@ -1438,6 +1444,9 @@ pub fn call(
             | MetaOp::RecPlan
             | MetaOp::RecBuild
             | MetaOp::RecOf
+            | MetaOp::SyntaxInt
+            | MetaOp::SyntaxString
+            | MetaOp::SyntaxChild
     ) {
         interp.effects += 1;
     }
@@ -2042,6 +2051,68 @@ pub fn call(
         MetaOp::ClangText => {
             return_string(interp, &crate::clang::last_text(), 0)?;
             Ok(Rets::default())
+        }
+        MetaOp::SyntaxInt | MetaOp::SyntaxString | MetaOp::SyntaxChild => {
+            let key = text(interp, 1)?;
+            if !key.starts_with("__syntax_") {
+                return Err(trap(
+                    "syntax attributes require a private syntax key".into(),
+                ));
+            }
+            let mut reg = shared.borrow_mut();
+            // Association lookup only: never dereference arbitrary program pointers.
+            let found = reg
+                .builders
+                .iter()
+                .enumerate()
+                .find_map(|(index, builder)| {
+                    let id = builder.record_of(arg(0));
+                    (id != 0).then_some((index, id))
+                });
+            match op {
+                MetaOp::SyntaxInt => Ok(Rets::one(
+                    found
+                        .and_then(|(_, id)| match reg.records.field(id, &key) {
+                            Some(crate::records::FieldRef::Int(value)) => Some(value as u64),
+                            _ => None,
+                        })
+                        .unwrap_or(0),
+                )),
+                MetaOp::SyntaxString => {
+                    let value = found
+                        .and_then(|(_, id)| match reg.records.field(id, &key) {
+                            Some(crate::records::FieldRef::Str(value)) => Some(value.clone()),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    store_pair(interp, arg(2), value.len() as u64, value.as_ptr() as u64)?;
+                    reg.kept.push(value);
+                    Ok(Rets::default())
+                }
+                MetaOp::SyntaxChild => {
+                    let Some((index, id)) = found else {
+                        return Ok(Rets::one(0));
+                    };
+                    let child = match reg.records.field(id, &key) {
+                        Some(crate::records::FieldRef::Ref(child)) => child,
+                        _ => 0,
+                    };
+                    let Workspaces {
+                        records,
+                        kept,
+                        builders,
+                        ..
+                    } = &mut *reg;
+                    Ok(Rets::one(builders[index].build(
+                        records,
+                        kept,
+                        interp,
+                        child,
+                        arg(2),
+                    )?))
+                }
+                _ => unreachable!(),
+            }
         }
         MetaOp::RecTag => {
             // Tags are static: hand out the text itself.

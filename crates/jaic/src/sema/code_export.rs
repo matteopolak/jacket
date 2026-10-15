@@ -65,6 +65,9 @@ mod node {
     pub const ASM: i64 = 34;
     pub const DIRECTIVE_BAKE: i64 = 35;
     pub const DIRECTIVE_PLACE: i64 = 41;
+    pub const DIRECTIVE_SCOPE: i64 = 42;
+    pub const DIRECTIVE_MODIFY: i64 = 36;
+    pub const DIRECTIVE_THROUGH: i64 = 29;
     pub const DIRECTIVE_COMPILE_TIME: i64 = 47;
     pub const DIRECTIVE_PROCEDURE_NAME: i64 = 53;
     pub const DIRECTIVE_OVERLAY: i64 = 58;
@@ -1010,7 +1013,7 @@ impl Exporter<'_> {
         // The common fields (kind, location, serial, type) and a node's own few: growing
         // from empty reallocated most records two or three times.
         let mut rec = Record::with_capacity(tag, 12);
-        rec.int("kind", kind);
+        rec.int("kind", kind).int("__syntax_original_kind", kind);
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
         };
@@ -1373,9 +1376,147 @@ impl Exporter<'_> {
             rec.ptr("result", t);
             rec.ptr("type", t);
         }
-        let value = self.expr(expr);
-        rec.ptr("type_valued_expression", value);
+        match &expr.kind {
+            ast::ExprKind::ArrayType {
+                size,
+                elem,
+            } => {
+                let elem = self.type_inst(elem);
+                rec.ptr("array_element_type", elem);
+                match size {
+                    ast::ArraySize::Fixed(size) => {
+                        let size = self.expr(size);
+                        rec.ptr("array_dimension", size);
+                    }
+                    ast::ArraySize::View => {
+                        rec.int("inst_flags", 0x40);
+                    }
+                    ast::ArraySize::Resizable => {
+                        rec.int("inst_flags", 0x10);
+                    }
+                }
+            }
+            ast::ExprKind::Unary(ast::UnOp::Star, pointee) => {
+                let pointee = self.type_inst(pointee);
+                rec.ptr("pointer_to", pointee);
+            }
+            ast::ExprKind::ProcType(header) => {
+                let lit = ast::ProcLit {
+                    header: header.clone(),
+                    body: None,
+                };
+                let value = self.proc(&lit, &[], None, expr.span);
+                rec.ptr("type_valued_expression", value);
+            }
+            ast::ExprKind::TypeDirective {
+                modifier,
+                ty,
+            } => {
+                let value = self.type_inst(ty);
+                rec.ptr("type_directive_target", value).int(
+                    "inst_flags",
+                    match modifier {
+                        ast::TypeModifier::Plain => 2,
+                        ast::TypeModifier::Distinct => 4,
+                        ast::TypeModifier::Isa => 8,
+                    },
+                );
+            }
+            _ => {
+                let value = self.expr(expr);
+                rec.ptr("type_valued_expression", value);
+            }
+        }
         self.add(rec)
+    }
+
+    fn comma_values(&mut self, values: &[ast::Expr], span: Span) -> i64 {
+        let nodes = values
+            .iter()
+            .map(|value| self.expr(value))
+            .collect::<Vec<_>>();
+        self.node_list(&nodes, span)
+    }
+
+    fn node_list(&mut self, nodes: &[i64], span: Span) -> i64 {
+        if nodes.len() <= 1 {
+            return nodes.first().copied().unwrap_or(0);
+        }
+        let arguments: Vec<_> = nodes
+            .iter()
+            .map(|&node| {
+                let mut arg = Record::new("Code_Comma_Separated_Argument");
+                arg.ptr("node", node).int("modifier", 0);
+                self.r.add(arg)
+            })
+            .collect();
+        let mut rec = self.node(
+            "Code_Comma_Separated_Arguments",
+            node::COMMA_SEPARATED_ARGUMENTS,
+            span,
+        );
+        rec.refs("arguments", arguments);
+        self.add(rec)
+    }
+
+    fn syntax_block(&mut self, block: &ast::Block) -> i64 {
+        let id = self.block(&block.stmts, 1, block.span);
+        self.r.get_mut(id).unwrap().int(
+            "block_flags",
+            i64::from(block.no_abc) | (i64::from(block.no_aoc) << 1),
+        );
+        id
+    }
+
+    fn modify_syntax(&mut self, block: Option<&ast::Block>) -> Vec<i64> {
+        let Some(block) = block else {
+            return Vec::new();
+        };
+        let body = self.syntax_block(block);
+        let mut rec = self.node("Code_Directive_Modify", node::DIRECTIVE_MODIFY, block.span);
+        rec.ptr("block", body);
+        vec![self.add(rec)]
+    }
+
+    fn insert_syntax(
+        &mut self,
+        value: &ast::Expr,
+        scope: Option<&ast::Expr>,
+        replacements: &[ast::Arg],
+        flags: &[ast::Ident],
+        span: Span,
+    ) -> Record {
+        let value = self.expr(value);
+        let scope = self.opt_expr(scope);
+        let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
+        rec.ptr("expression", value)
+            .ptr("scope_redirection", scope)
+            .str(
+                "__syntax_flags",
+                flags
+                    .iter()
+                    .map(|flag| format!(",{}", flag.name))
+                    .collect::<String>()
+                    .as_bytes(),
+            );
+        for replacement in replacements {
+            let Some(name) = replacement.name else {
+                rec.int("__syntax_incomplete", 1);
+                continue;
+            };
+            let field = match name.name.as_str() {
+                "break" => "break_replacement",
+                "continue" => "continue_replacement",
+                "remove" => "remove_replacement",
+                _ => {
+                    rec.int("__syntax_incomplete", 1);
+                    continue;
+                }
+            };
+            let value = self.expr(&replacement.value);
+            rec.ptr(field, value);
+        }
+        rec
     }
 
     fn opt_expr(&mut self, e: Option<&ast::Expr>) -> i64 {
@@ -1409,6 +1550,35 @@ impl Exporter<'_> {
                 };
                 (kind, self.expr(expr))
             }
+        }
+    }
+
+    fn filter_syntax(filter: &ast::UsingFilter) -> String {
+        match filter {
+            ast::UsingFilter::Only(names) | ast::UsingFilter::Except(names) => {
+                let kind = if matches!(filter, ast::UsingFilter::Only(_)) {
+                    "only"
+                } else {
+                    "except"
+                };
+                format!(
+                    ",{kind}({})",
+                    names
+                        .iter()
+                        .map(|name| name.name.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            ast::UsingFilter::Map(pairs) => format!(
+                ",map({})",
+                pairs
+                    .iter()
+                    .map(|(a, b)| format!("{}={}", a.name, b.name))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            _ => String::new(),
         }
     }
 
@@ -1576,7 +1746,7 @@ impl Exporter<'_> {
             E::Call {
                 callee,
                 args,
-                ..
+                hint,
             } => {
                 let resolved = self
                     .resolve_call(callee, args.len())
@@ -1585,6 +1755,14 @@ impl Exporter<'_> {
                 let (unsorted, sorted) = self.args(args);
                 let mut rec = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
                 rec.ptr("procedure_expression", callee)
+                    .int(
+                        "__syntax_call_hint",
+                        match hint {
+                            ast::CallHint::None => 0,
+                            ast::CallHint::Inline => 1,
+                            ast::CallHint::NoInline => 2,
+                        },
+                    )
                     .refs("arguments_unsorted", unsorted)
                     .refs("arguments_sorted", sorted);
                 if let Some(p) = resolved {
@@ -1699,31 +1877,49 @@ impl Exporter<'_> {
             | E::ProcType(_)
             | E::TypeDirective {
                 ..
-            } => {
-                let mut rec = self.node("Code_Type_Instantiation", node::TYPE_INSTANTIATION, span);
-                if let Some(t) = self.eval_type(e) {
-                    let t = self.ty(t);
-                    rec.ptr("result", t);
-                }
-                rec
-            }
+            } => return self.type_inst(e),
             E::Proc(lit) => return self.proc(lit, &[], None, span),
             E::Lambda {
-                header, ..
+                header,
+                body,
             } => {
                 let lit = ast::ProcLit {
                     header: header.clone(),
                     body: None,
                 };
-                return self.proc(&lit, &[], None, span);
+                let id = self.proc(&lit, &[], None, span);
+                let body = self.expr(body);
+                self.r
+                    .get_mut(id)
+                    .unwrap()
+                    .ptr("__syntax_lambda_body", body);
+                return id;
             }
-            E::Block(block) => return self.block(&block.stmts, 1, block.span),
+            E::Block(block) => return self.syntax_block(block),
             E::Struct(lit) => return self.struct_lit(lit, None, Sym::intern("")),
             E::Enum(lit) => return self.enum_lit(lit, None, span),
             E::Run {
-                ..
-            } => self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span),
+                body,
+                flags,
+            } => {
+                let body = match &**body {
+                    ast::RunBody::Expr(expr) => self.expr(expr),
+                    ast::RunBody::Block(block) => self.syntax_block(block),
+                };
+                let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
+                rec.ptr("__syntax_run_body", body).str(
+                    "__syntax_flags",
+                    flags
+                        .iter()
+                        .map(|flag| format!(",{}", flag.name))
+                        .collect::<String>()
+                        .as_bytes(),
+                );
+                rec
+            }
             E::Code(body) => {
+                let null =
+                    matches!(&**body, ast::CodeBody::Expr(expr) if matches!(expr.kind, E::Null));
                 let expr = match &**body {
                     ast::CodeBody::Expr(e) => self.expr(e),
                     // `#code if x == {...}`: a brace-less statement is its own node (its
@@ -1737,17 +1933,24 @@ impl Exporter<'_> {
                     ast::CodeBody::Block(b) => self.block(&b.stmts, 1, b.span),
                 };
                 let mut rec = self.node("Code_Directive_Code", node::DIRECTIVE_CODE, span);
-                rec.ptr("expression", expr);
+                rec.ptr("expression", expr).int(
+                    "code_flags",
+                    if null {
+                        2
+                    } else {
+                        0
+                    },
+                );
                 rec
             }
             E::Insert(boxed) => {
                 let crate::ast::InsertExpr {
-                    value, ..
+                    value,
+                    scope,
+                    replacements,
+                    flags,
                 } = &**boxed;
-                let value = self.expr(value);
-                let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
-                rec.ptr("expression", value);
-                rec
+                self.insert_syntax(value, scope.as_ref(), replacements, flags, span)
             }
             E::Location(e) => {
                 let e = self.opt_expr(e.as_deref());
@@ -1783,6 +1986,32 @@ impl Exporter<'_> {
                 rec.ptr("expression", e);
                 rec
             }
+            E::UnknownDirective(directive) => {
+                let operand = self.opt_expr(directive.operand.as_ref());
+                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                rec.str(
+                    "__syntax_directive_name",
+                    directive.name.name.as_str().as_bytes(),
+                )
+                .str(
+                    "__syntax_flags",
+                    directive
+                        .flags
+                        .iter()
+                        .map(|flag| format!(",{}", flag.name))
+                        .collect::<String>()
+                        .as_bytes(),
+                )
+                .ptr("__syntax_directive_args", operand);
+                rec
+            }
+            E::ProcedureOfCall(call) => {
+                let call = self.expr(call);
+                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                rec.str("__syntax_directive_name", b"procedure_of_call")
+                    .ptr("__syntax_directive_args", call);
+                rec
+            }
             E::ProcedureName(arg) => {
                 let arg = self.opt_expr(arg.as_deref());
                 let mut rec = self.node(
@@ -1813,9 +2042,7 @@ impl Exporter<'_> {
                     .int("bake_type", i64::from(!*constants));
                 rec
             }
-            // The instructions have no Code_Node form (`Code_Asm` is opaque), so a metaprogram
-            // sees that an `#asm` block is there, not what it holds.
-            E::Asm(_) => self.node("Code_Asm", node::ASM, span),
+            E::Asm(block) => return self.asm_syntax(block, span),
             // `$T` and `$$x`: an identifier that defines a polymorphic variable. `0x80` marks the
             // baked `$$` form, `0x100` an `/interface` restriction (jaic extensions to the flags).
             E::PolyVar {
@@ -1831,6 +2058,7 @@ impl Exporter<'_> {
                         0
                     },
                 );
+                rec.int("__syntax_poly_baked", i64::from(*baked));
                 rec
             }
             E::PolyRestricted {
@@ -1849,12 +2077,14 @@ impl Exporter<'_> {
                             0
                         },
                     )
-                    .ptr("polymorph_restriction", restriction);
+                    .ptr("polymorph_restriction", restriction)
+                    .ptr("__syntax_restriction", restriction)
+                    .int("__syntax_interface", i64::from(*interface));
                 rec
             }
             E::CallerCode => {
                 let mut rec = self.node("Code_Directive_Location", node::DIRECTIVE_LOCATION, span);
-                rec.int("is_caller_code", 1);
+                rec.int("is_caller_code", 1).int("__syntax_caller_code", 1);
                 rec
             }
             // The location directives are constants of the file they sit in: exported as the
@@ -1917,6 +2147,112 @@ impl Exporter<'_> {
         self.add(rec)
     }
 
+    fn asm_decl_syntax(&mut self, decl: &ast::AsmDecl, span: Span) -> i64 {
+        let pin = decl.pin.map_or(String::new(), |pin| match pin {
+            ast::AsmPin::Name(name) => name.name.to_string(),
+            ast::AsmPin::Index(index) => index.to_string(),
+        });
+        let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+        rec.str("__syntax_asm_kind", b"declaration")
+            .str("__syntax_name", decl.name.name.as_str().as_bytes())
+            .str(
+                "__syntax_class",
+                decl.class
+                    .map_or(String::new(), |class| class.name.to_string())
+                    .as_bytes(),
+            )
+            .str("__syntax_pin", pin.as_bytes())
+            .int("__syntax_colon", i64::from(decl.colon));
+        self.add(rec)
+    }
+
+    fn asm_operand_syntax(&mut self, operand: &ast::AsmOperand, span: Span) -> i64 {
+        match operand {
+            ast::AsmOperand::Value(value) => self.expr(value),
+            ast::AsmOperand::Decl(decl) => self.asm_decl_syntax(decl, span),
+            ast::AsmOperand::Mem(memory) => {
+                let terms: Vec<_> = memory
+                    .terms
+                    .iter()
+                    .map(|term| {
+                        let value = self.expr(&term.value);
+                        let scale = self.opt_expr(term.scale.as_ref());
+                        let mut rec = self.node("Code_Node", node::PLACEHOLDER, memory.span);
+                        rec.ptr("__syntax_value", value)
+                            .ptr("__syntax_scale", scale)
+                            .int("__syntax_negate", i64::from(term.negate));
+                        self.add(rec)
+                    })
+                    .collect();
+                let terms = self.node_list(&terms, memory.span);
+                let mut rec = self.node("Code_Node", node::PLACEHOLDER, memory.span);
+                rec.str("__syntax_asm_kind", b"memory")
+                    .ptr("__syntax_terms", terms)
+                    .int("__syntax_broadcast", i64::from(memory.broadcast));
+                self.add(rec)
+            }
+        }
+    }
+
+    fn asm_syntax(&mut self, block: &ast::AsmBlock, span: Span) -> i64 {
+        let items: Vec<_> = block
+            .items
+            .iter()
+            .map(|item| match item {
+                ast::AsmItem::Decl(decl) => self.asm_decl_syntax(decl, span),
+                ast::AsmItem::Inst(inst) => {
+                    let operands: Vec<_> = inst
+                        .operands
+                        .iter()
+                        .map(|operand| self.asm_operand_syntax(operand, inst.span))
+                        .collect();
+                    let operands = self.node_list(&operands, inst.span);
+                    let (suffix, size) = match &inst.size {
+                        None => (String::new(), 0),
+                        Some(ast::AsmSize::Suffix(suffix)) => (suffix.name.to_string(), 0),
+                        Some(ast::AsmSize::Dynamic(size)) => (String::new(), self.expr(size)),
+                    };
+                    let mask = inst
+                        .evex
+                        .mask
+                        .as_ref()
+                        .map_or(0, |(mask, _)| self.asm_operand_syntax(mask, inst.span));
+                    let round = inst.evex.round.map_or(String::new(), |mode| {
+                        format!("!{}", mode.map_or(String::new(), |mode| mode.to_string()))
+                    });
+                    let mut rec = self.node("Code_Node", node::PLACEHOLDER, inst.span);
+                    rec.str("__syntax_asm_kind", b"instruction")
+                        .str("__syntax_mnemonic", inst.mnemonic.name.as_str().as_bytes())
+                        .ptr("__syntax_operands", operands)
+                        .str("__syntax_suffix", suffix.as_bytes())
+                        .ptr("__syntax_size", size)
+                        .ptr("__syntax_mask", mask)
+                        .int(
+                            "__syntax_zeroing",
+                            i64::from(inst.evex.mask.as_ref().is_some_and(|(_, zeroing)| *zeroing)),
+                        )
+                        .str("__syntax_round", round.as_bytes());
+                    self.add(rec)
+                }
+            })
+            .collect();
+        let items = self.node_list(&items, span);
+        let mut rec = self.node("Code_Asm", node::ASM, span);
+        rec.ptr("__syntax_asm_items", items)
+            .int("__syntax_asm_present", 1)
+            .str(
+                "__syntax_features",
+                block
+                    .features
+                    .iter()
+                    .map(|feature| feature.name.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    .as_bytes(),
+            );
+        self.add(rec)
+    }
+
     /// The type `e` checks to in the exported code's scope, when it checks there.
     fn expr_type(&mut self, e: &ast::Expr) -> Option<TypeId> {
         if self.procedure.is_some() {
@@ -1960,6 +2296,14 @@ impl Exporter<'_> {
         let mut values = Vec::new();
         for arg in args {
             let value = self.expr(&arg.value);
+            if arg.spread {
+                let node = self.r.get_mut(value).unwrap();
+                let flags = match node.field("node_flags") {
+                    Some(FieldRef::Int(flags)) => flags,
+                    _ => 0,
+                };
+                node.int("node_flags", flags | 1);
+            }
             let name = arg.name.map_or(0, |n| self.name_ident(n.name, n.span));
             let mut rec = Record::new("Code_Argument");
             rec.ptr("expression", value).ptr("name", name);
@@ -2011,7 +2355,7 @@ impl Exporter<'_> {
     /// A statement as a block (branches and loop bodies).
     fn stmt_block(&mut self, s: &ast::Stmt) -> i64 {
         match &s.kind {
-            ast::StmtKind::Block(b) => self.block(&b.stmts, 1, b.span),
+            ast::StmtKind::Block(b) => self.syntax_block(b),
             _ => self.block(std::slice::from_ref(s), 1, s.span),
         }
     }
@@ -2027,15 +2371,15 @@ impl Exporter<'_> {
                 lhs,
                 rhs,
             } => {
-                let l = lhs.first().map_or(0, |e| self.expr(e));
-                let r = rhs.first().map_or(0, |e| self.expr(e));
+                let l = self.comma_values(lhs, span);
+                let r = self.comma_values(rhs, span);
                 let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
                 rec.int("operator_type", assign_op(*op))
                     .ptr("left", l)
                     .ptr("right", r);
                 self.add(rec)
             }
-            S::Block(b) => self.block(&b.stmts, 1, b.span),
+            S::Block(b) => self.syntax_block(b),
             S::If {
                 cond,
                 then_branch,
@@ -2101,12 +2445,17 @@ impl Exporter<'_> {
                 let crate::ast::WhileStmt {
                     cond,
                     body,
-                    ..
+                    label,
+                    bind_label,
                 } = &**boxed;
                 let cond = self.expr(cond);
                 let block = self.stmt_block(body);
                 let mut rec = self.node("Code_While", node::WHILE, span);
                 rec.ptr("condition", cond).ptr("block", block);
+                if let Some(label) = label {
+                    rec.str("__syntax_label", label.name.as_str().as_bytes())
+                        .int("__syntax_bind_label", i64::from(*bind_label));
+                }
                 self.add(rec)
             }
             S::For(f) => {
@@ -2123,6 +2472,13 @@ impl Exporter<'_> {
                 }
                 let it = f.it.map_or(0, |i| self.ident(i.name, i.span));
                 let index = f.index.map_or(0, |i| self.ident(i.name, i.span));
+                if f.backtick_names {
+                    for id in [it, index].into_iter().filter(|&id| id != 0) {
+                        self.r.get_mut(id).unwrap().int("flags", 0x40);
+                    }
+                }
+                let pointer = self.opt_expr(f.pointer_if.as_ref());
+                let reverse = self.opt_expr(f.reverse_if.as_ref());
                 let block = self.stmt_block(&f.body);
                 self.locals.truncate(locals);
                 let flags = (f.by_pointer as i64) | ((f.reverse as i64) * 0x2);
@@ -2131,8 +2487,21 @@ impl Exporter<'_> {
                     .ptr("iteration_expression_right", b)
                     .ptr("ident_it", it)
                     .ptr("ident_it_index", index)
+                    .ptr("want_pointer_expression", pointer)
+                    .ptr("want_reverse_expression", reverse)
                     .ptr("block", block)
                     .int("for_flags", flags);
+                if let Some(iterator) = f.iterator {
+                    rec.str("__syntax_iterator", iterator.name.as_str().as_bytes());
+                }
+                rec.str(
+                    "__syntax_flags",
+                    f.flags
+                        .iter()
+                        .map(|flag| format!("#{} ", flag.name))
+                        .collect::<String>()
+                        .as_bytes(),
+                );
                 self.add(rec)
             }
             S::Break(label) | S::Continue(label) | S::Remove(label) => {
@@ -2178,13 +2547,16 @@ impl Exporter<'_> {
                 let mut rec = self.node("Code_Using", node::USING, span);
                 rec.ptr("expression", value)
                     .int("filter_type", filter_type)
-                    .ptr("filter_expression", filter_expression);
+                    .ptr("filter_expression", filter_expression)
+                    .str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
                 self.add(rec)
             }
             S::PushContextDefer(defer) => {
                 let context = self.expr(&defer.context);
                 let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context)
+                    .ptr("__syntax_original_context", context)
+                    .int("__syntax_context_bare", i64::from(defer.bare))
                     .int("push_context_flags", 2 | i64::from(defer.backtick));
                 self.add(rec)
             }
@@ -2193,29 +2565,32 @@ impl Exporter<'_> {
                     context,
                     body,
                     backtick,
-                    ..
+                    bare,
                 } = &**boxed;
                 let context = self.expr(context);
                 let block = self.stmt_block(body);
                 let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context)
+                    .ptr("__syntax_original_context", context)
+                    .int("__syntax_context_bare", i64::from(*bare))
                     .ptr("block", block)
                     .int("push_context_flags", i64::from(*backtick));
                 self.add(rec)
             }
             S::Insert(boxed) => {
                 let crate::ast::InsertStmt {
-                    value, ..
+                    value,
+                    scope,
+                    replacements,
+                    flags,
                 } = &**boxed;
-                let value = self.expr(value);
-                let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
-                rec.ptr("expression", value);
+                let rec = self.insert_syntax(value, scope.as_ref(), replacements, flags, span);
                 self.add(rec)
             }
             S::Run(e) => {
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
                 let e = self.expr(e);
-                rec.ptr("expression", e);
+                rec.ptr("expression", e).ptr("__syntax_run_body", e);
                 self.add(rec)
             }
             S::Case(case) => self.case(case),
@@ -2223,7 +2598,7 @@ impl Exporter<'_> {
                 let crate::ast::AssertStmt {
                     cond,
                     message,
-                    ..
+                    args,
                 } = &**boxed;
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
                 let text = self
@@ -2232,20 +2607,75 @@ impl Exporter<'_> {
                     .map_or(String::new(), |c| c.sources.snippet(cond.span).to_string());
                 let cond = self.expr(cond);
                 let message = self.opt_expr(message.as_ref());
+                let args = self.comma_values(args, span);
                 rec.int("flags", 0x1) // ASSERTION
                     .str("assertion_string", text.as_bytes())
                     .ptr("expression", cond)
-                    .ptr("message", message);
+                    .ptr("message", message)
+                    .ptr("__syntax_run_body", cond)
+                    .ptr("__syntax_assert_message", message)
+                    .ptr("__syntax_assert_args", args);
                 self.add(rec)
             }
             S::Import(import) => {
                 let mut rec = self.node("Code_Directive_Import", node::DIRECTIVE_IMPORT, span);
-                if let ast::ImportSource::Module(name) = &import.source {
-                    rec.str("name", name.as_bytes());
+                let (name, kind) = match &import.source {
+                    ast::ImportSource::Module(name) => (name, 0),
+                    ast::ImportSource::File(name) => (name, 1),
+                    ast::ImportSource::Dir(name) => (name, 2),
+                    ast::ImportSource::String(name) => (name, 3),
+                };
+                rec.str("name", name.as_bytes())
+                    .int("__syntax_import_kind", kind)
+                    .str(
+                        "__syntax_flags",
+                        import
+                            .flags
+                            .iter()
+                            .map(|flag| format!(",{}", flag.name))
+                            .collect::<String>()
+                            .as_bytes(),
+                    )
+                    .str(
+                        "__syntax_alias",
+                        import
+                            .name
+                            .map_or(String::new(), |name| name.name.to_string())
+                            .as_bytes(),
+                    )
+                    .int("__syntax_using", i64::from(import.using.is_some()));
+                if let Some(filter) = &import.using {
+                    rec.str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+                    let (kind, expression) = self.using_filter(filter);
+                    rec.int("__syntax_filter_kind", kind)
+                        .ptr("__syntax_filter_expression", expression);
+                }
+                if !import.params.is_empty() {
+                    let (arguments, _) = self.args(&import.params);
+                    let mut call = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
+                    call.refs("arguments_unsorted", arguments);
+                    let call = self.add(call);
+                    rec.ptr("module_parameters_call", call);
                 }
                 self.add(rec)
             }
-            S::Empty | S::Scope(_) | S::Through => return None,
+            S::Empty => return None,
+            S::Scope(scope) => {
+                let mut rec = self.node("Code_Directive_Scope", node::DIRECTIVE_SCOPE, span);
+                rec.int(
+                    "scope_type",
+                    match scope {
+                        ast::ScopeKind::Export => 0,
+                        ast::ScopeKind::File => 1,
+                        ast::ScopeKind::Module => 2,
+                    },
+                );
+                self.add(rec)
+            }
+            S::Through => {
+                let rec = self.node("Code_Directive_Through", node::DIRECTIVE_THROUGH, span);
+                self.add(rec)
+            }
             S::Load {
                 path, ..
             } => {
@@ -2263,7 +2693,7 @@ impl Exporter<'_> {
             S::Place(e) => {
                 let ident = self.expr(e);
                 let mut rec = self.node("Code_Directive_Place", node::DIRECTIVE_PLACE, span);
-                rec.ptr("ident", ident);
+                rec.ptr("ident", ident).ptr("__syntax_operand", ident);
                 self.add(rec)
             }
             S::Overlay(e) => {
@@ -2305,11 +2735,45 @@ impl Exporter<'_> {
                     .ptr("common_code", common);
                 self.add(rec)
             }
-            _ => {
-                let rec = self.node("Code_Node", node::PLACEHOLDER, span);
+            S::Placeholder(names) => {
+                let values = names
+                    .iter()
+                    .map(|name| self.name_ident(name.name, name.span))
+                    .collect::<Vec<_>>();
+                let args = self.node_list(&values, span);
+                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                rec.str("__syntax_directive_name", b"placeholder")
+                    .ptr("__syntax_directive_args", args);
+                self.add(rec)
+            }
+            S::Directive(directive) => {
+                let args = self.comma_values(&directive.args, span);
+                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                rec.str(
+                    "__syntax_directive_name",
+                    directive.name.name.as_str().as_bytes(),
+                )
+                .str(
+                    "__syntax_flags",
+                    directive
+                        .flags
+                        .iter()
+                        .map(|flag| format!(",{}", flag.name))
+                        .collect::<String>()
+                        .as_bytes(),
+                )
+                .ptr("__syntax_directive_args", args);
                 self.add(rec)
             }
         };
+        if !s.notes.is_empty() {
+            let notes = self.notes(&s.notes.iter().collect::<Vec<_>>());
+            let notes = self.node_list(&notes, span);
+            self.r
+                .get_mut(id)
+                .unwrap()
+                .ptr("__syntax_statement_notes", notes);
+        }
         if let Some(c) = self.c.as_deref_mut() {
             c.export.stmts.insert(id, Rc::new(s.clone()));
         }
@@ -2338,7 +2802,7 @@ impl Exporter<'_> {
     }
 
     fn case(&mut self, case: &ast::Case) -> i64 {
-        let cond = case.values.first().map_or(0, |v| self.expr(v));
+        let cond = self.comma_values(&case.values, case.span);
         let then_block = self.block(&case.body, 1, case.span);
         let mut rec = self.node("Code_Case", node::CASE, case.span);
         rec.ptr("condition", cond)
@@ -2532,6 +2996,7 @@ impl Exporter<'_> {
             flags |= 0x200000; // HAS_SCOPE_MODIFIER
         }
         let ty = ty.map_or(0, |t| self.ty(t));
+        let alignment = self.opt_expr(d.align());
         let mut rec = self.node("Code_Declaration", node::DECLARATION, d.span);
         rec.str("name", name.as_str().as_bytes())
             .ptr("type", ty)
@@ -2539,6 +3004,37 @@ impl Exporter<'_> {
             .ptr("expression", expression)
             .int("flags", flags)
             .refs("notes", notes);
+        rec.ptr("alignment_expression", alignment)
+            .int("__syntax_using", i64::from(d.using))
+            .str(
+                "__syntax_flags",
+                d.flags()
+                    .iter()
+                    .map(|flag| format!(" #{}", flag.name))
+                    .collect::<String>()
+                    .as_bytes(),
+            );
+        if let Some(filter) = d.using_filter() {
+            rec.str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+            let (kind, expression) = self.using_filter(filter);
+            rec.int("__syntax_filter_kind", kind)
+                .ptr("__syntax_filter_expression", expression);
+        }
+        if let Some(tag) = d.union_tag() {
+            let tag = self.expr(tag);
+            rec.ptr("__syntax_union_tag", tag);
+        }
+        if let Some(foreign) = d.foreign() {
+            let library = foreign
+                .library
+                .map_or(0, |name| self.name_ident(name.name, name.span));
+            rec.int("__syntax_foreign", 1)
+                .ptr("__syntax_foreign_library", library);
+            if let ast::ForeignName::Named(symbol) = &foreign.name {
+                rec.str("__syntax_foreign_symbol", symbol.as_bytes())
+                    .int("__syntax_foreign_named", 1);
+            }
+        }
         if statement {
             rec.int("node_flags", 0x4); // ALLOWED_BY_CONTEXT
         }
@@ -2555,6 +3051,7 @@ impl Exporter<'_> {
     ) -> i64 {
         let name = d.names[index].name;
         let span = d.span;
+        let mut alias_expression = None;
         let (ty, expression) = match resolved {
             Resolved::Proc(p)
             | Resolved::Const {
@@ -2566,6 +3063,11 @@ impl Exporter<'_> {
                 let sig = c.signature(p, span).ok();
                 let lit = c.proc(p).lit.clone();
                 let header = self.proc(&lit, &d.notes, Some((p, sig.clone())), span);
+                if let Some(value) = &d.value
+                    && !matches!(value.kind, ast::ExprKind::Proc(_))
+                {
+                    alias_expression = Some((header, self.expr(value)));
+                }
                 let ty = match sig {
                     Some(s) => Some(s.ty),
                     // A polymorphic procedure's type shows `$` where a type variable decides.
@@ -2609,7 +3111,15 @@ impl Exporter<'_> {
             } else {
                 0
             };
-        self.decl(d, name, ty, expression, false, scope)
+        let declaration = self.decl(d, name, ty, expression, false, scope);
+        if let Some((initial, alias)) = alias_expression {
+            self.r
+                .get_mut(declaration)
+                .unwrap()
+                .ptr("__syntax_initial_expression", initial)
+                .ptr("__syntax_alias_expression", alias);
+        }
+        declaration
     }
 
     /// An enum literal; `external_type` is its type when the declaration resolved to one.
@@ -2623,12 +3133,59 @@ impl Exporter<'_> {
                     .is_some_and(|c| matches!(c.types.kind(t), TypeKind::Enum(_)))
             })
             .map_or(0, |t| self.ty(t));
+        let block = self.enum_block(&lit.items, span);
+        let base = lit.base.as_ref().map_or(0, |base| self.type_inst(base));
         let mut rec = self.node("Code_Enum", node::ENUM, span);
         rec.refs("notes", notes)
+            .ptr("block", block)
+            .ptr("internal_type_inst", base)
             .ptr("external_type", external)
             .int("marked_as_complete", lit.complete as i64)
             .int("marked_as_specified", lit.specified as i64)
             .int("is_flags", lit.flags_enum as i64);
+        self.add(rec)
+    }
+
+    fn enum_block(&mut self, items: &[ast::EnumItem], span: Span) -> i64 {
+        let statements: Vec<_> = items
+            .iter()
+            .map(|item| match item {
+                ast::EnumItem::Member(member) => {
+                    let value = self.opt_expr(member.value.as_ref());
+                    let notes = self.notes(&member.notes.iter().collect::<Vec<_>>());
+                    let mut rec =
+                        self.node("Code_Declaration", node::DECLARATION, member.name.span);
+                    rec.str("name", member.name.name.as_str().as_bytes())
+                        .ptr("expression", value)
+                        .refs("notes", notes)
+                        .int("flags", 1);
+                    self.add(rec)
+                }
+                ast::EnumItem::Insert(value) => {
+                    let value = self.expr(value);
+                    let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
+                    rec.ptr("expression", value);
+                    self.add(rec)
+                }
+                ast::EnumItem::If {
+                    cond,
+                    then_items,
+                    else_items,
+                } => {
+                    let condition = self.expr(cond);
+                    let then_block = self.enum_block(then_items, span);
+                    let else_block = self.enum_block(else_items, span);
+                    let mut rec = self.node("Code_If", node::IF, span);
+                    rec.ptr("condition", condition)
+                        .ptr("then_block", then_block)
+                        .ptr("else_block", else_block)
+                        .int("if_flags", 4);
+                    self.add(rec)
+                }
+            })
+            .collect();
+        let mut rec = self.node("Code_Block", node::BLOCK, span);
+        rec.refs("statements", statements).int("block_type", 2);
         self.add(rec)
     }
 
@@ -2637,6 +3194,41 @@ impl Exporter<'_> {
     fn struct_lit(&mut self, lit: &ast::StructLit, defined: Option<TypeId>, name: Sym) -> i64 {
         let start = self.sub.len();
         let block = self.block(&lit.body, 2, lit.span);
+        let arguments = if lit.params.is_empty() {
+            0
+        } else {
+            let header = self.params_header(&lit.params, lit.span);
+            let args: Vec<_> = match self.r.field(header, "arguments") {
+                Some(FieldRef::List(list)) => list
+                    .iter()
+                    .filter_map(|item| match item {
+                        Item::Ref(id) => Some(id),
+                        _ => None,
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            };
+            let mut rec = self.node("Code_Block", node::BLOCK, lit.span);
+            rec.refs("statements", args).int("block_type", 5);
+            self.add(rec)
+        };
+        let flags = (i64::from(lit.kind == ast::StructKind::Union) * 2)
+            | (i64::from(lit.flags.no_padding) * 4)
+            | (i64::from(lit.flags.type_info_none) * 8)
+            | (i64::from(lit.flags.type_info_no_size_complaint) * 0x10)
+            | (i64::from(lit.flags.type_info_procedures_are_void_pointers) * 0x20)
+            | (i64::from(lit.tag.is_some()) * 0x40);
+        let alignment = self.opt_expr(lit.flags.align.as_ref());
+        let tag = lit.tag.as_ref().map_or(0, |tag| {
+            let ty = tag.ty.as_deref().map_or(0, |ty| self.type_inst(ty));
+            let value = tag.value.as_deref().map_or(0, |value| self.expr(value));
+            let mut rec = self.node("Code_Declaration", node::DECLARATION, tag.name.span);
+            rec.str("name", tag.name.name.as_str().as_bytes())
+                .ptr("type_inst", ty)
+                .ptr("expression", value);
+            self.add(rec)
+        });
+        let modify = self.modify_syntax(lit.modify.as_ref());
         let notes: Vec<&ast::Note> = lit.notes.iter().collect();
         let notes = self.notes(&notes);
         let defined = defined
@@ -2657,12 +3249,13 @@ impl Exporter<'_> {
         });
         let mut rec = self.node("Code_Struct", node::STRUCT, lit.span);
         rec.ptr("block", block)
+            .ptr("arguments_block", arguments)
+            .ptr("__syntax_alignment", alignment)
+            .ptr("__syntax_union_tag", tag)
+            .refs("modify_directives", modify)
             .refs("notes", notes)
             .ptr("defined_type", defined)
-            .int(
-                "textual_flags",
-                (lit.kind == ast::StructKind::Union) as i64 * 0x2,
-            );
+            .int("textual_flags", flags);
         let id = self.add(rec);
         let sub = self.sub[start..].to_vec();
         self.out.structs.push((id, sub));
@@ -2743,6 +3336,12 @@ impl Exporter<'_> {
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
             let arg = self.decl(&decl, name, ty, None, false, 0);
+            if let Some(arg) = self.r.get_mut(arg) {
+                let flags = i64::from(param.baked)
+                    | (i64::from(param.auto_bake) * 0x4000)
+                    | (i64::from(param.discard) * 4);
+                arg.int("flags", flags);
+            }
             if param.variadic {
                 self.mark_varargs(arg, param.span);
             }
@@ -2764,6 +3363,9 @@ impl Exporter<'_> {
                     .ptr("expression", ident)
                     .int("filter_type", filter_type)
                     .ptr("filter_expression", filter_expression);
+                if let Some(filter) = &param.using_filter {
+                    using.str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+                }
                 usings.push(self.add(using));
             }
         }
@@ -2784,7 +3386,12 @@ impl Exporter<'_> {
                 rare: None,
             };
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
-            returns.push(self.decl(&decl, name, ty, None, false, 0));
+            let declaration = self.decl(&decl, name, ty, None, false, 0);
+            self.r
+                .get_mut(declaration)
+                .unwrap()
+                .int("__syntax_return_must", i64::from(ret.must));
+            returns.push(declaration);
         }
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
         for n in decl_notes {
@@ -2845,11 +3452,79 @@ impl Exporter<'_> {
             .and_then(|(p, _)| Some(self.c.as_deref()?.proc(*p).name.as_str()))
             .unwrap_or("");
         let ty = sig.as_ref().map_or(0, |s| self.ty(s.ty));
+        let library = h
+            .foreign
+            .as_ref()
+            .and_then(|foreign| foreign.library)
+            .or(h.flags.elsewhere.flatten())
+            .map_or(0, |name| self.name_ident(name.name, name.span));
+        let modify = self.modify_syntax(h.modify.as_ref());
+        let mut extra_flags = String::new();
+        for (enabled, name) in [
+            (h.flags.no_abc, "no_abc"),
+            (h.flags.no_aoc, "no_aoc"),
+            (h.flags.runtime_support, "runtime_support"),
+            (h.flags.type_info_none, "type_info_none"),
+            (
+                h.flags.cpp_return_type_is_non_pod,
+                "cpp_return_type_is_non_pod",
+            ),
+        ] {
+            if enabled {
+                extra_flags.push_str(&format!(" #{name}"));
+            }
+        }
+        for flag in &h.flags.other {
+            extra_flags.push_str(&format!(" #{}", flag.name));
+        }
         rec.refs("arguments", arguments)
             .refs("parameter_usings", usings)
             .refs("returns", returns)
             .str("name", name.as_bytes())
             .str("foreign_function_name", &foreign_name)
+            .ptr("library_identifier", library)
+            .refs("modify_directives", modify)
+            .int("__syntax_foreign", i64::from(h.foreign.is_some()))
+            .int(
+                "__syntax_foreign_named",
+                i64::from(matches!(
+                    h.foreign.as_ref().map(|f| &f.name),
+                    Some(ast::ForeignName::Named(_))
+                )),
+            )
+            .str(
+                "__syntax_builtin_name",
+                h.flags.builtin_name.as_deref().unwrap_or("").as_bytes(),
+            )
+            .str("__syntax_flags", extra_flags.as_bytes())
+            .int(
+                "__syntax_program_export",
+                i64::from(h.flags.program_export.is_some()),
+            )
+            .int(
+                "__syntax_export_named",
+                i64::from(matches!(h.flags.program_export, Some(Some(_)))),
+            )
+            .str(
+                "__syntax_export_name",
+                h.flags
+                    .program_export
+                    .as_ref()
+                    .and_then(|name| name.as_deref())
+                    .unwrap_or(&[]),
+            )
+            .int(
+                "__syntax_deprecation_named",
+                i64::from(matches!(h.flags.deprecated, Some(Some(_)))),
+            )
+            .str(
+                "deprecation_string",
+                h.flags
+                    .deprecated
+                    .as_ref()
+                    .and_then(|message| message.as_deref())
+                    .unwrap_or(&[]),
+            )
             .ptr("body_or_null", body_id)
             .ptr("type", ty)
             .int("procedure_flags", flags)

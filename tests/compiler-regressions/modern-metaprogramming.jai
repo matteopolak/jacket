@@ -99,9 +99,8 @@ main :: () {
         })), "`z := 1;"));
     }
 
-    // Program_Print reports unsupported run/assert forms as false. The public
-    // Code_Directive_Run record has procedure/flags/assertion_string, not the
-    // private expression/message fields this old print expectation assumed.
+    // Owned AST attributes support assertion serialization without adding
+    // condition/message fields to the reviewed public Code_Directive_Run layout.
     #run {
         block := cast(*Code_Block) compiler_get_nodes(#code {
             #assert(1 < 2, "math");
@@ -111,7 +110,8 @@ main :: () {
         assert(run.kind == .DIRECTIVE_RUN && run.flags & .ASSERTION);
         builder: String_Builder;
 
-        assert(!print_expression(*builder, run), "unsupported assertion printing must report failure");
+        assert(print_expression(*builder, run), "assertion printing must preserve its condition/message");
+        free_buffers(*builder);
         assert(printed(compiler_get_nodes(#code #exists(foo))) == "#exists(foo)");
     }
 

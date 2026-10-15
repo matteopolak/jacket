@@ -2906,16 +2906,20 @@ impl Compiler {
                 hidden.push((original, id));
             }
         }
-        // break/continue in the body target the macro's innermost loop, and run the defers
-        // the macro registered inside it (`defer i += 1;` before `#insert body;`).
-        let (brk, cont, defer_depth) = match f.loops.last() {
-            Some(l) if f.loops.len() > frame.loop_depth => {
-                (l.break_block, l.continue_block, l.defer_depth.clone())
-            }
+        // Inserted loop controls target the macro's innermost loop. Forward its array
+        // removal state as well as jump/defer state; a numeric loop still has no remove.
+        let (brk, cont, defer_depth, remove) = match f.loops.last() {
+            Some(l) if f.loops.len() > frame.loop_depth => (
+                l.break_block,
+                l.continue_block,
+                l.defer_depth.clone(),
+                l.remove.clone(),
+            ),
             _ => (
                 frame.exit_block,
                 frame.exit_block,
                 frame.defer_depth.clone(),
+                None,
             ),
         };
         f.loops.push(LoopFrame {
@@ -2923,7 +2927,7 @@ impl Compiler {
             break_block: brk,
             continue_block: cont,
             defer_depth,
-            remove: None,
+            remove,
         });
         let saved = f.macros.split_off(frame_index);
         f.insert_replacements.push(replacements);

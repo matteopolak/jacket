@@ -524,6 +524,12 @@ Agreed designs that are not built yet.
 - [Extensions assertion-profile runner](../tests/extensions/run-assert-profiles.py): actual Io worker preparation/completion under enabled and disabled assertions, with unchanged production source hashes.
 # Native Mac integration measurement
 
+See [Code source reconstruction](compiler/code-source-reconstruction.md) for
+general AST serialization, public edit handling, original regressions and
+explicit remaining syntax/ownership boundaries.
+See [custom iteration controls](compiler/custom-iteration-controls.md) for array
+removal forwarding and independent operator-name diagnostic coverage.
+
 The [machine-readable baseline](status/mac-integration-baseline.json) records the
 exact candidate snapshot, commands, environment, counts and failure names.
 Snapshot `90fea8ab` has 822 workspace passes, seven failures and one ignored test;

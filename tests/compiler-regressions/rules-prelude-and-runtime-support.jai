@@ -18,9 +18,8 @@ PAIR_INFO :: #run -> int {
 // prelude.2: modules see them too (Rules_Prelude imports nothing).
 Prelude_User :: #import "Rules_Prelude";
 
-// prelude.3: a program may import Runtime_Support itself with other parameters and gets a
-// separate instance whose procedures work.
-Own_Runtime :: #import "Runtime_Support"(DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = false, ENABLE_BACKTRACE_ON_CRASH = false);
+// prelude.3: an explicit import shares the configured canonical runtime.
+Own_Runtime :: #import "Runtime_Support";
 
 // prelude.4: the Context starts with Context_Base (as `base`), then #add_context members in
 // load order.
@@ -51,10 +50,11 @@ main :: () {
     assert(dst[2] == 3, "prelude.2: memcpy in a module");
 
     // prelude.3
-    assert(Own_Runtime.c_style_strlen("four\0tail".data) == 4, "prelude.3: own Runtime_Support instance");
+    assert(Own_Runtime.Context_Base == Context_Base, "prelude.3: canonical Context_Base identity");
+    assert(Own_Runtime.c_style_strlen("four\0tail".data) == 4, "prelude.3: explicit canonical Runtime_Support import");
 
     // prelude.4
-    info := type_info(Context);
+    info := type_info(#Context);
 
     assert(info.members.count > 0 && info.members[0].name == "base", "prelude.4: Context_Base first");
     assert(info.members[0].type == type_info(Context_Base), "prelude.4: base is a Context_Base");

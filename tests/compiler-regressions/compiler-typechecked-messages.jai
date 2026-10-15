@@ -61,7 +61,10 @@ JAI
                 for typechecked.declarations {
                     decl := it.expression;
 
-                    assert(decl.enclosing_load && decl.enclosing_load.enclosing_import == main_import);
+                    assert(decl.enclosing_load && decl.enclosing_load.enclosing_import);
+                    // Interception includes selected library declarations. The records
+                    // inspected below belong to this fixture's application import.
+                    if decl.enclosing_load.enclosing_import != main_import continue;
 
                     if decl.name == "VERSIONS" {
                         saw_versions = true;
