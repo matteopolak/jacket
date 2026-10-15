@@ -23,7 +23,7 @@ def main():
     prefix = build_developer_bindings.llvm_prefix()
     generated = ["check_native_line_queries :: () {"]
     evidence = {"scope": "original Linux-target DWARF4 objects decoded by host SDK; no target executable run", "fixtures": []}
-    for architecture, target in [("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
+    for architecture, target in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
         for optimization in [0, 2]:
             base = ROOT / f"target/developer-tools-dwarf-line-{architecture}-o{optimization}"
             run([prefix / "bin/clang", "-target", target, "-gdwarf-4", "-g", f"-O{optimization}",

@@ -23,7 +23,7 @@ main :: () {
     I.clear(*scalar);
     for value: scalar.values assert(value == 0);
     for variance: scalar.variances assert(variance == 0);
-    for sample: scalar.history assert(sample == 0);
+    for sample: scalar.history assert(sample == 99);
 
     assert(I.get_value(*scalar) == 0);
     I.slot = -1;

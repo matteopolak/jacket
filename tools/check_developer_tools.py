@@ -21,6 +21,7 @@ import check_developer_eh_frames
 import check_developer_sdk_configuration
 import check_developer_dwarf_types
 import check_developer_codeview_strings
+import check_developer_dwarf_line_wire
 import check_developer_profiler_windows
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -125,6 +126,7 @@ def main():
     check_developer_msf.main()
     check_developer_native_abi.main()
     check_developer_dwarf_lines.main()
+    check_developer_dwarf_line_wire.main()
     check_developer_dwarf_frames.main()
     check_developer_eh_frames.main()
     check_developer_dwarf_types.main()
@@ -212,6 +214,7 @@ def main():
     cases.append("bindings-clang-source")
     cases.append("bindings-clang-cpp")
     cases.append("dwarf-line-query")
+    cases.append("dwarf-line-wire")
     cases.append("dwarf-fde")
     cases.append("bindings-clang-time")
     cases.append("dwarf-eh-frame")
@@ -335,7 +338,9 @@ def main():
              ROOT / "target/developer-tools-dwarf-frame-oracle.jai",
              ROOT / "target/developer-tools-eh-frame-oracle.jai",
              ROOT / "target/developer-tools-dwarf-type-oracle.jai",
-             ROOT / "target/developer-tools-codeview-string-oracle.jai"]
+             ROOT / "target/developer-tools-codeview-string-oracle.jai",
+             ROOT / "target/developer-tools-dwarf-line-wire.jai",
+             ROOT / "target/developer-tools-dwarf-line-wire-oracle.jai"]
     format_paths = [*paths, *sorted((ROOT / "tests/developer-tools/rejections").glob("*.jai")),
                     *sorted((ROOT / "tests/developer-tools/compiler-requests").glob("*.jai")),
                     ROOT / "tests/developer-tools/iprof-client-input.jai.inc"]

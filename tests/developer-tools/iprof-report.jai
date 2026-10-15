@@ -18,12 +18,12 @@ capture :: (text: string, _data: *void, info: Log_Info) {
 
 main :: () {
     row: I.Report_Row;
-    row.self_time = 0.25;
+    row.self_time = 250;
     row.array_aliased_values[1] = 0.75;
     assert(row.array_aliased_values[0] == row.self_time && row.hier_time == 0.75);
     report: I.Report;
     report.title = "Original report";
-    array_add(*report.records, I.Report_Row.{ name = "quoted \"zone\",\nname", self_time = 0.25, hier_time = 0.5, calls = 3, heat = 0.75 });
+    array_add(*report.records, I.Report_Row.{ name = "quoted \"zone\",\nname", self_time = 250, hier_time = 500, calls = 3, heat = 0.75 });
     array_add(*report.records, I.Report_Row.{ name = "zero calls", self_time = 9, hier_time = 9 });
     defer array_free(report.records);
     path := tprint("%../../target/developer-tools-iprof.csv", #filepath);
@@ -47,21 +47,21 @@ main :: () {
 
     push_context {
         context.logger = capture;
-        I.log_text_report(*report, min_self_time = 0.3);
+        I.log_text_report(*report, min_self_time = 300);
     }
 
     assert(!contains(captured, "quoted"));
 
     push_context {
         context.logger = capture;
-        I.log_text_report(*report, min_hier_time = 0.6);
+        I.log_text_report(*report, min_hier_time = 600);
     }
 
     assert(!contains(captured, "quoted"));
 
     push_context {
         context.logger = capture;
-        I.log_text_report(*report, min_self_time = 0.25, min_hier_time = 0.5);
+        I.log_text_report(*report, min_self_time = 250, min_hier_time = 500);
     }
 
     assert(contains(captured, "quoted"));

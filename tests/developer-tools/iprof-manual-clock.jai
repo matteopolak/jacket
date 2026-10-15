@@ -113,8 +113,8 @@ main :: () {
     assert(outer.total_entry_count == 3 && I.stack == root);
     report: I.Report;
 
-    array_add(*report.records, I.Report_Row.{ name = outer.zone.name, self_time = cast(float64) outer.total_self_ticks * I.timestamps_to_seconds, hier_time = cast(float64) outer.total_hier_ticks * I.timestamps_to_seconds, calls = cast(float64) outer.total_entry_count, zone = outer.zone });
-    array_add(*report.records, I.Report_Row.{ name = inner.zone.name, self_time = cast(float64) inner.total_self_ticks * I.timestamps_to_seconds, hier_time = cast(float64) inner.total_hier_ticks * I.timestamps_to_seconds, calls = cast(float64) inner.total_entry_count, zone = inner.zone });
+    array_add(*report.records, I.Report_Row.{ name = outer.zone.name, self_time = cast(float64) outer.total_self_ticks * I.timestamps_to_seconds * 1000, hier_time = cast(float64) outer.total_hier_ticks * I.timestamps_to_seconds * 1000, calls = cast(float64) outer.total_entry_count, zone = outer.zone });
+    array_add(*report.records, I.Report_Row.{ name = inner.zone.name, self_time = cast(float64) inner.total_self_ticks * I.timestamps_to_seconds * 1000, hier_time = cast(float64) inner.total_hier_ticks * I.timestamps_to_seconds * 1000, calls = cast(float64) inner.total_entry_count, zone = inner.zone });
     defer array_free(report.records);
     filename := tprint("%../../target/developer-tools-iprof-measured.csv", #filepath);
 
