@@ -327,7 +327,7 @@
     "source": "basic/format-contracts.jai",
     "mode": "interp",
     "timeout_seconds": 20,
-    "stdout": "ok\n"
+    "stdout": "4 ab \nok\n"
   },
   {
     "name": "basic-slice-resize-and-monotonic-time-contracts",

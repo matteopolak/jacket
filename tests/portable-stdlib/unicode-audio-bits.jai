@@ -8,6 +8,13 @@ only_set :: B.only_set;
 #assert is_constant(A.step_table);
 
 main :: () {
+    #assert type_of(U.utf8_inital_byte_mask) == [6] u8;
+    assert(U.utf8_inital_byte_mask.count == 6 && U.utf8_inital_byte_mask[0] == 0x7f && U.utf8_inital_byte_mask[5] == 1);
+    #assert !#exists(A.nChannels);
+    #assert !#exists(A.nBlockAlign);
+    #assert !#exists(A.wSamplesPerBlock);
+    #assert !#exists(A.sample);
+    #assert !#exists(A.index);
     codes: [4] u32 = .[0x41, 0xa2, 0x20ac, 0x1f642];
     for code: codes {
         encoded := U.character_utf32_to_utf8(code);

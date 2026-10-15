@@ -1,6 +1,5 @@
 #import "Basic";
 C :: #import "Shared_Memory_Channel";
-P :: #import "POSIX";
 
 main :: () {
     ok, channel := C.reader_create_channel(CHANNEL_NAME, 1024);
@@ -14,7 +13,7 @@ main :: () {
         assert(!fatal);
 
         if !found {
-            assert(P.sched_yield() == 0);
+            yield_cpu();
             continue;
         }
 
@@ -29,4 +28,16 @@ main :: () {
 
     assert(C.reader_release_channel(*channel));
     print("ok\n");
+}
+
+#scope_file
+#if OS == .WINDOWS W :: #import "Windows";
+else P :: #import "POSIX";
+
+yield_cpu :: () {
+    #if OS == .WINDOWS W.Sleep(0);
+    else {
+        status := P.sched_yield();
+        assert(status == 0);
+    }
 }

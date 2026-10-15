@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise our POSIX channel across source-built native/interpreted processes."""
+"""Exercise native mappings across source-built native/interpreted processes."""
 import argparse
 import ctypes
 import ctypes.util
@@ -8,8 +8,9 @@ import json
 import os
 from pathlib import Path
 import re
-import selectors
+import queue
 import subprocess
+import threading
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "target/portable-tests"
@@ -19,6 +20,24 @@ JOURNAL = OUTPUT / "shared-owned-names.txt"
 def unlink_owned(name):
     if not re.fullmatch(r"(?:portable-[0-9]+-channel|jai-portable-[0-9]+-[0-9]+)", name):
         raise RuntimeError("invalid name in our shared-memory ownership journal")
+    if os.name == "nt":
+        # Named paging-file mappings disappear after every owning process exits.
+        # Verify that fact; Windows has no POSIX unlink-by-name operation.
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        opened = kernel.OpenFileMappingW
+        opened.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_wchar_p]
+        opened.restype = ctypes.c_void_p
+        handle = opened(4, 0, name)
+        if handle:
+            close = kernel.CloseHandle
+            close.argtypes = [ctypes.c_void_p]
+            close.restype = ctypes.c_int
+            if not close(handle):
+                raise ctypes.WinError(ctypes.get_last_error())
+            raise RuntimeError(f"owned named mapping still exists after child teardown: {name}")
+        if ctypes.get_last_error() != 2:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return
     native = ctypes.CDLL(None, use_errno=True)
     if not hasattr(native, "shm_unlink"):
         native = ctypes.CDLL(ctypes.util.find_library("rt"), use_errno=True)
@@ -64,6 +83,8 @@ def main():
             source = ROOT / f"tests/portable-stdlib/ipc/{role}.jai"
             if native:
                 executable = OUTPUT / f"ipc-{role}-{index}"
+                if os.name == "nt":
+                    executable = executable.with_suffix(".exe")
                 checked([str(compiler), str(source), "-add", definition,
                          "-exe", str(executable)], env)
                 commands.append([str(executable)])
@@ -72,11 +93,16 @@ def main():
         reader = subprocess.Popen(commands[0], cwd=ROOT, env=env, text=True,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
-            with selectors.DefaultSelector() as selector:
-                selector.register(reader.stdout, selectors.EVENT_READ)
-                if not selector.select(20):
-                    raise RuntimeError("reader failed to initialize shared mapping")
-            if reader.stdout.readline() != "ready\n":
+            ready = queue.Queue()
+            handshake = threading.Thread(target=lambda: ready.put(reader.stdout.readline()), daemon=True)
+            handshake.start()
+            try:
+                line = ready.get(timeout=20)
+            except queue.Empty:
+                reader.terminate()
+                handshake.join(timeout=10)
+                raise RuntimeError("reader failed to initialize shared mapping") from None
+            if line != "ready\n":
                 out, err = reader.communicate(timeout=10)
                 raise RuntimeError(f"reader startup failed: {reader.returncode}: {out}{err}")
             writer = subprocess.run(commands[1], cwd=ROOT, env=env, text=True,

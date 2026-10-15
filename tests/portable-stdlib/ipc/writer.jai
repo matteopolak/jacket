@@ -1,6 +1,5 @@
 #import "Basic";
 C :: #import "Shared_Memory_Channel";
-P :: #import "POSIX";
 
 main :: () {
     ok, channel := C.writer_connect(CHANNEL_NAME);
@@ -12,7 +11,7 @@ main :: () {
         reserved, message := C.writer_reserve_message(*channel, length);
 
         if !reserved {
-            assert(P.sched_yield() == 0);
+            yield_cpu();
             continue;
         }
 
@@ -24,4 +23,16 @@ main :: () {
 
     assert(C.writer_disconnect(*channel));
     print("ok\n");
+}
+
+#scope_file
+#if OS == .WINDOWS W :: #import "Windows";
+else P :: #import "POSIX";
+
+yield_cpu :: () {
+    #if OS == .WINDOWS W.Sleep(0);
+    else {
+        status := P.sched_yield();
+        assert(status == 0);
+    }
 }

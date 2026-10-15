@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+"""Emit reviewed Machine_X64 enum values, independently grouped by responsibility."""
+from pathlib import Path
+import re
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+text = (ROOT / "docs/specs/stdlib/modules/machine-x64.md").read_text()
+leaf_text = text.split("#### `x86_Feature_Leaf`", 1)[1].split("####", 1)[0]
+leaves = {name: int(value) for name, value in
+          re.findall(r"- `([A-Za-z_0-9]+)\s*:: (\d+)`", leaf_text)}
+flag_text = text.split("#### `x86_Feature_Flag`", 1)[1].split("####", 1)[0]
+flags = re.findall(r"- `([A-Za-z_0-9]+)\s*:: 32 \* Leaf\.([A-Za-z_0-9]+)\s*\+ (\d+)`", flag_text)
+assert len(leaves) == 12 and len(flags) == 200
+assert len({name for name, _, _ in flags}) == len(flags)
+lines = ["// Generated from reviewed declaration values; no procedure bodies are inputs.",
+         "x86_Vendor :: enum u8 { UNKNOWN :: 0; INTEL :: 1; AMD :: 2; }",
+         "x86_Feature_Leaf :: enum u16 {"]
+groups = ["_01H_EDX", "_01H_ECX", "_01H_EXT_EDX", "_01H_EXT_ECX", "_08H_EXT_EBX",
+          "_07H_00H_EBX", "_07H_00H_ECX", "_07H_00H_EDX", "_07H_01H_EAX", "_0DH_01H_EAX", "_19H_EBX"]
+for name in groups + ["NUMBER"]:
+    lines.append(f"    {name} :: {leaves[name]};")
+lines += ["}", "x86_Feature_Flag :: enum u16 {"]
+for group in groups:
+    lines.append(f"    // Feature group {group}.")
+    for name, leaf, bit in sorted(flags):
+        if leaf == group:
+            lines.append(f"    {name} :: {leaves[leaf] * 32 + int(bit)};")
+lines += ["}", "Prefetch_Hint :: enum { T0 :: 0; T1 :: 1; T2 :: 2; NTA :: 3; }", ""]
+output = ROOT / "stdlib/internal/machine/x64-types.jai"
+output.parent.mkdir(parents=True, exist_ok=True)
+output.write_text('\n'.join(lines))
+formatter = ROOT / "target/jaifmt"
+config = ROOT / "jaifmt.toml"
+subprocess.run([str(formatter), "--config", str(config), str(output)], check=True)
+subprocess.run([str(formatter), "--config", str(config), "--check", str(output)], check=True)
+print(f"Generated {len(flags)} explicit feature values")

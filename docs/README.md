@@ -199,7 +199,11 @@ The LLVM backend, C ABI and linking.
 - [Portable implementation gaps](portable-stdlib-gaps.md): focused pending reproducers and unresolved behavior
 - [Runtime configuration adoption](portable-runtime-configuration.md): actual settled allocations, CAPS and ownership handoff
 - [Time and calendar API inventory](portable-time.md): real POSIX clocks, epoch/calendar conversions and remaining contracts
+- [Machine_X64 compiler gaps](portable-machine-gaps.md): original interpreter/native CPUID failure and genuine native C comparison
 - [Flat_Pool core and container audit](portable-flat-pool.md): real initialization, lazy page commitment, parameterized overwrite and lifecycle
+- [Pool behavior and checked allocation extents](portable-pool.md)
+- [Windows calendar verification](../tools/check_portable_windows_calendar.py): source/ABI checks, explicit native-host requirement
+- [Windows shared-memory backend and remaining gates](portable-windows-channel.md)
 - [Windows UTF-8 helpers](portable-windows-utf8.md): real Kernel32 conversion code, ABI checks and outstanding native execution
 - [Owned source format/lint runner](../tools/format_portable_stdlib.py): explicit scope and source-built jaifmt/jailint
 - [WAV parser design and validation](portable-wav.md)
@@ -215,6 +219,8 @@ The LLVM backend, C ABI and linking.
 - [Portable worker progress](status/stdlib-progress.md) and [deviations](status/stdlib-deviations.md)
 - [Socket native declaration ledger](socket-native-ledger.json)
 - [Focused portable regression runner](../tools/check_portable_stdlib.py)
+- [Portable test provenance and current verification gaps](portable-verification.md)
+- [Focused real x64 CPU-query verification](../tools/check_portable_machine.py)
 - [Portable implementation plan](plans/portable-stdlib.md)
 - [Unresolved portable contracts](specs/stdlib/questions.md)
 - [SDL3 desktop bindings, generation and native packaging](extensions/sdl3.md)
