@@ -87,6 +87,10 @@ struct GThread {
     suspend_count: u32,
     /// Actual Windows OS id, recorded before the thread waits for its baton.
     native_id: u32,
+    /// Own the actual kernel thread handle until CloseHandle or interpreter teardown.
+    /// Scheduler state remains alive independently when the user closes a running thread.
+    #[cfg(windows)]
+    native_handle: Option<std::os::windows::io::OwnedHandle>,
     block: Block,
     /// A timed condition wait ended because its deadline passed.
     timed_out: bool,
@@ -105,6 +109,8 @@ impl GThread {
             finished: false,
             suspend_count: 0,
             native_id: 0,
+            #[cfg(windows)]
+            native_handle: None,
             block: Block::None,
             timed_out: false,
             deadlocked: false,
@@ -454,7 +460,15 @@ impl Shared {
 
     /// The interpreter is being dropped.
     pub(super) fn close(&self) {
-        self.lock().dead = true;
+        let mut s = self.lock();
+        s.dead = true;
+        #[cfg(windows)]
+        for thread in &mut s.threads {
+            if let Some(handle) = thread.native_handle.take() {
+                win32::release_thread_handle(handle);
+            }
+        }
+        drop(s);
         self.cv.notify_all();
     }
 }
@@ -641,10 +655,19 @@ impl Interp {
         let spawned = std::thread::Builder::new()
             .stack_size(NATIVE_STACK)
             .spawn(move || thread_main(&thread_shared, program, id, func, argument));
-        if spawned.is_err() {
-            shared.lock().threads[id].finished = true;
-            return Ok(None);
+        let join = match spawned {
+            Ok(join) => join,
+            Err(_) => {
+                shared.lock().threads[id].finished = true;
+                return Ok(None);
+            }
+        };
+        #[cfg(windows)]
+        {
+            shared.lock().threads[id].native_handle = Some(join.into());
         }
+        #[cfg(not(windows))]
+        drop(join);
         Ok(Some(id))
     }
 

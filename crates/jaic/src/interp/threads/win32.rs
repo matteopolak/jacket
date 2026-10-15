@@ -1,8 +1,9 @@
 //! The Win32 threading API on the baton scheduler: what `Thread` (and `Basic`'s sleep) call when
 //! `OS == .WINDOWS`, plus the close relatives a program is likely to use directly.
 //!
-//! - `CreateThread` starts a scheduler thread, like `pthread_create`; its handle is one of the
-//!   scheduler's own objects, as are semaphores and events. Waiting on such a handle blocks in the
+//! - `CreateThread` starts a scheduler thread, like `pthread_create`; on Windows its real kernel
+//!   handle identifies the scheduler object, so native naming/query APIs work unchanged.
+//!   Waiting on such a handle blocks in the
 //!   scheduler (`Block::Object`); a handle the scheduler did not make (a process, a file) goes to
 //!   the real call.
 //! - Critical sections and SRW locks share the POSIX mutex emulation (recursive, keyed by
@@ -13,7 +14,6 @@
 //! - Thread ids and TLS need nothing: each scheduler thread is a real OS thread, so
 //!   `GetCurrentThreadId` and `TlsGetValue` already answer per thread.
 use super::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 const INFINITE: u32 = u32::MAX;
 const WAIT_OBJECT_0: u64 = 0;
@@ -96,7 +96,9 @@ impl Object {
 #[link(name = "kernel32")]
 unsafe extern "system" {
     fn SetLastError(code: u32);
+    fn GetLastError() -> u32;
     fn GetCurrentThreadId() -> u32;
+    fn GetThreadId(handle: usize) -> u32;
 }
 
 pub(super) fn native_thread_id(scheduler_id: usize) -> u32 {
@@ -121,21 +123,30 @@ unsafe extern "system" {
     fn ResetEvent(handle: usize) -> i32;
     fn CloseHandle(handle: usize) -> i32;
     fn WaitForSingleObject(handle: usize, milliseconds: u32) -> u32;
+    fn SetHandleInformation(handle: usize, mask: u32, flags: u32) -> i32;
 }
 
-/// How many kernel events the program holds open.
-static REAL_EVENTS: AtomicUsize = AtomicUsize::new(0);
+#[cfg(windows)]
+pub(super) fn release_thread_handle(handle: std::os::windows::io::OwnedHandle) {
+    use std::os::windows::io::AsRawHandle;
+    // Interpreter teardown ends the private ownership scope. A caller's native protection
+    // flag must not leak the owned kernel reference after all interpreted code has stopped.
+    // Explicit user CloseHandle instead preserves that flag and reports native failure.
+    // SAFETY: handle is a live kernel thread reference exclusively owned by this slot.
+    if unsafe { SetHandleInformation(handle.as_raw_handle() as usize, 2, 0) } == 0 {
+        eprintln!(
+            "warning: could not clear interpreter-owned thread handle protection at teardown"
+        );
+    }
+    drop(handle);
+}
 
 /// A kernel event, or 0 where there is none to make.
 fn real_event_new(manual: bool, set: bool) -> u64 {
     #[cfg(windows)]
     {
         // SAFETY: CreateEventW with no attributes or name has no preconditions.
-        let handle = unsafe { CreateEventW(0, manual as i32, set as i32, 0) as u64 };
-        if handle != 0 {
-            REAL_EVENTS.fetch_add(1, Ordering::Relaxed);
-        }
-        handle
+        unsafe { CreateEventW(0, manual as i32, set as i32, 0) as u64 }
     }
     #[cfg(not(windows))]
     {
@@ -164,7 +175,6 @@ fn real_event_close(handle: u64) {
     // SAFETY: the handle is an event this module made; the program has just closed it.
     unsafe {
         CloseHandle(handle as usize);
-        REAL_EVENTS.fetch_sub(1, Ordering::Relaxed);
     };
     #[cfg(not(windows))]
     let _ = handle;
@@ -290,6 +300,10 @@ impl Interp {
                     }
                 }
             }
+            #[cfg(windows)]
+            "SuspendThread" | "ResumeThread" if self.is_unmanaged_thread_alias(arg(0)) => {
+                return Some(self.trap("suspending or resuming an unmanaged duplicate of an interpreted thread handle is unsupported; use its scheduler-managed handle"));
+            }
             "WaitForSingleObject" | "WaitForSingleObjectEx" if self.owns(arg(0)) => {
                 self.wait_objects(&[arg(0)], false, arg(1) as u32)
             }
@@ -329,6 +343,32 @@ impl Interp {
                 Ok(1)
             }
             "CloseHandle" if self.owns(arg(0)) => {
+                #[cfg(windows)]
+                if let Some(id) = self.with_sched(|s| match s.objects.get(&arg(0)) {
+                    Some(&Object::Thread(id)) => Some(id),
+                    _ => None,
+                }) {
+                    use std::os::windows::io::{FromRawHandle, IntoRawHandle, OwnedHandle};
+                    let owned = self
+                        .with_sched(|s| s.threads[id].native_handle.take())
+                        .expect("registered kernel thread owns its handle");
+                    let raw = owned.into_raw_handle();
+                    // SAFETY: raw was just transferred from the owned kernel thread handle.
+                    let success = unsafe { CloseHandle(raw as usize) };
+                    if success == 0 {
+                        // SAFETY: GetLastError has no preconditions; capture before locking.
+                        let error = unsafe { GetLastError() };
+                        // A native protect-from-close flag can make closing fail. Preserve
+                        // ownership, scheduler identity and the OS error in that case.
+                        // SAFETY: failed CloseHandle leaves raw live and solely owned here.
+                        let owned = unsafe { OwnedHandle::from_raw_handle(raw) };
+                        self.with_sched(|s| s.threads[id].native_handle = Some(owned));
+                        set_last_error(error);
+                    } else {
+                        self.with_sched(|s| s.objects.remove(&arg(0)));
+                    }
+                    return Some(Ok(vec![success as u64]));
+                }
                 let removed = self.with_sched(|s| s.objects.remove(&arg(0)));
                 if let Some(Object::Event {
                     real, ..
@@ -484,14 +524,29 @@ impl Interp {
         Some(result.map(|v| vec![v]))
     }
 
-    fn owns(&mut self, handle: u64) -> bool {
-        // A handle below the scheduler's own range can only be a kernel event it made; programs
-        // that make none (most of them) never touch the scheduler for a real handle.
-        if handle < HANDLE_BASE && REAL_EVENTS.load(Ordering::Relaxed) == 0 {
-            return false;
-        }
+    fn owns(&self, handle: u64) -> bool {
+        // Both kernel-backed events and threads occupy the native handle range. Look only
+        // in an existing scheduler; an unrelated native call must not create one.
+        handle != 0
+            && self
+                .shared
+                .as_ref()
+                .is_some_and(|s| s.lock().objects.contains_key(&handle))
+    }
 
-        handle != 0 && self.with_sched(|s| s.objects.contains_key(&handle))
+    #[cfg(windows)]
+    fn is_unmanaged_thread_alias(&self, handle: u64) -> bool {
+        let Some(shared) = &self.shared else {
+            return false;
+        };
+        // SAFETY: GetThreadId validates arbitrary handle values and reports invalid ones.
+        let id = unsafe { GetThreadId(handle as usize) };
+        id != 0
+            && shared
+                .lock()
+                .threads
+                .iter()
+                .any(|t| !t.finished && t.native_id == id)
     }
 
     /// Like `new_object`, but the object is known by `handle` when that is not 0 (a kernel
@@ -554,7 +609,22 @@ impl Interp {
         if id_out != 0 {
             self.put(id_out, &native_id.to_le_bytes())?;
         }
-        Ok(self.new_object(Object::Thread(id)))
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            let handle = self.with_sched(|s| {
+                s.threads[id]
+                    .native_handle
+                    .as_ref()
+                    .expect("successful OS spawn owns its handle")
+                    .as_raw_handle() as u64
+            });
+            Ok(self.new_object_at(handle, Object::Thread(id)))
+        }
+        #[cfg(not(windows))]
+        {
+            Ok(self.new_object(Object::Thread(id)))
+        }
     }
 
     /// `WaitForSingleObject` / `WaitForMultipleObjects` on handles the scheduler owns.
@@ -627,4 +697,45 @@ impl Interp {
 /// When a Win32 timeout in milliseconds ends (`INFINITE`: never).
 fn deadline_after(milliseconds: u32) -> Option<Instant> {
     (milliseconds != INFINITE).then(|| Instant::now() + Duration::from_millis(milliseconds as u64))
+}
+
+#[cfg(test)]
+mod handle_registry_tests {
+    use super::*;
+
+    #[test]
+    fn managed_thread_lookup_accepts_native_handle_range_without_events() {
+        let mut interp = Interp::new(Box::new(NativeHost));
+        // Registry-only test: no OS call or ownership of this numeric fixture handle.
+        interp.new_object_at(4, Object::Thread(0));
+        assert!(
+            interp.owns(4),
+            "real thread handles must not depend on event creation"
+        );
+        interp.with_sched(|s| {
+            s.objects.remove(&4);
+        });
+        assert!(!interp.owns(4));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn interpreter_teardown_closes_its_owned_thread_handle() {
+        use std::os::windows::io::{AsRawHandle, OwnedHandle};
+        let mut interp = Interp::new(Box::new(NativeHost));
+        let shared = interp.shared();
+        let handle = OwnedHandle::from(std::thread::spawn(|| {}));
+        let raw = handle.as_raw_handle() as usize;
+        shared.lock().threads[0].native_handle = Some(handle);
+        // SAFETY: raw borrows the live OwnedHandle stored in shared state.
+        assert_eq!(unsafe { WaitForSingleObject(raw, 5000) }, 0);
+        // SAFETY: the same live handle supports the standard protection flag.
+        assert_ne!(unsafe { SetHandleInformation(raw, 2, 2) }, 0);
+        drop(interp);
+        // Keep shared alive: cleanup cannot rely on Shared::drop, because a parked
+        // scheduler thread or a native callback may still own an Arc to it.
+        assert!(shared.lock().threads[0].native_handle.is_none());
+        // SAFETY: WaitForSingleObject accepts invalid handles and reports WAIT_FAILED.
+        assert_eq!(unsafe { WaitForSingleObject(raw, 0) }, u32::MAX);
+    }
 }
