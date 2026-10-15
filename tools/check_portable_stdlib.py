@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import time
+from check_foundations import expected_output as foundation_output
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,6 +41,8 @@ EXPECTED = {
 }
 EXPECTED_STDERR = {"print-color": "\x1b[0;44merror\x1b[0m", "basic-output": "err true"}
 EXPECTED_EXIT = {"basic-output": 17}
+for name in ("basic-logging-output", "basic-print-bytes", "basic-stack-output"):
+    EXPECTED[name], EXPECTED_STDERR[name], EXPECTED_EXIT[name] = foundation_output(name)
 FAULT_EXPECTATIONS = {
     "sound-channels": ("assertion failed", "audio sample input/channel range invalid"),
     "sound-magic": ("assertion failed", "audio magic read outside input"),
@@ -123,6 +126,13 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(root))
     output = ROOT / "target/portable-tests"
     output.mkdir(parents=True, exist_ok=True)
+    if args.native:
+        integrations = ["plist", "meow"]
+        if sys.platform == "darwin":
+            integrations.append("bundle")
+        for name in integrations:
+            subprocess.run([sys.executable, "-B", str(ROOT / f"tools/check_portable_{name}_integration.py"),
+                            "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     cases = [(p, EXPECTED.get(p.stem, "ok\n"))
              for p in sorted((ROOT / "tests/portable-stdlib").glob("*.jai"))
              if p.stem not in {"bootstrap", "process-parent", "float-power-sweep"} and (p.stem != "windows-foundations" or sys.platform == "win32")]

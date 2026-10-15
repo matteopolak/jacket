@@ -1,4 +1,4 @@
-//! Real allocation through a staged NEW runtime protocol integration candidate.
+//! Real allocation through the canonical runtime, or an explicit isolated candidate.
 use std::{path::PathBuf, process::Command};
 
 fn checked(command: &mut Command) -> std::process::Output {
@@ -19,12 +19,17 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         .join("../..")
         .canonicalize()
         .unwrap();
-    checked(
-        Command::new("python3")
-            .arg(root.join("tests/compiler-semantics/runtime-configuration/stage-candidate.py")),
-    );
     let dir = root.join("target/runtime-configuration-candidate");
-    let library = dir.join("stdlib");
+    std::fs::create_dir_all(&dir).unwrap();
+    let library =
+        if root.join("stdlib/prelude/module.jai").is_file() {
+            root.join("stdlib")
+        } else {
+            checked(Command::new("python3").arg(
+                root.join("tests/compiler-semantics/runtime-configuration/stage-candidate.py"),
+            ));
+            dir.join("stdlib")
+        };
     let source = root.join("tests/compiler-semantics/runtime-configuration/allocation.jai");
     let interpreted = checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))

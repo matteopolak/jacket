@@ -190,6 +190,8 @@ def main():
         ('GL', 'glx-context.jai', [('linux','x64'),('linux','arm64')]),
         ('GL', 'wgl-context.jai', [('windows','x64'),('windows','arm64')]),
         ('X11', 'x11-window-helpers.jai', [('linux','x64'),('linux','arm64')]),
+        ('X11', 'x11-message-box.jai', [('linux','x64'),('linux','arm64')]),
+        ('dxc_compiler', 'dxc-reflect.jai', [('windows','x64'),('windows','arm64')]),
         ('Android/EGL', 'android-egl-context.jai', [('android','x64'),('android','arm64')]),
         ('iOS', 'ios.jai', [('ios','x64'),('ios','arm64')]),
         ('ImGui', 'imgui-nested.jai', TARGET_CONFIGS),
@@ -214,7 +216,10 @@ def main():
                             ('Objective_C/AppKit', 'NSScreen'), ('Objective_C/AppKit', 'send_result'),
                             ('SDL', 'NativeSDL'), ('SDL', 'Binding_File_RWops'),
                             ('SDL', 'Binding_RW_State'), ('SDL', 'binding_files'),
-                            ('GL', 'NativeWGL'), ('X11', 'Native')]:
+                            ('GL', 'NativeWGL'), ('X11', 'Native'),
+                            ('X11', 'Binding_Message_Choices'), ('X11', 'binding_message_event'),
+                            ('X11', 'binding_message_button'), ('dxc_compiler', 'ID3D12ShaderReflection'),
+                            ('dxc_compiler', 'Win'), ('dxc_compiler', 'D3D')]:
         if args.module and module.split('/')[0] not in args.module and module not in args.module:
             continue
         for os_name, cpu in TARGET_CONFIGS:
@@ -249,11 +254,13 @@ def main():
                                      'reason':'Reviewed iOS-only exports are absent on the desktop host; required mobile source checks remain active'})
         if sys.platform == 'win32':
             runtime_tests.append('wgl-context')
+            runtime_tests.append('dxc-reflect')
         runtime_tests.append('sdl-rwops')
         runtime_tests.append('imgui-nested')
         runtime_tests.append('posix-stat')
         if sys.platform.startswith('linux'):
             runtime_tests.append('x11-window-helpers')
+            runtime_tests.append('x11-message-box')
         for name in runtime_tests:
             relevant = {'xxhash': ['xxHash'], 'images': ['stb_image', 'stb_image_write', 'stb_image_resize', 'stb_vorbis'], 'posix': ['POSIX'], 'curl':['Curl'], 'ios':['iOS'], 'objective-c':['Objective_C'], 'mojoshader':['MojoShader'], 'macos':['macOS'], 'metal':['Metal'], 'gl':['GL'], 'graphics-math':['d3d12'], 'sdl':['SDL'], 'sdl-layout':['SDL']}.get(name, [name])
             if name == 'appkit':
@@ -264,9 +271,11 @@ def main():
                 relevant = ['POSIX']
             if name == 'wgl-context':
                 relevant = ['GL']
+            if name == 'dxc-reflect':
+                relevant = ['dxc_compiler']
             if name == 'sdl-rwops':
                 relevant = ['SDL']
-            if name == 'x11-window-helpers':
+            if name in ('x11-window-helpers','x11-message-box'):
                 relevant = ['X11']
             if name == 'ios-sdk-host':
                 relevant = ['iOS']

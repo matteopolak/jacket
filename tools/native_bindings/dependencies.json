@@ -164,5 +164,26 @@
       "root": "platform_bionic-android-16.0.0_r1"
     },
     "usage": "Complete official native C headers for explicit Android LP64 POSIX record delegates; no runtime library is built"
+  },
+  "xorgproto": {
+    "repository": "Official X.Org release archive",
+    "revision": "xorgproto-2024.1",
+    "files": {},
+    "archive": {
+      "url": "https://www.x.org/releases/individual/proto/xorgproto-2024.1.tar.xz",
+      "sha256": "372225fd40815b8423547f5d890c5debc72e88b91088fbfb13158c20495ccb59",
+      "root": "xorgproto-2024.1"
+    },
+    "usage": "Official native X11 protocol constants for real-server regression; no new Jai exports"
+  },
+  "dxc-sdk": {
+    "repository": "microsoft/DirectXShaderCompiler",
+    "revision": "v1.8.2505",
+    "files": {
+      "include/dxc/dxcapi.h": "1855295d3e9ed604a8f2b9dbd415a9d8f39f9e78b386f2f46fd00615da2cdfee",
+      "tools/clang/tools/dxcompiler/dxclibrary.cpp": "6fbfa9a82ba43962d5c042ef48d727ec7adba48529a05994d69601384caeace3",
+      "include/dxc/WinAdapter.h": "645600f7d2c5496a2ea187d218568f202f8661dc5150b1da665302196940267f"
+    },
+    "usage": "Official native SDK header and native implementation only, for COM reflection ABI and accepted buffer/ownership contracts; not a Jai compatibility oracle"
   }
 }

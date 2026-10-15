@@ -142,6 +142,7 @@ The LLVM backend, C ABI and linking.
 - [Remaining Basic implementation plan](status/foundations-completion-plan.md)
 - [Basic producer dependency requests](status/foundations-dependencies.md)
 - [General cross-compilation predicate request](status/foundations-preamble-request.md)
+- [Strict lint target and program-context request](status/foundations-lint-request.md)
 - [Public alias completion signature request](status/foundations-lsp-request.md)
 - [Core foundations native ABI notes](foundations-native-abi.md)
 - [Core foundations deviations and remaining limits](status/foundations-deviations.md)
@@ -171,9 +172,13 @@ The LLVM backend, C ABI and linking.
 
 - [Windows startup CI regressions and native verification](platform-io-startup-regressions.md)
 - [Interpreter/native Windows section queries and 0100a1f CI](platform-io-section-query-regression.md)
+- [e8c312d native crash/thread follow-up and SDK regressions](platform-io-e8c312d-follow-up.md)
 - [Private ARM64 exception backend design and checks](platform-io-arm64-crash-plan.md)
 - [Native WGL investigation](native/window-render-wgl-investigation.md): filtered CI
   failure evidence, production diagnostics, actual driver probe and explicit real-driver CI deployment.
+- [Native WGL investigation](native/window-render-wgl-investigation.md): filtered CI
+  failure evidence, real retirement-surface lifetime, native diagnostics and pinned
+  official-source ARM64 Mesa build/deployment with explicit runtime verification limits.
 - [jaic Extensions](extensions/README.md)
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
@@ -217,6 +222,8 @@ Implementation work uses the API specification as its compatibility contract. Im
 - [Safe Linux ARM64 stat syscall and record marshalling](native/linux-arm64-stat.md)
 - [Generic GL current-context wrapper](native/gl-dispatch.md)
 - [Native binding lint target/root context blockers](native/lint-target-context.md)
+- [X11 modal message box and real-server verification boundary](native/x11-message-box.md)
+- [DXC reflection forwarding and SDK/source verification limits](native/dxc-reflection.md)
 - [Real GL SDK validation and reviewable integration fixes](native/gl-sdk-validation.md)
 - [Current compiler context-probing regression](native/compiler-context-probe.md)
 - [Jai language guide](specs/jai/README.md)
@@ -230,6 +237,8 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 - [Language tour (playground default workspace)](browser/tour.md)
 
 ## Tools and workflow
+
+- [Developer tooling](developer-tools.md): reflected C header generation, original C/Jai round trips, API audit and outstanding tooling scope; [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
 
 Scripts, CI and project policies.
 

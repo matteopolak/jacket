@@ -16,7 +16,7 @@ CASES = ("builder-format", "integer-format", "string-patterns", "hash-floats", "
          "basic-helpers", "basic-print-bytes", "basic-stack-traces", "basic-stack-output",
          "basic-scalars-ownership", "basic-leak-reports", "basic-leak-graphs",
          "basic-visualization-disabled", "basic-visualization-channel", "basic-visualization-timing",
-         "basic-capabilities", "basic-preamble")
+         "basic-capabilities", "basic-preamble", "basic-array-aliasing")
 
 
 def expected_output(name):

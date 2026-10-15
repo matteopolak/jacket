@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import struct
 import subprocess
@@ -129,7 +130,9 @@ def main():
     lint_paths = [library / name for name in ["Window_Type", "Window_Creation", "Input", "Keymap",
                                             "Gamepad", "Simp", "Srgb", "Clipboard"]]
     lint_paths += [library / "internal/rendering/window-contexts.jai",
-                   library / "internal/window/lifecycle.jai"]
+                   library / "internal/window/lifecycle.jai",
+                   library / "internal/input/native-fields.jai",
+                   library / "internal/input/windows-devices"]
     lint_paths += [ROOT / f"tests/window-render/{case}.jai" for case in cases]
     run("owned-WGL-lint", "lint", [linter, "-D", "warnings", "-I", library, *lint_paths])
     report = {"machine": machine, "driver_files": deployed, "records": records,
@@ -147,6 +150,22 @@ def main():
                                     "lines": [line for line in item["stdout"].splitlines()
                                               if line.startswith(prefixes)]}
                                    for item in records if item["case"] == "windows-wgl-driver"]}
+    summary["native_failures"] = [
+        {"case": item["case"], "mode": item["mode"],
+         "line": line[line.index("WGL native failure:"):]}
+        for item in records for line in (item["stdout"] + item["stderr"]).splitlines()
+        if "WGL native failure:" in line]
+    # Transfer diagnostic headers/locations, never source excerpts or raw logs.
+    # This supplies the missing rule and location for the current native lint
+    # failure without exposing any dependency/corpus implementation body.
+    summary["lint_diagnostics"] = []
+    for item in records:
+        if item["case"] != "owned-WGL-lint":
+            continue
+        for raw in (item["stdout"] + item["stderr"]).splitlines():
+            line = re.sub(r"\x1b\[[0-9;]*m", "", raw).strip()
+            if re.match(r"^(error|warning|note)(\[[a-z_]+\])?:", line) or line.startswith("--> "):
+                summary["lint_diagnostics"].append(line)
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if not report["passed"]:
         raise SystemExit("WGL diagnostics/production renderer failed; retain this failure evidence")
