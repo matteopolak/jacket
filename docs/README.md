@@ -1,7 +1,12 @@
 # Developer documentation
 
 - Sound_Player: [plan](status/audio-plan.md), [progress](status/audio-progress.md),
-  [deviations](status/audio-deviations.md), [questions](specs/questions/sound-player.md)
+  [deviations](status/audio-deviations.md), [questions](specs/questions/sound-player.md),
+  [playback and independent entity phases](features/sound-player.md)
+- [Audio native integration](features/audio-native-integration.md): relocatable
+  static linkage, six desktop SDK/CI recipes, focus and device recovery evidence.
+- [Audio testing](features/audio-testing.md): NEW spec provenance, independent
+  review request, hardware/source distinctions and legacy-gate migration.
 
 Current replacement integration: [commands and results](tools/cleanroom-integration.md), [deviations](status/integration-deviations.md), [module inventory](status/integration-module-inventory.json).111/135 reviewed module facades are present; presence does not establish complete functionality. Native CI and opaque public corpus/Focus remain coordinator work; publication is held.
 
@@ -328,3 +333,6 @@ Agreed designs that are not built yet.
 - [Private native check transport and safety regressions](compiler/private-native-checks.md)
 
 - [Stdlib test migration manifest](status/stdlib-test-migration.json): per-file retirement/move decisions and preserved regression provenance.
+
+- Sound_Player [per-public-API inventory](status/audio-api-inventory.md) and
+  [minimal dependency requests](status/audio-dependency-requests.md)

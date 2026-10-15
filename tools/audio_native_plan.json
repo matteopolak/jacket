@@ -1,0 +1,71 @@
+{
+  "format": 1,
+  "library": "jai_audio_output",
+  "source": "stdlib/internal/audio/native/output.c",
+  "platforms": {
+    "macos-x64": {
+      "os": "macos",
+      "cpu": "x64",
+      "arch": "x86_64",
+      "sdk": "macOS SDK",
+      "libraries": [
+        "AudioToolbox",
+        "CoreAudio",
+        "CoreFoundation",
+        "AppKit",
+        "CoreGraphics"
+      ]
+    },
+    "macos-arm64": {
+      "os": "macos",
+      "cpu": "arm64",
+      "arch": "arm64",
+      "sdk": "macOS SDK",
+      "libraries": [
+        "AudioToolbox",
+        "CoreAudio",
+        "CoreFoundation",
+        "AppKit",
+        "CoreGraphics"
+      ]
+    },
+    "linux-x64": {
+      "os": "linux",
+      "cpu": "x64",
+      "arch": "x86_64",
+      "sdk": "Linux libc and ALSA development SDK",
+      "libraries": [
+        "asound"
+      ]
+    },
+    "linux-arm64": {
+      "os": "linux",
+      "cpu": "arm64",
+      "arch": "aarch64",
+      "sdk": "Linux libc and ALSA development SDK",
+      "libraries": [
+        "asound"
+      ]
+    },
+    "windows-x64": {
+      "os": "windows",
+      "cpu": "x64",
+      "arch": "x86_64",
+      "sdk": "Windows SDK and clang/LLVM or MinGW-w64",
+      "libraries": [
+        "winmm",
+        "user32"
+      ]
+    },
+    "windows-arm64": {
+      "os": "windows",
+      "cpu": "arm64",
+      "arch": "aarch64",
+      "sdk": "Windows ARM64 SDK and clang/LLVM",
+      "libraries": [
+        "winmm",
+        "user32"
+      ]
+    }
+  }
+}

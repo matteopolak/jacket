@@ -1,0 +1,310 @@
+{
+  "format": 1,
+  "producer": "audio",
+  "compatibility_inputs": [
+    "docs/specs/stdlib/modules/sound-player.md"
+  ],
+  "test_origin": "NEW independently authored producer tests; no legacy stdlib bodies or reference inputs",
+  "independent_review": "requested through coordinator; not yet recorded",
+  "cases": [
+    {
+      "path": "tests/audio/cache-pages.jai",
+      "provenance": "Compressed pages and observable limits; public cached decoder shapes",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/compressed-stream.jai",
+      "provenance": "Loading and source data; compressed pages; stream ownership",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/concurrent-render-stop.jai",
+      "provenance": "Stream ownership, independent synchronization and callback disposal; independent lifetime safety",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/controlled-output.jai",
+      "provenance": "Gain, panning, rate and spatial panning details; signed 16-bit output; controlled clipping",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/decode-queue.jai",
+      "provenance": "Compressed pages and observable limits; independently functional threaded queue requirement",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/device-lifecycle.jai",
+      "provenance": "Initialization, devices and shutdown; platform coverage; official native SDK lifecycle",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/entity-lifecycle.jai",
+      "provenance": "Stream ownership, start/stop, entity marking and fade retirement",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/entity-phase.jai",
+      "provenance": "Independent pre/post synchronization; callback disposal outside locks; synchronized setters",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/failed-init.jai",
+      "provenance": "Initialization failure and queue/shutdown lifecycle",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/history.jai",
+      "provenance": "Output-history cursor; public call smoke only, no private accessor",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/identity.jai",
+      "provenance": "Public aggregate shapes, module parameters, visibility, reflected names and repeated import identity",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/loading.jai",
+      "provenance": "Loading/storage identity, malformed format reporting and seven-channel limits",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/ogg-pages.jai",
+      "provenance": "Compressed page units, Vorbis seek/decode metadata, filename metadata is unread",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/panning.jai",
+      "provenance": "Spatial panning details; listener plane; public mutable VBAP topology",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/pcm-mixing.jai",
+      "provenance": "Buffer and cursor edge behavior; PCM interpolation and repeating intervals",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/queue-retirement.jai",
+      "provenance": "Compressed page lifetime; no cancellation; drain issued work before free",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/region-lifetime.jai",
+      "provenance": "Public fill-region ownership; independent producer safety and truthful queued-byte metadata",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; sentinel remains in caller buffer, submissions silent"
+    },
+    {
+      "path": "tests/audio/reviewed-edges.jai",
+      "provenance": "Spatial panning details, buffer/cursor edge behavior and platform async hook semantics",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/reviewed-gain.jai",
+      "provenance": "Perceptual gain equation, unclamped master gain and repeat-end reset",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/sample-math.jai",
+      "provenance": "Reviewed public sample/math helper signatures and arithmetic",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/signatures.jai",
+      "provenance": "Public procedure inventory; signature/link evidence only",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/silence-cursors.jai",
+      "provenance": "Buffer/cursor edge behavior and pause/resume lifecycle",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/streams.jai",
+      "provenance": "Stream pointer ownership, duplicate starts, marking/stops, allocator lifetime and worker callbacks",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/verbose-config.jai",
+      "provenance": "Module VERBOSE parameter and initialization diagnostics",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
+      "path": "tests/audio/windows-abi.jai",
+      "provenance": "Public Windows aggregate ABI shapes and official C/OS SDK layout; static Windows checks only",
+      "modes": [
+        "source-windows-x64",
+        "source-windows-arm64"
+      ],
+      "hardware": "none"
+    }
+  ],
+  "negative": [
+    {
+      "path": "tests/audio/negative/private-mutex.jai",
+      "expected": "compile rejection: unknown identifier sound_mutex",
+      "provenance": "Private state and synchronization visibility; no exported general lock"
+    },
+    {
+      "path": "tests/audio/negative/private-player-helper.jai",
+      "expected": "compile rejection: unknown identifier lock_player",
+      "provenance": "Private state and synchronization visibility; no exported general lock"
+    },
+    {
+      "path": "tests/audio/negative/private-producer.jai",
+      "expected": "compile rejection: unknown identifier lock_producer",
+      "provenance": "Private state and synchronization visibility; no exported general lock"
+    }
+  ],
+  "native_sdk": {
+    "path": "tests/audio/native-output.c",
+    "provenance": "Official C/OS SDK APIs linked in docs/features/audio-native-integration.md",
+    "modes": [
+      "native SDK build/link",
+      "native exact-host silent runtime optional --require-device"
+    ],
+    "physical_events": "Not tested; controlled pause/resume and reopen only"
+  }
+}
