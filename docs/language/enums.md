@@ -2,7 +2,7 @@
 
 ## What it is
 
-`enum` and `enum_flags` declarations, their backing integer types, loose enums, and the reflection data they expose. The type is `EnumInfo` in `crates/jaic/src/types.rs`; `new_enum_type` and `enum_items` in `sema/structs.rs` declare it.
+`enum` and `enum_flags` declarations, their backing integer types, loose enums, and the reflection data they expose. The type is `EnumInfo` in `crates/jaic/src/types.rs`; declaration collection and lazy value resolution live in `sema/enums.rs`.
 
 ## How it works
 
@@ -20,7 +20,8 @@ print("%\n", Flags.READ | Flags.EXEC);                              // READ | EX
 A member prints by name, `cast(int)` gives its value, and an `enum_flags` combination prints as its member names joined by ` | ` {#enum.5}.
 
 - A value with no matching name prints as `(enum out of range: 99)` for `cast(Color) 99` {#enum.6}. An `enum_flags` value lists its named bits and then any leftover bits in hex (`X | Z | 0xf8`); with no named bit it is the hex number alone, and zero prints `0`.
-- A member name appears once, and every value must fit the enum's integer type (`A :: 256` in an `enum u8` is an error; `enum_items` in `sema/structs.rs`).
+- A member name appears once, and every value must fit the enum's integer type (`A :: 256` in an `enum u8` is an error).
+- Explicit values may refer to later members. Values resolve by dependency; implicit numbering and reflection retain selected declaration order. See [enum dependency resolution](../compiler/enum-dependencies.md) for structural dependency boundaries.
 - `enum_flags` members are powers of two and combine with `|` and `&` {#enum.7}; `fl & .WRITE` works as an `if` condition {#enum.8}.
 - `Color.loose` (`Types::loose_enum`) converts implicitly to and from integers and `Color` (`implicit_cost` in `sema/convert.rs`) {#enum.9}.
 - `.FIRST == x` works: `check_binary` checks the right side first, so the inferred member takes its type {#enum.14}.
@@ -33,7 +34,7 @@ Reflection: `type_info(Color)` has `names` and `values` {#enum.10}, and `enum_ty
 
 ## How to change it
 
-Member evaluation is in `enum_items`; inserted members go through `eval_insert_enum_items`. Reflection data is built by `build_type_info` in `sema/typeinfo.rs`. Tests: `tests/stdlib/enum-insert-members.jai`, `baked-enum-default.jai`, `compiler-enum-external-type.jai`.
+Member collection and evaluation are in `sema/enums.rs`; inserted members go through `eval_insert_enum_items`. Reflection data is built by `build_type_info` in `sema/typeinfo.rs`. Original general regressions live in `crates/jaic/tests/cleanroom_enum_dependencies.rs` and the matching LLVM harness, using `tests/compiler-semantics/enum-dependencies.jai`.
 
 ## Dependencies
 

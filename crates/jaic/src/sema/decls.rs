@@ -74,6 +74,10 @@ impl Compiler {
                 span,
                 format!("internal: local `{name}` resolved as a declaration"),
             ),
+            EntityKind::EnumMember {
+                ty,
+                initializer,
+            } => self.resolve_enum_initializer(scope, ty, &initializer, span),
             EntityKind::Placeholder => {
                 // Top-level items that needed it wait for the metaprogram to define it.
                 self.placeholder_misses += 1;

@@ -146,6 +146,10 @@ pub enum EntityKind {
         value: Value,
         ty: TypeId,
     },
+    EnumMember {
+        ty: TypeId,
+        initializer: super::enums::Initializer,
+    },
     /// `#placeholder` name awaiting a later definition.
     Placeholder,
     /// A generic declaration parameter before an instance supplies its value.

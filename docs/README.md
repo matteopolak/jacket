@@ -69,6 +69,7 @@ Jai language behavior as implemented by `jaic`.
 - [Default generic pointee construction and constraints](compiler/default-generic-pointers.md)
 - [Opaque pointer constants and compile-time capture](compiler/raw-pointer-constants.md)
 - [Forward overlay declaration and layout resolution](compiler/forward-overlay-layout.md)
+- [Forward enum values, numbering and reflection order](compiler/enum-dependencies.md)
 - [Interpreter Windows thread handles and naming](compiler/windows-thread-handles.md)
 - [Windows ABI unwind tables](compiler/windows-unwind.md)
 - [Compiler host and output target constants](compiler/host-target-constants.md)

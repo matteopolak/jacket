@@ -21,6 +21,7 @@ mod convert;
 mod debug_info;
 mod decls;
 mod driver;
+mod enums;
 mod expr;
 mod flow;
 mod format_check;
@@ -518,6 +519,7 @@ pub struct Compiler {
     /// Types of local declarations, by declaration and name index (`a, b := f()`).
     pub local_decl_types: HashMap<(ast::AstId, usize), TypeId>,
     pub anonymous_types: HashMap<(ast::AstId, ScopeId), TypeId>,
+    enum_member_scopes: HashMap<TypeId, ScopeId>,
     /// Scope each `Code` value was written in (parallel to `codes`).
     pub code_scopes: Vec<ScopeId>,
     /// Codes `compiler_get_code` made without a scope to copy: their names resolve where
@@ -738,6 +740,7 @@ impl Compiler {
             reexport_visiting: Vec::new(),
             local_decl_types: HashMap::default(),
             anonymous_types: HashMap::default(),
+            enum_member_scopes: HashMap::default(),
             code_scopes: Vec::new(),
             unscoped_codes: HashMap::default(),
             proc_decl_notes: HashMap::default(),

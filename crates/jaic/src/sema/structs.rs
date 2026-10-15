@@ -6,9 +6,7 @@ use super::value::{Aggregate, PolyStructId};
 use super::*;
 use crate::ast::ExprKind as E;
 use crate::ir::Ty;
-use crate::types::{
-    ArrayKind, EnumInfo, Field, LayoutState, MAX_SIZE, StructId, StructInfo, TypeKind,
-};
+use crate::types::{ArrayKind, Field, LayoutState, MAX_SIZE, StructId, StructInfo, TypeKind};
 
 /// Where a struct's fields come from.
 #[derive(Clone)]
@@ -569,195 +567,6 @@ impl Compiler {
             .instances
             .insert(cache_key, t);
         Ok(t)
-    }
-
-    pub fn new_enum_type(
-        &mut self,
-        name: Sym,
-        lit: &Rc<ast::EnumLit>,
-        scope: ScopeId,
-    ) -> Result<TypeId> {
-        let base = match &lit.base {
-            Some(b) => self.eval_type(scope, b)?,
-            None => {
-                if lit.flags_enum {
-                    TypeId::U32
-                } else {
-                    TypeId::S64
-                }
-            }
-        };
-        let ty = self.types.new_enum(EnumInfo {
-            name,
-            base,
-            members: Vec::new(),
-            is_flags: lit.flags_enum,
-            specified: lit.specified,
-            complete: lit.complete,
-            loose_of: None,
-            span: lit.span,
-        });
-        let TypeKind::Enum(e) = *self.types.kind(ty) else {
-            unreachable!()
-        };
-        // Members may refer to earlier members by name.
-        let module = self.scope(scope).module;
-        let member_scope = self.new_scope(ScopeKind::Block, Some(scope), module, None);
-        // Members may also name the enum itself (`B :: A + cast(E) 50`), whose declaration is
-        // still being resolved: bind the name to the type made above.
-        if name.as_str() != "enum" {
-            self.add_const(member_scope, name, lit.span, Value::Type(ty), TypeId::TYPE);
-        }
-        let mut members = Vec::new();
-        let mut next: i128 = if lit.flags_enum {
-            1
-        } else {
-            0
-        };
-        self.enum_items(
-            &lit.items,
-            member_scope,
-            ty,
-            lit.flags_enum,
-            &mut next,
-            &mut members,
-        )?;
-        self.types.enums[e.0 as usize].members = members;
-        Ok(ty)
-    }
-
-    fn enum_items(
-        &mut self,
-        items: &[ast::EnumItem],
-        scope: ScopeId,
-        ty: TypeId,
-        flags: bool,
-        next: &mut i128,
-        out: &mut Vec<(Sym, i128)>,
-    ) -> Result<()> {
-        for item in items {
-            match item {
-                ast::EnumItem::Member(m) => {
-                    let v = match &m.value {
-                        Some(e) => match self.eval_const(scope, e, Some(ty))? {
-                            Operand::Const {
-                                value: Value::Int(v),
-                                ..
-                            } => v,
-                            other => {
-                                return err(
-                                    e.span,
-                                    format!(
-                                        "enum value must be an integer constant, found {}",
-                                        self.describe(&other)
-                                    ),
-                                );
-                            }
-                        },
-                        None => *next,
-                    };
-                    if out.iter().any(|(n, _)| *n == m.name.name) {
-                        return err(
-                            m.name.span,
-                            format!("enum member `{}` is declared more than once", m.name.name),
-                        );
-                    }
-                    if let Some((bits, signed)) = self.types.int_info(ty)
-                        && !super::convert::int_constant_fits(v, bits, signed, true)
-                    {
-                        let base = if signed {
-                            "s"
-                        } else {
-                            "u"
-                        };
-                        return err(
-                            m.value.as_ref().map_or(m.name.span, |e| e.span),
-                            format!(
-                                "enum value {v} is out of range for the enum's type {base}{bits}"
-                            ),
-                        );
-                    }
-                    *next = if flags {
-                        if v == 0 {
-                            1
-                        } else {
-                            v << 1
-                        }
-                    } else {
-                        v + 1
-                    };
-                    out.push((m.name.name, v));
-                    if let TypeKind::Enum(e) = *self.types.kind(ty) {
-                        self.ide_note_enum_member(e, m.name.name, m.name.span);
-                    }
-                    self.add_const(scope, m.name.name, m.name.span, Value::Int(v), ty);
-                    // Keep the enum's partially built member list visible to later members.
-                    let TypeKind::Enum(e) = *self.types.kind(ty) else {
-                        unreachable!()
-                    };
-                    // Usually just the member before this one is missing; a full copy per
-                    // member made large enums quadratic.
-                    let visible = &mut self.types.enums[e.0 as usize].members;
-                    if visible.len() + 1 == out.len() {
-                        visible.push((m.name.name, v));
-                    } else {
-                        *visible = out.clone();
-                    }
-                }
-                ast::EnumItem::Insert(e) => {
-                    let inserted = self.eval_insert_enum_items(scope, e)?;
-                    self.enum_items(&inserted, scope, ty, flags, next, out)?;
-                }
-                ast::EnumItem::If {
-                    cond,
-                    then_items,
-                    else_items,
-                } => {
-                    let taken = self.eval_static_condition(scope, cond)?;
-                    self.enum_items(
-                        if taken {
-                            then_items
-                        } else {
-                            else_items
-                        },
-                        scope,
-                        ty,
-                        flags,
-                        next,
-                        out,
-                    )?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// The members an enum-body `#insert` of a string produces.
-    fn eval_insert_enum_items(
-        &mut self,
-        scope: ScopeId,
-        value: &ast::Expr,
-    ) -> Result<Vec<ast::EnumItem>> {
-        let Operand::Const {
-            value: Value::String(s),
-            ..
-        } = self.eval_insert_operand(scope, value)?
-        else {
-            return err(value.span, "#insert in an enum body needs a string");
-        };
-        let text = format!(
-            "__jaic_enum :: enum {{\n{}\n}};",
-            String::from_utf8_lossy(&s)
-        );
-        let file = self.insert_source(value.span, text.clone().into())?;
-        let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
-        match ast.stmts.first().map(|s| &s.kind) {
-            Some(ast::StmtKind::Decl(d)) => match d.value.as_ref().map(|v| &v.kind) {
-                Some(E::Enum(lit)) => Ok(lit.items.clone()),
-                _ => err(value.span, "could not parse inserted enum members"),
-            },
-            _ => err(value.span, "could not parse inserted enum members"),
-        }
     }
 
     // -----------------------------------------------------------------------
@@ -1782,6 +1591,12 @@ impl Compiler {
 
     pub fn type_has_member(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
         let target = self.types.pointee(ty).unwrap_or(ty);
+        if let Some(&scope) = self.enum_member_scopes.get(&target) {
+            return Ok(self.scope(scope).names.get(&name).is_some_and(|ids| {
+                ids.iter()
+                    .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
+            }));
+        }
         if let TypeKind::Enum(e) = self.types.kind(target) {
             return Ok(self
                 .types
@@ -2104,6 +1919,14 @@ impl Compiler {
                 Ok(Operand::Type(self.types.loose_enum(t)))
             }
             TypeKind::Enum(e) => {
+                if let Some(&member_scope) = self.enum_member_scopes.get(&t)
+                    && let Some(ids) = self.scope(member_scope).names.get(&name).cloned()
+                    && ids
+                        .iter()
+                        .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
+                {
+                    return self.entities_operand(f, member_scope, &ids, span);
+                }
                 if let Some(&(_, v)) = self
                     .types
                     .enum_info(e)
