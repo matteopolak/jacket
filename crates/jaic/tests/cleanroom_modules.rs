@@ -968,12 +968,15 @@ fn import_message_records_describe_actual_source_entry() {
 }
 
 #[test]
-fn typechecked_events_use_selected_bootstrap_library_root() {
+fn typechecked_events_include_resolved_selected_library_declarations() {
     use jaic::records::{FieldRef, Item, Records};
     let mut c = compiler(
         &[
             ("/lib/prelude/module.jai", ""),
-            ("/lib/M/module.jai", "library_value :: 47;"),
+            (
+                "/lib/M/module.jai",
+                "library_value :: 47; unused_library_value :: unavailable_identifier;",
+            ),
             (
                 "/app/main.jai",
                 "M :: #import \"M\"; application_value :: M.library_value;",
@@ -987,7 +990,7 @@ fn typechecked_events_use_selected_bootstrap_library_root() {
     let Some(FieldRef::List(items)) = records.field(message, "declarations") else {
         panic!("missing declarations");
     };
-    let names: Vec<Vec<u8>> = items
+    let mut names: Vec<Vec<u8>> = items
         .iter()
         .map(|item| {
             let Item::Ref(typed) = item else {
@@ -1002,7 +1005,11 @@ fn typechecked_events_use_selected_bootstrap_library_root() {
             name.to_vec()
         })
         .collect();
-    assert_eq!(names, vec![b"application_value".to_vec()]);
+    names.sort();
+    assert_eq!(
+        names,
+        vec![b"application_value".to_vec(), b"library_value".to_vec()]
+    );
 }
 
 #[test]

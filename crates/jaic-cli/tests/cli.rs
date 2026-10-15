@@ -737,6 +737,7 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
     compiler_begin_intercept(w, .SKIP_DECLARATIONS | .SKIP_PROCEDURE_BODIES | .SKIP_OTHERS);
     add_build_string("main :: () { x := 1; } S :: struct { a: int; }", w);
     totals: [5] s64;
+    user_headers, user_structs: s64;
     while true {
         message := compiler_wait_for_message();
         if message.kind == .TYPECHECKED {
@@ -746,11 +747,18 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
             totals[2] += tc.procedure_bodies.count;
             totals[3] += tc.structs.count;
             totals[4] += tc.all.count;
+            assert(tc.declarations.count == 0 && tc.procedure_bodies.count == 0 && tc.others.count == 0);
+            assert(tc.all.count == tc.procedure_headers.count + tc.structs.count);
+            for header: tc.procedure_headers if header.expression.name == "main" user_headers += 1;
+            for structure: tc.structs if structure.expression.defined_type.name == "S" user_structs += 1;
         }
         if message.kind == .COMPLETE break;
     }
     compiler_end_intercept(w);
-    print("% % % % %\n", totals[0], totals[1], totals[2], totals[3], totals[4]);
+    assert(user_headers == 1 && user_structs == 1);
+    assert(totals[1] >= user_headers && totals[3] >= user_structs);
+    assert(totals[4] == totals[1] + totals[3]);
+    print("% % % % %\n", totals[0], user_headers, totals[2], user_structs, user_headers + user_structs);
     compiler_report("continuing", mode = .ERROR_CONTINUABLE);
     print("still running\n");
 }
