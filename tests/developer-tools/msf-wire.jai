@@ -85,7 +85,19 @@ main :: () {
     store_u32(synthetic, 4 * 4096 + 4, 0xffffffff);
     bad, bad_error := tools_msf_decode(synthetic);
 
-    assert(bad_error == .UNSUPPORTED_STREAM && bad.streams.count == 0);
+    // A nil stream consumes no page numbers; leaving its old page-list bytes
+    // in the directory is a malformed trailing directory, not an unsupported
+    // nil-stream encoding.
+    assert(bad_error == .DIRECTORY && bad.streams.count == 0);
+    store_u32(synthetic, 44, 4100);
+    nil_view, nil_error := tools_msf_decode(synthetic);
+
+    assert(nil_error == .NONE && nil_view.streams[0].size == -1);
+    nil_data, nil_copy_error := tools_msf_copy_stream(nil_view, 0);
+
+    assert(nil_copy_error == .STREAM && nil_data.count == 0);
+    tools_msf_release(*nil_view);
+    store_u32(synthetic, 44, 4108);
     store_u32(synthetic, 4 * 4096 + 4, 5000);
     store_u32(synthetic, 3 * 4096 + 4, 4);
     bad, bad_error = tools_msf_decode(synthetic);

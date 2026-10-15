@@ -20,7 +20,7 @@ def main():
     elif system == "Windows":
         output = directory / "developer_tools_debug.dll"
         subprocess.run([compiler, "-std=c11", "-O2", "-fno-omit-frame-pointer", "-Wall", "-Wextra", "-Werror",
-                        "-shared", str(directory / "runtime-windows.c"), "-ldbghelp", "-lkernel32", "-o", str(output)],
+                        "-shared", str(directory / "runtime-windows.c"), "-ldbghelp", "-lkernel32", "-luser32", "-ladvapi32", "-o", str(output)],
                        cwd=ROOT, check=True)
         return
     else:

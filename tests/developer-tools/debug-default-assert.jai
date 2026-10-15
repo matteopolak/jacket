@@ -4,5 +4,6 @@ D :: #import "Debug";
 
 main :: () {
     D.init();
+    D.set_report_mode(true);
     assert(false, "original failing assertion");
 }

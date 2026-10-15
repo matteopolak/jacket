@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <stdint.h>
 #include <string.h>
+#include <pthread.h>
 
 static const int signals[5] = {SIGSEGV, SIGTRAP, SIGFPE, SIGBUS, SIGILL};
 static struct sigaction original[5];
@@ -52,3 +53,28 @@ int32_t original_debug_restore_original(void) {
 }
 
 int32_t original_debug_raise_trap(void) { return raise(SIGTRAP); }
+
+typedef void (*Work)(int64_t);
+typedef struct { Work work; int64_t tag; } Work_Argument;
+static void *run_work(void *opaque) {
+  Work_Argument *argument = opaque;
+  argument->work(argument->tag);
+  return NULL;
+}
+int32_t original_debug_run_threads(Work work) {
+  if (!work) return 0;
+  pthread_t threads[8];
+  Work_Argument arguments[8];
+  int started = 0, success = 1;
+  for (int i = 0; i < 8; ++i) {
+    arguments[i].work = work;
+    arguments[i].tag = i + 1;
+    if (pthread_create(&threads[i], NULL, run_work, &arguments[i]) != 0) {
+      success = 0; break;
+    }
+    ++started;
+  }
+  for (int i = 0; i < started; ++i)
+    if (pthread_join(threads[i], NULL) != 0) success = 0;
+  return success;
+}
