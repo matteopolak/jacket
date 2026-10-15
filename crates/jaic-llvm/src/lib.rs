@@ -1579,7 +1579,8 @@ mod tests {
                 &context,
                 &module,
                 jaic::abi::Arch::from_triple(target).unwrap(),
-            ).unwrap();
+            )
+            .unwrap();
             apply_codegen_attributes(
                 &context,
                 &module,
