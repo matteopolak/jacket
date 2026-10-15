@@ -14,7 +14,7 @@ BASELINE = ROOT / "target/portable-integration-stdlib"
 PEER = ROOT.parent / "foundations/stdlib"
 LIBRARY = ROOT / "target/portable-time-foundation/stdlib"
 OWN_FILES = ["apollo.jai", "time-errors.jai", "clock-calendar.jai", "filetime.jai",
-             "windows-clock.jai", "windows-calendar.jai", "elapsed-time.jai"]
+             "windows-clock.jai", "windows-calendar.jai", "elapsed-time.jai", "calendar-text.jai"]
 
 
 def compose():
@@ -40,7 +40,7 @@ def compose():
     public = ["to_apollo", "seconds_since_init", "timespec_to_apollo", "to_timespec",
               "current_time_consensus", "current_time_monotonic", "to_calendar",
               "calendar_to_apollo", "filetime_to_apollo", "to_filetime"]
-    portable = ["to_apollo"]
+    portable = ["to_apollo", "calendar_to_string", "calendar_to_iso_string"]
     unix = ["timespec_to_apollo", "to_timespec"]
     windows = ["filetime_to_apollo", "to_filetime"]
     common = [name for name in public if name not in portable + unix + windows]
@@ -76,7 +76,7 @@ def main():
     for cpu in ["x64", "arm64"]:
         subprocess.run([compiler, "-check", "-os", "windows", "-cpu", cpu, str(fixture)],
                        cwd=ROOT, env=env, check=True)
-    for name in ["time-configured/main", "time-conversion", "elapsed-time"]:
+    for name in ["time-configured/main", "time-conversion", "elapsed-time", "calendar-text", "calendar-native"]:
         source = ROOT / "tests/portable-stdlib" / (name + ".jai")
         commands = [[compiler, "-interp", str(source)]]
         for optimization in ["-O0", "-O2"]:

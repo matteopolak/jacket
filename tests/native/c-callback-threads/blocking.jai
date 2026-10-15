@@ -45,6 +45,7 @@ wait_until_ready :: (x: s32) -> s32 #c_call {
 // Joins a Jai thread the main thread started.
 join_worker :: (x: s32) -> s32 #c_call {
     push_context {
+        assert(thread_is_done(*worker, -1));
         thread_deinit(*worker);
         return worker_result + x;
     }
@@ -114,6 +115,7 @@ main :: () {
     print("nested on a thread of C: %\n", finish_caller());
     thread_init(*worker, nesting_worker);
     thread_start(*worker);
+    assert(thread_is_done(*worker, -1));
     thread_deinit(*worker);
     print("nested on a Jai thread: %\n", worker_result);
 
@@ -124,6 +126,7 @@ main :: () {
     for 1..100000 total += it;
 
     flag = 1;
+    assert(thread_is_done(*worker, -1));
     thread_deinit(*worker);
     print("progress while a thread waits in C: % %\n", total, worker_result);
 }

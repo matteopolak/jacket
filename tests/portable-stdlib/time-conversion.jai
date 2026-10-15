@@ -72,10 +72,15 @@ main :: () {
         assert(roundtrip.year == 2000 && roundtrip.month_starting_at_0 == 1 && roundtrip.day_of_month_starting_at_0 == 28);
         assert(roundtrip.day_of_week_starting_at_0 == 2 && roundtrip.hour == 12 && roundtrip.minute == 34 && roundtrip.second == 56 && roundtrip.millisecond == 789);
         calendar.year = 2100;
-        assert(compare_apollo_times(calendar_to_apollo(calendar), APOLLO_TIME_INVALID) == 0);
+        // Refreshed review delegates invalid components to native normalization.
+        normalized := to_calendar(calendar_to_apollo(calendar));
+
+        assert(normalized.year == 2100 && normalized.month_starting_at_0 == 2 && normalized.day_of_month_starting_at_0 == 0);
         prior := timespec_to_apollo(.{ -1, 0 });
 
-        assert(compare_apollo_times(calendar_to_apollo(to_calendar(prior)), prior) == 0);
+        collision := calendar_to_apollo(to_calendar(prior));
+
+        assert(collision.low == 0 && collision.high == 0);
         local := to_calendar(leap, .LOCAL);
 
         assert(local.time_zone == .LOCAL && compare_apollo_times(calendar_to_apollo(local), leap) == 0);

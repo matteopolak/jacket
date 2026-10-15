@@ -406,38 +406,21 @@ pub(crate) fn inline_cuts(program: &Program, cap: usize) -> Vec<bool> {
         .collect();
     let mut sites: Vec<Vec<u32>> = vec![Vec::new(); nf];
     let mut calls = vec![0u32; nf];
-    let mut address_taken = vec![false; nf];
     for (i, func) in program.funcs.iter().enumerate() {
         let Some(func) = func else {
             continue;
         };
-        if matches!(func.linkage, Linkage::Export(_)) {
-            address_taken[i] = true;
-        }
         for block in &func.blocks {
             for inst in &block.insts {
-                match inst {
-                    Inst::Call(call) => {
-                        if let Callee::Func(id) = &call.callee {
-                            let g = id.0 as usize;
-                            if g != i {
-                                sites[i].push(id.0);
-                                calls[g] += 1;
-                            }
-                        }
+                if let Inst::Call(call) = inst
+                    && let Callee::Func(id) = &call.callee
+                {
+                    let g = id.0 as usize;
+                    if g != i {
+                        sites[i].push(id.0);
+                        calls[g] += 1;
                     }
-                    Inst::FuncAddr {
-                        func: id, ..
-                    } => address_taken[id.0 as usize] = true,
-                    _ => {}
                 }
-            }
-        }
-    }
-    for g in &program.globals {
-        for r in &g.relocs {
-            if let RelocTarget::Func(id) = r.target {
-                address_taken[id.0 as usize] = true;
             }
         }
     }
@@ -448,9 +431,11 @@ pub(crate) fn inline_cuts(program: &Program, cap: usize) -> Vec<bool> {
         if func.linkage != Linkage::Internal || func.inline == jaic::ir::InlineHint::Never {
             return false;
         }
-        func.inline == jaic::ir::InlineHint::Always
-            || weight[g] <= INLINE_SMALL
-            || (calls[g] == 1 && !address_taken[g])
+        // A non-call reference (including runtime metadata) does not prevent
+        // LLVM from inlining a direct call. Conservatively account for a sole
+        // direct caller even when a function's address also escapes. Ignoring
+        // that edge can hide an arbitrarily large inline expansion from the cap.
+        func.inline == jaic::ir::InlineHint::Always || weight[g] <= INLINE_SMALL || calls[g] == 1
     };
     let cuttable = |g: usize| {
         program.funcs[g]

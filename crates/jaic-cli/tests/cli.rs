@@ -805,17 +805,17 @@ fn unsupported_compiler_requests_are_errors() {
         (
             "scope",
             "add_build_string(\"x :: 1;\", w, #code { y := 2; });",
-            "add_build_string: jaic cannot add a string in the scope of a Code value",
+            "add_build_string: Code scope must belong to the running workspace",
         ),
         (
             "segment",
             "add_global_data(.[1, 2], .USER_SEGMENT);",
-            "add_global_data: USER_SEGMENT needs the segment add_data_segment returned",
+            "add_global_data: invalid user segment handle for this workspace",
         ),
         (
             "table",
             "get_runtime_info(w);",
-            "get_runtime_info: jaic has the type table of the running program only",
+            "get_type_table: that workspace has nothing compiled yet",
         ),
         (
             "table-new",
@@ -824,8 +824,8 @@ fn unsupported_compiler_requests_are_errors() {
         ),
         (
             "link",
-            "compiler_custom_link_command_is_complete(w, 0);",
-            "is not waiting for a custom link",
+            "compiler_custom_link_command_is_complete(w);",
+            "workspace is not waiting for custom linking",
         ),
     ];
     for (name, body, message) in cases {

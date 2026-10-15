@@ -23,9 +23,14 @@ main :: () {
         assert(result.year == 2000 && result.month_starting_at_0 == 1 && result.day_of_month_starting_at_0 == 28);
         assert(result.hour == 12 && result.minute == 34 && result.second == 56 && result.millisecond == 789);
         leap.year = 1900;
+        previous := context.assertion_failed;
+
+        context.assertion_failed = capture;
         assert(compare_apollo_times(calendar_to_apollo(leap), APOLLO_TIME_INVALID) == 0);
         leap.year = 1599;
         assert(compare_apollo_times(calendar_to_apollo(leap), APOLLO_TIME_INVALID) == 0);
+        context.assertion_failed = previous;
+        assert(reported == 2);
 
         for zone: Time_Zone.[.UTC, .LOCAL] {
             now := current_time_consensus();
@@ -49,4 +54,13 @@ main :: () {
     } else {
         assert(false, "Windows calendar execution requires an actual Windows host");
     }
+}
+
+#scope_file
+reported: s64;
+
+capture :: (loc: Source_Code_Location, message: string) -> bool {
+    assert(message.count > 0 && context.handling_assertion_failure);
+    reported += 1;
+    return false;
 }

@@ -7,6 +7,10 @@ main :: () {
     expected := Configured.milliseconds_to_apollo(500);
 
     assert(Configured.compare_apollo_times(half, expected) == 0);
+    sample := Configured.Calendar_Time.{ year = 2000, month_starting_at_0 = 1, day_of_month_starting_at_0 = 28 };
+
+    assert(Configured.calendar_to_string(sample) == "29 February 2000, 00:00:00");
+    assert(Configured.calendar_to_iso_string(sample) == "2000-02-29T00:00:00.000Z");
     first := Configured.seconds_since_init();
 
     assert(first == 0);
@@ -34,13 +38,13 @@ main :: () {
         }
 
         assert(Configured.seconds_since_init() >= 0.01);
-        previous := context.assertion_failed;
+        previous := context.logger;
 
-        context.assertion_failed = capture;
+        context.logger = capture;
         invalid := Configured.to_calendar(Configured.APOLLO_TIME_INVALID);
 
-        context.assertion_failed = previous;
-        assert(reported == 1 && invalid.month_starting_at_0 == -1 && invalid.day_of_month_starting_at_0 == -1);
+        context.logger = previous;
+        assert(reported == 1 && invalid.year == 0 && invalid.month_starting_at_0 == 0 && invalid.day_of_month_starting_at_0 == 0);
         assert(!context.handling_assertion_failure);
     }
 
@@ -70,10 +74,9 @@ main :: () {
 #scope_file
 reported: s64;
 
-capture :: (loc: Source_Code_Location, message: string) -> bool {
+capture :: (message: string, data: *void, info: Log_Info) {
     reported += 1;
-    assert(message.count > 0 && context.handling_assertion_failure);
-    return false;
+    assert(message.count > 0 && (info.common_flags & .ERROR) != 0);
 }
 
 #if OS == .WINDOWS W :: #import "Windows";

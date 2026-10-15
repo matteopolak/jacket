@@ -627,15 +627,16 @@ fn c_call_procedures_stored_in_memory() {
             "cc"
         });
         cc.args(args).current_dir(&dir);
-        cc.output().ok().map(|output| {
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-        })
+        let output = cc
+            .output()
+            .expect("native callback regressions require a C compiler");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     };
-    let built = if cfg!(target_os = "macos") {
+    if cfg!(target_os = "macos") {
         compile(&[
             "-shared",
             "-o",
@@ -656,12 +657,6 @@ fn c_call_procedures_stored_in_memory() {
             "stored.c",
         ])
     };
-    if built.is_none() {
-        // CI hosts always have one; a missing compiler there must not pass silently.
-        assert!(std::env::var_os("CI").is_none(), "no C compiler");
-        eprintln!("skipping: no C compiler");
-        return;
-    }
     let expected = "115 1006 -9\n21 -4 true true\n[9, 7, 5, 3, 1]\n133\n7 1018 8\n";
     let output = Command::new(JAIC)
         .args(["-interp", "stored.jai"])
@@ -699,15 +694,16 @@ fn c_thread_callbacks_block_on_jai_threads() {
             "cc"
         });
         cc.args(args).current_dir(&dir);
-        cc.output().ok().map(|output| {
-            assert!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-        })
+        let output = cc
+            .output()
+            .expect("native callback regressions require a C compiler");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     };
-    let built = if cfg!(target_os = "macos") {
+    if cfg!(target_os = "macos") {
         compile(&[
             "-shared",
             "-o",
@@ -727,10 +723,6 @@ fn c_thread_callbacks_block_on_jai_threads() {
             "blocking.c",
         ])
     };
-    if built.is_none() {
-        eprintln!("skipping: no C compiler");
-        return;
-    }
     let expected = "mutex: 42\ncondition: 42\njoin: 42\nsleep: 10\nnested: 61\n\
                     nested on a thread of C: 61\nnested on a Jai thread: 31\n\
                     progress while a thread waits in C: 5000050000 1\n";
@@ -773,19 +765,34 @@ fn c_thread_callbacks_block_on_jai_threads() {
             stdout.read_to_end(&mut bytes).ok();
             bytes
         });
-        let mut stderr = BufReader::new(child.stderr.take().unwrap());
-        let mut started = None;
-        let mut text = String::new();
-        let mut line = String::new();
-        while stderr.read_line(&mut line).unwrap() > 0 {
-            if line.trim_end() == "started" && started.is_none() {
-                started = Some(std::time::Instant::now());
-            } else {
-                text.push_str(&line);
+        let stderr = BufReader::new(child.stderr.take().unwrap());
+        let errors = std::thread::spawn(move || {
+            let mut started = None;
+            let mut text = String::new();
+            for line in stderr.lines() {
+                let line = line.unwrap();
+                if line.trim_end() == "started" && started.is_none() {
+                    started = Some(std::time::Instant::now());
+                } else {
+                    text.push_str(&line);
+                    text.push('\n');
+                }
             }
-            line.clear();
-        }
-        let status = child.wait().unwrap();
+            (started, text)
+        });
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        let (status, timed_out) = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break (status, false);
+            }
+            if std::time::Instant::now() >= deadline {
+                child.kill().unwrap();
+                break (child.wait().unwrap(), true);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        };
+        let (started, text) = errors.join().unwrap();
+        assert!(!timed_out, "{args:?}: deadlock report timed out: {text}");
         let took = started
             .unwrap_or_else(|| panic!("{args:?} never started: {text}"))
             .elapsed();
@@ -2229,7 +2236,7 @@ fn backtrace_sees_compiled_callers() {
     let source = dir.join("backtrace.jai");
     std::fs::write(
         &source,
-        "#import \"Basic\";\nDebug :: #import \"Debug\"(USE_GRAPHICS = false);\n\
+        "#import \"Basic\";\nDebug :: #import \"Debug\";\n\
          inner :: () -> int {\n    frames := Debug.backtrace();\n    n := frames.count;\n    Debug.free_backtrace(frames);\n    return n;\n}\n\
          outer :: () -> int {\n    return inner() + 1;\n}\n\
          main :: () {\n    print(\"%\\n\", ifx outer() > 3 then \"ok\" else \"short\");\n}\n",
@@ -2306,11 +2313,13 @@ const CUSTOM_LINK: &str = r##"#import "Basic";
 
 SOURCE :: #string END
 #import "Basic";
+P :: #import "POSIX";
+libc :: #system_library "libc";
+raise_signal :: (signal: s32) -> s32 #foreign libc "raise";
 start :: () {
     print("started at start\n");
     if get_command_line_arguments().count > 1 {
-        p: *int;
-        p.* = 3;
+        raise_signal(P.SIGSEGV);
     }
 }
 END
@@ -2361,7 +2370,7 @@ END
 #[test]
 fn custom_link_command() {
     let units = Some("1");
-    let linked = "result := run_command(..args); compiler_custom_link_command_is_complete(w, result.exit_code);";
+    let linked = "result := run_command(..args); phase.linker_exit_code = result.exit_code; compiler_custom_link_command_is_complete(w);";
     let (dir, output) = build_custom_link("linked", linked, "", units);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
@@ -2387,7 +2396,7 @@ fn custom_link_command() {
 
     let (_, output) = build_custom_link(
         "failed",
-        "compiler_custom_link_command_is_complete(w, 3);",
+        "result := run_command(\"sh\", \"-c\", \"exit 3\"); phase.linker_exit_code = result.exit_code; compiler_custom_link_command_is_complete(w);",
         "",
         units,
     );
@@ -2434,7 +2443,7 @@ fn build_custom_link(
 #[cfg(unix)]
 #[test]
 fn custom_link_command_with_several_codegen_units() {
-    let linked = "result := run_command(..args); compiler_custom_link_command_is_complete(w, result.exit_code);";
+    let linked = "result := run_command(..args); phase.linker_exit_code = result.exit_code; compiler_custom_link_command_is_complete(w);";
     let (dir, output) = build_custom_link("split", linked, "", Some("3"));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "{stderr}");
@@ -2498,11 +2507,18 @@ fn backtrace_on_crash_and_minimum_os_version() {
         let crashed = Command::new(&exe).arg("crash").output().unwrap();
         assert!(!crashed.status.success());
         let stderr = String::from_utf8_lossy(&crashed.stderr);
-        assert_eq!(
-            stderr.contains("fatal runtime signal"),
-            on,
-            "{name}: {stderr}"
-        );
+        assert_eq!(stderr.contains("native stack:"), on, "{name}: {stderr}");
+        if on {
+            assert!(stderr.contains("crash signal"), "{name}: {stderr}");
+            assert!(
+                stderr
+                    .lines()
+                    .skip_while(|line| *line != "native stack:")
+                    .skip(1)
+                    .any(|line| line.contains("0x")),
+                "{name}: no native frame addresses: {stderr}"
+            );
+        }
         if cfg!(target_os = "macos") {
             let load = Command::new("otool").arg("-l").arg(&exe).output().unwrap();
             let load = String::from_utf8_lossy(&load.stdout);

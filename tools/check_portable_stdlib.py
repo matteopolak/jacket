@@ -44,6 +44,9 @@ EXPECTED_EXIT = {"basic-output": 17}
 for name in ("basic-logging-output", "basic-print-bytes", "basic-stack-output"):
     EXPECTED[name], EXPECTED_STDERR[name], EXPECTED_EXIT[name] = foundation_output(name)
 FAULT_EXPECTATIONS = {
+    "android-abi-name": ("assertion failed", "Android NDK ABI is unavailable for this CPU"),
+    "socket-cmsg-negative": ("assertion failed", "ancillary size cannot be aligned"),
+    "socket-cmsg-overflow": ("assertion failed", "ancillary length exceeds u32"),
     "flat-pool-capacity": ("assertion failed", "flat-pool reservation exhausted"),
     "sound-channels": ("assertion failed", "audio sample input/channel range invalid"),
     "sound-magic": ("assertion failed", "audio magic read outside input"),
@@ -262,14 +265,12 @@ def main():
         subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_crash.py"),
                         "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     dependent = {"file", "filesystem", "socket-loopback", "process", "process-io", "system", "text-handler", "zip-directory", "buildcpp", "shared-channel", "autorun"}
-    posix_only = {"module-identity", "thread-lifetime", "thread-groups", "thread-condition", "thread-shutdown", "overwriting-allocator", "unmapping-allocator", "crash-handler-init", "atomic-cas-threads", "file-visitation"}
+    posix_only = {"module-identity", "thread-lifetime", "thread-groups", "thread-condition", "thread-shutdown", "overwriting-allocator", "unmapping-allocator", "pool-unmapping", "crash-handler-init", "atomic-cas-threads", "file-visitation"}
     for target in args.check_target:
         os_name, cpu = target.split("/", 1)
         before = len(failures)
         target_cases = cases + ([(ROOT / "tests/portable-stdlib/windows-foundations.jai", "ok\n")] if os_name == "windows" else [])
         for source, _ in target_cases:
-            if source.stem == "default-allocator" and cpu == "x64":
-                continue  # Optimized heap branch is explicitly unsupported, not fallback coverage.
             if source.parent.name != "portable-stdlib" or source.stem in dependent or (os_name == "windows" and source.stem in posix_only):
                 continue
             try:

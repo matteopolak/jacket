@@ -102,7 +102,7 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
             "copy.jai:5:5: error: runtime error: null pointer dereference: memcpy through a null pointer",
             "    t := copy_string(s);",
             "note: this call failed inside `copy_string` at ",
-            "Simple_String.jai",
+            "allocation.jai",
             "note: call stack (innermost first):",
             "help: check the pointer against null",
         ],
@@ -253,24 +253,18 @@ fn null_pointer_and_missing_return_and_recursion() {
             "null.jai:4:5: error: runtime error: null pointer dereference: read through a null pointer",
         ],
     );
-    // Boxing `p.*` into an `Any` reads nothing; `print` finds the null value pointer and stops
-    // with the same wording, not `null`, and the call stack leads back to the line.
+    // Boxing an lvalue records its address/type without loading it. Test the
+    // compiler representation directly; reflected printing has its own contract.
     let boxed = jaic_on(
         &dir,
         "boxed.jai",
-        "#import \"Basic\";\nmain :: () {\n    p: *int;\n    print(\"%\\n\", p.*);\n}\n",
+        "capture :: (value: Any) -> s32 { if value.value_pointer == null && value.type == type_info(int) return 0; return 1; }\nmain :: () -> s32 { p: *int; return capture(p.*); }\n",
         "-interp",
         &[],
     );
-    assert_in_order(
-        &stderr(&boxed),
-        &[
-            "error: null pointer dereference: read through a null pointer",
-            "boxed.jai:4:5: error: runtime error: debug_break() was called",
-            "`main` at boxed.jai:4",
-        ],
-    );
-    assert_eq!(String::from_utf8_lossy(&boxed.stdout), "");
+    assert_eq!(boxed.status.code(), Some(0), "{}", stderr(&boxed));
+    assert!(stderr(&boxed).is_empty(), "{}", stderr(&boxed));
+    assert!(boxed.stdout.is_empty());
     let missing = jaic_on(
         &dir,
         "sign.jai",
@@ -1192,7 +1186,12 @@ fn command_line_mistakes_explain_themselves() {
     // `-no_color` reaches command-line errors too, `FORCE_COLOR` turns colour on.
     let colored = |args: &[&str], force: bool| {
         let mut command = Command::new(JAIC);
-        command.args(args).env("JAIC_DIAGNOSTICS", "plain");
+        command
+            .args(args)
+            .env("JAIC_DIAGNOSTICS", "plain")
+            .env_remove("NO_COLOR")
+            .env_remove("FORCE_COLOR")
+            .env_remove("CLICOLOR_FORCE");
         if force {
             command.env("FORCE_COLOR", "1");
         }

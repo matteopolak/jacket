@@ -57,40 +57,68 @@ struct Selector {
 }
 
 fn selectors(text: &str) -> Vec<Selector> {
-    const CALL: &str = "sel_registerName(";
     let s = text.as_bytes();
     let mut out = Vec::new();
-    let mut from = 0;
-    while let Some(found) = text[from..].find(CALL) {
-        let start = from + found;
-        from = start + CALL.len();
-        let mut i = from;
-        let skip_space = |i: &mut usize| {
-            while *i < s.len() && s[*i].is_ascii_whitespace() {
-                *i += 1;
-            }
-        };
-        skip_space(&mut i);
-        if text[i..].starts_with("cast(*u8)") {
-            i += "cast(*u8)".len();
+    for alias in foreign_aliases(text, "sel_registerName") {
+        let call = format!("{alias}(");
+        let mut from = 0;
+        while let Some(found) = text[from..].find(&call) {
+            let start = from + found;
+            from = start + call.len();
+            let mut i = from;
+            let skip_space = |i: &mut usize| {
+                while *i < s.len() && s[*i].is_ascii_whitespace() {
+                    *i += 1;
+                }
+            };
             skip_space(&mut i);
+            if text[i..].starts_with("cast(*u8)") {
+                i += "cast(*u8)".len();
+                skip_space(&mut i);
+            }
+            if s.get(i) != Some(&b'"') {
+                continue; // Not a literal: a selector built at run time.
+            }
+            let close = skip_string(s, i);
+            let name = text[i + 1..close - 1].trim_end_matches("\\0").to_string();
+            let mut j = close;
+            skip_space(&mut j);
+            if s.get(j) != Some(&b')') {
+                continue;
+            }
+            out.push(Selector {
+                name,
+                start,
+            });
         }
-        if s.get(i) != Some(&b'"') {
-            continue; // Not a literal: a selector built at run time.
-        }
-        let close = skip_string(s, i);
-        let name = text[i + 1..close - 1].trim_end_matches("\\0").to_string();
-        let mut j = close;
-        skip_space(&mut j);
-        if s.get(j) != Some(&b')') {
+    }
+    out.sort_by_key(|selector| selector.start);
+    out
+}
+
+/// Foreign procedure spelling is independent of its native symbol. Follow
+/// explicit aliases instead of depending on the generator's private names.
+fn foreign_aliases(text: &str, symbol: &str) -> BTreeSet<String> {
+    let mut names = BTreeSet::from([symbol.to_string()]);
+    for line in text.lines() {
+        let Some((declaration, foreign)) = line.split_once("#foreign") else {
+            continue;
+        };
+        if !foreign
+            .trim_end_matches(';')
+            .trim()
+            .ends_with(&format!("\"{symbol}\""))
+        {
             continue;
         }
-        out.push(Selector {
-            name,
-            start,
-        });
+        if let Some((name, _)) = declaration.split_once("::") {
+            let name = name.trim();
+            if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                names.insert(name.to_string());
+            }
+        }
     }
-    out
+    names
 }
 
 /// The `(` of the call whose arguments contain `pos`, if `pos` is an argument of a call.
@@ -146,7 +174,7 @@ fn line_of(text: &str, pos: usize) -> usize {
 
 /// Who receives a selector: the methods of a class (`objc_getClass("X")` as the receiver) or of
 /// its instances (`self` in a binding).
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Receiver {
     class: String,
     instance: bool,
@@ -197,14 +225,16 @@ fn runtime_class(name: &str) -> &str {
 }
 
 fn receiver(text: &str, call_pos: usize, receiver_arg: &str) -> Option<Receiver> {
-    if let Some(at) = receiver_arg.find("objc_getClass(") {
-        let rest = &receiver_arg[at..];
-        let quote = rest.find('"')?;
-        let name = rest[quote + 1..].split(['"', '\\']).next()?;
-        return Some(Receiver {
-            class: runtime_class(name).to_string(),
-            instance: false,
-        });
+    for alias in foreign_aliases(text, "objc_getClass") {
+        if let Some(at) = receiver_arg.find(&format!("{alias}(")) {
+            let rest = &receiver_arg[at..];
+            let quote = rest.find('"')?;
+            let name = rest[quote + 1..].split(['"', '\\']).next()?;
+            return Some(Receiver {
+                class: runtime_class(name).to_string(),
+                instance: false,
+            });
+        }
     }
     if receiver_arg.trim_start_matches("cast(*void)").trim() != "self" {
         return None; // A local object: only its arity is checked.
@@ -259,6 +289,7 @@ struct Uses {
     receivers: BTreeSet<(Receiver, String)>,
     calls: usize,
     tables: usize,
+    literals: usize,
 }
 
 fn scan() -> Uses {
@@ -270,12 +301,14 @@ fn scan() -> Uses {
         receivers: BTreeSet::new(),
         calls: 0,
         tables: 0,
+        literals: 0,
     };
     for file in files {
         let text = std::fs::read_to_string(&file).unwrap();
         let s = text.as_bytes();
         let shown = file.strip_prefix(&root).unwrap().display().to_string();
         for sel in selectors(&text) {
+            uses.literals += 1;
             let colons = sel.name.matches(':').count();
             let at = format!("stdlib/{shown}:{}", line_of(&text, sel.start));
             if let Some(field) = table_field(&text, sel.start) {
@@ -317,10 +350,10 @@ fn scan() -> Uses {
 #[test]
 fn selectors_take_the_arguments_they_are_sent_with() {
     let uses = scan();
-    // The stdlib's bindings call over a thousand selectors; finding far fewer means the scan
-    // stopped recognising them.
+    // Every discovered literal must be checked. Counts from another private
+    // declaration/table organization are not a public ABI requirement.
     assert!(
-        uses.calls > 1000 && uses.tables > 250,
+        uses.literals > 0 && uses.calls + uses.tables == uses.literals,
         "only {} calls and {} table entries found",
         uses.calls,
         uses.tables
@@ -330,6 +363,24 @@ fn selectors_take_the_arguments_they_are_sent_with() {
         "{} selector(s) do not match their use:\n{}",
         uses.problems.len(),
         uses.problems.join("\n")
+    );
+}
+
+#[test]
+fn native_aliases_keep_selector_and_class_checks() {
+    let text = "choose :: (name: *u8) -> *void #foreign runtime \"sel_registerName\";\nclass_lookup :: (name: *u8) -> *void #foreign runtime \"objc_getClass\";\nmain :: () { send(class_lookup(\"NSString\"), choose(\"stringWithBytes:length:encoding:\"), bytes, count, encoding); }";
+    let found = selectors(text);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].name, "stringWithBytes:length:encoding:");
+    let open = enclosing_call(text.as_bytes(), found[0].start).unwrap();
+    let arguments = call_arguments(text, open);
+    assert_eq!(arguments.len(), 5);
+    assert_eq!(
+        receiver(text, found[0].start, &arguments[0].1),
+        Some(Receiver {
+            class: "NSString".into(),
+            instance: false
+        })
     );
 }
 

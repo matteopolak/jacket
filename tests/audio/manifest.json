@@ -8,6 +8,18 @@
   "independent_review": "requested through coordinator; not yet recorded",
   "cases": [
     {
+      "path": "tests/audio/assertion-independent.jai",
+      "provenance": "Compressed page seeking, shutdown drain/join and independent safety with optional assertions disabled",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets",
+        "staged-audio-assertions-disabled"
+      ],
+      "hardware": "none"
+    },
+    {
       "path": "tests/audio/cache-pages.jai",
       "provenance": "Compressed pages and observable limits; public cached decoder shapes",
       "modes": [
@@ -28,6 +40,17 @@
         "source-desktop-six-targets"
       ],
       "hardware": "native-opened/unavailable markers; all device submissions silent"
+    },
+    {
+      "path": "tests/audio/concurrent-factories.jai",
+      "provenance": "Reviewed Ogg metadata replacement and independent shared lifetime safety during playback; concurrency smoke, not a race-detector proof",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "real SDK silent playback or explicit unavailable marker"
     },
     {
       "path": "tests/audio/concurrent-render-stop.jai",
@@ -173,6 +196,17 @@
       "hardware": "none"
     },
     {
+      "path": "tests/audio/perceptual-volume.jai",
+      "provenance": "NEW integration-authored regression for reviewed perceptual power-law endpoints, midpoint and unclamped range; docs/specs/stdlib/modules/sound-player.md, Gain panning and rate",
+      "modes": [
+        "interpreter",
+        "native-host-O0",
+        "native-host-O2",
+        "source-desktop-six-targets"
+      ],
+      "hardware": "none"
+    },
+    {
       "path": "tests/audio/queue-retirement.jai",
       "provenance": "Compressed page lifetime; no cancellation; drain issued work before free",
       "modes": [
@@ -279,29 +313,6 @@
         "source-windows-arm64"
       ],
       "hardware": "none"
-    },
-    {
-      "path": "tests/audio/assertion-independent.jai",
-      "provenance": "Compressed page seeking, shutdown drain/join and independent safety with optional assertions disabled",
-      "modes": [
-        "interpreter",
-        "native-host-O0",
-        "native-host-O2",
-        "source-desktop-six-targets",
-        "staged-audio-assertions-disabled"
-      ],
-      "hardware": "none"
-    },
-    {
-      "path": "tests/audio/concurrent-factories.jai",
-      "provenance": "Reviewed Ogg metadata replacement and independent shared lifetime safety during playback; concurrency smoke, not a race-detector proof",
-      "modes": [
-        "interpreter",
-        "native-host-O0",
-        "native-host-O2",
-        "source-desktop-six-targets"
-      ],
-      "hardware": "real SDK silent playback or explicit unavailable marker"
     }
   ],
   "negative": [

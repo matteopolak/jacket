@@ -7,9 +7,17 @@ main :: () {
         #assert is_constant(S.WINSOCK_VERSION);
         #assert size_of(S.WSADATA) == 408;
         #assert size_of(S.fd_set) == 520;
+        #assert size_of(S.SCOPE_ID) == 4;
         #assert type_of(S.FD_ISSET) == type_of(S.__WSAFDIsSet);
         #assert cast,no_check(u32) S.FIONBIO == 0x8004667e;
         #assert S.SOCKET_WOULDBLOCK_CONNECT == S.WSAEWOULDBLOCK;
+        scope: S.SCOPE_ID;
+        scope.Value = 0xa1234567;
+        assert(S.get_anon_struct_Zone(scope) == 0x1234567 && S.get_anon_struct_Level(scope) == 10);
+        S.set_anon_struct_Zone(*scope, 0xffffffff);
+        assert(scope.Value == 0xafffffff);
+        S.set_anon_struct_Level(*scope, 0x12345678);
+        assert(scope.Value == 0x8fffffff);
         initialized := S.socket_init();
 
         assert(initialized);

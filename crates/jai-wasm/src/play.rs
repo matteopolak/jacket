@@ -732,7 +732,9 @@ mod tests {
         assert_eq!(r.diagnostics.len(), 1, "{}", r.rendered);
         assert_eq!(r.diagnostics[0].code, Some("runtime-error"));
         assert!(
-            r.diagnostics[0].message.contains("abort()"),
+            r.diagnostics[0]
+                .message
+                .contains("assertion failed: `size >= 0` is false"),
             "{}",
             r.rendered
         );

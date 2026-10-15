@@ -52,6 +52,14 @@ def main():
     for shape in spec.shapes:
         shapes[shape.name].append(shape)
     output, ledger, exported, seen = [], [], [], set()
+    fields_facade = ROOT / "stdlib/Socket/fields.jai"
+    authored_fields = set(re.findall(r"^\s*(\w+)\s*::\s*Fields\.", fields_facade.read_text(), re.MULTILINE)) if fields_facade.exists() else set()
+    scope_facade = ROOT / "stdlib/Socket/scope-fields.jai"
+    authored_scope = set(re.findall(r"^\s*(\w+)\s*::\s*Fields\.", scope_facade.read_text(), re.MULTILINE)) if scope_facade.exists() else set()
+    linux_facade = ROOT / "stdlib/Socket/tcp-unix-fields.jai"
+    authored_linux = set(re.findall(r"^\s*(\w+)\s*::\s*Fields\.", linux_facade.read_text(), re.MULTILINE)) if linux_facade.exists() else set()
+    cmsg_facade = ROOT / "stdlib/Socket/cmsg.jai"
+    authored_cmsg = set(re.findall(r"^\s*(\w+)\s*::\s*Cmsg\.", cmsg_facade.read_text(), re.MULTILINE)) if cmsg_facade.exists() else set()
     manual = {"Socket", "INVALID_SOCKET", "SOCKET_ERROR", "SOCKET_WOULDBLOCK", "SOCKET_WOULDBLOCK_CONNECT"}
     for declaration in sorted(spec.declarations, key=declaration_group):
         code, name = declaration.code.rstrip(";"), declaration.name
@@ -73,7 +81,18 @@ def main():
             continue
         procedure = re.match(r"^\w+\s*::\s*(?:inline\s+)?\((.*?)\)\s*(?:->|#|$)", code)
         if name in manual or (procedure and (":" in procedure[1] or not procedure[1]) and "#foreign" not in code and "#elsewhere" not in code):
-            record["status"] = "authored wrapper or pending helper"
+            if name in authored_fields and guard == "OS == .MACOS":
+                record["status"] = "authored native field accessor; native SDK vector verification separate"
+            elif name in authored_scope and guard == "OS == .WINDOWS":
+                record["status"] = "authored native scope accessor; cross-target compile-time vectors verified, native Windows pending"
+            elif name in authored_linux and guard == "OS == .LINUX":
+                record["status"] = "authored native TCP accessor; cross-target compile-time vectors verified, native Linux pending"
+            elif name in authored_linux and guard == "OS == .ANDROID" and "tcpi_" not in name:
+                record["status"] = "authored shared TCP accessor; bionic header ABI checked on host, Android target unavailable"
+            elif name in authored_cmsg:
+                record["status"] = "authored native ancillary helper; host SDK vectors verified, other native platforms pending"
+            else:
+                record["status"] = "authored wrapper or pending helper"
             ledger.append(record)
             continue
         if re.search(r"::\s*(?:struct|union|enum(?:_flags)?)(?:\s|$)", code):

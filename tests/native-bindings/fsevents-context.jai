@@ -1,7 +1,7 @@
 M :: #import "macOS";
 #load "../../stdlib/internal/bindings/fsevents-context/module.jai";
 
-probe :: #library "../../.work/native/fsevents_context_probe";
+probe :: #library,system "fsevents_context_probe";
 lifetime :: (create: #type (allocator: M.CFAllocatorRef, callback: M.FSEventStreamCallback, _context: *M.FSEventStreamContext, pathsToWatch: M.CFArrayRef, sinceWhen: M.FSEventStreamEventId, latency: M.CFTimeInterval, flags: M.FSEventStreamCreateFlags) -> M.ConstFSEventStreamRef #c_call) #foreign probe "binding_fsevents_lifetime";
 delivery :: (create: #type (allocator: M.CFAllocatorRef, callback: M.FSEventStreamCallback, _context: *M.FSEventStreamContext, pathsToWatch: M.CFArrayRef, sinceWhen: M.FSEventStreamEventId, latency: M.CFTimeInterval, flags: M.FSEventStreamCreateFlags) -> M.ConstFSEventStreamRef #c_call) #foreign probe "binding_fsevents_delivery";
 

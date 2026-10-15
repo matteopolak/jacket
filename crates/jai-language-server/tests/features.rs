@@ -967,9 +967,33 @@ fn a_name_several_modules_declare_offers_each_without_preferring_one() {
 fn a_module_used_as_a_namespace_is_imported_under_its_name() {
     let text = "main :: () {\n    x := Math.sqrt(2.0);\n}\n";
     let actions = quick_fixes_at(text, "Math");
-    assert_eq!(actions.len(), 1, "{actions:?}");
+    // Codex also publicly reexports Math in the reviewed replacement library.
+    assert_eq!(actions.len(), 2, "{actions:?}");
     assert_eq!(actions[0].title, "Add `Math :: #import \"Math\";`");
     assert_eq!(single_edit(&actions[0]).1, "Math :: #import \"Math\";\n\n");
+    assert_eq!(actions[1].title, "Add `#import \"Codex\";`");
+    assert_eq!(single_edit(&actions[1]).1, "#import \"Codex\";\n\n");
+    for action in &actions {
+        let (start, insertion) = single_edit(action);
+        assert_eq!(
+            start,
+            Position {
+                line: 0,
+                character: 0
+            }
+        );
+        let mut session = session();
+        session
+            .open(uri(), 1, format!("{insertion}{text}"))
+            .unwrap();
+        let diagnostics = session.diagnostics(&uri()).unwrap();
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.severity == DiagnosticSeverity::Error),
+            "{action:?}: {diagnostics:?}"
+        );
+    }
 }
 
 #[test]

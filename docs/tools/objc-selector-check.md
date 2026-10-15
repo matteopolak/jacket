@@ -6,9 +6,9 @@ Tests that every Objective-C selector the stdlib sends names a method that exist
 
 ## How it works
 
-The test reads every `sel_registerName("...")` with a literal selector in `stdlib/`:
+The test reads literal sel_registerName calls and discovers explicit #foreign aliases for that native symbol throughout our own stdlib. Native objc_getClass aliases also retain receiver-class discovery.
 
-1. **Arity, on every host** (`selectors_take_the_arguments_they_are_sent_with`). For a selector passed to a call (`invoke(self, sel_registerName("a:b:"), x, y)`), the number of arguments after it must equal the number of `:` in it. For a selector table entry (`_sel.setTitle_ = sel_registerName("setTitle:")`), the field must be the selector with each `:` written `_`. The test also fails if it finds fewer than 1000 calls or 250 table entries, which would mean the scan no longer recognises the bindings.
+1. **Arity, on every host** (`selectors_take_the_arguments_they_are_sent_with`). For a selector passed to a call (`invoke(self, sel_registerName("a:b:"), x, y)`), the number of arguments after it must equal the number of `:` in it. For a selector table entry (`_sel.setTitle_ = sel_registerName("setTitle:")`), the field must be the selector with each `:` written `_`. Every discovered selector literal must be classified and checked; an empty scan fails. Counts from the replaced private declaration/table organization are not an API requirement. A separate original alias fixture verifies both arity and class discovery.
 2. **Existence, on macOS** (`selectors_exist_in_the_objective_c_runtime`). Each call's receiver gives the class:
    - `objc_getClass("X")` makes it a class method of `X`;
    - `self` makes it an instance method of the type of the procedure's `self` parameter, or of the struct it is declared in. `Lightweight*` views map to `NSOpenGLView` and `NSView`, as `Objective_C.class` maps them, and a polymorphic `self` maps to `NSObject`.
@@ -26,3 +26,5 @@ A call on a local object (`call(event, sel_registerName("window"))`) gets the ar
 
 - `cargo test -p jaic-cli --test objc_selectors` (add `--no-default-features` to build without LLVM).
 - `tests/objc-selectors.txt`: `missing <class> <instance|class> <selector>` and `unknown <class>` lines; `#` starts a comment.
+
+Refresh18: alias-aware checks discovered an actual NSThread selector spelling defect. Official installed Foundation NSThread.h:43 declares detachNewThreadSelector:toTarget:withObject:. The public Jai method detachNewThreadSelectorToTargetWithObject retains its reviewed signature, while the generator now selects that exact native selector. All three scanner/runtime tests pass, including 805 distinct runtime receiver/selector pairs, with no added exception baseline. Dynamic selectors/local receiver types remain the documented coverage boundary. Generated sources pass regeneration/idempotence with the actual repository formatter.

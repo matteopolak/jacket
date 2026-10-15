@@ -24,7 +24,8 @@ from conditions import evaluate
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [(os_name, cpu) for os_name in ('linux', 'macos', 'windows') for cpu in ('x64', 'arm64')]
-PRIVATE_UNITS = {'ios-sdk-host':'iOS/sdk-host-unit.jai',
+PRIVATE_UNITS = {'fsevents-context':'macOS/sdk-fsevents-context-unit.jai',
+                 'ios-sdk-host':'iOS/sdk-host-unit.jai',
                  'dxc-wide':'dxc_compiler/sdk-wide-unit.jai',
                  'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai',
                  'rpmalloc-native-sdk':'rpmalloc/sdk-native-unit.jai',
@@ -372,7 +373,7 @@ def verify(cleanup):
             if name in ('x11-window-helpers','x11-message-box'):
                 relevant = ['X11']
             if name in PRIVATE_UNITS:
-                relevant = ['iOS'] if name=='ios-sdk-host' else ['rpmalloc'] if name.startswith('rpmalloc-') else ['dxc_compiler']
+                relevant = [Path(PRIVATE_UNITS[name]).parts[0]]
             if name == 'imgui-nested':
                 relevant = ['ImGui']
             if name == 'posix-stat':

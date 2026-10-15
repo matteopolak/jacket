@@ -6,6 +6,13 @@ Foundation/Metal declarations spell them. ABI calls always use typed pointers.
 """
 import re
 
+# The public Jai method name combines labels; the official Foundation
+# NSThread.h declaration spells the first native selector component differently.
+NATIVE_SELECTORS = {
+    ('NSThread', 'detachNewThreadSelectorToTargetWithObject'):
+        'detachNewThreadSelector:toTarget:withObject:',
+}
+
 
 def message_body(owner, name, params, args, tail):
     tail = tail.rstrip(' {;').strip()
@@ -17,7 +24,9 @@ def message_body(owner, name, params, args, tail):
         return 'object := cast(*NSString) objc_alloc(objc_getClass("NSString")); object = initWithBytes(object, str.data, cast(NSUInteger) str.count, NSUTF8StringEncoding); return cast(*NSString) autorelease(object);'
     instance = bool(args and args[0] == 'self')
     call_args = args[1:] if instance else args
-    if '_' in name:
+    if (owner, name) in NATIVE_SELECTORS:
+        selector = NATIVE_SELECTORS[owner, name]
+    elif '_' in name:
         selector = name.replace('_', ':')
         if call_args and not selector.endswith(':'):
             selector += ':'

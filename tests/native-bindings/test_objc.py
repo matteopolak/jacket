@@ -8,6 +8,14 @@ from generate import procedure_parts
 
 
 class ObjCTests(unittest.TestCase):
+    def test_public_thread_method_uses_official_foundation_selector(self):
+        code = '''NSThread :: struct {
+    detachNewThreadSelectorToTargetWithObject :: (sel: Selector, toTarget: id, withObject: id);
+}'''
+        output = materialize_methods('NSThread', code, procedure_parts)
+        self.assertIn('binding_objc_selector("detachNewThreadSelector:toTarget:withObject:")', output)
+        self.assertNotIn('SelectorToTargetWithObject:', output)
+
     def test_typed_return_and_parameter_labels(self):
         code = '''Object :: struct {
     value :: (self: *Object, first: u32, next: u32) -> NSRect;

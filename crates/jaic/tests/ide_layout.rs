@@ -104,7 +104,7 @@ fn field_type_queries_infer_values_select_branches_and_reject_real_cycles() {
         "Record :: struct { COUNT :: size_of(type_of(value)); value: [COUNT]u8; } main :: () -> s64 { return Record.COUNT; }".into(),
     )]).expect_err("a genuinely recursive type size must reject");
     assert!(
-        error.message.contains("circular dependency"),
+        error.message.contains("cycle in struct field types"),
         "{}",
         error.render(&compiler.sources)
     );

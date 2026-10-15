@@ -29,6 +29,8 @@ def main():
 
     for cpu in ["x64", "arm64"]:
         checked([compiler, "-check", "-os", "windows", "-cpu", cpu, source])
+        checked([compiler, "-check", "-os", "windows", "-cpu", cpu,
+                 ROOT / "tests/portable-stdlib/windows-socket/scope-compile-time.jai"])
         print(f"Windows/{cpu} Winsock wrappers/loopback/ABI/error bodies check", flush=True)
     if not args.native:
         print("Actual Winsock execution remains unverified; no native pass claimed")
