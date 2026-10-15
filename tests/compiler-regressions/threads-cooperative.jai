@@ -33,9 +33,13 @@ main :: () {
         thread_start(it);
     }
 
-    for *threads thread_deinit(it);
+    for *threads {
+        assert(thread_is_done(it, -1));
+        thread_deinit(it);
+    }
 
     assert(total == 300, "total %", total);
     assert(counter == 300, "counter %", counter);
+    destroy(*mutex);
     print("ok\n");
 }

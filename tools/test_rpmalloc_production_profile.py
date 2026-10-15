@@ -14,7 +14,7 @@ class ProductionProfileTests(unittest.TestCase):
             (root/'rpmalloc/module.jai').write_text('// source marker\n')
             selector = root/'internal/bindings/rpmalloc-build/module.jai'
             selector.parent.mkdir(parents=True)
-            selector.write_text('FIRST_CLASS_HEAPS :: false;\n')
+            selector.write_text('FIRST_CLASS_HEAPS :: false;\nPRETTY_PRINT :: true;\n')
             original = selector.read_bytes()
             select_for_verification(root, False, True)
             self.assertEqual(selector.read_bytes(), original)

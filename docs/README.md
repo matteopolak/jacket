@@ -53,6 +53,8 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
   callback-safe publication, the pinned C page-granularity fix and remaining resource policies
 - [Explicit raw heap build profile plan](native/rpmalloc-raw-heap-plan.md): private
   build selection and separate canonical raw record marshalling
+- [rpmalloc allocator protocol and diagnostic snapshots](native/rpmalloc-allocator-protocol.md):
+  complete reviewed mode dispatch, raw-base records, transactional capture and output gates
 - [rpmalloc heap ABI evidence](native/rpmalloc-heap-abi.md): complete pinned
   native storage probes and required separation from canonical public records
 - [License](license.md): AGPL-3.0-or-later with a runtime library exception for compiled programs
@@ -345,7 +347,7 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 ## Tools and workflow
 
-- [Developer tooling](developer-tools.md): reflected C headers, configured-SDK binding generation, C++ bridge subset, native ABI probes, DWARF line/frame decoding and canonical MSF read helpers; [test provenance](developer-tools-testing.md), [native integration plan](developer-tools-native-integration.md), [remaining functions](status/developer-tools-remaining.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
+- [Developer tooling](developer-tools.md): reflected C headers, configured-SDK C/C++ bindings, measured manual profiler, typed Codex metrics, native ABI probes, DWARF/CodeView queries and canonical MSF readers/page bits; [test provenance](developer-tools-testing.md), [native integration plan](developer-tools-native-integration.md), [remaining functions](status/developer-tools-remaining.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
 
 Scripts, CI and project policies.
 
@@ -430,3 +432,13 @@ Agreed designs that are not built yet.
 - [Foreign native storage reexports](compiler/foreign-data-reexports.md): reviewed immutable-binding boundary, general filtered export fix and actual Socket identity verification.
 
 - [Extensions assertion-profile runner](../tests/extensions/run-assert-profiles.py): actual Io worker preparation/completion under enabled and disabled assertions, with unchanged production source hashes.
+# Native Mac integration measurement
+
+The [machine-readable baseline](status/mac-integration-baseline.json) records the
+exact candidate snapshot, commands, environment, counts and failure names.
+Snapshot `90fea8ab` has 822 workspace passes, seven failures and one ignored test;
+the 408-case catalogue remains red. This is a measurement, not completion.
+Focused follow-up: seven reviewed Thread fixtures pass interpreter/native ARM64
+O0 and strict lint; original thread and native backtrace regressions pass. See
+[integration evidence](tools/cleanroom-integration.md) for the coverage changes
+and unresolved old negative assumptions. Full baseline remains red.

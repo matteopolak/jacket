@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 import unittest
 
@@ -42,9 +43,13 @@ class ReviewedAllocatorContextTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rewrite_records(broken)
 
-    def test_authorized_default_is_private_policy_not_new_public_parameter(self):
+    def test_selected_heap_profile_is_private_policy_not_new_public_parameter(self):
         self.assertIn('RPMALLOC_FIRST_CLASS_HEAPS :: Raw_Build_Configuration.FIRST_CLASS_HEAPS;',render_context(self.spec))
-        self.assertIn('FIRST_CLASS_HEAPS :: false;',
+        # Baseline packaging is false; an explicit production profile sweep must
+        # validate its requested true selection rather than require a source rewrite.
+        expected = os.environ.get('JAIC_TEST_RPMALLOC_FIRST_CLASS_HEAPS', 'false')
+        self.assertIn(expected, ('false', 'true'))
+        self.assertIn('FIRST_CLASS_HEAPS :: '+expected+';',
                       (ROOT/'stdlib/internal/bindings/rpmalloc-build/module.jai').read_text())
         params = self.spec.split('#module_parameters (',1)[1].split(')();',1)[0]
         self.assertNotIn('FIRST_CLASS_HEAPS',params)

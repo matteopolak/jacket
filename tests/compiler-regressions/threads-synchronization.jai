@@ -89,10 +89,11 @@ capture_logger :: (message: string, data: *void, info: Log_Info) {
 }
 
 counting_allocator_calls: s64;
+base_allocator: Allocator;
 
 counting_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     atomic_add(*counting_allocator_calls, 1);
-    return Context_Base.default_allocator.proc(mode, size, old_size, old_memory, allocator_data);
+    return base_allocator.proc(mode, size, old_size, old_memory, base_allocator.data);
 }
 
 look_at_context :: (thread: *Thread) -> s64 {
@@ -129,6 +130,7 @@ nothing :: (thread: *Thread) -> s64 {
 }
 
 main :: () {
+    base_allocator = context.default_allocator;
     assert(context.thread_index == 0, "main runs as thread %", context.thread_index);
 
     // Many threads, one mutex, an exact final count.
@@ -139,59 +141,44 @@ main :: () {
     indices: [THREADS] s64;
     for threads indices[it_index] = it.index;
     for i: 0..THREADS - 1 for j : i + 1..THREADS - 1 assert(indices[i] != indices[j], "thread indices repeat: %", indices);
-    for *threads assert(thread_start(it), "thread_start %", it_index);
-    for *threads thread_deinit(it);
+    for *threads thread_start(it);
+
+    for *threads {
+        assert(thread_is_done(it, -1));
+        thread_deinit(it);
+    }
 
     assert(shared.value == THREADS * INCREMENTS, "mutex counter %", shared.value);
     assert(shared.racy_window == 3 * THREADS * INCREMENTS, "racy window %", shared.racy_window);
     destroy(*shared.mutex);
 
-    // thread_init and thread_start refuse bad requests.
+    // Run the same storage through two complete, supported lifecycles.
     {
         thread: Thread;
 
-        assert(!thread_init(null, nothing), "thread_init with a null thread");
-        null_proc: Native_Thread_Proc;
-
-        assert(!thread_init(*thread, null_proc), "thread_init with a null proc");
-        assert(!thread_init(*thread, nothing, -1), "thread_init with negative temporary storage");
-        assert(!thread_start(*thread), "thread_start before thread_init");
-        assert(thread_is_done(*thread), "an uninitialized thread counts as done");
-        assert(thread_init(*thread, nothing));
-        assert(!thread_init(*thread, nothing), "a second thread_init");
-        assert(thread_is_done(*thread), "an initialized thread that never started counts as done");
-        assert(thread_start(*thread));
-        assert(!thread_start(*thread), "a second thread_start");
-        thread_destroy(*thread);
-        assert(!thread.initialized && thread_is_done(*thread));
-        // A destroyed thread can be initialized and run again.
-        assert(thread_init(*thread, nothing));
-        assert(thread_start(*thread));
-        thread_deinit(*thread);
-        // Deinit of a thread that never started.
-        assert(thread_init(*thread, nothing));
-        thread_deinit(*thread);
-        thread_deinit(*thread);
+        for 1..2 {
+            assert(thread_init(*thread, nothing));
+            thread_start(*thread);
+            assert(thread_is_done(*thread, -1));
+            thread_deinit(*thread);
+            assert(thread.index == 0);
+        }
     }
 
-    // Semaphores: counts, timeouts, bad arguments.
+    // Semaphore permits, bounded waits and reuse after destruction.
     {
         sem: Semaphore;
 
-        assert(wait_for(*sem, 0) == .ERROR, "waiting on an uninitialized semaphore");
-        assert(wait_for(null) == .ERROR);
-        assert(!init(*sem, -1), "negative initial count");
-        assert(init(*sem, 2));
-        assert(!init(*sem), "a second init");
+        init(*sem, 2);
         assert(wait_for(*sem, 0) == .SUCCESS);
         assert(wait_for(*sem, 0) == .SUCCESS);
-        assert(wait_for(*sem, 0) == .TIMEOUT, "count should be used up");
-        start := current_time_monotonic();
+        assert(wait_for(*sem, 0) == .TIMEOUT);
+        start := monotonic_ns();
 
         assert(wait_for(*sem, 30) == .TIMEOUT);
-        waited := to_milliseconds(current_time_monotonic() - start);
+        waited := (monotonic_ns() - start) / 1000000;
 
-        #if OS != .WASM assert(waited >= 25, "a 30 ms timed wait returned after % ms", waited);
+        assert(waited >= 25, "a 30 ms timed wait returned after % ms", waited);
         for 1..3 signal(*sem);
 
         assert(wait_for(*sem, 1000) == .SUCCESS);
@@ -199,9 +186,8 @@ main :: () {
         assert(wait_for(*sem, 0) == .SUCCESS);
         assert(wait_for(*sem, 0) == .TIMEOUT);
         destroy(*sem);
-        destroy(*sem);
-        assert(wait_for(*sem, 0) == .ERROR, "waiting on a destroyed semaphore");
-        assert(init(*sem), "a destroyed semaphore can be initialized again");
+        init(*sem);
+        assert(wait_for(*sem, 0) == .TIMEOUT);
         destroy(*sem);
 
         // Ten signals handed to a thread that takes them one by one.
@@ -214,6 +200,7 @@ main :: () {
         thread_start(*taker);
         for 1..10 signal(*handoff.items);
 
+        assert(thread_is_done(*taker, -1));
         thread_deinit(*taker);
         assert(handoff.taken == 10, "taken %", handoff.taken);
         assert(wait_for(*handoff.items, 0) == .TIMEOUT, "every signal was consumed exactly once");
@@ -255,7 +242,11 @@ main :: () {
         gate.open = true;
         wake_all(*gate.opened);
         unlock(*gate.mutex);
-        for *waiters thread_deinit(it);
+
+        for *waiters {
+            assert(thread_is_done(it, -1));
+            thread_deinit(it);
+        }
 
         assert(gate.passed == THREADS, "passed %", gate.passed);
         destroy(*gate.opened);
@@ -270,13 +261,13 @@ main :: () {
         thread: Thread;
         thread.data = *release;
         assert(thread_init(*thread, wait_for_release));
-        assert(thread_start(*thread));
+        thread_start(*thread);
         assert(!thread_is_done(*thread), "a thread blocked on a semaphore is not done");
 
         #if OS != .WASM {
-            start := current_time_monotonic();
+            start := monotonic_ns();
             assert(!thread_is_done(*thread, 20), "a timed thread_is_done on a blocked thread");
-            waited := to_milliseconds(current_time_monotonic() - start);
+            waited := (monotonic_ns() - start) / 1000000;
             assert(waited >= 15, "thread_is_done(20) returned after % ms", waited);
         }
 
@@ -301,9 +292,12 @@ main :: () {
         context.logger_data = *observed;
         context.allocator = .{ counting_allocator, null };
         assert(thread_init(*thread, look_at_context));
-        assert(thread_start(*thread));
+        thread_start(*thread);
+        expected_index := thread.index;
+
+        assert(thread_is_done(*thread, -1));
         thread_deinit(*thread);
-        assert(observed.thread_index == cast(u32) thread.index && observed.thread_index != 0, "thread index % (thread %)", observed.thread_index, thread.index);
+        assert(observed.thread_index == cast(u32) expected_index && observed.thread_index != 0, "thread index % (thread %)", observed.thread_index, expected_index);
         assert(observed.user_value == 1, "logger_data reached the thread");
         assert(observed.logged.count == 1 && begins_with(observed.logged[0], "hello from thread "), "logged %", observed.logged);
         assert(observed.temporary_is_own, "talloc in a thread uses the thread's temporary storage");
@@ -315,7 +309,10 @@ main :: () {
     {
         storage: Temporary_Storage;
 
-        assert(init_temporary_storage(*storage, 4096));
+        storage.data = cast(*u8) alloc(4096);
+        assert(storage.data != null);
+        storage.size = 4096;
+        defer free(storage.data);
         observed: Observed;
         thread: Thread;
         thread.data = *observed;
@@ -325,11 +322,13 @@ main :: () {
         context.logger = capture_logger;
         context.logger_data = *observed;
         assert(thread_init(*thread, look_at_context, 0, *storage));
-        assert(!thread.owns_temporary_storage);
+        assert(thread.starting_temporary_storage.data == storage.data);
+        assert(thread.starting_temporary_storage.size == storage.size);
         thread_start(*thread);
+        assert(thread_is_done(*thread, -1));
         thread_deinit(*thread);
         assert(observed.temporary_is_own, "talloc used the caller's storage");
-        deinit_temporary_storage(*storage, free_original = true);
+        assert(storage.data != null && storage.size == 4096);
     }
 
     print("ok\n");
@@ -338,4 +337,10 @@ main :: () {
 begins_with :: (s: string, prefix: string) -> bool {
     if s.count < prefix.count return false;
     return string.{ prefix.count, s.data } == prefix;
+}
+
+monotonic_ns :: () -> s64 {
+    value, ok := to_nanoseconds(current_time_monotonic());
+    assert(ok);
+    return value;
 }

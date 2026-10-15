@@ -19,6 +19,9 @@ from rpmalloc_context import render_context
 from conditions import possible
 
 ROOT = Path(__file__).resolve().parents[2]
+MANUAL_FACADE_SOURCES = {
+    'rpmalloc': ('configuration.jai', 'wrappers.jai', 'allocator.jai', 'statistics.jai'),
+}
 
 
 def format_source(code, formatter):
@@ -350,8 +353,10 @@ def generate_facade(module, spec):
     ledger, output, emitted = [], [], set()
     constants_path = ROOT/'stdlib/internal/bindings/vendor/constants.json'
     native_constants = json.loads(constants_path.read_text()) if constants_path.exists() else {}
-    manual_path = ROOT / 'stdlib' / module / 'wrappers.jai'
-    manual_signatures = authored_signatures(manual_path.read_text()) if manual_path.exists() else set()
+    manual_paths = [ROOT/'stdlib'/module/name for name in MANUAL_FACADE_SOURCES.get(module, ('wrappers.jai',))]
+    signature_sources = {signature: path for path in manual_paths if path.exists()
+                         for signature in authored_signatures(path.read_text())}
+    manual_signatures = set(signature_sources)
     alias_targets = {d.name:re.fullmatch(r'\w+\s*::\s*(\w+)\s*;?',d.code.strip())[1]
                      for d in spec.declarations
                      if re.fullmatch(r'\w+\s*::\s*(\w+)\s*;?',d.code.strip())}
@@ -364,7 +369,7 @@ def generate_facade(module, spec):
         if adapter and '#foreign' in d.code:
             wrapper_signature = re.sub(r'#foreign\s+\w+(?:\s+"[^"]*")?\s*;?$', '#c_call', d.code)
             if normalized_signature(wrapper_signature) in manual_signatures:
-                record.update(status='implemented_manual', artifact=str(manual_path.relative_to(ROOT)),
+                record.update(status='implemented_manual', artifact=str(signature_sources[normalized_signature(wrapper_signature)].relative_to(ROOT)),
                               native_abi_adapter=adapter)
                 ledger.append(record)
                 continue
@@ -377,13 +382,14 @@ def generate_facade(module, spec):
         alias_view = bool(alias_target and procedure_parts(d.code) and
                           normalized_signature(re.sub(r'^\w+',alias_target,d.code)) in manual_signatures)
         if authored or alias_view:
-            record.update(status='implemented_manual', artifact=str(manual_path.relative_to(ROOT)))
+            signature = normalized_signature(d.code) if authored else normalized_signature(re.sub(r'^\w+',alias_target,d.code))
+            record.update(status='implemented_manual', artifact=str(signature_sources[signature].relative_to(ROOT)))
             if alias_view and not authored:
                 record['canonical_alias_target'] = alias_target
             if module == 'rpmalloc':
                 record.update(status='partially_implemented',
                               implemented_condition='Native_Profile_Matches' + (' && ('+condition+')' if condition else ''),
-                              reason='Real shared native boundary for supported raw/rewrite profile; nondefault cache/statistics/assertion profiles remain incomplete')
+                              reason='Real native boundaries for six raw/rewrite/layout/statistics profiles; other cache/assertion/page-advice and numeric build options remain incomplete')
             ledger.append(record)
             continue
         key = (condition, d.code)
@@ -645,6 +651,9 @@ def main():
         if module in TARGETS:
             entry_code += '#assert ' + TARGETS[module] + ', "' + module + ' requires its documented native platform";\n'
         contextual = ROOT / 'stdlib' / module / 'context.jai'
+        sources = MANUAL_FACADE_SOURCES.get(module, ('wrappers.jai',))
+        if 'configuration.jai' in sources:
+            entry_code += '#load "configuration.jai";\n'
         if module == 'rpmalloc':
             contextual_code = format_source(render_context(page.read_text()), args.formatter)
             if args.check:
@@ -655,9 +664,9 @@ def main():
         if contextual.exists():
             entry_code += '#load "context.jai";\n'
         entry_code += '#load "declarations.jai";\n'
-        wrappers = ROOT / 'stdlib' / module / 'wrappers.jai'
-        if wrappers.exists():
-            entry_code += '#load "wrappers.jai";\n'
+        for name in sources:
+            if name!='configuration.jai' and (ROOT/'stdlib'/module/name).exists():
+                entry_code += '#load "'+name+'";\n'
         entry_code = format_source(entry_code, args.formatter)
         if args.check:
             if not entry.exists() or entry.read_text() != entry_code:

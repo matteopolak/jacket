@@ -54,7 +54,7 @@ main :: () {
         thread: Thread;
 
         assert(thread_init(*thread, take_mutex));
-        assert(thread_start(*thread));
+        thread_start(*thread);
         lock(*mutex);
         // Long enough to be preempted while holding the lock.
         sum := busy();
@@ -63,6 +63,7 @@ main :: () {
         for 1..5000 atomic_read(*flag);
 
         unlock(*mutex);
+        assert(thread_is_done(*thread, -1));
         thread_deinit(*thread);
         assert(sum > 0);
         assert(ran_with_mutex == 1, "ran %", ran_with_mutex);
@@ -72,11 +73,12 @@ main :: () {
         thread: Thread;
 
         assert(thread_init(*thread, take_spin));
-        assert(thread_start(*thread));
+        thread_start(*thread);
         lock_spin();
         sum := busy();
 
         unlock_spin();
+        assert(thread_is_done(*thread, -1));
         thread_deinit(*thread);
         assert(sum > 0);
         assert(ran_with_spin == 1, "ran %", ran_with_spin);
@@ -86,9 +88,10 @@ main :: () {
         thread: Thread;
 
         assert(thread_init(*thread, raise_flag));
-        assert(thread_start(*thread));
+        thread_start(*thread);
         while atomic_read(*flag) == 0 {}
 
+        assert(thread_is_done(*thread, -1));
         thread_deinit(*thread);
     }
 

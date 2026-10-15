@@ -2,6 +2,8 @@
 """Produce original MSF fixtures and independent official-tool stream oracles."""
 import os
 import build_developer_bindings
+import hashlib
+import json
 from pathlib import Path
 import re
 import shutil
@@ -24,6 +26,7 @@ def main():
     linker = os.environ.get("DEVELOPER_TOOLS_LLD_LINK") or shutil.which("lld-link")
     if not linker:
         raise RuntimeError("MSF native fixtures require official lld-link (DEVELOPER_TOOLS_LLD_LINK)")
+    page_evidence = {"format": "https://www.llvm.org/docs/PDB/MsfFile.html", "scope": "original native PDB active FPM SDK byte oracles; host public-map operations, not target execution or public parser initialization", "fixtures": []}
     for architecture, target in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
         base = ROOT / f"target/developer-tools-msf-{architecture}"
         run([llvm / "clang", "-target", target, "-g", "-gcodeview", "-O0", "-std=c11",
@@ -33,6 +36,24 @@ def main():
              "/debug", "/Brepro", f"/pdb:{base.with_suffix('.pdb')}",
              f"/out:{base.with_suffix('.exe')}", base.with_suffix(".obj")])
         metadata = run([llvm / "llvm-pdbutil", "dump", "-streams", base.with_suffix(".pdb")])
+        fpm_dump = run([llvm / "llvm-pdbutil", "bytes", "--fpm", base.with_suffix(".pdb")])
+        rows = re.findall(r"^\s*([0-9A-Fa-f]+):\s+([0-9A-Fa-f ]+)\s+\|", fpm_dump, re.MULTILINE)
+        fpm = b"".join(bytes.fromhex(row) for _, row in rows)
+        pdb = base.with_suffix(".pdb").read_bytes()
+        page_size, active_page = struct.unpack_from("<II", pdb, 32)
+        if page_size != 4096 or active_page not in (1, 2) or len(fpm) != page_size:
+            raise RuntimeError("Extend original SDK FPM oracle support for this layout")
+        cursor = active_page * page_size
+        for offset, row in rows:
+            if int(offset, 16) != cursor:
+                raise RuntimeError("SDK FPM byte offsets are not contiguous")
+            cursor += len(bytes.fromhex(row))
+        if fpm != pdb[active_page * page_size:(active_page + 1) * page_size]:
+            raise RuntimeError("Original FPM bytes differ from official SDK output")
+        base.with_suffix(".fpm.bin").write_bytes(fpm)
+        page_evidence["fixtures"].append({"architecture": architecture, "active_page": active_page,
+            "pdb_sha256": hashlib.sha256(pdb).hexdigest(), "fpm_sha256": hashlib.sha256(fpm).hexdigest(),
+            "free_bits": sum(byte.bit_count() for byte in fpm), "bits": len(fpm) * 8})
         streams = re.findall(r"Stream\s+(\d+)\s+\(\s*(\d+) bytes\)", metadata)
         if len(streams) < 5 or [int(index) for index, _ in streams] != list(range(len(streams))):
             raise RuntimeError("Official PDB stream metadata is incomplete")
@@ -64,6 +85,7 @@ def main():
     data[block * 10:block * 11] = payload[:block]
     data[block * 8:block * 8 + len(payload) - block] = payload[block:]
     (ROOT / "target/developer-tools-msf-synthetic.bin").write_bytes(data)
+    (ROOT / "docs/native/developer-tools-msf-page-evidence.json").write_text(json.dumps(page_evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

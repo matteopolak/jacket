@@ -48,7 +48,10 @@ main :: () {
 
     assert(box.value == 41, "value %", box.value);
     unlock(*box.mutex);
+    assert(thread_is_done(*producer_thread, -1));
     thread_deinit(*producer_thread);
+    destroy(*box.ready);
+    destroy(*box.mutex);
 
     // A semaphore handoff and a timed wait that nobody signals.
     sem: Semaphore;
@@ -60,12 +63,13 @@ main :: () {
 
     // A thread group: add work, poll for the results, shut down.
     group: Thread_Group;
+    group.logging = false;
 
-    assert(init(*group, 3, square, false));
+    init(*group, 3, square, false);
     jobs: [10] Job;
     for *jobs it.input = it_index + 1;
 
-    assert(start(*group));
+    start(*group);
     for *jobs add_work(*group, it);
 
     done := 0;
@@ -79,6 +83,7 @@ main :: () {
     assert(done == jobs.count, "completed %", done);
     for jobs assert(it.output == it.input * it.input, "job % gave %", it_index, it.output);
 
-    shutdown(*group);
+    assert(shutdown(*group));
+    destroy(*sem);
     print("ok\n");
 }

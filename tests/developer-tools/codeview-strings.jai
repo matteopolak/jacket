@@ -10,6 +10,15 @@ capture :: (_text: string, _data: *void, info: Log_Info) {
 }
 
 main :: () {
+    assert(cast(u16) D.Codeview_Symbol_Type.RECTYPE_MAX == 0x1169);
+    assert(cast(u16) D.Codeview_Symbol_Type.RECTYPE_LAST == 0x1168);
+    assert(cast(u16) D.Codeview_Symbol_Type.RECTYPE_PAD == 0x1269);
+    assert(cast(u16) D.Codeview_Leaf_Type.TYPE_LAST == 0x151e);
+    assert(cast(u16) D.Codeview_Leaf_Type.TYPE_MAX == 0x151d);
+    assert(cast(u16) D.Codeview_Leaf_Type.ID_LAST == 0x1608);
+    assert(cast(u16) D.Codeview_Leaf_Type.ID_MAX == 0x1607);
+    assert(D.Codeview_Leaf_Type.ENDOFLEAFRECORD == D.Codeview_Leaf_Type.VFTABLE);
+    assert(cast(u16) D.Codeview_Symbol_Type.REGISTER_16t == 2);
     info: D.Codeview_Debug_Info;
     missing, missing_ok := D.get_string_from_table(info, 0);
 

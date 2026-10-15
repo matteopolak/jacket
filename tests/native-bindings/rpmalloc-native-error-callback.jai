@@ -3,7 +3,7 @@
 #import "Basic";
 RPM :: #import "rpmalloc"(USE_RAW = true);
 Settings :: #import "internal/bindings/rpmalloc-build";
-Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = Settings.FIRST_CLASS_HEAPS);
+Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = true, PUBLIC_HEAPS = Settings.FIRST_CLASS_HEAPS);
 Frames :: #import "internal/bindings/callback-context";
 
 #add_context error_callback_marker: s64;

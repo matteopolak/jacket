@@ -12,12 +12,15 @@ def main():
     root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=root / "artifacts/extensions-dependencies/uring-protocol")
+    parser.add_argument("--compiler", type=Path, default=root / "target/debug/jaic")
+    parser.add_argument("--linter", type=Path, default=root / "target/debug/jailint")
+    parser.add_argument("--formatter", type=Path, default=root / "target/jaifmt")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    compiler = str(root / "target/debug/jaic")
-    linter = str(root / "target/debug/jailint")
-    formatter = str(root / "artifacts/extensions-dependencies/jaifmt")
+    compiler = str(args.compiler.resolve(strict=True))
+    linter = str(args.linter.resolve(strict=True))
+    formatter = str(args.formatter.resolve(strict=True))
     env = dict(os.environ, JAIC_STDLIB=str(root / "stdlib"))
     results = []
 

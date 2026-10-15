@@ -2,18 +2,20 @@
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 
 PROFILES = []
-for raw in (False, True):
+for raw, public_heaps in ((False, True), (True, False), (True, True)):
     for statistics in (True, False):
-        suffix = ('_raw' if raw else '')+('' if statistics else '_nostats')
+        suffix = (('_raw' if public_heaps else '_raw_base') if raw else '')+('' if statistics else '_nostats')
         prefix = 'binding_rpmalloc'+suffix+'_'
-        PROFILES.append(dict(raw=raw, statistics=statistics,
-                             condition=('RAW' if raw else '!RAW')+' && '+('STATISTICS' if statistics else '!STATISTICS'),
+        condition = ('RAW && '+('PUBLIC_HEAPS' if public_heaps else '!PUBLIC_HEAPS') if raw else '!RAW')
+        PROFILES.append(dict(raw=raw, public_heaps=public_heaps, statistics=statistics,
+                             condition=condition+' && '+('STATISTICS' if statistics else '!STATISTICS'),
                              sdk='binding_rpmalloc_sdk'+suffix,
                              callbacks='binding_rpmalloc_callbacks'+suffix,
                              symbol_prefix=prefix if suffix else '',
                              facade_prefix=prefix+'facade_', callback_prefix=prefix,
                              options=dict(RPMALLOC_SDK_BUILD_OPTIONS, ENABLE_STATISTICS=int(statistics),
-                                          BINDING_RPMALLOC_RAW=int(raw))))
+                                          BINDING_RPMALLOC_RAW=int(raw),
+                                          BINDING_RPMALLOC_PUBLIC_HEAPS=int(public_heaps))))
 
 
 def select_blocks(render):
@@ -21,7 +23,7 @@ def select_blocks(render):
 
 
 def parameters():
-    return '#module_parameters (STATISTICS := true, RAW := false)();\n'
+    return '#module_parameters (STATISTICS := true, RAW := false, PUBLIC_HEAPS := true)();\n'
 
 
 HEAP_SIGNATURES = (
@@ -32,25 +34,33 @@ HEAP_SIGNATURES = (
     ('free_any', '(memory: *void)'), ('native_heap', '(heap: *void) -> *SDK.rpmalloc_heap_t'),
     ('layout_size', '(index: u32) -> u64'), ('layout_offset', '(index: u32) -> u64'),
     ('layout_width', '(index: u32) -> u64'), ('acquire', '() -> *void'),
+    ('current', '() -> *void'),
     ('release', '(heap: *void)'), ('alloc', '(heap: *void, alignment: u64, size: u64) -> *void'),
     ('calloc', '(heap: *void, alignment: u64, num: u64, size: u64) -> *void'),
     ('realloc', '(heap: *void, memory: *void, alignment: u64, size: u64, flags: u32) -> *void'),
     ('free', '(heap: *void, memory: *void)'), ('free_all', '(heap: *void)'),
     ('set_current', '(heap: *void)'), ('contains', '(heap: *void, memory: *void, span: *void) -> s32'),
 )
+SNAPSHOT_SIGNATURES = (
+    ('snapshot_create', '() -> *void'), ('snapshot_release', '(snapshot: *void)'),
+    ('snapshot_count', '(snapshot: *void) -> u64'),
+    ('snapshot_header', '(snapshot: *void, heap: u64, field: u32) -> u64'),
+    ('snapshot_counters', '(snapshot: *void, heap: u64, family: u32) -> *s32'),
+    ('snapshot_global', '(snapshot: *void) -> *SDK.rpmalloc_global_statistics_t'),
+)
 
 
 def heap_module():
     code = '// Generated private typed SDK ownership boundary; public records never reach C SDK calls.\n'+parameters()
     code += select_blocks(lambda p: '\n'.join(name+' :: '+signature+' #foreign sdk "'+p['facade_prefix']+name+'";'
-                                              for name, signature in HEAP_SIGNATURES))
-    code += '#scope_file\nSDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW);\n'
+                                              for name, signature in HEAP_SIGNATURES+(SNAPSHOT_SIGNATURES if p['statistics'] else ())))
+    code += '#scope_file\nSDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS);\n'
     return code+select_blocks(lambda p: 'sdk :: #library,system "'+p['sdk']+'";')
 
 
 def callbacks_module():
     code = '// Generated private callback ABI; matching native profile owns the SDK instance.\n'+parameters()
-    code += 'SDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW);\n'
+    code += 'SDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS);\n'
     code += select_blocks(lambda p: 'initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "'+p['callback_prefix']+'initialize";\n'
                           'finalize :: () #foreign bridge "'+p['callback_prefix']+'finalize";')
     return code+'#scope_file\n'+select_blocks(lambda p: 'bridge :: #library,system "'+p['callbacks']+'";')

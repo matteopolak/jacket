@@ -36,7 +36,7 @@ def mirror_c_header(spec, raw):
         if outer: lines += ['#if ENABLE_STATISTICS']
         lines += ['struct Public_'+name+' {']
         for field, ty, condition in records[name]:
-            if condition: lines += ['#if '+condition.replace('RPMALLOC_FIRST_CLASS_HEAPS','1')]
+            if condition: lines += ['#if '+condition.replace('RPMALLOC_FIRST_CLASS_HEAPS','BINDING_RPMALLOC_PUBLIC_HEAPS')]
             array = re.match(r'\[(\d+)\]\s*(.*)',ty)
             count = array[1] if array else ''
             ty = array[2] if array else ty
@@ -58,7 +58,7 @@ def public_c_header(spec):
     return '#if BINDING_RPMALLOC_RAW\n'+mirror_c_header(spec, True)+'#else\n'+mirror_c_header(spec, False)+'#endif\n'
 
 
-def layout_probes(spec, raw=False):
+def layout_probes(spec, raw=False, public_heaps=True):
     records = mirror_records(spec, raw)
     rows = [(owner,name,condition) for owner in ORDER for name,_,condition in records[owner]]
     code = '/* Generated reviewed public C mirror layout measurements. */\n'
@@ -68,7 +68,7 @@ def layout_probes(spec, raw=False):
         code += 'uint64_t API('+function+')(unsigned index) { switch(index) {\n'
         for i,(owner,name,condition) in enumerate(entries):
             condition = condition or ('ENABLE_STATISTICS' if owner=='Size_Class_Use' else '')
-            if condition: code += '#if '+condition+'\n'
+            if condition: code += '#if '+condition.replace('RPMALLOC_FIRST_CLASS_HEAPS','BINDING_RPMALLOC_PUBLIC_HEAPS')+'\n'
             expression = ('sizeof(Public_'+owner+')' if function=='layout_size' else
                           'offsetof(Public_'+owner+','+name+')' if function=='layout_offset' else
                           'sizeof(((Public_'+owner+'*)0)->'+name+')')
@@ -80,9 +80,10 @@ def layout_probes(spec, raw=False):
                        Size_Class_Use='heap.size_class_use[0]',Span='heap.span_reserve.*',Heap='heap.*')
     jai = '// Generated reviewed public record/C mirror ABI assertions.\n'
     for stats in (True,False):
-        function = ('raw_' if raw else '')+('statistics' if stats else 'no_statistics')
-        bridge = ('Raw' if raw else '')+('Bridge' if stats else 'NoStatsBridge')
+        function = (('raw_' if public_heaps else 'raw_base_') if raw else '')+('statistics' if stats else 'no_statistics')
+        bridge = (('Raw' if public_heaps else 'RawBase') if raw else '')+('Bridge' if stats else 'NoStatsBridge')
         def active(condition):
+            if condition=='RPMALLOC_FIRST_CLASS_HEAPS': return public_heaps
             return not condition or condition=='ENABLE_THREAD_CACHE' or bool(stats)
         jai += 'canonical_layout_'+function+' :: (heap: *$T) {\n'
         for i,owner in enumerate(ORDER):

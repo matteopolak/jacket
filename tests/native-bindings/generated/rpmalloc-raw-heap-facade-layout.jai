@@ -249,4 +249,8 @@ canonical_layout_raw_no_statistics :: (heap: *$T) {
     assert(size_of(type_of(value6.span_cache)) == RawNoStatsBridge.layout_width(58));
     assert(cast(u64) *value6.span_large_cache - cast(u64) *value6 == RawNoStatsBridge.layout_offset(59));
     assert(size_of(type_of(value6.span_large_cache)) == RawNoStatsBridge.layout_width(59));
+    assert(cast(u64) *value6.full_span - cast(u64) *value6 == RawNoStatsBridge.layout_offset(60));
+    assert(size_of(type_of(value6.full_span)) == RawNoStatsBridge.layout_width(60));
+    assert(cast(u64) *value6.large_huge_span - cast(u64) *value6 == RawNoStatsBridge.layout_offset(61));
+    assert(size_of(type_of(value6.large_huge_span)) == RawNoStatsBridge.layout_width(61));
 }

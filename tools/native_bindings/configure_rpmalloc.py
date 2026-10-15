@@ -9,14 +9,21 @@ from pathlib import Path
 import re
 
 
-def configure(stdlib, enabled):
+def configure(stdlib, enabled=None, pretty_print=None):
     if not (stdlib/'rpmalloc/module.jai').is_file():
         raise ValueError('Expected a stdlib tree containing the public rpmalloc facade')
     target = stdlib/'internal/bindings/rpmalloc-build/module.jai'
     if not target.is_file():
         raise ValueError('The independent rpmalloc build configuration is missing')
-    target.write_text('// Explicit private packaging selection; no public import parameter.\n'
-                      'FIRST_CLASS_HEAPS :: '+('true' if enabled else 'false')+';\n')
+    text = target.read_text()
+    values = {}
+    for name, selected in [('FIRST_CLASS_HEAPS', enabled), ('PRETTY_PRINT', pretty_print)]:
+        existing = re.findall(r'^\s*'+name+r'\s*::\s*(true|false)\s*;',text,re.M)
+        if len(existing)!=1:
+            raise ValueError('Missing or ambiguous private setting: '+name)
+        values[name] = existing[0] if selected is None else ('true' if selected else 'false')
+    target.write_text('// Explicit private packaging selection; no public import parameter.\n'+
+                      ''.join(name+' :: '+value+';\n' for name,value in values.items()))
 
 
 def select_for_verification(stdlib, enabled, production=False):
@@ -33,6 +40,10 @@ def select_for_verification(stdlib, enabled, production=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stdlib', type=Path, required=True)
-    parser.add_argument('--first-class-heaps', choices=('true', 'false'), required=True)
+    parser.add_argument('--first-class-heaps', choices=('true', 'false'))
+    parser.add_argument('--pretty-print', choices=('true', 'false'))
     args = parser.parse_args()
-    configure(args.stdlib, args.first_class_heaps == 'true')
+    if args.first_class_heaps is None and args.pretty_print is None:
+        parser.error('Select at least one private build setting')
+    configure(args.stdlib, None if args.first_class_heaps is None else args.first_class_heaps == 'true',
+              None if args.pretty_print is None else args.pretty_print == 'true')

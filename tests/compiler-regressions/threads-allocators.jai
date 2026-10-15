@@ -44,7 +44,9 @@ churn :: (thread: *Thread) -> s64 {
             if round % 3 == 0 {
                 // Grow it in place or by moving, then check the kept bytes again.
                 new_size := sizes[slot] * 2 + 1;
-                grown := cast(*u8) realloc(blocks[slot], new_size, sizes[slot], allocators[slot]);
+                grown := cast(*u8) resize_with(allocators[slot], blocks[slot], new_size, sizes[slot]);
+
+                assert(grown != null);
 
                 for i: 0..sizes[slot] - 1 if grown[i] != pattern {
                     result.corrupted = true;
@@ -55,13 +57,15 @@ churn :: (thread: *Thread) -> s64 {
                 blocks[slot] = grown;
                 sizes[slot] = new_size;
             } else {
-                free(blocks[slot], allocators[slot]);
+                free_with(allocators[slot], blocks[slot]);
                 blocks[slot] = null;
             }
         } else {
             size := cast(s64) ((seed >> 40) % 300) + 1;
             allocator := ifx round % 2 then shared_debug_allocator else context.allocator;
-            block := cast(*u8) alloc(size, allocator);
+            block := cast(*u8) allocate_with(allocator, size);
+
+            assert(block != null);
 
             memset(block, pattern, size);
             blocks[slot] = block;
@@ -78,7 +82,7 @@ churn :: (thread: *Thread) -> s64 {
         }
     }
 
-    for blocks if it free(it, allocators[it_index]);
+    for blocks if it free_with(allocators[it_index], it);
 
     return 0;
 }
@@ -98,8 +102,12 @@ main :: () {
         assert(thread_init(it, churn));
     }
 
-    for *threads assert(thread_start(it));
-    for *threads thread_deinit(it);
+    for *threads thread_start(it);
+
+    for *threads {
+        assert(thread_is_done(it, -1));
+        thread_deinit(it);
+    }
 
     for results {
         assert(!it.corrupted, "thread % found a block changed by someone else", it_index);
@@ -109,4 +117,19 @@ main :: () {
 
     deinit_overwriting_allocator(shared_debug_allocator);
     print("ok\n");
+}
+
+allocate_with :: (allocator: Allocator, size: s64) -> *void {
+    push_allocator(allocator);
+    return alloc(size);
+}
+
+resize_with :: (allocator: Allocator, memory: *void, size: s64, old_size: s64) -> *void {
+    push_allocator(allocator);
+    return realloc(memory, size, old_size);
+}
+
+free_with :: (allocator: Allocator, memory: *void) {
+    push_allocator(allocator);
+    free(memory);
 }

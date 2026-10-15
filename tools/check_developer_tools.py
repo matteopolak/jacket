@@ -9,6 +9,7 @@ import subprocess
 import shutil
 import build_developer_bindings
 import platform
+import csv
 import check_developer_bindings
 import build_developer_debug
 import check_developer_debug_windows
@@ -20,6 +21,7 @@ import check_developer_eh_frames
 import check_developer_sdk_configuration
 import check_developer_dwarf_types
 import check_developer_codeview_strings
+import check_developer_profiler_windows
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -73,6 +75,8 @@ def check_bridge_consumers(prefix, emitter, workflow=False):
     stem = "cpp-workflow" if workflow else "bridge"
     library = "cpp_workflow" if workflow else "bridge"
     if workflow:
+        run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fsyntax-only",
+             ROOT / "tests/developer-tools/bindings-cpp-nonpod.h"])
         for suffix in ["generated", "linux", "windows"]:
             generated = ROOT / f"target/developer-tools-cpp-workflow-{suffix}.jai"
             run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
@@ -94,6 +98,25 @@ def check_bridge_consumers(prefix, emitter, workflow=False):
             run([exe], output="ok\n")
 
 
+def check_measured_profiler_csv():
+    lines = (ROOT / "target/developer-tools-iprof-measured.csv").read_text().splitlines()
+    rows = list(csv.DictReader(lines[1:]))
+    if len(rows) != 2 or [row["name"] for row in rows] != ["original outer", "original inner"] or [float(row["calls"]) for row in rows] != [3, 1]:
+        raise RuntimeError("Measured profiler CSV lacks actual runtime zones/call counts")
+    if float(rows[0]["self (ms)"]) < 10 or float(rows[0]["hier (ms)"]) < 25 or float(rows[1]["hier (ms)"]) < 5:
+        raise RuntimeError("Measured profiler CSV does not preserve actual elapsed milliseconds")
+
+
+def check_profiler_client_children():
+    for configuration in range(8):
+        for optimization in [0, 2]:
+            run([ROOT / f"target/developer-tools-iprof-client-c{configuration}-o{optimization}"], output="ok\n")
+        source = ROOT / f"target/developer-tools-iprof-client-input-c{configuration}.jai"
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", source])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", source])
+        run([ROOT / "target/debug/jailint", "-D", "warnings", source])
+
+
 def main():
     check_developer_bindings.main()
     configured_cases = check_developer_sdk_configuration.main()
@@ -106,6 +129,7 @@ def main():
     check_developer_eh_frames.main()
     check_developer_dwarf_types.main()
     check_developer_codeview_strings.main()
+    check_developer_profiler_windows.main()
     prefix = build_developer_bindings.llvm_prefix()
     framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
     (framework / "Modules").mkdir(parents=True, exist_ok=True)
@@ -198,6 +222,10 @@ def main():
     cases.extend(["bindings-cpp-workflow", "bindings-cpp-workflow-roundtrip"])
     cases.append("codeview-strings")
     cases.append("codeview-sentinels")
+    cases.append("iprof-manual-clock")
+    cases.append("iprof-client-setup")
+    cases.append("codex-metrics")
+    cases.append("msf-page-bits")
     run([JAIC, "tests/developer-tools/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"
@@ -219,6 +247,10 @@ def main():
             check_bridge_consumers(prefix, "interp")
         if case == "bindings-cpp-workflow":
             check_bridge_consumers(prefix, "interp", workflow=True)
+        if case == "iprof-manual-clock":
+            check_measured_profiler_csv()
+        if case == "iprof-client-setup":
+            check_profiler_client_children()
         if case == "bindings-cpp-fragments":
             for cpp_optimization in [0, 2]:
                 cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-interp-cxx{cpp_optimization}"
@@ -235,6 +267,10 @@ def main():
                 check_bridge_consumers(prefix, f"o{optimization}")
             if case == "bindings-cpp-workflow":
                 check_bridge_consumers(prefix, f"o{optimization}", workflow=True)
+            if case == "iprof-manual-clock":
+                check_measured_profiler_csv()
+            if case == "iprof-client-setup":
+                check_profiler_client_children()
             if case == "bindings-cpp-fragments":
                 for cpp_optimization in [0, 2]:
                     cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}"
@@ -289,10 +325,10 @@ def main():
              *sorted((ROOT / "stdlib/Debug_Info").glob("*.jai")),
              ROOT / "stdlib/Debug/module.jai",
              ROOT / "stdlib/Iprof/module.jai",
-             ROOT / "stdlib/Codex/module.jai",
+             *sorted((ROOT / "stdlib/Codex").glob("*.jai")),
              ROOT / "stdlib/Check/module.jai",
              *sorted((ROOT / "stdlib/Bindings_Generator").glob("*.jai")),
-             *sorted((ROOT / "stdlib/internal/developer-tools").glob("*.jai")),
+             *sorted((ROOT / "stdlib/internal/developer-tools").rglob("*.jai")),
              *sorted((ROOT / "tests/developer-tools").glob("*.jai")),
              ROOT / "target/developer-tools-native-abi.jai", visitor_oracle,
              ROOT / "target/developer-tools-dwarf-line-oracle.jai",
@@ -301,7 +337,8 @@ def main():
              ROOT / "target/developer-tools-dwarf-type-oracle.jai",
              ROOT / "target/developer-tools-codeview-string-oracle.jai"]
     format_paths = [*paths, *sorted((ROOT / "tests/developer-tools/rejections").glob("*.jai")),
-                    *sorted((ROOT / "tests/developer-tools/compiler-requests").glob("*.jai"))]
+                    *sorted((ROOT / "tests/developer-tools/compiler-requests").glob("*.jai")),
+                    ROOT / "tests/developer-tools/iprof-client-input.jai.inc"]
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *format_paths])
     shutil.copyfile(ROOT / "tests/developer-tools/rewrite-input.jai", rewritten)
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
@@ -315,7 +352,7 @@ def main():
     for cpu in ["x64", "arm64"]:
         run([JAIC, "tests/developer-tools/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
         for os_name in ["linux", "windows"]:
-            for case in ["msf-wire", "msf-public", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-type-lookup", "dwarf-fde", "codeview-strings", "bindings-equivalence", "iprof-history-values", "iprof-stack-depth", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
+            for case in ["msf-wire", "msf-public", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-type-lookup", "dwarf-fde", "codeview-strings", "bindings-equivalence", "iprof-history-values", "iprof-stack-depth", "iprof-manual-clock", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
                 run([JAIC, f"tests/developer-tools/{case}.jai", "-check", "-os", os_name, "-cpu", cpu])
     for case, reason in [("check-array", "fixed array used as a pointer in assignment"),
                          ("check-small-driver", "small integer addition requires an explicit intermediate integer cast")]:
@@ -331,6 +368,28 @@ def main():
                                   cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
     if private_page.returncode != 1 or "no exported member `UPN`" not in private_page.stderr:
         raise RuntimeError("Debug_Info must not add an export for the contextual page-number alias")
+    private_profile = subprocess.run([str(JAIC), "tests/developer-tools/rejections/iprof-private-runtime.jai", "-check"],
+                                     cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
+    if private_profile.returncode != 1 or "no exported member `profile_owner`" not in private_profile.stderr:
+        raise RuntimeError("Iprof must not export its private runtime allocator state")
+    for case, diagnostic in [("iprof-unbalanced", "Iprof: zone_end without an active zone"),
+                              ("iprof-depth", "Iprof: maximum profiling depth exceeded"),
+                              ("codex-conditional-metrics", "Codex: conditional metric weights require reviewed refinement"),
+                              ("codex-basic-metrics", "Codex: Basic allocation metric recognition requires reviewed name set"),
+                              ("msf-page-bounds", "Debug_Info: page outside initialized free-page map")]:
+        fixture = ROOT / f"tests/developer-tools/rejections/{case}.jai"
+        for mode in ["interp", "0", "2"]:
+            executable = ROOT / f"target/developer-tools-{case}-o{mode}"
+            if mode != "interp":
+                run([JAIC, fixture, f"-O{mode}", "-exe", executable])
+            command = [str(JAIC), str(fixture), "-interp"] if mode == "interp" else [str(executable)]
+            def disable_core_dump():
+                import resource
+                resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+            rejected = subprocess.run(command, cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60,
+                                      preexec_fn=disable_core_dump if os.name == "posix" else None)
+            if rejected.returncode == 0 or diagnostic not in rejected.stdout + rejected.stderr:
+                raise RuntimeError(f"Developer-tool rejection {case}/{mode} did not fail with the required diagnostic")
     for os_name, cpu in [("linux", "x64"), ("windows", "x64"), ("wasm", "x64")]:
         run([JAIC, "tests/developer-tools/c-header.jai", "-check", "-os", os_name, "-cpu", cpu])
         run([JAIC, "tests/developer-tools/debug-target.jai", "-check", "-os", os_name, "-cpu", cpu])

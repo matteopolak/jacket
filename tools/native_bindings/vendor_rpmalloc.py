@@ -357,6 +357,7 @@ def main():
     reviewed = (ROOT/'docs/specs/stdlib/modules/rpmalloc.md').read_text()
     probe, jai_checks = layout_probes(reviewed)
     raw_probe, raw_checks = layout_probes(reviewed, raw=True)
+    _, raw_base_checks = layout_probes(reviewed, raw=True, public_heaps=False)
     outputs[ROOT/'stdlib/internal/bindings/rpmalloc-heaps/layout-probes.inc'] = '#if BINDING_RPMALLOC_RAW\n'+raw_probe+'#else\n'+probe+'#endif\n'
     temporary.write_text(jai_checks)
     run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
@@ -364,6 +365,9 @@ def main():
     temporary.write_text(raw_checks)
     run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
     outputs[ROOT/'tests/native-bindings/generated/rpmalloc-raw-heap-facade-layout.jai'] = temporary.read_text()
+    temporary.write_text(raw_base_checks)
+    run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai'] = temporary.read_text()
     for path, data in outputs.items():
         if args.check:
             if not path.exists() or path.read_text() != data:

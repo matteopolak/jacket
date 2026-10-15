@@ -37,14 +37,14 @@ serve :: (thread: *Thread) -> s64 {
 }
 
 main :: () {
-    assert(init(*channel.request));
-    assert(init(*channel.reply));
+    init(*channel.request);
+    init(*channel.reply);
     init(*channel.mutex);
 
     worker: Thread;
 
     assert(thread_init(*worker, serve));
-    assert(thread_start(*worker));
+    thread_start(*worker);
 
     for round: 1..ROUNDS {
         // Main has work of its own between requests, so the worker sits waiting meanwhile.
@@ -70,6 +70,7 @@ main :: () {
     unlock(*channel.mutex);
     signal(*channel.request);
     assert(wait_for(*channel.reply) == .SUCCESS);
+    assert(thread_is_done(*worker, -1));
     thread_deinit(*worker);
 
     destroy(*channel.request);
