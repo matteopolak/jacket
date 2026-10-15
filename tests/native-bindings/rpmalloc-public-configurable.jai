@@ -6,6 +6,40 @@ Default :: #import "rpmalloc";
 probe :: #library,system "rpmalloc_callback_probe";
 config_value :: (index: u32) -> u64 #foreign probe "binding_rpmalloc_test_config";
 
+exercise_heap :: (span_size: s64) {
+    config: RPM.rpmalloc_config_t;
+    config.span_size = span_size;
+    config.span_map_count = 4;
+    assert(RPM.initialize_config(*config) == 0);
+    heap := RPM.heap_acquire();
+
+    assert(heap != null);
+    sizes: [6] s64 = .[1, 64, 512, 16384, 1_048_576, 33_554_432];
+
+    for sizes {
+        memory := RPM.heap_alloc(heap, it);
+
+        assert(memory != null && RPM.heap_is_this_yours(heap, memory));
+        (cast(*u8) memory)[0] = 61;
+        (cast(*u8) memory)[it - 1] = 61;
+        replacement := RPM.heap_realloc(heap, memory, it * 2, .{});
+
+        assert(replacement != null && RPM.heap_is_this_yours(heap, replacement));
+        assert((cast(*u8) replacement)[0] == 61);
+        assert((cast(*u8) replacement)[it - 1] == 61);
+        RPM.heap_free(heap, replacement);
+        RPM.heap_free_all(heap);
+    }
+
+    RPM.heap_thread_set_current(heap);
+    memory := RPM.rpmalloc(6000);
+
+    assert(memory != null && RPM.heap_is_this_yours(heap, memory));
+    RPM.rpfree(memory);
+    RPM.heap_release(heap);
+    RPM.finalize();
+}
+
 main :: () {
     config: RPM.rpmalloc_config_t;
     config.page_size = 3;
@@ -32,4 +66,8 @@ main :: () {
     config.span_size = 3;
     assert(RPM.initialize_config(*config) != 0);
     assert(!RPM.is_initialized());
+    exercise_heap(4096);
+    exercise_heap(16384);
+    exercise_heap(65536);
+    exercise_heap(262144);
 }

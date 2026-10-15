@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 import subprocess
 from config import RPMALLOC_SDK_BUILD_OPTIONS
+from rpmalloc_heap_facade import public_c_header, layout_probes
+from rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'stdlib/internal/bindings/rpmalloc-sdk'
@@ -163,6 +165,16 @@ def storage_outputs(vendor, functions, work, formatter):
     probe = '// Generated native ABI probe from complete pinned official C source.\n'
     probe += ''.join('#define '+name+' binding_storage_probe_'+name+'\n' for name in sorted(source_exports[1]))
     probe += '#include "rpmalloc.c"\n'
+    probe += 'long long binding_rpmalloc_native_heap_counter(void* pointer,unsigned family,unsigned index,unsigned field) { heap_t* heap=pointer;\n'
+    for family,(name,member,limit) in enumerate((('span_use_t','span_use','LARGE_CLASS_COUNT'),('size_class_use_t','size_class_use','SIZE_CLASS_COUNT+1'))):
+        probe += 'if(family=='+str(family)+' && index<('+limit+')) { switch(field) {\n'
+        for i,(_,field,_) in enumerate(chosen[name][1]):
+            expression = 'heap->'+member+'[index].'+field
+            if field not in ('high','alloc_peak','spans_peak','unused'):
+                expression = 'atomic_load32(&'+expression+')'
+            probe += 'case '+str(i)+':return '+expression+';\n'
+        probe += '} }\n'
+    probe += 'abort(); }\n'
     probe += ''.join('#undef '+name+'\n' for name in sorted(source_exports[1]))
     probe += '#include <stddef.h>\n'
     checks = [row for name in STORAGE_RECORDS for row in chosen[name][1]]
@@ -178,6 +190,8 @@ def storage_outputs(vendor, functions, work, formatter):
     outputs[ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'] += (
         'long long binding_rpmalloc_native_heap_id(const void *heap) { return ((const heap_t*)heap)->id; }\n'
         'unsigned long long binding_rpmalloc_native_heap_owner(const void *heap) { return ((const heap_t*)heap)->owner_thread; }\n')
+    outputs[ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'] += (
+        'long long binding_rpmalloc_public_atomic32(void *value) { return atomic_load32((atomic32_t*)value); }\n')
     jai = 'storage_layout_checks :: () {\n'
     for i,name in enumerate(STORAGE_RECORDS):
         jai += '    value'+str(i)+': Storage.'+STORAGE_RECORDS[name]+';\n'
@@ -291,6 +305,9 @@ def main():
     temporary.write_text(jai)
     run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
     provenance = dict(repository=pin['repository'], revision=pin['revision'], files=pin['files'],
+                      build_fixes=[dict(path='stdlib/internal/bindings/rpmalloc-heaps/sdk-page-granularity.patch',
+                                       sha256=hashlib.sha256((ROOT/'stdlib/internal/bindings/rpmalloc-heaps/sdk-page-granularity.patch').read_bytes()).hexdigest(),
+                                       purpose='Round native heap-pool mappings to whole configured pages')],
                       scope='Private native SDK only; reviewed public Jai callbacks/heaps require separate adapters',
                       native_build_options=RPMALLOC_SDK_BUILD_OPTIONS,
                       functions=[dict(name=n['name'],signature=function(n)) for n in functions],
@@ -320,24 +337,33 @@ def main():
         provenance['functions'] = [dict(name=n['name'],signature=function(n),
                                        origin='public_header' if n['name'] in header_names else 'official_c_source_definition') for n in functions]
     provenance['native_storage'] = storage_metadata
-    # Distinct exported C names keep two option profiles in separate allocator
-    # domains even when both imports are linked into the same executable.
+    # Distinct domains preserve callback, ownership and public record layouts.
     prefix = code[:code.index(functions[0]['name']+' :: (')]
-    prefix = '#module_parameters (STATISTICS := true)();\n'+prefix
-    declarations = '\n'.join(function(node) for node in functions)
-    alternate = '\n'.join(function(node).replace('#foreign sdk;',
-                          '#foreign sdk "binding_rpmalloc_nostats_'+node['name']+'";')
-                          for node in functions)
-    code = prefix+'#if STATISTICS {\n'+declarations+'\n} else {\n'+alternate+'\n}\n'
-    code += '\n#scope_file\n#if STATISTICS { sdk :: #library,system "binding_rpmalloc_sdk"; }\nelse { sdk :: #library,system "binding_rpmalloc_sdk_nostats"; }\n'
+    code = parameters()+prefix+select_blocks(lambda p: '\n'.join(
+        function(node).replace('#foreign sdk;', '#foreign sdk "'+p['symbol_prefix']+node['name']+'";')
+        if p['symbol_prefix'] else function(node) for node in functions))
+    code += '#scope_file\n'+select_blocks(lambda p: 'sdk :: #library,system "'+p['sdk']+'";')
     temporary.write_text(code)
     run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
     outputs[OUT/'module.jai'] = temporary.read_text()
-    provenance['native_profiles'] = {
-        'statistics': dict(options=RPMALLOC_SDK_BUILD_OPTIONS, symbol_prefix=''),
-        'no_statistics': dict(options=dict(RPMALLOC_SDK_BUILD_OPTIONS, ENABLE_STATISTICS=0),
-                              symbol_prefix='binding_rpmalloc_nostats_')}
+    provenance['native_profiles'] = {p['sdk']: p for p in PROFILES}
+    for folder, body in [('rpmalloc-heaps', heap_module()), ('rpmalloc-callbacks', callbacks_module())]:
+        temporary.write_text(body)
+        run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+        outputs[ROOT/'stdlib/internal/bindings'/folder/'module.jai'] = temporary.read_text()
     outputs[OUT/'provenance.json'] = json.dumps(provenance,indent=2,sort_keys=True)+'\n'
+    outputs[ROOT/'stdlib/internal/bindings/rpmalloc-heaps/public-layout.h'] = public_c_header(
+        (ROOT/'docs/specs/stdlib/modules/rpmalloc.md').read_text())
+    reviewed = (ROOT/'docs/specs/stdlib/modules/rpmalloc.md').read_text()
+    probe, jai_checks = layout_probes(reviewed)
+    raw_probe, raw_checks = layout_probes(reviewed, raw=True)
+    outputs[ROOT/'stdlib/internal/bindings/rpmalloc-heaps/layout-probes.inc'] = '#if BINDING_RPMALLOC_RAW\n'+raw_probe+'#else\n'+probe+'#endif\n'
+    temporary.write_text(jai_checks)
+    run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-heap-facade-layout.jai'] = temporary.read_text()
+    temporary.write_text(raw_checks)
+    run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-raw-heap-facade-layout.jai'] = temporary.read_text()
     for path, data in outputs.items():
         if args.check:
             if not path.exists() or path.read_text() != data:

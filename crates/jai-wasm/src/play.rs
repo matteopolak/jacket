@@ -857,34 +857,71 @@ mod tests {
     }
 
     #[test]
-    fn threads_run_cooperatively_and_files_live_in_memory() {
-        let r = single(
-            r##"#import "Basic";
-#import "File";
-#import "Thread";
-total: s64;
-mutex: Mutex;
-worker :: (thread: *Thread) -> s64 {
-    for 0..9 { lock(*mutex); total += 1; unlock(*mutex); }
-    return 0;
-}
-main :: () {
-    init(*mutex);
-    threads: [3] Thread;
-    for *threads { thread_init(it, worker); thread_start(it); }
-    for *threads thread_deinit(it);
-    assert(total == 30);
-    assert(write_entire_file("/tmp/x.txt", "data"));
-    text, ok := read_entire_file("/tmp/x.txt");
-    assert(ok && text == "data");
-    own, own_ok := read_entire_file("main.jai");
-    assert(own_ok && own.count > 10);
-    print("ok\n");
-}
-"##,
+    fn public_thread_module_rejects_browser_target() {
+        let r = single("#import \"Thread\"; main :: () {}");
+        assert_eq!(r.exit_code, None);
+        assert!(
+            r.diagnostics
+                .iter()
+                .any(|d| d.code == Some("static-assert")),
+            "{}",
+            r.rendered
         );
+        assert!(r.rendered.contains("OS"), "{}", r.rendered);
+    }
+
+    #[test]
+    fn sandbox_threads_run_cooperatively_and_join_actual_results() {
+        for _ in 0..3 {
+            let r = single(include_str!("../tests/fixtures/cooperative-runtime.jai"));
+            assert_eq!(r.stdout, "ok\n", "{:?}\n{}", r.diagnostics, r.rendered);
+            assert_eq!(r.exit_code, Some(0));
+        }
+    }
+
+    #[test]
+    fn sandbox_files_live_in_memory_and_include_workspace_sources() {
+        let r = single(include_str!("../tests/fixtures/sandbox-files.jai"));
         assert_eq!(r.stdout, "ok\n", "{:?}\n{}", r.diagnostics, r.rendered);
         assert_eq!(r.exit_code, Some(0));
+        let isolated = single(
+            "fopen :: (path:*u8,mode:*u8)->*void #foreign; main :: () -> int { if fopen(\"/tmp/x.txt\\0\".data,\"rb\\0\".data)!=null return 1; return 0; }",
+        );
+        assert_eq!(isolated.exit_code, Some(0), "{}", isolated.rendered);
+    }
+
+    #[test]
+    fn sandbox_scheduler_preserves_errors_and_reports_deadlock() {
+        let invalid = single(
+            "pthread_join :: (handle:u64,result:**void)->s32 #foreign; main :: ()->int {if pthread_join(0,null)==0 return 1;return 0;}",
+        );
+        assert_eq!(invalid.exit_code, Some(0), "{}", invalid.rendered);
+        let deadlocked = single(
+            r#"
+            pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #foreign;
+            pthread_join :: (thread:u64,result:**void)->s32 #foreign;
+            pthread_mutex_init :: (token:*void,attributes:*void)->s32 #foreign;
+            pthread_mutex_lock :: (token:*void)->s32 #foreign;
+            mutex:u64;
+            worker :: (argument:*void)->*void #c_call {pthread_mutex_lock(*mutex);return argument;}
+            main :: ()->int {
+                if pthread_mutex_init(*mutex,null)!=0 return 1;
+                if pthread_mutex_lock(*mutex)!=0 return 2;
+                thread:u64;
+                if pthread_create(*thread,null,cast(*void)worker,null)!=0 return 3;
+                return pthread_join(thread,null);
+            }
+        "#,
+        );
+        assert_eq!(deadlocked.exit_code, None);
+        assert!(
+            deadlocked
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains("deadlock")),
+            "{}",
+            deadlocked.rendered
+        );
     }
 
     #[test]

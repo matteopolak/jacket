@@ -39,11 +39,17 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
     def test_native_statistics_profiles_have_separate_symbol_domains(self):
         metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
         profiles = metadata['native_profiles']
-        self.assertEqual(profiles['statistics']['options']['ENABLE_STATISTICS'],1)
-        self.assertEqual(profiles['no_statistics']['options']['ENABLE_STATISTICS'],0)
+        self.assertEqual(len(profiles),4)
+        self.assertEqual(profiles['binding_rpmalloc_sdk']['options']['ENABLE_STATISTICS'],1)
+        self.assertEqual(profiles['binding_rpmalloc_sdk_nostats']['options']['ENABLE_STATISTICS'],0)
+        self.assertEqual(len({p['symbol_prefix'] for p in profiles.values()}),4)
+        self.assertEqual(len({p['facade_prefix'] for p in profiles.values()}),4)
         code = (ROOT/'stdlib/internal/bindings/rpmalloc-sdk/module.jai').read_text()
-        for entry in metadata['functions']:
-            self.assertIn('"binding_rpmalloc_nostats_'+entry['name']+'"',code)
+        for profile in profiles.values():
+            self.assertEqual(profile['options']['BINDING_RPMALLOC_RAW'],int(profile['raw']))
+            for entry in metadata['functions']:
+                if profile['symbol_prefix']:
+                    self.assertIn('"'+profile['symbol_prefix']+entry['name']+'"',code)
 
     def test_source_only_sdk_export_is_retained_in_both_heap_profiles(self):
         metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())

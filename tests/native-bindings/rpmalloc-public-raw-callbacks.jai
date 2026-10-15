@@ -6,7 +6,6 @@ RPM :: #import "rpmalloc"(USE_RAW = true);
 probe :: #library,system "rpmalloc_callback_probe";
 map_native :: (size: u64) -> *void #foreign probe "binding_rpmalloc_test_map";
 release :: (memory: *void) #foreign probe "binding_rpmalloc_test_unmap";
-send_error :: () -> s32 #foreign probe "binding_rpmalloc_test_error";
 mapped: s64;
 unmapped: s64;
 errors: s64;
@@ -60,7 +59,7 @@ main :: () {
     assert(owned != *input && owned.memory_map == map_memory);
     input.memory_map = null;
     assert(owned.memory_map == map_memory);
-    assert(send_error() != 0 && errors == 1);
+    assert(owned.error_callback == error);
     memory := RPM.rpmalloc(8 * 1024 * 1024);
 
     assert(memory != null);

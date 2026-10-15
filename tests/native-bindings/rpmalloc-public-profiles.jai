@@ -28,9 +28,12 @@ deny_retry :: (size: u64) -> s32 {
 main :: () {
     assert(Default.initialize() == 0);
     assert(Rewrite.initialize() == 0);
-    // Raw/Rewrite with the same native profile share a guarded SDK domain.
-    assert(Raw.initialize() != 0);
-    assert(!Raw.is_initialized() && Rewrite.is_initialized());
+    // Packaging may share a guarded SDK or select a separate raw heap domain.
+    // In either case an overlapping import cannot invalidate Rewrite's owner.
+    raw_result := Raw.initialize();
+
+    assert((raw_result == 0) == Raw.is_initialized());
+    assert(Rewrite.is_initialized());
     Raw.finalize();
     assert(Rewrite.is_initialized());
     a := Default.rpmalloc(512);

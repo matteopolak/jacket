@@ -567,12 +567,27 @@ def main():
                         'status':'partial_public_profile_adapter',
                         'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in sorted(callback_backend.iterdir()) if p.is_file()},
-                        'scope':'Owned callback/name lifetime, 64-bit public offset registry, actual init failure; default native profile only',
-                        'limitations':'Raw/heaps/nondefault profiles and exact native-error Jai location provenance unresolved',
+                        'scope':'Owned callback/name lifetime, bounded wide public offset registry, actual init failure; raw/rewrite and both statistics profiles',
+                        'limitations':'Other cache/assertion/page-advice profiles and exact native-error Jai location provenance unresolved',
                         'caller_context_artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                                     for p in sorted((ROOT/'stdlib/internal/bindings/callback-context').iterdir()) if p.is_file()},
                         'tests':['tests/native-bindings/rpmalloc-public-callbacks.jai',
                                  'tests/native-bindings/rpmalloc-public-configurable.jai']})
+                heap_backend = ROOT/'stdlib/internal/bindings/rpmalloc-heaps'
+                if heap_backend.exists():
+                    all_ledger[module]['supplemental_backends'].append({
+                        'module':'internal/bindings/rpmalloc-heaps',
+                        'status':'partial_public_canonical_heap_adapter',
+                        'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+                                     for p in sorted(heap_backend.iterdir()) if p.is_file()},
+                        'scope':'Separate canonical reviewed raw/rewrite records, actual atomic members, private typed native ownership, real SDK counters, span graph and unmap-driven retirement; both statistics profiles',
+                        'limitations':'Raw heaps require explicit private build selection; only live/quiescent observations; other native options remain incomplete; metadata OOM is fail-fast',
+                        'tests':['tests/native-bindings/rpmalloc-public-heaps.jai',
+                                 'tests/native-bindings/rpmalloc-public-heap-lifecycle.jai',
+                                 'tests/native-bindings/rpmalloc-heap-marshalling.jai',
+                                 'tests/native-bindings/rpmalloc-public-raw-heaps.jai',
+                                 'tests/native-bindings/rpmalloc-public-raw-heap-lifecycle.jai',
+                                 'tests/native-bindings/rpmalloc-raw-heap-marshalling.jai']})
         if module == 'Objective_C':
             appkit = ROOT/'stdlib/Objective_C/AppKit/module.jai'
             if appkit.exists():

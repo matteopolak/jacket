@@ -43,7 +43,9 @@ class ReviewedAllocatorContextTests(unittest.TestCase):
             rewrite_records(broken)
 
     def test_authorized_default_is_private_policy_not_new_public_parameter(self):
-        self.assertIn('RPMALLOC_FIRST_CLASS_HEAPS :: false;',render_context(self.spec))
+        self.assertIn('RPMALLOC_FIRST_CLASS_HEAPS :: Raw_Build_Configuration.FIRST_CLASS_HEAPS;',render_context(self.spec))
+        self.assertIn('FIRST_CLASS_HEAPS :: false;',
+                      (ROOT/'stdlib/internal/bindings/rpmalloc-build/module.jai').read_text())
         params = self.spec.split('#module_parameters (',1)[1].split(')();',1)[0]
         self.assertNotIn('FIRST_CLASS_HEAPS',params)
 

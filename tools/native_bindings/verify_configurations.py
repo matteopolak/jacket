@@ -39,15 +39,19 @@ def main():
     parser.add_argument('--foundation', type=Path)
     parser.add_argument('--stdlib', type=Path, help='Production library, without peer overlays')
     parser.add_argument('--module', action='append', choices=MODULES)
+    parser.add_argument('--rpmalloc-first-class-heaps', action='store_true')
     parser.add_argument('--report', type=Path, default=ROOT/'.work/configuration-verification.json')
     args = parser.parse_args()
     compiler = args.compiler.resolve(strict=True)
     work = args.report.resolve().parent/'runs'/(args.report.stem+'-'+str(os.getpid()))
     work.mkdir(parents=True,exist_ok=True)
     stdlib = select_stdlib(work, args.foundation, args.stdlib)
+    from configure_rpmalloc import select_for_verification
+    select_for_verification(stdlib, args.rpmalloc_first_class_heaps, args.stdlib is not None)
     temporary = work / 'tmp'
     temporary.mkdir()
     env = dict(os.environ,JAIC_STDLIB=str(stdlib),JAIC_NATIVE_LIBS=str(ROOT/'.work/native'),TMPDIR=str(temporary))
+
     report = {'compiler':str(compiler),'compiler_sha256':hashlib.sha256(compiler.read_bytes()).hexdigest(),
               'stdlib_root':str(stdlib),'production':args.stdlib is not None,
               'staging_root':str(work),'staged_sources':{
@@ -58,6 +62,8 @@ def main():
             continue
         page = ROOT/'docs/specs/stdlib/modules'/(MODULES[module]+'.md')
         spec = parse_spec(page.read_text())
+        if module=='rpmalloc' and args.rpmalloc_first_class_heaps:
+            parameters = dict(parameters,RPMALLOC_FIRST_CLASS_HEAPS=True)
         for os_name in systems:
             for cpu in ('x64','arm64'):
                 file = work/'configuration-check.jai'

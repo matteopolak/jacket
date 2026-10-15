@@ -35,6 +35,33 @@
 #define rpposix_memalign binding_storage_probe_rpposix_memalign
 #define rprealloc binding_storage_probe_rprealloc
 #include "rpmalloc.c"
+long long binding_rpmalloc_native_heap_counter(void* pointer,unsigned family,unsigned index,unsigned field) { heap_t* heap=pointer;
+if(family==0 && index<(LARGE_CLASS_COUNT)) { switch(field) {
+case 0:return atomic_load32(&heap->span_use[index].current);
+case 1:return heap->span_use[index].high;
+case 2:return atomic_load32(&heap->span_use[index].spans_deferred);
+case 3:return atomic_load32(&heap->span_use[index].spans_to_global);
+case 4:return atomic_load32(&heap->span_use[index].spans_from_global);
+case 5:return atomic_load32(&heap->span_use[index].spans_to_cache);
+case 6:return atomic_load32(&heap->span_use[index].spans_from_cache);
+case 7:return atomic_load32(&heap->span_use[index].spans_to_reserved);
+case 8:return atomic_load32(&heap->span_use[index].spans_from_reserved);
+case 9:return atomic_load32(&heap->span_use[index].spans_map_calls);
+} }
+if(family==1 && index<(SIZE_CLASS_COUNT+1)) { switch(field) {
+case 0:return atomic_load32(&heap->size_class_use[index].alloc_current);
+case 1:return heap->size_class_use[index].alloc_peak;
+case 2:return atomic_load32(&heap->size_class_use[index].alloc_total);
+case 3:return atomic_load32(&heap->size_class_use[index].free_total);
+case 4:return atomic_load32(&heap->size_class_use[index].spans_current);
+case 5:return heap->size_class_use[index].spans_peak;
+case 6:return atomic_load32(&heap->size_class_use[index].spans_to_cache);
+case 7:return atomic_load32(&heap->size_class_use[index].spans_from_cache);
+case 8:return atomic_load32(&heap->size_class_use[index].spans_from_reserved);
+case 9:return atomic_load32(&heap->size_class_use[index].spans_map_calls);
+case 10:return heap->size_class_use[index].unused;
+} }
+abort(); }
 #undef rpaligned_alloc
 #undef rpaligned_calloc
 #undef rpaligned_realloc
@@ -227,3 +254,4 @@ unsigned long long binding_rpmalloc_storage_field_size(unsigned index) {
 }
 long long binding_rpmalloc_native_heap_id(const void *heap) { return ((const heap_t*)heap)->id; }
 unsigned long long binding_rpmalloc_native_heap_owner(const void *heap) { return ((const heap_t*)heap)->owner_thread; }
+long long binding_rpmalloc_public_atomic32(void *value) { return atomic_load32((atomic32_t*)value); }

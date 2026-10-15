@@ -98,16 +98,18 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   (advance the virtual clock, never block) and `wasm_debug_break` (runtime error), so `current_time_monotonic`,
   `random_seed` and friends work. Other native `#foreign` symbols fail with ``foreign procedure `x` is not available here``
   or `unknown library`.
-- **POSIX on WASM**: `OS == .WASM` is treated like Linux by `stdlib/POSIX` (Linux x86-64 bindings and struct layouts),
-  `File`, `File_Utilities`, `Thread`, `Basic` time, so those modules compile and call into `SandboxHost`. Windowing
-  and native-library modules still do not: `Window_Type` is `*void`, `Clipboard` is an in-memory string, `Window_Creation`,
-  FreeType, stb_image, libclang and `Process` have no browser backend.
-- **Files**: reads see the workspace (cwd is `/workspace`, so `read_entire_file("lib/data.txt")` works) and the bundled
+- **Module targets**: reviewed native modules retain their target guards. Public `Thread` and `POSIX`
+  are not browser WASM APIs. The Rust interpreter's `SandboxHost` independently provides supported
+  C-shaped foreign hooks for cooperative scheduling and in-memory I/O. Those private provider
+  mechanisms do not broaden the public standard-library inventories or native ABI promises.
+- **Files**: sandbox runtime reads see the workspace (cwd is `/workspace`) and the bundled
   stdlib (`/stdlib/...`); writes go to an in-memory overlay (`/tmp` exists) that lives for one `play`. Nothing persists.
 - **Threads**: take turns on the one host thread, each suspended while it waits, see
   [interpreter threads](../compiler/interpreter-threads.md#inline-threads-sandbox-host-browser).
-  `Thread`, `Mutex`, `Condition_Variable`, `Semaphore`, `Thread_Group` and `File_Async` work; a busy wait must poll
+  This describes the sandbox scheduler, not public `Thread` module compatibility. A busy wait must poll
   (an atomic read, `pause`, `sched_yield`) for the other threads to run, and sleeping only moves the virtual clock.
+  [Independent runtime regression design](sandbox-runtime-verification.md) tests real suspension,
+  contention, join results, files and public target rejection without importing native-only facades.
 - **Path semantics**: `normalize` clamps `..` at the root, so `#load "../../stdlib/X.jai"` from `/workspace/a.jai`
   reaches `/stdlib/X.jai` as on a real file system.
 - Regression sweep for the wasm build: `node tools/check_playground_stdlib.mjs <staged-dir>` runs every

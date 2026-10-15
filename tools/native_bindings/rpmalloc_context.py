@@ -133,8 +133,9 @@ def render_context(spec):
               'atomic32_t :: s32;\natomic64_t :: s64;\natomicptr_t :: *void;']
     # Reviewed source has no FIRST_CLASS_HEAPS parameter/default. Independent
     # packaging policy follows the official C default; this is not a Jai claim.
-    lines += ['// Independent raw packaging policy: no undeclared public option.',
-              'RPMALLOC_FIRST_CLASS_HEAPS :: false;']
+    lines += ['// Explicit private build selection; no undeclared public import option.',
+              'Raw_Build_Configuration :: #import "internal/bindings/rpmalloc-build";',
+              'RPMALLOC_FIRST_CLASS_HEAPS :: Raw_Build_Configuration.FIRST_CLASS_HEAPS;']
     lines.extend(render_record(RAW_NAMES[name], raw[RAW_NAMES[name]]) for name in ORDER)
     lines += ['}']
     return '\n\n'.join(lines)+'\n'
