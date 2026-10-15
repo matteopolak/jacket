@@ -320,6 +320,23 @@ def main():
         provenance['functions'] = [dict(name=n['name'],signature=function(n),
                                        origin='public_header' if n['name'] in header_names else 'official_c_source_definition') for n in functions]
     provenance['native_storage'] = storage_metadata
+    # Distinct exported C names keep two option profiles in separate allocator
+    # domains even when both imports are linked into the same executable.
+    prefix = code[:code.index(functions[0]['name']+' :: (')]
+    prefix = '#module_parameters (STATISTICS := true)();\n'+prefix
+    declarations = '\n'.join(function(node) for node in functions)
+    alternate = '\n'.join(function(node).replace('#foreign sdk;',
+                          '#foreign sdk "binding_rpmalloc_nostats_'+node['name']+'";')
+                          for node in functions)
+    code = prefix+'#if STATISTICS {\n'+declarations+'\n} else {\n'+alternate+'\n}\n'
+    code += '\n#scope_file\n#if STATISTICS { sdk :: #library,system "binding_rpmalloc_sdk"; }\nelse { sdk :: #library,system "binding_rpmalloc_sdk_nostats"; }\n'
+    temporary.write_text(code)
+    run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+    outputs[OUT/'module.jai'] = temporary.read_text()
+    provenance['native_profiles'] = {
+        'statistics': dict(options=RPMALLOC_SDK_BUILD_OPTIONS, symbol_prefix=''),
+        'no_statistics': dict(options=dict(RPMALLOC_SDK_BUILD_OPTIONS, ENABLE_STATISTICS=0),
+                              symbol_prefix='binding_rpmalloc_nostats_')}
     outputs[OUT/'provenance.json'] = json.dumps(provenance,indent=2,sort_keys=True)+'\n'
     for path, data in outputs.items():
         if args.check:

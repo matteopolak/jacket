@@ -61,10 +61,11 @@ def main():
                                    "Cpp_Functions_Visitor_Data"],
         "model-flags.jai": ["C_Kind", "Number_Flags", "Declaration_Flags", "Strip_Flags", "Mimic_Spacing_Flags",
                             "Print_Decl_Flags", "Arg_Print_Mode", "Declaration_Visit_Result"],
-        "native-model.jai": ["CXToken", "CX_StorageClass", "CXTypeLayoutError"],
+        "native-model.jai": ["CXToken", "CXTokenKind", "CX_StorageClass", "CXTypeLayoutError"],
         "native-parser-model.jai": ["CXString", "CXCursorKind", "CXCursor", "CXTypeKind", "CXType",
                                      "CXErrorCode", "CXTranslationUnitImpl", "CXUnsavedFile", "CXChildVisitResult",
-                                     "CXSourceLocation", "CXSourceRange", "CXDiagnosticSeverity", "CXIndexOptions", "CXEvalResultKind"],
+                                     "CXSourceLocation", "CXSourceRange", "CXDiagnosticSeverity", "CXIndexOptions", "CXEvalResultKind",
+                                     "CXVirtualFileOverlayImpl", "CXModuleMapDescriptorImpl"],
     }
     directory = ROOT / "stdlib/Bindings_Generator"
     directory.mkdir(exist_ok=True)
@@ -105,11 +106,19 @@ def main():
                  "clang_isVolatileQualifiedType", "clang_isFunctionTypeVariadic", "clang_Cursor_isBitField",
                  "clang_getFieldDeclBitWidth", "clang_getCursorExtent", "clang_getRangeStart", "clang_getRangeEnd",
                  "clang_Cursor_getRawCommentText", "clang_createIndexWithOptions", "clang_getCursorDefinition",
-                 "clang_Cursor_isNull", "clang_tokenize", "clang_disposeTokens", "CXEvalResult",
+                 "clang_Cursor_isNull", "clang_tokenize", "clang_disposeTokens", "clang_getTokenKind",
+                 "clang_getTokenSpelling", "clang_getTokenLocation", "clang_getTokenExtent", "clang_annotateTokens",
+                 "clang_getCursor", "clang_getCursorKind", "clang_equalCursors", "CXEvalResult",
                  "clang_Cursor_Evaluate", "clang_EvalResult_getKind", "clang_EvalResult_getAsInt",
                  "clang_EvalResult_getAsLongLong", "clang_EvalResult_isUnsignedInt", "clang_EvalResult_getAsUnsigned",
                  "clang_EvalResult_getAsDouble", "clang_EvalResult_dispose", "clang_isExpression",
-                 "clang_getFile", "clang_getFileContents", "clang_getNullCursor"]
+                 "clang_getFile", "clang_getFileContents", "clang_getNullCursor",
+                 "CXVirtualFileOverlay", "clang_VirtualFileOverlay_create", "clang_VirtualFileOverlay_addFileMapping",
+                 "clang_VirtualFileOverlay_setCaseSensitivity", "clang_VirtualFileOverlay_writeToBuffer",
+                 "clang_VirtualFileOverlay_dispose", "clang_free", "CXModuleMapDescriptor",
+                 "clang_ModuleMapDescriptor_create", "clang_ModuleMapDescriptor_setFrameworkModuleName",
+                 "clang_ModuleMapDescriptor_setUmbrellaHeader", "clang_ModuleMapDescriptor_writeToBuffer",
+                 "clang_ModuleMapDescriptor_dispose"]
     source = "// Native parser subset; declarations from the reviewed platform-specific inventories.\n"
     for name in api_names:
         def declaration(inventory):
@@ -124,6 +133,42 @@ def main():
             source += "#if OS == .WINDOWS {\n" + windows + "} else {\n" + unix + "}\n"
     source += '\n#scope_file\nlibclang :: #foreign_library "../internal/developer-tools/clang-bindings/clang";\n'
     (directory / "native-parser-api.jai").write_text(source)
+    # The remaining native reexports are ABI bindings, not generator algorithms.
+    # Sort independently of inventory order and retain exact reviewed signatures.
+    reviewed = {}
+    for platform, inventory in [("Unix", unix_inventory), ("Windows", windows_inventory)]:
+        reviewed[platform] = dict(re.findall(r"^- `([A-Za-z_][A-Za-z_0-9]*) :: ([^`]+)`", inventory, re.MULTILINE))
+    implemented = {name for names in groups.values() for name in names} | set(api_names) | {"CXFile"}
+    extended_models = "// Additional reviewed native ABI types; no native implementation bodies are reproduced.\n\n"
+    extended_api = "// Additional reviewed native ABI reexports. Invocation coverage is tracked separately.\n\n"
+    for name in sorted(set(reviewed["Unix"]) | set(reviewed["Windows"])):
+        if name in implemented:
+            continue
+        variants = {platform: reviewed[platform].get(name) for platform in reviewed}
+        bodies = {}
+        for platform, declaration in variants.items():
+            if declaration is None:
+                bodies[platform] = ""
+            elif declaration.startswith(("struct", "enum", "union")):
+                bodies[platform] = aggregate(text, name, platform)
+            elif "#foreign libclang" in declaration or not declaration.startswith("("):
+                bodies[platform] = f"{name} :: {declaration};\n"
+            else:
+                bodies[platform] = ""  # Non-native helper needs its own implementation.
+        if bodies["Unix"] == bodies["Windows"]:
+            body = bodies["Unix"]
+        else:
+            body = "#if OS == .WINDOWS {\n" + bodies["Windows"] + "} else {\n" + bodies["Unix"] + "}\n"
+        if not any(bodies.values()):
+            continue
+        if name.startswith("clang_"):
+            extended_api += body + "\n"
+        else:
+            extended_models += body + "\n"
+    (directory / "native-extended-model.jai").write_text(extended_models)
+    extended_api += '\n#scope_file\nlibclang :: #foreign_library "../internal/developer-tools/clang-bindings/clang";\n'
+    extended_api += '#if OS == .WINDOWS { time_t :: s64; } else { Native_POSIX :: #import "POSIX"; time_t :: Native_POSIX.time_t; }\n'
+    (directory / "native-extended-api.jai").write_text(extended_api)
     # Exact compatibility arrays are specified in the reviewed refinement.
     names = ["RESERVED_NAMES", "RESERVED_TYPE_NAMES", "TYPEDEFS_TO_UNWRAP", "TYPEDEF_PREFIXES_TO_UNWRAP", "MACROS_TO_IGNORE"]
     constants = []
@@ -154,7 +199,8 @@ def main():
     generated = [
         directory / filename for filename in ["type-model.jai", "declaration-model.jai", "generation-options.jai",
                                                "model-flags.jai", "native-model.jai", "compatibility-names.jai",
-                                               "compatibility-tokens.jai", "native-parser-model.jai", "native-parser-api.jai"]]
+                                               "compatibility-tokens.jai", "native-parser-model.jai", "native-parser-api.jai",
+                                               "native-extended-model.jai", "native-extended-api.jai"]]
     subprocess.run([str(ROOT / "target/jaifmt"), "--config", str(ROOT / "jaifmt.toml"),
                     *[str(path) for path in generated]], cwd=ROOT, check=True)
     print("Generated thematic public model files and exact reviewed compatibility arrays")

@@ -3,6 +3,7 @@
 #include <rpmalloc.h>
 #include <stdatomic.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #if defined(_WIN32)
@@ -13,6 +14,20 @@
 #endif
 
 static _Atomic uint64_t counters[5];
+static _Atomic uint32_t handoff_next;
+void binding_rpmalloc_handoff_reset(void) { atomic_store(&handoff_next, 0); }
+uint32_t binding_rpmalloc_handoff_claim(void) {
+  return atomic_fetch_add(&handoff_next, 1);
+}
+void *binding_rpmalloc_statistics_file(void) { return tmpfile(); }
+int64_t binding_rpmalloc_statistics_file_size(void *file) {
+  if (fflush(file) || fseek(file, 0, SEEK_END))
+    return -1;
+  return ftell(file);
+}
+int32_t binding_rpmalloc_statistics_file_close(void *file) {
+  return fclose(file);
+}
 uint64_t binding_rpmalloc_count(uint32_t index, uint64_t amount) {
   if (index >= 5)
     abort();

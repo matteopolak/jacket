@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Focused developer tooling evidence from this checkout's source-built tools."""
 import os
+import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -10,6 +12,10 @@ import check_developer_bindings
 import build_developer_debug
 import check_developer_debug_windows
 import check_developer_msf
+import check_developer_native_abi
+import check_developer_dwarf_lines
+import check_developer_dwarf_frames
+import check_developer_eh_frames
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -24,12 +30,60 @@ def run(command, *, output=None, error=""):
     return result.stdout
 
 
+def check_framework_consumer(prefix, emitter):
+    for optimization in [0, 2]:
+        tag = f"{emitter}-c{optimization}"
+        exe = ROOT / f"target/developer-tools-framework-{tag}"
+        run([prefix / "bin/clang", "-x", "objective-c", "-std=c11", "-fmodules", f"-O{optimization}",
+             f"-fmodules-cache-path={ROOT / ('target/developer-tools-module-cache-' + tag)}",
+             f"-F{ROOT / 'target/developer-tools-frameworks'}", "-Wall", "-Wextra", "-Werror",
+             ROOT / "tests/developer-tools/bindings-module-consumer.m", "-o", exe])
+        run([exe])
+
+
+def prepare_cpp_visitors(prefix):
+    run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
+         ROOT / "tests/developer-tools/bindings-cpp-visitors.c", "-L", prefix / "lib", "-lclang",
+         f"-Wl,-rpath,{prefix / 'lib'}", "-o", ROOT / "target/developer-tools-cpp-visitors"])
+    visitor_results = run([ROOT / "target/developer-tools-cpp-visitors", ROOT / "tests/developer-tools/bindings-clang-cpp.h"]).split()
+    if len(visitor_results) != 8 or any(not value.isdecimal() for value in visitor_results):
+        raise RuntimeError("Independent C++ native visitor oracle is incomplete")
+    visitor_oracle = ROOT / "target/developer-tools-cpp-visitor-oracle.jai"
+    visitor_oracle.write_text("SDK_Visitor_Results :: u32.[" + ", ".join(visitor_results) + "];\n")
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", visitor_oracle])
+    visitor_names = ["fields_return", "fields_count", "bases_return", "bases_count", "methods_return", "methods_count", "stopped_return", "stopped_count"]
+    visitor_evidence = {"scope": "host official SDK C++17 AST queries and independent C visitor return/count oracle; C++ method bodies not executed",
+                        "native_c_results": dict(zip(visitor_names, map(int, visitor_results))),
+                        "return_comment_discrepancy": "Installed public Index.h describes nonzero only for early termination; this SDK returns1 for complete and stopped visits. Direct Jai bindings preserve raw native returns.",
+                        "sdk_evidence": "developer-tools-clang-evidence.json",
+                        "original_fixture_sha256": {name: hashlib.sha256((ROOT / 'tests/developer-tools' / name).read_bytes()).hexdigest()
+                                                   for name in ["bindings-clang-cpp.h", "bindings-cpp-visitors.c", "bindings-clang-cpp.jai"]}}
+    (ROOT / "docs/native/developer-tools-cpp-evidence.json").write_text(json.dumps(visitor_evidence, indent=2) + "\n")
+    for triple in ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]:
+        run([prefix / "bin/clang++", "-target", triple, "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
+             "-fsyntax-only", ROOT / "tests/developer-tools/bindings-clang-cpp.h"])
+    return visitor_oracle
+
+
 def main():
     check_developer_bindings.main()
     build_developer_debug.main()
     check_developer_debug_windows.main()
     check_developer_msf.main()
+    check_developer_native_abi.main()
+    check_developer_dwarf_lines.main()
+    check_developer_dwarf_frames.main()
+    check_developer_eh_frames.main()
     prefix = build_developer_bindings.llvm_prefix()
+    framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
+    (framework / "Modules").mkdir(parents=True, exist_ok=True)
+    (framework / "Headers").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / "tests/developer-tools/bindings-module-header.h", framework / "Headers/OriginalNative.h")
+    visitor_oracle = prepare_cpp_visitors(prefix)
+    for suffix, timestamp in [("future", 0x100000123), ("past", -12345)]:
+        timed_file = ROOT / f"target/developer-tools-time-{suffix}.h"
+        timed_file.write_text("int original_time_value;\n")
+        os.utime(timed_file, (timestamp, timestamp))
     run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-g", "-fno-omit-frame-pointer",
          "-c", "tests/developer-tools/dwarf-native.c", "-o", "target/developer-tools-dwarf.o"])
     run([prefix / "bin/llvm-objcopy", "--dump-section", ".eh_frame=target/developer-tools-eh-frame.bin",
@@ -48,7 +102,7 @@ def main():
     cases = ["c-header", "c-header-roundtrip", "c-header-reject", "c-header-modes", "c-header-lifetime", "c-header-support-roundtrip", "bindings-public", "bindings-public-roundtrip", "bindings-literals", "bindings-tree", "bindings-sdk-public", "bindings-sdk-roundtrip", "bindings-clang-api", "print-vars", "rewrite", "dwarf-cfa", "debug-native", "iprof-report", "codex-inspection"]
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
          "tests/developer-tools/bindings-sdk-layout.c", "-o", "target/developer-tools-sdk-layout"])
-    run([ROOT / "target/developer-tools-sdk-layout"], output="CXString=16 CXCursor=32 CXType=24 CXUnsavedFile=24\nCXIndexOptions=24 PreambleStoragePath=8 InvocationEmissionPath=16\n")
+    run([ROOT / "target/developer-tools-sdk-layout"], output="CXString=16 CXCursor=32 CXType=24 CXUnsavedFile=24\nCXIndexOptions=24 PreambleStoragePath=8 InvocationEmissionPath=16\nCXToken=24 ptr_data=16 CXTokenKind=4\n")
     run([JAIC, "tests/developer-tools/c-header.jai", "-interp"], output="ok\n")
     run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(), "-I", "target",
          "tests/developer-tools/point.c", "-o", build_developer_bindings.shared_library("developer_tools_point")])
@@ -95,6 +149,15 @@ def main():
     cases.append("bindings-model-properties-roundtrip")
     cases.append("msf-wire")
     cases.append("debug-int-set")
+    cases.append("bindings-clang-tokens")
+    cases.append("bindings-clang-build-system")
+    cases.append("bindings-native-abi")
+    cases.append("bindings-clang-source")
+    cases.append("bindings-clang-cpp")
+    cases.append("dwarf-line-query")
+    cases.append("dwarf-fde")
+    cases.append("bindings-clang-time")
+    cases.append("dwarf-eh-frame")
     run([JAIC, "tests/developer-tools/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
         generated = ROOT / f"target/developer-tools-{name}-generated.jai"
@@ -104,12 +167,14 @@ def main():
     for os_name in ["linux", "windows"]:
         run([JAIC, "target/developer-tools-model-generated.jai", "-check", "-os", os_name, "-cpu", "x64"])
     for case in cases:
-        source = ROOT / f"tests/developer-tools/{case}.jai"
+        source = ROOT / "target/developer-tools-native-abi.jai" if case == "bindings-native-abi" else ROOT / f"tests/developer-tools/{case}.jai"
         error = "C header: C cannot project multiple return values" if case == "c-header-reject" else ""
         if case == "debug-native":
             error = "native debug output\n"
         expected = "x = 7 (s32)\nok\n" if case == "print-vars" else "ok\n"
         run([JAIC, source, "-interp", "-I", ROOT / "target"], output=expected, error=error)
+        if case == "bindings-clang-build-system":
+            check_framework_consumer(prefix, "interp")
         if case == "bindings-cpp-fragments":
             for cpp_optimization in [0, 2]:
                 cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-interp-cxx{cpp_optimization}"
@@ -120,6 +185,8 @@ def main():
             exe = ROOT / f"target/developer-tools-{case}-o{optimization}"
             run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
             run([exe], output=expected, error=error)
+            if case == "bindings-clang-build-system":
+                check_framework_consumer(prefix, f"o{optimization}")
             if case == "bindings-cpp-fragments":
                 for cpp_optimization in [0, 2]:
                     cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}"
@@ -178,7 +245,11 @@ def main():
              ROOT / "stdlib/Check/module.jai",
              *sorted((ROOT / "stdlib/Bindings_Generator").glob("*.jai")),
              *sorted((ROOT / "stdlib/internal/developer-tools").glob("*.jai")),
-             *sorted((ROOT / "tests/developer-tools").glob("*.jai"))]
+             *sorted((ROOT / "tests/developer-tools").glob("*.jai")),
+             ROOT / "target/developer-tools-native-abi.jai", visitor_oracle,
+             ROOT / "target/developer-tools-dwarf-line-oracle.jai",
+             ROOT / "target/developer-tools-dwarf-frame-oracle.jai",
+             ROOT / "target/developer-tools-eh-frame-oracle.jai"]
     format_paths = [*paths, *sorted((ROOT / "tests/developer-tools/rejections").glob("*.jai")),
                     *sorted((ROOT / "tests/developer-tools/compiler-requests").glob("*.jai"))]
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *format_paths])
@@ -194,7 +265,7 @@ def main():
     for cpu in ["x64", "arm64"]:
         run([JAIC, "tests/developer-tools/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
         for os_name in ["linux", "windows"]:
-            for case in ["msf-wire", "debug-int-set", "dwarf-cfa"]:
+            for case in ["msf-wire", "debug-int-set", "dwarf-cfa", "dwarf-line-query", "dwarf-fde", "bindings-clang-time", "bindings-clang-tokens", "bindings-clang-build-system", "bindings-clang-source", "bindings-clang-cpp"]:
                 run([JAIC, f"tests/developer-tools/{case}.jai", "-check", "-os", os_name, "-cpu", cpu])
     for case, reason in [("check-array", "fixed array used as a pointer in assignment"),
                          ("check-small-driver", "small integer addition requires an explicit intermediate integer cast")]:
@@ -202,6 +273,10 @@ def main():
                                   cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
         if rejected.returncode != 1 or reason not in rejected.stderr:
             raise RuntimeError(f"Expected actual Check rejection {case}: {rejected.returncode}, {rejected.stderr}")
+    private_time = subprocess.run([str(JAIC), "tests/developer-tools/rejections/bindings-private-time.jai", "-check"],
+                                  cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=60)
+    if private_time.returncode != 1 or "no exported member `time_t`" not in private_time.stderr:
+        raise RuntimeError("Bindings_Generator must not export its private native time_t alias")
     for os_name, cpu in [("linux", "x64"), ("windows", "x64"), ("wasm", "x64")]:
         run([JAIC, "tests/developer-tools/c-header.jai", "-check", "-os", os_name, "-cpu", cpu])
         run([JAIC, "tests/developer-tools/debug-target.jai", "-check", "-os", os_name, "-cpu", cpu])

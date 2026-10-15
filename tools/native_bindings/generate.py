@@ -214,6 +214,8 @@ def condition_for(module, declaration, spec=None):
                    declaration.name == 'dump_statistics' and '#expand' in declaration.code)
         if raw or rewrite:
             condition = ('USE_RAW' if raw else '!USE_RAW') + (' && ('+condition+')' if condition else '')
+            if raw and re.search(r'\b(?:rpmalloc_heap_t)\b', declaration.code) and 'RPMALLOC_FIRST_CLASS_HEAPS' not in condition:
+                condition += ' && RPMALLOC_FIRST_CLASS_HEAPS'
     if condition == 'else branch':
         if module == 'Objective_C':
             condition = 'OS != .MACOS' if declaration.name == 'BOOL' else 'CPU != .X64'
@@ -350,6 +352,9 @@ def generate_facade(module, spec):
     native_constants = json.loads(constants_path.read_text()) if constants_path.exists() else {}
     manual_path = ROOT / 'stdlib' / module / 'wrappers.jai'
     manual_signatures = authored_signatures(manual_path.read_text()) if manual_path.exists() else set()
+    alias_targets = {d.name:re.fullmatch(r'\w+\s*::\s*(\w+)\s*;?',d.code.strip())[1]
+                     for d in spec.declarations
+                     if re.fullmatch(r'\w+\s*::\s*(\w+)\s*;?',d.code.strip())}
     for d in spec.declarations:
         record = {'name': d.name, 'signature': d.code, 'condition': d.condition, 'spec_line': d.line}
         condition = condition_for(module, d, spec)
@@ -367,12 +372,18 @@ def generate_facade(module, spec):
                           native_abi_adapter=adapter)
             ledger.append(record)
             continue
-        if normalized_signature(d.code) in manual_signatures:
+        authored = normalized_signature(d.code) in manual_signatures
+        alias_target = alias_targets.get(d.name) if module == 'rpmalloc' else None
+        alias_view = bool(alias_target and procedure_parts(d.code) and
+                          normalized_signature(re.sub(r'^\w+',alias_target,d.code)) in manual_signatures)
+        if authored or alias_view:
             record.update(status='implemented_manual', artifact=str(manual_path.relative_to(ROOT)))
+            if alias_view and not authored:
+                record['canonical_alias_target'] = alias_target
             if module == 'rpmalloc':
                 record.update(status='partially_implemented',
-                              implemented_condition='!USE_RAW && Native_Profile_Matches',
-                              reason='Native default cache/statistics/assertion profile only; remaining profiles and raw mode require implementations')
+                              implemented_condition='Native_Profile_Matches' + (' && ('+condition+')' if condition else ''),
+                              reason='Real shared native boundary for supported raw/rewrite profile; nondefault cache/statistics/assertion profiles remain incomplete')
             ledger.append(record)
             continue
         key = (condition, d.code)

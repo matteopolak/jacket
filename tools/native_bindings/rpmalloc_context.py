@@ -131,6 +131,10 @@ def render_context(spec):
     lines += ['}', '#if USE_RAW {',
               'size_t :: u64;\n_int :: s32;\nint32_t :: s32;',
               'atomic32_t :: s32;\natomic64_t :: s64;\natomicptr_t :: *void;']
+    # Reviewed source has no FIRST_CLASS_HEAPS parameter/default. Independent
+    # packaging policy follows the official C default; this is not a Jai claim.
+    lines += ['// Independent raw packaging policy: no undeclared public option.',
+              'RPMALLOC_FIRST_CLASS_HEAPS :: false;']
     lines.extend(render_record(RAW_NAMES[name], raw[RAW_NAMES[name]]) for name in ORDER)
     lines += ['}']
     return '\n\n'.join(lines)+'\n'

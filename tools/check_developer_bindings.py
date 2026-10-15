@@ -89,7 +89,8 @@ def main():
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", macro_output])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", macro_output])
     inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-              for path in [prefix / "include/clang-c/Index.h", prefix / "include/clang-c/CXString.h"]}
+              for path in [prefix / "include/clang-c/Index.h", prefix / "include/clang-c/CXString.h",
+                           prefix / "include/clang-c/BuildSystem.h"]}
     metadata = {"scope": "staged libclang backend used by the supported public Bindings_Generator facade; full compatibility remains pending",
                 "sdk_headers_sha256": inputs, "clang_version": run([prefix / "bin/clang", "--version"], expected=None),
                 "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),

@@ -29,6 +29,22 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
         self.assertEqual(condition_for('rpmalloc',Declaration('dump_statistics :: (builder: *void) #expand','else branch')), '!USE_RAW && (!ENABLE_STATISTICS)')
         self.assertEqual(condition_for('rpmalloc',Declaration('rpfree :: inline (ptr: *void)','')), '')
 
+    def test_unlabeled_raw_heap_views_still_require_first_class_heaps(self):
+        signature = 'heap_alloc :: inline (heap: *rpmalloc_heap_t, size: size_t) -> *void'
+        self.assertEqual(condition_for('rpmalloc',Declaration(signature,'')),
+                         'USE_RAW && RPMALLOC_FIRST_CLASS_HEAPS')
+        self.assertEqual(condition_for('rpmalloc',Declaration(signature,'RPMALLOC_FIRST_CLASS_HEAPS')),
+                         'USE_RAW && (RPMALLOC_FIRST_CLASS_HEAPS)')
+
+    def test_native_statistics_profiles_have_separate_symbol_domains(self):
+        metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
+        profiles = metadata['native_profiles']
+        self.assertEqual(profiles['statistics']['options']['ENABLE_STATISTICS'],1)
+        self.assertEqual(profiles['no_statistics']['options']['ENABLE_STATISTICS'],0)
+        code = (ROOT/'stdlib/internal/bindings/rpmalloc-sdk/module.jai').read_text()
+        for entry in metadata['functions']:
+            self.assertIn('"binding_rpmalloc_nostats_'+entry['name']+'"',code)
+
     def test_source_only_sdk_export_is_retained_in_both_heap_profiles(self):
         metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
         entry = next(f for f in metadata['functions'] if f['name']=='rpmalloc_set_main_thread')

@@ -26,14 +26,17 @@ INPUTS = {
     'stb_image': {'stb'}, 'stb_image_resize': {'stb'},
     'stb_image_write': {'stb'}, 'stb_vorbis': {'stb'}, 'mojoshader': {'mojoshader'},
     'binding_rpmalloc_sdk': {'rpmalloc'}, 'rpmalloc_sdk_probe': {'rpmalloc'},
+    'binding_rpmalloc_sdk_nostats': {'rpmalloc'},
     'binding_callback_context': set(),
     'binding_rpmalloc_callbacks': {'rpmalloc'},
+    'binding_rpmalloc_callbacks_nostats': {'rpmalloc'},
     'rpmalloc_callback_probe': {'rpmalloc'}, 'rpmalloc_storage_probe': {'rpmalloc'},
     'fsevents_context_probe': set(),
 }
 
 LIBRARY_DEPENDENCIES = {
     'binding_rpmalloc_callbacks': {'binding_rpmalloc_sdk'},
+    'binding_rpmalloc_callbacks_nostats': {'binding_rpmalloc_sdk_nostats'},
     'rpmalloc_callback_probe': {'binding_rpmalloc_sdk'},
 }
 
@@ -130,7 +133,9 @@ def main():
         'sdl_runtime_abi_probe': [ROOT/'tests/native-bindings/sdl_runtime_abi_probe.c'],
         'posix_abi_probe': [ROOT/'tests/native-bindings/posix_abi_probe.c'],
         'binding_rpmalloc_sdk': [vendor/'rpmalloc/rpmalloc/rpmalloc.c'],
+        'binding_rpmalloc_sdk_nostats': [vendor/'rpmalloc/rpmalloc/rpmalloc.c'],
         'binding_rpmalloc_callbacks': [ROOT/'stdlib/internal/bindings/rpmalloc-callbacks/bridge.c'],
+        'binding_rpmalloc_callbacks_nostats': [ROOT/'stdlib/internal/bindings/rpmalloc-callbacks/bridge.c'],
         'rpmalloc_sdk_probe': [ROOT/'tests/native-bindings/generated/rpmalloc_sdk_probe.c'],
         'rpmalloc_callback_probe': [ROOT/'tests/native-bindings/rpmalloc_callback_probe.c'],
         'rpmalloc_storage_probe': [ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'],
@@ -160,9 +165,17 @@ def main():
                 includes = ['-isystem',vendor/manifest['sdl2-runtime-oracle']['archive']['root']/'include/SDL2']
             if name == 'imgui_abi_probe':
                 includes = ['-isystem',vendor/manifest['imgui']['archive']['root']]
-            if name in ('binding_rpmalloc_sdk', 'binding_rpmalloc_callbacks', 'rpmalloc_sdk_probe', 'rpmalloc_callback_probe', 'rpmalloc_storage_probe'):
+            if name.startswith('binding_rpmalloc_') or name in ('rpmalloc_sdk_probe', 'rpmalloc_callback_probe', 'rpmalloc_storage_probe'):
                 includes = ['-isystem', vendor/'rpmalloc/rpmalloc']
-                includes += ['-D'+name+'='+str(value) for name,value in RPMALLOC_SDK_BUILD_OPTIONS.items()]
+                options = dict(RPMALLOC_SDK_BUILD_OPTIONS)
+                if name.endswith('_nostats'):
+                    options['ENABLE_STATISTICS'] = 0
+                    api = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
+                    includes += ['-D'+item['name']+'=binding_rpmalloc_nostats_'+item['name'] for item in api['functions']]
+                    if name == 'binding_rpmalloc_callbacks_nostats':
+                        includes += ['-Dbinding_rpmalloc_initialize=binding_rpmalloc_nostats_initialize',
+                                     '-Dbinding_rpmalloc_finalize=binding_rpmalloc_nostats_finalize']
+                includes += ['-D'+option+'='+str(value) for option,value in options.items()]
             run(['c++' if path.suffix == '.cpp' else 'cc', '-O2', '-fPIC', '-I', vendor/'stb', *includes, '-c', path, '-o', obj])
             compiled.append(obj)
         run(['ar', 'rcs', args.output / ('lib' + name + '.a'), *compiled])
@@ -170,10 +183,10 @@ def main():
         extra = ['-lffi'] if name == 'binding_ffi' else []
         if name == 'fsevents_context_probe':
             extra = ['-framework', 'CoreServices']
-        if name in ('binding_rpmalloc_callbacks','rpmalloc_callback_probe'):
+        if name in ('binding_rpmalloc_callbacks','binding_rpmalloc_callbacks_nostats','rpmalloc_callback_probe'):
             # Shared adapters must use the same SDK instance as allocations.
             # Statically embedding a second allocator would split ownership.
-            extra = ['-L', args.output, '-lbinding_rpmalloc_sdk']
+            extra = ['-L', args.output, '-lbinding_rpmalloc_sdk'+('_nostats' if name.endswith('_nostats') else '')]
         run(['c++' if name in ('meshoptimizer','imgui') else 'cc', '-dynamiclib' if suffix == '.dylib' else '-shared', *compiled,
              '-lm', *extra, '-o', args.output / ('lib' + name + suffix)])
         print('Built ' + name)

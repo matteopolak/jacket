@@ -42,6 +42,11 @@ class ReviewedAllocatorContextTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rewrite_records(broken)
 
+    def test_authorized_default_is_private_policy_not_new_public_parameter(self):
+        self.assertIn('RPMALLOC_FIRST_CLASS_HEAPS :: false;',render_context(self.spec))
+        params = self.spec.split('#module_parameters (',1)[1].split(')();',1)[0]
+        self.assertNotIn('FIRST_CLASS_HEAPS',params)
+
 
 if __name__ == '__main__':
     unittest.main()

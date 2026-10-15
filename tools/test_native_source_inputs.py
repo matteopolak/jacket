@@ -22,6 +22,8 @@ class NativeReleaseInputs(unittest.TestCase):
                          {'rpmalloc_callback_probe', 'binding_rpmalloc_sdk'})
         self.assertEqual(builder.library_closure({'binding_callback_context'}),
                          {'binding_callback_context'})
+        self.assertEqual(builder.library_closure({'binding_rpmalloc_callbacks_nostats'}),
+                         {'binding_rpmalloc_callbacks_nostats', 'binding_rpmalloc_sdk_nostats'})
 
     def fixture(self):
         header = b"/* original public C header fixture */\n#define NATIVE_WORD_BITS 64\n"
