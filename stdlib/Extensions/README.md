@@ -1,5 +1,8 @@
 # jaic extensions
 
+> [!NOTE]
+> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+
 The modules in this folder exist only in jaic, not in the official Jai distribution. Import them by
 their path, so the import says the code is jaic-only:
 

@@ -1,5 +1,8 @@
 # Jai for Visual Studio Code
 
+> [!NOTE]
+> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+
 Language support for [Jai](https://github.com/matteopolak/jai), backed by the `jaic` toolchain: the `jailsp` language server, `jailint` lints and fixes, `jaifmt` formatting and syntax highlighting.
 
 ![Hover over a struct: its fields, size and alignment](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/hover.png)

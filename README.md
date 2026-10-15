@@ -1,5 +1,8 @@
 # `jai{c,lsp,fmt,lint}`
 
+> [!NOTE]
+> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+
 [![Compiler checks](https://github.com/matteopolak/jai/actions/workflows/ci.yml/badge.svg)](https://github.com/matteopolak/jai/actions/workflows/ci.yml)
 
 An independent toolchain for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language:

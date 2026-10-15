@@ -1,5 +1,8 @@
 # jailint
 
+> [!NOTE]
+> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+
 A linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), part of the [`jai{c,lsp,fmt,lint}`](../../README.md) toolchain. It reports common mistakes and unidiomatic code, and fixes the ones it safely can.
 
 The rules run on the program after `jaic` has type-checked it, so they know each expression's type and what every name refers to. The same findings appear in editors through [`jailsp`](../jai-language-server/README.md), as diagnostics with quick fixes.

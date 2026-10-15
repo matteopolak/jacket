@@ -1,0 +1,100 @@
+#import "Basic";
+E :: #import "executable_formats";
+
+main :: () {
+    wire := cast(*u8) alloc(256);
+
+    defer free(wire);
+    for 0..255 wire[it] = 0;
+
+    header: E.Elf_Header_64;
+    header.machine = .AMD_x64;
+    header.type = .REL;
+    sections: [4] E.Elf_Section_Header;
+    sections[1].type = .PROGBITS;
+    sections[1].address = 100;
+    sections[1].size = 16;
+    sections[2].type = .SYMTAB;
+    sections[2].offset = 64;
+    sections[2].size = 48;
+    sections[2].entsize = 24;
+    sections[3].type = .RELA;
+    sections[3].offset = 128;
+    sections[3].size = 24;
+    sections[3].entsize = 24;
+    sections[3].link = 2;
+    sections[3].info = 1;
+    symbol := cast(*E.Elf_Symbol) (wire + 88);
+    symbol.section_index = 1;
+    symbol.value = 5;
+    relocation := cast(*E.Elf_Relocation) (wire + 128);
+    relocation.type = .AMD64_64;
+    relocation.symbol_id = cast(E.Elf_Symbol_Id) 1;
+    relocation.addend = 7;
+    elf: E.Elf;
+    elf.header = *header;
+    elf.sections = sections;
+    elf.content = .{ 256, wire };
+    output: [16] u8;
+
+    assert(E.apply_relocations(elf, 1, output));
+    assert(output[0] == 112 && output[1] == 0 && output[8] == 0);
+    relocation.type = .AMD64_GOTPCREL;
+    assert(!E.apply_relocations(elf, 1, output));
+    assert(output[0] == 112);
+    relocation.type = .AMD64_PC32;
+    relocation.addend = -10;
+    assert(E.apply_relocations(elf, 1, output));
+    assert(output[0] == 251 && output[1] == 255 && output[3] == 255);
+    relocation.address = 15;
+    assert(!E.apply_relocations(elf, 1, output));
+    assert(output[0] == 251);
+    larger: [32] u8;
+
+    relocation.address = 16;
+    assert(!E.apply_relocations(elf, 1, larger));
+    assert(larger[16] == 0 && larger[19] == 0);
+    header.machine = .ARM_v8;
+    symbol.section_index = 0xfff1;
+    symbol.value = 0;
+    relocation.address = 0;
+    relocation.type = .AARCH64_ABS32;
+    relocation.addend = -1;
+    assert(E.apply_relocations(elf, 1, output));
+    assert(output[0] == 255 && output[3] == 255);
+    relocation.type = .AARCH64_ABS16;
+    assert(E.apply_relocations(elf, 1, output));
+    assert(output[0] == 255 && output[1] == 255);
+    coff_header: E.Coff_Header;
+    coff_header.machine = .AMD64;
+    coff_sections: [2] E.Coff_Section_Header;
+    coff_sections[0].virtual_address = 100;
+    coff_sections[0].size_of_raw_data = 16;
+    coff_sections[1].virtual_address = 200;
+    coff_symbols: [1] E.Coff_Symbol;
+    coff_symbols[0].value = 5;
+    coff_symbols[0].section_number = 2;
+    coff_relocations: [1] E.Coff_Relocation;
+    coff_relocations[0].type = .ADDR64;
+    tables: [1][] E.Coff_Relocation;
+    tables[0] = coff_relocations;
+    coff: E.Coff;
+    coff.header = *coff_header;
+    coff.section_headers = coff_sections;
+    coff.symbols = coff_symbols;
+    coff.section_relocations = tables;
+    for output output[it_index] = 0;
+
+    output[0] = 7;
+    E.apply_relocations(coff, 0, output);
+    assert(output[0] == 212 && output[1] == 0 && output[7] == 0);
+    for output output[it_index] = 0;
+
+    coff_relocations[0].type = .REL32;
+    E.apply_relocations(coff, 0, output);
+    assert(output[0] == 101 && output[1] == 0);
+    coff_relocations[0].virtual_address = 16;
+    E.apply_relocations(coff, 0, larger);
+    assert(larger[16] == 0 && larger[19] == 0);
+    print("ok\n");
+}

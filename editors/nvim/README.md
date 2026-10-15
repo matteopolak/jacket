@@ -1,5 +1,8 @@
 # jai.nvim
 
+> [!NOTE]
+> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+
 Neovim support for [Jai](https://github.com/matteopolak/jai): the `jailsp` language server (diagnostics with `jailint` lints and quick fixes, hover, completion, go to definition, semantic tokens, doc-comment links), `jaifmt` formatting, a Vim syntax file, and a command that downloads the toolchain. Needs Neovim 0.11 or newer.
 
 This directory is mirrored to [matteopolak/jai.nvim](https://github.com/matteopolak/jai.nvim) on every release. Install from there, or use a checkout of the jai repository.
