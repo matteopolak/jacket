@@ -13,6 +13,8 @@
   cached instance identity, selected-body diagnostics and independent regressions.
 - [Module-root context/import ordering](compiler/module-root-context-ordering.md):
   configured bootstrap reuse before execution and context layout, with strict lint regressions.
+- [Canonical called-library interception](compiler/canonical-library-interception.md):
+  ordinary/generic body scheduling, canonical headers, filters and completion.
 
 - [Extensions Io/Args dependency migration](extensions/dependency-migration.md):
   allocator ownership, fiber scratch lifecycle and actual WASI termination;

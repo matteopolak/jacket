@@ -3,8 +3,9 @@
 //! `crate::records`).
 //!
 //! Each top-level declaration of a user module (anything outside the system
-//! module directory and Preload) is resolved and exported once, with the
-//! procedure headers, bodies and structs it contains. Lowered expression results
+//! module directory and Preload) is resolved and exported once. Already resolved
+//! library declarations and called concrete bodies also participate, sharing
+//! canonical headers and body scheduling across modules. Lowered expression results
 //! retain their checked procedure-instance types; untyped syntax remains untyped.
 //! The record of every exported procedure body remembers its procedure, so
 //! `compiler_modify_procedure` can map a modified statement list back.
@@ -99,6 +100,10 @@ pub struct ExportState {
     /// (procedure, header record, scope for type expressions). The body is reported
     /// in a later TYPECHECKED message, once lowered (like Jai, unused bodies never are).
     pending_bodies: Vec<(ProcId, i64, ScopeId)>,
+    /// A procedure may be reached through several aliases and call records.
+    scheduled_bodies: HashSet<ProcId>,
+    reported_headers: HashSet<ProcId>,
+    reported_bodies: HashSet<ProcId>,
     /// Records of this compiler's own type descriptors (`__address`), by type.
     own_types: HashMap<TypeId, i64>,
     /// Modified procedures to lower again (`relower_modified`).
@@ -118,6 +123,12 @@ pub struct ExportState {
 }
 
 impl ExportState {
+    fn schedule_body(&mut self, p: ProcId, header: i64, scope: ScopeId) {
+        if self.scheduled_bodies.insert(p) {
+            self.pending_bodies.push((p, header, scope));
+        }
+    }
+
     /// Procedures whose header was reported and whose body is still waiting.
     pub fn pending_procs(&self) -> impl Iterator<Item = ProcId> + '_ {
         self.pending_bodies.iter().map(|&(p, _, _)| p)
@@ -265,7 +276,7 @@ impl Compiler {
         system
     }
 
-    /// A TYPECHECKED message for user declarations not exported yet, or `None`.
+    /// A TYPECHECKED message for eligible declarations and ready bodies, or `None`.
     pub fn export_typechecked(&mut self, r: &mut Records) -> Option<i64> {
         let mut decls = Vec::new();
         while self.export.next_entity < self.entities.len() {
@@ -288,7 +299,11 @@ impl Compiler {
                 continue;
             }
             let module = scope.module;
-            if self.is_system_module(module) {
+            // Do not force the entire library to resolve for an interception.
+            // Already resolved library declarations, including called procedures,
+            // have the same canonical records as declarations in user modules.
+            let resolved = matches!(entity.state, super::scope::EntityState::Done(_));
+            if self.is_system_module(module) && !resolved {
                 continue;
             }
             decls.push((id, decl, index, home, file_private));
@@ -328,10 +343,13 @@ impl Compiler {
             };
             out.declarations.push((rec, sub));
         }
-        // Bodies whose headers this message reports for the first time (polymorph instances
-        // that calls resolved to), when they are already lowered.
-        while exported > 0 {
+        // Newly reported calls can schedule ordinary callees or polymorph instances.
+        // Drain ready bodies transitively even when the first pass exported none.
+        loop {
             exported = self.export_ready_bodies(r, &mut out);
+            if exported == 0 {
+                break;
+            }
         }
         let mut message = Record::new("Message_Typechecked");
         let group = |r: &mut Records, items: &[(i64, Vec<i64>)]| -> Vec<Item> {
@@ -493,11 +511,11 @@ impl Compiler {
             .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
         self.export.pending_bodies = waiting;
         let count = ready.len();
-        for (p, header_id, scope) in ready {
+        for (p, _header_id, scope) in ready {
             let lit = self.proc(p).lit.clone();
-            let Some(body) = &lit.body else {
-                continue;
-            };
+            let span = self.proc(p).span;
+            let sig = self.signature(p, span).ok();
+            let notes = self.proc_decl_notes.get(&p).cloned().unwrap_or_default();
             let mut ex = Exporter {
                 c: Some(self),
                 r,
@@ -509,12 +527,7 @@ impl Compiler {
                 own: false,
                 out,
             };
-            let body_id = ex.body(body, header_id, Some(p));
-            let sub = std::mem::take(&mut ex.sub);
-            if let Some(header) = r.get_mut(header_id) {
-                header.ptr("body_or_null", body_id);
-            }
-            out.bodies.push((body_id, sub));
+            ex.proc(&lit, &notes, Some((p, sig)), span);
         }
         count
     }
@@ -1206,15 +1219,11 @@ impl Exporter<'_> {
         c.export.resolved_headers.insert((p, own), id);
         let info = c.proc(p);
         let (name, lit, span, is_poly) = (info.name, info.lit.clone(), info.span, info.is_poly);
-        // A polymorph instance has no declaration of its own to report: its body goes out
-        // once lowered, with its constants bound (`#if` in it knows which branch it took).
-        if !own
-            && !is_poly
-            && !info.is_macro
-            && lit.body.is_some()
-            && let Some(bindings) = info.bindings
-        {
-            c.export.pending_bodies.push((p, id, bindings));
+        // Called ordinary procedures and polymorph instances both need a body
+        // event once lowered, regardless of where their declarations live.
+        if !own && !is_poly && !info.is_macro && lit.body.is_some() {
+            let scope = info.bindings.unwrap_or(info.scope);
+            c.export.schedule_body(p, id, scope);
         }
         let sig = if is_poly {
             None
@@ -1223,8 +1232,9 @@ impl Exporter<'_> {
         };
         let h = &lit.header;
         let mut arguments = Vec::new();
-        for (i, param) in h.params.iter().enumerate() {
-            let ty = sig.as_ref().and_then(|s| s.params.get(i)).map(|p| p.ty);
+        let mut runtime_index = 0;
+        for param in &h.params {
+            let ty = self.parameter_type(Some(p), param, sig.as_deref(), &mut runtime_index);
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
             let arg = self.reference_decl(name, ty, 0, 0, param.span);
             if param.variadic {
@@ -1238,19 +1248,7 @@ impl Exporter<'_> {
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
             returns.push(self.reference_decl(name, ty, 0, 0, ret.span));
         }
-        let mut flags = 0;
-        if h.flags.elsewhere.is_some() {
-            flags |= 0x1;
-        }
-        if is_poly {
-            flags |= 0x4;
-        }
-        if h.flags.c_call {
-            flags |= 0x20;
-        }
-        if h.flags.expand {
-            flags |= 0x4000;
-        }
+        let flags = procedure_flags(h, is_poly);
         let ty = sig.as_ref().map_or(0, |s| self.ty(s.ty));
         // Checkers such as MetaThreadSafe read the callee's notes (`@thread`).
         let decl_notes = (self.c.as_deref())
@@ -1292,6 +1290,30 @@ impl Exporter<'_> {
                 .copied()
         })
         .unwrap_or(p)
+    }
+
+    /// Baked parameters have bindings but occupy no runtime signature slot.
+    fn parameter_type(
+        &mut self,
+        procedure: Option<ProcId>,
+        param: &ast::Param,
+        signature: Option<&procs::Signature>,
+        runtime_index: &mut usize,
+    ) -> Option<TypeId> {
+        if !param.baked {
+            let index = *runtime_index;
+            *runtime_index += 1;
+            return signature.and_then(|s| s.params.get(index)).map(|p| p.ty);
+        }
+        let c = self.c.as_deref_mut()?;
+        let bindings = c.proc(procedure?).bindings?;
+        let entities = c.lookup(bindings, param.name?.name).ok()?;
+        match c.resolve_entity(*entities.first()?).ok()? {
+            Resolved::Const {
+                ty, ..
+            } => Some(ty),
+            _ => None,
+        }
     }
 
     /// The procedure a call to `callee` with `args` resolves to: the one candidate, or the
@@ -2698,8 +2720,14 @@ impl Exporter<'_> {
         let sig = resolved.as_ref().and_then(|(_, s)| s.clone());
         let mut arguments = Vec::new();
         let mut usings = Vec::new();
-        for (i, param) in h.params.iter().enumerate() {
-            let ty = sig.as_ref().and_then(|s| s.params.get(i)).map(|p| p.ty);
+        let mut runtime_index = 0;
+        for param in &h.params {
+            let ty = self.parameter_type(
+                resolved.as_ref().map(|(p, _)| *p),
+                param,
+                sig.as_deref(),
+                &mut runtime_index,
+            );
             let decl = ast::Decl {
                 id: h.id,
                 names: param.name.into_iter().collect(),
@@ -2765,55 +2793,14 @@ impl Exporter<'_> {
             }
         }
         let notes = self.notes(&notes);
-        let f = &h.flags;
-        let mut flags = 0;
-        if f.elsewhere.is_some() {
-            flags |= 0x1;
-        }
-        if h.params
-            .iter()
-            .any(|p| p.baked || p.ty.as_ref().is_some_and(procs::has_poly))
-        {
-            flags |= 0x4;
-        }
-        if f.c_call {
-            flags |= 0x20;
-        }
-        if f.intrinsic {
-            flags |= 0x80;
-        }
-        if f.deprecated.is_some() {
-            flags |= 0x100;
-        }
-        if f.no_context {
-            flags |= 0x200;
-        }
-        if f.lambda != ast::LambdaKind::None {
-            flags |= 0x400;
-        }
-        if f.cpp_method {
-            flags |= 0x1000;
-        }
-        if f.no_call {
-            flags |= 0x2000;
-        }
-        if f.expand {
-            flags |= 0x4000;
-        }
-        if f.no_debug {
-            flags |= 0x8000;
-        }
-        if f.symmetric {
-            flags |= 0x4_0000;
-        }
-        if f.compiler {
-            flags |= 0x40_0000;
-        }
-        match f.inline {
-            ast::CallHintFlag::Inline => flags |= 0x100_0000,
-            ast::CallHintFlag::NoInline => flags |= 0x200_0000,
-            ast::CallHintFlag::None => {}
-        }
+        let polymorphic = match (resolved.as_ref(), self.c.as_deref()) {
+            (Some((p, _)), Some(c)) => c.proc(*p).is_poly,
+            _ => h
+                .params
+                .iter()
+                .any(|p| p.baked || p.ty.as_ref().is_some_and(procs::has_poly)),
+        };
+        let flags = procedure_flags(h, polymorphic);
         // One header record per procedure: calls that resolved to it before it was reported
         // (`resolved_header`) and later ones see the reported header, body included.
         let known = match (&resolved, self.c.as_deref()) {
@@ -2841,9 +2828,12 @@ impl Exporter<'_> {
             let (p, _) = resolved.as_ref().unwrap();
             let scope = self.scope;
             let c = self.c.as_deref_mut().unwrap();
-            c.export.pending_bodies.push((*p, header_id, scope));
+            c.export.schedule_body(*p, header_id, scope);
         } else if let Some(body) = &lit.body {
-            body_id = self.body(body, header_id, resolved.as_ref().map(|(p, _)| *p));
+            body_id = match self.r.field(header_id, "body_or_null") {
+                Some(FieldRef::Ref(body)) if body != 0 => body,
+                _ => self.body(body, header_id, resolved.as_ref().map(|(p, _)| *p)),
+            };
         }
         let mut rec = self.node("Code_Procedure_Header", node::PROCEDURE_HEADER, span);
         let foreign_name = match h.foreign.as_ref().map(|f| &f.name) {
@@ -2868,12 +2858,76 @@ impl Exporter<'_> {
         *self.r.get_mut(header_id).unwrap() = rec;
         self.sub.push(header_id);
         let sub = self.sub[start..].to_vec();
-        self.out.headers.push((header_id, sub.clone()));
-        if body_id != 0 {
+        let first_header = match (resolved.as_ref(), self.c.as_deref_mut()) {
+            (Some((p, _)), Some(c)) if !own => c.export.reported_headers.insert(*p),
+            _ => true,
+        };
+        if first_header {
+            self.out.headers.push((header_id, sub.clone()));
+        }
+        let first_body = match (resolved.as_ref(), self.c.as_deref_mut()) {
+            (Some((p, _)), Some(c)) if !own && body_id != 0 => {
+                c.export.scheduled_bodies.insert(*p);
+                c.export.reported_bodies.insert(*p)
+            }
+            _ => true,
+        };
+        if body_id != 0 && first_body {
             self.out.bodies.push((body_id, sub));
         }
         header_id
     }
+}
+
+
+fn procedure_flags(h: &ast::ProcHeader, polymorphic: bool) -> i64 {
+    let f = &h.flags;
+    let mut flags = 0;
+    if f.elsewhere.is_some() {
+        flags |= 0x1;
+    }
+    if polymorphic {
+        flags |= 0x4;
+    }
+    if f.c_call {
+        flags |= 0x20;
+    }
+    if f.intrinsic {
+        flags |= 0x80;
+    }
+    if f.deprecated.is_some() {
+        flags |= 0x100;
+    }
+    if f.no_context {
+        flags |= 0x200;
+    }
+    if f.lambda != ast::LambdaKind::None {
+        flags |= 0x400;
+    }
+    if f.cpp_method {
+        flags |= 0x1000;
+    }
+    if f.no_call {
+        flags |= 0x2000;
+    }
+    if f.expand {
+        flags |= 0x4000;
+    }
+    if f.no_debug {
+        flags |= 0x8000;
+    }
+    if f.symmetric {
+        flags |= 0x4_0000;
+    }
+    if f.compiler {
+        flags |= 0x40_0000;
+    }
+    match f.inline {
+        ast::CallHintFlag::Inline => flags |= 0x100_0000,
+        ast::CallHintFlag::NoInline => flags |= 0x200_0000,
+        ast::CallHintFlag::None => {}
+    }
+    flags
 }
 
 /// Records for a `#code` value outside its compiler (`compiler_get_nodes`):
