@@ -44,6 +44,8 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 Jai language behavior as implemented by `jaic`.
 
 - [Casts and conversions](language/casts-and-conversions.md)
+- [Full available compiler suite and triage](compiler/full-suite-triage.md)
+- [Native interpreter thread entry and ownership](compiler/windows-thread-entry-lifecycle.md)
 - [Checked expression result metadata](compiler/typed-expression-metadata.md)
 - [Real x64 CPUID execution](compiler/cpuid.md)
 - [Forward overlay declaration and layout resolution](compiler/forward-overlay-layout.md)

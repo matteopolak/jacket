@@ -95,3 +95,33 @@ fn managed_windows_thread_entry_requires_the_real_callback_abi() {
         error.render(&c.sources)
     );
 }
+
+
+#[test]
+fn unsupported_creation_options_diagnose_instead_of_being_silently_discarded() {
+    for (security, stack, flags, expected) in [
+        ("cast(*void)*attributes", 0, 0, "security attributes"),
+        ("null", 65536, 0, "stack sizes"),
+        ("null", 0, 0x10, "creation flags"),
+    ] {
+        let mut options = Options::host();
+        options.runtime_support = false;
+        let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let source = format!(
+            r#"
+CreateThread :: (security:*void,stack:u64,entry:*void,argument:*void,flags:u32,id:*u32)->u64 #foreign;
+worker :: (argument:*void)->u32 #c_call {{ return 1; }}
+Security :: struct {{ length:u32; descriptor:*void; inherit:s32; }}
+#run {{ attributes:Security; attributes.length=cast(u32)size_of(Security); CreateThread({security},{stack},cast(*void)worker,null,{flags},null); }}
+"#
+        );
+        let error = compiler
+            .compile_sources(&[ProgramSource::String(source)])
+            .expect_err("unsupported options must not become default OS behavior");
+        assert!(
+            error.message.contains(expected),
+            "{}",
+            error.render(&compiler.sources)
+        );
+    }
+}

@@ -19,7 +19,10 @@ const INFINITE: u32 = u32::MAX;
 const WAIT_OBJECT_0: u64 = 0;
 const WAIT_TIMEOUT: u64 = 258;
 const WAIT_FAILED: u64 = u32::MAX as u64;
+
+#[cfg(not(windows))]
 const STILL_ACTIVE: u32 = 259;
+
 const ERROR_TIMEOUT: u32 = 1460;
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_TOO_MANY_POSTS: u32 = 298;
@@ -50,7 +53,7 @@ pub(super) enum Object {
 impl Object {
     fn signaled(&mut self, threads: &[GThread]) -> bool {
         match *self {
-            Object::Thread(id) => threads[id].finished,
+            Object::Thread(id) => thread_signaled(&threads[id]),
             Object::Semaphore {
                 count, ..
             } => count > 0,
@@ -98,6 +101,8 @@ unsafe extern "system" {
     fn SetLastError(code: u32);
     fn GetLastError() -> u32;
     fn GetCurrentThreadId() -> u32;
+
+    #[cfg(test)]
     fn GetThreadId(handle: usize) -> u32;
 }
 
@@ -124,6 +129,159 @@ unsafe extern "system" {
     fn CloseHandle(handle: usize) -> i32;
     fn WaitForSingleObject(handle: usize, milliseconds: u32) -> u32;
     fn SetHandleInformation(handle: usize, mask: u32, flags: u32) -> i32;
+    fn GetExitCodeThread(handle: usize, code: *mut u32) -> i32;
+}
+
+#[cfg(windows)]
+#[link(name = "kernelbase")]
+unsafe extern "system" {
+    fn CompareObjectHandles(first: usize, second: usize) -> i32;
+}
+
+#[cfg(windows)]
+#[link(name = "ucrt")]
+unsafe extern "C" {
+    fn _beginthreadex(
+        security: *mut std::ffi::c_void,
+        stack: u32,
+        entry: unsafe extern "system" fn(*mut std::ffi::c_void) -> u32,
+        argument: *mut std::ffi::c_void,
+        flags: u32,
+        id: *mut u32,
+    ) -> usize;
+
+    fn _get_doserrno(error: *mut u32) -> i32;
+}
+
+#[cfg(windows)]
+struct WorkerStart {
+    shared: Arc<Shared>,
+    program: usize,
+    id: usize,
+    func: FuncId,
+    argument: u64,
+}
+
+#[cfg(windows)]
+unsafe extern "system" fn worker_entry(argument: *mut std::ffi::c_void) -> u32 {
+    // SAFETY: spawn_worker transfers one Box to the successful CRT entry.
+    let start = unsafe { Box::from_raw(argument.cast::<WorkerStart>()) };
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_worker(
+            &start.shared,
+            start.program,
+            start.id,
+            start.func,
+            start.argument,
+        )
+    }));
+
+    match result {
+        Ok(value) => value as u32,
+        Err(_) => {
+            eprintln!("error: unexpected Rust panic in interpreter thread entry");
+            std::process::abort();
+        }
+    }
+}
+
+#[cfg(windows)]
+pub(super) fn spawn_worker(
+    shared: Arc<Shared>,
+    program: usize,
+    id: usize,
+    func: FuncId,
+    argument: u64,
+) -> std::io::Result<Worker> {
+    use std::os::windows::io::{FromRawHandle, OwnedHandle};
+    let scheduler = shared.clone();
+    let start = Box::new(WorkerStart {
+        shared,
+        program,
+        id,
+        func,
+        argument,
+    });
+    let argument = Box::into_raw(start).cast();
+    // SAFETY: the boxed entry context outlives startup and the system ABI returns DWORD.
+    // CRT startup/normal return release CRT thread-local resources as well as OS state.
+    let mut native_id = 0;
+    let handle = unsafe {
+        _beginthreadex(
+            std::ptr::null_mut(),
+            NATIVE_STACK as u32,
+            worker_entry,
+            argument,
+            0x10000,
+            &mut native_id,
+        )
+    };
+    if handle == 0 {
+        let mut error = 0;
+        // Capture the CRT error before cleanup can change native error state.
+        // SAFETY: _get_doserrno writes one unsigned long into our local.
+        let status = unsafe { _get_doserrno(&mut error) };
+        // SAFETY: the thread was not created, so its context remains solely owned here.
+        unsafe {
+            drop(Box::from_raw(argument.cast::<WorkerStart>()));
+        }
+        return Err(if status == 0 && error != 0 {
+            std::io::Error::from_raw_os_error(error as i32)
+        } else {
+            std::io::Error::other("CRT could not create an interpreter thread")
+        });
+    }
+    scheduler.lock().threads[id].native_id = native_id;
+    scheduler.cv.notify_all();
+    // SAFETY: _beginthreadex returns an owned kernel thread handle on success.
+    Ok(unsafe { OwnedHandle::from_raw_handle(handle as *mut _) })
+}
+
+#[cfg(windows)]
+pub(super) fn creation_error(error: &std::io::Error) {
+    if let Some(error) = error.raw_os_error() {
+        set_last_error(error as u32);
+    }
+}
+
+#[cfg(windows)]
+pub(super) fn join_worker(worker: Worker) {
+    use std::os::windows::io::AsRawHandle;
+    // SAFETY: the private handle cannot be closed/protected by interpreted callers.
+    let result = unsafe { WaitForSingleObject(worker.as_raw_handle() as usize, INFINITE) };
+    if result != WAIT_OBJECT_0 as u32 {
+        eprintln!("error: cannot join interpreter OS thread (wait result {result})");
+        std::process::abort();
+    }
+}
+
+#[cfg(windows)]
+pub(super) fn native_exit_code(handle: u64) -> Result<(u64, u32), u32> {
+    let mut code = 0;
+    // SAFETY: Windows validates the handle and writes to one local DWORD.
+    let success = unsafe { GetExitCodeThread(handle as usize, &mut code) };
+    if success != 0 {
+        Ok((success as u32 as u64, code))
+    } else {
+        Err(unsafe { GetLastError() })
+    }
+}
+
+fn thread_signaled(thread: &GThread) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        thread.finished
+            && thread.worker.as_ref().is_some_and(|worker| {
+                // SAFETY: this borrows a live private thread handle under the scheduler mutex.
+                unsafe { WaitForSingleObject(worker.as_raw_handle() as usize, 0) == 0 }
+            })
+    }
+    #[cfg(not(windows))]
+    {
+        thread.finished
+    }
 }
 
 #[cfg(windows)]
@@ -217,6 +375,17 @@ impl Interp {
         let started = self.multi;
         let result: Res<u64> = match symbol {
             "CreateThread" | "_beginthreadex" => {
+                if arg(0) != 0 {
+                    return Some(self.trap("custom thread security attributes are unsupported by the managed interpreter"));
+                }
+                if arg(1) != 0 {
+                    return Some(self.trap(
+                        "custom thread stack sizes are unsupported by the managed interpreter",
+                    ));
+                }
+                if arg(4) & !(4 | 0x10000) != 0 {
+                    return Some(self.trap("unsupported managed thread creation flags"));
+                }
                 self.create_thread(program, arg(2), arg(3), arg(4), arg(5))
             }
             "ExitThread" | "_endthreadex" => {
@@ -323,6 +492,27 @@ impl Interp {
                 }
                 self.wait_objects(&handles, arg(2) as u32 != 0, arg(3) as u32)
             }
+            #[cfg(windows)]
+            "GetExitCodeThread" if self.owns(arg(0)) => {
+                let is_thread =
+                    self.with_sched(|s| matches!(s.objects.get(&arg(0)), Some(Object::Thread(_))));
+                if !is_thread {
+                    return None;
+                }
+                match native_exit_code(arg(0)) {
+                    Ok((success, code)) => {
+                        if let Err(trap) = self.put(arg(1), &code.to_le_bytes()) {
+                            return Some(Err(trap));
+                        }
+                        return Some(Ok(vec![success]));
+                    }
+                    Err(error) => {
+                        set_last_error(error);
+                        return Some(Ok(vec![0]));
+                    }
+                }
+            }
+            #[cfg(not(windows))]
             "GetExitCodeThread" if self.owns(arg(0)) => {
                 let code = self.with_sched(|s| match s.objects.get(&arg(0)) {
                     Some(&Object::Thread(id)) if s.threads[id].finished => {
@@ -539,14 +729,19 @@ impl Interp {
         let Some(shared) = &self.shared else {
             return false;
         };
-        // SAFETY: GetThreadId validates arbitrary handle values and reports invalid ones.
-        let id = unsafe { GetThreadId(handle as usize) };
-        id != 0
-            && shared
-                .lock()
-                .threads
-                .iter()
-                .any(|t| !t.finished && t.native_id == id)
+        use std::os::windows::io::AsRawHandle;
+        shared.lock().threads.iter().any(|thread| {
+            !thread_signaled(thread)
+                && thread.worker.as_ref().is_some_and(|worker| {
+                    // Identity comparison requires no query access. GetThreadId would miss
+                    // suspend-only duplicates and could allow an unscheduled native suspend.
+                    // SAFETY: Windows validates handle and the private handle stays live under
+                    // the mutex. Both are handles in this process; no foreign memory is read.
+                    unsafe {
+                        CompareObjectHandles(handle as usize, worker.as_raw_handle() as usize) != 0
+                    }
+                })
+        })
     }
 
     /// Like `new_object`, but the object is known by `handle` when that is not 0 (a kernel
@@ -579,17 +774,7 @@ impl Interp {
         id_out: u64,
     ) -> Res<u64> {
         const CREATE_SUSPENDED: u64 = 4;
-        let valid_entry = self
-            .func_of(start)
-            .and_then(|func| program.funcs[func.0 as usize].as_ref())
-            .is_some_and(|function| {
-                let signature = &function.sig;
-                signature.conv == ir::Conv::C
-                    && signature.params == [Ty::Ptr]
-                    && signature.returns == [Ty::I32]
-                    && !signature.c_varargs
-                    && signature.c_abi.is_none()
-            });
+        let valid_entry = self.thread_entry_abi(program, start, Ty::I32);
         if !valid_entry {
             return self.trap("Win32 thread entry ABI requires one pointer argument and one 32-bit result with C convention");
         }
@@ -674,13 +859,16 @@ impl Interp {
             if milliseconds == 0 || deadline.is_some_and(|d| d <= Instant::now()) {
                 return Ok(WAIT_TIMEOUT);
             }
-            // A kernel event is signaled without telling the scheduler, so look again soon.
+            // Kernel events and actual OS thread termination need a native poll.
+            // A Jai return wakes waiters just before its CRT/OS entry has returned.
             let poll = self.with_sched(|s| {
-                handles.iter().any(|h| {
-                    matches!(
-                        s.objects.get(h),
-                        Some(Object::Event { real, .. }) if *real != 0
-                    )
+                handles.iter().any(|h| match s.objects.get(h) {
+                    // Jai completion already wakes waiters; poll only the final CRT/OS exit.
+                    Some(Object::Thread(id)) => cfg!(windows) && s.threads[*id].finished,
+                    Some(Object::Event {
+                        real, ..
+                    }) => *real != 0,
+                    _ => false,
                 })
             });
             let wake = if poll {
@@ -716,6 +904,52 @@ mod handle_registry_tests {
             s.objects.remove(&4);
         });
         assert!(!interp.owns(4));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn suspend_only_aliases_are_identified_without_query_rights() {
+        use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn DuplicateHandle(
+                source_process: usize,
+                source: usize,
+                target_process: usize,
+                target: *mut usize,
+                access: u32,
+                inherit: i32,
+                flags: u32,
+            ) -> i32;
+        }
+        let (done, wait) = std::sync::mpsc::channel::<()>();
+        let worker = OwnedHandle::from(std::thread::spawn(move || {
+            // Closing the channel stops this real OS worker, including assertion unwind.
+            for _ in wait {}
+        }));
+        let raw = worker.as_raw_handle() as usize;
+        let mut alias = 0;
+        // SAFETY: -1 is our current-process pseudo handle, raw is owned, alias is local.
+        assert_ne!(
+            unsafe { DuplicateHandle(usize::MAX, raw, usize::MAX, &mut alias, 2, 0, 0) },
+            0
+        );
+        // SAFETY: DuplicateHandle transferred one native thread handle to alias.
+        let alias = unsafe { OwnedHandle::from_raw_handle(alias as *mut _) };
+        let mut interp = Interp::new(Box::new(NativeHost));
+        let stop_worker = done; // Drop before interp on a failed assertion; join cannot hang.
+        let shared = interp.shared();
+        let mut thread = GThread::new(false, None);
+        // SAFETY: the full-rights private handle supports GetThreadId.
+        thread.native_id = unsafe { GetThreadId(raw) };
+        thread.worker = Some(worker);
+        shared.lock().threads.push(thread);
+        let alias_raw = alias.as_raw_handle() as u64;
+        assert!(interp.is_unmanaged_thread_alias(alias_raw));
+        drop(alias);
+        assert!(!interp.is_unmanaged_thread_alias(alias_raw));
+        drop(stop_worker);
+        drop(interp);
     }
 
     #[cfg(windows)]

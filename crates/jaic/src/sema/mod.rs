@@ -369,6 +369,9 @@ pub enum ProvidedKind {
 }
 
 pub struct Compiler {
+    // Rust drops fields in declaration order. Join interpreter workers before any
+    // compiler-owned program/source/type storage that their frames may borrow.
+    pub interp: crate::interp::Interp,
     pub options: Options,
     pub fs: Rc<dyn FileSystem>,
     pub sources: SourceMap,
@@ -444,7 +447,6 @@ pub struct Compiler {
     /// so its locals have types.
     pub(super) code_procs: HashMap<usize, ProcId>,
     parked_epoch: u64,
-    pub interp: crate::interp::Interp,
     /// Type_Info globals per type.
     pub type_infos: HashMap<TypeId, ir::GlobalId>,
     /// Type_Info globals whose descriptor could not be built yet (`type_info_global`).

@@ -19,17 +19,24 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         .join("../..")
         .canonicalize()
         .unwrap();
-    let dir = root.join("target/runtime-configuration-candidate");
+    // Isolate fixture staging while checking the production library when available.
+    let dir = root.join(format!(
+        "target/runtime-configuration-cli/{}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&dir).unwrap();
-    let library =
-        if root.join("stdlib/prelude/module.jai").is_file() {
-            root.join("stdlib")
-        } else {
-            checked(Command::new("python3").arg(
-                root.join("tests/compiler-semantics/runtime-configuration/stage-candidate.py"),
-            ));
-            dir.join("stdlib")
-        };
+    let library = if root.join("stdlib/prelude/module.jai").is_file() {
+        root.join("stdlib")
+    } else {
+        let library = dir.join("stdlib");
+        checked(
+            Command::new("python3")
+                .arg(root.join("tests/compiler-semantics/runtime-configuration/stage-candidate.py"))
+                .arg("--destination")
+                .arg(&library),
+        );
+        library
+    };
     let source = root.join("tests/compiler-semantics/runtime-configuration/allocation.jai");
     let interpreted = checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))

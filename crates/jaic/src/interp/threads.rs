@@ -24,6 +24,9 @@
 //! semaphores and events, waits on their handles) map onto the same scheduler; see `win32.rs`.
 #![allow(unsafe_code)]
 
+#[cfg(not(panic = "unwind"))]
+compile_error!("native interpreter worker cancellation requires Rust panic=unwind");
+
 mod win32;
 
 use super::*;
@@ -81,8 +84,22 @@ impl Block {
     }
 }
 
+#[cfg(windows)]
+type Worker = std::os::windows::io::OwnedHandle;
+
+#[cfg(not(windows))]
+type Worker = std::thread::JoinHandle<u64>;
+
+/// Private unwind signal: never escapes a native callback or OS thread entry.
+struct WorkerCancelled;
+
+const CANCELLED_EXIT_CODE: u32 = 1223; // ERROR_CANCELLED; interpreter teardown, not Jai success.
+
 struct GThread {
     finished: bool,
+    cancelled: bool,
+    /// Private join ownership survives closing every public thread handle.
+    worker: Option<Worker>,
     /// Win32 suspension gates scheduling independently of waits/deadlines.
     suspend_count: u32,
     /// Actual Windows OS id, recorded before the thread waits for its baton.
@@ -107,6 +124,8 @@ impl GThread {
     fn new(adopted: bool, start: Option<ExecState>) -> Self {
         GThread {
             finished: false,
+            cancelled: false,
+            worker: None,
             suspend_count: 0,
             native_id: 0,
             #[cfg(windows)]
@@ -311,10 +330,11 @@ impl Shared {
 
     /// Wait until `me` (runnable, or blocked waiting to be woken) holds the baton.
     fn acquire<'a>(&'a self, s: MutexGuard<'a, Sched>, me: usize) -> MutexGuard<'a, Sched> {
-        let Some(s) = self.wait_turn(s, me, false) else {
-            unreachable!("only callbacks stop waiting when the interpreter is gone")
-        };
-        s
+        self.wait_turn(s, me, false).unwrap_or_else(|| {
+            // Bypass the panic hook: this is cooperative cancellation, not a Rust error.
+            // Unwind Rust frames without touching the interpreter after losing the baton.
+            std::panic::resume_unwind(Box::new(WorkerCancelled))
+        })
     }
 
     /// `acquire` for a callback from C, which takes the baton at once from a holder inside a
@@ -342,15 +362,15 @@ impl Shared {
         let mut watched: Option<(u64, Instant)> = None;
         // When this thread found every thread blocked for good.
         let mut stuck_since: Option<Instant> = None;
-        while s.current != Some(me) {
-            if s.dead {
-                // The interpreter is gone (the program ended): never touch it again.
+        loop {
+            if s.dead || s.threads[me].cancelled {
                 if urgent {
                     s.urgent -= 1;
-                    return None;
                 }
-                s = self.cv.wait(s).unwrap_or_else(|e| e.into_inner());
-                continue;
+                return None;
+            }
+            if s.current == Some(me) {
+                break;
             }
             if s.threads[me]
                 .block
@@ -460,16 +480,42 @@ impl Shared {
 
     /// The interpreter is being dropped.
     pub(super) fn close(&self) {
+        let workers = {
+            let mut s = self.lock();
+            s.dead = true;
+            let workers: Vec<_> = s
+                .threads
+                .iter_mut()
+                .filter_map(|thread| thread.worker.take())
+                .collect();
+            self.cv.notify_all();
+            workers
+        };
+        // The interpreter/program remain alive until every managed OS entry returns.
+        // Never forcibly terminate foreign code or leave parked Rust stacks behind.
+        for worker in workers {
+            #[cfg(windows)]
+            win32::join_worker(worker);
+            #[cfg(not(windows))]
+            if worker.join().is_err() {
+                eprintln!("error: interpreter worker panicked during teardown");
+                std::process::abort();
+            }
+        }
         let mut s = self.lock();
-        s.dead = true;
+        while s
+            .threads
+            .iter()
+            .any(|thread| thread.adopted && !thread.finished)
+        {
+            s = self.cv.wait(s).unwrap_or_else(|e| e.into_inner());
+        }
         #[cfg(windows)]
         for thread in &mut s.threads {
             if let Some(handle) = thread.native_handle.take() {
                 win32::release_thread_handle(handle);
             }
         }
-        drop(s);
-        self.cv.notify_all();
     }
 }
 
@@ -496,7 +542,15 @@ impl native::Gate for Shared {
             }
             None => {
                 let me = s.adopt();
-                s = self.acquire_callback(s, me).ok_or(GONE)?;
+                let Some(acquired) = self.acquire_callback(s, me) else {
+                    // A callback lease that never entered must also be released at shutdown.
+                    let mut cancelled = self.lock();
+                    cancelled.threads[me].finished = true;
+                    cancelled.spare.push(me);
+                    self.cv.notify_all();
+                    return Err(GONE.into());
+                };
+                s = acquired;
                 me
             }
         };
@@ -505,7 +559,9 @@ impl native::Gate for Shared {
         // SAFETY: this thread holds the baton, so nothing else touches the interpreter, and
         // `program` is the program the thunk was made for, alive while its interpreter is.
         let (interp, program) = unsafe { (&mut *interp, &*(program as *const Program)) };
-        f(&mut |func, args: &[u64]| interp.run_callback(program, func, args));
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            f(&mut |func, args: &[u64]| interp.run_callback(program, func, args));
+        }));
         let mut s = self.lock();
         if nested.is_some() {
             // Back to C, inside the native call the callback came from.
@@ -520,7 +576,12 @@ impl native::Gate for Shared {
             s.release(None);
             self.cv.notify_all();
         }
-        Ok(())
+        drop(s);
+        match result {
+            Ok(()) => Ok(()),
+            Err(cancelled) if cancelled.is::<WorkerCancelled>() => Err(GONE.into()),
+            Err(other) => std::panic::resume_unwind(other),
+        }
     }
 
     fn describe(&self, program: u64, trap: &Trap) -> String {
@@ -622,6 +683,20 @@ impl Interp {
         Some(result.map(|v| vec![v]))
     }
 
+    /// Native callback ABI, independent of its nominal pointer types or module.
+    fn thread_entry_abi(&self, program: &Program, start: u64, result: Ty) -> bool {
+        self.func_of(start)
+            .and_then(|func| program.funcs.get(func.0 as usize).and_then(Option::as_ref))
+            .is_some_and(|function| {
+                let signature = &function.sig;
+                signature.conv == ir::Conv::C
+                    && signature.params == [Ty::Ptr]
+                    && signature.returns == [result]
+                    && !signature.c_varargs
+                    && signature.c_abi.is_none()
+            })
+    }
+
     /// Start a Jai thread running `start(argument)`: its id, or `None` when the OS refused.
     fn spawn_thread(&mut self, program: &Program, start: u64, argument: u64) -> Res<Option<usize>> {
         self.spawn_gated_thread(program, start, argument, false)
@@ -652,22 +727,47 @@ impl Interp {
         };
         let program = program as *const Program as usize;
         let thread_shared = shared.clone();
+        #[cfg(windows)]
+        let spawned = win32::spawn_worker(thread_shared, program, id, func, argument);
+        #[cfg(not(windows))]
         let spawned = std::thread::Builder::new()
             .stack_size(NATIVE_STACK)
-            .spawn(move || thread_main(&thread_shared, program, id, func, argument));
-        let join = match spawned {
-            Ok(join) => join,
-            Err(_) => {
+            .spawn(move || run_worker(&thread_shared, program, id, func, argument));
+        let worker = match spawned {
+            Ok(worker) => worker,
+            Err(error) => {
                 shared.lock().threads[id].finished = true;
+                shared.lock().threads[id].start.take();
+                #[cfg(windows)]
+                {
+                    win32::creation_error(&error);
+                    if error.raw_os_error().is_none() {
+                        return self.trap(error.to_string());
+                    }
+                }
+                #[cfg(not(windows))]
+                let _ = error;
                 return Ok(None);
             }
         };
         #[cfg(windows)]
         {
-            shared.lock().threads[id].native_handle = Some(join.into());
+            let public = match worker.try_clone() {
+                Ok(public) => public,
+                Err(error) => {
+                    shared.lock().threads[id].cancelled = true;
+                    shared.cv.notify_all();
+                    win32::join_worker(worker);
+                    win32::creation_error(&error);
+                    if error.raw_os_error().is_none() {
+                        return self.trap(error.to_string());
+                    }
+                    return Ok(None);
+                }
+            };
+            shared.lock().threads[id].native_handle = Some(public);
         }
-        #[cfg(not(windows))]
-        drop(join);
+        shared.lock().threads[id].worker = Some(worker);
         Ok(Some(id))
     }
 
@@ -678,6 +778,9 @@ impl Interp {
         start: u64,
         argument: u64,
     ) -> Res<u64> {
+        if !self.thread_entry_abi(program, start, Ty::Ptr) {
+            return self.trap("POSIX thread entry ABI requires one pointer argument and one pointer result with C convention");
+        }
         let Some(id) = self.spawn_thread(program, start, argument)? else {
             return Ok(11); // EAGAIN
         };
@@ -887,7 +990,7 @@ fn absolute_deadline(secs: u64, nanos: u64) -> Instant {
 }
 
 /// Body of the OS thread that runs Jai thread `id`.
-fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argument: u64) {
+fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argument: u64) -> u64 {
     let (interp, state) = {
         let mut s = shared.lock();
         s.threads[id].native_id = win32::native_thread_id(id);
@@ -896,17 +999,21 @@ fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argumen
         (s.interp, s.threads[id].start.take().unwrap_or_default())
     };
     // SAFETY: only the thread holding the baton touches the interpreter, and the program
-    // outlives every thread (the process ends when the program's `main` returns).
+    // stays alive until Shared::close has cancelled/joined every managed OS entry.
     let interp = unsafe { &mut *(interp as *mut Interp) };
     let program = unsafe { &*(program as *const Program) };
     interp.put_exec_state(state);
     let result = interp.exec(program, func, &[argument]);
     let value = match result {
-        Ok(values) => values.first().copied().unwrap_or(0),
+        Ok(values) if values.len() == 1 => values[0],
+        Ok(_) => {
+            eprintln!("error: interpreter thread entry returned an invalid result shape");
+            std::process::exit(1);
+        }
         Err(trap) => {
             if let Some(TrapKind::ThreadExit(code)) = trap.kind {
                 interp.finish_thread(id, code as u64);
-                return;
+                return code as u64;
             }
             let at = trap
                 .loc
@@ -917,4 +1024,204 @@ fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argumen
         }
     };
     interp.finish_thread(id, value);
+    value
+}
+
+/// Catch cancellation before returning across an OS/CRT thread-entry boundary.
+fn run_worker(shared: &Shared, program: usize, id: usize, func: FuncId, argument: u64) -> u64 {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        thread_main(shared, program, id, func, argument)
+    })) {
+        Ok(value) => value,
+        Err(cancelled) if cancelled.is::<WorkerCancelled>() => {
+            let mut s = shared.lock();
+            let thread = &mut s.threads[id];
+            thread.start.take();
+            thread.finished = true;
+            thread.result = CANCELLED_EXIT_CODE as u64;
+            shared.cv.notify_all();
+            CANCELLED_EXIT_CODE as u64
+        }
+        Err(other) => std::panic::resume_unwind(other),
+    }
+}
+
+
+#[cfg(test)]
+mod worker_lifetime_tests {
+    use super::*;
+    use crate::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use std::rc::Rc;
+
+    #[test]
+    fn compiler_keeps_its_owned_state_alive_through_interpreter_teardown() {
+        struct LifetimeHost {
+            source: std::rc::Weak<str>,
+            alive: Rc<std::cell::Cell<bool>>,
+        }
+        impl Host for LifetimeHost {
+            fn write(&mut self, _: &[u8], _: bool) {
+                panic!("teardown-only observer must not execute");
+            }
+            fn foreign(
+                &mut self,
+                _: &str,
+                _: &[u64],
+                _: &ir::Sig,
+            ) -> Option<Result<Vec<u64>, String>> {
+                panic!("teardown-only observer must not execute");
+            }
+            fn native_linking(&self) -> bool {
+                panic!("teardown-only observer must not execute");
+            }
+        }
+        impl Drop for LifetimeHost {
+            fn drop(&mut self) {
+                self.alive.set(self.source.upgrade().is_some());
+            }
+        }
+        let mut compiler = Compiler::new(Options::host(), Rc::new(VirtualFs::default()));
+        let source: Rc<str> = "main :: () {}".into();
+        let weak = Rc::downgrade(&source);
+        compiler.sources.add("lifetime-order.jai".into(), source);
+        let alive = Rc::new(std::cell::Cell::new(false));
+        compiler.interp.host = Box::new(LifetimeHost {
+            source: weak,
+            alive: alive.clone(),
+        });
+        drop(compiler);
+        assert!(
+            alive.get(),
+            "compiler state must outlive interpreter shutdown and worker joins"
+        );
+    }
+
+    fn cancelled_worker_is_reaped(suspended: bool) {
+        let mut options = Options::host();
+        options.runtime_support = false;
+        let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let source = format!(
+            r#"
+CreateThread :: (security:*void, stack:u64, entry:*void, argument:*void, flags:u32, id:*u32)->u64 #foreign;
+Sleep :: (milliseconds:u32) #foreign;
+worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
+#run {{ CreateThread(null,0,cast(*void)worker,null,{},null); Sleep(5); }}
+"#,
+            if suspended {
+                4
+            } else {
+                0
+            }
+        );
+        compiler
+            .compile_sources(&[ProgramSource::String(source)])
+            .unwrap();
+        let shared = compiler.interp.shared.as_ref().unwrap().clone();
+        assert!(
+            Arc::strong_count(&shared) > 1,
+            "worker must exist before teardown"
+        );
+        #[cfg(windows)]
+        let alias = shared.lock().threads[1]
+            .native_handle
+            .as_ref()
+            .unwrap()
+            .try_clone()
+            .unwrap();
+        drop(compiler);
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            assert_eq!(
+                win32::native_exit_code(alias.as_raw_handle() as u64)
+                    .unwrap()
+                    .1,
+                CANCELLED_EXIT_CODE
+            );
+        }
+        assert_eq!(
+            Arc::strong_count(&shared),
+            1,
+            "teardown must join workers, not park them with their shared state"
+        );
+    }
+
+    #[test]
+    fn shutdown_releases_a_callback_lease_waiting_for_the_baton() {
+        // No interpreter dereference occurs: root slot retains the baton throughout.
+        let shared = Shared::new(0);
+        let callback_shared = shared.clone();
+        let join = std::thread::spawn(move || {
+            native::Gate::run(&*callback_shared, 0, &mut |_| {
+                panic!("cancelled callback must not execute")
+            })
+        });
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !shared.lock().threads.iter().any(|thread| thread.adopted) {
+            if Instant::now() >= deadline {
+                shared.close();
+                assert!(join.join().expect("callback must stop normally").is_err());
+                panic!("callback must request its lease");
+            }
+            std::thread::yield_now();
+        }
+        shared.close();
+        assert!(join.join().unwrap().is_err());
+        assert!(
+            shared
+                .lock()
+                .threads
+                .iter()
+                .filter(|thread| thread.adopted)
+                .all(|thread| thread.finished)
+        );
+        assert_eq!(Arc::strong_count(&shared), 1);
+    }
+
+    #[test]
+    fn teardown_reaps_a_worker_returning_from_a_finite_native_call() {
+        let mut options = Options::host();
+        options.runtime_support = false;
+        let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+        let (foreign, call) = if cfg!(windows) {
+            (
+                "pause :: (milliseconds:u32,alertable:s32)->u32 #foreign \"SleepEx\";",
+                "pause(50,0);",
+            )
+        } else {
+            (
+                "pause :: (fds:*void,count:u64,timeout:s32)->s32 #foreign \"poll\";",
+                "pause(null,0,50);",
+            )
+        };
+        let source = format!(
+            r#"
+CreateThread :: (security:*void, stack:u64, entry:*void, argument:*void, flags:u32, id:*u32)->u64 #foreign;
+Sleep :: (milliseconds:u32) #foreign;
+{foreign}
+worker :: (argument:*void)->u32 #c_call {{ {call} return 17; }}
+#run {{ CreateThread(null,0,cast(*void)worker,null,0,null); Sleep(5); }}
+"#
+        );
+        compiler
+            .compile_sources(&[ProgramSource::String(source)])
+            .unwrap();
+        let shared = compiler.interp.shared.as_ref().unwrap().clone();
+        drop(compiler);
+        assert_eq!(
+            Arc::strong_count(&shared),
+            1,
+            "native call must return, cancel safely and join"
+        );
+    }
+
+    #[test]
+    fn teardown_reaps_a_never_started_suspended_worker() {
+        cancelled_worker_is_reaped(true);
+    }
+
+    #[test]
+    fn teardown_reaps_a_worker_blocked_in_interpreted_sleep() {
+        cancelled_worker_is_reaped(false);
+    }
 }
