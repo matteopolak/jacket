@@ -3,11 +3,26 @@ B :: #import "Bindings_Generator";
 
 Capture :: struct {
     cursor: B.CXCursor;
+    saved: #Context;
+    expected: *B.Declaration;
+    reference: *B.Literal;
 }
 
 visit :: (cur: B.CXCursor, _parent: B.CXCursor, data: B.CXClientData) -> B.CXChildVisitResult #c_call {
     state := cast(*Capture) data;
-    if cur.kind == .VarDecl state.cursor = cur;
+
+    if cur.kind == .VarDecl {
+        state.cursor = cur;
+        if state.expected {
+            push_context {
+                context = state.saved;
+                assert(B.find_referenced_declaration(cur) == state.expected);
+                state.reference = B.create_reference_expression(cur, .{ line = 19 });
+                assert(state.reference.identifier == state.expected);
+            }
+        }
+    }
+
     return .Continue;
 }
 
@@ -48,6 +63,22 @@ main :: () {
     assert(found && same == decl);
     assert(generator.declarations_by_cursor.hash_function(state.cursor) == B.clang_hashCursor(state.cursor));
     assert(generator.declarations_by_cursor.compare_function(state.cursor, state.cursor));
+    session := Session.open(*generator, B.TARGET_OS);
+
+    decl.decl_flags |= .IS_CONST;
+
+    state.expected = decl;
+
+    push_context {
+        context.generator = session.generator;
+        context._bindings_generator_session = *session;
+        state.saved = context;
+        B.clang_visitChildren(B.clang_getTranslationUnitCursor(unit), visit, *state);
+        assert(state.reference.literal_kind == .IDENTIFIER && state.reference.location.line == 19);
+        assert(B.find_referenced_declaration(B.clang_getNullCursor()) == null);
+    }
+
+    Session.close(*session);
     H.table_reset(*generator.declarations_by_cursor);
 
     // Public strings survive disposal of every libclang source object.
@@ -63,3 +94,5 @@ main :: () {
 
 #scope_file
 H :: #import "Hash_Table";
+
+Session :: type_of(context._bindings_generator_session.*);

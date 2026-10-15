@@ -50,6 +50,9 @@ def main():
     sdk = ROOT / "target/developer-tools-configured-sdk"
     if sdk.is_symlink():
         raise RuntimeError("Configured SDK fixture root must be an owned directory")
+    # The builder resolves its prefix. Use that same directory identity when a
+    # parent build directory is symlinked (for example to an external volume).
+    sdk = sdk.resolve()
     (sdk / "bin").mkdir(parents=True, exist_ok=True)
     link(sdk / "include", primary / "include")
     link(sdk / "lib", primary / "lib")

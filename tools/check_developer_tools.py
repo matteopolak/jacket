@@ -44,6 +44,11 @@ def run(command, *, output=None, error=""):
 
 
 def check_framework_consumer(prefix, emitter):
+    if platform.system() == "Darwin":
+        # macOS creates AppleDouble metadata files on external filesystems. The
+        # framework is an owned generated fixture; remove metadata sidecars so
+        # Clang's umbrella scan sees its actual header set. Keep -Werror intact.
+        run(["/usr/sbin/dot_clean", "-m", ROOT / "target/developer-tools-frameworks"])
     for optimization in [0, 2]:
         tag = f"{emitter}-c{optimization}"
         exe = ROOT / f"target/developer-tools-framework-{tag}"
