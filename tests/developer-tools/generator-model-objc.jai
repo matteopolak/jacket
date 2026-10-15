@@ -49,6 +49,7 @@ main :: () {
 
     defer S.close(*session);
     defer H.table_reset(*generator.declarations_by_cursor);
+    defer H.table_reset(*generator.extra_infos);
 
     push_context {
         context.generator = *generator;
@@ -64,6 +65,19 @@ main :: () {
 
         assert(root == shell && root.declarations.count == 2);
         assert(root.declarations[0].foreign_name == "add:" && root.declarations[0].output_name == "add");
+        root.declarations[0].output_name.data[0] = #char "X";
+        assert(root.declarations[0].name == "add:" && root.declarations[0].foreign_name == "add:");
+        root.declarations[0].output_name.data[0] = #char "a";
+        root.declarations[0].foreign_name.data[0] = #char "X";
+        assert(root.declarations[0].name == "add:" && root.declarations[0].output_name == "add");
+        root.declarations[0].foreign_name.data[0] = #char "a";
+        unknown, unknown_record := B.find_or_create_extra_info(root.type, cast(*B.Declaration) root);
+
+        assert(unknown == *B.struct_extra_info_unknown && unknown_record == null);
+        H.table_add(*generator.extra_infos, root, B.Struct_Extra_Info.{ struct_alignment = 16 });
+        integrated, integrated_record := B.find_or_create_extra_info(root.type, cast(*B.Declaration) root);
+
+        assert(integrated != unknown && integrated.struct_alignment == 16 && integrated_record == root);
         assert((root.declarations[0].type.type_of_function.flags & .OBJC_METHOD) != 0);
         assert((root.declarations[1].type.type_of_function.flags & .OBJC_CLASS_METHOD) != 0);
         assert(root.declarations[0].type.type_of_function.arguments.count == 1);

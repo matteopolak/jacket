@@ -3,7 +3,7 @@ B :: #import "Bindings_Generator";
 
 S :: type_of(context._bindings_generator_session.*);
 
-#load "../../target/generator-model-template-layout-oracle.jai";
+#import "generator-model-template-layout-oracle";
 
 Capture :: struct {
     saved: #Context;
@@ -45,7 +45,7 @@ main :: () {
 
     B.clang_visitChildren(root, visit, *capture);
     defer array_free(capture.children);
-    assert(capture.children.count == 12);
+    assert(capture.children.count == 31);
     generator: B.Generator;
     generator.translation_unit = unit;
     session := S.open(*generator, B.TARGET_OS);
@@ -140,20 +140,26 @@ main :: () {
         substituted_pointer := B.create_type_inner(B.clang_getCursorType(fields.children[3]), root, false, substitute_children = pointer_refs.children);
 
         assert(substituted_pointer.pointer_to.type_of_declaration == parameter);
-        overloads := B.create_namespace(capture.children[9]);
 
-        assert(overloads.declarations.count == 4);
-        equivalent_a := cast(*B.Function) overloads.declarations[0];
-        equivalent_b := cast(*B.Function) overloads.declarations[1];
-        distinct_a := cast(*B.Function) overloads.declarations[2];
-        distinct_b := cast(*B.Function) overloads.declarations[3];
+        push_context {
+            context.logger = log;
+            overloads := B.create_namespace(capture.children[9]);
 
-        assert(B.functions_are_equivalent(equivalent_a, equivalent_b));
-        assert((equivalent_b.decl_flags & .OMIT_FROM_OUTPUT) != 0);
-        assert(!B.functions_are_equivalent(distinct_a, distinct_b));
-        collision, _other := B.find_name_clash(overloads.declarations, cast(*B.Declaration) distinct_b, true);
+            assert(overloads.declarations.count == 4);
+            equivalent_a := cast(*B.Function) overloads.declarations[0];
+            equivalent_b := cast(*B.Function) overloads.declarations[1];
+            distinct_a := cast(*B.Function) overloads.declarations[2];
+            distinct_b := cast(*B.Function) overloads.declarations[3];
 
-        assert(!collision);
+            assert(!B.functions_are_equivalent(equivalent_a, equivalent_b));
+            assert((equivalent_b.decl_flags & .OMIT_FROM_OUTPUT) == 0);
+            assert(!B.functions_are_equivalent(distinct_a, distinct_b));
+            collision, _other := B.find_name_clash(overloads.declarations, cast(*B.Declaration) distinct_b, true);
+
+            assert(collision);
+        }
+
+        assert(errors == 5);
         outer := B.create_struct(capture.children[10]);
 
         assert(outer != null && outer.template_type_params.count == 2 && outer.declarations.count == 1);
@@ -173,23 +179,67 @@ main :: () {
         push_context {
             context.logger = log;
 
-            for i: 1..2 {
+            for i: 2..2 {
                 assert(B.create_struct(capture.children[i]) == null);
                 found, _declaration := H.table_find(*generator.declarations_by_cursor, B.clang_getCanonicalCursor(capture.children[i]));
                 assert(!found);
             }
         }
 
-        assert(errors == 2 && !session.failed);
+        non_type := B.create_struct(capture.children[1]);
+
+        assert(non_type != null && non_type.template_type_params.count == 1);
+        assert(non_type.template_type_params[0].type == generator.type_def_s32);
+        assert((non_type.template_type_params[0].decl_flags & (.TEMPLATE | .IS_CONST)) == (.TEMPLATE | .IS_CONST));
+        assert((cast(*B.Literal) non_type.template_type_params[0].expression).int_value == 7);
+        mixed := B.create_struct(capture.children[12]);
+
+        assert(mixed != null && mixed.template_type_params.count == 2);
+        specialization := B.clang_getTypeDeclaration(B.clang_getPointeeType(B.clang_getCursorType(capture.children[13])));
+
+        assert(B.clang_Cursor_getNumTemplateArguments(specialization) == 2);
+        assert(B.clang_Cursor_getTemplateArgumentKind(specialization, 1) == .Integral);
+        assert(B.clang_Cursor_getTemplateArgumentValue(specialization, 1) == 3);
+        value_instance := B.create_type_inner(B.clang_getCursorType(capture.children[13]), capture.children[13]);
+
+        assert(value_instance.pointer_to.type_of_struct == mixed && value_instance.pointer_to.template_instantiation_params.count == 2);
+        assert((cast(*B.Literal) value_instance.pointer_to.template_instantiation_params[1]).int_value == 3);
+        qualified_value := B.create_type_inner(B.clang_getCursorType(capture.children[14]), capture.children[14]);
+
+        assert((qualified_value.pointer_to.flags & .CONST) != 0);
+        assert((cast(*B.Literal) qualified_value.pointer_to.template_instantiation_params[1]).int_value == 3);
+        formal_holder := B.create_struct(capture.children[15]);
+
+        assert(formal_holder != null && formal_holder.template_type_params.count == 1);
+        assert(formal_holder.template_type_params[0].type == generator.type_def_type);
+        type_default := B.create_struct(capture.children[17]);
+
+        assert(type_default != null && type_default.template_type_params[0].expression.kind == .TYPE_REFERENCE);
+        assert((cast(*B.Type_Reference) type_default.template_type_params[0].expression).type.type_of_struct.name == "OriginalDefaultType");
+        assert(errors == 6 && !session.failed);
+        boolean_instance := B.create_type_inner(B.clang_getCursorType(capture.children[24]), capture.children[24]);
+
+        assert((cast(*B.Literal) boolean_instance.pointer_to.template_instantiation_params[0]).uint_value == 1);
+        dependent_instance := B.create_type_inner(B.clang_getCursorType(capture.children[26]), capture.children[26]);
+
+        assert((cast(*B.Literal) dependent_instance.pointer_to.template_instantiation_params[1]).uint_value == 0xffffffffffffffff);
+        null_instance := B.create_type_inner(B.clang_getCursorType(capture.children[28]), capture.children[28]);
+
+        assert((cast(*B.Literal) null_instance.pointer_to.template_instantiation_params[0]).literal_kind == .NULL);
+        qualified_name_default := B.create_struct(capture.children[30]);
+        default_type := (cast(*B.Type_Reference) qualified_name_default.template_type_params[0].expression).type;
+
+        assert(default_type.type_of_struct.name == "Inner");
+        assert(default_type.type_of_struct.parent.name == "OriginalDefaultOuter");
 
         push_context {
             context.logger = log;
             assert(B.create_type_inner(B.clang_getCursorType(fields.children[3]), root, false) == null);
-            assert(errors == 3 && session.failed);
+            assert(errors == 7 && session.failed);
             malformed: [] B.CXCursor;
             malformed.count = 1;
             assert(B.create_type_inner(B.clang_getCursorType(fields.children[3]), root, false, substitute_children = malformed) == null);
-            assert(errors == 4);
+            assert(errors == 8);
         }
     }
 
@@ -207,10 +257,68 @@ main :: () {
         S.activate(*generator, null, *rejection);
         context.logger = log;
         expression, skip := B.create_expression_from_cursor(initializer, capture.children[8]);
-        assert(expression == null && !skip && errors == 5 && rejection.failed);
+        assert(expression == null && !skip && errors == 9 && rejection.failed);
     }
 
     S.close(*rejection);
+
+    for i: 18..19 {
+        H.table_reset(*generator.declarations_by_cursor);
+        unsupported_default := S.open(*generator, B.TARGET_OS);
+
+        push_context {
+            S.activate(*generator, null, *unsupported_default);
+            context.logger = log;
+            assert(B.create_struct(capture.children[i]) == null && unsupported_default.failed);
+        }
+
+        H.table_reset(*generator.declarations_by_cursor);
+        S.close(*unsupported_default);
+    }
+
+    assert(errors == 11);
+    H.table_reset(*generator.declarations_by_cursor);
+    exact_defaults := S.open(*generator, B.TARGET_OS);
+
+    push_context {
+        S.activate(*generator, null, *exact_defaults);
+        nested_default := B.create_type_inner(B.clang_getCursorType(capture.children[20]), capture.children[20]);
+        assert(nested_default != null && !exact_defaults.failed);
+        assert((cast(*B.Literal) nested_default.pointer_to.template_instantiation_params[1]).int_value == 9);
+    }
+
+    H.table_reset(*generator.declarations_by_cursor);
+    S.close(*exact_defaults);
+    H.table_reset(*generator.declarations_by_cursor);
+    missing_default := S.open(*generator, B.TARGET_OS);
+
+    push_context {
+        S.activate(*generator, null, *missing_default);
+        context.logger = log;
+        assert(B.create_struct(capture.children[22]) == null && missing_default.failed);
+        assert(B.create_struct(capture.children[22]) == null && errors == 12);
+        formal_children: Capture;
+        formal_children.saved = context;
+        B.clang_visitChildren(capture.children[22], visit, *formal_children);
+        defer array_free(formal_children.children);
+        assert(!H.table_contains(*generator.declarations_by_cursor, B.clang_getCanonicalCursor(formal_children.children[0])));
+    }
+
+    H.table_reset(*generator.declarations_by_cursor);
+    S.close(*missing_default);
+    resolved_default := S.open(*generator, B.TARGET_OS);
+
+    push_context {
+        S.activate(*generator, null, *resolved_default);
+        constant := B.create_declaration(capture.children[21], root);
+        holder := B.create_struct(capture.children[22]);
+
+        assert(constant != null && holder != null && !resolved_default.failed);
+        assert((cast(*B.Literal) holder.template_type_params[0].expression).identifier == constant);
+    }
+
+    H.table_reset(*generator.declarations_by_cursor);
+    S.close(*resolved_default);
     print("ok\n");
 }
 

@@ -26,3 +26,9 @@ namespace Nested { int first; }
 }
 namespace OriginalModelSpace { namespace Nested { int second; } }
 int original_standalone(int named);
+struct OriginalCategories {
+    OriginalCategories();
+    OriginalCategories(const OriginalCategories &);
+    OriginalCategories(OriginalCategories &&);
+    ~OriginalCategories();
+};

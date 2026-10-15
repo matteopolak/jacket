@@ -3,8 +3,11 @@ I :: #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = f
 
 nested :: (early: bool) {
     I.Automatic_Zone(0);
+    assert(I.stack.zone == *I.zones[0]);
     if early return;
+
     I.Automatic_Zone_Guarded(1);
+    assert(I.stack.zone == *I.zones[1] && I.stack.parent.zone == *I.zones[0]);
 }
 
 main :: () {

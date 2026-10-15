@@ -1,0 +1,146 @@
+{
+  "reviews": [
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 2,
+      "character": 27,
+      "missing": {
+        "hover": false,
+        "definition": true,
+        "wrong_definition": false
+      },
+      "reason": "builtin_no_source",
+      "evidence": "Reviewed intrinsic int/context uses in this independently authored fixture; typed hover is required, no source declaration exists. Independent builtin/context IDE regressions retain this distinction."
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 8,
+      "character": 4,
+      "missing": {
+        "hover": false,
+        "definition": true,
+        "wrong_definition": false
+      },
+      "reason": "builtin_no_source",
+      "evidence": "Reviewed intrinsic int/context uses in this independently authored fixture; typed hover is required, no source declaration exists. Independent builtin/context IDE regressions retain this distinction."
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 9,
+      "character": 11,
+      "missing": {
+        "hover": false,
+        "definition": true,
+        "wrong_definition": false
+      },
+      "reason": "builtin_no_source",
+      "evidence": "Reviewed intrinsic int/context uses in this independently authored fixture; typed hover is required, no source declaration exists. Independent builtin/context IDE regressions retain this distinction."
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000001",
+      "fingerprint": "fnv1a64:947659efb8d706c0",
+      "line": 1,
+      "character": 7,
+      "missing": {
+        "hover": false,
+        "definition": true,
+        "wrong_definition": false
+      },
+      "reason": "builtin_no_source",
+      "evidence": "Reviewed intrinsic int/context uses in this independently authored fixture; typed hover is required, no source declaration exists. Independent builtin/context IDE regressions retain this distinction."
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000001",
+      "fingerprint": "fnv1a64:947659efb8d706c0",
+      "line": 2,
+      "character": 10,
+      "missing": {
+        "hover": false,
+        "definition": true,
+        "wrong_definition": false
+      },
+      "reason": "builtin_no_source",
+      "evidence": "Reviewed intrinsic int/context uses in this independently authored fixture; typed hover is required, no source declaration exists. Independent builtin/context IDE regressions retain this distinction."
+    }
+  ],
+  "oracles": [
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 5,
+      "character": 14,
+      "definitions": [
+        {
+          "uri": "input:f000001",
+          "line": 0,
+          "character": 0
+        }
+      ]
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 6,
+      "character": 15,
+      "definitions": [
+        {
+          "uri": "input:f000001",
+          "line": 1,
+          "character": 0
+        }
+      ]
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 7,
+      "character": 15,
+      "definitions": [
+        {
+          "uri": "input:f000001",
+          "line": 2,
+          "character": 0
+        }
+      ]
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 8,
+      "character": 12,
+      "definitions": [
+        {
+          "uri": "input:f000000",
+          "line": 2,
+          "character": 13
+        }
+      ]
+    },
+    {
+      "case_id": "values",
+      "input_id": "f000000",
+      "fingerprint": "fnv1a64:c7d62b44f11cd4f0",
+      "line": 9,
+      "character": 19,
+      "definitions": [
+        {
+          "uri": "input:f000000",
+          "line": 2,
+          "character": 13
+        }
+      ]
+    }
+  ]
+}

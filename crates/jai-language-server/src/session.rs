@@ -147,6 +147,28 @@ impl Session {
         self.semantic.borrow().counts()
     }
 
+    /// Coverage for the current open buffer and its real analysis context. A lack
+    /// of file-local diagnostics is not proof that the compiler reached the file.
+    pub fn semantic_coverage(
+        &self,
+        uri: &DocumentUri,
+    ) -> Result<Option<semantic::SemanticCoverage>, Error> {
+        let doc = self.document(uri)?;
+        let Some(probe) = self.probe(uri, &doc.text, None) else {
+            return Ok(None);
+        };
+        let base = self.with_semantic(uri, &probe, |analysis, path| Some(analysis.coverage(path)));
+        if base.as_ref().is_some_and(|coverage| coverage.source_loaded) {
+            return Ok(base);
+        }
+        Ok(self
+            .with_semantic_at(uri, &probe, 0, |analysis, path| {
+                let coverage = analysis.coverage(path);
+                coverage.source_loaded.then_some(coverage)
+            })
+            .or(base))
+    }
+
     /// Queue a message for the user (`window/showMessage`), sent once.
     pub fn notify(&self, message: String) {
         self.index.borrow_mut().notify(message);

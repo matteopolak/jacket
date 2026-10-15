@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import build_developer_bindings
+import developer_native_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -37,8 +38,12 @@ def dependencies(binary, sdk_library):
         output = run(["ldd", binary])
         paths = re.findall(r"=>\s+(\S+)", output)
     selected = [path for path in paths if "libclang" in Path(path).name]
-    if not selected or any(Path(path).resolve() != sdk_library.resolve() for path in selected):
-        raise RuntimeError("Production executable does not resolve the configured SDK libclang")
+    if platform.system() == "Darwin":
+        valid = len(selected) == 1 and selected[0] in {"@rpath/libclang.dylib", "@loader_path/libclang.dylib"}
+    else:
+        valid = selected and all(Path(path).resolve() == sdk_library.resolve() for path in selected)
+    if not valid:
+        raise RuntimeError("Production executable does not select the configured/bundled libclang runtime")
     return selected
 
 
@@ -69,8 +74,14 @@ def main():
                 "configured_prefix": str(sdk), "underlying_official_sdk": str(primary), "consumers": []}
     try:
         helper = build_developer_bindings.build(sdk)
-        symlink = ROOT / "stdlib/internal/developer-tools/clang-bindings" / library_name
-        if symlink.readlink() != sdk_library:
+        native_directory = ROOT / "stdlib/internal/developer-tools/clang-bindings"
+        library = native_directory / library_name
+        if host == "Darwin":
+            manifest = json.loads((native_directory / "runtime-sdk.json").read_text())
+            if library.is_symlink() or manifest[library_name]["sdk_sha256"] != developer_native_runtime.sha256(sdk_library):
+                raise RuntimeError("Production bundled libclang did not originate from the configured SDK")
+            evidence["bundled_runtime"] = manifest
+        elif library.readlink() != sdk_library:
             raise RuntimeError("Production native facade link did not retain configured SDK path")
         evidence["helper_libclang"] = dependencies(helper, sdk_library)
         if host == "Darwin":
@@ -79,8 +90,10 @@ def main():
         else:
             dynamic = run(["readelf", "-d", helper])
             rpaths = [part for value in re.findall(r"\((?:RPATH|RUNPATH)\).*?\[(.*?)\]", dynamic) for part in value.split(":")]
-        if str(sdk / "lib") not in rpaths:
+        if host != "Darwin" and str(sdk / "lib") not in rpaths:
             raise RuntimeError("Production helper lacks the configured runtime library search path")
+        if host == "Darwin" and rpaths:
+            raise RuntimeError("Mac helper must load its bundled runtime directly, without SDK rpaths")
         evidence["helper_runtime_search_paths"] = rpaths
         extension = "dylib" if host == "Darwin" else "so"
         flags = ["-dynamiclib"] if host == "Darwin" else ["-shared", "-fPIC"]

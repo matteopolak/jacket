@@ -127,13 +127,20 @@ def main():
         library = ROOT / "stdlib/internal/developer-tools/check-native/libdeveloper_tools_check.dylib"
         dependencies = run(["otool", "-L", library]).stdout
         prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
-        sdk_library_dir = Path(run([prefix / "bin/llvm-config", "--libdir"]).stdout.strip()).resolve()
         sdk_links = [line.strip().split(" (", 1)[0] for line in dependencies.splitlines() if "libLLVM" in line]
-        if len(sdk_links) != 1 or not Path(sdk_links[0]).resolve().is_relative_to(sdk_library_dir):
-            raise RuntimeError("Production Check helper must use configured LLVM demangler library")
+        if len(sdk_links) != 1 or not sdk_links[0].startswith("@loader_path/../clang-bindings/"):
+            raise RuntimeError("Production Check helper must select its distribution LLVM runtime")
+        runtime = ROOT / "stdlib/internal/developer-tools/clang-bindings"
+        manifest = json.loads((runtime / "runtime-sdk.json").read_text())
+        name = Path(sdk_links[0]).name
+        sdk_image = prefix / "lib" / name
+        with sdk_image.open("rb") as stream:
+            sdk_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+        if manifest[name]["sdk_sha256"] != sdk_hash:
+            raise RuntimeError("Bundled Check LLVM runtime must originate from configured SDK")
         evidence = {"host": platform.platform(), "configured_llvm_prefix": str(prefix),
                     "native_helper_sha256": hashlib.sha256((ROOT / "stdlib/internal/developer-tools/check-native/signatures.cpp").read_bytes()).hexdigest(),
-                    "llvm_library": sdk_links[0], "parsing_pool_effects": stats_measurements,
+                    "llvm_library": sdk_links[0], "configured_sdk_runtime_sha256": sdk_hash, "parsing_pool_effects": stats_measurements,
                     "continuable_diagnostics": 12, "module_availability": "Windows only; NEW code staged on Mac",
                     "windows_native_execution": False, "actual_compiler_header_integration": "pending producer ELSEWHERE metadata fix"}
         (ROOT / "docs/native/developer-tools-check-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")

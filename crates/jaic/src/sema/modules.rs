@@ -1526,6 +1526,7 @@ impl Compiler {
         self.scope_mut(scope).imports[index].loading = false;
         let module = resolved?;
         self.scope_mut(scope).imports[index].module = Some(module);
+        self.ide_note_filter_names(&scope::UsingEntry::Module(module, None), &entry.filter);
         Ok(Some(module))
     }
 
@@ -1553,6 +1554,16 @@ impl Compiler {
     }
 
     pub fn resolve_import(
+        &mut self,
+        from_scope: ScopeId,
+        import: &ast::Import,
+    ) -> Result<ModuleId> {
+        let module = self.resolve_import_instance(from_scope, import)?;
+        self.ide_note_module_arguments(module, import);
+        Ok(module)
+    }
+
+    fn resolve_import_instance(
         &mut self,
         from_scope: ScopeId,
         import: &ast::Import,

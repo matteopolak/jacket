@@ -1,0 +1,13 @@
+char16_t original_char16 = u'\u00e9';
+char32_t original_char32 = U'\U0001f600';
+const char *original_utf8 = "A\u00e9";
+const char *original_embedded_zero = "a\0b";
+const char16_t *original_wide_string = u"A\u00e9";
+const char *original_empty_string = "";
+char16_t original_zero_code_unit = u'\0';
+wchar_t original_wchar;
+long double original_longdouble;
+using OriginalBlock = int (^)(int);
+OriginalBlock original_block;
+enum class OriginalWideEnum : unsigned __int128 { Large = static_cast<unsigned __int128>(1) << 100 };
+OriginalWideEnum original_wide_enum = OriginalWideEnum::Large;

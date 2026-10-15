@@ -612,11 +612,10 @@ impl Compiler {
                 Slot::Arg(a) => cost += self.arg_cost(&args[*a], param.ty, is_macro)?,
                 Slot::Spread(a) => cost += self.arg_cost(&args[*a], param.ty, is_macro)?,
                 Slot::Variadic(list) => {
-                    let elem = match self.types.kind(param.ty) {
-                        TypeKind::Array {
-                            elem, ..
-                        } => *elem,
-                        _ => param.ty,
+                    let elem = if sig.c_varargs {
+                        param.ty
+                    } else {
+                        self.jai_variadic_element(param.ty, span)?
                     };
                     for &a in list {
                         if sig.c_varargs {
@@ -2343,7 +2342,17 @@ impl Compiler {
         }
     }
 
-    /// Produce the lowered value passed for one parameter.
+    /// The checked representation of a Jai runtime pack, distinct from C ellipses.
+    fn jai_variadic_element(&self, ty: TypeId, span: Span) -> Result<TypeId> {
+        match *self.types.kind(ty) {
+            TypeKind::Array {
+                elem,
+                kind: ArrayKind::View,
+            } => Ok(elem),
+            _ => err(span, "a Jai variadic pack requires an array-view parameter"),
+        }
+    }
+
     /// Join scalar and spread segments in their original argument order. The
     /// resulting storage belongs to the caller's frame, just as a fixed pack.
     fn mixed_variadic_value(
@@ -2354,12 +2363,7 @@ impl Compiler {
         list: &[usize],
         span: Span,
     ) -> Result<ir::Val> {
-        let TypeKind::Array {
-            elem, ..
-        } = *self.types.kind(param.ty)
-        else {
-            return err(span, "variadic pack requires an array-view parameter");
-        };
+        let elem = self.jai_variadic_element(param.ty, span)?;
         let size = self.size_of(elem, span)?;
         let align = self.align_of(elem, span)?;
         let limit = f.b.iconst(Ty::I64, crate::types::MAX_SIZE / size.max(1));
@@ -2490,12 +2494,7 @@ impl Compiler {
                 if list.iter().any(|&a| args[a].spread) {
                     return self.mixed_variadic_value(f, param, args, list, span);
                 }
-                let TypeKind::Array {
-                    elem, ..
-                } = self.types.kind(param.ty).clone()
-                else {
-                    unreachable!()
-                };
+                let elem = self.jai_variadic_element(param.ty, span)?;
                 let size = self.size_of(elem, span)?;
                 let align = self.align_of(elem, span)?;
                 let n = list.len() as u64;

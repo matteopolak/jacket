@@ -22,6 +22,10 @@ import check_developer_pointer_defaults
 import check_developer_string_macros
 import check_developer_declaration_visitors
 import check_developer_integer_range
+import check_developer_cpp_scopes
+import check_developer_anonymous_types
+import check_developer_variadic
+import check_developer_native_package
 import build_developer_debug
 import check_developer_debug_lifecycle
 import check_developer_debug_windows
@@ -170,7 +174,12 @@ def main():
     check_developer_string_macros.main()
     check_developer_declaration_visitors.main()
     check_developer_integer_range.main()
+    check_developer_cpp_scopes.main()
+    check_developer_anonymous_types.main()
+    check_developer_variadic.main()
     configured_cases = check_developer_sdk_configuration.main()
+    if platform.system() == "Darwin":
+        check_developer_native_package.main()
     build_developer_debug.main()
     check_developer_debug_lifecycle.main()
     check_developer_debug_windows.main()
@@ -257,6 +266,7 @@ def main():
     cases.append("msf-public")
     cases.append("debug-int-set")
     cases.append("bindings-clang-tokens")
+    cases.append("print-vars-expressions")
     cases.append("bindings-clang-build-system")
     cases.append("bindings-native-abi")
     cases.append("bindings-clang-source")

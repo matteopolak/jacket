@@ -44,6 +44,8 @@ pub struct IdeFacts {
     roots: Vec<String>,
     wanted: HashMap<FileId, bool>,
     pub refs: Vec<IdeRef>,
+    /// Static filter selectors may denote an entire exported overload set.
+    filter_targets: HashMap<Span, Vec<EntityId>>,
     pub scopes: Vec<(Span, ScopeId)>,
     /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide_meta`).
     pub expansions: Vec<super::ide_meta::IdeExpansion>,
@@ -505,6 +507,50 @@ impl Compiler {
         }
     }
 
+    /// A semantic identifier resolved through a binding path that does not lower
+    /// an ordinary expression (for example a using target or module argument label).
+    pub(super) fn ide_note_entity_use(&mut self, span: Span, id: EntityId, ty: TypeId) {
+        if !self.ide_wants(span.file) {
+            return;
+        }
+        if let Some(ide) = self.ide.as_mut() {
+            ide.refs.push(IdeRef {
+                span,
+                what: IdeWhat::Entity(id),
+                ty,
+                decl: false,
+            });
+        }
+    }
+
+    pub(super) fn ide_note_module_arguments(&mut self, module: ModuleId, import: &ast::Import) {
+        if self.ide.is_none() {
+            return;
+        }
+        let parameters = self.modules[module.0 as usize].param_entities.clone();
+        for arg in &import.params {
+            let Some(name) = arg.name else {
+                continue;
+            };
+            let Some(&id) = parameters
+                .iter()
+                .find(|&&id| self.entity(id).name == name.name)
+            else {
+                continue;
+            };
+            let ty = match self.entity(id).kind {
+                EntityKind::Const {
+                    ty, ..
+                }
+                | EntityKind::Local {
+                    ty, ..
+                } => ty,
+                _ => TypeId::COMPILE_TIME,
+            };
+            self.ide_note_entity_use(name.span, id, ty);
+        }
+    }
+
     /// `scope` covers `span` of the source (a block, a procedure body).
     pub(super) fn ide_scope_span(&mut self, scope: ScopeId, span: Span) {
         if span.end > span.start
@@ -714,6 +760,18 @@ impl Compiler {
     }
 
     pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
+        if let Some((span, ids)) = self.ide_filter_targets(file, offset) {
+            let text = ids
+                .iter()
+                .map(|&id| self.ide_entity_hover(id, None))
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Some(IdeHover {
+                span,
+                text,
+                layout: None,
+            });
+        }
         let Some((r, same)) = self.ide_hover_ref(file, offset) else {
             return self.ide_field_hover(file, offset);
         };
@@ -773,6 +831,13 @@ impl Compiler {
     /// The declarations `ide_hover` describes, for reading their doc comments: one per
     /// overload, in the order of the hover's lines.
     pub fn ide_hover_decls(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        if let Some((_, ids)) = self.ide_filter_targets(file, offset) {
+            return self.ide_narrow_decls(
+                ids.iter()
+                    .map(|&id| (self.entity(id).span, self.entity(id).name.to_string()))
+                    .collect(),
+            );
+        }
         let Some((r, _)) = self.ide_hover_ref(file, offset) else {
             let Some(site) = self.ide.as_ref().and_then(|ide| {
                 ide.fields
@@ -1479,6 +1544,13 @@ impl Compiler {
     /// of an overload set, a struct or enum. Spans are narrowed to the declared name when it
     /// starts the declaration (`name :: ...`).
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+        if let Some((_, ids)) = self.ide_filter_targets(file, offset) {
+            return self.ide_narrow_decls(
+                ids.iter()
+                    .map(|&id| (self.entity(id).span, self.entity(id).name.to_string()))
+                    .collect(),
+            );
+        }
         if let Some(selection) = self.ide.as_ref().and_then(|ide| {
             (0..3).find_map(|delta| {
                 let start = offset.checked_sub(delta)?;
@@ -2133,6 +2205,107 @@ impl Compiler {
 
     fn ide_using_members(&mut self, entry: &scope::UsingEntry) -> Vec<IdeName> {
         self.ide_using_members_inner(entry, &mut HashSet::default())
+    }
+
+    fn ide_filter_targets(&self, file: FileId, offset: u32) -> Option<(Span, Vec<EntityId>)> {
+        self.ide
+            .as_ref()?
+            .filter_targets
+            .iter()
+            .filter(|(span, _)| span.file == file && span.start <= offset && offset <= span.end)
+            .min_by_key(|(span, _)| span.end - span.start)
+            .map(|(&span, ids)| (span, ids.clone()))
+    }
+
+    /// Static filters contain selector names, not ordinary expressions. Record an
+    /// existing visible target without turning nonexistent selectors into errors
+    /// (the language permits them) or inventing source declarations for builtins.
+    pub(super) fn ide_note_filter_names(
+        &mut self,
+        entry: &scope::UsingEntry,
+        filter: &ast::UsingFilter,
+    ) {
+        if self.ide.is_none() {
+            return;
+        }
+        let (ast::UsingFilter::Only(names) | ast::UsingFilter::Except(names)) = filter else {
+            return;
+        };
+        for &name in names {
+            if self.ide_wants(name.span.file) {
+                self.ide_note_filter_target(entry, name, &mut HashSet::default());
+            }
+        }
+    }
+
+    fn ide_note_filter_target(
+        &mut self,
+        entry: &scope::UsingEntry,
+        name: ast::Ident,
+        visiting: &mut HashSet<(ModuleId, Sym)>,
+    ) {
+        match entry {
+            scope::UsingEntry::Module(module, filter) => {
+                let target = match filter.as_deref() {
+                    Some(filter) => super::using::filter_target(filter, name.name),
+                    None => Some(name.name),
+                };
+                let Some(target) = target else {
+                    return;
+                };
+                if !visiting.insert((*module, target)) {
+                    return;
+                }
+                match self.module_member_lookup(*module, target) {
+                    Ok(Found::Entities(ids)) if !ids.is_empty() => {
+                        if let Some(ide) = self.ide.as_mut() {
+                            if ids.len() > 1 {
+                                ide.filter_targets.insert(name.span, ids);
+                            } else {
+                                ide.refs.push(IdeRef {
+                                    span: name.span,
+                                    what: IdeWhat::Entity(ids[0]),
+                                    ty: TypeId::COMPILE_TIME,
+                                    decl: false,
+                                });
+                            }
+                        }
+                    }
+                    Ok(Found::Using(entry, target)) => self.ide_note_filter_target(
+                        &entry,
+                        ast::Ident {
+                            name: target,
+                            span: name.span,
+                        },
+                        visiting,
+                    ),
+                    _ => {}
+                }
+            }
+            scope::UsingEntry::Filtered(base, filter) => {
+                if let Some(target) = super::using::filter_target(filter, name.name) {
+                    self.ide_note_filter_target(
+                        base,
+                        ast::Ident {
+                            name: target,
+                            span: name.span,
+                        },
+                        visiting,
+                    );
+                }
+            }
+            scope::UsingEntry::Type(ty)
+            | scope::UsingEntry::Place {
+                ty, ..
+            } => {
+                if let (Some(decl), Some(ty)) = (
+                    self.ide_member_decl(*ty, name.name),
+                    self.ide_field_type(*ty, name.name),
+                ) {
+                    self.ide_note_named_field(name.span, name.name, decl, ty);
+                }
+            }
+        }
     }
 
     fn ide_using_members_inner(

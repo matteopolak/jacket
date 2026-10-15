@@ -4,6 +4,8 @@ BW :: #import "Bindings_Generator"(TARGET_OS = .WINDOWS);
 BI :: #import "Bindings_Generator"(TARGET_OS = .IOS);
 BL :: #import "Bindings_Generator"(TARGET_OS = .LINUX);
 
+#assert type_of(context.generator) == *B.Generator;
+
 errors: int;
 
 capture :: (_text: string, _data: *void, info: Log_Info) {
@@ -20,6 +22,16 @@ plain_visit :: (_decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration
 data_visit :: (_decl: *B.Declaration, _parent: *B.Declaration, data: *void) -> B.Declaration_Visit_Result {
     (cast(*int) data).* += 1;
     return .RECURSE;
+}
+
+plain_stop :: (_decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration_Visit_Result {
+    visited += 1;
+    return .STOP;
+}
+
+data_stop :: (_decl: *B.Declaration, _parent: *B.Declaration, data: *void) -> B.Declaration_Visit_Result {
+    (cast(*int) data).* += 1;
+    return .STOP;
 }
 
 main :: () {
@@ -74,8 +86,11 @@ main :: () {
 
     defer free(created);
     defer free(created.name);
+    defer free(created.output_name);
     assert(created.kind == .DECLARATION && created.type == integer);
     assert(created.output_name == "owned");
+    created.output_name.data[0] = #char "X";
+    assert(created.name == "owned");
     assert(B.is_valid_identifier_start(#char "_"));
     assert(!B.is_valid_identifier_start(#char "9"));
     assert(B.is_operator_name("operator+"));
@@ -96,6 +111,7 @@ main :: () {
     first.type = *t;
     second.type = *other_t;
     assert(B.functions_are_equivalent(*first, *second));
+    assert(B.functions_are_equivalent(*first, *second, true));
     declarations: [1] *B.Declaration;
     declarations[0] = cast(*B.Declaration) *first;
     assert(B.contains_equivalent_function(declarations, *second));
@@ -103,9 +119,14 @@ main :: () {
 
     assert(found && other == cast(*B.Declaration) *first);
     other_ft.flags |= .VARIADIC;
+    assert(B.functions_are_equivalent(*first, *second));
+    other_ft.return_type = null;
+    assert(B.functions_are_equivalent(*first, *second));
+    second.name = "different";
     assert(!B.functions_are_equivalent(*first, *second));
+    second.name = "call";
     found, other = B.find_name_clash(declarations, cast(*B.Declaration) *second, true);
-    assert(!found && !other);
+    assert(found && other == cast(*B.Declaration) *first);
     assert(B.is_targeting_apple_os());
     assert(BI.is_targeting_apple_os());
     assert(!BW.is_targeting_apple_os() && !BL.is_targeting_apple_os());
@@ -169,12 +190,14 @@ main :: () {
 
     defer free(named_enum);
     defer free(named_enum.name);
+    defer free(named_enum.output_name);
     assert(named_enum.kind == .ENUM && named_enum.output_name == "E");
     empty := B.create_empty_struct_type("Opaque");
 
     defer free(empty);
     defer free(empty.type_of_struct);
     defer free(empty.type_of_struct.name);
+    defer free(empty.type_of_struct.output_name);
     assert(empty.type_of_struct.kind == .STRUCT && empty.type_of_struct.name == "Opaque");
     children: [3] B.CXCursor;
     children[0].kind = .NamespaceRef;
@@ -191,6 +214,7 @@ main :: () {
     free(mutable_name);
     free(comment.text);
     free(owned.name);
+    free(owned.output_name);
     free(owned.comment.text);
     free(owned);
     // Every malformed graph produces an explicit diagnostic and terminates.
@@ -220,10 +244,12 @@ main :: () {
     wrapper, wrapper_data := B.create_omit_cpp_functions_visitor(plain_visit, null, null);
 
     defer free(wrapper_data);
-    ft.flags = .CPP_METHOD;
+    first.foreign_name = "_mangled_global";
+    ft.flags = 0;
     assert(wrapper(cast(*B.Declaration) *first, null, wrapper_data) == .STOP);
     assert((first.decl_flags & .OMIT_FROM_OUTPUT) != 0 && visited == 0);
-    ft.flags = 0;
+    ft.flags = .CPP_METHOD;
+    first.foreign_name = first.name;
     assert(wrapper(cast(*B.Declaration) *first, null, wrapper_data) == .RECURSE);
     assert(visited == 1);
     data_count: int;
@@ -239,7 +265,20 @@ main :: () {
 
     defer free(both_data);
     assert(both(*decl, null, both_data) == .RECURSE && visited == 2 && data_count == 2);
+    stop_first, stop_first_data := B.create_omit_cpp_functions_visitor(plain_stop, data_visit, *data_count);
+
+    defer free(stop_first_data);
+    assert(stop_first(*decl, null, stop_first_data) == .STOP && visited == 3 && data_count == 2);
+    stop_second, stop_second_data := B.create_omit_cpp_functions_visitor(plain_visit, data_stop, *data_count);
+
+    defer free(stop_second_data);
+    assert(stop_second(*decl, null, stop_second_data) == .STOP && visited == 4 && data_count == 3);
+    first.decl_flags |= .OMIT_FROM_OUTPUT;
+    assert(B.contains_equivalent_function(declarations, *first));
     left_arg, right_arg: B.Declaration;
+
+    first.name = "call";
+    second.name = "call";
     left_arg.type = integer;
     right_arg.type = *unsigned;
     array_add(*ft.arguments, *left_arg);
@@ -249,6 +288,9 @@ main :: () {
     other_ft.flags = 0;
     assert(!B.functions_are_equivalent(*first, *second));
     assert(B.functions_are_equivalent(*first, *second, true));
+    array_add(*other_ft.arguments, *right_arg);
+    assert(!B.functions_are_equivalent(*first, *second, true));
+    other_ft.arguments.count -= 1;
     invalid_ft: B.Function_Type;
     invalid_ft.return_type = integer;
     invalid_ft.arguments.count = -1;
@@ -256,6 +298,7 @@ main :: () {
     invalid_type.type_of_function = *invalid_ft;
     malformed: B.Function;
     malformed.kind = .FUNCTION;
+    malformed.name = "bad";
     malformed.type = *invalid_type;
 
     push_context {
@@ -286,23 +329,25 @@ main :: () {
 
     push_context {
         context.logger = capture;
-        assert(!B.functions_are_equivalent(*incomplete, *incomplete));
+        assert(B.functions_are_equivalent(*incomplete, *incomplete));
     }
 
-    assert(errors == 7);
+    assert(errors == 6);
     primary: B.Struct;
     bad_template: B.CType;
     bad_template.type_of_struct = *primary;
     bad_template.template_instantiation_params.count = 1;
     left_arg.type = *bad_template;
-    right_arg.type = *bad_template;
+    other_bad_template := bad_template;
+
+    right_arg.type = *other_bad_template;
 
     push_context {
         context.logger = capture;
         assert(!B.functions_are_equivalent(*first, *second));
     }
 
-    assert(errors == 8);
+    assert(errors == 7);
     cycle_left, cycle_right: B.CType;
     cycle_left.pointer_to = *cycle_left;
     cycle_right.pointer_to = *cycle_right;
@@ -314,14 +359,29 @@ main :: () {
         assert(!B.functions_are_equivalent(*first, *second));
     }
 
-    assert(errors == 9);
+    assert(errors == 8);
     unsigned_wide: B.CType;
     unsigned_wide.size = 16;
     qualified_wide := unsigned_wide;
     qualified_wide.flags = .CONST;
     left_arg.type = *unsigned_wide;
     right_arg.type = *qualified_wide;
-    assert(B.functions_are_equivalent(*first, *second));
+
+    push_context {
+        context.logger = capture;
+        assert(!B.functions_are_equivalent(*first, *second));
+    }
+
+    left_arg.type = null;
+    right_arg.type = null;
+
+    push_context {
+        context.logger = capture;
+        before := errors;
+        found, other = B.find_name_clash(declarations, cast(*B.Declaration) *second, true);
+        assert(found && other == cast(*B.Declaration) *first && errors == before + 1);
+    }
+
     print("ok\n");
 }
 

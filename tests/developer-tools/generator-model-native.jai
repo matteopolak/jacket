@@ -85,6 +85,7 @@ main :: () {
     B.clang_disposeTranslationUnit(unit);
     defer free(decl);
     defer free(decl.name);
+    defer free(decl.output_name);
     defer free(decl.comment.text);
     assert(decl.kind == .DECLARATION && decl.name == "original_value" && decl.type == type);
     assert(decl.location.file != null && decl.location.line == 2 && decl.location.column == 12);

@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "library": "android-crypto/crypto",
+  "provider_relative_directory": "internal/android-toolchain/android-crypto",
+  "implementation": "OpenSSL 3",
+  "license": "Apache-2.0",
+  "sdk_inputs": ["include/openssl/opensslv.h", "include/openssl/evp.h", "lib/libcrypto.a", "LICENSE.txt", "AUTHORS.md"],
+  "macos": {
+    "static": "libcrypto.a",
+    "shared": "libcrypto.dylib",
+    "shared_identity": "@rpath/libcrypto.dylib",
+    "allowed_dependency_prefixes": ["/usr/lib/", "/System/Library/Frameworks/"],
+    "providers": "built-in default provider; no external legacy/FIPS modules"
+  },
+  "integration": "Invoke build_android_crypto.py with configured SDK and staging stdlib; do not use a generic C compile-units entry",
+  "linux_windows": "native package workflow and execution remain unverified"
+}

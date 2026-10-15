@@ -38,6 +38,24 @@ pub struct Signature {
     pub scope: ScopeId,
 }
 
+/// C ellipses consume the trailing ABI arguments. Baked parameters do not
+/// participate in that ABI, unlike ordinary runtime parameters.
+pub(super) fn validate_c_variadic_header(header: &ast::ProcHeader) -> Result<()> {
+    if !(header.flags.c_call || header.flags.cpp_method || header.foreign.is_some()) {
+        return Ok(());
+    }
+    let mut runtime = header.params.iter().filter(|p| !p.baked).peekable();
+    while let Some(param) = runtime.next() {
+        if param.variadic && runtime.peek().is_some() {
+            return err(
+                param.span,
+                "a C variadic parameter must be the last runtime parameter",
+            );
+        }
+    }
+    Ok(())
+}
+
 pub struct ProcInfo {
     pub name: Sym,
     pub lit: Rc<ast::ProcLit>,
@@ -358,6 +376,7 @@ impl Compiler {
         self.check_proc_modify(id)?;
         let p = self.proc(id);
         let header = p.lit.header.clone();
+        validate_c_variadic_header(&header)?;
         let scope = p.bindings.unwrap_or(p.scope);
         // Baked (`$x`) parameters are constants of the instance, not runtime parameters.
         let runtime: Vec<&ast::Param> = header.params.iter().filter(|p| !p.baked).collect();

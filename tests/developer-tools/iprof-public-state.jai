@@ -3,13 +3,15 @@ I :: #import "Iprof"(USE_GRAPHICS = false);
 Alias :: #import "Iprof"(USE_GRAPHICS = false);
 Other :: #import "Iprof"(USE_GRAPHICS = false, DO_HISTORY = false);
 
+G :: #import "Iprof"(IMPORT_MODE = .CLIENT, USE_GRAPHICS = true);
+
 main :: () {
     assert(I.NUM_THROWAWAY_UPDATES == 3);
     assert(I.INT_ZERO_THRESHHOLD == 0.25 && I.FRAME_TIME_INITIAL == 0.001);
-    scale: I.Graph_Scaling;
+    scale: G.Graph_Scaling;
     location: I.GraphLocation;
 
-    assert(I.Graph_Scaling.SCALE_MAX == 16);
+    assert(G.Graph_Scaling.SCALE_MAX == 16);
     assert(type_of(scale.output_factor) == float64 && type_of(scale.target) == s64);
     assert(type_of(location.x0) == float && type_of(location.sy) == float);
     assert(I.current_graph_window_selected_sample == -1 && I.displayed_quantity == .SELF_TIME);

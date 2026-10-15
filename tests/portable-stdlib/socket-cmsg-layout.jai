@@ -20,7 +20,12 @@ main :: () {
         for size: 0..1024 {
             aligned := S.CMSG_ALIGN(size);
             assert(aligned >= size && aligned - size < boundary && aligned % boundary == 0);
+            assert(S.CMSG_SIZE(size) == length + aligned);
         }
+
+        maximum_payload := ((0xffffffff - length) / boundary) * boundary;
+
+        assert(S.CMSG_SIZE(maximum_payload) == length + maximum_payload);
 
         message: S.msghdr;
         message.msg_control = header;

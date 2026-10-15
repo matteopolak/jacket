@@ -19,6 +19,18 @@ pub struct Environment {
     pub options: Box<dyn Fn(&Path) -> Options>,
 }
 
+/// Observed semantic analysis coverage, without source text or diagnostic payloads.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SemanticCoverage {
+    pub context_id: String,
+    pub source_loaded: bool,
+    pub recorded_references: usize,
+    pub recorded_fields: usize,
+    pub program_complete: bool,
+    pub program_errors: usize,
+    pub target: String,
+}
+
 /// A declaration in a compiled file: (path, text of the file, start, end of its name).
 pub type Decl = (String, Rc<str>, usize, usize);
 
@@ -303,6 +315,27 @@ impl Analysis {
         let found = find_file(&self.compiler, path);
         self.found.borrow_mut().insert(path.to_path_buf(), found);
         found
+    }
+
+    pub fn coverage(&self, path: &Path) -> SemanticCoverage {
+        let file = self.file(path);
+        let ide = self.compiler.ide.as_ref();
+        SemanticCoverage {
+            context_id: format!("{:016x}", self.key),
+            source_loaded: file.is_some(),
+            recorded_references: ide.map_or(0, |i| {
+                i.refs.iter().filter(|r| Some(r.span.file) == file).count()
+            }),
+            recorded_fields: ide.map_or(0, |i| {
+                i.fields.keys().filter(|s| Some(s.file) == file).count()
+            }),
+            program_complete: self.complete,
+            program_errors: self.errors.len(),
+            target: format!(
+                "{:?}/{:?}",
+                self.compiler.options.os, self.compiler.options.cpu
+            ),
+        }
     }
 
     /// A span of any compiled file as (path, text, start, end); `None` for a span in no file

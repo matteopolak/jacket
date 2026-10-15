@@ -24,6 +24,7 @@ main :: () {
     for size: 0..4096 {
         assert(cast(u64) S.CMSG_ALIGN(size) == values[size * 4]);
         assert(cast(u64) S.CMSG_LEN(size) == values[size * 4 + 1]);
+        assert(cast(u64) S.CMSG_SIZE(size) == cast(u64) header[2] + values[size * 4]);
         message.msg_controllen = cast(type_of(message.msg_controllen)) size;
         first := S.CMSG_FIRSTHDR(*message);
 

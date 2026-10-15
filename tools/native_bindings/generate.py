@@ -399,7 +399,7 @@ def generate_facade(module, spec):
                               reason='Real native C-compatible encoding/class/method behavior; Jai-specific alias, ownership, naming, validation and unsupported-reflection contracts still need public review')
             if module == 'Android' and d.name == 'android_logger':
                 record.update(status='partially_implemented',
-                              reason='Real reviewed priorities/tag/native logging; forced Runtime flush substitutes for literal buffer discard pending a canonical Runtime-owned hook')
+                              reason='Canonical committed Runtime discard is wired; host validation awaits its supplied output-lock dependency')
             ledger.append(record)
             continue
         key = (condition, d.code)

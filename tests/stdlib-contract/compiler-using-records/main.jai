@@ -31,16 +31,26 @@ Point :: struct {
 
     assert((cast(*C.Code_Using) copied_block.statements[1]).filter_type == .ONLY);
 
-    static_root := C.compiler_get_nodes(#code {
+    static_code := #code {
         point: Point;
         using,only(x) point;
-    });
+    };
+
+    static_root := C.compiler_get_nodes(static_code);
     static_using := cast(*C.Code_Using) (cast(*C.Code_Block) static_root).statements[1];
 
     assert(static_using.filter_type == .ONLY);
     init_string_builder(*builder);
-    assert(!P.print_expression(*builder, static_using));
+    assert(P.print_expression(*builder, static_using));
+    printed_static := builder_to_string(*builder);
+
+    assert(printed_static == "using,only(x) point");
+    free(printed_static);
     free_buffers(*builder);
+    copied_static := C.compiler_get_nodes(C.compiler_get_code(static_using, static_code));
+
+    assert(copied_static.kind == .USING);
+    assert((cast(*C.Code_Using) copied_static).filter_type == .ONLY);
 
     procedure := #code (using,except(.["y"]) item: *Point) #no_context {
         x = 13;

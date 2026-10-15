@@ -35,7 +35,7 @@ main :: () {
     capture.saved = context;
     B.clang_visitChildren(B.clang_getTranslationUnitCursor(unit), visit, *capture);
     defer array_free(capture.children);
-    assert(capture.children.count == 4);
+    assert(capture.children.count == 5);
     generator: B.Generator;
     generator.translation_unit = unit;
     session := S.open(*generator, B.TARGET_OS);
@@ -45,6 +45,25 @@ main :: () {
 
     push_context {
         S.activate(*generator, null, *session);
+        options: B.Generate_Bindings_Options;
+        options.strip_flags = .CONSTRUCTORS | .DESTRUCTORS;
+        array_add(*options.strip_prefixes, "Copy");
+        defer array_free(options.strip_prefixes);
+
+        push_context {
+            S.activate(*generator, *options, *session);
+            categories := B.create_struct(capture.children[4]);
+
+            assert(categories.declarations.count == 4);
+            assert(categories.declarations[0].name == "Constructor");
+            assert(categories.declarations[1].name == "CopyConstructor" && categories.declarations[1].output_name == "Constructor");
+            assert(categories.declarations[2].name == "MoveConstructor");
+            assert(categories.declarations[3].name == "Destructor");
+            for function: categories.declarations assert((function.decl_flags & .OMIT_FROM_OUTPUT) != 0);
+
+            assert((categories.flags & (.HAS_COPY_CONSTRUCTOR | .HAS_MOVE_CONSTRUCTOR)) == (.HAS_COPY_CONSTRUCTOR | .HAS_MOVE_CONSTRUCTOR));
+        }
+
         standalone_type := B.create_function_type(capture.children[3], B.clang_getCursorType(capture.children[3]));
 
         assert(standalone_type != null && standalone_type.arguments.count == 1);
@@ -57,6 +76,11 @@ main :: () {
         namespace_shell := B.create_namespace(capture.children[0], true);
 
         assert(namespace_shell != null && namespace_shell.declarations.count == 3);
+        item_shell := cast(*B.Struct) namespace_shell.declarations[0];
+
+        assert((item_shell.flags & .HAS_CONSTRUCTOR) != 0);
+        assert((item_shell.flags & .HAS_DESTRUCTOR) != 0);
+        assert((item_shell.flags & .IS_ABSTRACT) != 0);
         space := B.create_namespace(capture.children[0]);
 
         assert(space == namespace_shell && space.declarations.count == 7);
@@ -70,7 +94,8 @@ main :: () {
         abstract_read := cast(*B.Function) item.declarations[5];
         with_ref := cast(*B.Function) item.declarations[6];
 
-        assert(constructor.output_name == "constructor" && destructor.output_name == "destructor");
+        assert(constructor.name == "Constructor" && destructor.name == "Destructor");
+        assert(constructor.output_name == "Constructor" && destructor.output_name == "Destructor");
         assert((constructor.type.type_of_function.flags & .CONSTRUCTOR) != 0);
         assert((destructor.type.type_of_function.flags & .DESTRUCTOR) != 0);
         assert(read.type.type_of_function.arguments.count == 2);

@@ -46,10 +46,12 @@ fn dsym(exe: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
-/// Where the debug information of `exe` lives: the `.dSYM` bundle on macOS.
+/// The actual DWARF payload, excluding filesystem metadata beside it in a bundle.
 fn debug_file(exe: &Path) -> PathBuf {
     if cfg!(target_os = "macos") {
         dsym(exe)
+            .join("Contents/Resources/DWARF")
+            .join(exe.file_name().expect("executable filename"))
     } else {
         exe.to_path_buf()
     }

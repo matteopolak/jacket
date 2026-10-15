@@ -11,6 +11,7 @@ directory = ROOT / "stdlib/internal/watching/native"
 subprocess.run(["clang", "-std=c11", "-O2", "-fblocks", "-fvisibility=hidden",
                 "-arch", "arm64", "-arch", "x86_64",
                 "-Wall", "-Wextra", "-Werror", "-dynamiclib", str(directory / "watch.c"),
+                "-Wl,-install_name,@rpath/libportable_watch.dylib",
                 "-framework", "CoreServices", "-pthread", "-o",
                 str(directory / "libportable_watch.dylib")], cwd=ROOT, check=True)
-print("Built original native FSEvents lifecycle/queue backend from source")
+print("Built independent native FSEvents lifecycle/queue backend from source")

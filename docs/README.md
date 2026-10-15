@@ -461,7 +461,8 @@ The WebAssembly compiler bundle and its releases. The hosted playground UI lives
 
 ## Tools and workflow
 
-- [Iprof/Codex workflow progress](profiler-codex-workflows.md): real frame/history/report collection and Codex v2 plugin/reader/writer, verification and active gaps.
+- [Profiler/Codex reduced compiler requests](profiler-codex-compiler-handoff.md): passing9b3d4932 dependency replay, owned startup/zone-entry fixes, and actual native/interpreted instrumentation.
+- [Iprof/Codex workflow progress](profiler-codex-workflows.md): complete reviewed owned APIs, real frame/history/report and Codex v2 workflows, passing Mac verification and platform limits.
 - [Iprof/Codex owned implementation and per-API audit](profiler-codex.md): canonical records, helper lifetime, real profiling traversal, focused verification and exact remaining gaps.
 
 - [Developer tooling](developer-tools.md): reflected C headers, configured-SDK C/C++ bindings, measured manual profiler, typed Codex metrics, native ABI probes, DWARF/CodeView queries, staged DWARF byte decoding and canonical MSF readers/page bits; [test provenance](developer-tools-testing.md), [native integration plan](developer-tools-native-integration.md), [remaining functions](status/developer-tools-remaining.md), [progress](status/developer-tools-progress.md) and [deviations](status/developer-tools-deviations.md).
@@ -616,3 +617,31 @@ the earlier120-second timeout is retained. Full aggregate replay remains require
 - [Android binary manifests](android-manifest.md): valid AXML writer, UTF-8/UTF-16 reader, canonical APK parsing and system-zlib decompression.
 
 - [Basic LSP resolution verification](tools/lsp-basic-resolution-verification.md): reported Basic.temp and exit(1) checks on the merged server
+
+- [Shared stdlib worktree](tools/shared-stdlib-worktree.md): source ownership, shared commits and independent build/test outputs
+- [Shared portable verification](tools/shared-portable-verification.md): combined ASN.1, Socket, JKS and APK source checks and native baseline limits
+- [Generator model shared audit](status/generator-model-shared-audit.json), [tools shared audit](status/stdlib-tools-shared-audit.json), and [bindings shared audit](status/bindings-shared-audit.json): pre-adoption producer inventories; these are not combined passing results
+
+
+ASN1/Socket shared-tree verification now uses current production dependencies and
+a fresh source-built compiler, with separate worker outputs and no old overlays.
+[The scoped handoff](portable-asn1-socket-handoff.md) records 54 actual host
+executions, 34 supported-platform source/lint gates, and the blocked Android
+compiler gate. [The API inventory](status/asn1-socket-remaining.json) keeps six
+Android rows partial and other native platforms unverified.
+
+- [Retained portable shared audit](status/stdlib-shared-audit.json): per-API current audit distinct from 929 historical bookkeeping rows
+- [Current shared integration baseline](status/shared-integration-baseline.json): exact candidate, commands, measured counts and unresolved failures
+- [Shared IDE verification](tools/shared-ide-verification.md): strict scanner, independent definition regressions and separate actual-server protocol gate
+- [Shared generator checkpoint](tools/shared-generator-checkpoint.md): canonical lifecycle, dependent arrays, native macro evaluation and honest remaining emission domains
+- [Generator macro helpers](generator-macro-shared.md): seven reviewed public helpers and guarded native evidence
+- [C variadic header validation](compiler/c-variadic-header-validation.md): ordinary diagnostics replace invalid-header pack-lowering panic while valid native ABI calls remain checked
+
+
+[Essential operations inside optional assertions](optional-assert-side-effects.md)
+records a finite read-only handwritten stdlib audit, independent disabled-default
+text/keymap reproductions, precise owner routing, and explicit pure/diagnostic
+non-defect classifications. [Its scoped findings](status/optional-assert-side-effects.json)
+include exact file/line/source hashes and required platform limits.
+
+- [Stdlib completion backlog](tools/stdlib-completion-backlog.md): exact owner/API gaps, dependencies and acceptance evidence

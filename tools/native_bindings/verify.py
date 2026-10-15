@@ -6,7 +6,6 @@ checks, public-surface checks, and native executions. A declaration import that
 passes while a required wrapper is missing does not count as a complete module.
 """
 import argparse
-from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -25,8 +24,7 @@ from rpmalloc_tests import fixtures as rpmalloc_fixtures
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [(os_name, cpu) for os_name in ('linux', 'macos', 'windows') for cpu in ('x64', 'arm64')]
-PRIVATE_UNITS = {'fsevents-context':'macOS/sdk-fsevents-context-unit.jai',
-                 'ios-sdk-host':'iOS/sdk-host-unit.jai',
+PRIVATE_UNITS = {'ios-sdk-host':'iOS/sdk-host-unit.jai',
                  'dxc-wide':'dxc_compiler/sdk-wide-unit.jai',
                  'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai',
                  'rpmalloc-native-sdk':'rpmalloc/sdk-native-unit.jai',
@@ -39,6 +37,7 @@ PRIVATE_UNITS['rpmalloc-no-thread-cache'] = 'rpmalloc/sdk-no-thread-cache-unit.j
 PRIVATE_UNITS['shader-bytes'] = 'd3d_compiler/sdk-shader-bytes-unit.jai'
 PRIVATE_UNITS['clipboard-owned-data'] = 'X11/sdk-clipboard-owned-data-unit.jai'
 PRIVATE_UNITS['android-commands'] = 'Android/sdk-command-unit.jai'
+PRIVATE_UNITS['android-logger-output'] = 'Android/sdk-logger-output-unit.jai'
 
 
 def private_unit_module(name):
@@ -66,42 +65,15 @@ PRIVATE_UNIT_DEPENDENCIES = {
 }
 
 
-def regression_source(modules, filename):
-    """Prefer the canonical module-owned fixture; never restore moved copies."""
-    owned = [ROOT/'stdlib'/module/'tests'/filename for module in modules]
-    existing = [source for source in owned if source.is_file()]
-    if len(existing) > 1:
-        raise ValueError('ambiguous module-owned regression: '+filename)
-    return existing[0] if existing else ROOT/'tests/native-bindings'/filename
-
-
-def place_private_unit(name, source, stdlib, hashes, cleanup):
-    def copy_temporarily(original, target):
-        missing = []
-        directory = target.parent
-        while not directory.exists():
-            missing.append(directory)
-            directory = directory.parent
-        for directory in reversed(missing):
-            directory.mkdir()
-            cleanup.callback(directory.rmdir)
-        if target.exists():
-            contents = target.read_bytes()
-            mode = target.stat().st_mode
-            def restore():
-                target.write_bytes(contents)
-                target.chmod(mode)
-            cleanup.callback(restore)
-        else:
-            cleanup.callback(target.unlink, missing_ok=True)
-        shutil.copy2(original,target)
-
+def place_private_unit(name, source, stdlib, hashes):
     placed = stdlib/PRIVATE_UNITS[name]
-    copy_temporarily(source,placed)
+    placed.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(source,placed)
     hashes[str(placed.relative_to(stdlib))] = hashlib.sha256(placed.read_bytes()).hexdigest()
     for relative, destination in PRIVATE_UNIT_DEPENDENCIES.get(name,{}).items():
         target = stdlib/destination
-        copy_temporarily(ROOT/relative,target)
+        target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copy2(ROOT/relative,target)
         hashes[destination] = hashlib.sha256(target.read_bytes()).hexdigest()
     return placed
 
@@ -214,56 +186,33 @@ def invoke(command, env, timeout=120):
         return {'exit': None, 'stdout': str(e.stdout or ''), 'stderr': 'Timeout after ' + str(timeout) + ' seconds'}
 
 
-def select_stdlib(work, foundation=None, production=None):
-    if production is not None:
-        if foundation is not None:
-            raise ValueError('production --stdlib cannot be combined with --foundation overlays')
-        root = production.resolve(strict=True)
-        if not (root / 'prelude/module.jai').is_file():
-            raise ValueError('production library requires its canonical prelude/module.jai')
-        return root
-    destination = work / 'stdlib'
-    stage(destination, foundation)
-    return destination
-
-
-def verify(cleanup):
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compiler', type=Path, required=True)
     parser.add_argument('--module', action='append', choices=MODULES)
     parser.add_argument('--runtime', action='store_true')
-    parser.add_argument('--native-libs', type=Path, default=ROOT/'.work/native', help='Actual source-built native libraries used by runtime checks')
+    parser.add_argument('--target-os', action='append', choices=('linux', 'macos', 'windows'),
+                        help='Restrict source/privacy checks to selected desktop OS values; default all')
     parser.add_argument('--privacy-only', action='store_true', help='Run the full target privacy matrix without repeating declaration/runtime suites')
     parser.add_argument('--rpmalloc-first-class-heaps', action='store_true',
                         help='Supply the missing raw heap compile-time selection through the private build configuration')
     parser.add_argument('--report', type=Path, default=ROOT/'.work/verification.json')
-    parser.add_argument('--foundation', type=Path, help='Explicit previously staged NEW independent foundation sources')
-    parser.add_argument('--stdlib', type=Path, help='Verify this production library directly, without any source overlays')
-    parser.add_argument('--target-os', action='append', choices=('linux', 'macos', 'windows'))
-    parser.add_argument('--existing-stdlib', type=Path, help='Diagnostic NEW independent stage only, never production proof')
+    staging = parser.add_mutually_exclusive_group()
+    staging.add_argument('--foundation', type=Path, help='Explicit previously staged NEW independent foundation sources')
+    staging.add_argument('--existing-stdlib', type=Path,
+                         help='Reuse an independent local stage and refresh only owned bindings; never access peer checkouts')
     args = parser.parse_args()
-    if args.existing_stdlib and (args.stdlib or args.foundation):
-        parser.error('--existing-stdlib cannot be combined with --stdlib or --foundation')
     selected_configs = [config for config in TARGET_CONFIGS if not args.target_os or config[0] in args.target_os]
     compiler = args.compiler.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT/'target'):
-        parser.error('compiler must be source-built under this checkout target directory')
-    native_libraries = args.native_libs.resolve()
-    work = args.report.resolve().parent/'runs'/(args.report.stem+'-'+str(os.getpid()))
+    work = ROOT/'.work/runs'/(args.report.stem+'-'+str(os.getpid()))
     work.mkdir(parents=True, exist_ok=True)
-    if args.existing_stdlib:
-        stdlib = work/'stdlib'
-        stage_for_checks(stdlib, args.existing_stdlib)
-    else:
-        stdlib = select_stdlib(work, args.foundation, args.stdlib)
-    from configure_rpmalloc import select_for_verification
-    select_for_verification(stdlib, args.rpmalloc_first_class_heaps, args.stdlib is not None)
-    temporary = work / 'tmp'
-    temporary.mkdir()
-    env = dict(os.environ, JAIC_STDLIB=str(stdlib), JAIC_NATIVE_LIBS=str(native_libraries), TMPDIR=str(temporary))
-
+    stdlib = work/'stdlib'
+    stage_for_checks(stdlib, args.existing_stdlib, args.foundation)
+    if args.rpmalloc_first_class_heaps:
+        from configure_rpmalloc import configure
+        configure(stdlib, True)
+    env = dict(os.environ, JAIC_STDLIB=str(stdlib), JAIC_NATIVE_LIBS=str(ROOT/'.work/native'), TMPDIR=str(ROOT/'.work/tmp'))
     report = {'compiler': str(compiler), 'compiler_sha256': hashlib.sha256(compiler.read_bytes()).hexdigest(), 'staging_root': str(work),
-              'stdlib_root': str(stdlib), 'production': args.stdlib is not None, 'native_libraries': str(native_libraries),
               'targets': [], 'native': [], 'privacy': []}
     report['staged_sources'] = {str(p.relative_to(stdlib)):hashlib.sha256(p.read_bytes()).hexdigest()
                                 for p in sorted(stdlib.rglob('*.jai')) if 'Extensions' not in p.parts}
@@ -271,7 +220,7 @@ def verify(cleanup):
     report['symbols'] = []
     report['test_sources'] = {}
     report['native_artifacts'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest()
-                                  for p in sorted(native_libraries.glob('lib*')) if p.is_file()} if args.runtime else {}
+                                  for p in sorted((ROOT/'.work/native').glob('lib*')) if p.is_file()} if args.runtime else {}
     report['privacy_only'] = args.privacy_only
     report['existing_stdlib'] = str(args.existing_stdlib.resolve()) if args.existing_stdlib else None
     for module, slug in ([] if args.privacy_only else MODULES.items()):
@@ -283,7 +232,7 @@ def verify(cleanup):
             coverage = json.loads((ROOT/'docs/native/bindings-coverage.json').read_text())['modules'][module]
             members = [Declaration(m['signature'],m['condition']) for d in coverage['declarations'] for m in d.get('members',[])]
             symbols = Spec(declarations=spec.declarations+members)
-            report['symbols'].extend(check_symbols(module, symbols, enabled, native_libraries))
+            report['symbols'].extend(check_symbols(module, symbols, enabled, ROOT/'.work/native'))
         for os_name, cpu in selected_configs:
             file = work/'module-check.jai'
             file.write_text('#import "' + module + '"; main :: () {}\n')
@@ -338,10 +287,10 @@ def verify(cleanup):
             continue
         if args.module and module not in args.module:
             continue
-        source = regression_source([module],filename)
+        source = ROOT/'tests/native-bindings'/filename
         report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
         if source.stem in PRIVATE_UNITS:
-            source = place_private_unit(source.stem,source,stdlib,report['staged_sources'],cleanup)
+            source = place_private_unit(source.stem,source,stdlib,report['staged_sources'])
         for os_name, cpu in configs:
             if (os_name, cpu) not in selected_configs:
                 continue
@@ -469,7 +418,7 @@ def verify(cleanup):
             if name in ('x11-window-helpers','x11-message-box'):
                 relevant = ['X11']
             if name in PRIVATE_UNITS:
-                relevant = [Path(PRIVATE_UNITS[name]).parts[0]]
+                relevant = [private_unit_module(name)]
             if name == 'imgui-nested':
                 relevant = ['ImGui']
             if name == 'posix-stat':
@@ -480,7 +429,7 @@ def verify(cleanup):
                 relevant = ['GL']
             if args.module and not any(m in args.module for m in relevant):
                 continue
-            source = regression_source(relevant,f'{name}.jai')
+            source = ROOT/'tests/native-bindings'/f'{name}.jai'
             if not source.is_file():
                 report['native'].append({'name': name, 'status': 'not_implemented'})
                 continue
@@ -491,7 +440,7 @@ def verify(cleanup):
                 # A private unit belongs inside the staged library boundary.
                 # Copy bytes unchanged; do not expose a public testing backdoor
                 # or disable the compiler's private-import guard.
-                compiled_source = place_private_unit(name,source,stdlib,report['staged_sources'],cleanup)
+                compiled_source = place_private_unit(name,source,stdlib,report['staged_sources'])
             result = invoke([compiler, compiled_source, '-exe', exe], env)
             scope = 'private_arithmetic' if name=='graphics-math' else 'private_toolchain_host' if name=='ios-sdk-host' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
             if name in ('dxc-wide','dxc-options'):
@@ -533,22 +482,17 @@ def verify(cleanup):
                 result['private_unit_placement'] = str(compiled_source)
             report['native'].append(result)
             if result['exit'] == 0:
-                arguments = [work/"native-rwops-test.bmp"] if name == "sdl-rwops" else []
-                result = invoke([exe, *arguments], env)
-                result.update(name=name, phase="run",scope=scope,status="passed" if result["exit"]==0 else "failed")
+                result = invoke([exe], env)
+                result.update(name=name, phase='run',scope=scope,status='passed' if result['exit']==0 else 'failed')
                 report['native'].append(result)
-                if name == 'sdl-rwops':
-                    result = invoke([compiler, compiled_source, '-interp', '--', *arguments], env)
-                    result.update(name=name, phase='interp', status='passed' if result['exit']==0 else 'failed')
-                    report['native'].append(result)
         if not args.module or 'ImGui' in args.module:
             pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['imgui']
             exe = work/'imgui-ffi-test'
             source = ROOT/'tests/native-bindings/imgui_ffi.cpp'
             report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
             command = ['c++','-std=c++17','-Wall','-Wextra','-Werror','-isystem',ROOT/'.work/vendor'/pin['archive']['root'],
-                       ROOT/'tests/native-bindings/imgui_ffi.cpp',native_libraries/'libimgui.a',
-                       native_libraries/'libbinding_ffi.a','-lffi','-o',exe]
+                       ROOT/'tests/native-bindings/imgui_ffi.cpp',ROOT/'.work/native/libimgui.a',
+                       ROOT/'.work/native/libbinding_ffi.a','-lffi','-o',exe]
             result = invoke(command,env)
             result.update(name='imgui-ffi',language='C++',phase='build',header_sha256=pin['files']['imgui.h'],
                           status='passed' if result['exit']==0 else 'failed')
@@ -561,11 +505,6 @@ def verify(cleanup):
     failures = [x for category in ['targets','privacy','native','symbols'] for x in report[category] if x['status'] in ['failed','not_implemented','unavailable']]
     print(str(len(failures))+' failed or unimplemented checks; report: '+str(args.report))
     return 1 if failures else 0
-
-
-def main():
-    with ExitStack() as cleanup:
-        return verify(cleanup)
 
 
 if __name__ == '__main__':

@@ -42,8 +42,8 @@ main :: () {
     B.append_cpp_type(*cpp, *record_type, null, .NO_PATH);
     append(*cpp, "; }\nstatic_assert(__is_same(Printed_ConstPointer, int *const));\nstatic_assert(__is_same(Printed_Record, OriginalTypes::Printed_Local));\n");
     append(*cpp, "using Printed_Qualified = int");
-    B.append_cpp_type_modifiers(*cpp, *constant, 0);
-    append(*cpp, ";\nstatic_assert(__is_same(Printed_Callback, int (*)(double)));\nstatic_assert(__is_same(Printed_Array, int (*)[4]));\nstatic_assert(__is_same(Printed_Reference, int (&)[4]));\nstatic_assert(__is_same(Printed_Qualified, const volatile int));\nextern \"C\" int printed_call(Printed_Callback callback, double value) { return callback(value); }\nextern \"C\" int printed_array(int *data) { Printed_Reference array = *reinterpret_cast<Printed_Array>(data); array[2] += 7; return array[2]; }\n");
+    B.append_cpp_type_modifiers(*cpp, *constant, .C_TYPE_DETAILS);
+    append(*cpp, ";\nstatic_assert(__is_same(Printed_Callback, int (*)(double)));\nstatic_assert(__is_same(Printed_Array, int (*)[4]));\nstatic_assert(__is_same(Printed_Reference, int (&)[4]));\nstatic_assert(__is_same(Printed_Qualified, const int));\nextern \"C\" int printed_call(Printed_Callback callback, double value) { return callback(value); }\nextern \"C\" int printed_array(int *data) { Printed_Reference array = *reinterpret_cast<Printed_Array>(data); array[2] += 7; return array[2]; }\n");
     append(*cpp, "extern \"C\" int printed_identity(int value) { return value; }\n");
     append(*cpp, "extern \"C\" int printed_bool(bool value) { return value ? 1 : 0; }\n");
     text := builder_to_string(*cpp);

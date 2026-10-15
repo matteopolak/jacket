@@ -1,5 +1,10 @@
 # Releases
 
+Clean-room publication is held for planned v0.18.0. Only the coordinator may
+perform final history insertion, signing, pushing and publication after combined
+verification and user acceptance. Do not rebuild historical releases for this
+integration. Temporary CI must use nonpublishing CI jobs, never release dispatch.
+
 ## What it is
 
 `.github/workflows/release.yml` builds `jaic`, `jailsp`, `jailint` and `jaifmt` for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and Windows (x86-64 and arm64): six archives, `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz`, `jai-linux-arm64.tar.gz`, `jai-windows-x64.zip` and `jai-windows-arm64.zip`. It smoke-tests each archive and can publish a GitHub release from a pushed `v*` tag or a manual run selecting the tag that matches this workflow revision's Cargo version. Historical releases use their own tag workflow. Release notes come from the selected tag's section of `CHANGELOG.md`.
@@ -15,7 +20,7 @@ Each platform job:
 
 The `vscode` job packages the [VS Code extension](vscode-extension.md) (`matteopolak.jai-toolchain`) as `jai-vscode-<editor-version>.vsix` using editor sources from the workflow revision. Its version defaults to the compiler tag, but a workflow-dispatch `editor_version` can advance the editor independently; the embedded checksum manifest continues to name the compiler version and hashes of the archives just built. Use a new editor version when repinning changed archives for the same compiler version, because extension stores keep published versions immutable. The current editor-only patch release uses editor version `0.17.1` with compiler `0.17.0`.
 
-The `publish` job collects the archives and `.vsix`, writes `SHA256SUMS`, extracts the matching `CHANGELOG.md` section, and creates or updates the GitHub release. On reruns it replaces matching assets only when GitHub reports that the release is mutable; immutable releases fail before upload. Replacement is per asset rather than atomic, so a failed upload may leave a mixed set and requires rerunning the workflow. Historical tags are rebuilt by dispatching the workflow revision at each tag; those workflows retain their own LLVM configuration, platform matrix, and build commands, and publish GitHub release assets only. Marketplace, Open VSX, Neovim, and Homebrew are handled by the current default-branch workflow for the latest compiler release. The current workflow derives its eligible compiler version from that revision's Cargo metadata. A forced tag update skips the build and dependent jobs so the history rewrite does not duplicate work or publish releases.
+The `publish` job collects the archives and `.vsix`, writes `SHA256SUMS`, extracts the matching `CHANGELOG.md` section, and creates or updates the GitHub release. On reruns it replaces matching assets only when GitHub reports that the release is mutable; immutable releases fail before upload. Replacement is per asset rather than atomic, so a failed upload may leave a mixed set and requires rerunning the workflow. Historical workflow revisions retain historical build configuration; rebuilding or publishing historical releases is prohibited during this clean-room integration. Marketplace, Open VSX, Neovim, and Homebrew are handled by the current default-branch workflow for the latest compiler release. The current workflow derives its eligible compiler version from that revision's Cargo metadata. A forced tag update skips the build and dependent jobs so the history rewrite does not duplicate work or publish releases.
 
 A packaged `jaic` (and `jailint`, `jailsp`) finds its standard library through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` next to the executable (when it has `prelude/module.jai`), checked both beside the path it was started from and beside the real file behind any symlinks, else the repository's `stdlib/` (development builds; the path is baked in at build time, so on another machine it is the CI runner's). Symlinks matter on macOS, where the executable's path is the link's: unpacking into `/opt/jaic` and linking `~/bin/jaic` to it must still find `/opt/jaic/stdlib`. When none of these has `prelude/module.jai`, `jaic` and `jailint` stop with an error naming the directory and both fixes (`jaic::missing_stdlib`); `jailsp` logs it. The smoke test also runs the package through a symlink with the checkout's `stdlib/` moved away. It also copies `examples/webgpu/triangle.jai` and `tests/webgpu/headless.jai` next to the package, builds the triangle (linking the packaged static wgpu-native, where the row has LLVM) and runs the headless test with `jaic -interp` (the packaged shared library); exit 77, no GPU adapter on the runner, still passes, since the library loaded. Then `tests/native-libs/simp-image.jai` (Simp's PNG round trip through `stb_image_write` and `stb_image`, plus a `stb_image_resize` and a `stb_vorbis` call) must exit with 0 under `jaic -interp` (the packaged shared libraries), again through the symlinked install, and, where LLVM is linked, as a built executable (the static ones). The stdlib runtime tests `freetype-bdf-glyph`, `imgui-headless-frames` and `mojoshader-translate` (and `sdl2-geometry-timer` on Windows x64, with `SDL2.dll` copied beside the executable) must pass the same way. `build_native_libs.py` itself stops when a library or licence file it should have written is missing, which fails the Package step before the smoke test. On Windows it is built once more with LLVM taken off `PATH`, so the link goes through Visual Studio's `link.exe` while Git's coreutils `link` is on `PATH` (see [Windows](../native/windows.md)).
 
@@ -47,14 +52,12 @@ git tag -s v0.17.0 -m 'Jai Toolchain 0.17.0'
 git push origin v0.17.0
 ```
 
-To test the current build without publishing, run the workflow by hand (Actions → release → Run workflow) from the default branch with an empty tag. The archives are kept as workflow artifacts. To rebuild historical compiler versions, dispatch each historical release workflow from its own tag, passing that same tag as the `tag` input. This keeps every release on its original compiler, LLVM version, platform matrix, and build commands. For example:
-
-```sh
-tag=v0.4.0
-gh workflow run release.yml --ref "$tag" -f "tag=$tag"
-```
-
-Run all historical tags in ascending order, one at a time, then build the current/latest compiler from the current default-branch workflow. That workflow rejects a tag that does not match its own Cargo version. For the present editor checksum repin, provide `editor_version=0.17.1` with compiler tag `v0.17.0`; this gives extension stores a new immutable package version. Historical workflows disable extension-store, Neovim mirror, and Homebrew publishing. The current release is marked latest based on the current workflow revision's Cargo version; older releases do not change the latest pointer. To rewrite a published release's notes after editing its `CHANGELOG.md` section, extract the section with the same `awk` as the `publish` job and run `gh release edit vX.Y.Z --title 'Jai Toolchain X.Y.Z' --notes-file notes.md`; the assets and tag stay as they are.
+For this integration, the coordinator must review a nonpublishing temporary CI
+branch before pushing it. Release workflows, tag creation, publication and
+historical rebuilds are outside clean implementation/integration authorization.
+Ordinary current-branch CI still needs native macOS x64 and Windows validation;
+source checks on a Mac ARM64 host do not close those gates. Existing workflow
+capabilities for historical releases do not authorize invoking them.
 
 Gotchas:
 

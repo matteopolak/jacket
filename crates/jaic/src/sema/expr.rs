@@ -980,6 +980,7 @@ impl Compiler {
         scope: ScopeId,
         header: &ast::ProcHeader,
     ) -> Result<TypeId> {
+        procs::validate_c_variadic_header(header)?;
         // `#cpp_method` procedures use the C calling convention with the object as first argument.
         let c_call = header.flags.c_call || header.flags.cpp_method || header.foreign.is_some();
         let mut params = Vec::new();

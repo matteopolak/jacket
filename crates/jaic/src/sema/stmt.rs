@@ -1518,6 +1518,7 @@ impl Compiler {
                             value.span,
                         )?;
                         self.scope_mut(scope).usings.push(entry);
+                        self.ide_note_entity_use(value.span, id, ty);
                         return Ok(());
                     }
                     _ => {
@@ -1535,6 +1536,7 @@ impl Compiler {
                                 value.span,
                             )?;
                             self.scope_mut(scope).usings.push(entry);
+                            self.ide_note_entity_use(value.span, id, ty);
                             return Ok(());
                         }
                     }

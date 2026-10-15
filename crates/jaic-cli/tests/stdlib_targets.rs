@@ -5,6 +5,8 @@
 //! calls cannot hide type errors. Modules that refuse a target on purpose (`#assert(OS == ...)`)
 //! are listed in `tests/stdlib-targets.txt` with the first error they stop at; the test fails when
 //! a module fails that is not listed, fails differently, or passes although it is listed.
+//! The plugin loader's declared generated body needs its real empty compile-time initialization
+//! before unused-code checking, including when imported by Default_Metaprogram.
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -180,8 +182,19 @@ fn every_stdlib_module_checks_for_every_target() {
                         return;
                     };
                     let source = dir.join(format!("{}.{os}.jai", module.replace('/', "-")));
-                    std::fs::write(&source, format!("#import \"{module}\";\nmain :: () {{}}\n"))
-                        .unwrap();
+                    let initialization = if matches!(
+                        module.as_str(),
+                        "Metaprogram_Plugins" | "Default_Metaprogram"
+                    ) {
+                        include_str!("../../../tests/stdlib-contexts/plugin-initialization.jai")
+                    } else {
+                        ""
+                    };
+                    std::fs::write(
+                        &source,
+                        format!("{initialization}\n#import \"{module}\";\nmain :: () {{}}\n"),
+                    )
+                    .unwrap();
                     let (target_os, cpu) = os.split_once('-').unwrap_or((os, ""));
                     let mut command = Command::new(JAIC);
                     command

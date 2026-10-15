@@ -9,7 +9,7 @@ capture_error :: (_text: string, _data: *void, info: Log_Info) {
     if (info.common_flags & .ERROR) != 0 errors += 1;
 }
 
-#load "../../target/generator-model-layout-oracle.jai";
+#import "generator-model-layout-oracle";
 
 Capture :: struct {
     saved: #Context;
@@ -59,6 +59,10 @@ main :: () {
         shell := B.create_struct(capture.children[0], resolving_type_only = true);
 
         assert(shell.declarations.count == 0 && shell.type.type_of_struct == shell);
+        shell_info, shell_record := B.find_or_create_extra_info(shell.type, cast(*B.Declaration) shell);
+
+        assert(shell_info == *B.struct_extra_info_unknown && shell_record == null);
+        assert(generator.extra_infos.count == 0);
 
         for cur: capture.children {
             declaration := B.create_declaration(cur, root);
@@ -94,6 +98,9 @@ main :: () {
         variable := generator.global_scope.members[3];
 
         assert(variable.name == "original_counter" && variable.type == generator.type_def_s32);
+        variable.output_name.data[0] = #char "X";
+        assert(variable.name == "original_counter");
+        variable.output_name.data[0] = #char "o";
         assert(B.is_prefix_comment(variable.comment));
         assert((cast(*B.Literal) variable.expression).int_value == 9);
         native_type := B.clang_getCursorType(capture.children[3]);
@@ -183,6 +190,14 @@ main :: () {
         cached_info, cached_generated := B.find_or_create_extra_info(node.type, cast(*B.Declaration) node);
 
         assert(cached_info == info && cached_generated == node);
+
+        push_context {
+            context._bindings_generator_session = null;
+            context.logger = capture_error;
+            borrowed_info, borrowed_record := B.find_or_create_extra_info(node.type, cast(*B.Declaration) node);
+            assert(borrowed_info == info && borrowed_record == node && errors == 0);
+        }
+
         template_parameter: B.Declaration;
         template_parameter.decl_flags = .TEMPLATE;
         dependent: B.CType;
@@ -200,6 +215,8 @@ main :: () {
         raw := B.create_literal("(source + text)", .{ line = 31 });
 
         assert(raw.literal_kind == .RAW_CPP_TOKENS && raw.raw_value == "(source + text)" && raw.location.line == 31);
+        raw.raw_value.data[0] = #char "X";
+        assert(raw.string_value == "(source + text)");
         signed_wide := generator.global_scope.members[8].type;
         unsigned_wide := generator.global_scope.members[9].type;
 

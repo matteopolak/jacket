@@ -1,7 +1,30 @@
 #import "Basic";
 C :: #import "Codex";
 
+short_roundtrip :: ($T: Type) {
+    builder: String_Builder;
+
+    defer free_buffers(*builder);
+    C.put_short_string(*builder, "abc", T, true);
+    bytes := builder_to_string(*builder);
+
+    defer free(bytes);
+    input := bytes;
+    error := true;
+    owned := C.get_short_string(*input, T, *error, true, true);
+
+    defer free(owned);
+    assert(error && owned == "abc" && owned.data != bytes.data + size_of(T));
+    assert(owned.data[owned.count] == 0 && input.count == 0);
+}
+
 main :: () {
+    short_roundtrip(s8);
+    short_roundtrip(u8);
+    short_roundtrip(s16);
+    short_roundtrip(u16);
+    short_roundtrip(s32);
+    short_roundtrip(u32);
     builder: String_Builder;
 
     defer free_buffers(*builder);
@@ -40,5 +63,16 @@ main :: () {
     header.version = 3;
     ok, help, message = C.make_help(bytes);
     assert(!ok && message.count > 0);
+    free_buffers(*builder);
+    C.put(*builder, cast(s64) -1);
+    negative := builder_to_string(*builder);
+
+    defer free(negative);
+    input = negative;
+    error = false;
+    prior := result;
+
+    C.get(*input, *result, *error);
+    assert(error && input.count == 0 && result.data == prior.data && result.count == prior.count);
     print("ok\n");
 }

@@ -127,6 +127,7 @@ impl Compiler {
         if matches!(filter, ast::UsingFilter::None) {
             return Ok(entry);
         }
+        self.ide_note_filter_names(&entry, filter);
         if let UsingEntry::Module(m, _) = entry {
             let filter = self.resolve_name_filter(scope, filter)?;
             if matches!(filter, ast::UsingFilter::Map(_)) {

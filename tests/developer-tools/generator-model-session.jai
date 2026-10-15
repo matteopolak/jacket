@@ -98,6 +98,14 @@ main :: () {
 
         S.append_owned(*tracked_session, *block.members, child);
         assert(block.members.count == 1 && block.members[0] == child);
+        moving: [..] *B.Declaration;
+        headers_before := tracked_session.arrays.count;
+
+        for i: 0..79 S.append_movable_owned(*tracked_session, *moving, child);
+
+        assert(moving.count == 80 && tracked_session.arrays.count == headers_before);
+        array_free(moving);
+        moving = .{};
         return_from_inner(*second);
         assert(S.current(B.TARGET_OS) == *tracked_session);
     }
@@ -137,5 +145,19 @@ main :: () {
     assert(tracker.live == 0 && caller.live == 1);
     array_free(replacement);
     assert(caller.live == 0);
+    borrowed_generator: B.Generator;
+    borrowed := S.open(*borrowed_generator, B.TARGET_OS);
+
+    push_context {
+        S.activate(*borrowed_generator, null, *borrowed);
+        B.init_generator(*borrowed_generator, .{});
+        assert(borrowed.live && !borrowed.lifecycle_owned);
+        B.deinit_generator(*borrowed_generator);
+        assert(context.generator == *borrowed_generator && borrowed.live);
+        assert(borrowed_generator.type_def_u64 != null);
+    }
+
+    S.close(*borrowed);
+
     print("ok\n");
 }
