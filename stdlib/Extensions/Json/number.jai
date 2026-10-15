@@ -4,6 +4,68 @@
 
 #scope_module
 
+Json_Decimal_Digits :: struct {
+    digits: [32] u8;
+    count: int;
+    exponent: int;
+}
+
+// Keep the actual float width in Any, so float32 selects its own rounding interval.
+// Normalize Basic's public shortest formatter into Json's existing spelling policy.
+json_shortest_digits :: (value: $T) -> Json_Decimal_Digits {
+    format: FormatFloat;
+    format.value = value;
+    format.mode = .SHORTEST;
+    text := sprint("%", format);
+
+    defer free(text);
+
+    result: Json_Decimal_Digits;
+    point := -1;
+    index := 0;
+
+    while index < text.count && text[index] != #char "e" {
+        byte := text[index];
+        if byte == #char "." point = result.count;
+        else {
+            assert(byte >= #char "0" && byte <= #char "9" && result.count < result.digits.count);
+            result.digits[result.count] = byte - #char "0";
+            result.count += 1;
+        }
+
+        index += 1;
+    }
+
+    if point < 0 point = result.count;
+
+    exponent := 0;
+
+    if index < text.count {
+        index += 1;
+        negative := index < text.count && text[index] == #char "-";
+
+        if index < text.count && (text[index] == #char "-" || text[index] == #char "+") index += 1;
+
+        while index < text.count {
+            assert(text[index] >= #char "0" && text[index] <= #char "9");
+            exponent = exponent * 10 + text[index] - #char "0";
+            index += 1;
+        }
+
+        if negative exponent = -exponent;
+    }
+
+    first := 0;
+    while first < result.count - 1 && result.digits[first] == 0 first += 1;
+
+    result.exponent = exponent + point - first - 1;
+    result.count -= first;
+    for 0..result.count - 1 result.digits[it] = result.digits[it + first];
+    while result.count > 1 && result.digits[result.count - 1] == 0 result.count -= 1;
+
+    return result;
+}
+
 // A token that already passed the JSON grammar check, rounded to the nearest float64 (float32).
 // `overflow` is set when it is beyond the largest finite value; the exponent is not limited, so
 // 1e999999 overflows and 1e-999999 is zero.
@@ -13,7 +75,7 @@
 // representable, otherwise by the Eisel-Lemire algorithm (Lemire, "Number Parsing at a Gigabyte per
 // Second", as in fast_float) with a table of 128-bit powers of five. Both give the correctly
 // rounded result by construction, and the algorithm says when it cannot decide; everything else,
-// and every infinity, goes to Basic's exact conversion (`scan_decimal_float`).
+// and every infinity, goes to Basic's exact conversion (`string_to_float64/string_to_float`).
 float64_from_token :: (token: string) -> float64, bool {
     ok, negative, w, q := split_decimal(token);
 
@@ -34,11 +96,10 @@ float64_from_token :: (token: string) -> float64, bool {
         if decided return cast,force(float64) (bits | sign), false;
     }
 
-    decimal: Decimal_Float = ---;
+    value, success, remainder := string_to_float64(token);
+    overflow := (((cast,force(u64) value) >> 52) & 0x7ff) == 0x7ff;
 
-    scan_decimal_float(token, *decimal, limit_exponent = false);
-
-    return decimal_float_to_float64(*decimal);
+    return value, !success || remainder.count != 0 || overflow;
 }
 
 float32_from_token :: (token: string) -> float32, bool {
@@ -61,11 +122,10 @@ float32_from_token :: (token: string) -> float32, bool {
         if decided return cast,force(float32) (cast,no_check(u32) bits | sign), false;
     }
 
-    decimal: Decimal_Float = ---;
+    value, success, remainder := string_to_float(token);
+    overflow := (((cast,force(u32) value) >> 23) & 0xff) == 0xff;
 
-    scan_decimal_float(token, *decimal, limit_exponent = false);
-
-    return decimal_float_to_float32(*decimal);
+    return value, !success || remainder.count != 0 || overflow;
 }
 
 EXACT_POWERS_OF_TEN :: float64.[1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
@@ -389,7 +449,7 @@ append_decimal_ascii :: (builder: *String_Builder, negative: bool, digits: *u8, 
 // `digits * 10^exponent` with no trailing zero in `digits`. `magnitude` is the bits without the
 // sign, of a finite normal number (a subnormal can need a single digit, and this gives at least two). This is Schubfach (Giulietti, "The Schubfach way to render
 // doubles"), following the reference implementation, with the 126-bit powers of ten of pow10.jai.
-// Basic's `__float_decimal_digits` gives the same digits; tests/numbers.jai checks that they agree.
+// Tests compare the result with canonical public formatting and native parsing oracles.
 shortest_decimal :: (magnitude: u64) -> u64, s64 #no_abc #no_aoc {
     biased := cast(s64) (magnitude >> 52);
     mq := 1075 - biased;
@@ -496,7 +556,7 @@ append_float64 :: (builder: *String_Builder, value: float64) {
     // Subnormals are rare, and Schubfach never gives a single digit for the smallest of them
     // (4.9e-323 where 5e-323 reads back the same), so they keep the exact generator.
     if (magnitude >> 52) == 0 {
-        digits := __float_decimal_digits(magnitude, -1);
+        digits := json_shortest_digits(cast,force(float64) magnitude);
 
         append_decimal_float(builder, negative, digits.digits.data, digits.count, digits.exponent);
 
@@ -531,34 +591,7 @@ append_float32 :: (builder: *String_Builder, value: float32) {
         return;
     }
 
-    wide := cast(float64) value;
-    wide_bits := (cast,force(u64) wide) & 0x7fff_ffff_ffff_ffff;
-
-    for precision: 1..9 {
-        digits := __float_decimal_digits(wide_bits, precision);
-
-        count := digits.count;
-
-        while count > 1 && digits.digits[count - 1] == 0 count -= 1;
-
-        candidate: Decimal_Float = ---;
-        candidate.negative = false;
-        candidate.truncated = false;
-        candidate.count = count;
-        candidate.exponent = digits.exponent - count + 1;
-
-        for 0..count - 1 candidate.digits[it] = digits.digits[it];
-
-        back, overflow := decimal_float_to_float32(*candidate);
-
-        if !overflow && (cast,force(u32) back) == (magnitude) {
-            append_decimal_float(builder, negative, digits.digits.data, count, digits.exponent);
-
-            return;
-        }
-    }
-
-    digits := __float_decimal_digits(wide_bits, 9);
+    digits := json_shortest_digits(cast,force(float32) magnitude);
 
     append_decimal_float(builder, negative, digits.digits.data, digits.count, digits.exponent);
 }

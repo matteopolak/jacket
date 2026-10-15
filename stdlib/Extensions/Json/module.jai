@@ -74,8 +74,8 @@ error_text :: (error: Json_Error) -> string {
 
 // Releases the `message` and `path` of an error and clears it. Part of the `free_json` set.
 free_json :: (error: *Json_Error) {
-    if error.message.count free(error.message);
-    if error.path.count free(error.path);
+    if error.message.data free(error.message);
+    if error.path.data free(error.path);
 
     error.* = .{};
 }

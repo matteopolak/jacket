@@ -63,12 +63,16 @@ make_decl :: (name: string) -> string {
 
 twice_with_defer :: (c: Code) #expand {
     for 0..1 {
-        `defer array_add(*log, tprint("d%", it));
+        defer array_add(*log, tprint("d%", it));
         #insert,scope() c;
     }
 }
 
 code_val :: #code array_add(*log, "hi");
+
+caller_cleanup :: () #expand {
+    `defer array_add(*log, "caller cleanup");
+}
 
 main :: () {
     // code.2 / code.4: statement position; the Code value contributes its statements.
@@ -149,4 +153,11 @@ main :: () {
 
     assert(log.count == expected.count, "code.13: log length");
     for expected assert(log[it_index] == it, "code.13: log order");
+
+    {
+        caller_cleanup();
+        assert(log.count == expected.count, "caller-scoped defer stays pending until caller scope exits");
+    }
+
+    assert(log.count == expected.count + 1 && log[expected.count] == "caller cleanup");
 }

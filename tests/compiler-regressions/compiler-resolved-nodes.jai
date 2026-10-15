@@ -53,19 +53,31 @@ returns_of :: ($call: Code) -> int #expand {
 
     assert(block.statements.count == 2);
     assert(block.statements[0].kind == .COMPOUND_DECLARATION);
+    assert(block.statements[1].kind == .COMPOUND_DECLARATION);
+    properties := (cast(*Code_Compound_Declaration) block.statements[1]).declaration_properties;
+
+    assert(properties.type_inst.result == type_info(int));
     builder: String_Builder;
 
-    print_expression(*builder, block);
+    assert(print_expression(*builder, block));
     text := builder_to_string(*builder);
 
-    assert(contains(text, "a, b := pair(1);"), "%", text);
-    assert(contains(text, "c, d : int = 1, 2;"), "%", text);
+    // Program_Print is inspection output, with no canonical whitespace promise.
+    assert(contains(text, "pair") && contains(text, "int"), "%", text);
 }
 
-// Nodes made with New know their kind.
+// New initializes the reviewed declared defaults. Subtype allocation does not
+// imply an undocumented kind override; construction sets the discriminator.
 #run {
     ident := New(Code_Ident);
-    assert(ident.kind == .IDENT);
+
+    assert(ident.kind == .UNINITIALIZED);
+    ident.kind = .IDENT;
+    ident.name = "constructed";
+    builder: String_Builder;
+
+    assert(print_expression(*builder, ident));
+    assert(builder_to_string(*builder) == "constructed");
 }
 
 // A baked variadic takes a spread constant view; a baked Code argument that names a

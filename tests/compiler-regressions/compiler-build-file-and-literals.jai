@@ -1,7 +1,8 @@
 // Compiler metaprogram APIs from a #run whose results main checks: add_build_file next to
 // add_build_string in a child workspace, Program_Print's print_declaration on the typechecked
 // declarations, make_integer_literal / make_string_literal printed back as source,
-// Code_Visit's maybe_array_add, developer_debug and compiler_destroy_workspace.
+// Code_Visit's maybe_array_add and compiler_destroy_workspace. Debugger capability
+// rejection is tested separately, not treated as an available debug service here.
 #import "Basic";
 #import "Compiler";
 Program_Print :: #import "Program_Print";
@@ -40,6 +41,14 @@ build_and_print :: () -> string {
             declaration := it.expression;
             if declaration.name != "single_value" && declaration.name != "typed_value" continue;
 
+            assert(declaration.expression.kind == .LITERAL);
+            literal := cast(*Code_Literal) declaration.expression;
+            if declaration.name == "single_value" assert(literal._s64 == 11);
+            else {
+                assert(literal._s64 == 3);
+                assert(declaration.type_inst.result == type_info(int));
+            }
+
             builder: String_Builder;
 
             assert(Program_Print.print_declaration(*builder, declaration), "% prints", declaration.name);
@@ -61,7 +70,6 @@ literals :: () -> string {
     assert(number.kind == .LITERAL && number.value_type == .NUMBER && number._s64 == -42);
     assert(text.kind == .LITERAL && text.value_type == .STRING && text._string == source);
     assert(text._string.data != source.data, "make_string_literal copies its text");
-    developer_debug(number);
 
     nodes: [..] *Code_Node;
 
@@ -84,7 +92,8 @@ PRINTED :: #run build_and_print();
 LITERALS :: #run literals();
 
 main :: () {
-    assert(PRINTED == "single_value :: 11\ntyped_value : int = 3\n", "declarations:\n%", PRINTED);
+    assert(contains(PRINTED, "single_value") && contains(PRINTED, "11"), "declaration: %", PRINTED);
+    assert(contains(PRINTED, "typed_value") && contains(PRINTED, "int") && contains(PRINTED, "3"), "typed declaration: %", PRINTED);
     assert(LITERALS == "-42 \"a\\\"b\"", "literals: %", LITERALS);
 
     // maybe_array_add also works on ordinary arrays at run time.

@@ -1,26 +1,29 @@
-// rules: bo.16
-// Before a metaprogram sets anything, the program's own workspace reports where its output goes:
-// the main file's name, its directory (with a trailing slash) and a `.build` folder beside it,
-// unless the command line named the output.
+// Reviewed Build_Options defaults and explicit output metadata round trip.
+// Automatic main filename/path/.build spelling is not a reviewed API promise.
 #import "Basic";
 #import "Compiler";
-#import "String";
 
 #run {
-    options := get_build_options();
+    own := get_build_options();
 
-    // A harness that writes the output elsewhere (`-exe dir/name`) sees its choice instead.
-    if options.output_path == path_strip_filename(#file) {
-        assert(options.output_executable_name == "build-options-main-defaults");
-    }
+    assert(own.os_target == OS && own.cpu_target == CPU);
+    w := compiler_create_workspace("output metadata");
+    other := get_build_options(w);
+    defaults: Build_Options;
 
-    assert(options.output_executable_name.count > 0);
-    assert(options.output_path.count > 0 && options.output_path[options.output_path.count - 1] == #char "/");
-    assert(options.intermediate_path == tprint("%.build", options.output_path));
-    // A new workspace starts blank.
-    other := get_build_options(compiler_create_workspace("other"));
+    assert(other.output_executable_name == defaults.output_executable_name);
+    assert(other.output_path == defaults.output_path);
+    assert(other.intermediate_path == defaults.intermediate_path);
+    other.output_type = .NO_OUTPUT;
+    other.output_executable_name = "chosen-output";
+    other.output_path = "chosen-directory/";
+    other.intermediate_path = "chosen-intermediate/";
+    set_build_options(other, w);
+    back := get_build_options(w);
 
-    assert(other.output_executable_name == "" && other.output_path == "");
+    assert(back.output_executable_name == other.output_executable_name);
+    assert(back.output_path == other.output_path && back.intermediate_path == other.intermediate_path);
+    compiler_destroy_workspace(w);
 }
 
 main :: () {

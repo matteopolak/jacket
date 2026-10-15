@@ -36,10 +36,9 @@ pump :: (windows: [] Window_Type, seen: [] Seen, done: (seen: [] Seen) -> bool, 
             }
         }
 
-        for routed: routed_events_this_frame {
-            for windows if it == routed.window {
+        for event: events_this_frame {
+            for windows if it == event.window {
                 record := *seen[it_index];
-                event := routed.event;
 
                 if event.type == .QUIT record.quits += 1;
 
@@ -77,6 +76,14 @@ main :: () {
     assert(second != INVALID_WINDOW_HANDLE && second != first, "second create_window failed");
     windows: [2] Window_Type = .[cast(Window_Type) first, cast(Window_Type) second];
     seen: [2] Seen;
+
+    #if OS == .MACOS {
+        // Install observers before producing actual native resize notifications.
+        // The public contract does not synthesize initial creation notifications.
+        update_window_events();
+        resize_native(first, 330, 250);
+        resize_native(second, 210, 160);
+    }
 
     // Both windows report a size once they are on screen.
     sized := pump(windows, seen, (seen: [] Seen) -> bool {
@@ -129,7 +136,19 @@ main :: () {
     // handles the cursor itself (set_custom_cursor_handling).
     cursor_window = first;
 
-    for custom: bool.[false, true] {
+    #if OS == .MACOS {
+        // Check AppKit ownership directly. The reviewed API does not promise
+        // that disabling custom handling sets a global arrow cursor on motion.
+        for custom: bool.[false, true, false] {
+            set_custom_cursor_handling(custom);
+            assert(cursor_rects_enabled(first) == !custom);
+            assert(cursor_rects_enabled(second) == !custom);
+            show_hand(first);
+            move_pointer(first);
+            update_window_events();
+            assert(cursor_rects_enabled(first) == !custom);
+        }
+    } else for custom: bool.[false, true] {
         set_custom_cursor_handling(custom);
         // The window system also resets the cursor by itself now and then (AppKit when the
         // application finishes activating, for one), which the test cannot tell from Input
@@ -200,7 +219,7 @@ main :: () {
     post :: (event: *void) {
         call: (receiver: *void, selector: SEL, event: *void, at_start: BOOL) #c_call;
         call = cast(type_of(call)) objc_msgSend;
-        call(NSApplication.sharedApplication(), sel_registerName("postEvent:atStart:"), event, NO);
+        call(native_object(cast(*void) objc_getClass("NSApplication"), "sharedApplication"), sel_registerName("postEvent:atStart:"), event, NO);
     }
 
     post_key :: (window: *NSWindow, down: bool) {
@@ -235,7 +254,9 @@ main :: () {
     }
 
     show_hand :: (window: *NSWindow) {
-        NSCursor.set(NSCursor.pointingHandCursor());
+        call: (receiver: *void, selector: SEL) #c_call;
+        call = cast(type_of(call)) objc_msgSend;
+        call(native_object(cast(*void) objc_getClass("NSCursor"), "pointingHandCursor"), sel_registerName("set"));
     }
 
     move_pointer :: (window: *NSWindow) {
@@ -253,7 +274,25 @@ main :: () {
     hand_shown :: (window: *NSWindow) -> bool {
         call: (receiver: *void, selector: SEL) -> *void #c_call;
         call = cast(type_of(call)) objc_msgSend;
-        return call(cast(*void) objc_getClass("NSCursor"), sel_registerName("currentCursor")) == cast(*void) NSCursor.pointingHandCursor();
+        return call(cast(*void) objc_getClass("NSCursor"), sel_registerName("currentCursor")) == native_object(cast(*void) objc_getClass("NSCursor"), "pointingHandCursor");
+    }
+
+    native_object :: (receiver: *void, name: *u8) -> *void {
+        call: (receiver: *void, selector: SEL) -> *void #c_call;
+        call = cast(type_of(call)) objc_msgSend;
+        return call(receiver, sel_registerName(name));
+    }
+
+    resize_native :: (window: *NSWindow, width: float64, height: float64) {
+        call: (receiver: *void, selector: SEL, size: NSSize) #c_call;
+        call = cast(type_of(call)) objc_msgSend;
+        call(window, sel_registerName("setContentSize:"), .{ width, height });
+    }
+
+    cursor_rects_enabled :: (window: *NSWindow) -> bool {
+        call: (receiver: *void, selector: SEL) -> BOOL #c_call;
+        call = cast(type_of(call)) objc_msgSend;
+        return call(window, sel_registerName("areCursorRectsEnabled")) != NO;
     }
 } else #if OS == .WINDOWS {
     #import "Windows";

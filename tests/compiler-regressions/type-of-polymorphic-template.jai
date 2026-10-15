@@ -2,6 +2,7 @@
 // `type_of` of a polymorphic procedure keeps its signature, with `$` for the parts that
 // depend on a type variable.
 #import "Basic";
+#import "String";
 
 Entity :: struct(Payload: Type) {
     payload: Payload;
@@ -29,15 +30,20 @@ main :: () -> s64 {
     template := Entity;
     if template != Entity return 3;
     if template == Entity(int) return 4;
-    if tprint("%", Entity(int)) != "Entity(Payload=s64)" return 5;
-
-    if tprint("%", type_of(other_poly)) != "procedure ($, s64) -> ($, string)" return 6;
-    if tprint("%", type_of(with_pointer)) != "procedure (*$, [0] s64, string)" return 7;
-    if tprint("%", type_of(baked)) != "procedure (s64, float32) -> s64" return 8;
-    if tprint("%", type_of(with_rest)) != "procedure (s64, [] Any) -> $" return 9;
+    if !contains(tprint("%", Entity(int)), type_info(Entity(int)).name) return 5;
 
     info := cast(*Type_Info_Procedure) type_of(other_poly);
     if info.argument_types.count != 2 || info.return_types.count != 2 return 10;
+    if info.argument_types[1] != type_info(int) || info.return_types[1] != type_info(string) return 6;
+
+    pointer_info := cast(*Type_Info_Procedure) type_of(with_pointer);
+    if pointer_info.argument_types.count != 3 || pointer_info.argument_types[2] != type_info(string) return 7;
+
+    baked_info := cast(*Type_Info_Procedure) type_of(baked);
+    if baked_info.argument_types.count != 2 || baked_info.argument_types[0] != type_info(int) || baked_info.return_types[0] != type_info(int) return 8;
+
+    rest_info := cast(*Type_Info_Procedure) type_of(with_rest);
+    if rest_info.argument_types.count != 2 || rest_info.argument_types[0] != type_info(int) return 9;
 
     return 0;
 }

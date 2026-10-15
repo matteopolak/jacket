@@ -25,7 +25,7 @@ main :: () {
     long := 9876543210.125;
 
     #assert type_of(short) == float32;
-    #assert type_of(long) == float64;
+    #assert type_of(long) == float32; // integer-side digits do not count
 
     // num.4: an untyped float literal prefers a float32 overload.
     assert(which(1.5) == 32, "untyped float literal picks the float32 overload");

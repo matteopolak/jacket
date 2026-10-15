@@ -1163,9 +1163,13 @@ impl Compiler {
                     } = &**boxed;
                     // `using inner.member;` naming fields of this struct: an alias.
                     if let Some(path) = member_path(value)
-                        && out.iter().any(
-                            |item| matches!(item, FieldItem::Field(d) if d.name == Some(path[0])),
-                        )
+                        && out.iter().any(|item| match item {
+                            FieldItem::Field(d) => d.name == Some(path[0]),
+                            FieldItem::Declaration(_, d) => {
+                                d.names.iter().any(|n| n.name == path[0])
+                            }
+                            _ => false,
+                        })
                     {
                         out.push(FieldItem::Alias(MemberAlias {
                             path,

@@ -71,6 +71,16 @@ pub struct Builder {
     chunks: Vec<Box<[u128]>>,
     next: u64,
     left: usize,
+    /// Null record references may acquire targets in later compiler messages.
+    pending_refs: HashMap<i64, Vec<PendingRef>>,
+    change_cursor: usize,
+}
+
+#[derive(Clone)]
+struct PendingRef {
+    name: Name,
+    address: u64,
+    expected: u64,
 }
 
 fn unwritable(p: u64) -> Trap {
@@ -121,6 +131,7 @@ struct Fill<'a> {
     /// Records built and not filled yet: (id, memory, type).
     queue: Vec<(i64, u64, u64)>,
     created: Vec<i64>,
+    linked: Vec<(i64, PendingRef)>,
 }
 
 impl Builder {
@@ -201,8 +212,11 @@ impl Builder {
             kept,
             queue: Vec::new(),
             created: Vec::new(),
+            linked: Vec::new(),
         };
+        let old_cursor = self.change_cursor;
         let result = (|| {
+            self.link_ready_references(&mut fill, interp)?;
             let root = self.obtain(&mut fill, id, expected)?;
             while let Some((id, memory, info)) = fill.queue.pop() {
                 let plan = self.plans[&info].clone();
@@ -215,13 +229,74 @@ impl Builder {
         })();
         if result.is_err() {
             for id in fill.created {
+                self.pending_refs.remove(&id);
                 let pointer = std::mem::take(&mut self.built[id as usize]);
                 if self.ids.get(&pointer) == Some(&id) {
                     self.ids.remove(&pointer);
                 }
             }
+            for (id, entry) in fill.linked {
+                store(interp, entry.address, &0u64.to_le_bytes())?;
+                if self.built.get(id as usize).is_some_and(|&p| p != 0) {
+                    self.pending_refs.entry(id).or_default().push(entry);
+                }
+            }
+            self.change_cursor = old_cursor;
         }
         result
+    }
+
+    fn link_ready_references(&mut self, fill: &mut Fill, interp: &mut Interp) -> Result<(), Trap> {
+        let (cursor, changes) = fill.records.changes_since(self.change_cursor);
+        let changed: crate::fxhash::HashSet<_> = changes.into_iter().collect();
+        for id in changed {
+            let Some(mut pending) = self.pending_refs.remove(&id) else {
+                continue;
+            };
+            let mut waiting = Vec::new();
+            while let Some(entry) = pending.pop() {
+                let result = (|| {
+                    let current = interp
+                        .read_u64(entry.address)
+                        .ok_or_else(|| unreadable(entry.address))?;
+                    if current != 0 {
+                        return Ok(true);
+                    } // Preserve a metaprogram-supplied link.
+                    let item = fill
+                        .records
+                        .get(id)
+                        .and_then(|r| r.field_named(entry.name))
+                        .and_then(|f| f.item());
+                    match item {
+                        None | Some(Item::Ref(0) | Item::Int(0)) => Ok(false),
+                        Some(Item::Ref(target) | Item::Int(target)) => {
+                            let pointer = self.obtain(fill, target, entry.expected)?;
+                            store(interp, entry.address, &pointer.to_le_bytes())?;
+                            fill.linked.push((id, entry.clone()));
+                            Ok(true)
+                        }
+                        _ => Err(Trap::new(
+                            "records: late pointer field requires a record reference",
+                        )),
+                    }
+                })();
+                match result {
+                    Ok(true) => {}
+                    Ok(false) => waiting.push(entry),
+                    Err(error) => {
+                        waiting.push(entry);
+                        waiting.extend(pending);
+                        self.pending_refs.insert(id, waiting);
+                        return Err(error);
+                    }
+                }
+            }
+            if !waiting.is_empty() {
+                self.pending_refs.insert(id, waiting);
+            }
+        }
+        self.change_cursor = cursor;
+        Ok(())
     }
 
     /// The struct for record `id`: built already, or allocated now and queued to be filled.
@@ -319,6 +394,18 @@ impl Builder {
             .get(id)
             .ok_or_else(|| Trap::new(format!("records: no record with id {id}")))?;
         for entry in &plan.entries {
+            if entry.kind == PLAN_POINTER
+                && matches!(
+                    record.field_named(entry.name),
+                    None | Some(FieldRef::Ref(0) | FieldRef::Int(0))
+                )
+            {
+                self.pending_refs.entry(id).or_default().push(PendingRef {
+                    name: entry.name,
+                    address: memory + entry.offset,
+                    expected: entry.target,
+                });
+            }
             let Some(field) = record.field_named(entry.name) else {
                 continue;
             };
@@ -455,6 +542,88 @@ impl Builder {
 mod tests {
     use super::*;
     use crate::records::Record;
+
+    #[test]
+    fn late_record_references_update_existing_identity_without_replaying_user_edits() {
+        let mut b = Builder::default();
+        b.add_type("Node".into(), 1);
+        b.plans.insert(
+            1,
+            Rc::new(Plan {
+                size: 16,
+                entries: vec![
+                    Entry {
+                        offset: 0,
+                        kind: PLAN_INT,
+                        size: 8,
+                        name: Name::intern("value"),
+                        element_kind: 0,
+                        element_size: 0,
+                        target: 0,
+                        resizable: false,
+                    },
+                    Entry {
+                        offset: 8,
+                        kind: PLAN_POINTER,
+                        size: 8,
+                        name: Name::intern("next"),
+                        element_kind: 0,
+                        element_size: 0,
+                        target: 1,
+                        resizable: false,
+                    },
+                ],
+                constant_storage: None,
+            }),
+        );
+        let mut records = Records::default();
+        let mut root = Record::new("Node");
+        root.int("value", 1);
+        let root = records.add(root);
+        let mut kept = Vec::new();
+        let mut interp = Interp::default();
+        let address = b.build(&records, &mut kept, &mut interp, root, 1).unwrap();
+        assert_eq!(interp.read_u64(address + 8), Some(0));
+        assert!(interp.write(address, &77u64.to_le_bytes()));
+        let mut child = Record::new("Node");
+        child.list("value", Vec::new()).ptr("next", root);
+        let child = records.add(child);
+        records.get_mut(root).unwrap().ptr("next", child);
+        assert!(b.build(&records, &mut kept, &mut interp, root, 1).is_err());
+        assert_eq!(
+            interp.read_u64(address + 8),
+            Some(0),
+            "a failed target fill must roll back its published link"
+        );
+        records
+            .get_mut(child)
+            .unwrap()
+            .set("value", crate::records::Field::Item(Item::Int(2)));
+        assert_eq!(
+            b.build(&records, &mut kept, &mut interp, root, 1).unwrap(),
+            address
+        );
+        let next = interp.read_u64(address + 8).unwrap();
+        assert_ne!(next, 0);
+        assert_eq!(interp.read_u64(next), Some(2));
+        assert_eq!(interp.read_u64(next + 8), Some(address));
+        assert_eq!(interp.read_u64(address), Some(77));
+        let mut user = Record::new("Node");
+        user.int("value", 3);
+        let user = records.add(user);
+        let user_address = b.build(&records, &mut kept, &mut interp, user, 1).unwrap();
+        assert!(interp.write(user_address + 8, &address.to_le_bytes()));
+        records.get_mut(user).unwrap().ptr("next", child);
+        assert_eq!(
+            b.build(&records, &mut kept, &mut interp, user, 1).unwrap(),
+            user_address
+        );
+        assert_eq!(
+            interp.read_u64(user_address + 8),
+            Some(address),
+            "compiler late linking must preserve an already supplied metaprogram link"
+        );
+    }
 
     #[test]
     fn missing_record_is_an_error_and_null_remains_null() {

@@ -200,28 +200,26 @@ random_round_trips :: (count: int) {
     check(bad == 0, "short decimals print as they were written");
 }
 
-// The direct conversions (exact multiplication, Eisel-Lemire) must agree with Basic's exact
+// The direct conversions (exact multiplication, Eisel-Lemire) must agree with native libc's
 // decimal conversion, bit for bit, on every shape of token: random digits and exponents over the
 // whole range (including subnormals and the edge of overflow), exact halfway cases between
 // neighbouring floats, and neighbours of those.
+libc :: #system_library "libc";
+c_strtod :: (text: *u8, end: **u8) -> float64 #foreign libc "strtod";
+c_strtof :: (text: *u8, end: **u8) -> float32 #foreign libc "strtof";
+
 reference64 :: (text: string) -> u64, bool {
-    d: Decimal_Float = ---;
+    value := c_strtod(temp_c_string(text), null);
+    bits := bits64(value);
 
-    scan_decimal_float(text, *d, limit_exponent = false);
-
-    value, overflow := decimal_float_to_float64(*d);
-
-    return bits64(value), overflow;
+    return bits, ((bits >> 52) & 0x7ff) == 0x7ff;
 }
 
 reference32 :: (text: string) -> u32, bool {
-    d: Decimal_Float = ---;
+    value := c_strtof(temp_c_string(text), null);
+    bits := bits32(value);
 
-    scan_decimal_float(text, *d, limit_exponent = false);
-
-    value, overflow := decimal_float_to_float32(*d);
-
-    return bits32(value), overflow;
+    return bits, ((bits >> 23) & 0xff) == 0xff;
 }
 
 fast_path_agrees_with :: (text: string, bad: *int) {
@@ -322,14 +320,83 @@ fast_path_agrees :: (count: int) {
     check(bad == 0, "the direct float conversions agree with the exact one");
 }
 
-// to_json prints the digits of Schubfach; Basic's exact shortest-digit generator (the former
-// implementation) must give the same digits and the same decimal exponent for every float64.
+// Compare Json normal-number Schubfach digits with the independently implemented
+// public Basic shortest formatter, preserving the digit/exponent assertions.
+Expected_Digits :: struct {
+    digits: [32] u8;
+    count: int;
+    exponent: int;
+}
+
+public_shortest_digits :: (value: float64) -> Expected_Digits {
+    format: FormatFloat;
+    format.value = value;
+    format.mode = .SHORTEST;
+    written := sprint("%", format);
+
+    defer free(written);
+
+    // Digits before any exponent, where the point is, and the exponent.
+    digits: [32] u8;
+    count := 0;
+    point := -1;
+    exponent := 0;
+    i := 0;
+
+    if written[0] == #char "-" i = 1;
+
+    while i < written.count && written[i] != #char "e" {
+        if written[i] == #char "." {
+            point = count;
+        } else {
+            digits[count] = written[i] - #char "0";
+            count += 1;
+        }
+
+        i += 1;
+    }
+
+    if point < 0 point = count;
+
+    if i < written.count {
+        i += 1;
+        negative := written[i] == #char "-";
+
+        if negative || written[i] == #char "+" i += 1;
+
+        while i < written.count {
+            exponent = exponent * 10 + written[i] - #char "0";
+            i += 1;
+        }
+
+        if negative exponent = -exponent;
+    }
+
+    first := 0;
+
+    while first < count - 1 && digits[first] == 0 {
+        first += 1;
+        point -= 1;
+    }
+
+    while count > first + 1 && digits[count - 1] == 0 count -= 1;
+
+    count -= first;
+
+    result: Expected_Digits;
+    result.count = count;
+    result.exponent = point - 1 + exponent;
+    for 0..count - 1 result.digits[it] = digits[first + it];
+
+    return result;
+}
+
 same_digits_as_exact :: (value: float64, bad: *int) {
     bits := bits64(value) & 0x7fff_ffff_ffff_ffff;
 
     if (bits >> 52) == 0x7ff || bits == 0 return;
 
-    exact := __float_decimal_digits(bits, -1);
+    exact := public_shortest_digits(cast,force(float64) bits);
     written := to_json(value);
 
     // Digits before any exponent, where the point is, and the exponent.
@@ -358,7 +425,7 @@ same_digits_as_exact :: (value: float64, bad: *int) {
         i += 1;
         negative := written[i] == #char "-";
 
-        if negative i += 1;
+        if negative || written[i] == #char "+" i += 1;
 
         while i < written.count {
             exponent = exponent * 10 + written[i] - #char "0";

@@ -996,7 +996,8 @@ json_read_value :: (r: *Json_Reader, out: *Json_Value) -> bool {
                 if status == .END break;
 
                 member: Json_Member;
-                member.key = copy_string(key);
+                // Empty decoded strings use static empty storage throughout Json.
+                member.key = ifx key.count then copy_string(key) else "";
                 ok = json_read_value(r, *member.value);
 
                 array_add(*r.members, member);

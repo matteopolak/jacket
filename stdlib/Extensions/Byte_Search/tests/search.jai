@@ -244,7 +244,11 @@ linear_time :: () {
 
     check(Byte_Search.find(text, needle) == -1, "no match in all a's");
     check(Byte_Search.find_last(text, needle) == -1, "no match in all a's, backwards");
-    seconds := to_float64_seconds(current_time_monotonic() - start);
+    before, before_ok := to_nanoseconds(start);
+    after, after_ok := to_nanoseconds(current_time_monotonic());
+
+    assert(before_ok && after_ok, "monotonic time must fit nanoseconds");
+    seconds := cast(float64) (after - before) / 1_000_000_000.0;
 
     // A quadratic search would compare about 128M bytes; even the interpreter does the linear
     // one in well under this.

@@ -148,6 +148,9 @@ def main():
     preamble = """// Generated exclusively from reviewed public declarations.
 #scope_file
 #if OS_IS_UNIX #import "POSIX";
+// Unix select uses the canonical native timeval through a private spelling.
+// TIMEVAL remains a public Socket name only on Windows, as reviewed.
+#if OS_IS_UNIX TIMEVAL :: timeval;
 """ + windows_import + """
 libc :: #system_library "libc";
 ws2_32 :: #system_library "ws2_32";

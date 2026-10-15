@@ -205,7 +205,7 @@ timeouts :: (base: string, server: *Server) {
     send_text(stream, "GET /ping HTTP/1.1\r\nHost: t\r\nX-Slow:");
     started := current_time_monotonic();
     responses := read_responses(stream, 1, 3000);
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     check(responses.count == 1 && responses[0].status == 408, "an unfinished head is a 408: %", responses.count);
     check(elapsed >= 200 && elapsed < 1500, "the header timeout was about 300 ms: % ms", elapsed);
@@ -224,7 +224,7 @@ timeouts :: (base: string, server: *Server) {
         Io.sleep(20);
     }
 
-    elapsed = to_milliseconds(current_time_monotonic() - started);
+    elapsed = elapsed_milliseconds(started);
     check(elapsed < 1500, "a trickled head was cut off at the header timeout: % ms, % bytes sent", elapsed, sent);
     Io.close(stream);
 
@@ -239,7 +239,7 @@ timeouts :: (base: string, server: *Server) {
     stream = raw_connect(server);
     started = current_time_monotonic();
     check(closes_within(stream, 3000), "an idle connection is closed");
-    elapsed = to_milliseconds(current_time_monotonic() - started);
+    elapsed = elapsed_milliseconds(started);
     check(elapsed >= 300 && elapsed < 1500, "the idle timeout was about 500 ms: % ms", elapsed);
     Io.close(stream);
 
@@ -378,7 +378,7 @@ busy_then_idle :: (base: string, server: *Server) {
 
     check(closes_within(stream, 3000), "a connection that went quiet is closed");
 
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     check(elapsed >= 300 && elapsed < 1500, "the idle timeout was about 500 ms: % ms", elapsed);
     Io.close(stream);
@@ -553,7 +553,7 @@ shutdown_test :: (base: string, server: *Server) {
 
     wait(server);
 
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     // The server is done, but the client fiber may not have read its answer yet: wait for it.
     Io.wait(*probe.finished);
@@ -578,7 +578,7 @@ forced_shutdown :: (base: string, server: *Server) {
     stop(server);
     wait(server);
 
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     check(elapsed >= 150 && elapsed < 2500, "shutdown waited for the timeout (200 ms), not for the handler: % ms", elapsed);
     check(closes_within(stream, 1000), "the connection was cut");

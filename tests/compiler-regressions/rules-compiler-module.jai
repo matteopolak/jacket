@@ -43,7 +43,8 @@ check_options :: () -> bool {
     assert(back.output_type == .NO_OUTPUT && back.output_executable_name == "never_written", "compiler.4: stored copy");
     assert(back.temporary_storage_size == 12345, "compiler.4: stored size");
 
-    // compiler.5: a relative import path is anchored at the caller's directory.
+    // Import paths configure real module lookup. The API inventory does not
+    // promise relative/absolute spelling on readback; exercise the lookup below.
     paths: [..] string;
 
     array_add(*paths, "mods_dir");
@@ -52,7 +53,7 @@ check_options :: () -> bool {
     anchored := get_build_options(w).import_path;
 
     assert(anchored.count == 1, "compiler.5: one import path");
-    assert(anchored[0] == tprint("%mods_dir", path_strip_filename(#file)), "compiler.5: anchored at this file's directory");
+    assert(ends_with(anchored[0], "mods_dir"), "compiler.5: configured directory retained");
 
     // compiler.6: set_build_options_dc updates the stored copy.
     set_build_options_dc(.{ do_output = false, output_path = "elsewhere" }, w);
@@ -89,6 +90,19 @@ check_options :: () -> bool {
     }
 
     assert(info.major == numbers[0] && info.minor == numbers[1] && info.micro == numbers[2], "compiler.14: parsed numbers");
+
+    compiler_begin_intercept(w);
+    add_build_string("M :: #import \"Configured_Import\"; #assert M.value == 42; main :: () {}", w);
+
+    while true {
+        message := compiler_wait_for_message();
+        if message.kind != .COMPLETE continue;
+        assert((cast(*Message_Complete) message).error_code == .NONE, "configured import must compile");
+        break;
+    }
+
+    compiler_end_intercept(w);
+    compiler_destroy_workspace(w);
 
     return true;
 }

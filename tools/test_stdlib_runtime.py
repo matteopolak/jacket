@@ -5,11 +5,36 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from stdlib_coverage import code_lines, declarations
-from stdlib_runtime import contract_result, run_mode
+from stdlib_runtime import contract_result, run_mode, program_arguments, runtime_prefix
 from stdlib_test_catalog import validated_entries, unavailable_reason
 
 
 class CatalogueTests(unittest.TestCase):
+    def test_mac_clipboard_requires_a_restoration_guard(self):
+        with self.assertRaises(ValueError):
+            runtime_prefix({"clipboard_guard": True}, {}, "darwin")
+        self.assertEqual(runtime_prefix({}, {}, "darwin"), [])
+
+    def test_native_platform_requirement_is_not_a_success(self):
+        case = {"family": "modules", "required_os": "windows"}
+        self.assertIsNotNone(unavailable_reason(case, "native", "macos-arm64"))
+        self.assertIsNone(unavailable_reason(case, "native", "windows-arm64"))
+        self.assertIsNotNone(unavailable_reason(case, "wasm-interp", "windows-arm64"))
+        case["required_os"] = ("linux", "macos")
+        self.assertIsNone(unavailable_reason(case, "native", "macos-arm64"))
+        self.assertIsNotNone(unavailable_reason(case, "native", "windows-x64"))
+
+    def test_prepared_inputs_are_real_and_isolated(self):
+        with TemporaryDirectory() as temporary:
+            directory = program_arguments({"id": "resource", "input": "scratch-directory"}, temporary, {})[0]
+            self.assertTrue(Path(directory).is_dir())
+            file = program_arguments({"id": "io", "input": "scratch-file"}, temporary, {})[0]
+            self.assertTrue(Path(file).parent.is_dir())
+            self.assertFalse(Path(file).exists())
+            self.assertNotEqual(Path(file).parent, Path(directory))
+            with self.assertRaises(ValueError):
+                program_arguments({"id": "glyph", "input": "font"}, temporary, {})
+
     def test_reviewed_and_independent_families_are_discovered(self):
         cases = validated_entries()
         self.assertEqual({c["family"] for c in cases}, {"contracts", "compiler", "extensions", "native", "graphics", "modules"})

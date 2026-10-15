@@ -929,7 +929,7 @@ failures_of_transport :: (base: string, server: *Server) {
     // Timeout.
     started := current_time_monotonic();
     response, error := send(*api, .{ url = tprint("%/slow/600", base), timeout = 150 });
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     close(*response);
 

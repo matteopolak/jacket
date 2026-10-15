@@ -6,6 +6,14 @@
 #import "Extensions/Http";
 Io :: #import "Extensions/Io";
 
+elapsed_milliseconds :: (start: Apollo_Time) -> s64 {
+    before, before_ok := to_nanoseconds(start);
+    after, after_ok := to_nanoseconds(current_time_monotonic());
+    assert(before_ok && after_ok, "monotonic time must fit nanoseconds");
+
+    return (after - before) / 1_000_000;
+}
+
 failures := 0;
 
 check :: (ok: bool, format: string, args: ..Any) {

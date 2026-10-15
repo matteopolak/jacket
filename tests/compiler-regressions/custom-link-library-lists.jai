@@ -43,7 +43,7 @@
                 if phase.phase == .READY_FOR_CUSTOM_LINK_COMMAND {
                     for phase.system_libraries array_add(*system, copy_string(it));
                     reached = true;
-                    compiler_custom_link_command_is_complete(w, 0);
+                    compiler_custom_link_command_is_complete(w);
                 }
             }
 

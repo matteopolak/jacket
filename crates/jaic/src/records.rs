@@ -294,6 +294,8 @@ pub struct Records {
     first: usize,
     /// The last id given out, shared by all parts.
     last: Rc<Cell<usize>>,
+    /// Mutations of existing record identities, shared across temporary lends.
+    changes: Rc<RefCell<Vec<i64>>>,
 }
 
 impl Records {
@@ -327,7 +329,14 @@ impl Records {
 
     pub fn get_mut(&mut self, id: i64) -> Option<&mut Record> {
         let at = self.index(id)?;
-        self.list.get_mut(at)?.as_mut()
+        let record = self.list.get_mut(at)?.as_mut()?;
+        self.changes.borrow_mut().push(id);
+        Some(record)
+    }
+
+    pub fn changes_since(&self, cursor: usize) -> (usize, Vec<i64>) {
+        let changes = self.changes.borrow();
+        (changes.len(), changes[cursor..].to_vec())
     }
 
     /// Take the records out of `slot`, leaving an empty part in their place that numbers
@@ -337,6 +346,7 @@ impl Records {
             list: Vec::new(),
             first: slot.last.get(),
             last: slot.last.clone(),
+            changes: slot.changes.clone(),
         };
         std::mem::replace(slot, part)
     }

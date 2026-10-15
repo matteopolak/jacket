@@ -2422,9 +2422,18 @@ impl Exporter<'_> {
                     .and_then(|c| c.local_decl_types.get(&(d.id, i)).copied())
                     .map_or(0, |t| self.ty(t));
                 let mut rec = self.node("Code_Declaration", node::DECLARATION, n.span);
+                let backticked = d.backtick || d.backtick_names().get(i).copied().unwrap_or(false);
                 rec.str("name", n.name.as_str().as_bytes())
                     .ptr("type", ty)
-                    .int("flags", i64::from(d.kind == ast::DeclKind::Const));
+                    .int(
+                        "flags",
+                        i64::from(d.kind == ast::DeclKind::Const)
+                            | if backticked {
+                                0x20_0000
+                            } else {
+                                0
+                            },
+                    );
                 let id = self.add(rec);
                 declared.push((n.name, id));
                 id

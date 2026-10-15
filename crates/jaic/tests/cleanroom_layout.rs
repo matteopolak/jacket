@@ -210,6 +210,35 @@ fn long_forward_overlay_chains_do_not_recurse_in_the_layout_solver() {
 }
 
 #[test]
+fn filtered_member_paths_preserve_pointer_storage_and_filters() {
+    let (c, result) = compile(
+        r#"
+        Leaf :: struct {kept:s64;other:s64;}
+        Wrap :: struct {link:*Leaf;using,only(kept) link;}
+        check :: () -> bool {
+            leaf:=Leaf.{kept=4};wrap:=Wrap.{link=*leaf};
+            if wrap.kept!=4 return false;
+            wrap.kept=9;
+            return leaf.kept==9 && leaf.other==0;
+        }
+        #assert check();
+    "#,
+    );
+    if let Err(e) = result {
+        panic!("{}", e.render(&c.sources));
+    }
+    let (c, result) = compile(
+        "Leaf :: struct {kept:s64;other:s64;} Wrap :: struct {link:*Leaf;using,only(kept) link;} main :: () {wrap:Wrap;wrap.other=1;}",
+    );
+    let error = result.expect_err("unselected pointer members must remain hidden");
+    assert!(
+        error.message.contains("no field") || error.message.contains("no member"),
+        "{}",
+        error.render(&c.sources)
+    );
+}
+
+#[test]
 fn ide_forward_anchor_navigation_and_padding_use_storage_order() {
     let source = "R :: struct { #overlay(anchor) alias:type_of(anchor); tag:u32; anchor:u64; } main :: () { r:R; r.alias=1; r.anchor=2; }";
     let mut options = Options::host();

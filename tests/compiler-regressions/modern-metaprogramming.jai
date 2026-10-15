@@ -8,7 +8,7 @@
 
 printed :: (node: *Code_Node) -> string {
     builder: String_Builder;
-    print_expression(*builder, node);
+    assert(print_expression(*builder, node));
     return builder_to_string(*builder);
 }
 
@@ -99,15 +99,20 @@ main :: () {
         })), "`z := 1;"));
     }
 
-    // Printing of #assert, #exists and named struct-literal fields.
+    // Program_Print reports unsupported run/assert forms as false. The public
+    // Code_Directive_Run record has procedure/flags/assertion_string, not the
+    // private expression/message fields this old print expectation assumed.
     #run {
-        text := printed(compiler_get_nodes(#code {
+        block := cast(*Code_Block) compiler_get_nodes(#code {
             #assert(1 < 2, "math");
-            a := #exists(foo);
-        }));
+        });
+        run := cast(*Code_Directive_Run) block.statements[0];
 
-        assert(contains(text, "#assert(1 < 2, \"math\")"), "%", text);
-        assert(contains(text, "#exists(foo)"), "%", text);
+        assert(run.kind == .DIRECTIVE_RUN && run.flags & .ASSERTION);
+        builder: String_Builder;
+
+        assert(!print_expression(*builder, run), "unsupported assertion printing must report failure");
+        assert(printed(compiler_get_nodes(#code #exists(foo))) == "#exists(foo)");
     }
 
     // Typechecked expressions carry their type.

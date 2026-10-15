@@ -1805,7 +1805,7 @@ default_tls_ready :: () -> Tls.Tls_Error {
         if state == 3 return default_tls_error;
 
         if state == 0 {
-            exchanged, _ := atomic_compare_exchange(*default_tls_state, 0, 1);
+            exchanged, _ := compare_and_swap(*default_tls_state, 0, 1);
 
             if exchanged {
                 default_tls.alpn = string.["http/1.1"];

@@ -561,9 +561,15 @@ test_dates :: () {
 
     check(third == "Sun, 06 Nov 1994 08:49:38 GMT", "next second");
 
+    before, before_ok := to_timespec(current_time_consensus());
     now := http_date_now(*cache);
+    after, after_ok := to_timespec(current_time_consensus());
 
     check(now.count == 29 && ends_with(now, " GMT"), "the current date has the right shape");
+    seconds, parsed := parse_http_date(now);
+
+    check(before_ok && after_ok && parsed && seconds >= before.tv_sec && seconds <= after.tv_sec,
+          "the current date agrees with the canonical Unix-time conversion");
 }
 
 test_names :: () {

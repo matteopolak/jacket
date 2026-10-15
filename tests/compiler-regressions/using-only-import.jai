@@ -1,9 +1,10 @@
-// `using,only(...) #import "M";` brings the listed names in first; M's other names stay
-// reachable as a last resort (code such as Epic_Fail relies on it), while a local
-// declaration of the same name wins over M's.
+// Reviewed module filters expose only selected short names. The named module
+// remains available for explicit qualified access to its other public exports.
 // rules: import.17 import.18
-using,only(print, String_Builder) #import "Basic";
-using,only(join) #import "String";
+using,only(print, String_Builder) B :: #import "Basic";
+using,only(join) S :: #import "String";
+
+#assert !#exists(contains);
 
 assert :: (ok: bool) {
     if !ok exit(1);
@@ -14,7 +15,7 @@ libc :: #system_library "libc";
 
 main :: () {
     assert(join("a", "b") == "ab");
-    assert(contains("hello", "ell")); // not listed: found through the fallback
+    assert(S.contains("hello", "ell"));
     builder: String_Builder; // jailint: allow(unused_variable) names a listed type
     print("ok\n");
 }

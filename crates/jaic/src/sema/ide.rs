@@ -591,6 +591,12 @@ impl Compiler {
             let p = self.proc(id);
             let span = p.span;
             if p.is_poly
+                // A concrete instance is not a source declaration. Matching may
+                // cache it before rejecting a candidate, or prefer another overload.
+                // Actual uses queue their bodies through proc_func; auditing a
+                // NotNeeded instance here would impose a body obligation on a call
+                // that never selected it. Keep the cache for later selected uses.
+                || p.bindings.is_some()
                 || p.is_macro
                 || p.lit.body.is_none()
                 || p.body_state != super::procs::BodyState::NotNeeded

@@ -1,5 +1,9 @@
 # Developer documentation
 
+- [Mac Extensions dependency repairs](extensions/mac-dependency-repairs.md):
+  Json ownership/numerics, Http time/atomics, and test-only dependency migrations;
+  [measured results and remaining lint-context failure](status/extensions-mac-repairs.md).
+
 - [Extensions Io/Args dependency migration](extensions/dependency-migration.md):
   allocator ownership, fiber scratch lifecycle and actual WASI termination;
   [measured status and remaining dependency handoff](status/extensions-dependencies.md).
@@ -442,3 +446,32 @@ Focused follow-up: seven reviewed Thread fixtures pass interpreter/native ARM64
 O0 and strict lint; original thread and native backtrace regressions pass. See
 [integration evidence](tools/cleanroom-integration.md) for the coverage changes
 and unresolved old negative assumptions. Full baseline remains red.
+
+The three original sandbox deadlock/timed-wake scenarios also pass through the
+compiler's actual private provider; native-only public Thread remains guarded.
+
+The full CLI suite now reports17 passes/one missing-Default_Metaprogram failure.
+Unsupported Natvis emission is explicitly diagnosed; it remains unimplemented.
+
+Catalogue prepared inputs now execute real file/resource/font cases. Native SDL
+ABI/runtime tests pass with source-built probes; interpreted WM initialization
+still fails and remains reported. OS-specific unavailable cases are not passes.
+
+Corrected compiler storage/immutability regressions pass58 core/module checks.
+The unsupported live-constant-alias implementation and history remain excluded.
+
+System's reviewed x64 Machine_X64 alias now resolves canonically on Windows;
+host behavior and dependent unused-code source checks pass, without a Windows
+runtime claim.
+
+Unix Socket.select now uses canonical POSIX.timeval through private ABI glue;
+real host select/canary, strict unused-code and original C ABI checks pass.
+
+- [Verified Mac graphics catalogue repairs](native/mac-graphics-catalogue-repairs.md): real clipboard, notification, fullscreen and context lifecycle fixes with explicit native limits.
+
+Merged Extensions:28 native ARM64 O0 passes;27 interpreter passes and one Json
+numbers timeout, recorded as failure. Native clipboard fixtures now require
+restoration and bounded child cleanup; no clipboard substitute is used.
+
+- [Mac compiler catalogue repairs](compiler/mac-catalogue-repairs.md): reviewed fixture migrations, live AST links and correct union alignment.
+- [Rejected-overload lint audit](compiler/rejected-overload-audit.md): speculative instances stay outside declaration audit roots; selected and invalid concrete bodies remain checked.

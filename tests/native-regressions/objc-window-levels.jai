@@ -1,21 +1,22 @@
-// init_core_graphics_runtime_constants fills every window-level global from CGWindowLevelForKey.
+// Independent SDK ABI regression: CGWindowLevel.h keys/results are int32_t.
+// No unreviewed Jai initializer or mutable globals are required.
 #import "Basic";
-
-#if OS == .MACOS {
-    #import "Objective_C";
-    #import "Objective_C/AppKit";
-}
 
 main :: () {
     #if OS == .MACOS {
-        init_core_graphics_runtime_constants();
-        assert(kCGNormalWindowLevel == CGWindowLevelForKey(.kCGNormalWindowLevelKey));
-        assert(kCGBackstopMenuLevel == CGWindowLevelForKey(.kCGBackstopMenuLevelKey));
-        assert(kCGAssistiveTechHighWindowLevel == CGWindowLevelForKey(.kCGAssistiveTechHighWindowLevelKey));
-        // Levels documented as fixed: normal is 0, floating sits above it, the minimum below all.
-        assert(kCGNormalWindowLevel == 0);
-        assert(kCGFloatingWindowLevel > kCGNormalWindowLevel);
-        assert(kCGMinimumWindowLevel < kCGDesktopWindowLevel);
-        assert(kCGMaximumWindowLevel > kCGScreenSaverWindowLevel);
+        normal := native_level(4);
+
+        assert(normal == 0);
+        assert(native_level(5) > normal);
+        assert(native_level(1) < native_level(2));
+        assert(native_level(14) > native_level(13));
+        assert(native_level(3) < normal);
+        assert(native_level(20) > native_level(13));
     }
+}
+
+#scope_file
+#if OS == .MACOS {
+    core_graphics :: #library,system "CoreGraphics";
+    native_level :: (key: s32) -> s32 #foreign core_graphics "CGWindowLevelForKey";
 }

@@ -1361,8 +1361,8 @@ thread_main :: () {
     if error != .NONE {
         // The port was taken between being picked and now. Report it and let the other thread
         // finish; `run_threads_here` tries again with a new port. Nothing asserts here.
-        Atomics.atomic_store(*shared.listen_error, cast(s32) error);
-        Atomics.atomic_store(*shared.done, 1);
+        Atomics.atomic_write(*shared.listen_error, cast(s32) error);
+        Atomics.atomic_write(*shared.done, 1);
         Atomics.atomic_add(*shared.ready, 1);
 
         return;
@@ -1373,11 +1373,11 @@ thread_main :: () {
     Atomics.atomic_add(*shared.ready, 1);
 
     if me == 0 {
-        while Atomics.atomic_load(*shared.ready) < 2 Io.sleep(1);
+        while Atomics.atomic_read(*shared.ready) < 2 Io.sleep(1);
 
         for 1..20 {
             // The other thread's listen failed, so only this thread listens: skip the clients.
-            if Atomics.atomic_load(*shared.listen_error) != 0 break;
+            if Atomics.atomic_read(*shared.listen_error) != 0 break;
 
             conn, connect_error := Io.connect(Io.address_v4(127, 0, 0, 1, shared.port));
             if connect_error != .NONE {
@@ -1397,9 +1397,9 @@ thread_main :: () {
             Io.close(conn);
         }
 
-        Atomics.atomic_store(*shared.done, 1);
+        Atomics.atomic_write(*shared.done, 1);
     } else {
-        while Atomics.atomic_load(*shared.done) == 0 Io.sleep(2);
+        while Atomics.atomic_read(*shared.done) == 0 Io.sleep(2);
     }
 
     Io.close(listener);

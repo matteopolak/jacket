@@ -1097,7 +1097,7 @@ emit_decode_table :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Sty
     // A repeated key replaces the earlier value, which is released.
     print(out, "existing_% := table_find_pointer(%, key_%);\nif existing_% {\n", id, address_of(target), id, id);
     emit_free(g, out, tprint("existing_%.*", id), element, "");
-    print(out, "existing_%.* = item_%;\n} else table_add(%, copy_string(key_%), item_%);\n}\n}\n", id, id, address_of(target), id, id);
+    print(out, "existing_%.* = item_%;\n} else table_add(%, ifx key_%.count then copy_string(key_%) else \"\", item_%);\n}\n}\n", id, id, address_of(target), id, id, id);
 }
 
 generate_decoder :: (T: Type) -> string {

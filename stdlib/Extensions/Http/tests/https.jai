@@ -327,7 +327,7 @@ bad_handshakes :: (base: string, server: *Server) {
 
     check(closes_within(stream, 3000), "a client that never starts the handshake is dropped");
 
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     check(elapsed >= 300 && elapsed < 1500, "after about header_timeout: % ms", elapsed);
     Io.close(stream);
@@ -494,7 +494,7 @@ shutdown :: (base: string, server: *Server) {
     stop(server);
     wait(server);
 
-    elapsed := to_milliseconds(current_time_monotonic() - started);
+    elapsed := elapsed_milliseconds(started);
 
     check(elapsed < 3000, "shutdown with an idle TLS connection took % ms", elapsed);
 }
@@ -758,7 +758,7 @@ ragged_clients :: (base: string, server: *Server) {
 
     started := current_time_monotonic();
 
-    while server.count > 0 && to_milliseconds(current_time_monotonic() - started) < 3000 Io.sleep(10);
+    while server.count > 0 && elapsed_milliseconds(started) < 3000 Io.sleep(10);
 
     check(server.count == 0, "the server dropped the connections: % left", server.count);
 
