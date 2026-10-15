@@ -14,5 +14,13 @@ main :: () {
     name: string = "_original";
 
     B.fix_macos_foreign_name(*name);
+    generator: B.Generator;
+
+    context.generator = *generator;
+    resolved := B.find_lib_for_foreign_name("original");
+    cached_ok, cached := B.os_get_symbol_names_from_file_fixed_and_cached("original.o");
+    libc, platform, libc_ok := B.get_libc_paths();
+
+    print("% % % % % %\n", resolved != null, cached_ok, cached.count, libc, platform, libc_ok);
     print("% % % % % % %\n", ok, names.count, content_ok, content_names.count, found, missing, name);
 }

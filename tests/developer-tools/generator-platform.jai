@@ -81,9 +81,19 @@ main :: () {
 
     assert(static_lib != null && !static_lib.is_shared_library && static_lib.is_system_library);
     assert(static_lib.identifier == "Fixture_Static");
-    assert(B.os_symbol_exists_in_library(static_lib, "_gp_add"));
-    assert(!B.os_symbol_exists_in_library(static_lib, "_gp_external"));
-    assert(!B.os_symbol_exists_in_library(static_lib, "_gp_private"));
+    assert(B.os_symbol_exists_in_library(static_lib, "gp_add"));
+    assert(!B.os_symbol_exists_in_library(static_lib, "gp_external"));
+    assert(!B.os_symbol_exists_in_library(static_lib, "gp_private"));
+    active: B.Generator;
+
+    array_add(*active.libraries, static_lib);
+    defer array_free(active.libraries);
+
+    push_context {
+        context.generator = *active;
+        assert(B.find_lib_for_foreign_name("gp_add") == static_lib);
+    }
+
     release(static_lib.symbol_names);
     free(static_lib.identifier);
     free(static_lib.full_path);
@@ -123,19 +133,14 @@ main :: () {
     B.fix_macos_foreign_name(null);
     assert(!empty);
 
-    B.ensure_local_libclang_exists();
-    B.ensure_local_libclang_exists(tprint("%../../stdlib/internal/developer-tools/clang-bindings/libclang.dylib", #filepath));
-
     push_context {
         context.logger = capture_error;
-        B.ensure_local_libclang_exists(tprint("%/libgenerator_platform_fixture.dylib", root));
-        B.ensure_local_libclang_exists("missing libclang\0suffix");
         missing := B.os_load_library(paths, "Missing", "does-not-exist", false);
 
         assert(missing == null);
     }
 
-    assert(errors == 10);
+    assert(errors == 8);
 
     print("ok\n");
 }

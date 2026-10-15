@@ -46,6 +46,15 @@ native C certificate vectors and preserves caller-backed encoded/content views.
 [ZIP wire utilities](portable-zip-wire.md) covers real checksum/version/offset/unit
 operations, shared producer staging and the precise remaining archive contracts.
 
+- [Reassigned generator emission helpers](generator-emission.md): disjoint helper
+  ownership, all ten reviewed contracts, canonical options protocol and native evidence.
+
+- [Generator platform helpers](generator-platform.md): owned native-library/object
+  APIs, reviewed cache/context/path contracts, official LLVM delegation and canonical model integration.
+- [String-macro diagnostic reduction](generator-platform-macro-cause.md): original
+  SDK/FFI evidence and the exact callback-model cause of the combined test failure.
+- [Module-root context ordering](compiler/module-root-context-ordering.md): the
+  compiler-owned general lint fix integrated for generator context registration.
 
 Start with [compiler architecture](compiler/architecture.md). Real projects that compile are listed in [upstream corpus](tools/upstream-corpus.md#project-status).
 

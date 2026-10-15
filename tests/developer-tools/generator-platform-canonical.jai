@@ -5,6 +5,11 @@ H :: #import "Hash_Table";
 #assert size_of(B.Token_Info) == 16;
 #assert offset_of(B.Token_Info, "token_pointer") == 0;
 #assert offset_of(B.Token_Info, "num_tokens") == 8;
+#assert size_of(B.Library_Symbols) == 40;
+#assert offset_of(B.Library_Symbols, "os") == 0;
+#assert offset_of(B.Library_Symbols, "cpu") == 4;
+#assert offset_of(B.Library_Symbols, "full_path") == 8;
+#assert offset_of(B.Library_Symbols, "symbol_names") == 24;
 
 main :: () {
     generator: B.Generator;
