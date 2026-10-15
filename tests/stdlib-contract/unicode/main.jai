@@ -6,12 +6,13 @@ Unicode :: #import "Unicode";
 #assert(is_constant(Unicode.firstByteMark));
 
 main :: () {
-    bytes := "A\xe2\x82";
-    cursor := bytes;
+    cursor := "A\xe2\x82";
     first, status := Unicode.utf8_next_character(*cursor);
+
     assert(status == .CONVERSION_OK);
     assert(first == 65);
     replacement, tail_status := Unicode.utf8_next_character(*cursor);
+
     assert(tail_status == .SOURCE_EXHAUSTED);
     assert(replacement == Unicode.UNI_REPLACEMENT_CHAR);
     assert(cursor.count == 0);

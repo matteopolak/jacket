@@ -270,9 +270,9 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
     assert_eq!(String::from_utf8_lossy(&run.stdout), "1007\n");
 }
 
-/// Self-checking stdlib tests whose bugs showed only in compiled code; each prints "ok".
+/// Independent compiler and C ABI regressions whose bugs showed only in compiled code.
 #[test]
-fn stdlib_tests_run_natively() {
+fn compiler_and_abi_regressions_run_natively() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stdlib-tests");
     std::fs::create_dir_all(&dir).unwrap();
     for name in [
@@ -281,16 +281,20 @@ fn stdlib_tests_run_natively() {
         "over-aligned-allocation",
         "proc-sentinel-constant",
         "add-context-constant",
-        "process-stdin-socket",
         "posix-stat-and-mutex",
         "no-reset-globals-baked",
         "intrinsic-byte-lookup",
     ] {
-        // These two import POSIX, which does not build for Windows.
-        if cfg!(windows) && matches!(name, "proc-sentinel-constant" | "process-stdin-socket") {
+        // This tests the POSIX process sentinel ABI; Windows has its own SDK regressions.
+        if cfg!(windows) && name == "proc-sentinel-constant" {
             continue;
         }
-        let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
+        let family = if matches!(name, "proc-sentinel-constant" | "posix-stat-and-mutex") {
+            "native-regressions"
+        } else {
+            "compiler-regressions"
+        };
+        let source = repo_root().join(format!("tests/{family}/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
@@ -353,7 +357,7 @@ fn asm_instructions_run_natively() {
         "asm-avx512-masks",
         "asm-f16c-sha-gfni",
     ] {
-        let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
+        let source = repo_root().join(format!("tests/compiler-regressions/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
@@ -370,7 +374,7 @@ fn asm_instructions_run_natively() {
 fn empty_workspaces_write_no_output() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-empty-workspaces");
     std::fs::create_dir_all(&dir).unwrap();
-    let source = repo_root().join("tests/stdlib/compiler-workspace-ids.jai");
+    let source = repo_root().join("tests/compiler-regressions/compiler-workspace-ids.jai");
     let output = build_and_run(&source, &dir, "workspace-ids").unwrap();
     assert_eq!(
         output.status.code(),
@@ -386,7 +390,7 @@ fn empty_workspaces_write_no_output() {
 fn stack_traces() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stack-trace");
     std::fs::create_dir_all(&dir).unwrap();
-    let ok = repo_root().join("tests/stdlib/stack-trace-line-through-inline.jai");
+    let ok = repo_root().join("tests/compiler-regressions/stack-trace-line-through-inline.jai");
     let output = build_and_run(&ok, &dir, "through-inline").unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
     let source = dir.join("trace.jai");
@@ -1192,15 +1196,11 @@ fn c_long_double() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    // The copied Bindings_Generator test imports the stdlib tests' own modules.
-    let test_modules = repo_root().join("tests/stdlib/modules");
     let x86 = |name: &str| {
         jaic(&[
             &format!("{name}.jai"),
             "-target",
             "x86_64-apple-darwin",
-            "-import_dir",
-            test_modules.to_str().unwrap(),
             "-exe",
             name,
         ]);
@@ -1222,20 +1222,6 @@ fn c_long_double() {
     let hard = x86("precision");
     assert!(soft.len() > 10_000, "{soft}");
     assert!(soft == hard, "soft-float x87 differs from the hardware");
-
-    // Bindings_Generator output for the x87 target, called from an x86-64 build.
-    let bindings = repo_root().join("tests/stdlib/bindings-generator-long-double.jai");
-    let source = std::fs::read_to_string(&bindings).unwrap().replace(
-        "#filepath",
-        &format!("\"{}\"", repo_root().join("tests/stdlib").display()),
-    );
-    std::fs::write(dir.join("bindings.jai"), source).unwrap();
-    assert_eq!(x86("bindings"), "ok\n");
-}
-
-#[test]
-fn bindings_generator_long_double() {
-    native_bindings_generator_test("bindings-generator-long-double");
 }
 
 /// C variadic foreign calls in a native build (Apple arm64 passes variadic arguments on the stack).
@@ -1243,7 +1229,7 @@ fn bindings_generator_long_double() {
 fn c_variadic_calls() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-varargs");
     std::fs::create_dir_all(&dir).unwrap();
-    let source = repo_root().join("tests/stdlib/c-variadic-foreign-calls.jai");
+    let source = repo_root().join("tests/compiler-regressions/c-variadic-foreign-calls.jai");
     let output = build_and_run(&source, &dir, "varargs").unwrap();
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
@@ -1251,82 +1237,6 @@ fn c_variadic_calls() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-}
-
-/// A program that imports the Bindings_Generator module builds natively (its libclang bridge
-/// primitives are compile-time only and get trapping stubs), and the bindings it generated at
-/// compile time work in the native binary.
-fn native_bindings_generator_test(name: &str) {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-{name}"));
-    std::fs::create_dir_all(&dir).unwrap();
-    let source = repo_root().join(format!("tests/stdlib/{name}.jai"));
-    let output = build_and_run(&source, &dir, name).unwrap();
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout),
-        "ok\n",
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-}
-
-#[test]
-fn bindings_generator_bitfields() {
-    native_bindings_generator_test("bindings-generator-bitfields");
-}
-
-#[test]
-fn bindings_generator_cpp_raw() {
-    native_bindings_generator_test("bindings-generator-cpp-raw");
-}
-
-#[test]
-fn bindings_generator_checks() {
-    native_bindings_generator_test("bindings-generator-checks");
-}
-
-#[test]
-fn bindings_generator_objc() {
-    native_bindings_generator_test("bindings-generator-objc");
-}
-
-#[test]
-fn bindings_generator_objc_generics() {
-    native_bindings_generator_test("bindings-generator-objc-generics");
-}
-
-#[test]
-fn bindings_generator_objc_ivars() {
-    native_bindings_generator_test("bindings-generator-objc-ivars");
-}
-
-#[test]
-fn bindings_generator_objc_blocks() {
-    native_bindings_generator_test("bindings-generator-objc-blocks");
-}
-
-#[test]
-fn bindings_generator_bitfields_msvc() {
-    native_bindings_generator_test("bindings-generator-bitfields-msvc");
-}
-
-#[test]
-fn bindings_generator_cpp_raw_multi() {
-    native_bindings_generator_test("bindings-generator-cpp-raw-multi");
-}
-
-#[test]
-fn bindings_generator_objc_stret() {
-    native_bindings_generator_test("bindings-generator-objc-stret");
-}
-
-#[test]
-fn bindings_generator_parity() {
-    native_bindings_generator_test("bindings-generator-parity");
-}
-
-#[test]
-fn bindings_generator_cpp_virtual_bases() {
-    native_bindings_generator_test("bindings-generator-cpp-virtual-bases");
 }
 
 /// Arithmetic overflow checks in a native build: `Build_Options.arithmetic_overflow_check` on a
@@ -1669,7 +1579,7 @@ fn null_checks_skipped_after_a_check_still_catch_changes() {
 /// OS (the GLX/WGL paths cannot run here, but they must keep compiling).
 #[test]
 fn simp_window_program_checks_on_desktop_oses() {
-    let source = repo_root().join("tests/stdlib/simp-window-program.jai");
+    let source = repo_root().join("tests/graphics-regressions/simp-window-program.jai");
     for os in ["linux", "windows", "macos"] {
         let output = Command::new(JAIC)
             .arg("-check")
@@ -2021,7 +1931,7 @@ fn windows_runtime_program() {
 /// `WaitForSingleObject`, `Sleep`); elsewhere the pthread side, as the sweep does.
 #[test]
 fn interpreted_threads() {
-    let dir = repo_root().join("tests/stdlib");
+    let dir = repo_root().join("tests/compiler-regressions");
     let mut checked = 0;
     for entry in std::fs::read_dir(&dir).unwrap() {
         let path = entry.unwrap().path();
@@ -2044,7 +1954,10 @@ fn interpreted_threads() {
         );
         checked += 1;
     }
-    assert!(checked >= 2, "no tests/stdlib/threads-*.jai found");
+    assert!(
+        checked >= 2,
+        "no tests/compiler-regressions/threads-*.jai found"
+    );
 }
 
 /// MSVC builds keep their CodeView in a PDB next to the executable (`/DEBUG /PDB:`), with line
@@ -2197,16 +2110,54 @@ fn unnamed_link_always_library_is_linked() {
 /// through the hidden result pointer, as C++ does for types with constructors. Found by
 /// tools/jaic-diff.py: the native build expected it in registers while the callee wrote through x8.
 #[test]
-fn bindings_generator_cpp_classes() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-bindings-generator-cpp-classes");
+fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod");
     std::fs::create_dir_all(&dir).unwrap();
-    let source = repo_root().join("tests/stdlib/bindings-generator-cpp-classes.jai");
-    let output = build_and_run(&source, &dir, "bindings-generator-cpp-classes").unwrap();
+    let cpp = dir.join("small.cpp");
+    std::fs::write(&cpp, "#ifdef _WIN32\n#define API __declspec(dllexport)\n#else\n#define API\n#endif\nstruct Small { int value; explicit Small(int v): value(v) {} Small(const Small& v): value(v.value) {} ~Small() {} };\nextern \"C\" API Small make_small(int value) { return Small(value); }\n").unwrap();
+    let library = dir.join(if cfg!(windows) {
+        "small.dll"
+    } else if cfg!(target_os = "macos") {
+        "libsmall.dylib"
+    } else {
+        "libsmall.so"
+    });
+    let mut cc = Command::new("clang++");
+    cc.args(["-shared", "-Wno-return-type-c-linkage"]);
+    if !cfg!(windows) {
+        cc.arg("-fPIC");
+    }
+    let compiled = cc.arg(cpp).arg("-o").arg(&library).output().unwrap();
     assert!(
-        output.status.success() && String::from_utf8_lossy(&output.stdout).ends_with("ok\n"),
+        compiled.status.success(),
         "{}",
-        String::from_utf8_lossy(&output.stderr)
+        String::from_utf8_lossy(&compiled.stderr)
     );
+    let source = dir.join("main.jai");
+    std::fs::write(&source, "#import \"Basic\";\nlib :: #library \"small\";\nSmall :: struct { value: s32; }\nmake_small :: (value: s32) -> Small #foreign lib #cpp_return_type_is_non_pod;\nmain :: () { result := make_small(41); assert(result.value == 41); print(\"ok\\n\"); }\n").unwrap();
+    for level in ["-O0", "-O2"] {
+        let executable = exe_path(&dir, &format!("small{level}"));
+        let build = Command::new(JAIC)
+            .arg(&source)
+            .arg(level)
+            .arg("-exe")
+            .arg(&executable)
+            .env("JAIC_NATIVE_LIBS", &dir)
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "{}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let output = Command::new(executable).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.stdout, b"ok\n");
+    }
 }
 
 /// A `#compiler` primitive called from compiled code says why the program stops.
@@ -2267,7 +2218,7 @@ fn optimized_sub_recurrence_matches_the_interpreter() {
 
 /// Compiled procedures keep frame records, so a frame-pointer stack walk (macOS libc
 /// `backtrace`, behind Debug's `backtrace`) sees the callers. Without them it found no frames and
-/// `tests/stdlib/debug-assert-handlers.jai` failed natively (found by tools/jaic-diff.py).
+/// Native assertion failures retain stack information (independent compiler regression).
 #[test]
 fn backtrace_sees_compiled_callers() {
     if !cfg!(unix) {
@@ -2868,7 +2819,7 @@ fn fibers_are_refused_for_wasm() {
     );
 }
 
-/// The ordered atomics (docs/stdlib/atomics.md) reach LLVM with the order the program names, and
+/// Compiler atomic intrinsics reach LLVM with the order the program names, and
 /// the program gives the same answers as the interpreter.
 #[test]
 fn ordered_atomics_keep_their_memory_orders() {
@@ -2878,14 +2829,18 @@ fn ordered_atomics_keep_their_memory_orders() {
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
-         #import \"Atomics\";\n\
+         atomic_store_order :: (p: *u32, value: u32, order: s64) #intrinsic #no_context;\n\
+         atomic_load_order :: (p: *u32, order: s64) -> u32 #intrinsic #no_context;\n\
+         atomic_fetch_add_order :: (p: *u32, value: u32, order: s64) -> u32 #intrinsic #no_context;\n\
+         atomic_exchange_order :: (p: *u32, value: u32, order: s64) -> u32 #intrinsic #no_context;\n\
+         atomic_compare_exchange_order :: (p: *u32, expected: u32, value: u32, orders: s64) -> bool, u32 #intrinsic #no_context;\n\
          main :: () {\n\
              x: u32;\n\
-             atomic_store(*x, 1, .RELEASE);\n\
-             a := atomic_load(*x, .ACQUIRE);\n\
-             b := atomic_fetch_add(*x, 2, .RELAXED);\n\
-             c := atomic_exchange(*x, 7, .ACQ_REL);\n\
-             ok, d := atomic_compare_exchange(*x, 7, 9, .RELEASE, .RELAXED);\n\
+             atomic_store_order(*x, 1, 2);\n\
+             a := atomic_load_order(*x, 1);\n\
+             b := atomic_fetch_add_order(*x, 2, 0);\n\
+             c := atomic_exchange_order(*x, 7, 3);\n\
+             ok, d := atomic_compare_exchange_order(*x, 7, 9, 2);\n\
              print(\"% % % % %\\n\", a, b, c, ok, d);\n\
          }\n",
     )
@@ -2901,6 +2856,7 @@ fn ordered_atomics_keep_their_memory_orders() {
         "{}",
         String::from_utf8_lossy(&interpreted.stderr)
     );
+    assert_eq!(interpreted.stdout, b"1 1 3 true 7\n");
     let ir = dir.join("ordered.ll");
     let exe = exe_path(&dir, "ordered");
     let build = Command::new(JAIC)
@@ -2920,7 +2876,7 @@ fn ordered_atomics_keep_their_memory_orders() {
     );
     let ir = read_ir_parts(&ir);
     for expected in [
-        "store atomic i32 %",
+        "store atomic i32 1, ptr",
         " release, align 4",
         "load atomic i32, ptr %",
         " acquire, align 4",

@@ -35,13 +35,22 @@ SOURCES = {
         "winflexbison-1176da2adaf972b2216b1ac8dd611e128fe80bc5"),
 }
 PACKAGES = {"cmake": "3.31.6", "ninja": "1.13.2", "meson": "1.8.3",
-            "Mako": "1.3.10", "MarkupSafe": "3.0.3", "packaging": "25.0"}
+            "Mako": "1.3.10", "MarkupSafe": "3.0.3", "packaging": "25.0", "PyYAML": "6.0.3"}
 MESA_OPTIONS = ["--buildtype=release", "--wrap-mode=nofallback", "-Db_vscrt=mt",
                 "-Dgallium-drivers=llvmpipe", "-Dvulkan-drivers=[]", "-Dplatforms=[]",
                 "-Dllvm=enabled", "-Dshared-llvm=disabled", "-Ddraw-use-llvm=true",
                 "-Dglx=disabled", "-Degl=disabled", "-Dgles1=disabled", "-Dgles2=disabled",
                 "-Dopengl=true", "-Dgbm=disabled", "-Dzlib=disabled", "-Dzstd=disabled",
                 "-Dexpat=disabled", "-Dbuild-tests=false"]
+
+
+def write_native_machine_file(destination, executable):
+    # Preserve the venv executable path: resolving its symlink on Unix changes
+    # Python's prefix and loses the prepared dependencies. Meson uses this table
+    # for find_program as well as Python-module discovery.
+    python = Path(executable).absolute().as_posix()
+    quoted = "'" + python.replace("\\", "\\\\").replace("'", "\\'") + "'"
+    destination.write_text(f"[binaries]\npython3 = [{quoted}]\npython = [{quoted}]\n", encoding="utf-8")
 
 
 def source_tree(name, directory):
@@ -87,6 +96,8 @@ def main():
         parser.error("initialize the VS2022 ARM64 developer environment first")
     if sys.version_info < (3, 12):
         parser.error("Python3.12+ is required for filtered source extraction")
+    if sys.prefix == sys.base_prefix:
+        parser.error("run this helper with the prepared venv Python; do not modify global packages")
     sdk = os.environ.get("WindowsSDKVersion", "").strip("\\").split(".")
     toolset = os.environ.get("VCToolsVersion", "").strip("\\").split(".")
     if len(sdk) < 3 or not sdk[2].isdigit() or int(sdk[2]) < 20348:
@@ -111,7 +122,17 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     evidence = output / "source-build.json"
     evidence.write_text(json.dumps(plan, indent=2) + "\n")
-    env = dict(os.environ)
+    env = dict(os.environ, PYTHONNOUSERSITE="1")
+    env.pop("PYTHONHOME", None)
+    env.pop("PYTHONPATH", None)
+    plan["python_identity"] = json.loads(subprocess.check_output(
+        [sys.executable, "-c", "import sys,json,importlib.metadata,mako,yaml; "
+         "print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,"
+         "'Mako':importlib.metadata.version('Mako'),'PyYAML':importlib.metadata.version('PyYAML')}))"],
+        env=env, text=True))
+    native = output / "native-arm64.ini"
+    write_native_machine_file(native, sys.executable)
+    plan["meson_native_file"] = native.read_text(encoding="utf-8")
     commands = []
 
     def run(command):
@@ -142,6 +163,7 @@ def main():
          "-DLLVM_DEFAULT_TARGET_TRIPLE=aarch64-pc-windows-msvc", "-DLLVM_ENABLE_PROJECTS=",
          "-DLLVM_ENABLE_RUNTIMES=", "-DLLVM_INCLUDE_TESTS=OFF", "-DLLVM_INCLUDE_BENCHMARKS=OFF",
          "-DLLVM_ENABLE_ZLIB=OFF", "-DLLVM_ENABLE_ZSTD=OFF", "-DLLVM_ENABLE_LIBXML2=OFF",
+         f"-DPython3_EXECUTABLE={sys.executable}",
          f"-DCMAKE_INSTALL_PREFIX={llvm}"])
     run(["cmake", "--build", output / "llvm-build", "--parallel", args.jobs])
     run(["cmake", "--install", output / "llvm-build"])
@@ -155,7 +177,7 @@ def main():
     env["CMAKE_PREFIX_PATH"] = str(llvm)
     install = output / "install"
     run([sys.executable, "-m", "mesonbuild.mesonmain", "setup", output / "mesa-build", trees["mesa"],
-         f"--prefix={install}", *MESA_OPTIONS])
+         "--native-file", native, f"--prefix={install}", *MESA_OPTIONS])
     plan["meson_build_options"] = json.loads(subprocess.check_output(
         [sys.executable, "-m", "mesonbuild.mesonmain", "introspect", output / "mesa-build", "--buildoptions"],
         env=env, text=True))

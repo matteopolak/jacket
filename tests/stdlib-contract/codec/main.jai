@@ -25,6 +25,8 @@ main :: () {
     assert(valid && text == "");
     text, valid = Base64.base64_decode("TWE=ignored");
     assert(valid && text == "Ma");
+    text, valid = Base64.base64_decode("TQ=!\xff");
+    assert(valid && text == "M");
     text, valid = Base64.base64_decode("T!WE");
     assert(!valid && text == "");
     text, valid = Base64.base64_decode("TQ\n==");

@@ -151,6 +151,7 @@ The LLVM backend, C ABI and linking.
 
 - [Core foundations implementation handoff](foundations-handoff.md)
 - [Basic/String/Hash/File_Utilities public surface audit](foundations-api-audit.md)
+- [Wide conversions, division exercise and scalar FNV](foundations-wide-integers.md)
 - [Remaining Basic implementation plan](status/foundations-completion-plan.md)
 - [Basic producer dependency requests](status/foundations-dependencies.md)
 - [General cross-compilation predicate request](status/foundations-preamble-request.md)
@@ -190,7 +191,8 @@ The LLVM backend, C ABI and linking.
   failure evidence, production diagnostics, actual driver probe and explicit real-driver CI deployment.
 - [Native WGL investigation](native/window-render-wgl-investigation.md): filtered CI
   failure evidence, real retirement-surface lifetime, native diagnostics and pinned
-  official-source ARM64 Mesa build/deployment with explicit runtime verification limits.
+  official-source ARM64 Mesa build/deployment, deterministic prepared child Python,
+  and explicit runtime verification limits.
 - [jaic Extensions](extensions/README.md)
 - [Portable implementation module ledger](portable-stdlib-ledger.md)
 - [Portable implementation and verification](portable-stdlib.md): includes process/thread, context remapping, text input and Unix System coverage
@@ -284,7 +286,7 @@ Scripts, CI and project policies.
 - [Public-language contract fixtures](../tests/cleanroom-language/README.md): original self-checking cases from the language guide, run against an explicit local source build
 - [Clean-room implementation workspaces](tools/cleanroom-workspaces.md): prepare independent source snapshots and enforce implementer filesystem isolation
 - [Standard library integration decisions](tools/stdlib-integration-decisions.md): bootstrap layout, internal imports, public facade identity, and compatibility test corrections
-- [Stdlib runtime tests](tools/stdlib-runtime-tests.md): every stdlib test run in the interpreter, natively and on wasm on every platform; skip list; per-module coverage ratchet
+- [Stdlib runtime tests](tools/stdlib-runtime-tests.md): reviewed public contracts, producer suites and preserved compiler/ABI/Extensions regressions; explicit platform limits and migration provenance
 - [Objective-C selector check](tools/objc-selector-check.md): every selector the stdlib sends matches its arguments and exists in the runtime
 - [jaifmt (Jai formatter)](tools/jaifmt.md) (front page: [jaifmt README](../jaifmt/README.md)): the `jaifmt/` program, its `build.jai` metaprogram and `jaifmt.wasm`
 - [jailint (Jai linter)](tools/jailint.md) (front page: [jailint README](../crates/jailint/README.md)): rules, `jailint.toml`, suppression, adding a rule
@@ -318,3 +320,5 @@ Agreed designs that are not built yet.
 - [Sound_Player implementation and verification](features/sound-player.md)
 
 - [Private native check transport and safety regressions](compiler/private-native-checks.md)
+
+- [Stdlib test migration manifest](status/stdlib-test-migration.json): per-file retirement/move decisions and preserved regression provenance.

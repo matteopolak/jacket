@@ -12,6 +12,7 @@ main :: () {
 
     flag := false;
     rest := "truest";
+
     assert(Reflection.set_value_from_string(flag, *rest));
     assert(flag && rest == "st");
 

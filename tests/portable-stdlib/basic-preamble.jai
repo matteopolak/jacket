@@ -1,6 +1,7 @@
 B :: #import "Basic";
 D :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 Pools :: #import "Pool";
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS Flat_Pools :: #import "Flat_Pool";
 
 calls: int;
 nested_calls: int;
@@ -32,12 +33,6 @@ early :: (allocator: Allocator) {
     return;
 }
 
-flat_caps :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
-    B.assert(mode == .CAPS && old_memory != null && allocator_data == null);
-    (cast(*string) old_memory).* = "modules/Flat_Pool";
-    return cast(*void) cast(u64) Allocator_Caps.HINT_I_AM_A_FAST_BUMP_ALLOCATOR;
-}
-
 main :: () {
     push_context {
         context.logger = capture;
@@ -59,7 +54,13 @@ main :: () {
 
         bookkeep(B.temp);
         bookkeep(.{ Pools.pool_allocator_proc, null });
-        bookkeep(.{ flat_caps, null });
+
+        #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS {
+            caps, name := B.get_capabilities(.{ Flat_Pools.flat_pool_allocator_proc, null });
+            B.assert((caps & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) != 0 && name == Flat_Pools.CAPS_VERSION_STRING);
+            bookkeep(.{ Flat_Pools.flat_pool_allocator_proc, null });
+        }
+
         B.assert(calls == before && context.logger == capture);
 
         push_context {

@@ -3,8 +3,8 @@
 
 Usage: tools/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
-`jaic -check` must fail and report the recorded text), stdlib (tests/stdlib,
-run must succeed), modules (the stdlib's own tests: stdlib/tests and stdlib/<Module>/tests,
+`jaic -check` must fail and report the recorded text), stdlib (reviewed stdlib contract manifest), regressions (independent compiler,
+Extensions, C ABI and graphics regression families), modules (the stdlib's own tests: stdlib/tests and stdlib/<Module>/tests,
 run must succeed; a test directory's `modules/` folder holds its mock modules), examples (tests/examples.json:
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass, with the output the
@@ -72,9 +72,13 @@ def cases(name):
         for c in m["cases"]:
             if c.get("kind") == "negative":
                 yield c["id"], ROOT / "tests/corpus" / c["source"], "check", {"negative": next(iter(c["negative"].values()))}, []
-    elif name == "stdlib":
-        for p in sorted((ROOT / "tests/stdlib").glob("*.jai")):
-            yield p.stem, p, "run", None, []
+    elif name in ("stdlib", "regressions"):
+        from stdlib_test_catalog import validated_entries
+        for c in validated_entries():
+            if (c["family"] == "contracts") != (name == "stdlib") or (name == "regressions" and c["family"] == "modules"):
+                continue
+            expect = c if c["family"] == "contracts" else None
+            yield c["id"], c["path"], "check" if c.get("mode") == "check-fail" else "run", expect, []
     elif name == "modules":
         found = (list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib").glob("Extensions/*/tests/*.jai"))
                  + list((ROOT / "stdlib/tests").glob("**/*.jai")))
@@ -276,6 +280,8 @@ def main():
                     subprocess.run(command, cwd=(upstream_root(c) / c["path"]).parent,
                                    capture_output=True, stdin=subprocess.DEVNULL)
     todo = [c for s in a.sets for c in cases(s) if a.filter in c[0]]
+    if not todo:
+        ap.error("test selection is empty")
 
     def run(case):
         cid, path, mode, expect, extra = case
@@ -301,7 +307,19 @@ def main():
             program = expect["run_after"]
             out, err, code = run_limited([str(path.parent / program[0]), *program[1:]], path.parent,
                                          a.timeout, limit_bytes, jaic=False)
-        if expect is None:
+        if expect and expect.get("mode") == "check-fail":
+            from stdlib_runtime import contract_result
+            ok = contract_result(expect, None if code == -1 else code, out + err)
+            if expect.get("positive_baseline"):
+                from stdlib_test_catalog import validated_entries
+                baseline = next(c for c in validated_entries() if c["id"] == "contracts/" + expect["positive_baseline"])
+                _, baseline_err, baseline_code = run_limited([a.jaic, str(baseline["path"]), "-check"], baseline["path"].parent, a.timeout, limit_bytes)
+                if baseline_code != 0:
+                    ok = False
+                    err += "\npositive baseline failed:\n" + baseline_err
+        elif expect and "error_contains" in expect:
+            ok = code == expect["exit_code"] and expect["error_contains"] in out + err
+        elif expect is None:
             ok = code == 0
         elif "upstream" in expect:
             problems = [f"exit code {code}, expected {expect['exit_code']}"] if code != expect["exit_code"] else []

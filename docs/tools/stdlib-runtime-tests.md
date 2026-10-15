@@ -1,188 +1,101 @@
-# Stdlib runtime tests
+# Reviewed stdlib tests and independent regressions
 
-## What it is
+The replacement stdlib is tested against reviewed public contracts in
+[docs/specs](../specs/README.md), independently authored root contract tests, and
+NEW producer behavior suites. Inherited replaced-stdlib API tests and their
+failure/coverage baselines were retired with explicit user authorization.
+[The migration manifest](../status/stdlib-test-migration.json) records every
+original source hash, destination or retirement reason. Retirement does not
+establish equivalent exhaustive replacement coverage.
 
-Every stdlib runtime test (`tests/stdlib/*.jai`, `stdlib/<Module>/tests/*.jai`, `stdlib/Extensions/<Module>/tests/*.jai` and
-`stdlib/tests/**/*.jai`) runs on every CI platform in up to four ways, and a coverage report
-says which public stdlib procedures those runs reach, per module, with a ratchet so coverage
-cannot drop unnoticed. The point is to catch platform bugs at run time (a missing Windows code
-path, an ABI detail of one CPU, a libc function the WASI runtime lacks) rather than only checking
-that the stdlib compiles everywhere ([stdlib target check](stdlib-target-check.md) does that).
+## Sources and provenance
 
-## How it works
-
-`tools/stdlib_runtime.py` finds the tests itself, so a new test file is picked up without being
-registered. Each test runs in the requested modes:
-
-| Mode | Command | Where |
+| Family | Location | Oracle |
 |---|---|---|
-| `interp` | `jaic t.jai -interp` | every host |
-| `native` | `jaic t.jai -exe x` then `./x` | every host |
-| `wasm-interp` | `jaic t.jai -interp -os wasm` (the browser playground's sandbox: virtual file system, no threads or native libraries) | macOS, Linux |
-| `wasm-native` | `jaic t.jai -os wasm` then `node tools/wasi_run.mjs x.wasm` (WASI preview 1 with the host's `/` pre-opened: files, a libm and binary128, green threads, but no processes or sockets) | macOS, Linux |
+| Public contracts | tests/stdlib-contract/manifest.json | Reviewed public specs; independent author review |
+| Compiler semantics and safety | tests/compiler-regressions | Language/compiler contracts and independent safety requirements |
+| Extensions | tests/extensions and stdlib/Extensions/*/tests | Existing supported Extensions contracts |
+| Native ABI and SDK | tests/native-regressions and tests/native | Actual source-built C/C++ and official SDK behavior |
+| Graphics and events | tests/graphics-regressions and tests/window-render | Actual rendering/events, issue 1 wheel and SDK behavior |
+| NEW module and producer tests | stdlib/*/tests; tests/portable-stdlib, foundations, platform-io, numerics, bindings, audio, developer-tools | Reviewed public API, private invariants, real native dependencies |
 
-A test passes when it exits with 0; output is not compared (tests `assert` what they check). A
-build that writes no executable, or reports `no exported 'main'`, did its work at compile time
-and counts as "compile-time only". Tests run in parallel (`-j`, at most 8 by default), each test's
-modes one after another, from the test's own directory (`tests/stdlib/`), which is where relative
-paths such as `.scratch/<test>/` land (gitignored).
+[Independent spec-test coverage notes](../../tests/stdlib-contract/spec-review-coverage.md)
+describe bounded root coverage and gaps. No export count or source reachability
+percentage establishes completed functionality. Compiler/LSP Rust tests, source
+target checks (including unused bodies), SDL3 issue 2, WebGPU, and the unchanged
+public application corpus remain independent required gates.
 
-**Skips.** `tests/stdlib-runtime-skips.txt` lists the runs that cannot pass, one per line:
+## Run
 
-```
-<test id> <platforms> <modes> <reason>
-simp-window-program windows-arm64* * no OpenGL 3.3 driver (mesa-dist-win has no arm64 build)
-```
+Build from this repository's sources, with the repository-pinned Rust/LLVM and
+Node toolchains. Use the combined production library explicitly:
 
-The test id is the file stem for `tests/stdlib/`, else the path without `.jai`
-(`Simp/tests/readback-tests`). Platforms are comma-separated shell patterns over `macos-arm64`,
-`macos-x64`, `linux-x64`, `linux-arm64`, `windows-x64`, `windows-arm64` and the MinGW cross builds
-`windows-x64-mingw`, `windows-arm64-mingw`; modes are comma-separated or `*`. A skipped run still
-runs: with `--strict` (as in CI) a skipped run that passes fails the job, so a line goes away as
-soon as its reason does. A line naming a test that does not exist is an error.
+~~~sh
+cargo build --locked -p jaic-cli -p jailint -p jai-language-server
+cargo build --locked --release -p jaic-cli
+export JAIC_STDLIB="$PWD/stdlib"
+target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+python3 tools/build_portable_runtime.py
+python3 tools/build_native_libs.py
+python3 tools/window_render_native.py
+python3 tools/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native --coverage target/stdlib-reachability.txt
+python3 tests/stdlib-contract/run.py --jaic "$PWD/target/release/jaic" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+python3 tools/stdlib_coverage.py --record target/stdlib-reachability.txt
+PYTHONPATH=tools python3 -m unittest tools/test_stdlib_runtime.py tools/test_stdlib_contract_runner.py
+~~~
 
-**Windows.** The native Windows jobs run the harness directly (`--platform windows-x64` or
-`windows-arm64`, modes `interp,native`). The MinGW cross jobs build every stdlib runtime test on
-Linux with `tools/windows_cross.py` and run the executables on a Windows runner; its required
-programs are the same tests minus the skip-list lines for `windows-<cpu>-mingw` (cross builds run
-compile-time code on Linux, so a `#run` that takes Windows-only paths cannot work there).
-In `native` mode the harness first builds the third-party libraries for the platform
-([native libraries](native-libs.md)) and points `JAIC_NATIVE_LIBS` at
-them. The MinGW cross builds link static archives that `tools/windows_cross.py build --stdlib`
-cross-builds first (`build_native_libs.py --platform windows-<cpu>-mingw`, with the MinGW-w64 or
-llvm-mingw compilers) and hands to `jaic` as `JAIC_CROSS_LIBS`, so the executables need no
-DLL. The window tests need OpenGL 3.3, which the Windows runners lack: the x64 jobs
-unpack Mesa's llvmpipe (`tools/install_ci_mesa_windows.sh`, a pinned and checksum-verified
-mesa-dist-win release) and put its `opengl32.dll` next to `jaic.exe`, next to each native test
-program (`--dlls DIR` copies DIR's DLLs beside every executable before running it) and into the
-cross-built programs' directory, with `GALLIUM_DRIVER=llvmpipe`. mesa-dist-win has no arm64
-build, so arm64 keeps those skips.
+The producer suites have specialized native setup, child processes, fault tests,
+arguments and target matrices; their drivers must run as well. On macOS/Linux:
 
-**Coverage.** With `--coverage FILE`, every `interp` and `wasm-interp` run sets `JAIC_COVERAGE`,
-which makes the interpreter append `path:line name` for every procedure it executes (also when the
-program calls `exit`). `tools/stdlib_coverage.py --record FILE` then lists each module's public
-procedures (top-level `name :: (...) {` declarations under `#scope_export`, following `#load`,
-skipping `#foreign`, `#compiler`, `#intrinsic` and other bodiless declarations) and counts those
-the record names. `#expand` macros are inlined and never "executed", so a macro counts as covered
-when a test source mentions its name. Files named for another OS (`windows.jai`, `os/alsa.jai`...)
-are left out of a platform's count unless `--all-platforms` is given.
+~~~sh
+python3 tools/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs artifacts/native-libs/macos-arm64 --font /path/to/real/font.ttf
+~~~
 
-**Ratchet.** `tests/stdlib-coverage.txt` keeps, per platform, the covered count of every module.
-`--check` fails when a module covers fewer procedures than its baseline; CI prints the platform's
-current section (`--print-baseline`) so a raised baseline can be pasted in. Native runs are not
-recorded: native code has no coverage hook, and the interpreter runs the same stdlib code.
+Select a different real native-library directory for the host. The aggregator
+runs foundations, portable, platform, audio, window and tooling drivers directly
+against production. It continues independent suites after failure and retains a
+failing aggregate exit. Some producer builders/drivers are currently POSIX or
+macOS specific; Windows uses its native CI steps and platform driver, and full
+portable/tooling Windows execution is still a gap. No staging overlay is
+accepted as production proof.
 
-**Modules with no coverage entry.** The report counts procedures with a Jai body, so a module
-that only declares `#foreign` procedures, types or constants has nothing to count and no entry.
-Those modules, and what exercises or blocks them:
+## Results and configuration
 
-| Module | Status |
-|---|---|
-| `stb_image`, `stb_image_write`, `stb_image_resize` | run by `stb-image-codecs` (PNG/BMP/TGA/JPEG/HDR encode and decode, header queries, resizing, corrupt input); also by the Simp tests. No wasm build |
-| `stb_vorbis` | run by the Sound_Player tests |
-| `freetype`, `freetype255`, `freetype-2.12.1` | run by `freetype-bdf-glyph` (a BDF bitmap font held in the test: library version, opening it from memory, glyph lookup, a rendered glyph checked row by row, refusing junk) and by the Simp and GetRect tests; built from the pinned source on every platform, and found before any system copy. No wasm build |
-| `rpmalloc` | run by `rpmalloc-allocator` (macOS and Linux; the library is not built for Windows or wasm) |
-| `executable_formats`, `generate_c_header`, `Project_Generator` | pure Jai, run by `format-detection-helpers` |
-| `Windows`, `Windows_Registry`, `Windows_Resources`, `Windows_Utf8`, `d3d11`, `d3d12`, `d3d_compiler`, `dxc_compiler`, `dxgi`, `debug_info` | Windows-only; the File, Process and Window tests reach the parts the stdlib itself uses on the Windows jobs, the Direct3D and DXC bindings need a GPU driver and the SDK's runtime DLLs that the CI images lack |
-| `X11`, `Linux`, `Vulkan` | used by the window, input and clipboard tests on Linux; Vulkan needs a driver and loader the runners lack |
-| `Metal`, `Objective_C`, `macos` | used by the window tests on macOS; Metal rendering needs a GPU that virtualised runners do not expose |
-| `SDL` | run by `sdl2-geometry-timer` (version, platform name, rectangle and line geometry, hints, the timer subsystem and clocks; no window). macOS and Linux use the installed SDL2 (CI installs Homebrew's `sdl2` and `libsdl2-dev`); Windows x64 uses the official release's import library and DLL from tools/native-libs.json. Skipped on Windows arm64 (no official binaries) and in wasm |
-| `ImGui` | run by `imgui-headless-frames` (a context with no window: the font atlas, frames with a window, a button, a checkbox and a slider, injected mouse clicks, draw data, themes); built from the pinned 1.89.6 source. Skipped for MinGW (the Windows bindings name MSVC-decorated symbols) and wasm |
-| `MojoShader` | run by `mojoshader-translate` (hand-written ps_2_0 bytecode to GLSL, GLSL 1.20 and ARB, assembler round trip, the HLSL compiler front end, errors); built from the pinned source with Lemon. No wasm build |
-| `Gamepad`, `Keymap`, `Thekla_Atlas`, `Thekla_Baker`, `nvtt`, `nvidia_aftermath`, `telemetry3` | bindings to SDKs or libraries that tools/native-libs.json does not build and the runners do not install |
-| `lz4` | run by `lz4-roundtrip` (default, fast and HC modes, the compress bound, too-small destinations, truncated and corrupt input, partial decompression); built from the official 1.10.0 release archive |
-| `meshoptimizer` | run by `meshoptimizer-indices` (index a shuffled grid, vertex cache, overdraw and fetch optimization, strips, the index and vertex codecs: triangle sets, index ranges and cache statistics are checked); C++ built without a C++ runtime library |
-| `pl_mpeg` | run by `pl-mpeg-decode`, which decodes `tests/stdlib/pl-mpeg-clip.mpg`, a 0.4 s clip of a red 32x32 picture and a 440 Hz tone that was made for the test with ffmpeg's synthetic `color` and `sine` sources (no third-party content, so no license to carry) |
-| `meow_hash` | pure Jai (`#asm` AES rounds); checked by `tests/stdlib/meow-hash.jai` against the official 0.5 digests |
-| `Curl`, `Mail` | libcurl is a system library whose development files and version vary between the runners, so a `file://` test is not reliable there |
-| `Android`, `Toolchains`, `Codex`, `Preload`, `Simple_Package`, `Window_Type`, `GetRect_Common`, `Default_Metaprogram`, `Minimal_Metaprogram` | target-specific, data-only, or metaprograms that other tests drive through the compiler |
-| `Runtime_Support_Crash_Handler` | installed by the program entry point; a crash is not something a passing test can provoke |
+stdlib_runtime.py --filter TEXT selects catalogue IDs; an empty selection is an
+error. --modes selects interpreter, native, target-WASM interpreter, or actual
+WASI execution; --opt O0|O2 controls generated executables. Source checks and
+compile-time-only cases are counted separately from execution. Required
+check-fail contracts need nonzero status and the precise reviewed diagnostic;
+privacy cases also compile a positive public import baseline. Positive contracts
+compare exact stdout. All selected supported failures are fatal. --strict
+remains an accepted spelling and cannot permit failures.
 
-## Running it locally
+Native SDK/graphics families are explicitly unavailable under WASM, reported
+separately and never counted passed. Missing SDKs, fonts, helper probes, display
+servers and implementation failures on an applicable native host remain failures.
+Specialized module tests requiring prepared SDK probes or a font must also run
+through their real producer drivers; the generic catalogue does not fabricate
+those inputs. Cross-platform source checking is not native execution evidence.
+The browser runner uses the same catalogue, reports explicit unavailable foreign
+diagnostics separately, and requires precise negative diagnostics/public baselines.
 
-Build `jaic` first (`cargo build -p jaic-cli`). The harness defaults to the host platform and the
-debug binary in `$CARGO_TARGET_DIR` (or `target/`).
+stdlib_coverage.py is informational interpreter reachability: it uses a source
+parser and macro-name heuristic. It is neither an exact reflected public API
+inventory nor behavior coverage. The obsolete numeric ratchet is removed.
 
-```sh
-# macOS and Linux: everything CI runs
-python3 tools/stdlib_runtime.py --modes interp,native,wasm-interp,wasm-native --strict \
-    --coverage target/stdlib-coverage.txt
-python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --check
+## Changing tests and dependencies
 
-# one test, with full failure output
-python3 tools/stdlib_runtime.py --filter file-handles --modes interp,native -v
+Add reviewed public cases to the contract manifest, with spec provenance and
+independent review recorded in the coverage notes. Keep compiler/ABI/Extensions
+regressions in their own family; do not invent a stdlib export for a test helper.
+A negative fixture needs a nonempty diagnostic_contains and, for privacy, a
+positive_baseline. Add specialized cases to their producer driver so correct
+native preparation, O0/O2 and target coverage remain required.
 
-# what a module still lacks
-python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --uncovered Process
-```
-
-- **Linux**: GUI tests need a display. CI uses `xvfb-run -a -s "-screen 0 1280x1024x24"` with
-  Mesa (`libgl1-mesa-dri`), X11, EGL and FreeType development packages, `libxfixes-dev` (the input
-  test reads the cursor), `xclip` (clipboard) and `libasound2-dev` with a `~/.asoundrc` that makes
-  the default PCM `type null`, so Sound_Player plays without a sound card.
-- **macOS**: Simp and GetRect use the FreeType that `tools/build_native_libs.py` builds, which `jaic`
-  finds before Homebrew's (`/opt/homebrew/lib`); CI still installs Homebrew's `freetype` for projects that
-  link it themselves. `sdl2-geometry-timer` needs Homebrew's `sdl2`, which CI installs.
-- **Windows**: run from a Developer PowerShell (MSVC and the Windows SDK on `PATH`) with
-  `--modes interp,native`; the wasm modes are not run there.
-- **Native libraries** (stb_image, FreeType, ImGui, MojoShader, stb_vorbis...): the harness builds
-  them with `tools/build_native_libs.py` when `JAIC_NATIVE_LIBS` is unset (it needs a C and a C++
-  compiler; on Windows, Clang). On Linux the SDL2 test needs `libsdl2-dev`.
-- `wasm-native` needs `node` and `wasm-ld`.
-
-## How to change it
-
-**Adding a test.** Drop `tests/stdlib/<name>.jai` (or `stdlib/<Module>/tests/<name>.jai`) with a
-`main` that asserts what it checks and exits 0. Make it work in all four modes: compile
-OS-specific parts with `#if OS == ...`, and under `OS == .WASM` keep whatever does not need
-files, threads, processes or native libraries. Check results, not just that calls return; cover
-empty inputs, non-ASCII text and paths, large inputs and failures (missing files must fail
-cleanly). Put scratch files under `.scratch/<name>/`. Run it in every mode locally, then
-`jaic t.jai -check -os windows` and `-os linux` for the other hosts.
-
-**`tests/stdlib/` and the playground.** `tools/check_playground_stdlib.mjs` also runs every
-`tests/stdlib/*.jai` in the browser engine. It reads the same skip list: a line whose modes include
-`playground` (and whose platforms match `browser`, as `*` does) marks a test that cannot pass
-there, and a listed test that passes fails the check as stale. A test that needs what wasm lacks
-(sockets, windows, native libraries) is listed for `wasm-interp,wasm-native,playground` rather
-than given a `main` that only prints `ok` under `OS == .WASM`.
-
-**When a run cannot pass**, fix the bug if there is one. Otherwise add a skip line whose reason
-says what is missing on that platform; never skip a test because it is flaky.
-
-**Raising the baseline.** After adding tests, regenerate the local section with
-`stdlib_coverage.py --record ... --update` and paste the other platforms' sections from the CI
-logs (`--print-baseline` output of the `stdlib-runtime` and Windows jobs). Lowering a baseline
-needs a reason in the commit message (for example, a procedure was removed).
-
-**Gotchas.**
-- A two-argument call can pick a different overload than you expect (`Debug.backtrace(frames, 1)`
-  is `(trace, skip)`); name or pass the arguments that select the one you mean.
-- `jaic -interp` changes to the main file's directory, as native runs do through the harness.
-- Windows `/tmp/x` means `\tmp\x` on the current drive: fine for the File module, but tools that
-  resolve paths themselves (clang) need an absolute path.
-
-## Configuration
-
-| Setting | Effect |
-|---|---|
-| `--jaic PATH` | compiler to test (default: `$CARGO_TARGET_DIR/debug/jaic`) |
-| `--modes a,b` | modes to run (default `interp,native`) |
-| `--platform NAME` | skip-list platform (default: the host's) |
-| `--filter TEXT` | only tests whose id contains TEXT |
-| `--coverage FILE` | write the coverage record |
-| `--strict` | a listed skip that passes is a failure |
-| `--timeout SECONDS` | per run (default 180) |
-| `-j N` | tests at once |
-| `JAIC_COVERAGE=FILE` | interpreter: append executed procedures to FILE |
-| `JAIC_STDLIB_TEST_MODE` | set by the harness for each run (`interp`, `native`, `wasm-interp`, `wasm-native`); a test whose outcome depends on the machine reads it instead of a skip line, which `--strict` would report as stale where the test passes |
-| `JAIC_MEMORY_LIMIT` | interpreter memory cap; the harness sets 3G unless set |
-| `JAIC_NATIVE_LIBS` | directory of built third-party libraries |
-
-## Dependencies
-
-- `jaic` (interpreter coverage hook in `crates/jaic/src/interp/profile.rs`).
-- `node` and `tools/wasi_run.mjs` for `wasm-native` (it names every missing import before running).
-- `tools/build_native_libs.py` for native third-party libraries.
-- CI: the `stdlib-runtime` job in `.github/workflows/ci.yml` (macOS arm64/x64, Linux x64/arm64)
-  and the stdlib steps in `.github/workflows/windows-native.yml` (MSVC x64/arm64, MinGW cross).
+Use source-built native dependencies and repository pins. Linux needs native
+headers/libraries, Xvfb/Mesa, real fonts and applicable audio backends; macOS uses
+official SDKs and actual host graphics/clipboard; Windows requires native MSVC/
+LLVM, correct-architecture libraries and Mesa, plus actual native CI. Source-only
+or unavailable hardware checks must be stated as such. Corpus vendor library
+bodies remain opaque to the integration worker; coordinator runs the original
+full application corpus and Focus. Release/publication remains held.

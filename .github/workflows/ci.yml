@@ -49,7 +49,6 @@ jobs:
         # directly (node:test in this process) rather than in a `--test` child without the flag.
         run: JAI_WASM_DIR=artifacts/ci-wasm node --experimental-wasm-jspi tools/test_webgpu_host.mjs
       - name: Run every stdlib test in the browser engine
-        # Every test must pass, except those tests/stdlib-runtime-skips.txt lists for `playground`
         # because they need what the browser lacks (native libraries, windows); a test that only
         # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
         run: node tools/check_playground_stdlib.mjs artifacts/ci-wasm
@@ -272,10 +271,6 @@ jobs:
       - name: Run the plugin tests (builds only jailsp)
         run: just nvim-test -j 2
   stdlib-runtime:
-    # Every stdlib runtime test (tests/stdlib and the modules' own tests) under the interpreter,
-    # as a native executable, in the wasm sandbox and as a WASI module, with the platform's
-    # expected skips from tests/stdlib-runtime-skips.txt; then the per-module coverage of public
-    # procedures against tests/stdlib-coverage.txt (docs/tools/stdlib-runtime-tests.md).
     name: stdlib runtime tests (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -307,7 +302,7 @@ jobs:
           tools/install_ci_llvm_macos.sh --lld
           # The stdlib's FreeType is built by tools/build_native_libs.py and found first;
           # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
-          # tests/stdlib/sdl2-geometry-timer.jai uses Homebrew's.
+          # tests/native-regressions/sdl2-geometry-timer.jai uses Homebrew's.
           brew list freetype > /dev/null 2>&1 || brew install freetype
           brew list sdl2 > /dev/null 2>&1 || brew install sdl2
       - name: Install LLVM 23, the window libraries and a virtual display (Linux)
@@ -322,17 +317,41 @@ jobs:
           # input test see the cursor, xclip backs the clipboard test, and ALSA is Sound_Player's
           # output, played into a null PCM since the runners have no sound card.
           # Mesa's lavapipe (mesa-vulkan-drivers) is the Vulkan adapter of the WebGPU test.
-          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libsdl2-dev libgl1-mesa-dri xvfb xauth xclip libxfixes-dev libasound2-dev mesa-vulkan-drivers
+          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libsdl2-dev libgl1-mesa-dri xvfb xauth xclip libxfixes-dev libasound2-dev mesa-vulkan-drivers fonts-dejavu-core
           printf 'pcm.!default {\n    type null\n}\n' > ~/.asoundrc
-      - name: Build jaic
-        run: cargo build --locked -p jaic-cli
-      - name: Run the stdlib runtime tests
+      - name: Build production compiler and lint tools
+        run: |
+          cargo build --locked -p jaic-cli -p jailint
+          cargo build --locked --release -p jaic-cli
+          target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+      - name: Build private native dependencies from source
+        run: |
+          python3 tools/build_portable_runtime.py
+          python3 tools/window_render_native.py
+          python3 tools/build_native_libs.py
+      - name: Run reviewed contracts and retained regressions
         run: |
           ulimit -c 0
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
-          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/debug/jaic --platform ${{ matrix.platform }} \
+          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
             --modes interp,native,wasm-interp,wasm-native --strict --coverage target/stdlib-coverage.txt
+      - name: Reviewed contract native O2
+        if: ${{ always() && !cancelled() }}
+        run: python3 tests/stdlib-contract/run.py --jaic "$PWD/target/release/jaic" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+      - name: NEW producer behavior suites against production
+        if: ${{ always() && !cancelled() }}
+        run: |
+          run=()
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            run=(xvfb-run -a -s "-screen 0 1280x1024x24")
+            font=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+          else
+            font="/System/Library/Fonts/Supplemental/Arial.ttf"
+          fi
+          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
+          "${run[@]}" python3 -u tools/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
+            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --font "$font"
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
         # an error scope (tests/webgpu/headless.jai). Linux has Mesa's lavapipe; the macOS
@@ -350,9 +369,9 @@ jobs:
           run=() require=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24") require=(--require-adapter)
           "${run[@]}" python3 -u tools/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
-      - name: Stdlib coverage ratchet
+      - name: Informational interpreter reachability
         if: ${{ always() && !cancelled() }}
-        run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }} --check --print-baseline
+        run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }}
   upstream-smoke:
     # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
     # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
@@ -446,7 +465,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           tools/install_ci_llvm_macos.sh
-          # tests/stdlib/sdl2-geometry-timer.jai links the installed SDL2.
+          # tests/native-regressions/sdl2-geometry-timer.jai links the installed SDL2.
           brew list sdl2 > /dev/null 2>&1 || brew install sdl2
       - name: Install LLVM 23 and its sanitizer runtimes (Linux)
         if: runner.os == 'Linux'

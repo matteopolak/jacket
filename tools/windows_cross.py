@@ -8,8 +8,7 @@
 
 `build` compiles every corpus case with a runtime expectation (tests/corpus/manifest.json),
 the self-checking programs in WINDOWS_PROGRAMS, the C struct fixture and, with `--stdlib`,
-the stdlib runtime tests (tools/stdlib_runtime.py, minus the skips tests/stdlib-runtime-skips.txt
-lists for `windows-<cpu>-mingw`, or `windows-<cpu>` with `--host`) to `dir/<id>.exe` and writes
+the reviewed contracts and independent regression catalogue (tools/stdlib_test_catalog.py) to `dir/<id>.exe` and writes
 `dir/expected.json`. `run` executes them and compares exit code and stdout (for a case that
 expects a runtime error, a failing status and the error's message on stderr). See
 docs/native/windows.md.
@@ -31,16 +30,15 @@ import stdlib_runtime  # noqa: E402
 WINDOWS_PROGRAMS = [
     "tests/native/windows/runtime.jai",
     "tests/native/windows/variadic.jai",
-    "tests/stdlib/struct-literal-overrides-default-string.jai",
-    "tests/stdlib/array-literal-view-lifetime.jai",
-    "tests/stdlib/c-variadic-foreign-calls.jai",
-    "tests/stdlib/member-align-lowers-alignment.jai",
-    "tests/stdlib/over-aligned-allocation.jai",
+    "tests/compiler-regressions/struct-literal-overrides-default-string.jai",
+    "tests/compiler-regressions/array-literal-view-lifetime.jai",
+    "tests/compiler-regressions/c-variadic-foreign-calls.jai",
+    "tests/compiler-regressions/member-align-lowers-alignment.jai",
+    "tests/compiler-regressions/over-aligned-allocation.jai",
 ]
 
-def skip_platform(args):
-    """The tests/stdlib-runtime-skips.txt platform of these builds: the MSVC host build is
-    `windows-<cpu>`, a MinGW cross build `windows-<cpu>-mingw`."""
+def target_platform(args):
+    """Actual build target; no legacy expected-failure baseline."""
     if args.host:
         return stdlib_runtime.host_platform()
     return f"windows-{args.cpu}-mingw"
@@ -68,13 +66,12 @@ def cases(stdlib, platform=None):
         yield path.stem, path, 0, "ok\n", True
     if not stdlib:
         return
-    # The stdlib runtime tests (tools/stdlib_runtime.py): each must build and exit 0, except
-    # those tests/stdlib-runtime-skips.txt lists for this platform's `native` mode. A program
-    # without `main` did its work at compile time and builds nothing to run.
-    skips = stdlib_runtime.load_skips()
-    for test, path in stdlib_runtime.cases():
-        if path not in listed and not stdlib_runtime.skip_reason(skips, test, platform, "native"):
-            yield f"stdlib-{test.replace('/', '-')}", path, 0, None, True
+    # Expected compile-time failures are validated separately; they are not executables.
+    for case in stdlib_runtime.validated_entries():
+        if case.get("mode") == "check-fail" or "error_contains" in case:
+            continue
+        if case["path"] not in listed:
+            yield "stdlib-" + case["id"].replace("/", "-"), case["path"], 0, case.get("stdout"), True
 
 
 # tests/native/c-structs-by-value: C structs by value both ways across the C ABI, against C
@@ -142,7 +139,7 @@ def use_cross_libs(args):
     with the MinGW toolchain, and point `jaic` at them (JAIC_CROSS_LIBS). They are static
     archives, so the executables need no DLL beside them, except SDL2, which comes as the
     official release's import library and DLL (copied beside the executables, see `build`)."""
-    platform = skip_platform(args)
+    platform = target_platform(args)
     subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py"), "--platform", platform], check=True)
     import build_native_libs
 
@@ -157,7 +154,30 @@ def build(args):
     if args.stdlib and not args.host:
         use_cross_libs(args)
     expected, failures, skipped = {}, [], []
-    all_cases = list(cases(args.stdlib, skip_platform(args)))
+    negative_checks = 0
+    if args.stdlib:
+        catalogue = stdlib_runtime.validated_entries()
+        target = [] if args.host else ["-os", "windows", "-cpu", args.cpu]
+        for case in catalogue:
+            if case.get("mode") != "check-fail" and "error_contains" not in case:
+                continue
+            flags = ["-check"] if case.get("mode") == "check-fail" else ["-interp", "-no_workspace_output"]
+            code, output = stdlib_runtime.run_command([str(pathlib.Path(args.jaic).resolve()), str(case["path"]), *target, *flags],
+                                                      case["path"].parent, 300, dict(os.environ))
+            valid = stdlib_runtime.contract_result(case, code, output)
+            if case.get("positive_baseline"):
+                baseline = next(c for c in catalogue if c["id"] == "contracts/" + case["positive_baseline"])
+                bcode, bout = stdlib_runtime.run_command([str(pathlib.Path(args.jaic).resolve()), str(baseline["path"]), *target, "-check"],
+                                                         baseline["path"].parent, 300, dict(os.environ))
+                valid = valid and bcode == 0
+                if bcode != 0:
+                    output += "\npositive baseline failed:\n" + bout
+            if valid:
+                negative_checks += 1
+            else:
+                failures.append(case["id"] + ": expected precise rejection did not match:\n" + output)
+        print(f"{negative_checks} expected negative target checks; no native execution claim")
+    all_cases = list(cases(args.stdlib, target_platform(args)))
     # Builds are independent; run several at once (each is mostly single-threaded).
     with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 2) as pool:
         errors = list(pool.map(lambda case: build_one(args, case[1], out / case[0]), all_cases))

@@ -3,41 +3,26 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from stdlib_coverage import code_lines, declarations
-from stdlib_runtime import load_skips, skip_reason, unknown_skip_tests
+from stdlib_runtime import contract_result
+from stdlib_test_catalog import validated_entries, unavailable_reason
 
 
-class SkipListTests(unittest.TestCase):
-    def test_unknown_skip_entries_remain_failures_without_removing_real_cases(self):
-        skips = self.skips("present * native reason\nmissing * * stale inventory\n")
-        known = {"present", "new-case"}
-        self.assertEqual(unknown_skip_tests(skips, known), ["missing"])
-        self.assertEqual(known, {"present", "new-case"})
-        self.assertEqual(skip_reason(skips, "present", "macos-arm64", "native"), "reason")
+class CatalogueTests(unittest.TestCase):
+    def test_reviewed_and_independent_families_are_discovered(self):
+        cases = validated_entries()
+        self.assertEqual({c["family"] for c in cases}, {"contracts", "compiler", "extensions", "native", "graphics", "modules"})
+        self.assertTrue(any(c["id"] == "contracts/hash-private-seed-is-not-exported" for c in cases))
+        self.assertTrue(any(c["id"] == "compiler/array-bounds-check-opt-out" for c in cases))
+        self.assertFalse(any("tests/stdlib/" in str(c["path"]) for c in cases))
 
-    def skips(self, text):
-        with TemporaryDirectory() as d:
-            path = Path(d) / "skips.txt"
-            path.write_text(text)
-            return load_skips(path)
-
-    def test_patterns_modes_and_comments(self):
-        skips = self.skips(
-            "# header\n\n"
-            "a linux-*,macos-arm64 native,wasm-native no libfoo there  # trailing comment\n"
-            "b * * never\n"
-        )
-        self.assertEqual(skip_reason(skips, "a", "linux-arm64", "native"), "no libfoo there")
-        self.assertEqual(skip_reason(skips, "a", "macos-arm64", "wasm-native"), "no libfoo there")
-        self.assertIsNone(skip_reason(skips, "a", "macos-x64", "native"))
-        self.assertIsNone(skip_reason(skips, "a", "linux-x64", "interp"))
-        self.assertEqual(skip_reason(skips, "b", "windows-x64-mingw", "wasm-interp"), "never")
-        self.assertIsNone(skip_reason(skips, "c", "linux-x64", "interp"))
-
-    def test_malformed_lines_are_rejected(self):
-        with self.assertRaises(SystemExit):
-            self.skips("a * native\n")
-        with self.assertRaises(SystemExit):
-            self.skips("a * compile no such mode\n")
+    def test_precise_negative_and_positive_output_are_required(self):
+        case = {"mode": "check-fail", "diagnostic_contains": "has no exported member `HASH_INIT`"}
+        self.assertFalse(contract_result(case, 0, case["diagnostic_contains"]))
+        self.assertFalse(contract_result(case, 1, "unrelated syntax error"))
+        self.assertTrue(contract_result(case, 1, "error: " + case["diagnostic_contains"]))
+        self.assertFalse(contract_result({"stdout": "ok\n"}, 0, "wrong\n"))
+        self.assertIsNone(unavailable_reason({"family": "native"}, "native"))
+        self.assertIsNotNone(unavailable_reason({"family": "native"}, "wasm-native"))
 
 
 class CoverageParserTests(unittest.TestCase):

@@ -1,35 +1,11 @@
 #!/usr/bin/env python3
-"""Run every stdlib runtime test under the interpreter and as a compiled program.
+"""Run reviewed stdlib contracts, NEW module tests and independent regressions.
 
-    stdlib_runtime.py [--jaic PATH] [--modes interp,native,wasm-interp,wasm-native]
-                      [--platform KEY] [--filter TEXT] [--coverage FILE] [--strict] [-j N]
-                      [--dlls DIR]
-
-The tests are `tests/stdlib/*.jai` and the stdlib's own module tests (`stdlib/<Module>/tests/*.jai`,
-`stdlib/Extensions/<Module>/tests/*.jai`,
-`stdlib/tests/**/*.jai`, minus their `modules/` folders of mock modules). Each one checks its own
-results with `assert` and must exit 0 in every mode:
-
-    interp       `jaic file.jai -interp`
-    native       `jaic file.jai` for the host, then the executable
-    wasm-interp  `jaic file.jai -interp -os wasm` (the sandboxed host the browser engine also uses)
-    wasm-native  `jaic file.jai -os wasm`, then the module under node's WASI (tools/wasi_run.mjs)
-
-A program without `main` does its work while it compiles; its build passing is its result in the
-`native` and `wasm-native` modes. Programs run in their own directory, one mode after another,
-so a test may use fixed scratch paths.
-
-Platforms (`--platform`, default the host's): `macos-arm64`, `macos-x64`, `linux-x64`,
-`linux-arm64`, `windows-x64`, `windows-arm64`, and the MinGW cross builds `tools/windows_cross.py`
-makes, `windows-x64-mingw` and `windows-arm64-mingw`. `tests/stdlib-runtime-skips.txt` lists the
-tests that cannot pass on a platform and mode, with the reason. A skipped test still runs; one that
-passes is reported, and fails the run with `--strict` (CI), so the list cannot go stale.
-
-`--coverage FILE` records the procedures the interpreter runs (JAIC_COVERAGE) for
-`tools/stdlib_coverage.py`. See docs/tools/stdlib-runtime-tests.md.
+No inherited compatibility skip/coverage baseline is consulted. Native-only SDK
+and graphics cases are reported unavailable in WASM modes, not counted passed.
+Producer-owned specialized suites remain required separate integration gates.
 """
 import argparse
-import fnmatch
 import threading
 import os
 import platform
@@ -38,15 +14,12 @@ import subprocess
 import sys
 import tempfile
 import time
+from stdlib_test_catalog import validated_entries, unavailable_reason
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIPS = ROOT / "tests/stdlib-runtime-skips.txt"
 MODES = ["interp", "native", "wasm-interp", "wasm-native"]
-# Skip lines may also name `playground`: the browser engine, run by tools/check_playground_stdlib.mjs
-# (platform `browser`) on tests/stdlib/*.jai.
-SKIP_MODES = MODES + ["playground"]
 COVERAGE_LOCK = threading.Lock()
 
 
@@ -58,46 +31,21 @@ def host_platform():
 
 
 def cases():
-    """(id, path) of every runtime test: tests/stdlib by file name, module tests by their path
-    below stdlib/ without `.jai` (as tools/jaic-sweep.py names them)."""
-    for path in sorted((ROOT / "tests/stdlib").glob("*.jai")):
-        yield path.stem, path
-    stdlib = ROOT / "stdlib"
-    found = (set(stdlib.glob("*/tests/*.jai")) | set(stdlib.glob("Extensions/*/tests/*.jai"))
-             | set((stdlib / "tests").glob("**/*.jai")))
-    for path in sorted(found):
-        rel = path.relative_to(stdlib)
-        if "modules" not in rel.parts:
-            yield rel.with_suffix("").as_posix(), path
+    for case in validated_entries():
+        yield case["id"], case["path"]
 
 
-def load_skips(path=SKIPS):
-    """[(test id, platform patterns, modes, reason)] from the skip list. Each line is
-    `id platforms modes reason`: platforms and modes are comma-separated, platforms are
-    shell-style patterns (`linux-*`), `*` means every mode; `#` starts a comment."""
-    skips = []
-    for number, line in enumerate(path.read_text().splitlines(), 1):
-        line = line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        parts = line.split(None, 3)
-        if len(parts) < 4:
-            raise SystemExit(f"{path.name}:{number}: expected `test platforms modes reason`")
-        test, platforms, modes, reason = parts
-        modes = SKIP_MODES if modes == "*" else modes.split(",")
-        unknown = [m for m in modes if m not in SKIP_MODES]
-        if unknown:
-            raise SystemExit(f"{path.name}:{number}: unknown mode {unknown[0]!r}")
-        skips.append((test, platforms.split(","), modes, reason))
-    return skips
-
-
-def skip_reason(skips, test, plat, mode):
-    """Why `test` is not expected to pass on `plat` in `mode`, or None."""
-    for skip_test, platforms, modes, reason in skips:
-        if skip_test == test and mode in modes and any(fnmatch.fnmatchcase(plat, p) for p in platforms):
-            return reason
-    return None
+def contract_result(case, code, output):
+    if case.get("mode") == "check-fail":
+        diagnostic = case.get("diagnostic_contains")
+        if not isinstance(diagnostic, str) or not diagnostic.strip():
+            raise ValueError("check-fail requires a precise diagnostic")
+        return code is not None and code != 0 and diagnostic in output
+    if "error_contains" in case:
+        return code == case["exit_code"] and case["error_contains"] in output
+    if "stdout" in case:
+        return code == 0 and output == case["stdout"]
+    return code == 0
 
 
 def use_native_libs(plat):
@@ -107,7 +55,7 @@ def use_native_libs(plat):
         return
     if plat.endswith("-mingw"):
         return
-    # On Windows the skip-list platform names the CPU (`python` may be an x64 build on arm64).
+    # On Windows the selected platform names the CPU (`python` may be an x64 build on arm64).
     plat = plat if sys.platform == "win32" else None
     sys.path.insert(0, str(ROOT / "tools"))
     import build_native_libs
@@ -133,7 +81,7 @@ def run_command(command, cwd, timeout, env):
         return code, out.read().decode("utf-8", "replace").replace("\r\n", "\n")
 
 
-def run_mode(args, test, path, mode, scratch):
+def run_mode(args, test, path, mode, scratch, metadata=None):
     """(passed, detail) of one test in one mode; passed is None when the build wrote nothing to
     run (the program did its work at compile time)."""
     env = dict(os.environ)
@@ -153,10 +101,10 @@ def run_mode(args, test, path, mode, scratch):
             with COVERAGE_LOCK, open(args.coverage, "a", encoding="utf-8") as into:
                 into.write(record.read_text(encoding="utf-8", errors="replace"))
             record.unlink()
-        return code == 0, out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
+        return contract_result(metadata or {}, code, out), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     exe = Path(tempfile.mkdtemp(dir=scratch)) / test.replace("/", "-")
     try:
-        code, out = run_command([args.jaic, str(path), *target, "-exe", str(exe)], path.parent,
+        code, out = run_command([args.jaic, str(path), *target, "-" + args.opt, "-exe", str(exe)], path.parent,
                                 args.timeout, env)
         # A program without `main` did all its work at compile time.
         if code != 0 and ("no exported 'main'" in out or "has no `main` procedure" in out):
@@ -177,14 +125,9 @@ def run_mode(args, test, path, mode, scratch):
                 shutil.copy2(dll, exe.parent / dll.name)
         command = ["node", "--no-warnings", str(ROOT / "tools/wasi_run.mjs"), str(built[0])] if wasm else [str(built[0])]
         code, out = run_command(command, path.parent, args.timeout, env)
-        return code == 0, out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
+        return contract_result(metadata or {}, code, out), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     finally:
         shutil.rmtree(exe.parent, ignore_errors=True)
-
-
-def unknown_skip_tests(skips, known):
-    """Inventory errors fail the run after every available test has executed."""
-    return sorted({test for test, *_ in skips if test not in known})
 
 
 def main():
@@ -192,10 +135,11 @@ def main():
     target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
     ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
     ap.add_argument("--modes", default="interp,native", help="comma-separated: " + ", ".join(MODES))
-    ap.add_argument("--platform", default=host_platform(), help="skip-list platform (default: the host's)")
+    ap.add_argument("--opt", choices=("O0", "O2"), default="O0", help="native optimization level")
+    ap.add_argument("--platform", default=host_platform(), help="actual host/target platform")
     ap.add_argument("--filter", default="", help="only tests whose id contains this")
     ap.add_argument("--coverage", type=Path, help="append the procedures the interpreter runs to this file")
-    ap.add_argument("--strict", action="store_true", help="a skipped test that passes fails the run")
+    ap.add_argument("--strict", action="store_true", help="retained CLI spelling; selected supported failures are always fatal")
     ap.add_argument("--timeout", type=float, default=180)
     ap.add_argument("--jobs", "-j", type=int, default=0, help="tests at once (default: CPU count, at most 8)")
     ap.add_argument("--dlls", type=Path,
@@ -211,37 +155,50 @@ def main():
     if args.coverage:
         args.coverage = args.coverage.resolve()
         args.coverage.unlink(missing_ok=True)
-    skips = load_skips()
     if "native" in modes:
         use_native_libs(args.platform)
-    todo = [(t, p) for t, p in cases() if args.filter in t]
-    known = {t for t, _ in cases()}
-    unknown = unknown_skip_tests(skips, known)
-    for test in unknown:
-        print(f"ERROR: {SKIPS.name} names {test!r}, which is not a test", flush=True)
+    catalogue = validated_entries()
+    todo = [case for case in catalogue if args.filter in case["id"]]
+    if not todo:
+        ap.error("test selection is empty")
     scratch = tempfile.mkdtemp(prefix="jaic-stdlib-runtime-")
     jobs = args.jobs or min(8, os.cpu_count() or 2)
 
     def run_test(case):
-        test, path = case
+        test, path = case["id"], case["path"]
         results = []
         for mode in modes:
-            reason = skip_reason(skips, test, args.platform, mode)
+            reason = unavailable_reason(case, mode)
             started = time.monotonic()
-            passed, detail = run_mode(args, test, path, mode, scratch)
-            results.append((mode, passed, detail, reason, time.monotonic() - started))
+            if reason:
+                passed, detail = None, reason
+            elif case.get("mode") == "check-fail" or "error_contains" in case:
+                target = ["-os", "wasm"] if mode.startswith("wasm") else []
+                check = ["-check"] if case.get("mode") == "check-fail" else ["-interp", "-no_workspace_output"]
+                code, detail = run_command([args.jaic, str(path), *target, *check], path.parent, args.timeout, dict(os.environ))
+                passed = contract_result(case, code, detail)
+                if case.get("positive_baseline"):
+                    baseline = next(c for c in catalogue if c["id"] == "contracts/" + case["positive_baseline"])
+                    baseline_code, baseline_output = run_command([args.jaic, str(baseline["path"]), *target, "-check"], baseline["path"].parent, args.timeout, dict(os.environ))
+                    if baseline_code != 0:
+                        passed = False
+                        detail += "\npositive public baseline failed:\n" + baseline_output
+            else:
+                passed, detail = run_mode(args, test, path, mode, scratch, case)
+            results.append((mode, passed, detail, reason, "error_contains" in case or case.get("mode") == "check-fail", time.monotonic() - started))
         return test, results
 
-    failures, stale, counts = [], [], {m: [0, 0, 0, 0] for m in modes}  # passed, failed, skipped, built only
+    failures, unavailable, counts = [], [], {m: [0, 0, 0, 0, 0] for m in modes}  # passed, failed, skipped, built only
     try:
         with ThreadPoolExecutor(max_workers=jobs) as pool:
             for test, results in pool.map(run_test, todo):
-                for mode, passed, detail, reason, _ in results:
+                for mode, passed, detail, reason, negative, _ in results:
                     c = counts[mode]
                     if reason is not None:
                         c[2] += 1
-                        if passed:
-                            stale.append(f"{test} [{mode}] passes on {args.platform} but is listed: {reason}")
+                        unavailable.append(f"{test} [{mode}]: {reason}")
+                    elif negative and passed:
+                        c[4] += 1
                     elif passed is None:
                         c[3] += 1
                     elif passed:
@@ -257,13 +214,13 @@ def main():
         print(f"FAIL {test} [{mode}]")
         for line in shown:
             print(f"    {line}")
-    for line in stale:
-        print(f"{'STALE' if args.strict else 'note'}: {line}")
+    for line in unavailable:
+        print("UNAVAILABLE " + line)
     print(f"\nstdlib runtime tests on {args.platform} ({len(todo)} tests):")
     for mode in modes:
-        p, f, s, b = counts[mode]
-        print(f"  {mode:<12} {p} passed, {f} failed, {s} skipped, {b} compile-time only")
-    return 1 if unknown or failures or (args.strict and stale) else 0
+        p, f, u, b, n = counts[mode]
+        print(f"  {mode:<12} {p} passed, {f} failed, {u} native-only unavailable, {b} compile-time only, {n} expected negative checks")
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ on:
       - stdlib/Extensions/Io/**
       - stdlib/Extensions/Tls/**
       - tools/native/mbedtls/**
-      - tests/stdlib/http-codec-*.jai
+      - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
       - tools/io_stress.py
       - tools/gen_http_corpus.py
@@ -24,7 +24,7 @@ on:
       - stdlib/Extensions/Io/**
       - stdlib/Extensions/Tls/**
       - tools/native/mbedtls/**
-      - tests/stdlib/http-codec-*.jai
+      - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
       - tools/io_stress.py
       - tools/gen_http_corpus.py

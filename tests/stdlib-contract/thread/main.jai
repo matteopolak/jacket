@@ -8,27 +8,31 @@ quick_worker :: (thread: *Thread.Thread) -> s64 {
 
 main :: () {
     mutex: Thread.Mutex;
+
     Thread.init(*mutex);
     Thread.lock(*mutex);
     Thread.unlock(*mutex);
     Thread.destroy(*mutex);
 
     semaphore: Thread.Semaphore;
-    Thread.init(*semaphore, initial_value=1);
-    result := Thread.wait_for(*semaphore, milliseconds=0);
+
+    Thread.init(*semaphore, initial_value = 1);
+    result := Thread.wait_for(*semaphore, milliseconds = 0);
+
     assert(result == .SUCCESS);
-    result = Thread.wait_for(*semaphore, milliseconds=0);
+    result = Thread.wait_for(*semaphore, milliseconds = 0);
     assert(result == .TIMEOUT);
     Thread.signal(*semaphore);
-    result = Thread.wait_for(*semaphore, milliseconds=0);
+    result = Thread.wait_for(*semaphore, milliseconds = 0);
     assert(result == .SUCCESS);
     Thread.destroy(*semaphore);
 
     #if OS == .WINDOWS || OS == .LINUX || OS == .MACOS || OS == .IOS || OS == .ANDROID {
         worker: Thread.Thread;
+
         assert(Thread.thread_init(*worker, quick_worker));
         Thread.thread_start(*worker);
-        assert(Thread.thread_is_done(*worker, milliseconds=5000));
+        assert(Thread.thread_is_done(*worker, milliseconds = 5000));
         Thread.thread_deinit(*worker);
     }
 

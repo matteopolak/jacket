@@ -2,7 +2,7 @@
 """Differential testing: run each program through every jaic backend and require the same result.
 
 Usage: tools/jaic-diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
-Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (tests/stdlib),
+Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (reviewed positive contracts), regressions (independent compiler/Extensions/ABI/graphics),
 modules (stdlib/*/tests and stdlib/tests), gen:SEED:COUNT (COUNT programs from tools/jaigen.py starting at
 SEED; reproduce one with `tools/jaigen.py SEED`), or file paths.
 
@@ -46,10 +46,8 @@ OUTPUT_VARIES = {
     # program prints which representation it tested.
     "extensions-long-double": "prints whether Long_Double is wide, which depends on the target ABI",
     # A profiler report: the numbers are measured times (a virtual clock on wasm).
-    "iprof-runtime-manual": "prints measured times",
     # trace_assert prints the native call stack: return addresses and the running executable's
     # symbols (the interpreter's own frames under `jaic -interp`).
-    "debug-assert-handlers": "prints a native stack trace",
 }
 
 # A native build of a program whose `main` calls a `#compiler` primitive stops with this message:
@@ -58,7 +56,7 @@ COMPILE_TIME_ONLY = "is a compiler primitive; it runs only at compile time"
 
 
 # A program that asks whether it runs in the browser (`OS == .WASM`) may skip work there, so its
-# output on wasm can differ by design; tests/stdlib programs skip processes, native libraries and
+# output on wasm can differ by design; target-aware programs may omit processes, native libraries and
 # windows this way. For such a program only the wasm status is compared.
 TARGET_AWARE = re.compile(r"\.WASM\b")
 
@@ -82,9 +80,18 @@ def cases(name, gen_dir, gen_size=1.0):
         for c in m["cases"]:
             if "runtime" in c:
                 yield Case(c["id"], ROOT / "tests/corpus" / c["source"])
-    elif name == "stdlib":
-        for p in sorted((ROOT / "tests/stdlib").glob("*.jai")):
-            yield Case(p.stem, p, ROOT / "tests/stdlib")
+    elif name in ("stdlib", "regressions"):
+        from stdlib_test_catalog import validated_entries, REGRESSION_FAMILIES
+        for c in validated_entries():
+            if (c["family"] == "contracts") != (name == "stdlib") or (name == "regressions" and c["family"] == "modules"):
+                continue
+            # Expected compiler rejections have precise diagnostic oracles in the contract runner.
+            # Differential execution compares successful/runtime-fault programs only.
+            if c.get("mode") == "check-fail" or "error_contains" in c:
+                continue
+            base = ROOT / "tests" / ("stdlib-contract" if name == "stdlib" else REGRESSION_FAMILIES[c["family"]])
+            cid = c["path"].stem if c["family"] == "extensions" else c["id"]
+            yield Case(cid, c["path"], base)
     elif name == "modules":
         found = (list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib").glob("Extensions/*/tests/*.jai"))
                  + list((ROOT / "stdlib/tests").glob("**/*.jai")))

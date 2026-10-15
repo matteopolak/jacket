@@ -4,6 +4,7 @@ Compiler :: #import "Compiler";
 
 main :: () {
     options: Compiler.Build_Options;
+
     assert(options.output_type == .EXECUTABLE);
     Compiler.set_optimization(*options, .DEBUG);
     assert(options.llvm_options.bitcode_optimization_setting == .O0);
@@ -12,7 +13,7 @@ main :: () {
     assert(options.cast_bounds_check == .FATAL && options.null_pointer_check == .ON);
     assert(!options.llvm_options.enable_loop_unrolling);
 
-    Compiler.set_optimization(*options, .VERY_OPTIMIZED, preserve_debug_info=false);
+    Compiler.set_optimization(*options, .VERY_OPTIMIZED, preserve_debug_info = false);
     assert(options.llvm_options.bitcode_optimization_setting == .O3);
     assert(options.llvm_options.machine_code_optimization_setting == .AGGRESSIVE);
     assert(options.llvm_options.enable_loop_unrolling);

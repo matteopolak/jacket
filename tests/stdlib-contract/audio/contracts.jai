@@ -7,6 +7,8 @@ main :: () {
 
     assert(data.nchannels == 1 && data.sampling_rate == 44100);
     assert(data.volume_scale == 1 && data.type == .UNINITIALIZED);
+    assert(!data.loaded && !data.skip_load);
+    assert(data.buffer.count == 0 && data.samples == null);
 
     stream: Sound_Player.Sound_Stream;
 

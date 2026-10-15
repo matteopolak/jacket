@@ -4,9 +4,11 @@ Jai_Lexer :: #import "Jai_Lexer";
 
 main :: () {
     lexer: Jai_Lexer.Lexer;
+
     Jai_Lexer.set_input_from_string(*lexer, "orchid 23");
 
     token := Jai_Lexer.peek_next_token(*lexer);
+
     assert(token.type == .IDENT && token.ident_value.name == "orchid");
     Jai_Lexer.eat_token(*lexer);
 

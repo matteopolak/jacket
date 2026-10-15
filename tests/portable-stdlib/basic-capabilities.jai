@@ -19,5 +19,12 @@ main :: () {
 
     assert(temp_flags == .HINT_I_AM_PER_FRAME_TEMPORARY_STORAGE);
     assert(temp_name.count > 0);
+    runtime_flags, runtime_name := get_capabilities(context.default_allocator);
+
+    assert((runtime_flags & .HINT_I_AM_A_GENERAL_HEAP_ALLOCATOR) != 0);
+    assert(runtime_name.count > 0);
+    repeated_flags, repeated_name := get_capabilities(context.default_allocator);
+
+    assert(repeated_flags == runtime_flags && repeated_name.data == runtime_name.data && repeated_name == runtime_name);
     print("ok\n");
 }

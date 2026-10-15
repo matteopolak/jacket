@@ -3,10 +3,12 @@
 
 main :: () {
     values: [..] s64;
+
     array_add(*values, 12);
     array_add(*values, -4);
     array_add(*values, 12);
     found, index := array_find(values, 12);
+
     assert(found && index == 0);
     found, index = array_find(values, 99);
     assert(!found && index == -1);

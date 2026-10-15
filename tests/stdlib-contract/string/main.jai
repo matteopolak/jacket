@@ -4,9 +4,11 @@ String :: #import "String";
 
 main :: () {
     found, tail := String.contains("copper/blue", "per/");
+
     assert(found && tail == "blue");
 
     fields := String.split(";a;;", #char ";");
+
     assert(fields.count == 4);
     assert(fields[0] == "" && fields[1] == "a" && fields[2] == "" && fields[3] == "");
     assert(String.split("", #char ",").count == 1);
@@ -21,11 +23,13 @@ main :: () {
 
     input := "   name  =value";
     token, ok := String.parse_token(*input);
+
     assert(ok && token == "name" && input == "  =value");
     token, ok = String.parse_token(*input);
     assert(ok && token == "=" && input == "value");
 
     normalized := String.normalize_line_endings("one\r\ntwo\rthree");
+
     assert(normalized == "one\ntwo\rthree");
     print("ok\n");
 }

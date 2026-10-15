@@ -349,5 +349,41 @@
     "mode": "interp",
     "timeout_seconds": 20,
     "stdout": "ok\n"
+  },
+  {
+    "name": "basic-aggregate-defaults-and-type-identity",
+    "source": "basic/aggregate-identity.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "pool-default-public-shape",
+    "source": "pool/default-shape.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "flat-pool-default-public-shape",
+    "source": "flat-pool/default-shape.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "hash-public-import-baseline",
+    "source": "privacy/hash-public-baseline.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
+    "name": "hash-private-seed-is-not-exported",
+    "source": "privacy/hash-private-name.jai",
+    "mode": "check-fail",
+    "timeout_seconds": 20,
+    "diagnostic_contains": "module `Hash` has no exported member `HASH_INIT`",
+    "positive_baseline": "hash-public-import-baseline"
   }
 ]

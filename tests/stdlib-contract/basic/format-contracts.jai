@@ -2,7 +2,7 @@
 #import "Basic";
 
 main :: () {
-    assert(sprint("%2 % %1", "A", "B") == "B B A");
+    assert(sprint("%2 % %1", "A", "B", "C") == "B C A");
     assert(sprint("%00") == "");
     assert(sprint("left\x1fright") == "left%right");
     assert(sprint("%-", "X") == "X-");
@@ -21,5 +21,8 @@ main :: () {
     assert(builder_to_string(*builder) == "1true\"x\"");
     free_buffers(*builder);
 
+    bytes: [2] u8 = .[4, 0xab];
+
+    print_bytes(bytes.data, 2);
     print("ok\n");
 }

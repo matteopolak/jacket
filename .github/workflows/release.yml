@@ -328,7 +328,7 @@ jobs:
           libs=(freetype-bdf-glyph imgui-headless-frames mojoshader-translate)
           if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(sdl2-geometry-timer); fi
           for lib_test in "${libs[@]}"; do
-            cp "$GITHUB_WORKSPACE/tests/stdlib/$lib_test.jai" .
+            cp "$GITHUB_WORKSPACE/tests/native-regressions/$lib_test.jai" .
             "$jaic" "$lib_test.jai" -interp
             if [ -n "${{ matrix.llvm }}" ]; then
               "$jaic" "$lib_test.jai" -exe "$lib_test"

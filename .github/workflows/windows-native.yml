@@ -191,13 +191,16 @@ jobs:
         if: success() || failure()
         run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
       - name: Stdlib runtime tests (interpreter and native) and coverage
-        # docs/tools/stdlib-runtime-tests.md; skips for windows-x64 in tests/stdlib-runtime-skips.txt.
+        # Reviewed contracts and retained independent regressions; all supported cases are required.
         # The third-party libraries (FreeType, stb_*...) are built first (tools/build_native_libs.py).
         if: success() || failure()
         run: |
           cp "$RUNNER_TEMP"/mesa/*.dll target/x86_64-pc-windows-msvc/debug/
           python -u tools/stdlib_runtime.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls "$RUNNER_TEMP/mesa"
-          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-x64 --check --print-baseline
+          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-x64
+      - name: Reviewed contract native O2
+        if: success() || failure()
+        run: python -u tests/stdlib-contract/run.py --jaic "$PWD/target/x86_64-pc-windows-msvc/debug/jaic.exe" --stdlib-root "$PWD/stdlib" --mode native --opt O2
       - name: A Simp game's metaprogram build without Clang on PATH
         # tests/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
         # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
@@ -426,12 +429,6 @@ jobs:
           out="$(target/aarch64-pc-windows-msvc/debug/jaic.exe tests/native/windows/variadic.jai -interp | tr -d '\r')"
           echo "$out"
           test "$out" = ok
-      - name: Stdlib runtime tests (interpreter and native) and coverage
-        # As on x64, with the windows-arm64 skips.
-        if: success() || failure()
-        run: |
-          python -u tools/stdlib_runtime.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --modes interp,native --strict --coverage target/stdlib-coverage.txt
-          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-arm64 --check --print-baseline
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter
@@ -449,7 +446,7 @@ jobs:
           if ($env:VSCMD_ARG_TGT_ARCH -ne 'arm64') { throw 'ARM64 developer environment was not initialized' }
           python -m venv target/mesa-python
           $python = Join-Path $PWD 'target/mesa-python/Scripts/python.exe'
-          & $python -m pip install cmake==3.31.6 ninja==1.13.2 meson==1.8.3 Mako==1.3.10 MarkupSafe==3.0.3 packaging==25.0
+          & $python -m pip install cmake==3.31.6 ninja==1.13.2 meson==1.8.3 Mako==1.3.10 MarkupSafe==3.0.3 packaging==25.0 PyYAML==6.0.3
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:PATH = (Join-Path $PWD 'target/mesa-python/Scripts') + ';' + $env:PATH
           & $python -u tools/window_render_mesa_windows.py --out target/window-mesa-arm64 --jobs 4
@@ -459,6 +456,15 @@ jobs:
         run: |
           mkdir -p artifacts/native-libs/windows-arm64
           python -u tools/window_render_wgl_ci.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --jailint target/aarch64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-arm64 --driver-dir target/window-mesa-arm64/driver
+      - name: Stdlib runtime tests (interpreter and native) and coverage
+        # Reviewed contracts and retained regressions; no legacy expected-failure baseline.
+        if: success() || failure()
+        run: |
+          python -u tools/stdlib_runtime.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls target/window-mesa-arm64/driver
+          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-arm64
+      - name: Reviewed contract native O2
+        if: success() || failure()
+        run: python -u tests/stdlib-contract/run.py --jaic "$PWD/target/aarch64-pc-windows-msvc/debug/jaic.exe" --stdlib-root "$PWD/stdlib" --mode native --opt O2
       - name: Signed mouse wheel event propagation (issue 1)
         if: success() || failure()
         run: |

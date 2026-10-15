@@ -4,6 +4,7 @@ PCG :: #import "PCG";
 
 main :: () {
     state: u64;
+
     PCG.random_seed(*state, 42);
     assert(state == 0x91778aed87ee5eb1);
     assert(PCG.random_get(*state) == 0x75830bbd);

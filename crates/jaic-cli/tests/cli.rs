@@ -55,8 +55,8 @@ fn run_passes_program_arguments() {
 // rules: ext.1 ext.3 ext.4 ext.8 ext.9 ext.17
 #[test]
 fn long_double_extension_on_wide_targets() {
-    let source =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/stdlib/extensions-long-double.jai");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/extensions/extensions-long-double.jai");
     for target in [
         "x86_64-linux-gnu",
         "x86_64-apple-darwin",

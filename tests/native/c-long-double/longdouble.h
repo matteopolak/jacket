@@ -1,4 +1,4 @@
-// Declarations of longdouble.c, for tests/stdlib/bindings-generator-long-double.jai.
+// Declarations of longdouble.c, for the independent C long-double ABI regressions.
 
 struct LdBox { long double v; };
 struct LdTagged { char tag; long double v; };

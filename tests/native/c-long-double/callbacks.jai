@@ -16,6 +16,6 @@ triple_box :: (b: LdBox, k: s32) -> LdBox #c_call {
 
 main :: () {
     third := ld_third();
-    print("apply % %\n", ld_apply(difference, 10, 2.5), ld_apply(difference, third, -third) == third + third);
-    print("box_apply %\n", box_apply(triple_box, .{ 1.5 }).v);
+    print("apply % %\n", cast(float64) ld_apply(difference, 10, 2.5), ld_apply(difference, third, -third) == third + third);
+    print("box_apply %\n", cast(float64) box_apply(triple_box, .{ 1.5 }).v);
 }

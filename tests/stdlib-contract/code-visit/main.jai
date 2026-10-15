@@ -12,6 +12,7 @@ main :: () {
     expression.right = right;
 
     children: [..] *Compiler.Code_Node;
+
     Code_Visit.get_subexpressions(*expression, *children);
     assert(children.count == 2);
     assert(children[0] == cast(*Compiler.Code_Node) left);

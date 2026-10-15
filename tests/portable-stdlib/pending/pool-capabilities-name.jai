@@ -1,8 +1,13 @@
 #import "Basic";
-Pools :: #import "Pool";
+P :: #import "Pool";
 
 main :: () {
-    flags, name := get_capabilities(.{ Pools.pool_allocator_proc, null });
-    assert((flags & .HINT_I_AM_A_FAST_BUMP_ALLOCATOR) != 0 && name.count > 0);
+    allocator := Allocator.{ P.pool_allocator_proc, null };
+    flags, name := get_capabilities(allocator);
+
+    assert(name.count > 0 && name.data != null);
+    repeated_flags, repeated_name := get_capabilities(allocator);
+
+    assert(flags == repeated_flags && name == repeated_name && name.data == repeated_name.data);
     print("ok\n");
 }

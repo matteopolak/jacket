@@ -39,7 +39,7 @@ LSP_FILES = [
     "examples/tour/main.jai",
     "examples/tour/generics/polymorphism.jai",
     "examples/compile-time-record.jai",
-    "tests/stdlib/hash-table-collisions.jai",
+    "tests/stdlib-contract/hash-table/main.jai",
     "stdlib/String/module.jai",
 ]
 
@@ -214,9 +214,9 @@ def train(bins, args, env, native):
     py = sys.executable
     sweep = [py, ROOT / "tools/jaic-sweep.py", "--jaic", bins["jaic"], "--allow-stale", "--headless",
              "--jobs", str(args.jobs), "--timeout", "300"]
-    steps = [("sweep (check and run)", sweep + ["corpus", "negative", "stdlib", "modules", "examples"])]
+    steps = [("sweep (check and run)", sweep + ["corpus", "negative", "stdlib", "regressions", "modules", "examples"])]
     if native:
-        steps += [("sweep (native -O0)", sweep + ["--opt", "O0", "corpus", "stdlib", "examples"]),
+        steps += [("sweep (native -O0)", sweep + ["--opt", "O0", "corpus", "stdlib", "regressions", "examples"]),
                   ("sweep (native -O2)", sweep + ["--opt", "O2", "corpus", "examples"])]
     for bench in sorted((ROOT / "benchmarks").glob("*.jai")):
         steps.append((f"run {bench.name}", [bins["jaic"], bench, "-interp"]))
@@ -229,7 +229,7 @@ def train(bins, args, env, native):
         steps.append(("check jaifmt", [bins["jaic"], jaifmt, "-check"]))
     steps += [("check tour", [bins["jaic"], ROOT / "examples/tour/main.jai", "-check"]),
               ("jailint stdlib", [bins["jailint"], "--color", "never", "-j", str(args.jobs), "stdlib"]),
-              ("jailint examples and tests", [bins["jailint"], "--color", "never", "examples", "tests/stdlib"])]
+              ("jailint examples and tests", [bins["jailint"], "--color", "never", "examples", "tests/stdlib-contract"])]
     problems = []
     for name, cmd in steps:
         start = time.monotonic()

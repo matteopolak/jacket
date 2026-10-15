@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
-"""Which public procedures of each stdlib module the runtime tests run, per module.
+"""Informational interpreter reachability report for the NEW stdlib.
 
-    stdlib_coverage.py --record cov.txt                   # report
-    stdlib_coverage.py --record cov.txt --check           # and fail below the baseline
-    stdlib_coverage.py --record cov.txt --update          # rewrite this platform's baseline
-    stdlib_coverage.py --record cov.txt --uncovered File  # list what no test runs
-
-The record is what `tools/stdlib_runtime.py --coverage cov.txt` writes: `jaic` (with
-`JAIC_COVERAGE`) appends `path:line name` for every procedure the interpreter ran, compile-time
-code included. A public procedure is one a module exports: declared at the top level of the
-module's files (`stdlib/X.jai` or `stdlib/X/module.jai` and what they `#load`, every `#if` branch)
-outside `#scope_file` and `#scope_module`, with a body (`#foreign` and other bodiless declarations
-are not counted). It is covered when the record has its file and line, or, for procedures the
-interpreter records without a line (`inline` and `#c_call` ones), its file and name. Macros
-(`#expand`) are inlined and never run as procedures: one counts as covered when a runtime test's
-source calls it by name. Files named for another OS (`windows.jai`, `native_posix.jai`,
-`generated_macos.jai`...) are left out of a platform's count; `--all-platforms` keeps them.
-
-`tests/stdlib-coverage.txt` holds the baseline: per platform, each module's covered count.
-`--check` fails when a module covers fewer procedures than recorded there, so coverage can only
-go up; `--update` writes the new counts after tests are added. See
-docs/tools/stdlib-runtime-tests.md.
+Run stdlib_runtime.py --coverage FILE, then stdlib_coverage.py --record FILE.
+This source-level heuristic is not a reviewed API inventory, behavior coverage,
+or completion gate. Macro name matches do not prove execution. Contract tests,
+producer suites, target checks and native ABI tests are required independently.
 """
 import argparse
 import re
@@ -29,7 +13,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STDLIB = ROOT / "stdlib"
-BASELINE = ROOT / "tests/stdlib-coverage.txt"
 sys.path.insert(0, str(ROOT / "tools"))
 import stdlib_runtime  # noqa: E402
 
@@ -223,60 +206,12 @@ def measure(record, os_name=None):
     return result
 
 
-def read_baseline(platform):
-    counts, section = {}, None
-    if not BASELINE.exists():
-        return counts
-    for line in BASELINE.read_text().splitlines():
-        line = line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        if line.startswith("[") and line.endswith("]"):
-            section = line[1:-1]
-        elif section == platform:
-            module, count = line.split()
-            counts[module] = int(count)
-    return counts
-
-
-def write_baseline(platform, counts):
-    sections, order, current = {}, [], None
-    header = []
-    if BASELINE.exists():
-        for line in BASELINE.read_text().splitlines():
-            if line.startswith("[") and line.strip().endswith("]"):
-                current = line.strip()[1:-1]
-                order.append(current)
-                sections[current] = []
-            elif current is None:
-                header.append(line)
-            elif line.strip():
-                sections[current].append(line)
-    if not header:
-        header = [
-            "# Covered public procedures per stdlib module and platform: tools/stdlib_coverage.py --check",
-            "# fails when a module covers fewer than listed here. Update a platform's section with",
-            "# --update after adding tests (docs/tools/stdlib-runtime-tests.md).",
-            "",
-        ]
-    if platform not in sections:
-        order.append(platform)
-    sections[platform] = [f"{m} {c}" for m, c in sorted(counts.items()) if c]
-    out = list(header)
-    for name in sorted(order):
-        out += [f"[{name}]", *sections[name], ""]
-    BASELINE.write_text("\n".join(out).rstrip("\n") + "\n")
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--record", required=True, help="the file tools/stdlib_runtime.py --coverage wrote")
     ap.add_argument("--platform", default=stdlib_runtime.host_platform())
-    ap.add_argument("--check", action="store_true", help="fail when a module covers fewer procedures than the baseline")
-    ap.add_argument("--update", action="store_true", help="write this platform's counts to the baseline")
     ap.add_argument("--uncovered", metavar="MODULE", help="list the public procedures of MODULE no test runs")
     ap.add_argument("--all", action="store_true", help="list modules with nothing to cover too")
-    ap.add_argument("--print-baseline", action="store_true", help="print this platform's baseline section")
     ap.add_argument("--all-platforms", action="store_true", help="count files named for other OSes too")
     args = ap.parse_args()
     result = measure(args.record, None if args.all_platforms else args.platform.split("-")[0])
@@ -299,29 +234,6 @@ def main():
         pct = 100 * counts[module] / len(procs) if procs else 100
         print(f"{module:<34} {counts[module]:>8} {len(procs):>7} {pct:>5.1f}%")
     print(f"{'all modules':<34} {covered:>8} {total:>7} {100 * covered / max(total, 1):>5.1f}%")
-    if args.print_baseline:
-        print(f"\nbaseline section for {BASELINE.relative_to(ROOT)}:\n[{args.platform}]")
-        for module, count in sorted(counts.items()):
-            if count:
-                print(f"{module} {count}")
-    if args.update:
-        write_baseline(args.platform, counts)
-        print(f"wrote the {args.platform} baseline to {BASELINE.relative_to(ROOT)}")
-    if args.check:
-        baseline = read_baseline(args.platform)
-        if not baseline:
-            print(f"no {args.platform} baseline in {BASELINE.relative_to(ROOT)}; nothing to check")
-            return 0
-        drops = [f"{m}: {counts.get(m, 0)} covered, baseline {n}" for m, n in sorted(baseline.items())
-                 if counts.get(m, 0) < n]
-        if drops:
-            print(f"\ncoverage dropped below the {args.platform} baseline:")
-            for line in drops:
-                print(f"  {line}")
-            return 1
-        rises = [m for m, c in counts.items() if c > baseline.get(m, 0)]
-        if rises:
-            print(f"\n{len(rises)} modules cover more than the baseline; run with --update to raise it")
     return 0
 
 

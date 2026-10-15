@@ -10,13 +10,14 @@ Options :: struct {
 
 main :: () {
     ok, options, is_set, free_args := Command_Line.parse_arguments(Options,
-        args=.["-count", "10", "-enabled", "-label", "cedar", "loose"]);
+        args = .["-count", "10", "-enabled", "-label", "cedar", "loose"]);
+
     assert(ok);
     assert(options.count == 10 && options.enabled && options.label == "cedar");
     assert(is_set.count && is_set.enabled && is_set.label);
     assert(free_args.count == 1 && free_args[0] == "loose");
 
-    ok, options, is_set, free_args = Command_Line.parse_arguments(Options, args=.["-label", "initial"]);
+    ok, options, is_set, free_args = Command_Line.parse_arguments(Options, args = .["-label", "initial"]);
     assert(ok && options.count == 10 && !options.enabled && options.label == "initial");
     assert(!is_set.count && !is_set.enabled && is_set.label);
     assert(free_args.count == 0);
