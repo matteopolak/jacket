@@ -2,7 +2,7 @@
 import subprocess
 import unittest
 
-from check_platform_io import fault_failures
+from check_platform_io import fault_failures, nullguard_failures
 
 
 class FaultDiagnosticTests(unittest.TestCase):
@@ -20,11 +20,26 @@ class FaultDiagnosticTests(unittest.TestCase):
 
     def test_named_frames_are_required_when_requested(self):
         text = (b"Windows exception 0x00000000c0000005\nnative stack:\n"
-                b"  0x0000000000000001 platform_io_fault_leaf + 0x0000000000000001\n"
-                b"  0x0000000000000002 platform_io_fault_middle + 0x0000000000000001\n")
+                b"  0x0000000000000001 fault_leaf + 0x0000000000000001\n"
+                b"  0x0000000000000002 fault_middle + 0x0000000000000001\n")
         self.assertEqual(fault_failures(self.result(text), True,
-                         ("platform_io_fault_leaf", "platform_io_fault_middle")), [])
+                         ("fault_leaf", "fault_middle")), [])
         self.assertIn("missing_symbol=absent", fault_failures(self.result(text), True, ("absent",)))
+
+    def test_symbol_substrings_do_not_count_as_named_frames(self):
+        text = (b"Windows exception 0x00000000c0000005\nnative stack:\n"
+                b"  0x0000000000000001 unrelated_fault_leaf + 0x0000000000000001\n"
+                b"  0x0000000000000002 fault_middle + 0x0000000000000001\n")
+        self.assertIn("missing_symbol=fault_leaf", fault_failures(self.result(text), True, ("fault_leaf",)))
+
+    def test_nullguard_is_not_native_seh(self):
+        text = (b"tests\\platform-io\\windows-nullguard.jai:5: error: null pointer dereference: "
+                b"write at address 0x1, just past null (a member of a null struct pointer?)\n")
+        result = self.result(text, 1)
+        self.assertEqual(nullguard_failures(result), [])
+        self.assertIn("exception_status", fault_failures(result, True))
+        self.assertIn("nullguard_status", nullguard_failures(self.result(text)))
+        self.assertIn("nullguard_diagnostic", nullguard_failures(self.result(b"other error", 1)))
 
     def test_failure_notice_cannot_be_hidden_by_frames(self):
         text = (b"Windows exception 0x00000000c0000005\nnative stack:\n"

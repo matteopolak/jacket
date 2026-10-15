@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 from pathlib import Path
 import subprocess
@@ -40,8 +41,22 @@ def fault_failures(result, enabled, symbols=()):
         if text in result.stderr:
             failed.append(text.decode())
     for symbol in symbols:
-        if not any(symbol.encode() in line for line in frames):
+        if not any(len(line.split()) >= 2 and line.split()[1] == symbol.encode() for line in frames):
             failed.append("missing_symbol=" + symbol)
+    return failed
+
+
+def nullguard_failures(result):
+    """O0 Jai near-null safety is separate from hardware-exception handling."""
+    failed = []
+    if result.returncode != 1:
+        failed.append("nullguard_status")
+    if result.stdout:
+        failed.append("unexpected_stdout")
+    expected = (rb"(?:.*[/])?windows-nullguard\.jai:[0-9]+: error: null pointer dereference: "
+                rb"write at address 0x1, just past null \(a member of a null struct pointer\?\)\n")
+    if re.fullmatch(expected, result.stderr.replace(b"\\", b"/")) is None:
+        failed.append("nullguard_diagnostic")
     return failed
 
 
@@ -133,6 +148,24 @@ def main():
                     ROOT / "tests/platform-io/stack-iteration.c", "-o", iterator_exe], env):
             attempt([iterator_exe], env, "")
     cpu = args.windows_build or ("arm64" if platform.machine().lower() in {"arm64", "aarch64"} and os.name == "nt" else "x64")
+    fault_sdk_dll = output / "platform_io_fault_sdk.dll"
+    if args.windows_crash:
+        # Test-only hardware fault source, compiled independently of Jai guards.
+        fault_sdk_library = output / ("platform_io_fault_sdk.lib" if os.name == "nt" else "libplatform_io_fault_sdk.dll.a")
+        fault_sdk_dll.unlink(missing_ok=True)
+        fault_sdk_library.unlink(missing_ok=True)
+        if os.name == "nt":
+            fault_compiler = "clang"
+            triple = "aarch64" if cpu == "arm64" else "x86_64"
+            fault_target = [f"--target={triple}-pc-windows-msvc"]
+            fault_linker = [f"-Wl,/IMPLIB:{fault_sdk_library}"]
+        else:
+            triple = "aarch64" if cpu == "arm64" else "x86_64"
+            fault_compiler = shutil.which(triple + "-w64-mingw32-clang") or triple + "-w64-mingw32-gcc"
+            fault_target = []
+            fault_linker = [f"-Wl,--out-implib,{fault_sdk_library}"]
+        attempt([fault_compiler, *fault_target, "-std=c11", "-shared", "-O2", "-g", "-Wall", "-Wextra", "-Werror",
+                 ROOT / "tests/platform-io/windows-fault-sdk.c", "-o", fault_sdk_dll, *fault_linker], env)
     if os.name == "nt" or args.windows_build or (args.windows_crash and cpu == "x64"):
         subprocess.run([sys.executable, str(ROOT / "tools/build_platform_io_runtime.py"),
                         "--stdlib", str(args.stdlib.resolve()), "--cpu", cpu], cwd=ROOT, check=True)
@@ -187,6 +220,24 @@ def main():
                 if attempt([compiler, source, "-os", "wasm", optimization, "-exe", executable], env):
                     attempt(["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", executable], env, "ok\n")
         report(before, source.relative_to(ROOT))
+    source = ROOT / "tests/platform-io/windows-thread-noassert.jai"
+    before = len(failures)
+    if args.cross_check or os.name == "nt" or args.windows_build:
+        for target_cpu in ["x64", "arm64"]:
+            attempt([compiler, source, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
+    if os.name == "nt":
+        attempt([compiler, source, "-interp"], env, "ok\n")
+        attempt([compiler, source, "-interp", "--"], env, "ok\n")
+        if args.native:
+            for optimization in ["-O0", "-O2"]:
+                executable = output / (source.stem + optimization + ".exe")
+                if attempt([compiler, source, optimization, "-exe", executable], env):
+                    attempt([executable], env, "ok\n")
+    elif args.windows_build:
+        for optimization in ["-O0", "-O2"]:
+            attempt([compiler, source, "-os", "windows", "-cpu", args.windows_build,
+                     optimization, "-exe", output / (source.stem + optimization + ".exe")], env)
+    report(before, "Windows Thread lifecycle, caller assertions disabled", source.relative_to(ROOT))
     source = ROOT / "tests/platform-io/arguments.jai"
     arguments = ["雪😀", "", 'quote" and slash\\']
     before = len(failures)
@@ -283,7 +334,10 @@ def main():
                           "the reviewed Windows crash handler supports x64 only")
         for optimized in [False, True]:
             for policy in ["off", "on", "default"]:
-                for child_name in ["startup-arguments-contract", "windows-fault", "windows-symbol-fault"]:
+                children = ["startup-arguments-contract", "windows-fault", "windows-symbol-fault"]
+                if not optimized:
+                    children.append("windows-nullguard")
+                for child_name in children:
                     enabled = policy != "off"
                     builder = ROOT / "tests/platform-io" / (
                         "windows-default-startup-build.jai" if policy == "default" else "windows-startup-build.jai")
@@ -312,6 +366,8 @@ def main():
                     if enabled:
                         shutil.copy2(args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.dll",
                                      crash_output / "platform_io_windows_crash.dll")
+                    if child_name in {"windows-fault", "windows-symbol-fault"}:
+                        shutil.copy2(fault_sdk_dll, crash_output / fault_sdk_dll.name)
                     if os.name == "nt":
                         if child_name == "startup-arguments-contract":
                             before = len(failures)
@@ -325,8 +381,9 @@ def main():
                             failures.append(f"Windows fault execution failed ({label}): {error}")
                             print("FAILED", failures[-1], file=sys.stderr, flush=True)
                             continue
-                        symbols = ("platform_io_fault_leaf", "platform_io_fault_middle") if child_name == "windows-symbol-fault" else ()
-                        failed = fault_failures(result, enabled, symbols)
+                        symbols = ("fault_leaf", "fault_middle") if child_name == "windows-symbol-fault" else ()
+                        failed = (nullguard_failures(result) if child_name == "windows-nullguard"
+                                  else fault_failures(result, enabled, symbols))
                         save_result(crash_output / "actual-result", result, failed)
                         if failed:
                             failures.append(f"Windows exception diagnostic mismatch ({label}): {failed}; {result}")
