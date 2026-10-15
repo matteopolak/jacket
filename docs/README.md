@@ -1,5 +1,9 @@
 # Developer documentation
 
+- [Required native library initialization](compiler/native-required-libraries.md):
+  real constructor effects in interpreted/linked programs, precise load failures
+  and compile-time/SandboxHost capability boundaries.
+
 - [Combined Mac integration commands and corpus boundaries](tools/cleanroom-integration.md):
   exact frozen workspace/catalogue counts, production helper checks, and permitted
   application staging with manifest provenance and exclusions before access.

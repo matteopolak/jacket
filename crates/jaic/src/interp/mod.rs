@@ -1252,7 +1252,32 @@ impl Interp {
     // Foreign symbols
     // -----------------------------------------------------------------------
 
+    fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
+        if !self.host.native_linking() {
+            return Ok(());
+        }
+        for (index, info) in program.libraries.iter().enumerate() {
+            if !info.link_always {
+                continue;
+            }
+            let library = self
+                .libraries
+                .entry(index)
+                .or_insert_with(|| native::Library::open(&info.name, info.system, &info.base_dir));
+            if library.is_none() {
+                return self.trap(format!(
+                    "required native library `{}` could not be loaded",
+                    info.name
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn foreign_addr(&mut self, program: &Program, id: ForeignId) -> Res<u64> {
+        // A required library may register classes/constructors without supplying
+        // the symbol being requested. Include libraries added since an earlier lookup.
+        self.load_required_libraries(program)?;
         if let Some(&a) = self.foreign_addrs.get(id.0 as usize)
             && a != 0
         {
@@ -1605,6 +1630,12 @@ impl Interp {
     pub fn call(&mut self, program: &Program, func: FuncId, args: &[u64]) -> Res<Vec<u64>> {
         if self.closed {
             return self.trap("compile-time code no longer runs: the compile is over");
+        }
+        // Runtime startup loads linked requirements even when the program never
+        // calls C. Compile-time pure code need not load another target's libraries;
+        // its actual foreign lookups perform the required native initialization.
+        if !self.compile_time {
+            self.load_required_libraries(program)?;
         }
         if self.stack.is_empty() {
             self.stack = ValueStack::heap(STACK_SIZE / 8);

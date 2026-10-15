@@ -1824,7 +1824,21 @@ impl Compiler {
             while index < self.entities.len() {
                 let id = EntityId(index as u32);
                 let e = self.entity(id);
-                if matches!(e.kind, EntityKind::Import(_))
+                let required_library = match &e.kind {
+                    EntityKind::Decl {
+                        decl, ..
+                    } => matches!(
+                        decl.value.as_ref().map(|value| &value.kind),
+                        Some(ast::ExprKind::UnknownDirective(directive))
+                            if decls::is_library_directive(directive.name.name.as_str())
+                                && directive.flags.iter().any(|flag| flag.name.as_str() == "link_always")
+                    ),
+                    _ => false,
+                };
+                // Required library metadata must exist before a #run native
+                // lookup, just like unnamed link_always declarations. Resolving
+                // a literal library name does not lower exports or freeze Context.
+                if (matches!(e.kind, EntityKind::Import(_)) || required_library)
                     && matches!(
                         self.scope(e.scope).kind,
                         ScopeKind::Module | ScopeKind::File
