@@ -112,7 +112,7 @@ def main():
              ROOT / "stdlib/internal/developer-tools/generator-platform.jai",
              ROOT / "stdlib/Bindings_Generator/generator-state.jai",
              ROOT / "stdlib/internal/developer-tools/generator-active-state.jai",
-             ROOT / "stdlib/internal/developer-tools/generator-context/module.jai",
+             ROOT / "stdlib/internal/developer-tools/generator-session/module.jai",
              ROOT / "tests/developer-tools/generator-platform-apple-names.jai",
              ROOT / "tests/developer-tools/generator-platform-configured-paths.jai",
              ROOT / "tests/developer-tools/generator-platform-reviewed.jai",

@@ -1,5 +1,9 @@
 # Developer documentation
 
+- [Combined Mac integration commands and corpus boundaries](tools/cleanroom-integration.md):
+  exact frozen workspace/catalogue counts, production helper checks, and permitted
+  application staging with manifest provenance and exclusions before access.
+
 - [Mac Extensions dependency repairs](extensions/mac-dependency-repairs.md):
   Json ownership/numerics, Http time/atomics, and test-only dependency migrations;
   [measured results and remaining lint-context failure](status/extensions-mac-repairs.md).
@@ -64,6 +68,7 @@ Start with [compiler architecture](compiler/architecture.md). Real projects that
 - [Private generator protocol](generator-session.md): the single active slot, ownership and nested callback restoration
 - [Module Context lint repair](status/generator-lint-context.md): independent reduction and general finalization fix
 - [Generator Mac integration repairs](status/generator-integration-repairs.md): real macro failure diagnostics and framework metadata hygiene
+- [Generator modifier helpers](generator-modifiers.md): all eight integrated public helpers, canonical shared context protocol, and measured public-import host/target verification
 - [Window/render progress](status/window-render-progress.md): scoped native window,
   native input, Windows pointer tracking and keyboard layouts, Keymap, window lifecycle, original native-font
   feature regressions, real font-atlas/text rendering and texture color-space transitions,
