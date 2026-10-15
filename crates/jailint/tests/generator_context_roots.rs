@@ -27,8 +27,8 @@ fn module_context_additions_precede_program_finalization() {
         config: Config::default(),
         jobs: 1,
         verbose: false,
-        target_os: None,
-        target_cpu: None,
+        compiler_options: jaic::sema::Options::host(),
+        source: None,
         add_sources: Vec::new(),
     };
     let result = run(&options);
@@ -58,8 +58,8 @@ fn context_fix_preserves_lazy_configured_bootstrap_dependencies() {
         config: Config::default(),
         jobs: 1,
         verbose: false,
-        target_os: None,
-        target_cpu: None,
+        compiler_options: jaic::sema::Options::host(),
+        source: None,
         add_sources: Vec::new(),
     };
     let result = run(&options);

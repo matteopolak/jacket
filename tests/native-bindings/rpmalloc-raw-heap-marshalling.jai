@@ -5,7 +5,7 @@ Raw :: #import "rpmalloc"(USE_RAW = true);
 Small :: #import "rpmalloc"(USE_RAW = true, ENABLE_STATISTICS = false);
 RawBridge :: #import "internal/bindings/rpmalloc-heaps"(RAW = true);
 RawNoStatsBridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = false, RAW = true);
-Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = true, PUBLIC_HEAPS = true);
+Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = true, PUBLIC_HEAPS = true, GLOBAL_CACHE = true, THREAD_CACHE = true);
 
 probe :: #library,system "rpmalloc_storage_probe";
 native_counter :: (heap: *void, family: u32, index: u32, field: u32) -> s64 #foreign probe "binding_rpmalloc_native_heap_counter";

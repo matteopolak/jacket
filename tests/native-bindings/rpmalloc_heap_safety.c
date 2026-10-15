@@ -69,6 +69,13 @@ int main(void) {
     API(leave)();
   }
   free(held);
+  /* Independent SDK state after enough released heaps to overflow thread
+   * batches: cache-disabled builds must not retain spans in a global cache. */
+  rpmalloc_global_statistics_t statistics;
+  rpmalloc_global_statistics(&statistics);
+#if !ENABLE_GLOBAL_CACHE
+  assert(statistics.cached == 0);
+#endif
   API(enter)();
   rpmalloc_finalize();
   API(reset)();

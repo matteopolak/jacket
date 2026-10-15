@@ -58,7 +58,7 @@ def public_c_header(spec):
     return '#if BINDING_RPMALLOC_RAW\n'+mirror_c_header(spec, True)+'#else\n'+mirror_c_header(spec, False)+'#endif\n'
 
 
-def layout_probes(spec, raw=False, public_heaps=True):
+def layout_probes(spec, raw=False, public_heaps=True, thread_cache=True):
     records = mirror_records(spec, raw)
     rows = [(owner,name,condition) for owner in ORDER for name,_,condition in records[owner]]
     code = '/* Generated reviewed public C mirror layout measurements. */\n'
@@ -81,12 +81,15 @@ def layout_probes(spec, raw=False, public_heaps=True):
     jai = '// Generated reviewed public record/C mirror ABI assertions.\n'
     for stats in (True,False):
         function = (('raw_' if public_heaps else 'raw_base_') if raw else '')+('statistics' if stats else 'no_statistics')
+        if not thread_cache: function = "no_thread_cache_"+function
         bridge = (('Raw' if public_heaps else 'RawBase') if raw else '')+('Bridge' if stats else 'NoStatsBridge')
         def active(condition):
             if condition=='RPMALLOC_FIRST_CLASS_HEAPS': return public_heaps
-            return not condition or condition=='ENABLE_THREAD_CACHE' or bool(stats)
+            if condition=='ENABLE_THREAD_CACHE': return thread_cache
+            return not condition or bool(stats)
         jai += 'canonical_layout_'+function+' :: (heap: *$T) {\n'
         for i,owner in enumerate(ORDER):
+            if not thread_cache and owner in ('Span_Cache', 'Span_Large_Cache'): continue
             if owner=='Size_Class_Use' and not stats: continue
             if owner=='Span_Use' and not stats: continue
             var='value'+str(i)

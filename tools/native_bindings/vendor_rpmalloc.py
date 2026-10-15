@@ -368,6 +368,11 @@ def main():
     temporary.write_text(raw_base_checks)
     run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
     outputs[ROOT/'tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai'] = temporary.read_text()
+    for raw, public_heaps, label in ((False, True, "rewrite"), (True, False, "raw-base"), (True, True, "raw")):
+        _, assertions = layout_probes(reviewed, raw=raw, public_heaps=public_heaps, thread_cache=False)
+        temporary.write_text(assertions)
+        run([args.formatter.resolve(), "--config", ROOT/"jaifmt.toml", temporary])
+        outputs[ROOT/"tests/native-bindings/generated"/("rpmalloc-no-thread-cache-"+label+"-layout.jai")] = temporary.read_text()
     for path, data in outputs.items():
         if args.check:
             if not path.exists() or path.read_text() != data:

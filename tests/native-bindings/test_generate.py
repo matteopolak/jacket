@@ -10,6 +10,22 @@ from spec import parse_spec
 
 
 class GeneratorTests(unittest.TestCase):
+    def test_android_native_command_bodies_use_full_layout_branch(self):
+        from generate import condition_for
+        from spec import Declaration
+        for name in ('android_app_read_cmd', 'android_app_pre_exec_cmd', 'android_app_post_exec_cmd'):
+            body = Declaration(name + ' :: (app: *Android_App)', '')
+            foreign = Declaration(name + ' :: (app: *Android_App) #foreign lib_glue', '')
+            self.assertEqual(condition_for('Android', body), 'USE_GLUE_NATIVE_PORT')
+            self.assertEqual(condition_for('Android', foreign), '!USE_GLUE_NATIVE_PORT')
+
+    def test_discard_parameter_annotation_preserves_public_signature_identity(self):
+        public = 'predicate :: (display: *void, event: *void) -> s32 #c_call'
+        authored = 'predicate :: (#discard display: *void, event: *void) -> s32 #c_call'
+        self.assertEqual(normalized_signature(public), normalized_signature(authored))
+        self.assertNotEqual(normalized_signature(public), normalized_signature(public.replace('#c_call', '')))
+        self.assertNotEqual(normalized_signature('f :: (x := "#discard")'), normalized_signature('f :: (x := "")'))
+
     def test_shader_compiler_is_a_shared_acyclic_interface_dependency(self):
         from config import IMPORTS
         self.assertNotIn('d3d11', IMPORTS['d3d_compiler'])

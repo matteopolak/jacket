@@ -16,6 +16,7 @@ IMPORTS = {
 # This is an explicit reviewed safety exception to direct foreign forwarding;
 # signatures are still matched in full, including argument names and defaults.
 NATIVE_ABI_ADAPTERS = {
+    ('Android', 'android_app_pre_exec_cmd'): 'android_app_pre_exec_cmd',
     ('macOS', 'FSEventStreamCreate'): 'FSEventStreamCreate',
     ('SDL', 'SDL_GetWindowWMInfo'): 'SDL_GetWindowWMInfo',
     ('SDL', 'SDL_LoadBMP_RW'): 'SDL_LoadBMP_RW',

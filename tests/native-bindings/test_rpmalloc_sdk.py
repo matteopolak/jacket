@@ -40,11 +40,11 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
     def test_native_statistics_profiles_have_separate_symbol_domains(self):
         metadata = json.loads((ROOT/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
         profiles = metadata['native_profiles']
-        self.assertEqual(len(profiles),6)
+        self.assertEqual(len(profiles),24)
         self.assertEqual(profiles['binding_rpmalloc_sdk']['options']['ENABLE_STATISTICS'],1)
         self.assertEqual(profiles['binding_rpmalloc_sdk_nostats']['options']['ENABLE_STATISTICS'],0)
-        self.assertEqual(len({p['symbol_prefix'] for p in profiles.values()}),6)
-        self.assertEqual(len({p['facade_prefix'] for p in profiles.values()}),6)
+        self.assertEqual(len({p['symbol_prefix'] for p in profiles.values()}),24)
+        self.assertEqual(len({p['facade_prefix'] for p in profiles.values()}),24)
         code = (ROOT/'stdlib/internal/bindings/rpmalloc-sdk/module.jai').read_text()
         for profile in profiles.values():
             self.assertEqual(profile['options']['BINDING_RPMALLOC_RAW'],int(profile['raw']))

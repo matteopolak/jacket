@@ -1,21 +1,29 @@
 """One native domain inventory for generated imports and real C compilation."""
+from itertools import product
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 
 PROFILES = []
 for raw, public_heaps in ((False, True), (True, False), (True, True)):
     for statistics in (True, False):
-        suffix = (('_raw' if public_heaps else '_raw_base') if raw else '')+('' if statistics else '_nostats')
-        prefix = 'binding_rpmalloc'+suffix+'_'
-        condition = ('RAW && '+('PUBLIC_HEAPS' if public_heaps else '!PUBLIC_HEAPS') if raw else '!RAW')
-        PROFILES.append(dict(raw=raw, public_heaps=public_heaps, statistics=statistics,
-                             condition=condition+' && '+('STATISTICS' if statistics else '!STATISTICS'),
-                             sdk='binding_rpmalloc_sdk'+suffix,
-                             callbacks='binding_rpmalloc_callbacks'+suffix,
-                             symbol_prefix=prefix if suffix else '',
-                             facade_prefix=prefix+'facade_', callback_prefix=prefix,
-                             options=dict(RPMALLOC_SDK_BUILD_OPTIONS, ENABLE_STATISTICS=int(statistics),
-                                          BINDING_RPMALLOC_RAW=int(raw),
-                                          BINDING_RPMALLOC_PUBLIC_HEAPS=int(public_heaps))))
+        for global_cache, thread_cache in product((True, False), repeat=2):
+            suffix = (("_raw" if public_heaps else "_raw_base") if raw else "")+("" if statistics else "_nostats")
+            suffix += "" if global_cache else "_no_global_cache"
+            suffix += "" if thread_cache else "_no_thread_cache"
+            prefix = "binding_rpmalloc"+suffix+"_"
+            condition = ("RAW && "+("PUBLIC_HEAPS" if public_heaps else "!PUBLIC_HEAPS") if raw else "!RAW")
+            condition += " && "+("STATISTICS" if statistics else "!STATISTICS")
+            condition += " && "+("GLOBAL_CACHE" if global_cache else "!GLOBAL_CACHE")
+            condition += " && "+("THREAD_CACHE" if thread_cache else "!THREAD_CACHE")
+            PROFILES.append(dict(raw=raw, public_heaps=public_heaps, statistics=statistics,
+                                 global_cache=global_cache, thread_cache=thread_cache, condition=condition,
+                                 sdk="binding_rpmalloc_sdk"+suffix,
+                                 callbacks="binding_rpmalloc_callbacks"+suffix,
+                                 symbol_prefix=prefix if suffix else "",
+                                 facade_prefix=prefix+"facade_", callback_prefix=prefix,
+                                 options=dict(RPMALLOC_SDK_BUILD_OPTIONS, ENABLE_STATISTICS=int(statistics),
+                                              ENABLE_GLOBAL_CACHE=int(global_cache), ENABLE_THREAD_CACHE=int(thread_cache),
+                                              BINDING_RPMALLOC_RAW=int(raw),
+                                              BINDING_RPMALLOC_PUBLIC_HEAPS=int(public_heaps))))
 
 
 def select_blocks(render):
@@ -23,7 +31,7 @@ def select_blocks(render):
 
 
 def parameters():
-    return '#module_parameters (STATISTICS := true, RAW := false, PUBLIC_HEAPS := true)();\n'
+    return '#module_parameters (STATISTICS := true, RAW := false, PUBLIC_HEAPS := true, GLOBAL_CACHE := true, THREAD_CACHE := true)();\n'
 
 
 HEAP_SIGNATURES = (
@@ -54,13 +62,13 @@ def heap_module():
     code = '// Generated private typed SDK ownership boundary; public records never reach C SDK calls.\n'+parameters()
     code += select_blocks(lambda p: '\n'.join(name+' :: '+signature+' #foreign sdk "'+p['facade_prefix']+name+'";'
                                               for name, signature in HEAP_SIGNATURES+(SNAPSHOT_SIGNATURES if p['statistics'] else ())))
-    code += '#scope_file\nSDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS);\n'
+    code += '#scope_file\nSDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS, GLOBAL_CACHE = GLOBAL_CACHE, THREAD_CACHE = THREAD_CACHE);\n'
     return code+select_blocks(lambda p: 'sdk :: #library,system "'+p['sdk']+'";')
 
 
 def callbacks_module():
     code = '// Generated private callback ABI; matching native profile owns the SDK instance.\n'+parameters()
-    code += 'SDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS);\n'
+    code += 'SDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS, GLOBAL_CACHE = GLOBAL_CACHE, THREAD_CACHE = THREAD_CACHE);\n'
     code += select_blocks(lambda p: 'initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "'+p['callback_prefix']+'initialize";\n'
                           'finalize :: () #foreign bridge "'+p['callback_prefix']+'finalize";')
     return code+'#scope_file\n'+select_blocks(lambda p: 'bridge :: #library,system "'+p['callbacks']+'";')

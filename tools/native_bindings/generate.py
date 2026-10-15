@@ -171,6 +171,8 @@ def guard(code, condition):
 
 
 def normalized_signature(code):
+    code = re.sub(r'("(?:\\.|[^"\\])*")|#discard\b',
+                  lambda match: match[1] or '', code)
     tokens = re.findall(r'"(?:\\.|[^"\\])*"|[^\s"]+',code.strip().rstrip(';'))
     return ''.join(tokens)
 
@@ -233,7 +235,7 @@ def condition_for(module, declaration, spec=None):
     if module == 'GL' and declaration.name == 'DumpGLErrors':
         condition = '!DUMP_GL_ERRORS' if '#discard' in declaration.code else 'DUMP_GL_ERRORS'
     if module == 'Android' and declaration.name in ('android_app_read_cmd','android_app_pre_exec_cmd','android_app_post_exec_cmd'):
-        condition = 'USE_GLUE_NATIVE_PORT' if '#foreign' in declaration.code else '!USE_GLUE_NATIVE_PORT'
+        condition = '!USE_GLUE_NATIVE_PORT' if '#foreign' in declaration.code else 'USE_GLUE_NATIVE_PORT'
     if spec is not None and module in ('d3d11', 'd3d12'):
         debug_types = {s.name for s in spec.shapes if s.condition == 'INCLUDE_DEBUG_BINDINGS'}
         if any(declaration.name == t or declaration.name == t+'_VTable' or declaration.name.startswith(t+'_') or re.search(r'\*'+re.escape(t)+r'\b',declaration.code) for t in debug_types):
@@ -389,7 +391,15 @@ def generate_facade(module, spec):
             if module == 'rpmalloc':
                 record.update(status='partially_implemented',
                               implemented_condition='Native_Profile_Matches' + (' && ('+condition+')' if condition else ''),
-                              reason='Real native boundaries for six raw/rewrite/layout/statistics profiles; other cache/assertion/page-advice and numeric build options remain incomplete')
+                              reason='Real native boundaries for twenty-four raw/rewrite/layout/statistics/cache profiles; adaptive-cache/assertion/page-advice and numeric build options remain incomplete')
+            if module == 'Objective_C' and d.name in {
+                    'objc_type_encode', 'objc_func_encode', 'type_check_objc_method_type',
+                    'objc_create_class', 'objc_add_instance_method', 'objc_add_class_method'}:
+                record.update(status='partially_implemented',
+                              reason='Real native C-compatible encoding/class/method behavior; Jai-specific alias, ownership, naming, validation and unsupported-reflection contracts still need public review')
+            if module == 'Android' and d.name == 'android_logger':
+                record.update(status='partially_implemented',
+                              reason='Real reviewed priorities/tag/native logging; forced Runtime flush substitutes for literal buffer discard pending a canonical Runtime-owned hook')
             ledger.append(record)
             continue
         key = (condition, d.code)
@@ -574,7 +584,7 @@ def main():
                         'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in sorted(callback_backend.iterdir()) if p.is_file()},
                         'scope':'Owned callback/name lifetime, bounded wide public offset registry, actual init failure; raw/rewrite and both statistics profiles',
-                        'limitations':'Other cache/assertion/page-advice profiles and exact native-error Jai location provenance unresolved',
+                        'limitations':'Adaptive-cache/assertion/validation/page-advice/numeric profiles and exact native-error Jai location provenance unresolved',
                         'caller_context_artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                                     for p in sorted((ROOT/'stdlib/internal/bindings/callback-context').iterdir()) if p.is_file()},
                         'tests':['tests/native-bindings/rpmalloc-public-callbacks.jai',
@@ -586,8 +596,8 @@ def main():
                         'status':'partial_public_canonical_heap_adapter',
                         'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in sorted(heap_backend.iterdir()) if p.is_file()},
-                        'scope':'Separate canonical reviewed raw/rewrite records, actual atomic members, private typed native ownership, real SDK counters, span graph and unmap-driven retirement; both statistics profiles',
-                        'limitations':'Raw heaps require explicit private build selection; only live/quiescent observations; other native options remain incomplete; metadata OOM is fail-fast',
+                        'scope':'Separate canonical reviewed raw/rewrite records, actual atomic members, private typed native ownership, real SDK counters, span graph and unmap-driven retirement; both statistics and all thread/global-cache selections',
+                        'limitations':'Raw heaps require explicit private build selection; only live/quiescent observations; other native options remain incomplete; acquired heap handle reservation OOM returns null before SDK mutation, but graph/default-thread association OOM remains fail-fast',
                         'tests':['tests/native-bindings/rpmalloc-public-heaps.jai',
                                  'tests/native-bindings/rpmalloc-public-heap-lifecycle.jai',
                                  'tests/native-bindings/rpmalloc-heap-marshalling.jai',

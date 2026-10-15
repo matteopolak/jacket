@@ -5,7 +5,7 @@ DEFAULT = (
     'rpmalloc-public-allocation', 'rpmalloc-public-callbacks', 'rpmalloc-public-configurable',
     'rpmalloc-public-raw', 'rpmalloc-public-raw-callbacks', 'rpmalloc-public-profiles',
     'rpmalloc-public-heaps', 'rpmalloc-public-heap-lifecycle',
-    'rpmalloc-public-allocator-proc', 'rpmalloc-public-builder-dump', 'rpmalloc-public-dump-failure',
+    'rpmalloc-public-global-cache', 'rpmalloc-no-thread-cache', 'rpmalloc-public-allocator-proc', 'rpmalloc-public-builder-dump', 'rpmalloc-public-dump-failure',
 )
 RAW_HEAPS = ('rpmalloc-public-raw-heaps', 'rpmalloc-public-raw-heap-lifecycle',
              'rpmalloc-raw-heap-marshalling')

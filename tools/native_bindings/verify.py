@@ -35,7 +35,19 @@ PRIVATE_UNITS = {'fsevents-context':'macOS/sdk-fsevents-context-unit.jai',
                  'rpmalloc-raw-heap-marshalling':'rpmalloc/sdk-raw-heap-marshalling-unit.jai',
                  'rpmalloc-native-error-callback':'rpmalloc/sdk-error-callback-unit.jai',
                  'rpmalloc-raw-base-marshalling':'rpmalloc/sdk-raw-base-marshalling-unit.jai'}
+PRIVATE_UNITS['rpmalloc-no-thread-cache'] = 'rpmalloc/sdk-no-thread-cache-unit.jai'
+PRIVATE_UNITS['shader-bytes'] = 'd3d_compiler/sdk-shader-bytes-unit.jai'
+PRIVATE_UNITS['clipboard-owned-data'] = 'X11/sdk-clipboard-owned-data-unit.jai'
+PRIVATE_UNITS['android-commands'] = 'Android/sdk-command-unit.jai'
+
+
+def private_unit_module(name):
+    return Path(PRIVATE_UNITS[name]).parts[0]
 PRIVATE_UNIT_DEPENDENCIES = {
+    'rpmalloc-no-thread-cache': {
+        **{'tests/native-bindings/generated/rpmalloc-no-thread-cache-'+label+'-layout.jai': 'rpmalloc/generated/rpmalloc-no-thread-cache-'+label+'-layout.jai' for label in ('rewrite', 'raw-base', 'raw')},
+        'tests/native-bindings/rpmalloc-cache-exercise.jai': 'rpmalloc/rpmalloc-cache-exercise.jai',
+    },
     'rpmalloc-raw-base-marshalling': {
         'tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai': 'rpmalloc/generated/rpmalloc-raw-base-heap-facade-layout.jai',
     },
@@ -173,6 +185,27 @@ def stage(destination, foundation=None):
     shutil.copytree(ROOT/'stdlib/internal/bindings', destination/'internal/bindings', dirs_exist_ok=True)
 
 
+def stage_for_checks(destination, existing_stdlib=None, foundation=None):
+    if existing_stdlib is None:
+        stage(destination, foundation)
+        return
+    baseline = existing_stdlib.resolve()
+    if not (baseline/'prelude/module.jai').is_file():
+        raise SystemExit('Existing independent stage has no canonical bootstrap')
+    if destination.resolve().is_relative_to(baseline):
+        raise SystemExit('Verification output must be outside the existing stage')
+    shutil.copytree(baseline, destination)
+    # Refresh only this producer's sources. This path never discovers or reads
+    # another checkout, even if the old default staging path would be available.
+    for module in MODULES:
+        if (destination/module).exists():
+            shutil.rmtree(destination/module)
+        shutil.copytree(ROOT/'stdlib'/module, destination/module)
+    if (destination/'internal/bindings').exists():
+        shutil.rmtree(destination/'internal/bindings')
+    shutil.copytree(ROOT/'stdlib/internal/bindings', destination/'internal/bindings')
+
+
 def invoke(command, env, timeout=120):
     try:
         p = subprocess.run([str(x) for x in command], env=env, capture_output=True, text=True, timeout=timeout)
@@ -206,14 +239,23 @@ def verify(cleanup):
     parser.add_argument('--report', type=Path, default=ROOT/'.work/verification.json')
     parser.add_argument('--foundation', type=Path, help='Explicit previously staged NEW independent foundation sources')
     parser.add_argument('--stdlib', type=Path, help='Verify this production library directly, without any source overlays')
+    parser.add_argument('--target-os', action='append', choices=('linux', 'macos', 'windows'))
+    parser.add_argument('--existing-stdlib', type=Path, help='Diagnostic NEW independent stage only, never production proof')
     args = parser.parse_args()
+    if args.existing_stdlib and (args.stdlib or args.foundation):
+        parser.error('--existing-stdlib cannot be combined with --stdlib or --foundation')
+    selected_configs = [config for config in TARGET_CONFIGS if not args.target_os or config[0] in args.target_os]
     compiler = args.compiler.resolve(strict=True)
     if not compiler.is_relative_to(ROOT/'target'):
         parser.error('compiler must be source-built under this checkout target directory')
     native_libraries = args.native_libs.resolve()
     work = args.report.resolve().parent/'runs'/(args.report.stem+'-'+str(os.getpid()))
     work.mkdir(parents=True, exist_ok=True)
-    stdlib = select_stdlib(work, args.foundation, args.stdlib)
+    if args.existing_stdlib:
+        stdlib = work/'stdlib'
+        stage_for_checks(stdlib, args.existing_stdlib)
+    else:
+        stdlib = select_stdlib(work, args.foundation, args.stdlib)
     from configure_rpmalloc import select_for_verification
     select_for_verification(stdlib, args.rpmalloc_first_class_heaps, args.stdlib is not None)
     temporary = work / 'tmp'
@@ -231,6 +273,7 @@ def verify(cleanup):
     report['native_artifacts'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest()
                                   for p in sorted(native_libraries.glob('lib*')) if p.is_file()} if args.runtime else {}
     report['privacy_only'] = args.privacy_only
+    report['existing_stdlib'] = str(args.existing_stdlib.resolve()) if args.existing_stdlib else None
     for module, slug in ([] if args.privacy_only else MODULES.items()):
         if args.module and module not in args.module:
             continue
@@ -241,7 +284,7 @@ def verify(cleanup):
             members = [Declaration(m['signature'],m['condition']) for d in coverage['declarations'] for m in d.get('members',[])]
             symbols = Spec(declarations=spec.declarations+members)
             report['symbols'].extend(check_symbols(module, symbols, enabled, native_libraries))
-        for os_name, cpu in TARGET_CONFIGS:
+        for os_name, cpu in selected_configs:
             file = work/'module-check.jai'
             file.write_text('#import "' + module + '"; main :: () {}\n')
             command = [compiler, file, '-check', '-no_dce', '-os', os_name, '-cpu', cpu]
@@ -268,15 +311,24 @@ def verify(cleanup):
         ('SDL', 'sdl-rwops.jai', TARGET_CONFIGS),
         ('SDL', 'sdl-wm.jai', TARGET_CONFIGS),
         ('Objective_C', 'appkit.jai', [('macos','x64'),('macos','arm64')]),
+        ('Objective_C', 'objc-runtime.jai', [('macos','x64'),('macos','arm64')]),
         ('GL', 'gl-output-buffers.jai', TARGET_CONFIGS),
         ('GL', 'glx-context.jai', [('linux','x64'),('linux','arm64')]),
         ('GL', 'wgl-context.jai', [('windows','x64'),('windows','arm64')]),
         ('X11', 'x11-window-helpers.jai', [('linux','x64'),('linux','arm64')]),
         ('X11', 'x11-message-box.jai', [('linux','x64'),('linux','arm64')]),
+        ('X11', 'x11-clipboard-release.jai', [('linux','x64'),('linux','arm64')]),
+        ('X11', 'x11-initialization.jai', [('linux','x64'),('linux','arm64')]),
+        ('X11', 'clipboard-owned-data.jai', TARGET_CONFIGS),
+        ('Android', 'android-commands.jai', [c for c in TARGET_CONFIGS if c[0] in ('linux','macos')]),
         ('dxc_compiler', 'dxc-reflect.jai', [('windows','x64'),('windows','arm64')]),
         ('dxc_compiler', 'dxc-wide.jai', [('windows','x64'),('windows','arm64')]),
         ('dxc_compiler', 'dxc-compile-unit.jai', [('windows','x64'),('windows','arm64')]),
+        ('d3d_compiler', 'd3d-strings.jai', [('windows','x64'),('windows','arm64')]),
+        ('dxc_compiler', 'dxc-version.jai', [('windows','x64'),('windows','arm64')]),
+        ('d3d_compiler', 'shader-bytes.jai', TARGET_CONFIGS),
         ('Android/EGL', 'android-egl-context.jai', [('android','x64'),('android','arm64')]),
+        ('Android', 'android-helpers.jai', [('android','x64'),('android','arm64')]),
         ('iOS', 'ios.jai', [('ios','x64'),('ios','arm64')]),
         ('ImGui', 'imgui-nested.jai', TARGET_CONFIGS),
         ('POSIX', 'posix-stat.jai', [('linux','x64'),('linux','arm64'),('macos','x64'),('macos','arm64')]),
@@ -291,6 +343,8 @@ def verify(cleanup):
         if source.stem in PRIVATE_UNITS:
             source = place_private_unit(source.stem,source,stdlib,report['staged_sources'],cleanup)
         for os_name, cpu in configs:
+            if (os_name, cpu) not in selected_configs:
+                continue
             result = invoke([compiler,source,'-check','-no_dce','-os',os_name,'-cpu',cpu],env)
             result.update(module=module, os=os_name, cpu=cpu, check='source_regression',
                           source=str(source.relative_to(ROOT)), status='passed' if result['exit']==0 else 'failed')
@@ -300,15 +354,24 @@ def verify(cleanup):
     for module, private in [('lz4', 'liblz4'), ('xxHash', 'binding_XXH32'), ('stb_image', 'FILE'),
                             ('Curl', 'Native'), ('Curl', 'Varargs'), ('dxc_compiler', 'IMalloc'),
                             ('MojoShader', 'MOJOSHADER_uniformType'), ('Objective_C', 'binding_objc_class'),
+                            ('Objective_C', 'ObjCEncoding'), ('Objective_C', 'ObjCRegistration'),
+                            ('Objective_C', 'ObjCStub'), ('Objective_C', 'ObjCBasic'), ('Objective_C', 'String_Builder'),
                             ('Objective_C', 'NSWindow'), ('Objective_C/AppKit', 'NSView'),
                             ('Objective_C/AppKit', 'NSScreen'), ('Objective_C/AppKit', 'send_result'),
                             ('SDL', 'NativeSDL'), ('SDL', 'Binding_File_RWops'),
                             ('SDL', 'Binding_RW_State'), ('SDL', 'binding_files'),
                             ('GL', 'NativeWGL'), ('X11', 'Native'),
+                            ('X11', 'binding_typelist_allocator'),
+                            ('Android', 'Commands'), ('Android', 'Policy'),
+                            ('Android', 'binding_received_window'), ('Android', 'binding_app'),
+                            ('X11', 'ClipboardOwned'),
                             ('X11', 'Binding_Message_Choices'), ('X11', 'binding_message_event'),
                             ('X11', 'binding_message_button'), ('dxc_compiler', 'ID3D12ShaderReflection'),
                             ('dxc_compiler', 'Win'), ('dxc_compiler', 'D3D'),
                             ('dxc_compiler', 'NativeCompile'), ('macOS', 'NativeEvents'),
+                            ('dxc_compiler', 'VersionBasic'), ('dxc_compiler', 'VersionBytes'),
+                            ('dxc_compiler', 'VersionCOM'), ('dxc_compiler', 'version_check'),
+                            ('d3d_compiler', 'Bytes'), ('d3d_compiler', 'Wide'), ('d3d_compiler', 'Native'),
                             ('d3d11', 'ID3DBlob'), ('d3d11', 'ID3D11ModuleInstance'),
                             ('d3d12', 'ID3DBlob'), ('rpmalloc','Heap'),
                             ('rpmalloc','Span'), ('rpmalloc','Native'),
@@ -329,7 +392,7 @@ def verify(cleanup):
                             ('rpmalloc','Statistics_Frames'), ('rpmalloc','Statistics_Bridge')]:
         if args.module and module.split('/')[0] not in args.module and module not in args.module:
             continue
-        for os_name, cpu in TARGET_CONFIGS:
+        for os_name, cpu in selected_configs:
             result = {'module':module, 'member':private, 'os':os_name, 'cpu':cpu}
             target = TARGETS.get(module.split('/')[0], '')
             if target and not enabled(target,os_name,cpu):
@@ -346,7 +409,7 @@ def verify(cleanup):
     if not args.module or 'iOS' in args.module:
         # The reviewed target condition makes all three iOS exports unavailable
         # on desktop. Validate absence, rather than inventing host conveniences.
-        for os_name, cpu in TARGET_CONFIGS:
+        for os_name, cpu in selected_configs:
             for member in ('get_ios_target_triple','get_ios_sdk_path','get_ios_simulator_sdk_path'):
                 source = work/('ios-availability-'+member+'-'+os_name+'-'+cpu+'.jai')
                 source.write_text('M :: #import "iOS"; leaked :: M.'+member+'; main :: () {}\n')
@@ -355,7 +418,7 @@ def verify(cleanup):
                               status='passed' if result['exit'] != 0 and 'has no exported member `'+member+'`' in result['stderr'] else 'failed')
                 report['privacy'].append(result)
     if args.runtime and not args.privacy_only:
-        runtime_tests = ['lz4', 'xxhash', 'images', 'meshoptimizer', 'freetype', 'posix', 'posix-abi', 'curl', 'ios-sdk-host', 'objective-c', 'appkit', 'mojoshader', 'macos', 'metal', 'gl', 'nsgl', 'gl-context', 'reflection-procedure-flags', 'graphics-math', 'sdl', 'sdl-wm', 'sdl-layout']
+        runtime_tests = ['lz4', 'xxhash', 'images', 'meshoptimizer', 'freetype', 'posix', 'posix-abi', 'curl', 'ios-sdk-host', 'objective-c', 'objc-runtime', 'appkit', 'mojoshader', 'macos', 'metal', 'gl', 'nsgl', 'gl-context', 'reflection-procedure-flags', 'graphics-math', 'sdl', 'sdl-wm', 'sdl-layout']
         if not args.module or 'iOS' in args.module:
             report['native'].append({'name':'ios-public-facade','status':'unsupported',
                                      'reason':'Reviewed iOS-only exports are absent on the desktop host; required mobile source checks remain active'})
@@ -364,20 +427,33 @@ def verify(cleanup):
             runtime_tests.append('dxc-reflect')
             runtime_tests.append('dxc-wide')
             runtime_tests.append('dxc-compile-unit')
+            runtime_tests.append('d3d-strings')
+            runtime_tests.append('dxc-version')
         if sys.platform == 'darwin':
             runtime_tests.append('fsevents-context')
         runtime_tests.append('sdl-rwops')
         runtime_tests.append('imgui-nested')
         runtime_tests.append('posix-stat')
         runtime_tests.append('dxc-options')
+        runtime_tests.append('shader-bytes')
+        runtime_tests.append('clipboard-owned-data')
+        runtime_tests.append('android-commands')
         runtime_tests.extend(rpmalloc_fixtures(args.rpmalloc_first_class_heaps))
         if sys.platform.startswith('linux'):
             runtime_tests.append('x11-window-helpers')
             runtime_tests.append('x11-message-box')
+            runtime_tests.append('x11-clipboard-release')
+            runtime_tests.append('x11-initialization')
         for name in runtime_tests:
-            relevant = {'xxhash': ['xxHash'], 'images': ['stb_image', 'stb_image_write', 'stb_image_resize', 'stb_vorbis'], 'posix': ['POSIX'], 'curl':['Curl'], 'ios':['iOS'], 'objective-c':['Objective_C'], 'mojoshader':['MojoShader'], 'macos':['macOS'], 'metal':['Metal'], 'gl':['GL'], 'graphics-math':['d3d12'], 'sdl':['SDL'], 'sdl-layout':['SDL']}.get(name, [name])
+            relevant = {'xxhash': ['xxHash'], 'images': ['stb_image', 'stb_image_write', 'stb_image_resize', 'stb_vorbis'], 'posix': ['POSIX'], 'curl':['Curl'], 'ios':['iOS'], 'objective-c':['Objective_C'], 'objc-runtime':['Objective_C'], 'mojoshader':['MojoShader'], 'macos':['macOS'], 'metal':['Metal'], 'gl':['GL'], 'graphics-math':['d3d12'], 'sdl':['SDL'], 'sdl-layout':['SDL']}.get(name, [name])
             if name == 'appkit':
                 relevant = ['Objective_C']
+            if name in ('d3d-strings', 'shader-bytes'):
+                relevant = ['d3d_compiler']
+            if name in ('clipboard-owned-data', 'x11-clipboard-release', 'x11-initialization'):
+                relevant = ['X11']
+            if name == 'dxc-version':
+                relevant = ['dxc_compiler']
             if name == 'fsevents-context':
                 relevant = ['macOS']
             if name == 'sdl-wm':

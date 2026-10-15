@@ -34,7 +34,7 @@ INPUTS = {
     'binding_rpmalloc_callbacks': {'rpmalloc'},
     'binding_rpmalloc_callbacks_nostats': {'rpmalloc'},
     'rpmalloc_callback_probe': {'rpmalloc'}, 'rpmalloc_storage_probe': {'rpmalloc'},
-    'fsevents_context_probe': set(),
+    'fsevents_context_probe': set(), 'objc_runtime_probe': set(),
 }
 
 LIBRARY_DEPENDENCIES = {
@@ -153,6 +153,7 @@ def main():
     }
     if platform.system() == 'Darwin':
         units['fsevents_context_probe'] = [ROOT/'tests/native-bindings/fsevents_context_probe.c']
+        units['objc_runtime_probe'] = [ROOT/'tests/native-bindings/objc_runtime_probe.m']
     macros = {'stb_image': 'STB_IMAGE_IMPLEMENTATION',
               'stb_image_resize': 'STB_IMAGE_RESIZE_IMPLEMENTATION',
               'stb_image_write': 'STB_IMAGE_WRITE_IMPLEMENTATION'}
@@ -183,6 +184,8 @@ def main():
         extra = ['-lffi'] if name == 'binding_ffi' else []
         if name == 'fsevents_context_probe':
             extra = ['-framework', 'CoreServices']
+        if name == 'objc_runtime_probe':
+            extra = ['-framework', 'Foundation']
         if name == 'rpmalloc_callback_probe':
             # Shared adapters must use the same SDK instance as allocations.
             # Statically embedding a second allocator would split ownership.

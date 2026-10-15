@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from itertools import product
 
 from generate import MODULES
 from spec import parse_spec
@@ -19,9 +20,6 @@ CONFIGURATIONS = [
     ('d3d11', {'INCLUDE_DEBUG_BINDINGS':True}, '(INCLUDE_DEBUG_BINDINGS=true)', ('windows',)),
     ('d3d12', {'INCLUDE_DEBUG_BINDINGS':True}, '(INCLUDE_DEBUG_BINDINGS=true)', ('windows',)),
     ('telemetry3', {'ENABLED':True}, '(ENABLED=true)', ('windows',)),
-    ('rpmalloc', {'USE_RAW':True}, '(USE_RAW=true)', ('linux','macos','windows')),
-    ('rpmalloc', {'USE_RAW':True,'ENABLE_STATISTICS':False}, '(USE_RAW=true,ENABLE_STATISTICS=false)', ('linux','macos','windows')),
-    ('rpmalloc', {'ENABLE_STATISTICS':False}, '(ENABLE_STATISTICS=false)', ('linux','macos','windows')),
     ('Android', {}, '', ('android',)),
     ('Android', {'INCLUDE_MEDIA_BINDINGS':True,'INCLUDE_CAMERA_BINDINGS':True}, '()(INCLUDE_MEDIA_BINDINGS=true,INCLUDE_CAMERA_BINDINGS=true)', ('android',)),
     ('Android', {'USE_GLUE_NATIVE_PORT':False}, '()(USE_GLUE_NATIVE_PORT=false)', ('android',)),
@@ -31,6 +29,15 @@ CONFIGURATIONS = [
     ('Metal', {}, '', ('ios',)),
     ('iOS', {}, '', ('ios',)),
 ]
+
+# Public option combinations independently qualify every reviewed name. Raw
+# named-heap availability is a separate private build selection, checked by
+# running this same complete matrix with --rpmalloc-first-class-heaps as well.
+for raw, statistics, thread_cache, global_cache in product((False, True), repeat=4):
+    parameters = dict(USE_RAW=raw, ENABLE_STATISTICS=statistics,
+                      ENABLE_THREAD_CACHE=thread_cache, ENABLE_GLOBAL_CACHE=global_cache)
+    suffix = '('+','.join(key+'='+str(value).lower() for key, value in parameters.items())+')'
+    CONFIGURATIONS.append(('rpmalloc', parameters, suffix, ('linux', 'macos', 'windows')))
 
 
 def main():

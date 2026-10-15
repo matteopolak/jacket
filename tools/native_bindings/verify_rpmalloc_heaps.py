@@ -15,6 +15,7 @@ import subprocess
 from contextlib import ExitStack
 
 from config import RPMALLOC_SDK_BUILD_OPTIONS
+from rpmalloc_profiles import PROFILES
 from prepare_rpmalloc import prepare
 from verify import select_stdlib, place_private_unit, ROOT
 from configure_rpmalloc import select_for_verification
@@ -58,6 +59,8 @@ def verify(cleanup):
 
     unit = place_private_unit('rpmalloc-heap-marshalling',
                               ROOT/'tests/native-bindings/rpmalloc-heap-marshalling.jai', stdlib, {}, cleanup)
+    cache_unit = place_private_unit('rpmalloc-no-thread-cache',
+        ROOT/'tests/native-bindings/rpmalloc-no-thread-cache.jai', stdlib, {}, cleanup)
     prepared = prepare(ROOT/'.work/vendor/rpmalloc', work/'rpmalloc-source')
     (ROOT/'.work/tmp').mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, TMPDIR=str(ROOT/'.work/tmp'), JAIC_STDLIB=str(stdlib),
@@ -65,7 +68,7 @@ def verify(cleanup):
                JAIC_TEST_RPMALLOC_FIRST_CLASS_HEAPS='true' if args.rpmalloc_first_class_heaps else 'false')
     programs = [ROOT/'tests/native-bindings'/name for name in
                 ('rpmalloc-public-heaps.jai', 'rpmalloc-public-heap-lifecycle.jai',
-                 'rpmalloc-public-configurable.jai', 'rpmalloc-public-allocator-proc.jai',
+                 'rpmalloc-public-configurable.jai', 'rpmalloc-public-global-cache.jai', 'rpmalloc-public-allocator-proc.jai',
                  'rpmalloc-public-builder-dump.jai', 'rpmalloc-public-dump-failure.jai')]+[unit,
                      place_private_unit('rpmalloc-native-error-callback',
                                         ROOT/'tests/native-bindings/rpmalloc-native-error-callback.jai', stdlib, {}, cleanup)]
@@ -77,6 +80,7 @@ def verify(cleanup):
     else:
         programs += [place_private_unit('rpmalloc-raw-base-marshalling',
                                         ROOT/'tests/native-bindings/rpmalloc-raw-base-marshalling.jai', stdlib, {}, cleanup)]
+    programs += [cache_unit]
     commands = []
     for program in programs:
         for target_os in ('macos', 'linux', 'windows'):
@@ -88,12 +92,10 @@ def verify(cleanup):
             exe = work/(program.stem+'-'+str(index))
             commands.append([compiler, program, *(['-target', target] if target else []), '-exe', exe])
             commands.append([exe])
-    layouts = ((0, 1), (1, 0), (1, 1))
-    for raw, public_heaps, stats in [(r, h, s) for r, h in layouts for s in (1, 0)]:
-        options = dict(RPMALLOC_SDK_BUILD_OPTIONS, ENABLE_STATISTICS=stats, BINDING_RPMALLOC_RAW=raw,
-                       BINDING_RPMALLOC_PUBLIC_HEAPS=public_heaps)
+    for profile in PROFILES:
+        options = profile['options']
         for name in ('rpmalloc_heap_safety', 'rpmalloc_sdk_page_granularity', 'rpmalloc_snapshot_safety'):
-            exe = work/(name+'-'+str(raw)+'-'+str(public_heaps)+'-'+str(stats))
+            exe = work/(name+'-'+profile['sdk'])
             commands.append(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-O1', '-g',
                              '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-isystem', prepared,
                              *['-D'+k+'='+str(v) for k, v in options.items()],
@@ -103,14 +105,21 @@ def verify(cleanup):
                               text=True).stdout.strip()
     for target in ('x86_64-apple-darwin', 'aarch64-apple-darwin', 'x86_64-linux-gnu',
                    'aarch64-linux-gnu', 'x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc'):
-        for raw, public_heaps, stats in [(r, h, s) for r, h in layouts for s in (1, 0)]:
-            commands.append(['clang', '-target', target, '-std=c11', '-ffreestanding', '-nostdinc',
-                             '-isystem', resource+'/include', '-DENABLE_THREAD_CACHE=1',
-                             '-DENABLE_STATISTICS='+str(stats), '-fsyntax-only',
-                             '-DBINDING_RPMALLOC_RAW='+str(raw),
-                             '-DBINDING_RPMALLOC_PUBLIC_HEAPS='+str(public_heaps),
-                             ROOT/'stdlib/internal/bindings/rpmalloc-heaps/public-layout.h'])
-    scopes = ['stdlib/rpmalloc', 'stdlib/internal/bindings/rpmalloc-heaps',
+        # Global caching does not change record fields; both thread-cache
+        # layouts must independently compile for every target and public shape.
+        for profile in PROFILES:
+            if not profile["global_cache"]:
+                continue
+            definitions = {key: profile["options"][key] for key in
+                           ("ENABLE_THREAD_CACHE", "ENABLE_STATISTICS", "BINDING_RPMALLOC_RAW",
+                            "BINDING_RPMALLOC_PUBLIC_HEAPS")}
+            commands.append(["clang", "-target", target, "-std=c11", "-ffreestanding", "-nostdinc",
+                             "-isystem", resource+"/include", "-fsyntax-only",
+                             *["-D"+key+"="+str(value) for key, value in definitions.items()],
+                             ROOT/"stdlib/internal/bindings/rpmalloc-heaps/public-layout.h"])
+    scopes = ['tests/native-bindings/rpmalloc-cache-exercise.jai',
+              'tests/native-bindings/rpmalloc-no-thread-cache.jai',
+              'tests/native-bindings/generated', 'stdlib/rpmalloc', 'stdlib/internal/bindings/rpmalloc-heaps',
               *[str(p.relative_to(ROOT)) for p in programs],
               'tests/native-bindings/rpmalloc-heap-marshalling.jai',
               'tests/native-bindings/generated/rpmalloc-heap-facade-layout.jai',
@@ -169,6 +178,8 @@ def verify(cleanup):
                                      *sorted((ROOT/'stdlib/internal/bindings/rpmalloc-heaps').iterdir()),
                                      ROOT/'tests/native-bindings/rpmalloc_heap_safety.c',
                                      ROOT/'tests/native-bindings/rpmalloc_sdk_page_granularity.c',
+                                     ROOT/'tests/native-bindings/rpmalloc_snapshot_safety.c',
+                                     ROOT/'tests/native-bindings/rpmalloc-cache-exercise.jai',
                                      Path(__file__).resolve(), ROOT/'tools/native_bindings/prepare_rpmalloc.py']
                            if p.is_file()},
                   checks=[])
