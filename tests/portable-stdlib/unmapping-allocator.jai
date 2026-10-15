@@ -16,7 +16,11 @@ assert_write_faults :: (memory: *u8) {
     assert(child >= 0);
 
     if child == 0 {
-        memset(memory, 1, 1);
+        // A real native CPU write tests OS protection; guarded intrinsics report errors.
+        // Restore fatal signal disposition only in this isolated child.
+        native_signal(P.SIGSEGV, null);
+        native_signal(P.SIGBUS, null);
+        native_memset(memory, 1, 1);
         P._exit(0);
     }
 
@@ -86,3 +90,8 @@ concurrent_allocations :: (thread: *T.Thread) -> s64 {
 
     return 0;
 }
+
+#scope_file
+libc :: #system_library "libc";
+native_memset :: (memory: *void, byte: s32, count: u64) -> *void #foreign libc "memset";
+native_signal :: (signal: s32, handler: *void) -> *void #foreign libc "signal";

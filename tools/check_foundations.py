@@ -50,6 +50,7 @@ def owned_sources():
     paths.append(ROOT / "tests/portable-stdlib/pending/no-parameter-module/module.jai")
     paths.append(ROOT / "tests/portable-stdlib/support/test-heap.jai")
     paths.append(ROOT / "tests/portable-stdlib/float-power-sweep.jai")
+    paths.append(ROOT / "tests/portable-stdlib/windows-foundations.jai")
     return sorted(set(paths))
 
 
@@ -125,6 +126,12 @@ def main():
                     continue
                 if "unix" in path.name and target_os == "windows":
                     continue
+                if target_os == "windows" and path in {
+                    ROOT / "stdlib/internal/files/filesystem.jai",
+                    ROOT / "stdlib/internal/basic/filesystem.jai",
+                    ROOT / "tests/portable-stdlib/file-visitation.jai",
+                }:
+                    continue  # POSIX implementations/oracle; Windows backends have their own roots.
                 selected.append(path)
             manifest = lint_output / f"{target_os}-{target_cpu}.txt"
             checked = subprocess.run([str(linter), "-v", "-D", "warnings", "--os", target_os,
@@ -181,7 +188,11 @@ def main():
                 raise RuntimeError(f"expected formatter assertion {name}: {rejected}")
         print(f"passed interpreter/native O0/O2 assertion: {name}", flush=True)
 
-    for name in CASES:
+    host_cases = list(CASES)
+    if os.name == "nt":
+        host_cases.remove("file-visitation")  # Native POSIX symlink graph oracle.
+        host_cases.append("windows-foundations")
+    for name in host_cases:
         source = ROOT / f"tests/portable-stdlib/{name}.jai"
         expected = expected_output(name)
         run([compiler, "-interp", source], *expected)
@@ -206,7 +217,9 @@ def main():
         for os_name, cpu in (("linux", "x64"), ("linux", "arm64"), ("macos", "arm64"), ("macos", "x64"), ("windows", "x64"), ("windows", "arm64"), ("wasm", "wasm64")):
             try:
                 for name in CASES:
-                    if name in ("basic-filesystem", "foundation-filesystem", "file-visitation", "basic-sleep", "filesystem-invalid-paths") and os_name in ("windows", "wasm"):
+                    if name == "file-visitation" and os_name == "windows":
+                        continue  # POSIX symlink oracle; Windows public traversal is checked below.
+                    if name in ("basic-filesystem", "foundation-filesystem", "file-visitation", "basic-sleep", "filesystem-invalid-paths") and os_name == "wasm":
                         continue
                     if name == "basic-output" and os_name == "wasm":
                         continue
