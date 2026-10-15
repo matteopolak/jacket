@@ -10,3 +10,6 @@ static_assert(offsetof(DxcBuffer, Size) == 8, "native size offset");
 static_assert(offsetof(DxcBuffer, Encoding) == 16, "native encoding offset");
 static_assert(sizeof(GUID) == 16, "COM identity size");
 static_assert(sizeof(HRESULT) == 4, "native HRESULT size");
+static_assert(sizeof(IDxcCompiler3) == 8 && sizeof(IDxcUtils) == 8, "COM interface header");
+static_assert(sizeof(IDxcOperationResult) == 8 && sizeof(IDxcResult) == 8, "result interface header");
+static_assert(sizeof(IDxcBlob) == 8 && sizeof(IDxcBlobEncoding) == 8, "blob interface header");

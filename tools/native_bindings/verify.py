@@ -23,6 +23,9 @@ from conditions import evaluate
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [(os_name, cpu) for os_name in ('linux', 'macos', 'windows') for cpu in ('x64', 'arm64')]
+PRIVATE_UNITS = {'ios-sdk-host':'iOS/sdk-host-unit.jai',
+                 'dxc-wide':'dxc_compiler/sdk-wide-unit.jai',
+                 'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai'}
 
 
 def enabled(condition, os_name, cpu, parameters=None):
@@ -192,6 +195,8 @@ def main():
         ('X11', 'x11-window-helpers.jai', [('linux','x64'),('linux','arm64')]),
         ('X11', 'x11-message-box.jai', [('linux','x64'),('linux','arm64')]),
         ('dxc_compiler', 'dxc-reflect.jai', [('windows','x64'),('windows','arm64')]),
+        ('dxc_compiler', 'dxc-wide.jai', [('windows','x64'),('windows','arm64')]),
+        ('dxc_compiler', 'dxc-compile-unit.jai', [('windows','x64'),('windows','arm64')]),
         ('Android/EGL', 'android-egl-context.jai', [('android','x64'),('android','arm64')]),
         ('iOS', 'ios.jai', [('ios','x64'),('ios','arm64')]),
         ('ImGui', 'imgui-nested.jai', TARGET_CONFIGS),
@@ -204,10 +209,17 @@ def main():
             continue
         source = ROOT/'tests/native-bindings'/filename
         report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
+        if source.stem in PRIVATE_UNITS:
+            placed = stdlib/PRIVATE_UNITS[source.stem]
+            shutil.copy2(source, placed)
+            source = placed
+            report['staged_sources'][str(source.relative_to(stdlib))] = hashlib.sha256(source.read_bytes()).hexdigest()
         for os_name, cpu in configs:
             result = invoke([compiler,source,'-check','-no_dce','-os',os_name,'-cpu',cpu],env)
             result.update(module=module, os=os_name, cpu=cpu, check='source_regression',
                           source=str(source.relative_to(ROOT)), status='passed' if result['exit']==0 else 'failed')
+            if Path(filename).stem in PRIVATE_UNITS:
+                result.update(scope='private_native_unit',private_unit_placement=str(source))
             report['targets'].append(result)
     for module, private in [('lz4', 'liblz4'), ('xxHash', 'binding_XXH32'), ('stb_image', 'FILE'),
                             ('Curl', 'Native'), ('Curl', 'Varargs'), ('dxc_compiler', 'IMalloc'),
@@ -219,7 +231,8 @@ def main():
                             ('GL', 'NativeWGL'), ('X11', 'Native'),
                             ('X11', 'Binding_Message_Choices'), ('X11', 'binding_message_event'),
                             ('X11', 'binding_message_button'), ('dxc_compiler', 'ID3D12ShaderReflection'),
-                            ('dxc_compiler', 'Win'), ('dxc_compiler', 'D3D')]:
+                            ('dxc_compiler', 'Win'), ('dxc_compiler', 'D3D'),
+                            ('dxc_compiler', 'NativeCompile')]:
         if args.module and module.split('/')[0] not in args.module and module not in args.module:
             continue
         for os_name, cpu in TARGET_CONFIGS:
@@ -255,9 +268,12 @@ def main():
         if sys.platform == 'win32':
             runtime_tests.append('wgl-context')
             runtime_tests.append('dxc-reflect')
+            runtime_tests.append('dxc-wide')
+            runtime_tests.append('dxc-compile-unit')
         runtime_tests.append('sdl-rwops')
         runtime_tests.append('imgui-nested')
         runtime_tests.append('posix-stat')
+        runtime_tests.append('dxc-options')
         if sys.platform.startswith('linux'):
             runtime_tests.append('x11-window-helpers')
             runtime_tests.append('x11-message-box')
@@ -271,13 +287,13 @@ def main():
                 relevant = ['POSIX']
             if name == 'wgl-context':
                 relevant = ['GL']
-            if name == 'dxc-reflect':
+            if name in ('dxc-reflect','dxc-wide','dxc-options','dxc-compile-unit'):
                 relevant = ['dxc_compiler']
             if name == 'sdl-rwops':
                 relevant = ['SDL']
             if name in ('x11-window-helpers','x11-message-box'):
                 relevant = ['X11']
-            if name == 'ios-sdk-host':
+            if name in PRIVATE_UNITS:
                 relevant = ['iOS']
             if name == 'imgui-nested':
                 relevant = ['ImGui']
@@ -300,19 +316,23 @@ def main():
                 # A private unit belongs inside the staged library boundary.
                 # Copy bytes unchanged; do not expose a public testing backdoor
                 # or disable the compiler's private-import guard.
-                compiled_source = stdlib/'iOS/sdk-host-unit.jai'
+                compiled_source = stdlib/PRIVATE_UNITS[name]
                 shutil.copy2(source, compiled_source)
                 report['staged_sources'][str(compiled_source.relative_to(stdlib))] = hashlib.sha256(compiled_source.read_bytes()).hexdigest()
             result = invoke([compiler, compiled_source, '-exe', exe], env)
             scope = 'private_arithmetic' if name=='graphics-math' else 'private_toolchain_host' if name=='ios-sdk-host' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
+            if name in ('dxc-wide','dxc-options'):
+                scope = 'private_argument_conversion' if name=='dxc-wide' else 'private_argument_serialization'
+            if name == 'dxc-compile-unit':
+                scope = 'private_native_compile_route'
             result.update(name=name, phase='build',scope=scope,status='passed' if result['exit']==0 else 'failed')
             if compiled_source != source:
                 result['private_unit_placement'] = str(compiled_source)
             report['native'].append(result)
             if result['exit'] == 0:
-                arguments = [work/'native-rwops-test.bmp'] if name == 'sdl-rwops' else []
+                arguments = [work/"native-rwops-test.bmp"] if name == "sdl-rwops" else []
                 result = invoke([exe, *arguments], env)
-                result.update(name=name, phase='run', status='passed' if result['exit']==0 else 'failed')
+                result.update(name=name, phase="run",scope=scope,status="passed" if result["exit"]==0 else "failed")
                 report['native'].append(result)
                 if name == 'sdl-rwops':
                     result = invoke([compiler, compiled_source, '-interp', '--', *arguments], env)

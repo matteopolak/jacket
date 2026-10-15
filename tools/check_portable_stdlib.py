@@ -44,6 +44,7 @@ EXPECTED_EXIT = {"basic-output": 17}
 for name in ("basic-logging-output", "basic-print-bytes", "basic-stack-output"):
     EXPECTED[name], EXPECTED_STDERR[name], EXPECTED_EXIT[name] = foundation_output(name)
 FAULT_EXPECTATIONS = {
+    "flat-pool-capacity": ("assertion failed", "flat-pool reservation exhausted"),
     "sound-channels": ("assertion failed", "audio sample input/channel range invalid"),
     "sound-magic": ("assertion failed", "audio magic read outside input"),
     "atomic-bit-index": ("assertion failed", "atomic bit index out of range"),

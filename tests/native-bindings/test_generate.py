@@ -41,16 +41,23 @@ Outer :: struct {
                          [('root', 'Outer'), ('nested', 'Outer.Inner'), ('other', 'Outer')])
         self.assertIn('Inner :: struct', code)
 
-    def test_sdk_owned_rwops_pointers_keep_real_foreign_entry_points(self):
-        signatures = [
-            'SDL_RWFromFile :: (path: *u8, mode: *u8) -> *SDL_RWops #foreign SDL2',
-            'SDL_LoadBMP_RW :: (src: *SDL_RWops, freesrc: int) -> *SDL_Surface #foreign SDL2',
-        ]
-        for signature in signatures:
-            spec = parse_spec('# SDL\n## Public declaration inventory\n- `'+signature+'`\n')
-            code, ledger = generate_facade('SDL', spec)
-            self.assertIn(signature+';', code)
-            self.assertEqual(ledger[0]['status'], 'declared')
+    def test_sdk_owned_rwops_factory_retains_native_symbol(self):
+        signature = 'SDL_RWFromFile :: (path: *u8, mode: *u8) -> *SDL_RWops #foreign SDL2'
+        spec = parse_spec('# SDL\n## Public declaration inventory\n- `'+signature+'`\n')
+        code, ledger = generate_facade('SDL', spec)
+        self.assertIn(signature+';', code)
+        self.assertEqual(ledger[0]['status'], 'declared')
+
+    def test_native_close_flag_adapter_requires_exact_public_signature(self):
+        signature = 'SDL_LoadBMP_RW :: (src: *SDL_RWops, freesrc: int) -> *SDL_Surface #foreign SDL2'
+        spec = parse_spec('# SDL\n## Public declaration inventory\n- `'+signature+'`\n')
+        code, ledger = generate_facade('SDL', spec)
+        self.assertEqual(ledger[0]['status'], 'implemented_manual')
+        self.assertNotIn('#foreign SDL2', code)
+        changed = parse_spec('# SDL\n## Public declaration inventory\n- `'+signature.replace('freesrc:', 'other:')+'`\n')
+        code, ledger = generate_facade('SDL', changed)
+        self.assertEqual(ledger[0]['status'], 'unresolved')
+        self.assertNotIn('#foreign SDL2', code)
 
     def test_foreign_prototype_before_record_is_not_an_authored_body(self):
         text = '''native :: () #foreign lib "call";

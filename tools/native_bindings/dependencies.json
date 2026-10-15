@@ -182,7 +182,9 @@
     "files": {
       "include/dxc/dxcapi.h": "1855295d3e9ed604a8f2b9dbd415a9d8f39f9e78b386f2f46fd00615da2cdfee",
       "tools/clang/tools/dxcompiler/dxclibrary.cpp": "6fbfa9a82ba43962d5c042ef48d727ec7adba48529a05994d69601384caeace3",
-      "include/dxc/WinAdapter.h": "645600f7d2c5496a2ea187d218568f202f8661dc5150b1da665302196940267f"
+      "include/dxc/WinAdapter.h": "645600f7d2c5496a2ea187d218568f202f8661dc5150b1da665302196940267f",
+      "docs/SPIR-V.rst": "09cf683be5c02395deb42fb8b0b6db1ad19786ccf69854abacb0f252582d1d8a",
+      "include/dxc/Support/HLSLOptions.td": "6f99e52ff20b95f48860c70e82da37b3dfe50295b07cc3267bcb30289d818f2f"
     },
     "usage": "Official native SDK header and native implementation only, for COM reflection ABI and accepted buffer/ownership contracts; not a Jai compatibility oracle"
   }

@@ -3,6 +3,7 @@
 D :: #import "dxc_compiler";
 R :: #import "d3d12";
 W :: #import "Windows";
+B :: #import "Basic";
 
 libc :: #library,system "c";
 abort :: () #foreign libc;
@@ -61,4 +62,35 @@ main :: () {
 
     absent, valid = D.DXC_Reflect(bad);
     check(absent == null && !valid);
+
+    args: D.Dxc_Shader_Compiler_Args;
+    args.shader_name = "binding-shader.hlsl";
+    args.shader_source = "float4 main() : SV_Target { return float4(VALUE,0,0,1); }";
+    args.shader_model_version = "6_0";
+    args.shader_type = .Fragment;
+    args.entry_point = "main";
+    defines: [1] string = .["VALUE=1"];
+
+    args.defines = defines;
+    args.add_debug_info = true;
+    args.warnings_as_error = true;
+    compiled := D.DXC_Compile(args);
+
+    defer B.array_free(compiled);
+    check(compiled.count > 0);
+    reflected, reflected_success := D.DXC_Reflect(compiled);
+
+    check(reflected_success && reflected != null);
+    W.IUnknown_Release(cast(*W.IUnknown) reflected);
+    args.spirv_target_env = "vulkan1.3";
+    args.spirv_generate_non_semanantic_debug_info = true;
+    spirv := D.DXC_Compile(args);
+
+    defer B.array_free(spirv);
+    check(spirv.count >= 4 && spirv[0] == 3 && spirv[1] == 2 && spirv[2] == 0x23 && spirv[3] == 7);
+    args.shader_source = "this is not valid HLSL";
+    failed := D.DXC_Compile(args);
+
+    defer B.array_free(failed);
+    check(failed.count == 0);
 }
