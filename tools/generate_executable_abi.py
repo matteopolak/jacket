@@ -1,6 +1,6 @@
 """Transcribe explicit reviewed declarations, never implementation/reference source.
 
-Incomplete public shapes are withheld and tracked in docs/worker-inbox.md.
+Records provided by the other private executable files are excluded here.
 """
 from pathlib import Path
 import re
@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = (ROOT / "docs/specs/stdlib/modules/executable-formats.md").read_text()
 inventory = dict(re.findall(r"^- `([A-Za-z_0-9]+)\s*::\s*([^`]+)`$", SPEC.split("## Public type members")[0], re.M))
 blocks = re.findall(r"^#### `([^`]+)` \(([^)]+)\)\n(.*?)(?=^#### |^## |\Z)", SPEC, re.M | re.S)
-withheld = {"Archive", "Archive_File", "Elf_Program_Header", "nlist", "nlist_64",
+withheld = {"Archive", "Archive_File", "Elf_Program_Header",
             "Coff_Raw_Codeview_Info", "Coff_Codeview_Info", "Coff_Optional_Header", "Coff"}
 out = ["// Explicit public ABI transcribed from the reviewed executable-formats spec.\n"]
 written = set()

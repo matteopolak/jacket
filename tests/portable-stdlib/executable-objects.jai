@@ -36,6 +36,11 @@ main :: () {
 run_cases :: () {
     assert(size_of(E.mach_header) == 28);
     assert(size_of(E.mach_header_64) == 32);
+    assert(size_of(E.nlist) == 12 && size_of(E.nlist_64) == 16);
+    raw_symbol: E.nlist_64;
+    raw_symbol.n_un.n_strx = 37;
+    assert(raw_symbol.n_un.n_strx == 37);
+    assert(cast(u8) E.Elf_Endianness.MSB == 1);
     assert(size_of(E.Mach_Header) == 32);
     assert(size_of(E.Section_64) == 80);
     assert(size_of(E.Coff_Header) == 20);
