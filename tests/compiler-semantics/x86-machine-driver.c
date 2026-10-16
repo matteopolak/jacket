@@ -59,7 +59,10 @@ static int random_checks(uint32_t (*operation)(uint64_t *), unsigned width) {
     for (unsigned i = 0; i < 2048; ++i) {
         uint64_t value = 0;
         uint32_t flags = operation(&value);
-        if (flags > 1) return 1; // ZF/SF/OF/PF must clear, regardless of CF.
+        if (flags > 1) {
+            fprintf(stderr, "width %u: arithmetic flags must clear, got %u\n", width, flags);
+            return 1; // ZF/SF/OF/PF must clear, regardless of CF.
+        }
         if (width == 16 && (value & UINT64_C(0xffffffffffff0000)) != UINT64_C(0x123456789abc0000)) return 2;
         if (width == 32 && value >> 32) return 3;
         uint64_t low = width == 64 ? value : value & ((UINT64_C(1) << width) - 1);

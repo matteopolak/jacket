@@ -29,7 +29,10 @@ mod windows_imports;
 
 #[derive(Clone)]
 pub struct Library {
+    #[cfg(not(all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))))]
     handle: usize,
+    #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
+    windows: windows::Library,
 }
 
 /// Directories searched for libraries by name before the system's, set once by the driver
@@ -227,12 +230,12 @@ impl Library {
     }
 
     /// Windows: `LoadLibraryW` of `name.dll` (see `windows::open`).
-    #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(all(test, windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
     pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
         windows::open(name, system, base_dir)
             .ok()
-            .map(|handle| Library {
-                handle,
+            .map(|windows| Library {
+                windows,
             })
     }
 
@@ -240,8 +243,8 @@ impl Library {
     pub fn open_checked(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
         #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
         {
-            windows::open(name, system, base_dir).map(|handle| Library {
-                handle,
+            windows::open(name, system, base_dir).map(|windows| Library {
+                windows,
             })
         }
         #[cfg(not(all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))))]
@@ -272,9 +275,21 @@ pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     (!p.is_null()).then_some(p as u64)
 }
 
-#[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(all(test, windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
-    windows::lookup(lib.map(|l| l.handle), symbol)
+    lookup_checked(lib, symbol).ok().flatten()
+}
+
+/// Preserve structured import-library ambiguity/CPU errors at the interpreter boundary.
+pub fn lookup_checked(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>, String> {
+    #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
+    {
+        windows::lookup_library(lib.map(|library| &library.windows), symbol)
+    }
+    #[cfg(not(all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))))]
+    {
+        Ok(lookup(lib, symbol))
+    }
 }
 
 #[cfg(not(any(

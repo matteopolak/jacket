@@ -1439,7 +1439,9 @@ impl Compiler {
                     zf: Some(zero),
                     sf: Some(zero),
                     of: Some(zero),
-                    pf: Some(zero),
+                    // This field encodes parity through a result byte, not the
+                    // flag bit. Encode the architecturally cleared bit explicitly.
+                    pf: Some(Self::parity_byte_for_bit(f, zero)),
                 };
             }
             Op::Cpuid => {
@@ -2051,6 +2053,12 @@ impl Compiler {
         let one = konst(f, Ty::I8, 1);
         let odd = bin(f, BinOp::And, Ty::I8, ones, one);
         flag_not(f, odd)
+    }
+
+    /// Encode an explicit 0/1 PF bit in the lazy result-byte representation:
+    /// byte 1 has odd parity (PF=0), byte 0 has even parity (PF=1).
+    fn parity_byte_for_bit(f: &mut FnCtx, bit: Val) -> Val {
+        flag_not(f, bit)
     }
 
     #[allow(clippy::too_many_arguments)]

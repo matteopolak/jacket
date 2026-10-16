@@ -18,6 +18,75 @@ fn checked(command: &mut Command) -> String {
 }
 
 #[test]
+fn random_parity_outputs_are_zero_without_eliminating_architectural_samples() {
+    let mut options = Options::host();
+    options.cpu = TargetCpu::X64;
+    options.runtime_support = false;
+    options.stack_trace = false;
+    let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+    c.compile_sources(&[ProgramSource::String(
+        r#"
+#program_export "random_parity"
+random_parity :: () -> u8 #c_call {
+    value: u64; parity: u8;
+    #asm { rdrand.q value; setp parity; }
+    return parity;
+}
+#program_export "seed_parity"
+seed_parity :: () -> u8 #c_call {
+    value: u64; parity: u8;
+    #asm { rdseed.q value; setp parity; }
+    return parity;
+}
+main :: () {}
+"#
+        .into(),
+    )])
+    .unwrap();
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let dir = root.join("target/x86-parity-source");
+    std::fs::create_dir_all(&dir).unwrap();
+    let ir = dir.join("parity.ll");
+    emit_object(
+        &c.program,
+        &jaic_llvm::Options {
+            target: Some("x86_64-unknown-linux-gnu".into()),
+            opt_level: OptLevel::O2,
+            emit_ir: Some(ir.clone()),
+            ..Default::default()
+        },
+        &dir.join("parity.o"),
+    )
+    .unwrap();
+    // emit_ir records the pre-optimization module. Evaluate its constant flag
+    // dataflow with the same official LLVM optimizer, without executing ISA.
+    let optimized = dir.join("parity-opt.ll");
+    checked(
+        Command::new("opt")
+            .arg("-passes=default<O2>")
+            .arg("-S")
+            .arg(&ir)
+            .arg("-o")
+            .arg(&optimized),
+    );
+    let ir = std::fs::read_to_string(optimized).unwrap();
+    for (name, instruction) in [("random_parity", "rdrand"), ("seed_parity", "rdseed")] {
+        let body = ir
+            .lines()
+            .skip_while(|line| !line.starts_with("define ") || !line.contains(&format!("@{name}(")))
+            .take_while(|line| *line != "}")
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(body.contains("ret i8 0"), "{name} must expose PF=0: {body}");
+        assert!(
+            body.lines()
+                .any(|line| line.contains(instruction) && line.contains("asm sideeffect")),
+            "clearing the flag must not remove the real architectural sample: {body}"
+        );
+    }
+}
+
+#[test]
 fn opcodes_and_architecture_rejection_survive_optimization() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut options = Options::host();

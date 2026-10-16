@@ -62,12 +62,24 @@ fn load(path: &str) -> Option<usize> {
     load_checked(path).ok()
 }
 
+#[derive(Clone)]
+pub(super) enum Library {
+    Module(usize),
+    Imports {
+        path: std::path::PathBuf,
+        archive: super::windows_imports::Archive,
+        modules: Vec<(String, usize)>,
+    },
+}
+
 /// Resolve real provider metadata using the same SDK LIB directories as linking.
-pub fn open(name: &str, system: bool, base_dir: &str) -> Result<usize, String> {
-    use super::windows_imports::{Candidate, candidates, providers};
+pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
+    use super::windows_imports::{Candidate, archive, candidates};
     let lower = name.to_ascii_lowercase();
     if system && matches!(lower.as_str(), "c" | "libc" | "m" | "libm" | "msvcrt") {
-        return load_checked("msvcrt.dll").map_err(|error| error.to_string());
+        return load_checked("msvcrt.dll")
+            .map(Library::Module)
+            .map_err(|error| error.to_string());
     }
     let (arch, machine) = if cfg!(target_arch = "aarch64") {
         ("arm64", 0xaa64)
@@ -93,7 +105,7 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<usize, String> {
     for candidate in candidates(name, system, base_dir, &dirs, cfg!(target_env = "gnu"))? {
         match candidate {
             Candidate::Dll(path) => match load_checked(&path.to_string_lossy()) {
-                Ok(handle) => return Ok(handle),
+                Ok(handle) => return Ok(Library::Module(handle)),
                 Err(error) => failure = format!("{}: {error}", path.display()),
             },
             Candidate::Archive(path) => {
@@ -102,47 +114,123 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<usize, String> {
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
                     Err(error) => return Err(format!("{}: {error}", path.display())),
                 };
-                let providers = providers(&data, machine)
+                let archive = archive(&data, machine)
                     .map_err(|error| format!("{}: {error}", path.display()))?;
-                let provider = match providers.as_slice() {
-                    [name] => name,
-                    [] => {
-                        return Err(format!(
-                            "{} contains no supported DLL import provider (static archives cannot be dynamically loaded)",
-                            path.display()
-                        ));
-                    }
-                    _ => {
-                        return Err(format!(
-                            "{} imports multiple DLL providers: {}",
-                            path.display(),
-                            providers.join(", ")
-                        ));
-                    }
-                };
-                let mut locations = vec![
-                    path.parent()
-                        .unwrap_or(std::path::Path::new(""))
-                        .join(provider),
-                ];
-                locations.extend(dirs.iter().map(|dir| dir.join(provider)));
-                locations.push(provider.into());
-                for location in locations {
-                    match load_checked(&location.to_string_lossy()) {
-                        Ok(handle) => return Ok(handle),
-                        Err(error) => failure = format!("{}: {error}", location.display()),
-                    }
+                if archive.providers.is_empty() {
+                    return Err(format!(
+                        "{} contains no supported DLL import provider (static archives cannot be dynamically loaded)",
+                        path.display()
+                    ));
                 }
-                // This is the selected import library. Do not substitute a lower
-                // priority archive/provider when its real DLL is unavailable.
-                return Err(format!(
-                    "{} selects {provider}, which could not be loaded: {failure}",
-                    path.display()
-                ));
+                // Long COFF descriptors alone carry no per-symbol mapping.
+                // Retain the existing single-provider behavior for those;
+                // never guess a provider for an unsupported multi-provider map.
+                if archive.imports.is_empty() && archive.providers.len() != 1 {
+                    return Err(format!(
+                        "{} has multiple long-COFF DLL providers without supported per-symbol records: {}",
+                        path.display(),
+                        archive.providers.join(", ")
+                    ));
+                }
+                let mut modules = Vec::new();
+                for provider in &archive.providers {
+                    let mut locations = vec![
+                        path.parent()
+                            .unwrap_or(std::path::Path::new(""))
+                            .join(provider),
+                    ];
+                    locations.extend(dirs.iter().map(|dir| dir.join(provider)));
+                    locations.push(provider.into());
+                    let mut loaded = None;
+                    for location in locations {
+                        match load_checked(&location.to_string_lossy()) {
+                            Ok(handle) => {
+                                loaded = Some(handle);
+                                break;
+                            }
+                            Err(error) => failure = format!("{}: {error}", location.display()),
+                        }
+                    }
+                    let handle = loaded.ok_or_else(|| {
+                        format!(
+                            "{} selects {provider}, which could not be loaded: {failure}",
+                            path.display()
+                        )
+                    })?;
+                    modules.push((provider.clone(), handle));
+                }
+                // Loading all named providers retains required-library startup
+                // side effects. Keep metadata so each later lookup selects its
+                // own provider/export without falling through to another DLL.
+                if archive.imports.is_empty() {
+                    return Ok(Library::Module(modules[0].1));
+                }
+                return Ok(Library::Imports {
+                    path,
+                    archive,
+                    modules,
+                });
             }
         }
     }
     Err(failure)
+}
+
+pub fn lookup_library(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>, String> {
+    use super::windows_imports::ImportTarget;
+    match lib {
+        Some(Library::Imports {
+            path,
+            archive,
+            modules,
+        }) => {
+            let Some(import) = archive
+                .select(symbol)
+                .map_err(|error| format!("{}: {error}", path.display()))?
+            else {
+                return Err(format!(
+                    "{} has no compatible import record for symbol `{symbol}`",
+                    path.display()
+                ));
+            };
+            let module = modules
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(&import.provider))
+                .ok_or_else(|| {
+                    format!(
+                        "{}: selected provider {} is not loaded",
+                        path.display(),
+                        import.provider
+                    )
+                })?
+                .1;
+            let name;
+            let pointer = match &import.target {
+                ImportTarget::Name(export) => {
+                    name = export.bytes().chain(Some(0)).collect::<Vec<u8>>();
+                    name.as_ptr()
+                }
+                // GetProcAddress documents ordinal lookup via a low-word value
+                // with the high word zero, not a pointer to a decimal string.
+                ImportTarget::Ordinal(ordinal) => usize::from(*ordinal) as *const u8,
+            };
+            // SAFETY: module is loaded; pointer is a terminated validated export
+            // name or the documented integer-ordinal encoding.
+            let address = unsafe { GetProcAddress(module as *mut c_void, pointer) };
+            if address.is_null() {
+                return Err(format!(
+                    "{} selects {} export {:?} for `{symbol}`, which could not be resolved: {}",
+                    path.display(),
+                    import.provider,
+                    import.target,
+                    std::io::Error::last_os_error()
+                ));
+            }
+            Ok(Some(address as u64))
+        }
+        Some(Library::Module(handle)) => Ok(lookup(Some(*handle), symbol)),
+        None => Ok(lookup(None, symbol)),
+    }
 }
 
 /// Resolve `symbol` in `lib`, then in the default modules and everything opened so far.

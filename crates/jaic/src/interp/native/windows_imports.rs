@@ -30,22 +30,92 @@ fn provider(data: &[u8]) -> Result<String, String> {
     // Import providers can be .drv/.ocx as well as .dll. Preserve their actual name.
     String::from_utf8(name.to_vec()).map_err(|_| "invalid import provider name".into())
 }
-fn machine(actual: u16, expected: u16) -> Result<(), String> {
-    if actual != expected {
-        return Err(format!(
-            "import provider CPU 0x{actual:04x} does not match interpreter CPU 0x{expected:04x}"
-        ));
-    }
-    Ok(())
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ImportTarget {
+    Name(String),
+    Ordinal(u16),
 }
 
-fn object(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
+#[derive(Clone, Debug)]
+pub(crate) struct Import {
+    pub symbol: String,
+    pub provider: String,
+    pub target: ImportTarget,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Archive {
+    pub providers: Vec<String>,
+    pub imports: Vec<Import>,
+    expected: u16,
+    incompatible_symbols: Vec<(u16, String)>,
+}
+
+impl Archive {
+    /// Linker symbols are case-sensitive; DLL identities are case-insensitive.
+    pub fn select(&self, symbol: &str) -> Result<Option<&Import>, String> {
+        let mut selected: Option<&Import> = None;
+        for import in self.imports.iter().filter(|import| import.symbol == symbol) {
+            if let Some(previous) = selected {
+                if !previous.provider.eq_ignore_ascii_case(&import.provider)
+                    || previous.target != import.target
+                {
+                    return Err(format!(
+                        "import symbol `{symbol}` has ambiguous providers/exports: {} {:?}, {} {:?}",
+                        previous.provider, previous.target, import.provider, import.target
+                    ));
+                }
+            } else {
+                selected = Some(import);
+            }
+        }
+        if selected.is_none()
+            && let Some((actual, _)) = self
+                .incompatible_symbols
+                .iter()
+                .find(|(_, name)| name == symbol)
+        {
+            return Err(format!(
+                "import symbol `{symbol}` CPU 0x{actual:04x} does not match interpreter CPU 0x{:04x}",
+                self.expected
+            ));
+        }
+        Ok(selected)
+    }
+}
+
+struct Record {
+    machine: u16,
+    provider: String,
+    import: Option<(String, ImportTarget)>,
+}
+
+impl Record {
+    fn descriptor(machine: u16, provider: String) -> Self {
+        Self {
+            machine,
+            provider,
+            import: None,
+        }
+    }
+}
+
+fn symbol(data: &[u8]) -> Result<String, String> {
+    if data.is_empty() || data.iter().any(|&byte| !(32..127).contains(&byte)) {
+        return Err("invalid or empty short import symbol/export name".into());
+    }
+    String::from_utf8(data.to_vec()).map_err(|_| "invalid short import symbol/export name".into())
+}
+// Parse and validate before selecting an ABI. An archive may contain separate
+// ARM64EC and ARM64 imports; their machine tags must never be conflated.
+fn object(data: &[u8]) -> Result<Vec<Record>, String> {
     if data.len() < 20 {
         if data.starts_with(&[0, 0, 0xff, 0xff])
             || data.get(..2).is_some_and(|bytes| {
                 matches!(
                     u16::from_le_bytes([bytes[0], bytes[1]]),
-                    0x14c | 0x8664 | 0xaa64
+                    0x14c | 0x8664 | 0xaa64 | 0xa641
                 )
             })
         {
@@ -58,20 +128,45 @@ fn object(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
         if u16_at(data, 4)? != 0 {
             return Ok(Vec::new());
         }
-        machine(u16_at(data, 6)?, expected)?;
+        let actual = u16_at(data, 6)?;
         let flags = u16_at(data, 18)?;
         if flags & !0x1f != 0 || flags & 3 > 2 || (flags >> 2) & 7 > 4 {
             return Err("invalid short import type/name flags".into());
         }
         let payload = bytes(data, 20, u32_at(data, 12)? as usize)?;
-        let (symbol, dll) = terminated(payload)?;
-        if symbol.is_empty() {
-            return Err("empty short import symbol".into());
+        let (public, dll) = terminated(payload)?;
+        let public = symbol(public)?;
+        let (_, rest) = terminated(dll)?;
+        let name_type = (flags >> 2) & 7;
+        let (target, rest) = match name_type {
+            0 => (ImportTarget::Ordinal(u16_at(data, 16)?), rest),
+            1 => (ImportTarget::Name(public.clone()), rest),
+            2 | 3 => {
+                let export = public.strip_prefix(['?', '@', '_']).unwrap_or(&public);
+                let export = if name_type == 3 {
+                    export.split('@').next().unwrap()
+                } else {
+                    export
+                };
+                (ImportTarget::Name(symbol(export.as_bytes())?), rest)
+            }
+            4 => {
+                let (export, rest) = terminated(rest)?;
+                (ImportTarget::Name(symbol(export)?), rest)
+            }
+            _ => unreachable!("validated import name type"),
+        };
+        if !rest.is_empty() {
+            return Err("unexpected short import payload after names".into());
         }
-        return Ok(vec![provider(dll)?]);
+        return Ok(vec![Record {
+            machine: actual,
+            provider: provider(dll)?,
+            import: Some((public, target)),
+        }]);
     }
     let actual = u16_at(data, 0)?;
-    if !matches!(actual, 0x14c | 0x8664 | 0xaa64) {
+    if !matches!(actual, 0x14c | 0x8664 | 0xaa64 | 0xa641) {
         return Ok(Vec::new());
     }
     let count = u16_at(data, 2)? as usize;
@@ -92,8 +187,7 @@ fn object(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
         if name == b".idata$7" && u16_at(header, 32)? == 0 {
             let payload = raw()?;
             if payload.first().is_some_and(|&b| b != 0) {
-                machine(actual, expected)?;
-                found.push(provider(payload)?);
+                found.push(Record::descriptor(actual, provider(payload)?));
             }
         }
         // Long MS COFF descriptors point at the DLL-name section through the
@@ -140,12 +234,14 @@ fn object(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
                 let offset = (u32_at(symbol, 8)? as usize)
                     .checked_add(u32_at(descriptor, 12)? as usize)
                     .ok_or("COFF import name overflow")?;
-                machine(actual, expected)?;
-                found.push(provider(
-                    contents
-                        .get(offset..)
-                        .ok_or("COFF import name out of bounds")?,
-                )?);
+                found.push(Record::descriptor(
+                    actual,
+                    provider(
+                        contents
+                            .get(offset..)
+                            .ok_or("COFF import name out of bounds")?,
+                    )?,
+                ));
             }
         }
     }
@@ -154,12 +250,15 @@ fn object(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
 
 /// Read one real archive's provider records. Empty means no supported imports;
 /// multiple providers are returned explicitly, never collapsed to a fake handle.
-pub(crate) fn providers(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
+pub(crate) fn archive(data: &[u8], expected: u16) -> Result<Archive, String> {
     if !data.starts_with(b"!<arch>\n") {
         return Err("not a COFF import archive".into());
     }
     let mut cursor = 8;
     let mut result: Vec<String> = Vec::new();
+    let mut incompatible = None;
+    let mut imports = Vec::new();
+    let mut incompatible_symbols = Vec::new();
     while cursor < data.len() {
         let header = bytes(data, cursor, 60)?;
         if &header[58..] != b"`\n" {
@@ -186,7 +285,23 @@ pub(crate) fn providers(data: &[u8], expected: u16) -> Result<Vec<String>, Strin
             payload = payload.get(len..).ok_or("truncated extended member name")?;
         }
         if !matches!(name, "/" | "//" | "/SYM64/") {
-            for name in object(payload, expected)? {
+            for record in object(payload)? {
+                let actual = record.machine;
+                let name = record.provider;
+                if actual != expected {
+                    incompatible.get_or_insert(actual);
+                    if let Some((symbol, _)) = record.import {
+                        incompatible_symbols.push((actual, symbol));
+                    }
+                    continue;
+                }
+                if let Some((symbol, target)) = record.import {
+                    imports.push(Import {
+                        symbol,
+                        provider: name.clone(),
+                        target,
+                    });
+                }
                 if !result.iter().any(|known| known.eq_ignore_ascii_case(&name)) {
                     result.push(name);
                 }
@@ -194,13 +309,36 @@ pub(crate) fn providers(data: &[u8], expected: u16) -> Result<Vec<String>, Strin
         }
         cursor = cursor.checked_add(size).ok_or("archive member overflow")?;
         if size % 2 != 0 {
-            if bytes(data, cursor, 1)? != b"\n" {
-                return Err("missing archive member padding".into());
+            // PE/COFF documents IMAGE_ARCHIVE_PAD as newline; Microsoft SDK
+            // archives also use NUL. Both occupy the same required alignment
+            // byte. Never consume payload or a following header as padding.
+            let pad = bytes(data, cursor, 1)?[0];
+            if !matches!(pad, 0 | b'\n') {
+                return Err(format!(
+                    "invalid archive member padding 0x{pad:02x} at offset {cursor}"
+                ));
             }
             cursor += 1;
         }
     }
-    Ok(result)
+    if result.is_empty()
+        && let Some(actual) = incompatible
+    {
+        return Err(format!(
+            "import provider CPU 0x{actual:04x} does not match interpreter CPU 0x{expected:04x}"
+        ));
+    }
+    Ok(Archive {
+        providers: result,
+        imports,
+        expected,
+        incompatible_symbols,
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn providers(data: &[u8], expected: u16) -> Result<Vec<String>, String> {
+    archive(data, expected).map(|archive| archive.providers)
 }
 
 #[derive(Debug, PartialEq, Eq)]

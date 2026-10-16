@@ -969,3 +969,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Integration deviations](status/integration-deviations.md): remaining semantic bounds, staging substitutes and skipped platform verification for the combined ready cohort.
 
 - [Immutable combined candidate213fa751](status/shared-candidate-213fa751.json) and [ready/active/blocker ledger](status/current-ready-cohort-baseline.json): exact tools/assets, scoped counts and root gate commands.
+
+- [Windows symbol import selection](compiler/windows-symbol-import-selection.md), [archive padding](compiler/windows-import-archive-padding.md), [atomic permissions](compiler/atomic-permission-checks.md), and [random parity](compiler/x86-random-parity.md): exact ready integration; Windows/Linux native CI remains required.

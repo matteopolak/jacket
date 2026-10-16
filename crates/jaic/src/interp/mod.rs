@@ -1367,20 +1367,52 @@ impl Interp {
             let lib = match foreign.library {
                 Some(l) => {
                     let lib_info = &program.libraries[l];
-                    self.libraries
+                    #[cfg(windows)]
+                    let mut failure = None;
+                    let library = self
+                        .libraries
                         .entry(l)
                         .or_insert_with(|| {
-                            native::Library::open(
-                                &lib_info.name,
-                                lib_info.system,
-                                &lib_info.base_dir,
-                            )
+                            #[cfg(windows)]
+                            {
+                                match native::Library::open_checked(
+                                    &lib_info.name,
+                                    lib_info.system,
+                                    &lib_info.base_dir,
+                                ) {
+                                    Ok(library) => Some(library),
+                                    Err(error) => {
+                                        failure = Some(error);
+                                        None
+                                    }
+                                }
+                            }
+                            #[cfg(not(windows))]
+                            {
+                                native::Library::open(
+                                    &lib_info.name,
+                                    lib_info.system,
+                                    &lib_info.base_dir,
+                                )
+                            }
                         })
-                        .clone()
+                        .clone();
+                    #[cfg(windows)]
+                    if library.is_none() {
+                        return self.trap(format!(
+                            "native library `{}` could not be loaded: {}",
+                            lib_info.name,
+                            failure.unwrap_or_else(|| "an earlier load attempt failed".into())
+                        ));
+                    }
+                    library
                 }
                 None => None,
             };
-            native::lookup(lib.as_ref(), &foreign.symbol)
+            match native::lookup_checked(lib.as_ref(), &foreign.symbol) {
+                Ok(address) => address,
+                Err(error) => return self.trap(error),
+            }
         } else {
             None
         };
@@ -3118,8 +3150,9 @@ mod atomic_contention_tests {
                     let address = Arc::as_ptr(&value) as u64;
                     barrier.wait();
                     let mut sum = 0;
+                    let mut observed = Vec::with_capacity(20_000);
                     for i in 1..=20_000 {
-                        sum += interp
+                        let old = interp
                             .intrinsic(
                                 ir::Intrinsic::AtomicRmw(ir::AtomicOp::Xchg, ir::ORDER_SEQ_CST),
                                 &[address, index * 20_000 + i, 8],
@@ -3127,12 +3160,32 @@ mod atomic_contention_tests {
                             )
                             .unwrap()
                             .into_vec()[0];
+                        sum += old;
+                        observed.push(old);
                     }
-                    sum
+                    (sum, observed)
                 })
             })
             .collect();
-        let sum: u64 = workers.into_iter().map(|w| w.join().unwrap()).sum();
-        assert_eq!(sum + value.load(Ordering::SeqCst), 80_000 * 80_001 / 2);
+        let mut observed = Vec::with_capacity(80_001);
+        let sum: u64 = workers
+            .into_iter()
+            .map(|worker| {
+                let (sum, mut prior) = worker.join().unwrap();
+                observed.append(&mut prior);
+                sum
+            })
+            .sum();
+        let last = value.load(Ordering::SeqCst);
+        assert_eq!(sum + last, 80_000 * 80_001 / 2);
+        observed.push(last);
+        observed.sort_unstable();
+        assert_eq!(observed.len(), 80_001);
+        for (index, old) in observed.into_iter().enumerate() {
+            assert_eq!(
+                old, index as u64,
+                "every prior exchange value occurs exactly once"
+            );
+        }
     }
 }

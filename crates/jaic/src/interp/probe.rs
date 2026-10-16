@@ -22,6 +22,10 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[cfg(target_os = "linux")]
+#[path = "probe_maps.rs"]
+mod maps;
+
 /// The granularity accesses are checked at: the smallest page size of the hosts.
 const PAGE: u64 = 4096;
 
@@ -310,6 +314,7 @@ mod sys {
 
     /// Copy one byte from `src` to `dst` through the pipe: the kernel makes the accesses that
     /// could fault, and fails with EFAULT instead.
+    #[cfg(not(target_os = "linux"))]
     fn copy_byte(src: u64, dst: u64) -> bool {
         let Some((from, to)) = pipe_fds() else {
             return false;
@@ -358,7 +363,16 @@ mod sys {
         true
     }
 
+    /// Query our mapping permissions without reading or writing the allocation.
+    /// A write-back permission probe can corrupt a concurrent atomic update.
+    #[cfg(target_os = "linux")]
+    pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
+        let maps = std::fs::read("/proc/self/maps").ok()?;
+        super::maps::region(&maps, at, write)
+    }
+
     /// The page of `at`, if its byte can be read (and, if asked, written).
+    #[cfg(not(target_os = "linux"))]
     pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
         let mut byte = 0u8;
         let local = (&raw mut byte) as u64;

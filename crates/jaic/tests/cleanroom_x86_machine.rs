@@ -263,6 +263,73 @@ fn counter_intrinsic_signatures_are_validated() {
 }
 
 #[test]
+fn parity_result_bytes_and_explicit_clears_survive_dynamic_shifts() {
+    let (mut c, result) = compile(
+        TargetCpu::X64,
+        r#"
+#program_export "result_parity"
+result_parity :: (input: u64, count: u64) -> u8 #c_call {
+    value := input;
+    parity: u8;
+    #asm { test.q value, value; rol.q value, count; setp parity; }
+    return parity;
+}
+#program_export "cleared_parity"
+cleared_parity :: (input: u64, count: u64) -> u8 #c_call {
+    value: u64;
+    parity: u8;
+    #asm { popcnt.q value, input; shl.q value, count; setp parity; }
+    return parity;
+}
+main :: () {}
+"#,
+    );
+    result.unwrap();
+    let function = |name: &str| {
+        jaic::ir::FuncId(
+            c.program
+                .funcs
+                .iter()
+                .position(|f| {
+                    f.as_ref()
+                        .is_some_and(|f| f.linkage == jaic::ir::Linkage::Export(name.into()))
+                })
+                .unwrap() as u32,
+        )
+    };
+    let result_parity = function("result_parity");
+    let cleared_parity = function("cleared_parity");
+    for low in 0u64..=255 {
+        let input = 0xabcdef1234567800 | low;
+        for count in [0, 1, 7, 63, 64] {
+            let expected = u64::from((low as u8).count_ones().is_multiple_of(2));
+            assert_eq!(
+                c.interp
+                    .call(&c.program, result_parity, &[input, count])
+                    .unwrap()[0],
+                expected
+            );
+            let masked = count & 63;
+            let expected = if masked == 0 {
+                0
+            } else {
+                u64::from(
+                    ((u64::from(input.count_ones()) << masked) as u8)
+                        .count_ones()
+                        .is_multiple_of(2),
+                )
+            };
+            assert_eq!(
+                c.interp
+                    .call(&c.program, cleared_parity, &[input, count])
+                    .unwrap()[0],
+                expected
+            );
+        }
+    }
+}
+
+#[test]
 fn unimplemented_cache_operations_diagnose_instead_of_succeeding_as_noops() {
     for instruction in [
         "prefetchw",
