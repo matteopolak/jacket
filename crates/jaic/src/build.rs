@@ -734,6 +734,30 @@ fn check_level(value: &str) -> u8 {
 /// stdlib calls, an allocator); see `docs/native/wasm-target.md`.
 pub const WASI_RUNTIME_IMPORT: &str = "#import \"Extensions/Wasi_Runtime\";";
 
+/// A host evaluation owns a fresh registry, preserving the embedder's real host
+/// provider and reporting without inheriting the target workspace's settings.
+pub(crate) fn isolated_host_environment(
+    parent: &SharedWorkspaces,
+    options: Options,
+    fs: Rc<dyn FileSystem>,
+) -> (SharedWorkspaces, Box<dyn Host>) {
+    let host = (parent.borrow().env.make_host)(options.os);
+    let factory_parent = parent.clone();
+    let report_parent = parent.clone();
+    let command_line = parent.borrow().env.command_line.clone();
+    let shared = Workspaces::new(BuildEnv {
+        fs,
+        options,
+        backend: None,
+        unwritten_output_hint: None,
+        command_line,
+        make_host: Box::new(move |os| (factory_parent.borrow().env.make_host)(os)),
+        report: Box::new(move |message| (report_parent.borrow_mut().env.report)(message)),
+        observer: None,
+    });
+    (shared, host)
+}
+
 /// Whether a build for `os` with LLVM triple `triple` is a WASI program, which gets
 /// [`WASI_RUNTIME_IMPORT`] added to its sources. Other wasm builds supply their own runtime.
 pub fn wants_wasi_runtime(os: TargetOs, triple: &str) -> bool {

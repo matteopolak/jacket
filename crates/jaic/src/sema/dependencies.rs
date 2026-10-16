@@ -15,6 +15,24 @@ pub(super) struct Dependencies {
 }
 
 impl Compiler {
+    /// Resolve a guaranteed entry call's body before starting a thunk. This keeps
+    /// missing semantic bindings parkable at a workspace phase, without capturing
+    /// or cancelling an executed caller. Memory effects/calls/control flow stop
+    /// this preflight; those paths use the retained interpreter controller.
+    pub(super) fn preflight_thunk_entry(&mut self, function: &ir::Func) -> Result<()> {
+        let Some(callee) = initial_direct_callee(function) else {
+            return Ok(());
+        };
+        let Some(index) = self.procs.iter().position(|procedure| {
+            matches!(procedure.target, Some(procs::ProcTarget::Func(id)) if id == callee)
+        }) else { return Ok(()); };
+        let procedure = ProcId(index as u32);
+        if self.proc(procedure).body_state == procs::BodyState::Queued {
+            self.lower_body(procedure)?;
+        }
+        Ok(())
+    }
+
     pub(super) fn unresolved_body_placeholders(&self, procedure: ProcId) -> Vec<EntityId> {
         self.dependencies
             .bodies
@@ -158,7 +176,7 @@ impl Compiler {
                 continue;
             }
             let completed = self.runs_done;
-            self.run_top_level()?;
+            self.service_top_level_runs()?;
             if self.runs_done == completed {
                 let info = self.proc(procedure);
                 let mut diagnostic = Diagnostic::error(info.span, format!(
@@ -179,6 +197,51 @@ impl Compiler {
             }
         }
     }
+}
+
+/// Only register/address preparation and direct thunk-slot accesses may precede
+/// the guaranteed call. Never speculate across external memory, a branch,
+/// intrinsic or another call. No instruction is executed by this preflight.
+fn initial_direct_callee(function: &ir::Func) -> Option<ir::FuncId> {
+    let mut slots = HashSet::default();
+    for instruction in &function.blocks.first()?.insts {
+        match instruction {
+            ir::Inst::SlotAddr {
+                dst, ..
+            } => {
+                slots.insert(*dst);
+            }
+            ir::Inst::Load {
+                addr, ..
+            }
+            | ir::Inst::Store {
+                addr, ..
+            } if slots.contains(addr) => {}
+            ir::Inst::IConst {
+                ..
+            }
+            | ir::Inst::FConst {
+                ..
+            }
+            | ir::Inst::GlobalAddr {
+                ..
+            }
+            | ir::Inst::FuncAddr {
+                ..
+            }
+            | ir::Inst::PtrAdd {
+                ..
+            } => {}
+            ir::Inst::Call(call) => {
+                return match call.callee {
+                    ir::Callee::Func(id) => Some(id),
+                    _ => None,
+                };
+            }
+            _ => return None,
+        }
+    }
+    None
 }
 
 impl Dependencies {
@@ -202,5 +265,49 @@ impl Dependencies {
         } else {
             self.bodies.remove(&procedure);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn builder() -> ir::Builder {
+        ir::Builder::new(
+            "entry-preflight".into(),
+            ir::Sig {
+                params: vec![],
+                returns: vec![],
+                conv: ir::Conv::Jai,
+                c_varargs: false,
+                c_fixed: 0,
+                c_abi: None,
+            },
+        )
+    }
+
+    #[test]
+    fn initial_call_preflight_accepts_local_setup_but_not_external_effects_or_branches() {
+        let mut b = builder();
+        let local = b.alloca(8, 8);
+        let zero = b.iconst(ir::Ty::I64, 0);
+        b.store(ir::Ty::I64, local, zero);
+        let value = b.load(ir::Ty::I64, local);
+        b.call(ir::Callee::Func(ir::FuncId(2)), vec![value], &[]);
+        assert_eq!(initial_direct_callee(&b.func), Some(ir::FuncId(2)));
+
+        let mut b = builder();
+        let global = b.global_addr(ir::GlobalId(0));
+        let zero = b.iconst(ir::Ty::I64, 0);
+        b.store(ir::Ty::I64, global, zero);
+        b.call(ir::Callee::Func(ir::FuncId(2)), vec![], &[]);
+        assert_eq!(initial_direct_callee(&b.func), None);
+
+        let mut b = builder();
+        let later = b.new_block();
+        b.jump(later);
+        b.switch_to(later);
+        b.call(ir::Callee::Func(ir::FuncId(2)), vec![], &[]);
+        assert_eq!(initial_direct_callee(&b.func), None);
     }
 }

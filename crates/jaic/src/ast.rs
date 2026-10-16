@@ -971,6 +971,8 @@ pub struct WhileStmt {
     pub label: Option<Ident>,
     /// `while name := cond`: `name` also holds the condition's value inside the loop.
     pub bind_label: bool,
+    /// A backtick condition binding is also visible in an expansion's caller scope.
+    pub backtick_label: bool,
     pub cond: Expr,
     pub body: Box<Stmt>,
 }

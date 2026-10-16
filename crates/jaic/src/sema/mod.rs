@@ -26,6 +26,7 @@ mod enums;
 mod expr;
 mod flow;
 mod format_check;
+mod host_run;
 pub mod ide;
 pub mod ide_meta;
 mod ide_sketch;

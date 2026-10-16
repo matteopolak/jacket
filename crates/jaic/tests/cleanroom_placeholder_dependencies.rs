@@ -138,3 +138,60 @@ fn scoped_placeholder_definitions_preserve_overload_sets_for_other_files() {
         panic!("{}", error.render(&compiler.sources));
     }
 }
+
+#[test]
+fn an_unstarted_insertion_generator_waits_for_later_source_without_execution() {
+    let mut options = Options::host();
+    options.runtime_support = false;
+    let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+    let source =
+        "#placeholder Body; #insert -> string { return Body; } main :: () { #assert Ready; }";
+    if let Err(error) = compiler.begin_sources(&[ProgramSource::String(source.into())]) {
+        panic!("{}", error.render(&compiler.sources));
+    }
+    assert!(
+        compiler.perf.runs.is_empty(),
+        "semantic waiting must precede thunk execution"
+    );
+    compiler
+        .add_source(&ProgramSource::String("Body :: \"Ready :: true;\";".into()))
+        .unwrap();
+    if let Err(error) = compiler.finish_program() {
+        panic!("{}", error.render(&compiler.sources));
+    }
+}
+
+#[test]
+fn module_insertion_generator_waits_in_its_canonical_module_scope() {
+    let mut fs = VirtualFs::default();
+    fs.insert(
+        "/lib/Deferred/module.jai",
+        b"#placeholder Body; #insert -> string { return Body; }".as_slice(),
+    );
+    fs.insert(
+        "/main.jai",
+        b"M :: #import \"Deferred\"; main :: () { value:=M.answer(); }".as_slice(),
+    );
+    let mut options = Options::host();
+    options.runtime_support = false;
+    options.import_paths = vec!["/lib".into()];
+    let mut compiler = Compiler::new(options, Rc::new(fs));
+    if let Err(error) = compiler.begin_sources(&[ProgramSource::File("/main.jai".into())]) {
+        panic!("{}", error.render(&compiler.sources));
+    }
+    assert!(compiler.perf.runs.is_empty());
+    let module = compiler
+        .modules
+        .iter()
+        .position(|m| m.name.as_str() == "Deferred")
+        .unwrap();
+    compiler
+        .add_source(&ProgramSource::ModuleString(
+            "Body :: \"answer :: () -> int {return 42;}\";".into(),
+            module as u32,
+        ))
+        .unwrap();
+    if let Err(error) = compiler.finish_program() {
+        panic!("{}", error.render(&compiler.sources));
+    }
+}

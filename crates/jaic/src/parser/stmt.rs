@@ -500,11 +500,12 @@ impl Parser<'_> {
         // `while name := cond` labels the loop for `break name`.
         let tick = usize::from(self.at(P::Backtick));
         let mut bind_label = false;
+        let mut backtick_label = false;
         let label = if label.is_none()
             && matches!(self.tok_at(tick), Tok::Ident(_))
             && self.at_n(tick + 1, P::ColonEq)
         {
-            self.eat(P::Backtick);
+            backtick_label = self.eat(P::Backtick);
             let name = self.ident("as loop name")?;
             self.bump();
             bind_label = true;
@@ -526,6 +527,7 @@ impl Parser<'_> {
             StmtKind::While(Box::new(WhileStmt {
                 label,
                 bind_label,
+                backtick_label,
                 cond,
                 body,
             })),

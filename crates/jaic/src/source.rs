@@ -39,6 +39,7 @@ impl Span {
     }
 }
 
+#[derive(Clone)]
 pub struct SourceFile {
     pub path: String,
     pub text: Rc<str>,
@@ -85,7 +86,7 @@ impl SourceFile {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct SourceMap {
     files: Vec<SourceFile>,
 }

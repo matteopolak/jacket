@@ -336,8 +336,9 @@ impl Compiler {
                 }
             }
             E::Run {
-                body, ..
-            } => self.check_run(scope, body, expected, span),
+                body,
+                flags,
+            } => self.check_run(scope, body, flags, expected, span),
             E::Code(body) => {
                 let id = self.add_code(body.clone(), scope);
                 Ok(Operand::Const {
@@ -557,13 +558,15 @@ impl Compiler {
         let mut op = self.check_expr(f, inner, last, expected)?;
         if f.defers.len() > depth.position() {
             // Deferred code runs after the value is computed.
-            let op_settled = self.settle_untyped(op, expected);
-            let ty = op_settled.ty();
-            let (_, v) = self.rvalue(f, op_settled, span)?;
-            op = Operand::Value {
-                ty,
-                val: v,
-            };
+            if !matches!(op, Operand::Void) {
+                let op_settled = self.settle_untyped(op, expected);
+                let ty = op_settled.ty();
+                let (_, v) = self.rvalue(f, op_settled, span)?;
+                op = Operand::Value {
+                    ty,
+                    val: v,
+                };
+            }
             self.emit_defers(f, depth.position(), span)?;
         }
         f.truncate_defers(depth.position());
@@ -1063,10 +1066,8 @@ impl Compiler {
             UnOp::Star => {
                 // `*x[i]` calls `operator *[]` when the base type has one.
                 if let E::Index(base, index) = &a.kind
-                    && let Ok(probe) = self.check_expr_no_emit(scope, base)
-                    && !self
-                        .operator_candidates(scope, "*[]", &[probe.ty()])?
-                        .is_empty()
+                    && self.check_expr_no_emit(scope, base).is_ok()
+                    && !self.operator_candidates(scope, "*[]")?.is_empty()
                 {
                     let mut base_op = self.check_expr(f, scope, base, None)?;
                     if let Operand::Place {
@@ -2127,11 +2128,7 @@ impl Compiler {
             } if self.types.pointee(*ty).is_some() => base.clone(),
             _ => return Ok(None),
         };
-        let target = self.types.pointee(base.ty()).unwrap();
-        if self
-            .operator_candidates(scope, "*[]", &[target])?
-            .is_empty()
-        {
+        if self.operator_candidates(scope, "*[]")?.is_empty() {
             return Ok(None);
         }
         let Some(Operand::Value {
@@ -2639,24 +2636,14 @@ impl Compiler {
                 _ => None,
             };
             if let Some(t) = taken {
-                return if t {
-                    self.check_expr(f, scope, then_value.unwrap(), expected)
+                if t {
+                    return self.check_expr(f, scope, then_value.unwrap(), expected);
                 } else if let Some(else_value) = else_value {
-                    self.check_expr(f, scope, else_value, expected)
-                } else {
-                    // No `else`: the zero value of the then-value's type.
-                    let then_op = self.check_expr(f, scope, then_value.unwrap(), expected)?;
-                    let ty = self.settle_untyped(then_op, None).ty();
-                    let slot =
-                        f.b.slot(self.size_of(ty, span)?.max(1), self.align_of(ty, span)?);
-                    let addr = f.b.slot_addr(slot);
-                    self.init_default(f, ty, addr, span)?;
-                    let load = self.ir_ty(ty).map(|t| f.b.load(t, addr));
-                    Ok(Operand::Value {
-                        ty,
-                        val: load.unwrap_or(addr),
-                    })
-                };
+                    return self.check_expr(f, scope, else_value, expected);
+                }
+                // A false condition without else still needs the then type.
+                // Lower it into the untaken block below, so discovering that
+                // type does not execute the arm's effects.
             }
         }
         let cond_op = self.settle_untyped(cond_op, None);
@@ -2736,6 +2723,20 @@ impl Compiler {
             // `ifx c then 5`: an untyped then-value takes its default type.
             (None, None) => self.settle_untyped(then_op.clone(), None).ty(),
         };
+        if ty == TypeId::VOID {
+            // A discarded conditional can join void arms. Their effects are
+            // already emitted in their own blocks; there is no result storage
+            // to load. Conversion still rejects an incompatible value arm.
+            if let Some(else_op) = else_op {
+                self.convert(f, else_op, ty, span)?;
+            }
+            f.b.jump(done);
+            f.b.switch_to(then_end);
+            self.convert(f, then_op, ty, span)?;
+            f.b.jump(done);
+            f.b.switch_to(done);
+            return Ok(Operand::Void);
+        }
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         // The result slot must be allocated before both branches use it; slots are function-wide.

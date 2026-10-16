@@ -66,3 +66,67 @@ fn type_instantiation_flags_preserve_array_directive_and_variadic_kinds() {
         "VARARGS must retain RESIZABLE"
     );
 }
+
+#[test]
+fn static_using_arguments_are_independent_of_the_public_filter_kind() {
+    let source =
+        "main :: () { using,only(x,y) point; using,except() point; using,map(x=z) point; }";
+    let parsed = parser::parse_file(FileId(0), source).unwrap();
+    let StmtKind::Decl(decl) = &parsed.stmts[0].kind else {
+        panic!("declaration")
+    };
+    let ExprKind::Proc(proc) = &decl.value.as_ref().unwrap().kind else {
+        panic!("procedure")
+    };
+    let mut records = Records::default();
+    let (root, _) = export_code(
+        &mut records,
+        &CodeBody::Block(proc.body.clone().unwrap()),
+        "{",
+    );
+    for (&id, (kind, arguments)) in
+        list(&records, root, "statements")
+            .iter()
+            .zip([(1, "x, y"), (2, ""), (3, "x=z")])
+    {
+        assert!(matches!(records.field(id,"filter_type"),Some(FieldRef::Int(n)) if n==kind));
+        assert!(matches!(
+            records.field(id, "filter_expression"),
+            None | Some(FieldRef::Ref(0))
+        ));
+        assert!(
+            matches!(records.field(id,"__syntax_filter_arguments"),Some(FieldRef::Str(s)) if &**s==arguments.as_bytes())
+        );
+    }
+}
+
+#[test]
+fn exported_while_syntax_retains_caller_binding_and_label_modes() {
+    let source =
+        "main :: () { while `value := next() {} while private := next() {} while :label true {} }";
+    let parsed = parser::parse_file(FileId(0), source).unwrap();
+    let StmtKind::Decl(decl) = &parsed.stmts[0].kind else {
+        panic!("declaration")
+    };
+    let ExprKind::Proc(proc) = &decl.value.as_ref().unwrap().kind else {
+        panic!("procedure")
+    };
+    let mut records = Records::default();
+    let (root, _) = export_code(
+        &mut records,
+        &CodeBody::Block(proc.body.clone().unwrap()),
+        "{",
+    );
+    for (&id, (bind, tick)) in
+        list(&records, root, "statements")
+            .iter()
+            .zip([(1, 1), (1, 0), (0, 0)])
+    {
+        assert!(
+            matches!(records.field(id, "__syntax_bind_label"), Some(FieldRef::Int(n)) if n==bind)
+        );
+        assert!(
+            matches!(records.field(id, "__syntax_backtick_label"), Some(FieldRef::Int(n)) if n==tick)
+        );
+    }
+}

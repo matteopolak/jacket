@@ -3955,52 +3955,40 @@ impl Compiler {
     // Operator overloading
     // -----------------------------------------------------------------------
 
-    /// Scope a struct (or pointer to one) was declared in, for names that
-    /// travel with the type: operator overloads and `for_expansion`.
+    /// Scope a struct (or pointer to one) was declared in, for its
+    /// `for_expansion` protocol.
     pub fn struct_home_scope(&self, t: TypeId) -> Option<ScopeId> {
         let t = self.types.pointee(t).unwrap_or(t);
         let s = self.types.as_struct(self.types.repr_struct(t))?;
         self.struct_asts.get(&s).map(|src| src.scope)
     }
 
-    /// Operator overloads visible from the use site, plus those visible where
-    /// the operand struct types were declared (`Bit_Array` brings its `operator []`).
+    /// Operators obey ordinary visibility and filtered reexports. A canonical
+    /// operand type alias does not import the defining scope's overloads.
     pub(super) fn operator_candidates(
         &mut self,
         scope: ScopeId,
         text: &str,
-        operands: &[TypeId],
     ) -> Result<Vec<ProcId>> {
         let name = Sym::intern(&format!("operator{text}"));
-        let mut scopes = vec![scope];
-        for &t in operands {
-            if let Some(home) = self.struct_home_scope(t)
-                && !scopes.contains(&home)
-            {
-                scopes.push(home);
-            }
+        let ids = self.lookup(scope, name)?;
+        if ids.len() > 1 {
+            self.check_identical_overloads(&ids)?;
         }
         let mut procs = Vec::new();
-        for sc in scopes {
-            let r = self.lookup(sc, name);
-            let ids = r.unwrap_or_default();
-            if ids.len() > 1 {
-                self.check_identical_overloads(&ids)?;
-            }
-            for id in ids {
-                let found = match self.resolve_entity(id)? {
-                    scope::Resolved::Proc(p)
-                    | scope::Resolved::Const {
-                        value: Value::Proc(p),
-                        ..
-                    } => vec![p],
-                    scope::Resolved::ProcSet(set) => set,
-                    _ => continue,
-                };
-                for p in found {
-                    if !procs.contains(&p) {
-                        procs.push(p);
-                    }
+        for id in ids {
+            let found = match self.resolve_entity(id)? {
+                scope::Resolved::Proc(p)
+                | scope::Resolved::Const {
+                    value: Value::Proc(p),
+                    ..
+                } => vec![p],
+                scope::Resolved::ProcSet(set) => set,
+                _ => continue,
+            };
+            for p in found {
+                if !procs.contains(&p) {
+                    procs.push(p);
                 }
             }
         }
@@ -4037,10 +4025,10 @@ impl Compiler {
             return Ok(None);
         }
         let text = binop_text(op);
-        let procs = self.operator_candidates(scope, text, &[lt, rt])?;
+        let procs = self.operator_candidates(scope, text)?;
         // `a != b` without a matching `operator !=` is `!(a == b)`.
         let ne_fallback = if op == ast::BinOp::Ne {
-            self.operator_candidates(scope, "==", &[lt, rt])?
+            self.operator_candidates(scope, "==")?
         } else {
             Vec::new()
         };
@@ -4146,7 +4134,7 @@ impl Compiler {
             ast::UnOp::BitNot => "~",
             _ => return Ok(None),
         };
-        let procs = self.operator_candidates(scope, text, &[operand.ty()])?;
+        let procs = self.operator_candidates(scope, text)?;
         if procs.is_empty() {
             return Ok(None);
         }
@@ -4176,7 +4164,7 @@ impl Compiler {
         if !matches!(self.types.kind(target), TypeKind::Struct(_)) {
             return Ok(None);
         }
-        let procs = self.operator_candidates(scope, text, &[bt])?;
+        let procs = self.operator_candidates(scope, text)?;
         if procs.is_empty() {
             return Ok(None);
         }

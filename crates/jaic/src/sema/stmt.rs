@@ -366,15 +366,7 @@ impl Compiler {
                 self.register_defer(f, entry, defer.backtick);
                 Ok(())
             }
-            S::While(boxed) => {
-                let crate::ast::WhileStmt {
-                    label,
-                    bind_label,
-                    cond,
-                    body,
-                } = &**boxed;
-                self.check_while(f, scope, label.map(|l| l.name), *bind_label, cond, body)
-            }
+            S::While(while_) => self.check_while(f, scope, while_),
             S::For(for_) => self.check_for(f, scope, for_, span),
             S::Break(label) => {
                 if let Some(l) = label
@@ -1025,7 +1017,7 @@ impl Compiler {
         if self.types.as_struct(self.types.repr_struct(st)).is_none() {
             return Ok(false);
         }
-        let mut setters = self.operator_candidates(scope, "[]=", &[bt])?;
+        let mut setters = self.operator_candidates(scope, "[]=")?;
         // Only an operator taking this struct applies. Otherwise `p[i] = v` through a raw
         // pointer writes memory, and a struct with only `operator *[]` assigns through it.
         setters.retain(|&p| self.first_param_accepts(p, st));
@@ -1066,7 +1058,7 @@ impl Compiler {
         let value = match op {
             ast::AssignOp::Assign => self.check_expr(f, scope, rhs, None)?,
             ast::AssignOp::Op(bin) => {
-                let getters = self.operator_candidates(scope, "[]", &[bt])?;
+                let getters = self.operator_candidates(scope, "[]")?;
                 let by_ptr = vec![arg(ptr_op.clone()), arg(index_op.clone())];
                 let old = match self.try_call(f, scope, &getters, by_ptr, span) {
                     Ok(v) => v,
@@ -1152,7 +1144,7 @@ impl Compiler {
             return Ok(false);
         }
         let text = format!("{}=", calls::binop_text(bin));
-        let candidates = self.operator_candidates(scope, &text, &[probe.ty()])?;
+        let candidates = self.operator_candidates(scope, &text)?;
         if candidates.is_empty() {
             return Ok(false);
         }
@@ -2018,17 +2010,21 @@ impl Compiler {
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        label: Option<Sym>,
-        bind_label: bool,
-        cond: &ast::Expr,
-        body: &ast::Stmt,
+        while_: &ast::WhileStmt,
     ) -> Result<()> {
+        let ast::WhileStmt {
+            label,
+            bind_label,
+            backtick_label,
+            cond,
+            body,
+        } = while_;
         let head = f.b.new_block();
         let body_block = f.b.new_block();
         let exit = f.b.new_block();
         f.b.jump(head);
         f.b.switch_to(head);
-        let (scope, c) = match label.filter(|_| bind_label) {
+        let (scope, c) = match label.filter(|_| *bind_label) {
             Some(name) => {
                 // `while s := next()`: the value is a local of the loop, besides being its label.
                 let op = self.check_expr(f, scope, cond, Some(TypeId::BOOL))?;
@@ -2041,18 +2037,18 @@ impl Compiler {
                 let inner = self.new_block_scope(scope);
                 self.ide_scope_span(inner, cond.span.to(body.span));
                 let depth = self.scope(inner).proc_depth;
-                self.add_entity(
+                self.declare_loop_var(
+                    f,
                     inner,
-                    name,
-                    cond.span,
+                    *backtick_label,
+                    name.name,
                     EntityKind::Local {
                         ty,
                         addr,
                         depth,
                     },
-                    false,
+                    name.span,
                 );
-                self.debug_var(f, inner, name, cond.span, ty, addr, 0);
                 (inner, self.truthy(f, ty, v, cond.span)?)
             }
             None => (scope, self.check_condition(f, scope, cond)?),
@@ -2066,7 +2062,7 @@ impl Compiler {
         f.b.switch_to(body_block);
         let defer_depth = f.mark_defers();
         f.loops.push(LoopFrame {
-            label,
+            label: label.map(|l| l.name),
             break_block: exit,
             continue_block: head,
             defer_depth,
@@ -2159,22 +2155,33 @@ impl Compiler {
         kinds: [EntityKind; 2],
         span: Span,
     ) {
-        let caller = f
-            .macros
-            .last()
-            .map(|m| m.caller_scope)
-            .filter(|&c| backtick && c != loop_scope);
         for (i, (name, kind)) in names.into_iter().zip(kinds).enumerate() {
             // `for it_index: 0..n`: the named value hides the default index.
             if i == 1 && name == names[0] {
                 continue;
             }
-            if let Some(caller) = caller {
-                self.add_entity(caller, name, span, kind.clone(), false);
-            }
-            self.debug_local_kind(f, loop_scope, name, span, &kind);
-            self.add_entity(loop_scope, name, span, kind, false);
+            self.declare_loop_var(f, loop_scope, backtick, name, kind, span);
         }
+    }
+
+    /// Publish the same local storage to an expansion caller for a backtick loop name.
+    fn declare_loop_var(
+        &mut self,
+        f: &mut FnCtx,
+        loop_scope: ScopeId,
+        backtick: bool,
+        name: Sym,
+        kind: EntityKind,
+        span: Span,
+    ) {
+        if backtick
+            && let Some(caller) = f.macros.last().map(|m| m.caller_scope)
+            && caller != loop_scope
+        {
+            self.add_entity(caller, name, span, kind.clone(), false);
+        }
+        self.debug_local_kind(f, loop_scope, name, span, &kind);
+        self.add_entity(loop_scope, name, span, kind, false);
     }
 
     fn check_for(

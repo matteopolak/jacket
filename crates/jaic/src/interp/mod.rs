@@ -86,6 +86,13 @@ pub struct LocationLayout {
 pub trait Host {
     fn write(&mut self, bytes: &[u8], to_stderr: bool);
 
+    /// A provider for a fresh isolated compile-time interpreter. Embedders with
+    /// a workspace factory use that instead. An unavailable provider is an
+    /// explicit unsupported operation, never a fallback to native execution.
+    fn isolated_host(&self) -> Option<Box<dyn Host>> {
+        None
+    }
+
     /// Implement a foreign procedure without native linking. `None` = not provided.
     fn foreign(
         &mut self,
@@ -152,6 +159,10 @@ impl PendingDataGlobal {
 }
 
 impl Host for NativeHost {
+    fn isolated_host(&self) -> Option<Box<dyn Host>> {
+        Some(Box::new(NativeHost))
+    }
+
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         use std::io::Write;
         if to_stderr {

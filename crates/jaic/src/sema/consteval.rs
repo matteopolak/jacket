@@ -99,6 +99,7 @@ impl Compiler {
     /// Finish the compile-time function `f` and run it; returns its scalar results.
     pub fn call_thunk(&mut self, f: FnCtx, span: Span) -> Result<Vec<u64>> {
         let func = f.b.finish();
+        self.preflight_thunk_entry(&func)?;
         let id = self.program.reserve_func(func.name.clone());
         self.program.funcs[id.0 as usize] = Some(func);
         // The entry thunk is ready. Callee bodies are compiled when execution
@@ -351,9 +352,16 @@ impl Compiler {
         &mut self,
         scope: ScopeId,
         body: &ast::RunBody,
+        flags: &[ast::Ident],
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
+        if flags.iter().any(|flag| flag.name.as_str() == "host")
+            && (self.options.os, self.options.cpu) != compiler_host()
+        {
+            let results = self.check_isolated_host_run_all(body, span)?;
+            return Ok(results.into_iter().next().unwrap_or(Operand::Void));
+        }
         if self.ide.is_none() {
             return self.check_run_inner(scope, body, expected, span);
         }
@@ -372,6 +380,17 @@ impl Compiler {
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {
+        let results = self.check_run_inner_all(scope, body, expected, span)?;
+        Ok(results.into_iter().next().unwrap_or(Operand::Void))
+    }
+
+    pub(super) fn check_run_inner_all(
+        &mut self,
+        scope: ScopeId,
+        body: &ast::RunBody,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<Vec<Operand>> {
         let tscope = self.thunk_scope(scope);
         let file = self.scope_file(scope);
         match body {
@@ -383,8 +402,8 @@ impl Compiler {
                         ..
                     }
                     | Operand::Type(_)
-                    | Operand::Procs(_) => Ok(op),
-                    other => self.run_thunk(f, other, span),
+                    | Operand::Procs(_) => Ok(vec![op]),
+                    other => self.run_thunk_all(f, other, span),
                 }
             }
             ast::RunBody::Block(block) => {
@@ -396,15 +415,15 @@ impl Compiler {
                 if !f.b.is_terminated() {
                     self.emit_defers(&mut f, 0, span)?;
                 }
-                self.run_thunk(f, Operand::Void, span)
+                self.run_thunk_all(f, Operand::Void, span)
             }
         }
     }
 
-    /// Execute top-level `#run` directives (in declaration order).
-    /// Execute the `#run`/`#assert` directives not executed yet. Sources a
-    /// `#run` adds to this compiler's own workspace are loaded right after it.
-    pub fn run_top_level(&mut self) -> Result<()> {
+    /// Service available producers without evaluating final assertions while an
+    /// enclosing generator/body controller still owns a suspended continuation.
+    /// Sources a run adds to this workspace are loaded immediately after it.
+    pub(super) fn service_top_level_runs(&mut self) -> Result<()> {
         let mut progress = true;
         while progress {
             progress = false;
@@ -442,6 +461,12 @@ impl Compiler {
                 index += 1;
             }
         }
+        Ok(())
+    }
+
+    /// Execute the remaining top-level runs, then their final assertions.
+    pub fn run_top_level(&mut self) -> Result<()> {
+        self.service_top_level_runs()?;
         if self.dependencies.finished_runs.len() != self.top_level_runs.len() {
             return Ok(());
         }

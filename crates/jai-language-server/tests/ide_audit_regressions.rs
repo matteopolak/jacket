@@ -122,6 +122,41 @@ fn qualified_reexports_and_context_keep_exact_locations_after_utf16_edits() {
 }
 
 #[test]
+fn nested_initializer_targets_and_contextual_enums_keep_exact_field_definitions() {
+    const SOURCE: &str = "Record :: struct { kind: enum { FIRST; SECOND; } detail: struct { count:int; } }\nmain :: () { value:=Record.{kind=.SECOND, detail.count=13}; observed:=value.detail.count; }\n";
+    let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
+    let mut s = session();
+    s.open(uri.clone(), 1, SOURCE.into()).unwrap();
+    let diagnostics = s.diagnostics(&uri).unwrap();
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d.severity != DiagnosticSeverity::Error),
+        "{diagnostics:?}"
+    );
+    for (usage, declaration) in [
+        ("SECOND,", "SECOND;"),
+        ("detail.count=", "detail: struct"),
+        ("count=13", "count:int"),
+    ] {
+        let position = at(SOURCE, usage);
+        let hover = s.hover(&uri, position).unwrap().expect(usage);
+        assert!(
+            !hover.contents.value.contains("Source syntax declaration"),
+            "{usage}: {hover:?}"
+        );
+        let definitions = s.definition(&uri, position).unwrap();
+        assert_eq!(definitions.len(), 1, "{usage}: {definitions:?}");
+        assert_eq!(definitions[0].uri, uri.as_str());
+        assert_eq!(
+            definitions[0].range.start,
+            at(SOURCE, declaration),
+            "{usage}"
+        );
+    }
+}
+
+#[test]
 fn builtin_type_uses_hover_without_fabricated_source_definitions() {
     let uri = DocumentUri::parse("file:///ide-audit/main.jai").unwrap();
     let text = "value: int;\nmain :: () { other: s32; }\n";

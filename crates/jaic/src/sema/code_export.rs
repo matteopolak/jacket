@@ -1610,30 +1610,28 @@ impl Exporter<'_> {
     }
 
     fn filter_syntax(filter: &ast::UsingFilter) -> String {
+        let kind = match filter {
+            ast::UsingFilter::Only(_) => "only",
+            ast::UsingFilter::Except(_) => "except",
+            ast::UsingFilter::Map(_) => "map",
+            _ => return String::new(),
+        };
+        format!(",{kind}({})", Self::filter_arguments(filter))
+    }
+
+    /// Canonical static arguments, separate from the editable public filter category.
+    fn filter_arguments(filter: &ast::UsingFilter) -> String {
         match filter {
-            ast::UsingFilter::Only(names) | ast::UsingFilter::Except(names) => {
-                let kind = if matches!(filter, ast::UsingFilter::Only(_)) {
-                    "only"
-                } else {
-                    "except"
-                };
-                format!(
-                    ",{kind}({})",
-                    names
-                        .iter()
-                        .map(|name| name.name.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-            ast::UsingFilter::Map(pairs) => format!(
-                ",map({})",
-                pairs
-                    .iter()
-                    .map(|(a, b)| format!("{}={}", a.name, b.name))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            ast::UsingFilter::Only(names) | ast::UsingFilter::Except(names) => names
+                .iter()
+                .map(|name| name.name.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            ast::UsingFilter::Map(pairs) => pairs
+                .iter()
+                .map(|(a, b)| format!("{}={}", a.name, b.name))
+                .collect::<Vec<_>>()
+                .join(", "),
             _ => String::new(),
         }
     }
@@ -2503,6 +2501,7 @@ impl Exporter<'_> {
                     body,
                     label,
                     bind_label,
+                    backtick_label,
                 } = &**boxed;
                 let cond = self.expr(cond);
                 let block = self.stmt_block(body);
@@ -2510,7 +2509,8 @@ impl Exporter<'_> {
                 rec.ptr("condition", cond).ptr("block", block);
                 if let Some(label) = label {
                     rec.str("__syntax_label", label.name.as_str().as_bytes())
-                        .int("__syntax_bind_label", i64::from(*bind_label));
+                        .int("__syntax_bind_label", i64::from(*bind_label))
+                        .int("__syntax_backtick_label", i64::from(*backtick_label));
                 }
                 self.add(rec)
             }
@@ -2604,7 +2604,19 @@ impl Exporter<'_> {
                 rec.ptr("expression", value)
                     .int("filter_type", filter_type)
                     .ptr("filter_expression", filter_expression)
-                    .str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+                    .str("__syntax_filter", Self::filter_syntax(filter).as_bytes())
+                    .int(
+                        "__syntax_static_filter",
+                        if filter_expression == 0 {
+                            filter_type
+                        } else {
+                            0
+                        },
+                    )
+                    .str(
+                        "__syntax_filter_arguments",
+                        Self::filter_arguments(filter).as_bytes(),
+                    );
                 self.add(rec)
             }
             S::PushContextDefer(defer) => {
@@ -3420,7 +3432,20 @@ impl Exporter<'_> {
                     .int("filter_type", filter_type)
                     .ptr("filter_expression", filter_expression);
                 if let Some(filter) = &param.using_filter {
-                    using.str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+                    using
+                        .str("__syntax_filter", Self::filter_syntax(filter).as_bytes())
+                        .int(
+                            "__syntax_static_filter",
+                            if filter_expression == 0 {
+                                filter_type
+                            } else {
+                                0
+                            },
+                        )
+                        .str(
+                            "__syntax_filter_arguments",
+                            Self::filter_arguments(filter).as_bytes(),
+                        );
                 }
                 usings.push(self.add(using));
             }

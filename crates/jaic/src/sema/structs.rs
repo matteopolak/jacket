@@ -2529,15 +2529,21 @@ impl Compiler {
     ) -> Result<Operand> {
         match &target.kind {
             E::Ident(name) => {
+                self.ide_note_member_use(target.span, ty, *name);
                 let whole = Operand::Place {
                     ty,
                     addr: base,
                 };
-                self.member_access(f, scope, whole, *name, target.span)
+                let field = self.member_access(f, scope, whole, *name, target.span)?;
+                self.ide_note_member_ref(target.span, *name, field.ty());
+                Ok(field)
             }
             E::Member(inner, member) => {
                 let inner = self.literal_target(f, scope, ty, base, inner)?;
-                self.member_access(f, scope, inner, member.name, member.span)
+                self.ide_note_member_use(member.span, inner.ty(), member.name);
+                let field = self.member_access(f, scope, inner, member.name, member.span)?;
+                self.ide_note_member_ref(member.span, member.name, field.ty());
+                Ok(field)
             }
             E::Index(inner, index) => {
                 let inner = self.literal_target(f, scope, ty, base, inner)?;

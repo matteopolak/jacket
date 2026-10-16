@@ -79,6 +79,48 @@ fn a_child_workspace_services_its_own_sources_while_its_first_run_is_active() {
     );
 }
 
+#[test]
+fn insertion_dependency_service_does_not_run_final_assertions_before_resumption() {
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/producer-requests/placeholder-scheduling/insert-generator.jai");
+    expect_success(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(source)
+            .arg("-interp")
+            .output()
+            .unwrap(),
+        "generator once\n",
+    );
+}
+
+#[test]
+fn parent_interception_can_define_an_unstarted_generator_dependency_at_phase() {
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/coordinator-reductions/placeholder-defined-by-metaprogram.jai");
+    expect_success(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(source)
+            .arg("-interp")
+            .output()
+            .unwrap(),
+        "ok\n",
+    );
+}
+
+#[test]
+fn a_source_queued_before_an_indirect_call_is_bound_before_body_execution() {
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/coordinator-reductions/deferred-body-added-before-indirect-call.jai");
+    expect_success(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(source)
+            .arg("-interp")
+            .output()
+            .unwrap(),
+        "",
+    );
+}
+
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn ordinary_native_callbacks_shared_inside_records_are_ready() {

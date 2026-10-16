@@ -756,6 +756,15 @@ impl Compiler {
         scope: ScopeId,
         expr: &ast::Expr,
     ) -> Result<Vec<Operand>> {
+        if let ast::ExprKind::Run {
+            body,
+            flags,
+        } = &expr.kind
+            && flags.iter().any(|flag| flag.name.as_str() == "host")
+            && (self.options.os, self.options.cpu) != compiler_host()
+        {
+            return self.check_isolated_host_run_all(body, expr.span);
+        }
         // `#run f()` keeps all of f's results, not only the first.
         let expr = match &expr.kind {
             ast::ExprKind::Run {

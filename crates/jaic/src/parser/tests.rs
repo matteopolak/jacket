@@ -1167,6 +1167,23 @@ fn while_break_continue_remove() {
 }
 
 #[test]
+fn while_condition_backtick_is_retained_without_affecting_other_labels() {
+    let stmts = body_of(
+        "while `value := next() { break value; } while private := next() {} while :named true {}",
+    );
+    for (stmt, expected) in stmts
+        .iter()
+        .zip([(true, true), (true, false), (false, false)])
+    {
+        let StmtKind::While(w) = &stmt.kind else {
+            panic!("while statement")
+        };
+        assert_eq!((w.bind_label, w.backtick_label), expected);
+        assert!(w.label.is_some());
+    }
+}
+
+#[test]
 fn return_defer_using_push_context() {
     let stmts = body_of(
         "return a, b;\nreturn x = 1;\n`return 1;\ndefer free(p);\n`defer { a(); }\nusing x;\nusing,only(a, b) y;\nusing,except(c) z;\npush_context ctx { f(); }",
