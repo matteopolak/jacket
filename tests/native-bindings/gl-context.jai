@@ -117,22 +117,27 @@ main :: () {
     check(native_arb == G.gl.GL_ARB_debug_output && native_khr == G.gl.GL_KHR_debug);
     check(G.gl.GL_VERSION_4_3 == (major > 4 || (major == 4 && minor >= 3)));
 
-    if G.gl.GL_VERSION_4_3 || G.gl.GL_KHR_debug || G.gl.GL_ARB_debug_output {
+    if G.gl.GL_VERSION_4_3 || G.gl.GL_ARB_debug_output {
         G.gl_enable_debug_output();
         message := "binding_debug_marker";
 
+        // Delivery is this SDK test's context policy, not the helper's promise.
+        table.glEnable(G.GL_DEBUG_OUTPUT_SYNCHRONOUS);
+
         if G.gl.GL_VERSION_4_3 && table.glDebugMessageInsert {
-            table.glDebugMessageInsert(G.GL_DEBUG_SOURCE_APPLICATION, G.GL_DEBUG_TYPE_OTHER,
-                123, G.GL_DEBUG_SEVERITY_LOW, cast(G.GLsizei) message.count, message.data);
-        } else if G.gl.GL_KHR_debug && table.glDebugMessageInsertKHR {
-            table.glDebugMessageInsertKHR(G.GL_DEBUG_SOURCE_APPLICATION, G.GL_DEBUG_TYPE_OTHER,
+            table.glEnable(G.GL_DEBUG_OUTPUT);
+            table.glDebugMessageControl(G.GL_DONT_CARE, G.GL_DONT_CARE, G.GL_DONT_CARE, 0, null, true);
+            table.glDebugMessageInsert(G.GL_DEBUG_SOURCE_THIRD_PARTY, G.GL_DEBUG_TYPE_PERFORMANCE,
                 123, G.GL_DEBUG_SEVERITY_LOW, cast(G.GLsizei) message.count, message.data);
         } else {
             check(table.glDebugMessageInsertARB != null);
-            table.glDebugMessageInsertARB(G.GL_DEBUG_SOURCE_APPLICATION, G.GL_DEBUG_TYPE_OTHER,
+            table.glDebugMessageControlARB(G.GL_DONT_CARE, G.GL_DONT_CARE, G.GL_DONT_CARE, 0, null, true);
+            table.glDebugMessageInsertARB(G.GL_DEBUG_SOURCE_THIRD_PARTY, G.GL_DEBUG_TYPE_PERFORMANCE,
                 123, G.GL_DEBUG_SEVERITY_LOW, cast(G.GLsizei) message.count, message.data);
         }
     } else {
+        // Real unsupported contexts must return safely, not claim registration.
+        G.gl_enable_debug_output();
         // Explicitly unavailable runtime evidence; not a passed callback test.
         check(native_printf("SDK_DEBUG_OUTPUT_UNAVAILABLE\n") >= 0);
     }

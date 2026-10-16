@@ -815,3 +815,9 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Retained startup native replay](status/shared-typed-retained-native.json): committed combined compiler ARM64/bare-wasm64 O0/O2 execution and preserved harness environment failure.
 
 - [Public runtime constant integration](status/shared-public-runtime-constant-adoption.json): canonical provenance, preserved negative contracts and292combined compiler tests.
+
+- [Reviewed GL debug policy](native/gl-debug-output-policy.md): exact core/ARB/unsupported behavior and [integration proof boundaries](status/shared-gl-policy-adoption.json).
+
+- [Final combined0c0d316e candidate](status/shared-candidate-0c0d316e.json), [focused verification](status/mac-0c0d316e-focused.json), [ready/active/gate ledger](status/shared-final-cohort-ledger.json) and [coordinator full-workspace request](status/shared-0c0d316e-workspace-request.json).
+
+- **Current final candidate:** [f1a7e3a8 corrected reviewed-oracle receipt](status/shared-candidate-f1a7e3a8.json), [verified product/source equivalence](status/shared-final-source-equivalence.json), [coordinator workspace request](status/shared-final-workspace-request.json). Supersedes initial0c oracle capture; actual tools/native/product bytes unchanged.

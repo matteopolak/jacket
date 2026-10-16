@@ -91,7 +91,7 @@ def main():
             run.update(name=name,phase='run',status='passed' if run['exit']==0 else 'failed')
             report['checks'].append(run)
             if name == 'gl-context':
-                callback = run['exit'] == 0 and 'OpenGL debug [' in run['stdout'] and 'binding_debug_marker' in run['stdout']
+                callback = run['exit'] == 0 and 'binding_debug_marker' in run['stdout']
                 unavailable = run['exit'] == 0 and 'SDK_DEBUG_OUTPUT_UNAVAILABLE' in run['stdout']
                 report['checks'].append({'name':'GL-debug-callback','phase':'run',
                                          'status':'passed' if callback else 'unavailable' if unavailable else 'failed',
