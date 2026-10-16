@@ -23,6 +23,8 @@ main :: () {
     defer array_free(options.source_files);
     array_add(*options.libraries, B.Library.{ filename = "developer_tools_macros", identifier = "native" });
     defer array_free(options.libraries);
+    array_add(*options.library_search_paths, tprint("%../../target", #filepath));
+    defer array_free(options.library_search_paths);
     options.visitor = visit;
     options.add_generator_command = false;
     path := tprint("%../../target/developer-tools-macros-custom-generated.jai", #filepath);

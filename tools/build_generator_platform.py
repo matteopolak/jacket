@@ -2,23 +2,19 @@
 """Build the independently authored generator host operations from this checkout."""
 
 import argparse
-import os
 from pathlib import Path
 import platform
 import subprocess
+import build_developer_bindings
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main():
+def build(prefix=None, output_dir=None):
     directory = ROOT / "stdlib/internal/developer-tools"
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-dir", type=Path, default=directory)
-    output = parser.parse_args().output_dir.resolve()
+    output = Path(output_dir or directory).resolve()
     output.mkdir(parents=True, exist_ok=True)
-    prefix = Path(
-        os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm")
-    )
+    prefix = build_developer_bindings.llvm_prefix(prefix)
     system = platform.system()
     suffix = {"Darwin": "dylib", "Linux": "so", "Windows": "dll"}[system]
     flags = ["-dynamiclib"] if system == "Darwin" else ["-shared"]
@@ -46,6 +42,15 @@ def main():
         cwd=ROOT,
     )
     (output / "generator-platform-nm.txt").write_text(str(prefix / "bin/llvm-nm"))
+    return output / f"libgenerator_platform.{suffix}"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--llvm-prefix", type=Path)
+    args = parser.parse_args()
+    build(args.llvm_prefix, args.output_dir)
 
 
 if __name__ == "__main__":

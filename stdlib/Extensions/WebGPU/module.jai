@@ -5,6 +5,7 @@
 // the platform: a surface for a window, waiting for asynchronous requests, and frame pacing.
 
 #import "Basic";
+
 #if OS != .WASM {
     #import "Window_Type";
 }
@@ -184,37 +185,37 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
 // its canvas to the C API's wgpuInstanceCreateSurface instead. Null without a window:
 // wgpu-native aborts the process on most calls given a null surface, so check before using it.
 #if OS != .WASM {
-webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSurface {
-    #if OS != .WASM {
-        if !window {
-            log_error("WebGPU: no window to make a surface for (create one with Window_Creation's create_window)");
-            return null;
+    webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSurface {
+        #if OS != .WASM {
+            if !window {
+                log_error("WebGPU: no window to make a surface for (create one with Window_Creation's create_window)");
+                return null;
+            }
         }
+
+        desc: WGPUSurfaceDescriptor;
+
+        #if OS == .MACOS {
+            source: WGPUSurfaceSourceMetalLayer;
+            source.layer = webgpu_metal_layer(window);
+            if !source.layer return null;
+            desc.nextInChain = *source.chain;
+        } else #if OS == .WINDOWS {
+            source: WGPUSurfaceSourceWindowsHWND;
+            source.hinstance = webgpu_module_instance();
+            source.hwnd = window;
+            desc.nextInChain = *source.chain;
+        } else #if OS == .LINUX {
+            source: WGPUSurfaceSourceXlibWindow;
+            source.display = webgpu_x11_display();
+            if !source.display return null;
+
+            source.window = cast(u64) window;
+            desc.nextInChain = *source.chain;
+        }
+
+        return wgpuInstanceCreateSurface(instance, *desc);
     }
-
-    desc: WGPUSurfaceDescriptor;
-
-    #if OS == .MACOS {
-        source: WGPUSurfaceSourceMetalLayer;
-        source.layer = webgpu_metal_layer(window);
-        if !source.layer return null;
-        desc.nextInChain = *source.chain;
-    } else #if OS == .WINDOWS {
-        source: WGPUSurfaceSourceWindowsHWND;
-        source.hinstance = webgpu_module_instance();
-        source.hwnd = window;
-        desc.nextInChain = *source.chain;
-    } else #if OS == .LINUX {
-        source: WGPUSurfaceSourceXlibWindow;
-        source.display = webgpu_x11_display();
-        if !source.display return null;
-
-        source.window = cast(u64) window;
-        desc.nextInChain = *source.chain;
-    }
-
-    return wgpuInstanceCreateSurface(instance, *desc);
-}
 }
 
 // The texture format to configure `surface` with: one the surface supports that is not sRGB
@@ -264,19 +265,19 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
 
 // Native-only size of the surface `window` shows, in pixels.
 #if OS != .WASM {
-webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
-    #if OS == .WASM {
-        w, h: u32;
-        jai_canvas_size(*w, *h);
-        return cast(s32) w, cast(s32) h;
-    } else #if OS == .MACOS {
-        return webgpu_macos_drawable_size(window);
-    } else {
-        WC :: #import "Window_Creation";
-        _, _, w, h := WC.get_dimensions(window, false);
-        return cast(s32) w, cast(s32) h;
+    webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
+        #if OS == .WASM {
+            w, h: u32;
+            jai_canvas_size(*w, *h);
+            return cast(s32) w, cast(s32) h;
+        } else #if OS == .MACOS {
+            return webgpu_macos_drawable_size(window);
+        } else {
+            WC :: #import "Window_Creation";
+            _, _, w, h := WC.get_dimensions(window, false);
+            return cast(s32) w, cast(s32) h;
+        }
     }
-}
 }
 
 // wgpu-native's own wgpuSurfaceGetCurrentTexture status (wgpu.h, not webgpu.h): the window is not

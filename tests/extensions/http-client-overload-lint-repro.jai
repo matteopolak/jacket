@@ -1,7 +1,6 @@
 // Original reduction of the production client-context diagnostic. Compile and
 // interpreter accept the App overload; lint must not encode its handler as a
 // client POST payload while inspecting a rejected candidate.
-#import "Basic";
 Http :: #import "Extensions/Http";
 
 handler :: (request: *Http.Request) -> Http.Response {

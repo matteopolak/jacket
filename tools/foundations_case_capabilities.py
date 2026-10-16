@@ -109,7 +109,10 @@ def apply_foundations_capabilities(case):
         required.append("native Basic.exit assertion/termination path")
     if name in NATIVE_FIBER_CASES:
         required.append("native Io providers and fiber stack switching")
-    if name == "extensions/http-dependency-consumer":
+    if name in {
+        "extensions/http-dependency-consumer",
+        "extensions/http-client-overload-lint-repro",
+    }:
         required.append("native-only Http App/Client public surface")
     if name == "contracts/basic-slice-resize-and-monotonic-time-contracts":
         required.append("native Basic monotonic/elapsed clock")
