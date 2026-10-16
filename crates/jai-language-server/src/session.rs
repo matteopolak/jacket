@@ -1274,6 +1274,15 @@ impl Session {
             return Ok(list);
         }
         let mut list = self.completion_items(uri, byte)?;
+        let parameters = self.named_argument_completions(uri, byte);
+        if !parameters.is_empty() {
+            // Both alternatives remain useful when a local expression shares a parameter name.
+            list.items.extend(parameters);
+            if list.items.len() > self.limits.symbols {
+                list.items.truncate(self.limits.symbols);
+                list.is_incomplete = true;
+            }
+        }
         // Accepting an item replaces the whole word around the cursor, the letters after it
         // included, so confirming in the middle of a word does not leave its tail behind.
         let text = &doc.text;

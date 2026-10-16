@@ -21,6 +21,7 @@ mod links;
 pub mod lints;
 mod model;
 mod modules;
+mod named_arguments;
 mod position;
 mod project;
 mod protocol;
