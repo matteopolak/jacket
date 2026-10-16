@@ -31,6 +31,8 @@ int main(int argc, char **argv) {
             printf("native-device-unavailable (%d)\n", error);
             return required ? 1 : 0;
         }
+        puts("native-device-acquired");
+        fflush(stdout);
         CHECK(audio_output_rate(output) == 44100 && audio_output_channels(output) == 2);
         CHECK(audio_output_capacity(output) > 0);
         CHECK(audio_output_submit(output, (char[3]){0}, 3) < 0);

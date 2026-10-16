@@ -1,3 +1,5 @@
+#assert OS == .WINDOWS || OS == .MACOS, "Native UI cursor lifecycle requires the Windows/macOS provider; caller callbacks remain supported";
+
 #import "Basic";
 G :: #import "GetRect";
 L :: #import "GetRect_LeftHanded";

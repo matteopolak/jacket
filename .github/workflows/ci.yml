@@ -331,7 +331,13 @@ jobs:
           # Mesa's lavapipe (mesa-vulkan-drivers) is the Vulkan adapter of the WebGPU test.
           bash tools/install_ci_native_linux.sh
           echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"
-          printf 'pcm.!default {\n    type null\n}\n' > ~/.asoundrc
+      - name: Configure the real headless ALSA provider
+        if: runner.os == 'Linux'
+        run: |
+          test -r /usr/share/alsa/alsa.conf
+          test -r "$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf"
+          echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
+          echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
       - name: Build production compiler and lint tools
         run: |
           cargo build --locked -p jaic-cli -p jailint
@@ -342,10 +348,12 @@ jobs:
           python3 tools/build_portable_runtime.py
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
-          python3 tools/audio_build_native.py --test-runtime
+          audio=(--test-runtime)
+          [[ "$RUNNER_OS" == Linux ]] && audio+=(--require-device)
+          python3 tools/audio_build_native.py "${audio[@]}"
           python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
           native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
-          echo "JAIC_NATIVE_LIBS=$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
+          echo "JAIC_NATIVE_LIBS=$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
           if [[ "$RUNNER_OS" == macOS ]]; then
             clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
             echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
@@ -370,9 +378,11 @@ jobs:
           else
             font="/System/Library/Fonts/Supplemental/Arial.ttf"
           fi
+          display=()
+          [[ "$RUNNER_OS" == Linux ]] && display=(--private-x11-display)
           native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
           "${run[@]}" python3 -u tools/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
-            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font"
+            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}"
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
         # an error scope (tests/webgpu/headless.jai). Linux has Mesa's lavapipe; the macOS
@@ -393,6 +403,17 @@ jobs:
       - name: Informational interpreter reachability
         if: ${{ always() && !cancelled() }}
         run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }}
+      - name: Preserve strict audio SDK receipts
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: audio-provider-${{ github.job }}-${{ matrix.runner }}
+          path: |
+            target/audio-native/audio-runtime.json
+            target/audio-native/audio-routing-runtime.json
+            target/audio-native/audio-close-runtime.json
+          retention-days: 7
+          if-no-files-found: warn
   upstream-smoke:
     # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
     # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
@@ -441,10 +462,20 @@ jobs:
           # As the stdlib runtime job, plus x11-apps (xwd takes the screenshots) and the xcb and
           # fontconfig libraries Focus loads at run time, and libc++ (jai-tracy links it).
           bash tools/install_ci_native_linux.sh
+      - name: Configure the real headless ALSA provider
+        if: runner.os == 'Linux'
+        run: |
+          test -r /usr/share/alsa/alsa.conf
+          test -r "$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf"
+          echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
+          echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
       - name: Fetch the pinned projects
-        run: python3 tools/fetch_upstreams.py --only $(python3 tools/upstream_smoke.py --jaic x --projects)
+        run: |
+          project_list="$(python3 tools/upstream_smoke.py --jaic x --projects)"
+          read -r -a project_names <<< "$project_list"
+          python3 tools/fetch_upstreams.py --only "${project_names[@]}"
       - name: Build and run the projects
         run: |
           ulimit -c 0
@@ -502,20 +533,30 @@ jobs:
         run: |
           bash tools/install_ci_native_linux.sh
           echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"
+      - name: Configure the real headless ALSA provider
+        if: runner.os == 'Linux'
+        run: |
+          test -r /usr/share/alsa/alsa.conf
+          test -r "$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf"
+          echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
+          echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
       - name: Build real private runtime and ABI8 fixture providers
         run: |
           python3 tools/build_portable_runtime.py
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
-          python3 tools/audio_build_native.py --test-runtime
+          audio=(--test-runtime)
+          [[ "$RUNNER_OS" == Linux ]] && audio+=(--require-device)
+          python3 tools/audio_build_native.py "${audio[@]}"
           python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
           native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
-          echo "JAIC_NATIVE_LIBS=$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
+          echo "JAIC_NATIVE_LIBS=$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
           if [[ "$RUNNER_OS" == macOS ]]; then
             clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
             echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
           fi
       - name: Build jaic
+        id: build-jaic
         run: cargo build --locked -p jaic-cli
       # Runners have no display or GPU, so programs that open windows are built but not run
       # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
@@ -523,5 +564,16 @@ jobs:
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
         run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined corpus stdlib modules
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
         run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined corpus stdlib modules
+      - name: Preserve strict audio SDK receipts
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: audio-provider-${{ github.job }}-${{ matrix.runner }}
+          path: |
+            target/audio-native/audio-runtime.json
+            target/audio-native/audio-routing-runtime.json
+            target/audio-native/audio-close-runtime.json
+          retention-days: 7
+          if-no-files-found: warn

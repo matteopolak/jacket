@@ -373,5 +373,13 @@
       "Jai ABI fixture native package link where SDK supplied"
     ],
     "limitation": "No Windows runtime or DirectSound device/interface execution claimed"
+  },
+  "provider_receipts": {
+    "path": "tests/audio/test_provider_receipts.py",
+    "provenance": "NEW receipt/protocol safety: preserve diagnostics and failed/unavailable status; metadata fixtures only",
+    "modes": [
+      "Python unit tests, not native/device evidence"
+    ],
+    "hardware": "none; native SDK/routing/close proofs remain separate"
   }
 }

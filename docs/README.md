@@ -895,3 +895,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [SDL canonical fixtures and SDK header repair](status/sdl-current-cohort-integration.json): unchanged private ABI assertions, real generated SDK header and platform-qualified proof.
 
 - [Program parameter origin](compiler/program-parameter-origin.md) and [Windows driver/linker options](native/windows-link-options.md): exact independent repairs; merged origin7/backend25 tests pass. Actual Windows runtime remains CI-owned.
+
+- [GetRect target contracts](specs/stdlib/README.md): canonical Linux Clipboard dependency, explicit unavailable records, retained pure numerical WASM and private-Xvfb runtime wiring. [Integration qualification](status/numerics-target-contract-integration.json).
+
+- [Audio native integration](features/audio-native-integration.md): retained strict runtime receipts, real ALSA CI provider configuration and T7-aware build roots. [Supplied producer evidence](status/audio-ci-provider-evidence.json) is Mac-only; Linux/Windows execution remains required. Windows environment repair transport is pending.

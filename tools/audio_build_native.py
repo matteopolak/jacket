@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Build audio-owned static/shared libraries and an opaque pinned C decoder.
 
-Only this worktree's output directories are written. Six desktop release targets
-are described in audio_native_plan.json; cross SDKs must be supplied explicitly.
+Outputs honor CARGO_TARGET_DIR when configured, including the opaque decoder
+cache. Six desktop targets are described in audio_native_plan.json; cross SDKs
+must be supplied explicitly. Runtime diagnostics remain strict and are captured.
 """
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import platform
+import re
 import shlex
 import shutil
 import subprocess
@@ -18,6 +21,73 @@ ROOT = Path(__file__).resolve().parents[1]
 PLAN = json.loads((ROOT / "tools/audio_native_plan.json").read_text())
 
 
+def build_root():
+    return Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+
+
+def native_environment():
+    scratch = build_root() / "audio-native/tmp"
+    scratch.mkdir(parents=True, exist_ok=True)
+    return dict(os.environ, TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
+
+
+def sdk_runtime_receipt(result, target, require_device, environment):
+    """Describe observed SDK protocol events; diagnostic output remains a failure."""
+    lines = result.stdout.splitlines()
+    acquired = lines.count("native-device-acquired")
+    complete = "native-device-opened: SDK pause/resume, fresh discovery and controlled reopen passed"
+    unavailable = [line for line in lines if re.fullmatch(r"native-device-unavailable \(-?\d+\)", line)]
+    unsupported = [line for line in lines if re.fullmatch(r"native-manual-pause-unsupported \(-?\d+\)", line)]
+    known = acquired + lines.count(complete) + len(unavailable) + len(unsupported)
+    reasons = []
+    if result.returncode:
+        reasons.append("nonzero_exit")
+    if result.stderr:
+        reasons.append("stderr_nonempty")
+    if known != len(lines):
+        reasons.append("unexpected_stdout")
+    completed = lines.count(complete) == 1 and acquired == 2 and not unavailable
+    absent = len(unavailable) == 1 and acquired < 2 and complete not in lines
+    if not (completed or absent) or len(unsupported) > acquired:
+        reasons.append("incomplete_sdk_protocol")
+    if require_device and not completed:
+        reasons.append("required_device_protocol_incomplete")
+    outcome = "failed" if reasons else "passed" if completed else "unavailable"
+    receipt = {"platform": target, "kind": "exact-host SDK harness execution",
+               "exit_code": result.returncode, "stdout": result.stdout, "stderr": result.stderr,
+               "device_opened": acquired > 0, "device_open_count": acquired,
+               "sdk_protocol_completed": completed, "runtime_passed": outcome == "passed",
+               "outcome": outcome, "failure_reasons": reasons,
+               "require_device": require_device, "diagnostic_lines": len(result.stderr.splitlines()),
+               "temporary_directory": environment.get("TMPDIR"),
+               "manual_pause_unsupported": bool(unsupported), "physical_focus_hotplug_sleep": "not tested"}
+    if target.startswith("linux-"):
+        receipt["alsa_provider"] = {"pcm": environment.get("JAI_AUDIO_ALSA_DEVICE", "default"),
+                                    "config_path": environment.get("ALSA_CONFIG_PATH")}
+    return receipt
+
+
+def write_runtime_receipt(out, filename, receipt):
+    path = out / filename
+    path.write_text(json.dumps(receipt, indent=2) + "\n")
+    if receipt["failure_reasons"]:
+        raise RuntimeError(f"{receipt['kind']} failed: exit {receipt['exit_code']}; "
+                           + ", ".join(receipt["failure_reasons"]) + f"; stdout/stderr captured in {path}")
+
+
+def controlled_runtime_receipt(result, target, kind):
+    reasons = []
+    if result.returncode:
+        reasons.append("nonzero_exit")
+    if result.stderr:
+        reasons.append("stderr_nonempty")
+    if result.stdout != "ok\n":
+        reasons.append("unexpected_stdout")
+    return {"platform": target, "kind": kind, "exit_code": result.returncode,
+            "stdout": result.stdout, "stderr": result.stderr,
+            "runtime_passed": not reasons, "failure_reasons": reasons}
+
+
 def host_platform():
     osname = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}[platform.system()]
     cpu = {"arm64": "arm64", "ARM64": "arm64", "aarch64": "arm64", "AMD64": "x64", "x86_64": "x64"}[platform.machine()]
@@ -25,7 +95,8 @@ def host_platform():
 
 
 def command(arguments, owned=True):
-    result = subprocess.run(list(map(str, arguments)), cwd=ROOT, capture_output=True, text=True)
+    result = subprocess.run(list(map(str, arguments)), cwd=ROOT, env=native_environment(),
+                            capture_output=True, text=True)
     if result.returncode or (owned and result.stderr):
         errors = [line for line in result.stderr.splitlines() if "error:" in line or "warning:" in line]
         raise RuntimeError(f"native build failed: {arguments[0]} exit {result.returncode}; " + "; ".join(errors[:6]))
@@ -57,7 +128,7 @@ def verify_object(path, entry):
 
 def opaque_decoder(out):
     source = json.loads((ROOT / "tools/native-libs.json").read_text())["sources"]["stb"]
-    cache = ROOT / "target/audio-native/official-c-dependencies"
+    cache = build_root() / "audio-native/official-c-dependencies"
     cache.mkdir(parents=True, exist_ok=True)
     for filename, destination in [("stb_vorbis.c", cache / "stb_vorbis.c"),
                                   ("LICENSE", out / "licenses/stb-LICENSE.txt")]:
@@ -118,6 +189,7 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False)
     metadata = {"platform": target, "native_execution": False,
                 "linkage": "static native executable; shared interpreter",
                 "compiler": cc, "libraries": entry["libraries"],
+                "temporary_directory": native_environment()["TMPDIR"],
                 "artifacts": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in artifacts}}
     (out / "audio-build.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print(f"{target}: owned static/shared SDK builds passed warnings denied; opaque decoder built; execution not implied.", flush=True)
@@ -145,28 +217,20 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False)
              ROOT / "stdlib/internal/audio/native", ROOT / "tests/audio/native-routing.c",
              "-o", routing_test])
     if runtime:
-        routing = subprocess.run([str(routing_test)], cwd=out, capture_output=True, text=True, timeout=30)
-        if routing.returncode or routing.stderr or routing.stdout != "ok\n":
-            raise RuntimeError("controlled channel-byte routing failed")
+        environment = native_environment()
+        routing = subprocess.run([str(routing_test)], cwd=out, env=environment, capture_output=True, text=True, timeout=30)
+        write_runtime_receipt(out, "audio-routing-runtime.json", controlled_runtime_receipt(
+            routing, target, "controlled channel-byte routing (no device)"))
         result = subprocess.run([str(executable), *(["--require-device"] if require_device else [])],
-                                cwd=out, capture_output=True, text=True, timeout=30)
-        record = {"platform": target, "kind": "exact-host SDK harness execution",
-                  "exit_code": result.returncode, "device_opened": "native-device-opened:" in result.stdout,
-                  "physical_focus_hotplug_sleep": "not tested", "require_device": require_device,
-                  "diagnostic_lines": len(result.stderr.splitlines()),
-                  "manual_pause_unsupported": "native-manual-pause-unsupported" in result.stdout}
-        (out / "audio-runtime.json").write_text(json.dumps(record, indent=2) + "\n")
-        if result.returncode or result.stderr:
-            raise RuntimeError(f"native SDK harness failed: exit {result.returncode}")
+                                cwd=out, env=environment, capture_output=True, text=True, timeout=30)
+        record = sdk_runtime_receipt(result, target, require_device, environment)
+        write_runtime_receipt(out, "audio-runtime.json", record)
         print(result.stdout.strip(), flush=True)
-        if record["device_opened"]:
-            failure = subprocess.run([str(failure_test)], cwd=out, capture_output=True, text=True, timeout=30)
-            failure_record = {"platform": target, "kind": "real SDK device; controlled close error injection",
-                              "NDEBUG": True, "exit_code": failure.returncode,
-                              "physical_or_SDK_generated_failure": False}
-            (out / "audio-close-runtime.json").write_text(json.dumps(failure_record, indent=2) + "\n")
-            if failure.returncode or failure.stderr or failure.stdout != "ok\n":
-                raise RuntimeError(f"SDK close fault-injection failed: exit {failure.returncode}")
+        if record["runtime_passed"]:
+            failure = subprocess.run([str(failure_test)], cwd=out, env=environment, capture_output=True, text=True, timeout=30)
+            failure_record = controlled_runtime_receipt(failure, target, "real SDK device; controlled close error injection")
+            failure_record.update(NDEBUG=True, physical_or_SDK_generated_failure=False)
+            write_runtime_receipt(out, "audio-close-runtime.json", failure_record)
             print("real SDK device close retry passed with controlled injected error (NDEBUG)", flush=True)
 
 
@@ -187,9 +251,11 @@ def main():
     apple_cross = target.startswith("macos-") and host_platform().startswith("macos-")
     if target != host_platform() and not args.cc and not apple_cross:
         parser.error("cross builds require --cc with the target SDK; no host substitution")
-    out = (args.out or (ROOT / "target/audio-native" / target if args.platform else ROOT / "target/audio-native")).resolve()
-    if not out.is_relative_to(ROOT):
-        parser.error("--out must remain inside this worktree")
+    native_root = build_root() / "audio-native"
+    out = (args.out or (native_root / target if args.platform else native_root)).resolve()
+    allowed = build_root() if "CARGO_TARGET_DIR" in os.environ else ROOT
+    if not out.is_relative_to(allowed):
+        parser.error("--out must remain inside the configured build root (or this worktree when unset)")
     cc = shlex.split(args.cc) if args.cc else ["clang"]
     ar = shlex.split(args.ar) if args.ar else [shutil.which("llvm-ar") or "ar"]
     build(target, out, cc, ar, args.mingw, args.test_runtime, args.require_device)
@@ -198,7 +264,7 @@ def main():
         archiver = shutil.which("x86_64-w64-mingw32-ar")
         if not compiler or not archiver:
             parser.error("--check-windows requires the public MinGW-w64 SDK")
-        build("windows-x64", ROOT / "target/audio-native/windows-x64-mingw", [compiler], [archiver], True)
+        build("windows-x64", native_root / "windows-x64-mingw", [compiler], [archiver], True)
 
 
 if __name__ == "__main__":

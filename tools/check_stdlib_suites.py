@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--native-libs", required=True, type=Path)
     parser.add_argument("--bindings-native-libs", type=Path, help="real source-built ABI8 SDK and C probe directory")
     parser.add_argument("--font", type=Path, help="real scalable font required by the window suite")
+    parser.add_argument("--private-x11-display", action="store_true", help="Caller owns an ephemeral X11 display for Linux clipboard tests")
     args = parser.parse_args()
     selected = args.suite or list(SUITES)
     compiler, library = args.jaic.resolve(strict=True), args.stdlib.resolve(strict=True)
@@ -56,6 +57,8 @@ def main():
                      "--native-libs", binding_native, "--runtime", "--work-dir", ROOT / "target/production-bindings/checks", "--report", ROOT / "target/production-bindings/results.json"],
         "tooling": ["tools/check_developer_tools.py"],
     }
+    if args.private_x11_display:
+        commands["numerics-native"].append("--private-x11-display")
     failures = []
     for suite in selected:
         print("RUN production suite:", suite, flush=True)
