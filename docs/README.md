@@ -756,3 +756,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 
 [Current pointer-subscript integration](status/shared-pointer-subscript-checkpoint.json) records exact fb7 adoption, preserved visibility,8/7 and14/1 failures,82passingfocusedchecks and the separate missing Bucket_Array implementation.
 - [HTTP conformance native dependency setup and CI failure triage](tools/http-native-setup.md)
+
+[Conditional readiness and error retention](compiler/conditional-readiness-errors.md) records the generic speculative-expansion repair, corrected official positive, preserved rejected controls and protected-replay boundary.

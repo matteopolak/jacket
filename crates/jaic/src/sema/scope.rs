@@ -618,6 +618,11 @@ impl Compiler {
 
     /// Expand pending conditional items of a scope (each at most once).
     pub fn expand_pending(&mut self, scope: ScopeId) -> Result<()> {
+        // Readiness probes may resolve existing bindings, but must not drain
+        // dependencies whose failures the probe treats as "not ready yet".
+        if self.lookup_without_expansion {
+            return Ok(());
+        }
         let s = self.scope_mut(scope);
         while s
             .pending
@@ -686,6 +691,11 @@ impl Compiler {
     /// this for every scope first, so a module's `#if FLAG #load "x.jai"` (and the
     /// `#add_context` in it) is in before any `#run` lays out the Context.
     pub fn expand_plain_ifs(&mut self, scope: ScopeId) -> Result<()> {
+        // A constant reached by a readiness probe can re-enter expansion.
+        // Committing pending declarations still belongs to the outer pass.
+        if self.lookup_without_expansion {
+            return Ok(());
+        }
         for i in 0..self.scope(scope).pending.len() {
             let item = &self.scope(scope).pending[i];
             if item.state != PendingState::Waiting {
@@ -720,13 +730,13 @@ impl Compiler {
             // another pending item declares, the item waits for the ordinary lazy expansion.
             let saved = std::mem::replace(&mut self.lookup_without_expansion, true);
             let ready = self.plain_condition_resolves(scope, file_scope, &stmt);
+            self.lookup_without_expansion = saved;
             let misses = self.placeholder_misses;
             let result = if ready {
                 self.expand_pending_item(scope, file_scope, &stmt, exported)
             } else {
                 Ok(())
             };
-            self.lookup_without_expansion = saved;
             if !ready || (result.is_err() && self.waits_for_placeholder(misses)) {
                 self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                 continue;
