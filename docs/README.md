@@ -676,3 +676,5 @@ include exact file/line/source hashes and required platform limits.
 - [GL assertion effects](portable-gl-assertion-effects.md) and [Cocoa assertion effects](portable-cocoa-assertion-effects.md): actual SDK operations, failure ownership and [scoped producer/integration verification](status/shared-rendering-cocoa-checkpoint.json).
 
 - [Hash_Table and Walk_Table](portable-hash-table-audit.md): caller-visible slot/control semantics and [38 current integration checks](status/shared-hash-table-walk-verification.json), retiring the named-while dependency.
+
+- [Allocator runtime domains](native/rpmalloc-runtime-policies.md) and [reviewed Objective-C helpers](native/objc-runtime-helpers.md): canonical ownership/live callbacks, actual ABI boundaries and [scoped native checkpoint review](status/shared-native-domain-checkpoint.json).

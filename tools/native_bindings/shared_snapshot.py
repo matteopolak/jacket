@@ -14,7 +14,9 @@ def hashes(paths):
 
 def capture(output_root, extra_paths=()):
     output_root = Path(output_root).resolve()
-    if output_root == ROOT or ROOT in output_root.parents:
+    authorized_local = ROOT / 'artifacts/local-verification-bindings'
+    if (output_root == ROOT or ROOT in output_root.parents) and not (
+            output_root == authorized_local or authorized_local in output_root.parents):
         raise ValueError('Snapshot/output root must be outside shared source')
     output_root.mkdir(parents=True, exist_ok=True)
     for attempt in range(3):

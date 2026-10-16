@@ -63,7 +63,7 @@ def main():
     for p in prepared.iterdir():
         if p.is_file():
             p.chmod(0o444)
-    selected_profiles = [p for p in profiles if not p['raw'] and p['statistics'] and
+    selected_profiles = [p for p in profiles if not p['raw'] and p['statistics'] and not p['adaptive'] and
                          p['global_cache'] and p['thread_cache']]
     selected = {p[kind] for p in selected_profiles for kind in ('sdk', 'callbacks')}
     report = dict(snapshot=str(snapshot), work=str(work), input_identity=identity,

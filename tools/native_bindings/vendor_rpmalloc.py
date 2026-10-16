@@ -13,6 +13,7 @@ import subprocess
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 from rpmalloc_heap_facade import public_c_header, layout_probes
 from rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
+from prepare_rpmalloc import patch_provenance
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'stdlib/internal/bindings/rpmalloc-sdk'
@@ -307,9 +308,7 @@ def main():
     temporary.write_text(jai)
     run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
     provenance = dict(repository=pin['repository'], revision=pin['revision'], files=pin['files'],
-                      build_fixes=[dict(path='stdlib/internal/bindings/rpmalloc-heaps/sdk-page-granularity.patch',
-                                       sha256=hashlib.sha256((ROOT/'stdlib/internal/bindings/rpmalloc-heaps/sdk-page-granularity.patch').read_bytes()).hexdigest(),
-                                       purpose='Round native heap-pool mappings to whole configured pages')],
+                      build_fixes=patch_provenance(),
                       scope='Private native SDK only; reviewed public Jai callbacks/heaps require separate adapters',
                       native_build_options=RPMALLOC_SDK_BUILD_OPTIONS,
                       functions=[dict(name=n['name'],signature=function(n)) for n in functions],

@@ -44,6 +44,7 @@ def build(output, architectures=(), selected=None, source=None, sanitize=(), cc=
                 archive = output/(name+'.a')
                 commands = [[cc, '-std=c11', '-Wall', '-Wextra', '-Werror', '-O2', '-fPIC',
                              *(['-arch', arch] if arch else []), '-isystem', source,
+                             '-I', ROOT/'stdlib/internal/bindings/rpmalloc-heaps',
                              *c_definitions(profile, api['functions']), *sanitizer_flags, '-c',
                              ROOT/'stdlib/internal/bindings'/folder/'bridge.c', '-o', obj],
                             ['ar', 'rcs', archive, obj]]

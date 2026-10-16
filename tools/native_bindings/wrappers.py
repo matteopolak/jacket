@@ -288,8 +288,6 @@ def forwarding_body(module, declaration, declarations, parts, parse):
             return 'return class_getSuperclass(object_getClass(self));'
         if name == 'objc_finalize_class':
             return 'objc_registerClassPair(my_class);'
-        if name == 'has_isa_member':
-            return 'for member: ty.members if member.name == "isa" return true; return false;'
         if name == 'to_string':
             return 'text := NSString.UTF8String(str); if !text return ""; return .{data=text, count=cast(s64) binding_strlen(text)};'
         messages = {'objc_alloc': 'alloc', 'objc_init': 'init', 'objc_copy': 'copy',

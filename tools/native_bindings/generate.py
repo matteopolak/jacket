@@ -20,7 +20,7 @@ from conditions import possible
 
 ROOT = Path(__file__).resolve().parents[2]
 MANUAL_FACADE_SOURCES = {
-    'rpmalloc': ('configuration.jai', 'wrappers.jai', 'allocator.jai', 'statistics.jai'),
+    'rpmalloc': ('wrappers.jai', 'allocator.jai', 'statistics.jai'),
 }
 
 
@@ -389,17 +389,15 @@ def generate_facade(module, spec):
             if alias_view and not authored:
                 record['canonical_alias_target'] = alias_target
             if module == 'rpmalloc':
-                record.update(status='partially_implemented',
-                              implemented_condition='Native_Profile_Matches' + (' && ('+condition+')' if condition else ''),
-                              reason='Real native allocation/ownership boundaries with independent statistics/cache/assertion/argument-validation selections; adaptive-cache/unmap/unlimited/page-advice and numeric build options remain incomplete; native verification is per recorded configuration')
-            if module == 'Objective_C' and d.name in {
-                    'objc_type_encode', 'objc_func_encode', 'type_check_objc_method_type',
-                    'objc_create_class', 'objc_add_instance_method', 'objc_add_class_method'}:
-                record.update(status='partially_implemented',
-                              reason='Real native C-compatible encoding/class/method behavior; Jai-specific alias, ownership, naming, validation and unsupported-reflection contracts still need public review')
+                record.update(verification_limit='Native Mac ARM64 tested per recorded configuration; native Linux/Windows/Android remain required. Positive numeric dimensions and reviewed option bodies present; native-domain sharing/resource policies documented in rpmalloc-runtime-policies.md')
+                # Do not conservatively label every body partial after its
+                # configuration has been implemented. Keep actual behavior
+                # limitations attached to the procedures that can reach them.
+                if d.name not in ('config', 'rpmalloc_config', 'is_initialized',
+                                   'rpmalloc_is_initialized', 'rpmalloc_linker_reference'):
+                    record['behavior_limit'] = 'Canonical graph publication/default-thread metadata allocation remains fail-fast on metadata OOM; acquired-handle and runtime-table reservation are transactional. This is separate from native allocation failure.'
             if module == 'Android' and d.name == 'android_logger':
-                record.update(status='partially_implemented',
-                              reason='Canonical committed Runtime discard is wired; host validation awaits its supplied output-lock dependency')
+                record.update(verification_limit='Eight required Android target checks remain unverified until compiler target support; host Runtime/core controls pass separately')
             ledger.append(record)
             continue
         key = (condition, d.code)

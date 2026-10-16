@@ -32,9 +32,21 @@ int binding_objc_method_signature(void *class_handle,
     return 0;
   NSMethodSignature *signature =
       [NSMethodSignature signatureWithObjCTypes:method_getTypeEncoding(method)];
+  if (!signature || signature.numberOfArguments != 3)
+    return 0;
+  const char *receiver = [signature getArgumentTypeAtIndex:0];
+  NSUInteger receiver_size = 0, receiver_alignment = 0;
+  const char *end = NSGetSizeAndAlignment(receiver, &receiver_size,
+                                        &receiver_alignment);
+  /* The reviewed compact encoding preserves an explicit pointer-to-record
+   * receiver; it does not replace it with an implicit id spelling. Both must
+   * retain the actual native pointer argument footprint. */
+  int receiver_valid = (*receiver == '@' || *receiver == '^') && end && !*end &&
+                       receiver_size == sizeof(id) &&
+                       receiver_alignment == _Alignof(id);
   return signature && signature.numberOfArguments == 3 &&
          strcmp(signature.methodReturnType, @encode(long long)) == 0 &&
-         strcmp([signature getArgumentTypeAtIndex:0], @encode(id)) == 0 &&
+         receiver_valid &&
          strcmp([signature getArgumentTypeAtIndex:1], @encode(SEL)) == 0 &&
          strcmp([signature getArgumentTypeAtIndex:2], @encode(long long)) == 0;
 }
