@@ -3,20 +3,18 @@
 import contextlib
 import io
 import json
-import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import stdlib_runtime as runtime
+from ci_test_scratch import assigned_scratch
 
 
 class ReferenceAccounting(unittest.TestCase):
     def test_rejected_positive_is_separate_from_pass_and_platform(self):
-        with tempfile.TemporaryDirectory(
-            dir=os.environ["CARGO_TARGET_DIR"]
-        ) as directory:
+        with tempfile.TemporaryDirectory(dir=assigned_scratch()) as directory:
             report = Path(directory) / "report.json"
             case = {
                 "id": "compiler/proc-type-defaults-ifx",
@@ -35,7 +33,14 @@ class ReferenceAccounting(unittest.TestCase):
                 "--report",
                 str(report),
             ]
+            make_temp = tempfile.mkdtemp
+
+            def runtime_scratch(*args, **kwargs):
+                # The mocked runner's accounting scratch belongs to this fixture too.
+                return make_temp(*args, dir=directory, **kwargs)
+
             with (
+                patch.object(runtime.tempfile, "mkdtemp", side_effect=runtime_scratch),
                 patch("sys.argv", argv),
                 patch.object(runtime, "validated_entries", return_value=[case]),
                 patch.object(runtime, "run_mode") as run,

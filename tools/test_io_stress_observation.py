@@ -3,7 +3,6 @@
 import contextlib
 import io
 import json
-import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -11,13 +10,12 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import io_stress as stress
+from ci_test_scratch import assigned_scratch
 
 
 class Observation(unittest.TestCase):
     def fixture(self):
-        base = Path(os.environ["CARGO_TARGET_DIR"])
-        base.mkdir(parents=True, exist_ok=True)
-        return tempfile.TemporaryDirectory(dir=base)
+        return tempfile.TemporaryDirectory(dir=assigned_scratch())
 
     def test_same_child_cwd_streams_timeout_and_exit_without_retry(self):
         with self.fixture() as temporary:

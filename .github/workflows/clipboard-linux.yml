@@ -17,6 +17,8 @@ on:
       - 'tools/test_clipboard_linux_toolchain.py'
       - 'tools/clipboard_linux_diagnostics.py'
       - 'tools/test_clipboard_linux_diagnostics.py'
+      - 'tools/ci_test_scratch.py'
+      - 'tools/test_ci_test_scratch.py'
       - '.github/workflows/clipboard-linux.yml'
   pull_request:
   workflow_dispatch:
@@ -49,6 +51,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tools -p test_clipboard_linux_toolchain.py -v
           python3 -m unittest discover -s tools -p test_clipboard_linux_diagnostics.py -v
+          python3 -m unittest discover -s tools -p test_ci_test_scratch.py -v
           test ! -e "$RUSTUP_HOME"
           test ! -e "$CARGO_HOME"
           rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy

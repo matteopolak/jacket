@@ -10,6 +10,9 @@ from clipboard_linux_diagnostics import failure_diagnostic, report_failure
 from check_clipboard_linux_package import require_runtime_verification
 
 
+from ci_test_scratch import assigned_scratch
+
+
 class ClipboardDiagnostics(unittest.TestCase):
     def test_compiler_header_survives_without_source_context(self):
         row = dict(
@@ -79,10 +82,7 @@ class ClipboardDiagnostics(unittest.TestCase):
         self.assertIn("preserved", unknown)
 
     def test_failure_summary_uses_stderr_and_leaves_full_capture_intact(self):
-        import os
-
-        base = os.environ.get("TMPDIR") or os.environ["CARGO_TARGET_DIR"]
-        Path(base).mkdir(parents=True, exist_ok=True)
+        base = assigned_scratch()
         with tempfile.TemporaryDirectory(
             prefix="clipboard-diagnostic-", dir=base
         ) as temporary:

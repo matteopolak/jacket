@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools/native_bindings"))
 from build_dependencies import INPUTS  # noqa: E402
 from rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
+from build_rpmalloc import platform_c_flags  # noqa: E402
 
 
 def selected_libraries():
@@ -44,6 +45,7 @@ def build_counter_probes(output, profiles):
     prepared = output / "rpmalloc-source"
     cc = os.environ.get("CC", "cc")
     common = [
+        *platform_c_flags(platform.system()),
         "-std=c11",
         "-fPIC",
         "-pthread",
@@ -198,7 +200,9 @@ def main():
         ROOT / "stdlib/internal/bindings/rpmalloc-callbacks/bridge.c",
     ]
     for suffix in ("*.c", "*.h"):
-        input_files += sorted((ROOT / "stdlib/internal/bindings/rpmalloc-heaps").glob(suffix))
+        input_files += sorted(
+            (ROOT / "stdlib/internal/bindings/rpmalloc-heaps").glob(suffix)
+        )
     source_hashes = {
         str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in input_files

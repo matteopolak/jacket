@@ -19,6 +19,8 @@ on:
       - tools/io_stress.py
       - tools/test_io_stress_diagnostics.py
       - tools/test_io_stress_observation.py
+      - tools/ci_test_scratch.py
+      - tools/test_ci_test_scratch.py
       - tests/tools/test_io_burst_diagnostics.py
       - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
@@ -42,6 +44,8 @@ on:
       - tools/io_stress.py
       - tools/test_io_stress_diagnostics.py
       - tools/test_io_stress_observation.py
+      - tools/ci_test_scratch.py
+      - tools/test_ci_test_scratch.py
       - tests/tools/test_io_burst_diagnostics.py
       - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
@@ -102,6 +106,7 @@ jobs:
       - name: Io and Http tests under load (default, -O2, ASan on Linux)
         run: |
           python3 -m unittest discover -s tools -p test_io_stress_diagnostics.py -v
+          python3 -m unittest discover -s tools -p test_ci_test_scratch.py -v
           python3 -m unittest discover -s tools -p test_io_stress_observation.py -v
           python3 -m unittest discover -s tests/tools -p test_io_burst_diagnostics.py -v
           observe=()
