@@ -11,6 +11,14 @@ from prepare_rpmalloc import ROOT, prepare
 from rpmalloc_profiles import PROFILES, c_definitions
 
 
+def platform_c_flags(system):
+    # Strict C11 suppresses glibc's default POSIX/BSD declaration surface.
+    # Define features on the command line, before any producer/SDK header.
+    if system == 'Linux':
+        return ['-D_DEFAULT_SOURCE=1', '-D_POSIX_C_SOURCE=200809L']
+    return []
+
+
 def build(output, architectures=(), selected=None, source=None, sanitize=(), cc=None):
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -42,7 +50,7 @@ def build(output, architectures=(), selected=None, source=None, sanitize=(), cc=
                 name = profile[kind]+('-'+arch if arch else '')
                 obj = output/(name+'.o')
                 archive = output/(name+'.a')
-                commands = [[cc, '-std=c11', '-Wall', '-Wextra', '-Werror', '-O2', '-fPIC',
+                commands = [[cc, *platform_c_flags(system), '-std=c11', '-Wall', '-Wextra', '-Werror', '-O2', '-fPIC',
                              *(['-arch', arch] if arch else []), '-isystem', source,
                              '-I', ROOT/'stdlib/internal/bindings/rpmalloc-heaps',
                              *c_definitions(profile, api['functions']), *sanitizer_flags, '-c',

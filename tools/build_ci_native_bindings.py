@@ -190,6 +190,15 @@ def main():
         ROOT / "tests/native-bindings/rpmalloc_live_config_probe.c",
         ROOT / "tests/native-bindings/rpmalloc_adaptive_probe.c",
     ]
+    # Guard the independent native producer closure, not only its Python recipe.
+    # Official SDK implementation identity remains checked by the preparer/pins.
+    input_files += [
+        ROOT / "tools/native_bindings/dependencies.json",
+        ROOT / "stdlib/internal/bindings/rpmalloc-sdk/provenance.json",
+        ROOT / "stdlib/internal/bindings/rpmalloc-callbacks/bridge.c",
+    ]
+    for suffix in ("*.c", "*.h"):
+        input_files += sorted((ROOT / "stdlib/internal/bindings/rpmalloc-heaps").glob(suffix))
     source_hashes = {
         str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in input_files

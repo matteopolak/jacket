@@ -865,3 +865,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Caller font and selector source fixtures](native/font-selector-input-fixtures.md): strict real inputs and metadata discovery; native SDK gates remain separate.
 
 - [Real Windows resource fixture](native/windows-resource-fixture.md): target RC/PE construction, durable source hashes and actual Windows runtime still required.
+
+- [Linux allocator feature/header closure](native/linux-rpmalloc-feature-headers.md): strict C11 declarations and all23 ABI8 profiles; actual Linux link/runtime still required.
