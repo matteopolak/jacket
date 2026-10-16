@@ -1512,16 +1512,16 @@
     {
       "id": "print-null-type",
       "source": "positive/print-null-type.jai",
-      "sha256": "7aab2d78e50f1c1c3215cc2987f2363813fddc87ef16626d2bb9db458ab5307a",
+      "sha256": "df710044a37da2aaac6d2f418e0047445ace1b909253a467baf6108e5b844c74",
       "suite": "core",
-      "feature": "print of a null Type",
+      "feature": "print of default Type values",
       "kind": "program",
       "target": "host",
       "dependencies": [],
       "host_build_reviewed": true,
       "runtime": {
         "exit_code": 0,
-        "stdout": "(null)\n{(null), 0}\n",
+        "stdout": "void\n{void, 0}\n",
         "stderr": ""
       }
     },

@@ -841,3 +841,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [LLVM-free WASM CI triage](compiler/wasm-ci-triage.md): real C-bridge I/O fixtures, native-only guards and required graphical tour gap; [integration review](status/wasm-ci-integration-review.json).
 
 - [Basic null-format triage](basic-null-format.md): confirmed public-input controls and separate compiler default-Type/boxing defects; production formatter and invalid-descriptor assertions remain unchanged.
+
+- [Default Type images](compiler/default-type-images.md): canonical void descriptor defaults and reviewed golden correction; [integration receipt](status/default-type-integration-review.json).

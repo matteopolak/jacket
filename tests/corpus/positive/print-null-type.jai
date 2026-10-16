@@ -1,5 +1,5 @@
-// print shows a null Type value as "(null)". Found through The_Way_to_Jai
-// examples/26/26.31_tagged_union.jai, which prints a zeroed Type tag.
+// Default Type values denote void, including record fields.
+// Independently confirmed by the coordinator official native oracle.
 #import "Basic";
 
 Tagged :: struct {

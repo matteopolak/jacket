@@ -2240,6 +2240,13 @@ impl Compiler {
             return Ok(img.clone());
         }
         let img = match self.types.kind(ty).clone() {
+            TypeKind::Type => {
+                // A Type value is a descriptor address. Its default is the
+                // canonical void descriptor, not a null pointer image.
+                let mut image = Aggregate::zeroed(self.size_of(ty, span)?, span)?;
+                self.write_value(&mut image, 0, &Value::Type(TypeId::VOID), ty, span)?;
+                Some(Rc::new(image))
+            }
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let size = self.types.struct_info(s).size;
