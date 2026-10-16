@@ -51,9 +51,14 @@ printf '%s\n' \
 apt_get update
 # libclang-rt-23-dev: the sanitizer runtimes `jaic -sanitize` links; lld-23: wasm-ld, for
 # `jaic -os wasm`.
-apt_get install --yes --no-install-recommends llvm-23-dev clang-23 libclang-23-dev libpolly-23-dev \
+apt_get install --yes --no-install-recommends llvm-23 llvm-23-tools llvm-23-dev clang-23 libclang-23-dev libpolly-23-dev \
   libclang-rt-23-dev lld-23
 case "$(/usr/lib/llvm-23/bin/llvm-config --version)" in
   23.1.*) ;;
   *) echo 'Expected LLVM 23.1 for llvm-sys 231.' >&2; exit 1 ;;
 esac
+
+# Cross-resource fixtures use the actual versioned tools, not optional PATH aliases.
+for tool in llvm-rc llvm-readobj lld-link; do
+  test -x "/usr/lib/llvm-23/bin/$tool"
+done

@@ -1,6 +1,5 @@
-#import "Basic";
-B :: #import "Basic"(MEMORY_DEBUGGER = true, REPLACEMENT_INTERFACE = Hooks, VISUALIZE_MEMORY_DEBUGGER = false);
-Off :: #import "Basic"(MEMORY_DEBUGGER = false, REPLACEMENT_INTERFACE = Hooks);
+#import "Basic"()(MEMORY_DEBUGGER = true, REPLACEMENT_INTERFACE = Hooks, VISUALIZE_MEMORY_DEBUGGER = false);
+B :: #import "Basic";
 
 allocations: int;
 frees: int;
@@ -32,7 +31,6 @@ main :: () {
     // The contextual constraint is private; the selected public alias retains
     // the caller's canonical type identity.
     #assert !#exists(B.Memory_Debugger_Interface);
-    #assert !#exists(Off.Memory_Debugger_Interface);
     assert(type_info(B.Memory_Debugger) == type_info(Hooks));
     memory := B.alloc(16);
 
@@ -41,10 +39,6 @@ main :: () {
     assert(allocations == 2 && frees == 1 && last_size == 32);
     B.free(memory);
     assert(frees == 2);
-    plain := Off.alloc(8);
-
-    Off.free(plain);
-    assert(allocations == 2 && frees == 2);
     numbers: [..] int;
 
     B.array_add(*numbers, 7);

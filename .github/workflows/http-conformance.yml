@@ -21,6 +21,7 @@ on:
       - tools/test_io_stress_observation.py
       - tools/ci_test_scratch.py
       - tools/test_ci_test_scratch.py
+      - tools/test_http_observer_artifacts.py
       - tests/tools/test_io_burst_diagnostics.py
       - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
@@ -46,6 +47,7 @@ on:
       - tools/test_io_stress_observation.py
       - tools/ci_test_scratch.py
       - tools/test_ci_test_scratch.py
+      - tools/test_http_observer_artifacts.py
       - tests/tools/test_io_burst_diagnostics.py
       - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
@@ -107,6 +109,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tools -p test_io_stress_diagnostics.py -v
           python3 -m unittest discover -s tools -p test_ci_test_scratch.py -v
+          python3 -m unittest discover -s tools -p test_http_observer_artifacts.py -v
           python3 -m unittest discover -s tools -p test_io_stress_observation.py -v
           python3 -m unittest discover -s tests/tools -p test_io_burst_diagnostics.py -v
           observe=()
@@ -114,3 +117,14 @@ jobs:
             observe=(--copies 12 --observe-copy backends:o2:1:0 --observe-report "$RUNNER_TEMP/io-observed-copy")
           fi
           python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3 "${observe[@]}"
+      - name: Retain the selected Linux observer capture
+        if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: io-observed-copy-linux
+          path: |
+            ${{ runner.temp }}/io-observed-copy/receipt.json
+            ${{ runner.temp }}/io-observed-copy/program.stdout
+            ${{ runner.temp }}/io-observed-copy/program.stderr
+          retention-days: 7
+          if-no-files-found: warn

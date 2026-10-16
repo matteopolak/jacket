@@ -1,7 +1,5 @@
 #import "Basic";
 
-#add_context print_style: Print_Style;
-
 main :: () {
     errors: int;
 

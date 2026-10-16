@@ -120,7 +120,7 @@ jobs:
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Build the real x64 resource-only PE fixture
-        run: python3 tools/build_windows_resource_fixture.py --cpu x64 --out cross-exes/resource-fixture
+        run: python3 tools/build_windows_resource_fixture.py --cpu x64 --out cross-exes/resource-fixture --rc /usr/lib/llvm-23/bin/llvm-rc --linker /usr/lib/llvm-23/bin/lld-link --readobj /usr/lib/llvm-23/bin/llvm-readobj
       - name: Cross-build the Windows test programs
         # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
         # MinGW-w64 as static archives (tools/build_native_libs.py --platform windows-x64-mingw).
@@ -443,7 +443,7 @@ jobs:
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Build the real arm64 resource-only PE fixture
-        run: python3 tools/build_windows_resource_fixture.py --cpu arm64 --out cross-arm64-exes/resource-fixture
+        run: python3 tools/build_windows_resource_fixture.py --cpu arm64 --out cross-arm64-exes/resource-fixture --rc /usr/lib/llvm-23/bin/llvm-rc --linker /usr/lib/llvm-23/bin/lld-link --readobj /usr/lib/llvm-23/bin/llvm-readobj
       - name: Cross-build the Windows test programs for arm64
         # The third-party C libraries are cross-built with llvm-mingw first (--platform windows-arm64-mingw).
         run: python3 tools/windows_cross.py build --stdlib --cpu arm64 --jaic target/debug/jaic --out cross-arm64-exes

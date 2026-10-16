@@ -7,6 +7,7 @@ use super::scope::{EntityId, EntityKind, EntityState, Found, Resolved, ScopeId, 
 use super::value::ProcId;
 use super::*;
 use crate::types::{ArrayKind, StructId, TypeKind};
+use std::path::Path;
 
 /// Lengths of `IdeFacts::refs`, `Compiler::entities` and `Compiler::procs` at a point.
 #[derive(Clone, Copy, Debug)]
@@ -40,6 +41,8 @@ const SHORT_REF: u32 = 64;
 
 #[derive(Default)]
 pub struct IdeFacts {
+    /// Per-analysis missing filesystem discovery; never a placeholder or failed module body.
+    missing_modules: HashMap<(ScopeId, Span), IdeMissingModule>,
     /// Files whose path starts with one of these are recorded.
     roots: Vec<String>,
     wanted: HashMap<FileId, bool>,
@@ -326,7 +329,76 @@ pub enum IdeReceiver {
     Module(ModuleId),
 }
 
+
+type IdeMissingModuleEpoch = (usize, usize, usize, usize, u64);
+struct IdeMissingModule {
+    epoch: IdeMissingModuleEpoch,
+    wanted: String,
+    dir: PathBuf,
+    import_paths: Vec<PathBuf>,
+    preload: Option<PathBuf>,
+    error: Box<Diagnostic>,
+}
+
 impl Compiler {
+    fn ide_missing_module_epoch(&self) -> IdeMissingModuleEpoch {
+        (
+            self.added_sources,
+            self.files.len(),
+            self.modules.len(),
+            self.runs_done,
+            self.ct_executions,
+        )
+    }
+
+    /// Only filesystem discovery misses are reused. Import operands, remaps and
+    /// supplied-import rules still use their ordinary resolver paths.
+    pub(super) fn ide_missing_module(
+        &self,
+        scope: ScopeId,
+        span: Span,
+        wanted: &str,
+        dir: &Path,
+    ) -> Option<Box<Diagnostic>> {
+        // A metaprogram can change files between two requests in the same run.
+        if self.interp.run_effects.is_some() {
+            return None;
+        }
+        let cached = self.ide.as_ref()?.missing_modules.get(&(scope, span))?;
+        (cached.epoch == self.ide_missing_module_epoch()
+            && cached.wanted == wanted
+            && cached.dir == dir
+            && cached.import_paths == self.options.import_paths
+            && cached.preload == self.options.preload)
+            .then(|| cached.error.clone())
+    }
+
+    pub(super) fn ide_record_missing_module(
+        &mut self,
+        scope: ScopeId,
+        span: Span,
+        wanted: &str,
+        dir: &Path,
+        error: &Diagnostic,
+    ) {
+        if self.ide.is_none() || self.interp.run_effects.is_some() {
+            return;
+        }
+        let cached = IdeMissingModule {
+            epoch: self.ide_missing_module_epoch(),
+            wanted: wanted.into(),
+            dir: dir.into(),
+            import_paths: self.options.import_paths.clone(),
+            preload: self.options.preload.clone(),
+            error: Box::new(error.clone()),
+        };
+        self.ide
+            .as_mut()
+            .unwrap()
+            .missing_modules
+            .insert((scope, span), cached);
+    }
+
     pub(super) fn ide_cached_body_failure(
         &self,
         id: ProcId,

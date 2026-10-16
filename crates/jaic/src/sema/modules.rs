@@ -1675,6 +1675,18 @@ impl Compiler {
                     .rev()
                     .find(|(h, n, _)| n == &**name && (h.is_empty() || *h == host))
                     .map_or_else(|| name.to_string(), |(_, _, r)| r.clone());
+                if let Some(error) = self.ide_missing_module(from_scope, import.span, &wanted, &dir)
+                {
+                    // A newly supplied import wins even if filesystem discovery
+                    // missed earlier in this analysis. Evaluate it normally.
+                    if let Some(id) =
+                        self.provided_module(&provided, &host, name, &dir, &params, import.span)?
+                    {
+                        return Ok(id);
+                    }
+                    self.failed_imports.push((host, name.to_string()));
+                    return Err(error);
+                }
                 let Some(entry) = self.find_module(&wanted, &dir) else {
                     if let Some(id) =
                         self.provided_module(&provided, &host, name, &dir, &params, import.span)?
@@ -1682,7 +1694,9 @@ impl Compiler {
                         return Ok(id);
                     }
                     self.failed_imports.push((host, name.to_string()));
-                    return Err(Box::new(self.module_not_found(&wanted, &dir, import.span)));
+                    let error = self.module_not_found(&wanted, &dir, import.span);
+                    self.ide_record_missing_module(from_scope, import.span, &wanted, &dir, &error);
+                    return Err(Box::new(error));
                 };
                 self.load_module(&wanted, &entry, params, import.span)
             }

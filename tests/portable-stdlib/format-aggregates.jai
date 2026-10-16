@@ -1,7 +1,5 @@
 #import "Basic";
 
-#add_context print_style: Print_Style;
-
 Payload :: struct {
     number: int;
     text: string;
@@ -75,9 +73,14 @@ main :: () {
     empty: Any;
 
     assert(sprint("%", empty) == "Any.{}");
-    missing := Any.{ type_info(int), null };
+    number: int = 17;
+    borrowed := Any.{ type = type_info(int), value_pointer = *number };
 
-    assert(sprint("%", missing) == "(Any with null 'type' field)");
+    assert(sprint("%", borrowed) == "17");
+    number = 19;
+    assert(sprint("%", borrowed) == "19");
+    // Partially null Any is a required fault, covered separately by
+    // format-any-missing-value.jai and format-any-missing-type.jai.
     none: FormatInt;
 
     assert(sprint("%", none) == "(null Any)");
