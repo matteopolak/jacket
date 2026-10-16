@@ -284,6 +284,7 @@ impl Compiler {
     pub(super) fn ide_code_text(&self, code: CodeId) -> String {
         match &*self.codes[code.0 as usize] {
             ast::CodeBody::Expr(e) => self.ide_snippet(e.span).trim().to_string(),
+            ast::CodeBody::Stmt(s) => self.ide_snippet(s.span).trim().to_string(),
             ast::CodeBody::Block(b) => {
                 let text = self.ide_snippet(b.span).trim();
                 match text.strip_prefix('{').and_then(|t| t.strip_suffix('}')) {
@@ -445,6 +446,7 @@ impl Compiler {
                         ..
                     }) => match &**body {
                         ast::CodeBody::Expr(e) => self.ide_snippet(e.span).trim().to_string(),
+                        ast::CodeBody::Stmt(s) => self.ide_snippet(s.span).trim().to_string(),
                         ast::CodeBody::Block(b) => self.ide_snippet(b.span).trim().to_string(),
                     },
                     Some(e) => self.ide_snippet(e.span).trim().to_string(),

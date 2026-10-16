@@ -438,6 +438,8 @@ pub enum RunBody {
 #[derive(Clone, Debug)]
 pub enum CodeBody {
     Expr(Expr),
+    /// An unbraced statement; unlike Block, it does not introduce a lexical scope.
+    Stmt(Stmt),
     Block(Block),
 }
 

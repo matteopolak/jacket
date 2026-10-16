@@ -551,6 +551,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
         },
         E::Code(body) => match &**body {
             CodeBody::Expr(x) => e(x),
+            CodeBody::Stmt(s) => out.push(Node::Stmt(s)),
             CodeBody::Block(b) => stmts(&b.stmts, out),
         },
         E::Insert(boxed) => {

@@ -590,10 +590,12 @@ impl Compiler {
             let TypeKind::Proc(ty) = self.types.kind(sig.ty).clone() else {
                 continue;
             };
-            let scope = self.entity(id).scope;
+            let scope = self.binding_scope(self.entity(id).scope);
             let params: Rc<[TypeId]> = ty.params.iter().copied().collect();
             if let Some((first, ..)) = seen.iter().find(|(other, p, v)| {
-                self.entity(*other).scope == scope && **p == *params && *v == ty.variadic
+                self.binding_scope(self.entity(*other).scope) == scope
+                    && **p == *params
+                    && *v == ty.variadic
             }) {
                 let first = self.entity(*first).span;
                 return Err(Box::new(

@@ -184,14 +184,7 @@ impl Parser<'_> {
         } else if self.at(P::LBrace) {
             CodeBody::Block(self.parse_block()?)
         } else if self.at_directive("add_context") {
-            let statement = self.parse_add_context_core()?;
-            let span = statement.span;
-            CodeBody::Block(Block {
-                stmts: vec![statement],
-                span,
-                no_abc: false,
-                no_aoc: false,
-            })
+            CodeBody::Stmt(self.parse_add_context_core()?)
         } else {
             // `#code a := 1` and `#code x = x + 1` are statements without a terminator;
             // `#code if x == { ... }` (match-jai) is a whole statement.
@@ -221,15 +214,7 @@ impl Parser<'_> {
             };
             match stmt.kind {
                 StmtKind::Expr(expr) => CodeBody::Expr(expr),
-                _ => {
-                    let span = stmt.span;
-                    CodeBody::Block(Block {
-                        stmts: vec![stmt],
-                        span,
-                        no_abc: false,
-                        no_aoc: false,
-                    })
-                }
+                _ => CodeBody::Stmt(stmt),
             }
         };
         let end = self.prev_span();

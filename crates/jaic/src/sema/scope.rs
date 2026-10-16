@@ -85,6 +85,10 @@ impl UsingEntry {
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,
+    /// A Code insertion's synthetic lookup scope declares into this lexical
+    /// scope. Its parent still supplies captured-name lookup; real blocks have
+    /// no such link and retain their own declaration boundary.
+    pub inserted_into: Option<ScopeId>,
     pub module: ModuleId,
     pub file: Option<FileId>,
     pub names: HashMap<Sym, Vec<EntityId>>,
@@ -203,7 +207,7 @@ pub struct Entity {
 
 /// A procedure-valued declaration can join an overload set.
 /// A constant that can join an overload set: a procedure, or an alias of one (`print :: f;`).
-fn may_overload(decl: &ast::Decl) -> bool {
+pub(super) fn may_overload(decl: &ast::Decl) -> bool {
     decl_is_proc(decl)
         || decl.kind == ast::DeclKind::Const
             && decl.ty.is_none()
@@ -246,6 +250,7 @@ impl Compiler {
         self.scopes.push(Scope {
             kind,
             parent,
+            inserted_into: None,
             module,
             file,
             names: HashMap::default(),
@@ -298,6 +303,14 @@ impl Compiler {
 
     pub fn scope_mut(&mut self, id: ScopeId) -> &mut Scope {
         &mut self.scopes[id.0 as usize]
+    }
+
+    /// The declaration namespace, excluding synthetic Code lookup wrappers.
+    pub(super) fn binding_scope(&self, mut scope: ScopeId) -> ScopeId {
+        while let Some(target) = self.scope(scope).inserted_into {
+            scope = target;
+        }
+        scope
     }
 
     pub fn entity(&self, id: EntityId) -> &Entity {
@@ -397,7 +410,7 @@ impl Compiler {
         None
     }
 
-    fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
+    pub(super) fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
         let mut result = Vec::new();
         for &entity in entities {
             for &definition in self

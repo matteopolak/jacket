@@ -1323,11 +1323,14 @@ impl Compiler {
                     Some(m) => self.modules[m.0 as usize].scope,
                     None => self.code_scopes[code.0 as usize],
                 };
-                if let ast::CodeBody::Block(block) = &*body {
-                    for stmt in &block.stmts {
-                        if let ast::StmtKind::AddContext(decl) = &stmt.kind {
-                            extra.push((decl.clone(), scope));
-                        }
+                let statements = match &*body {
+                    ast::CodeBody::Block(block) => block.stmts.as_slice(),
+                    ast::CodeBody::Stmt(stmt) => std::slice::from_ref(stmt),
+                    ast::CodeBody::Expr(_) => &[],
+                };
+                for stmt in statements {
+                    if let ast::StmtKind::AddContext(decl) = &stmt.kind {
+                        extra.push((decl.clone(), scope));
                     }
                 }
             }

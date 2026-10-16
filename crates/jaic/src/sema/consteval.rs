@@ -543,6 +543,7 @@ impl Compiler {
                 ..
             } => Ok(match &*self.codes[code.0 as usize] {
                 ast::CodeBody::Block(b) => b.stmts.clone(),
+                ast::CodeBody::Stmt(s) => vec![s.clone()],
                 ast::CodeBody::Expr(e) => vec![ast::Stmt {
                     kind: ast::StmtKind::Expr(e.clone()),
                     span: e.span,
@@ -627,6 +628,9 @@ impl Compiler {
                 ..
             } => match &*self.codes[code.0 as usize] {
                 ast::CodeBody::Expr(e) => Ok(e.clone()),
+                ast::CodeBody::Stmt(_) => {
+                    err(value.span, "#insert of a statement in expression position")
+                }
                 ast::CodeBody::Block(b) => match b.stmts.as_slice() {
                     [
                         ast::Stmt {

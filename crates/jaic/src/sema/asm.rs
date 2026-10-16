@@ -949,7 +949,9 @@ impl Compiler {
                 let code_scope = self.code_scopes[code.0 as usize];
                 match &*body {
                     CodeBody::Expr(inner) => self.asm_value(f, code_scope, inner, depth + 1),
-                    CodeBody::Block(_) => err(e.span, "an #asm operand must be a variable"),
+                    CodeBody::Block(_) | CodeBody::Stmt(_) => {
+                        err(e.span, "an #asm operand must be a variable")
+                    }
                 }
             }
             Operand::Const {

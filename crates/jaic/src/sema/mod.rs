@@ -810,6 +810,7 @@ impl Compiler {
         let id = value::CodeId(self.codes.len() as u32);
         let span = match &*body {
             ast::CodeBody::Expr(e) => e.span,
+            ast::CodeBody::Stmt(s) => s.span,
             ast::CodeBody::Block(b) => b.span,
         };
         let text: Rc<str> = if (span.file.0 as usize) < self.sources.len() {

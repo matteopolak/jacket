@@ -787,3 +787,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 [Metal texture resource promotion](native/metal-texture-resource.md) retains the exact unnamed using edge, canonical method signatures and qualified offscreen SDK proof; no implicit-pointer conversion or #as substitute.
 
 - [HTTP CI case coverage](tools/http-ci-case-coverage.md): exact twelve-case dispatch; seven native Io cases remain unavailable on WASM, never passed.
+
+- [Code insertion lexical scopes](compiler/insert-declaration-scope.md): corrected unbraced declaration publication and explicit-block privacy; [merged checks](status/shared-insert-scope-checkpoint.json).

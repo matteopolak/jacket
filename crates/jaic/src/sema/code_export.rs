@@ -1976,14 +1976,10 @@ impl Exporter<'_> {
                     matches!(&**body, ast::CodeBody::Expr(expr) if matches!(expr.kind, E::Null));
                 let expr = match &**body {
                     ast::CodeBody::Expr(e) => self.expr(e),
-                    // `#code if x == {...}`: a brace-less statement is its own node (its
-                    // block has the statement's span).
-                    ast::CodeBody::Block(b) if b.stmts.len() == 1 && b.span == b.stmts[0].span => {
-                        match self.stmt(&b.stmts[0]) {
-                            Some(id) => id,
-                            None => self.block(&b.stmts, 1, b.span),
-                        }
-                    }
+                    ast::CodeBody::Stmt(stmt) => match self.stmt(stmt) {
+                        Some(id) => id,
+                        None => self.block(std::slice::from_ref(stmt), 1, stmt.span),
+                    },
                     ast::CodeBody::Block(b) => self.block(&b.stmts, 1, b.span),
                 };
                 let mut rec = self.node("Code_Directive_Code", node::DIRECTIVE_CODE, span);
@@ -3719,13 +3715,10 @@ fn export_code_in(
     };
     let root = match body {
         ast::CodeBody::Expr(e) => ex.expr(e),
-        // `#code a := 1;` without braces is the bare statement, not a block.
-        ast::CodeBody::Block(b) if b.stmts.len() == 1 && !source.trim_start().starts_with('{') => {
-            match ex.stmt(&b.stmts[0]) {
-                Some(id) => id,
-                None => ex.block(&b.stmts, 1, b.span),
-            }
-        }
+        ast::CodeBody::Stmt(stmt) => match ex.stmt(stmt) {
+            Some(id) => id,
+            None => ex.block(std::slice::from_ref(stmt), 1, stmt.span),
+        },
         ast::CodeBody::Block(b) => ex.block(&b.stmts, 1, b.span),
     };
     let sub = std::mem::take(&mut ex.sub);

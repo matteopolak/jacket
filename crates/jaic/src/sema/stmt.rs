@@ -2749,15 +2749,15 @@ impl Compiler {
     ) -> Result<()> {
         let mut op = self.eval_insert_operand(scope, value)?;
         // `#insert,scope(code) "text"`: the text becomes Code inserted there.
-        if target.is_some()
+        let string_payload = target.is_some()
             && matches!(
-                op,
+                &op,
                 Operand::Const {
                     value: Value::String(_),
                     ..
                 }
-            )
-        {
+            );
+        if string_payload {
             let stmts = self.insert_stmts_from(op, value.span)?;
             let block = ast::Block {
                 stmts,
@@ -2825,6 +2825,10 @@ impl Compiler {
                 _ => code_scope,
             };
             let inner = self.new_block_scope(code_scope);
+            let unbraced = string_payload || !matches!(&*body, ast::CodeBody::Block(_));
+            if unbraced {
+                self.scopes[inner.0 as usize].inserted_into = Some(scope);
+            }
             self.scopes[inner.0 as usize].proc_depth = self.scope(scope).proc_depth;
             // Constants inserted into a file or module scope are declared there (and
             // reported to the metaprogram like any top-level declaration).
@@ -2833,9 +2837,13 @@ impl Compiler {
                     self.scope(code_scope).kind,
                     ScopeKind::File | ScopeKind::Module
                 )
-                && let ast::CodeBody::Block(b) = &*body
             {
-                for stmt in &b.stmts {
+                let statements = match &*body {
+                    ast::CodeBody::Block(b) => b.stmts.as_slice(),
+                    ast::CodeBody::Stmt(stmt) => std::slice::from_ref(stmt),
+                    ast::CodeBody::Expr(_) => &[],
+                };
+                for stmt in statements {
                     if let S::Decl(decl) = &stmt.kind
                         && decl.kind == ast::DeclKind::Const
                         && !decl.backtick
@@ -2847,31 +2855,154 @@ impl Compiler {
             }
             let result = match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
+                ast::CodeBody::Stmt(stmt) => self
+                    .check_block_stmts(f, inner, std::slice::from_ref(stmt))
+                    .and_then(|_| self.ide_require_parsed_body(stmt.span)),
+                ast::CodeBody::Block(b) if string_payload => {
+                    self.check_block_stmts(f, inner, &b.stmts)
+                }
                 ast::CodeBody::Block(b) => self
-                    .check_block_stmts(f, inner, &b.stmts)
+                    .check_scoped(
+                        f,
+                        inner,
+                        &ast::Stmt {
+                            kind: S::Block(b.clone()),
+                            span: b.span,
+                            notes: Default::default(),
+                        },
+                    )
                     .and_then(|_| self.ide_require_parsed_body(b.span)),
             };
-            // Names resolve in the target's scope, but what the code declares lives where it
-            // is inserted (yield-jai: `#insert,scope(call) #run make_args();` then `Args`).
-            if code_scope != scope {
-                let declared: Vec<(Sym, Vec<EntityId>)> = self
-                    .scope(inner)
-                    .names
-                    .iter()
-                    .map(|(name, ids)| (*name, ids.clone()))
-                    .collect();
-                for (name, ids) in declared {
-                    self.scope_mut(scope)
-                        .names
-                        .entry(name)
-                        .or_default()
-                        .extend(ids);
-                }
+            // Only a brace-less payload declares in the receiving lexical block.
+            // Its wrapper supplies captured lookup without adding a lexical boundary.
+            result?;
+            if unbraced {
+                self.publish_insert_scope(inner, scope, span)?;
             }
-            return result;
+            return Ok(());
         }
         let stmts = self.insert_stmts_from(op, value.span)?;
         self.check_block_stmts(f, scope, &stmts)
+    }
+
+    /// Keep inserted declarations' canonical entities and captured lookup scope,
+    /// while making their bindings visible in the receiving lexical scope.
+    fn publish_insert_scope(&mut self, source: ScopeId, target: ScopeId, at: Span) -> Result<()> {
+        let mut bindings: Vec<(Sym, EntityId)> = self
+            .scope(source)
+            .names
+            .iter()
+            .flat_map(|(&name, ids)| ids.iter().map(move |&id| (name, id)))
+            .collect();
+        // Declaration/hoisting order, rather than hash-map iteration order,
+        // determines which collision is diagnosed first.
+        bindings.sort_by_key(|(_, id)| id.0);
+        let mut publish = Vec::new();
+        for (name, id) in bindings {
+            let existing = self
+                .scope(target)
+                .names
+                .get(&name)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let mut already_bound = false;
+            for old in self.bound_entities(existing) {
+                let new = self.entity(id);
+                let previous = self.entity(old);
+                let same_binding = id == old
+                    || match (&new.kind, &previous.kind) {
+                        // A macro backtick declaration may already have put
+                        // the same local in its caller's scope.
+                        (
+                            EntityKind::Local {
+                                ty,
+                                addr,
+                                depth,
+                            },
+                            EntityKind::Local {
+                                ty: old_ty,
+                                addr: old_addr,
+                                depth: old_depth,
+                            },
+                        ) => ty == old_ty && addr == old_addr && depth == old_depth,
+                        (
+                            EntityKind::Decl {
+                                decl, ..
+                            },
+                            EntityKind::Decl {
+                                decl: old_decl, ..
+                            },
+                        ) => decl.backtick && Rc::ptr_eq(decl, old_decl),
+                        _ => false,
+                    };
+                if same_binding {
+                    already_bound = true;
+                    continue;
+                }
+                if let (
+                    EntityKind::Decl {
+                        decl, ..
+                    },
+                    EntityKind::Decl {
+                        decl: old_decl, ..
+                    },
+                ) = (&new.kind, &previous.kind)
+                    && scope::may_overload(decl)
+                    && scope::may_overload(old_decl)
+                {
+                    continue;
+                }
+                return Err(Box::new(
+                    Diagnostic::error(
+                        new.span,
+                        format!("`{name}` is already declared in this scope"),
+                    )
+                    .with_label("declared again here")
+                    .with_note(previous.span, format!("`{name}` is first declared here"))
+                    .with_note(at, "this Code is inserted here"),
+                ));
+            }
+            if !already_bound {
+                publish.push((name, id));
+            }
+        }
+        // Check newly formed overload sets now: an unreferenced enclosing body
+        // may be checked after the driver's earlier declared-overload audit.
+        // The regular checker uses the logical receiving namespace while the
+        // entities keep their captured lookup scopes.
+        let mut sets = Vec::<Vec<EntityId>>::new();
+        let mut set_indices = HashMap::<Sym, usize>::default();
+        for &(name, id) in &publish {
+            let index = *set_indices.entry(name).or_insert_with(|| {
+                let index = sets.len();
+                sets.push(
+                    self.scope(target)
+                        .names
+                        .get(&name)
+                        .cloned()
+                        .unwrap_or_default(),
+                );
+                index
+            });
+            sets[index].push(id);
+        }
+        for ids in sets {
+            if ids.len() > 1 {
+                self.check_identical_overloads(&ids)?;
+            }
+        }
+        // Validate the complete namespace before publishing any of it. A bad
+        // insertion must not leave a partially published set of declarations.
+        for (name, id) in publish {
+            self.scope_mut(target)
+                .names
+                .entry(name)
+                .or_default()
+                .push(id);
+        }
+        let usings = self.scope(source).usings.clone();
+        self.scope_mut(target).usings.extend(usings);
+        Ok(())
     }
 
     fn insert_for_body(
