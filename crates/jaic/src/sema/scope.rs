@@ -1068,8 +1068,9 @@ impl Compiler {
 /// Does a `using` filter keep `name` out? Computed and mapping filters hide nothing here.
 pub fn filter_hides(filter: &ast::UsingFilter, name: Sym) -> bool {
     match filter {
-        ast::UsingFilter::Only(names) => names.iter().all(|n| n.name != name),
-        ast::UsingFilter::Except(names) => names.iter().any(|n| n.name == name),
+        ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_) => {
+            super::using::filter_target(filter, name).is_none()
+        }
         _ => false,
     }
 }

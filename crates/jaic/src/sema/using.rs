@@ -6,9 +6,14 @@ use super::*;
 use crate::types::{ArrayKind, TypeKind};
 
 pub(super) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {
+    let public_name = public_filter_name(name);
     match filter {
-        ast::UsingFilter::Only(names) => names.iter().any(|n| n.name == name).then_some(name),
-        ast::UsingFilter::Except(names) => names.iter().all(|n| n.name != name).then_some(name),
+        ast::UsingFilter::Only(names) => {
+            names.iter().any(|n| n.name == public_name).then_some(name)
+        }
+        ast::UsingFilter::Except(names) => {
+            names.iter().all(|n| n.name != public_name).then_some(name)
+        }
         ast::UsingFilter::Map(pairs) => pairs
             .iter()
             .find(|(new, _)| new.name == name)
@@ -17,6 +22,18 @@ pub(super) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym>
         ast::UsingFilter::Computed {
             ..
         } => None,
+    }
+}
+
+/// Filters use public operator symbols; lookup still uses the original declaration.
+/// Restrict translation to reviewed operator forms, leaving ordinary names intact.
+fn public_filter_name(name: Sym) -> Sym {
+    match name.as_str().strip_prefix("operator") {
+        Some(
+            symbol @ ("+" | "-" | "*" | "/" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "[]" | "[]="
+            | "*[]"),
+        ) => Sym::intern(symbol),
+        _ => name,
     }
 }
 
