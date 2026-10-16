@@ -1624,6 +1624,7 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
         target: cli.target_triple().ok().flatten(),
+        explicit_target: cli.target.is_some() || cli.os.is_some() || cli.cpu.is_some(),
         sanitize: cli.sanitize.join(","),
         no_inline: cli.no_inline,
         no_split: cli.no_split,
@@ -1659,6 +1660,8 @@ struct LlvmBackend {
     debug_info: bool,
     /// Target triple; `None` for the host.
     target: Option<String>,
+    /// An explicit host OS/CPU still overrides workspace output settings.
+    explicit_target: bool,
     /// The `-sanitize` lists, comma-joined (empty: no sanitizers).
     sanitize: String,
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
@@ -1682,19 +1685,40 @@ struct Prepared {
 
 #[cfg(feature = "llvm")]
 impl LlvmBackend {
+    fn workspace_target(&self, settings: &BuildSettings) -> Result<Option<String>, String> {
+        if self.explicit_target {
+            return Ok(self.target.clone());
+        }
+        if !settings.llvm_triple.is_empty() {
+            return Ok(Some(settings.llvm_triple.clone()));
+        }
+        let host = Options::host();
+        let os = settings.os.unwrap_or(host.os);
+        let cpu = settings.cpu.unwrap_or(host.cpu);
+        if os == TargetOs::Wasm {
+            return Ok(Some(jaic_llvm::WASM_TRIPLE.to_string()));
+        }
+        if cpu == TargetCpu::Wasm {
+            return Err("a native workspace OS requires an X64 or ARM64 CPU".into());
+        }
+        if os == host.os && cpu == host.cpu {
+            return Ok(None);
+        }
+        let triple = match (os, cpu) {
+            (TargetOs::Linux, TargetCpu::X64) => "x86_64-unknown-linux-gnu",
+            (TargetOs::Linux, TargetCpu::Arm64) => "aarch64-unknown-linux-gnu",
+            (TargetOs::MacOS, TargetCpu::X64) => "x86_64-apple-darwin",
+            (TargetOs::MacOS, TargetCpu::Arm64) => "aarch64-apple-darwin",
+            (TargetOs::Windows, cpu) => windows_triple(cpu, cfg!(target_os = "windows")),
+            _ => unreachable!("native workspace CPU/OS validated above"),
+        };
+        Ok(Some(triple.to_string()))
+    }
+
     fn prepare(&self, settings: &BuildSettings, output: &Path) -> Result<Prepared, String> {
-        // `-target`/`-os` win; a workspace built for `os_target = .WASM` names its triple in
-        // `llvm_options.target_system_triple` (default: bare wasm64, its runtime up to the program).
-        let wasm_settings = settings.os == Some(TargetOs::Wasm);
-        let target = self.target.clone().or_else(|| {
-            wasm_settings.then(|| {
-                if settings.llvm_triple.is_empty() {
-                    jaic_llvm::WASM_TRIPLE.to_string()
-                } else {
-                    settings.llvm_triple.clone()
-                }
-            })
-        });
+        // Explicit CLI target wins; otherwise use the workspace's explicit LLVM
+        // triple or its OS/CPU, including non-WASM child workspaces.
+        let target = self.workspace_target(settings)?;
         let non_empty = |s: &String| (!s.is_empty()).then(|| s.clone());
         // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's,
         // unless the metaprogram turned `append_executable_filename_extension` off.
@@ -2165,6 +2189,59 @@ mod tests {
             Some("aarch64-pc-windows-gnu")
         );
         assert_eq!(triple(&[], mac.0, mac.1), None);
+    }
+
+    #[cfg(feature = "llvm")]
+    #[test]
+    fn workspace_backend_target_preserves_explicit_overrides_and_rejects_invalid_cpu() {
+        let backend = native_backend(&cli(&["main.jai"]));
+        let mut settings = BuildSettings {
+            os: Some(TargetOs::Linux),
+            cpu: Some(TargetCpu::X64),
+            llvm_triple: "x86_64-unknown-linux-musl".into(),
+            ..BuildSettings::default()
+        };
+        assert_eq!(
+            backend.workspace_target(&settings).unwrap().as_deref(),
+            Some("x86_64-unknown-linux-musl")
+        );
+        let explicit = native_backend(&cli(&["main.jai", "-target", "aarch64-unknown-linux-gnu"]));
+        assert_eq!(
+            explicit.workspace_target(&settings).unwrap().as_deref(),
+            Some("aarch64-unknown-linux-gnu")
+        );
+
+        let host = Options::host();
+        let os = match host.os {
+            TargetOs::Linux => "linux",
+            TargetOs::MacOS => "macos",
+            TargetOs::Windows => "windows",
+            TargetOs::Wasm => "wasm",
+        };
+        let cpu = match host.cpu {
+            TargetCpu::X64 => "x64",
+            TargetCpu::Arm64 => "arm64",
+            TargetCpu::Wasm => "wasm",
+        };
+        let explicit_host = native_backend(&cli(&["main.jai", "-os", os, "-cpu", cpu]));
+        assert_eq!(
+            explicit_host.workspace_target(&settings).unwrap(),
+            explicit_host.target
+        );
+
+        settings.llvm_triple.clear();
+        settings.cpu = Some(TargetCpu::Wasm);
+        assert!(
+            backend
+                .workspace_target(&settings)
+                .unwrap_err()
+                .contains("native workspace OS")
+        );
+        settings.os = Some(TargetOs::Wasm);
+        assert_eq!(
+            backend.workspace_target(&settings).unwrap().as_deref(),
+            Some(jaic_llvm::WASM_TRIPLE)
+        );
     }
 
     #[test]

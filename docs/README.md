@@ -658,3 +658,5 @@ include exact file/line/source hashes and required platform limits.
 - [Shared-memory channel audit](portable-shared-channel.md) and [CRC/Base64/PCG contracts](portable-codec-contracts.md): real separate-process IPC, codec/RNG vectors and [corrected runner verification](status/shared-channel-codec-verification.json), with cleanup and native-platform limits.
 
 - [Native debugger startup isolation](native/debug-info.md): unchanged breakpoint/backtrace/value assertions with user startup files disabled; [exact Mac verification](status/debugger-hermetic-launch.json).
+
+- [Workspace object targets](compiler/workspace-object-targets.md): actual seven-target object headers, explicit target precedence and frontend ABI boundaries.
