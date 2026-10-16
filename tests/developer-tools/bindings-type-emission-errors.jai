@@ -23,7 +23,9 @@ main :: () {
     append(*defaults, "keep");
     integer := B.CType.{ size = 4, number_flags = ._32BIT | .SIGNED };
     literal: B.Literal;
-    literal.literal_kind = .RAW_CPP_TOKENS;
+    // RAW_CPP_TOKENS is reviewed passthrough, so its former rejection premise is
+    // obsolete. A MACRO without live tokens remains a genuine malformed default.
+    literal.literal_kind = .MACRO;
     argument := B.Declaration.{ output_name = "value", type = *integer, expression = cast(*B.Expression) *literal };
     function := B.Function_Type.{ return_type = *integer };
 

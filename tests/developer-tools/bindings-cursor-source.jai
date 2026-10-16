@@ -1,6 +1,5 @@
 // Reviewed raw_tokens_string_from_cursor(CXCursor) and official libclang token ABI.
 #import "Basic";
-#import "File";
 B :: #import "Bindings_Generator";
 
 source := "int reconstructed(int value) { /* intentionally discarded */ return (value << 2) + 1; } const char *reconstructed_text() { return \"a\\\"b\"; }";
@@ -30,17 +29,14 @@ main :: () {
     text := B.raw_tokens_string_from_cursor(capture.children[0]);
 
     defer free(text);
-    assert(text.count > 0);
+    assert(text == "intreconstructed(intvalue){return(value<<2)+1;}");
     text2 := B.raw_tokens_string_from_cursor(capture.children[1]);
 
     defer free(text2);
-    assert(text2.count > 0);
-    // Reconstruct compilable source and prove token storage has independent lifetime.
     B.clang_disposeTranslationUnit(unit);
     unit = null;
-    generated := tprint("%\n%\nint main() { return reconstructed(9) == 37 && reconstructed_text()[1] == '\"' ? 0 : 1; }\n", text, text2);
-
-    assert(write_entire_file(tprint("%../../target/developer-tools-cursor-reconstructed.cpp", #filepath), generated));
+    // These are token spellings, deliberately not compilable reconstructed C++.
+    assert(text2 == "constchar*reconstructed_text(){return\"a\\\"b\";}");
     print("ok\n");
 }
 
