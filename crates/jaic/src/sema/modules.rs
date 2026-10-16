@@ -1025,6 +1025,16 @@ impl Compiler {
                         );
                     }
                 } else {
+                    // A top-level anonymous import contributes to the containing
+                    // module's import environment even after #scope_file. The
+                    // directive still governs named aliases and declarations.
+                    // Keep contextual imports in their existing scope, and keep
+                    // from_scope below for paths/parameters written in this file.
+                    let target = if self.scope(scope).kind == ScopeKind::Module {
+                        scope
+                    } else {
+                        target
+                    };
                     // Anonymous `using,only/except(...) #import` exposes the
                     // selected original declarations just like its named form,
                     // without introducing a public namespace alias.

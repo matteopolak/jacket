@@ -481,13 +481,13 @@ fn module_private_declarations_are_not_qualified_exports() {
 }
 
 #[test]
-fn private_imports_in_sibling_files_do_not_leak() {
+fn named_private_imports_in_loaded_files_do_not_leak() {
     let mut c = compiler(
         &[
             ("/lib/Private/module.jai", "secret :: 17;"),
             (
                 "/app/piece.jai",
-                "#scope_file #import \"Private\"; #assert(secret == 17);",
+                "#scope_file P :: #import \"Private\"; #assert(P.secret == 17);",
             ),
             (
                 "/app/main.jai",
