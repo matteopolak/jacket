@@ -23,6 +23,8 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+mod option_snapshot;
+
 /// What a workspace produces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputType {
@@ -270,6 +272,7 @@ struct Workspace {
     /// Sources added and not yet loaded into the workspace's compiler.
     pending: Vec<ProgramSource>,
     settings: BuildSettings,
+    options: Option<option_snapshot::Snapshot>,
     intercepted: bool,
     /// The `Intercept_Flags` the intercepting metaprogram passed to `compiler_begin_intercept`.
     intercept_flags: i64,
@@ -322,6 +325,7 @@ impl Workspace {
             name,
             pending: Vec::new(),
             settings: BuildSettings::default(),
+            options: None,
             intercepted: false,
             intercept_flags: 0,
             stage: Stage::Open,
@@ -433,6 +437,7 @@ pub enum MetaOp {
     AddFile,
     AddString,
     SetOption,
+    OptionsSnapshot,
     BeginIntercept,
     EndIntercept,
     WorkspaceStatus,
@@ -495,6 +500,7 @@ impl MetaOp {
             "__jaic_workspace_add_file" => Self::AddFile,
             "__jaic_workspace_add_string" => Self::AddString,
             "__jaic_workspace_set_option" => Self::SetOption,
+            "__jaic_workspace_options_snapshot" => Self::OptionsSnapshot,
             "__jaic_workspace_begin_intercept" => Self::BeginIntercept,
             "__jaic_workspace_end_intercept" => Self::EndIntercept,
             "__jaic_workspace_status" => Self::WorkspaceStatus,
@@ -1819,6 +1825,24 @@ pub fn call(
                 .set_option(arg(0) as i64, &key, &value)
                 .map_err(trap)?;
             Ok(Rets::default())
+        }
+        MetaOp::OptionsSnapshot => {
+            let id = arg(0) as i64;
+            let size = usize::try_from(arg(2)).map_err(|_| trap("invalid option size".into()))?;
+            if arg(5) != 0 {
+                let snapshot =
+                    option_snapshot::Snapshot::capture(interp, arg(1), size, arg(3), arg(4))?;
+                shared.borrow_mut().ws(id).map_err(trap)?.options = Some(snapshot);
+                Ok(Rets::one(1))
+            } else {
+                let snapshot = shared.borrow_mut().ws(id).map_err(trap)?.options.clone();
+                if let Some(snapshot) = snapshot {
+                    snapshot.restore(interp, arg(1), size)?;
+                    Ok(Rets::one(1))
+                } else {
+                    Ok(Rets::one(0))
+                }
+            }
         }
         MetaOp::BeginIntercept => {
             #[cfg(target_arch = "wasm32")]
