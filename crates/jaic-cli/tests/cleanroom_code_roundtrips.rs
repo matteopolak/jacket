@@ -20,6 +20,11 @@ const CASES: &[(&str, &str)] = &[
     ),
     ("producer-requests/code-record-defaults.jai", ""),
     ("producer-requests/inherited-record-defaults.jai", ""),
+    ("producer-requests/compiler-derived-record-defaults.jai", ""),
+    (
+        "producer-requests/late-import-conditional-procedure.jai",
+        "",
+    ),
 ];
 
 fn source(path: &str) -> PathBuf {
@@ -93,7 +98,7 @@ fn graph_roundtrips_execute_native_at_o0_and_o2() {
 fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_commands() {
     let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("code-roundtrip-wasi");
     std::fs::create_dir_all(&dir).unwrap();
-    for (i, (path, expected)) in [CASES[1], CASES[3], CASES[4], CASES[5]]
+    for (i, (path, expected)) in [CASES[1], CASES[3], CASES[4], CASES[5], CASES[6]]
         .into_iter()
         .enumerate()
     {

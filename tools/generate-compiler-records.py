@@ -5,6 +5,7 @@ No source distribution or old library implementation is an input.
 """
 from pathlib import Path
 import argparse
+import os
 import re
 from jai_codegen import DEFAULT_FORMATTER, emit_generated
 
@@ -42,12 +43,13 @@ def declaration_order(item):
 
 
 def main():
+    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--formatter", type=Path, default=DEFAULT_FORMATTER)
+    parser.add_argument("--formatter", type=Path, default=target / DEFAULT_FORMATTER.name)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    if not args.formatter.resolve(strict=True).is_relative_to(ROOT / "target"):
-        parser.error("formatter must be source-built under this workspace's target directory")
+    if not args.formatter.resolve(strict=True).is_relative_to(target):
+        parser.error("formatter must be source-built under the configured CARGO_TARGET_DIR")
     source = SPEC.read_text()
     inventory = source.split("## Public type members")[0]
     declarations = dict(re.findall(r"^- `([A-Za-z_][A-Za-z_0-9]*) :: ((?:struct|enum|enum_flags)[^`]*)`$", inventory, re.M))
