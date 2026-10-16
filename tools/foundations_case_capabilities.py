@@ -103,6 +103,9 @@ LINUX_URING_CASES = frozenset(
 # Exact programs, reviewed from their imports/calls and the public module guards.
 # Missing native providers on these targets remain failures, not unavailability.
 NATIVE_SERVICE_CASES = {
+    "contracts/overwriting-allocator-fill-and-teardown": "reviewed Overwriting_Allocator public Mutex and native Thread dependency",
+    "contracts/sound-player-pure-public-contracts": "reviewed Sound_Player public Mutex/Thread globals and native platform backends; no device initialization requested",
+    "extensions/http-native-date-target": "native-only Http.http_date_now wall-clock adapter",
     "compiler/baked-enum-default": "System.get_number_of_processors / native System guard",
     "compiler/system-machine-alias": "native System guard; M64 only on CPU.X64",
     "compiler/rules-compile-time-execution": "native Process import and compile-time child process",

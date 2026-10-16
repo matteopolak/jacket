@@ -173,6 +173,25 @@ class FoundationsCapabilitiesTests(unittest.TestCase):
 
 
 class PolicyPreservation(unittest.TestCase):
+    def test_reviewed_residual_native_cases_keep_independent_portable_controls(self):
+        cases = {case["id"]: case for case in validated_entries()}
+        for name in (
+            "contracts/overwriting-allocator-fill-and-teardown",
+            "contracts/sound-player-pure-public-contracts",
+            "extensions/http-native-date-target",
+        ):
+            for mode in ("interp", "native"):
+                self.assertIsNone(unavailable_reason(cases[name], mode, "linux-x64"))
+            for mode in ("wasm-interp", "wasm-native"):
+                self.assertIsNotNone(unavailable_reason(cases[name], mode, "linux-x64"))
+        for name in (
+            "contracts/adpcm-public-constants-and-saturation",
+            "extensions/http-date-target",
+            "tests/portable-data-resource-wire",
+        ):
+            for mode in ("wasm-interp", "wasm-native"):
+                self.assertIsNone(unavailable_reason(cases[name], mode, "linux-x64"))
+
     def test_linux_x64_regressions_have_no_new_backend_deferral(self):
         cases = {case["id"]: case for case in validated_entries()}
         for name in ("compiler/lang-asm", "compiler/rules-simd-asm"):

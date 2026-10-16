@@ -15,7 +15,7 @@ Without it, a module's code for other platforms (`#if OS == .MACOS`) and the pro
 
 The listed failures are intentional:
 
-- modules for other platforms or CPUs, which stop with `#assert` (`Windows` on linux, `Objective_C` off Apple platforms, `Wasi_Runtime` off wasm, `nvtt` off x64);
+- modules for other platforms or CPUs, which stop with `#assert` (`Windows` on linux, `Objective_C` off Apple platforms, `Wasi_Runtime` off wasm, `nvtt` outside Windows/Linux/macOS);
 - procedures that stop the build on a target they do not support (modules that need a native library or window system);
 - bindings to native libraries with no wasm build (`SDL`, `ImGui`, `Curl`, `meshoptimizer`).
 
@@ -23,7 +23,7 @@ Checking stops at the first error, so a listed module is only checked up to its 
 
 ## How to change it
 
-- After fixing a listed module, or when a change makes one fail differently, edit its line in `tests/stdlib-targets.txt`. The test's message prints the new first error in the file's format.
+- After verifying a reviewed target restriction against its canonical facade and supported-target positive checks, edit only the corresponding lines in `tests/stdlib-targets.txt`. A new binding/compiler error is a required failure, not evidence of intentional unavailability. The test's message prints the first error for investigation; it is not an automatic golden update.
 - A new platform-only module should stop on the wrong target with an `#assert` that says why, and get a line for each target it refuses.
 - To add a target, extend `TARGETS` in the test (`os-cpu`, or a bare OS for no `-cpu`) and list that target's intentional failures.
 
@@ -31,3 +31,9 @@ Checking stops at the first error, so a listed module is only checked up to its 
 
 - `cargo test -p jaic-cli --test stdlib_targets` (add `--release` for speed, `--no-default-features` to build without LLVM). The check needs no native libraries or toolchains.
 - `tests/stdlib-targets.txt`: `skip Module` and `Module target: file: first error` lines, where the target is `linux-x64`, `macos-arm64`, ... or `wasm`; `#` starts a comment.
+
+The focused [833 target-policy repair](foundations-833-target-policy.md) verifies
+all seven targets for macOS, nvidia_aftermath and nvtt without replacing the full
+matrix. `tools/check_foundations_target_guards.py --compiler <jaic> --output
+<new-directory>` preserves raw diagnostics, required positive/negative outcomes
+and source hashes. Source checks do not establish native SDK/runtime availability.

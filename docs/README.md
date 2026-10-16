@@ -975,3 +975,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Browser request bundling](tools/playground-request-bundling.md) and [CI browser/path boundaries](tools/ci-browser-and-path-boundaries.md): canonical source identity, size limits, and required failure accounting.
 
 - [Binding verifier private roots and SDK profiles](native/linux-833-binding-verifier.md): preserved type/privacy assertions; source40-to0 producer proof, native Linux/Windows replay required.
+
+- [Reviewed target policies](tools/foundations-833-target-policy.md):21no-DCE checks and exact native dependencies; historical406failure rows are not replayed passes.

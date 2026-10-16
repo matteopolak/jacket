@@ -112,20 +112,17 @@ dxgi macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
 dxgi wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
 freetype wasm: freetype-2.12.1/unix.jai: #assert failed: this `#assert(false)` was compiled
 freetype-2.12.1 wasm: freetype-2.12.1/unix.jai: #assert failed: this `#assert(false)` was compiled
-macos linux-arm64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
-macos linux-x64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
-macos wasm: macos/module.jai: #assert failed: macos is only supported on Apple platforms
-macos windows-arm64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
-macos windows-x64: macos/module.jai: #assert failed: macos is only supported on Apple platforms
-nvidia_aftermath linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-nvidia_aftermath linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-nvidia_aftermath macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-nvidia_aftermath macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-nvidia_aftermath wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-nvtt linux-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
-nvtt macos-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
-nvtt wasm: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
-nvtt windows-arm64: nvtt/module.jai: #assert failed: The legacy NVTT C++ return bridge requires the reviewed x86-64 calling convention.
+macOS linux-arm64: macOS/module.jai: #assert failed: macOS requires its documented native platform
+macOS linux-x64: macOS/module.jai: #assert failed: macOS requires its documented native platform
+macOS wasm: macOS/module.jai: #assert failed: macOS requires its documented native platform
+macOS windows-arm64: macOS/module.jai: #assert failed: macOS requires its documented native platform
+macOS windows-x64: macOS/module.jai: #assert failed: macOS requires its documented native platform
+nvidia_aftermath linux-arm64: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
+nvidia_aftermath linux-x64: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
+nvidia_aftermath macos-arm64: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
+nvidia_aftermath macos-x64: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
+nvidia_aftermath wasm: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
+nvtt wasm: nvtt/module.jai: #assert failed: nvtt requires its documented native platform
 stb_image wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
 stb_image_resize wasm: stb_image_resize/bindings.jai: #assert failed: this `#assert(false)` was compiled
 stb_image_write wasm: stb_image_write/bindings.jai: #assert failed: this `#assert(false)` was compiled
