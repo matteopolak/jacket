@@ -1263,9 +1263,14 @@ fn write_output(
         ints: vec![PHASE_PRE_WRITE_EXECUTABLE, 0],
         strings: vec![name.clone()],
     });
-    compiler
-        .prepare_compiled_output()
-        .map_err(|error| compiler.render(&error))?;
+    // Output preparation prunes checked-but-unreferenced bodies and freezes
+    // runtime globals for emission. A check-only embedder keeps this compiler
+    // for further semantic queries; there is no output IR to prepare.
+    if shared.borrow().env.backend.is_some() {
+        compiler
+            .prepare_compiled_output()
+            .map_err(|error| compiler.render(&error))?;
+    }
     let links = matches!(
         settings.output_type,
         OutputType::Executable | OutputType::DynamicLibrary

@@ -739,3 +739,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 - [Pinned beec9491 compiler/library/native candidate](status/shared-candidate-beec9491.json) and [actual POSIX stream storage proof](status/shared-posix-stream-checkpoint.json): exact source/binary/environment receipt for coordinator original400 replay. Final focused gates/catalogue are recorded separately.
 
 - [Exact beec9491 Mac baseline](status/mac-beec9491-baseline.json): scoped production gates pass; complete433-case catalogue failures remain classified with [reproducers and proper followups](integration-requests.md). Native/GUI lease released to coordinator; original400/Focus and Windows/Linux native verification remain open.
+
+[Integrated check-only IR lifetime repair](status/shared-ir-lifetime-checkpoint.json) records the exact822 patch review and two passing backend-boundary regressions.
