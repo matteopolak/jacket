@@ -951,3 +951,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Clean-room integration](tools/cleanroom-integration.md): real workspace helper prerequisites and exact source/native candidate accounting.
 
 - [Generator opaque printer](generator-opaque-printer.md): canonical live-cursor completeness proof, pointer support, and required remaining C-model failures.
+
+- [SDL Python CI setup](status/sdl-python-matrix-833.md): pinned real headers, explicit scratch, and 60 scoped checks; native acceptance separate.
+
+- [WASI output boundary](tools/wasi-file-boundary.md): public SDK late-zero reproducer and withdrawn durability proof; production repair remains required.

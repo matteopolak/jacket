@@ -3,10 +3,10 @@
 import hashlib
 import ast
 import importlib.util
-import os
+from sdl_test_support import source_path
 from pathlib import Path
 import sys
-import tempfile
+from sdl_test_support import temporary_directory
 import unittest
 from unittest.mock import patch
 
@@ -14,23 +14,32 @@ from unittest.mock import patch
 class SdlFixturePaths(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        helper = Path(os.environ["SDL_FIXTURE_TEST_HELPER"])
+        helper = Path(
+            source_path(
+                "SDL_FIXTURE_TEST_HELPER", "tools/native_bindings/fixture_paths.py"
+            )
+        )
         spec = importlib.util.spec_from_file_location("fixture_paths", helper)
         cls.paths = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = cls.paths
         spec.loader.exec_module(cls.paths)
-        deps = Path(os.environ["SDL_FIXTURE_TEST_DEPENDENCIES"])
+        deps = Path(
+            source_path("SDL_FIXTURE_TEST_DEPENDENCIES", "tools/native_bindings")
+        )
         sys.path.insert(0, str(deps))
         spec = importlib.util.spec_from_file_location(
-            "sdl_fixture_verify", os.environ["SDL_FIXTURE_TEST_VERIFY"]
+            "sdl_fixture_verify",
+            source_path("SDL_FIXTURE_TEST_VERIFY", "tools/native_bindings/verify.py"),
         )
         cls.verify = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.verify)
-        cls.verify_source = Path(os.environ["SDL_FIXTURE_TEST_VERIFY"]).read_text()
-        cls.shared = Path(os.environ["SDL_FIXTURE_TEST_ROOT"])
+        cls.verify_source = Path(
+            source_path("SDL_FIXTURE_TEST_VERIFY", "tools/native_bindings/verify.py")
+        ).read_text()
+        cls.shared = Path(source_path("SDL_FIXTURE_TEST_ROOT", "."))
 
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
+        self.temporary = temporary_directory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 

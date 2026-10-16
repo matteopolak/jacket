@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import subprocess
-import tempfile
+from sdl_test_support import temporary_directory, remove_fixture_metadata
 from pathlib import Path
 import sdl3_gen as gen
 
@@ -29,7 +29,7 @@ class Types(unittest.TestCase):
         self.assertNotIn(b'\r',payload)
         # A fresh local index exercises Git's real checkout conversion, without
         # reading another checkout, repository history or user Git configuration.
-        with tempfile.TemporaryDirectory(dir=gen.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             root=Path(d)
             env=dict(os.environ,GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL=os.devnull)
             def git(*args):
@@ -54,7 +54,7 @@ class Types(unittest.TestCase):
 
     def test_generated_asset_io_enforces_exact_utf8_lf_bytes(self):
         data='{"text":"caf\u00e9"}\n'
-        with tempfile.TemporaryDirectory(dir=gen.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             path=Path(d)/'contracts.jsonl'
             path.write_bytes(data.replace('\n','\r\n').encode('utf-8'))
             with self.assertRaisesRegex(ValueError,'stale generated file'):gen.sync_generated_file(path,data,True)
@@ -65,10 +65,11 @@ class Types(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'stale generated file'):gen.sync_generated_file(path,data,True)
 
     def test_native_notice_paths_and_order_are_host_independent(self):
-        with tempfile.TemporaryDirectory(dir=gen.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             root=Path(d);directory=root/'src/nested';directory.mkdir(parents=True)
             (directory/'Z.c').write_bytes(b'/* Copyright upper fixture */\n')
             (directory/'a.c').write_bytes(b'/* Copyright lower fixture */\n')
+            remove_fixture_metadata(root)
             notices=gen.native_notices(root)
             self.assertIn('src/nested/Z.c\n/* Copyright upper fixture */',notices)
             self.assertIn('src/nested/a.c\n/* Copyright lower fixture */',notices)

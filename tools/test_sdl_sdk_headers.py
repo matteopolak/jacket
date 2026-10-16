@@ -2,10 +2,10 @@
 
 import ast
 import importlib.util
-import os
+from sdl_test_support import source_path, scratch_root
 from pathlib import Path
 import subprocess
-import tempfile
+from sdl_test_support import temporary_directory
 import unittest
 from unittest.mock import patch
 
@@ -14,19 +14,31 @@ class SdlSdkHeaders(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location(
-            "sdl_sdk_headers", os.environ["SDL_SDK_TEST_HELPER"]
+            "sdl_sdk_headers",
+            source_path(
+                "SDL_SDK_TEST_HELPER", "tools/native_bindings/sdl_sdk_headers.py"
+            ),
         )
         cls.helper = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.helper)
-        cls.source = Path(os.environ["SDL_SDK_TEST_SOURCE"])
+        cls.source = source_path(
+            "SDL_SDK_TEST_SOURCE", scratch_root() / "sdl-sdk-source"
+        )
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = temporary_directory()
         self.addCleanup(self.temp.cleanup)
         self.output = Path(self.temp.name) / "generated headers"
 
     def test_builder_prepares_generated_runtime_headers_once_before_compiling(self):
-        tree = ast.parse(Path(os.environ["SDL_SDK_TEST_BUILDER"]).read_text())
+        tree = ast.parse(
+            Path(
+                source_path(
+                    "SDL_SDK_TEST_BUILDER",
+                    "tools/native_bindings/build_dependencies.py",
+                )
+            ).read_text()
+        )
         calls = [
             n
             for n in ast.walk(tree)

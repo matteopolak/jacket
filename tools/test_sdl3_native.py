@@ -1,7 +1,7 @@
 import hashlib
 import json
 from pathlib import Path
-import tempfile
+from sdl_test_support import temporary_directory, remove_fixture_metadata
 import shutil
 import unittest
 from unittest.mock import patch
@@ -28,11 +28,11 @@ class BuildContract(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'unbound transitive'):
             sdl.check_dependencies('$<LINK_ONLY:PkgConfig::UNEXPECTED>','linux-x64')
     def test_bad_cached_archive_is_rejected_offline(self):
-        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             p=Path(d);(p/'SDL3-3.4.18.tar.gz').write_bytes(b'corrupt')
             with self.assertRaisesRegex(RuntimeError,'cache hash mismatch'):sdl.checked_archive(p,True)
     def test_offline_missing_archive_is_rejected(self):
-        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             with self.assertRaisesRegex(RuntimeError,'offline: missing'):sdl.checked_archive(Path(d),True)
     def test_package_inventory_includes_import_license_and_metadata(self):
         manifest=json.loads(pipeline.MANIFEST.read_text())
@@ -60,12 +60,12 @@ class InstalledSDK(unittest.TestCase):
 
     def test_actual_install_manifest_selects_windows_unix_and_custom_layout(self):
         for relative in ('cmake','lib/cmake/SDL3','custom/export/SDL3'):
-            with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+            with temporary_directory() as d:
                 stage,directory,manifest=self.fixture(Path(d),relative)
                 self.assertEqual(sdl.installed_cmake_dir(stage,manifest),directory)
 
     def test_missing_ambiguous_or_external_exports_fail(self):
-        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             root=Path(d);stage,directory,manifest=self.fixture(root,'cmake')
             export=directory/'SDL3sharedTargets-release.cmake';export.unlink()
             with self.assertRaisesRegex(RuntimeError,'missing installed CMake'):sdl.installed_cmake_dir(stage,manifest)
@@ -76,7 +76,7 @@ class InstalledSDK(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'outside'):sdl.installed_cmake_dir(stage,manifest)
 
     def test_sdk_relocation_preserves_installed_tree_and_artifact_identity(self):
-        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             root=Path(d);stage,directory,manifest=self.fixture(root,'cmake')
             package=root/'package';package.mkdir()
             info=sdl.package_installed_sdk(stage,package,manifest)
@@ -146,18 +146,19 @@ class WindowsDiscovery(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'vswhere'):sdl.windows_toolchain('windows-x64',{})
 
     def test_generator_change_discards_only_owned_cmake_build_tree(self):
-        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             root=Path(d);build=root/'build';build.mkdir();sentinel=root/'source';sentinel.write_text('keep')
             cache=build/'CMakeCache.txt'
             cache.write_text('CMAKE_GENERATOR:INTERNAL=Visual Studio 17 2022\nCMAKE_GENERATOR_INSTANCE:INTERNAL=C:/VS/2022\nCMAKE_GENERATOR_PLATFORM:INTERNAL=x64\nCMAKE_GENERATOR_TOOLSET:INTERNAL=host=x64\n')
             args=self.select(env={'CMAKE_GENERATOR':'Visual Studio 17 2022'})
             sdl.prepare_windows_build_tree(build,args)
             self.assertTrue(cache.exists())
+            remove_fixture_metadata(root)
             sdl.prepare_windows_build_tree(build,self.select())
             self.assertFalse(build.exists());self.assertEqual(sentinel.read_text(),'keep')
 
     def test_packaging_preserves_static_import_and_runtime_identity(self):
-        with tempfile.TemporaryDirectory(dir=sdl.ROOT/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             root=Path(d);stage=root/'install';out=root/'package';out.mkdir()
             # Distinct sentinel bytes test copy routing, not native Windows behavior.
             artifacts={'lib/SDL3-static.lib':b'static archive','lib/SDL3.lib':b'DLL import library','bin/SDL3.dll':b'runtime'}

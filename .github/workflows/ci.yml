@@ -152,6 +152,8 @@ jobs:
         # tests/stdlib-targets.txt (docs/tools/stdlib-target-check.md); every Objective-C selector
         # against its arguments and, on macOS, the runtime (docs/tools/objc-selector-check.md).
         run: cargo test -p jaic-cli --locked --test stdlib_targets --test objc_selectors
+      - name: Prepare hash-pinned SDL Python test inputs
+        run: python3 tools/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
       - name: Policy tests
         id: policy
         continue-on-error: true

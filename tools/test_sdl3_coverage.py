@@ -1,11 +1,11 @@
-import tempfile
+from sdl_test_support import temporary_directory, remove_fixture_metadata
 import unittest
 from pathlib import Path
 import sdl3_coverage as cov
 
 class HeaderDiscovery(unittest.TestCase):
     def discover(self,text):
-        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             path=Path(d)/'SDL_gpu.h';path.write_text(text)
             return cov.discover(path)
 
@@ -31,9 +31,10 @@ class HeaderDiscovery(unittest.TestCase):
             cov.macro_reason('SDL_NEW_API','SDL_NEW_API(x) ((x)+1)')
 
     def test_unexplained_gpu_api_is_fatal(self):
-        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]/'artifacts/sdl3/tmp') as d:
+        with temporary_directory() as d:
             source=Path(d);header=source/'include/SDL3';header.mkdir(parents=True)
             (header/'SDL_gpu.h').write_text('extern SDL_DECLSPEC void SDLCALL SDL_NewGPUAPI(void);')
+            remove_fixture_metadata(source)
             reports={'linux-x64':{'excluded_functions':{},'wrapped_function_macros':[], 'excluded_object_macros':{},'unsupported_function_macros':[]}}
             with self.assertRaisesRegex(ValueError,'Unexplained installed-header declarations'):
                 cov.reconcile(source,reports,{'linux-x64':{}})
