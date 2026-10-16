@@ -153,14 +153,21 @@ impl Parser<'_> {
             _ => ImportSource::Module(text),
         };
         let mut params = Vec::new();
+        let mut program_params_start = None;
+        let mut groups = 0;
         while self.eat(P::LParen) {
+            if groups == 1 {
+                program_params_start = Some(params.len());
+            }
             params.extend(self.parse_args(P::RParen, "in import parameters")?);
+            groups += 1;
         }
         let span = start.to(self.prev_span());
         Ok(stmt(
             StmtKind::Import(Rc::new(Import {
                 source,
                 params,
+                program_params_start,
                 name,
                 flags,
                 using: None,

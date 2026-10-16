@@ -1036,6 +1036,19 @@ fn imports_and_loads() {
 }
 
 #[test]
+fn import_argument_lists_retain_the_program_boundary() {
+    let stmts = parse(
+        "#import \"M\"(a=1)(b=2); #import \"M\"()(b=3); #import \"M\"(a=4); #import \"M\"()();",
+    );
+    for (stmt, expected) in stmts.iter().zip([Some(1), Some(0), None, Some(0)]) {
+        let StmtKind::Import(import) = &stmt.kind else {
+            panic!("expected import");
+        };
+        assert_eq!(import.program_params_start, expected);
+    }
+}
+
+#[test]
 fn file_level_directives() {
     let stmts = parse(
         "#scope_file\n#scope_export\n#scope_module\n#add_context ctx: int = 1;\n#module_parameters (A := 1) (B := 2);\n#placeholder X;\n#assert A == 1 \"msg\";\n#run main();\n#insert \"x :: 1;\";\n#poke_name Basic operator==;\n#library \"x\";",

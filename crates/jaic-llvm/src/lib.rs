@@ -5,6 +5,7 @@
 //! system C compiler driver.
 mod debuginfo;
 mod green;
+mod link_options;
 mod lower;
 use jaic::msvc;
 mod partition;
@@ -884,11 +885,22 @@ pub fn link(
     } else {
         linker_command(flavor, target)?
     };
-    let msvc_style = is_msvc_linker(&program);
+    let driver = link_options::Driver::for_command(&program, extra_args);
+    let extra_args = link_options::render(extra_args, flavor, driver)?;
+    let msvc_style = driver != link_options::Driver::C;
+    if driver == link_options::Driver::ClangCl {
+        // CL's /link consumes everything after it. Keep compiler options and
+        // actual driver inputs before the delimiter; the rest uses LINK syntax.
+        cmd.args(objects)
+            .arg("/MD")
+            .args(&extra_args.driver)
+            .arg("/link");
+    }
     if msvc_style {
-        cmd.arg("/NOLOGO")
-            .arg(format!("/OUT:{}", output.display()))
-            .args(objects);
+        cmd.arg("/NOLOGO").arg(format!("/OUT:{}", output.display()));
+        if driver == link_options::Driver::MsvcLink {
+            cmd.args(objects);
+        }
         cmd.arg(if dynamic_library {
             "/DLL"
         } else {
@@ -931,7 +943,11 @@ pub fn link(
     for arg in seen.concat() {
         render_link_arg(&mut cmd, &arg, msvc_style);
     }
-    cmd.args(extra_args);
+    if driver == link_options::Driver::C {
+        cmd.args(extra_args.driver);
+    } else {
+        cmd.args(extra_args.linker);
+    }
     let install = if cfg!(target_os = "macos") {
         "install the Xcode command line tools (`xcode-select --install`), or name a linker with the JAIC_LINKER environment variable"
     } else if cfg!(windows) {
@@ -1242,6 +1258,8 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
                 // else tells it where `user32.lib` and the C runtime are.
                 cmd.env("LIB", lib);
             }
+        } else if flavor == LinkFlavor::MinGw && link_options::is_clang(&program) {
+            cmd.arg(format!("--target={msvc_triple}"));
         }
         return Ok((program, cmd));
     }

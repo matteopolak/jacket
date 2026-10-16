@@ -664,6 +664,9 @@ impl Compiler {
     /// Record the named parameters of an import so a program parameter among them reaches
     /// the module's shared instance before the import itself is resolved.
     fn note_program_params(&mut self, file_scope: ScopeId, import: &ast::Import) {
+        if Some(self.scope(file_scope).module) != self.main_module {
+            return;
+        }
         let ast::ImportSource::Module(name) = &import.source else {
             return;
         };
@@ -1026,6 +1029,7 @@ impl Compiler {
                 }
             }
             ast::StmtKind::Import(import) => {
+                self.validate_import_program_origin(file_scope, import)?;
                 self.note_program_params(file_scope, import);
                 if let Some(name) = import.name {
                     self.check_redeclared(target, name.name, name.span, None)?;
@@ -1593,6 +1597,7 @@ impl Compiler {
         from_scope: ScopeId,
         import: &ast::Import,
     ) -> Result<ModuleId> {
+        self.validate_import_program_origin(from_scope, import)?;
         let file = self.scope(from_scope).file.unwrap_or_default();
         let dir = self.file_dir(file);
         let mut params = Vec::new();
@@ -1714,6 +1719,22 @@ impl Compiler {
                 Ok(id)
             }
         }
+    }
+
+    /// PROGRAM arguments are workspace inputs, unlike ordinary module arguments.
+    /// Use lexical module ownership: loaded/generated main files share the main
+    /// module, whereas even anonymous or private imported scopes do not.
+    fn validate_import_program_origin(&self, scope: ScopeId, import: &ast::Import) -> Result<()> {
+        let supplies_program_arguments = import
+            .program_params_start
+            .is_some_and(|start| start < import.params.len());
+        if supplies_program_arguments && Some(self.scope(scope).module) != self.main_module {
+            return err(
+                import.span,
+                "PROGRAM parameters may only be supplied by the main program of this workspace",
+            );
+        }
+        Ok(())
     }
 
     /// The module a metaprogram supplied with `provide_import` for `host` importing `name`.
