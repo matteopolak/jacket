@@ -853,3 +853,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Combined c0c+5b candidate718](status/shared-candidate-7187647b.json): matching tools/native assets and exact focused results for root’s next original400 gate.
 
 - [Linux Clipboard static dependency closure](clipboard-linux-static-link-closure.md): required private X11/pthread retention, causal link-argv evidence and real Linux runtime gates.
+
+- [Conditional callable joins](compiler/ifx-callable-joins.md): official else-header rule, narrow metadata repair, causal tests and the separate Io workspace configuration reducer.

@@ -2754,9 +2754,13 @@ impl Compiler {
         // The result slot must be allocated before both branches use it; slots are function-wide.
         let slot = f.b.slot(size.max(1), align);
         let addr = f.b.slot_addr(slot);
+        let mut callable_parameters = None;
         match (else_op, else_value) {
             (Some(else_op), Some(else_value)) => {
                 let else_converted = self.convert(f, else_op, ty, else_value.span)?;
+                // Runtime selection changes the callee, not its lexical call
+                // header: inference retains the else arm's names/defaults.
+                callable_parameters = self.callable_operand_parameters(f, &else_converted)?;
                 let (_, ev) = self.rvalue(f, else_converted, span)?;
                 self.store_value(f, ty, addr, ev, span)?;
             }
@@ -2781,6 +2785,7 @@ impl Compiler {
                 val: addr,
             }),
         }
+        .map(|operand| operand.with_callable(callable_parameters))
     }
 
     // -----------------------------------------------------------------------
