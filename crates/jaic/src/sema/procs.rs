@@ -1032,7 +1032,13 @@ impl Compiler {
     pub fn drain_bodies_lenient(&mut self) -> Option<Box<Diagnostic>> {
         let mut first = None;
         let mut retry = Vec::new();
-        if self.lower_epoch() != self.parked_epoch {
+        if self.lower_epoch() != self.parked_epoch
+            || (self.ide.is_some()
+                && self.parked_bodies.iter().any(|&id| {
+                    self.ide_cached_body_failure(id, self.parked_epoch)
+                        .is_none()
+                }))
+        {
             self.unpark_bodies();
         }
         while let Some(id) = self.body_queue.pop() {
@@ -1047,6 +1053,7 @@ impl Compiler {
             let epoch = self.lower_epoch();
             if let Some((at, err)) = self.lenient_failures.get(&id)
                 && *at == epoch
+                && (self.ide.is_none() || self.ide_cached_body_failure(id, epoch).is_some())
             {
                 first.get_or_insert_with(|| err.clone());
                 if epoch != self.parked_epoch {
@@ -1091,7 +1098,33 @@ impl Compiler {
 
     /// Counts the events after which a body that failed to lower may succeed.
     fn lower_epoch(&self) -> u64 {
-        (self.added_sources + self.files.len() + self.modules.len() + self.runs_done) as u64
+        let base = self.added_sources + self.files.len() + self.modules.len() + self.runs_done;
+        // Generated declarations/using entries can become visible without loading
+        // a file or completing another run. IDE failure reuse must observe that
+        // progress too. Body-local scopes are recreated by each lowering attempt;
+        // their bindings cannot repair another procedure and are not progress.
+        let namespaces = if self.ide.is_some() {
+            self.sources.len()
+                + self
+                    .scopes
+                    .iter()
+                    .filter(|scope| {
+                        !matches!(
+                            scope.kind,
+                            ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
+                        )
+                    })
+                    .map(|scope| {
+                        scope.names.values().map(Vec::len).sum::<usize>()
+                            + scope.imports.len()
+                            + scope.usings.len()
+                            + scope.pending_done
+                    })
+                    .sum::<usize>()
+        } else {
+            0
+        };
+        (base + namespaces) as u64
     }
 
     /// The procedure behind IR function `func` if its body is queued (not lowered yet).
@@ -1202,6 +1235,18 @@ impl Compiler {
 
     /// Lower one procedure body to IR.
     pub fn lower_body(&mut self, id: ProcId) -> Result<()> {
+        // IDE-final checks can enter through a compile-time dependency preflight,
+        // not just the lenient queue. Share its failure memo at this common entry.
+        if let Some(error) = self.ide_cached_body_failure(id, self.lower_epoch()) {
+            return Err(error);
+        }
+        let misses = (self.placeholder_misses, self.in_progress_misses);
+        let result = self.lower_body_uncached(id);
+        self.ide_record_body_result(id, self.lower_epoch(), misses, &result);
+        result
+    }
+
+    fn lower_body_uncached(&mut self, id: ProcId) -> Result<()> {
         let error_mark = self.ide.as_ref().map(|ide| ide.errors.len());
         let executions = self.ct_executions;
         self.dependencies.begin_body(id);

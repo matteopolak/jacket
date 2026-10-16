@@ -15,6 +15,9 @@ on:
       - 'stdlib/**'
       - 'tests/**'
       - 'tools/windows_cross.py'
+      - 'tools/test_windows_resource_fixture.py'
+      - 'tools/build_windows_resource_fixture.py'
+      - 'tools/install_ci_native_linux.sh'
       - 'tools/check_windows_d3dcompiler_provider.py'
       - 'tools/test_windows_d3dcompiler_provider.py'
       - 'tools/test_windows_d3dcompiler_ci.py'
@@ -29,6 +32,9 @@ on:
       - 'tools/webgpu.json'
       - 'tools/windows-llvm/**'
       - 'tools/upstream_smoke.py'
+      - 'tools/audio_build_native.py'
+      - 'tools/build_portable_runtime.py'
+      - 'tools/upstream_native.py'
       - 'tools/upstream-smoke.json'
       - 'tools/fetch_upstreams.py'
       - '.github/workflows/windows-native.yml'
@@ -83,7 +89,7 @@ jobs:
             exit 0
           fi
           echo "$files"
-          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|stdlib/File_Watcher/|stdlib/internal/watching/|tools/check_(file_watcher_platforms|windows_time_zone)\.py$|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
+          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|stdlib/File_Watcher/|stdlib/internal/watching/|tools/check_(file_watcher_platforms|windows_time_zone)\.py$|tools/(build_windows_resource_fixture|test_windows_resource_fixture|install_ci_native_linux|upstream_native|upstream_smoke|build_portable_runtime|audio_build_native)\.(py|sh)$|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "no Io, Http, Json, Tls, Windows, LLVM backend, interpreter or native test change; skipping"
@@ -106,12 +112,15 @@ jobs:
         timeout-minutes: 15
         run: |
           bash tools/install_ci_llvm_linux.sh
+          bash tools/install_ci_native_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
           x86_64-w64-mingw32-gcc --version
           x86_64-w64-mingw32-g++ --version
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
+      - name: Build the real x64 resource-only PE fixture
+        run: python3 tools/build_windows_resource_fixture.py --cpu x64 --out cross-exes/resource-fixture
       - name: Cross-build the Windows test programs
         # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
         # MinGW-w64 as static archives (tools/build_native_libs.py --platform windows-x64-mingw).
@@ -140,6 +149,10 @@ jobs:
           path: cross-exes
       - name: Install Mesa's software OpenGL
         run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
+      - name: Verify downloaded x64 resource fixture
+        run: |
+          python -c 'import hashlib,json,pathlib; p=pathlib.Path("cross-exes/resource-fixture"); r=json.loads((p/"fixture-receipt.json").read_text()); assert r["status"]=="verified_cross_build" and r["cpu"]=="x64"; assert all(hashlib.sha256((p/n).read_bytes()).hexdigest()==v["sha256"] for n,v in r["artifacts"].items())'
+          printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$PWD/cross-exes/resource-fixture")" >> "$GITHUB_ENV"
       - name: Run
         run: |
           cp "$RUNNER_TEMP"/mesa/*.dll cross-exes/
@@ -175,7 +188,7 @@ jobs:
           tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
           rm llvm.tar.xz
           echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
-          echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
+          cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
           # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
@@ -202,6 +215,10 @@ jobs:
           python -u tools/check_portable_windows_socket.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
           python -u tools/check_portable_windows_calendar.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
           python -u tools/check_portable_windows_channel.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+      - name: Build matching caller-owned Windows resource fixture
+        run: |
+          python tools/build_windows_resource_fixture.py --cpu x64 --out "$RUNNER_TEMP/windows-resources-x64"
+          printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$RUNNER_TEMP/windows-resources-x64")" >> "$GITHUB_ENV"
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes
@@ -368,7 +385,7 @@ jobs:
           tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
           rm llvm.tar.xz
           echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
-          echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
+          cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm
@@ -385,7 +402,10 @@ jobs:
       - name: Install Mesa's software OpenGL
         run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
       - name: Fetch the pinned projects
-        run: python tools/fetch_upstreams.py --only $(python tools/upstream_smoke.py --jaic x --projects)
+        run: |
+          project_list="$(python tools/upstream_smoke.py --jaic x --projects)"
+          read -r -a project_names <<< "$project_list"
+          python tools/fetch_upstreams.py --only "${project_names[@]}"
       - name: Build and run the projects
         run: python -u tools/upstream_smoke.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --platform windows-x64 --dlls "$RUNNER_TEMP/mesa"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -411,6 +431,7 @@ jobs:
         timeout-minutes: 15
         run: |
           bash tools/install_ci_llvm_linux.sh
+          bash tools/install_ci_native_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           name="llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64"
           curl -fsSL -o llvm-mingw.tar.xz "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$name.tar.xz"
@@ -421,6 +442,8 @@ jobs:
           "$RUNNER_TEMP/llvm-mingw/bin/aarch64-w64-mingw32-clang" --version
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
+      - name: Build the real arm64 resource-only PE fixture
+        run: python3 tools/build_windows_resource_fixture.py --cpu arm64 --out cross-arm64-exes/resource-fixture
       - name: Cross-build the Windows test programs for arm64
         # The third-party C libraries are cross-built with llvm-mingw first (--platform windows-arm64-mingw).
         run: python3 tools/windows_cross.py build --stdlib --cpu arm64 --jaic target/debug/jaic --out cross-arm64-exes
@@ -446,6 +469,10 @@ jobs:
         with:
           name: cross-arm64-exes
           path: cross-arm64-exes
+      - name: Verify downloaded arm64 resource fixture
+        run: |
+          python -c 'import hashlib,json,pathlib; p=pathlib.Path("cross-arm64-exes/resource-fixture"); r=json.loads((p/"fixture-receipt.json").read_text()); assert r["status"]=="verified_cross_build" and r["cpu"]=="arm64"; assert all(hashlib.sha256((p/n).read_bytes()).hexdigest()==v["sha256"] for n,v in r["artifacts"].items())'
+          printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$PWD/cross-arm64-exes/resource-fixture")" >> "$GITHUB_ENV"
       - name: Run
         run: python tools/windows_cross.py run --dir cross-arm64-exes
 
@@ -471,8 +498,9 @@ jobs:
           if ! command -v rustup > /dev/null; then
             curl -fsSL -o "$RUNNER_TEMP/rustup-init.exe" https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe
             "$RUNNER_TEMP/rustup-init.exe" -y --default-toolchain none --profile minimal
-            echo "$USERPROFILE\\.cargo\\bin" >> "$GITHUB_PATH"
-            export PATH="$PATH:$(cygpath -u "$USERPROFILE")/.cargo/bin"
+            printf '%s\n' "$USERPROFILE\\.cargo\\bin" >> "$GITHUB_PATH"
+            user_cargo="$(cygpath -u "$USERPROFILE")/.cargo/bin"
+            export PATH="$PATH:$user_cargo"
           fi
           rustup toolchain install nightly-2026-08-29 --profile minimal
       - name: Install the official LLVM release (arm64)
@@ -483,7 +511,7 @@ jobs:
           tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
           rm llvm.tar.xz
           echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
-          echo "$(cygpath -w "$llvm/bin")" >> "$GITHUB_PATH"
+          cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
           # As on x64 (see the x64 job).
@@ -509,6 +537,10 @@ jobs:
           python -u tools/check_portable_windows_socket.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
           python -u tools/check_portable_windows_calendar.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
           python -u tools/check_portable_windows_channel.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native
+      - name: Build matching caller-owned Windows resource fixture
+        run: |
+          python tools/build_windows_resource_fixture.py --cpu arm64 --out "$RUNNER_TEMP/windows-resources-arm64"
+          printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$RUNNER_TEMP/windows-resources-arm64")" >> "$GITHUB_ENV"
       - name: Build and run the Windows test programs natively
         run: |
           mkdir -p native-exes

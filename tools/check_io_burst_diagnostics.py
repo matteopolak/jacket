@@ -22,15 +22,27 @@ KERNEL_FILES = [
     "/proc/net/sockstat6",
     "/proc/net/snmp",
     "/proc/net/netstat",
+    "/proc/net/dev",
+    "/proc/net/softnet_stat",
+    "/proc/net/stat/nf_conntrack",
     "/proc/sys/net/ipv4/ip_local_port_range",
     "/proc/sys/net/ipv4/tcp_tw_reuse",
     "/proc/sys/net/ipv4/tcp_max_syn_backlog",
+    "/proc/sys/net/ipv4/tcp_syn_retries",
+    "/proc/sys/net/ipv4/tcp_synack_retries",
+    "/proc/sys/net/ipv4/tcp_syn_linear_timeouts",
+    "/proc/sys/net/ipv4/tcp_abort_on_overflow",
+    "/proc/sys/net/ipv4/tcp_syncookies",
     "/proc/sys/net/core/somaxconn",
+    "/proc/sys/net/core/netdev_max_backlog",
+    "/proc/sys/net/netfilter/nf_conntrack_count",
+    "/proc/sys/net/netfilter/nf_conntrack_max",
     "/proc/sys/fs/file-nr",
     "/proc/loadavg",
     "/proc/pressure/cpu",
     "/proc/pressure/memory",
     "/proc/pressure/io",
+    "/proc/sys/kernel/osrelease",
 ]
 
 
@@ -42,35 +54,162 @@ def sha(path):
 def read_optional(path):
     try:
         return Path(path).read_text()
-    except OSError as error:
+    except (OSError, UnicodeError) as error:
         return {"unavailable": str(error)}
 
 
+def tcp_observations(text, socket_inodes):
+    if not isinstance(text, str):
+        return text
+    result = {
+        "namespace_states": {},
+        "owned_socket_identity_available": socket_inodes is not None,
+        "owned_states": {},
+        "owned_listeners": [],
+        "owned_syn_sent_examples": [],
+        "owned_syn_sent_rto_total": 0,
+        "malformed_rows": 0,
+    }
+    for line in text.splitlines()[1:]:
+        fields = line.split()
+        try:
+            state = fields[3]
+            tx, rx = (int(value, 16) for value in fields[4].split(":"))
+            timer, expires = (int(value, 16) for value in fields[5].split(":"))
+            rto_count = int(fields[6], 16)
+            inode = int(fields[9])
+        except (IndexError, ValueError):
+            result["malformed_rows"] += 1
+            continue
+        counts = result["namespace_states"]
+        counts[state] = counts.get(state, 0) + 1
+        if socket_inodes is None or inode not in socket_inodes:
+            continue
+        counts = result["owned_states"]
+        counts[state] = counts.get(state, 0) + 1
+        row = {
+            "inode": inode,
+            "local_hex": fields[1],
+            "remote_hex": fields[2],
+            "tx_queue_raw": tx,
+            "rx_queue_raw": rx,
+            "timer_active": timer,
+            "timer_expires_jiffies_raw": expires,
+            "unrecovered_rto_count": rto_count,
+        }
+        if state == "0A":
+            result["owned_listeners"].append(row)
+        if state == "02":
+            result["owned_syn_sent_rto_total"] += rto_count
+            if len(result["owned_syn_sent_examples"]) < 16:
+                result["owned_syn_sent_examples"].append(row)
+    result["syn_sent_examples_truncated"] = result["owned_states"].get("02", 0) > 16
+    return result
+
+
+def cgroup_observations(pid):
+    membership = read_optional(f"/proc/{pid}/cgroup")
+    if not isinstance(membership, str):
+        return membership
+    result = {"membership": membership, "v2_ancestors": []}
+    for line in membership.splitlines():
+        if not line.startswith("0::"):
+            continue
+        relative = line[3:]
+        if not relative.startswith("/") or ".." in relative.split("/"):
+            result["unavailable"] = "unrepresentable cgroup v2 path"
+            return result
+        mount = Path("/sys/fs/cgroup")
+        folder = mount / relative.lstrip("/")
+        for _ in range(16):
+            result["v2_ancestors"].append(
+                {
+                    "path": str(folder),
+                    "files": {
+                        name: read_optional(folder / name)
+                        for name in [
+                            "cpu.max",
+                            "cpu.stat",
+                            "cpu.stat.local",
+                            "cpu.pressure",
+                            "memory.current",
+                            "memory.max",
+                            "memory.events",
+                        ]
+                    },
+                }
+            )
+            if folder == mount:
+                return result
+            folder = folder.parent
+        result["ancestors_truncated"] = True
+        return result
+    result["unavailable"] = "no unified cgroup v2 membership; v1 not sampled"
+    return result
+
+
 def sample(pid):
-    result = {"elapsed_clock": time.monotonic()}
+    started = time.monotonic()
+    result = {"pid": pid, "elapsed_clock": started, "unix_time_ns": time.time_ns()}
     result["namespace_kernel"] = {name: read_optional(name) for name in KERNEL_FILES}
-    for name in ["limits", "status", "schedstat", "stat"]:
+    namespaces = {}
+    for label, path in [
+        ("observer", "/proc/self/ns/net"),
+        ("child", f"/proc/{pid}/ns/net"),
+    ]:
+        try:
+            namespaces[label] = os.readlink(path)
+        except OSError as error:
+            namespaces[label] = {"unavailable": str(error)}
+    result["network_namespaces"] = namespaces
+    result["namespace_kernel_matches_child"] = (
+        namespaces["observer"] == namespaces["child"]
+        if all(isinstance(value, str) for value in namespaces.values())
+        else None
+    )
+    for name in ["limits", "status", "schedstat", "stat", "wchan"]:
         result[name] = read_optional(f"/proc/{pid}/{name}")
+    socket_inodes = None
     try:
-        result["open_descriptors"] = len(list(Path(f"/proc/{pid}/fd").iterdir()))
+        descriptors = list(Path(f"/proc/{pid}/fd").iterdir())
+        result["open_descriptors"] = len(descriptors)
+        socket_inodes = set()
+        raced = 0
+        for descriptor in descriptors:
+            try:
+                target = os.readlink(descriptor)
+                if target.startswith("socket:[") and target.endswith("]"):
+                    socket_inodes.add(int(target[8:-1]))
+            except (OSError, ValueError):
+                raced += 1
+        result["descriptor_link_reads_unavailable"] = raced
     except OSError as error:
         result["open_descriptors"] = {"unavailable": str(error)}
     # These tables cover the network namespace, not just this process. Preserve
     # that scope: TIME_WAIT sockets no longer have a live process descriptor.
-    states = {}
-    for filename in ["/proc/net/tcp", "/proc/net/tcp6"]:
-        text = read_optional(filename)
-        if not isinstance(text, str):
-            states[filename] = text
-            continue
-        counts = {}
-        for line in text.splitlines()[1:]:
-            fields = line.split()
-            if len(fields) >= 4:
-                state = fields[3]
-                counts[state] = counts.get(state, 0) + 1
-        states[filename] = counts
-    result["namespace_tcp_state_counts"] = states
+    result["tcp"] = {
+        name: tcp_observations(read_optional(name), socket_inodes)
+        for name in [f"/proc/{pid}/net/tcp", f"/proc/{pid}/net/tcp6"]
+    }
+    result["cgroup"] = cgroup_observations(pid)
+    result["sample_duration_seconds"] = time.monotonic() - started
+    return result
+
+
+def observe_process(process, receipt, save):
+    started = time.monotonic()
+    while process.poll() is None:
+        receipt["samples"].append(sample(process.pid))
+        save()
+        if time.monotonic() - started >= 180:
+            # Bound observation volume, not the original program's lifetime.
+            # The existing CI supervisor retains its original timeout policy.
+            receipt["observation_window_exhausted"] = True
+            save()
+            break
+        time.sleep(1)
+    result = process.wait()
+    receipt["elapsed_seconds"] = time.monotonic() - started
     return result
 
 
@@ -89,10 +228,16 @@ def main():
         parser.error("Source checks require --jaic and --jailint")
     output = args.report.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    sources = list((ROOT / "stdlib").rglob("*.jai")) + [ENTRY, Path(__file__)]
+    sources = list((ROOT / "stdlib").rglob("*.jai")) + [
+        ENTRY,
+        Path(__file__),
+        ROOT / "tests/tools/test_io_burst_diagnostics.py",
+    ]
     before = {str(p.relative_to(ROOT)): sha(p) for p in sorted(sources)}
     receipt = {
+        "status": "collecting",
         "host": platform.platform(),
+        "cwd": str(Path.cwd()),
         "head": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),
@@ -180,20 +325,10 @@ def main():
         ):
             process = subprocess.Popen([str(program)], stdout=stdout, stderr=stderr)
             receipt["pid"] = process.pid
-            started = time.monotonic()
-            while process.poll() is None:
-                receipt["samples"].append(sample(process.pid))
-                save()
-                if time.monotonic() - started >= 180:
-                    receipt["diagnostic_timeout"] = True
-                    process.kill()
-                    break
-                time.sleep(1)
-            result = process.wait()
+            result = observe_process(process, receipt, save)
         receipt["exit"] = result
-        receipt["elapsed_seconds"] = time.monotonic() - started
         receipt["samples"].append(sample(os.getpid()))
-        failed = result != 0 or receipt.get("diagnostic_timeout", False)
+        failed = result != 0
     receipt["source_changes"] = [
         name for name, expected in before.items() if sha(ROOT / name) != expected
     ]

@@ -1536,7 +1536,7 @@
       "dependencies": [],
       "host_build_reviewed": true,
       "runtime": {
-        "error": "null pointer dereference: read through a null pointer",
+        "error": "cannot format an Any without payload storage",
         "stdout": "7\ntrue\n"
       },
       "rules": [

@@ -12,6 +12,7 @@
 //! - on macOS, every class or protocol a binding calls a selector on must have that method in the
 //!   Objective-C runtime, except the gaps listed in `tests/objc-selectors.txt`.
 use std::collections::BTreeSet;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 fn stdlib() -> PathBuf {
@@ -30,10 +31,153 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for path in entries {
         if path.is_dir() {
             jai_files(&path, out);
-        } else if path.extension().is_some_and(|x| x == "jai") {
+        } else if path.extension().is_some_and(|x| x == "jai") && !is_appledouble_metadata(&path) {
             out.push(path);
         }
     }
+}
+
+/// Exclude only a named sidecar with a structurally valid AppleDouble v2 header.
+/// Ordinary and malformed ._* Jai files still enter strict UTF-8 validation.
+fn is_appledouble_metadata(path: &Path) -> bool {
+    if !path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("._"))
+    {
+        return false;
+    }
+    let mut file = std::fs::File::open(path)
+        .unwrap_or_else(|error| panic!("cannot read source candidate {}: {error}", path.display()));
+    let size = file.metadata().unwrap().len();
+    let mut header = [0; 26];
+    if let Err(error) = file.read_exact(&mut header) {
+        if error.kind() == std::io::ErrorKind::UnexpectedEof {
+            return false;
+        }
+        panic!("cannot read source candidate {}: {error}", path.display());
+    }
+    // RFC1740 appendices A/B: big-endian magic, version, filler and entry count.
+    if header[..8] != [0, 5, 0x16, 7, 0, 2, 0, 0] {
+        return false;
+    }
+    let count = u16::from_be_bytes([header[24], header[25]]);
+    let table_end = 26 + u64::from(count) * 12;
+    if table_end > size {
+        return false;
+    }
+    for _ in 0..count {
+        let mut entry = [0; 12];
+        file.read_exact(&mut entry).unwrap();
+        let offset = u64::from(u32::from_be_bytes(entry[4..8].try_into().unwrap()));
+        let length = u64::from(u32::from_be_bytes(entry[8..12].try_into().unwrap()));
+        if length > 0 && (offset < table_end || offset + length > size) {
+            return false;
+        }
+    }
+    true
+}
+
+#[test]
+fn source_discovery_preserves_source_and_excludes_appledouble_metadata() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+        "objc-source-discovery-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    let source = root.join("module.jai");
+    let named_source = root.join("._legitimate.jai");
+    let invalid_source = root.join("invalid.jai");
+    let metadata = root.join("._module.jai");
+    std::fs::write(&source, "main :: () {}").unwrap();
+    std::fs::write(&named_source, "value :: 17;").unwrap();
+    std::fs::write(&invalid_source, [0xff]).unwrap();
+    // RFC1740 AppleDouble v2 header with one opaque binary resource-fork entry.
+    let mut header = vec![0; 26];
+    header[..8].copy_from_slice(&[0, 5, 0x16, 7, 0, 2, 0, 0]);
+    header[24..].copy_from_slice(&[0, 1]);
+    header.extend_from_slice(&2_u32.to_be_bytes());
+    header.extend_from_slice(&38_u32.to_be_bytes());
+    header.extend_from_slice(&1_u32.to_be_bytes());
+    header.push(0xff);
+    std::fs::write(&metadata, header).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&metadata).unwrap_err().kind(),
+        std::io::ErrorKind::InvalidData
+    );
+    let mut found = Vec::new();
+    jai_files(&root, &mut found);
+    assert!(found.contains(&source) && found.contains(&named_source));
+    assert!(
+        found.contains(&invalid_source),
+        "invalid source must remain visible"
+    );
+    assert!(
+        !found.contains(&metadata),
+        "binary metadata is not a Jai source"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&invalid_source).unwrap_err().kind(),
+        std::io::ErrorKind::InvalidData
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn source_discovery_retains_invalid_sidecar_named_sources() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+        "objc-invalid-discovery-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    let invalid = root.join("._invalid.jai");
+    let truncated = root.join("._truncated.jai");
+    std::fs::write(&invalid, [0xff, 0xfe, 0xfd]).unwrap();
+    std::fs::write(&truncated, [0, 5, 0x16, 7, 0, 2, 0, 0]).unwrap();
+    let mut found = Vec::new();
+    jai_files(&root, &mut found);
+    assert_eq!(found.len(), 2);
+    assert!(found.contains(&invalid) && found.contains(&truncated));
+    assert!(std::fs::read_to_string(invalid).is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn source_discovery_does_not_hide_invalid_metadata_headers_or_plain_sources() {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+        "objc-header-discovery-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).unwrap();
+    let mut header = vec![0; 26];
+    header[..8].copy_from_slice(&[0, 5, 0x16, 7, 0, 2, 0, 0]);
+    header[24..].copy_from_slice(&[0, 1]);
+    std::fs::write(root.join("._missing-table.jai"), &header).unwrap();
+    header.extend_from_slice(&2_u32.to_be_bytes());
+    header.extend_from_slice(&0_u32.to_be_bytes()); // Data must follow the entry table.
+    header.extend_from_slice(&1_u32.to_be_bytes());
+    std::fs::write(root.join("._bad-extent.jai"), &header).unwrap();
+    std::fs::write(root.join("ordinary.jai"), &header).unwrap();
+    let mut found = Vec::new();
+    jai_files(&root, &mut found);
+    assert_eq!(
+        found.len(),
+        3,
+        "none of these candidates is known sidecar metadata"
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 /// The end of the string literal that starts at `start` (just past its closing quote).
@@ -304,7 +448,12 @@ fn scan() -> Uses {
         literals: 0,
     };
     for file in files {
-        let text = std::fs::read_to_string(&file).unwrap();
+        let text = std::fs::read_to_string(&file).unwrap_or_else(|error| {
+            panic!(
+                "cannot read Jai source {} as UTF-8: {error}",
+                file.display()
+            )
+        });
         let s = text.as_bytes();
         let shown = file.strip_prefix(&root).unwrap().display().to_string();
         for sel in selectors(&text) {

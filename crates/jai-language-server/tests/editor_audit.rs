@@ -160,3 +160,62 @@ fn reachable_dependency_and_independent_recorded_errors_remain_checked() {
         "reachable dependency headers must still evaluate their actual types"
     );
 }
+
+#[test]
+fn audit_shared_failed_generator_is_not_relowered_without_semantic_progress() {
+    let mut source = String::from(
+        "broken :: missing;\nfailed_generator :: () -> string { nested_repeat :: () {}; nested_repeat(); return missing_generator; }\nindependent :: () { other_missing; }\nhealthy :: () { answer := 42; }\n",
+    );
+    for n in 0..16 {
+        source.push_str(&format!(
+            "caller_{n} :: () {{ #insert #run failed_generator(); }}\n"
+        ));
+    }
+    source.push_str("main :: () {}\n");
+    let mut c = compiler(&source, "");
+    let errors = c.ide_check_all();
+    for name in ["missing_generator", "other_missing"] {
+        assert!(
+            errors.iter().any(|e| e.message.contains(name)),
+            "{name}: {errors:?}"
+        );
+    }
+    assert_eq!(
+        c.program
+            .func_names
+            .iter()
+            .filter(|n| n.as_str() == "nested_repeat")
+            .count(),
+        1,
+        "each compile-time caller must reuse an unchanged failed generator result"
+    );
+    let generator = c
+        .program
+        .func_names
+        .iter()
+        .position(|n| n == "failed_generator")
+        .unwrap();
+    assert!(c.program.funcs[generator].is_none());
+    let healthy = c
+        .program
+        .func_names
+        .iter()
+        .position(|n| n == "healthy")
+        .unwrap();
+    assert!(c.program.funcs[healthy].is_some());
+    c.add_source(&jaic::sema::ProgramSource::String(
+        "missing_generator :: \"generated :: 1;\";".into(),
+    ))
+    .unwrap();
+    let retried = c.ide_check_all();
+    assert!(
+        !retried
+            .iter()
+            .any(|e| e.message.contains("unknown identifier `missing_generator`")),
+        "{retried:?}"
+    );
+    assert!(
+        c.program.funcs[generator].is_some(),
+        "new source must permit a real successful retry"
+    );
+}

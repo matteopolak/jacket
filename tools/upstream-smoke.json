@@ -179,10 +179,16 @@
           "argv": [
             "./xml_test"
           ],
-          "contains": [
-            "Passed: 6 (100%)",
-            "Failed: 0 (0%)"
-          ]
+          "summary_counts": {
+            "Passed": {
+              "count": 6,
+              "percent": 100
+            },
+            "Failed": {
+              "count": 0,
+              "percent": 0
+            }
+          }
         }
       ]
     },

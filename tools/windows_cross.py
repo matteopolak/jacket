@@ -62,6 +62,10 @@ def fixture_stale_contract_reason(case):
     return None
 
 
+def fixture_reference_rejected_reason(case):
+    return stdlib_runtime.reference_rejected_reason(case)
+
+
 def fixture_unavailable_reason(case, platform, build_host):
     reason = stdlib_runtime.unavailable_reason(case, "native", platform)
     if reason:
@@ -379,6 +383,15 @@ def build(args):
                     "reason": reason,
                 }
             )
+        elif rejected := fixture_reference_rejected_reason(case):
+            records.append(
+                {
+                    "id": case_id,
+                    "status": "reference_rejected",
+                    "passed": None,
+                    "reason": rejected,
+                }
+            )
         elif invalid := fixture_stale_contract_reason(case):
             records.append(
                 {
@@ -486,6 +499,7 @@ def build(args):
             "compile_time_only",
             "expected_negative_check",
             "stale_fixture_contract",
+            "reference_rejected",
         )
     }
     (out / "build-report.json").write_text(
@@ -503,7 +517,11 @@ def build(args):
         + "\n"
     )
     for record in records:
-        if record["status"] in {"platform_unavailable", "stale_fixture_contract"}:
+        if record["status"] in {
+            "platform_unavailable",
+            "stale_fixture_contract",
+            "reference_rejected",
+        }:
             print(f"{record['status'].upper()} {record['id']}: {record['reason']}")
     print(
         "build accounting: "

@@ -11,6 +11,14 @@ import subprocess
 from check_basic_null_format import ROOT, hashes
 
 
+def expected_case_result(result, fault, stdout, diagnostic):
+    if result.stdout != stdout:
+        return False
+    if fault:
+        return result.returncode != 0 and diagnostic in result.stderr
+    return result.returncode == 0 and not result.stderr
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--compiler", type=Path, required=True)
@@ -35,9 +43,7 @@ def main():
         )
         passed = result.returncode == 0
         if expected is not None:
-            fault, stdout = expected
-            passed = result.returncode != 0 if fault else result.returncode == 0
-            passed = passed and result.stdout == stdout
+            passed = expected_case_result(result, *expected)
         rows.append(
             dict(
                 name=name,
@@ -53,15 +59,35 @@ def main():
         return passed
 
     cases = [
-        ("format-null-any-contract", False, "continued\n"),
-        ("format-any-missing-value", True, ""),
-        ("format-any-missing-type", True, ""),
-        ("format-any-missing-value-no-assert", True, ""),
-        ("format-null-lvalue-any-probe", True, "7\ntrue\n"),
+        ("format-null-any-contract", False, "continued\n", None),
+        (
+            "format-any-missing-value",
+            True,
+            "",
+            "cannot format an Any without payload storage",
+        ),
+        (
+            "format-any-missing-type",
+            True,
+            "",
+            "cannot format an Any without type metadata",
+        ),
+        (
+            "format-any-missing-value-no-assert",
+            True,
+            "",
+            "cannot format an Any without payload storage",
+        ),
+        (
+            "format-null-lvalue-any-probe",
+            True,
+            "7\ntrue\n",
+            "cannot format an Any without payload storage",
+        ),
     ]
     if args.case and args.case not in {case[0] for case in cases}:
         parser.error("unknown case")
-    for name, fault, stdout in cases:
+    for name, fault, stdout, diagnostic in cases:
         if args.case and args.case != name:
             continue
         source = ROOT / "tests/portable-stdlib" / (name + ".jai")
@@ -70,7 +96,7 @@ def main():
                 command(
                     name + ":interp",
                     [args.compiler, source, "-interp"],
-                    (fault, stdout),
+                    (fault, stdout, diagnostic),
                 )
             else:
                 exe = args.output / (name + "-" + mode)
@@ -78,7 +104,9 @@ def main():
                     name + ":build:" + mode,
                     [args.compiler, source, "-" + mode, "-exe", exe],
                 ):
-                    command(name + ":native:" + mode, [exe], (fault, stdout))
+                    command(
+                        name + ":native:" + mode, [exe], (fault, stdout, diagnostic)
+                    )
     after = hashes()
     drift = sorted(
         k for k in before.keys() | after.keys() if before.get(k) != after.get(k)

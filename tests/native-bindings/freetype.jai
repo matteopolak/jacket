@@ -1,4 +1,5 @@
 F :: #import "freetype";
+B :: #import "Basic";
 
 libc :: #library,system "c";
 abort :: () #foreign libc;
@@ -12,6 +13,14 @@ check_size :: (which: s32) -> u64 #foreign probe "binding_size";
 check_offset :: (which: s32) -> u64 #foreign probe "binding_offset";
 
 main :: () {
+    args := B.get_command_line_arguments();
+
+    defer B.array_free(args);
+    check(args.count == 2);
+    font_path := B.to_c_string(args[1]);
+
+    check(font_path != null);
+    defer B.free(font_path);
     check(type_info(F.FT_FaceRec).name == "FT_FaceRec_");
     check(size_of(F.FT_FaceRec) == check_size(10));
     check(size_of(F.FT_GlyphSlotRec) == check_size(11));
@@ -28,7 +37,7 @@ main :: () {
     defer check(F.FT_Done_FreeType(lib) == 0);
     face: F.FT_Face;
 
-    check(F.FT_New_Face(lib, "/System/Library/Fonts/Helvetica.ttc", 0, *face) == 0);
+    check(F.FT_New_Face(lib, font_path, 0, *face) == 0);
     defer check(F.FT_Done_Face(face) == 0);
     check(F.FT_IS_SCALABLE(face));
     check(F.FT_HAS_HORIZONTAL(face));

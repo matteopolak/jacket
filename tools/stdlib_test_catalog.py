@@ -4,12 +4,26 @@ This contains no expected-failure baseline. Every selected supported case runs;
 compiler/API errors remain failures. Native-only families are reported separately
 from WASM execution and must be exercised by native CI.
 """
+
+import hashlib
 import json
 from pathlib import Path
 
 from case_capabilities import user_deferred_reason
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def reference_rejected_reason(case):
+    if (
+        case["id"] == "compiler/proc-type-defaults-ifx"
+        and hashlib.sha256(case["path"].read_bytes()).hexdigest()
+        == "e2aaa5f6c468e62fb635f48ca5ada3532abeba02f8f7e2388cfec634f5108968"
+    ):
+        return "root official compiler rejects the original overloaded/concrete ifx mismatch; not a supported positive, regardless of raw local acceptance"
+    return None
+
+
 REGRESSION_FAMILIES = {
     "compiler": "compiler-regressions",
     "extensions": "extensions",
@@ -20,18 +34,34 @@ REGRESSION_FAMILIES = {
 # Reviewed HTTP test inventory. Exact IDs make missing standalone regressions
 # fail dispatch rather than disappear behind a successful substring filter.
 HTTP_CONFORMANCE_CASE_IDS = tuple(
-    "Extensions/Http/tests/" + name for name in (
-        "chunking", "client", "codec", "https", "llhttp", "server_connections",
-        "server_extractors", "server_responses", "server_routing", "smuggling", "testing",
+    "Extensions/Http/tests/" + name
+    for name in (
+        "chunking",
+        "client",
+        "codec",
+        "https",
+        "llhttp",
+        "server_connections",
+        "server_extractors",
+        "server_responses",
+        "server_routing",
+        "smuggling",
+        "testing",
     )
 ) + ("extensions/http-codec-roundtrip",)
 
 # These seven individual programs actually use native Io/fiber services.
 # Pure codec programs in the same folder deliberately have no such restriction.
 HTTP_NATIVE_IO_CASE_IDS = frozenset(
-    "Extensions/Http/tests/" + name for name in (
-        "client", "https", "server_connections", "server_extractors",
-        "server_responses", "server_routing", "testing",
+    "Extensions/Http/tests/" + name
+    for name in (
+        "client",
+        "https",
+        "server_connections",
+        "server_extractors",
+        "server_responses",
+        "server_routing",
+        "testing",
     )
 )
 
@@ -44,18 +74,18 @@ PROGRAM_INPUTS = {
     "Simp/tests/glyph-atlas": "font",
 }
 PROGRAM_ARGUMENTS = {
-    'Clipboard/tests/cocoa-operations': ['enabled'],
-    'Simp/tests/context-default-assertions': ['enabled'],
+    "Clipboard/tests/cocoa-operations": ["enabled"],
+    "Simp/tests/context-default-assertions": ["enabled"],
 }
 PLATFORM_REQUIREMENTS = {
-    'Clipboard/tests/cocoa-operations': 'macos',
-    'Simp/tests/context-default-assertions': 'macos',
-    'Window_Creation/tests/macos-window': 'macos',
-    'Window_Creation/tests/macos-events': 'macos',
-    'native/macos-clipboard-utf8': 'macos',
-    'native/objc-window-levels': 'macos',
-    'native/posix-stat-and-mutex': ('linux', 'macos'),
-    'graphics/macos-window-context-reopen': 'macos',
+    "Clipboard/tests/cocoa-operations": "macos",
+    "Simp/tests/context-default-assertions": "macos",
+    "Window_Creation/tests/macos-window": "macos",
+    "Window_Creation/tests/macos-events": "macos",
+    "native/macos-clipboard-utf8": "macos",
+    "native/objc-window-levels": "macos",
+    "native/posix-stat-and-mutex": ("linux", "macos"),
+    "graphics/macos-window-context-reopen": "macos",
     "compiler/socket-select-canonical-timeval": ("linux", "macos"),
     "extensions/io-uring-dependency-repro": "linux",
     "Input/tests/windows-device-decoding": "windows",
@@ -69,20 +99,32 @@ PLATFORM_REQUIREMENTS = {
 def entries(root=ROOT):
     manifest = root / "tests/stdlib-contract/manifest.json"
     for case in json.loads(manifest.read_text()):
-        yield {**case, "id": "contracts/" + case["name"],
-               "path": root / "tests/stdlib-contract" / case["source"],
-               "family": "contracts"}
+        yield {
+            **case,
+            "id": "contracts/" + case["name"],
+            "path": root / "tests/stdlib-contract" / case["source"],
+            "family": "contracts",
+        }
     for family, directory in REGRESSION_FAMILIES.items():
         for path in sorted((root / "tests" / directory).glob("*.jai")):
             if not any(part.startswith("._") for part in path.relative_to(root).parts):
                 yield {"id": family + "/" + path.stem, "path": path, "family": family}
     stdlib = root / "stdlib"
-    found = (set(stdlib.glob("*/tests/*.jai")) | set(stdlib.glob("Extensions/*/tests/*.jai"))
-             | set((stdlib / "tests").glob("**/*.jai")))
+    found = (
+        set(stdlib.glob("*/tests/*.jai"))
+        | set(stdlib.glob("Extensions/*/tests/*.jai"))
+        | set((stdlib / "tests").glob("**/*.jai"))
+    )
     for path in sorted(found):
         relative = path.relative_to(stdlib)
-        if "modules" not in relative.parts and not any(part.startswith("._") for part in relative.parts):
-            yield {"id": relative.with_suffix("").as_posix(), "path": path, "family": "modules"}
+        if "modules" not in relative.parts and not any(
+            part.startswith("._") for part in relative.parts
+        ):
+            yield {
+                "id": relative.with_suffix("").as_posix(),
+                "path": path,
+                "family": "modules",
+            }
 
 
 def validated_entries(root=ROOT):
@@ -91,13 +133,20 @@ def validated_entries(root=ROOT):
     for case in result:
         if case["id"] in HTTP_NATIVE_IO_CASE_IDS:
             case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
-            case["required_capabilities"] = ["native Io providers", "fiber context switching"]
-        if case["id"] in {"native/clipboard-round-trip", "native/macos-clipboard-utf8", "graphics/getrect-widgets-driven"}:
+            case["required_capabilities"] = [
+                "native Io providers",
+                "fiber context switching",
+            ]
+        if case["id"] in {
+            "native/clipboard-round-trip",
+            "native/macos-clipboard-utf8",
+            "graphics/getrect-widgets-driven",
+        }:
             case["clipboard_guard"] = True
         if case["id"] in PROGRAM_INPUTS:
             case["input"] = PROGRAM_INPUTS[case["id"]]
-        if case['id'] in PROGRAM_ARGUMENTS:
-            case['arguments'] = PROGRAM_ARGUMENTS[case['id']].copy()
+        if case["id"] in PROGRAM_ARGUMENTS:
+            case["arguments"] = PROGRAM_ARGUMENTS[case["id"]].copy()
         if case["id"] in PLATFORM_REQUIREMENTS:
             case["required_os"] = PLATFORM_REQUIREMENTS[case["id"]]
         if case["id"] == "Simp/tests/context-default-assertions":
@@ -119,7 +168,9 @@ def unavailable_reason(case, mode, actual_platform=None):
     if mode in case.get("unsupported_modes", []):
         required = ", ".join(case["required_capabilities"])
         return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"
-    target_os = "wasm" if mode.startswith("wasm") else (actual_platform or "").split("-")[0]
+    target_os = (
+        "wasm" if mode.startswith("wasm") else (actual_platform or "").split("-")[0]
+    )
     deferred = user_deferred_reason(case, target_os)
     if deferred:
         return deferred
@@ -139,5 +190,11 @@ def cases(root=ROOT):
 
 if __name__ == "__main__":
     # The browser runner consumes the same reviewed manifest and source discovery.
-    print(json.dumps([{**case, "path": str(case["path"].relative_to(ROOT))}
-                      for case in validated_entries()]))
+    print(
+        json.dumps(
+            [
+                {**case, "path": str(case["path"].relative_to(ROOT))}
+                for case in validated_entries()
+            ]
+        )
+    )

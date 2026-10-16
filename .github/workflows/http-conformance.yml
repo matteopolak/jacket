@@ -18,6 +18,8 @@ on:
       - tools/check_io_burst_diagnostics.py
       - tools/io_stress.py
       - tools/test_io_stress_diagnostics.py
+      - tools/test_io_stress_observation.py
+      - tests/tools/test_io_burst_diagnostics.py
       - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
       - tools/native-libs.json
@@ -39,6 +41,8 @@ on:
       - tools/check_io_burst_diagnostics.py
       - tools/io_stress.py
       - tools/test_io_stress_diagnostics.py
+      - tools/test_io_stress_observation.py
+      - tests/tools/test_io_burst_diagnostics.py
       - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
       - tools/native-libs.json
@@ -98,4 +102,10 @@ jobs:
       - name: Io and Http tests under load (default, -O2, ASan on Linux)
         run: |
           python3 -m unittest discover -s tools -p test_io_stress_diagnostics.py -v
-          python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3
+          python3 -m unittest discover -s tools -p test_io_stress_observation.py -v
+          python3 -m unittest discover -s tests/tools -p test_io_burst_diagnostics.py -v
+          observe=()
+          if [ "$RUNNER_OS" = Linux ]; then
+            observe=(--copies 12 --observe-copy backends:o2:1:0 --observe-report "$RUNNER_TEMP/io-observed-copy")
+          fi
+          python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3 "${observe[@]}"

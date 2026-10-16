@@ -855,3 +855,13 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Linux Clipboard static dependency closure](clipboard-linux-static-link-closure.md): required private X11/pthread retention, causal link-argv evidence and real Linux runtime gates.
 
 - [Conditional callable joins](compiler/ifx-callable-joins.md): official else-header rule, narrow metadata repair, causal tests and the separate Io workspace configuration reducer.
+
+- [IDE preflight failure reuse](tools/lsp-second-preflight-integration.md): exact second-repair source guards, causal invalidation controls and pending unchanged-bound original timing gate.
+
+- [Four-ready combined receipt](status/shared-candidate-2a29b054.json): exact source/tool/ABI8 identity, focused counts and remaining native/original gates.
+
+- [Third-party native preparation](native/sdl-upstream-native-preparation.md): real source-built helper closure, strict XML result parsing and pending native acceptance.
+
+- [Caller font and selector source fixtures](native/font-selector-input-fixtures.md): strict real inputs and metadata discovery; native SDK gates remain separate.
+
+- [Real Windows resource fixture](native/windows-resource-fixture.md): target RC/PE construction, durable source hashes and actual Windows runtime still required.

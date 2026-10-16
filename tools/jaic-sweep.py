@@ -14,6 +14,7 @@ project documents where a case has an `expect` record), or file paths.
 same expectations; --sanitize address,undefined (implies --native) instruments those builds and
 fails a case on any sanitizer report (docs/native/sanitizers.md).
 """
+
 import argparse
 import json
 import os
@@ -32,8 +33,10 @@ UPSTREAM = ROOT / "corpus/upstream"
 WORKDIRS = {}
 CASE_METADATA = {}
 
+
 def upstream_root(c):
     return WORKDIRS.get(c["id"], UPSTREAM)
+
 
 def make_workdir(c):
     root = Path(tempfile.mkdtemp(prefix=f"jaic-sweep-{c['id']}-"))
@@ -47,6 +50,7 @@ def make_workdir(c):
         shutil.copyfile(ROOT / source, root / dest)
     return root
 
+
 def upstream_expect(c):
     """An upstream case's `expect` record (output the project itself documents), in the shape
     run() compares: exit code, exact stdout, or lines that must appear (in order or anywhere)."""
@@ -54,9 +58,16 @@ def upstream_expect(c):
     if not e and not c.get("run_after"):
         return None
     e = e or {}
-    return {"upstream": True, "exit_code": e.get("exit_code", 0), "stdout": e.get("stdout"),
-            "ordered": e.get("stdout_ordered", []), "contains": e.get("stdout_contains", []),
-            "excludes": [], "run_after": c.get("run_after")}
+    return {
+        "upstream": True,
+        "exit_code": e.get("exit_code", 0),
+        "stdout": e.get("stdout"),
+        "ordered": e.get("stdout_ordered", []),
+        "contains": e.get("stdout_contains", []),
+        "excludes": [],
+        "run_after": c.get("run_after"),
+    }
+
 
 def missing_in_order(lines, out):
     """The first of `lines` not found after the previous one's match in `out`, or None."""
@@ -68,41 +79,80 @@ def missing_in_order(lines, out):
         at = found + len(line)
     return None
 
+
 def cases(name):
     if name == "corpus":
         m = json.loads((ROOT / "tests/corpus/manifest.json").read_text())
         for c in m["cases"]:
             if "runtime" in c:
-                yield c["id"], ROOT / "tests/corpus" / c["source"], "run", c["runtime"], []
+                yield (
+                    c["id"],
+                    ROOT / "tests/corpus" / c["source"],
+                    "run",
+                    c["runtime"],
+                    [],
+                )
     elif name == "negative":
         m = json.loads((ROOT / "tests/corpus/manifest.json").read_text())
         for c in m["cases"]:
             if c.get("kind") == "negative":
-                yield c["id"], ROOT / "tests/corpus" / c["source"], "check", {"negative": next(iter(c["negative"].values()))}, []
+                yield (
+                    c["id"],
+                    ROOT / "tests/corpus" / c["source"],
+                    "check",
+                    {"negative": next(iter(c["negative"].values()))},
+                    [],
+                )
     elif name in ("stdlib", "regressions"):
         from stdlib_test_catalog import validated_entries
+
         for c in validated_entries():
-            if (c["family"] == "contracts") != (name == "stdlib") or (name == "regressions" and c["family"] == "modules"):
+            if (c["family"] == "contracts") != (name == "stdlib") or (
+                name == "regressions" and c["family"] == "modules"
+            ):
                 continue
             CASE_METADATA[c["id"]] = c
             expect = c if c["family"] == "contracts" else None
-            yield c["id"], c["path"], "check" if c.get("mode") == "check-fail" else "run", expect, []
+            yield (
+                c["id"],
+                c["path"],
+                "check" if c.get("mode") == "check-fail" else "run",
+                expect,
+                [],
+            )
     elif name == "modules":
         from stdlib_test_catalog import validated_entries
+
         for c in validated_entries():
             if c["family"] == "modules":
                 CASE_METADATA[c["id"]] = c
                 yield c["id"], c["path"], "run", None, []
     elif name == "examples":
         for c in json.loads((ROOT / "tests/examples.json").read_text())["cases"]:
-            expect = {"contains": c["stdout_contains"], "excludes": c.get("stdout_excludes", [])}
-            yield c["id"], ROOT / c["directory"] / c["main"], "run", expect, c.get("args", [])
+            expect = {
+                "contains": c["stdout_contains"],
+                "excludes": c.get("stdout_excludes", []),
+            }
+            yield (
+                c["id"],
+                ROOT / c["directory"] / c["main"],
+                "run",
+                expect,
+                c.get("args", []),
+            )
     elif name == "upstream":
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
-            yield c["id"], upstream_root(c) / c["path"], c["mode"], upstream_expect(c), c.get("args", [])
+            yield (
+                c["id"],
+                upstream_root(c) / c["path"],
+                c["mode"],
+                upstream_expect(c),
+                c.get("args", []),
+            )
     else:
         p = Path(name)
         yield p.stem, p, "run", None, []
+
 
 def use_native_libs():
     """Point jaic at the third-party C libraries (rpmalloc, stb_*) that some cases call or link,
@@ -111,15 +161,20 @@ def use_native_libs():
         return
     sys.path.insert(0, str(ROOT / "tools"))
     import build_native_libs
+
     if build_native_libs.missing():
-        subprocess.run([sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True)
+        subprocess.run(
+            [sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True
+        )
     os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir())
+
 
 def physical_memory_gib():
     try:
         return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30
     except (ValueError, OSError, AttributeError):
         return 16
+
 
 def stale_sources(jaic):
     """A compiler source newer than the jaic binary: a stale build can lack limits that keep
@@ -134,10 +189,12 @@ def stale_sources(jaic):
                 return f.relative_to(ROOT)
     return None
 
+
 # jaic's exit status when JAIC_MEMORY_LIMIT stops it (`jaic::memory_limit::EXIT_CODE`).
 MEMORY_LIMIT_EXIT = 120
 # `jaic`'s exit status for a program without `main` (NO_MAIN_STATUS in jaic-cli).
 NO_MAIN_EXIT = 3
+
 
 def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None):
     """Runs `command` with jaic's exact allocation limit armed, killing it on timeout. Returns
@@ -150,8 +207,14 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
     # Output goes to files rather than pipes: a program the case launched may outlive a killed
     # jaic and would keep a pipe open.
     with tempfile.TemporaryFile() as out_file, tempfile.TemporaryFile() as err_file:
-        proc = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
-                                stdout=out_file, stderr=err_file)
+        proc = subprocess.Popen(
+            command,
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=out_file,
+            stderr=err_file,
+        )
         try:
             code = proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -163,12 +226,20 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
         out = out_file.read().decode(errors="replace")
         err = err_file.read().decode(errors="replace")
     if jaic and code == MEMORY_LIMIT_EXIT:
-        return "", next((line for line in err.splitlines() if line.strip()), "memory limit exceeded"), -1
+        return (
+            "",
+            next(
+                (line for line in err.splitlines() if line.strip()),
+                "memory limit exceeded",
+            ),
+            -1,
+        )
     return out, err, code
 
 
 def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True):
     from stdlib_runtime import runtime_prefix, CLIPBOARD_LOCK
+
     try:
         prefix = runtime_prefix(metadata or {}, os.environ)
     except ValueError as error:
@@ -177,8 +248,15 @@ def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True):
         return run_limited(command, cwd, timeout, limit_bytes, jaic=jaic)
     environment = {"JAIC_TEST_CHILD_TIMEOUT_MS": str(max(1, round(timeout * 1000)))}
     with CLIPBOARD_LOCK:
-        return run_limited([*prefix, *command], cwd, timeout + 30, limit_bytes,
-                           jaic=jaic, environment=environment)
+        return run_limited(
+            [*prefix, *command],
+            cwd,
+            timeout + 30,
+            limit_bytes,
+            jaic=jaic,
+            environment=environment,
+        )
+
 
 # Runtime options for sanitized executables. Leaks are not reported: programs routinely leave
 # their memory to the OS at exit, and a leak is not the codegen or memory-safety bug the
@@ -188,6 +266,7 @@ SANITIZER_ENV = {
     "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1",
 }
 
+
 def sanitizer_report(err):
     """The first line of a sanitizer report in `err`, or None."""
     for line in err.splitlines():
@@ -195,17 +274,25 @@ def sanitizer_report(err):
             return line.strip()
     return None
 
+
 def symbolizer():
     """llvm-symbolizer from the LLVM jaic links against, so reports show source lines."""
     prefix = os.environ.get("LLVM_SYS_231_PREFIX")
     candidates = [Path(prefix) / "bin/llvm-symbolizer"] if prefix else []
-    candidates += [Path(p) for p in (shutil.which("llvm-symbolizer-23"), shutil.which("llvm-symbolizer")) if p]
+    candidates += [
+        Path(p)
+        for p in (shutil.which("llvm-symbolizer-23"), shutil.which("llvm-symbolizer"))
+        if p
+    ]
     return next((str(p) for p in candidates if p.is_file()), None)
+
 
 # `run_native`'s status for a program whose build writes no executable.
 NO_EXECUTABLE = "no executable"
 PLATFORM_UNAVAILABLE = "platform unavailable"
+REFERENCE_REJECTED = "reference rejected"
 HEADLESS_BUILD = "headless build only"
+
 
 def opens_windows(path):
     """Whether a case opens windows: it imports Window_Creation. Machines without a display or
@@ -215,37 +302,64 @@ def opens_windows(path):
     except OSError:
         return False
 
-def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, run=True, metadata=None):
+
+def run_native(
+    jaic,
+    path,
+    extra,
+    build_flags,
+    scratch,
+    timeout,
+    limit_bytes,
+    run=True,
+    metadata=None,
+):
     """Build `path` natively with `build_flags` and run the executable in the source's directory.
     Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
     an `error:` line first in stderr."""
     # A case's extra arguments are `jaic -interp` options; the program's own come after `--`.
     split = extra.index("--") if "--" in extra else len(extra)
-    jaic_args, program_args = extra[:split], extra[split + 1:]
+    jaic_args, program_args = extra[:split], extra[split + 1 :]
     if any(a in jaic_args for a in ("-os", "-cpu", "-target")):
         return "", "", NO_EXECUTABLE  # built for another platform
     exe = Path(tempfile.mkdtemp(dir=scratch)) / path.stem
     try:
-        _, err, code = run_fixture([jaic, str(path), "-exe", str(exe), *build_flags, *jaic_args],
-                                   path.parent, timeout, limit_bytes, metadata)
+        _, err, code = run_fixture(
+            [jaic, str(path), "-exe", str(exe), *build_flags, *jaic_args],
+            path.parent,
+            timeout,
+            limit_bytes,
+            metadata,
+        )
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
         if code == NO_MAIN_EXIT:
             return "", "", NO_EXECUTABLE
         if code != 0:
-            cause = next((line.strip() for line in err.splitlines() if "error" in line.lower()), "")
+            cause = next(
+                (line.strip() for line in err.splitlines() if "error" in line.lower()),
+                "",
+            )
             return "", f"error: native build failed (exit {code}): {cause}\n{err}", code
         if not exe.exists():
             return "", "", NO_EXECUTABLE
         if not run:
             return "", "", 0
-        out, err, code = run_fixture([str(exe), *program_args], path.parent, timeout, limit_bytes, metadata, jaic=False)
+        out, err, code = run_fixture(
+            [str(exe), *program_args],
+            path.parent,
+            timeout,
+            limit_bytes,
+            metadata,
+            jaic=False,
+        )
         report = sanitizer_report(err)
         if report:
             return out, f"error: sanitizer: {report}\n{err}", code if code != 0 else 1
         return out, err, code
     finally:
         shutil.rmtree(exe.parent, ignore_errors=True)
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -255,28 +369,57 @@ def main():
     ap.add_argument("--filter", default="")
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument("--timeout", type=float, default=60)
-    ap.add_argument("--memory-limit", type=float, default=3,
-                    help="GiB a case may allocate before jaic stops it (JAIC_MEMORY_LIMIT; default: 3)")
-    ap.add_argument("--jobs", "-j", type=int, default=0,
-                    help="cases run at once (default: CPU count, capped so jobs x memory limit fits in RAM)")
-    ap.add_argument("--allow-stale", action="store_true",
-                    help="run even if the jaic binary is older than the compiler sources")
-    ap.add_argument("--headless", action="store_true",
-                    help="build (or check) programs that open windows instead of running them")
-    ap.add_argument("--native", action="store_true",
-                    help="build `run` cases with `jaic` and run the executables")
-    ap.add_argument("--sanitize", default="",
-                    help="sanitizers for native builds (address, undefined or both, comma-separated); implies --native")
-    ap.add_argument("--opt", default="", choices=["", "O0", "O1", "O2", "O3"],
-                    help="optimization level of native builds (default: what the program asks for)")
+    ap.add_argument(
+        "--memory-limit",
+        type=float,
+        default=3,
+        help="GiB a case may allocate before jaic stops it (JAIC_MEMORY_LIMIT; default: 3)",
+    )
+    ap.add_argument(
+        "--jobs",
+        "-j",
+        type=int,
+        default=0,
+        help="cases run at once (default: CPU count, capped so jobs x memory limit fits in RAM)",
+    )
+    ap.add_argument(
+        "--allow-stale",
+        action="store_true",
+        help="run even if the jaic binary is older than the compiler sources",
+    )
+    ap.add_argument(
+        "--headless",
+        action="store_true",
+        help="build (or check) programs that open windows instead of running them",
+    )
+    ap.add_argument(
+        "--native",
+        action="store_true",
+        help="build `run` cases with `jaic` and run the executables",
+    )
+    ap.add_argument(
+        "--sanitize",
+        default="",
+        help="sanitizers for native builds (address, undefined or both, comma-separated); implies --native",
+    )
+    ap.add_argument(
+        "--opt",
+        default="",
+        choices=["", "O0", "O1", "O2", "O3"],
+        help="optimization level of native builds (default: what the program asks for)",
+    )
     a = ap.parse_args()
     # Cases run in their own directory, so a relative path would not resolve there.
     a.jaic = str(Path(a.jaic).resolve())
     if a.sanitize or a.opt:
         a.native = True
-    build_flags = (["-sanitize", a.sanitize] if a.sanitize else []) + ([f"-{a.opt}"] if a.opt else [])
+    build_flags = (["-sanitize", a.sanitize] if a.sanitize else []) + (
+        [f"-{a.opt}"] if a.opt else []
+    )
     if a.sanitize:
-        os.environ.update({k: v for k, v in SANITIZER_ENV.items() if k not in os.environ})
+        os.environ.update(
+            {k: v for k, v in SANITIZER_ENV.items() if k not in os.environ}
+        )
         if "ASAN_SYMBOLIZER_PATH" not in os.environ and symbolizer():
             os.environ["ASAN_SYMBOLIZER_PATH"] = symbolizer()
         if sys.platform == "darwin" and "DYLD_FALLBACK_LIBRARY_PATH" not in os.environ:
@@ -284,16 +427,24 @@ def main():
             # rpaths resolves from the ASan runtime instead (Homebrew's SDL2 is sdl2-compat, which
             # loads SDL3 that way and shows a modal dialog when it can't). Search Homebrew's lib
             # directory after dyld's defaults.
-            brew = os.environ.get("HOMEBREW_PREFIX") or ("/opt/homebrew" if os.path.isdir("/opt/homebrew") else "/usr/local")
-            os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = f"{Path.home()}/lib:/usr/local/lib:/usr/lib:{brew}/lib"
+            brew = os.environ.get("HOMEBREW_PREFIX") or (
+                "/opt/homebrew" if os.path.isdir("/opt/homebrew") else "/usr/local"
+            )
+            os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = (
+                f"{Path.home()}/lib:/usr/local/lib:/usr/lib:{brew}/lib"
+            )
     scratch = tempfile.mkdtemp(prefix="jaic-sweep-native-") if a.native else None
     limit_bytes = int(a.memory_limit * 2**30)
     if a.jobs <= 0:
-        a.jobs = max(1, min(os.cpu_count() or 1, int(physical_memory_gib() // a.memory_limit)))
+        a.jobs = max(
+            1, min(os.cpu_count() or 1, int(physical_memory_gib() // a.memory_limit))
+        )
     if not a.allow_stale:
         stale = stale_sources(Path(a.jaic))
         if stale:
-            sys.exit(f"jaic-sweep: {a.jaic} is older than {stale}; rebuild it (or pass --allow-stale)")
+            sys.exit(
+                f"jaic-sweep: {a.jaic} is older than {stale}; rebuild it (or pass --allow-stale)"
+            )
     use_native_libs()
     # Upstream cases may name setup commands (building a C library the program loads); they run
     # once, serially, in the case's directory before any case starts.
@@ -303,8 +454,12 @@ def main():
                 if "copy" in c:
                     WORKDIRS[c["id"]] = make_workdir(c)
                 for command in c.get("setup", []):
-                    subprocess.run(command, cwd=(upstream_root(c) / c["path"]).parent,
-                                   capture_output=True, stdin=subprocess.DEVNULL)
+                    subprocess.run(
+                        command,
+                        cwd=(upstream_root(c) / c["path"]).parent,
+                        capture_output=True,
+                        stdin=subprocess.DEVNULL,
+                    )
     todo = [c for s in a.sets for c in cases(s) if a.filter in c[0]]
     if not todo:
         ap.error("test selection is empty")
@@ -313,26 +468,56 @@ def main():
         cid, path, mode, expect, extra = case
         metadata = CASE_METADATA.get(cid, {})
         if metadata:
-            from stdlib_test_catalog import unavailable_reason
+            from stdlib_test_catalog import (
+                unavailable_reason,
+                reference_rejected_reason,
+            )
             from stdlib_runtime import host_platform, program_arguments, prepare_program
-            reason = unavailable_reason(metadata, "native" if a.native else "interp", host_platform())
+
+            rejected = reference_rejected_reason(metadata)
+            if rejected:
+                return cid, None, "", rejected, REFERENCE_REJECTED
+            reason = unavailable_reason(
+                metadata, "native" if a.native else "interp", host_platform()
+            )
             if reason:
                 return cid, None, "", reason, PLATFORM_UNAVAILABLE
             try:
-                arguments = program_arguments(metadata, scratch or tempfile.gettempdir(), os.environ)
+                arguments = program_arguments(
+                    metadata, scratch or tempfile.gettempdir(), os.environ
+                )
                 path = prepare_program(metadata, path, scratch or tempfile.gettempdir())
             except ValueError as error:
                 return cid, False, "", "error: fixture setup: " + str(error), 1
             if arguments:
                 if "--" in extra:
-                    return cid, False, "", "error: conflicting fixture argument providers", 1
+                    return (
+                        cid,
+                        False,
+                        "",
+                        "error: conflicting fixture argument providers",
+                        1,
+                    )
                 extra = [*extra, "--", *arguments]
-        windowed = a.headless and mode == "run" and (metadata.get("requires_display") or opens_windows(path))
+        windowed = (
+            a.headless
+            and mode == "run"
+            and (metadata.get("requires_display") or opens_windows(path))
+        )
         if windowed and expect is not None:
             expect = None  # Only whether it builds is checked.
         if a.native and mode == "run":
-            out, err, code = run_native(a.jaic, path, extra, build_flags, scratch, a.timeout, limit_bytes,
-                                        run=not windowed, metadata=metadata)
+            out, err, code = run_native(
+                a.jaic,
+                path,
+                extra,
+                build_flags,
+                scratch,
+                a.timeout,
+                limit_bytes,
+                run=not windowed,
+                metadata=metadata,
+            )
             if code == NO_EXECUTABLE:
                 return cid, None, out, err, code
         else:
@@ -342,22 +527,43 @@ def main():
             mode_flag = {"run": ["-interp"], "check": ["-check"], "build": []}[mode]
             if windowed:
                 mode_flag = ["-check"]
-            out, err, code = run_fixture([a.jaic, str(path), *mode_flag, *quiet, *extra],
-                                         path.parent, a.timeout, limit_bytes, metadata)
+            out, err, code = run_fixture(
+                [a.jaic, str(path), *mode_flag, *quiet, *extra],
+                path.parent,
+                a.timeout,
+                limit_bytes,
+                metadata,
+            )
         # `run_after`: the program the build produced is run, and the expectations apply to it.
         if windowed and code == 0:
             return cid, None, out, err, HEADLESS_BUILD
         if code == 0 and expect and expect.get("run_after"):
             program = expect["run_after"]
-            out, err, code = run_limited([str(path.parent / program[0]), *program[1:]], path.parent,
-                                         a.timeout, limit_bytes, jaic=False)
+            out, err, code = run_limited(
+                [str(path.parent / program[0]), *program[1:]],
+                path.parent,
+                a.timeout,
+                limit_bytes,
+                jaic=False,
+            )
         if expect and expect.get("mode") == "check-fail":
             from stdlib_runtime import contract_result
+
             ok = contract_result(expect, None if code == -1 else code, out + err)
             if expect.get("positive_baseline"):
                 from stdlib_test_catalog import validated_entries
-                baseline = next(c for c in validated_entries() if c["id"] == "contracts/" + expect["positive_baseline"])
-                _, baseline_err, baseline_code = run_limited([a.jaic, str(baseline["path"]), "-check"], baseline["path"].parent, a.timeout, limit_bytes)
+
+                baseline = next(
+                    c
+                    for c in validated_entries()
+                    if c["id"] == "contracts/" + expect["positive_baseline"]
+                )
+                _, baseline_err, baseline_code = run_limited(
+                    [a.jaic, str(baseline["path"]), "-check"],
+                    baseline["path"].parent,
+                    a.timeout,
+                    limit_bytes,
+                )
                 if baseline_code != 0:
                     ok = False
                     err += "\npositive baseline failed:\n" + baseline_err
@@ -366,10 +572,18 @@ def main():
         elif expect is None:
             ok = code == 0
         elif "upstream" in expect:
-            problems = [f"exit code {code}, expected {expect['exit_code']}"] if code != expect["exit_code"] else []
+            problems = (
+                [f"exit code {code}, expected {expect['exit_code']}"]
+                if code != expect["exit_code"]
+                else []
+            )
             if expect["stdout"] is not None and out != expect["stdout"]:
                 problems.append("stdout differs from the recorded output")
-            problems += [f"stdout lacks {line!r}" for line in expect["contains"] if line not in out]
+            problems += [
+                f"stdout lacks {line!r}"
+                for line in expect["contains"]
+                if line not in out
+            ]
             gap = missing_in_order(expect["ordered"], out)
             if gap is not None:
                 problems.append(f"stdout lacks {gap!r} (in order)")
@@ -386,15 +600,22 @@ def main():
                 err += "".join(f"\nerror: stdout has {text!r}" for text in present)
         elif "error" in expect:
             # A runtime error: any failing status (a native build traps), with the message.
-            ok = code not in (0, -1) and expect["error"] in err and out == expect.get("stdout", "")
+            ok = (
+                code not in (0, -1)
+                and expect["error"] in err
+                and out == expect.get("stdout", "")
+            )
         else:
             ok = code == expect.get("exit_code", 0) and out == expect.get("stdout", "")
         return cid, ok, out, err, code
 
-    passed, failed, no_exe, unavailable, built_only = 0, [], [], [], []
+    passed, failed, no_exe, unavailable, built_only, rejected = 0, [], [], [], [], []
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
         for cid, ok, out, err, code in pool.map(run, todo):
             if ok is None:
+                if code == REFERENCE_REJECTED:
+                    rejected.append((cid, err))
+                    continue
                 if code == PLATFORM_UNAVAILABLE:
                     unavailable.append((cid, err))
                 elif code == HEADLESS_BUILD:
@@ -405,7 +626,12 @@ def main():
             if ok:
                 passed += 1
                 continue
-            first = next((line for line in err.splitlines() if "error" in line), err.strip().splitlines()[0] if err.strip() else f"exit {code}, stdout {out[:80]!r}")
+            first = next(
+                (line for line in err.splitlines() if "error" in line),
+                err.strip().splitlines()[0]
+                if err.strip()
+                else f"exit {code}, stdout {out[:80]!r}",
+            )
             failed.append((cid, first))
             if a.verbose:
                 print(f"--- {cid}\n{err[:1500]}{out[:500]}")
@@ -416,14 +642,24 @@ def main():
     for cid, msg in failed:
         print(f"FAIL {cid}: {msg[:220]}")
     if no_exe:
-        print(f"\nnot run natively (compile-time only, interpreter-only or another platform): {', '.join(no_exe)}")
+        print(
+            f"\nnot run natively (compile-time only, interpreter-only or another platform): {', '.join(no_exe)}"
+        )
     for cid, reason in unavailable:
         print(f"UNAVAILABLE {cid}: {reason}")
+    for cid, reason in rejected:
+        print(f"REFERENCE_REJECTED {cid}: {reason}")
     if built_only:
-        print("Built only under --headless (runtime not passed): " + ", ".join(built_only))
-    print(f"\n{passed} passed, {len(failed)} failed, {len(unavailable)} platform unavailable, {len(built_only)} built only" + (f", {len(no_exe)} not run natively" if no_exe else ""))
+        print(
+            "Built only under --headless (runtime not passed): " + ", ".join(built_only)
+        )
+    print(
+        f"\n{passed} passed, {len(failed)} failed, {len(unavailable)} platform unavailable, {len(built_only)} built only, {len(rejected)} reference-rejected fixtures"
+        + (f", {len(no_exe)} not run natively" if no_exe else "")
+    )
     # A failing status lets CI use the sweep directly.
     sys.exit(1 if failed else 0)
+
 
 if __name__ == "__main__":
     main()
