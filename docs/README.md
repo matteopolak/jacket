@@ -767,3 +767,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 [HTTP/TLS target repair](extensions/http-tls-target-repair.md) fixes Windows temporary allocation while preserving the four failed source-matrix gates and unresolved clock/provider questions.
 
 [Required WASM tour thread provider](compiler/wasm-workspace-triage.md) uses the private scheduler with real workers; full-tour GPU/Window_Type remains red, and unchanged60d formatter replay passed after root metadata correction.
+
+[Linux Clipboard](portable-clipboard-linux.md) implements native X11 selection transfer with exact helper pins; normal ephemeral-Xvfb and relocated-package CI are wired, Linux runtime remains unverified locally.

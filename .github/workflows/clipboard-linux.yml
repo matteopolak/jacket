@@ -1,0 +1,55 @@
+name: Linux Clipboard native and package checks
+on:
+  push:
+    paths:
+      - 'stdlib/Clipboard/**'
+      - 'stdlib/internal/clipboard/**'
+      - 'stdlib/internal/window/connection.jai'
+      - 'stdlib/Basic/**'
+      - 'stdlib/internal/basic/**'
+      - 'crates/**'
+      - 'Cargo.*'
+      - 'tests/portable-stdlib/clipboard-*.jai'
+      - 'tests/portable-stdlib/native/clipboard-*.c'
+      - 'tools/*portable_clipboard.py'
+      - 'tools/check_clipboard_linux_package.py'
+      - '.github/workflows/clipboard-linux.yml'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  x11:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/clipboard-linux
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install source build and ephemeral display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev xvfb xauth clang-format
+          rustup toolchain install nightly-2026-08-29 --profile minimal
+          python3 -m pip install ruff==0.14.14
+          bash tools/install_ci_llvm_linux.sh
+          echo 'LLVM_SYS_231_PREFIX=/usr/lib/llvm-23' >> "$GITHUB_ENV"
+          echo '/usr/lib/llvm-23/bin' >> "$GITHUB_PATH"
+          cargo fetch --locked
+      - name: Prepare the real Linux runtime helper
+        run: python3 tools/build_portable_runtime.py
+      - name: Real X11 clients, Jai runtime and relocated package
+        run: |
+          mkdir -p "$CARGO_TARGET_DIR"
+          xvfb-run -a python3 tools/check_portable_clipboard.py --linux-runtime | tee "$CARGO_TARGET_DIR/runtime-proof.log"
+          receipt="$(tail -n 1 "$CARGO_TARGET_DIR/runtime-proof.log")"
+          xvfb-run -a python3 tools/check_clipboard_linux_package.py --verification-receipt "$receipt" --output "$CARGO_TARGET_DIR/package-proof"
