@@ -668,3 +668,11 @@ include exact file/line/source hashes and required platform limits.
 - [Combined compiler checkpoint](compiler/shared-mac-checkpoint.md): independent producer-chain adoption, host-clock object proof, code-record defaults and current native debugger limitation.
 
 - [Pinned combined candidate10d9b3f8](status/shared-candidate-10d9b3f8.json) and [fresh baseline status](status/shared-baseline-10d9b3f8.json): committed compiler/library identity, complete development native assets and serialized native ARM64 verification.
+
+- [Canonical public operator facades](compiler/public-operator-facades.md): reviewed overload reexports, preserved identities/visibility and exact compile-time fixture classification.
+
+- [Protected formatter inputs](tools/formatter-protected-inputs.md): real token/idempotence checks on mutable copies while original bytes and permissions stay protected.
+
+- [GL assertion effects](portable-gl-assertion-effects.md) and [Cocoa assertion effects](portable-cocoa-assertion-effects.md): actual SDK operations, failure ownership and [scoped producer/integration verification](status/shared-rendering-cocoa-checkpoint.json).
+
+- [Hash_Table and Walk_Table](portable-hash-table-audit.md): caller-visible slot/control semantics and [38 current integration checks](status/shared-hash-table-walk-verification.json), retiring the named-while dependency.

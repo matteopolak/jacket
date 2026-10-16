@@ -27,6 +27,8 @@ main :: () {
     assert(unary(left).x == -9 && binary(left, right).x == 5);
     imported := Probe.Scalar.{7};
 
+    // A namespace import alone does not make its operators lexically visible.
+    using Probe;
     assert((-imported).value == -7);
     qualified := Probe.operator -(imported);
     selected: (Probe.Scalar) -> Probe.Scalar = Probe.operator -;

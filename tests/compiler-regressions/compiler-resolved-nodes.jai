@@ -66,13 +66,11 @@ returns_of :: ($call: Code) -> int #expand {
     assert(contains(text, "pair") && contains(text, "int"), "%", text);
 }
 
-// New initializes the reviewed declared defaults. Subtype allocation does not
-// imply an undocumented kind override; construction sets the discriminator.
+// New initializes Code_Ident's reviewed inherited IDENT discriminator default.
 #run {
     ident := New(Code_Ident);
 
-    assert(ident.kind == .UNINITIALIZED);
-    ident.kind = .IDENT;
+    assert(ident.kind == .IDENT);
     ident.name = "constructed";
     builder: String_Builder;
 

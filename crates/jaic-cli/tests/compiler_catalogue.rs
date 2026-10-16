@@ -60,6 +60,30 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
 }
 
 #[test]
+fn a_qualified_namespace_does_not_implicitly_import_operators() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("operator-namespace-visibility");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("main.jai");
+    std::fs::write(
+        &source,
+        "Probe :: #import \"Operator_Probe\"; main :: () { value: Probe.Scalar; result := -value; }\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+        .env("JAIC_STDLIB", root.join("stdlib"))
+        .arg(source)
+        .arg("-check")
+        .arg("-I")
+        .arg(root.join("tests/compiler-semantics/modules"))
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(error.contains("cannot negate Scalar"), "{error}");
+}
+
+#[test]
 fn called_library_body_interception_and_filters_complete_successfully() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for path in [

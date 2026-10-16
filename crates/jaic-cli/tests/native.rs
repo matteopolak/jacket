@@ -1850,13 +1850,34 @@ fn jaifmt_is_idempotent_on_the_repository() {
                 }
             } else if path.extension().is_some_and(|e| e == "jai") {
                 std::fs::create_dir_all(to).unwrap();
-                std::fs::copy(&path, to.join(name)).unwrap();
+                let destination = to.join(name);
+                std::fs::copy(&path, &destination).unwrap();
+                // Frozen source inputs may be read-only. This test formats its
+                // own copy; the original file's protections stay untouched.
+                let mut permissions = std::fs::metadata(&destination).unwrap().permissions();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    permissions.set_mode(permissions.mode() | 0o200);
+                }
+                #[cfg(not(unix))]
+                permissions.set_readonly(false);
+                std::fs::set_permissions(&destination, permissions).unwrap();
                 *count += 1;
             }
         }
     }
     let tree = dir.join("tree");
     let mut count = 0;
+    let protected = dir.join("protected-input");
+    std::fs::create_dir_all(&protected).unwrap();
+    let protected_file = protected.join("read-only.jai");
+    let protected_text = "main :: () { value:=1; }\n";
+    std::fs::write(&protected_file, protected_text).unwrap();
+    let mut protected_permissions = std::fs::metadata(&protected_file).unwrap().permissions();
+    protected_permissions.set_readonly(true);
+    std::fs::set_permissions(&protected_file, protected_permissions).unwrap();
+    copy_jai(&protected, &tree.join("protected-input"), &mut count);
     for part in [
         "stdlib",
         "tests",
@@ -1885,6 +1906,16 @@ fn jaifmt_is_idempotent_on_the_repository() {
         Some(0),
         "not idempotent:\n{}",
         String::from_utf8_lossy(&again.stdout)
+    );
+    assert_eq!(
+        std::fs::read_to_string(&protected_file).unwrap(),
+        protected_text
+    );
+    assert!(
+        std::fs::metadata(protected_file)
+            .unwrap()
+            .permissions()
+            .readonly()
     );
 }
 
