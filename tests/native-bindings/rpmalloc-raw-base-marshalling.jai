@@ -5,7 +5,7 @@ Raw :: #import "rpmalloc"(USE_RAW = true);
 Small :: #import "rpmalloc"(USE_RAW = true, ENABLE_STATISTICS = false);
 RawBaseBridge :: #import "internal/bindings/rpmalloc-heaps"(RAW = true, PUBLIC_HEAPS = false, GLOBAL_CACHE = true, THREAD_CACHE = true);
 RawBaseNoStatsBridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = false, RAW = true, PUBLIC_HEAPS = false, GLOBAL_CACHE = true, THREAD_CACHE = true);
-Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = true, PUBLIC_HEAPS = false, GLOBAL_CACHE = true, THREAD_CACHE = true);
+Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = true, PUBLIC_HEAPS = false, GLOBAL_CACHE = true, THREAD_CACHE = true, ASSERTS = true, VALIDATE_ARGS = true, ADAPTIVE = false);
 
 #load "generated/rpmalloc-raw-base-heap-facade-layout.jai";
 

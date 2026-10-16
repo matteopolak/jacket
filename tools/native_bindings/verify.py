@@ -15,7 +15,6 @@ import shutil
 import subprocess
 import sys
 
-from config import TARGETS
 from generate import MODULES, condition_for
 from spec import parse_spec, Declaration, Spec
 from symbols import check_symbols
@@ -23,6 +22,11 @@ import re
 from conditions import evaluate
 from rpmalloc_tests import fixtures as rpmalloc_fixtures
 from fixture_paths import MODULE_LOCAL_FIXTURES, fixture_source
+from verification_policy import (
+    private_library_root,
+    module_target_condition,
+    module_result,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [
@@ -46,6 +50,7 @@ PRIVATE_UNITS = {
     "ios-sdk-host": "iOS/sdk-host-unit.jai",
     "dxc-wide": "dxc_compiler/sdk-wide-unit.jai",
     "dxc-compile-unit": "dxc_compiler/sdk-compile-unit.jai",
+    "fsevents-context": "macOS/sdk-fsevents-context-unit.jai",
     "rpmalloc-native-sdk": "rpmalloc/sdk-native-unit.jai",
     "rpmalloc-native-storage": "rpmalloc/sdk-storage-unit.jai",
     "rpmalloc-heap-marshalling": "rpmalloc/sdk-heap-marshalling-unit.jai",
@@ -75,12 +80,12 @@ PRIVATE_UNIT_DEPENDENCIES = {
         **{
             "tests/native-bindings/generated/rpmalloc-no-thread-cache-"
             + label
-            + "-layout.jai": "rpmalloc/generated/rpmalloc-no-thread-cache-"
+            + "-layout.jai": "../tests/native-bindings/generated/rpmalloc-no-thread-cache-"
             + label
             + "-layout.jai"
             for label in ("rewrite", "raw-base", "raw")
         },
-        "tests/native-bindings/rpmalloc-cache-exercise.jai": "rpmalloc/rpmalloc-cache-exercise.jai",
+        "tests/native-bindings/rpmalloc-cache-exercise.jai": "../tests/native-bindings/rpmalloc-cache-exercise.jai",
     },
     "rpmalloc-raw-base-marshalling": {
         "tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-raw-base-heap-facade-layout.jai",
@@ -413,7 +418,7 @@ def main():
         if args.stdlib
         else {}
     )
-    private_stdlib = work / "private-unit-stdlib" if args.stdlib else stdlib
+    private_stdlib = private_library_root(work) if args.stdlib else stdlib
     if args.stdlib:
         shutil.copytree(stdlib, private_stdlib)
     if args.rpmalloc_first_class_heaps:
@@ -505,13 +510,7 @@ def main():
             command = [compiler, file, "-check", "-no_dce", "-os", os_name, "-cpu", cpu]
             result = invoke(command, env)
             result.update(module=module, os=os_name, cpu=cpu, check="declarations")
-            result["status"] = (
-                "passed"
-                if result["exit"] == 0
-                else "unsupported"
-                if "requires its documented native platform" in result["stderr"]
-                else "failed"
-            )
+            result["status"] = module_result(module, os_name, cpu, result)
             report["targets"].append(result)
             if result["status"] == "passed":
                 # Qualified aliases force lookup of required importer-visible
@@ -530,6 +529,11 @@ def main():
             print(module, os_name + "-" + cpu, result["status"])
     for module, filename, configs in [
         ("macOS", "fsevents-context.jai", [("macos", "x64"), ("macos", "arm64")]),
+        (
+            "Objective_C",
+            "appkit-public-availability.jai",
+            [("macos", "x64"), ("macos", "arm64")],
+        ),
         *[
             ("rpmalloc", name + ".jai", TARGET_CONFIGS)
             for name in rpmalloc_fixtures(args.rpmalloc_first_class_heaps)
@@ -638,8 +642,8 @@ def main():
         ("Objective_C", "ObjCBasic"),
         ("Objective_C", "String_Builder"),
         ("Objective_C", "NSWindow"),
-        ("Objective_C/AppKit", "NSView"),
-        ("Objective_C/AppKit", "NSScreen"),
+        ("Objective_C/AppKit", "binding_class"),
+        ("Objective_C/AppKit", "binding_send"),
         ("Objective_C/AppKit", "send_result"),
         ("SDL", "NativeSDL"),
         ("SDL", "Binding_File_RWops"),
@@ -713,7 +717,7 @@ def main():
             continue
         for os_name, cpu in selected_configs:
             result = {"module": module, "member": private, "os": os_name, "cpu": cpu}
-            target = TARGETS.get(module.split("/")[0], "")
+            target = module_target_condition(module)
             if target and not enabled(target, os_name, cpu):
                 result.update(
                     status="unsupported",

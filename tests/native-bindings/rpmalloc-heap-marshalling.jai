@@ -5,7 +5,7 @@ RPM :: #import "rpmalloc";
 Small :: #import "rpmalloc"(ENABLE_STATISTICS = false);
 Bridge :: #import "internal/bindings/rpmalloc-heaps";
 NoStatsBridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = false);
-Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = false, PUBLIC_HEAPS = true, GLOBAL_CACHE = true, THREAD_CACHE = true);
+Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = false, PUBLIC_HEAPS = true, GLOBAL_CACHE = true, THREAD_CACHE = true, ASSERTS = true, VALIDATE_ARGS = true, ADAPTIVE = false);
 
 probe :: #library,system "rpmalloc_storage_probe";
 native_id :: (heap: *void) -> s64 #foreign probe "binding_rpmalloc_native_heap_id";

@@ -159,6 +159,7 @@ TARGETS = {
     'Vulkan': 'OS == .WINDOWS || OS == .LINUX',
     'macOS': 'OS == .MACOS', 'Metal': 'OS == .MACOS || OS == .IOS',
     'Objective_C': 'OS == .MACOS || OS == .IOS',
+    'Objective_C/AppKit': 'OS == .MACOS',
     'Android': 'OS == .ANDROID', 'Android/AAudio': 'OS == .ANDROID',
     'Android/EGL': 'OS == .ANDROID', 'nvidia_aftermath': 'OS == .WINDOWS',
     'nvtt': 'OS == .WINDOWS || OS == .LINUX || OS == .MACOS',
