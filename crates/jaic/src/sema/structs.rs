@@ -315,8 +315,9 @@ impl Compiler {
     }
 
     /// `Table(int, string)`: instantiate a polymorphic struct.
-    /// The constant value of a polymorphic struct argument. An aggregate whose type
-    /// differs from the parameter's (a fixed array for a `[] T` parameter) is converted.
+    /// The constant value of a polymorphic struct argument. Every declared parameter
+    /// type is enforced before binding, including procedure specialization and scalar
+    /// narrowing. Untyped parameters retain their compile-time value.
     pub(super) fn struct_arg_value(
         &mut self,
         scope: ScopeId,
@@ -327,16 +328,7 @@ impl Compiler {
         if ty == TypeId::TYPE {
             return self.operand_as_type(op, span).map(Value::Type);
         }
-        let converts = ty != TypeId::VOID
-            && op.ty() != ty
-            && matches!(
-                op,
-                Operand::Const {
-                    value: Value::Bytes(_),
-                    ..
-                }
-            );
-        if converts {
+        if ty != TypeId::VOID {
             return self.const_value_of_operand(scope, op, ty, span);
         }
         match op {

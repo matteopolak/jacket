@@ -24,6 +24,28 @@ fn overload_probes_initialize_scratch_context_storage() {
 }
 
 #[test]
+fn call_context_record_callback_override_reaches_nested_calls_and_restores() {
+    check(
+        r#"
+        #add_context settings: Settings;
+        Settings :: struct { callback:=ordinary; }
+        ordinary :: ()->s64 {return 1;}
+        custom :: ()->s64 {return 9;}
+        nested :: ()->s64 {return context.settings.callback();}
+        read :: ()->s64 {return nested();}
+        test :: ()->bool {
+            local:Settings=.{callback=custom};
+            if local.callback()!=9 return false;
+            if read()!=1 return false;
+            if read(,, settings=.{callback=custom})!=9 return false;
+            return read()==1;
+        }
+        #assert test();
+    "#,
+    );
+}
+
+#[test]
 fn caller_scope_macro_context_lives_until_caller_block_exit() {
     check(
         "test :: () -> bool { context.marker = 55; { push_copy(); if context.marker != 55 return false; context.marker = 91; if context.marker != 91 return false; } return context.marker == 55; } #assert(test());",
