@@ -158,6 +158,12 @@ def validated_entries(root=ROOT):
             "graphics/getrect-widgets-driven",
         }:
             case["clipboard_guard"] = True
+        termination = {
+            "extensions/http-wasm-termination-status": (37, "before exit 37\n"),
+            "extensions/http-wasm-termination-failure": (1, "FAIL: independent WASM termination control\n1 failure(s)\n"),
+        }.get(case["id"])
+        if termination:
+            case.update(exit_code=termination[0], stdout=termination[1], stderr="")
         if case["id"] in PROGRAM_INPUTS:
             case["input"] = PROGRAM_INPUTS[case["id"]]
         if case["id"] in PROGRAM_ARGUMENTS:

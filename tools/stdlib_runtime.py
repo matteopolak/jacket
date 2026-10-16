@@ -57,7 +57,7 @@ def contract_result(case, code, output, error=""):
         )
     if "stdout" in case:
         return (
-            code == 0 and output == case["stdout"] and error == case.get("stderr", "")
+            code == case.get("exit_code", 0) and output == case["stdout"] and error == case.get("stderr", "")
         )
     return code == 0
 

@@ -29,3 +29,10 @@ test("explicit failure contracts retain exact exit status", () => {
   assert.equal(playgroundContract(contract, { exitCode: 37, stderr: "expected failure" }).pass, true);
   assert.equal(playgroundContract(contract, { exitCode: 1, stderr: "expected failure" }).pass, false);
 });
+test("termination stdout protocols retain nonzero status and empty stderr", () => {
+  const contract = { exit_code: 37, stdout: "before exit 37\n", stderr: "" };
+  assert.equal(playgroundContract(contract, { exitCode: 37, stdout: contract.stdout, stderr: "" }).pass, true);
+  for (const exitCode of [0, 1, null, undefined]) assert.equal(playgroundContract(contract, { exitCode, stdout: contract.stdout }).pass, false);
+  assert.equal(playgroundContract(contract, { exitCode: 37, stdout: contract.stdout, stderr: "unexpected" }).pass, false);
+  assert.equal(playgroundContract(contract, { exitCode: 37, stdout: contract.stdout + "continued\n" }).pass, false);
+});

@@ -4,6 +4,7 @@ C :: #import "Compiler";
 
 #run {
     arguments := C.get_build_options().compile_time_command_line;
+
     assert(arguments.count == 0 || arguments.count == 1);
     enabled := true;
 
@@ -11,6 +12,7 @@ C :: #import "Compiler";
         assert(arguments[0] == "enabled" || arguments[0] == "disabled");
         enabled = arguments[0] == "enabled";
     }
+
     workspace := C.compiler_create_workspace("io-configuration-protocol");
     options := C.get_build_options(workspace);
     options.output_type = .NO_OUTPUT;
@@ -24,6 +26,7 @@ C :: #import "Compiler";
 
     while true {
         message := C.compiler_wait_for_message();
+
         assert(message.kind != .ERROR);
 
         if message.kind == .COMPLETE {

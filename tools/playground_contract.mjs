@@ -9,6 +9,6 @@ export function playgroundContract(test, result) {
   }
   const pass = "error_contains" in test
     ? result.exitCode === test.exit_code && output.includes(test.error_contains)
-    : result.exitCode === 0 && errors.length === 0 && (!("stdout" in test) || result.stdout === test.stdout);
+    : result.exitCode === (test.exit_code ?? 0) && errors.length === 0 && (!("stdout" in test) || result.stdout === test.stdout) && (!("stderr" in test) || (result.stderr || "") === test.stderr);
   return { pass, output, why: pass ? "" : "exit " + result.exitCode + "; " + (errors[0]?.message || result.stderr || "stdout differs") };
 }
