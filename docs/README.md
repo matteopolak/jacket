@@ -758,3 +758,8 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 - [HTTP conformance native dependency setup and CI failure triage](tools/http-native-setup.md)
 
 [Conditional readiness and error retention](compiler/conditional-readiness-errors.md) records the generic speculative-expansion repair, corrected official positive, preserved rejected controls and protected-replay boundary.
+- [Bucket_Array physical pointer indexing](foundations-bucket-pointer.md): reviewed canonical operator, address/hole/privacy source proofs and pending native gates.
+
+Current ready [30901830 candidate](status/shared-candidate-30901830.json) combines pointer/Color/HTTP/readiness and real Bucket_Array indexing; [focused receipt](status/mac-30901830-focused.json) distinguishes97Rust passes,12actualO0/O2programs, preserved transport failure and pending broad acceptance.
+
+[Basic filesystem platform guards](basic-filesystem-platform-guards.md) select the reviewed four-API target surface without Runtime classifier cycles; exact two-line repair and qualified evidence retained.
