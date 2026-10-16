@@ -144,11 +144,29 @@ main :: () { helper(); }
     let helper = s.outgoing_calls(&calls[0].item).unwrap();
     assert_eq!(helper.len(), 1);
     assert_eq!(helper[0].item.name, "print");
+    // A replaced library's private file layout is not the navigation contract.
+    // Require an actual readable production-library destination and exact name range.
+    let destination = DocumentUri::parse(&helper[0].item.uri).unwrap();
+    let stdlib =
+        jaic::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")).unwrap();
     assert!(
-        helper[0]
-            .item
-            .uri
-            .ends_with("/stdlib/internal/basic/scalar.jai")
+        jaic::canonicalize(destination.path())
+            .unwrap()
+            .starts_with(stdlib)
+    );
+    let source = s.source(&destination).expect("readable declaration");
+    let range = helper[0].item.selection_range;
+    assert_eq!(range.start.line, range.end.line);
+    let line: Vec<_> = source
+        .lines()
+        .nth(range.start.line as usize)
+        .unwrap()
+        .encode_utf16()
+        .collect();
+    assert_eq!(
+        String::from_utf16(&line[range.start.character as usize..range.end.character as usize])
+            .unwrap(),
+        "print"
     );
 }
 

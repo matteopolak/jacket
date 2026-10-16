@@ -87,7 +87,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
-        if !self.analyses.get(uri).is_some_and(|a| a.complete) {
+        if !self.analysis_for(uri).is_some_and(|a| a.complete) {
             return Vec::new();
         }
         let Ok(file) = jaic::parser::parse_file(FileId(0), &doc.text) else {

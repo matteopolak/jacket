@@ -131,29 +131,46 @@ enum Target {
     Module(ModuleId),
 }
 
+/// The checked callee's selected procedures and declaration-bound value header.
+/// Structural type identity alone never supplies parameter names.
+pub struct IdeCallTarget {
+    pub procedures: Vec<ProcId>,
+    pub parameters: Option<(TypeId, Rc<ProcTypeParams>)>,
+}
+
 impl Compiler {
     /// Resolve only the actual callee at this call's opening parenthesis. The original
     /// program and its failed-body guards stay intact; no argument values are invented.
-    /// A dynamic procedure value without selected identity does not become a guessed header.
-    pub fn ide_callee_at(&mut self, file: FileId, open: u32) -> Vec<ProcId> {
-        if self.ide.is_none() {
-            return Vec::new();
-        }
+    pub fn ide_call_target_at(&mut self, file: FileId, open: u32) -> Option<IdeCallTarget> {
+        self.ide.as_ref()?;
         let text = self.sources.get(file).text.clone();
-        let Some(callee) = crate::parser::parse_callee_ide(file, &text, open) else {
-            return Vec::new();
+        let callee = crate::parser::parse_callee_ide(file, &text, open)?;
+        let scope = self.ide_scope_at(file, callee.span.start)?;
+        let operand = self.check_expr_no_emit(scope, &callee).ok()?;
+        let parameters = match &operand {
+            Operand::Callable {
+                parameters, ..
+            } => Some((operand.ty(), parameters.clone())),
+            _ => None,
         };
-        let Some(scope) = self.ide_scope_at(file, callee.span.start) else {
-            return Vec::new();
-        };
-        match self.check_expr_no_emit(scope, &callee) {
-            Ok(Operand::Procs(ids)) => ids,
-            Ok(Operand::Const {
+        let procedures = match operand.without_callable() {
+            Operand::Procs(ids) => ids,
+            Operand::Const {
                 value: Value::Proc(id),
                 ..
-            }) => vec![id],
+            } => vec![id],
             _ => Vec::new(),
-        }
+        };
+        Some(IdeCallTarget {
+            procedures,
+            parameters,
+        })
+    }
+
+    /// Direct-procedure view retained for existing IDE consumers.
+    pub fn ide_callee_at(&mut self, file: FileId, open: u32) -> Vec<ProcId> {
+        self.ide_call_target_at(file, open)
+            .map_or_else(Vec::new, |t| t.procedures)
     }
 
     // -------------------------------------------------------------------------------------

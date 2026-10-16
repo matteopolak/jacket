@@ -315,6 +315,118 @@ impl Callable {
     }
 }
 
+/// Expression facts lack operand flags/values: only prove scalar incompatibility.
+fn compatible(
+    compiler: &mut jaic::sema::Compiler,
+    argument: &Argument,
+    from: jaic::types::TypeId,
+    constant: bool,
+    to: jaic::types::TypeId,
+) -> bool {
+    // Expression facts lack operand flags/values. Only exclude a
+    // candidate when these facts prove scalar incompatibility. Code
+    // quotation, procedure values, auto-dereference, contextual
+    // aggregates and other operand-aware conversions stay unresolved.
+    use jaic::types::TypeKind;
+    let scalar = |kind: &TypeKind| {
+        matches!(
+            kind,
+            TypeKind::Bool | TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::String
+        )
+    };
+    if !scalar(compiler.types.kind(from)) || !scalar(compiler.types.kind(to)) {
+        return true;
+    }
+    // Constants can carry untyped arithmetic or one-byte string
+    // conversions; the type fact cannot establish their value/flags.
+    if constant
+        && ((matches!(
+            compiler.types.kind(from),
+            TypeKind::Int { .. } | TypeKind::Float { .. }
+        ) && matches!(
+            compiler.types.kind(to),
+            TypeKind::Int { .. } | TypeKind::Float { .. }
+        ) && !argument.literal)
+            || (from == jaic::types::TypeId::STRING && to == jaic::types::TypeId::U8))
+    {
+        return true;
+    }
+    compiler.implicit_cost(from, argument.literal, to).is_some()
+}
+
+fn callback(
+    compiler: &mut jaic::sema::Compiler,
+    ty: jaic::types::TypeId,
+    header: &jaic::sema::ProcTypeParams,
+    ctx: &Context,
+    facts: &[Option<(jaic::types::TypeId, bool)>],
+) -> Option<Callable> {
+    let jaic::types::TypeKind::Proc(signature) = compiler.types.kind(ty) else {
+        return None;
+    };
+    let signature = signature.clone();
+    if header.names.len() != signature.params.len()
+        || header.defaults.len() != signature.params.len()
+    {
+        return None;
+    }
+    let mut callable = Callable {
+        params: signature
+            .params
+            .iter()
+            .enumerate()
+            .map(|(i, &ty)| {
+                let name = header.names[i].map(|n| n.as_str().to_owned());
+                let mut detail = format!(
+                    "{}: {}",
+                    name.as_deref().unwrap_or("_"),
+                    compiler.types.name(ty)
+                );
+                if let Some(default) = &header.defaults[i] {
+                    detail.push_str(" = ");
+                    detail.push_str(compiler.sources.snippet(default.span));
+                }
+                Parameter {
+                    name,
+                    variadic: signature.variadic && i + 1 == signature.params.len(),
+                    detail,
+                }
+            })
+            .collect(),
+        eligible: None,
+    };
+    callable.eligible = Some(
+        callable
+            .params
+            .iter()
+            .map(|param| {
+                let Some(name) = &param.name else {
+                    return false;
+                };
+                let Some(bindings) = callable.bindings(&ctx.args, ctx.active, name) else {
+                    return false;
+                };
+                bindings.iter().enumerate().all(|(i, &slot)| {
+                    let Some((from, constant)) = facts[i] else {
+                        return true;
+                    };
+                    let mut to = signature.params[slot];
+                    if callable.params[slot].variadic
+                        && !ctx.args[i].spread
+                        && let jaic::types::TypeKind::Array {
+                            elem, ..
+                        } = compiler.types.kind(to)
+                    {
+                        to = *elem;
+                    }
+                    compatible(compiler, &ctx.args[i], from, constant, to)
+                })
+            })
+            .collect(),
+    );
+    Some(callable)
+}
+
 fn resolved(
     compiler: &mut jaic::sema::Compiler,
     file: FileId,
@@ -358,10 +470,17 @@ fn resolved(
         })
         .collect();
     if ids.is_empty() {
-        ids = compiler.ide_callee_at(file, ctx.open as u32);
-        if ids.is_empty() {
+        let Some(target) = compiler.ide_call_target_at(file, ctx.open as u32) else {
             return Some(Vec::new());
+        };
+        if let Some((ty, header)) = target.parameters {
+            return Some(
+                callback(compiler, ty, &header, ctx, &facts)
+                    .into_iter()
+                    .collect(),
+            );
         }
+        ids = target.procedures;
     }
     let mut result = Vec::new();
     for id in ids {
@@ -407,43 +526,7 @@ fn resolved(
                             {
                                 to = *elem;
                             }
-                            // Expression facts lack operand flags/values. Only exclude a
-                            // candidate when these facts prove scalar incompatibility. Code
-                            // quotation, procedure values, auto-dereference, contextual
-                            // aggregates and other operand-aware conversions stay unresolved.
-                            use jaic::types::TypeKind;
-                            let scalar = |kind: &TypeKind| {
-                                matches!(
-                                    kind,
-                                    TypeKind::Bool
-                                        | TypeKind::Int { .. }
-                                        | TypeKind::Float { .. }
-                                        | TypeKind::String
-                                )
-                            };
-                            if !scalar(compiler.types.kind(from))
-                                || !scalar(compiler.types.kind(to))
-                            {
-                                return true;
-                            }
-                            // Constants can carry untyped arithmetic or one-byte string
-                            // conversions; the type fact cannot establish their value/flags.
-                            if constant
-                                && ((matches!(
-                                    compiler.types.kind(from),
-                                    TypeKind::Int { .. } | TypeKind::Float { .. }
-                                ) && matches!(
-                                    compiler.types.kind(to),
-                                    TypeKind::Int { .. } | TypeKind::Float { .. }
-                                ) && !ctx.args[i].literal)
-                                    || (from == jaic::types::TypeId::STRING
-                                        && to == jaic::types::TypeId::U8))
-                            {
-                                return true;
-                            }
-                            compiler
-                                .implicit_cost(from, ctx.args[i].literal, to)
-                                .is_some()
+                            compatible(compiler, &ctx.args[i], from, constant, to)
                         })
                     })
                     .collect(),

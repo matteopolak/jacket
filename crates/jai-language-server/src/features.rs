@@ -93,7 +93,7 @@ impl Session {
         start: usize,
         end: usize,
     ) -> Option<Location> {
-        let target = DocumentUri::parse(&format!("file://{path}")).ok()?;
+        let target = DocumentUri::from_path(Path::new(path)).ok()?;
         let span = Span::new(start, end);
         let range = match self.documents.get(&target) {
             Some(open) if open.same_positions(text) => open.index.range(&open.text, span).ok()?,
@@ -214,7 +214,7 @@ impl Session {
         uri: &DocumentUri,
         byte: usize,
     ) -> Option<(usize, usize, HoverText)> {
-        let analysis = self.analyses.get(uri)?;
+        let analysis = self.analysis_for(uri)?;
         let doc = self.document(uri).ok()?;
         let (_, token) = crate::session::tokens_at(&analysis.tokens, byte)
             .find(|(_, t)| t.kind == TokenKind::Directive)?;
@@ -328,8 +328,7 @@ impl Session {
         let doc = self.document(uri).ok()?;
         let text = &doc.text;
         let call = self
-            .analyses
-            .get(uri)?
+            .analysis_for(uri)?
             .format_calls
             .iter()
             .find(|c| c.string.start <= byte && byte < c.string.end)?;
@@ -1007,13 +1006,17 @@ impl Session {
             .environment
             .as_ref()
             .map_or(path.clone(), |e| e.fs.canonical(&path));
-        DocumentUri::parse(&format!("file://{}", path.to_string_lossy())).ok()
+        DocumentUri::from_path(&path).ok()
     }
 
     /// Each `#load` / `#import` string of the document with the file it brings in.
     pub fn document_links(&self, uri: &DocumentUri) -> Result<Vec<(Range, String)>, Error> {
         self.document(uri)?;
-        let links = self.analyses[uri].links.clone();
+        let links = self
+            .analysis_for(uri)
+            .expect("opened document has analysis")
+            .links
+            .clone();
         let mut out: Vec<(Range, String)> = links
             .iter()
             .filter_map(|link| {
@@ -1031,8 +1034,7 @@ impl Session {
     /// Definition of a `#load` / `#import` directive or its string: the start of the file.
     pub(crate) fn link_definition(&self, uri: &DocumentUri, byte: usize) -> Option<Location> {
         let link = self
-            .analyses
-            .get(uri)?
+            .analysis_for(uri)?
             .links
             .iter()
             .find(|l| l.directive.start <= byte && byte <= l.directive.end)?;
@@ -1053,7 +1055,7 @@ impl Session {
         let query = query.to_lowercase();
         let mut out = Vec::new();
         for (uri, analysis) in &self.analyses {
-            let analysis = match self.parsed.get(uri) {
+            let analysis = match self.parsed_for(uri) {
                 Some(parsed) if !analysis.complete => parsed,
                 _ => analysis,
             };
@@ -1092,7 +1094,9 @@ impl Session {
     pub fn folding_ranges(&self, uri: &DocumentUri) -> Result<Vec<FoldingRange>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
-        let analysis = &self.analyses[uri];
+        let analysis = &self
+            .analysis_for(uri)
+            .expect("opened document has analysis");
         let line = |byte: usize| doc.index.position(text, byte).map(|p| p.line);
         let mut out = Vec::new();
         let mut open = Vec::new();
@@ -1225,10 +1229,7 @@ struct OpenFiles<'a> {
 
 impl OpenFiles<'_> {
     fn open(&self, path: &Path) -> bool {
-        self.session
-            .documents
-            .keys()
-            .any(|d| Path::new(d.path()) == path)
+        self.session.open_file_uri(path).is_some()
     }
 }
 

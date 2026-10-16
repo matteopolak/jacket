@@ -212,7 +212,7 @@ impl Session {
         item: &CallHierarchyItem,
     ) -> Result<Vec<CallHierarchyCall>, Error> {
         let uri = DocumentUri::parse(&item.uri)?;
-        if !self.documents.contains_key(&uri) {
+        if self.document(&uri).is_err() {
             return Ok(Vec::new());
         }
         let mut grouped = Grouped::default();
@@ -285,7 +285,7 @@ impl Session {
             if calling(&here, at).is_none_or(|s| s.name_span != me.name_span) {
                 continue;
             }
-            let Ok(target) = DocumentUri::parse(&format!("file://{path}")) else {
+            let Ok(target) = DocumentUri::from_path(std::path::Path::new(&path)) else {
                 continue;
             };
             let known = parsed.entry(path.clone()).or_insert_with(|| sites(&text));

@@ -1,6 +1,7 @@
 use crate::{Error, Range};
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentUri {
@@ -10,13 +11,17 @@ pub struct DocumentUri {
 
 impl DocumentUri {
     pub fn parse(uri: &str) -> Result<Self, Error> {
+        Self::parse_platform(uri, cfg!(windows))
+    }
+
+    fn parse_platform(uri: &str, windows: bool) -> Result<Self, Error> {
         if uri.len() > 4096 {
             return Err(Error::Limit("document URI exceeds 4096 bytes"));
         }
         let encoded = uri
             .strip_prefix("file://")
             .ok_or(Error::Uri("only absolute local file URIs are supported"))?;
-        if !encoded.starts_with('/') || encoded.contains(['?', '#', '\0']) {
+        if !encoded.starts_with('/') || encoded.contains(['?', '#', '\\', '\0']) {
             return Err(Error::Uri(
                 "file URI must have no authority, query or fragment",
             ));
@@ -39,14 +44,52 @@ impl DocumentUri {
             }
         }
         let decoded = String::from_utf8(bytes).map_err(|_| Error::Uri("URI path is not UTF-8"))?;
-        let path = normalize(&decoded)?;
-        let uri = format!("file://{}", encode(&path));
+        Self::from_uri_path(&decoded, windows)
+    }
+
+    /// A native filesystem path is data, not an already encoded URI component.
+    /// Drive paths use the host's Windows rules; filenames retain their case.
+    pub fn from_path(path: &Path) -> Result<Self, Error> {
+        let text = path.to_str().ok_or(Error::Uri("file path is not UTF-8"))?;
+        Self::from_native(text, cfg!(windows))
+    }
+
+    fn from_native(path: &str, windows: bool) -> Result<Self, Error> {
+        if path.len() > 4096 {
+            return Err(Error::Limit("document path exceeds 4096 bytes"));
+        }
+        let mut path = native_spelling(path, windows)?;
+        if windows {
+            if path.starts_with("//") {
+                return Err(Error::Uri(
+                    "only local file paths without an authority are supported",
+                ));
+            }
+            if drive(&path) {
+                if !path[2..].starts_with('/') {
+                    return Err(Error::Uri("drive-relative paths are unsupported"));
+                }
+                path.insert(0, '/');
+            }
+        }
+        Self::from_uri_path(&path, windows)
+    }
+
+    fn from_uri_path(path: &str, windows: bool) -> Result<Self, Error> {
+        let normalized = normalize(path, windows)?;
+        let uri = format!("file://{}", encode(&normalized));
         if uri.len() > 4096 {
             return Err(Error::Limit("canonical document URI exceeds 4096 bytes"));
         }
         Ok(Self {
             uri,
-            path,
+            // `/C:/...` is URI syntax. A leading slash makes it a rooted path on the
+            // current Windows drive instead of the absolute path named by the client.
+            path: if windows && drive(&normalized[1..]) {
+                normalized[1..].to_owned()
+            } else {
+                normalized
+            },
         })
     }
 
@@ -59,24 +102,41 @@ impl DocumentUri {
     }
 
     pub(crate) fn load(&self, target: &str) -> Result<Self, Error> {
-        if target.contains(['\\', '\0', ':']) || target.len() > 4096 {
+        if target.contains('\0') || target.len() > 4096 {
             return Err(Error::Uri("unsupported #load target"));
         }
-        let joined = if target.starts_with('/') {
-            target.to_owned()
-        } else {
-            format!(
-                "{}/{}",
-                self.path.rsplit_once('/').map_or("", |(parent, _)| parent),
-                target
-            )
-        };
-        let path = normalize(&joined)?;
-        Ok(Self {
-            uri: format!("file://{}", encode(&path)),
-            path,
-        })
+        let parent = Path::new(&self.path)
+            .parent()
+            .ok_or(Error::Uri("document has no parent folder"))?;
+        Self::from_path(&parent.join(target))
     }
+}
+
+fn native_spelling(path: &str, windows: bool) -> Result<String, Error> {
+    let mut result = path.to_owned();
+    if windows {
+        if result.starts_with(r"\\?\") {
+            result = jaic::strip_verbatim(&result)
+                .ok_or(Error::Uri("unsupported verbatim file path"))?;
+        }
+        result = result.replace('\\', "/");
+        if drive(&result) {
+            result.replace_range(0..1, &result[..1].to_ascii_uppercase());
+        }
+    }
+    Ok(result)
+}
+
+/// Normalize native spelling after filesystem canonicalization. Do not casefold filenames:
+/// canonicalization knows actual file identity, including case-sensitive Windows folders.
+pub(crate) fn path_key(path: &Path) -> PathBuf {
+    if cfg!(windows)
+        && let Some(text) = path.to_str()
+        && let Ok(key) = native_spelling(text, true)
+    {
+        return PathBuf::from(key);
+    }
+    path.to_owned()
 }
 
 fn hex(c: u8) -> Option<u8> {
@@ -101,28 +161,45 @@ fn encode(path: &str) -> String {
     out
 }
 
-fn normalize(path: &str) -> Result<String, Error> {
-    if !path.starts_with('/') || path.contains(['\\', '\0']) {
+fn drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+fn normalize(path: &str, windows: bool) -> Result<String, Error> {
+    if !path.starts_with('/') || path.contains('\0') || (windows && path.contains('\\')) {
         return Err(Error::Uri(
-            "document path must be absolute and contain no backslash or NUL",
+            "document URI path must be absolute with valid separators and no NUL",
         ));
+    }
+    if windows && path.starts_with("//") {
+        return Err(Error::Uri("file URI must have no authority"));
+    }
+    let has_drive = windows && drive(&path[1..]);
+    if has_drive && !path[3..].starts_with('/') {
+        return Err(Error::Uri("drive URI must name an absolute path"));
     }
     let mut parts = vec![];
     for part in path.split('/') {
         match part {
             "" | "." => {}
             ".." => {
-                if parts.pop().is_none() {
+                if parts.len() <= usize::from(has_drive) {
                     return Err(Error::Uri("document path escapes its root"));
                 }
+                parts.pop();
             }
             value => parts.push(value),
         }
     }
-    if parts.is_empty() {
-        return Err(Error::Uri("document URI names a root"));
+    let mut result = format!("/{}", parts.join("/"));
+    if has_drive {
+        result.replace_range(1..2, &result[1..2].to_ascii_uppercase());
+        if parts.len() == 1 {
+            result.push('/');
+        }
     }
-    Ok(format!("/{}", parts.join("/")))
+    Ok(result)
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -142,6 +219,92 @@ pub struct VirtualSources {
 impl VirtualSources {
     /// Text of an open document by absolute path; unopened or escaping paths are `None`.
     pub fn read(&self, path: &str) -> Option<&str> {
-        self.files.get(&normalize(path).ok()?).map(String::as_str)
+        self.files
+            .get(DocumentUri::from_path(Path::new(path)).ok()?.path())
+            .map(String::as_str)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_drive_uri_maps_to_native_absolute_path() {
+        let uri = DocumentUri::parse_platform(
+            "file:///c%3A/Users/Name/../jai%20%23%25%C3%A9/module.jai",
+            true,
+        )
+        .unwrap();
+        assert_eq!(uri.path(), "C:/Users/jai #%é/module.jai");
+        assert_eq!(
+            uri.as_str(),
+            "file:///C:/Users/jai%20%23%25%C3%A9/module.jai"
+        );
+        assert_eq!(
+            DocumentUri::parse_platform(uri.as_str(), true).unwrap(),
+            uri
+        );
+    }
+
+    #[test]
+    fn windows_native_separators_drive_case_and_verbatim_paths_share_uri_identity() {
+        let a = DocumentUri::from_native(r"c:\Users\jai # % é\Basic\module.jai", true).unwrap();
+        for spelling in [
+            "C:/Users/jai # % é/Basic/module.jai",
+            r"\\?\c:\Users\jai # % é\Basic\module.jai",
+        ] {
+            assert_eq!(DocumentUri::from_native(spelling, true).unwrap(), a);
+        }
+        assert_eq!(
+            a.as_str(),
+            "file:///C:/Users/jai%20%23%20%25%20%C3%A9/Basic/module.jai"
+        );
+        assert_ne!(
+            a,
+            DocumentUri::from_native("C:/Users/jai # % é/basic/module.jai", true).unwrap(),
+            "filesystem identity must decide filename case equivalence"
+        );
+    }
+
+    #[test]
+    fn local_uri_boundaries_reject_ambiguous_drives_authorities_escapes_and_nuls() {
+        for uri in [
+            "file:///C:/../outside.jai",
+            "file:///C:relative.jai",
+            "file://remote/share/main.jai",
+            "file:////remote/share/main.jai",
+            "file:///C:/bad%00name.jai",
+            r"file:///C:\main.jai",
+            "file:///C:/bad%GGname.jai",
+        ] {
+            assert!(DocumentUri::parse_platform(uri, true).is_err(), "{uri}");
+        }
+        for path in ["C:relative.jai", r"\\remote\share\main.jai", r"\\.\device"] {
+            assert!(DocumentUri::from_native(path, true).is_err(), "{path}");
+        }
+        let root = DocumentUri::parse_platform("file:///c%3A/", true).unwrap();
+        assert_eq!(root.path(), "C:/");
+        assert_eq!(root.as_str(), "file:///C:/");
+        assert_eq!(
+            DocumentUri::parse_platform("file:///", false)
+                .unwrap()
+                .path(),
+            "/"
+        );
+    }
+
+    #[test]
+    fn posix_names_and_literal_percent_bytes_are_encoded_once() {
+        let uri = DocumentUri::from_native(r"/case/c:/a\b # %23 é.jai", false).unwrap();
+        assert_eq!(
+            uri.as_str(),
+            "file:///case/c:/a%5Cb%20%23%20%2523%20%C3%A9.jai"
+        );
+        assert_eq!(
+            DocumentUri::parse_platform(uri.as_str(), false).unwrap(),
+            uri
+        );
+        assert!(DocumentUri::from_native("relative.jai", false).is_err());
     }
 }

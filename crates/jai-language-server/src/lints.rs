@@ -69,11 +69,10 @@ impl Session {
         while let Some(d) = dir {
             let file = d.join(FILE_NAME);
             let parsed = if let Some(open) = self
-                .lint_configs
-                .iter()
-                .find(|(uri, _)| Path::new(uri.path()) == file)
+                .open_file_uri(&file)
+                .and_then(|uri| self.lint_configs.get(&uri))
             {
-                Config::parse(&open.1.text, d)
+                Config::parse(&open.text, d)
             } else if file.is_file() {
                 Config::load(&file)
             } else {

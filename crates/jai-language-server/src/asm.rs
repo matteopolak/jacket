@@ -624,6 +624,9 @@ impl Session {
         code: &[u8],
         block: &AsmBlock,
     ) -> Vec<IdeName> {
+        let Ok((uri, doc)) = self.document_entry(uri) else {
+            return Vec::new();
+        };
         let at = block.directive;
         let blank = |from: usize, to: usize| -> String {
             let mut bytes = text.as_bytes().to_vec();
@@ -662,9 +665,9 @@ impl Session {
                     .collect();
             }
         }
-        let analysis = match self.analyses.get(uri) {
+        let analysis = match self.analysis_for(uri) {
             Some(a) if a.complete => a,
-            _ => match self.parsed.get(uri).or_else(|| self.analyses.get(uri)) {
+            _ => match self.parsed_for(uri).or_else(|| self.analysis_for(uri)) {
                 Some(a) => a,
                 None => return Vec::new(),
             },
@@ -687,7 +690,7 @@ impl Session {
                 } else {
                     IdeKind::Variable
                 },
-                detail: self.source_detail(uri, row).into(),
+                detail: Self::source_detail(doc, row).into(),
                 decl: jaic::source::Span::NONE,
             })
             .collect()

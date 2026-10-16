@@ -17,25 +17,14 @@ use std::path::Path;
 /// `completionItem/resolve`, so a list of thousands of names costs no more than before.
 pub(crate) const EAGER_DOCS: usize = 24;
 
-/// `path` as the path of a `file://` URL: bytes outside the unreserved set are escaped, so
-/// the URL can sit in a Markdown link.
-fn percent(path: &str) -> String {
-    let mut out = String::with_capacity(path.len());
-    for b in path.bytes() {
-        if b.is_ascii_alphanumeric() || b"/-._~:".contains(&b) {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
-
 /// `file:///path#L<line>` for the byte `start` of `text`.
-pub(crate) fn url(path: &str, text: &str, start: usize) -> String {
+pub(crate) fn url(path: &str, text: &str, start: usize) -> Option<String> {
     let start = text.floor_char_boundary(start.min(text.len()));
     let line = text[..start].matches('\n').count() + 1;
-    format!("file://{}#L{line}", percent(path))
+    Some(format!(
+        "{}#L{line}",
+        DocumentUri::from_path(Path::new(path)).ok()?.as_str()
+    ))
 }
 
 /// How an editor should color the declaration a link leads to.
@@ -99,7 +88,7 @@ impl Session {
                             .resolve_names(Path::new(path), scope_at, n)
                             .into_iter()
                             .next()?;
-                        Some((n.clone(), url(&p, &t, s)))
+                        Some((n.clone(), url(&p, &t, s)?))
                     })
                     .collect(),
             )
@@ -272,7 +261,7 @@ impl Session {
             .into_iter()
             .filter_map(|(site, (path, text, start, _))| {
                 let range = self.range_of(uri, Span::new(site.label.0, site.label.1))?;
-                Some((range, url(&path, &text, start)))
+                Some((range, url(&path, &text, start)?))
             })
             .collect()
     }
@@ -412,7 +401,7 @@ impl Session {
     /// The documentation of the declaration a completion item stands for.
     pub fn completion_documentation(&self, data: &CompletionData) -> Option<String> {
         let document = DocumentUri::parse(&data.document).ok()?;
-        let file = DocumentUri::parse(&format!("file://{}", data.path)).ok()?;
+        let file = DocumentUri::from_path(Path::new(&data.path)).ok()?;
         let text = self.source(&file)?;
         let raw = docs::declaration(&text, data.offset)?;
         self.render_docs(

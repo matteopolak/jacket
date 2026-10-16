@@ -178,7 +178,9 @@ impl Compiler {
                         self.eval_const_or_run(scope, &a.value, expected)?,
                     ));
                 }
-                Ok(Operand::Type(self.instantiate_struct(ps, values, span)?))
+                let ty = self.instantiate_struct(ps, values, span)?;
+                self.ide_note_struct_arguments(ty, args);
+                Ok(Operand::Type(ty))
             }
             Operand::Procs(procs) => {
                 let as_code = self.macro_code_args(&procs, args);

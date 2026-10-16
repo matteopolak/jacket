@@ -84,7 +84,10 @@ impl Session {
             let byte = doc.index.byte(text, position)?;
             let mut found: Vec<(usize, usize)> = Vec::new();
             // The token under the cursor (the later one when between two), and a string's text.
-            let tokens = &self.analyses[uri].tokens;
+            let tokens = &self
+                .analysis_for(uri)
+                .expect("opened document has analysis")
+                .tokens;
             let token = tokens
                 .iter()
                 .rev()

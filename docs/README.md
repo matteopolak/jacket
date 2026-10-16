@@ -743,3 +743,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 [Integrated check-only IR lifetime repair](status/shared-ir-lifetime-checkpoint.json) records the exact822 patch review and two passing backend-boundary regressions.
 
 [Reviewed AppKit flags and Metal Render inheritance](native/appkit-metal-corpus-dispositions.md) records exact public shape, real SDK evidence and remaining protected application replays.
+
+[Post-beec LSP integration](status/shared-lsp-followup-checkpoint.json) records exact patches,301 merged tests,52 overlapping followup checks,105 core regressions, reconciliation and open native/scanner gates.

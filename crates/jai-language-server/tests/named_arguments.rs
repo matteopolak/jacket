@@ -39,7 +39,12 @@ fn variadic_spread_defaults_and_generic_headers_use_actual_slots() {
         names("f :: (value: $T, enabled := false) {}\nmain :: () { f(1, en|); }"),
         ["enabled"]
     );
-    assert!(names("Holder :: struct { callback: (option: bool) -> int; }\nmain :: () { holder: Holder; holder.callback(op|); }").is_empty(), "no name metadata: do not invent a signature");
+    assert_eq!(
+        names(
+            "Holder :: struct { callback: (option: bool) -> int; }\nmain :: () { holder: Holder; holder.callback(op|); }"
+        ),
+        ["option"]
+    );
 }
 
 #[test]
@@ -93,9 +98,13 @@ fn known_argument_types_filter_unselected_overloads() {
 
 #[test]
 fn independent_callback_signatures_do_not_leak_other_parameter_names() {
-    // Shared structural-type metadata cannot prove either declaration's callable signature.
-    // Preserve the no-fabrication assertion until compiler ownership binds names to values.
-    assert!(names("Holder :: struct { callback: (public_option := false) -> int; }\nOther :: struct { callback: (private_option := false) -> int; }\nmain :: () { h: Holder; other: Other; h.callback(|); }").is_empty());
+    // The selected declaration's header wins even when a later field has an equal type.
+    assert_eq!(
+        names(
+            "Holder :: struct { callback: (public_option := false) -> int; }\nOther :: struct { callback: (private_option := false) -> int; }\nmain :: () { h: Holder; other: Other; h.callback(|); }"
+        ),
+        ["public_option"]
+    );
 }
 
 #[test]
@@ -202,12 +211,15 @@ fn supplied_arguments_filter_each_overload_and_parameters_after_cursor() {
 }
 
 #[test]
-fn nested_calls_methods_aliases_and_unresolved_callback_fields() {
+fn nested_calls_methods_aliases_and_selected_callback_fields() {
     let source = "Tools :: struct { emit :: (amount: int, enabled := false) {} }\nalias :: Tools.emit;\nHolder :: struct { callback: (value: int, option := false) -> int; }\nmain :: () { holder: Holder; ";
     for call in ["Tools.emit(en|)", "alias(en|)"] {
         assert_eq!(names(&format!("{source}{call}; }}")), ["enabled"]);
     }
-    assert!(names(&format!("{source}holder.callback(op|); }}")).is_empty());
+    assert_eq!(
+        names(&format!("{source}holder.callback(op|); }}")),
+        ["option"]
+    );
     assert_eq!(
         names(
             "f :: (outer: int) {}\ng :: (inner: int) -> int { return inner; }\nmain :: () { f(g(in|)); }"

@@ -1036,6 +1036,9 @@ impl Compiler {
                 return err(r.span, "procedure type result needs a type");
             };
             let t = self.eval_type_in(f, scope, rt)?;
+            if let Some(name) = r.name {
+                self.ide_note_param_name(name.span, name.name, t);
+            }
             if t != TypeId::VOID {
                 returns.push(t);
             }

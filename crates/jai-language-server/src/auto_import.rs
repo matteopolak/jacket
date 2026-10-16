@@ -171,8 +171,12 @@ fn hash(text: &str) -> u64 {
 }
 
 impl Sources<'_> {
+    fn key(&self, path: &Path) -> PathBuf {
+        crate::document::path_key(&self.env.fs.canonical(path))
+    }
+
     pub(crate) fn read(&self, path: &Path) -> Option<String> {
-        match self.open.get(path) {
+        match self.open.get(&self.key(path)) {
             Some(text) => Some((*text).to_string()),
             None => self
                 .env
@@ -183,18 +187,20 @@ impl Sources<'_> {
     }
 
     fn is_file(&self, path: &Path) -> bool {
-        self.open.contains_key(path) || self.env.fs.is_file(path)
+        self.open.contains_key(&self.key(path)) || self.env.fs.is_file(path)
     }
 
     pub(crate) fn is_dir(&self, path: &Path) -> bool {
-        self.open.keys().any(|p| p.starts_with(path) && p != path) || self.env.fs.is_dir(path)
+        let key = self.key(path);
+        self.open.keys().any(|p| p.starts_with(&key) && *p != key) || self.env.fs.is_dir(path)
     }
 
     /// Entries of `dir` (name, is a folder): on disk and open documents below it.
     fn list_dir(&self, dir: &Path) -> Vec<(String, bool)> {
+        let key = self.key(dir);
         let mut entries: BTreeSet<(String, bool)> = self.env.fs.list_dir(dir).into_iter().collect();
         for open in self.open.keys() {
-            if let Ok(rest) = open.strip_prefix(dir) {
+            if let Ok(rest) = open.strip_prefix(&key) {
                 let mut parts = rest.iter();
                 if let Some(first) = parts.next() {
                     entries.insert((first.to_string_lossy().into_owned(), parts.next().is_some()));
@@ -205,6 +211,8 @@ impl Sources<'_> {
     }
 
     fn scan(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
+        let key = self.key(path);
+        let path = key.as_path();
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
             if let Some((seen, scan)) = index.open.get(path)
@@ -355,6 +363,8 @@ impl Sources<'_> {
 
     /// The `.jai` files under `dir` (cached walk of the disk, plus open documents).
     fn project_files(&self, index: &mut Index, dir: &Path) -> Vec<PathBuf> {
+        let key = self.key(dir);
+        let dir = key.as_path();
         let walked = match index.walked.get(dir) {
             Some(files) => files.clone(),
             None => {
@@ -436,6 +446,10 @@ impl Sources<'_> {
     }
 
     fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
+        let key = self.key(file);
+        let file = key.as_path();
+        let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
+        let folders = folder_keys.as_slice();
         let config = self.config(index, file);
         let base = config.as_ref().map(|(dir, _)| dir.clone()).or_else(|| {
             folders
@@ -614,7 +628,12 @@ impl Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
+                .map(|(u, d)| {
+                    (
+                        crate::document::path_key(&env.fs.canonical(Path::new(u.path()))),
+                        d.text.as_str(),
+                    )
+                })
                 .collect(),
         };
         let mut index = self.index.borrow_mut();
@@ -640,7 +659,12 @@ impl Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
+                .map(|(u, d)| {
+                    (
+                        crate::document::path_key(&env.fs.canonical(Path::new(u.path()))),
+                        d.text.as_str(),
+                    )
+                })
                 .collect(),
         };
         let mut index = self.index.borrow_mut();
@@ -658,16 +682,7 @@ impl Session {
         }
         let mut out = Vec::new();
         for file in files {
-            if self
-                .documents
-                .contains_key(&match DocumentUri::parse(&format!(
-                    "file://{}",
-                    file.to_string_lossy()
-                )) {
-                    Ok(uri) => uri,
-                    Err(_) => continue,
-                })
-            {
+            if self.open_file_uri(&file).is_some() {
                 continue;
             }
             let scan = sources.scan(&mut index, &file);
@@ -683,7 +698,9 @@ impl Session {
                 continue;
             };
             let lines = crate::position::LineIndex::new(&text);
-            let uri = format!("file://{}", file.to_string_lossy());
+            let Ok(uri) = DocumentUri::from_path(&file) else {
+                continue;
+            };
             for symbol in hits {
                 if out.len() >= room {
                     return out;
@@ -705,7 +722,7 @@ impl Session {
                         _ => crate::model::SymbolKind::Variable,
                     },
                     location: crate::model::Location {
-                        uri: uri.clone(),
+                        uri: uri.as_str().into(),
                         range,
                     },
                     container: None,
@@ -734,7 +751,12 @@ impl Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
+                .map(|(u, d)| {
+                    (
+                        crate::document::path_key(&env.fs.canonical(Path::new(u.path()))),
+                        d.text.as_str(),
+                    )
+                })
                 .collect(),
         };
         let file = PathBuf::from(uri.path());

@@ -91,6 +91,8 @@ pub struct Session {
     /// requests on one version would otherwise repeat.
     /// The text is `None` when it was the document's own.
     inputs: RefCell<Option<InputsMemo>>,
+    /// Filesystem-proven identities of open documents, invalidated with every input change.
+    open_file_identities: RefCell<Option<Vec<(PathBuf, DocumentUri)>>>,
     /// The code each other target's compile skipped too (by file and target, byte ranges), for
     /// the generation it was found in: not compiled for again. Code no target checks (a file
     /// nothing loads, a branch on yet another CPU) would otherwise compile every target on
@@ -124,6 +126,7 @@ impl Session {
             index: RefCell::default(),
             generation: std::cell::Cell::new(0),
             inputs: RefCell::default(),
+            open_file_identities: RefCell::default(),
             unreached: RefCell::default(),
         }
     }
@@ -185,10 +188,14 @@ impl Session {
     fn touch(&self) {
         self.generation.set(self.generation.get() + 1);
         *self.inputs.borrow_mut() = None;
+        *self.open_file_identities.borrow_mut() = None;
     }
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
-        self.workspace_folders = folders;
+        self.workspace_folders = folders
+            .iter()
+            .map(|p| crate::document::path_key(p))
+            .collect();
         self.index.borrow_mut().import_dirs.clear();
         self.touch();
     }
@@ -239,7 +246,7 @@ impl Session {
     }
 
     pub fn open(&mut self, uri: DocumentUri, version: i32, text: String) -> Result<(), Error> {
-        if self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri) {
+        if self.document_uri(&uri).is_some() {
             return Err(Error::AlreadyOpen);
         }
         if self.documents.len() + self.lint_configs.len() >= self.limits.documents {
@@ -276,6 +283,8 @@ impl Session {
         version: i32,
         changes: &[TextChange],
     ) -> Result<(), Error> {
+        let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+        let uri = &key;
         let document = match self.lint_configs.get(uri) {
             Some(config) => config,
             None => self.document(uri)?,
@@ -347,6 +356,8 @@ impl Session {
     }
 
     pub fn close(&mut self, uri: &DocumentUri) -> Result<(), Error> {
+        let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+        let uri = &key;
         self.file_changed(Path::new(uri.path()), true);
         if self.lint_configs.remove(uri).is_some() {
             self.semantic.borrow_mut().forget_lints();
@@ -362,7 +373,11 @@ impl Session {
         self.documents
             .iter()
             .map(|(uri, doc)| {
-                let mut diagnostics = self.analyses[uri].diagnostics.clone();
+                let mut diagnostics = self
+                    .analysis_for(uri)
+                    .expect("opened document has analysis")
+                    .diagnostics
+                    .clone();
                 diagnostics.extend(self.check_diagnostics(uri));
                 diagnostics.extend(self.lint_diagnostics(uri));
                 (uri.as_str().into(), doc.version, diagnostics)
@@ -393,11 +408,17 @@ impl Session {
         all.into_iter()
             .filter_map(|(start, end, message, severity)| {
                 let range = self.range_of(uri, Span::new(start, end))?;
-                if self.analyses[uri].diagnostics.iter().any(|d| {
-                    matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
-                        && d.range.start == range.start
-                        && d.message == message
-                }) {
+                if self
+                    .analysis_for(uri)
+                    .expect("opened document has analysis")
+                    .diagnostics
+                    .iter()
+                    .any(|d| {
+                        matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
+                            && d.range.start == range.start
+                            && d.message == message
+                    })
+                {
                     return None;
                 }
                 Some(Diagnostic {
@@ -413,7 +434,11 @@ impl Session {
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
         self.document(uri)?;
-        let mut diagnostics = self.analyses[uri].diagnostics.clone();
+        let mut diagnostics = self
+            .analysis_for(uri)
+            .expect("opened document has analysis")
+            .diagnostics
+            .clone();
         diagnostics.extend(self.check_diagnostics(uri));
         diagnostics.extend(self.lint_diagnostics(uri));
         Ok(diagnostics)
@@ -442,7 +467,61 @@ impl Session {
     }
 
     pub(crate) fn document(&self, uri: &DocumentUri) -> Result<&Document, Error> {
-        self.documents.get(uri).ok_or(Error::MissingDocument)
+        self.document_entry(uri).map(|(_, doc)| doc)
+    }
+
+    /// Resolve a request spelling to the actual stored key and its current buffer together.
+    /// Only the filesystem can establish equivalence between distinct native paths.
+    pub(crate) fn document_entry(
+        &self,
+        uri: &DocumentUri,
+    ) -> Result<(&DocumentUri, &Document), Error> {
+        let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+        self.documents
+            .get_key_value(&key)
+            .ok_or(Error::MissingDocument)
+    }
+
+    pub(crate) fn document_uri(&self, uri: &DocumentUri) -> Option<DocumentUri> {
+        if self.documents.contains_key(uri) || self.lint_configs.contains_key(uri) {
+            return Some(uri.clone());
+        }
+        self.open_file_uri(Path::new(uri.path()))
+    }
+
+    pub(crate) fn open_file_uri(&self, path: &Path) -> Option<DocumentUri> {
+        if let Ok(uri) = DocumentUri::from_path(path)
+            && (self.documents.contains_key(&uri) || self.lint_configs.contains_key(&uri))
+        {
+            return Some(uri);
+        }
+        let env = self.environment.as_ref()?;
+        let want = crate::document::path_key(&env.fs.canonical(path));
+        let mut identities = self.open_file_identities.borrow_mut();
+        let known = identities.get_or_insert_with(|| {
+            self.documents
+                .keys()
+                .chain(self.lint_configs.keys())
+                .map(|uri| {
+                    (
+                        crate::document::path_key(&env.fs.canonical(Path::new(uri.path()))),
+                        uri.clone(),
+                    )
+                })
+                .collect()
+        });
+        known
+            .iter()
+            .find(|(path, _)| *path == want)
+            .map(|(_, uri)| uri.clone())
+    }
+
+    pub(crate) fn analysis_for(&self, uri: &DocumentUri) -> Option<&Rc<Analysis>> {
+        self.analyses.get(&self.document_uri(uri)?)
+    }
+
+    pub(crate) fn parsed_for(&self, uri: &DocumentUri) -> Option<&Rc<Analysis>> {
+        self.parsed.get(&self.document_uri(uri)?)
     }
 
     fn rebuild(&mut self) {
@@ -451,7 +530,7 @@ impl Session {
         // warnings about files that are not open depend on which documents are.
         let mut analyses: BTreeMap<DocumentUri, Rc<Analysis>> = BTreeMap::new();
         for (uri, document) in &self.documents {
-            let kept = self.analyses.get(uri).filter(|a| {
+            let kept = self.analysis_for(uri).filter(|a| {
                 a.loads.is_empty() && a.key == crate::semantic::text_key(&document.text)
             });
             if let Some(kept) = kept {
@@ -468,7 +547,7 @@ impl Session {
                     "Incomplete lexical edit; this literal or comment is omitted from IDE analysis.");
             }
             for (target, span) in analysis.loads.clone() {
-                if !self.documents.contains_key(&target) {
+                if self.document(&target).is_err() {
                     analysis.diagnostic(
                         &document.index,
                         &document.text,
@@ -495,17 +574,23 @@ impl Session {
     /// The document a check of `uri` starts from: an open document that `#load`s it (directly or
     /// not) and is loaded by none, else `uri` itself.
     pub(crate) fn root(&self, uri: &DocumentUri) -> DocumentUri {
-        let loaded: BTreeSet<&DocumentUri> = self
+        let actual = self.document_uri(uri).unwrap_or_else(|| uri.clone());
+        let uri = &actual;
+        let loaded: BTreeSet<DocumentUri> = self
             .analyses
             .values()
-            .flat_map(|a| a.loads.iter().map(|(target, _)| target))
+            .flat_map(|a| {
+                a.loads
+                    .iter()
+                    .map(|(target, _)| self.document_uri(target).unwrap_or_else(|| target.clone()))
+            })
             .collect();
         if !loaded.contains(uri) {
             return uri.clone();
         }
         self.documents
             .keys()
-            .find(|d| !loaded.contains(d) && self.reachable(d).contains(&uri))
+            .find(|d| !loaded.contains(*d) && self.reachable(d).contains(&uri))
             .unwrap_or(uri)
             .clone()
     }
@@ -513,6 +598,8 @@ impl Session {
     /// What a compile of the program containing `uri` needs, with `uri`'s text replaced by
     /// `text`: the open files, the program's root file and the module folders searched.
     fn compile_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
+        let key = self.document_uri(uri)?;
+        let uri = &key;
         // The document's own text (as most requests pass it) needs no comparing: any change to
         // a document moves the generation on.
         let own = self.is_own_text(uri, text);
@@ -538,8 +625,8 @@ impl Session {
 
     /// Whether `text` is the open document's own buffer, not a copy or an edited probe.
     fn is_own_text(&self, uri: &DocumentUri, text: &str) -> bool {
-        self.documents
-            .get(uri)
+        self.document(uri)
+            .ok()
             .is_some_and(|d| std::ptr::eq(d.text.as_str(), text))
     }
 
@@ -551,7 +638,7 @@ impl Session {
         text: &'a str,
         first: Option<usize>,
     ) -> Option<Cow<'a, str>> {
-        if let Some(doc) = self.documents.get(uri)
+        if let Ok(doc) = self.document(uri)
             && std::ptr::eq(doc.text.as_str(), text)
             && *doc
                 .parses
@@ -695,8 +782,8 @@ impl Session {
         query(analysis, path)
     }
 
-    pub(crate) fn source_detail<'a>(&'a self, uri: &DocumentUri, row: &SymbolRow) -> &'a str {
-        let text = &self.documents[uri].text;
+    pub(crate) fn source_detail<'a>(doc: &'a Document, row: &SymbolRow) -> &'a str {
+        let text = &doc.text;
         let span = row.location;
         // Rows of an older parse may point past the current text.
         let start = text.floor_char_boundary(span.start.min(text.len()));
@@ -706,8 +793,11 @@ impl Session {
     }
 
     pub fn document_symbols(&self, uri: &DocumentUri) -> Result<Vec<DocumentSymbol>, Error> {
-        let doc = self.document(uri)?;
-        let rows = &self.analyses[uri].rows;
+        let (uri, doc) = self.document_entry(uri)?;
+        let rows = &self
+            .analysis_for(uri)
+            .expect("opened document has analysis")
+            .rows;
         // Children by parent, so the tree is built in one pass over the rows.
         let mut children: Vec<Vec<usize>> = vec![Vec::new(); rows.len()];
         for (id, row) in rows.iter().enumerate() {
@@ -720,26 +810,24 @@ impl Session {
             rows: &[SymbolRow],
             children: &[Vec<usize>],
             doc: &Document,
-            session: &Session,
-            uri: &DocumentUri,
         ) -> Result<DocumentSymbol, Error> {
             let row = &rows[id];
             Ok(DocumentSymbol {
                 name: row.name.as_str().into(),
-                detail: session.source_detail(uri, row).into(),
+                detail: Session::source_detail(doc, row).into(),
                 kind: row.kind,
                 range: doc.index.range(&doc.text, row.location)?,
                 selection_range: doc.index.range(&doc.text, row.selection)?,
                 children: children[id]
                     .iter()
-                    .map(|&child| tree(child, rows, children, doc, session, uri))
+                    .map(|&child| tree(child, rows, children, doc))
                     .collect::<Result<_, _>>()?,
             })
         }
         rows.iter()
             .enumerate()
             .filter(|(_, row)| row.parent.is_none())
-            .map(|(id, _)| tree(id, rows, &children, doc, self, uri))
+            .map(|(id, _)| tree(id, rows, &children, doc))
             .collect()
     }
 
@@ -748,6 +836,7 @@ impl Session {
         let mut seen = BTreeSet::new();
         let mut out = vec![];
         while let Some(next) = pending.pop() {
+            let next = self.document_uri(&next).unwrap_or(next);
             if !seen.insert(next.clone()) {
                 continue;
             }
@@ -764,11 +853,17 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Option<(usize, Token)>, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
-        Ok(tokens_at(&self.analyses[uri].tokens, byte)
-            .find(|(_, token)| matches!(token.kind, TokenKind::Ident | TokenKind::Keyword))
-            .map(|(at, token)| (at, *token)))
+        Ok(tokens_at(
+            &self
+                .analysis_for(uri)
+                .expect("opened document has analysis")
+                .tokens,
+            byte,
+        )
+        .find(|(_, token)| matches!(token.kind, TokenKind::Ident | TokenKind::Keyword))
+        .map(|(at, token)| (at, *token)))
     }
 
     fn bindings(
@@ -776,21 +871,20 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<(&DocumentUri, &SymbolRow)>, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
         let Some((at, token)) = self.word(uri, position)? else {
             return Ok(vec![]);
         };
-        let analysis = &self.analyses[uri];
+        let analysis = &self
+            .analysis_for(uri)
+            .expect("opened document has analysis");
         if let Some(row) = analysis
             .rows
             .iter()
             .find(|row| contains(row.selection, byte))
         {
-            return Ok(vec![(
-                self.documents.get_key_value(uri).expect("open URI").0,
-                row,
-            )]);
+            return Ok(vec![(uri, row)]);
         }
         if at > 0 && analysis.tokens[at - 1].kind == TokenKind::Dot {
             return Ok(vec![]);
@@ -820,10 +914,7 @@ impl Session {
             )
         });
         if let Some(row) = locals.first() {
-            return Ok(vec![(
-                self.documents.get_key_value(uri).expect("open URI").0,
-                *row,
-            )]);
+            return Ok(vec![(uri, *row)]);
         }
         let mut out = vec![];
         for candidate in self.reachable(uri) {
@@ -845,7 +936,7 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<Vec<Location>, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
         if let Some(location) = self.link_definition(uri, byte) {
             return Ok(vec![location]);
@@ -862,7 +953,7 @@ impl Session {
             let locations: Vec<Location> = found
                 .into_iter()
                 .filter_map(|(path, text, start, end)| {
-                    let target = DocumentUri::parse(&format!("file://{path}")).ok()?;
+                    let target = DocumentUri::from_path(Path::new(&path)).ok()?;
                     // An open document's own text and index, else the compiled file's.
                     let range = match self.documents.get(&target) {
                         Some(open) if open.same_positions(&text) => open
@@ -912,7 +1003,12 @@ impl Session {
     /// Text of a file the editor may not have open (a definition in a module or the stdlib):
     /// the open document's text, else the environment's file system.
     pub fn source(&self, uri: &DocumentUri) -> Option<String> {
-        if let Some(doc) = self.documents.get(uri) {
+        if let Some(key) = self.document_uri(uri)
+            && let Some(doc) = self
+                .documents
+                .get(&key)
+                .or_else(|| self.lint_configs.get(&key))
+        {
             return Some(doc.text.clone());
         }
         let bytes = self.environment.as_ref()?.fs.read(Path::new(uri.path()))?;
@@ -932,7 +1028,7 @@ impl Session {
         position: Position,
         kind: MarkupKind,
     ) -> Result<Option<Hover>, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
         let found = |start: usize, end: usize, text: HoverText| -> Result<Option<Hover>, Error> {
             Ok(Some(Hover {
@@ -986,7 +1082,9 @@ impl Session {
         }
         let rows = self.bindings(uri, position)?;
         let text = if rows.len() == 1 {
-            let mut blocks = vec![Block::Code(self.source_detail(rows[0].0, rows[0].1).into())];
+            let mut blocks = vec![Block::Code(
+                Self::source_detail(self.document(rows[0].0)?, rows[0].1).into(),
+            )];
             let at = rows[0].1.selection.start;
             if let Some(raw) = crate::docs::declaration(&self.documents[rows[0].0].text, at)
                 && let Some(doc) = self
@@ -1268,7 +1366,7 @@ impl Session {
         uri: &DocumentUri,
         position: Position,
     ) -> Result<CompletionList, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position)?;
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
@@ -1340,7 +1438,7 @@ impl Session {
     }
 
     fn completion_items(&self, uri: &DocumentUri, byte: usize) -> Result<CompletionList, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let position = doc.index.position(&doc.text, byte)?;
         // `#` and the start of a directive: offer directives (labels include the `#`).
         // Past the whole separator: it may be multi-byte (a no-break space).
@@ -1436,9 +1534,12 @@ impl Session {
                 items,
             });
         }
-        let analysis = match self.analyses.get(uri) {
+        let analysis = match self.analysis_for(uri) {
             Some(a) if a.complete => a,
-            _ => self.parsed.get(uri).unwrap_or(&self.analyses[uri]),
+            _ => self.parsed_for(uri).unwrap_or(
+                self.analysis_for(uri)
+                    .expect("opened document has analysis"),
+            ),
         };
         let prefix = self
             .word(uri, position)?
@@ -1447,7 +1548,13 @@ impl Session {
                 &doc.text[token.span.start..byte.min(token.span.end)]
             });
         if self.word(uri, position)?.is_some_and(|(at, _)| {
-            at > 0 && self.analyses[uri].tokens[at - 1].kind == TokenKind::Dot
+            at > 0
+                && self
+                    .analysis_for(uri)
+                    .expect("opened document has analysis")
+                    .tokens[at - 1]
+                    .kind
+                    == TokenKind::Dot
         }) {
             return Ok(CompletionList {
                 is_incomplete: true,
@@ -1481,7 +1588,7 @@ impl Session {
                     items.entry(name.to_owned()).or_insert(CompletionItem {
                         label: name.into(),
                         kind,
-                        detail: self.source_detail(candidate, row).into(),
+                        detail: Self::source_detail(&self.documents[candidate], row).into(),
                         ..CompletionItem::default()
                     });
                 } else if visible && items.len() >= self.limits.symbols {
@@ -1526,9 +1633,11 @@ impl Session {
     /// an environment: uses of types, procedures, macros, modules, constants and enum members,
     /// `$T` parameters, notes, and the `%` directives of format strings.
     pub fn semantic_tokens(&self, uri: &DocumentUri) -> Result<Vec<SemanticToken>, Error> {
-        let doc = self.document(uri)?;
+        let (uri, doc) = self.document_entry(uri)?;
         let text = doc.text.as_str();
-        let analysis = &self.analyses[uri];
+        let analysis = &self
+            .analysis_for(uri)
+            .expect("opened document has analysis");
         let classes: BTreeMap<usize, (usize, IdeClass)> = if self.environment.is_some() {
             self.identifier_classes(uri)
                 .into_iter()
@@ -1773,3 +1882,7 @@ fn layout_line(layout: IdeLayout) -> String {
     }
     line
 }
+
+#[cfg(test)]
+#[path = "uri_alias_tests.rs"]
+mod uri_alias_tests;

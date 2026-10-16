@@ -2128,13 +2128,13 @@ impl Compiler {
     // Default values
     // -----------------------------------------------------------------------
 
-    /// Offset and type of the member `name` of a `using` field of `s` (searched through nested `using`s).
+    /// Offset, type and authored declaration of `name` in a `using` field of `s`.
     fn find_used_member(
         &mut self,
         s: StructId,
         name: Sym,
         span: Span,
-    ) -> Result<Option<(u64, TypeId)>> {
+    ) -> Result<Option<(u64, TypeId, Span)>> {
         self.layout_struct(s, span)?;
         let fields = self.types.struct_info(s).fields.clone();
         for f in fields.iter().filter(|f| f.using) {
@@ -2144,10 +2144,10 @@ impl Compiler {
             self.layout_struct(inner, span)?;
             let inner_fields = self.types.struct_info(inner).fields.clone();
             if let Some(m) = inner_fields.iter().find(|m| m.name == Some(name)) {
-                return Ok(Some((f.offset + m.offset, m.ty)));
+                return Ok(Some((f.offset + m.offset, m.ty, m.span)));
             }
-            if let Some((o, t)) = self.find_used_member(inner, name, span)? {
-                return Ok(Some((f.offset + o, t)));
+            if let Some((o, t, decl)) = self.find_used_member(inner, name, span)? {
+                return Ok(Some((f.offset + o, t, decl)));
             }
         }
         Ok(None)
@@ -2162,7 +2162,14 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<(u64, TypeId)>> {
         match &lhs.kind {
-            E::Ident(name) => self.find_used_member(s, *name, span),
+            E::Ident(name) => {
+                Ok(self
+                    .find_used_member(s, *name, span)?
+                    .map(|(offset, ty, decl)| {
+                        self.ide_note_named_field(lhs.span, *name, decl, ty);
+                        (offset, ty)
+                    }))
+            }
             E::Member(base, name) => {
                 let Some((offset, ty)) = self.override_path(s, base, span)? else {
                     return Ok(None);
@@ -2172,7 +2179,10 @@ impl Compiler {
                 };
                 Ok(self
                     .struct_member(inner, name.name, span)?
-                    .map(|(o, t)| (offset + o, t)))
+                    .map(|(o, t, decl)| {
+                        self.ide_note_named_field(name.span, name.name, decl, t);
+                        (offset + o, t)
+                    }))
             }
             _ => Ok(None),
         }
@@ -2186,22 +2196,27 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<(u64, TypeId)>> {
         if let E::Ident(name) = &expr.kind {
-            return self.struct_member(s, *name, span);
+            return Ok(self
+                .struct_member(s, *name, span)?
+                .map(|(offset, ty, decl)| {
+                    self.ide_note_named_field(expr.span, *name, decl, ty);
+                    (offset, ty)
+                }));
         }
         self.override_target(s, expr, span)
     }
 
-    /// A field of `s` by name, directly or through `using` fields.
+    /// Offset, type and authored declaration of a field, directly or through `using` fields.
     fn struct_member(
         &mut self,
         s: StructId,
         name: Sym,
         span: Span,
-    ) -> Result<Option<(u64, TypeId)>> {
+    ) -> Result<Option<(u64, TypeId, Span)>> {
         self.layout_struct(s, span)?;
         let fields = self.types.struct_info(s).fields.clone();
         if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
-            return Ok(Some((f.offset, f.ty)));
+            return Ok(Some((f.offset, f.ty, f.span)));
         }
         self.find_used_member(s, name, span)
     }

@@ -293,6 +293,32 @@ fn stdlib_declarations_show_their_docs() {
 }
 
 #[test]
+fn imported_declarations_show_their_authored_docs() {
+    // Public signatures do not prescribe library prose or private source layout.
+    let mut s = session();
+    let imported = DocumentUri::parse("file:///lsp-doc-test/documented.jai").unwrap();
+    s.open(imported, 1, "/// Visible docs across imports.\n/// ```jai\n/// M.exposed(7);\n/// ```\n/// - value: the fixture input\nexposed :: (value: int) {}".into()).unwrap();
+    let text = "M :: #import,file \"documented.jai\";\nmain :: () { M.exposed(7); }";
+    s.open(uri(), 1, text.into()).unwrap();
+    let hover = markdown_hover(&s, after(text, "M.exposed", 0, 2));
+    assert!(hover.contains("Visible docs across imports."), "{hover}");
+    assert!(hover.contains("```jai\nM.exposed(7);\n```"), "{hover}");
+    let help = s
+        .signature_help_as(
+            &uri(),
+            after(text, "M.exposed(", 0, 0),
+            MarkupKind::Markdown,
+        )
+        .unwrap()
+        .expect("signature help");
+    let signature = &help.signatures[help.active_signature];
+    assert_eq!(
+        signature.parameter_docs[help.active_parameter].as_deref(),
+        Some("the fixture input")
+    );
+}
+
+#[test]
 fn links_in_docs_become_markdown_links() {
     let s = open();
     let hover = markdown_hover(&s, after(PROGRAM, "scale(point", 0, 7));

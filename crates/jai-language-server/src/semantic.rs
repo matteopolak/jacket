@@ -23,12 +23,58 @@ pub struct Environment {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SemanticCoverage {
     pub context_id: String,
+    /// Passive provenance of the selected analysis/program, not configured CLI intent.
+    pub analysis: SemanticAnalysisContext,
     pub source_loaded: bool,
     pub recorded_references: usize,
     pub recorded_fields: usize,
     pub program_complete: bool,
     pub program_errors: usize,
     pub target: String,
+}
+
+/// An observed native path. Audit serialization and Debug expose only its opaque identity.
+/// Trusted non-redacted consumers may explicitly inspect path; no filesystem lookup occurs.
+#[derive(Clone, serde::Serialize)]
+pub struct SemanticPath {
+    #[serde(skip)]
+    pub path: PathBuf,
+    pub identity: String,
+}
+
+impl SemanticPath {
+    fn observed(path: PathBuf) -> Self {
+        use std::hash::{Hash, Hasher};
+        let mut hash = crate::fast_hash::FastHasher::default();
+        "semantic-path".hash(&mut hash);
+        path.hash(&mut hash);
+        Self {
+            path,
+            identity: format!("path:{:016x}", hash.finish()),
+        }
+    }
+}
+
+impl std::fmt::Debug for SemanticPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SemanticPath")
+            .field("identity", &self.identity)
+            .finish()
+    }
+}
+
+/// Actual cached-analysis provenance and the selected compiler's options.
+/// Unknown observations stay None. Workspace IDs are scoped by coverage.context_id.
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct SemanticAnalysisContext {
+    /// The root argument used to create this cached analysis, including after focus switches.
+    pub root: Option<SemanticPath>,
+    /// Directly observed compile_program entry argument; unknown for generated workspaces.
+    pub entry: Option<SemanticPath>,
+    /// Exact selected compiler options.import_paths, preserving order and native spelling.
+    pub import_dirs: Option<Vec<SemanticPath>>,
+    /// Actual selected compiler.workspace, not a scanner-assigned label.
+    pub workspace_id: Option<i64>,
 }
 
 /// A declaration in a compiled file: (path, text of the file, start, end of its name).
@@ -89,7 +135,7 @@ impl OverlayFs {
         if let Some(known) = self.canonical.borrow().get(path) {
             return known.clone();
         }
-        let found = self.base.canonical(&self.at(path));
+        let found = crate::document::path_key(&self.base.canonical(&self.at(path)));
         self.canonical
             .borrow_mut()
             .insert(path.to_path_buf(), found.clone());
@@ -129,6 +175,8 @@ pub type Buffers = Rc<BTreeMap<PathBuf, Rc<[u8]>>>;
 
 pub struct Analysis {
     pub compiler: Compiler,
+    /// Entry observation belongs to the selected compiler and swaps with it.
+    entry: Option<PathBuf>,
     key: u64,
     /// `quick_key` of the inputs last answered from this compile, with those inputs, which
     /// keeps their buffers alive so no other text can take their addresses.
@@ -168,6 +216,7 @@ pub struct Analysis {
 /// `Analysis`'s own fields; the others wait in `Analysis::others`.
 struct Program {
     compiler: Compiler,
+    entry: Option<PathBuf>,
     complete: bool,
     errors: Vec<jaic::source::Diagnostic>,
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
@@ -191,6 +240,7 @@ impl Analysis {
         };
         let other = &mut self.others[at];
         std::mem::swap(&mut self.compiler, &mut other.compiler);
+        std::mem::swap(&mut self.entry, &mut other.entry);
         std::mem::swap(&mut self.complete, &mut other.complete);
         std::mem::swap(&mut self.errors, &mut other.errors);
         std::mem::swap(&mut self.lints, &mut other.lints);
@@ -322,6 +372,20 @@ impl Analysis {
         let ide = self.compiler.ide.as_ref();
         SemanticCoverage {
             context_id: format!("{:016x}", self.key),
+            analysis: SemanticAnalysisContext {
+                root: Some(SemanticPath::observed(self.root.clone())),
+                entry: self.entry.clone().map(SemanticPath::observed),
+                import_dirs: Some(
+                    self.compiler
+                        .options
+                        .import_paths
+                        .iter()
+                        .cloned()
+                        .map(SemanticPath::observed)
+                        .collect(),
+                ),
+                workspace_id: Some(self.compiler.workspace),
+            },
             source_loaded: file.is_some(),
             recorded_references: ide.map_or(0, |i| {
                 i.refs.iter().filter(|r| Some(r.span.file) == file).count()
@@ -600,9 +664,9 @@ impl Cache {
     ) -> Option<&mut Analysis> {
         let canonical: BTreeMap<PathBuf, Rc<[u8]>> = files
             .iter()
-            .map(|(p, t)| (env.fs.canonical(p), t.clone()))
+            .map(|(p, t)| (crate::document::path_key(&env.fs.canonical(p)), t.clone()))
             .collect();
-        let path = env.fs.canonical(path);
+        let path = crate::document::path_key(&env.fs.canonical(path));
         let at = self.entries.iter().rposition(|a| {
             a.usable
                 && a.os.is_none()
@@ -659,7 +723,7 @@ impl Cache {
                 let canonical = match self.canonical.get(p) {
                     Some(c) => c.clone(),
                     None => {
-                        let c = env.fs.canonical(p);
+                        let c = crate::document::path_key(&env.fs.canonical(p));
                         self.canonical.insert(p.clone(), c.clone());
                         c
                     }
@@ -699,6 +763,7 @@ impl Cache {
                     .is_some_and(|ide| !ide.scopes.is_empty());
             self.entries.push(Analysis {
                 compiler,
+                entry: Some(root.to_path_buf()),
                 key,
                 quick: Some((quick, given)),
                 os,
@@ -868,6 +933,9 @@ fn compile(
             let errors = check_rest(&mut compiler, Vec::new());
             Program {
                 compiler,
+                // Core does not expose a generated program's selected entry. Never borrow
+                // the outer root or infer it from loaded files.
+                entry: None,
                 complete: errors.is_empty(),
                 errors,
                 lints: BTreeMap::new(),

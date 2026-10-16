@@ -1228,7 +1228,7 @@ impl Compiler {
         }
     }
 
-    /// `name` at `span` names the field declared at `decl` (`#place a`, `#overlay (a)`).
+    /// `name` at `span` names an authored member/parameter declaration at `decl`.
     pub(super) fn ide_note_named_field(&mut self, span: Span, name: Sym, decl: Span, ty: TypeId) {
         if !self.ide_wants(span.file) {
             return;
@@ -1248,7 +1248,45 @@ impl Compiler {
             .as_mut()
             .is_some_and(|i| i.param_names.insert(span))
         {
-            self.ide_note_member_ref(span, name, ty);
+            self.ide_note_named_field(span, name, span, ty);
+        }
+    }
+
+    /// Named arguments of a successfully selected struct instance. Its bound constants
+    /// supply the actual parameter types, including dependent and baked parameters.
+    pub(super) fn ide_note_struct_arguments(&mut self, ty: TypeId, args: &[ast::Arg]) {
+        if self.ide.is_none() {
+            return;
+        }
+        let Some(s) = self.types.as_struct(ty) else {
+            return;
+        };
+        let Some(source) = self.struct_asts.get(&s) else {
+            return;
+        };
+        let (lit, scope) = (source.lit.clone(), source.scope);
+        for name in args.iter().filter_map(|a| a.name) {
+            let Some(param) = lit
+                .params
+                .iter()
+                .filter_map(|p| p.name)
+                .find(|p| p.name == name.name)
+            else {
+                continue;
+            };
+            let Some(ids) = self.scope(scope).names.get(&name.name) else {
+                continue;
+            };
+            let [id] = ids.as_slice() else {
+                continue;
+            };
+            let EntityKind::Const {
+                ty, ..
+            } = self.entity(*id).kind
+            else {
+                continue;
+            };
+            self.ide_note_named_field(name.span, name.name, param.span, ty);
         }
     }
 
