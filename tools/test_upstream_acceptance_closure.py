@@ -15,7 +15,7 @@ class SummaryContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location(
-            "acceptance_closure_runner", os.environ["UPSTREAM_CLOSURE_TEST_SOURCE"]
+            "acceptance_closure_runner", os.environ.get("UPSTREAM_CLOSURE_TEST_SOURCE", Path(__file__).with_name("upstream_smoke.py"))
         )
         cls.runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.runner)

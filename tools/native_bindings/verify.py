@@ -14,6 +14,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from contextlib import ExitStack
 
 from generate import MODULES, condition_for
 from spec import parse_spec, Declaration, Spec
@@ -105,17 +106,45 @@ PRIVATE_UNIT_DEPENDENCIES = {
 }
 
 
-def place_private_unit(name, source, stdlib, hashes):
+def copy_private_fixture(source, target, boundary, cleanup):
+    if not target.resolve().is_relative_to(boundary.resolve()):
+        raise ValueError("private fixture destination escapes its owned forest")
+    created = []
+    parent = target.parent
+    while not parent.exists():
+        created.append(parent)
+        parent = parent.parent
+    previous = None
+    if target.exists():
+        info = target.stat()
+        previous = (target.read_bytes(), info.st_mode & 0o777, info.st_atime_ns, info.st_mtime_ns)
+
+    def restore():
+        if previous is None:
+            target.unlink(missing_ok=True)
+        else:
+            data, mode, accessed, modified = previous
+            target.write_bytes(data)
+            target.chmod(mode)
+            os.utime(target, ns=(accessed, modified))
+        for directory in created:
+            if directory.exists() and not any(directory.iterdir()):
+                directory.rmdir()
+
+    cleanup.callback(restore)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+
+
+def place_private_unit(name, source, stdlib, hashes, cleanup):
     placed = stdlib / PRIVATE_UNITS[name]
-    placed.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, placed)
+    copy_private_fixture(source, placed, stdlib.parent, cleanup)
     hashes[str(placed.relative_to(stdlib))] = hashlib.sha256(
         placed.read_bytes()
     ).hexdigest()
     for relative, destination in PRIVATE_UNIT_DEPENDENCIES.get(name, {}).items():
         target = stdlib / destination
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / relative, target)
+        copy_private_fixture(ROOT / relative, target, stdlib.parent, cleanup)
         hashes[destination] = hashlib.sha256(target.read_bytes()).hexdigest()
     return placed
 
@@ -388,6 +417,11 @@ def argument_parser():
 
 
 def main():
+    with ExitStack() as cleanup:
+        return run_verification(cleanup)
+
+
+def run_verification(cleanup):
     parser = argument_parser()
     args = parser.parse_args()
     if args.stdlib and args.rpmalloc_first_class_heaps:
@@ -604,7 +638,7 @@ def main():
         source_env = env
         if source.stem in PRIVATE_UNITS:
             source = place_private_unit(
-                source.stem, source, private_stdlib, report["staged_sources"]
+                source.stem, source, private_stdlib, report["staged_sources"], cleanup
             )
             source_env = private_env
         for os_name, cpu in configs:
@@ -928,7 +962,7 @@ def main():
                 # Copy bytes unchanged; do not expose a public testing backdoor
                 # or disable the compiler's private-import guard.
                 compiled_source = place_private_unit(
-                    name, source, private_stdlib, report["staged_sources"]
+                    name, source, private_stdlib, report["staged_sources"], cleanup
                 )
             runtime_env = private_env if name in PRIVATE_UNITS else env
             try:

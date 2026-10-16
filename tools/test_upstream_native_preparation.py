@@ -14,7 +14,7 @@ class NativePreparation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         spec = importlib.util.spec_from_file_location(
-            "upstream_native_preparation", os.environ["UPSTREAM_NATIVE_TEST_SOURCE"]
+            "upstream_native_preparation", os.environ.get("UPSTREAM_NATIVE_TEST_SOURCE", Path(__file__).with_name("upstream_native.py"))
         )
         cls.tool = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.tool)

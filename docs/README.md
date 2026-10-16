@@ -979,3 +979,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Reviewed target policies](tools/foundations-833-target-policy.md):21no-DCE checks and exact native dependencies; historical406failure rows are not replayed passes.
 
 - [Installed OpenSSL SDK discovery](tools/openssl-sdk-discovery.md): real SDK probing and canonical X509 inputs; native Linux/Windows package support remains required.
+
+- [Module default forwarding](compiler/module-default-forwarding-boundary.md): written-list identity and preserved canonical storage/type checks; root official verdict confirms distinction.
