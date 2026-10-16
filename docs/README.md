@@ -847,3 +847,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Editor audit integration](tools/lsp-editor-audit-integration.md): effectful-header ordering and selected sketch closure; exact merged hashes and verification limits.
 
 - [Current CI cohort ledger](status/ci-known-cohort-ready.json) and [committed5b25 candidate](status/shared-candidate-5b25c83a.json): exact tools/assets, ready/active/blocker dispositions and deferred original acceptance.
+
+- [Cross-source compiler phases](compiler/cross-source-phases.md): single-selection context loading, target-library isolation, preserved REDs and pending public contracts; [combined integration proof](status/numerics-cross-source-integration.json).
+
+- [Combined c0c+5b candidate718](status/shared-candidate-7187647b.json): matching tools/native assets and exact focused results for root’s next original400 gate.

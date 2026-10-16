@@ -666,13 +666,17 @@ impl Compiler {
     }
 
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
+        let cross_target = (options.os, options.cpu) != compiler_host();
         let mut c = Compiler {
             library_files: Default::default(),
             options,
             fs,
             sources: SourceMap::default(),
             types: Types::new(),
-            program: ir::Program::default(),
+            program: ir::Program {
+                cross_target,
+                ..Default::default()
+            },
             registered_data_segments: HashMap::default(),
             files: Vec::new(),
             source_origins: HashMap::default(),

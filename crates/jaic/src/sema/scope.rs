@@ -742,11 +742,22 @@ impl Compiler {
             // The condition must resolve from what is already declared; if it needs a name that
             // another pending item declares, the item waits for the ordinary lazy expansion.
             let saved = std::mem::replace(&mut self.lookup_without_expansion, true);
-            let ready = self.plain_condition_resolves(scope, file_scope, &stmt);
+            let branch = self.select_plain_branch(scope, file_scope, &stmt);
+            let ready = branch.is_some();
             self.lookup_without_expansion = saved;
             let misses = self.placeholder_misses;
-            let result = if ready {
-                self.expand_pending_item(scope, file_scope, &stmt, exported)
+            let result = if let Some(branch) = branch {
+                // Commit the selection already made without draining unrelated
+                // pending items. Declaration itself resumes ordinary lookup.
+                let vis = if exported {
+                    ast::ScopeKind::Export
+                } else if scope == file_scope {
+                    ast::ScopeKind::File
+                } else {
+                    ast::ScopeKind::Module
+                };
+                self.declare_stmts(scope, file_scope, &branch, vis)
+                    .map(|_| ())
             } else {
                 Ok(())
             };
@@ -760,30 +771,44 @@ impl Compiler {
         Ok(())
     }
 
-    /// Does a plain `#if`/`#if x == {}` item's condition evaluate with the names declared so far?
-    fn plain_condition_resolves(
+    /// Select a plain conditional once, using only already declared names.
+    /// Failure leaves it for ordinary expansion, which reports real errors.
+    fn select_plain_branch(
         &mut self,
         scope: ScopeId,
         file_scope: ScopeId,
         stmt: &ast::Stmt,
-    ) -> bool {
+    ) -> Option<Vec<ast::Stmt>> {
         let eval_scope = super::modules::file_scope_for_eval(self, scope, file_scope);
         match &stmt.kind {
             ast::StmtKind::StaticIf(boxed) => {
-                let crate::ast::StaticIfStmt {
-                    cond, ..
+                let ast::StaticIfStmt {
+                    cond,
+                    then_branch,
+                    else_branch,
                 } = &**boxed;
-                self.eval_static_condition(eval_scope, cond).is_ok()
+                let taken = self.eval_static_condition(eval_scope, cond).ok()?;
+                let (branch, skipped) = if taken {
+                    (then_branch, else_branch)
+                } else {
+                    (else_branch, then_branch)
+                };
+                self.ide_note_skipped(cond, skipped);
+                Some(branch.clone())
             }
             ast::StmtKind::StaticSwitch(boxed) => {
-                let crate::ast::SwitchStmt {
+                let ast::SwitchStmt {
                     value,
                     cases,
                     ..
                 } = &**boxed;
-                self.static_switch_case(eval_scope, value, cases).is_ok()
+                Some(
+                    self.static_switch_case(eval_scope, value, cases)
+                        .ok()?
+                        .map_or_else(Vec::new, |case| case.body.clone()),
+                )
             }
-            _ => false,
+            _ => None,
         }
     }
 

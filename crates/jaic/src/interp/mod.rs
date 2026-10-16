@@ -1314,7 +1314,7 @@ impl Interp {
     // -----------------------------------------------------------------------
 
     fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
-        if !self.host.native_linking() {
+        if !self.host.native_linking() || (self.compile_time && program.cross_target) {
             return Ok(());
         }
         for (index, info) in program.libraries.iter().enumerate() {
