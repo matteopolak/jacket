@@ -92,6 +92,118 @@ class FoundationsCapabilitiesTests(unittest.TestCase):
         )
         self.assertFalse(required - self.cases.keys())
 
+    def test_reviewed_native_dependencies_are_exact_and_still_native_required(self):
+        from foundations_case_capabilities import NATIVE_SERVICE_CASES
+
+        self.assertFalse(NATIVE_SERVICE_CASES.keys() - self.cases.keys())
+        for name in NATIVE_SERVICE_CASES:
+            case = self.cases[name]
+            for mode in ("wasm-interp", "wasm-native"):
+                self.assertIsNotNone(
+                    unavailable_reason(case, mode, "macos-arm64"), name
+                )
+            platform = (
+                "windows-x64" if case.get("required_os") == "windows" else "macos-arm64"
+            )
+            for mode in ("interp", "native"):
+                self.assertIsNone(unavailable_reason(case, mode, platform), name)
+
+    def test_explicit_seconds_and_wire_controls_remain_portable(self):
+        for name in (
+            "extensions/http-date-target",
+            "tests/portable-data-resource-wire",
+            "compiler/foundations-portable-compile-time",
+            "contracts/bootstrap-atomic-scalar-intrinsics",
+            "Extensions/Http/tests/codec",
+        ):
+            for mode in ("interp", "native", "wasm-interp", "wasm-native"):
+                self.assertIsNone(
+                    unavailable_reason(self.cases[name], mode, "macos-arm64")
+                )
+
+    def test_required_wasm_rejection_is_not_an_unavailable_or_a_native_negative(self):
+        from stdlib_test_catalog import case_for_mode
+        from stdlib_runtime import contract_result
+
+        original = self.cases["extensions/http-date-now-wasm-negative"]
+        self.assertNotIn("mode", original)
+        for mode in ("wasm-interp", "wasm-native"):
+            case = case_for_mode(original, mode)
+            self.assertEqual(case["mode"], "check-fail")
+            self.assertIsNone(unavailable_reason(case, mode, "macos-arm64"))
+            diagnostic = case["diagnostic_contains"]
+            self.assertTrue(contract_result(case, 1, "", diagnostic))
+            self.assertFalse(contract_result(case, 0, "", diagnostic))
+            self.assertFalse(
+                contract_result(case, 1, "", "unknown unrelated identifier")
+            )
+            self.assertFalse(contract_result(case, None, "", diagnostic))
+        self.assertNotIn("mode", case_for_mode(original, "native"))
+
+    def test_windows_provider_reproductions_do_not_remove_general_tls_coverage(self):
+        for name in (
+            "extensions/tls-windows-target",
+            "extensions/json-windows-host-provider-repro",
+        ):
+            case = self.cases[name]
+            self.assertEqual(case["required_os"], "windows")
+            self.assertIsNone(unavailable_reason(case, "native", "windows-arm64"))
+            self.assertIsNotNone(unavailable_reason(case, "native", "linux-x64"))
+        self.assertIsNone(
+            unavailable_reason(
+                self.cases["Extensions/Tls/tests/tls"], "native", "linux-x64"
+            )
+        )
+
+    def test_mode_contracts_do_not_mutate_shared_cases_or_swallow_invalid_policy(self):
+        from stdlib_test_catalog import case_for_mode
+
+        original = self.cases["extensions/http-date-now-wasm-negative"]
+        case = case_for_mode(original, "wasm-native")
+        case["mode"] = "changed"
+        self.assertNotIn("mode", original)
+        with self.assertRaises(ValueError):
+            case_for_mode(
+                {"mode_contracts": {"wasm-native": {"mode": "check-fail"}}},
+                "wasm-native",
+            )
+        conflict = {**original, "unsupported_modes": ["wasm-native"]}
+        with self.assertRaises(ValueError):
+            unavailable_reason(conflict, "wasm-native", "macos-arm64")
+
+
+class PolicyPreservation(unittest.TestCase):
+    def test_linux_x64_regressions_have_no_new_backend_deferral(self):
+        cases = {case["id"]: case for case in validated_entries()}
+        for name in ("compiler/lang-asm", "compiler/rules-simd-asm"):
+            for mode in ("interp", "native"):
+                self.assertIsNone(unavailable_reason(cases[name], mode, "linux-x64"))
+
+    def test_other_owners_metadata_and_unrelated_negative_contracts_survive(self):
+        from foundations_case_capabilities import apply_foundations_capabilities
+        from stdlib_test_catalog import case_for_mode
+
+        case = {
+            "id": "compiler/threads-allocators",
+            "family": "compiler",
+            "required_capabilities": ["peer-provider"],
+            "unsupported_modes": ["peer-mode"],
+            "peer_marker": {"keep": True},
+        }
+        apply_foundations_capabilities(case)
+        apply_foundations_capabilities(case)
+        self.assertIn("peer-mode", case["unsupported_modes"])
+        self.assertEqual(case["required_capabilities"].count("peer-provider"), 1)
+        self.assertEqual(case_for_mode(case, "native")["peer_marker"], {"keep": True})
+        private = next(
+            c
+            for c in validated_entries()
+            if c["id"] == "contracts/hash-private-seed-is-not-exported"
+        )
+        for mode in ("interp", "native", "wasm-interp", "wasm-native"):
+            self.assertEqual(case_for_mode(private, mode)["mode"], "check-fail")
+            self.assertIsNone(unavailable_reason(private, mode, "macos-arm64"))
+
 
 class CrossToolchainCpu(unittest.TestCase):
     def test_toolchain_suffix_does_not_change_actual_cpu(self):

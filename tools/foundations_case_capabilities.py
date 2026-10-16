@@ -100,11 +100,98 @@ LINUX_URING_CASES = frozenset(
     )
 )
 
+# Exact programs, reviewed from their imports/calls and the public module guards.
+# Missing native providers on these targets remain failures, not unavailability.
+NATIVE_SERVICE_CASES = {
+    "compiler/baked-enum-default": "System.get_number_of_processors / native System guard",
+    "compiler/system-machine-alias": "native System guard; M64 only on CPU.X64",
+    "compiler/rules-compile-time-execution": "native Process import and compile-time child process",
+    "compiler/socket-select-canonical-timeval": "native Socket/POSIX select ABI",
+    "contracts/socket-numeric-address-format": "native Socket public module guard",
+    "native/posix-stat-and-mutex": "native POSIX stat and Thread mutex",
+    "extensions/io-uring-protocol": "native Thread import; caller-memory queue, not a Linux kernel request",
+    "extensions/tls-windows-target": "native Tls/Io Windows provider reproduction",
+    "extensions/json-windows-host-provider-repro": "native Tls Windows host-provider reproduction, not pure JSON",
+    "tests/portable-data-resource": "native stb_image_resize image provider and real caller scratch-directory input",
+}
+NATIVE_SERVICE_CASES.update(
+    ("compiler/" + name, "native Thread public module guard and synchronization")
+    for name in (
+        "threads-allocators",
+        "threads-cooperative",
+        "threads-group-and-condition",
+        "threads-group-work",
+        "threads-switch-while-locked",
+        "threads-synchronization",
+        "threads-worker-requests",
+    )
+)
+NATIVE_SERVICE_CASES.update(
+    ("Extensions/Io/tests/" + name, "native Io provider and fiber stack switching")
+    for name in ("backends", "files", "streams", "tcp", "timeouts")
+)
+NATIVE_SERVICE_CASES.update(
+    (
+        "Extensions/Tls/tests/" + name,
+        "native Tls/Io fibers and TLS SDK; interop also needs Process/OpenSSL",
+    )
+    for name in ("tls", "interop")
+)
+NATIVE_SERVICE_CASES.update(
+    (
+        "linux_build/tests/" + name,
+        "private Linux linker workflow imports native Process; public facade remains Windows-host-only",
+    )
+    for name in (
+        "portable-contracts",
+        "portable-backend-dependency",
+        "portable-custom-link-failure",
+    )
+)
+NATIVE_SERVICE_CASES.update(
+    (
+        "Simp/tests/" + name,
+        "default Simp OPENGL surface and native GL/image/font providers",
+    )
+    for name in ("context-default-assertions", "glyph-atlas", "texture-packing")
+)
+NATIVE_SERVICE_CASES.update(
+    (
+        "rpmalloc/tests/" + name,
+        "native rpmalloc SDK ABI, live allocator and callback-context/thread providers",
+    )
+    for name in (
+        "adaptive-cache",
+        "live-config-raw",
+        "live-config",
+        "no-thread-cache",
+        "public-callbacks",
+        "public-configurable",
+    )
+)
+
 
 def apply_foundations_capabilities(case):
     """Merge only explicit requirements, preserving other owners' metadata."""
     required = []
     name = case["id"]
+    if name in NATIVE_SERVICE_CASES:
+        required.append(NATIVE_SERVICE_CASES[name])
+    if name in {
+        "extensions/tls-windows-target",
+        "extensions/json-windows-host-provider-repro",
+    }:
+        case["required_os"] = "windows"
+    if name == "extensions/http-date-now-wasm-negative":
+        # Explicit-seconds dates remain portable; only the wall-clock adapter is
+        # conditionally absent. These are required compile rejections, not skips.
+        case["mode_contracts"] = {
+            mode: {
+                "mode": "check-fail",
+                "diagnostic_contains": "module `Extensions/Http` has no exported member `http_date_now`",
+            }
+            for mode in ("wasm-interp", "wasm-native")
+        }
     if name in NATIVE_EXIT_CASES:
         required.append("native Basic.exit assertion/termination path")
     if name in NATIVE_FIBER_CASES:

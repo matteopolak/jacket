@@ -1,7 +1,8 @@
 // Browser verification of reviewed contracts and independent regressions.
-// Native SDK/graphics cases and explicit unavailable-foreign diagnostics are reported
+// Explicit canonical target unavailability is reported
 // separately, never as passing browser execution. No legacy failure baseline is used.
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
+import { playgroundContract } from "./playground_contract.mjs";
 import { readFile, readdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const python = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
-const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root, "tools/stdlib_test_catalog.py")], { encoding: "utf8" })) : [];
+const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root, "tools/stdlib_test_catalog.py"), "--mode", "wasm-interp"], { encoding: "utf8" })) : [];
 
 async function collectModules(dir, base, files) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -42,8 +43,8 @@ if (!isMainThread) {
     }
   }
   const runOne = test => new Promise(resolve => {
-    if (["native", "graphics"].includes(test.family)) {
-      resolve({ unavailable: "native SDK/OS/graphics regression requires native CI" });
+    if (test.selected_unavailable_reason) {
+      resolve({ unavailable: test.selected_unavailable_reason });
       return;
     }
     const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { directory, test }, resourceLimits: { maxOldGenerationSizeMb: 4096 } });
@@ -51,24 +52,9 @@ if (!isMainThread) {
     const done = value => { if (finished) return; finished = true; clearTimeout(timer); resolve(value); };
     const timer = setTimeout(() => { done({ pass: false, why: "timeout" }); worker.terminate(); }, 120000);
     worker.on("message", r => {
-      const errors = (r.diagnostics ?? []).filter(d => d.severity === "error");
-      const output = (r.stdout || "") + (r.stderr || "") + (r.rendered || "") + "\n" + errors.map(d => d.message).join("\n");
-      const negative = test.mode === "check-fail" || "error_contains" in test;
-      let pass;
-      if (test.mode === "check-fail") {
-        if (!test.diagnostic_contains?.trim()) { done({ pass: false, why: "missing precise diagnostic" }); worker.terminate(); return; }
-        pass = r.exitCode != null && r.exitCode !== 0 && output.includes(test.diagnostic_contains);
-      } else if ("error_contains" in test) {
-        pass = r.exitCode === test.exit_code && output.includes(test.error_contains);
-      } else {
-        pass = r.exitCode === 0 && errors.length === 0 && (!("stdout" in test) || r.stdout === test.stdout);
-      }
-      if (!negative && !pass && errors.length && errors.every(d => ["unavailable", "unknown-library"].includes(d.code))) {
-        done({ unavailable: errors.map(d => d.message).join("; ") });
-      } else {
-        if (process.env.PLAYGROUND_VERBOSE) console.log(test.id + "\n" + output);
-        done({ pass, why: pass ? "" : "exit " + r.exitCode + "; " + (errors[0]?.message || r.stderr || "stdout differs") });
-      }
+      const result = playgroundContract(test, r);
+      if (process.env.PLAYGROUND_VERBOSE) console.log(test.id + "\n" + result.output);
+      done({ pass: result.pass, why: result.why });
       worker.terminate();
     });
     worker.on("error", e => done({ pass: false, why: "crash: " + e.message }));

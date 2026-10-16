@@ -20,6 +20,7 @@ from stdlib_test_catalog import (
     validated_entries,
     unavailable_reason,
     reference_rejected_reason,
+    case_for_mode,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -414,7 +415,9 @@ def main():
     def run_test(case):
         test, path = case["id"], case["path"]
         results = []
+        source_case = case
         for mode in modes:
+            case = case_for_mode(source_case, mode)
             rejected = reference_rejected_reason(case)
             reason = unavailable_reason(case, mode, args.platform)
             started = time.monotonic()

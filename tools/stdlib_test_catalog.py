@@ -179,7 +179,28 @@ def validated_entries(root=ROOT):
     return result
 
 
+def case_for_mode(case, mode):
+    """Return the explicit mode contract without mutating the discovered source.
+
+    Selectors must use this result for dispatch AND expected-result accounting.
+    A required negative is a real check with a precise diagnostic, never a pass
+    inferred from target unavailability or an arbitrary compilation failure.
+    """
+    contract = case.get("mode_contracts", {}).get(mode, {})
+    if contract and (
+        set(contract) != {"mode", "diagnostic_contains"}
+        or contract.get("mode") != "check-fail"
+        or not isinstance(contract.get("diagnostic_contains"), str)
+        or not contract["diagnostic_contains"].strip()
+    ):
+        raise ValueError("mode contract requires check-fail and a precise diagnostic")
+    if contract and mode in case.get("unsupported_modes", ()):
+        raise ValueError("required mode rejection conflicts with unavailable metadata")
+    return {**case, **contract}
+
+
 def unavailable_reason(case, mode, actual_platform=None):
+    case = case_for_mode(case, mode)
     numerics_reason = numerics_unavailable_reason(case, mode, actual_platform)
     if numerics_reason:
         return numerics_reason
@@ -215,12 +236,25 @@ def cases(root=ROOT):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Project the canonical catalogue onto an explicit execution mode")
+    parser.add_argument("--mode", choices=("interp", "native", "wasm-interp", "wasm-native"))
+    parser.add_argument("--platform")
+    arguments = parser.parse_args()
+    entries = validated_entries()
+    if arguments.mode:
+        entries = [
+            {**case_for_mode(case, arguments.mode),
+             "selected_unavailable_reason": unavailable_reason(case, arguments.mode, arguments.platform)}
+            for case in entries
+        ]
     # The browser runner consumes the same reviewed manifest and source discovery.
     print(
         json.dumps(
             [
                 {**case, "path": str(case["path"].relative_to(ROOT))}
-                for case in validated_entries()
+                for case in entries
             ]
         )
     )
