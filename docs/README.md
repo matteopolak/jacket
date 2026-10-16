@@ -927,3 +927,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Storage and native elapsed-clock selection](tools/foundations-storage-clock.md): original mixed fixture remains byte-identical/native-required; identical storage assertions retain separate WASM coverage. Four ready source/doc hashes verified; current catalogue regression passes. Producer runtime proof is separately attributed.
 
 - [Portable-data public-context lint](tools/portable-data-context-lint.md): four exact ready hashes verified, four policy controls pass; unchanged runtime/SDK inventories and seven target privacy controls retained. Supplied71 complete lint contexts are separate producer evidence; current Windows native replay remains required.
+
+- Host provider caches now require source-paired ABI8 receipts; filename-only/ABI7 reuse is rejected. SDK input guards include .inc/patch and callback-context sources. Eleven selection policies pass; real native CI remains required.

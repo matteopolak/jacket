@@ -199,8 +199,9 @@ def main():
         ROOT / "tools/native_bindings/sdl_sdk_headers.py",
         ROOT / "stdlib/internal/bindings/rpmalloc-sdk/provenance.json",
         ROOT / "stdlib/internal/bindings/rpmalloc-callbacks/bridge.c",
+        ROOT / "stdlib/internal/bindings/callback-context/bridge.c",
     ]
-    for suffix in ("*.c", "*.h"):
+    for suffix in ("*.c", "*.h", "*.inc", "*.patch"):
         input_files += sorted(
             (ROOT / "stdlib/internal/bindings/rpmalloc-heaps").glob(suffix)
         )

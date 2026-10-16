@@ -15,6 +15,31 @@ import windows_cross as cross
 
 
 class Selection(unittest.TestCase):
+    def test_cached_filenames_without_source_paired_abi8_receipt_never_qualify(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "libbinding_callback_context.so").write_bytes(b"metadata fixture")
+            self.assertFalse(
+                cross.verified_cross_host_bindings(
+                    root, [], {"binding_callback_context"}, ".so"
+                )
+            )
+            receipt = root / "ci-provider-receipt.json"
+            receipt.write_text(json.dumps({"native_abi": 7}))
+            self.assertFalse(
+                cross.verified_cross_host_bindings(
+                    root, [], {"binding_callback_context"}, ".so"
+                )
+            )
+            receipt.write_text(
+                json.dumps({"native_abi": 8, "profiles": [], "source_inputs": {}})
+            )
+            self.assertFalse(
+                cross.verified_cross_host_bindings(
+                    root, [], {"binding_callback_context"}, ".so"
+                )
+            )
+
     def test_original_overloaded_ifx_is_only_exact_reference_rejection(self):
         source = cross.ROOT / "tests/compiler-regressions/proc-type-defaults-ifx.jai"
         case = {"id": "compiler/proc-type-defaults-ifx", "path": source}

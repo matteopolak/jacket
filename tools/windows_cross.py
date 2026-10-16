@@ -266,13 +266,15 @@ def ensure_cross_host_bindings(host):
         for path in os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep)
         if path
     ]
-    if all(
-        any(
-            (directory / ("lib" + name + suffix)).is_file() for directory in directories
-        )
-        for name in required
-    ):
-        return
+    for directory in directories:
+        if verified_cross_host_bindings(directory, profiles, required, suffix):
+            os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join(
+                [
+                    str(directory),
+                    *[str(path) for path in directories if path != directory],
+                ]
+            )
+            return
     assigned = os.environ.get("CARGO_TARGET_DIR") or os.environ.get("RUNNER_TEMP")
     if not assigned:
         raise ValueError(
@@ -307,6 +309,91 @@ def ensure_cross_host_bindings(host):
     os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join(
         [str(output), *map(str, directories)]
     )
+
+
+def verified_cross_host_bindings(directory, profiles, required, suffix):
+    """A complete filename set alone cannot qualify cached ABI7/stale providers."""
+    record = directory / "ci-provider-receipt.json"
+    if not record.is_file():
+        return False
+    receipt = json.loads(record.read_text())
+    if receipt.get("native_abi") != 8:
+        return False
+    keys = [
+        "statistics",
+        "raw",
+        "public_heaps",
+        "global_cache",
+        "thread_cache",
+        "assertions",
+        "validation",
+        "adaptive",
+    ]
+    expected = {
+        p["sdk"]: (8 << 16) | sum(int(bool(p[k])) << i for i, k in enumerate(keys))
+        for p in profiles
+    }
+    rows = receipt.get("profiles", [])
+    if (
+        len(rows) != len(expected)
+        or {p["profile"]: p["actual_flags"] for p in rows} != expected
+    ):
+        return False
+    inputs = receipt.get("source_inputs", {})
+    critical = {
+        "tools/build_ci_native_bindings.py",
+        "tools/native_bindings/build_dependencies.py",
+        "tools/native_bindings/build_rpmalloc.py",
+        "tools/native_bindings/prepare_rpmalloc.py",
+        "tools/native_bindings/rpmalloc_profiles.py",
+        "tools/native_bindings/config.py",
+        "tools/native_bindings/dependencies.json",
+        "stdlib/internal/bindings/rpmalloc-sdk/provenance.json",
+        "stdlib/internal/bindings/rpmalloc-heaps/bridge.c",
+        "stdlib/internal/bindings/rpmalloc-callbacks/bridge.c",
+        "stdlib/internal/bindings/callback-context/bridge.c",
+    }
+    for suffix in ("*.c", "*.h", "*.inc", "*.patch"):
+        critical.update(
+            str(path.relative_to(ROOT))
+            for path in (ROOT / "stdlib/internal/bindings/rpmalloc-heaps").glob(suffix)
+        )
+    if not critical <= inputs.keys():
+        return False
+    for name, digest in inputs.items():
+        path = pathlib.Path(name)
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or not (
+                name == "tools/build_ci_native_bindings.py"
+                or name.startswith(
+                    (
+                        "tools/native_bindings/",
+                        "tests/native-bindings/",
+                        "stdlib/internal/bindings/",
+                    )
+                )
+            )
+        ):
+            raise ValueError("invalid cross-host provider source receipt path")
+        if (
+            not (ROOT / path).is_file()
+            or hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != digest
+        ):
+            return False
+    assets = receipt.get("assets", {})
+    if any("lib" + name + suffix not in assets for name in required):
+        return False
+    for name, digest in assets.items():
+        if pathlib.Path(name).name != name:
+            raise ValueError("invalid cross-host provider artifact receipt path")
+        if (
+            not (directory / name).is_file()
+            or hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest
+        ):
+            return False
+    return True
 
 
 def use_cross_libs(args):
