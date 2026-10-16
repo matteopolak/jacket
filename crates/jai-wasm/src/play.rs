@@ -880,6 +880,30 @@ mod tests {
     }
 
     #[test]
+    fn tour_threads_use_the_private_runtime_and_join_real_workers() {
+        let source = format!(
+            "#import \"Basic\";\n{}\nmain :: () {{ tour_threads(); }}",
+            include_str!("../../../examples/tour/threads/cooperative.jai")
+        );
+        let result = single(&source);
+        assert_eq!(result.exit_code, Some(0), "{}", result.rendered);
+        assert!(
+            result.stdout.contains(
+                "3 workers counted the primes in 8 slices of 1000: 168 135 127 120 119 114 117 107"
+            ),
+            "{}",
+            result.stdout
+        );
+        assert!(
+            result
+                .stdout
+                .contains("The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)"),
+            "{}",
+            result.stdout
+        );
+    }
+
+    #[test]
     fn sandbox_files_live_in_memory_and_include_workspace_sources() {
         let r = single(include_str!("../tests/fixtures/sandbox-files.jai"));
         assert_eq!(r.stdout, "ok\n", "{:?}\n{}", r.diagnostics, r.rendered);

@@ -765,3 +765,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 [Basic filesystem platform guards](basic-filesystem-platform-guards.md) select the reviewed four-API target surface without Runtime classifier cycles; exact two-line repair and qualified evidence retained.
 
 [HTTP/TLS target repair](extensions/http-tls-target-repair.md) fixes Windows temporary allocation while preserving the four failed source-matrix gates and unresolved clock/provider questions.
+
+[Required WASM tour thread provider](compiler/wasm-workspace-triage.md) uses the private scheduler with real workers; full-tour GPU/Window_Type remains red, and unchanged60d formatter replay passed after root metadata correction.

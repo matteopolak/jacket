@@ -245,6 +245,50 @@ fn wasm_tour_runs_as_a_wasi_command() {
     }
 }
 
+/// Private runtime hooks keep real cooperative scheduling coverage independent
+/// of the public Thread module's legitimate desktop/Android target guard.
+#[test]
+fn tour_runtime_provider_runs_as_wasi_with_real_workers() {
+    let dir = scratch("wasm-tour-runtime");
+    let source = repo_root().join("tests/cleanroom-language/tour-runtime/main.jai");
+    for (flag, name) in [("-O0", "unoptimized"), ("-O2", "optimized")] {
+        let module = dir.join(format!("{name}.wasm"));
+        assert!(
+            jaic(
+                &dir,
+                &[
+                    source.to_str().unwrap(),
+                    "-os",
+                    "wasm",
+                    flag,
+                    "-exe",
+                    module.to_str().unwrap(),
+                ],
+            )
+            .is_some(),
+            "node and wasm-ld are required for private runtime coverage"
+        );
+        let output = wasi_run(&module, &[], "");
+        let stdout = text(&output.stdout);
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{stdout}{}",
+            text(&output.stderr)
+        );
+        assert!(
+            stdout.contains(
+                "3 workers counted the primes in 8 slices of 1000: 168 135 127 120 119 114 117 107"
+            ),
+            "{stdout}"
+        );
+        assert!(
+            stdout.contains("The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)"),
+            "{stdout}"
+        );
+    }
+}
+
 /// A metaprogram targets wasm the way it would in Jai: os_target .WASM, cpu_target .CUSTOM,
 /// an LLVM triple and features, and extra wasm-ld arguments.
 #[test]
