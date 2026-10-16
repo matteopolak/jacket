@@ -877,3 +877,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Formatter fixture inputs](tools/formatter-fixture-inputs.md): strict source metadata handling and required CI readonly acceptance.
 
 - [Platform-I/O target accounting and Windows path oracle](native/platform-io-target-accounting.md): explicit per-fixture capabilities and retained native checks.
+
+- [Interpreter pthread names](compiler/interpreter-pthread-names.md): checked scheduler identity translation and explicit unsupported execution modes.

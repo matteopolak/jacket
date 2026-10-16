@@ -295,6 +295,9 @@ impl Interp {
             }
             "pthread_detach" => Ok(0),
             "pthread_self" => Ok(self.isched().current as u64 + 1),
+            "pthread_setname_np" | "pthread_getname_np" => self.trap(
+                "pthread naming is unsupported by the inline scheduler (no OS pthread identity)",
+            ),
             "pthread_mutex_init" => {
                 self.isched().mutexes.insert(arg(0), MutexState::default());
                 Ok(0)

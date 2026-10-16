@@ -27,6 +27,7 @@
 #[cfg(not(panic = "unwind"))]
 compile_error!("native interpreter worker cancellation requires Rust panic=unwind");
 
+mod pthread;
 mod win32;
 
 use super::*;
@@ -104,6 +105,8 @@ struct GThread {
     suspend_count: u32,
     /// Actual Windows OS id, recorded before the thread waits for its baton.
     native_id: u32,
+    /// Main/adopted OS pthread identity. Managed workers retain theirs in `worker`.
+    native_pthread: Option<u64>,
     /// Own the actual kernel thread handle until CloseHandle or interpreter teardown.
     /// Scheduler state remains alive independently when the user closes a running thread.
     #[cfg(windows)]
@@ -128,6 +131,7 @@ impl GThread {
             worker: None,
             suspend_count: 0,
             native_id: 0,
+            native_pthread: adopted.then(pthread::current).flatten(),
             #[cfg(windows)]
             native_handle: None,
             block: Block::None,
@@ -297,9 +301,11 @@ pub(super) struct Shared {
 impl Shared {
     /// A scheduler whose only thread (0, the caller) holds the baton.
     fn new(interp: usize) -> Arc<Shared> {
+        let mut main = GThread::new(false, None);
+        main.native_pthread = pthread::current();
         Arc::new(Shared {
             sched: Mutex::new(Sched {
-                threads: vec![GThread::new(false, None)],
+                threads: vec![main],
                 current: Some(0),
                 last: 0,
                 in_native: false,
@@ -644,6 +650,7 @@ impl Interp {
             "pthread_join" => self.thread_join(arg(0), arg(1)),
             "pthread_detach" => Ok(0),
             "pthread_self" => Ok(self.me() as u64 + 1),
+            "pthread_setname_np" | "pthread_getname_np" => self.pthread_name(program, symbol, args),
             "pthread_mutex_init" => {
                 self.with_sched(|s| s.mutexes.insert(arg(0), MutexState::default()));
                 Ok(0)
@@ -692,6 +699,85 @@ impl Interp {
             _ => return self.win32_foreign(program, symbol, args),
         };
         Some(result.map(|v| vec![v]))
+    }
+
+    /// Naming is an OS operation; scheduler ids must never cross the native ABI.
+    fn pthread_name(&mut self, program: &Program, symbol: &str, args: &[u64]) -> Res<u64> {
+        if program.cross_target {
+            return self
+                .trap("pthread naming is unsupported for a cross-target interpreter program");
+        }
+        let Some(set_arity) = pthread::set_arity() else {
+            return self.trap("pthread naming is unsupported on this interpreter host");
+        };
+        let setting = symbol == "pthread_setname_np";
+        if args.len()
+            != if setting {
+                set_arity
+            } else {
+                3
+            }
+        {
+            return self.trap("pthread naming signature does not match this interpreter host");
+        }
+        let shared = self.shared();
+        // Retain the scheduler lock through the short native operation: teardown and
+        // adopted-slot recycling cannot invalidate the OS identity while it is used.
+        let sched = shared.lock();
+        let id = if setting && set_arity == 1 {
+            sched.current.unwrap_or(0)
+        } else {
+            let Some(id) = args[0]
+                .checked_sub(1)
+                .and_then(|id| usize::try_from(id).ok())
+            else {
+                return self.trap("pthread naming requires a live scheduler thread identity");
+            };
+            id
+        };
+        let Some(thread) = sched
+            .threads
+            .get(id)
+            .filter(|thread| !thread.finished && !thread.cancelled)
+        else {
+            return self.trap("pthread naming requires a live scheduler thread identity");
+        };
+        let Some(handle) = thread
+            .worker
+            .as_ref()
+            .and_then(pthread::worker_identity)
+            .or(thread.native_pthread)
+        else {
+            return self
+                .trap("pthread naming has no retained native identity for this scheduler thread");
+        };
+        if setting {
+            let pointer = args[set_arity - 1];
+            // Copy only a bounded C string through checked interpreter memory. An
+            // overlong name is terminated just beyond the OS limit so the actual
+            // naming API returns its own length error without an unbounded read.
+            let mut name = Vec::new();
+            for offset in 0..pthread::name_capacity() {
+                let address = pointer
+                    .checked_add(offset as u64)
+                    .ok_or_else(|| Trap::new("pthread name pointer overflow").at(self.loc))?;
+                let byte = self.fetch(address, 1)?[0];
+                name.push(byte);
+                if byte == 0 {
+                    break;
+                }
+            }
+            if name.last() != Some(&0) {
+                name.push(0);
+            }
+            Ok(pthread::set_name(handle, &name))
+        } else {
+            let (status, name) = pthread::get_name(handle, args[2]);
+            if status == 0 {
+                self.put(args[1], &name)?;
+            }
+            Ok(status)
+        }
     }
 
     /// Native callback ABI, independent of its nominal pointer types or module.
@@ -1057,6 +1143,97 @@ fn run_worker(shared: &Shared, program: usize, id: usize, func: FuncId, argument
     }
 }
 
+
+#[cfg(test)]
+mod pthread_name_tests {
+    use super::*;
+
+    #[test]
+    fn invalid_pthread_name_handles_never_fall_through_to_native() {
+        let mut interp = Interp::default();
+        for (symbol, args) in [
+            ("pthread_setname_np", vec![0, 0]),
+            ("pthread_getname_np", vec![0, 0, 16]),
+            ("pthread_getname_np", vec![u64::MAX, 0, 16]),
+        ] {
+            let result = interp
+                .thread_foreign(&Program::default(), symbol, &args)
+                .expect("scheduler-owned pthread naming must be intercepted");
+            assert!(result.is_err(), "invalid identity must not report success");
+        }
+    }
+
+    #[test]
+    fn inline_pthread_names_report_unsupported_without_native_fallback() {
+        let mut interp = Interp::default();
+        for (symbol, args) in [
+            ("pthread_setname_np", vec![1, 0]),
+            ("pthread_setname_np", vec![0]),
+            ("pthread_getname_np", vec![1, 0, 16]),
+        ] {
+            let error = interp
+                .inline_thread_foreign(&Program::default(), symbol, &args)
+                .expect("inline scheduler must own naming dispatch")
+                .expect_err("no OS pthread exists in the inline scheduler");
+            assert!(error.message.contains("unsupported"), "{error:?}");
+        }
+    }
+
+    #[test]
+    fn wrong_signature_and_cross_target_names_are_explicit_errors() {
+        let mut interp = Interp::default();
+        for symbol in ["pthread_setname_np", "pthread_getname_np"] {
+            assert!(
+                interp
+                    .thread_foreign(&Program::default(), symbol, &[])
+                    .unwrap()
+                    .is_err()
+            );
+            let program = Program {
+                cross_target: true,
+                ..Program::default()
+            };
+            let error = interp
+                .thread_foreign(&program, symbol, &[1, 0, 16])
+                .unwrap()
+                .unwrap_err();
+            assert!(error.message.contains("cross-target"));
+        }
+    }
+
+    #[test]
+    fn finished_or_identityless_slots_cannot_be_named() {
+        let mut interp = Interp::default();
+        let shared = interp.shared();
+        let mut thread = GThread::new(false, None);
+        thread.finished = true;
+        shared.lock().threads.push(thread);
+        shared.lock().threads.push(GThread::new(false, None));
+        for handle in [2, 3] {
+            assert!(
+                interp
+                    .thread_foreign(&Program::default(), "pthread_getname_np", &[handle, 0, 64])
+                    .unwrap()
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn unrelated_foreigns_keep_their_existing_route() {
+        let mut interp = Interp::default();
+        assert!(
+            interp
+                .thread_foreign(&Program::default(), "unrelated_symbol", &[])
+                .is_none()
+        );
+        assert!(
+            interp
+                .inline_thread_foreign(&Program::default(), "unrelated_symbol", &[])
+                .is_none()
+        );
+    }
+}
 
 #[cfg(test)]
 mod worker_lifetime_tests {
