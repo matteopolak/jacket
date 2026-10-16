@@ -869,3 +869,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Linux allocator feature/header closure](native/linux-rpmalloc-feature-headers.md): strict C11 declarations and all23 ABI8 profiles; actual Linux link/runtime still required.
 
 - [CI companion with fresh native assets](status/shared-candidate-940fc8cf.json): exact940 source/tool identity,174 source-paired assets and remaining original/platform gates.
+
+- [Linux pthread storage](native/thread-linux-pthread-storage.md): ARM64 SDK layout repair with target-native verification still required.
