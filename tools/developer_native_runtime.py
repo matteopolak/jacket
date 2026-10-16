@@ -37,6 +37,37 @@ def sha256(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def stage_notices(sources, destination):
+    """Retain installed SDK notices for every non-system runtime component.
+
+    The configured native SDK must provide its top-level license/notice files.
+    Missing notices are a packaging failure, never a fabricated license choice.
+    """
+    filenames = ('LICENSE', 'LICENSE.TXT', 'LICENSE.txt', 'COPYING',
+                 'COPYING.txt', 'COPYRIGHT', 'NOTICE', 'NOTICE.txt')
+    planned = {}
+    for name, source in sources.items():
+        root = source.parent.parent
+        notices = [root / filename for filename in filenames if (root / filename).is_file()]
+        if not notices:
+            raise RuntimeError(f"SDK runtime lacks top-level license/notice files: {source}")
+        component = root.parent.name + '-' + root.name
+        planned[name] = [(notice, Path('notices') / component / notice.name) for notice in notices]
+    result = {}
+    for name, notices in planned.items():
+        result[name] = []
+        for source, relative in notices:
+            target = destination / relative
+            digest = sha256(source)
+            if target.exists() and sha256(target) != digest:
+                raise RuntimeError(f"Conflicting staged SDK notice: {target}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                shutil.copy2(source, target)
+            result[name].append(dict(sdk_notice=str(source), staged_path=str(relative), sha256=digest))
+    return result
+
+
 def stage_macos_sdk(prefix, destination, names):
     """Copy and relocate the complete non-system dependency closure.
 
@@ -68,6 +99,7 @@ def stage_macos_sdk(prefix, destination, names):
             else:
                 raise RuntimeError(f"Unsupported SDK runtime dependency spelling: {dependency}")
             pending.append((candidate, Path(dependency).name))
+    notices = stage_notices(sources, destination)
     for name, source in sources.items():
         target = destination / name
         if target.is_symlink():
@@ -87,7 +119,8 @@ def stage_macos_sdk(prefix, destination, names):
         manifest[name] = {"sdk_image": str(sources[name]),
                           "sdk_sha256": sha256(sources[name]),
                           "staged_sha256": sha256(target),
-                          "staged_dependencies": dependencies(target)}
+                          "staged_dependencies": dependencies(target),
+                          "notices": notices[name]}
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     return set(sources)
 

@@ -649,3 +649,6 @@ include exact file/line/source hashes and required platform limits.
 - [Shared rpmalloc verification](tools/shared-rpmalloc-verification.md): mandatory diagnostic domains, real SDK instrumentation and explicit remaining configurations.
 
 - [Shared MPEG macro verification](status/shared-mpeg-macros-verification.json): three reviewed public macros, real caller effects and enabled/disabled assertion-default controls; Walk_Table remains compiler-dependent.
+
+- [Developer runtime packaging](tools/developer-runtime-packaging.md): real relocated LLVM consumers, dynamic dependency notices and explicit resource/distribution limits.
+- [Pinned shared candidate06e8ea96](status/shared-candidate-06e8ea96.json): exact compiler hashes, committed stdlib tree, native asset search order and coordinator replay environment.
