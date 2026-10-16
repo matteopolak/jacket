@@ -20,6 +20,7 @@ packages=(
   libpipewire-0.3-dev
   libpulse-dev
   libsdl2-dev
+  libssl-dev
   libudev-dev
   libusb-1.0-0-dev
   libwayland-dev

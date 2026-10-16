@@ -2,12 +2,12 @@
 #import "Basic";
 A :: #import "Android/Toolchain";
 F :: #import "File";
-S :: #import "String";
 
 main :: () {
-    filename := sprint("%/../../../target/portable-x509/public-vectors.bin", S.path_strip_filename(#file));
+    arguments := get_command_line_arguments();
 
-    defer free(filename);
+    assert(arguments.count == 2, "pass the independently generated public certificate vectors filename");
+    filename := arguments[1];
     data, loaded := F.read_entire_file(filename);
 
     assert(loaded);

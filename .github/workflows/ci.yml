@@ -101,6 +101,7 @@ jobs:
         run: |
           # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
           tools/install_ci_llvm_macos.sh --lld
+          brew install openssl@3 pkg-config
       - name: Install LLVM 23 (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 15
@@ -319,6 +320,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           tools/install_ci_llvm_macos.sh --lld
+          brew install openssl@3 pkg-config
           # The stdlib's FreeType is built by tools/build_native_libs.py and found first;
           # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
           # tests/native-regressions/sdl2-geometry-timer.jai uses Homebrew's.
@@ -463,6 +465,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           tools/install_ci_llvm_macos.sh
+          brew install openssl@3 pkg-config
           brew list freetype > /dev/null 2>&1 || brew install freetype
       - name: Install LLVM 23, the window libraries and a virtual display (Linux)
         if: runner.os == 'Linux'
@@ -534,6 +537,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           tools/install_ci_llvm_macos.sh
+          brew install openssl@3 pkg-config
           # tests/native-regressions/sdl2-geometry-timer.jai links the installed SDL2.
           brew list sdl2 > /dev/null 2>&1 || brew install sdl2
           brew list freetype > /dev/null 2>&1 || brew install freetype

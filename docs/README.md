@@ -977,3 +977,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Binding verifier private roots and SDK profiles](native/linux-833-binding-verifier.md): preserved type/privacy assertions; source40-to0 producer proof, native Linux/Windows replay required.
 
 - [Reviewed target policies](tools/foundations-833-target-policy.md):21no-DCE checks and exact native dependencies; historical406failure rows are not replayed passes.
+
+- [Installed OpenSSL SDK discovery](tools/openssl-sdk-discovery.md): real SDK probing and canonical X509 inputs; native Linux/Windows package support remains required.
