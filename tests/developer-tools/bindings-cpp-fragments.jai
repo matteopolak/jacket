@@ -3,6 +3,10 @@
 B :: #import "Bindings_Generator";
 
 main :: () {
+    args := get_command_line_arguments();
+
+    defer array_free(args);
+    assert(args.count == 2);
     source: String_Builder;
 
     defer free_buffers(*source);
@@ -134,6 +138,6 @@ main :: () {
     defer free(after);
     assert(before == after);
     append(*source, "}\n");
-    assert(write_entire_file(tprint("%../../target/developer-tools-cpp-fragments.cpp", #filepath), *source, false));
+    assert(write_entire_file(tprint("%/developer-tools-cpp-fragments.cpp", args[1]), *source, false));
     print("ok\n");
 }

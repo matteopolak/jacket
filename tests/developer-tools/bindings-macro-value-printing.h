@@ -1,0 +1,3 @@
+#define OWN_PRINT_NUMBER (17)
+#define OWN_PRINT_EXPRESSION (2 + 3 * 4)
+#define OWN_PRINT_NEGATIVE (-9)

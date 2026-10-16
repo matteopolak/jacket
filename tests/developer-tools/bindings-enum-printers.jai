@@ -89,11 +89,17 @@ main :: () {
         negative.int_value = 1;
         B.print_enum(*output, *enumeration);
         assert(!output.failed);
-        assert(generator.counts.enums == 3);
+        enumeration.output_name = "Default";
+        enumeration.flags = 0;
+        enumeration.type = null;
+        B.print_enum(*output, *enumeration);
+        assert(!output.failed && enumeration.type == null);
+        assert(generator.counts.enums == 4);
         text := builder_to_string(*output);
 
         defer free(text);
         assert(!contains(text, "OMITTED_NATIVE_MEMBER"));
+        assert(contains(text, "Default :: enum {"));
         assert(write_entire_file(tprint("%/developer-tools-enums-generated.jai", args[1]), text));
 
         append(*output, "preserve");

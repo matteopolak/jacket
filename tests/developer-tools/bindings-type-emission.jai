@@ -11,6 +11,10 @@ cpp_alias :: (builder: *String_Builder, name: string, type: *B.CType) {
 }
 
 main :: () {
+    args := get_command_line_arguments();
+
+    defer array_free(args);
+    assert(args.count == 2);
     integer := B.CType.{ size = 4, alignment = 4, number_flags = ._32BIT | .SIGNED };
     real := B.CType.{ size = 8, alignment = 8, number_flags = ._64BIT | .FLOAT };
     argument := B.Declaration.{ kind = .DECLARATION, output_name = "value", type = *real };
@@ -43,13 +47,14 @@ main :: () {
     append(*cpp, "; }\nstatic_assert(__is_same(Printed_ConstPointer, int *const));\nstatic_assert(__is_same(Printed_Record, OriginalTypes::Printed_Local));\n");
     append(*cpp, "using Printed_Qualified = int");
     B.append_cpp_type_modifiers(*cpp, *constant, .C_TYPE_DETAILS);
-    append(*cpp, ";\nstatic_assert(__is_same(Printed_Callback, int (*)(double)));\nstatic_assert(__is_same(Printed_Array, int (*)[4]));\nstatic_assert(__is_same(Printed_Reference, int (&)[4]));\nstatic_assert(__is_same(Printed_Qualified, const int));\nextern \"C\" int printed_call(Printed_Callback callback, double value) { return callback(value); }\nextern \"C\" int printed_array(int *data) { Printed_Reference array = *reinterpret_cast<Printed_Array>(data); array[2] += 7; return array[2]; }\n");
+    // Reviewed public helper decays arrays; private full declarators retain them.
+    append(*cpp, ";\nstatic_assert(__is_same(Printed_Callback, int (*)(double)));\nstatic_assert(__is_same(Printed_Array, int **));\nstatic_assert(__is_same(Printed_Reference, int *&));\nstatic_assert(__is_same(Printed_Qualified, const int));\nextern \"C\" int printed_call(Printed_Callback callback, double value) { return callback(value); }\nextern \"C\" int printed_array(int *data) { Printed_Array pointer = &data; Printed_Reference array = *pointer; array[2] += 7; return array[2]; }\n");
     append(*cpp, "extern \"C\" int printed_identity(int value) { return value; }\n");
     append(*cpp, "extern \"C\" int printed_bool(bool value) { return value ? 1 : 0; }\n");
     text := builder_to_string(*cpp);
 
     defer free(text);
-    assert(write_entire_file(tprint("%../../target/developer-tools-type-emission.cpp", #filepath), text));
+    assert(write_entire_file(tprint("%/developer-tools-type-emission.cpp", args[1]), text));
     jai: String_Builder;
 
     defer free_buffers(*jai);
@@ -78,11 +83,27 @@ main :: () {
     B.print_function_type_to_builder(*jai, *default_function, null);
     append(*jai, " #foreign native \"printed_bool\"");
     append(*jai, ";\n");
+    call_type := B.Function_Type.{ return_type = *integer };
+    callback_argument := B.Declaration.{ output_name = "callback", type = *callback };
+
+    array_add(*call_type.arguments, *callback_argument);
+    array_add(*call_type.arguments, *argument);
+    defer array_free(call_type.arguments);
+    append(*jai, "printed_call :: ");
+    B.print_function_type_to_builder(*jai, *call_type, null);
+    append(*jai, " #foreign native;\nprinted_array :: ");
+    data_type := B.CType.{ pointer_to = *integer };
+    data_argument := B.Declaration.{ output_name = "data", type = *data_type };
+
+    call_type.arguments.count = 1;
+    call_type.arguments[0] = *data_argument;
+    B.print_function_type_to_builder(*jai, *call_type, null);
+    append(*jai, " #foreign native;\n");
     assert(!jai.failed);
     jai_text := builder_to_string(*jai);
 
     defer free(jai_text);
-    assert(write_entire_file(tprint("%../../target/developer-tools-type-emission-generated.jai", #filepath), jai_text));
+    assert(write_entire_file(tprint("%/developer-tools-type-emission-generated.jai", args[1]), jai_text));
     name := B.type_to_string(*array_pointer, null);
 
     defer free(name);

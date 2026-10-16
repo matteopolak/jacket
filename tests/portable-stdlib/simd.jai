@@ -1,6 +1,8 @@
 #import "Basic";
 V :: #import "SIMD";
 
+using V;
+
 main :: () {
     a := V.set(4, cast(s32) 3);
     b := V.set(4, cast(s32) 5);

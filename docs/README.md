@@ -1,5 +1,32 @@
 # Developer documentation
 
+- [Reviewed runtime instrumentation defaults](portable-runtime-instrumentation.md):
+  real system-entry calls, no-entry configurations and
+  [27 scoped checks](status/shared-runtime-hooks-checkpoint.json).
+
+- [ABI8 allocator metadata reservation](native/rpmalloc-metadata-reservations.md):
+  transactional SDK ownership, allocation-free operation scopes and
+  [scoped verification](status/shared-rpmalloc-metadata-checkpoint.json).
+  ABI8 source requires rebuilt ABI8 SDK/callback assets; ABI7 candidates remain historical.
+
+- [Basic underscore classification repair](portable-ascii-predicate-fix.md):
+  exhaustive reviewed ASCII byte-domain assertions and
+  [focused verification](status/shared-ascii-checkpoint.json).
+
+- [Signed Apollo fractional conversion repair](status/shared-time-float-checkpoint.json):
+  nonzero positive/negative femtoseconds, checked whole-second range and
+  retained time/calendar assertions; final combined snapshot follows active fixes.
+
+- [Canonical bindings and bridge generation](stdlib-tools-shared-emission.md):
+  one model/run lifecycle, returned-buffer ownership, strict native type matching,
+  declaration emission and remaining unsupported domains.
+
+- [Portable collection checkpoint](status/shared-portable-collections-checkpoint.json):
+  physical-slot [Bucket_Array removal](portable-bucket-array-removal.md),
+  canonical [Soa/Xar operators](portable-soa-xar-audit.md),
+  [sorting contracts](portable-sorting-audit.md) and
+  [relative pointers](portable-relative-pointer-audit.md), with focused Mac evidence.
+
 - [Canonical provider logical library spelling](generator-platform-logical.md):
   physical image identity versus generated Jai names, SDK/native consumers and
   current shared immutable verification.
@@ -688,3 +715,11 @@ include exact file/line/source hashes and required platform limits.
 - [Generator native helper relocation](tools/generator-helper-relocation.md): proper install identity and an actual moved-package native consumer.
 
 - [Pinned ABI7 candidate a97d0f6f](status/shared-candidate-a97d0f6f.json): exact committed production source/tool identity and actual simultaneous-domain interpreter/native proof on assigned T7 storage.
+
+[SIMD byte/lane contracts](portable-simd-audit.md) and [Basic time/calendar audit](portable-time-shared-audit.md) distinguish native host evidence, source-only targets and unresolved semantics. [Original fixture premise migrations](status/shared-portable-premises.json) preserve all assertions while using lexical operators and trusted private-unit placement.
+
+[Canonical generator integration counts](status/shared-generator-checkpoint.json) pin producer manifests, exact focused commands, retained failed helper-identity assertions and the still-blocked Android target. [Reviewed AppKit contract](specs/stdlib/modules/appkit.md) is available to the bindings owner; its new surface is not yet included in the pinned a97 candidate.
+
+[Available frozen553 build identity](status/shared-candidate-553afc98.json) records4439committed inputs,258paired ABI7native assets, actual source-built tools,69focused production checks and9relocated/license checks. Later signed-time/ASCII commits are separate; broad baseline remains deferred until active known fixes are combined.
+
+[Compact current verification report](status/shared-current-verification.json) separates frozen553 checks, later committed fixes, deferred broad commands and unresolved fixture/platform gates.

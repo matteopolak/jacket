@@ -19,20 +19,21 @@ static void *second_memory;
 
 static void *worker(void *unused) {
   (void)unused;
-  void *prior = API(enter)(first_domain);
+  BindingOperationScope scope;
+  API(scope_enter)(first_domain, &scope);
   rpmalloc_thread_initialize();
   assert(rpmalloc_config()->span_map_count == 3);
   assert(((unsigned char *)first_memory)[0] == 71);
   rpfree(first_memory);
   rpmalloc_thread_finalize(1);
-  API(leave)(prior);
-  prior = API(enter)(second_domain);
+  API(scope_leave)(&scope);
+  API(scope_enter)(second_domain, &scope);
   rpmalloc_thread_initialize();
   assert(rpmalloc_config()->span_map_count == 96);
   assert(((unsigned char *)second_memory)[0] == 74);
   rpfree(second_memory);
   rpmalloc_thread_finalize(1);
-  API(leave)(prior);
+  API(scope_leave)(&scope);
   return NULL;
 }
 int main(void) {

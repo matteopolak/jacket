@@ -10,5 +10,6 @@ main :: () {
     assert(cast(s32) (G.Mask.Failed | .Ready) == 5);
     assert(G.check_status() == 5);
     assert(G.check_status(.Failed) == -7);
+    assert(cast(s64) G.Default.Failed == 1 && cast(s64) G.Default.Ready == 4);
     print("ok\n");
 }
