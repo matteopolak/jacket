@@ -216,8 +216,17 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False)
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG", "-I",
              ROOT / "stdlib/internal/audio/native", ROOT / "tests/audio/native-routing.c",
              "-o", routing_test])
+    environment_test = out / ("native-environment-test.exe" if windows else "native-environment-test")
+    command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG",
+             ROOT / "tests/audio/native-environment.c",
+             *([out / ("focus" + objext)] if osname == "macos" else []),
+             "-o", environment_test, *libraries])
     if runtime:
         environment = native_environment()
+        configuration = subprocess.run([str(environment_test)], cwd=out, env=environment,
+                                       capture_output=True, text=True, timeout=30)
+        write_runtime_receipt(out, "audio-environment-runtime.json", controlled_runtime_receipt(
+            configuration, target, "real environment configuration (no device opened)"))
         routing = subprocess.run([str(routing_test)], cwd=out, env=environment, capture_output=True, text=True, timeout=30)
         write_runtime_receipt(out, "audio-routing-runtime.json", controlled_runtime_receipt(
             routing, target, "controlled channel-byte routing (no device)"))

@@ -29,7 +29,7 @@ fn is_appledouble_bytes(bytes: &[u8]) -> bool {
     if table_end > bytes.len() {
         return false;
     }
-    for entry in bytes[26..table_end].chunks_exact(12) {
+    for entry in bytes[26..table_end].as_chunks::<12>().0 {
         let offset = u64::from(u32::from_be_bytes(entry[4..8].try_into().unwrap()));
         let length = u64::from(u32::from_be_bytes(entry[8..12].try_into().unwrap()));
         if length > 0 && (offset < table_end as u64 || offset + length > bytes.len() as u64) {

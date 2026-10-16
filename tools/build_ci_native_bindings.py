@@ -196,6 +196,7 @@ def main():
     # Official SDK implementation identity remains checked by the preparer/pins.
     input_files += [
         ROOT / "tools/native_bindings/dependencies.json",
+        ROOT / "tools/native_bindings/sdl_sdk_headers.py",
         ROOT / "stdlib/internal/bindings/rpmalloc-sdk/provenance.json",
         ROOT / "stdlib/internal/bindings/rpmalloc-callbacks/bridge.c",
     ]

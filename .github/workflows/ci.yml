@@ -412,6 +412,7 @@ jobs:
             target/audio-native/audio-runtime.json
             target/audio-native/audio-routing-runtime.json
             target/audio-native/audio-close-runtime.json
+            target/audio-native/audio-environment-runtime.json
           retention-days: 7
           if-no-files-found: warn
   upstream-smoke:
@@ -575,5 +576,6 @@ jobs:
             target/audio-native/audio-runtime.json
             target/audio-native/audio-routing-runtime.json
             target/audio-native/audio-close-runtime.json
+            target/audio-native/audio-environment-runtime.json
           retention-days: 7
           if-no-files-found: warn

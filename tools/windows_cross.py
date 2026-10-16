@@ -247,6 +247,68 @@ COMPILE_TIME_ONLY = "compile-time only: no executable to run"
 CROSS_DLLS = []
 
 
+def ensure_cross_host_bindings(host):
+    """Prepare all accepted ABI8 host profiles before compile-time foreign calls.
+
+    Host shared providers and target PE libraries have distinct search paths.
+    An explicit caller build directory is required; no local temp fallback.
+    """
+    import build_ci_native_bindings
+
+    _, profiles, _ = build_ci_native_bindings.selected_libraries()
+    required = {"binding_callback_context", "rpmalloc_callback_probe"}
+    required.update(
+        profile[kind] for profile in profiles for kind in ("sdk", "callbacks")
+    )
+    suffix = ".dylib" if host.startswith("macos-") else ".so"
+    directories = [
+        pathlib.Path(path)
+        for path in os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep)
+        if path
+    ]
+    if all(
+        any(
+            (directory / ("lib" + name + suffix)).is_file() for directory in directories
+        )
+        for name in required
+    ):
+        return
+    assigned = os.environ.get("CARGO_TARGET_DIR") or os.environ.get("RUNNER_TEMP")
+    if not assigned:
+        raise ValueError(
+            "assign CARGO_TARGET_DIR or CI RUNNER_TEMP for real cross-host providers"
+        )
+    base = pathlib.Path(assigned).resolve()
+    base.mkdir(parents=True, exist_ok=True)
+    work = pathlib.Path(tempfile.mkdtemp(prefix="windows-cross-host-", dir=base))
+    output = work / "native"
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools/build_ci_native_bindings.py"),
+            "--output",
+            str(output),
+        ],
+        check=True,
+    )
+    receipt = json.loads((output / "ci-provider-receipt.json").read_text())
+    if receipt["native_abi"] != 8 or len(receipt["profiles"]) != 23:
+        raise ValueError("cross-host provider build did not verify all23 ABI8 profiles")
+    for name, digest in receipt["assets"].items():
+        if (
+            pathlib.Path(name).name != name
+            or hashlib.sha256((output / name).read_bytes()).hexdigest() != digest
+        ):
+            raise ValueError(
+                "cross-host provider artifact differs from its build receipt"
+            )
+    if not all((output / ("lib" + name + suffix)).is_file() for name in required):
+        raise ValueError("cross-host callback provider closure is incomplete")
+    os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join(
+        [str(output), *map(str, directories)]
+    )
+
+
 def use_cross_libs(args):
     """Cross-build the third-party C libraries the stdlib tests link (stb_*, FreeType, lz4...)
     with the MinGW toolchain, and point `jaic` at them (JAIC_CROSS_LIBS). They are static
@@ -255,6 +317,7 @@ def use_cross_libs(args):
     # Compile-time code executes in the host compiler process; its real native
     # providers must not be replaced with target PE archives/DLLs.
     stdlib_runtime.use_native_libs(stdlib_runtime.host_platform())
+    ensure_cross_host_bindings(stdlib_runtime.host_platform())
     platform = target_platform(args)
     subprocess.run(
         [

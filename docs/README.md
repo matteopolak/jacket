@@ -899,3 +899,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [GetRect target contracts](specs/stdlib/README.md): canonical Linux Clipboard dependency, explicit unavailable records, retained pure numerical WASM and private-Xvfb runtime wiring. [Integration qualification](status/numerics-target-contract-integration.json).
 
 - [Audio native integration](features/audio-native-integration.md): retained strict runtime receipts, real ALSA CI provider configuration and T7-aware build roots. [Supplied producer evidence](status/audio-ci-provider-evidence.json) is Mac-only; Linux/Windows execution remains required. Windows environment repair transport is pending.
+
+- [Audio Windows environment ownership](status/audio-windows-env-request.md): reviewed `_dupenv_s` copy/free and explicit acquisition errors; all3 source/test hashes and3 other nonindex postimages verified;2 status documents retain accepted shared context. Mac/MinGW supplied proof is distinct from required MSVC/Windows CI.
+
+- [Cross-host ABI8 callback preparation](native/windows-cross-host-providers.md): complete real host provider closure before compile-time foreign calls; target PE and Windows runtime qualifications remain separate.

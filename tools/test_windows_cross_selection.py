@@ -184,12 +184,14 @@ class Selection(unittest.TestCase):
                     cross.stdlib_runtime, "host_platform", return_value="linux-x64"
                 ),
                 patch.object(cross.stdlib_runtime, "use_native_libs") as host,
+                patch.object(cross, "ensure_cross_host_bindings") as bindings,
                 patch.object(cross.subprocess, "run") as build,
                 patch("build_native_libs.output_dir", return_value=Path(directory)),
                 patch.dict(os.environ, {}, clear=False),
             ):
                 cross.use_cross_libs(args)
                 host.assert_called_once_with("linux-x64")
+                bindings.assert_called_once_with("linux-x64")
                 self.assertEqual(build.call_args.args[0][-1], "windows-arm64-mingw")
                 self.assertEqual(os.environ["JAIC_CROSS_LIBS"], directory)
 
