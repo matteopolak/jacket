@@ -407,3 +407,22 @@ fn procedure_constant_from_run_binds_typed_struct_argument_without_losing_identi
     )
     .unwrap();
 }
+
+#[test]
+fn annotated_procedure_sentinels_remain_constants_with_exact_pointer_bits() {
+    compile(
+        r#"
+        Handler :: #type (signal:s32)->void #c_call;
+        IGNORE :: cast(Handler) 1;
+        ERROR :: cast(Handler) -1;
+        Table :: struct { callback:Handler=IGNORE; }
+        verify :: ()->bool {
+            table:Table;
+            return cast(s64)table.callback==1 && cast(s64)ERROR==-1;
+        }
+        #assert verify();
+        main :: () {}
+    "#,
+    )
+    .unwrap();
+}

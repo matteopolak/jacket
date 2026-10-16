@@ -364,7 +364,7 @@ impl Compiler {
         } else {
             self.eval_const(scope, value, expected)?
         };
-        match op {
+        match op.without_callable() {
             Operand::Type(t) => Ok(Resolved::Const {
                 value: Value::Type(t),
                 ty: TypeId::TYPE,
@@ -738,7 +738,13 @@ impl Compiler {
         // Runtime locals of the enclosing procedure are not visible to constants.
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, expected)?;
-        match op {
+        let value = match &op {
+            Operand::Callable {
+                operand, ..
+            } => operand.as_ref(),
+            other => other,
+        };
+        match value {
             Operand::Value {
                 ..
             }
@@ -749,7 +755,7 @@ impl Compiler {
                 // Not foldable: run the thunk.
                 self.run_thunk(f, op, expr.span)
             }
-            other => Ok(other),
+            _ => Ok(op),
         }
     }
 
@@ -782,7 +788,13 @@ impl Compiler {
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, None)?;
-        match op {
+        let value = match &op {
+            Operand::Callable {
+                operand, ..
+            } => operand.as_ref(),
+            other => other,
+        };
+        match value {
             Operand::Value {
                 ..
             }
@@ -790,7 +802,7 @@ impl Compiler {
                 ..
             }
             | Operand::Multi(_) => self.run_thunk_all(f, op, expr.span),
-            other => Ok(vec![other]),
+            _ => Ok(vec![op]),
         }
     }
 
