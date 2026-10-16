@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
 
+mod numeric;
 mod objc;
 mod stdin;
 mod windows;
@@ -537,63 +538,6 @@ fn fill_tm(seconds: i64, out: u64) {
     write_u64(out + 48, 0); // tm_zone
 }
 
-/// Longest prefix of `text` (after leading whitespace) that C's `strtod` accepts.
-fn parse_float_prefix(text: &str) -> (f64, usize) {
-    let bytes = text.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() && bytes[i].is_ascii_whitespace() {
-        i += 1;
-    }
-    let start = i;
-    if i < bytes.len() && (bytes[i] == b'+' || bytes[i] == b'-') {
-        i += 1;
-    }
-    let lower = text[i..].to_ascii_lowercase();
-    for (word, value) in [
-        ("infinity", f64::INFINITY),
-        ("inf", f64::INFINITY),
-        ("nan", f64::NAN),
-    ] {
-        if lower.starts_with(word) {
-            let v = if bytes[start] == b'-' {
-                -value
-            } else {
-                value
-            };
-            return (v, i + word.len());
-        }
-    }
-    let digits = i;
-    while i < bytes.len() && bytes[i].is_ascii_digit() {
-        i += 1;
-    }
-    if i < bytes.len() && bytes[i] == b'.' {
-        i += 1;
-        while i < bytes.len() && bytes[i].is_ascii_digit() {
-            i += 1;
-        }
-    }
-    if i == digits || (i == digits + 1 && bytes[digits] == b'.') {
-        return (0.0, 0);
-    }
-    let mantissa_end = i;
-    if i < bytes.len() && (bytes[i] == b'e' || bytes[i] == b'E') {
-        let mut j = i + 1;
-        if j < bytes.len() && (bytes[j] == b'+' || bytes[j] == b'-') {
-            j += 1;
-        }
-        if j < bytes.len() && bytes[j].is_ascii_digit() {
-            while j < bytes.len() && bytes[j].is_ascii_digit() {
-                j += 1;
-            }
-            i = j;
-        } else {
-            i = mantissa_end;
-        }
-    }
-    (text[start..i].parse().unwrap_or(0.0), i)
-}
-
 /// `strtol` family: returns (value, bytes consumed).
 fn parse_int_prefix(text: &str, base: u32, signed: bool) -> (i128, usize) {
     let bytes = text.as_bytes();
@@ -894,14 +838,22 @@ impl Host for SandboxHost {
             }
             "atof" | "strtod" | "strtof" => {
                 let text = cstr(arg(0));
-                let (value, used) = parse_float_prefix(&text);
+                let parsed = numeric::parse(&text, symbol == "strtof");
                 if symbol != "atof" && arg(1) != 0 {
-                    write_u64(arg(1), arg(0) + used as u64);
+                    write_u64(arg(1), arg(0) + parsed.used as u64);
                 }
-                if symbol == "strtof" {
-                    (value as f32).to_bits() as u64
+                if parsed.range_error {
+                    self.set_errno(34);
+                }
+                parsed.bits
+            }
+            "setlocale" => {
+                if arg(0) > 6 {
+                    0
+                } else if arg(1) == 0 || matches!(cstr(arg(1)).as_str(), "" | "C" | "POSIX") {
+                    c"C".as_ptr() as u64
                 } else {
-                    value.to_bits()
+                    0
                 }
             }
             "atoi" | "atol" | "atoll" | "strtol" | "strtoll" | "strtoul" | "strtoull" => {
@@ -1440,6 +1392,79 @@ mod tests {
         let cell = call(&mut h, "__error", &[]);
         assert_ne!(cell, 0);
         assert_eq!(cell, call(&mut h, "__errno_location", &[]));
+    }
+
+    #[test]
+    fn c_numeric_strtof_rounds_the_decimal_directly_to_binary32() {
+        let mut h = host();
+        let text = b"1.0000000596046447753906250000000000000001!\0";
+        let mut end = 0u64;
+        let bits = call(
+            &mut h,
+            "strtof",
+            &[text.as_ptr() as u64, (&mut end as *mut u64) as u64],
+        );
+        assert_eq!(bits, 0x3f800001);
+        assert_eq!(end, text.as_ptr() as u64 + text.len() as u64 - 2);
+    }
+
+    #[test]
+    fn c_numeric_hexadecimal_and_nan_payloads_preserve_endptr() {
+        let mut h = host();
+        for (text, expected, consumed) in [
+            (b"0x1.8p+2suffix\0".as_slice(), 6.0f64.to_bits(), 8),
+            (b"nan(payload)tail\0".as_slice(), f64::NAN.to_bits(), 12),
+        ] {
+            let mut end = 0u64;
+            assert_eq!(
+                call(
+                    &mut h,
+                    "strtod",
+                    &[text.as_ptr() as u64, (&mut end as *mut u64) as u64]
+                ),
+                expected
+            );
+            assert_eq!(end, text.as_ptr() as u64 + consumed);
+        }
+    }
+
+    #[test]
+    fn c_numeric_range_errors_set_errno_and_success_does_not_clear_it() {
+        let mut h = host();
+        call(&mut h, "__errno_location", &[]);
+        let text = b"1e9999\0";
+        assert_eq!(
+            call(&mut h, "strtod", &[text.as_ptr() as u64, 0]),
+            f64::INFINITY.to_bits()
+        );
+        assert_eq!(errno(&h), 34);
+        let text = b"7\0";
+        assert_eq!(
+            call(&mut h, "strtod", &[text.as_ptr() as u64, 0]),
+            7.0f64.to_bits()
+        );
+        assert_eq!(errno(&h), 34);
+    }
+
+    #[test]
+    fn c_numeric_locale_queries_and_unsupported_locales_stay_in_the_sandbox() {
+        let mut h = host();
+        assert_ne!(call(&mut h, "setlocale", &[6, 0]), 0);
+        let c = b"C\0";
+        assert_ne!(call(&mut h, "setlocale", &[6, c.as_ptr() as u64]), 0);
+        let other = b"de_DE.UTF-8\0";
+        assert_eq!(call(&mut h, "setlocale", &[6, other.as_ptr() as u64]), 0);
+        let text = b"1,5\0";
+        let mut end = 0u64;
+        assert_eq!(
+            call(
+                &mut h,
+                "strtod",
+                &[text.as_ptr() as u64, (&mut end as *mut u64) as u64]
+            ),
+            1.0f64.to_bits()
+        );
+        assert_eq!(end, text.as_ptr() as u64 + 1);
     }
 
     #[test]

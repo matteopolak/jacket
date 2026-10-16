@@ -738,7 +738,8 @@ fn check_level(value: &str) -> u8 {
 
 /// The module that makes a wasm program a WASI command (`_start`, the C library subset the
 /// stdlib calls, an allocator); see `docs/native/wasm-target.md`.
-pub const WASI_RUNTIME_IMPORT: &str = "#import \"Extensions/Wasi_Runtime\";";
+pub const WASI_RUNTIME_IMPORT: &str =
+    "#import \"Extensions/Wasi_Runtime\"; #import \"Wasi_Numeric_Runtime\";";
 
 /// A host evaluation owns a fresh registry, preserving the embedder's real host
 /// provider and reporting without inheriting the target workspace's settings.

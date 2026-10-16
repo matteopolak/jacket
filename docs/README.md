@@ -961,3 +961,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Workspace provider disposition](compiler/workspace-matrix-provider-disposition.md): unchanged child/grandchild tests and the required real crash-provider bootstrap.
 
 - [Debug report mode](tools/debug-report-mode.md): unconditional canonical state setter; Windows native policy remains unresolved.
+
+- [WASM C numeric conversion](native/wasm-c-numeric.md): C-locale/direct precision and general WASI exports; canonical output durability still required.
