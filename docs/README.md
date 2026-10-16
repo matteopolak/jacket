@@ -931,3 +931,11 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - Host provider caches now require source-paired ABI8 receipts; filename-only/ABI7 reuse is rejected. SDK input guards include .inc/patch and callback-context sources. Eleven selection policies pass; real native CI remains required.
 
 - [Canonical runtime allocator alias](runtime-default-allocator-alias.md): exact reviewed Default_Allocator entity, public visibility and default-context identity; obsolete disconnected allocator removed. Seven owned postimages/deletion and three reviewed contracts verified. Producer18 actual ARM/x64 program modes pass; original Windows x64 TOML remains required CI. No native C inputs changed.
+
+- [Input original fixture adoption](tools/input-original-adoption.md): six exact source hashes, persistent production resize storage and signed-wheel/window/payload assertions retained. Four source checks pass; prior nine Mac runtime outcomes are separately pinned, current combined GUI smoke remains root-owned.
+
+- [Complete Windows target provider receipt](status/windows-target-binding-providers-complete.json):52 real archives including retained SDK/storage probes, all-object PE link and target-machine verification; no Windows runtime claim.
+
+- [Allocator capability fixture qualification](status/allocator-caps-integration.json): exact reviewed optimized/fallback target bits; all allocation/identity checks retained. Independent of the broader catalogue batch and its withdrawn emitted-WASM artifact evidence.
+
+- [GetRect sanitizer selection](specs/stdlib/README.md): four reviewed module fixtures share the canonical target policy; six indexed-cohort dispatch controls pass. Scoped index contains only numerics hooks; foundation/Debug peer work remains unstaged. This is selection proof, not sanitizer/native execution.

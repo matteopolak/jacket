@@ -12,6 +12,10 @@ from pathlib import Path
 from case_capabilities import user_deferred_reason
 from platform_io_capabilities import RUNTIME_CONTRACT_CAPABILITIES
 from foundations_case_capabilities import apply_foundations_capabilities
+from numerics_case_capabilities import (
+    apply_numerics_capabilities,
+    numerics_unavailable_reason,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -145,6 +149,7 @@ def validated_entries(root=ROOT):
                 "fiber context switching",
             ]
         apply_foundations_capabilities(case)
+        apply_numerics_capabilities(case)
         if case["id"] in {
             "native/clipboard-round-trip",
             "native/macos-clipboard-utf8",
@@ -173,6 +178,9 @@ def validated_entries(root=ROOT):
 
 
 def unavailable_reason(case, mode, actual_platform=None):
+    numerics_reason = numerics_unavailable_reason(case, mode, actual_platform)
+    if numerics_reason:
+        return numerics_reason
     if mode in case.get("unsupported_modes", []):
         required = ", ".join(case["required_capabilities"])
         return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"

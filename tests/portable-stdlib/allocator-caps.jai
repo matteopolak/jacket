@@ -21,7 +21,13 @@ main :: () {
 
     flags = cast(Allocator_Caps) cast(u64) heap.proc(.CAPS, 0, 0, *name, null);
     assert(name.count > 0);
-    assert(flags == (.FREE | .ACTUALLY_RESIZE | .MULTIPLE_THREADS | .HINT_I_AM_A_GENERAL_HEAP_ALLOCATOR));
+    expected: Allocator_Caps = .FREE | .ACTUALLY_RESIZE | .MULTIPLE_THREADS | .HINT_I_AM_A_GENERAL_HEAP_ALLOCATOR;
+
+    #if (CPU == .X64 && OS != .IOS) || OS == .NN_SWITCH2 {
+        expected |= .CREATE_HEAP | .IS_THIS_YOURS;
+    }
+
+    assert(flags == expected);
     name = "";
     flags = cast(Allocator_Caps) cast(u64) temporary_allocator_proc(.CAPS, 0, 0, *name, null);
     assert(name.count > 0 && flags == .HINT_I_AM_PER_FRAME_TEMPORARY_STORAGE);

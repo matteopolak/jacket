@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "tools/native_bindings"))
 from build_dependencies import prepare_source  # noqa: E402
 from prepare_rpmalloc import prepare  # noqa: E402
 from rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
+from config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
 
 TARGETS = {
     "windows-x64-mingw": ("x86_64-w64-mingw32", "IMAGE_FILE_MACHINE_AMD64"),
@@ -103,6 +104,22 @@ def provider_plan():
             ],
         ),
     ]
+    probe_flags = [
+        "-D" + key + "=" + str(value)
+        for key, value in RPMALLOC_SDK_BUILD_OPTIONS.items()
+    ]
+    for name in ("rpmalloc_sdk_probe", "rpmalloc_storage_probe"):
+        result.append(
+            dict(
+                name=name,
+                units=[
+                    (
+                        ROOT / "tests/native-bindings/generated" / (name + ".c"),
+                        probe_flags,
+                    )
+                ],
+            )
+        )
     raw = profiles["binding_rpmalloc_sdk_raw_base"]
     aliases = [
         "-Dnative_error_mode=raw_native_error_mode",

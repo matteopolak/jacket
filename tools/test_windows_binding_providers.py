@@ -10,8 +10,8 @@ import build_windows_binding_providers as providers
 class TargetProviders(unittest.TestCase):
     def test_complete_profile_and_counter_inventory(self):
         plan = providers.provider_plan()
-        self.assertEqual(len(plan), 50)
-        self.assertEqual(len({item["name"] for item in plan}), 50)
+        self.assertEqual(len(plan), 52)
+        self.assertEqual(len({item["name"] for item in plan}), 52)
         names = {item["name"] for item in plan}
         self.assertTrue(
             {
@@ -21,6 +21,8 @@ class TargetProviders(unittest.TestCase):
                 "rpmalloc_callback_probe",
                 "rpmalloc_live_config_probe",
                 "rpmalloc_adaptive_probe",
+                "rpmalloc_sdk_probe",
+                "rpmalloc_storage_probe",
             }
             <= names
         )

@@ -164,6 +164,7 @@ def storage_outputs(vendor, functions, work, formatter):
     # declarations. Prefix all SDK exports; this probe never initializes or
     # allocates from its separately compiled SDK instance.
     probe = '// Generated native ABI probe from complete pinned official C source.\n'
+    probe += '#if defined(_WIN32)\n#include <windows.h>\n#undef FORCEINLINE\n#endif\n'
     probe += ''.join('#define '+name+' binding_storage_probe_'+name+'\n' for name in sorted(source_exports[1]))
     probe += '#include "rpmalloc.c"\n'
     probe += 'long long binding_rpmalloc_native_heap_counter(void* pointer,unsigned family,unsigned index,unsigned field) { heap_t* heap=pointer;\n'

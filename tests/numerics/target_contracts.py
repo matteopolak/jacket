@@ -57,6 +57,12 @@ NATIVE_CURSOR_CASES = frozenset(
     }
 )
 
+MODULE_CASES = NATIVE_CURSOR_CASES - {"tests/numerics/native_ui_cursors.jai"} | {
+    "stdlib/GetRect/tests/native_clipboard.jai",
+    "stdlib/GetRect/tests/clipboard_unavailable.jai",
+    "stdlib/GetRect/tests/cursors_unavailable.jai",
+}
+
 
 def target_contract(source: str, target: str) -> TargetContract:
     """Classify an exact inventoried fixture; reject unreviewed cases/targets."""

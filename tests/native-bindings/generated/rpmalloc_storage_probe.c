@@ -1,4 +1,8 @@
 // Generated native ABI probe from complete pinned official C source.
+#if defined(_WIN32)
+#include <windows.h>
+#undef FORCEINLINE
+#endif
 #define rpaligned_alloc binding_storage_probe_rpaligned_alloc
 #define rpaligned_calloc binding_storage_probe_rpaligned_calloc
 #define rpaligned_realloc binding_storage_probe_rpaligned_realloc
