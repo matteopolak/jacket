@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check the foundations cases against explicitly selected clean-room source builds."""
 import argparse
+import json
 import os
 import re
 import sys
@@ -11,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CASES = ("builder-format", "integer-format", "string-patterns", "hash-floats", "basic-filesystem",
          "file-utilities-shape", "foundation-filesystem", "hash-scalars", "file-visitation", "basic-output", "formatter-records", "basic-sleep",
          "format-grammar", "format-floats", "format-aggregates", "format-types", "assert-message",
-         "basic-configuration", "temporary-stamping", "float-parsing", "type-parameter-format",
+         "basic-configuration", "basic-configuration-disabled", "basic-configuration-isolated-combined", "temporary-stamping", "float-parsing", "type-parameter-format",
          "formatter-parameter-defaults", "wasm-basic-minimal", "float-roundtrip",
-         "memory-debugger-interface", "memory-debugger-default", "filesystem-invalid-paths",
+         "memory-debugger-interface", "memory-debugger-interface-disabled", "memory-debugger-default", "filesystem-invalid-paths",
          "basic-logging", "basic-logging-output", "basic-reflection",
          "basic-helpers", "basic-print-bytes", "basic-stack-traces", "basic-stack-output",
          "basic-scalars-ownership", "basic-leak-reports", "basic-leak-graphs",
@@ -92,28 +93,230 @@ def owned_sources():
     return sorted(set(paths))
 
 
+LINT_PROFILES = (
+    ("macos", "arm64"),
+    ("linux", "x64"),
+    ("windows", "x64"),
+    ("windows", "arm64"),
+)
+
+
+def negative_lint_sources():
+    sources = {
+        ROOT
+        / "tests/portable-stdlib/negative/basic-scalar-bool.jai": "clamp requires a scalar type"
+    }
+    for source in (ROOT / "tests/portable-stdlib/negative").glob("wide-to-*.jai"):
+        sources[source] = (
+            "to_s128 requires"
+            if source.name.startswith("wide-to-s128-")
+            else "to_u128 requires"
+        )
+    return sources
+
+
+def lint_profile_sources(target_os, target_cpu):
+    """Select actual target bodies, retaining every source on a supported profile."""
+    windows_only = {
+        "stdlib/internal/files/filesystem-windows.jai",
+        "stdlib/internal/files/native-windows.jai",
+        "stdlib/internal/files/windows-abi.jai",
+        "stdlib/internal/files/windows-text.jai",
+        "tests/portable-stdlib/windows-foundations.jai",
+    }
+    unix_only = {
+        "stdlib/internal/files/native-unix.jai",
+        "stdlib/internal/files/filesystem.jai",
+        "stdlib/internal/basic/filesystem.jai",
+        "tests/portable-stdlib/file-visitation.jai",
+        "tests/portable-stdlib/basic-visualization-channel.jai",
+        "tests/portable-stdlib/basic-visualization-timing.jai",
+    }
+    x64_only = {
+        "tests/portable-stdlib/basic-division-exercise.jai",
+        "tests/portable-stdlib/pending/basic-division-exercise.jai",
+    }
+    library, fixtures = [], []
+    negatives = negative_lint_sources()
+    for path in owned_sources():
+        relative = path.relative_to(ROOT).as_posix()
+        if path in negatives:
+            continue  # Mandatory rejected binding checks below; never positive coverage.
+        if relative in windows_only and target_os != "windows":
+            continue
+        if relative in unix_only and target_os == "windows":
+            continue
+        if relative in x64_only and target_cpu != "x64":
+            continue
+        if (
+            relative == "tests/portable-stdlib/pending/host-target-predicate.jai"
+            and target_os == "macos"
+        ):
+            continue  # This fixture explicitly requires OS != BUILD_OS.
+        (library if path.is_relative_to(ROOT / "stdlib") else fixtures).append(path)
+    return library, fixtures
+
+
+def lint_owned(linter, env, output):
+    """Lint real public imports and fixtures, recording complete contexts only."""
+    directory = output / "lint"
+    directory.mkdir(parents=True, exist_ok=True)
+    context = directory / "public-context.jai"
+    context.write_text(
+        "".join(
+            f'#import "{name}";\n'
+            for name in (
+                "Basic",
+                "String",
+                "Hash",
+                "File_Utilities",
+                "File",
+                "Text_File_Handler",
+            )
+        )
+        + "\nmain :: () {}\n"
+    )
+    failures, covered, results = [], set(), []
+    negatives = negative_lint_sources()
+    for target_os, target_cpu in LINT_PROFILES:
+        prefix = [
+            str(linter),
+            "-D",
+            "warnings",
+            "--config",
+            str(ROOT / "jailint.toml"),
+            "--os",
+            target_os,
+            "--cpu",
+            target_cpu,
+            "-I",
+            str(ROOT / "tests/portable-stdlib/pending"),
+        ]
+        label = f"{target_os}-{target_cpu}"
+        for source, diagnostic in negatives.items():
+            command = [*prefix, "--context", str(source), str(source)]
+            rejected = subprocess.run(
+                command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=60
+            )
+            (directory / f"{label}-{source.stem}.log").write_text(
+                rejected.stdout + rejected.stderr
+            )
+            passed = (
+                rejected.returncode == 1
+                and not rejected.stdout
+                and diagnostic in rejected.stderr
+                and "error and" not in rejected.stderr
+            )
+            results.append(
+                dict(
+                    command=command,
+                    exit=rejected.returncode,
+                    passed=passed,
+                    kind="required-negative",
+                    source=str(source),
+                )
+            )
+            if not passed:
+                failures.append(
+                    f"required negative lint rejection failed on {label}: {source}\n{rejected.stderr}"
+                )
+        library, fixtures = lint_profile_sources(target_os, target_cpu)
+        for kind, paths, enclosing in (
+            ("library", library, ["--context", str(context)]),
+            ("fixtures", fixtures, []),
+        ):
+            manifest = directory / f"{label}-{kind}.json"
+            command = [
+                *prefix,
+                *enclosing,
+                "--manifest",
+                str(manifest),
+                "--checked-files",
+                str(manifest.with_suffix(".files")),
+                *map(str, paths),
+            ]
+            checked = subprocess.run(
+                command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180
+            )
+            (manifest.with_suffix(".log")).write_text(checked.stdout + checked.stderr)
+            passed = (
+                not checked.returncode
+                and not checked.stdout
+                and "did not compile completely" not in checked.stderr
+            )
+            results.append(
+                dict(command=command, exit=checked.returncode, passed=passed, kind=kind)
+            )
+            if manifest.is_file():
+                for compiled in json.loads(manifest.read_text())["contexts"]:
+                    if compiled["complete"]:
+                        covered.update(
+                            Path(path).resolve() for path in compiled["visited_files"]
+                        )
+            if not passed:
+                failures.append(
+                    f"foundation lint {label} {kind} incomplete or failed:\n{checked.stdout}{checked.stderr}"
+                )
+            print(
+                f"{'passed' if passed else 'FAILED'} strict lint {label} {kind}",
+                flush=True,
+            )
+    missing = set(owned_sources()) - covered - negatives.keys()
+    if missing:
+        failures.append(
+            f"foundation sources without a complete checked context: {sorted(map(str, missing))}"
+        )
+    (directory / "results.json").write_text(
+        json.dumps(
+            dict(
+                commands=results,
+                missing=sorted(map(str, missing)),
+                failures=failures,
+                passed=not failures,
+            ),
+            indent=2,
+        )
+        + "\n"
+    )
+    return failures
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jaic", required=True, type=Path)
     parser.add_argument("--stdlib", required=True, type=Path)
     parser.add_argument("--jaifmt", type=Path, help="unchanged repository CLI built with the selected library")
     parser.add_argument("--jailint", type=Path, help="linter built from the selected independent compiler sources")
+    parser.add_argument("--build-root", type=Path, default=ROOT / "target",
+                        help="explicit source-built compiler/tool target directory")
+    parser.add_argument("--output-root", type=Path, default=ROOT / "target/foundations-tests")
+    parser.add_argument("--lint-only", action="store_true", help="four strict source-check profiles; no program execution")
     parser.add_argument("--cross", action="store_true")
     parser.add_argument("--wasm", action="store_true", help="execute supported cases under Node WASI at O0/O2")
     parser.add_argument("--x64-target", default={"darwin": "x86_64-apple-darwin", "linux": "x86_64-unknown-linux-gnu", "win32": "x86_64-pc-windows-msvc"}.get(sys.platform), help="executable native x64 target for the CPU-conditional division diagnostic")
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT / "target"):
-        parser.error("use a compiler built from independent sources under this checkout's target")
+    build_root = args.build_root.resolve(strict=True)
+    if not compiler.is_relative_to(build_root):
+        parser.error("use a compiler from the explicit independent source build root")
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
-    output = ROOT / "target/foundations-tests"
+    output = args.output_root.resolve()
     output.mkdir(parents=True, exist_ok=True)
     failures = []
+    if args.lint_only:
+        if not args.jailint:
+            parser.error("--lint-only requires --jailint")
+        linter = args.jailint.resolve(strict=True)
+        if not linter.is_relative_to(build_root):
+            parser.error("use jailint from the explicit source build root")
+        failures = lint_owned(linter, env, output)
+        if failures:
+            raise RuntimeError("\n".join(failures))
+        return
 
     if args.jaifmt:
         formatter = args.jaifmt.resolve(strict=True)
-        if not formatter.is_relative_to(ROOT / "target"):
-            parser.error("use a jaifmt source build under this checkout's target")
+        if not formatter.is_relative_to(build_root):
+            parser.error("use a jaifmt source build under the explicit build root")
         directory = output / "jaifmt-cli"
         directory.mkdir(exist_ok=True)
         hidden = directory / ".hidden"
@@ -153,64 +356,9 @@ def main():
         print("passed unchanged jaifmt --check on owned sources and tests", flush=True)
     if args.jailint:
         linter = args.jailint.resolve(strict=True)
-        if not linter.is_relative_to(ROOT / "target"):
-            parser.error("use a jailint source build under this checkout's target")
-        files = owned_sources()
-        invalid_scalar = ROOT / "tests/portable-stdlib/negative/basic-scalar-bool.jai"
-        negative_lints = {invalid_scalar: "clamp requires a scalar type"}
-        for source in (ROOT / "tests/portable-stdlib/negative").glob("wide-to-*.jai"):
-            negative_lints[source] = "to_s128 requires" if source.name.startswith("wide-to-s128-") else "to_u128 requires"
-        covered = set()
-        lint_output = output / "lint"
-        lint_output.mkdir(exist_ok=True)
-        for target_os, target_cpu in [("macos", "arm64"), ("linux", "x64"), ("windows", "x64"), ("windows", "arm64")]:
-            for source, diagnostic in negative_lints.items():
-                rejected = subprocess.run([str(linter), "-D", "warnings", "--os", target_os,
-                                           "--cpu", target_cpu, str(source)], cwd=ROOT, env=env,
-                                          capture_output=True, text=True, timeout=60)
-                (lint_output / f"{target_os}-{target_cpu}-{source.stem}.log").write_text(rejected.stdout + rejected.stderr)
-                if rejected.returncode != 1 or rejected.stdout or diagnostic not in rejected.stderr or "error and" in rejected.stderr:
-                    failures.append(f"required negative lint rejection failed for {source} on {target_os}/{target_cpu}: {rejected}")
-            selected = []
-            for path in files:
-                if path in negative_lints:
-                    continue  # Each exact rejection is required separately on every profile.
-                if path.name in {"native-unix.jai", "native-windows.jai"} and path.parent == ROOT / "stdlib/internal/files":
-                    continue  # #load fragment needs its actual File parent and Seek_Type.
-                if path.name == "host-target-predicate.jai" and target_os == "macos":
-                    continue  # The fixture asserts cross-compilation; other profiles check it.
-                if "windows" in path.name and target_os != "windows":
-                    continue
-                if "unix" in path.name and target_os == "windows":
-                    continue
-                if target_os == "windows" and path in {
-                    ROOT / "stdlib/internal/files/filesystem.jai",
-                    ROOT / "stdlib/internal/basic/filesystem.jai",
-                    ROOT / "tests/portable-stdlib/file-visitation.jai",
-                    ROOT / "tests/portable-stdlib/basic-visualization-channel.jai",
-                    ROOT / "tests/portable-stdlib/basic-visualization-timing.jai",
-                }:
-                    continue  # POSIX implementations/oracle; Windows backends have their own roots.
-                selected.append(path)
-            selected.append(ROOT / "stdlib/File/module.jai")
-            selected.append(ROOT / "stdlib/internal/files/file.jai")
-            manifest = lint_output / f"{target_os}-{target_cpu}.txt"
-            checked = subprocess.run([str(linter), "-v", "-D", "warnings", "--os", target_os,
-                                      "--cpu", target_cpu, "-I", str(ROOT / "tests/portable-stdlib/pending"),
-                                      "--checked-files", str(manifest), *map(str, selected)],
-                                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=180)
-            (lint_output / f"{target_os}-{target_cpu}.log").write_text(checked.stdout + checked.stderr)
-            if checked.returncode or checked.stdout or "did not compile completely" in checked.stderr:
-                failures.append(f"foundation lint {target_os}/{target_cpu} incomplete or failed:\n{checked.stdout}{checked.stderr}")
-                print(f"FAILED strict lint {target_os}/{target_cpu}; continuing independent checks", flush=True)
-                continue
-            covered.update(Path(path).resolve() for path in manifest.read_text().splitlines())
-            print(f"passed strict lint {target_os}/{target_cpu}", flush=True)
-        missing = set(files) - covered - negative_lints.keys()
-        if missing:
-            failures.append(f"foundation sources not checked: {sorted(map(str, missing))}")
-        if not failures:
-            print(f"passed source-built jailint -D warnings with coverage of {len(files) - len(negative_lints)} positive owned sources and {len(negative_lints)} required binding rejections on four profiles", flush=True)
+        if not linter.is_relative_to(build_root):
+            parser.error("use jailint from the explicit source build root")
+        failures.extend(lint_owned(linter, env, output))
 
     for name, diagnostic in (("hash-unsupported", "get_hash requires an integer, boolean, enum, pointer, or float"),
                              ("hash-seed-visibility", "no exported member `HASH_INIT`"),

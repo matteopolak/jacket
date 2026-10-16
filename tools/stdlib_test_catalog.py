@@ -11,6 +11,7 @@ from pathlib import Path
 
 from case_capabilities import user_deferred_reason
 from platform_io_capabilities import RUNTIME_CONTRACT_CAPABILITIES
+from foundations_case_capabilities import apply_foundations_capabilities
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -134,13 +135,16 @@ def validated_entries(root=ROOT):
     for case in result:
         if case["id"] in RUNTIME_CONTRACT_CAPABILITIES:
             case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
-            case["required_capabilities"] = list(RUNTIME_CONTRACT_CAPABILITIES[case["id"]])
+            case["required_capabilities"] = list(
+                RUNTIME_CONTRACT_CAPABILITIES[case["id"]]
+            )
         if case["id"] in HTTP_NATIVE_IO_CASE_IDS:
             case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
             case["required_capabilities"] = [
                 "native Io providers",
                 "fiber context switching",
             ]
+        apply_foundations_capabilities(case)
         if case["id"] in {
             "native/clipboard-round-trip",
             "native/macos-clipboard-utf8",
@@ -182,6 +186,14 @@ def unavailable_reason(case, mode, actual_platform=None):
     required = [required] if isinstance(required, str) else required
     if required and target_os and target_os not in required:
         return f"requires actual {'/'.join(required)} host; native execution remains required, not passed on {target_os}"
+    target_cpu = (
+        "wasm64"
+        if mode.startswith("wasm")
+        else (actual_platform or "").partition("-")[2].partition("-")[0]
+    )
+    required_cpu = case.get("required_cpu")
+    if required_cpu and target_cpu and target_cpu != required_cpu:
+        return f"requires actual {required_cpu} CPU; execution remains required, not passed on {target_cpu}"
     if mode.startswith("wasm") and case["family"] in {"native", "graphics"}:
         return "native SDK/OS/graphics regression requires native CI; no WASM runtime claim"
     return None
