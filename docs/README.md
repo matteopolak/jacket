@@ -781,3 +781,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Typed polymorphic struct argument inference](compiler/typed-struct-arguments.md): parameter identity, preserved declared types, independent RED/green checks and [oracle questions](specs/typed-struct-argument-questions.md).
 
 [HTTP WASM termination controls](extensions/http-wasm-test-termination.md) retain failure counters/nonzero exits through real WASI/browser hosts; portable codec assertions remain unconditional and live-clock checks remain native.
+
+[Windows time-zone ABI](windows-time-zone-abi.md) restores the real SDK record with complete layout/field source checks and native MSVC comparison jobs; Windows execution remains pending.

@@ -16,6 +16,7 @@ on:
       - 'tests/**'
       - 'tools/windows_cross.py'
       - 'tools/check_file_watcher_platforms.py'
+      - 'tools/check_windows_time_zone.py'
       - 'tools/stdlib_runtime.py'
       - 'tools/build_native_libs.py'
       - 'tools/native-libs.json'
@@ -79,7 +80,7 @@ jobs:
             exit 0
           fi
           echo "$files"
-          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|stdlib/File_Watcher/|stdlib/internal/watching/|tools/check_file_watcher_platforms\.py$|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
+          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|stdlib/File_Watcher/|stdlib/internal/watching/|tools/check_(file_watcher_platforms|windows_time_zone)\.py$|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "no Io, Http, Json, Tls, Windows, LLVM backend, interpreter or native test change; skipping"
@@ -296,7 +297,7 @@ jobs:
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
-      - name: Native File_Watcher ownership and notification fixtures
+      - name: Native File_Watcher and Windows time-zone SDK ABI fixtures
         if: success() || failure()
         shell: pwsh
         env:
@@ -307,7 +308,10 @@ jobs:
           if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
           & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
           python -u tools/check_file_watcher_platforms.py --compiler target/x86_64-pc-windows-msvc/debug/jaic.exe --linter target/x86_64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe --native-runtime
-          if ($LASTEXITCODE -ne 0) { throw 'Native File_Watcher suite failed' }
+          $watcherExit = $LASTEXITCODE
+          python -u tools/check_windows_time_zone.py --compiler target/x86_64-pc-windows-msvc/debug/jaic.exe --linter target/x86_64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe --sdk-runtime
+          $abiExit = $LASTEXITCODE
+          if ($watcherExit -ne 0 -or $abiExit -ne 0) { throw 'Native File_Watcher or SDK time-zone ABI suite failed' }
 
   upstream-smoke:
     # The third-party projects of ci.yml's job of the same name, built and run on Windows with the
@@ -574,7 +578,7 @@ jobs:
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
-      - name: Native File_Watcher ownership and notification fixtures
+      - name: Native File_Watcher and Windows time-zone SDK ABI fixtures
         if: success() || failure()
         shell: pwsh
         env:
@@ -585,4 +589,7 @@ jobs:
           if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
           & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
           python -u tools/check_file_watcher_platforms.py --compiler target/aarch64-pc-windows-msvc/debug/jaic.exe --linter target/aarch64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe --native-runtime
-          if ($LASTEXITCODE -ne 0) { throw 'Native File_Watcher suite failed' }
+          $watcherExit = $LASTEXITCODE
+          python -u tools/check_windows_time_zone.py --compiler target/aarch64-pc-windows-msvc/debug/jaic.exe --linter target/aarch64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe --sdk-runtime
+          $abiExit = $LASTEXITCODE
+          if ($watcherExit -ne 0 -or $abiExit -ne 0) { throw 'Native File_Watcher or SDK time-zone ABI suite failed' }
