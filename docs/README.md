@@ -851,3 +851,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Cross-source compiler phases](compiler/cross-source-phases.md): single-selection context loading, target-library isolation, preserved REDs and pending public contracts; [combined integration proof](status/numerics-cross-source-integration.json).
 
 - [Combined c0c+5b candidate718](status/shared-candidate-7187647b.json): matching tools/native assets and exact focused results for root’s next original400 gate.
+
+- [Linux Clipboard static dependency closure](clipboard-linux-static-link-closure.md): required private X11/pthread retention, causal link-argv evidence and real Linux runtime gates.

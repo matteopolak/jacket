@@ -71,6 +71,8 @@ def main():
         host=platform.platform(),
         commands=commands,
         required_system_libraries=["X11", "pthread"],
+        static_consumer_dependencies=["X11", "pthread"],
+        static_consumer_retention="Required even for a type-only X11 import; the Jai consumer declares private link_always dependencies.",
         inputs={
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in [source / "data.h", source / "data.c", source / "x11.c"]
