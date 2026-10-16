@@ -108,6 +108,7 @@ jobs:
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+          bash tools/install_ci_native_linux.sh
       - name: Verify native host and LLVM
         run: |
           uname -sm
@@ -315,6 +316,7 @@ jobs:
           # tests/native-regressions/sdl2-geometry-timer.jai uses Homebrew's.
           brew list freetype > /dev/null 2>&1 || brew install freetype
           brew list sdl2 > /dev/null 2>&1 || brew install sdl2
+          echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"
       - name: Install LLVM 23, the window libraries and a virtual display (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 15
@@ -327,7 +329,8 @@ jobs:
           # input test see the cursor, xclip backs the clipboard test, and ALSA is Sound_Player's
           # output, played into a null PCM since the runners have no sound card.
           # Mesa's lavapipe (mesa-vulkan-drivers) is the Vulkan adapter of the WebGPU test.
-          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libsdl2-dev libgl1-mesa-dri xvfb xauth xclip libxfixes-dev libasound2-dev mesa-vulkan-drivers fonts-dejavu-core
+          bash tools/install_ci_native_linux.sh
+          echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"
           printf 'pcm.!default {\n    type null\n}\n' > ~/.asoundrc
       - name: Build production compiler and lint tools
         run: |
@@ -340,6 +343,13 @@ jobs:
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
           python3 tools/audio_build_native.py --test-runtime
+          python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
+          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
+          echo "JAIC_NATIVE_LIBS=$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
+            echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
+          fi
       - name: Run reviewed contracts and retained regressions
         run: |
           ulimit -c 0
@@ -362,7 +372,7 @@ jobs:
           fi
           native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
           "${run[@]}" python3 -u tools/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
-            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --font "$font"
+            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font"
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
         # an error scope (tests/webgpu/headless.jai). Linux has Mesa's lavapipe; the macOS
@@ -430,7 +440,7 @@ jobs:
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
           # As the stdlib runtime job, plus x11-apps (xwd takes the screenshots) and the xcb and
           # fontconfig libraries Focus loads at run time, and libc++ (jai-tracy links it).
-          sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libgl1-mesa-dri xvfb xauth x11-apps libxfixes-dev libasound2-dev mesa-vulkan-drivers libxcb1-dev libxcb-cursor0 libxkbcommon-dev libfontconfig1-dev libc++-dev libc++abi-dev
+          bash tools/install_ci_native_linux.sh
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
       - name: Fetch the pinned projects
@@ -478,6 +488,8 @@ jobs:
           tools/install_ci_llvm_macos.sh
           # tests/native-regressions/sdl2-geometry-timer.jai links the installed SDL2.
           brew list sdl2 > /dev/null 2>&1 || brew install sdl2
+          brew list freetype > /dev/null 2>&1 || brew install freetype
+          echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"
       - name: Install LLVM 23 and its sanitizer runtimes (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 15
@@ -487,7 +499,22 @@ jobs:
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Install the libraries Simp and GetRect link (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y --no-install-recommends libx11-dev libgl-dev libegl-dev libfreetype-dev libsdl2-dev libxfixes-dev libasound2-dev
+        run: |
+          bash tools/install_ci_native_linux.sh
+          echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"
+      - name: Build real private runtime and ABI8 fixture providers
+        run: |
+          python3 tools/build_portable_runtime.py
+          python3 tools/window_render_native.py
+          python3 tools/build_native_libs.py
+          python3 tools/audio_build_native.py --test-runtime
+          python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
+          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
+          echo "JAIC_NATIVE_LIBS=$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
+            echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
+          fi
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       # Runners have no display or GPU, so programs that open windows are built but not run

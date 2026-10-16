@@ -1110,15 +1110,57 @@ Burst_Job :: struct {
     address: Io.Address;
     group: *Io.Wait_Group;
     failed: *int;
+    diagnostics: *Burst_Diagnostics;
 }
 
-burst_handler :: (conn: Io.Tcp_Stream) {
+// Failure evidence only; these tests run cooperatively on one scheduler thread.
+Burst_Error :: struct {
+    count: int;
+    first_error: Io.Io_Error;
+    first_platform_code: s32;
+}
+
+Burst_Diagnostics :: struct {
+    accepted: int;
+    handlers_finished: int;
+    connect: Burst_Error;
+    client_write: Burst_Error;
+    client_read: Burst_Error;
+    accept: Burst_Error;
+    server_read: Burst_Error;
+    server_write: Burst_Error;
+}
+
+burst_record_error :: (record: *Burst_Error, error: Io.Io_Error, platform_code: s32) {
+    if record.count == 0 {
+        record.first_error = error;
+        record.first_platform_code = platform_code;
+    }
+
+    record.count += 1;
+}
+
+Burst_Handler :: struct {
+    conn: Io.Tcp_Stream;
+    diagnostics: *Burst_Diagnostics;
+}
+
+burst_handler :: (job: Burst_Handler) {
+    conn := job.conn;
+    diagnostics := job.diagnostics;
+
     defer Io.close(conn);
+    defer diagnostics.handlers_finished += 1;
 
     byte: [1] u8;
     count, error := Io.read(conn, byte);
 
-    if error == .NONE && count == 1 Io.write(conn, byte);
+    if error != .NONE || count != 1 {
+        burst_record_error(*diagnostics.server_read, error, Io.last_platform_code());
+    } else {
+        written, write_error := Io.write(conn, byte);
+        if write_error != .NONE || written != 1 burst_record_error(*diagnostics.server_write, write_error, Io.last_platform_code());
+    }
 }
 
 // One byte to the server and back; a connection the server never accepts times out.
@@ -1128,6 +1170,7 @@ burst_client :: (job: Burst_Job) {
     client, error := Io.connect(job.address);
 
     if error != .NONE {
+        burst_record_error(*job.diagnostics.connect, error, Io.last_platform_code());
         job.failed.* += 1;
 
         return;
@@ -1142,8 +1185,10 @@ burst_client :: (job: Burst_Job) {
     // Generous: a connection the server lost would wait forever, while a busy machine (the stress
     // runs start a dozen of these programs at once) can take seconds to get to one.
     Io.with_deadline(30_000, #code {
-        Io.write(client, byte);
+        written, write_error := Io.write(client, byte);
+        if write_error != .NONE || written != 1 burst_record_error(*job.diagnostics.client_write, write_error, Io.last_platform_code());
         count, read_error = Io.read(client, byte);
+        if read_error != .NONE || count != 1 burst_record_error(*job.diagnostics.client_read, read_error, Io.last_platform_code());
     });
 
     if read_error != .NONE || count != 1 job.failed.* += 1;
@@ -1152,6 +1197,7 @@ burst_client :: (job: Burst_Job) {
 Burst_Server :: struct {
     listener: Io.Tcp_Listener;
     group: *Io.Wait_Group;
+    diagnostics: *Burst_Diagnostics;
 }
 
 burst_acceptor :: (server: Burst_Server) {
@@ -1160,9 +1206,13 @@ burst_acceptor :: (server: Burst_Server) {
     while true {
         conn, error := Io.accept(server.listener);
 
-        if error != .NONE return;
+        if error != .NONE {
+            burst_record_error(*server.diagnostics.accept, error, Io.last_platform_code());
+            return;
+        }
 
-        Io.spawn(burst_handler, conn);
+        server.diagnostics.accepted += 1;
+        Io.spawn(burst_handler, Burst_Handler.{ conn, server.diagnostics });
 
         // Slower than the burst.
         for 1..20 Io.yield();
@@ -1189,20 +1239,28 @@ test_accept_bursts :: () {
     }
 
     acceptor_group: Io.Wait_Group;
+    diagnostics: Burst_Diagnostics;
 
     Io.add(*acceptor_group);
-    Io.spawn(burst_acceptor, Burst_Server.{ listener, *acceptor_group });
+    Io.spawn(burst_acceptor, Burst_Server.{ listener, *acceptor_group, *diagnostics });
 
     failed := 0;
 
     for 1..ROUNDS {
+        started := now_ms();
         group: Io.Wait_Group;
 
         Io.add(*group, COUNT);
 
-        for 1..COUNT Io.spawn(burst_client, Burst_Job.{ address, *group, *failed });
+        for 1..COUNT Io.spawn(burst_client, Burst_Job.{ address, *group, *failed, *diagnostics });
 
         Io.wait(*group);
+
+        if failed != 0 {
+            print("Io burst failure: backend=% round=% elapsed_ms=% accepted_total=% handlers_finished_total=%\n", Io.backend_name(), it, now_ms() - started, diagnostics.accepted, diagnostics.handlers_finished, to_standard_error = true);
+            print("Io burst client: connect=% first=% code=% write=% first=% code=% read=% first=% code=%\n", diagnostics.connect.count, diagnostics.connect.first_error, diagnostics.connect.first_platform_code, diagnostics.client_write.count, diagnostics.client_write.first_error, diagnostics.client_write.first_platform_code, diagnostics.client_read.count, diagnostics.client_read.first_error, diagnostics.client_read.first_platform_code, to_standard_error = true);
+            print("Io burst server: accept=% first=% code=% read=% first=% code=% write=% first=% code=%\n", diagnostics.accept.count, diagnostics.accept.first_error, diagnostics.accept.first_platform_code, diagnostics.server_read.count, diagnostics.server_read.first_error, diagnostics.server_read.first_platform_code, diagnostics.server_write.count, diagnostics.server_write.first_error, diagnostics.server_write.first_platform_code, to_standard_error = true);
+        }
 
         assert(failed == 0, "round %: % of % connections were not served", it, failed, COUNT);
     }

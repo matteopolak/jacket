@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--jaifmt", required=True, type=Path)
     parser.add_argument("--suite", action="append", choices=SUITES)
     parser.add_argument("--native-libs", required=True, type=Path)
+    parser.add_argument("--bindings-native-libs", type=Path, help="real source-built ABI8 SDK and C probe directory")
     parser.add_argument("--font", type=Path, help="real scalable font required by the window suite")
     args = parser.parse_args()
     selected = args.suite or list(SUITES)
@@ -33,7 +34,11 @@ def main():
         parser.error("integration requires the combined production stdlib, not an overlay")
     if "window" in selected and (not args.font or not args.font.is_file()):
         parser.error("--font must name a real host font for the window suite")
-    env = dict(os.environ, JAIC_STDLIB=str(library), JAIC_NATIVE_LIBS=str(native))
+    binding_native = args.bindings_native_libs.resolve(strict=True) if args.bindings_native_libs else native
+    search = list(dict.fromkeys([str(binding_native), str(native), *filter(None, os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep))]))
+    env = dict(os.environ, JAIC_STDLIB=str(library), JAIC_NATIVE_LIBS=os.pathsep.join(search))
+    if args.font:
+        env["JAIC_TEST_FONT_PATH"] = str(args.font.resolve(strict=True))
     commands = {
         "foundations": ["tools/check_foundations.py", "--jaic", compiler, "--stdlib", library,
                         "--jaifmt", fmt, "--jailint", lint, "--cross", "--wasm"],
@@ -48,7 +53,7 @@ def main():
         "numerics": ["tests/numerics/run.py", "--compiler", compiler, "--stdlib", library],
         "numerics-native": ["tests/numerics/corrective.py", "--compiler", compiler, "--stdlib", library],
         "bindings": ["tools/native_bindings/verify.py", "--compiler", compiler, "--stdlib", library,
-                     "--native-libs", native, "--runtime", "--report", ROOT / "artifacts/production-bindings/results.json"],
+                     "--native-libs", binding_native, "--runtime", "--work-dir", ROOT / "target/production-bindings/checks", "--report", ROOT / "target/production-bindings/results.json"],
         "tooling": ["tools/check_developer_tools.py"],
     }
     failures = []

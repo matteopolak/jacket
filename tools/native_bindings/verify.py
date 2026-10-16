@@ -24,6 +24,9 @@ from rpmalloc_tests import fixtures as rpmalloc_fixtures
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [(os_name, cpu) for os_name in ('linux', 'macos', 'windows') for cpu in ('x64', 'arm64')]
+RUNTIME_HOSTS = {name: ('darwin',) for name in (
+    'ios-sdk-host', 'objective-c', 'objc-runtime', 'appkit', 'macos', 'metal', 'nsgl',
+)}
 PRIVATE_UNITS = {'ios-sdk-host':'iOS/sdk-host-unit.jai',
                  'dxc-wide':'dxc_compiler/sdk-wide-unit.jai',
                  'dxc-compile-unit':'dxc_compiler/sdk-compile-unit.jai',
@@ -186,7 +189,7 @@ def invoke(command, env, timeout=120):
         return {'exit': None, 'stdout': str(e.stdout or ''), 'stderr': 'Timeout after ' + str(timeout) + ' seconds'}
 
 
-def main():
+def argument_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compiler', type=Path, required=True)
     parser.add_argument('--module', action='append', choices=MODULES)
@@ -201,17 +204,43 @@ def main():
     staging.add_argument('--foundation', type=Path, help='Explicit previously staged NEW independent foundation sources')
     staging.add_argument('--existing-stdlib', type=Path,
                          help='Reuse an independent local stage and refresh only owned bindings; never access peer checkouts')
+    staging.add_argument('--stdlib', type=Path, help='Check the production library directly; never refresh it from a producer')
+    parser.add_argument('--native-libs', type=Path, default=ROOT/'.work/native')
+    parser.add_argument('--work-dir', type=Path, help='Explicit owned verification scratch directory')
+    return parser
+
+
+def main():
+    parser = argument_parser()
     args = parser.parse_args()
+    if args.stdlib and args.rpmalloc_first_class_heaps:
+        parser.error('production verification cannot rewrite the library configuration')
     selected_configs = [config for config in TARGET_CONFIGS if not args.target_os or config[0] in args.target_os]
     compiler = args.compiler.resolve(strict=True)
-    work = ROOT/'.work/runs'/(args.report.stem+'-'+str(os.getpid()))
+    work = args.work_dir or ROOT/'.work/runs'/(args.report.stem+'-'+str(os.getpid()))
+    stdlib = args.stdlib.resolve(strict=True) if args.stdlib else work/'stdlib'
+    if args.stdlib:
+        if not (stdlib/'prelude/module.jai').is_file():
+            parser.error('production library requires the canonical prelude')
+        if work.resolve().is_relative_to(stdlib):
+            parser.error('verification work must remain outside the production library')
     work.mkdir(parents=True, exist_ok=True)
-    stdlib = work/'stdlib'
-    stage_for_checks(stdlib, args.existing_stdlib, args.foundation)
+    if not args.stdlib:
+        stage_for_checks(stdlib, args.existing_stdlib, args.foundation)
+    production_hashes = {str(p.relative_to(stdlib)): hashlib.sha256(p.read_bytes()).hexdigest()
+                         for p in stdlib.rglob('*.jai')} if args.stdlib else {}
+    private_stdlib = work/'private-unit-stdlib' if args.stdlib else stdlib
+    if args.stdlib:
+        shutil.copytree(stdlib, private_stdlib)
     if args.rpmalloc_first_class_heaps:
         from configure_rpmalloc import configure
         configure(stdlib, True)
-    env = dict(os.environ, JAIC_STDLIB=str(stdlib), JAIC_NATIVE_LIBS=str(ROOT/'.work/native'), TMPDIR=str(ROOT/'.work/tmp'))
+    native = args.native_libs.resolve(strict=True)
+    temporary = work/'tmp'
+    temporary.mkdir(exist_ok=True)
+    native_search = list(dict.fromkeys([str(native), *filter(None, os.environ.get('JAIC_NATIVE_LIBS', '').split(os.pathsep))]))
+    env = dict(os.environ, JAIC_STDLIB=str(stdlib), JAIC_NATIVE_LIBS=os.pathsep.join(native_search), TMPDIR=str(temporary))
+    private_env = dict(env, JAIC_STDLIB=str(private_stdlib))
     report = {'compiler': str(compiler), 'compiler_sha256': hashlib.sha256(compiler.read_bytes()).hexdigest(), 'staging_root': str(work),
               'targets': [], 'native': [], 'privacy': []}
     report['staged_sources'] = {str(p.relative_to(stdlib)):hashlib.sha256(p.read_bytes()).hexdigest()
@@ -220,7 +249,7 @@ def main():
     report['symbols'] = []
     report['test_sources'] = {}
     report['native_artifacts'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest()
-                                  for p in sorted((ROOT/'.work/native').glob('lib*')) if p.is_file()} if args.runtime else {}
+                                  for p in sorted(native.glob('lib*')) if p.is_file()} if args.runtime else {}
     report['privacy_only'] = args.privacy_only
     report['existing_stdlib'] = str(args.existing_stdlib.resolve()) if args.existing_stdlib else None
     for module, slug in ([] if args.privacy_only else MODULES.items()):
@@ -232,7 +261,7 @@ def main():
             coverage = json.loads((ROOT/'docs/native/bindings-coverage.json').read_text())['modules'][module]
             members = [Declaration(m['signature'],m['condition']) for d in coverage['declarations'] for m in d.get('members',[])]
             symbols = Spec(declarations=spec.declarations+members)
-            report['symbols'].extend(check_symbols(module, symbols, enabled, ROOT/'.work/native'))
+            report['symbols'].extend(check_symbols(module, symbols, enabled, native))
         for os_name, cpu in selected_configs:
             file = work/'module-check.jai'
             file.write_text('#import "' + module + '"; main :: () {}\n')
@@ -289,14 +318,17 @@ def main():
             continue
         source = ROOT/'tests/native-bindings'/filename
         report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
+        original_source = source
+        source_env = env
         if source.stem in PRIVATE_UNITS:
-            source = place_private_unit(source.stem,source,stdlib,report['staged_sources'])
+            source = place_private_unit(source.stem,source,private_stdlib,report['staged_sources'])
+            source_env = private_env
         for os_name, cpu in configs:
             if (os_name, cpu) not in selected_configs:
                 continue
-            result = invoke([compiler,source,'-check','-no_dce','-os',os_name,'-cpu',cpu],env)
+            result = invoke([compiler,source,'-check','-no_dce','-os',os_name,'-cpu',cpu],source_env)
             result.update(module=module, os=os_name, cpu=cpu, check='source_regression',
-                          source=str(source.relative_to(ROOT)), status='passed' if result['exit']==0 else 'failed')
+                          source=str(original_source.relative_to(ROOT)), status='passed' if result['exit']==0 else 'failed')
             if Path(filename).stem in PRIVATE_UNITS:
                 result.update(scope='private_native_unit',private_unit_placement=str(source))
             report['targets'].append(result)
@@ -429,6 +461,12 @@ def main():
                 relevant = ['GL']
             if args.module and not any(m in args.module for m in relevant):
                 continue
+            required_hosts = RUNTIME_HOSTS.get(name)
+            if required_hosts and sys.platform not in required_hosts:
+                report['native'].append({'name': name, 'status': 'unsupported',
+                                         'required_hosts': list(required_hosts),
+                                         'reason': 'Host SDK fixture requires its actual native host; not a passed runtime check'})
+                continue
             source = ROOT/'tests/native-bindings'/f'{name}.jai'
             if not source.is_file():
                 report['native'].append({'name': name, 'status': 'not_implemented'})
@@ -440,8 +478,9 @@ def main():
                 # A private unit belongs inside the staged library boundary.
                 # Copy bytes unchanged; do not expose a public testing backdoor
                 # or disable the compiler's private-import guard.
-                compiled_source = place_private_unit(name,source,stdlib,report['staged_sources'])
-            result = invoke([compiler, compiled_source, '-exe', exe], env)
+                compiled_source = place_private_unit(name,source,private_stdlib,report['staged_sources'])
+            runtime_env = private_env if name in PRIVATE_UNITS else env
+            result = invoke([compiler, compiled_source, '-exe', exe], runtime_env)
             scope = 'private_arithmetic' if name=='graphics-math' else 'private_toolchain_host' if name=='ios-sdk-host' else 'compiler_semantics' if name=='reflection-procedure-flags' else 'library_runtime'
             if name in ('dxc-wide','dxc-options'):
                 scope = 'private_argument_conversion' if name=='dxc-wide' else 'private_argument_serialization'
@@ -482,7 +521,7 @@ def main():
                 result['private_unit_placement'] = str(compiled_source)
             report['native'].append(result)
             if result['exit'] == 0:
-                result = invoke([exe], env)
+                result = invoke([exe], runtime_env)
                 result.update(name=name, phase='run',scope=scope,status='passed' if result['exit']==0 else 'failed')
                 report['native'].append(result)
         if not args.module or 'ImGui' in args.module:
@@ -491,8 +530,8 @@ def main():
             source = ROOT/'tests/native-bindings/imgui_ffi.cpp'
             report['test_sources'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
             command = ['c++','-std=c++17','-Wall','-Wextra','-Werror','-isystem',ROOT/'.work/vendor'/pin['archive']['root'],
-                       ROOT/'tests/native-bindings/imgui_ffi.cpp',ROOT/'.work/native/libimgui.a',
-                       ROOT/'.work/native/libbinding_ffi.a','-lffi','-o',exe]
+                       ROOT/'tests/native-bindings/imgui_ffi.cpp',native/'libimgui.a',
+                       native/'libbinding_ffi.a','-lffi','-o',exe]
             result = invoke(command,env)
             result.update(name='imgui-ffi',language='C++',phase='build',header_sha256=pin['files']['imgui.h'],
                           status='passed' if result['exit']==0 else 'failed')
@@ -501,10 +540,23 @@ def main():
                 result = invoke([exe],env)
                 result.update(name='imgui-ffi',language='C++',phase='run',status='passed' if result['exit']==0 else 'failed')
                 report['native'].append(result)
+    report['production_stdlib'] = str(stdlib) if args.stdlib else None
+    report['private_unit_scope'] = 'Byte-copied production test view with independently authored private fixture placements; not public production runtime proof'
+    report['production_sources_unchanged'] = not args.stdlib or production_hashes == {
+        str(p.relative_to(stdlib)): hashlib.sha256(p.read_bytes()).hexdigest() for p in stdlib.rglob('*.jai')}
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2)+'\n')
     failures = [x for category in ['targets','privacy','native','symbols'] for x in report[category] if x['status'] in ['failed','not_implemented','unavailable']]
+    for failure in failures[:40]:
+        headers = [line.strip() for line in failure.get('stderr', '').splitlines()
+                   if 'error:' in line.lower() or 'undefined reference' in line.lower() or 'symbol(s) not found' in line.lower()]
+        print('FAIL binding check:', failure.get('module', failure.get('name', 'unknown')),
+              failure.get('check', failure.get('phase', '')), failure['status'],
+              (headers[0] if headers else 'see exact report for diagnostic')[:400], file=sys.stderr)
+    if len(failures) > 40:
+        print('Remaining failed binding checks retained in report:', len(failures) - 40, file=sys.stderr)
     print(str(len(failures))+' failed or unimplemented checks; report: '+str(args.report))
-    return 1 if failures else 0
+    return 1 if failures or not report['production_sources_unchanged'] else 0
 
 
 if __name__ == '__main__':

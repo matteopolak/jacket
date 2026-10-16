@@ -11,6 +11,8 @@ import subprocess
 import sys
 import tempfile
 
+from clipboard_linux_diagnostics import failure_diagnostic, report_failure
+
 ROOT = Path(__file__).resolve().parents[1]
 JAI = [
     "stdlib/Clipboard/module.jai",
@@ -57,6 +59,8 @@ def inputs():
             "tools/check_portable_clipboard.py",
             "tools/build_portable_clipboard.py",
             "tools/check_portable_clipboard_clock.py",
+            "tools/clipboard_linux_diagnostics.py",
+            "tools/test_clipboard_linux_diagnostics.py",
             "docs/specs/stdlib/modules/clipboard.md",
         ]
     )
@@ -111,6 +115,20 @@ def main():
         )
         (work / "commands.json").write_text(json.dumps(rows, indent=2) + "\n")
         print(name, "PASS" if passed else "FAIL", flush=True)
+        if not passed:
+            failures = [
+                dict(
+                    name=row["name"],
+                    exit=row["exit"],
+                    diagnostic=failure_diagnostic(row),
+                )
+                for row in rows
+                if not row["passed"]
+            ]
+            (work / "failure-diagnostics.json").write_text(
+                json.dumps(failures, indent=2) + "\n"
+            )
+            report_failure(rows[-1], work / "commands.json")
         return passed
 
     built = run(
@@ -260,6 +278,8 @@ def main():
             "check",
             ROOT / "tools/check_portable_clipboard.py",
             ROOT / "tools/build_portable_clipboard.py",
+            ROOT / "tools/clipboard_linux_diagnostics.py",
+            ROOT / "tools/test_clipboard_linux_diagnostics.py",
         ],
     )
     run(
@@ -270,6 +290,8 @@ def main():
             "--check",
             ROOT / "tools/check_portable_clipboard.py",
             ROOT / "tools/build_portable_clipboard.py",
+            ROOT / "tools/clipboard_linux_diagnostics.py",
+            ROOT / "tools/test_clipboard_linux_diagnostics.py",
         ],
     )
     run(

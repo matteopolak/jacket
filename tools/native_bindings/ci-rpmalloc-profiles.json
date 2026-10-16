@@ -1,0 +1,29 @@
+{
+  "native_abi": 8,
+  "scope": "Same23source-builtABI8profiles verified in accepted combined baseline; otherprofiles notbuilt orclaimed. ActualCIqueries mustmatchcurrentPROFILES flags.",
+  "sdk_profiles": [
+    "binding_rpmalloc_sdk",
+    "binding_rpmalloc_sdk_no_validate_args",
+    "binding_rpmalloc_sdk_no_asserts",
+    "binding_rpmalloc_sdk_no_asserts_no_validate_args",
+    "binding_rpmalloc_sdk_no_global_cache",
+    "binding_rpmalloc_sdk_no_global_cache_no_thread_cache",
+    "binding_rpmalloc_sdk_nostats_adaptive",
+    "binding_rpmalloc_sdk_nostats",
+    "binding_rpmalloc_sdk_nostats_no_global_cache",
+    "binding_rpmalloc_sdk_nostats_no_global_cache_no_thread_cache",
+    "binding_rpmalloc_sdk_raw_base",
+    "binding_rpmalloc_sdk_raw_base_no_global_cache",
+    "binding_rpmalloc_sdk_raw_base_no_global_cache_no_thread_cache",
+    "binding_rpmalloc_sdk_raw_base_nostats_adaptive",
+    "binding_rpmalloc_sdk_raw_base_nostats",
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache",
+    "binding_rpmalloc_sdk_raw_base_nostats_no_global_cache_no_thread_cache",
+    "binding_rpmalloc_sdk_raw",
+    "binding_rpmalloc_sdk_raw_no_global_cache",
+    "binding_rpmalloc_sdk_raw_no_global_cache_no_thread_cache",
+    "binding_rpmalloc_sdk_raw_nostats",
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache",
+    "binding_rpmalloc_sdk_raw_nostats_no_global_cache_no_thread_cache"
+  ]
+}

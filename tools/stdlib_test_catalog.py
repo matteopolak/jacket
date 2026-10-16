@@ -39,14 +39,23 @@ HTTP_NATIVE_IO_CASE_IDS = frozenset(
 PROGRAM_INPUTS = {
     "extensions/io-dependency-workers": "scratch-file",
     "tests/portable-data-resource": "scratch-directory",
+    "tests/portable-data-resource-windows": "windows-resource-directory",
     "SDL/tests/sdl-rwops": "scratch-file",
     "Simp/tests/glyph-atlas": "font",
 }
 PROGRAM_ARGUMENTS = {
     'Clipboard/tests/cocoa-operations': ['enabled'],
+    'Simp/tests/context-default-assertions': ['enabled'],
 }
 PLATFORM_REQUIREMENTS = {
     'Clipboard/tests/cocoa-operations': 'macos',
+    'Simp/tests/context-default-assertions': 'macos',
+    'Window_Creation/tests/macos-window': 'macos',
+    'Window_Creation/tests/macos-events': 'macos',
+    'native/macos-clipboard-utf8': 'macos',
+    'native/objc-window-levels': 'macos',
+    'native/posix-stat-and-mutex': ('linux', 'macos'),
+    'graphics/macos-window-context-reopen': 'macos',
     "compiler/socket-select-canonical-timeval": ("linux", "macos"),
     "extensions/io-uring-dependency-repro": "linux",
     "Input/tests/windows-device-decoding": "windows",
@@ -91,6 +100,9 @@ def validated_entries(root=ROOT):
             case['arguments'] = PROGRAM_ARGUMENTS[case['id']].copy()
         if case["id"] in PLATFORM_REQUIREMENTS:
             case["required_os"] = PLATFORM_REQUIREMENTS[case["id"]]
+        if case["id"] == "Simp/tests/context-default-assertions":
+            case["fixture_libraries"] = {"GL_PROBE": "window_gl_probe"}
+            case["requires_display"] = True
         if case["id"] in names:
             raise ValueError("duplicate test ID: " + case["id"])
         names.add(case["id"])

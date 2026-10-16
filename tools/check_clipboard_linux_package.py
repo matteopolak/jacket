@@ -11,11 +11,24 @@ import shutil
 import subprocess
 import sys
 
+from clipboard_linux_diagnostics import report_failure
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require_runtime_verification(proof, prior):
+    if not prior["passed"] or not prior["linux_runtime_executed"]:
+        failures = [row for row in prior.get("commands", []) if not row["passed"]]
+        # Native Jai failures come first, so provisioning/source diagnostics do
+        # not obscure the package's unmet actual-Jai-runtime requirement.
+        failures.sort(key=lambda row: not row["name"].startswith("linux-jai-"))
+        for row in failures[:4]:
+            report_failure(row, proof.parent / "commands.json")
+        raise RuntimeError("successful real Linux runtime verification is required")
 
 
 def main():
@@ -27,8 +40,7 @@ def main():
         parser.error("requires actual Linux and an authorized ephemeral X11 display")
     proof = args.verification_receipt.resolve(strict=True)
     prior = json.loads(proof.read_text())
-    if not prior["passed"] or not prior["linux_runtime_executed"]:
-        raise RuntimeError("successful real Linux runtime verification is required")
+    require_runtime_verification(proof, prior)
     compiler = proof.parent / "tools/debug/jaic"
     if digest(compiler) != prior["compiler_sha256"]:
         raise RuntimeError("verified compiler changed")
@@ -106,7 +118,11 @@ def main():
         )
         (output / "report.json").write_text(json.dumps(rows, indent=2) + "\n")
         if not passed:
-            raise RuntimeError(json.dumps(rows[-1], indent=2))
+            row = dict(rows[-1], name="relocated-package-command")
+            report_failure(row, output / "report.json")
+            raise RuntimeError(
+                "relocated package verification failed; full output preserved in report.json"
+            )
 
     cli = relocated / "jaic"
     source = output / "consumer.jai"

@@ -14,7 +14,13 @@ project documents where a case has an `expect` record), or file paths.
 same expectations; --sanitize address,undefined (implies --native) instruments those builds and
 fails a case on any sanitizer report (docs/native/sanitizers.md).
 """
-import argparse, json, os, shutil, subprocess, sys, tempfile
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -24,6 +30,7 @@ UPSTREAM = ROOT / "corpus/upstream"
 # read-only siblings to symlink next to them), so a build that writes generated files never
 # changes the pinned corpus. Case id -> scratch root, filled before the cases start.
 WORKDIRS = {}
+CASE_METADATA = {}
 
 def upstream_root(c):
     return WORKDIRS.get(c["id"], UPSTREAM)
@@ -77,14 +84,15 @@ def cases(name):
         for c in validated_entries():
             if (c["family"] == "contracts") != (name == "stdlib") or (name == "regressions" and c["family"] == "modules"):
                 continue
+            CASE_METADATA[c["id"]] = c
             expect = c if c["family"] == "contracts" else None
             yield c["id"], c["path"], "check" if c.get("mode") == "check-fail" else "run", expect, []
     elif name == "modules":
-        found = (list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib").glob("Extensions/*/tests/*.jai"))
-                 + list((ROOT / "stdlib/tests").glob("**/*.jai")))
-        for p in sorted(set(found)):
-            if "modules" not in p.relative_to(ROOT / "stdlib").parts:
-                yield str(p.relative_to(ROOT / "stdlib").with_suffix("")), p, "run", None, []
+        from stdlib_test_catalog import validated_entries
+        for c in validated_entries():
+            if c["family"] == "modules":
+                CASE_METADATA[c["id"]] = c
+                yield c["id"], c["path"], "run", None, []
     elif name == "examples":
         for c in json.loads((ROOT / "tests/examples.json").read_text())["cases"]:
             expect = {"contains": c["stdout_contains"], "excludes": c.get("stdout_excludes", [])}
@@ -131,12 +139,14 @@ MEMORY_LIMIT_EXIT = 120
 # `jaic`'s exit status for a program without `main` (NO_MAIN_STATUS in jaic-cli).
 NO_MAIN_EXIT = 3
 
-def run_limited(command, cwd, timeout, limit_bytes, jaic=True):
+def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None):
     """Runs `command` with jaic's exact allocation limit armed, killing it on timeout. Returns
     (stdout, stderr, code), with code -1 and a one-line verdict as stderr when a limit stopped it.
     `jaic` says whether the command is jaic, whose exit status MEMORY_LIMIT_EXIT means the limit
     (another program may exit with any status)."""
     env = dict(os.environ, JAIC_MEMORY_LIMIT=str(limit_bytes))
+    if environment:
+        env.update(environment)
     # Output goes to files rather than pipes: a program the case launched may outlive a killed
     # jaic and would keep a pipe open.
     with tempfile.TemporaryFile() as out_file, tempfile.TemporaryFile() as err_file:
@@ -153,8 +163,22 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True):
         out = out_file.read().decode(errors="replace")
         err = err_file.read().decode(errors="replace")
     if jaic and code == MEMORY_LIMIT_EXIT:
-        return "", next((l for l in err.splitlines() if l.strip()), "memory limit exceeded"), -1
+        return "", next((line for line in err.splitlines() if line.strip()), "memory limit exceeded"), -1
     return out, err, code
+
+
+def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True):
+    from stdlib_runtime import runtime_prefix, CLIPBOARD_LOCK
+    try:
+        prefix = runtime_prefix(metadata or {}, os.environ)
+    except ValueError as error:
+        return "", "error: fixture setup: " + str(error), 1
+    if not prefix:
+        return run_limited(command, cwd, timeout, limit_bytes, jaic=jaic)
+    environment = {"JAIC_TEST_CHILD_TIMEOUT_MS": str(max(1, round(timeout * 1000)))}
+    with CLIPBOARD_LOCK:
+        return run_limited([*prefix, *command], cwd, timeout + 30, limit_bytes,
+                           jaic=jaic, environment=environment)
 
 # Runtime options for sanitized executables. Leaks are not reported: programs routinely leave
 # their memory to the OS at exit, and a leak is not the codegen or memory-safety bug the
@@ -180,6 +204,8 @@ def symbolizer():
 
 # `run_native`'s status for a program whose build writes no executable.
 NO_EXECUTABLE = "no executable"
+PLATFORM_UNAVAILABLE = "platform unavailable"
+HEADLESS_BUILD = "headless build only"
 
 def opens_windows(path):
     """Whether a case opens windows: it imports Window_Creation. Machines without a display or
@@ -189,7 +215,7 @@ def opens_windows(path):
     except OSError:
         return False
 
-def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, run=True):
+def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, run=True, metadata=None):
     """Build `path` natively with `build_flags` and run the executable in the source's directory.
     Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
     an `error:` line first in stderr."""
@@ -200,20 +226,20 @@ def run_native(jaic, path, extra, build_flags, scratch, timeout, limit_bytes, ru
         return "", "", NO_EXECUTABLE  # built for another platform
     exe = Path(tempfile.mkdtemp(dir=scratch)) / path.stem
     try:
-        _, err, code = run_limited([jaic, str(path), "-exe", str(exe), *build_flags, *jaic_args],
-                                   path.parent, timeout, limit_bytes)
+        _, err, code = run_fixture([jaic, str(path), "-exe", str(exe), *build_flags, *jaic_args],
+                                   path.parent, timeout, limit_bytes, metadata)
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
         if code == NO_MAIN_EXIT:
             return "", "", NO_EXECUTABLE
         if code != 0:
-            cause = next((l.strip() for l in err.splitlines() if "error" in l.lower()), "")
+            cause = next((line.strip() for line in err.splitlines() if "error" in line.lower()), "")
             return "", f"error: native build failed (exit {code}): {cause}\n{err}", code
         if not exe.exists():
             return "", "", NO_EXECUTABLE
         if not run:
             return "", "", 0
-        out, err, code = run_limited([str(exe), *program_args], path.parent, timeout, limit_bytes, jaic=False)
+        out, err, code = run_fixture([str(exe), *program_args], path.parent, timeout, limit_bytes, metadata, jaic=False)
         report = sanitizer_report(err)
         if report:
             return out, f"error: sanitizer: {report}\n{err}", code if code != 0 else 1
@@ -285,12 +311,28 @@ def main():
 
     def run(case):
         cid, path, mode, expect, extra = case
-        windowed = a.headless and mode == "run" and opens_windows(path)
+        metadata = CASE_METADATA.get(cid, {})
+        if metadata:
+            from stdlib_test_catalog import unavailable_reason
+            from stdlib_runtime import host_platform, program_arguments, prepare_program
+            reason = unavailable_reason(metadata, "native" if a.native else "interp", host_platform())
+            if reason:
+                return cid, None, "", reason, PLATFORM_UNAVAILABLE
+            try:
+                arguments = program_arguments(metadata, scratch or tempfile.gettempdir(), os.environ)
+                path = prepare_program(metadata, path, scratch or tempfile.gettempdir())
+            except ValueError as error:
+                return cid, False, "", "error: fixture setup: " + str(error), 1
+            if arguments:
+                if "--" in extra:
+                    return cid, False, "", "error: conflicting fixture argument providers", 1
+                extra = [*extra, "--", *arguments]
+        windowed = a.headless and mode == "run" and (metadata.get("requires_display") or opens_windows(path))
         if windowed and expect is not None:
             expect = None  # Only whether it builds is checked.
         if a.native and mode == "run":
             out, err, code = run_native(a.jaic, path, extra, build_flags, scratch, a.timeout, limit_bytes,
-                                        run=not windowed)
+                                        run=not windowed, metadata=metadata)
             if code == NO_EXECUTABLE:
                 return cid, None, out, err, code
         else:
@@ -300,9 +342,11 @@ def main():
             mode_flag = {"run": ["-interp"], "check": ["-check"], "build": []}[mode]
             if windowed:
                 mode_flag = ["-check"]
-            out, err, code = run_limited([a.jaic, str(path), *mode_flag, *quiet, *extra],
-                                         path.parent, a.timeout, limit_bytes)
+            out, err, code = run_fixture([a.jaic, str(path), *mode_flag, *quiet, *extra],
+                                         path.parent, a.timeout, limit_bytes, metadata)
         # `run_after`: the program the build produced is run, and the expectations apply to it.
+        if windowed and code == 0:
+            return cid, None, out, err, HEADLESS_BUILD
         if code == 0 and expect and expect.get("run_after"):
             program = expect["run_after"]
             out, err, code = run_limited([str(path.parent / program[0]), *program[1:]], path.parent,
@@ -347,16 +391,21 @@ def main():
             ok = code == expect.get("exit_code", 0) and out == expect.get("stdout", "")
         return cid, ok, out, err, code
 
-    passed, failed, no_exe = 0, [], []
+    passed, failed, no_exe, unavailable, built_only = 0, [], [], [], []
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
         for cid, ok, out, err, code in pool.map(run, todo):
             if ok is None:
-                no_exe.append(cid)
+                if code == PLATFORM_UNAVAILABLE:
+                    unavailable.append((cid, err))
+                elif code == HEADLESS_BUILD:
+                    built_only.append(cid)
+                else:
+                    no_exe.append(cid)
                 continue
             if ok:
                 passed += 1
                 continue
-            first = next((l for l in err.splitlines() if "error" in l), err.strip().splitlines()[0] if err.strip() else f"exit {code}, stdout {out[:80]!r}")
+            first = next((line for line in err.splitlines() if "error" in line), err.strip().splitlines()[0] if err.strip() else f"exit {code}, stdout {out[:80]!r}")
             failed.append((cid, first))
             if a.verbose:
                 print(f"--- {cid}\n{err[:1500]}{out[:500]}")
@@ -368,7 +417,11 @@ def main():
         print(f"FAIL {cid}: {msg[:220]}")
     if no_exe:
         print(f"\nnot run natively (compile-time only, interpreter-only or another platform): {', '.join(no_exe)}")
-    print(f"\n{passed} passed, {len(failed)} failed" + (f", {len(no_exe)} not run natively" if no_exe else ""))
+    for cid, reason in unavailable:
+        print(f"UNAVAILABLE {cid}: {reason}")
+    if built_only:
+        print("Built only under --headless (runtime not passed): " + ", ".join(built_only))
+    print(f"\n{passed} passed, {len(failed)} failed, {len(unavailable)} platform unavailable, {len(built_only)} built only" + (f", {len(no_exe)} not run natively" if no_exe else ""))
     # A failing status lets CI use the sweep directly.
     sys.exit(1 if failed else 0)
 

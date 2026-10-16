@@ -100,11 +100,44 @@ def program_arguments(case, scratch, env):
         if not font or not Path(font).is_file():
             raise ValueError("fixture requires JAIC_TEST_FONT_PATH naming a real caller-owned font")
         return [str(Path(font).resolve())]
+    if kind == "windows-resource-directory":
+        directory = env.get("JAIC_TEST_WINDOWS_RESOURCE_DIR")
+        if not directory or not all(
+            (Path(directory) / name).is_file()
+            for name in ("resource-only.dll", "resource.ico")
+        ):
+            raise ValueError("Windows resource fixture requires JAIC_TEST_WINDOWS_RESOURCE_DIR with the real source-built resource-only.dll and resource.ico")
+        return [str(Path(directory).resolve())]
     if kind not in {"scratch-file", "scratch-directory"}:
         raise ValueError("unknown fixture input: " + kind)
     directory = Path(scratch) / "inputs" / case["id"].replace("/", "-")
     directory.mkdir(parents=True, exist_ok=True)
     return [str(directory / "data" if kind == "scratch-file" else directory)]
+
+
+def initialize_coverage(path):
+    """An empty run has zero recorded hits, even when every compilation fails."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("")
+
+
+def prepare_program(case, source, scratch):
+    """Bind a caller-supplied native probe without modifying its fixture body."""
+    libraries = case.get("fixture_libraries")
+    if not libraries:
+        return source
+    if not isinstance(libraries, dict) or not all(
+        isinstance(name, str) and name.isidentifier() and isinstance(library, str)
+        for name, library in libraries.items()
+    ):
+        raise ValueError("fixture library bindings must map identifiers to native library names")
+    directory = Path(scratch) / "fixture-programs" / case["id"].replace("/", "-")
+    directory.mkdir(parents=True, exist_ok=True)
+    wrapper = directory / "main.jai"
+    text = "".join(name + " :: #library " + json.dumps(library) + ";\n"
+                   for name, library in libraries.items())
+    wrapper.write_text(text + "#load " + json.dumps(str(source.resolve())) + ";\n")
+    return wrapper
 
 
 def runtime_prefix(case, env, host=sys.platform):
@@ -136,6 +169,7 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
     # interpreter cannot do yet.
     env["JAIC_STDLIB_TEST_MODE"] = mode
     try:
+        path = prepare_program(metadata or {}, path, scratch)
         arguments = program_arguments(metadata or {}, scratch, env)
         runtime_prefix(metadata or {}, env)
     except ValueError as error:
@@ -221,7 +255,7 @@ def main():
         sys.exit(f"stdlib_runtime: modes are {', '.join(MODES)}")
     if args.coverage:
         args.coverage = args.coverage.resolve()
-        args.coverage.unlink(missing_ok=True)
+        initialize_coverage(args.coverage)
     if "native" in modes:
         use_native_libs(args.platform)
     catalogue = validated_entries()

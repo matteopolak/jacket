@@ -44,6 +44,18 @@ import check_generator_platform
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 JAIC = ROOT / "target/debug/jaic"
+UNAVAILABLE_EVIDENCE = []
+
+
+def host_evidence(name, callback, required_hosts, host=None):
+    actual = host or platform.system()
+    if actual not in required_hosts:
+        row = {"name": name, "status": "unavailable", "actual_host": actual,
+               "required_hosts": list(required_hosts), "passed": None}
+        UNAVAILABLE_EVIDENCE.append(row)
+        print("UNAVAILABLE host evidence:", json.dumps(row), flush=True)
+        return
+    callback()  # Required host failures propagate; no fallback or success substitute.
 
 
 def run(command, *, output=None, error=""):
@@ -162,7 +174,7 @@ def check_profiler_client_children():
 
 def main():
     check_developer_bindings.main()
-    check_generator_platform.main()
+    host_evidence("generator-platform Mac SDK execution", check_generator_platform.main, ["Darwin"])
     check_developer_cpp_custom.main()
     check_developer_type_emission.main()
     check_developer_value_emission.main()
@@ -178,11 +190,10 @@ def main():
     check_developer_anonymous_types.main()
     check_developer_variadic.main()
     configured_cases = check_developer_sdk_configuration.main()
-    if platform.system() == "Darwin":
-        check_developer_native_package.main()
+    host_evidence("Mac SDK relocated package", check_developer_native_package.main, ["Darwin"])
     build_developer_debug.main()
     check_developer_debug_lifecycle.main()
-    check_developer_debug_windows.main()
+    host_evidence("Mac-hosted MinGW Windows Debug cross-build", check_developer_debug_windows.main, ["Darwin"])
     check_developer_msf.main()
     check_developer_native_abi.main()
     check_developer_dwarf_lines.main()
@@ -464,7 +475,7 @@ def main():
         if os_name != "wasm":
             run([JAIC, "tests/developer-tools/bindings-literals.jai", "-check", "-os", os_name, "-cpu", cpu])
             run([JAIC, "tests/developer-tools/bindings-clang-options.jai", "-check", "-os", os_name, "-cpu", cpu])
-    print(f"Developer tooling supported suite: {len(cases) + configured_cases} interpreter/native O0/O2 fixtures, native C/C++ round trips, diagnostics, scoped format/lint and target ABI checks passed")
+    print(f"Developer tooling supported suite: {len(cases) + configured_cases} interpreter/native O0/O2 fixtures, native C/C++ round trips, diagnostics, scoped format/lint and target ABI checks passed; {len(UNAVAILABLE_EVIDENCE)} host-specific evidence groups unavailable (not passed)")
 
 
 if __name__ == "__main__":

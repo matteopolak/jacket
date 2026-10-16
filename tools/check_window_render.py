@@ -9,22 +9,23 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+from stdlib_runtime import runtime_prefix
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--jaic", type=Path, default=ROOT / "target/window-compiler/debug/jaic")
+    parser.add_argument("--jaic", type=Path, required=True, help="explicit authorized source-built compiler")
     parser.add_argument("--stdlib", type=Path, default=ROOT / "target/window-integration-stdlib")
     parser.add_argument("--native-libs", type=Path, default=ROOT / "target/window-native")
     parser.add_argument("--font", type=Path, help="caller-provided scalable font asset; never copied into the repository")
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT / "target"):
-        parser.error("use a source-built compiler inside this worker's target directory")
+    native_search = list(dict.fromkeys([str(args.native_libs.resolve(strict=True)),
+                                       *filter(None, os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep))]))
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve()),
-               JAIC_NATIVE_LIBS=str(args.native_libs.resolve()))
+               JAIC_NATIVE_LIBS=os.pathsep.join(native_search))
     output = ROOT / "target/window-test-binaries"
     output.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -36,10 +37,12 @@ def main():
                   "macos-window": "Window_Creation", "windows-device-decoding": "Input"}.get(name)
         return ROOT / (f"stdlib/{module}/tests/{name}.jai" if module else f"tests/window-render/{name}.jai")
 
-    def run(command, expected=None):
+    def run(command, expected=None, restore_clipboard=False):
         nonlocal count
-        result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
-                                capture_output=True, text=True, timeout=60)
+        prefix = runtime_prefix({"clipboard_guard": restore_clipboard}, env)
+        child_env = dict(env, JAIC_TEST_CHILD_TIMEOUT_MS="60000") if prefix else env
+        result = subprocess.run([*prefix, *map(str, command)], cwd=ROOT, env=child_env,
+                                capture_output=True, text=True, timeout=90 if prefix else 60)
         if result.returncode or result.stderr or (expected is not None and result.stdout != expected):
             failures.append(f'{command}\nexit {result.returncode}\n{result.stdout}{result.stderr}')
             return False
@@ -80,11 +83,11 @@ def main():
         parameters = [args.font.resolve()] if name in {"font-public", "glyph-atlas", "dynamic-font", "render-driver"} else []
         program_args = ["--", *parameters] if parameters else []
         before = len(failures)
-        run([compiler, source, "-interp", "-I", args.stdlib, *program_args], "ok\n")
+        run([compiler, source, "-interp", "-I", args.stdlib, *program_args], "ok\n", restore_clipboard=name == "clipboard-host")
         for optimization in ["O0", "O2"]:
             binary = output / f"{name}-{optimization}"
             if run([compiler, source, f"-{optimization}", "-exe", binary, "-I", args.stdlib]):
-                run([binary, *parameters], "ok\n")
+                run([binary, *parameters], "ok\n", restore_clipboard=name == "clipboard-host")
         outcome = "passed" if len(failures) == before else "FAILED"
         print(f"{outcome} host interpreter and native O0/O2: {name}", flush=True)
 

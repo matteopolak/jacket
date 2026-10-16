@@ -15,6 +15,10 @@ on:
       - tools/http_conformance.py
       - tools/http_native.py
       - tools/test_http_native.py
+      - tools/check_io_burst_diagnostics.py
+      - tools/io_stress.py
+      - tools/test_io_stress_diagnostics.py
+      - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
       - tools/native-libs.json
       - tools/io_stress.py
@@ -32,6 +36,10 @@ on:
       - tools/http_conformance.py
       - tools/http_native.py
       - tools/test_http_native.py
+      - tools/check_io_burst_diagnostics.py
+      - tools/io_stress.py
+      - tools/test_io_stress_diagnostics.py
+      - tests/extensions/io-accept-burst-diagnostics.jai
       - tools/build_native_libs.py
       - tools/native-libs.json
       - tools/io_stress.py
@@ -88,4 +96,6 @@ jobs:
       - name: Corpus, llhttp fixtures, smuggling and chunking tests
         run: python3 -u tools/http_conformance.py --jaic target/debug/jaic --modes interp,native,wasm-interp,wasm-native
       - name: Io and Http tests under load (default, -O2, ASan on Linux)
-        run: python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3
+        run: |
+          python3 -m unittest discover -s tools -p test_io_stress_diagnostics.py -v
+          python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3

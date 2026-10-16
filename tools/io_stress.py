@@ -96,6 +96,13 @@ def short(text):
     return shown
 
 
+def report_burst_diagnostics(name, problem):
+    """Preserve failure-stage stderr from the actual loaded copy, without a rerun."""
+    for line in problem.splitlines():
+        if line.startswith("Io burst "):
+            print(f"{name}: {line}", file=sys.stderr, flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("tests", nargs="*", help="test programs (default: the Io and Http tests)")
@@ -162,7 +169,9 @@ def main():
                     bad = [(copy, r) for copy, r in enumerate(results) if r is not None]
                     runs += len(results)
                     for copy, problem in bad:
-                        failures.append((f"{test.stem} [{variant}] round {number} copy {copy}", problem))
+                        name = f"{test.stem} [{variant}] round {number} copy {copy}"
+                        failures.append((name, problem))
+                        report_burst_diagnostics(name, problem)
                     shutil.rmtree(base, ignore_errors=True)
                     print(f"round {number} {variant:7} {test.stem:20} {args.copies} copies, "
                           f"{len(bad)} failed, {time.time() - started:.1f} s", flush=True)
