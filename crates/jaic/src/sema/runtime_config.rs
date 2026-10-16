@@ -2,8 +2,83 @@
 use super::lower::{FnCtx, Operand};
 use super::scope::Resolved;
 use super::*;
+use crate::types::StructId;
+
+
+/// Provenance of the reviewed compiler constant, kept outside reflected values/types.
+#[derive(Default)]
+pub(super) struct RuntimeStorageDependencies {
+    pub captures: Vec<Vec<i64>>,
+    pub entities: HashMap<scope::EntityId, Vec<i64>>,
+    pub layouts: HashMap<StructId, Vec<i64>>,
+    pub functions: HashMap<ir::FuncId, (Vec<i64>, Span)>,
+}
+
+#[derive(Default)]
+struct RuntimeStorageUsage {
+    dynamic: bool,
+    constants: Vec<(i64, Span)>,
+}
+
+fn merge_values(target: &mut Vec<i64>, values: &[i64]) {
+    for &value in values {
+        if !target.contains(&value) {
+            target.push(value);
+        }
+    }
+}
 
 impl Compiler {
+    pub(super) fn begin_runtime_storage_dependencies(&mut self) {
+        self.runtime_storage_dependencies.captures.push(Vec::new());
+    }
+
+    pub(super) fn end_runtime_storage_dependencies(&mut self) -> Result<Vec<i64>> {
+        self.runtime_storage_dependencies
+            .captures
+            .pop()
+            .ok_or_else(|| {
+                Box::new(Diagnostic::error(
+                    Span::NONE,
+                    "unbalanced runtime configuration dependency capture",
+                ))
+            })
+    }
+
+    pub(super) fn note_runtime_storage_dependencies(&mut self, values: &[i64]) {
+        if let Some(capture) = self.runtime_storage_dependencies.captures.last_mut() {
+            merge_values(capture, values);
+        }
+    }
+
+    pub(super) fn finish_runtime_storage_entity(&mut self, id: scope::EntityId, values: &[i64]) {
+        let known = self
+            .runtime_storage_dependencies
+            .entities
+            .entry(id)
+            .or_default();
+        merge_values(known, values);
+        let values = known.clone();
+        self.note_runtime_storage_dependencies(&values);
+    }
+
+    pub(super) fn finish_runtime_storage_layout(&mut self, id: StructId, values: &[i64]) {
+        let known = self
+            .runtime_storage_dependencies
+            .layouts
+            .entry(id)
+            .or_default();
+        merge_values(known, values);
+        let values = known.clone();
+        self.note_runtime_storage_dependencies(&values);
+    }
+
+    pub(super) fn use_runtime_storage_entity(&self, f: &mut FnCtx, id: scope::EntityId) {
+        if let Some(values) = self.runtime_storage_dependencies.entities.get(&id) {
+            merge_values(&mut f.runtime_storage_constants, values);
+        }
+    }
+
     /// Compiler-owned transport extensions live in the selected runtime's private
     /// file scopes. They are optional; application imports retain normal visibility.
     pub(super) fn private_runtime_procedure(
@@ -132,7 +207,32 @@ impl Compiler {
 
     /// Compile-time inspection or an unused declaration must not opt an older
     /// runtime into a configuration protocol its target code never reads.
-    fn target_reads_runtime_storage(&mut self, target: ir::GlobalId) -> Result<bool> {
+    fn target_runtime_storage_usage(&mut self) -> Result<RuntimeStorageUsage> {
+        let mut usage = RuntimeStorageUsage::default();
+        // Keep declaration provenance separate from structurally interned array
+        // types: an unrelated same-sized buffer must not inherit an opt-in.
+        let mut global_constants: HashMap<ir::GlobalId, Vec<(i64, Span)>> = HashMap::default();
+        for (index, entity) in self.entities.iter().enumerate() {
+            let scope::EntityState::Done(Resolved::Global {
+                storage: ir::Storage::Data(global),
+                ..
+            }) = &entity.state
+            else {
+                continue;
+            };
+            if let Some(values) = self
+                .runtime_storage_dependencies
+                .entities
+                .get(&scope::EntityId(index as u32))
+            {
+                for &value in values {
+                    global_constants
+                        .entry(*global)
+                        .or_default()
+                        .push((value, entity.span));
+                }
+            }
+        }
         // Retained globals execute with their settled interpreter state, not
         // their declaration-time initializer. Use the same canonical snapshot
         // serializer as target emission; it also materializes pointed-to target
@@ -161,11 +261,14 @@ impl Compiler {
         let mut seen_globals = HashSet::default();
         while !functions.is_empty() || !globals.is_empty() {
             while let Some(global) = globals.pop() {
-                if global == target {
-                    return Ok(true);
+                if Some(global) == self.runtime_storage_global {
+                    usage.dynamic = true;
                 }
                 if !seen_globals.insert(global) {
                     continue;
+                }
+                if let Some(values) = global_constants.get(&global) {
+                    usage.constants.extend(values.iter().copied());
                 }
                 let relocations = match retained.get(&global).and_then(|ty| {
                     self.interp
@@ -196,6 +299,15 @@ impl Compiler {
                 if !seen_functions.insert(index) {
                     continue;
                 }
+                if let Some((values, span)) = self
+                    .runtime_storage_dependencies
+                    .functions
+                    .get(&ir::FuncId(index as u32))
+                {
+                    usage
+                        .constants
+                        .extend(values.iter().map(|&value| (value, *span)));
+                }
                 let Some(function) = &self.program.funcs[index] else {
                     continue;
                 };
@@ -217,7 +329,7 @@ impl Compiler {
                 }
             }
         }
-        Ok(false)
+        Ok(usage)
     }
 
     /// Refresh private runtime data after workspace activity, immediately before
@@ -230,15 +342,26 @@ impl Compiler {
                 "temporary_storage_size must be nonnegative and fit s32",
             );
         }
-        if has_runtime
-            && self.options.runtime_support
-            && self.options.runtime_initialization
+        let target_runtime =
+            has_runtime && self.options.runtime_support && self.options.runtime_initialization;
+        let usage = if target_runtime {
+            self.target_runtime_storage_usage()?
+        } else {
+            RuntimeStorageUsage::default()
+        };
+        if let Some(&(captured, at)) = usage
+            .constants
+            .iter()
+            .find(|(captured, _)| *captured != size)
+        {
+            return Err(Box::new(Diagnostic::error(at, format!(
+                "target TEMPORARY_STORAGE_SIZE was bound to {captured}, but the final workspace temporary_storage_size is {size}"
+            )).with_help("set the workspace size before resolving target declarations that consume this compiler constant; static target storage cannot be resized by a late setting")));
+        }
+        if target_runtime
             && size != DEFAULT_TEMPORARY_STORAGE_SIZE
-            && !self
-                .runtime_storage_global
-                .map(|global| self.target_reads_runtime_storage(global))
-                .transpose()?
-                .unwrap_or(false)
+            && !usage.dynamic
+            && usage.constants.is_empty()
         {
             let exports = self
                 .program
@@ -249,7 +372,7 @@ impl Compiler {
                 .count();
             return Err(Box::new(Diagnostic::error(
                 Span::NONE,
-                "nondefault temporary_storage_size requires the target runtime to read private compiler runtime configuration",
+                "nondefault temporary_storage_size requires the target runtime to consume TEMPORARY_STORAGE_SIZE or the private runtime configuration getter",
             ).with_note(Span::NONE, format!(
                 "workspace {}; temporary storage {} bytes; system entry {}; initialization {}; exported target procedures {}; private configuration reader lowered {}",
                 self.workspace, size, self.options.runtime_entry_point,

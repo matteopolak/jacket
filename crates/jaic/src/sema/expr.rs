@@ -838,7 +838,9 @@ impl Compiler {
             EntityKind::Builtin(scope::Builtin::Proc(p)) => return Ok(Operand::Builtin(p)),
             _ => {}
         }
-        Ok(match self.resolve_entity(id)? {
+        let resolved = self.resolve_entity(id)?;
+        self.use_runtime_storage_entity(f, id);
+        Ok(match resolved {
             Resolved::Const {
                 value: Value::Type(t),
                 ..

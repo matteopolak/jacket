@@ -263,3 +263,153 @@ fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
         vec![1048576]
     );
 }
+
+#[test]
+fn reviewed_public_constant_configures_target_storage_and_keeps_alias_values() {
+    for declaration in [
+        "storage:[TEMPORARY_STORAGE_SIZE]u8;",
+        "Bytes::TEMPORARY_STORAGE_SIZE; storage:[Bytes]u8;",
+        "Bytes::[TEMPORARY_STORAGE_SIZE]u8; #assert size_of(Bytes)==1048576; storage:Bytes;",
+    ] {
+        let runtime = format!(
+            r#"
+            #scope_file
+            {declaration}
+            #program_export "main"
+            entry::()->s64 #c_call {{
+                storage[0]=19; storage[storage.count-1]=73;
+                if storage[0]!=19 || storage[storage.count-1]!=73 return -1;
+                return storage.count;
+            }}
+        "#
+        );
+        let (mut c, result) = startup_reader(&runtime, 1048576);
+        result.map_err(|e| e.render(&c.sources)).unwrap();
+        let entry = c.exported_func("main").unwrap();
+        assert_eq!(
+            c.interp.call(&c.program, entry, &[]).unwrap(),
+            vec![1048576]
+        );
+    }
+}
+
+#[test]
+fn cached_record_layout_preserves_its_public_constant_binding_dependency() {
+    let (mut c, result) = startup_reader(
+        r#"
+        #scope_file
+        Buffer::struct {bytes:[TEMPORARY_STORAGE_SIZE]u8;}
+        #assert size_of(Buffer)==1048576;
+        storage:Buffer;
+        #program_export "main"
+        entry::()->s64 #c_call {
+            storage.bytes[1048575]=17;
+            if storage.bytes[1048575]!=17 return -1;
+            return storage.bytes.count;
+        }
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    let entry = c.exported_func("main").unwrap();
+    assert_eq!(
+        c.interp.call(&c.program, entry, &[]).unwrap(),
+        vec![1048576]
+    );
+}
+
+#[test]
+fn runtime_scalar_public_constant_and_alias_reads_are_real_target_dependencies() {
+    let (mut c, result) = startup_reader(
+        r#"
+        #scope_file
+        Bytes::TEMPORARY_STORAGE_SIZE;
+        #program_export "main"
+        entry::()->s64 #c_call {return Bytes;}
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    let entry = c.exported_func("main").unwrap();
+    assert_eq!(
+        c.interp.call(&c.program, entry, &[]).unwrap(),
+        vec![1048576]
+    );
+}
+
+#[test]
+fn public_constant_inspection_unused_storage_and_shadowed_names_do_not_opt_in() {
+    for runtime in [
+        r#"#assert TEMPORARY_STORAGE_SIZE==1048576; #program_export "main" entry::()->s64 #c_call {return 0;}"#,
+        r#"#program_export "main" entry::()->s64 #c_call {#assert TEMPORARY_STORAGE_SIZE==1048576; return 0;}"#,
+        r#"unused::()->s64 #no_context{return TEMPORARY_STORAGE_SIZE;} #program_export "main" entry::()->s64 #c_call {return 0;}"#,
+        // Structural type interning must not taint unrelated hardcoded storage.
+        r#"unused:[TEMPORARY_STORAGE_SIZE]u8; #assert size_of(type_of(unused))==1048576; storage:[1048576]u8; #program_export "main" entry::()->s64 #c_call {storage[0]=1; return storage.count;}"#,
+        r#"TEMPORARY_STORAGE_SIZE::1048576; storage:[TEMPORARY_STORAGE_SIZE]u8; #program_export "main" entry::()->s64 #c_call {storage[0]=1; return storage.count;}"#,
+        r#"inspection :: #run (() -> s64 {#assert TEMPORARY_STORAGE_SIZE==1048576; return 0;})(); #program_export "main" entry::()->s64 #c_call {return inspection;}"#,
+        // Checking a callback body must not attribute its #assert to its pointer initializer.
+        r#"check_only::()->s64 #no_context {#assert TEMPORARY_STORAGE_SIZE==1048576; return 0;} callback:()->s64 #no_context=check_only; #program_export "main" entry::()->s64 #c_call {return callback();}"#,
+    ] {
+        let runtime = runtime.replace(" #program_export", "\n#program_export");
+        let (c, result) = startup_reader(&runtime, 1048576);
+        let error = result
+            .expect_err("compile-time inspection or a coincident number is not target consumption");
+        assert!(
+            error.message.contains("target runtime"),
+            "{}",
+            error.render(&c.sources)
+        );
+    }
+}
+
+#[test]
+fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value() {
+    let (mut c, result) = startup_reader(
+        r#"
+        storage:[TEMPORARY_STORAGE_SIZE]u8;
+        #program_export "main"
+        entry::()->s64 #c_call {storage[0]=1; return storage.count;}
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    for size in [0, 32768, 2097152] {
+        c.options.temporary_storage_size = size;
+        let error = c
+            .finalize_runtime_configuration()
+            .expect_err("structural target storage cannot silently retain the old size");
+        assert!(
+            error.message.contains("TEMPORARY_STORAGE_SIZE") && error.message.contains("1048576"),
+            "{}",
+            error.render(&c.sources)
+        );
+    }
+    c.options.temporary_storage_size = 1048576;
+    c.finalize_runtime_configuration().unwrap();
+}
+
+#[test]
+fn private_dynamic_reader_does_not_mask_a_stale_public_storage_extent() {
+    let (mut c, result) = startup_reader(
+        r#"
+        __jaic_runtime_temporary_storage_size::()->s64 #intrinsic #no_context;
+        storage:[TEMPORARY_STORAGE_SIZE]u8;
+        #program_export "main"
+        entry::()->s64 #c_call {
+            storage[0]=1;
+            return storage.count+__jaic_runtime_temporary_storage_size();
+        }
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    c.options.temporary_storage_size = 2097152;
+    let error = c
+        .finalize_runtime_configuration()
+        .expect_err("a dynamic reader cannot repair already-sized static storage");
+    assert!(
+        error.message.contains("TEMPORARY_STORAGE_SIZE"),
+        "{}",
+        error.render(&c.sources)
+    );
+}

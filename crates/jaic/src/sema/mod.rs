@@ -440,6 +440,7 @@ pub struct Compiler {
     /// `__runtime_info`, when the program references it.
     runtime_info: Option<ir::GlobalId>,
     runtime_storage_global: Option<ir::GlobalId>,
+    runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies,
     /// Id of the workspace this compiler builds (1: the top-level program).
     pub workspace: i64,
     /// Sources added so far (labels of added strings).
@@ -708,6 +709,7 @@ impl Compiler {
             workspace: crate::build::TOP_LEVEL_WORKSPACE,
             runtime_info: None,
             runtime_storage_global: None,
+            runtime_storage_dependencies: Default::default(),
             added_sources: 0,
             lenient_failures: HashMap::default(),
             default_scopes: HashMap::default(),

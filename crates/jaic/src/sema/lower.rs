@@ -191,6 +191,7 @@ pub struct DeferEntry {
 pub struct FnCtx {
     pub b: Builder,
     pub proc: Option<ProcId>,
+    pub runtime_storage_constants: Vec<i64>,
     /// Current `context` pointer (absent in #c_call/#no_context code).
     context: Option<Val>,
     context_slot: Option<Val>,
@@ -355,6 +356,7 @@ impl FnCtx {
         Self {
             b: Builder::new(name, sig),
             proc: None,
+            runtime_storage_constants: Vec::new(),
             context: None,
             context_slot: None,
             return_types: Vec::new(),

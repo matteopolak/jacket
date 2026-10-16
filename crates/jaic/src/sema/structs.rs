@@ -568,6 +568,16 @@ impl Compiler {
     // -----------------------------------------------------------------------
 
     pub fn layout_struct(&mut self, s: StructId, span: Span) -> Result<()> {
+        self.begin_runtime_storage_dependencies();
+        let result = self.layout_struct_with_runtime_dependencies(s, span);
+        let values = self.end_runtime_storage_dependencies()?;
+        if result.is_ok() {
+            self.finish_runtime_storage_layout(s, &values);
+        }
+        result
+    }
+
+    fn layout_struct_with_runtime_dependencies(&mut self, s: StructId, span: Span) -> Result<()> {
         match self.types.struct_info(s).layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {

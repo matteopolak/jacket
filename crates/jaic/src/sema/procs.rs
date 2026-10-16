@@ -1246,6 +1246,20 @@ impl Compiler {
 
     /// Lower a body into `func_id`, or only typecheck it (`None`: the code is dropped).
     fn lower_body_code(&mut self, id: ProcId, func_id: Option<ir::FuncId>) -> Result<()> {
+        // Body checking is not a constant's value dependency. Actual emitted
+        // body uses are recorded in its FnCtx; #assert/type-only scratch uses
+        // must not leak into a surrounding callback/global initializer.
+        let captures = std::mem::take(&mut self.runtime_storage_dependencies.captures);
+        let result = self.lower_body_code_with_runtime_dependencies(id, func_id);
+        self.runtime_storage_dependencies.captures = captures;
+        result
+    }
+
+    fn lower_body_code_with_runtime_dependencies(
+        &mut self,
+        id: ProcId,
+        func_id: Option<ir::FuncId>,
+    ) -> Result<()> {
         let span = self.proc(id).span;
         let sig = self.signature(id, span)?;
         let lit = self.proc(id).lit.clone();
@@ -1425,6 +1439,7 @@ impl Compiler {
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
+        let storage_constants = f.runtime_storage_constants;
         let func = f.b.finish();
         if owes_result {
             self.warn(
@@ -1436,6 +1451,9 @@ impl Compiler {
             );
         }
         if let Some(func_id) = func_id {
+            self.runtime_storage_dependencies
+                .functions
+                .insert(func_id, (storage_constants, span));
             self.program.funcs[func_id.0 as usize] = Some(func);
         }
         Ok(())
