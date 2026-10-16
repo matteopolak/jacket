@@ -119,7 +119,15 @@ system_verify :: (chain: [][] u8, server_name: string, data: *void) -> string {
 
     // The name is UTF-16 and ends in a zero. Host names are ASCII (internationalised ones arrive
     // as punycode).
-    name := cast(*u16) alloc((server_name.count + 1) * 2, temp);
+    // Preserve temporary-storage ownership through Basic's public scratch API. The
+    // buffer is only borrowed by the synchronous policy check below.
+    if server_name.count < 0 || server_name.count > 0x7fffffffffffffff / size_of(u16) - 1 {
+        return "the TLS server name is too long";
+    }
+
+    name := cast(*u16) talloc((server_name.count + 1) * size_of(u16));
+
+    if !name return "could not allocate the TLS server name";
 
     for 0..server_name.count - 1 name[it] = server_name[it];
 

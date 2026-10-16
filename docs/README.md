@@ -763,3 +763,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 Current ready [30901830 candidate](status/shared-candidate-30901830.json) combines pointer/Color/HTTP/readiness and real Bucket_Array indexing; [focused receipt](status/mac-30901830-focused.json) distinguishes97Rust passes,12actualO0/O2programs, preserved transport failure and pending broad acceptance.
 
 [Basic filesystem platform guards](basic-filesystem-platform-guards.md) select the reviewed four-API target surface without Runtime classifier cycles; exact two-line repair and qualified evidence retained.
+
+[HTTP/TLS target repair](extensions/http-tls-target-repair.md) fixes Windows temporary allocation while preserving the four failed source-matrix gates and unresolved clock/provider questions.
