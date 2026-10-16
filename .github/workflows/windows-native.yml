@@ -180,6 +180,16 @@ jobs:
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
+      - name: Build matching Windows runtime provider and expose normal DLL search
+        run: |
+          python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu x64
+          sha256sum stdlib/internal/runtime/crash-native/runtime-windows.c stdlib/internal/runtime/crash-native/stack-iteration.h stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll stdlib/internal/runtime/crash-native/platform_io_windows_crash.lib
+          cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
+      - name: Check normal Windows runtime provider loading
+        run: |
+          mkdir -p target/provider-load
+          clang --target=x86_64-pc-windows-msvc -std=c11 -Wall -Wextra -Werror tests/native-provider/windows-provider-load.c -o target/provider-load/provider-load.exe
+          target/provider-load/provider-load.exe "$(cygpath -m "$PWD/stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")" platform_io_windows_crash_prepare
       - name: Platform I/O (interpreter and native O0/O2)
         if: success() || failure()
         run: python -u tools/check_platform_io.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native --windows-crash
@@ -274,7 +284,7 @@ jobs:
         if: success() || failure()
         run: |
           mkdir -p artifacts/native-libs/windows-x64
-          python -u tools/window_render_wgl_ci.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --jailint target/x86_64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-x64 --driver-dir "$RUNNER_TEMP/mesa"
+          python -u tools/window_render_wgl_ci.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --jailint target/x86_64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-x64 --driver-dir "$RUNNER_TEMP/mesa" --consumer-dir native-exes
       - name: Signed mouse wheel event propagation (issue 1)
         if: success() || failure()
         run: |
@@ -345,6 +355,16 @@ jobs:
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm
+      - name: Build matching Windows runtime provider and expose normal DLL search
+        run: |
+          python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu x64
+          sha256sum stdlib/internal/runtime/crash-native/runtime-windows.c stdlib/internal/runtime/crash-native/stack-iteration.h stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll stdlib/internal/runtime/crash-native/platform_io_windows_crash.lib
+          cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
+      - name: Check normal Windows runtime provider loading
+        run: |
+          mkdir -p target/provider-load
+          clang --target=x86_64-pc-windows-msvc -std=c11 -Wall -Wextra -Werror tests/native-provider/windows-provider-load.c -o target/provider-load/provider-load.exe
+          target/provider-load/provider-load.exe "$(cygpath -m "$PWD/stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")" platform_io_windows_crash_prepare
       - name: Install Mesa's software OpenGL
         run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
       - name: Fetch the pinned projects
@@ -453,6 +473,16 @@ jobs:
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
+      - name: Build matching Windows runtime provider and expose normal DLL search
+        run: |
+          python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu arm64
+          sha256sum stdlib/internal/runtime/crash-native/runtime-windows-arm64.c stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll stdlib/internal/runtime/crash-native/platform_io_windows_crash.lib
+          cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
+      - name: Check normal Windows runtime provider loading
+        run: |
+          mkdir -p target/provider-load
+          clang --target=aarch64-pc-windows-msvc -std=c11 -Wall -Wextra -Werror tests/native-provider/windows-provider-load.c -o target/provider-load/provider-load.exe
+          target/provider-load/provider-load.exe "$(cygpath -m "$PWD/stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")" platform_io_arm64_crash_init
       - name: Platform I/O (interpreter and native O0/O2)
         if: success() || failure()
         run: python -u tools/check_platform_io.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --native --windows-crash
@@ -530,7 +560,7 @@ jobs:
         if: success() || failure()
         run: |
           mkdir -p artifacts/native-libs/windows-arm64
-          python -u tools/window_render_wgl_ci.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --jailint target/aarch64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-arm64 --driver-dir target/window-mesa-arm64/driver
+          python -u tools/window_render_wgl_ci.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --jailint target/aarch64-pc-windows-msvc/debug/jailint.exe --stdlib stdlib --native-libs artifacts/native-libs/windows-arm64 --driver-dir target/window-mesa-arm64/driver --consumer-dir native-exes
       - name: Stdlib runtime tests (interpreter and native) and coverage
         # Reviewed contracts and retained regressions; no legacy expected-failure baseline.
         if: success() || failure()

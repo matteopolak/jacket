@@ -335,6 +335,8 @@
       "steps": [
         {
           "name": "first.jai - test",
+          "required_capabilities": ["native-windows-console-colors"],
+          "capability_evidence": "Reviewed dependency: first.jai - test invokes run_tests; tests/tests.jai submits child workspace loading tests/test_template.jai via add_build_string; template imports default Print_Color. Human deferral TODO 2026-10-16",
           "kind": "jaic",
           "argv": [
             "first.jai",
@@ -850,6 +852,8 @@
     {
       "id": "unotest",
       "project": "n00bmind--unotest",
+      "required_capabilities": ["native-windows-console-colors"],
+      "capability_evidence": "Reviewed application import unotest.jai:355 uses default Print_Color; human deferral TODO 2026-10-16",
       "steps": [
         {
           "name": "unotest.jai (compile-time tests)",

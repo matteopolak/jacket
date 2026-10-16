@@ -43,6 +43,59 @@ def probe_loaded_expected_driver(stdout, expected, alternatives=()):
     return False
 
 
+
+def deploy_driver(driver, machine, directories):
+    """Deploy the same curated driver closure beside every actual consumer.
+
+    The x64 installer supplies the checksum-verified frontend/backend pair;
+    the native Mesa builder supplies its SDK-validated transitive closure.
+    Only DLLs in that driver output are selected, never arbitrary package files.
+    Validate the whole closure before changing any destination.
+    """
+    libraries = sorted(path for path in driver.iterdir() if path.suffix.casefold() == ".dll")
+    names = [path.name.casefold() for path in libraries]
+    if not {"opengl32.dll", "libgallium_wgl.dll"}.issubset(names):
+        raise ValueError("required Mesa frontend/backend DLL missing from curated driver output")
+    if len(set(names)) != len(names):
+        raise ValueError("ambiguous case-insensitive driver DLL names")
+    records = []
+    for library in libraries:
+        if library.is_symlink() or not library.is_file():
+            raise ValueError(f"driver DLL must be a regular file: {library}")
+        if pe_machine(library) != machine:
+            raise ValueError(f"driver/host architecture mismatch: {library}")
+        records.append({"name": library.name, "machine": machine,
+                        "sha256": hashlib.sha256(library.read_bytes()).hexdigest()})
+    for directory in dict.fromkeys(directories):
+        directory.mkdir(parents=True, exist_ok=True)
+        for library, record in zip(libraries, records):
+            destination = directory / library.name
+            if destination.is_symlink():
+                raise ValueError(f"app-local driver must not be a symbolic link: {destination}")
+            if library.resolve() != destination.resolve():
+                shutil.copy2(library, destination)
+            if hashlib.sha256(destination.read_bytes()).hexdigest() != record["sha256"]:
+                raise ValueError(f"app-local driver copy integrity mismatch: {destination}")
+    return records
+
+
+def wgl_lint_paths(library, cases):
+    # Entry files retain loaded implementation lint in its real module context.
+    # Directory inputs would recursively promote unrelated platform tests to roots.
+    paths = [library / name / "module.jai" for name in
+             ["Window_Type", "Window_Creation", "Input", "Keymap", "Gamepad", "Gamepad/SDL_Input_Map", "Simp", "Srgb", "Clipboard"]]
+    paths += [library / "internal/rendering/window-contexts.jai",
+              library / "internal/window/lifecycle.jai",
+              library / "internal/input/native-fields.jai",
+              library / "internal/input/windows-devices/module.jai"]
+    # Retain the existing valid Windows/portable tests previously found inside
+    # these module directories; unrelated Cocoa/Linux roots are not WGL inputs.
+    paths += [library / name for name in
+              ["Input/tests/windows-device-decoding.jai", "Input/tests/signed-native-fields.jai",
+               "Simp/tests/glyph-atlas.jai", "Simp/tests/texture-packing.jai"]]
+    return paths + [ROOT / f"tests/window-render/{case}.jai" for case in cases]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jaic", required=True, type=Path)
@@ -50,6 +103,8 @@ def main():
     parser.add_argument("--stdlib", type=Path, default=ROOT / "target/window-integration-stdlib")
     parser.add_argument("--native-libs", type=Path, required=True)
     parser.add_argument("--driver-dir", type=Path)
+    parser.add_argument("--consumer-dir", action="append", type=Path, default=[],
+                        help="also deploy the verified driver beside these checkout-local consumers")
     parser.add_argument("--out", type=Path, default=ROOT / "target/window-wgl-ci")
     args = parser.parse_args()
     if platform.system() != "Windows":
@@ -60,6 +115,12 @@ def main():
     for path in [compiler, linter, output]:
         if not path.is_relative_to(ROOT / "target"):
             parser.error(f"source-built compiler/output must stay under this checkout's target: {path}")
+    consumers = [path.resolve() for path in args.consumer_dir]
+    if consumers and not args.driver_dir:
+        parser.error("consumer deployment requires the real --driver-dir")
+    for path in consumers:
+        if not path.is_relative_to(ROOT):
+            parser.error(f"consumer output must stay under this checkout: {path}")
     machine = pe_machine(compiler)
     if machine not in {0x8664, 0xaa64}:
         parser.error("a native x64 or arm64 source-built compiler is required")
@@ -74,19 +135,7 @@ def main():
     deployed = []
     if args.driver_dir:
         driver = args.driver_dir.resolve(strict=True)
-        if not (driver / "opengl32.dll").is_file():
-            parser.error("driver directory must contain the real Mesa opengl32.dll and its dependencies")
-        libraries = sorted(driver.glob("*.dll"))
-        # Validate every driver dependency before modifying either output directory.
-        for library in libraries:
-            if pe_machine(library) != machine:
-                parser.error(f"driver/host architecture mismatch: {library}")
-        for library in libraries:
-            digest = hashlib.sha256(library.read_bytes()).hexdigest()
-            for destination in [compiler.parent / library.name, output / library.name]:
-                if library.resolve() != destination.resolve():
-                    shutil.copy2(library, destination)
-            deployed.append({"name": library.name, "machine": machine, "sha256": digest})
+        deployed = deploy_driver(driver, machine, [compiler.parent, output, *consumers])
         search.insert(0, driver)
         env["GALLIUM_DRIVER"] = "llvmpipe"
     env["JAIC_STDLIB"] = str(args.stdlib.resolve(strict=True))
@@ -146,15 +195,9 @@ def main():
     # Compile/lint the actual integrated library roots, not local facade copies
     # whose parent directory could prepend inherited dependencies to imports.
     library = args.stdlib.resolve(strict=True)
-    lint_paths = [library / name for name in ["Window_Type", "Window_Creation", "Input", "Keymap",
-                                            "Gamepad", "Simp", "Srgb", "Clipboard"]]
-    lint_paths += [library / "internal/rendering/window-contexts.jai",
-                   library / "internal/window/lifecycle.jai",
-                   library / "internal/input/native-fields.jai",
-                   library / "internal/input/windows-devices"]
-    lint_paths += [ROOT / f"tests/window-render/{case}.jai" for case in cases]
+    lint_paths = wgl_lint_paths(library, cases)
     run("owned-WGL-lint", "lint", [linter, "-D", "warnings", "-I", library, *lint_paths])
-    report = {"machine": machine, "driver_files": deployed, "records": records,
+    report = {"machine": machine, "driver_files": deployed, "consumer_dirs": list(map(str, consumers)), "records": records,
               "passed": all(item["passed"] for item in records)}
     (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     # Coordinator can transfer this filtered native-SDK metadata without exposing
@@ -162,7 +205,7 @@ def main():
     prefixes = ("PFD:", "legacy GL_VENDOR=", "GL_RENDERER=", "GL_VERSION=",
                 "WGL_EXTENSIONS=", "opengl32=", "canonical WGL3.3:",
                 "modern GL_VERSION=", "unsupported version:", "WGL native failure:")
-    summary = {"machine": machine, "driver_files": deployed, "passed": report["passed"],
+    summary = {"machine": machine, "driver_files": deployed, "consumer_dirs": list(map(str, consumers)), "passed": report["passed"],
                "cases": [{"case": item["case"], "mode": item["mode"],
                           "exit": item["exit"], "passed": item["passed"]} for item in records],
                "driver_metadata": [{"mode": item["mode"],

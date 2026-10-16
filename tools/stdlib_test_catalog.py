@@ -7,6 +7,8 @@ from WASM execution and must be exercised by native CI.
 import json
 from pathlib import Path
 
+from case_capabilities import user_deferred_reason
+
 ROOT = Path(__file__).resolve().parents[1]
 REGRESSION_FAMILIES = {
     "compiler": "compiler-regressions",
@@ -106,6 +108,9 @@ def unavailable_reason(case, mode, actual_platform=None):
         required = ", ".join(case["required_capabilities"])
         return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"
     target_os = "wasm" if mode.startswith("wasm") else (actual_platform or "").split("-")[0]
+    deferred = user_deferred_reason(case, target_os)
+    if deferred:
+        return deferred
     required = case.get("required_os")
     required = [required] if isinstance(required, str) else required
     if required and target_os and target_os not in required:

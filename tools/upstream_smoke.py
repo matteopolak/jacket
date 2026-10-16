@@ -20,6 +20,8 @@ import time
 import urllib.request
 from pathlib import Path
 
+from case_capabilities import user_deferred_reason
+
 ROOT = Path(__file__).resolve().parent.parent
 UPSTREAM = ROOT / "corpus/upstream"
 CHECKS = ROOT / "tools/upstream-smoke.json"
@@ -327,17 +329,33 @@ def lsp_step(step, ctx):
 STEPS = {"run": run_step, "gui": gui_step, "serve": serve_step, "lsp": lsp_step}
 
 
-def skip_reason(check, plat):
+def unavailable_decision(check, plat):
+    """Return (accounting status, reason), or None when execution is required."""
+    deferred = user_deferred_reason(check, plat.split("-")[0])
+    if deferred:
+        return "platform_unavailable", deferred
     skips = check.get("skip", {})
     if plat in skips or "*" in skips:
-        return skips.get(plat) or skips["*"]
+        return "skip", skips.get(plat) or skips["*"]
     if "only" in check and plat not in check["only"]:
-        return check.get("only_reason", "not supported on this platform")
+        return "skip", check.get("only_reason", "not supported on this platform")
     return None
+
+
+def skip_reason(check, plat):
+    decision = unavailable_decision(check, plat)
+    return decision[1] if decision else None
 
 
 def run_check(check, args, plat, shots):
     work = Path(tempfile.mkdtemp(prefix=f"smoke-{check['id']}-"))
+    step_results = []
+
+    def record_step(index, step, status, reason=None):
+        step_results.append({"index": index, "name": step.get("name") or step["argv"][0],
+                             "status": status, "passed": True if status == "pass" else None,
+                             "reason": reason})
+
     try:
         for name in [check["project"], *check.get("copy", [])]:
             shutil.copytree(UPSTREAM / name, work / name, symlinks=True)
@@ -356,15 +374,23 @@ def run_check(check, args, plat, shots):
         env.update(check.get("env", {}))
         ctx = {"jaic": str(Path(args.jaic).resolve()), "work": work, "cwd": cwd, "env": env,
                "shots": shots, "id": check["id"], "dlls": args.dlls}
-        for step in check["steps"]:
+        for index, step in enumerate(check["steps"]):
             kind = step.get("kind", "run")
             if "only" in step and plat not in step["only"]:
+                record_step(index, step, "skip", "step restricted to " + ", ".join(step["only"]))
+                continue
+            deferred = user_deferred_reason(step, plat.split("-")[0])
+            if deferred:
+                print(f"    PLATFORM_UNAVAILABLE {step.get('name') or step['argv'][0]}: {deferred}")
+                record_step(index, step, "platform_unavailable", deferred)
                 continue
             if "not_in_ci" in step and os.environ.get("GITHUB_ACTIONS"):
                 print(f"    -- {step.get('name')}: skipped on CI: {step['not_in_ci']}")
+                record_step(index, step, "skip", step["not_in_ci"])
                 continue
             if time.strftime("%A") in step.get("not_on", []):
                 print(f"    -- {step.get('name')}: skipped on {time.strftime('%A')}: {step['not_on_reason']}")
+                record_step(index, step, "skip", step["not_on_reason"])
                 continue
             if kind == "jaic":
                 step = {**step, "argv": ["{jaic}", *step["argv"]], "outputs": step.get("outputs", [])}
@@ -372,13 +398,16 @@ def run_check(check, args, plat, shots):
             if "needs" in step and not any(Path(ctx["cwd"], step.get("cwd", ""), n).exists()
                                            for n in (step["needs"], step["needs"] + ".exe")):
                 print(f"    -- {step.get('name') or step['argv'][0]}: no executable was built (it ran at compile time)")
+                record_step(index, step, "compile_time_only", "no executable was built; existing compile-time execution path")
                 continue
             label = step.get("name") or " ".join(step["argv"][:4])
             started = time.time()
             text = STEPS[kind](step, {**ctx, "cwd": ctx["cwd"] / step.get("cwd", "")})
             print(f"    ok {label} ({time.time() - started:.0f}s)", flush=True)
+            record_step(index, step, "pass")
             if args.verbose:
                 print(tail(text or "", 40))
+        return step_results
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
@@ -390,6 +419,7 @@ def main():
     ap.add_argument("--filter", action="append", default=[], help="only checks whose id contains this")
     ap.add_argument("--screenshots", default=str(ROOT / "target/smoke-screenshots"))
     ap.add_argument("--checks", default=str(CHECKS))
+    ap.add_argument("--report", type=Path, help="write per-case results and separate unavailable counts as JSON")
     ap.add_argument("--dlls", default=None, help="a directory of DLLs (Mesa's opengl32.dll) copied beside windowed programs")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--verbose", "-v", action="store_true", help="print each step's output")
@@ -405,7 +435,15 @@ def main():
         return 0
     if args.list:
         for c in checks:
-            print(c["id"], skip_reason(c, args.platform) or "")
+            decision = unavailable_decision(c, args.platform)
+            print(c["id"], " ".join(decision) if decision else "required")
+            if decision is None:
+                for index, step in enumerate(c["steps"]):
+                    if "only" in step and args.platform not in step["only"]:
+                        continue
+                    deferred = user_deferred_reason(step, args.platform.split("-")[0])
+                    if deferred:
+                        print(f"  step {index} {step.get('name') or step['argv'][0]} platform_unavailable {deferred}")
         return 0
     if not os.environ.get("JAIC_NATIVE_LIBS") and sys.platform in ("darwin", "linux", "win32"):
         sys.path.insert(0, str(ROOT / "tools"))
@@ -418,16 +456,23 @@ def main():
     shots = Path(args.screenshots)
     shots.mkdir(parents=True, exist_ok=True)
     results = []
+    step_records = {}
     for check in checks:
-        reason = skip_reason(check, args.platform)
+        decision = unavailable_decision(check, args.platform)
         print(f"== {check['id']}", flush=True)
-        if reason:
-            print(f"    SKIP {reason}")
-            results.append((check["id"], "skip", reason))
+        if decision:
+            status, reason = decision
+            print(f"    {status.upper()} {reason}")
+            results.append((check["id"], status, reason))
             continue
         try:
-            run_check(check, args, args.platform, shots)
-            results.append((check["id"], "pass", ""))
+            rows = run_check(check, args, args.platform, shots) or []
+            step_records[check["id"]] = rows
+            unavailable = [r["reason"] for r in rows if r["status"] == "platform_unavailable"]
+            if unavailable:
+                results.append((check["id"], "platform_unavailable", "; ".join(unavailable)))
+            else:
+                results.append((check["id"], "pass", ""))
         except Failure as e:
             print(f"    FAIL {e}")
             results.append((check["id"], "FAIL", str(e).splitlines()[0]))
@@ -437,6 +482,19 @@ def main():
     print(f"\n{args.platform}:")
     for id_, status, note in results:
         print(f"  {status:5} {id_}" + (f"  {note}" if note else ""))
+    counts = {status: sum(s == status for _, s, _ in results)
+              for status in ("pass", "FAIL", "skip", "platform_unavailable")}
+    print("  " + ", ".join(f"{count} {status}" for status, count in counts.items()))
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps({
+            "schema": 1, "platform": args.platform, "selected_cases": len(checks),
+            "counts": counts,
+            "results": [{"id": id_, "status": status,
+                         "passed": True if status == "pass" else False if status == "FAIL" else None,
+                         "reason": note or None,
+                         "steps": step_records.get(id_, [])} for id_, status, note in results],
+        }, indent=2) + "\n")
     return 1 if any(s == "FAIL" for _, s, _ in results) else 0
 
 

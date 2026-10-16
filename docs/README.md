@@ -789,3 +789,23 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [HTTP CI case coverage](tools/http-ci-case-coverage.md): exact twelve-case dispatch; seven native Io cases remain unavailable on WASM, never passed.
 
 - [Code insertion lexical scopes](compiler/insert-declaration-scope.md): corrected unbraced declaration publication and explicit-block privacy; [merged checks](status/shared-insert-scope-checkpoint.json).
+
+- [Windows cross-build stream accounting](status/shared-windows-cross-streams.json): exact status/stdout/stderr contract and timeout controls; actual Windows execution pending.
+
+- [Current merged repair ledger](status/shared-known-cohort-progress.json): exact scoped counts, remaining canonical Basic array closure and platform/runtime gates.
+
+- [Basic program parameter identity](basic-program-parameter-identity.md): corrected reviewed header, nominal identity/configuration controls and retained negative; native proof qualified separately.
+
+- [Canonical Basic array ownership](status/shared-array-owner-source-checkpoint.json): original shared array bodies declared in public Basic context, with private allocator dependency closure; remaining custom configuration failure retained.
+
+- [Canonical Basic array declaration context](specs/stdlib/README.md): shared implementation ownership, overload injection, private allocation closure and [remaining questions](specs/stdlib/basic-array-context-questions.md).
+
+- [Windows native provider environment](status/shared-windows-provider-environment.json): matching CPU helper, ordinary DLL loading and file-identity CI checks; native Windows acceptance pending.
+
+- [User-deferred capability accounting](tools/user-deferred-capabilities.md) reports native Windows console-color consumers as unavailable, preserves ANSI/native-required checks and keeps failures separate from deferrals.
+
+- [Frozen e0e287ea candidate](status/shared-candidate-e0e287ea.json) and [Mac focused results](status/mac-e0e287ea-focused.json): exact source/tool/native identity, corrected construction checks and retained genuine compatibility/platform failures.
+
+- [Windows WGL consumer review](tools/windows-wgl-consumer-review.md) and [exact handoff status](status/shared-wgl-consumer-review.json): validated proposed DLL/lint/wheel scope, adoption held for matching producer receipt; no new native Windows proof.
+
+- [Integrated Windows WGL consumer companion](status/shared-wgl-consumer-adoption.json): exact Mesa app-local deployment and explicit lint roots, 13 setup/provider tests, preserved issue1 gates; actual Windows replay pending.

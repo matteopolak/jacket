@@ -162,20 +162,23 @@ def build(args):
             if case.get("mode") != "check-fail" and "error_contains" not in case:
                 continue
             flags = ["-check"] if case.get("mode") == "check-fail" else ["-interp", "-no_workspace_output"]
-            code, output = stdlib_runtime.run_command([str(pathlib.Path(args.jaic).resolve()), str(case["path"]), *target, *flags],
-                                                      case["path"].parent, 300, dict(os.environ))
-            valid = stdlib_runtime.contract_result(case, code, output)
+            code, stdout, stderr = stdlib_runtime.run_command([str(pathlib.Path(args.jaic).resolve()), str(case["path"]), *target, *flags],
+                                                              case["path"].parent, 300, dict(os.environ))
+            valid = stdlib_runtime.contract_result(case, code, stdout, stderr)
+            output = stdout + stderr
             if case.get("positive_baseline"):
                 baseline = next(c for c in catalogue if c["id"] == "contracts/" + case["positive_baseline"])
-                bcode, bout = stdlib_runtime.run_command([str(pathlib.Path(args.jaic).resolve()), str(baseline["path"]), *target, "-check"],
-                                                         baseline["path"].parent, 300, dict(os.environ))
+                bcode, bout, berr = stdlib_runtime.run_command([str(pathlib.Path(args.jaic).resolve()), str(baseline["path"]), *target, "-check"],
+                                                               baseline["path"].parent, 300, dict(os.environ))
                 valid = valid and bcode == 0
                 if bcode != 0:
-                    output += "\npositive baseline failed:\n" + bout
+                    status = "timeout" if bcode is None else f"exit {bcode}"
+                    output += f"\npositive baseline failed ({status}):\n" + bout + berr
             if valid:
                 negative_checks += 1
             else:
-                failures.append(case["id"] + ": expected precise rejection did not match:\n" + output)
+                status = "timeout" if code is None else f"exit {code}"
+                failures.append(case["id"] + f": expected precise rejection did not match ({status}):\n" + output)
         print(f"{negative_checks} expected negative target checks; no native execution claim")
     all_cases = list(cases(args.stdlib, target_platform(args)))
     # Builds are independent; run several at once (each is mostly single-threaded).
