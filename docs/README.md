@@ -662,3 +662,5 @@ include exact file/line/source hashes and required platform limits.
 - [Workspace object targets](compiler/workspace-object-targets.md): actual seven-target object headers, explicit target precedence and frontend ABI boundaries.
 
 - [Live GL projection verification](status/shared-gl-projection-verification.json): public unqualified procedures retain the canonical mutable table's storage and loader updates.
+
+- [Canonical generator runner](generator-run-shared.md), [model](generator-model.md) and [session](generator-session.md): coherent canonical ownership, semantic rejection and dependency cleanup, with [proposed-commit integration verification](status/shared-generator-run-model-verification.json).

@@ -238,7 +238,7 @@ main :: () {
         S.activate(*generator, null, *rejected_session);
         context.logger = capture_error;
         assert(B.create_literal(capture.children[10], root) == null);
-        assert(rejected_session.failed && errors == 1);
+        assert(!rejected_session.failed && rejected_session.model_errors > 0 && errors == 1);
     }
 
     S.close(*rejected_session);

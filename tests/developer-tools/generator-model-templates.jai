@@ -235,11 +235,11 @@ main :: () {
         push_context {
             context.logger = log;
             assert(B.create_type_inner(B.clang_getCursorType(fields.children[3]), root, false) == null);
-            assert(errors == 7 && session.failed);
+            assert(errors == 7 && !session.failed && session.model_errors > 0);
             malformed: [] B.CXCursor;
             malformed.count = 1;
             assert(B.create_type_inner(B.clang_getCursorType(fields.children[3]), root, false, substitute_children = malformed) == null);
-            assert(errors == 8);
+            assert(errors == 8 && session.failed);
         }
     }
 
@@ -257,7 +257,7 @@ main :: () {
         S.activate(*generator, null, *rejection);
         context.logger = log;
         expression, skip := B.create_expression_from_cursor(initializer, capture.children[8]);
-        assert(expression == null && !skip && errors == 9 && rejection.failed);
+        assert(expression == null && !skip && errors == 9 && !rejection.failed && rejection.model_errors > 0);
     }
 
     S.close(*rejection);
@@ -269,7 +269,7 @@ main :: () {
         push_context {
             S.activate(*generator, null, *unsupported_default);
             context.logger = log;
-            assert(B.create_struct(capture.children[i]) == null && unsupported_default.failed);
+            assert(B.create_struct(capture.children[i]) == null && !unsupported_default.failed && unsupported_default.model_errors > 0);
         }
 
         H.table_reset(*generator.declarations_by_cursor);
@@ -295,13 +295,19 @@ main :: () {
     push_context {
         S.activate(*generator, null, *missing_default);
         context.logger = log;
-        assert(B.create_struct(capture.children[22]) == null && missing_default.failed);
-        assert(B.create_struct(capture.children[22]) == null && errors == 12);
+        assert(B.create_struct(capture.children[22]) == null && !missing_default.failed && missing_default.model_errors > 0);
+        assert(B.create_struct(capture.children[22]) == null && errors == 13);
         formal_children: Capture;
         formal_children.saved = context;
         B.clang_visitChildren(capture.children[22], visit, *formal_children);
         defer array_free(formal_children.children);
         assert(!H.table_contains(*generator.declarations_by_cursor, B.clang_getCanonicalCursor(formal_children.children[0])));
+        constant := B.create_declaration(capture.children[21], root);
+        recovered := B.create_struct(capture.children[22]);
+
+        assert(constant && recovered && !missing_default.failed);
+        assert((cast(*B.Literal) recovered.template_type_params[0].expression).identifier == constant);
+
     }
 
     H.table_reset(*generator.declarations_by_cursor);

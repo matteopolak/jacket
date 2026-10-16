@@ -114,7 +114,7 @@ main :: () {
             assert(pending_value.macro_value_result != .NEEDS_CHECKING);
             assert(found == (pending_value.macro_value_result == .KEEP));
         } else {
-            assert(!found && validation.failed && errors == before + 1);
+            assert(!found && !validation.failed && validation.model_errors > 0 && errors == before + 1);
             assert(pending_value.macro_value_result == .NEEDS_CHECKING);
         }
     }

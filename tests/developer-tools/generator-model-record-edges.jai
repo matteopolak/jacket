@@ -87,10 +87,10 @@ main :: () {
         derived_shell := B.create_struct(capture.children[7], resolving_type_only = true);
 
         assert(derived_shell.parents.count == 0 && derived_shell.declarations.count == 0);
-        types_only := B.create_declaration(capture.children[7], root, true);
+        retained_type := B.create_declaration(capture.children[7], root, true);
 
-        assert(types_only == cast(*B.Declaration) derived_shell);
-        assert(derived_shell.parents.count == 1 && derived_shell.declarations.count == 0);
+        assert(retained_type == cast(*B.Declaration) derived_shell);
+        assert(derived_shell.parents.count == 1 && derived_shell.declarations.count == 1);
         derived := B.create_struct(capture.children[7]);
         base := B.create_struct(capture.children[6]);
 
@@ -102,7 +102,7 @@ main :: () {
         push_context {
             context.logger = log;
             assert(B.create_enum(capture.children[8]) == null);
-            assert(errors == 7 && session.failed);
+            assert(errors == 7 && !session.failed && session.model_errors > 0);
         }
     }
 

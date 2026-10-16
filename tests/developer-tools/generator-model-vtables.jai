@@ -125,7 +125,7 @@ main :: () {
         push_context {
             context.logger = log;
             assert(B.find_or_create_extra_info(rejected.type, cast(*B.Declaration) rejected) == null);
-            assert(errors == 1 && session.failed);
+            assert(errors == 1 && !session.failed && session.model_errors > 0);
         }
 
         assert(!H.table_contains(*generator.extra_infos, rejected));

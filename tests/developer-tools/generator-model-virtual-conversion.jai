@@ -62,7 +62,7 @@ main :: () {
         info, generated := B.find_or_create_extra_info(record.type, cast(*B.Declaration) record);
 
         assert(info == null && generated == null);
-        assert(session.failed && diagnosed_missing_slot);
+        assert(!session.failed && session.model_errors > 0 && diagnosed_missing_slot);
         assert(!H.table_contains(*generator.extra_infos, record));
     }
 

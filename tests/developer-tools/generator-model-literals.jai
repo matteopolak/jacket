@@ -109,7 +109,7 @@ main :: () {
             S.activate(*generator, null, *rejection);
             context.logger = log;
             assert(B.create_declaration(capture.children[i], root) == null);
-            assert(rejection.failed && errors == i - 2);
+            assert(!rejection.failed && rejection.model_errors > 0 && errors == i - 2);
         }
 
         H.table_reset(*generator.declarations_by_cursor);
@@ -125,7 +125,7 @@ main :: () {
 
         assert(native.kind == .Enum && B.clang_Type_getSizeOf(native) == 16);
         assert(B.create_literal(capture.children[12], root) == null);
-        assert(payload_rejection.failed && errors == 3);
+        assert(!payload_rejection.failed && payload_rejection.model_errors > 0 && errors == 3);
     }
 
     S.close(*payload_rejection);
