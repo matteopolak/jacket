@@ -1,5 +1,9 @@
 # Developer documentation
 
+- [Canonical provider logical library spelling](generator-platform-logical.md):
+  physical image identity versus generated Jai names, SDK/native consumers and
+  current shared immutable verification.
+
 Current frozen native ARM64 measurement: [machine-readable current baseline](status/mac-current-baseline.json), with exact candidate path/ref/snapshot and separate coordinator gates.
 - [Dynamic import factory registration](compiler/plugin-registration.md):
   reference-confirmed placeholder/indirect-call boundary, retained compile-time
@@ -678,3 +682,9 @@ include exact file/line/source hashes and required platform limits.
 - [Hash_Table and Walk_Table](portable-hash-table-audit.md): caller-visible slot/control semantics and [38 current integration checks](status/shared-hash-table-walk-verification.json), retiring the named-while dependency.
 
 - [Allocator runtime domains](native/rpmalloc-runtime-policies.md) and [reviewed Objective-C helpers](native/objc-runtime-helpers.md): canonical ownership/live callbacks, actual ABI boundaries and [scoped native checkpoint review](status/shared-native-domain-checkpoint.json).
+
+- [Immutable local captures](tools/immutable-local-captures.md): general input/output overlap checks replace a role-specific path exception.
+
+- [Generator native helper relocation](tools/generator-helper-relocation.md): proper install identity and an actual moved-package native consumer.
+
+- [Pinned ABI7 candidate a97d0f6f](status/shared-candidate-a97d0f6f.json): exact committed production source/tool identity and actual simultaneous-domain interpreter/native proof on assigned T7 storage.
