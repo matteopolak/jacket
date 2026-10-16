@@ -949,3 +949,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Catalogue mode contracts](tools/foundations-catalogue-mode-contracts.md): explicit per-mode dispatch and required rejection accounting; emitted-WASM durability remains open.
 
 - [Clean-room integration](tools/cleanroom-integration.md): real workspace helper prerequisites and exact source/native candidate accounting.
+
+- [Generator opaque printer](generator-opaque-printer.md): canonical live-cursor completeness proof, pointer support, and required remaining C-model failures.

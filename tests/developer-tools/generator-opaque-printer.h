@@ -1,0 +1,13 @@
+struct Forward;
+struct Opaque;
+union OpaqueUnion;
+struct Forward { int value; };
+typedef struct Opaque OpaqueAlias;
+typedef struct Opaque *OpaquePointer;
+struct Opaque *opaque_pointer(void);
+struct Opaque *opaque_identity(struct Opaque *value);
+int opaque_value(const struct Opaque *value);
+int forward_value(const struct Forward *value);
+union OpaqueUnion *opaque_union_pointer(void);
+int opaque_union_value(const union OpaqueUnion *value);
+int opaque_native_by_value_control(void);
