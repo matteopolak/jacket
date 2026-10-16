@@ -741,3 +741,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 - [Exact beec9491 Mac baseline](status/mac-beec9491-baseline.json): scoped production gates pass; complete433-case catalogue failures remain classified with [reproducers and proper followups](integration-requests.md). Native/GUI lease released to coordinator; original400/Focus and Windows/Linux native verification remain open.
 
 [Integrated check-only IR lifetime repair](status/shared-ir-lifetime-checkpoint.json) records the exact822 patch review and two passing backend-boundary regressions.
+
+[Reviewed AppKit flags and Metal Render inheritance](native/appkit-metal-corpus-dispositions.md) records exact public shape, real SDK evidence and remaining protected application replays.

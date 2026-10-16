@@ -4,6 +4,7 @@ This is a format parser, not a Jai semantic evaluator. Unknown conditions are
 retained for the generator to reject explicitly rather than guessed away.
 """
 from dataclasses import dataclass, field, replace
+from collections import defaultdict
 import re
 
 
@@ -88,6 +89,71 @@ def associate_shared_cpu_variants(spec):
         conditions = list(dict.fromkeys(d.condition for d in declarations))
         if len(conditions) > 1:
             spec.shapes[index] = replace(shape, condition=' || '.join('('+c+')' for c in conditions))
+
+
+def supplement_field_fragments(spec):
+    """Join simple stored-field fences to the same owner's method inventory.
+
+    Fences remain authoritative for field order/directives. Only exact target
+    matches and named simple struct fields are combined; anonymous aggregates,
+    alternative layouts and complete method-bearing fences are left intact.
+    """
+    field = re.compile(r"((?:using\s+)?(?:#as\s+)?(\w+)\s*:\s*[^:{};]+;)")
+    supplements = defaultdict(list)
+    consumed = set()
+    for index, shape in enumerate(spec.shapes):
+        if shape.member_list or not re.match(r"^\w+\s*::\s*struct\s*\{", shape.code):
+            continue
+        body = shape.code.split("{", 1)[1].rsplit("}", 1)[0]
+        lines = [
+            line.strip()
+            for line in body.splitlines()
+            if line.strip() and not line.lstrip().startswith("//")
+        ]
+        if not lines or not all(field.fullmatch(line) for line in lines):
+            continue
+        matches = [
+            i
+            for i, candidate in enumerate(spec.shapes)
+            if candidate.member_list
+            and candidate.name == shape.name
+            and candidate.condition == shape.condition
+        ]
+        if len(matches) != 1:
+            continue
+        supplements[matches[0]].extend(lines)
+        consumed.add(index)
+    for index, fields in supplements.items():
+        shape = spec.shapes[index]
+        header, body = shape.code.split("{", 1)
+        lines = body.rsplit("}", 1)[0].splitlines()
+        existing = {}
+        for line in lines:
+            match = field.fullmatch(line.strip())
+            if match:
+                existing[match[2]] = match[1]
+        ordered = {}
+        for declaration in fields:
+            name = field.fullmatch(declaration)[2]
+            for previous in (existing.get(name), ordered.get(name)):
+                if previous is not None and re.sub(r"\s+", "", previous) != re.sub(
+                    r"\s+", "", declaration
+                ):
+                    raise ValueError(
+                        "Conflicting reviewed field " + shape.name + "." + name
+                    )
+            ordered[name] = declaration
+        remaining = [
+            line
+            for line in lines
+            if not ((match := field.fullmatch(line.strip())) and match[2] in ordered)
+        ]
+        body = "\n".join("    " + line for line in ordered.values())
+        body += "\n" + "\n".join(remaining).strip("\n")
+        spec.shapes[index] = replace(shape, code=header + "{\n" + body + "\n}")
+    spec.shapes = [
+        shape for index, shape in enumerate(spec.shapes) if index not in consumed
+    ]
 
 
 def parse_spec(text):
@@ -200,5 +266,6 @@ def parse_spec(text):
             elif section == "Public type members" and shape_header:
                 shape_members.append(code)
     finish_list()
+    supplement_field_fragments(result)
     associate_shared_cpu_variants(result)
     return result
