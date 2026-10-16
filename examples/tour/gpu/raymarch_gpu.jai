@@ -12,12 +12,14 @@
 // without WebGPU (or without JavaScript Promise Integration), and machines
 // without a display or a GPU adapter, skip this stop.
 
-#import "Input";
-#import "Window_Type";
 #import "Extensions/WebGPU";
 
 #if OS != .WASM {
+    #import "Input";
+    #import "Window_Type";
     #import "Window_Creation";
+} else {
+    #load "browser_canvas.jai";
 }
 
 GPU_SECONDS :: 20.0;
@@ -29,18 +31,28 @@ tour_gpu :: () {
         return;
     }
 
-    window: Window_Type; // in the browser: the page's canvas
-
     #if OS != .WASM {
+        window: Window_Type;
         window = create_window(960, 600, "Jai tour: ray marching on the GPU");
         if !window {
             print("No window could be opened (no display?), so this stop is skipped.\n");
             return;
         }
+    } else {
+        if !tour_canvas_available() {
+            print("No WebGPU canvas was supplied by this host, so this stop is skipped.\n");
+            return;
+        }
     }
 
     instance := wgpuCreateInstance(null);
-    surface := webgpu_create_surface(instance, window);
+    surface: WGPUSurface;
+    #if OS == .WASM {
+        // The private host binds this real surface to the supplied page canvas.
+        surface = wgpuInstanceCreateSurface(instance, null);
+    } else {
+        surface = webgpu_create_surface(instance, window);
+    }
 
     if !surface {
         print("No WebGPU surface for the window, so this stop is skipped.\n");
@@ -68,7 +80,12 @@ tour_gpu :: () {
         return;
     }
 
-    width, height := webgpu_window_size(window);
+    width, height: s32;
+    #if OS == .WASM {
+        width, height = tour_canvas_dimensions();
+    } else {
+        width, height = webgpu_window_size(window);
+    }
 
     gpu_configure(surface, device, format, width, height);
 
@@ -111,31 +128,43 @@ tour_gpu :: () {
 
     time, palette: float32;
     paused := false;
-    start := seconds_since_init();
+    start := tour_gpu_seconds();
     last := start;
     frames := 0;
 
-    while seconds_since_init() - start < GPU_SECONDS {
-        update_window_events();
-
-        for get_window_resizes() {
-            width, height = webgpu_window_size(window);
-            gpu_configure(surface, device, format, width, height);
-        }
-
+    while tour_gpu_seconds() - start < GPU_SECONDS {
         quit := false;
-
-        for events_this_frame {
-            if it.type == .QUIT quit = true; // the window was closed
-            if it.type != .KEYBOARD || !it.key_pressed continue;
-            if it.key_code == .ESCAPE quit = true;
-            if it.key_code == .SPACEBAR paused = !paused;
-            if it.key_code == .MOUSE_BUTTON_LEFT palette += 1;
+        #if OS == .WASM {
+            resizes, quit_now, pause, clicks := tour_canvas_input();
+            quit = quit_now;
+            if pause paused = !paused;
+            while clicks > 0 {
+                palette += 1;
+                clicks -= 1;
+            }
+            while resizes > 0 {
+                width, height = tour_canvas_dimensions();
+                gpu_configure(surface, device, format, width, height);
+                resizes -= 1;
+            }
+        } else {
+            update_window_events();
+            for get_window_resizes() {
+                width, height = webgpu_window_size(window);
+                gpu_configure(surface, device, format, width, height);
+            }
+            for events_this_frame {
+                if it.type == .QUIT quit = true; // the window was closed
+                if it.type != .KEYBOARD || !it.key_pressed continue;
+                if it.key_code == .ESCAPE quit = true;
+                if it.key_code == .SPACEBAR paused = !paused;
+                if it.key_code == .MOUSE_BUTTON_LEFT palette += 1;
+            }
         }
 
         if quit break;
 
-        now := seconds_since_init();
+        now := tour_gpu_seconds();
         if !paused time += cast(float32) (now - last);
 
         last = now;
@@ -333,3 +362,12 @@ fn palette(m: f32, p: vec3f) -> vec3f {
     return vec4f(col, 1.0);
 }
 WGSL
+
+// Browser graphics need the real embedding clock; Basic timing is native-only.
+tour_gpu_seconds :: () -> float64 {
+    #if OS == .WASM {
+        return tour_canvas_seconds();
+    } else {
+        return seconds_since_init();
+    }
+}

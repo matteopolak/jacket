@@ -2,6 +2,8 @@
 // this process's stdin, stdout, stderr and environment, and exits with the module's exit code.
 // The module sees the host's file system: `/` is pre-opened, and `PWD` names this process's
 // working directory, which Wasi_Runtime starts from (WASI itself has no working directory).
+// `/tmp` is a separate preopen of the host's real temporary directory (TMPDIR on
+// Unix). This also avoids routing temporary files through a host `/tmp` symlink.
 // Usage: node --no-warnings tools/wasi_run.mjs [--unknown-imports-trap] module.wasm [args...]
 // Needs node 24 or newer: jaic's modules use 64-bit memory (Memory64).
 //
@@ -9,7 +11,8 @@
 // exits 134, like an abort. A module that imports something the host lacks prints
 // `wasm link error: ...` and exits 127, unless `--unknown-imports-trap` (as in wasmtime) resolves
 // each missing function import to one that traps when called. See docs/native/wasm-target.md.
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { WASI } from 'node:wasi';
 
 let options = process.argv.slice(2);
@@ -24,7 +27,7 @@ const wasi = new WASI({
   version: 'preview1',
   args: [path, ...args],
   env: { ...process.env, PWD: process.cwd() },
-  preopens: { '/': '/' },
+  preopens: { '/': '/', '/tmp': realpathSync(tmpdir()) },
   returnOnExit: true,
 });
 const module = await WebAssembly.compile(readFileSync(path));

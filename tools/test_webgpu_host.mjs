@@ -116,11 +116,10 @@ function writer(memory) {
   };
 }
 
-function setup() {
-  const gpu = mockGPU();
+function setup({ gpu = mockGPU(), canvas = mockCanvas() } = {}) {
   const memory = fakeMemory();
   const surfaces = [];
-  const host = createWebGPUHost({ gpu, canvas: mockCanvas(), onSurface: s => surfaces.push(s) });
+  const host = createWebGPUHost({ gpu, canvas, onSurface: s => surfaces.push(s) });
   const call = (name, ...args) => host.functions[name](args.map(a => BigInt(a)), memory);
   const w = writer(memory);
   return { gpu, memory, host, call, w, surfaces };
@@ -317,6 +316,41 @@ test("surfaces tell the page when they are configured", async () => {
   s.call("wgpuSurfaceConfigure", surface, config);
   s.call("wgpuSurfaceUnconfigure", surface);
   assert.deepEqual(s.surfaces, [{ width: 640, height: 480 }, null]);
+});
+
+test("headless GPU capability does not advertise a canvas surface", async () => {
+  const s = setup({ canvas: null });
+  assert.equal(s.call("jai_webgpu_available"), true);
+  assert.equal(s.call("jai_canvas_available"), false);
+  const dev = await device(s);
+  assert(dev > 0, "headless adapter/device requests remain supported");
+  assert.throws(() => s.call("wgpuInstanceCreateSurface", 1, 0), /no canvas/);
+});
+
+test("canvas capability and surface use the same real context", async () => {
+  let queried = 0;
+  const context = { configure(config) { this.config = config; }, unconfigure() {} };
+  const canvas = { width: 640, height: 480, getContext(kind) { assert.equal(kind, "webgpu"); queried++; return context; } };
+  const s = setup({ canvas });
+  assert.equal(s.call("jai_canvas_available"), true);
+  assert.equal(s.call("jai_canvas_available"), true);
+  const dev = await device(s);
+  const surface = s.call("wgpuInstanceCreateSurface", 1, 0);
+  const config = s.w.at(STRUCTS.SurfaceConfiguration.size);
+  s.w.d.setBigUint64(config + s.w.member("SurfaceConfiguration", "device"), BigInt(dev), true);
+  s.w.d.setUint32(config + s.w.member("SurfaceConfiguration", "width"), 640, true);
+  s.w.d.setUint32(config + s.w.member("SurfaceConfiguration", "height"), 480, true);
+  s.call("wgpuSurfaceConfigure", surface, config);
+  assert.equal(queried, 1);
+  assert.equal(context.config.device, s.gpu.device);
+  assert.deepEqual(s.surfaces, [{ width: 640, height: 480 }]);
+});
+
+test("an unavailable WebGPU canvas context never becomes a surface handle", () => {
+  const s = setup({ canvas: { getContext() { return null; } } });
+  assert.equal(s.call("jai_webgpu_available"), true);
+  assert.equal(s.call("jai_canvas_available"), false);
+  assert.throws(() => s.call("wgpuInstanceCreateSurface", 1, 0), /no WebGPU context/);
 });
 
 test("host procedures: availability, frames and the canvas size", async () => {

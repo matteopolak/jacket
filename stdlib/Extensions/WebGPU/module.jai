@@ -5,7 +5,9 @@
 // the platform: a surface for a window, waiting for asynchronous requests, and frame pacing.
 
 #import "Basic";
-#import "Window_Type";
+#if OS != .WASM {
+    #import "Window_Type";
+}
 
 #load "generated.jai";
 
@@ -178,9 +180,10 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
 
 // --- Surfaces and frames ------------------------------------------------------------------------
 
-// A surface that draws into `window` (a Window_Creation window). In the browser the window is
-// the page's canvas and `window` is ignored. Natively null (and an error logged) without a window:
+// Native-only helper for a Window_Creation window. A browser embedding supplies
+// its canvas to the C API's wgpuInstanceCreateSurface instead. Null without a window:
 // wgpu-native aborts the process on most calls given a null surface, so check before using it.
+#if OS != .WASM {
 webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSurface {
     #if OS != .WASM {
         if !window {
@@ -211,6 +214,7 @@ webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSu
     }
 
     return wgpuInstanceCreateSurface(instance, *desc);
+}
 }
 
 // The texture format to configure `surface` with: one the surface supports that is not sRGB
@@ -258,7 +262,8 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
     return false;
 }
 
-// The size of the surface `window` shows, in pixels (the canvas in the browser).
+// Native-only size of the surface `window` shows, in pixels.
+#if OS != .WASM {
 webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
     #if OS == .WASM {
         w, h: u32;
@@ -271,6 +276,7 @@ webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
         _, _, w, h := WC.get_dimensions(window, false);
         return cast(s32) w, cast(s32) h;
     }
+}
 }
 
 // wgpu-native's own wgpuSurfaceGetCurrentTexture status (wgpu.h, not webgpu.h): the window is not

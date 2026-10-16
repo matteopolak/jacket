@@ -3,7 +3,14 @@
 // an in-memory disk that lasts for one run.
 
 #import "File";
-#import "File_Utilities";
+#if OS == .WASM {
+    #load "sandbox_files.jai";
+} else {
+    #import "File_Utilities";
+    tour_visit_files :: visit_files;
+    Tour_File_Visit_Info :: File_Visit_Info;
+    tour_file_exists :: file_exists;
+}
 
 tour_files :: () {
     // #filepath is the folder of the current source file, so `..` is the tour.
@@ -19,7 +26,7 @@ tour_files :: () {
 
     census: Census;
 
-    visit_files(tour_folder, true, *census, (info: *File_Visit_Info, census: *Census) {
+    visited := tour_visit_files(tour_folder, true, *census, (info: *Tour_File_Visit_Info, census: *Census) {
         if !ends_with(info.short_name, ".jai") return;
 
         text, ok := read_entire_file(info.full_name);
@@ -34,6 +41,7 @@ tour_files :: () {
             census.longest_name = copy_temporary_string(info.short_name);
         }
     });
+    assert(visited);
     print("The tour has % .jai files and % lines; the longest is % (% lines).\n",
         census.files, census.lines, census.longest_name, census.longest_lines);
 
@@ -63,7 +71,7 @@ tour_files :: () {
     print("Read back % bytes from %:\n%", log_text.count, path, log_text);
     free(log_text);
     file_delete(path);
-    print("After file_delete, file_exists says %.\n", file_exists(path));
+    print("After file_delete, file_exists says %.\n", tour_file_exists(path));
 }
 
 count_lines :: (text: string) -> int {

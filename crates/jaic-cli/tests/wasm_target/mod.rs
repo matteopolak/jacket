@@ -245,6 +245,71 @@ fn wasm_tour_runs_as_a_wasi_command() {
     }
 }
 
+/// The runner maps the virtual temporary directory to actual configured host
+/// storage, including writes and subsequent reads from emitted WASI programs.
+#[test]
+fn wasm_temporary_directory_maps_real_host_storage() {
+    let dir = scratch("wasm-temporary-directory");
+    let temporary = dir.join("host-temporary");
+    std::fs::create_dir(&temporary).unwrap();
+    std::fs::write(
+        dir.join("temporary.jai"),
+        r#"#import "Basic";
+#import "File";
+main :: () {
+    args := get_command_line_arguments();
+    assert(args.count == 2);
+    path := tprint("/tmp/%", args[1]);
+    assert(write_entire_file(path, "actual host temporary bytes"));
+    text, ok := read_entire_file(path);
+    assert(ok && text == "actual host temporary bytes");
+    free(text);
+}
+"#,
+    )
+    .unwrap();
+    for (flag, name) in [("-O0", "unoptimized"), ("-O2", "optimized")] {
+        if jaic(
+            &dir,
+            &[
+                "temporary.jai",
+                "-os",
+                "wasm",
+                flag,
+                "-exe",
+                "temporary.wasm",
+            ],
+        )
+        .is_none()
+        {
+            return;
+        }
+        let file_name = format!("{name}-temporary.txt");
+        let output = node()
+            .unwrap()
+            .arg(repo_root().join("tools/wasi_run.mjs"))
+            .arg(dir.join("temporary.wasm"))
+            .arg(&file_name)
+            .env("TMPDIR", &temporary)
+            .env("TMP", &temporary)
+            .env("TEMP", &temporary)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}{}",
+            text(&output.stdout),
+            text(&output.stderr)
+        );
+        assert_eq!(
+            std::fs::read(temporary.join(&file_name)).unwrap(),
+            b"actual host temporary bytes"
+        );
+        std::fs::remove_file(temporary.join(file_name)).unwrap();
+    }
+}
+
 /// Private runtime hooks keep real cooperative scheduling coverage independent
 /// of the public Thread module's legitimate desktop/Android target guard.
 #[test]

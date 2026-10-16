@@ -38,6 +38,11 @@ const PROCESS_EVENTS = 0, WAIT_ANY = 1, SPONTANEOUS = 2;
 export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, output, onSurface } = {}) {
   let memory = null;
   let view = null;
+  let canvasContext;
+  const getCanvasContext = () => {
+    if (canvasContext === undefined) canvasContext = canvas?.getContext("webgpu") ?? null;
+    return canvasContext;
+  };
   const dv = () => (view && view.buffer === memory.buffer ? view : (view = new DataView(memory.buffer)));
   const scratch = new DataView(new ArrayBuffer(8));
   const utf8 = new TextDecoder();
@@ -435,7 +440,9 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     wgpuInstanceGetWGSLLanguageFeatures: ([, p]) => { writeStruct("SupportedWGSLLanguageFeatures", addr(p), { features: [...gpu.wgslLanguageFeatures] }); return success; },
     wgpuInstanceCreateSurface: () => {
       if (!canvas) throw new Error("the page gave the program no canvas");
-      return put({ canvas, context: canvas.getContext("webgpu") });
+      const context = getCanvasContext();
+      if (!context) throw new Error("the page's canvas has no WebGPU context");
+      return put({ canvas, context });
     },
     // The canvas offers plain formats only (no -srgb ones): webgpu_surface_format picks the same
     // kind natively.
@@ -552,6 +559,10 @@ export function createWebGPUHost({ canvas, gpu = globalThis.navigator?.gpu, outp
     // Host procedures of stdlib/Extensions/WebGPU (wasm.jai, module.jai).
     jai_host_provides: ([name, length]) => Object.hasOwn(functions, utf8.decode(bytes(name, Number(length), "name"))),
     jai_webgpu_available: () => !!gpu,
+    // Private embedding ABI: () -> u32, 0/1. Compute does not require a canvas.
+    jai_canvas_available: () => !!gpu && !!getCanvasContext(),
+    // Private () -> u64 ABI: elapsed page-clock microseconds, not sandbox ticks.
+    jai_canvas_clock_microseconds: () => BigInt(Math.floor(performance.now() * 1000)),
     jai_webgpu_poll: ([record, list, count, how]) => pollRecord(addr(record), addr(list), Number(count), Number(how)),
     jai_webgpu_wait: ([list, count, timeout]) => waitAny(addr(list), Number(count), timeout),
     jai_webgpu_request_frame: () => {

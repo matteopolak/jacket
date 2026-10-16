@@ -879,3 +879,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Platform-I/O target accounting and Windows path oracle](native/platform-io-target-accounting.md): explicit per-fixture capabilities and retained native checks.
 
 - [Interpreter pthread names](compiler/interpreter-pthread-names.md): checked scheduler identity translation and explicit unsupported execution modes.
+
+- [Required WASM tour providers](compiler/wasm-tour-providers.md): real private canvas/filesystem protocols and unchanged required tour assertions.

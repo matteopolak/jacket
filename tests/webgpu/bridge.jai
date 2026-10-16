@@ -3,11 +3,15 @@
 // error scope, a few frames, and a thread that must keep running while the program waits.
 
 #import "Basic";
-#import "Thread";
+#assert OS == .WASM; // This fixture exercises the private browser runtime.
+bridge_thread_create :: (handle: *u64, attributes: *void, entry: *void, data: *void) -> s32 #foreign "pthread_create";
+bridge_thread_join :: (handle: u64, result: **void) -> s32 #foreign "pthread_join";
+bridge_thread_sleep :: (microseconds: u32) -> s32 #foreign "usleep";
 #import "Extensions/WebGPU";
 
 ticks: s64;
 stop: bool;
+sleep_failed: bool;
 
 main :: () {
     print("available: %\n", webgpu_available());
@@ -23,17 +27,20 @@ main :: () {
     print("device: %\n", device != null);
 
     // A thread that counts while the main one waits for the page.
-    counter: Thread;
+    counter: u64;
 
-    thread_init(*counter, (thread: *Thread) -> s64 {
+    created := bridge_thread_create(*counter, null, (data: *void) -> *void #c_call {
         while !stop {
             ticks += 1;
-            sleep_milliseconds(1);
+            if bridge_thread_sleep(1000) != 0 {
+                sleep_failed = true;
+                return null;
+            }
         }
 
-        return 0;
-    });
-    thread_start(*counter);
+        return null;
+    }, null);
+    assert(created == 0);
 
     desc: WGPUBufferDescriptor;
     desc.label = to_string_view("readback");
@@ -54,7 +61,8 @@ main :: () {
 
     print("thread ran during frames: %\n", ticks > before);
     stop = true;
-    thread_deinit(*counter);
+    assert(bridge_thread_join(counter, null) == 0);
+    assert(!sleep_failed);
 
     wgpuDevicePushErrorScope(device, .Validation);
     wgsl: WGPUShaderSourceWGSL;
