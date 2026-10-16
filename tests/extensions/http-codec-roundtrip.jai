@@ -4,6 +4,11 @@
 #import "Basic";
 #import "Extensions/Http";
 
+#if OS == .WASM {
+    // Existing C termination service in both the sandbox and WASI test hosts.
+    exit :: (status: s32) #foreign;
+}
+
 failures := 0;
 
 check :: (condition: bool, what: string) {

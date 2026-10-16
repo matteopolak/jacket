@@ -2068,12 +2068,21 @@ impl Compiler {
                     _ => ty,
                 };
                 // The instance itself, or (for a named struct) an `#as` member that is one.
-                let instance = match &callee.kind {
+                let (instance, parameters) = match &callee.kind {
                     E::Ident(name) => match self.ident_poly_struct(scope, *name)? {
-                        Some(ps) => self.instance_or_as_base(ps, ty),
-                        None => None,
+                        Some(ps) => (
+                            self.instance_or_as_base(ps, ty),
+                            Some(self.poly_structs[ps.0 as usize].lit.params.clone()),
+                        ),
+                        None => (None, None),
                     },
-                    _ => self.types.as_struct(ty).map(|_| ty),
+                    _ => match self.eval_const(scope, callee, None)? {
+                        Operand::PolyStruct(ps) => (
+                            self.instance_or_as_base(ps, ty),
+                            Some(self.poly_structs[ps.0 as usize].lit.params.clone()),
+                        ),
+                        _ => (self.types.as_struct(ty).map(|_| ty), None),
+                    },
                 };
                 let Some(ty) = instance else {
                     return err(
@@ -2082,17 +2091,37 @@ impl Compiler {
                     );
                 };
                 let s = self.types.as_struct(ty).unwrap();
-                let info = self.types.struct_info(s).clone();
-                for (i, a) in args.iter().enumerate() {
-                    let Some(value) = info.poly_args.get(i) else {
-                        break;
+                let parameters = parameters
+                    .or_else(|| self.struct_asts.get(&s).map(|src| src.lit.params.clone()))
+                    .unwrap_or_default();
+                // Instance keys store values, not their declared types, and may contain
+                // inferred type bindings absent from the written parameter list. Match
+                // that list by parameter identity against the canonical typed bindings.
+                let actual = self.poly_struct_bindings(s);
+                let mut position = 0;
+                for a in args {
+                    let parameter = match a.name {
+                        Some(name) => parameters
+                            .iter()
+                            .find(|p| p.name.map(|n| n.name) == Some(name.name)),
+                        None => {
+                            let parameter = parameters.get(position);
+                            position += 1;
+                            parameter
+                        }
+                    };
+                    let Some(name) = parameter.and_then(|p| p.name).map(|n| n.name) else {
+                        return err(a.value.span, "unknown polymorphic struct parameter");
+                    };
+                    let Some((_, value, value_type)) = actual.iter().find(|(n, _, _)| *n == name)
+                    else {
+                        return err(a.value.span, "missing polymorphic struct parameter binding");
                     };
                     match &a.value.kind {
                         E::PolyVar {
                             name, ..
                         } => {
-                            let vty = self.type_of_value(value);
-                            bind(self, bindings, *name, value.clone(), vty)?;
+                            bind(self, bindings, *name, value.clone(), *value_type)?;
                         }
                         _ if procs::has_poly(&a.value) => {
                             if let Value::Type(t) = value {
@@ -4156,7 +4185,10 @@ impl Compiler {
         operand: &Operand,
         span: Span,
     ) -> Result<Option<Operand>> {
-        if !matches!(self.types.kind(operand.ty()), TypeKind::Struct(_)) {
+        if !matches!(
+            self.types.kind(self.types.repr_struct(operand.ty())),
+            TypeKind::Struct(_)
+        ) {
             return Ok(None);
         }
         let text = match op {

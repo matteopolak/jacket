@@ -30,8 +30,8 @@ pub(super) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym>
 fn public_filter_name(name: Sym) -> Sym {
     match name.as_str().strip_prefix("operator") {
         Some(
-            symbol @ ("+" | "-" | "*" | "/" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "[]" | "[]="
-            | "*[]"),
+            symbol @ ("+" | "-" | "*" | "/" | "!" | "==" | "!=" | "<" | "<=" | ">" | ">=" | "[]"
+            | "[]=" | "*[]"),
         ) => Sym::intern(symbol),
         _ => name,
     }
