@@ -1070,30 +1070,23 @@ impl Compiler {
     ) -> Result<Operand> {
         match op {
             UnOp::Star => {
-                // `*x[i]` calls `operator *[]` when the base type has one.
-                if let E::Index(base, index) = &a.kind
-                    && self.check_expr_no_emit(scope, base).is_ok()
+                // Address-taking selects the pointer getter even when an ordinary
+                // getter is available. Reuse its place normalization, and evaluate
+                // each operand only once if builtin indexing is the fallback.
+                let inner = if let E::Index(base, index) = &a.kind
                     && !self.operator_candidates(scope, "*[]")?.is_empty()
                 {
-                    let mut base_op = self.check_expr(f, scope, base, None)?;
-                    if let Operand::Place {
-                        ty,
-                        addr,
-                    } = base_op
-                    {
-                        base_op = Operand::Value {
-                            ty: self.types.pointer(ty),
-                            val: addr,
-                        };
-                    }
+                    let base_op = self.check_expr(f, scope, base, None)?;
                     let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
-                    if let Some(result) = self
-                        .try_index_operator_overload(f, scope, "*[]", &base_op, &index_op, span)?
-                    {
-                        return Ok(result);
+                    match self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)? {
+                        Some(place) => place,
+                        None => {
+                            self.index_operand(f, scope, base_op, index_op, index.span, a.span)?
+                        }
                     }
-                }
-                let inner = self.check_expr(f, scope, a, None)?;
+                } else {
+                    self.check_expr(f, scope, a, None)?
+                };
                 match inner {
                     Operand::Type(t) => Ok(Operand::Type(self.types.pointer(t))),
                     // Concrete default pointees share the explicit instance's identity.
@@ -2123,30 +2116,39 @@ impl Compiler {
         index: &Operand,
         span: Span,
     ) -> Result<Option<Operand>> {
-        let base = match base {
+        if self.operator_candidates(scope, "*[]")?.is_empty() {
+            return Ok(None);
+        }
+        let base = match base.clone().without_callable() {
+            // A pointer stored in a variable denotes the receiver, not the
+            // address of the variable containing that pointer.
+            operand if self.types.pointee(operand.ty()).is_some() => {
+                let (ty, val) = self.rvalue(f, operand, span)?;
+                Operand::Value {
+                    ty,
+                    val,
+                }
+            }
             Operand::Place {
                 ty,
                 addr,
             } => Operand::Value {
-                ty: self.types.pointer(*ty),
-                val: *addr,
+                ty: self.types.pointer(ty),
+                val: addr,
             },
-            Operand::Value {
-                ty, ..
-            } if self.types.pointee(*ty).is_some() => base.clone(),
-            _ => return Ok(None),
+            // By-value receivers also accept computed aggregate values. The
+            // normal call binder retains their type and conversion rules.
+            operand => operand,
         };
-        if self.operator_candidates(scope, "*[]")?.is_empty() {
-            return Ok(None);
-        }
-        let Some(Operand::Value {
-            ty,
-            val,
-        }) = self.try_index_operator_overload(f, scope, "*[]", &base, index, span)?
+        let Some(result) = self.try_index_operator_overload(f, scope, "*[]", &base, index, span)?
         else {
             return Ok(None);
         };
-        Ok(self.types.pointee(ty).map(|elem| Operand::Place {
+        let (ty, val) = self.rvalue(f, result, span)?;
+        let Some(elem) = self.types.pointee(ty) else {
+            return err(span, "operator *[] must return a pointer");
+        };
+        Ok(Some(Operand::Place {
             ty: elem,
             addr: val,
         }))

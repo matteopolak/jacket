@@ -753,3 +753,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 [Exact60d final scoped baseline](status/mac-60d2ff19-baseline.json) records468passingRusttests and real native controls, retained Json timeout/widget failures, released native slot and outstanding coordinator gates.
 
 [Reviewed Metal Color attachment embedding](native/metal-render-pass-attachments.md) has22verified source/link checks; the [integration receipt](status/shared-metal-attachment-checkpoint.json) keeps allthree native programs explicitly pending.
+
+[Current pointer-subscript integration](status/shared-pointer-subscript-checkpoint.json) records exact fb7 adoption, preserved visibility,8/7 and14/1 failures,82passingfocusedchecks and the separate missing Bucket_Array implementation.

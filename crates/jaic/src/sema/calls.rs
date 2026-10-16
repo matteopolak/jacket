@@ -4195,7 +4195,11 @@ impl Compiler {
         if !matches!(self.types.kind(target), TypeKind::Struct(_)) {
             return Ok(None);
         }
-        let procs = self.operator_candidates(scope, text)?;
+        let mut procs = self.operator_candidates(scope, text)?;
+        // Unrelated lexical operators do not hide builtin pointer indexing.
+        // Keep index/type/result validation in normal call binding once a
+        // receiver applies, rather than swallowing an arbitrary call error.
+        procs.retain(|&p| self.first_param_accepts(p, target));
         if procs.is_empty() {
             return Ok(None);
         }

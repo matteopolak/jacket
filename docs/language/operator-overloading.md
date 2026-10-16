@@ -6,7 +6,7 @@
 
 ## How it works
 
-`operator_candidates` in `sema/calls.rs` looks up the name `operator<text>` and filters candidates by operand type; `try_binary_operator_overload`, `try_unary_operator_overload` and `try_index_operator_overload` call it. Overloads travel with the operand's struct type, so a module's `operator []` (say, `Bit_Array`'s) works wherever the type is used {#opov.2}.
+`operator_candidates` in `sema/calls.rs` looks up the name `operator<text>` and filters candidates by operand type; `try_binary_operator_overload`, `try_unary_operator_overload` and `try_index_operator_overload` call it. Operators obey ordinary lexical visibility and filtered reexports. A canonical type alias alone does not import its defining scope's overloads {#opov.2}.
 
 ```jai
 Vec :: struct { x, y: float; }

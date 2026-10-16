@@ -1118,22 +1118,27 @@ impl Compiler {
 
     /// Can procedure `p`'s first parameter take a `ty` (or `*ty`)? Polymorphic patterns
     /// are matched; plain types compared after resolution.
-    fn first_param_accepts(&mut self, p: ProcId, ty: TypeId) -> bool {
+    pub(super) fn first_param_accepts(&mut self, p: ProcId, ty: TypeId) -> bool {
         let info = self.proc(p);
-        let (scope, lit, is_poly) = (info.scope, info.lit.clone(), info.is_poly);
+        let (scope, lit) = (info.scope, info.lit.clone());
         let Some(param_ty) = lit.header.params.first().and_then(|p| p.ty.clone()) else {
             return false;
         };
         let pointer = self.types.pointer(ty);
-        if procs::has_poly(&param_ty) || is_poly {
+        if procs::has_poly(&param_ty)
+            || self.mentions_poly_struct(scope, &param_ty).unwrap_or(false)
+        {
             [ty, pointer].into_iter().any(|t| {
                 let mut bindings = Vec::new();
                 self.match_pattern(&param_ty, t, &mut bindings, scope)
                     .is_ok()
             })
         } else {
-            self.eval_type(scope, &param_ty)
-                .is_ok_and(|t| t == ty || t == pointer)
+            self.eval_type(scope, &param_ty).is_ok_and(|target| {
+                [ty, pointer]
+                    .into_iter()
+                    .any(|from| self.implicit_cost(from, false, target).is_some())
+            })
         }
     }
 
