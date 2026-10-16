@@ -929,3 +929,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Portable-data public-context lint](tools/portable-data-context-lint.md): four exact ready hashes verified, four policy controls pass; unchanged runtime/SDK inventories and seven target privacy controls retained. Supplied71 complete lint contexts are separate producer evidence; current Windows native replay remains required.
 
 - Host provider caches now require source-paired ABI8 receipts; filename-only/ABI7 reuse is rejected. SDK input guards include .inc/patch and callback-context sources. Eleven selection policies pass; real native CI remains required.
+
+- [Canonical runtime allocator alias](runtime-default-allocator-alias.md): exact reviewed Default_Allocator entity, public visibility and default-context identity; obsolete disconnected allocator removed. Seven owned postimages/deletion and three reviewed contracts verified. Producer18 actual ARM/x64 program modes pass; original Windows x64 TOML remains required CI. No native C inputs changed.
