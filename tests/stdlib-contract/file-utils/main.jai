@@ -50,6 +50,7 @@ main :: () {
     assert(found && position == 1);
     found, position = File_Utilities.path_contains(path, .["oak", "orchard"]);
     assert(!found && position == 0);
-    assert(File_Utilities.path_to_string(path) == "../orchard/oak/");
+    #if OS == .WINDOWS assert(File_Utilities.path_to_string(path) == "..\\orchard\\oak\\");
+    else assert(File_Utilities.path_to_string(path) == "../orchard/oak/");
     print("ok\n");
 }

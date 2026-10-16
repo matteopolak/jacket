@@ -7,11 +7,12 @@
 // Needs node 24 (Memory64). See docs/tools/jaifmt.md.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { closeSync, mkdtempSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WASI } from "node:wasi";
+import { goldenCaseNames, optionalConfig, readUtf8 } from "./formatter_fixture_inputs.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const [wasmPath, nativePath] = process.argv.slice(2);
@@ -31,7 +32,7 @@ async function format(source, { config, name = "main.jai" } = {}) {
   const exitCode = wasi.start(instance);
   const ms = performance.now() - started;
   [stdin, stdout, stderr].forEach(closeSync);
-  return { exitCode, stdout: readFileSync(files[1], "utf8"), stderr: readFileSync(files[2], "utf8"), ms };
+  return { exitCode, stdout: readUtf8(files[1]), stderr: readUtf8(files[2]), ms };
 }
 
 function native(source, config) {
@@ -41,19 +42,18 @@ function native(source, config) {
     args.push("--config", path.join(scratch, "case.toml"));
   }
   // From scratch, so a config-less case does not pick up the repository's own jaifmt.toml.
-  return execFileSync(path.resolve(nativePath), args, { input: source, encoding: "utf8", cwd: scratch });
+  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+    execFileSync(path.resolve(nativePath), args, { input: source, cwd: scratch }));
 }
 
 const cases = path.join(root, "stdlib/Extensions/Jai_Format/tests/cases");
-const names = readdirSync(cases).filter(n => n.endsWith(".in.jai")).map(n => n.slice(0, -".in.jai".length)).sort();
+const names = goldenCaseNames(cases);
+assert.ok(names.length > 0, "no formatter golden cases found");
 const times = [];
 for (const name of names) {
-  const input = readFileSync(path.join(cases, `${name}.in.jai`), "utf8");
-  const expected = readFileSync(path.join(cases, `${name}.out.jai`), "utf8");
-  let config;
-  try {
-    config = readFileSync(path.join(cases, `${name}.toml`), "utf8");
-  } catch {}
+  const input = readUtf8(path.join(cases, `${name}.in.jai`));
+  const expected = readUtf8(path.join(cases, `${name}.out.jai`));
+  const config = optionalConfig(path.join(cases, `${name}.toml`));
   const result = await format(input, { config });
   assert.equal(result.exitCode, 0, `${name}: ${result.stderr}`);
   assert.equal(result.stdout, expected, `${name}: formatted text differs from ${name}.out.jai`);
@@ -71,7 +71,7 @@ assert.equal(refused.exitCode, 1);
 assert.equal(refused.stdout, "");
 assert.match(refused.stderr, /^jaifmt: broken\.jai:.*unbalanced/);
 
-const large = readFileSync(path.join(root, "jaifmt/main.jai"), "utf8");
+const large = readUtf8(path.join(root, "jaifmt/main.jai"));
 const big = await format(large);
 assert.equal(big.exitCode, 0, big.stderr);
 assert.equal(big.stdout, large, "jaifmt/main.jai is already formatted");

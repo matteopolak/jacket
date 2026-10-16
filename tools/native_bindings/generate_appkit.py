@@ -69,7 +69,13 @@ def method(cls, name, params, result="", no_context=False):
         "addSubView:": "addSubview:",
         "mouse_inRect:inRect:": "mouse:inRect:",
     }.get(selector, selector)
-    if cls == "NSView" and name == "convertPoint":
+    # Reviewed legacy self-taking class properties retain the public parameter,
+    # but never use it as an Objective-C receiver (including when self is null).
+    if cls == "NSEvent" and name in {
+        "keyRepeatDelay",
+        "keyRepeatInterval",
+        "pressedMouseButtons",
+    }:
         receiver = 'binding_class("NSEvent")'
     native_params = ["receiver: *void", "selector: O.Selector"]
     native_params += [qualify(key + ":" + value) for key, value in arguments]
@@ -335,7 +341,7 @@ def public_inventory():
         "init_core_graphics_runtime_constants",
         "CGWindowLevelForKey",
     }
-    boundaries = {
+    sdk_receivers = {
         "NSView.convertPoint",
         "NSEvent.keyRepeatDelay",
         "NSEvent.keyRepeatInterval",
@@ -396,8 +402,10 @@ def public_inventory():
                     continue
                 name = owner + "." + member[1]
                 evidence = "native-positive" if name in native else "source-only"
-                if name in boundaries:
-                    evidence = "reviewed-receiver-boundary; source-only"
+                if name in sdk_receivers:
+                    evidence = (
+                        "reviewed-sdk-receiver; behavior evidence recorded separately"
+                    )
                 if (owner, member[1]) in VOID_RESULT:
                     evidence = "native-nil-receiver; nonnil-effect-unverified"
                 rows.append(

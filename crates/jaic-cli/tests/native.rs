@@ -6,6 +6,7 @@ use std::process::Command;
 
 mod abi_layout;
 mod common;
+mod formatter_fixtures;
 mod wasm_target;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
@@ -1848,7 +1849,9 @@ fn jaifmt_is_idempotent_on_the_repository() {
                 if name != "corpus" {
                     copy_jai(&path, &to.join(name), count);
                 }
-            } else if path.extension().is_some_and(|e| e == "jai") {
+            } else if path.extension().is_some_and(|e| e == "jai")
+                && !formatter_fixtures::is_appledouble_metadata(&path)
+            {
                 std::fs::create_dir_all(to).unwrap();
                 let destination = to.join(name);
                 std::fs::copy(&path, &destination).unwrap();
@@ -1877,6 +1880,22 @@ fn jaifmt_is_idempotent_on_the_repository() {
     let mut protected_permissions = std::fs::metadata(&protected_file).unwrap().permissions();
     protected_permissions.set_readonly(true);
     std::fs::set_permissions(&protected_file, protected_permissions).unwrap();
+    let readonly_retained = std::fs::metadata(&protected_file)
+        .unwrap()
+        .permissions()
+        .readonly();
+    // Some transport filesystems accept chmod but discard write-bit changes.
+    // CI must exercise the actual readonly premise on a capable filesystem.
+    formatter_fixtures::require_readonly_capability(
+        readonly_retained,
+        std::env::var_os("CI").is_some() || std::env::var_os("GITHUB_ACTIONS").is_some(),
+    );
+    if !readonly_retained {
+        eprintln!(
+            "readonly capability unavailable: set_permissions succeeded but {} remains writable; copy formatting and idempotence checks still run",
+            protected_file.display()
+        );
+    }
     copy_jai(&protected, &tree.join("protected-input"), &mut count);
     for part in [
         "stdlib",
@@ -1911,11 +1930,13 @@ fn jaifmt_is_idempotent_on_the_repository() {
         std::fs::read_to_string(&protected_file).unwrap(),
         protected_text
     );
-    assert!(
+    assert_eq!(
         std::fs::metadata(protected_file)
             .unwrap()
             .permissions()
-            .readonly()
+            .readonly(),
+        readonly_retained,
+        "formatting a copy must preserve the original permissions"
     );
 }
 

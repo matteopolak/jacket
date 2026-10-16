@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from case_capabilities import user_deferred_reason
+from platform_io_capabilities import RUNTIME_CONTRACT_CAPABILITIES
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -131,6 +132,9 @@ def validated_entries(root=ROOT):
     result = list(entries(root))
     names = set()
     for case in result:
+        if case["id"] in RUNTIME_CONTRACT_CAPABILITIES:
+            case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
+            case["required_capabilities"] = list(RUNTIME_CONTRACT_CAPABILITIES[case["id"]])
         if case["id"] in HTTP_NATIVE_IO_CASE_IDS:
             case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
             case["required_capabilities"] = [

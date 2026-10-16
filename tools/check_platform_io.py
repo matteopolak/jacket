@@ -16,6 +16,8 @@ import subprocess
 import sys
 import time
 
+from platform_io_capabilities import wasm_contract_reason
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -72,12 +74,12 @@ def save_result(directory, result, failed=()):
     }, indent=2) + "\n")
 
 
-def run(command, env, expected=None, expected_stderr=b""):
+def run(command, env, expected=None, expected_stderr=b"", failure_directory=None):
     result = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
                             capture_output=True, timeout=60)
     if result.returncode or result.stderr.replace(b"\\", b"/") != expected_stderr or (expected is not None and result.stdout != expected.encode()):
         key = hashlib.sha256(repr(list(map(str, command))).encode()).hexdigest()[:16]
-        save_result(ROOT / "target/platform-io-tests/failures" / key, result,
+        save_result((failure_directory or ROOT / "target/platform-io-tests/failures") / key, result,
                     [f"expected_stdout={expected!r}", f"expected_stderr={expected_stderr!r}"])
         raise RuntimeError(f"{' '.join(map(str, command))}\nexit={result.returncode}\n"
                            f"stdout={result.stdout!r}\nstderr={result.stderr!r}\n"
@@ -91,10 +93,31 @@ def expect_diagnostic(command, env, message):
         raise RuntimeError(f"missing required diagnostic {message!r}: {result}")
 
 
+def run_wasm_contract(compiler, source, output, env, attempt):
+    """Return explicit per-mode results; unavailable is never a successful run."""
+    reason = wasm_contract_reason(source.stem)
+    modes = ["wasm-check", "wasm-interp", "wasm-native-O0", "wasm-native-O2"]
+    if reason:
+        return [{"case": source.stem, "mode": mode, "status": "platform_unavailable",
+                 "passed": None, "reason": reason} for mode in modes]
+    results = [attempt([compiler, source, "-check", "-no_dce", "-os", "wasm"], env),
+               attempt([compiler, source, "-interp", "-os", "wasm"], env, "ok\n")]
+    for optimization in ["-O0", "-O2"]:
+        executable = output / (source.stem + optimization + ".wasm")
+        built = attempt([compiler, source, "-os", "wasm", optimization, "-exe", executable], env)
+        results.append(built and attempt(["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", executable], env, "ok\n"))
+    return [{"case": source.stem, "mode": mode, "status": "passed" if passed else "failed",
+             "passed": passed, "reason": None} for mode, passed in zip(modes, results)]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jaic", type=Path, required=True)
     parser.add_argument("--stdlib", type=Path, required=True)
+    parser.add_argument("--compiler-build-root", type=Path, default=ROOT / "target",
+                        help="directory containing the explicitly source-built compiler")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "target/platform-io-tests",
+                        help="owned artifact/capture directory; defaults to checkout target")
     parser.add_argument("--native", action="store_true")
     parser.add_argument("--cross-check", action="store_true")
     parser.add_argument("--wasm", action="store_true", help="execute Wasm interpreter and real WASI O0/O2")
@@ -108,10 +131,13 @@ def main():
                         help="source-build Windows exception diagnostics and the enabled-startup fault fixture")
     args = parser.parse_args()
     failures = []
+    wasm_results = []
+    output = args.output_dir.resolve()
+    output.mkdir(parents=True, exist_ok=True)
 
     def attempt(command, env, expected=None, expected_stderr=b""):
         try:
-            run(command, env, expected, expected_stderr)
+            run(command, env, expected, expected_stderr, output / "failures")
             return True
         except (RuntimeError, OSError, subprocess.SubprocessError) as error:
             failures.append(str(error))
@@ -130,8 +156,8 @@ def main():
     def report(before, *label):
         print("passed" if len(failures) == before else "FAILED", *label, flush=True)
     compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT / "target"):
-        parser.error("use the compiler source-built under this checkout target directory")
+    if not compiler.is_relative_to(args.compiler_build_root.resolve(strict=True)):
+        parser.error("use the compiler source-built under --compiler-build-root")
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
     conflict = ROOT / "tests/platform-io/negative/windows-runtime-configuration-conflict.jai"
     for cpu in ["x64", "arm64"]:
@@ -139,8 +165,6 @@ def main():
                                   cwd=ROOT, env=env, capture_output=True, timeout=60)
         if rejected.returncode != 1 or b"conflicts with the configured runtime instance" not in rejected.stderr or rejected.stdout:
             raise RuntimeError(f"expected original runtime configuration conflict: {rejected}")
-    output = ROOT / "target/platform-io-tests"
-    output.mkdir(parents=True, exist_ok=True)
     # Portable control-flow unit test only; SDK/native fixtures below prove OS behavior.
     if args.windows_crash:
         iterator_exe = output / ("stack-iteration" + (".exe" if os.name == "nt" else ""))
@@ -213,13 +237,11 @@ def main():
                 if attempt([compiler, source, optimization, "-exe", executable], env):
                     attempt([executable, *fixture_args], env, "ok\n")
         if args.wasm:
-            attempt([compiler, source, "-check", "-no_dce", "-os", "wasm"], env)
-            attempt([compiler, source, "-interp", "-os", "wasm"], env, "ok\n")
-            for optimization in ["-O0", "-O2"]:
-                executable = output / (source.stem + optimization + ".wasm")
-                if attempt([compiler, source, "-os", "wasm", optimization, "-exe", executable], env):
-                    attempt(["node", "--no-warnings", ROOT / "tools/wasi_run.mjs", executable], env, "ok\n")
-        report(before, source.relative_to(ROOT))
+            rows = run_wasm_contract(compiler, source, output, env, attempt)
+            wasm_results.extend(rows)
+            for row in rows:
+                print(row["status"], source.stem, row["mode"], row["reason"] or "", flush=True)
+        report(before, "required checks", source.relative_to(ROOT))
     source = ROOT / "tests/platform-io/windows-thread-noassert.jai"
     before = len(failures)
     if args.cross_check or os.name == "nt" or args.windows_build:
@@ -392,6 +414,7 @@ def main():
                             print("passed native Windows exception option", label, flush=True)
                     else:
                         print("cross-built Windows exception option; native execution outstanding", label, flush=True)
+    (output / "wasm-results.json").write_text(json.dumps({"results": wasm_results}, indent=2) + "\n")
     if failures:
         raise RuntimeError(f"{len(failures)} platform I/O checks failed; all independent checks above were retained\n" + "\n".join(failures))
 
