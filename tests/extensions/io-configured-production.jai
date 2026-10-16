@@ -1,4 +1,4 @@
-// Configure Io/Thread's real imports through the reviewed workspace API.
+// Configure the child MAIN's canonical Basic before Io/Thread imports it.
 #import "Basic";
 C :: #import "Compiler";
 
@@ -9,7 +9,6 @@ C :: #import "Compiler";
     workspace := C.compiler_create_workspace("configured-production-io");
     options := C.get_build_options(workspace);
     options.output_type = .NO_OUTPUT;
-    options.import_path = .[tprint("%../portable-stdlib/thread-configured/modules", #filepath)];
     options.text_output_flags = 0;
 
     if arguments.count > 0 {
@@ -28,12 +27,8 @@ C :: #import "Compiler";
 
     C.set_build_options(options, workspace);
 
-    if !enabled {
-        C.remap_import(workspace, "Thread", "Basic", "Thread_Basic_No_Assert");
-        C.remap_import(workspace, "Extensions/Io", "Basic", "Thread_Basic_No_Assert");
-    }
-
     C.compiler_begin_intercept(workspace);
+    C.add_build_string(tprint("#import \"Basic\"()(ENABLE_ASSERT = %);", ifx enabled then "true" else "false"), workspace);
     C.add_build_file(source, workspace);
     if arguments.count > 0 && arguments[3] == "interp" C.add_build_string("#run main();", workspace);
 

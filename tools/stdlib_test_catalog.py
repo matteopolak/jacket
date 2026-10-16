@@ -12,6 +12,7 @@ from pathlib import Path
 from case_capabilities import user_deferred_reason
 from platform_io_capabilities import RUNTIME_CONTRACT_CAPABILITIES
 from foundations_case_capabilities import apply_foundations_capabilities
+from debug_case_capabilities import apply_debug_capabilities
 from numerics_case_capabilities import (
     apply_numerics_capabilities,
     numerics_unavailable_reason,
@@ -149,6 +150,7 @@ def validated_entries(root=ROOT):
                 "fiber context switching",
             ]
         apply_foundations_capabilities(case)
+        apply_debug_capabilities(case)
         apply_numerics_capabilities(case)
         if case["id"] in {
             "native/clipboard-round-trip",

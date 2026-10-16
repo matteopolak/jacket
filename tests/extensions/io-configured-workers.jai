@@ -12,6 +12,11 @@ worker :: () {
 
 main :: () {
     Io.io_run_threads(4, worker);
+    // Verification remains mandatory when the child MAIN disables Basic.assert.
+    if A.atomic_read(*completed) != 4 {
+        print("ERROR: not all configured Io workers completed\n");
+        exit(1);
+    }
     assert(A.atomic_read(*completed) == 4);
     print("ok\n");
 }

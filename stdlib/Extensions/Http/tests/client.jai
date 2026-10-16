@@ -1190,5 +1190,8 @@ main :: () {
 
     run_server(*quick, stale);
 
+    free_app(*quick);
+    free_app(*app);
+
     finish();
 }

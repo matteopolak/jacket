@@ -176,6 +176,8 @@ Match :: struct {
 router_add :: (router: *Router, route: *Route) -> string {
     template := parse_template(route.template);
 
+    defer array_reset(*template.segments);
+
     if template.error.count return tprint("route %: %", route.template, template.error);
 
     node := *router.root;
@@ -226,12 +228,14 @@ router_free :: (router: *Router) {
 
     for router.routes {
         array_reset(*it.names);
+        array_free(it.middleware);
         free(it);
     }
 
     array_reset(*router.routes);
     array_reset(*router.root.routes);
     array_reset(*router.root.statics);
+    router.root = .{};
 }
 
 free_node_children :: (node: *Node) {

@@ -330,6 +330,7 @@ report :: (loc: Source_Code_Location, method: Method, template: string, message:
 // A template that cannot be parsed.
 check_template :: (template: string, method: Method, loc: Source_Code_Location) {
     parsed := parse_template(template);
+    defer array_reset(*parsed.segments);
 
     if parsed.error.count report(loc, method, template, parsed.error);
 }
@@ -353,6 +354,8 @@ describe_names :: (names: [] string) -> string {
 // The position of the `{name}` among the route's parameters.
 param_position :: (template: string, name: string) -> int {
     parsed := parse_template(template);
+
+    defer array_reset(*parsed.segments);
     position := 0;
 
     for parsed.segments {
@@ -369,9 +372,13 @@ param_position :: (template: string, name: string) -> int {
 check_param :: (template: string, method: Method, loc: Source_Code_Location, extractor: string, name: string, rest: bool) {
     parsed := parse_template(template);
 
+    defer array_reset(*parsed.segments);
+
     if parsed.error.count return;
 
     names := template_names(parsed);
+
+    defer array_reset(*names);
 
     for parsed.segments {
         if it.kind == .STATIC || it.text != name continue;

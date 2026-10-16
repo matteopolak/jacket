@@ -98,11 +98,18 @@ App :: struct {
     shutdown_flag: s32;
 }
 
-// Releases what the app owns: its routes and groups. Not needed when the program exits.
+// Releases what the app owns after servers and requests have stopped using it.
 free_app :: (app: *App) {
     router_free(*app.router);
 
-    for app.groups free(it);
+    for app.groups {
+        // PREFIX is a type parameter; every Group has these same runtime fields.
+        group := cast(*Group("")) it;
+        array_reset(*group.middleware);
+        free(it);
+    }
+
+    for app.setup_errors free(it);
 
     array_reset(*app.groups);
     array_reset(*app.middleware);
@@ -276,6 +283,7 @@ register_route :: (app: *App, method: Method, template: string, handler: Handler
         array_add(*app.setup_errors, copy_string(problem));
 
         array_reset(*route.names);
+        array_free(route.middleware);
         free(route);
     }
 }
