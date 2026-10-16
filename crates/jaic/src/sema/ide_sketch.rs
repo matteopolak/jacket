@@ -103,8 +103,11 @@ impl Compiler {
                 // A macro is sketched as a procedure: what it reaches in its caller (`x`) is
                 // missing, and those statements are skipped.
                 self.procs[inst.0 as usize].is_macro = false;
-                if self.proc_func(inst, span).is_ok() {
-                    let _ = self.drain_bodies_lenient();
+                if let Ok(super::procs::ProcTarget::Func(root)) = self.proc_func(inst, span) {
+                    // A sketch owns only its reachable work. Draining the global queue
+                    // retries independent failed bodies after source/compile-time progress,
+                    // applying stand-in recovery to real code and repeating its generators.
+                    let _ = self.lower_reachable_from(root);
                 }
             }
         }));

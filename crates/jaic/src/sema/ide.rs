@@ -636,6 +636,12 @@ impl Compiler {
         while i < self.procs.len() {
             let id = ProcId(i as u32);
             i += 1;
+            // Header classification resolves names and can run compile-time code. Apply
+            // the recording policy before starting independent audit work; actual calls
+            // still resolve their selected dependencies through the normal checker.
+            if !self.ide_wants(self.proc(id).span.file) {
+                continue;
+            }
             // `t: *Table` makes a procedure polymorphic, which is only known once names
             // resolve (a compile that stopped early may not have asked yet).
             let _ = self.refresh_implicit_poly(id);
@@ -651,7 +657,6 @@ impl Compiler {
                 || p.is_macro
                 || p.lit.body.is_none()
                 || p.body_state != super::procs::BodyState::NotNeeded
-                || !self.ide_wants(span.file)
             {
                 continue;
             }
@@ -680,6 +685,9 @@ impl Compiler {
     fn ide_note_bodiless(&mut self) {
         for i in 0..self.procs.len() {
             let id = ProcId(i as u32);
+            if !self.ide_wants(self.proc(id).span.file) {
+                continue;
+            }
             let _ = self.refresh_implicit_poly(id);
             let p = self.proc(id);
             if p.is_poly || p.lit.body.is_some() {
