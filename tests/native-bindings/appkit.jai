@@ -5,9 +5,9 @@ O :: #import "Objective_C";
 #assert type_info(A.NSResponder).name == "NSResponder";
 #assert size_of(A.NSWindow) == size_of(O.NSObject);
 #assert size_of(A.NSResponder) == size_of(O.NSObject);
-#assert cast(u64) A.NSWindowStyleMask.FullSizeContentView == 32768;
+#assert cast(u64) A.NSWindowStyleMaskFullSizeContentView == 32768;
 #assert cast(u64) A.NSWindowCollectionBehavior.FullScreenAllowsTiling == 2048;
-#assert cast(u64) A.NSBackingStoreType.Buffered == 2;
+#assert cast(u64) A.NSBackingStoreBuffered == 2;
 
 libc :: #library,system "c";
 abort :: () #foreign libc;
