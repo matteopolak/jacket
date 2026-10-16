@@ -238,3 +238,64 @@ fn native_windows_drive_uri_resolves_production_print() {
         );
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
+    let dir = std::env::temp_dir().join(format!("jailsp-unsaved-alias-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let alias = dir.with_extension("alias");
+    let _ = std::fs::remove_file(&alias);
+    std::os::unix::fs::symlink(&dir, &alias).unwrap();
+    let stored = DocumentUri::from_path(&alias.join("unsaved.jai")).unwrap();
+    let real = DocumentUri::from_path(&dir.join("unsaved.jai")).unwrap();
+    assert!(!Path::new(real.path()).exists());
+    let mut s = session();
+    let text =
+        "/* 😀 */ #scope_file private_answer :: 42; use_value :: () { value := private_answer; }";
+    s.open(stored.clone(), 1, text.into()).unwrap();
+    assert_eq!(s.source(&real).as_deref(), Some(text));
+    assert!(
+        s.hover(&real, at(text, "private_answer;"))
+            .unwrap()
+            .is_some()
+    );
+    let definitions = s.definition(&real, at(text, "private_answer;")).unwrap();
+    assert_eq!(definitions.len(), 1);
+    assert_eq!(definitions[0].uri, stored.as_str());
+    assert!(matches!(
+        s.open(real.clone(), 1, text.into()),
+        Err(jai_language_server::Error::AlreadyOpen)
+    ));
+    let start = at(text, "42");
+    s.change(
+        &real,
+        2,
+        &[jai_language_server::TextChange {
+            range: Some(jai_language_server::Range {
+                start,
+                end: Position {
+                    character: start.character + 2,
+                    ..start
+                },
+            }),
+            range_length: Some(2),
+            text: "99".into(),
+        }],
+    )
+    .unwrap();
+    assert_eq!(s.version(&stored).unwrap(), 2);
+    assert!(s.document_text(&stored).unwrap().contains("99"));
+    let other = DocumentUri::from_path(&dir.join("other.jai")).unwrap();
+    let other_text = "#load \"unsaved.jai\"; outsider :: () { value := private_answer; }";
+    s.open(other.clone(), 1, other_text.into()).unwrap();
+    assert!(
+        s.definition(&other, at(other_text, "private_answer;"))
+            .unwrap()
+            .is_empty()
+    );
+    s.close(&real).unwrap();
+    assert!(s.version(&stored).is_err());
+    std::fs::remove_file(alias).unwrap();
+    std::fs::remove_dir_all(dir).unwrap();
+}

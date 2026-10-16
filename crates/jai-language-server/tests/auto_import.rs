@@ -678,3 +678,59 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
     assert_eq!(small.workspace_symbols("circle").len(), 2);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[cfg(unix)]
+#[test]
+fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
+    let dir = project(
+        "canonical-alias",
+        &[
+            ("main.jai", "#load \"loaded.jai\"; main :: () {}"),
+            ("loaded.jai", "loaded_name :: 1;"),
+            ("extra.jai", "extra_name :: 2;"),
+        ],
+    );
+    let alias = dir.with_extension("alias");
+    let _ = std::fs::remove_file(&alias);
+    std::os::unix::fs::symlink(&dir, &alias).unwrap();
+    let mut s = session();
+    s.set_workspace_folders(vec![dir.clone()]);
+    let text =
+        "#load \"loaded.jai\"; #load \"new.jai\"; main :: () { loaded_n; extra_n; fresh_n; }";
+    let main = alias.join("main.jai");
+    let list = complete_at(&mut s, &main, text, "loaded_n");
+    assert!(
+        list.items
+            .iter()
+            .find(|i| i.label == "loaded_name")
+            .unwrap()
+            .additional_edits
+            .is_empty()
+    );
+    let uri = DocumentUri::from_path(&main).unwrap();
+    let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
+    assert!(
+        auto(&list, "extra_name")[0].additional_edits[0]
+            .new_text
+            .contains("#load \"extra.jai\";")
+    );
+    let list = s.completion(&uri, end_of(text, "fresh_n")).unwrap();
+    assert!(!list.items.iter().any(|i| i.label == "fresh_name"));
+    std::fs::write(dir.join("new.jai"), "fresh_name :: 3;").unwrap();
+    s.file_changed(&dir.join("new.jai"), true);
+    let list = s.completion(&uri, end_of(text, "fresh_n")).unwrap();
+    assert!(
+        list.items
+            .iter()
+            .find(|i| i.label == "fresh_name")
+            .unwrap()
+            .additional_edits
+            .is_empty()
+    );
+    std::fs::write(dir.join("extra.jai"), "extra_changed :: 4;").unwrap();
+    s.file_changed(&alias.join("extra.jai"), false);
+    let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
+    assert!(!list.items.iter().any(|i| i.label == "extra_name"));
+    std::fs::remove_file(alias).unwrap();
+    std::fs::remove_dir_all(dir).unwrap();
+}

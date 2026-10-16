@@ -72,12 +72,15 @@ impl Sources<'_> {
         root: &Path,
         folders: &[PathBuf],
     ) -> (Vec<PathBuf>, Vec<PathBuf>) {
+        let root = self.key(root);
+        let root = root.as_path();
+        let folders: Vec<_> = folders.iter().map(|folder| self.key(folder)).collect();
         // Cached until a file it was read from changes: every semantic request asks, and
         // finding the folders lexes the root file (a large one is megabytes of tokens).
         if let Some((dirs, deps)) = index.import_dirs.get(root) {
             return (dirs.clone(), deps.clone());
         }
-        let found = self.find_import_dirs(index, root, folders);
+        let found = self.find_import_dirs(index, root, &folders);
         index.import_dirs.insert(root.to_path_buf(), found.clone());
         found
     }
@@ -155,6 +158,8 @@ impl Sources<'_> {
             }
         }
         let mut seen = BTreeSet::new();
+        dirs = dirs.iter().map(|dir| self.key(dir)).collect();
+        deps = deps.iter().map(|file| self.key(file)).collect();
         dirs.retain(|d| seen.insert(d.clone()) && self.is_dir(d));
         (dirs, deps)
     }
@@ -186,7 +191,12 @@ impl crate::Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| (PathBuf::from(u.path()), d.text.as_str()))
+                .map(|(u, d)| {
+                    (
+                        crate::auto_import::canonical_key(env, Path::new(u.path())),
+                        d.text.as_str(),
+                    )
+                })
                 .collect(),
         };
         sources

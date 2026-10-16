@@ -170,9 +170,25 @@ fn hash(text: &str) -> u64 {
     h.finish()
 }
 
+/// Filesystem identity for index keys, including unsaved or not-yet-created files.
+/// Existing ancestors establish alias identity; spelling and case are otherwise preserved.
+pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
+    let canonical = env.fs.canonical(path);
+    if canonical != project::normalize(path) || env.fs.is_file(path) || env.fs.is_dir(path) {
+        return crate::document::path_key(&canonical);
+    }
+    for parent in path.ancestors().skip(1) {
+        if env.fs.is_dir(parent) {
+            let suffix = path.strip_prefix(parent).expect("ancestor prefix");
+            return crate::document::path_key(&env.fs.canonical(parent).join(suffix));
+        }
+    }
+    crate::document::path_key(&canonical)
+}
+
 impl Sources<'_> {
-    fn key(&self, path: &Path) -> PathBuf {
-        crate::document::path_key(&self.env.fs.canonical(path))
+    pub(crate) fn key(&self, path: &Path) -> PathBuf {
+        canonical_key(self.env, path)
     }
 
     pub(crate) fn read(&self, path: &Path) -> Option<String> {
@@ -239,8 +255,9 @@ impl Sources<'_> {
     /// `root` and every file its `#load`s reach.
     fn closure(&self, index: &mut Index, root: &Path) -> BTreeSet<PathBuf> {
         let mut seen = BTreeSet::new();
-        let mut pending = vec![root.to_path_buf()];
+        let mut pending = vec![self.key(root)];
         while let Some(file) = pending.pop() {
+            let file = self.key(&file);
             if seen.len() >= MAX_LOADED || !seen.insert(file.clone()) {
                 continue;
             }
@@ -267,8 +284,9 @@ impl Sources<'_> {
         module_dirs: &[PathBuf],
     ) -> BTreeSet<PathBuf> {
         let mut seen = BTreeSet::new();
-        let mut pending = vec![root.to_path_buf()];
+        let mut pending = vec![self.key(root)];
         while let Some(entry) = pending.pop() {
+            let entry = self.key(&entry);
             if seen.len() >= MAX_LOADED || seen.contains(&entry) {
                 continue;
             }
@@ -384,7 +402,7 @@ impl Sources<'_> {
                                 pending.push((path, depth + 1));
                             }
                         } else if entry.ends_with(".jai") {
-                            files.push(path);
+                            files.push(self.key(&path));
                         }
                     }
                 }
@@ -462,11 +480,11 @@ impl Sources<'_> {
             (Some(base), Some((_, config))) if !config.build_files.is_empty() => config
                 .build_files
                 .iter()
-                .map(|f| project::normalize(&base.join(f)))
+                .map(|f| self.key(&base.join(f)))
                 .collect(),
             (Some(base), _) => INFERRED_ENTRIES
                 .iter()
-                .map(|f| base.join(f))
+                .map(|f| self.key(&base.join(f)))
                 .filter(|f| self.is_file(f))
                 .collect(),
             (None, _) => BTreeSet::new(),
@@ -487,12 +505,7 @@ impl Sources<'_> {
         {
             let mut dirs = vec![base.join("modules")];
             if let Some((_, config)) = &config {
-                dirs.extend(
-                    config
-                        .import_path
-                        .iter()
-                        .map(|p| project::normalize(&base.join(p))),
-                );
+                dirs.extend(config.import_path.iter().map(|p| self.key(&base.join(p))));
             }
             dirs.retain(|d| file.starts_with(d) && self.is_dir(d));
             if !dirs.is_empty() {
@@ -540,7 +553,7 @@ impl Sources<'_> {
                             .scan(index, f)
                             .loads
                             .iter()
-                            .any(|l| project::normalize(&dir.join(&l.path)) == root);
+                            .any(|l| self.key(&dir.join(&l.path)) == root);
                         if loads_root && visited.insert(f.clone()) {
                             root = f.clone();
                             continue 'up;
@@ -565,12 +578,7 @@ impl Sources<'_> {
         if let Some(base) = &base {
             module_dirs.push(base.join("modules"));
             if let Some((_, config)) = &config {
-                module_dirs.extend(
-                    config
-                        .import_path
-                        .iter()
-                        .map(|p| project::normalize(&base.join(p))),
-                );
+                module_dirs.extend(config.import_path.iter().map(|p| self.key(&base.join(p))));
             }
         }
         module_dirs.extend(
@@ -579,6 +587,7 @@ impl Sources<'_> {
             }),
         );
         let mut seen = BTreeSet::new();
+        module_dirs = module_dirs.iter().map(|d| self.key(d)).collect();
         module_dirs.retain(|d| seen.insert(d.clone()) && self.is_dir(d));
         Program {
             root,
@@ -628,12 +637,7 @@ impl Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| {
-                    (
-                        crate::document::path_key(&env.fs.canonical(Path::new(u.path()))),
-                        d.text.as_str(),
-                    )
-                })
+                .map(|(u, d)| (canonical_key(env, Path::new(u.path())), d.text.as_str()))
                 .collect(),
         };
         let mut index = self.index.borrow_mut();
@@ -659,12 +663,7 @@ impl Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| {
-                    (
-                        crate::document::path_key(&env.fs.canonical(Path::new(u.path()))),
-                        d.text.as_str(),
-                    )
-                })
+                .map(|(u, d)| (canonical_key(env, Path::new(u.path())), d.text.as_str()))
                 .collect(),
         };
         let mut index = self.index.borrow_mut();
@@ -751,15 +750,10 @@ impl Session {
                 .documents
                 .iter()
                 .chain(&self.lint_configs)
-                .map(|(u, d)| {
-                    (
-                        crate::document::path_key(&env.fs.canonical(Path::new(u.path()))),
-                        d.text.as_str(),
-                    )
-                })
+                .map(|(u, d)| (canonical_key(env, Path::new(u.path())), d.text.as_str()))
                 .collect(),
         };
-        let file = PathBuf::from(uri.path());
+        let file = sources.key(Path::new(uri.path()));
         let here = file.parent().unwrap_or(Path::new("/")).to_path_buf();
         let lower = prefix.to_lowercase();
         let mut index = self.index.borrow_mut();

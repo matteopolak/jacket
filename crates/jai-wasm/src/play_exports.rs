@@ -286,4 +286,98 @@ mod tests {
             "{json}"
         );
     }
+    #[test]
+    fn protocol_reset_clears_every_request_buffer_but_preserves_limits() {
+        jai_play_reset();
+        jai_play_set_budget(17);
+        jai_play_set_styled(1);
+        push(0, "é.jai");
+        push(1, "é");
+        assert_eq!(jai_play_finish_file(), 0);
+        push(0, "pending.jai");
+        push(1, "pending");
+        push(2, "é.jai");
+        push(3, "arg\0");
+        push(4, "input");
+        let expected = "é.jai".len()
+            + "é".len()
+            + "pending.jai".len()
+            + "pending".len()
+            + "é.jai".len()
+            + "arg\0".len()
+            + "input".len();
+        with(|s| {
+            assert_eq!(s.total, expected);
+            assert_eq!(s.files.len(), 1);
+            s.output = b"old result".to_vec();
+        });
+        assert_eq!(jai_play_push(99, 0), 1);
+        assert!(jai_play_error_len() > 0);
+        jai_play_reset();
+        with(|s| {
+            assert_eq!(s.total, 0);
+            assert!(
+                s.files.is_empty()
+                    && s.path.is_empty()
+                    && s.content.is_empty()
+                    && s.main.is_empty()
+                    && s.args.is_empty()
+                    && s.stdin.is_empty()
+                    && s.error.is_empty()
+                    && s.output.is_empty()
+            );
+            assert!(!s.fixed_stdin);
+            assert_eq!(s.limits.budget, Some(17_000));
+            assert!(s.limits.styled);
+        });
+        jai_play_set_budget(0);
+        jai_play_set_styled(0);
+    }
+
+    #[test]
+    fn protocol_input_limit_is_per_reset_and_counts_all_channels() {
+        jai_play_reset();
+        push(0, "a.jai");
+        assert_eq!(jai_play_finish_file(), 0);
+        push(2, "a.jai");
+        push(3, "arg\0");
+        let used = "a.jai".len() * 2 + "arg\0".len();
+        for _ in used..INPUT_LIMIT {
+            assert_eq!(jai_play_push(4, 0), 0);
+        }
+        assert_eq!(jai_play_push(1, 0), 1);
+        with(|s| {
+            assert_eq!(s.total, INPUT_LIMIT + 1);
+            assert_eq!(s.stdin.len(), INPUT_LIMIT - used);
+            assert!(s.content.is_empty(), "over-limit byte must not be appended");
+            assert_eq!(s.error, b"input byte limit exceeded");
+        });
+        jai_play_reset();
+        assert_eq!(jai_play_push(1, 0), 0);
+        with(|s| assert_eq!(s.total, 1));
+        jai_play_reset();
+    }
+
+    #[test]
+    fn protocol_malformed_byte_channel_and_path_still_reject() {
+        jai_play_reset();
+        assert_eq!(jai_play_push(0, 256), 1);
+        with(|s| {
+            assert_eq!(s.error, b"input is not a byte");
+            assert!(s.path.is_empty());
+        });
+        jai_play_reset();
+        assert_eq!(jai_play_push(99, 0), 1);
+        with(|s| assert_eq!(s.error, b"unknown input channel"));
+        jai_play_reset();
+        assert_eq!(jai_play_push(0, 255), 0);
+        assert_eq!(jai_play_finish_file(), 1);
+        with(|s| {
+            assert_eq!(s.error, b"file paths must be UTF-8");
+            assert!(s.files.is_empty());
+        });
+        jai_play_reset();
+        assert_eq!(jai_play_error_len(), 0);
+        assert_eq!(jai_play_error_byte(0), 256);
+    }
 }

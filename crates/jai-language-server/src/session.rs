@@ -207,6 +207,11 @@ impl Session {
         if created_or_deleted {
             self.semantic.borrow_mut().forget_paths();
         }
+        let path = self.environment.as_ref().map_or_else(
+            || crate::document::path_key(path),
+            |env| crate::auto_import::canonical_key(env, path),
+        );
+        let path = path.as_path();
         let mut index = self.index.borrow_mut();
         if created_or_deleted {
             index.created_or_deleted(path);
@@ -496,7 +501,7 @@ impl Session {
             return Some(uri);
         }
         let env = self.environment.as_ref()?;
-        let want = crate::document::path_key(&env.fs.canonical(path));
+        let want = crate::auto_import::canonical_key(env, path);
         let mut identities = self.open_file_identities.borrow_mut();
         let known = identities.get_or_insert_with(|| {
             self.documents
@@ -504,7 +509,7 @@ impl Session {
                 .chain(self.lint_configs.keys())
                 .map(|uri| {
                     (
-                        crate::document::path_key(&env.fs.canonical(Path::new(uri.path()))),
+                        crate::auto_import::canonical_key(env, Path::new(uri.path())),
                         uri.clone(),
                     )
                 })

@@ -2,23 +2,16 @@
 // Explicit canonical target unavailability is reported
 // separately, never as passing browser execution. No legacy failure baseline is used.
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
-import { playgroundContract } from "./playground_contract.mjs";
-import { readFile, readdir } from "node:fs/promises";
+import { playgroundCaseResult } from "./playground_case_result.mjs";
+import { collectPlayFiles, playRequestSize } from "./playground_request.mjs";
+import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const python = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
-const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root, "tools/stdlib_test_catalog.py"), "--mode", "wasm-interp"], { encoding: "utf8" })) : [];
-
-async function collectModules(dir, base, files) {
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) await collectModules(full, base, files);
-    else if (entry.isFile() && /\.(jai|txt|json|md)$/.test(entry.name)) files[path.relative(base, full).replaceAll("\\", "/")] = await readFile(full, "utf8");
-  }
-}
+const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root, "tools/playground_policy.py")], { encoding: "utf8" })) : [];
 
 if (!isMainThread) {
   const { directory, test } = workerData;
@@ -27,9 +20,15 @@ if (!isMainThread) {
   const base = path.join(root, ...parts.slice(0, test.family === "modules" ? 1 : 2));
   const files = {};
   // Only our NEW library and independently maintained test family, never corpus vendors.
-  await collectModules(base, base, files);
+  await collectPlayFiles(base, base, files, { moduleWorkspace: test.family === "modules" });
   const engine = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")));
-  parentPort.postMessage(engine.play(files, path.relative(base, path.join(root, test.path)).replaceAll("\\", "/")));
+  const main = path.relative(base, path.join(root, test.path)).replaceAll("\\", "/");
+  const request = playRequestSize(files, main);
+  try {
+    parentPort.postMessage({ ...engine.play(files, main), request });
+  } catch (error) {
+    parentPort.postMessage({ requestFailure: String(error.message), compilerCrashed: error.compilerCrashed === true || error instanceof WebAssembly.RuntimeError, request });
+  }
 } else {
   const [staged, ...only] = process.argv.slice(2);
   if (!staged || only.some(a => a.startsWith("--"))) throw new Error("usage: node tools/check_playground_stdlib.mjs <staged-dir> [case-id...]");
@@ -43,8 +42,8 @@ if (!isMainThread) {
     }
   }
   const runOne = test => new Promise(resolve => {
-    if (test.selected_unavailable_reason) {
-      resolve({ unavailable: test.selected_unavailable_reason });
+    if (test.browser_unavailable_reason) {
+      resolve({ unavailable: test.browser_unavailable_reason });
       return;
     }
     const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { directory, test }, resourceLimits: { maxOldGenerationSizeMb: 4096 } });
@@ -52,7 +51,7 @@ if (!isMainThread) {
     const done = value => { if (finished) return; finished = true; clearTimeout(timer); resolve(value); };
     const timer = setTimeout(() => { done({ pass: false, why: "timeout" }); worker.terminate(); }, 120000);
     worker.on("message", r => {
-      const result = playgroundContract(test, r);
+      const result = playgroundCaseResult(test, r);
       if (process.env.PLAYGROUND_VERBOSE) console.log(test.id + "\n" + result.output);
       done({ pass: result.pass, why: result.why });
       worker.terminate();
@@ -75,6 +74,6 @@ if (!isMainThread) {
   for (const c of unavailable) console.log("UNAVAILABLE " + c.id + ": " + results.get(c.id).unavailable);
   const missing = only.filter(id => !catalogue.some(c => c.id === id));
   if (missing.length) console.log("no such case: " + missing.join(", "));
-  console.log(passed.length + " passed (including expected precise rejections), " + failed.length + " failed, " + unavailable.length + " native-only unavailable; " + tests.length + " selected");
+  console.log(passed.length + " passed (including expected precise rejections), " + failed.length + " failed, " + unavailable.length + " target/mode unavailable; " + tests.length + " selected");
   if (failed.length || missing.length || !tests.length) process.exit(1);
 }
