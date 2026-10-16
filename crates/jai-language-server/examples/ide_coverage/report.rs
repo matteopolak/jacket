@@ -301,6 +301,7 @@ mod tests {
                 syntax_tokens: 0,
                 semantic: Some(jai_language_server::SemanticCoverage {
                     context_id: "test".into(),
+                    analysis: Default::default(),
                     source_loaded: true,
                     recorded_references: 1,
                     recorded_fields: 0,

@@ -678,6 +678,37 @@ struct Entered {
     regs: *mut u64,
 }
 
+/// Preserve the debug poison exactly while copying constant blocks. In an
+/// unoptimized compiler, slice::fill otherwise executes one Rust iterator step
+/// per register on every interpreted call.
+#[cfg(debug_assertions)]
+fn poison_registers(registers: &mut [u64]) {
+    const BLOCK: [u64; 32] = [0xdead_beef_dead_beef; 32];
+    if registers.len() <= BLOCK.len() {
+        registers.copy_from_slice(&BLOCK[..registers.len()]);
+        return;
+    }
+    for chunk in registers.chunks_mut(BLOCK.len()) {
+        chunk.copy_from_slice(&BLOCK[..chunk.len()]);
+    }
+}
+
+#[cfg(all(test, debug_assertions))]
+mod register_poison_tests {
+    #[test]
+    fn every_register_keeps_the_exact_debug_pattern_and_slice_boundaries() {
+        for size in [0, 1, 7, 8, 31, 32, 33, 63, 64, 65, 127, 128, 129, 1024] {
+            let mut guarded = vec![0x1234_5678_9abc_def0; size + 2];
+            super::poison_registers(&mut guarded[1..1 + size]);
+            assert_eq!(guarded[0], 0x1234_5678_9abc_def0);
+            assert_eq!(guarded[size + 1], 0x1234_5678_9abc_def0);
+            for word in &guarded[1..1 + size] {
+                assert_eq!(word.to_ne_bytes(), 0xdead_beef_dead_beefu64.to_ne_bytes());
+            }
+        }
+    }
+}
+
 /// Whether `result` is a thread of the sandbox's scheduler switching out (`threads_inline.rs`).
 fn suspended<T>(result: &Res<T>) -> bool {
     matches!(result, Err(trap) if trap.suspends_frames())
@@ -1854,8 +1885,10 @@ impl Interp {
         #[cfg(debug_assertions)]
         // SAFETY: the registers were checked to fit on the stack above.
         unsafe {
-            std::slice::from_raw_parts_mut(frame.regs(stack_base), frame.code.regs)
-                .fill(0xdead_beef_dead_beef)
+            poison_registers(std::slice::from_raw_parts_mut(
+                frame.regs(stack_base),
+                frame.code.regs,
+            ))
         };
         Ok(Entered {
             base,

@@ -28,6 +28,15 @@ pub struct ProgramMark {
 }
 
 impl Compiler {
+    /// The canonical file entry captured when IDE sources were prepared.
+    ///
+    /// This is passive metadata: it does not load, settle, or inspect sources.
+    /// String-only workspaces and non-IDE compilers have no captured file entry;
+    /// adding a file later does not infer a replacement for that unknown entry.
+    pub fn ide_selected_entry_path(&self) -> Option<&Path> {
+        self.ide_selected_entry.as_deref()
+    }
+
     /// Load the bootstrap modules (Preload, Runtime_Support).
     pub fn load_bootstrap(&mut self) -> Result<()> {
         let span = Span::NONE;

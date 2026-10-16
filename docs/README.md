@@ -745,3 +745,9 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 [Reviewed AppKit flags and Metal Render inheritance](native/appkit-metal-corpus-dispositions.md) records exact public shape, real SDK evidence and remaining protected application replays.
 
 [Post-beec LSP integration](status/shared-lsp-followup-checkpoint.json) records exact patches,301 merged tests,52 overlapping followup checks,105 core regressions, reconciliation and open native/scanner gates.
+
+[Exact debug poison and passive entry integration](status/shared-json-entry-checkpoint.json) records supported compiler changes, scanner ownership transfer, retained timeout and final replay requirement. [Full workspace handoff](status/post-beec-workspace-request.json) requires coordinator-owned opaque corpus inputs.
+
+[Fresh60d2ff19 combined candidate](status/shared-candidate-60d2ff19.json) pins actual tools and ABI8 assets; [the ledger](status/shared-integration-batch.json) separates focused checks from required full workspace/original corpus/Focus/native CI acceptance.
+
+[Exact60d final scoped baseline](status/mac-60d2ff19-baseline.json) records468passingRusttests and real native controls, retained Json timeout/widget failures, released native slot and outstanding coordinator gates.
