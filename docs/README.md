@@ -947,3 +947,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Debug fixture target contracts](tools/debug-fixture-targets.md): six ready source/doc hashes verified; exact ownership fixture native provider stays required. Portable WASM controls retained; unconditional set_report_mode API repair remains separately active, never inferred absent.
 
 - [Catalogue mode contracts](tools/foundations-catalogue-mode-contracts.md): explicit per-mode dispatch and required rejection accounting; emitted-WASM durability remains open.
+
+- [Clean-room integration](tools/cleanroom-integration.md): real workspace helper prerequisites and exact source/native candidate accounting.

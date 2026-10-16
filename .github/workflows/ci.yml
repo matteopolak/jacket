@@ -116,6 +116,12 @@ jobs:
           llvm-config --version
           clang --version
           node --version
+      - name: Build source-relative native workspace providers
+        run: |
+          python3 tools/build_portable_runtime.py
+          python3 tools/build_developer_bindings.py
+          python3 tools/build_developer_debug.py
+          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
       - name: Format check
         id: format
         continue-on-error: true
@@ -348,6 +354,9 @@ jobs:
           python3 tools/build_portable_runtime.py
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
+          python3 tools/build_developer_bindings.py
+          python3 tools/build_developer_debug.py
+          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
           audio=(--test-runtime)
           [[ "$RUNNER_OS" == Linux ]] && audio+=(--require-device)
           python3 tools/audio_build_native.py "${audio[@]}"
@@ -472,6 +481,11 @@ jobs:
           echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
+      - name: Build actual compiler and Debug host helpers
+        run: |
+          python3 tools/build_developer_bindings.py
+          python3 tools/build_developer_debug.py
+          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
       - name: Fetch the pinned projects
         run: |
           project_list="$(python3 tools/upstream_smoke.py --jaic x --projects)"
@@ -546,6 +560,9 @@ jobs:
           python3 tools/build_portable_runtime.py
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
+          python3 tools/build_developer_bindings.py
+          python3 tools/build_developer_debug.py
+          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
           audio=(--test-runtime)
           [[ "$RUNNER_OS" == Linux ]] && audio+=(--require-device)
           python3 tools/audio_build_native.py "${audio[@]}"

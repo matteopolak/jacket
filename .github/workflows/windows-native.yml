@@ -203,6 +203,7 @@ jobs:
       - name: Build matching Windows runtime provider and expose normal DLL search
         run: |
           python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu x64
+          python -u tools/build_developer_debug.py
           sha256sum stdlib/internal/runtime/crash-native/runtime-windows.c stdlib/internal/runtime/crash-native/stack-iteration.h stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll stdlib/internal/runtime/crash-native/platform_io_windows_crash.lib
           cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
       - name: Check normal Windows runtime provider loading
@@ -398,6 +399,7 @@ jobs:
       - name: Build matching Windows runtime provider and expose normal DLL search
         run: |
           python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu x64
+          python -u tools/build_developer_debug.py
           sha256sum stdlib/internal/runtime/crash-native/runtime-windows.c stdlib/internal/runtime/crash-native/stack-iteration.h stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll stdlib/internal/runtime/crash-native/platform_io_windows_crash.lib
           cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
       - name: Check normal Windows runtime provider loading
@@ -531,6 +533,7 @@ jobs:
       - name: Build matching Windows runtime provider and expose normal DLL search
         run: |
           python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu arm64
+          python -u tools/build_developer_debug.py
           sha256sum stdlib/internal/runtime/crash-native/runtime-windows-arm64.c stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll stdlib/internal/runtime/crash-native/platform_io_windows_crash.lib
           cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
       - name: Check normal Windows runtime provider loading
