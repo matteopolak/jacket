@@ -911,3 +911,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - Latest root-reviewed [Input](specs/stdlib/modules/input.md) and [Runtime_Support](specs/stdlib/modules/runtime-support.md) refinements are retained: platform hook availability/unknown external-event ownership and default context allocator capability boundaries. No new exports or guessed behavior added.
 
 - [Windows x64 context alignment](native/windows-context-alignment.md): exact two record annotations, five ready source/doc hashes verified; real source/SDK evidence remains distinct from required native MSVC replay. Narrow formatter corrections cover the newly guarded WebGPU helpers and two ready fixtures only.
+
+- [Windows target provider closure](native/windows-target-provider-plan.md): real23 ABI8 SDK/callback pairs plus4 context/counter archives, target-machine checks and all-object PE link; x64 MinGW compilation/link PASS, runtime/ARM64/MSVC pending. Direct stdio and scoped Windows SDK inline source repairs retained; no disabled profiles. [Exact scoped receipt](status/windows-target-binding-providers.json).

@@ -192,7 +192,14 @@ class Selection(unittest.TestCase):
                 cross.use_cross_libs(args)
                 host.assert_called_once_with("linux-x64")
                 bindings.assert_called_once_with("linux-x64")
-                self.assertEqual(build.call_args.args[0][-1], "windows-arm64-mingw")
+                self.assertEqual(
+                    build.call_args_list[0].args[0][-1], "windows-arm64-mingw"
+                )
+                target_command = build.call_args_list[1].args[0]
+                self.assertIn("build_windows_binding_providers.py", target_command[1])
+                self.assertEqual(
+                    target_command[-3:], ["windows-arm64-mingw", "--output", directory]
+                )
                 self.assertEqual(os.environ["JAIC_CROSS_LIBS"], directory)
 
     def test_build_reports_unavailable_and_retains_failure_even_keep_going(self):

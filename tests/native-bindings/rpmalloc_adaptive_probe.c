@@ -1,6 +1,11 @@
 /* The runner prefixes every SDK export. This independent SDK instance is
  * never initialized; only its actual private type/atomic definitions are used
  * to read the live canonical adapter's native heap. */
+/* Keep the SDK's native inline linkage, as in the canonical adapter. */
+#if defined(_WIN32)
+#include <windows.h>
+#undef FORCEINLINE
+#endif
 #include "rpmalloc.c"
 #include <assert.h>
 _Static_assert(sizeof(span_use_t) == 8, "reviewed statistics-off accounting");

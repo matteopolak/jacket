@@ -191,6 +191,8 @@ jobs:
           rm llvm.tar.xz
           echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
           cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
+          test -x "$llvm/bin/wasm-ld.exe"
+          echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
           # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
@@ -388,6 +390,8 @@ jobs:
           rm llvm.tar.xz
           echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
           cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
+          test -x "$llvm/bin/wasm-ld.exe"
+          echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"
           bash tools/windows-llvm/prepare.sh "$llvm"
       - name: Build jaic with the LLVM backend
         run: cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm
@@ -516,6 +520,8 @@ jobs:
           rm llvm.tar.xz
           echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
           cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
+          test -x "$llvm/bin/wasm-ld.exe"
+          echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"
           # As on x64 (see the x64 job).

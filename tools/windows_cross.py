@@ -330,7 +330,19 @@ def use_cross_libs(args):
     )
     import build_native_libs
 
-    os.environ["JAIC_CROSS_LIBS"] = str(build_native_libs.output_dir(platform))
+    target_libraries = build_native_libs.output_dir(platform)
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools/build_windows_binding_providers.py"),
+            "--platform",
+            platform,
+            "--output",
+            str(target_libraries),
+        ],
+        check=True,
+    )
+    os.environ["JAIC_CROSS_LIBS"] = str(target_libraries)
     # SDL2 is linked through its import library, so its DLL goes beside the executables.
     CROSS_DLLS.extend(build_native_libs.output_dir(platform).glob("SDL2.dll"))
 
