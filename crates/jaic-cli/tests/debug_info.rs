@@ -224,6 +224,8 @@ fn lldb_breakpoints_backtraces_and_variables() {
     }
     let exe = build("debug-info-lldb", "prog", &[], None, false);
     let out = Command::new("lldb")
+        // User startup scripts/formatters are outside the compiler's test inputs.
+        .arg("--no-lldbinit")
         .arg("--batch")
         .args(["-o", "b shapes.jai:25", "-o", "b main.jai:27", "-o", "run"])
         .args(["-o", "bt", "-o", "frame variable"])

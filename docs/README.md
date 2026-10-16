@@ -656,3 +656,5 @@ include exact file/line/source hashes and required platform limits.
 - [Unmapping allocator](portable-unmapping-allocator.md): real protection-failure ownership retention, Windows VM backend and [scoped integration verification](status/shared-unmapping-verification.json).
 
 - [Shared-memory channel audit](portable-shared-channel.md) and [CRC/Base64/PCG contracts](portable-codec-contracts.md): real separate-process IPC, codec/RNG vectors and [corrected runner verification](status/shared-channel-codec-verification.json), with cleanup and native-platform limits.
+
+- [Native debugger startup isolation](native/debug-info.md): unchanged breakpoint/backtrace/value assertions with user startup files disabled; [exact Mac verification](status/debugger-hermetic-launch.json).

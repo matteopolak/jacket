@@ -58,6 +58,12 @@ Three layers:
 
 ## Dependencies
 
+- The LLDB acceptance test disables user startup files with `--no-lldbinit`.
+  User scripts/formatters are outside the compiler test inputs and may change
+  process launch or expression display. The Mac integration run stalled with
+  default startup, while the same original full breakpoint/backtrace/variable
+  assertions passed under isolated startup. No personal configuration was read;
+  no variable assertion, program source, or compiler/library behavior changed.
 - LLVM's DIBuilder (LLVM-C, through `inkwell::llvm_sys`); `dsymutil` on macOS (Xcode command line tools).
 - Tests: `crates/jaic-cli/tests/debug_info.rs` builds `tests/native/debug-info/` and checks `llvm-dwarfdump --verify` and its output (single and split codegen, `-no_debug_info`; these build with `JAIC_DSYM=1`, since the checked file is the `.dSYM` on macOS, and `macos_debug_builds_keep_objects_and_optimized_builds_write_a_dsym` covers the default), and drives `lldb --batch` through breakpoints in both files, a backtrace through a polymorphic procedure and `frame variable`. Each test skips when its tool is missing.
 - ELF gotcha: GNU ld (the `cc` default on Linux, and lld at `-O2`) tail-merges `.debug_str`, so a DWARF 5 string offset may point into the middle of a longer string (`s64` stored inside `[..] s64`). That is valid, and gdb/lldb read it correctly, but `llvm-dwarfdump --verify` reports every such offset as "is neither zero nor immediately following a null character". The test's `verify` helper tolerates exactly that diagnostic (and its summary lines) on non-Apple targets, and fails on anything else; the name checks confirm the strings still resolve. Reproduce on macOS by rewriting `-emit_ir` output to `x86_64-unknown-linux-gnu` with `"Dwarf Version", i32 5`, compiling with `llc -filetype=obj`, and linking with `rust-lld -flavor gnu -O2 --unresolved-symbols=ignore-all -e main`.
