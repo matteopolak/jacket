@@ -15,6 +15,24 @@ REGRESSION_FAMILIES = {
     "graphics": "graphics-regressions",
 }
 
+# Reviewed HTTP test inventory. Exact IDs make missing standalone regressions
+# fail dispatch rather than disappear behind a successful substring filter.
+HTTP_CONFORMANCE_CASE_IDS = tuple(
+    "Extensions/Http/tests/" + name for name in (
+        "chunking", "client", "codec", "https", "llhttp", "server_connections",
+        "server_extractors", "server_responses", "server_routing", "smuggling", "testing",
+    )
+) + ("extensions/http-codec-roundtrip",)
+
+# These seven individual programs actually use native Io/fiber services.
+# Pure codec programs in the same folder deliberately have no such restriction.
+HTTP_NATIVE_IO_CASE_IDS = frozenset(
+    "Extensions/Http/tests/" + name for name in (
+        "client", "https", "server_connections", "server_extractors",
+        "server_responses", "server_routing", "testing",
+    )
+)
+
 # Inputs required by the unchanged independently authored fixture programs.
 PROGRAM_INPUTS = {
     "extensions/io-dependency-workers": "scratch-file",
@@ -60,6 +78,9 @@ def validated_entries(root=ROOT):
     result = list(entries(root))
     names = set()
     for case in result:
+        if case["id"] in HTTP_NATIVE_IO_CASE_IDS:
+            case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
+            case["required_capabilities"] = ["native Io providers", "fiber context switching"]
         if case["id"] in {"native/clipboard-round-trip", "native/macos-clipboard-utf8", "graphics/getrect-widgets-driven"}:
             case["clipboard_guard"] = True
         if case["id"] in PROGRAM_INPUTS:
@@ -81,6 +102,9 @@ def validated_entries(root=ROOT):
 
 
 def unavailable_reason(case, mode, actual_platform=None):
+    if mode in case.get("unsupported_modes", []):
+        required = ", ".join(case["required_capabilities"])
+        return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"
     target_os = "wasm" if mode.startswith("wasm") else (actual_platform or "").split("-")[0]
     required = case.get("required_os")
     required = [required] if isinstance(required, str) else required

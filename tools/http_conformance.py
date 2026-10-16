@@ -39,6 +39,7 @@ import tempfile
 import time
 from pathlib import Path
 from http_native import ensure_native_libraries
+from stdlib_test_catalog import HTTP_CONFORMANCE_CASE_IDS, validated_entries
 
 ROOT = Path(__file__).resolve().parent.parent
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
@@ -88,17 +89,17 @@ def check_corpus():
     return True
 
 
-def run_harness(jaic, modes, filters, jobs):
-    ok = True
-
-    for text in filters:
-        print(f"== stdlib runtime tests matching '{text}' ({modes})")
-        cmd = [sys.executable, str(ROOT / "tools" / "stdlib_runtime.py"), "--jaic", str(jaic), "--filter", text,
-               "--modes", modes, "-j", str(jobs), "--timeout", "900"]
-        result = subprocess.run(cmd, cwd=ROOT)
-        ok = ok and result.returncode == 0
-
-    return ok
+def run_harness(jaic, modes, case_ids, jobs):
+    discovered = {case["id"] for case in validated_entries()}
+    missing = set(case_ids) - discovered
+    if missing:
+        raise RuntimeError("HTTP conformance cases missing from catalogue: " + ", ".join(sorted(missing)))
+    print(f"== {len(case_ids)} exact HTTP conformance cases ({modes})")
+    cmd = [sys.executable, str(ROOT / "tools" / "stdlib_runtime.py"), "--jaic", str(jaic),
+           "--modes", modes, "-j", str(jobs), "--timeout", "900"]
+    for name in case_ids:
+        cmd.extend(["--case", name])
+    return subprocess.run(cmd, cwd=ROOT).returncode == 0
 
 
 def exchange(port, data, wait=1.0, shutdown_write=False):
@@ -307,7 +308,7 @@ def main():
     # supply the following echo-server/llhttp compiler processes.
     ensure_native_libraries()
     ok = check_corpus()
-    ok = run_harness(jaic, args.modes, ["Extensions/Http/tests", "http-codec"], args.jobs) and ok
+    ok = run_harness(jaic, args.modes, HTTP_CONFORMANCE_CASE_IDS, args.jobs) and ok
     ok = check_server(jaic) and ok
     llhttp_summary(jaic)
     ok = external_suites(args.garden) and ok

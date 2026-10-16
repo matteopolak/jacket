@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 
 import http_native
+import test_http_conformance_coverage as coverage_tests
 
 
 class HttpNativeSetupTests(unittest.TestCase):
@@ -65,8 +66,8 @@ class HttpNativeSetupTests(unittest.TestCase):
             patch.object(http_native.native, "copy_licenses") as licenses,
         ):
             result = http_native.ensure_native_libraries(destination)
-        self.assertEqual(result, destination)
-        self.assertEqual(os.environ["JAIC_NATIVE_LIBS"], str(destination))
+        self.assertEqual(result, destination.resolve())
+        self.assertEqual(os.environ["JAIC_NATIVE_LIBS"], str(destination.resolve()))
         self.assertEqual(build.call_args.args[0], "mbedtls")
         self.assertEqual(build.call_args.args[-1], "linux-x64")
         fetch.assert_called_once()
@@ -77,9 +78,9 @@ class HttpNativeSetupTests(unittest.TestCase):
         self.populate(provider)
         os.environ["JAIC_NATIVE_LIBS"] = str(provider)
         with patch.object(http_native.native, "fetch") as fetch:
-            self.assertEqual(http_native.ensure_native_libraries(), provider)
+            self.assertEqual(http_native.ensure_native_libraries(), provider.resolve())
         fetch.assert_not_called()
-        self.assertEqual(os.environ["JAIC_NATIVE_LIBS"], str(provider))
+        self.assertEqual(os.environ["JAIC_NATIVE_LIBS"], str(provider.resolve()))
 
     def test_complete_provider_precedes_partial_directory(self):
         partial = self.root / "partial"
@@ -89,11 +90,11 @@ class HttpNativeSetupTests(unittest.TestCase):
         self.populate(complete)
         os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join(map(str, [partial, complete]))
         with patch.object(http_native.native, "fetch") as fetch:
-            self.assertEqual(http_native.ensure_native_libraries(), complete)
+            self.assertEqual(http_native.ensure_native_libraries(), complete.resolve())
         fetch.assert_not_called()
         self.assertEqual(
             os.environ["JAIC_NATIVE_LIBS"].split(os.pathsep),
-            [str(complete), str(partial)],
+            [str(complete.resolve()), str(partial.resolve())],
         )
 
     def test_archive_only_provider_does_not_claim_interpreter_support(self):
@@ -116,7 +117,7 @@ class HttpNativeSetupTests(unittest.TestCase):
             http_native.ensure_native_libraries(destination)
         self.assertEqual(
             os.environ["JAIC_NATIVE_LIBS"].split(os.pathsep),
-            [str(destination), str(partial)],
+            [str(destination.resolve()), str(partial.resolve())],
         )
 
     def test_build_failure_remains_fatal_and_does_not_publish_provider(self):
@@ -178,7 +179,7 @@ class HttpNativeSetupTests(unittest.TestCase):
             harness.call_args.args[1], "interp,native,wasm-interp,wasm-native"
         )
         self.assertEqual(
-            harness.call_args.args[2], ["Extensions/Http/tests", "http-codec"]
+            harness.call_args.args[2], http_conformance.HTTP_CONFORMANCE_CASE_IDS
         )
 
     def test_success_status_without_shared_artifact_remains_failure(self):
@@ -326,6 +327,12 @@ class NativeArchiveTransportTests(unittest.TestCase):
             # from their files while the extraction directory is enumerated.
             self.assertEqual(move.call_count, 1)
             self.assertEqual(Path(move.call_args.args[0]).name, "sdk")
+
+
+def load_tests(loader, tests, pattern):
+    # The existing normal-CI setup entry point also enforces case coverage.
+    tests.addTests(loader.loadTestsFromModule(coverage_tests))
+    return tests
 
 
 if __name__ == "__main__":
