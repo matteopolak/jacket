@@ -409,6 +409,12 @@ def generate_facade(module, spec):
             continue
         emitted.add(key)
         code = d.code.rstrip(';')
+        if module == 'GL' and d.name == 'gl':
+            # Reviewed public using-import projects this live table. A using
+            # declaration preserves storage and assignment/loader updates;
+            # procedure aliases would snapshot mutable function values.
+            code = 'using ' + code
+            record['live_member_projection'] = True
         native_constant = native_constants.get(module+'/'+d.name)
         if native_constant and (re.search(r'\w+\.$',code) or code.endswith(':: .data')):
             code = native_constant['code']

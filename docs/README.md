@@ -660,3 +660,5 @@ include exact file/line/source hashes and required platform limits.
 - [Native debugger startup isolation](native/debug-info.md): unchanged breakpoint/backtrace/value assertions with user startup files disabled; [exact Mac verification](status/debugger-hermetic-launch.json).
 
 - [Workspace object targets](compiler/workspace-object-targets.md): actual seven-target object headers, explicit target precedence and frontend ABI boundaries.
+
+- [Live GL projection verification](status/shared-gl-projection-verification.json): public unqualified procedures retain the canonical mutable table's storage and loader updates.
