@@ -185,8 +185,18 @@ jobs:
           ls -l target/jaifmt.wasm
           node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm-native corpus gen:1:40
+      - name: Native Linux File_Watcher ownership and notifications
+        if: runner.os == 'Linux'
+        id: file-watcher-native
+        continue-on-error: true
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          cargo build --locked -p jaic-cli -p jailint
+          test -x target/jaifmt
+          python3 tools/check_file_watcher_platforms.py --compiler target/debug/jaic --linter target/debug/jailint --formatter target/jaifmt --native-runtime
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.rule-coverage.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.rule-coverage.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure' || steps.file-watcher-native.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1

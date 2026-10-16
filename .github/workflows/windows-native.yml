@@ -15,6 +15,7 @@ on:
       - 'stdlib/**'
       - 'tests/**'
       - 'tools/windows_cross.py'
+      - 'tools/check_file_watcher_platforms.py'
       - 'tools/stdlib_runtime.py'
       - 'tools/build_native_libs.py'
       - 'tools/native-libs.json'
@@ -78,7 +79,7 @@ jobs:
             exit 0
           fi
           echo "$files"
-          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
+          if echo "$files" | grep -Eq '^(stdlib/Extensions/(Io|Io_Uring|Http|Json|Tls)/|tools/native/mbedtls/|stdlib/Windows/|stdlib/File_Watcher/|stdlib/internal/watching/|tools/check_file_watcher_platforms\.py$|crates/jaic-llvm/|crates/jaic/src/interp/|crates/jaic-cli/src/|crates/jaic-cli/tests/native\.rs$|tests/native/|\.github/workflows/windows-native\.yml$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "no Io, Http, Json, Tls, Windows, LLVM backend, interpreter or native test change; skipping"
@@ -295,6 +296,18 @@ jobs:
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
+      - name: Native File_Watcher ownership and notification fixtures
+        if: success() || failure()
+        shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          python -u tools/check_file_watcher_platforms.py --compiler target/x86_64-pc-windows-msvc/debug/jaic.exe --linter target/x86_64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe --native-runtime
+          if ($LASTEXITCODE -ne 0) { throw 'Native File_Watcher suite failed' }
 
   upstream-smoke:
     # The third-party projects of ci.yml's job of the same name, built and run on Windows with the
@@ -561,3 +574,15 @@ jobs:
       - name: Native backend tests
         if: success() || failure()
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
+      - name: Native File_Watcher ownership and notification fixtures
+        if: success() || failure()
+        shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
+          python -u tools/check_file_watcher_platforms.py --compiler target/aarch64-pc-windows-msvc/debug/jaic.exe --linter target/aarch64-pc-windows-msvc/debug/jailint.exe --formatter target/jaifmt.exe --native-runtime
+          if ($LASTEXITCODE -ne 0) { throw 'Native File_Watcher suite failed' }

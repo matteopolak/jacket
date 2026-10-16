@@ -773,3 +773,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 [Native HTTP date adapter](extensions/http-native-date-adapter.md) preserves the reviewed helper body/native API; portable WASM date support, real Mac3case proof and retained Windows/WASM failures are separate.
 
 [NSWindow backing-scale alias](native/appkit-window-backing-scale.md) retains the canonical getter signature and procedure identity; real non-window SDK proof is distinct from pending GUI acceptance.
+
+[File_Watcher platform backends](file-watcher-platforms.md) implement inotify and overlapped Windows ownership; actual platform CI is wired, source/decoder proof remains distinct from native notification acceptance.
