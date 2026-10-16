@@ -45,13 +45,14 @@ def entries(root=ROOT):
                "family": "contracts"}
     for family, directory in REGRESSION_FAMILIES.items():
         for path in sorted((root / "tests" / directory).glob("*.jai")):
-            yield {"id": family + "/" + path.stem, "path": path, "family": family}
+            if not any(part.startswith("._") for part in path.relative_to(root).parts):
+                yield {"id": family + "/" + path.stem, "path": path, "family": family}
     stdlib = root / "stdlib"
     found = (set(stdlib.glob("*/tests/*.jai")) | set(stdlib.glob("Extensions/*/tests/*.jai"))
              | set((stdlib / "tests").glob("**/*.jai")))
     for path in sorted(found):
         relative = path.relative_to(stdlib)
-        if "modules" not in relative.parts:
+        if "modules" not in relative.parts and not any(part.startswith("._") for part in relative.parts):
             yield {"id": relative.with_suffix("").as_posix(), "path": path, "family": "modules"}
 
 

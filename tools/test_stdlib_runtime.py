@@ -10,6 +10,25 @@ from stdlib_test_catalog import validated_entries, unavailable_reason
 
 
 class CatalogueTests(unittest.TestCase):
+    def test_appledouble_metadata_is_not_an_independent_program(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "tests/stdlib-contract").mkdir(parents=True)
+            (root / "tests/stdlib-contract/manifest.json").write_text("[]")
+            regression = root / "tests/compiler-regressions"
+            regression.mkdir()
+            (regression / "actual.jai").write_text("main :: () {}")
+            (regression / "._actual.jai").write_bytes(b"\x00\x05\x16\x07")
+            module = root / "stdlib/Real/tests"
+            module.mkdir(parents=True)
+            (module / "actual.jai").write_text("main :: () {}")
+            (module / "._actual.jai").write_bytes(b"\x00\x05\x16\x07")
+            self.assertEqual(
+                {c["id"] for c in validated_entries(root)},
+                {"compiler/actual", "Real/tests/actual"},
+            )
+
+
     def test_cocoa_unit_receives_its_actual_default_configuration(self):
         case = next(c for c in validated_entries() if c['id'] == 'Clipboard/tests/cocoa-operations')
         self.assertEqual(program_arguments(case, '.', {}), ['enabled'])
