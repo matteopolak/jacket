@@ -217,6 +217,35 @@ fn nested_calls_methods_aliases_and_unresolved_callback_fields() {
 }
 
 #[test]
+fn nested_incomplete_calls_resolve_from_the_original_scope() {
+    assert_eq!(
+        names(
+            "outer :: (value: int) {}\nTools :: struct { emit :: (enabled := false) -> int { return 1; } }\nmain :: () { outer(Tools.emit(en|\n}"
+        ),
+        ["enabled"]
+    );
+    assert_eq!(
+        names(
+            "emit :: (text: string, enabled := false) {}\nmain :: () {\n    emit(\"x\", en|\n    healthy := 42;\n}"
+        ),
+        ["enabled"]
+    );
+    assert!(names("emit :: (wrong_option := false) -> int { return 1; }\nHolder :: struct { emit: (own_option := false) -> int; }\nmain :: () { h: Holder; (h).emit(wr|\n}").is_empty(),"a complex receiver must never be truncated to an unrelated global name");
+    assert_eq!(
+        names(
+            "outer :: (value: int) {}\ninner :: (inner_option := false) -> int { return 1; }\nmain :: () { outer(inner(in|\n}"
+        ),
+        ["inner_option"]
+    );
+    assert_eq!(
+        names(
+            "Tools :: struct { emit :: (enabled := false) -> int { return 1; } }\nmain :: () { Tools.emit(en|\n}"
+        ),
+        ["enabled"]
+    );
+}
+
+#[test]
 fn values_members_comments_strings_and_unresolved_callees_do_not_invent_names() {
     let decl = "f :: (first: string, enabled := false) {}\nmain :: () { ";
     for call in [

@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 struct Context {
     callee: usize,
+    simple_reference: bool,
     open: usize,
     end: usize,
     active: usize,
@@ -109,14 +110,33 @@ fn context(text: &str, byte: usize) -> Option<Context> {
         }
     }
     let &(open, close) = stack.last()?;
-    if close != P::RParen || open == 0 || !matches!(tokens[open - 1].tok, Tok::Ident(_)) {
+    if close != P::RParen
+        || open == 0
+        || !matches!(
+            tokens[open - 1].tok,
+            Tok::Ident(_) | Tok::Punct(P::RParen | P::RBracket | P::RBrace | P::DotStar)
+        )
+    {
         return None;
     }
     let mut groups: Vec<Vec<&Token>> = vec![Vec::new()];
     let mut nested = Vec::new();
     let mut active = 0;
     let mut end = text.len();
-    for t in &tokens[open + 1..] {
+    for (index, t) in tokens.iter().enumerate().skip(open + 1) {
+        // A declaration on a following line is a recovery boundary, not another
+        // value of the unfinished argument. Use punctuation, never symbol spelling.
+        if nested.is_empty()
+            && t.newline_before
+            && t.span.start as usize >= byte
+            && matches!(t.tok, Tok::Ident(_))
+            && tokens.get(index + 1).is_some_and(|next| {
+                matches!(next.tok, Tok::Punct(P::Colon | P::ColonEq | P::ColonColon))
+            })
+        {
+            end = t.span.start as usize;
+            break;
+        }
         if let Tok::Punct(p) = t.tok {
             if nested.is_empty() {
                 if p == P::RParen {
@@ -231,6 +251,7 @@ fn context(text: &str, byte: usize) -> Option<Context> {
         .collect();
     Some(Context {
         callee: tokens[open - 1].span.start as usize,
+        simple_reference: matches!(tokens[open - 1].tok, Tok::Ident(_)),
         open: tokens[open].span.start as usize,
         end,
         active,
@@ -298,7 +319,6 @@ fn resolved(
     compiler: &mut jaic::sema::Compiler,
     file: FileId,
     ctx: &Context,
-    typed: bool,
 ) -> Option<Vec<Callable>> {
     let ide = compiler.ide.as_ref()?;
     let selected = ide.calls.iter().find(|call| {
@@ -307,9 +327,9 @@ fn resolved(
             && call.span.start as usize <= ctx.callee
             && call.span.end as usize == ctx.end
     });
-    let mut ids = if let Some(call) = selected.filter(|_| typed) {
+    let mut ids = if let Some(call) = selected {
         vec![call.chosen]
-    } else {
+    } else if ctx.simple_reference {
         ide.refs_at(file, ctx.callee as u32)
             .iter()
             .flat_map(|r| match &r.what {
@@ -317,18 +337,17 @@ fn resolved(
                 _ => Vec::new(),
             })
             .collect()
+    } else {
+        Vec::new()
     };
     ids.sort_by_key(|p| p.0);
     ids.dedup();
-    if ids.is_empty() {
-        return None;
-    }
     let facts: Vec<_> = ctx
         .args
         .iter()
         .enumerate()
         .map(|(i, arg)| {
-            if !typed || (i == ctx.active && !ctx.has_equals) {
+            if i == ctx.active && !ctx.has_equals {
                 return None;
             }
             let (start, end) = arg.value?;
@@ -338,6 +357,12 @@ fn resolved(
                 .map(|fact| (fact.ty, fact.constant))
         })
         .collect();
+    if ids.is_empty() {
+        ids = compiler.ide_callee_at(file, ctx.open as u32);
+        if ids.is_empty() {
+            return Some(Vec::new());
+        }
+    }
     let mut result = Vec::new();
     for id in ids {
         // Invalid or unresolved headers aren't a source of invented completion signatures.
@@ -441,34 +466,10 @@ impl Session {
         let Some(ctx) = context(&doc.text, byte) else {
             return Vec::new();
         };
-        let current = self.with_semantic(uri, &doc.text, |a, path| {
-            let file = a.file(path)?;
-            resolved(&mut a.compiler, file, &ctx, true)
-        });
-        // Retain the actual callee expression and scope. An unfinished argument list may have
-        // been dropped by IDE parser recovery; eliding only that list lets normal expression
-        // resolution produce its real overloads/type. This view is never used for diagnostics.
-        let mut view = doc.text.as_bytes().to_vec();
-        for c in &mut view[ctx.open + 1..ctx.end] {
-            if *c != b'\n' && *c != b'\r' {
-                *c = b' ';
-            }
-        }
-        if doc.text.as_bytes().get(ctx.end.wrapping_sub(1)) == Some(&b')') {
-            view[ctx.end - 1] = b')';
-        } else {
-            view[ctx.open] = b';';
-        }
-        let view = String::from_utf8(view).expect("ASCII masking preserves UTF-8");
-        let callables = current
-            .or_else(|| {
-                self.with_semantic(uri, &view, |a, path| {
-                    let file = a.file(path)?;
-                    // Procedure-value types are structural. Their current global name map
-                    // is not declaration-bound and can contain another callable's names.
-                    // Require resolved procedure identity; never manufacture those names.
-                    resolved(&mut a.compiler, file, &ctx, false)
-                })
+        let callables = self
+            .with_semantic(uri, &doc.text, |a, path| {
+                let file = a.file(path)?;
+                resolved(&mut a.compiler, file, &ctx)
             })
             .unwrap_or_default();
         let Ok(range) = doc
@@ -507,5 +508,54 @@ impl Session {
             }
         }
         items.into_values().take(self.limits.symbols).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jaic::sema::{Compiler, Options, VirtualFs, ide::IdeFacts};
+    use std::{path::Path, rc::Rc};
+
+    #[test]
+    fn incomplete_call_query_cannot_make_a_failed_body_executable() {
+        let source = "Context :: struct { state: int; }\ncounter: int;\nf :: (option := false) #no_context {}\ndamaged :: () #no_context {\n    counter += 1;\n    f(op\n}\n#run damaged();\n";
+        let ctx = context(source, source.rfind("op\n").unwrap() + 2).unwrap();
+        let mut fs = VirtualFs::default();
+        fs.insert("/named-safety/main.jai", source.as_bytes());
+        let mut options = Options::host();
+        options.runtime_support = false;
+        options.stack_trace = false;
+        let mut compiler = Compiler::new(options, Rc::new(fs));
+        compiler.ide = Some(Box::new(IdeFacts::new(vec!["/named-safety/".into()])));
+        assert!(
+            compiler
+                .compile_program(Path::new("/named-safety/main.jai"))
+                .is_err()
+        );
+        compiler.ide_check_all();
+        let file = (0..compiler.sources.len() as u32)
+            .map(FileId)
+            .find(|&f| {
+                Path::new(&compiler.sources.get(f).path) == Path::new("/named-safety/main.jai")
+            })
+            .unwrap();
+        let errors = compiler.ide.as_ref().unwrap().parse_errors.len();
+        assert!(errors > 0);
+        let procs = compiler.ide_callee_at(file, ctx.open as u32);
+        assert_eq!(procs.len(), 1);
+        assert_eq!(compiler.proc(procs[0]).name.as_str(), "f");
+        assert_eq!(
+            &*compiler.sources.get(file).text,
+            source,
+            "metadata query must not rewrite program text"
+        );
+        assert_eq!(compiler.ide.as_ref().unwrap().parse_errors.len(), errors);
+        assert!(
+            compiler
+                .compile_program(Path::new("/named-safety/main.jai"))
+                .is_err(),
+            "metadata query must retain the failed-body execution guard"
+        );
     }
 }

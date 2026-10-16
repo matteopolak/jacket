@@ -30,6 +30,7 @@ mod tests;
 use crate::ast::{File, Ident, Note, Stmt};
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Diagnostic, FileId, Span};
+pub(crate) use ide::parse_callee_ide;
 pub use ide::{IdeParse, parse_file_ide, parse_tokens_ide};
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
@@ -84,6 +85,9 @@ pub(crate) struct Parser<'a> {
     /// Set only by the editor entry points. Strict parsing never resynchronizes.
     recovery: Option<Vec<Diagnostic>>,
     ide_closed_braces: crate::fxhash::HashSet<u32>,
+    /// Only an IDE query sets this: capture one real callee before argument parsing fails.
+    ide_call_open: Option<u32>,
+    ide_call_callee: Option<crate::ast::Expr>,
 }
 
 impl<'a> Parser<'a> {
@@ -100,6 +104,8 @@ impl<'a> Parser<'a> {
             depth: 0,
             recovery: None,
             ide_closed_braces: crate::fxhash::HashSet::default(),
+            ide_call_open: None,
+            ide_call_callee: None,
         }
     }
 

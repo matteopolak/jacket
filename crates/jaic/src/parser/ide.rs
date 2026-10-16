@@ -28,6 +28,20 @@ pub fn parse_file_ide(file: FileId, text: &str) -> IdeParse {
     parsed
 }
 
+/// Capture the normal parser's actual callee, including complex receivers, before
+/// parsing its unfinished arguments. No source/argument/body is rewritten. Only
+/// the requested expression is cloned; strict CLI parsing never sets this hook.
+pub(crate) fn parse_callee_ide(file: FileId, text: &str, open: u32) -> Option<crate::ast::Expr> {
+    let (tokens, _) = crate::lexer::lex_ide(file, text);
+    let mut parser = Parser::new(text, tokens);
+    parser.recovery = Some(Vec::new());
+    parser.ide_call_open = Some(open);
+    parser.index_ide_braces();
+    parser.parse_file_stmts().ok()?;
+    parser.ide_call_callee
+}
+
+
 /// Like `parse_tokens`, but keeps independent statements after an error. All spans
 /// refer to the current original source, with no inserted values or declarations.
 pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdeParse {
@@ -278,4 +292,59 @@ fn single_declaration_body(stmt: &Stmt) -> Option<&Stmt> {
         _ => return None,
     };
     matches!(body.kind, S::Decl(_)).then_some(body)
+}
+
+#[cfg(test)]
+mod callee_tests {
+    use super::*;
+
+    #[test]
+    fn captures_the_actual_callee_before_nested_incomplete_arguments() {
+        for (source, expected) in [
+            (
+                "main :: () { outer(Tools.method(unfinished\n}",
+                "Tools.method",
+            ),
+            (
+                "main :: () { return (object).method(unfinished\n}",
+                "(object).method",
+            ),
+            (
+                "main :: () { outer(Box(int).method(unfinished\n}",
+                "Box(int).method",
+            ),
+            (
+                "main :: () { outer(items[0].method(unfinished\n}",
+                "items[0].method",
+            ),
+        ] {
+            let file = FileId(7);
+            let open = (source.find("method(").unwrap() + "method".len()) as u32;
+            assert!(
+                parse_file(file, source).is_err(),
+                "strict source must remain invalid"
+            );
+            let callee = parse_callee_ide(file, source, open).expect("real parsed callee");
+            assert_eq!(callee.span.file, file);
+            // Existing AST spans omit grouping openers. Use the compiler's normal
+            // balancing helper rather than invent a different span convention.
+            let (tokens, _) = crate::lexer::lex_ide(file, source);
+            let span = crate::lexer::balanced(&tokens, callee.span);
+            assert_eq!(&source[span.start as usize..span.end as usize], expected);
+        }
+        for source in [
+            "method :: (argument: int) {}",
+            "main :: () { text := \"method(\"; }",
+            "main :: () { /* method( */ }",
+        ] {
+            let open = source
+                .find("method(")
+                .map(|start| start + "method".len())
+                .unwrap_or_else(|| source.find('(').unwrap()) as u32;
+            assert!(
+                parse_callee_ide(FileId(7), source, open).is_none(),
+                "not a call: {source}"
+            );
+        }
+    }
 }

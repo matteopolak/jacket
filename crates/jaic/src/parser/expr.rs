@@ -358,6 +358,9 @@ impl Parser<'_> {
                     );
                 }
                 Tok::Punct(P::LParen) if !self.continues_after_block() => {
+                    if self.ide_call_open == Some(self.toks[self.pos].span.start) {
+                        self.ide_call_callee = Some(expr.clone());
+                    }
                     self.bump();
                     let args = self.parse_args(P::RParen, "in argument list")?;
                     let end = self.prev_span();

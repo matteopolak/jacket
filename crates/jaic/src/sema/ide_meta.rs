@@ -132,6 +132,30 @@ enum Target {
 }
 
 impl Compiler {
+    /// Resolve only the actual callee at this call's opening parenthesis. The original
+    /// program and its failed-body guards stay intact; no argument values are invented.
+    /// A dynamic procedure value without selected identity does not become a guessed header.
+    pub fn ide_callee_at(&mut self, file: FileId, open: u32) -> Vec<ProcId> {
+        if self.ide.is_none() {
+            return Vec::new();
+        }
+        let text = self.sources.get(file).text.clone();
+        let Some(callee) = crate::parser::parse_callee_ide(file, &text, open) else {
+            return Vec::new();
+        };
+        let Some(scope) = self.ide_scope_at(file, callee.span.start) else {
+            return Vec::new();
+        };
+        match self.check_expr_no_emit(scope, &callee) {
+            Ok(Operand::Procs(ids)) => ids,
+            Ok(Operand::Const {
+                value: Value::Proc(id),
+                ..
+            }) => vec![id],
+            _ => Vec::new(),
+        }
+    }
+
     // -------------------------------------------------------------------------------------
     // Recording
     // -------------------------------------------------------------------------------------
