@@ -751,3 +751,5 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 [Fresh60d2ff19 combined candidate](status/shared-candidate-60d2ff19.json) pins actual tools and ABI8 assets; [the ledger](status/shared-integration-batch.json) separates focused checks from required full workspace/original corpus/Focus/native CI acceptance.
 
 [Exact60d final scoped baseline](status/mac-60d2ff19-baseline.json) records468passingRusttests and real native controls, retained Json timeout/widget failures, released native slot and outstanding coordinator gates.
+
+[Reviewed Metal Color attachment embedding](native/metal-render-pass-attachments.md) has22verified source/link checks; the [integration receipt](status/shared-metal-attachment-checkpoint.json) keeps allthree native programs explicitly pending.
