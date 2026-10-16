@@ -14,6 +14,7 @@ import shutil
 import tarfile
 import tempfile
 import urllib.request
+from sdl_sdk_headers import prepare_runtime_headers
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 from prepare_rpmalloc import prepare as prepare_rpmalloc
 from rpmalloc_profiles import PROFILES
@@ -131,6 +132,10 @@ def main():
         run(['cc','-dynamiclib',ROOT/'tests/native-bindings/apple_abi_probe.m',
              '-framework','Foundation','-framework','Metal',
              '-o',args.output/'libapple_abi_probe.dylib'])
+    runtime_sdl_headers = (prepare_runtime_headers(
+        vendor/manifest['sdl2-runtime-oracle']['archive']['root'],
+        args.output/'sdl2-runtime-headers')
+        if 'sdl_runtime_abi_probe' in selected else [])
     objects = args.output / 'objects'
     objects.mkdir(exist_ok=True)
     units = {
@@ -171,7 +176,7 @@ def main():
             obj = objects / (name + str(i) + '.o')
             includes = ['-isystem',vendor/manifest['sdl2-oracle']['archive']['root']/'include'] if name=='sdl_abi_probe' else []
             if name == 'sdl_runtime_abi_probe':
-                includes = ['-isystem',vendor/manifest['sdl2-runtime-oracle']['archive']['root']/'include/SDL2']
+                includes = [flag for root in runtime_sdl_headers for flag in ('-isystem', root)]
             if name == 'imgui_abi_probe':
                 includes = ['-isystem',vendor/manifest['imgui']['archive']['root']]
             if name.startswith('binding_rpmalloc_') or name in ('rpmalloc_sdk_probe', 'rpmalloc_callback_probe', 'rpmalloc_storage_probe'):

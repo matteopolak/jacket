@@ -891,3 +891,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Foundation target capabilities](tools/foundations-target-capabilities.md): complete public lint contexts, per-case required targets and retained runtime evidence.
 
 - [Formatter runtime fixture evidence](tools/formatter-fixture-runtime.md): producer staged original native/WASM acceptance with integrated replay still required.
+
+- [SDL canonical fixtures and SDK header repair](status/sdl-current-cohort-integration.json): unchanged private ABI assertions, real generated SDK header and platform-qualified proof.

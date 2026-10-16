@@ -22,6 +22,7 @@ from symbols import check_symbols
 import re
 from conditions import evaluate
 from rpmalloc_tests import fixtures as rpmalloc_fixtures
+from fixture_paths import MODULE_LOCAL_FIXTURES, fixture_source
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [
@@ -57,6 +58,12 @@ PRIVATE_UNITS["shader-bytes"] = "d3d_compiler/sdk-shader-bytes-unit.jai"
 PRIVATE_UNITS["clipboard-owned-data"] = "X11/sdk-clipboard-owned-data-unit.jai"
 PRIVATE_UNITS["android-commands"] = "Android/sdk-command-unit.jai"
 PRIVATE_UNITS["android-logger-output"] = "Android/sdk-logger-output-unit.jai"
+PRIVATE_UNITS.update(
+    {
+        Path(name).stem: path.relative_to("stdlib").as_posix()
+        for name, path in MODULE_LOCAL_FIXTURES.items()
+    }
+)
 
 
 def private_unit_module(name):
@@ -585,7 +592,7 @@ def main():
             continue
         if args.module and module not in args.module:
             continue
-        source = ROOT / "tests/native-bindings" / filename
+        source = fixture_source(ROOT, filename)
         report["test_sources"][str(source.relative_to(ROOT))] = hashlib.sha256(
             source.read_bytes()
         ).hexdigest()
@@ -903,7 +910,7 @@ def main():
                     }
                 )
                 continue
-            source = ROOT / "tests/native-bindings" / f"{name}.jai"
+            source = fixture_source(ROOT, f"{name}.jai")
             if not source.is_file():
                 report["native"].append({"name": name, "status": "not_implemented"})
                 continue
