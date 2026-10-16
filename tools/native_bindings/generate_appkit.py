@@ -108,6 +108,48 @@ def method(cls, name, params, result="", no_context=False):
     return body + "    }\n\n"
 
 
+def render_manual_aliases(spec, source):
+    """Insert reviewed aliases into existing public aggregates, without wrappers."""
+    declarations = re.findall(
+        r"The `(\w+)` aggregate also publicly aliases `(\w+)\.(\w+)`", spec
+    )
+    for owner, target, name in dict.fromkeys(declarations):
+        aggregate = re.search(r"(?m)^" + re.escape(owner) + r" :: struct\s*\{", source)
+        if aggregate is None:
+            raise ValueError("Missing public alias owner " + owner)
+        opening = aggregate.end() - 1
+        depth = 0
+        closing = None
+        # Procedure bodies and braces in comments/strings cannot terminate the
+        # owning record. No new record, field or forwarding procedure is made.
+        tokens = re.finditer(
+            r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|[{}]', source[opening:], re.S
+        )
+        for token in tokens:
+            if token[0] == "{":
+                depth += 1
+            elif token[0] == "}":
+                depth -= 1
+                if depth == 0:
+                    closing = opening + token.start()
+                    break
+        if closing is None:
+            raise ValueError("Unterminated public alias owner " + owner)
+        body = source[opening + 1 : closing]
+        member = r"(?m)^\s*" + re.escape(name) + r"\s*::"
+        if re.search(member, body):
+            if not re.search(
+                member + r"\s*" + re.escape(target + "." + name) + r"\s*;", body
+            ):
+                raise ValueError("Conflicting public alias " + owner + "." + name)
+            continue
+        line = "    " + name + " :: " + target + "." + name + ";\n"
+        if not source[:closing].endswith("\n"):
+            line = "\n" + line
+        source = source[:closing] + line + source[closing:]
+    return source
+
+
 def generate(output):
     spec = SPEC.read_text()
     out = "// Generated from reviewed appkit.md by generate_appkit.py.\n\n"
@@ -322,6 +364,20 @@ def public_inventory():
             elif line == "}" or line.startswith("} @"):
                 owner = enum_owner = None
             elif owner:
+                alias = re.fullmatch(r"    (\w+) :: (\w+\.\w+);", line)
+                if alias:
+                    rows.append(
+                        dict(
+                            api=owner + "." + alias[1],
+                            kind="alias",
+                            target=alias[2],
+                            signature=alias[1] + " :: " + alias[2],
+                            body="implemented",
+                            contract="reviewed",
+                            verification="canonical public target; behavior evidence recorded separately",
+                        )
+                    )
+                    continue
                 field = re.match(r"    ((?:using )?(?:#as )?)(\w+): (.*);$", line)
                 if field:
                     rows.append(
@@ -395,4 +451,19 @@ def public_inventory():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=OUT)
-    generate(parser.parse_args().output)
+    parser.add_argument(
+        "--module-output",
+        type=Path,
+        help="Emit reviewed aliases in the authored facade; external output leaves inputs unchanged",
+    )
+    args = parser.parse_args()
+    generate(args.output)
+    module_output = args.module_output
+    if module_output is None and args.output == OUT:
+        module_output = OUT.parent / "module.jai"
+    if module_output is not None:
+        module_output.write_text(
+            render_manual_aliases(
+                SPEC.read_text(), (OUT.parent / "module.jai").read_text()
+            )
+        )

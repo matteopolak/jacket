@@ -771,3 +771,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 [Linux Clipboard](portable-clipboard-linux.md) implements native X11 selection transfer with exact helper pins; normal ephemeral-Xvfb and relocated-package CI are wired, Linux runtime remains unverified locally.
 
 [Native HTTP date adapter](extensions/http-native-date-adapter.md) preserves the reviewed helper body/native API; portable WASM date support, real Mac3case proof and retained Windows/WASM failures are separate.
+
+[NSWindow backing-scale alias](native/appkit-window-backing-scale.md) retains the canonical getter signature and procedure identity; real non-window SDK proof is distinct from pending GUI acceptance.
