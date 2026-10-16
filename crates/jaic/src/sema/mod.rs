@@ -295,6 +295,8 @@ pub struct Module {
     /// Names of the second `#module_parameters` list: one value for the whole program,
     /// so an import that only sets these joins the existing instance.
     pub program_params: Vec<Sym>,
+    /// Header constraints wait for declaration registration and program bindings.
+    pub parameter_contracts: Vec<modules::ParameterContract>,
     /// Exported top-level `using global;`: the global's members are visible to importers.
     pub exported_usings: Vec<scope::UsingEntry>,
     /// Import entries (indexes into the module scope's `imports`) of exported

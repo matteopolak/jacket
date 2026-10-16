@@ -809,3 +809,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Windows WGL consumer review](tools/windows-wgl-consumer-review.md) and [exact handoff status](status/shared-wgl-consumer-review.json): validated proposed DLL/lint/wheel scope, adoption held for matching producer receipt; no new native Windows proof.
 
 - [Integrated Windows WGL consumer companion](status/shared-wgl-consumer-adoption.json): exact Mesa app-local deployment and explicit lint roots, 13 setup/provider tests, preserved issue1 gates; actual Windows replay pending.
+
+- [Typed and retained runtime configuration integration](status/shared-typed-retained-adoption.json): exact stable compiler repairs,114focused tests, source hashes and pending matched-tool/public-constant/native verification.
+
+- [Retained startup native replay](status/shared-typed-retained-native.json): committed combined compiler ARM64/bare-wasm64 O0/O2 execution and preserved harness environment failure.

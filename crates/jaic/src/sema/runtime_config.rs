@@ -132,7 +132,13 @@ impl Compiler {
 
     /// Compile-time inspection or an unused declaration must not opt an older
     /// runtime into a configuration protocol its target code never reads.
-    fn target_reads_runtime_storage(&self, target: ir::GlobalId) -> bool {
+    fn target_reads_runtime_storage(&mut self, target: ir::GlobalId) -> Result<bool> {
+        // Retained globals execute with their settled interpreter state, not
+        // their declaration-time initializer. Use the same canonical snapshot
+        // serializer as target emission; it also materializes pointed-to target
+        // data when necessary. Do not bake/consume the retained-global registry:
+        // later workspace activity may still change the effective target image.
+        let retained: HashMap<_, _> = self.no_reset_globals.iter().copied().collect();
         let mut functions: Vec<usize> = self
             .program
             .funcs
@@ -156,12 +162,29 @@ impl Compiler {
         while !functions.is_empty() || !globals.is_empty() {
             while let Some(global) = globals.pop() {
                 if global == target {
-                    return true;
+                    return Ok(true);
                 }
                 if !seen_globals.insert(global) {
                     continue;
                 }
-                for relocation in &self.program.globals[global.0 as usize].relocs {
+                let relocations = match retained.get(&global).and_then(|ty| {
+                    self.interp
+                        .materialized_global(global)
+                        .map(|address| (*ty, address))
+                }) {
+                    Some((ty, address)) => {
+                        let Value::Bytes(image) = self.read_aggregate(address, ty, Span::NONE)?
+                        else {
+                            return err(
+                                Span::NONE,
+                                "retained runtime configuration dependency has no target image",
+                            );
+                        };
+                        image.relocs.clone()
+                    }
+                    None => self.program.globals[global.0 as usize].relocs.clone(),
+                };
+                for relocation in relocations {
                     match relocation.target {
                         ir::RelocTarget::Func(func) => functions.push(func.0 as usize),
                         ir::RelocTarget::Global(global) => globals.push(global),
@@ -194,7 +217,7 @@ impl Compiler {
                 }
             }
         }
-        false
+        Ok(false)
     }
 
     /// Refresh private runtime data after workspace activity, immediately before
@@ -213,12 +236,26 @@ impl Compiler {
             && size != DEFAULT_TEMPORARY_STORAGE_SIZE
             && !self
                 .runtime_storage_global
-                .is_some_and(|global| self.target_reads_runtime_storage(global))
+                .map(|global| self.target_reads_runtime_storage(global))
+                .transpose()?
+                .unwrap_or(false)
         {
-            return err(
+            let exports = self
+                .program
+                .funcs
+                .iter()
+                .flatten()
+                .filter(|function| matches!(function.linkage, ir::Linkage::Export(_)))
+                .count();
+            return Err(Box::new(Diagnostic::error(
                 Span::NONE,
                 "nondefault temporary_storage_size requires the target runtime to read private compiler runtime configuration",
-            );
+            ).with_note(Span::NONE, format!(
+                "workspace {}; temporary storage {} bytes; system entry {}; initialization {}; exported target procedures {}; private configuration reader lowered {}",
+                self.workspace, size, self.options.runtime_entry_point,
+                self.options.runtime_initialization, exports,
+                self.runtime_storage_global.is_some(),
+            ))));
         }
         if let Some(global) = self.runtime_storage_global {
             self.program.globals[global.0 as usize].init = size.to_le_bytes().to_vec();

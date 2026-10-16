@@ -133,3 +133,133 @@ fn compile_time_reads_and_unused_getters_cannot_opt_in_an_old_target_runtime() {
         );
     }
 }
+
+fn startup_reader(runtime: &str, size: i64) -> (Compiler, jaic::sema::Result<()>) {
+    let mut fs = VirtualFs::default();
+    fs.insert("/lib/Runtime_Support/module.jai", format!(
+        "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
+{runtime}"
+    ).as_bytes());
+    let mut options = Options::host();
+    options.import_paths = vec!["/lib".into()];
+    options.temporary_storage_size = size;
+    let mut c = Compiler::new(options, Rc::new(fs));
+    let result = c.compile_sources(&[ProgramSource::String("main::(){}".into())]);
+    (c, result)
+}
+
+#[test]
+fn ordinary_private_target_startup_reads_nondefault_configuration() {
+    let (mut c, result) = startup_reader(
+        r#"
+        #scope_file
+        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
+        #program_export "main"
+        entry :: () -> s64 #c_call {return read_size();}
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    let entry = c.exported_func("main").unwrap();
+    assert_eq!(
+        c.interp.call(&c.program, entry, &[]).unwrap(),
+        vec![1048576]
+    );
+}
+
+#[test]
+fn retained_startup_callback_relocation_reads_nondefault_configuration() {
+    let (mut c, result) = startup_reader(
+        r#"
+        #scope_file
+        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
+        #no_reset getter: () -> s64 #no_context;
+        #run {getter=read_size;}
+        #program_export "main"
+        entry :: () -> s64 #c_call {return getter();}
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    let entry = c.exported_func("main").unwrap();
+    assert_eq!(
+        c.interp.call(&c.program, entry, &[]).unwrap(),
+        vec![1048576]
+    );
+}
+
+#[test]
+fn unreachable_or_reset_callback_reads_do_not_opt_in_target_startup() {
+    for (qualifier, call) in [("#no_reset", "return 0;"), ("", "return getter();")] {
+        let runtime = format!(
+            r#"
+            #scope_file
+            __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+            read_size :: () -> s64 #no_context {{return __jaic_runtime_temporary_storage_size();}}
+            {qualifier} getter: () -> s64 #no_context;
+            #run {{getter=read_size;}}
+            #program_export "main"
+            entry :: () -> s64 #c_call {{{call}}}
+        "#
+        );
+        let (c, result) = startup_reader(&runtime, 1048576);
+        let error = result
+            .expect_err("compile-time-only callback storage must not authorize target startup");
+        assert!(
+            error.message.contains("target runtime"),
+            "{}",
+            error.render(&c.sources)
+        );
+    }
+}
+
+#[test]
+fn overwritten_retained_callback_cannot_claim_its_old_configuration_read() {
+    let (c, result) = startup_reader(
+        r#"
+        #scope_file
+        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
+        stale :: () -> s64 #no_context {return 32768;}
+        #no_reset getter: () -> s64 #no_context = read_size;
+        #run {getter=stale;}
+        #program_export "main"
+        entry :: () -> s64 #c_call {return getter();}
+    "#,
+        1048576,
+    );
+    let error = result.expect_err("final retained target state replaced the old reader");
+    assert!(
+        error.message.contains("target runtime"),
+        "{}",
+        error.render(&c.sources)
+    );
+}
+
+#[test]
+fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
+    let (mut c, result) = startup_reader(
+        r#"
+        #scope_file
+        __jaic_runtime_temporary_storage_size :: () -> s64 #intrinsic #no_context;
+        read_size :: () -> s64 #no_context {return __jaic_runtime_temporary_storage_size();}
+        Getter :: () -> s64 #no_context;
+        Node :: struct {next:*Node; callbacks:[1]Getter;}
+        #no_reset node:Node;
+        #no_reset root:*Node;
+        #run {node.next=*node; node.callbacks[0]=read_size; root=*node;}
+        #program_export "main"
+        entry :: () -> s64 #c_call {return root.next.callbacks[0]();}
+    "#,
+        1048576,
+    );
+    result.map_err(|e| e.render(&c.sources)).unwrap();
+    c.finalize_runtime_configuration().unwrap();
+    let entry = c.exported_func("main").unwrap();
+    assert_eq!(
+        c.interp.call(&c.program, entry, &[]).unwrap(),
+        vec![1048576]
+    );
+}

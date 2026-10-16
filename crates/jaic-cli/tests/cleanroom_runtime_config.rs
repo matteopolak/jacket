@@ -147,3 +147,77 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
     );
     assert_eq!(checked(&mut Command::new(executable)).stdout, b"ok\n");
 }
+
+#[test]
+fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let library = std::env::var_os("JAIC_STDLIB")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("stdlib"));
+    let source = root.join("tests/compiler-semantics/runtime-configuration/one-megabyte.jai");
+    for mode in ["-check", "-interp"] {
+        let out = checked(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .env("JAIC_STDLIB", &library)
+                .arg(&source)
+                .arg(mode),
+        );
+        assert_eq!(
+            out.stdout,
+            if mode == "-interp" {
+                b"ok\n".as_slice()
+            } else {
+                b"".as_slice()
+            }
+        );
+    }
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("one-megabyte-startup");
+    std::fs::create_dir_all(&dir).unwrap();
+    for opt in ["-O0", "-O2"] {
+        let executable = dir.join(format!("root{opt}{}", std::env::consts::EXE_SUFFIX));
+        checked(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .env("JAIC_STDLIB", &library)
+                .arg(&source)
+                .args([opt, "-exe"])
+                .arg(&executable),
+        );
+        assert_eq!(checked(&mut Command::new(executable)).stdout, b"ok\n");
+    }
+    let (_, body) =
+        include_str!("../../../tests/compiler-semantics/runtime-configuration/one-megabyte.jai")
+            .split_once("main ::")
+            .unwrap();
+    let child = format!(r#"#import "Basic"; main ::{body}"#);
+    let builder = dir.join("build.jai");
+    let output_path = dir.to_string_lossy();
+    let build = format!(
+        r#"
+        C :: #import "Compiler";
+        #run {{
+            options:=C.get_build_options();
+            options.temporary_storage_size=1048576;
+            options.output_path={output_path:?};
+            options.output_executable_name="child";
+            C.set_build_options_dc(.{{do_output=false}});
+            child:=C.compiler_create_workspace("independent nondefault startup");
+            C.set_build_options(options,child);
+            C.add_build_string({child:?},child);
+        }}
+    "#
+    );
+    std::fs::write(&builder, build).unwrap();
+    checked(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .env("JAIC_STDLIB", &library)
+            .arg(builder)
+            .arg("-interp"),
+    );
+    assert_eq!(
+        checked(&mut Command::new(
+            dir.join(format!("child{}", std::env::consts::EXE_SUFFIX))
+        ))
+        .stdout,
+        b"ok\n"
+    );
+}

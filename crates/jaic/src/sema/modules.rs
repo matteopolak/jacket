@@ -23,6 +23,22 @@ pub trait FileSystem {
 
 pub struct NativeFs;
 
+/// A module-owned header contract, evaluated in its declaring file namespace.
+/// Registration must not consume a default while an importing type is forming.
+pub struct ParameterContract {
+    entity: EntityId,
+    pattern: ast::Expr,
+    scope: ScopeId,
+    state: ParameterContractState,
+}
+
+enum ParameterContractState {
+    Waiting,
+    Checking,
+    Checked,
+    Failed(Box<Diagnostic>),
+}
+
 /// A cached source request may be in a recursive load, complete, or failed.
 /// Failure must never be mistaken for an already-loaded successful file.
 pub(super) enum FileLoadState {
@@ -567,6 +583,7 @@ impl Compiler {
             params,
             param_entities: Vec::new(),
             program_params: Vec::new(),
+            parameter_contracts: Vec::new(),
             exported_usings: Vec::new(),
             exported_using_imports: Vec::new(),
             files: Vec::new(),
@@ -756,6 +773,23 @@ impl Compiler {
                 let same =
                     matches!(resolved, scope::Resolved::Const { value: v, .. } if v == value);
                 if !same {
+                    return err(
+                        span,
+                        format!(
+                            "module parameter `{name}` is set here after the module already used another value"
+                        ),
+                    );
+                }
+                continue;
+            }
+            // An import may have bound the value without resolving the entity
+            // yet. Deferred contract checking must not let a later importer
+            // overwrite that explicit binding merely because it is still lazy.
+            if let EntityKind::Const {
+                value: bound, ..
+            } = &self.entity(entity).kind
+            {
+                if bound != value {
                     return err(
                         span,
                         format!(
@@ -1144,9 +1178,10 @@ impl Compiler {
                 if let Some(body) = body {
                     self.declare_stmts(scope, file_scope, &body.stmts, vis)?;
                 }
-                // Constraints are import contracts even when the parameter is
-                // never referenced by a module body. Defaults may name the
-                // trailing declaration block, so validate after declaring it.
+                // Keep contracts separate from declaration registration. Forming
+                // an importing hook type may itself need an unrelated public
+                // declaration from this module. Checking the default here would
+                // consume it before the configured import can finish binding.
                 for param in params.iter().chain(runtime_params) {
                     if let Some(pattern) = param.ty.as_ref().filter(|p| procs::has_poly(p)) {
                         let name = param.name.unwrap().name;
@@ -1156,34 +1191,14 @@ impl Compiler {
                             .copied()
                             .find(|&id| self.entity(id).name == name)
                             .unwrap();
-                        let scope::Resolved::Const {
-                            value,
-                            ty,
-                        } = self.resolve_entity(id)?
-                        else {
-                            return err(param.span, "a module parameter must bind a constant");
-                        };
-                        let represented = if let Value::Type(t) = value {
-                            Some(t)
-                        } else {
-                            None
-                        };
-                        let actual = if ty == TypeId::VOID {
-                            self.type_of_value(&value)
-                        } else {
-                            ty
-                        };
-                        let mut bindings = Vec::new();
-                        self.match_pattern_value(
-                            pattern,
-                            actual,
-                            &mut bindings,
-                            eval_scope,
-                            represented,
-                        )?;
-                        for (name, value, ty) in bindings {
-                            self.add_const(scope, name, param.span, value, ty);
-                        }
+                        self.modules[module.0 as usize].parameter_contracts.push(
+                            ParameterContract {
+                                entity: id,
+                                pattern: pattern.clone(),
+                                scope: eval_scope,
+                                state: ParameterContractState::Waiting,
+                            },
+                        );
                     }
                 }
             }
@@ -1762,6 +1777,7 @@ impl Compiler {
             params,
             param_entities: Vec::new(),
             program_params: Vec::new(),
+            parameter_contracts: Vec::new(),
             exported_usings: Vec::new(),
             exported_using_imports: Vec::new(),
             files: Vec::new(),
@@ -1812,6 +1828,68 @@ impl Compiler {
         self.source_origins.get(&file).copied().unwrap_or(file)
     }
 
+    /// Validate registered header contracts only after their declarations and
+    /// program settings exist. A reentrant expansion does not restart the same
+    /// contract; resolving a genuinely cyclic parameter still fails normally.
+    fn validate_parameter_contracts(&mut self, module: ModuleId) -> Result<()> {
+        if self.modules[module.0 as usize].loading {
+            return Ok(());
+        }
+        self.apply_program_params(module);
+        let mut index = 0;
+        while index < self.modules[module.0 as usize].parameter_contracts.len() {
+            let contract = &self.modules[module.0 as usize].parameter_contracts[index];
+            match &contract.state {
+                ParameterContractState::Checked | ParameterContractState::Checking => {
+                    index += 1;
+                    continue;
+                }
+                ParameterContractState::Failed(error) => return Err(error.clone()),
+                ParameterContractState::Waiting => {}
+            }
+            let (entity, pattern, eval_scope) =
+                (contract.entity, contract.pattern.clone(), contract.scope);
+            self.modules[module.0 as usize].parameter_contracts[index].state =
+                ParameterContractState::Checking;
+            let result = (|| {
+                let scope::Resolved::Const {
+                    value,
+                    ty,
+                } = self.resolve_entity(entity)?
+                else {
+                    return err(pattern.span, "a module parameter must bind a constant");
+                };
+                let represented = if let Value::Type(t) = value {
+                    Some(t)
+                } else {
+                    None
+                };
+                let actual = if ty == TypeId::VOID {
+                    self.type_of_value(&value)
+                } else {
+                    ty
+                };
+                let mut bindings = Vec::new();
+                self.match_pattern_value(&pattern, actual, &mut bindings, eval_scope, represented)?;
+                let scope = self.modules[module.0 as usize].scope;
+                for (name, value, ty) in bindings {
+                    self.add_const(scope, name, pattern.span, value, ty);
+                }
+                Ok(())
+            })();
+            let contract = &mut self.modules[module.0 as usize].parameter_contracts[index];
+            match result {
+                Ok(()) => contract.state = ParameterContractState::Checked,
+                Err(error) => {
+                    contract.state = ParameterContractState::Failed(error.clone());
+                    return Err(error);
+                }
+            }
+            index += 1;
+        }
+        Ok(())
+    }
+
     /// Load every module reachable through imports and expand all pending
     /// top-level items, until nothing changes.
     pub fn expand_all(&mut self) -> Result<()> {
@@ -1822,6 +1900,7 @@ impl Compiler {
         let mut next = 0;
         while let Some(sid) = self.unsettled.range(ScopeId(next)..).next().copied() {
             next = sid.0 + 1;
+            self.validate_parameter_contracts(self.scope(sid).module)?;
             self.expand_plain_ifs(sid)?;
             for i in 0..self.scope(sid).imports.len() {
                 self.import_module(sid, i)?;
@@ -1831,6 +1910,7 @@ impl Compiler {
         loop {
             while let Some(sid) = self.unsettled.range(ScopeId(next)..).next().copied() {
                 next = sid.0 + 1;
+                self.validate_parameter_contracts(self.scope(sid).module)?;
                 self.expand_pending(sid)?;
                 for i in 0..self.scope(sid).imports.len() {
                     self.import_module(sid, i)?;
@@ -1890,10 +1970,18 @@ impl Compiler {
             }
             // Resolving a named import may have loaded a module: its scopes come next.
             if self.unsettled.range(ScopeId(next)..).next().is_none() {
-                for index in 0..self.modules.len() {
+                let mut index = 0;
+                while index < self.modules.len() {
                     if !self.modules[index].loading {
                         self.validate_module_arguments(ModuleId(index as u32), Span::NONE)?;
+                        self.validate_parameter_contracts(ModuleId(index as u32))?;
                     }
+                    index += 1;
+                }
+                // A contract may import its declaring interface or a hook type.
+                // Newly registered scopes must participate in normal expansion.
+                if self.unsettled.range(ScopeId(next)..).next().is_some() {
+                    continue;
                 }
                 return Ok(());
             }

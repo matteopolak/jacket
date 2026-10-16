@@ -303,7 +303,16 @@ impl Compiler {
             self.fill_runtime_info()?;
         }
         // Last: the runtime information above lists only what the program reaches.
-        self.check_unreferenced()?;
+        // Body-only imports can register header contracts and further top-level
+        // work. Settle those dependencies normally, then check anything that
+        // work declared, until body checking discovers no more module scopes.
+        loop {
+            self.settle()?;
+            self.check_unreferenced()?;
+            if self.unsettled.is_empty() {
+                break;
+            }
+        }
         // Root workspace setters may have changed target initialization options
         // while settling or lowering. Update the private target data last.
         self.finalize_runtime_configuration()
