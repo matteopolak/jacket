@@ -1,4 +1,4 @@
-// Sanitized independent shape provided by root. Official runtime verdict pending.
+// Sanitized independent shape provided by root. Official native verdict: output 7 and true, then fault; no continuation.
 #import "Basic";
 
 main :: () {

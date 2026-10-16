@@ -15,6 +15,9 @@ FIXTURES = [
     "tests/portable-stdlib/format-null-descriptor-probe.jai",
     "tests/portable-stdlib/format-default-type-identity.jai",
     "tests/portable-stdlib/format-null-lvalue-any-probe.jai",
+    "tests/portable-stdlib/format-any-missing-value.jai",
+    "tests/portable-stdlib/format-any-missing-type.jai",
+    "tests/portable-stdlib/format-any-missing-value-no-assert.jai",
 ]
 PRODUCTION = [
     "stdlib/internal/basic/format.jai",
@@ -98,7 +101,7 @@ def main():
         ):
             run(
                 "owned-test-format",
-                [formatter, "--check", *[ROOT / p for p in FIXTURES]],
+                [formatter, "--check", *[ROOT / p for p in FIXTURES + PRODUCTION]],
             )
         for system in ["windows", "linux", "macos"]:
             for cpu in ["x64", "arm64"]:
@@ -133,8 +136,20 @@ def main():
                         *[ROOT / p for p in PRODUCTION],
                     ],
                 )
-    run("python-lint", ["ruff", "check", Path(__file__)])
-    run("python-format", ["ruff", "format", "--check", Path(__file__)])
+    run(
+        "python-lint",
+        ["ruff", "check", Path(__file__), ROOT / "tools/check_basic_any_read.py"],
+    )
+    run(
+        "python-format",
+        [
+            "ruff",
+            "format",
+            "--check",
+            Path(__file__),
+            ROOT / "tools/check_basic_any_read.py",
+        ],
+    )
     after = hashes()
     drift = sorted(
         name
@@ -148,9 +163,9 @@ def main():
         passed=not drift and all(row["passed"] for row in rows),
         formatter_utility_only=True,
         formatting_runtime_tests_executed=0,
-        null_any_policy="Manual typed-Any fallback reviewed; null-lvalue boxing official verdict pending",
+        null_any_policy="Only all-zero Any is empty; corrupt partial-null values fault when formatted; boxing is readless",
         null_Type_policy="Official default scalar/record Type is void; explicit null descriptor invalid; compiler default-image reducer RED",
-        production_modified=False,
+        production_modified=True,
         legacy_oracles_modified=False,
     )
     (work / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
