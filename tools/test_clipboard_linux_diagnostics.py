@@ -82,6 +82,7 @@ class ClipboardDiagnostics(unittest.TestCase):
         import os
 
         base = os.environ.get("TMPDIR") or os.environ["CARGO_TARGET_DIR"]
+        Path(base).mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
             prefix="clipboard-diagnostic-", dir=base
         ) as temporary:

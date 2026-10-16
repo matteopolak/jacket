@@ -27,5 +27,7 @@ node_modules/
 
 # Local Claude Code settings, launch configs and agent worktrees.
 /.claude/
+
+# Local deferred-work notes
 /TODO.md
 /HANDOFF.md
