@@ -8,6 +8,12 @@ use crate::types::{ArrayKind, TypeKind};
 /// Result of checking an expression.
 #[derive(Clone, Debug)]
 pub enum Operand {
+    /// A callable value/place paired with its selected lexical header. This
+    /// annotation is compile-time information and does not change the ABI.
+    Callable {
+        operand: Box<Operand>,
+        parameters: Rc<ProcTypeParams>,
+    },
     /// A runtime value. Scalars live in the register; memory-class types
     /// (structs, arrays, strings, Any) are represented by the address of a
     /// read-only copy.
@@ -34,13 +40,35 @@ pub enum Operand {
     Builtin(BuiltinProc),
     Library(LibraryId),
     /// Results of a multi-value call.
-    Multi(Vec<(TypeId, Val)>),
+    Multi(Vec<Operand>),
     Void,
 }
 
 impl Operand {
+    pub(super) fn with_callable(self, parameters: Option<Rc<ProcTypeParams>>) -> Self {
+        match parameters {
+            Some(parameters) => Self::Callable {
+                operand: Box::new(self.without_callable()),
+                parameters,
+            },
+            None => self,
+        }
+    }
+
+    pub(super) fn without_callable(self) -> Self {
+        match self {
+            Self::Callable {
+                operand, ..
+            } => *operand,
+            other => other,
+        }
+    }
+
     pub fn ty(&self) -> TypeId {
         match self {
+            Operand::Callable {
+                operand, ..
+            } => operand.ty(),
             Operand::Value {
                 ty, ..
             }
@@ -51,18 +79,27 @@ impl Operand {
                 ty, ..
             } => *ty,
             Operand::Type(_) => TypeId::TYPE,
-            Operand::Multi(v) => v.first().map_or(TypeId::VOID, |(t, _)| *t),
+            Operand::Multi(v) => v.first().map_or(TypeId::VOID, Operand::ty),
             Operand::Void => TypeId::VOID,
             _ => TypeId::COMPILE_TIME,
         }
     }
 
     pub fn is_const(&self) -> bool {
+        if let Operand::Callable {
+            operand, ..
+        } = self
+        {
+            return operand.is_const();
+        }
         matches!(self, Operand::Const { .. } | Operand::Type(_))
     }
 
     pub fn const_value(&self) -> Option<Value> {
         match self {
+            Operand::Callable {
+                operand, ..
+            } => operand.const_value(),
             Operand::Const {
                 value, ..
             } => Some(value.clone()),
@@ -440,6 +477,9 @@ impl Compiler {
         }
 
         match op {
+            Operand::Callable {
+                operand, ..
+            } => self.rvalue(f, *operand, span),
             Operand::Value {
                 ty,
                 val,
@@ -477,7 +517,7 @@ impl Compiler {
                 let val = self.materialize(f, &Value::Proc(proc), ty, span)?;
                 Ok((ty, val))
             }
-            Operand::Multi(values) => Ok(values[0]),
+            Operand::Multi(values) => self.rvalue(f, values[0].clone(), span),
             Operand::Void => err(span, "expression has no value"),
             Operand::Module(_) => err(span, "a module is not a value"),
             Operand::PolyStruct(ps) => {
@@ -637,6 +677,9 @@ impl Compiler {
     /// Address of an operand, spilling values into temporaries.
     pub fn address_of(&mut self, f: &mut FnCtx, op: Operand, span: Span) -> Result<(TypeId, Val)> {
         match op {
+            Operand::Callable {
+                operand, ..
+            } => self.address_of(f, *operand, span),
             Operand::Place {
                 ty,
                 addr,

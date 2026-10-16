@@ -14,6 +14,7 @@ pub mod value;
 
 mod asm;
 mod bake;
+mod callable;
 mod calls;
 pub mod code_export;
 mod consteval;
@@ -576,10 +577,9 @@ pub struct Compiler {
     pub named_imports_done: usize,
     /// Why each deferred item failed; shown with a later error if it is never retried.
     pub deferred_errors: Vec<Box<Diagnostic>>,
-    /// Parameter names and defaults written in procedure types (`(s: string, start := 0) -> s64`),
-    /// by type, for calls through procedure values. Types ignore them: the latest header with
-    /// defaults wins, and a procedure used as a value fills in a type no header described.
-    pub proc_type_params: HashMap<TypeId, Rc<ProcTypeParams>>,
+    /// Callable metadata belongs to declarations, never structural TypeIds.
+    pub(super) callable_entities: HashMap<EntityId, Rc<ProcTypeParams>>,
+    pub(super) callable_fields: HashMap<(crate::types::StructId, usize), Rc<ProcTypeParams>>,
     /// Program parameters set by imports (`#import "Basic"()(MEMORY_DEBUGGER = DEBUG)`), by
     /// module entry path: (name, value expression, scope it is evaluated in). Applied to
     /// the module's instance as soon as both exist, before anything reads the parameter.
@@ -621,6 +621,8 @@ pub struct ProcTypeParams {
     pub names: Vec<Option<Sym>>,
     pub defaults: Vec<Option<ast::Expr>>,
     pub scope: ScopeId,
+    /// Lexical headers on declared procedure-valued results.
+    pub returns: Vec<Option<Rc<ProcTypeParams>>>,
 }
 
 impl Compiler {
@@ -770,7 +772,8 @@ impl Compiler {
             unsettled: std::collections::BTreeSet::new(),
             named_imports_done: 0,
             deferred_errors: Vec::new(),
-            proc_type_params: HashMap::default(),
+            callable_entities: HashMap::default(),
+            callable_fields: HashMap::default(),
             program_param_settings: Vec::new(),
             retrying_pending: false,
             placeholder_misses: 0,

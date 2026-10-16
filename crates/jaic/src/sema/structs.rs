@@ -82,6 +82,8 @@ pub enum PathStep {
     Deref,
 }
 
+type MemberResolution = (Vec<PathStep>, TypeId, Option<(StructId, usize)>);
+
 struct FieldDecl {
     name: Option<Sym>,
     ty: TypeId,
@@ -751,6 +753,19 @@ impl Compiler {
                         notes: d.notes,
                         span: d.span,
                     });
+                    self.callable_fields.remove(&(s, index));
+                    if matches!(self.types.kind(d.ty), TypeKind::Proc(_))
+                        && let Some(declaration) = d
+                            .name
+                            .and_then(|name| self.field_declarations.get(&d.scope)?.get(&name))
+                            .cloned()
+                        && let Some(parameters) = self.callable_expression_parameters(
+                            d.scope,
+                            declaration.ty.as_ref().or(declaration.value.as_ref()),
+                        )?
+                    {
+                        self.callable_fields.insert((s, index), parameters);
+                    }
                     sizes.push(size);
                     inits.push((d.init, d.scope));
                     layout.push(LayoutItem::Field(index));
@@ -903,7 +918,7 @@ impl Compiler {
                 },
                 None => name,
             };
-            if let Some((path, _)) =
+            if let Some((path, _, _)) =
                 self.find_promoted_member(vec![(field.ty, 0, target)], span, &mut vec![owner])?
             {
                 let mut relative = 0u64;
@@ -1403,7 +1418,24 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Result<Option<(Vec<PathStep>, TypeId)>> {
-        self.find_member_in(ty, name, span, &mut Vec::new())
+        Ok(self
+            .find_member_in(ty, name, span, &mut Vec::new())?
+            .map(|(path, ty, _)| (path, ty)))
+    }
+
+    /// The header of the selected field, following the same filtered/using
+    /// paths as actual member access. Equal offsets do not imply equal headers.
+    pub fn callable_member_parameters(
+        &mut self,
+        ty: TypeId,
+        name: Sym,
+        span: Span,
+    ) -> Result<Option<Rc<ProcTypeParams>>> {
+        let ty = self.types.pointee(ty).unwrap_or(ty);
+        Ok(self
+            .find_member_in(ty, name, span, &mut Vec::new())?
+            .and_then(|(_, _, origin)| origin)
+            .and_then(|origin| self.callable_fields.get(&origin).cloned()))
     }
 
     /// The byte offset and type of field `name` of `ty`, when it sits inline (not behind a
@@ -1454,14 +1486,14 @@ impl Compiler {
         name: Sym,
         span: Span,
         searched: &mut Vec<StructId>,
-    ) -> Result<Option<(Vec<PathStep>, TypeId)>> {
+    ) -> Result<Option<MemberResolution>> {
         let ty = self.types.repr_struct(ty);
         let Some(s) = self.types.as_struct(ty) else {
             let members = self.builtin_members(ty, span)?;
             return Ok(members
                 .into_iter()
                 .find(|(n, _, _)| *n == name)
-                .map(|(_, t, o)| (vec![PathStep::Offset(o)], t)));
+                .map(|(_, t, o)| (vec![PathStep::Offset(o)], t, None)));
         };
         if searched.contains(&s) {
             return Ok(None);
@@ -1470,8 +1502,16 @@ impl Compiler {
         self.layout_struct(s, span)?;
         // Without cloning the field list: this runs for every member access.
         let fields = &self.types.struct_info(s).fields;
-        if let Some(f) = fields.iter().find(|f| f.name == Some(name)) {
-            return Ok(Some((vec![PathStep::Offset(f.offset)], f.ty)));
+        if let Some((index, f)) = fields
+            .iter()
+            .enumerate()
+            .find(|(_, f)| f.name == Some(name))
+        {
+            return Ok(Some((
+                vec![PathStep::Offset(f.offset)],
+                f.ty,
+                Some((s, index)),
+            )));
         }
         let filters = self.using_filters.get(&s).map_or(&[][..], Vec::as_slice);
         let candidates = using_candidates(fields, filters, name);
@@ -1485,6 +1525,7 @@ impl Compiler {
             };
             let mut full = Vec::new();
             let mut at = ty;
+            let mut origin = None;
             for &step in alias.path.iter().chain([&target]) {
                 // A pointer field on the path is followed.
                 if let Some(p) = self.types.pointee(at)
@@ -1493,7 +1534,9 @@ impl Compiler {
                     full.push(PathStep::Deref);
                     at = p;
                 }
-                let Some((mut path, t)) = self.find_member(at, step, span)? else {
+                let Some((mut path, t, field)) =
+                    self.find_member_in(at, step, span, &mut Vec::new())?
+                else {
                     return err(
                         span,
                         format!("`{step}` is not a member of {}", self.types.name(at)),
@@ -1501,8 +1544,9 @@ impl Compiler {
                 };
                 full.append(&mut path);
                 at = t;
+                origin = field;
             }
-            return Ok(Some((full, at)));
+            return Ok(Some((full, at, origin)));
         }
         Ok(None)
     }
@@ -1514,19 +1558,21 @@ impl Compiler {
         candidates: Vec<(TypeId, u64, Sym)>,
         span: Span,
         searched: &mut Vec<StructId>,
-    ) -> Result<Option<(Vec<PathStep>, TypeId)>> {
+    ) -> Result<Option<MemberResolution>> {
         for (field_ty, offset, name) in candidates {
             let (inner, deref) = match self.types.pointee(field_ty) {
                 Some(p) if self.types.as_struct(p).is_some() => (p, true),
                 _ => (field_ty, false),
             };
-            if let Some((mut path, ty)) = self.find_member_in(inner, name, span, searched)? {
+            if let Some((mut path, ty, origin)) =
+                self.find_member_in(inner, name, span, searched)?
+            {
                 let mut full = vec![PathStep::Offset(offset)];
                 if deref {
                     full.push(PathStep::Deref);
                 }
                 full.append(&mut path);
-                return Ok(Some((full, ty)));
+                return Ok(Some((full, ty, origin)));
             }
         }
         Ok(None)
@@ -1786,12 +1832,18 @@ impl Compiler {
                 _ => err(span, format!("fixed array has no member `{name}`")),
             };
         }
-        if let Some((path, mty)) = self.find_member(target, name, span)? {
+        if let Some((path, mty, origin)) =
+            self.find_member_in(target, name, span, &mut Vec::new())?
+        {
             let a = self.apply_path(f, addr, &path);
+            let parameters = origin
+                .and_then(|origin| self.callable_fields.get(&origin))
+                .cloned();
             return Ok(Operand::Place {
                 ty: mty,
                 addr: a,
-            });
+            }
+            .with_callable(parameters));
         }
         if let Some(ids) = self.struct_constant(target, name)? {
             return self.entities_operand(f, scope, &ids, span);
@@ -1869,7 +1921,7 @@ impl Compiler {
             let Some(target) = super::using::filter_target(&filter, name) else {
                 continue;
             };
-            if let Some((_, member_ty)) =
+            if let Some((_, member_ty, _)) =
                 self.find_promoted_member(vec![(ty, 0, target)], span, &mut vec![owner])?
             {
                 self.ide_note_member_use(span, self.types.pointee(ty).unwrap_or(ty), target);
@@ -2267,7 +2319,9 @@ impl Compiler {
         );
         scratch.compile_time = true;
         scratch.set_context(Some(scratch.b.param(0)));
-        let converted = self.convert(&mut scratch, op, ty, span)?;
+        // Lexical callable headers annotate operands, not the constant value
+        // stored in a generic binding. Preserve the ordinary conversion first.
+        let converted = self.convert(&mut scratch, op, ty, span)?.without_callable();
         match converted {
             Operand::Const {
                 value, ..
@@ -2276,7 +2330,7 @@ impl Compiler {
             Operand::Procs(p) if p.len() == 1 => Ok(Value::Proc(p[0])),
             other => {
                 // Conversions that need code (e.g. boxing into Any) run as a thunk.
-                let op = self.run_thunk(scratch, other, span)?;
+                let op = self.run_thunk(scratch, other, span)?.without_callable();
                 match op {
                     Operand::Const {
                         value, ..

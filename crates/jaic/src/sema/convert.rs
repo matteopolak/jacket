@@ -219,6 +219,18 @@ impl Compiler {
         to: TypeId,
         span: Span,
     ) -> Result<Operand> {
+        if let Operand::Callable {
+            operand,
+            parameters,
+        } = op
+        {
+            let converted = self.convert(f, *operand, to, span)?;
+            return Ok(if matches!(self.types.kind(to), TypeKind::Proc(_)) {
+                converted.with_callable(Some(parameters))
+            } else {
+                converted
+            });
+        }
         let from = op.ty();
         if from == to
             && !matches!(

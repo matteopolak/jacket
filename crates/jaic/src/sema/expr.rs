@@ -223,7 +223,13 @@ impl Compiler {
                     self.check_constant_cast(&op, target, value.span)?;
                     self.emit_cast_check(f, op, target, span)?
                 };
-                self.explicit_cast(f, op, target, *flags, span)
+                let result = self.explicit_cast(f, op, target, *flags, span)?;
+                let parameters = if matches!(self.types.kind(target), TypeKind::Proc(_)) {
+                    self.callable_expression_parameters(scope, ty.as_deref())?
+                } else {
+                    None
+                };
+                Ok(result.with_callable(parameters))
             }
             E::Ifx {
                 cond,
@@ -791,7 +797,8 @@ impl Compiler {
                         ty,
                         value,
                         untyped: false,
-                    });
+                    }
+                    .with_callable(self.callable_entities.get(&id).cloned()));
                 }
                 if depth != self.scope(scope).proc_depth {
                     if let Some((value, ty)) = self.local_consts.get(&id).cloned() {
@@ -799,7 +806,8 @@ impl Compiler {
                             ty,
                             value,
                             untyped: false,
-                        });
+                        }
+                        .with_callable(self.callable_entities.get(&id).cloned()));
                     }
                     if f.type_only {
                         // `type_of(local.*)` at compile time: the address is never used.
@@ -824,7 +832,8 @@ impl Compiler {
                 return Ok(Operand::Place {
                     ty,
                     addr,
-                });
+                }
+                .with_callable(self.callable_entities.get(&id).cloned()));
             }
             EntityKind::Builtin(scope::Builtin::Proc(p)) => return Ok(Operand::Builtin(p)),
             _ => {}
@@ -853,10 +862,16 @@ impl Compiler {
                 ty,
             } => {
                 let addr = f.b.storage_addr(storage);
+                let parameters = if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                    self.callable_entity_parameters(id)?
+                } else {
+                    None
+                };
                 Operand::Place {
                     ty,
                     addr,
                 }
+                .with_callable(parameters)
             }
             Resolved::Module(m) => Operand::Module(m),
             Resolved::Library(l) => Operand::Library(l),
@@ -1034,18 +1049,6 @@ impl Compiler {
             no_context: c_call || header.flags.no_context,
             non_pod_return: header.flags.cpp_return_type_is_non_pod,
         })));
-        if header.params.iter().any(|p| p.default.is_some()) {
-            let info = ProcTypeParams {
-                names: header
-                    .params
-                    .iter()
-                    .map(|p| p.name.map(|n| n.name))
-                    .collect(),
-                defaults: header.params.iter().map(|p| p.default.clone()).collect(),
-                scope,
-            };
-            self.proc_type_params.insert(ty, Rc::new(info));
-        }
         Ok(ty)
     }
 
@@ -1109,11 +1112,13 @@ impl Compiler {
                     }),
                     Operand::Procs(p) if p.len() == 1 => {
                         let op = Operand::Procs(p);
+                        let parameters = self.callable_operand_parameters(f, &op)?;
                         let (ty, v) = self.rvalue(f, op, span)?;
                         Ok(Operand::Value {
                             ty,
                             val: v,
-                        })
+                        }
+                        .with_callable(parameters))
                     }
                     Operand::Const {
                         value: Value::Int(_) | Value::Float(_, _) | Value::Bool(_),

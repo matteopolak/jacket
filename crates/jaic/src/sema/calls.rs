@@ -214,9 +214,10 @@ impl Compiler {
                 err(span, format!("cannot call type {}", self.types.name(t)))
             }
             other => {
+                let parameters = self.callable_operand_parameters(f, &other)?;
                 let (ty, v) = self.rvalue(f, other, span)?;
                 let call_args = self.precheck_args(f, scope, args)?;
-                self.call_indirect(f, ty, v, call_args, span)
+                self.call_indirect(f, ty, v, parameters, call_args, span)
             }
         }
     }
@@ -381,14 +382,11 @@ impl Compiler {
             && let Some(Operand::Multi(values)) = &args[0].op
         {
             let a = args[0].clone();
-            let value_arg = |&(ty, val): &(TypeId, ir::Val)| CallArg {
+            let value_arg = |value: &Operand| CallArg {
                 name: None,
                 spread: false,
                 expr: None,
-                op: Some(Operand::Value {
-                    ty,
-                    val,
-                }),
+                op: Some(value.clone()),
                 span: a.span,
                 scope: a.scope,
             };
@@ -2303,7 +2301,7 @@ impl Compiler {
                 .extend(c_vararg_values.iter().map(|&v| f.b.val_ty(v)));
         }
         let results = f.b.call(callee, values, &ir_sig.returns.clone());
-        Ok(self.call_results(&sig.returns, results, outs))
+        Ok(self.call_results(&sig.returns, results, outs, &sig.return_callables))
     }
 
     fn call_results(
@@ -2311,6 +2309,7 @@ impl Compiler {
         returns: &[TypeId],
         results: Vec<ir::Val>,
         outs: Vec<Option<ir::Val>>,
+        callables: &[Option<Rc<ProcTypeParams>>],
     ) -> Operand {
         let mut values = Vec::new();
         let mut regs = results.into_iter();
@@ -2319,14 +2318,17 @@ impl Compiler {
                 Some(out) => out,
                 None => regs.next().unwrap(),
             };
-            values.push((rt, v));
+            values.push(
+                Operand::Value {
+                    ty: rt,
+                    val: v,
+                }
+                .with_callable(callables.get(i).cloned().flatten()),
+            );
         }
         match values.len() {
             0 => Operand::Void,
-            1 => Operand::Value {
-                ty: values[0].0,
-                val: values[0].1,
-            },
+            1 => values.remove(0),
             _ => Operand::Multi(values),
         }
     }
@@ -2546,10 +2548,12 @@ impl Compiler {
         &mut self,
         info: &ProcTypeParams,
         args: Vec<CallArg>,
+        c_varargs: bool,
         span: Span,
     ) -> Result<Vec<CallArg>> {
         let n = info.names.len();
         let mut slots: Vec<Option<CallArg>> = vec![None; n];
+        let mut extra = Vec::new();
         let mut next = 0;
         for arg in args {
             let i = match arg.name {
@@ -2571,9 +2575,19 @@ impl Compiler {
                 }
             };
             if i >= n {
+                if c_varargs && arg.name.is_none() {
+                    extra.push(arg);
+                    continue;
+                }
                 return err(
                     arg.span,
                     format!("too many arguments (expected at most {n})"),
+                );
+            }
+            if slots[i].is_some() {
+                return err(
+                    arg.span,
+                    format!("argument {} supplied more than once", i + 1),
                 );
             }
             slots[i] = Some(CallArg {
@@ -2581,7 +2595,7 @@ impl Compiler {
                 ..arg
             });
         }
-        slots
+        let mut ordered = slots
             .into_iter()
             .enumerate()
             .map(|(i, slot)| match (slot, &info.defaults[i]) {
@@ -2596,7 +2610,9 @@ impl Compiler {
                 }),
                 (None, None) => err(span, format!("missing argument {}", i + 1)),
             })
-            .collect()
+            .collect::<Result<Vec<_>>>()?;
+        ordered.extend(extra);
+        Ok(ordered)
     }
 
     fn call_indirect(
@@ -2604,6 +2620,7 @@ impl Compiler {
         f: &mut FnCtx,
         ty: TypeId,
         callee: ir::Val,
+        parameters: Option<Rc<ProcTypeParams>>,
         mut args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {
@@ -2613,8 +2630,14 @@ impl Compiler {
                 format!("cannot call a value of type {}", self.types.name(ty)),
             );
         };
-        if let Some(info) = self.proc_type_params.get(&ty).cloned() {
-            args = self.order_indirect_args(&info, args, span)?;
+        let result_parameters = parameters
+            .as_ref()
+            .map(|info| info.returns.clone())
+            .unwrap_or_default();
+        if let Some(info) = parameters {
+            args = self.order_indirect_args(&info, args, pt.c_varargs, span)?;
+        } else if args.iter().any(|arg| arg.name.is_some()) {
+            return err(span, "named arguments require a known callable declaration");
         }
         if args.len() < pt.params.len()
             || (!pt.c_varargs && !pt.variadic && args.len() > pt.params.len())
@@ -2675,7 +2698,7 @@ impl Compiler {
             values,
             &returns,
         );
-        Ok(self.call_results(&pt.returns, results, outs))
+        Ok(self.call_results(&pt.returns, results, outs, &result_parameters))
     }
 
     /// Intrinsic procedures declared in Preload (`memcpy`, `compare_and_swap`...).
@@ -2882,7 +2905,7 @@ impl Compiler {
         }
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
-        Ok(self.call_results(&sig.returns, results, outs))
+        Ok(self.call_results(&sig.returns, results, outs, &sig.return_callables))
     }
 
     /// The compile-time integer passed as the last argument of an intrinsic.
@@ -3830,6 +3853,9 @@ impl Compiler {
                 },
                 false,
             );
+            if let Some(info) = &param.callable {
+                self.callable_entities.insert(e, info.clone());
+            }
             // The argument's value when it is a constant: a literal or constant given, a
             // procedure, or a literal default (`var_name := "var"`).
             let constant = match slot {
@@ -3934,19 +3960,22 @@ impl Compiler {
         f.truncate_defers(frame.defer_depth.position());
         f.b.switch_to(exit);
         let mut values = Vec::new();
-        for (rt, addr) in result_slots {
+        for (i, (rt, addr)) in result_slots.into_iter().enumerate() {
             let v = match self.ir_ty(rt) {
                 Some(t) => f.b.load(t, addr),
                 None => addr,
             };
-            values.push((rt, v));
+            values.push(
+                Operand::Value {
+                    ty: rt,
+                    val: v,
+                }
+                .with_callable(sig.return_callables.get(i).cloned().flatten()),
+            );
         }
         Ok(match values.len() {
             0 => Operand::Void,
-            1 => Operand::Value {
-                ty: values[0].0,
-                val: values[0].1,
-            },
+            1 => values.remove(0),
             _ => Operand::Multi(values),
         })
     }

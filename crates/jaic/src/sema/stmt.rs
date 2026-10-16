@@ -705,6 +705,7 @@ impl Compiler {
                         place
                     }
                 };
+                let place = place.without_callable();
                 let Operand::Place {
                     ty,
                     addr,
@@ -766,6 +767,17 @@ impl Compiler {
                 align = align.max(self.eval_int(scope, a)? as u64);
             }
             let addr = f.b.alloca(size.max(1), align);
+            let callable = if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                match &decl.ty {
+                    Some(source) => self.callable_expression_parameters(scope, Some(source))?,
+                    None => match &value {
+                        Some(op) => self.callable_operand_parameters(f, op)?,
+                        None => None,
+                    },
+                }
+            } else {
+                None
+            };
             match value {
                 Some(op) => {
                     let value_span = match &decl.value {
@@ -812,10 +824,16 @@ impl Compiler {
                 depth,
             };
             let e = self.add_entity(target, name.name, name.span, kind.clone(), false);
+            if let Some(info) = callable {
+                self.callable_entities.insert(e, info);
+            }
             self.debug_var(f, target, name.name, name.span, ty, addr, 0);
             if target != scope {
                 // A backtick name is visible to the rest of the macro body too.
-                self.add_entity(scope, name.name, name.span, kind, false);
+                let alias = self.add_entity(scope, name.name, name.span, kind, false);
+                if let Some(info) = self.callable_entities.get(&e).cloned() {
+                    self.callable_entities.insert(alias, info);
+                }
             }
             if decl.using {
                 let entry = self.filter_using_entry(
@@ -981,15 +999,7 @@ impl Compiler {
             }
         }
         Ok(match first_op {
-            Operand::Multi(vals) if names > 1 => vals
-                .into_iter()
-                .map(|(ty, val)| {
-                    Some(Operand::Value {
-                        ty,
-                        val,
-                    })
-                })
-                .collect(),
+            Operand::Multi(vals) if names > 1 => vals.into_iter().map(Some).collect(),
             // `a, b := 0;` gives every name the same value.
             op => vec![Some(op); names],
         })
@@ -1269,7 +1279,7 @@ impl Compiler {
                 return Ok(());
             }
             // Evaluate the target once, then `*tmp = *tmp op rhs`.
-            let place = self.check_expr(f, scope, &lhs[0], None)?;
+            let place = self.check_expr(f, scope, &lhs[0], None)?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -1330,7 +1340,7 @@ impl Compiler {
             return Ok(());
         }
         if lhs.len() == 1 && rhs.len() == 1 {
-            let place = self.check_expr(f, scope, &lhs[0], None)?;
+            let place = self.check_expr(f, scope, &lhs[0], None)?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -1363,18 +1373,23 @@ impl Compiler {
         let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
         if rhs.len() == 1 {
             match self.check_expr(f, scope, &rhs[0], None)? {
-                Operand::Multi(v) => values = v,
+                Operand::Multi(v) => {
+                    for operand in v {
+                        values.push(self.rvalue(f, operand, rhs[0].span)?);
+                    }
+                }
                 other => {
                     // `a, b = value;` assigns the one value to every target.
                     if matches!(
                         other,
-                        Operand::Value { .. }
+                        Operand::Callable { .. }
+                            | Operand::Value { .. }
                             | Operand::Place { .. }
                             | Operand::Const { .. }
                             | Operand::Type(_)
                     ) {
                         for l in lhs {
-                            let place = self.check_expr(f, scope, l, None)?;
+                            let place = self.check_expr(f, scope, l, None)?.without_callable();
                             let Operand::Place {
                                 ty,
                                 addr,
@@ -1442,7 +1457,7 @@ impl Compiler {
             {
                 continue;
             }
-            let place = self.check_expr(f, scope, l, None)?;
+            let place = self.check_expr(f, scope, l, None)?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -3111,14 +3126,9 @@ impl Compiler {
             let op = self.check_expr(f, scope, &v.value, types.get(i).copied())?;
             match op {
                 // Extra results of a returned call are dropped, like in a declaration.
-                Operand::Multi(vals) if values.len() == 1 => ops.extend(
-                    vals.into_iter()
-                        .take(types.len())
-                        .map(|(ty, val)| Operand::Value {
-                            ty,
-                            val,
-                        }),
-                ),
+                Operand::Multi(vals) if values.len() == 1 => {
+                    ops.extend(vals.into_iter().take(types.len()))
+                }
                 // `return f();` of a procedure without results.
                 Operand::Void if values.len() == 1 => {}
                 other => ops.push(other),

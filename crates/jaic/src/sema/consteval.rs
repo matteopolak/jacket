@@ -54,13 +54,14 @@ impl Compiler {
                 if ty == TypeId::VOID {
                     Vec::new()
                 } else {
-                    let (_, v) = self.rvalue(&mut f, other, span)?;
-                    vec![(ty, v)]
+                    vec![other]
                 }
             }
         };
         let mut out = Vec::new();
-        for (ty, v) in values {
+        for operand in values {
+            let parameters = self.callable_operand_parameters(&f, &operand)?;
+            let (ty, v) = self.rvalue(&mut f, operand, span)?;
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let g = self.program.add_global(ir::Global {
@@ -74,24 +75,27 @@ impl Compiler {
             });
             let addr = f.b.global_addr(g);
             self.store_value(&mut f, ty, addr, v, span)?;
-            out.push((ty, g));
+            out.push((ty, g, parameters));
         }
         f.b.ret(Vec::new());
         self.call_thunk(f, span)?;
         let mut results = Vec::new();
-        for (ty, g) in out {
+        for (ty, g, parameters) in out {
             let addr = self
                 .interp
                 .global_addr(&self.program, g)
                 .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
-            results.push(match self.read_value(addr, ty, span)? {
-                Value::Type(t) => Operand::Type(t),
-                value => Operand::Const {
-                    ty,
-                    value,
-                    untyped: false,
-                },
-            });
+            results.push(
+                (match self.read_value(addr, ty, span)? {
+                    Value::Type(t) => Operand::Type(t),
+                    value => Operand::Const {
+                        ty,
+                        value,
+                        untyped: false,
+                    },
+                })
+                .with_callable(parameters),
+            );
         }
         Ok(results)
     }

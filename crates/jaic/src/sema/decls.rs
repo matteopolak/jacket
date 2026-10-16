@@ -592,6 +592,9 @@ impl Compiler {
 
     pub fn describe(&self, op: &Operand) -> String {
         match op {
+            Operand::Callable {
+                operand, ..
+            } => self.describe(operand),
             Operand::Value {
                 ty, ..
             }

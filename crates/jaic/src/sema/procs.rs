@@ -17,6 +17,7 @@ pub struct ParamInfo {
     pub name: Option<Sym>,
     pub ty: TypeId,
     pub default: Option<ast::Expr>,
+    pub callable: Option<Rc<ProcTypeParams>>,
     pub variadic: bool,
     pub using: bool,
     pub using_filter: Option<ast::UsingFilter>,
@@ -29,6 +30,7 @@ pub struct ParamInfo {
 pub struct Signature {
     pub params: Vec<ParamInfo>,
     pub returns: Vec<TypeId>,
+    pub return_callables: Vec<Option<Rc<ProcTypeParams>>>,
     pub return_names: Vec<Option<Sym>>,
     pub ty: TypeId,
     pub has_context: bool,
@@ -451,6 +453,14 @@ impl Compiler {
                 name: param.name.map(|n| n.name),
                 ty,
                 default: param.default.clone(),
+                callable: if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                    self.callable_expression_parameters(
+                        scope,
+                        param.ty.as_ref().or(param.default.as_ref()),
+                    )?
+                } else {
+                    None
+                },
                 variadic: param.variadic,
                 using: param.using,
                 using_filter: param.using_filter.clone(),
@@ -468,6 +478,7 @@ impl Compiler {
         params: Vec<ParamInfo>,
     ) -> Result<Signature> {
         let mut returns = Vec::new();
+        let mut return_callables = Vec::new();
         let mut return_names = Vec::new();
         for r in &header.returns {
             let ty = match (&r.ty, &r.default) {
@@ -492,6 +503,14 @@ impl Compiler {
             }
             if ty != TypeId::VOID {
                 returns.push(ty);
+                return_callables.push(if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
+                    self.callable_expression_parameters(
+                        scope,
+                        r.ty.as_ref().or(r.default.as_ref()),
+                    )?
+                } else {
+                    None
+                });
                 return_names.push(r.name.map(|n| n.name));
             }
         }
@@ -499,6 +518,7 @@ impl Compiler {
             && ty != TypeId::VOID
         {
             returns.push(ty);
+            return_callables.push(None);
             return_names.push(None);
         }
         if !self.proc(id).is_macro {
@@ -529,6 +549,7 @@ impl Compiler {
         Ok(Signature {
             params,
             returns,
+            return_callables,
             return_names,
             ty,
             has_context,
@@ -539,22 +560,7 @@ impl Compiler {
     }
 
     pub fn proc_type(&mut self, id: ProcId, span: Span) -> Result<TypeId> {
-        let ty = self.signature(id, span)?.ty;
-        // A procedure used as a value lends its parameter names and defaults to calls
-        // through its type (unless a procedure type header already did).
-        if !self.proc_type_params.contains_key(&ty) {
-            let proc = self.proc(id);
-            let params = &proc.lit.header.params;
-            if !proc.is_poly && params.iter().any(|p| p.default.is_some()) {
-                let info = super::ProcTypeParams {
-                    names: params.iter().map(|p| p.name.map(|n| n.name)).collect(),
-                    defaults: params.iter().map(|p| p.default.clone()).collect(),
-                    scope: proc.scope,
-                };
-                self.proc_type_params.insert(ty, Rc::new(info));
-            }
-        }
-        Ok(ty)
+        Ok(self.signature(id, span)?.ty)
     }
 
     /// Two procedures declared in one scope under one name must differ in their parameter types
@@ -1330,6 +1336,9 @@ impl Compiler {
                     },
                     false,
                 );
+                if let Some(info) = &param.callable {
+                    self.callable_entities.insert(e, info.clone());
+                }
                 if param.using {
                     let mut entry = UsingEntry::Place {
                         ty: param.ty,
