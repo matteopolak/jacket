@@ -87,6 +87,11 @@ def run_command(command, cwd, timeout, env):
 
 
 def program_arguments(case, scratch, env):
+    if 'arguments' in case:
+        arguments = case['arguments']
+        if 'input' in case or not isinstance(arguments, list) or not all(isinstance(a, str) for a in arguments):
+            raise ValueError('literal fixture arguments must be a string list without a separate input provider')
+        return arguments.copy()
     kind = case.get("input")
     if kind is None:
         return []

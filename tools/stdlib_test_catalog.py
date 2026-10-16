@@ -22,7 +22,11 @@ PROGRAM_INPUTS = {
     "SDL/tests/sdl-rwops": "scratch-file",
     "Simp/tests/glyph-atlas": "font",
 }
+PROGRAM_ARGUMENTS = {
+    'Clipboard/tests/cocoa-operations': ['enabled'],
+}
 PLATFORM_REQUIREMENTS = {
+    'Clipboard/tests/cocoa-operations': 'macos',
     "compiler/socket-select-canonical-timeval": ("linux", "macos"),
     "extensions/io-uring-dependency-repro": "linux",
     "Input/tests/windows-device-decoding": "windows",
@@ -59,6 +63,8 @@ def validated_entries(root=ROOT):
             case["clipboard_guard"] = True
         if case["id"] in PROGRAM_INPUTS:
             case["input"] = PROGRAM_INPUTS[case["id"]]
+        if case['id'] in PROGRAM_ARGUMENTS:
+            case['arguments'] = PROGRAM_ARGUMENTS[case['id']].copy()
         if case["id"] in PLATFORM_REQUIREMENTS:
             case["required_os"] = PLATFORM_REQUIREMENTS[case["id"]]
         if case["id"] in names:

@@ -10,6 +10,11 @@ from stdlib_test_catalog import validated_entries, unavailable_reason
 
 
 class CatalogueTests(unittest.TestCase):
+    def test_cocoa_unit_receives_its_actual_default_configuration(self):
+        case = next(c for c in validated_entries() if c['id'] == 'Clipboard/tests/cocoa-operations')
+        self.assertEqual(program_arguments(case, '.', {}), ['enabled'])
+        self.assertEqual(case['required_os'], 'macos')
+
     def test_mac_clipboard_requires_a_restoration_guard(self):
         with self.assertRaises(ValueError):
             runtime_prefix({"clipboard_guard": True}, {}, "darwin")
