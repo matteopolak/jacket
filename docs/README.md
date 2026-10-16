@@ -913,3 +913,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Windows x64 context alignment](native/windows-context-alignment.md): exact two record annotations, five ready source/doc hashes verified; real source/SDK evidence remains distinct from required native MSVC replay. Narrow formatter corrections cover the newly guarded WebGPU helpers and two ready fixtures only.
 
 - [Windows target provider closure](native/windows-target-provider-plan.md): real23 ABI8 SDK/callback pairs plus4 context/counter archives, target-machine checks and all-object PE link; x64 MinGW compilation/link PASS, runtime/ARM64/MSVC pending. Direct stdio and scoped Windows SDK inline source repairs retained; no disabled profiles. [Exact scoped receipt](status/windows-target-binding-providers.json).
+
+- [Canonical global enum lookup](generator-model-enum-scope.md): lexical-first search reaches the active Generator Block with owner/bounds checks; eight exact ready hashes verified. Supplied Mac SDK enum/callback controls pass; the separate required incomplete opaque-printer gate remains RED and assigned.
