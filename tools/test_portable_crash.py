@@ -1,6 +1,8 @@
 """The startup harness must not replace the production compiler facades."""
+
 import contextlib
 import io
+import os
 from pathlib import Path
 import signal
 import subprocess
@@ -27,17 +29,39 @@ class ProductionStartup(unittest.TestCase):
                 peer = parent / "compiler/stdlib" / module / "module.jai"
                 peer.parent.mkdir(parents=True)
                 peer.write_text("different :: 42;\n")
-            before = {str(p.relative_to(library)): p.read_bytes() for p in library.rglob("*.jai")}
+            before = {
+                str(p.relative_to(library)): p.read_bytes()
+                for p in library.rglob("*.jai")
+            }
             # Native outcomes are mocked only for the nonmutation property. The
             # integration runner separately executes real ON/OFF crash programs.
-            outcomes = [subprocess.CompletedProcess([], 0, "", ""),
-                        subprocess.CompletedProcess([], -signal.SIGSEGV, "", ""),
-                        subprocess.CompletedProcess([], 0, "", ""),
-                        subprocess.CompletedProcess([], -signal.SIGSEGV, "", "crash signal 11\nnative stack:\n")]
-            with patch.object(harness, "ROOT", root), patch("sys.argv", ["check", "--jaic", str(compiler), "--stdlib", str(library)]), patch.object(harness.subprocess, "run", side_effect=outcomes) as run, contextlib.redirect_stdout(io.StringIO()):
+            outcomes = [
+                subprocess.CompletedProcess([], 0, "", ""),
+                subprocess.CompletedProcess([], -signal.SIGSEGV, "", ""),
+                subprocess.CompletedProcess([], 0, "", ""),
+                subprocess.CompletedProcess(
+                    [], -signal.SIGSEGV, "", "crash signal 11\nnative stack:\n"
+                ),
+            ]
+            with (
+                patch.dict(os.environ, {"CARGO_TARGET_DIR": str(root / "target")}),
+                patch.object(harness, "ROOT", root),
+                patch(
+                    "sys.argv",
+                    ["check", "--jaic", str(compiler), "--stdlib", str(library)],
+                ),
+                patch.object(harness.subprocess, "run", side_effect=outcomes) as run,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
                 harness.main()
             self.assertEqual(run.call_count, 4)
-            self.assertEqual(before, {str(p.relative_to(library)): p.read_bytes() for p in library.rglob("*.jai")})
+            self.assertEqual(
+                before,
+                {
+                    str(p.relative_to(library)): p.read_bytes()
+                    for p in library.rglob("*.jai")
+                },
+            )
 
 
 if __name__ == "__main__":
