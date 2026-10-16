@@ -24,6 +24,8 @@ pub use callbacks::{
 mod wide;
 #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod windows;
+#[cfg(windows)]
+mod windows_imports;
 
 #[derive(Clone)]
 pub struct Library {
@@ -227,9 +229,26 @@ impl Library {
     /// Windows: `LoadLibraryW` of `name.dll` (see `windows::open`).
     #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
     pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
-        windows::open(name, system, base_dir).map(|handle| Library {
-            handle,
-        })
+        windows::open(name, system, base_dir)
+            .ok()
+            .map(|handle| Library {
+                handle,
+            })
+    }
+
+    /// Preserve concrete Windows import-provider errors for required-library diagnostics.
+    pub fn open_checked(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
+        #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
+        {
+            windows::open(name, system, base_dir).map(|handle| Library {
+                handle,
+            })
+        }
+        #[cfg(not(all(windows, any(target_arch = "x86_64", target_arch = "aarch64"))))]
+        {
+            Self::open(name, system, base_dir)
+                .ok_or_else(|| "dynamic loader could not open the library".into())
+        }
     }
 
     #[cfg(not(any(

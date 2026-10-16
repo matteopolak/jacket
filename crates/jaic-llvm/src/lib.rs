@@ -6,7 +6,7 @@
 mod debuginfo;
 mod green;
 mod lower;
-mod msvc;
+use jaic::msvc;
 mod partition;
 mod simd;
 mod split;

@@ -1321,14 +1321,27 @@ impl Interp {
             if !info.link_always {
                 continue;
             }
-            let library = self
-                .libraries
-                .entry(index)
-                .or_insert_with(|| native::Library::open(&info.name, info.system, &info.base_dir));
+            let mut failure = None;
+            let library =
+                self.libraries
+                    .entry(index)
+                    .or_insert_with(|| {
+                        match native::Library::open_checked(&info.name, info.system, &info.base_dir)
+                        {
+                            Ok(library) => Some(library),
+                            Err(error) => {
+                                failure = Some(error);
+                                None
+                            }
+                        }
+                    });
             if library.is_none() {
                 return self.trap(format!(
-                    "required native library `{}` could not be loaded",
-                    info.name
+                    "required native library `{}` could not be loaded{}",
+                    info.name,
+                    failure
+                        .map(|reason| format!(": {reason}"))
+                        .unwrap_or_default()
                 ));
             }
         }

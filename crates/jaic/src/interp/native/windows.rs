@@ -41,12 +41,13 @@ const DEFAULT_MODULES: [&str; 5] = [
     "ntdll.dll",
 ];
 
-fn load(path: &str) -> Option<usize> {
+fn load_checked(path: &str) -> Result<usize, std::io::Error> {
     let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
     // SAFETY: `wide` is NUL-terminated.
     let handle = unsafe { LoadLibraryW(wide.as_ptr()) };
     if handle.is_null() {
-        return None;
+        // Capture the Win32 error before dropping the UTF16 allocation or doing other work.
+        return Err(std::io::Error::last_os_error());
     }
     let handle = handle as usize;
     if let Ok(mut opened) = OPENED.lock()
@@ -54,33 +55,94 @@ fn load(path: &str) -> Option<usize> {
     {
         opened.push(handle);
     }
-    Some(handle)
+    Ok(handle)
 }
 
-/// Open a library by Jai name: `"kernel32"`, `"msvcrt"`, a path next to the source...
-pub fn open(name: &str, system: bool, base_dir: &str) -> Option<usize> {
+fn load(path: &str) -> Option<usize> {
+    load_checked(path).ok()
+}
+
+/// Resolve real provider metadata using the same SDK LIB directories as linking.
+pub fn open(name: &str, system: bool, base_dir: &str) -> Result<usize, String> {
+    use super::windows_imports::{Candidate, candidates, providers};
     let lower = name.to_ascii_lowercase();
     if system && matches!(lower.as_str(), "c" | "libc" | "m" | "libm" | "msvcrt") {
-        return load("msvcrt.dll");
+        return load_checked("msvcrt.dll").map_err(|error| error.to_string());
     }
-    let path = std::path::Path::new(name);
-    let file = path
-        .file_name()
-        .map(|f| f.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let mut candidates = Vec::new();
-    if !system {
-        let dir = std::path::Path::new(base_dir).join(path.parent().unwrap_or("".as_ref()));
-        candidates.push(dir.join(format!("{file}.dll")).display().to_string());
-        candidates.push(dir.join(format!("lib{file}.dll")).display().to_string());
+    let (arch, machine) = if cfg!(target_arch = "aarch64") {
+        ("arm64", 0xaa64)
+    } else {
+        ("x64", 0x8664)
+    };
+    let mut dirs = super::library_dirs();
+    for dir in crate::msvc::library_dirs(arch) {
+        if !dirs.contains(&dir) {
+            dirs.push(dir);
+        }
     }
-    let bare = name.strip_prefix("lib").unwrap_or(name);
-    for d in super::library_dirs() {
-        candidates.push(d.join(format!("{bare}.dll")).display().to_string());
+    if cfg!(target_env = "gnu")
+        && let Some(value) = std::env::var_os("LIBRARY_PATH")
+    {
+        for dir in std::env::split_paths(&value) {
+            if !dirs.contains(&dir) {
+                dirs.push(dir);
+            }
+        }
     }
-    candidates.push(format!("{name}.dll"));
-    candidates.push(format!("{bare}.dll"));
-    candidates.into_iter().find_map(|c| load(&c))
+    let mut failure = String::from("no matching DLL or import archive found");
+    for candidate in candidates(name, system, base_dir, &dirs, cfg!(target_env = "gnu"))? {
+        match candidate {
+            Candidate::Dll(path) => match load_checked(&path.to_string_lossy()) {
+                Ok(handle) => return Ok(handle),
+                Err(error) => failure = format!("{}: {error}", path.display()),
+            },
+            Candidate::Archive(path) => {
+                let data = match std::fs::read(&path) {
+                    Ok(data) => data,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                    Err(error) => return Err(format!("{}: {error}", path.display())),
+                };
+                let providers = providers(&data, machine)
+                    .map_err(|error| format!("{}: {error}", path.display()))?;
+                let provider = match providers.as_slice() {
+                    [name] => name,
+                    [] => {
+                        return Err(format!(
+                            "{} contains no supported DLL import provider (static archives cannot be dynamically loaded)",
+                            path.display()
+                        ));
+                    }
+                    _ => {
+                        return Err(format!(
+                            "{} imports multiple DLL providers: {}",
+                            path.display(),
+                            providers.join(", ")
+                        ));
+                    }
+                };
+                let mut locations = vec![
+                    path.parent()
+                        .unwrap_or(std::path::Path::new(""))
+                        .join(provider),
+                ];
+                locations.extend(dirs.iter().map(|dir| dir.join(provider)));
+                locations.push(provider.into());
+                for location in locations {
+                    match load_checked(&location.to_string_lossy()) {
+                        Ok(handle) => return Ok(handle),
+                        Err(error) => failure = format!("{}: {error}", location.display()),
+                    }
+                }
+                // This is the selected import library. Do not substitute a lower
+                // priority archive/provider when its real DLL is unavailable.
+                return Err(format!(
+                    "{} selects {provider}, which could not be loaded: {failure}",
+                    path.display()
+                ));
+            }
+        }
+    }
+    Err(failure)
 }
 
 /// Resolve `symbol` in `lib`, then in the default modules and everything opened so far.

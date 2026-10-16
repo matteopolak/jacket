@@ -15,6 +15,8 @@ pub mod interp;
 pub mod ir;
 pub mod lexer;
 pub mod memory_limit;
+#[doc(hidden)]
+pub mod msvc;
 pub mod parser;
 pub mod record_build;
 pub mod records;

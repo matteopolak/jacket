@@ -18,9 +18,16 @@ for(const name of ["cooperative-runtime","sandbox-files"]) {
 const isolated=engine.play({"main.jai":`fopen :: (path:*u8,mode:*u8)->*void #foreign; main :: ()->int {if fopen("/tmp/x.txt\\0".data,"rb\\0".data)!=null return 1;return 0;}`},"main.jai");
 assert.deepEqual(isolated.diagnostics,[],isolated.rendered);
 assert.equal(isolated.exitCode,0);
-const guard=engine.play({"main.jai":'#import "Thread"; main :: () {}'},"main.jai");
-assert.equal(guard.exitCode,null);
-assert(guard.diagnostics.some(d=>d.code==="static-assert") && guard.rendered.includes("OS"),guard.rendered);
+for (const [module, message] of [
+    ["Thread", "OS"],
+    ["Process", "OS"],
+    ["Window_Type", "Window_Type has no reviewed native handle"],
+]) {
+    const guard=engine.play({"main.jai":'#import "'+module+'"; main :: () {}'},"main.jai");
+    assert.equal(guard.exitCode,null,guard.rendered);
+    assert(guard.diagnostics.some(d=>d.code==="static-assert" && d.file==="/stdlib/"+module+"/module.jai"),guard.rendered);
+    assert(guard.rendered.includes(message),guard.rendered);
+}
 const invalidJoin=engine.play({"main.jai":"pthread_join :: (thread:u64,result:**void)->s32 #foreign; main :: ()->int {if pthread_join(0,null)==0 return 1;return 0;}"},"main.jai");
 assert.deepEqual(invalidJoin.diagnostics,[],invalidJoin.rendered);
 assert.equal(invalidJoin.exitCode,0);
@@ -41,4 +48,4 @@ const deadlock=engine.play({"main.jai":`
 `},"main.jai");
 assert.equal(deadlock.exitCode,null);
 assert(deadlock.diagnostics.some(d=>d.message.includes("deadlock")),deadlock.rendered);
-console.log("PASS: actual wasm32 cooperative workers/barrier/contention/joins, in-memory files/source reads/isolation, invalid handles and public Thread rejection");
+console.log("PASS: actual wasm32 cooperative workers/barrier/contention/joins, in-memory files/source reads/isolation, invalid handles and public Thread/Process/Window_Type rejection");

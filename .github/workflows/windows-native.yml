@@ -15,6 +15,9 @@ on:
       - 'stdlib/**'
       - 'tests/**'
       - 'tools/windows_cross.py'
+      - 'tools/check_windows_d3dcompiler_provider.py'
+      - 'tools/test_windows_d3dcompiler_provider.py'
+      - 'tools/test_windows_d3dcompiler_ci.py'
       - 'tools/check_file_watcher_platforms.py'
       - 'tools/check_windows_time_zone.py'
       - 'tools/stdlib_runtime.py'
@@ -271,6 +274,20 @@ jobs:
           ls -l build
           # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
           "$jaic" src/main.jai -interp
+      - name: Actual SDK D3DCompiler provider and interpreter identity
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m unittest discover -s tools -p 'test_windows_d3dcompiler*.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler diagnostic policy tests failed' }
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          $importLibrary = $env:LIB.Split(';') | ForEach-Object { Join-Path $_ 'd3dcompiler.lib' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if (-not $importLibrary) { throw 'Selected SDK LIB search has no d3dcompiler.lib' }
+          python -u tools/check_windows_d3dcompiler_provider.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --import-library "$importLibrary" --report target/d3dcompiler-amd64/provider.json
+          if ($LASTEXITCODE -ne 0) { throw 'Actual D3DCompiler provider interpreter/native check failed' }
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         # tests/webgpu/headless.jai interpreted and built; docs/stdlib/webgpu.md#tests.
         if: success() || failure()
@@ -504,6 +521,20 @@ jobs:
           out="$(target/aarch64-pc-windows-msvc/debug/jaic.exe tests/native/windows/variadic.jai -interp | tr -d '\r')"
           echo "$out"
           test "$out" = ok
+      - name: Actual SDK D3DCompiler provider and interpreter identity
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m unittest discover -s tools -p 'test_windows_d3dcompiler*.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler diagnostic policy tests failed' }
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
+          $importLibrary = $env:LIB.Split(';') | ForEach-Object { Join-Path $_ 'd3dcompiler.lib' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if (-not $importLibrary) { throw 'Selected SDK LIB search has no d3dcompiler.lib' }
+          python -u tools/check_windows_d3dcompiler_provider.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --import-library "$importLibrary" --report target/d3dcompiler-arm64/provider.json
+          if ($LASTEXITCODE -ne 0) { throw 'Actual D3DCompiler provider interpreter/native check failed' }
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/aarch64-pc-windows-msvc/debug/jaic.exe --platform windows-arm64 --require-adapter

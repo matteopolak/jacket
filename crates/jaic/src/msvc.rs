@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// The CPU folder name of `triple` in the MSVC and Windows SDK layouts.
-pub(crate) fn arch_dir(triple: &str) -> &'static str {
+pub fn arch_dir(triple: &str) -> &'static str {
     if triple.starts_with("aarch64") || triple.starts_with("arm64") {
         "arm64"
     } else {
@@ -171,14 +171,14 @@ fn sdk_roots() -> Vec<PathBuf> {
 
 /// A linker found by searching the installation, with the `LIB` value to run it with (`None`:
 /// `LIB` is already set, or no libraries were found and the link will say what is missing).
-pub(crate) struct Tool {
+pub struct Tool {
     pub program: PathBuf,
     pub lib: Option<OsString>,
 }
 
 /// `LIB` for `arch` when the environment does not set it: the first tool set that has the
 /// runtime libraries, with the SDK's.
-pub(crate) fn lib_env(arch: &str) -> Option<OsString> {
+pub fn lib_env(arch: &str) -> Option<OsString> {
     if std::env::var_os("LIB").is_some_and(|v| !v.is_empty()) {
         return None;
     }
@@ -189,8 +189,19 @@ pub(crate) fn lib_env(arch: &str) -> Option<OsString> {
         .and_then(|dirs| std::env::join_paths(dirs).ok())
 }
 
+/// Library directories selected by the same LIB/SDK discovery as native linking.
+#[cfg(windows)]
+pub(crate) fn library_dirs(arch: &str) -> Vec<PathBuf> {
+    let value = std::env::var_os("LIB")
+        .filter(|v| !v.is_empty())
+        .or_else(|| lib_env(arch));
+    value
+        .map(|v| std::env::split_paths(&v).collect())
+        .unwrap_or_default()
+}
+
 /// Microsoft's `tool` (`link.exe`, `lib.exe`) from a Visual Studio installation, for `arch`.
-pub(crate) fn find_tool(tool: &str, arch: &str) -> Option<Tool> {
+pub fn find_tool(tool: &str, arch: &str) -> Option<Tool> {
     let sets = msvc_tool_sets(&visual_studio_roots());
     let set = sets
         .iter()
@@ -209,7 +220,7 @@ pub(crate) fn find_tool(tool: &str, arch: &str) -> Option<Tool> {
 
 /// A Clang that is installed but not on `PATH`: the LLVM installer's default folder, then the
 /// one Visual Studio's "C++ Clang tools" component adds.
-pub(crate) fn find_clang() -> Option<PathBuf> {
+pub fn find_clang() -> Option<PathBuf> {
     let mut candidates: Vec<PathBuf> = program_files()
         .into_iter()
         .map(|base| base.join(r"LLVM\bin\clang.exe"))
@@ -230,7 +241,7 @@ pub(crate) fn find_clang() -> Option<PathBuf> {
 }
 
 /// Every `name` (or `name.exe`) on `PATH`, in order.
-pub(crate) fn on_path(name: &str) -> Vec<PathBuf> {
+pub fn on_path(name: &str) -> Vec<PathBuf> {
     let Some(path) = std::env::var_os("PATH") else {
         return Vec::new();
     };
@@ -254,7 +265,7 @@ pub(crate) fn is_microsoft_linker_banner(output: &str) -> bool {
 }
 
 /// Whether `program` is Microsoft's `link.exe`.
-pub(crate) fn is_microsoft_linker(program: &Path) -> bool {
+pub fn is_microsoft_linker(program: &Path) -> bool {
     Command::new(program)
         .arg("/?")
         .output()

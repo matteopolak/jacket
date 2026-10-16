@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
+import { checkScriptingIo } from "./scripting_io_wasm.mjs";
 import { checkSourceExamples, workspaceFiles } from "./examples_wasm.mjs";
 const path = process.argv[2];
 if (!path) throw new Error("usage: node tools/check_scripting_wasm.mjs <jai_wasm.wasm>");
@@ -34,38 +35,8 @@ assert(missing.diagnostics.some(item => /missing/.test(item.message)), "Unknown 
 const examples = await checkSourceExamples(engine);
 console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repeated runs and diagnostics; examples: ${examples.join(", ")})`);
 
-// Arguments and standard input: fixed (`stdin` option) and, with JSPI, supplied by the page as the
-// program reads (`jai_stdin_read` waits for a line, answers 0 at the end of input).
-const echo = {
-  "main.jai": '#import "Basic"; #import "POSIX"; main :: () { args := get_command_line_arguments(); print("argc=% last=%\\n", args.count, args[args.count - 1]); buf: [64] u8; line := fgets(buf.data, 64, stdin); print("got %", to_string(buf.data)); line = fgets(buf.data, 64, stdin); print("then %\\n", line == null); }',
-};
-const fixed = engine.play(echo, "main.jai", { args: ["main", "a b"], stdin: "hello\n" });
-assert.equal(fixed.stdout, "argc=2 last=a b\ngot hello\nthen true\n", fixed.rendered);
-if (engine.jspi) {
-  const lines = ["typed\n", ""];
-  const waited = [];
-  const live = await createEngine(await readFile(path), { host: { functions: {
-    jai_stdin_read([pointer, capacity], memory) {
-      const line = new TextEncoder().encode(lines.shift() ?? "");
-      waited.push(line.length);
-      return new Promise(resolve => setTimeout(() => {
-        new Uint8Array(memory.buffer, Number(pointer), Number(capacity)).set(line);
-        resolve(line.length);
-      }, 5));
-    },
-  } } });
-  const interactive = await live.playAsync(echo, "main.jai", { args: ["main"] });
-  assert.equal(interactive.stdout, "argc=1 last=main\ngot typed\nthen true\n", interactive.rendered);
-  assert.deepEqual(waited, [6, 0]);
-}
-console.log("PASS: arguments and standard input");
-
-// `exit(n)` ends the program with exit code n and keeps the output so far, as returning from main does.
-const exited = engine.play({ "main.jai": '#import "Basic"; main :: () { print("before\\n"); exit(7); print("after\\n"); }' }, "main.jai");
-assert.equal(exited.exitCode, 7, exited.rendered);
-assert.equal(exited.stdout, "before\n");
-assert.deepEqual(exited.diagnostics, []);
-console.log("PASS: exit");
+// Keep supported C bridge I/O checks independently runnable from graphical examples.
+await checkScriptingIo(engine, async options => createEngine(await readFile(path), options));
 
 // The tour runs every stop with no arguments and no input.
 const tour = await workspaceFiles(fileURLToPath(new URL("../examples/tour", import.meta.url)));
