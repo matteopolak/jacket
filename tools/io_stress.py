@@ -32,6 +32,7 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from http_native import ensure_native_libraries
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TESTS = [
@@ -121,6 +122,7 @@ def main():
         print("skipping the asan variant: AddressSanitizer is Linux-only here")
         variants.remove("asan")
 
+    ensure_native_libraries()
     work = Path(tempfile.mkdtemp(prefix="io-stress-"))
     failures = []
     runs = 0

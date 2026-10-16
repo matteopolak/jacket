@@ -755,3 +755,4 @@ Ready final cohort: [AppKit/Cocoa](status/shared-appkit-cocoa-checkpoint.json), 
 [Reviewed Metal Color attachment embedding](native/metal-render-pass-attachments.md) has22verified source/link checks; the [integration receipt](status/shared-metal-attachment-checkpoint.json) keeps allthree native programs explicitly pending.
 
 [Current pointer-subscript integration](status/shared-pointer-subscript-checkpoint.json) records exact fb7 adoption, preserved visibility,8/7 and14/1 failures,82passingfocusedchecks and the separate missing Bucket_Array implementation.
+- [HTTP conformance native dependency setup and CI failure triage](tools/http-native-setup.md)

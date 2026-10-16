@@ -96,8 +96,9 @@ def fetch(source: dict, cache: Path) -> Path:
         if done.exists() and done.read_text() == archive['sha256']:
             return base
         data = download(archive['url'], archive['sha256'])
-        shutil.rmtree(base, ignore_errors=True)
-        base.mkdir(parents=True)
+        if base.exists():
+            shutil.rmtree(base)
+        base.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory() as tmp:
             packed = Path(tmp) / 'source.pack'
             packed.write_bytes(data)
@@ -109,8 +110,9 @@ def fetch(source: dict, cache: Path) -> Path:
                     # Python before 3.12 (macOS's own) has no extraction filters.
                     tar.extractall(tmp, **({'filter': 'data'} if hasattr(tarfile, 'data_filter') else {}))
             top = Path(tmp) / archive['root']
-            for entry in top.iterdir():
-                shutil.move(str(entry), base / entry.name)
+            # Relocate the directory as a unit. Per-file moves can remove
+            # AppleDouble companions while iterating on macOS/exFAT volumes.
+            shutil.move(str(top), base)
         done.write_text(archive['sha256'])
         return base
     for rel, digest in source['files'].items():

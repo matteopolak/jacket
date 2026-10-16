@@ -38,6 +38,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from http_native import ensure_native_libraries
 
 ROOT = Path(__file__).resolve().parent.parent
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
@@ -164,7 +165,6 @@ def check_server(jaic):
             except OSError:
                 time.sleep(0.1)
 
-        crlf = b"\r\n"
         ok_get = b"GET /a/b?x=1 HTTP/1.1\r\nHost: t\r\n\r\n"
 
         raw = exchange(port, ok_get, 0.5)
@@ -303,6 +303,9 @@ def main():
     args = ap.parse_args()
 
     jaic = find_jaic(args.jaic)
+    # Configure the parent too: runtime-harness child environment changes cannot
+    # supply the following echo-server/llhttp compiler processes.
+    ensure_native_libraries()
     ok = check_corpus()
     ok = run_harness(jaic, args.modes, ["Extensions/Http/tests", "http-codec"], args.jobs) and ok
     ok = check_server(jaic) and ok
@@ -313,4 +316,5 @@ def main():
     sys.exit(0 if ok else 1)
 
 
-main()
+if __name__ == "__main__":
+    main()

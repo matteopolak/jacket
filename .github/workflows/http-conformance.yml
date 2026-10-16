@@ -13,6 +13,10 @@ on:
       - tools/native/mbedtls/**
       - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
+      - tools/http_native.py
+      - tools/test_http_native.py
+      - tools/build_native_libs.py
+      - tools/native-libs.json
       - tools/io_stress.py
       - tools/gen_http_corpus.py
       - tools/http_deviations.json
@@ -26,6 +30,10 @@ on:
       - tools/native/mbedtls/**
       - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
+      - tools/http_native.py
+      - tools/test_http_native.py
+      - tools/build_native_libs.py
+      - tools/native-libs.json
       - tools/io_stress.py
       - tools/gen_http_corpus.py
       - tools/http_deviations.json
@@ -47,6 +55,7 @@ jobs:
     timeout-minutes: 40
     env:
       CARGO_INCREMENTAL: '0'
+      JAIC_NATIVE_LIBS: ${{ github.workspace }}/target/http-native-libs
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,6 +79,10 @@ jobs:
           bash tools/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+      - name: Check HTTP native dependency setup
+        run: python3 -m unittest discover -s tools -p test_http_native.py
+      - name: Build pinned HTTP TLS SDK (static and shared)
+        run: python3 tools/http_native.py --out "$JAIC_NATIVE_LIBS"
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Corpus, llhttp fixtures, smuggling and chunking tests
