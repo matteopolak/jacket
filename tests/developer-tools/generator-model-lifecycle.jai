@@ -71,6 +71,8 @@ main :: () {
         assert(generator.type_def_s32 != null && generator.type_def_u32 != null);
         assert(generator.type_def_s64 != null && generator.type_def_u64 != null);
         assert(generator.type_def_s128 != null && generator.type_def_u128 != null);
+        assert(generator.type_def_s128.hardcoded_jai_string == "S128" && generator.type_def_u128.hardcoded_jai_string == "U128");
+        assert(generator.type_def_s128.size == 16 && generator.type_def_u128.size == 16);
         assert(generator.type_def_float32 != null && generator.type_def_float64 != null);
         assert(generator.type_def_pointer_to_void != null && generator.type_def_ptr_void != null);
         assert(generator.type_def_objc_class != null && generator.type_def_objc_selector != null);

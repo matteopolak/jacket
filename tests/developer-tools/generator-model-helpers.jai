@@ -369,7 +369,11 @@ main :: () {
 
     push_context {
         context.logger = capture;
-        assert(!B.functions_are_equivalent(*first, *second));
+        before := errors;
+
+        // Numeric unsigned128 encoding participates in the reviewed scalar
+        // relation, which ignores top-level qualification on arguments.
+        assert(B.functions_are_equivalent(*first, *second) && errors == before);
     }
 
     left_arg.type = null;

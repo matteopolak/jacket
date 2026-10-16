@@ -17,7 +17,7 @@ read_integer :: (p: *u8, count: s64) -> u64 {
 main :: () {
     #assert !#exists(M.finish);
     #assert !#exists(M.absorb_state_blocks);
-    filename := sprint("%/../../target/portable-tests/meow-fixtures/vectors.bin", S.path_strip_filename(#file));
+    filename := S.join(S.path_strip_filename(#file), "fixtures/meow-vectors.bin");
 
     defer free(filename);
     bytes, loaded := F.read_entire_file(filename);

@@ -3,6 +3,11 @@ M :: #import "meow_hash";
 Again :: #import "meow_hash";
 
 main :: () {
+    #assert M.MEOW_HASH_VERSION == 5;
+    #assert M.MEOW_HASH_VERSION_NAME == "0.5/calico";
+    #assert M.MEOW_PAGESIZE == 4096;
+    #assert M.MEOW_PREFETCH == 4096;
+    #assert M.MEOW_PREFETCH_LIMIT == 0x3ff;
     assert(type_info(M.reg) == type_info(__reg));
     assert(*M.MeowMaskLen == *Again.MeowMaskLen);
     assert(*M.MeowShiftAdjust == *Again.MeowShiftAdjust);
