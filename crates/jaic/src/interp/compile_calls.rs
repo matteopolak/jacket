@@ -39,6 +39,7 @@ impl Interp {
         self.ready_callables.insert(function);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(super) fn inspect_callable(&mut self, program: &Program, function: FuncId) -> Res<()> {
         if self.compile_time
             && self.defer_missing_bodies
