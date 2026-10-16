@@ -85,7 +85,39 @@ def native_plan(target, native, stdlib, root=ROOT):
             for name in ["jai_audio_output", "stb_vorbis"]
             for ext in [".a", suffix]
         ]
-    return {"commands": [crash, audio], "required": required, "runtime": runtime}
+    commands = [crash, audio]
+    if system == "linux":
+        commands.append(
+            [
+                sys.executable,
+                str(root / "tools/build_portable_clipboard.py"),
+                "--output",
+                str(native),
+            ]
+        )
+        required += [
+            native / name
+            for name in ["libportable_clipboard.a", "libportable_clipboard.so"]
+        ]
+    return {"commands": commands, "required": required, "runtime": runtime}
+
+
+def verify_clipboard_build(native, root):
+    receipt = json.loads((native / "portable-clipboard-build.json").read_text())
+    inputs = {
+        "stdlib/internal/clipboard/native/" + name
+        for name in ["data.c", "data.h", "x11.c"]
+    }
+    if set(receipt["inputs"]) != inputs or any(
+        file_sha256(root / name) != receipt["inputs"][name] for name in inputs
+    ):
+        raise ValueError("clipboard build source receipt mismatch")
+    for filename, key in [
+        ("libportable_clipboard.a", "archive_sha256"),
+        ("libportable_clipboard.so", "shared_sha256"),
+    ]:
+        if file_sha256(native / filename) != receipt[key]:
+            raise ValueError("clipboard build artifact receipt mismatch")
 
 
 def prepare_native_dependencies(target, native, stdlib, root=ROOT):
@@ -109,6 +141,8 @@ def prepare_native_dependencies(target, native, stdlib, root=ROOT):
             raise ValueError("audio helper build receipt/artifact hash mismatch")
     if len(audio["artifacts"]) != 4:
         raise ValueError("incomplete audio helper build receipt")
+    if target.startswith("linux-"):
+        verify_clipboard_build(native, root)
     if not target.startswith("windows-"):
         portable = json.loads(
             (plan["runtime"] / "portable-crash-build.json").read_text()

@@ -539,18 +539,32 @@ impl Compiler {
         params: Vec<(Sym, Value, TypeId)>,
         span: Span,
     ) -> Result<ModuleId> {
+        self.load_module_request(name, entry, params, span, None)
+    }
+
+    fn load_module_request(
+        &mut self,
+        name: &str,
+        entry: &Path,
+        params: Vec<(Sym, Value, TypeId)>,
+        span: Span,
+        import: Option<&ast::Import>,
+    ) -> Result<ModuleId> {
         self.check_source_access(entry, span)?;
         // Jai identifies an instance by the argument list as written. Reordering
         // named arguments creates another instance, even when the effective values match.
         // Keep positional names and explicit/default argument differences in the key too.
         let key = (self.fs.canonical(entry), params.clone());
         if let Some(&id) = self.module_cache.get(&key) {
+            if let Some(import) = import {
+                self.validate_or_queue_import_groups(id, import)?;
+            }
             return self.module_load_result(id);
         }
         // Program parameters (`#import "Basic"()(MEMORY_DEBUGGER=true)`) configure the
         // one instance every importer shares.
         if !params.is_empty()
-            && let Some(id) = self.program_instance(&key.0, &params, span)?
+            && let Some(id) = self.program_instance(&key.0, &params, span, import)?
         {
             return self.module_load_result(id);
         }
@@ -576,6 +590,7 @@ impl Compiler {
         self.modules.push(Module {
             loading: true,
             argument_span: span,
+            argument_imports: import.cloned().map(Rc::new).into_iter().collect(),
             arguments_validated: false,
             name: name.to_string(),
             path: Some(entry.to_path_buf()),
@@ -667,10 +682,14 @@ impl Compiler {
         if Some(self.scope(file_scope).module) != self.main_module {
             return;
         }
+        let Some(start) = import.program_params_start else {
+            return;
+        };
+        let arguments = &import.params[start..];
         let ast::ImportSource::Module(name) = &import.source else {
             return;
         };
-        if import.params.iter().all(|a| a.name.is_none()) {
+        if arguments.iter().all(|a| a.name.is_none()) {
             return;
         }
         let file = self.scope(file_scope).file.unwrap_or_default();
@@ -678,7 +697,7 @@ impl Compiler {
             return;
         };
         let path = self.fs.canonical(&entry);
-        for arg in &import.params {
+        for arg in arguments {
             if let Some(n) = arg.name {
                 self.program_param_settings.push((
                     path.clone(),
@@ -745,6 +764,7 @@ impl Compiler {
         path: &Path,
         params: &[(Sym, Value, TypeId)],
         span: Span,
+        import: Option<&ast::Import>,
     ) -> Result<Option<ModuleId>> {
         let Some(id) = self
             .module_cache
@@ -761,6 +781,9 @@ impl Compiler {
             .all(|(n, ..)| module.program_params.contains(n))
         {
             return Ok(None);
+        }
+        if let Some(import) = import {
+            self.validate_or_queue_import_groups(id, import)?;
         }
         self.module_load_result(id)?;
         for (name, value, ty) in params {
@@ -1154,6 +1177,17 @@ impl Compiler {
                 } = &**boxed;
                 let module = self.scope(scope).module;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
+                for import in self.modules[module.0 as usize].argument_imports.clone() {
+                    let ordinary = params
+                        .iter()
+                        .filter_map(|p| p.name.map(|n| n.name))
+                        .collect::<Vec<_>>();
+                    let program = runtime_params
+                        .iter()
+                        .filter_map(|p| p.name.map(|n| n.name))
+                        .collect::<Vec<_>>();
+                    self.validate_import_groups(&import, &ordinary, &program)?;
+                }
                 for (position, param) in params.iter().chain(runtime_params).enumerate() {
                     self.declare_module_parameter(scope, module, position, param, eval_scope)?;
                 }
@@ -1178,6 +1212,12 @@ impl Compiler {
                 self.modules[module.0 as usize]
                     .program_params
                     .extend(program);
+                // Registering a typed slot may reenter the loader. Check any
+                // requests queued during registration before releasing provenance.
+                for import in self.modules[module.0 as usize].argument_imports.clone() {
+                    self.validate_or_queue_import_groups(module, &import)?;
+                }
+                self.modules[module.0 as usize].argument_imports.clear();
                 // The trailing block declares names the parameter defaults may use.
                 if let Some(body) = body {
                     self.declare_stmts(scope, file_scope, &body.stmts, vis)?;
@@ -1638,6 +1678,7 @@ impl Compiler {
                 // One runtime per program; explicit arguments must describe that
                 // configured instance rather than silently changing or ignoring it.
                 let id = self.runtime_support.unwrap();
+                self.validate_or_queue_import_groups(id, import)?;
                 let entities = self.modules[id.0 as usize].param_entities.clone();
                 for (name, value, _) in params {
                     let entity = if let Some(position) = name.as_str().strip_prefix('$') {
@@ -1685,7 +1726,7 @@ impl Compiler {
                     // A newly supplied import wins even if filesystem discovery
                     // missed earlier in this analysis. Evaluate it normally.
                     if let Some(id) =
-                        self.provided_module(&provided, &host, name, &dir, &params, import.span)?
+                        self.provided_module(&provided, &host, name, &dir, &params, import)?
                     {
                         return Ok(id);
                     }
@@ -1694,7 +1735,7 @@ impl Compiler {
                 }
                 let Some(entry) = self.find_module(&wanted, &dir) else {
                     if let Some(id) =
-                        self.provided_module(&provided, &host, name, &dir, &params, import.span)?
+                        self.provided_module(&provided, &host, name, &dir, &params, import)?
                     {
                         return Ok(id);
                     }
@@ -1703,16 +1744,19 @@ impl Compiler {
                     self.ide_record_missing_module(from_scope, import.span, &wanted, &dir, &error);
                     return Err(Box::new(error));
                 };
-                self.load_module(&wanted, &entry, params, import.span)
+                self.load_module_request(&wanted, &entry, params, import.span, Some(import))
             }
             ast::ImportSource::File(path) | ast::ImportSource::Dir(path) => {
                 let entry =
                     import_entry(&*self.fs, &self.options.import_paths, &import.source, &dir)
                         .unwrap_or_default();
-                self.load_module(path, &entry, params, import.span)
+                self.load_module_request(path, &entry, params, import.span, Some(import))
             }
             ast::ImportSource::String(source) => {
                 let id = self.new_module("string", None, params);
+                self.modules[id.0 as usize]
+                    .argument_imports
+                    .push(Rc::new(import.clone()));
                 let label = format!("<import string {}>", self.sources.len());
                 self.load_string(&label, source, id)?;
                 self.validate_module_arguments(id, import.span)?;
@@ -1737,6 +1781,73 @@ impl Compiler {
         Ok(())
     }
 
+    fn validate_or_queue_import_groups(
+        &mut self,
+        id: ModuleId,
+        import: &ast::Import,
+    ) -> Result<()> {
+        let module = &mut self.modules[id.0 as usize];
+        if !module.arguments_validated {
+            // A recursive or deferred header has not registered its slots yet.
+            // Retain each request for validation before that header binds values.
+            module.argument_imports.push(Rc::new(import.clone()));
+            return Ok(());
+        }
+        let module = &self.modules[id.0 as usize];
+        let ordinary = module
+            .param_entities
+            .iter()
+            .map(|&id| self.entity(id).name)
+            .filter(|name| !module.program_params.contains(name))
+            .collect::<Vec<_>>();
+        self.validate_import_groups(import, &ordinary, &module.program_params)
+    }
+
+    /// Written groups bind only their declared category, including on cache hits.
+    fn validate_import_groups(
+        &self,
+        import: &ast::Import,
+        ordinary: &[Sym],
+        program: &[Sym],
+    ) -> Result<()> {
+        let split = import.program_params_start.unwrap_or(import.params.len());
+        for (args, names, label) in [
+            (&import.params[..split], ordinary, "module"),
+            (&import.params[split..], program, "program"),
+        ] {
+            if args.len() > names.len() {
+                return err(
+                    import.span,
+                    format!(
+                        "Too many {label} parameters: Wanted {}, got {}.",
+                        names.len(),
+                        args.len()
+                    ),
+                );
+            }
+            for arg in args {
+                if let Some(name) = arg.name
+                    && !names.contains(&name.name)
+                {
+                    let belongs_to_other_list =
+                        ordinary.contains(&name.name) || program.contains(&name.name);
+                    return err(
+                        name.span,
+                        if belongs_to_other_list {
+                            format!(
+                                "argument `{}` is not a {label} parameter of this module",
+                                name.name
+                            )
+                        } else {
+                            format!("argument `{}` is not a parameter of this module", name.name)
+                        },
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// The module a metaprogram supplied with `provide_import` for `host` importing `name`.
     fn provided_module(
         &mut self,
@@ -1745,8 +1856,9 @@ impl Compiler {
         name: &str,
         dir: &Path,
         params: &[(Sym, Value, TypeId)],
-        span: Span,
+        import: &ast::Import,
     ) -> Result<Option<ModuleId>> {
+        let span = import.span;
         let Some(provided) = provided
             .iter()
             .rev()
@@ -1764,9 +1876,13 @@ impl Compiler {
             ),
             ProvidedKind::FullText => {
                 if let Some(&id) = self.provided_texts.get(&provided.value) {
+                    self.validate_or_queue_import_groups(id, import)?;
                     return Ok(Some(id));
                 }
                 let id = self.new_module(name, None, params.to_vec());
+                self.modules[id.0 as usize]
+                    .argument_imports
+                    .push(Rc::new(import.clone()));
                 let label = format!("<provided import {name}>");
                 self.load_string(&label, &provided.value, id)?;
                 self.validate_module_arguments(id, span)?;
@@ -1775,11 +1891,12 @@ impl Compiler {
             }
         };
         match entry {
-            Some(entry) if self.fs.is_file(&entry) => Ok(Some(self.load_module(
+            Some(entry) if self.fs.is_file(&entry) => Ok(Some(self.load_module_request(
                 name,
                 &entry,
                 params.to_vec(),
                 span,
+                Some(import),
             )?)),
             _ => Ok(None),
         }
@@ -1805,6 +1922,7 @@ impl Compiler {
         self.modules.push(Module {
             loading: false,
             argument_span: Span::NONE,
+            argument_imports: Vec::new(),
             arguments_validated: false,
             name: name.into(),
             path,

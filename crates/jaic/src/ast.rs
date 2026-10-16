@@ -854,6 +854,8 @@ pub struct Import {
     pub source: ImportSource,
     /// `#import "X"(PARAM=1)`
     pub params: Vec<Arg>,
+    /// The first argument list was written, even when empty.
+    pub module_params_present: bool,
     /// Start of the second (PROGRAM) argument list in `params`, if written.
     pub program_params_start: Option<usize>,
     /// `Name :: #import "X"` binds a namespace instead of importing names.

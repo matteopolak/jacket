@@ -279,7 +279,7 @@ fn unused_program_parameters_can_bind_after_the_initial_import() {
             ("/lib/Record/module.jai", "#module_parameters()(N:int);"),
             (
                 "/app/main.jai",
-                "A :: #import \"Record\"; B :: #import \"Record\"(N=9); #assert(A.N==9); #assert(B.N==9); main :: () {}",
+                "A :: #import \"Record\"; B :: #import \"Record\"()(N=9); #assert(A.N==9); #assert(B.N==9); main :: () {}",
             ),
         ],
         false,
@@ -1099,7 +1099,10 @@ fn module_parameter_defaults_use_the_declaring_private_file_namespace() {
 
 #[test]
 fn bundled_modules_reject_unknown_and_excess_positional_arguments() {
-    for arguments in ["misspelled = true", "true, false"] {
+    for (arguments, category) in [
+        ("misspelled = true", "not a parameter"),
+        ("true, false", "Too many module parameters"),
+    ] {
         let main = format!("M :: #import \"Config\"({arguments});");
         let mut c = compiler(
             &[
@@ -1112,7 +1115,7 @@ fn bundled_modules_reject_unknown_and_excess_positional_arguments() {
             ],
             true,
         );
-        rejects(&mut c, "not a parameter");
+        rejects(&mut c, category);
     }
 }
 

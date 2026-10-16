@@ -10,21 +10,6 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[2]
-output = root / "target/portable-data"
-output.mkdir(parents=True, exist_ok=True)
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--native-libs", type=Path, default=output / "native")
-parser.add_argument("--compiler", type=Path)
-parser.add_argument("--formatter", type=Path)
-parser.add_argument("--linter", type=Path)
-parser.add_argument("--probe-unsupported-wasi-images", action="store_true")
-args = parser.parse_args()
-env = dict(os.environ, JAIC_NATIVE_LIBS=str(args.native_libs.resolve()), JAIC_STDLIB=str(root / "stdlib"))
-if os.name == "nt":
-    env["PATH"] = str(args.native_libs.resolve()) + os.pathsep + env.get("PATH", "")
-compiler = (args.compiler or root / ("target/debug/jaic.exe" if os.name == "nt" else "target/debug/jaic")).resolve(strict=True)
-formatter = (args.formatter or root / ("target/jaifmt.exe" if os.name == "nt" else "target/jaifmt")).resolve(strict=True)
-linter = (args.linter or root / ("target/debug/jailint.exe" if os.name == "nt" else "target/debug/jailint")).resolve(strict=True)
 sources = [
     "stdlib/Ico_File", "stdlib/Simple_Package", "stdlib/Subtitles",
     "stdlib/internal/resource-wire", "stdlib/internal/simple-package",
@@ -33,6 +18,40 @@ sources = [
     "stdlib/Icon", "stdlib/internal/icon-plugin",
     "stdlib/tests/portable-data-manifest.jai",
 ]
+windows_sources = ["stdlib/Windows_Resources", "stdlib/internal/windows-resources",
+                   "stdlib/tests/portable-data-resource-windows.jai",
+                   "stdlib/tests/portable-data-manifest-windows.jai",
+                   "stdlib/tests/portable-data-console-windows.jai",
+                   "stdlib/tests/portable-data-discovery-windows.jai"]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output-root", type=Path, default=root / "target/portable-data")
+parser.add_argument("--native-libs", type=Path)
+parser.add_argument("--compiler", type=Path)
+parser.add_argument("--formatter", type=Path)
+parser.add_argument("--linter", type=Path)
+parser.add_argument("--probe-unsupported-wasi-images", action="store_true")
+parser.add_argument("--lint-only", action="store_true", help="seven source/lint target contexts; no program execution")
+args = parser.parse_args()
+output = args.output_root.resolve()
+output.mkdir(parents=True, exist_ok=True)
+native_libs = args.native_libs or output / "native"
+env = dict(os.environ, JAIC_NATIVE_LIBS=str(native_libs.resolve()), JAIC_STDLIB=str(root / "stdlib"))
+if os.name == "nt":
+    env["PATH"] = str(native_libs.resolve()) + os.pathsep + env.get("PATH", "")
+linter = (args.linter or root / ("target/debug/jailint.exe" if os.name == "nt" else "target/debug/jailint")).resolve(strict=True)
+
+def context_lint():
+    subprocess.run([sys.executable, str(root / "tools/portable_data_context_lint.py"),
+                    "--linter", str(linter), "--stdlib", str(root / "stdlib"),
+                    "--output-root", str(output / "lint"), *sources, *windows_sources],
+                   cwd=root, env=env, check=True)
+
+if args.lint_only:
+    context_lint()
+    raise SystemExit(0)
+
+compiler = (args.compiler or root / ("target/debug/jaic.exe" if os.name == "nt" else "target/debug/jaic")).resolve(strict=True)
+formatter = (args.formatter or root / ("target/jaifmt.exe" if os.name == "nt" else "target/jaifmt")).resolve(strict=True)
 
 failures = []
 
@@ -50,7 +69,7 @@ def wasm_test(source, name):
 
 run(sys.executable, "tests/portable-data/api_inventory.py")
 run(formatter, "--check", *sources)
-run(linter, "-D", "warnings", *sources)
+context_lint()
 run(sys.executable, "tests/portable-data/wire_consumer.py", output, "fixtures")
 for name in ("ico-wire", "ico-filename", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     source = f"tests/portable-data/{name}.jai"
@@ -80,14 +99,7 @@ for mode in ("O0", "O2"):
 wasm_test("stdlib/tests/portable-data-manifest.jai", "manifest")
 run(sys.executable, "tests/portable-data/sdk_resources.py", output)
 run(sys.executable, "tests/portable-data/wire_consumer.py", output)
-windows_sources = ["stdlib/Windows_Resources", "stdlib/internal/windows-resources",
-                   "stdlib/tests/portable-data-resource-windows.jai",
-                   "stdlib/tests/portable-data-manifest-windows.jai",
-                   "stdlib/tests/portable-data-console-windows.jai",
-                   "stdlib/tests/portable-data-discovery-windows.jai"]
 run(formatter, "--check", *windows_sources)
-run(linter, "-D", "warnings", "-os", "windows", "--manifest",
-    output / "lint-windows-native.json", *windows_sources)
 for cpu in ("x64", "arm64"):
     for source in windows_sources[2:]:
         run(compiler, "-check", "-no_dce", "-os", "windows", "-cpu", cpu, source)
@@ -96,8 +108,6 @@ contexts = [(os_name, cpu) for os_name in ("macos", "linux", "windows")
 for os_name, cpu in contexts:
     target_args = ["-os", os_name] + (["-cpu", cpu] if cpu else [])
     tag = os_name + (f"-{cpu}" if cpu else "")
-    run(linter, "-D", "warnings", *target_args,
-        "--manifest", output / f"lint-{tag}.json", *sources)
     for name in ("ico-wire", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
         run(compiler, "-check", "-no_dce", *target_args,
             f"tests/portable-data/{name}.jai")

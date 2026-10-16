@@ -338,6 +338,13 @@
     "stdout": "ok\n"
   },
   {
+    "name": "basic-slice-resize-contracts",
+    "source": "basic/slice-resize-contracts.jai",
+    "mode": "interp",
+    "timeout_seconds": 20,
+    "stdout": "ok\n"
+  },
+  {
     "name": "hash-scalar-mixing-contract",
     "source": "hash/scalar-mixing.jai",
     "mode": "interp",

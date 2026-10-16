@@ -2714,12 +2714,26 @@ impl Exporter<'_> {
                     rec.int("__syntax_filter_kind", kind)
                         .ptr("__syntax_filter_expression", expression);
                 }
-                if !import.params.is_empty() {
-                    let (arguments, _) = self.args(&import.params);
-                    let mut call = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
-                    call.refs("arguments_unsorted", arguments);
-                    let call = self.add(call);
-                    rec.ptr("module_parameters_call", call);
+                let split = import.program_params_start.unwrap_or(import.params.len());
+                for (field, args, present) in [
+                    (
+                        "module_parameters_call",
+                        &import.params[..split],
+                        import.module_params_present,
+                    ),
+                    (
+                        "program_parameters_call",
+                        &import.params[split..],
+                        import.program_params_start.is_some(),
+                    ),
+                ] {
+                    if present {
+                        let (arguments, _) = self.args(args);
+                        let mut call = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
+                        call.refs("arguments_unsorted", arguments);
+                        let call = self.add(call);
+                        rec.ptr(field, call);
+                    }
                 }
                 self.add(rec)
             }

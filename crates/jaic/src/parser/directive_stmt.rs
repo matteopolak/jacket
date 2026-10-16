@@ -167,6 +167,7 @@ impl Parser<'_> {
             StmtKind::Import(Rc::new(Import {
                 source,
                 params,
+                module_params_present: groups != 0,
                 program_params_start,
                 name,
                 flags,

@@ -162,3 +162,63 @@ fn duplicate_and_mixed_list_bindings_are_still_rejected() {
         );
     }
 }
+
+#[test]
+fn first_list_cannot_bind_a_declared_program_slot() {
+    for source in [
+        "#import \"Settings\"(enabled=false);",
+        "#import \"Settings\"(enabled=false)(local=9);",
+    ] {
+        let mut compiler = compiler(&[("/app/main.jai", source)]);
+        let error = compiler
+            .compile_program(Path::new("/app/main.jai"))
+            .expect_err("first-list names cannot target PROGRAM slots");
+        assert!(
+            error.message.contains("module parameter"),
+            "{}",
+            error.render(&compiler.sources)
+        );
+    }
+}
+
+#[test]
+fn first_list_arguments_never_record_speculative_program_settings() {
+    let mut compiler = compiler(&[("/app/main.jai", "#import \"Settings\"(enabled=false);")]);
+    compiler
+        .prepare_sources(&[ProgramSource::File("/app/main.jai".into())])
+        .unwrap();
+    assert!(compiler.program_param_settings.is_empty());
+    assert!(compiler.settle().is_err());
+}
+
+#[test]
+fn program_only_header_rejects_first_list_with_official_count_category() {
+    for prefix in [
+        "",
+        "P::#import \"OnlyProgram\"; #assert P.ready;",
+        "P::#import \"OnlyProgram\"()(enabled=false); #assert P.ready;",
+    ] {
+        let main = format!("{prefix} #import \"Provider\";");
+        let mut compiler = compiler(&[
+            (
+                "/lib/OnlyProgram/module.jai",
+                "#module_parameters ()(enabled:=true); ready::true;",
+            ),
+            (
+                "/lib/Provider/module.jai",
+                "#import \"OnlyProgram\"(enabled=false); ready::true;",
+            ),
+            ("/app/main.jai", &main),
+        ]);
+        let error = compiler
+            .compile_program(Path::new("/app/main.jai"))
+            .expect_err("first-list overflow must reject, even for cached module");
+        assert!(
+            error
+                .message
+                .contains("Too many module parameters: Wanted 0, got 1"),
+            "{}",
+            error.render(&compiler.sources)
+        );
+    }
+}

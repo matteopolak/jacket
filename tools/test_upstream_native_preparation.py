@@ -19,6 +19,41 @@ class NativePreparation(unittest.TestCase):
         cls.tool = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.tool)
 
+    def test_clipboard_source_and_both_artifacts_must_match_receipt(self):
+        # Metadata fixtures only, not source/build/runtime evidence.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            native = root / "native"
+            native.mkdir()
+            inputs = {}
+            for name in ["data.c", "data.h", "x11.c"]:
+                relative = "stdlib/internal/clipboard/native/" + name
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("/* hash policy fixture */\n")
+                inputs[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            receipt = {"inputs": inputs}
+            for filename, key in [
+                ("libportable_clipboard.a", "archive_sha256"),
+                ("libportable_clipboard.so", "shared_sha256"),
+            ]:
+                path = native / filename
+                path.write_bytes(b"non-executable hash fixture")
+                receipt[key] = hashlib.sha256(path.read_bytes()).hexdigest()
+            record = native / "portable-clipboard-build.json"
+            record.write_text(json.dumps(receipt))
+            self.tool.verify_clipboard_build(native, root)
+            original = receipt["shared_sha256"]
+            receipt["shared_sha256"] = "0" * 64
+            record.write_text(json.dumps(receipt))
+            with self.assertRaisesRegex(ValueError, "clipboard.*artifact"):
+                self.tool.verify_clipboard_build(native, root)
+            receipt["shared_sha256"] = original
+            receipt["inputs"]["stdlib/internal/clipboard/native/x11.c"] = "0" * 64
+            record.write_text(json.dumps(receipt))
+            with self.assertRaisesRegex(ValueError, "clipboard.*source"):
+                self.tool.verify_clipboard_build(native, root)
+
     def test_all_six_plans_prepare_matching_helpers_in_normal_consumer_locations(self):
         for system in ["macos", "linux", "windows"]:
             for cpu in ["x64", "arm64"]:
@@ -29,8 +64,24 @@ class NativePreparation(unittest.TestCase):
                     plan = self.tool.native_plan(
                         platform, native, root / "stdlib", root
                     )
-                    self.assertEqual(len(plan["commands"]), 2)
-                    crash, audio = plan["commands"]
+                    self.assertEqual(
+                        len(plan["commands"]), 3 if system == "linux" else 2
+                    )
+                    crash, audio = plan["commands"][:2]
+                    if system == "linux":
+                        clipboard = plan["commands"][2]
+                        self.assertIn(
+                            str(root / "tools/build_portable_clipboard.py"), clipboard
+                        )
+                        self.assertEqual(
+                            Path(clipboard[clipboard.index("--output") + 1]), native
+                        )
+                        self.assertIn(
+                            native / "libportable_clipboard.a", plan["required"]
+                        )
+                        self.assertIn(
+                            native / "libportable_clipboard.so", plan["required"]
+                        )
                     self.assertIn(str(root / "tools/audio_build_native.py"), audio)
                     self.assertEqual(audio[audio.index("--platform") + 1], platform)
                     self.assertEqual(Path(audio[audio.index("--out") + 1]), native)
@@ -117,7 +168,7 @@ class NativePreparation(unittest.TestCase):
                     self.tool.prepare_native_dependencies(
                         "linux-x64", root / "native", root / "stdlib", root
                     )
-                self.assertEqual(run.call_count, 2)
+                self.assertEqual(run.call_count, 3)
                 self.assertTrue(
                     all(call.kwargs["check"] for call in run.call_args_list)
                 )
@@ -135,6 +186,7 @@ class NativePreparation(unittest.TestCase):
                 p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in plan["required"]
                 if p.parent == native
+                and p.name.startswith(("libjai_audio_output.", "libstb_vorbis."))
             }
             for target, changed in [
                 ("linux-arm64", artifacts),
@@ -165,9 +217,30 @@ class NativePreparation(unittest.TestCase):
                 p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in plan["required"]
                 if p.parent == native
+                and p.name.startswith(("libjai_audio_output.", "libstb_vorbis."))
             }
             (native / "audio-build.json").write_text(
                 json.dumps({"platform": "linux-x64", "artifacts": audio})
+            )
+            inputs = {}
+            for name in ["data.c", "data.h", "x11.c"]:
+                relative = "stdlib/internal/clipboard/native/" + name
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("/* source hash fixture */\n")
+                inputs[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            (native / "portable-clipboard-build.json").write_text(
+                json.dumps(
+                    {
+                        "inputs": inputs,
+                        "archive_sha256": hashlib.sha256(
+                            (native / "libportable_clipboard.a").read_bytes()
+                        ).hexdigest(),
+                        "shared_sha256": hashlib.sha256(
+                            (native / "libportable_clipboard.so").read_bytes()
+                        ).hexdigest(),
+                    }
+                )
             )
             source = plan["runtime"] / "runtime.c"
             source.write_text("/* original hash-contract fixture, never compiled */\n")
@@ -192,7 +265,7 @@ class NativePreparation(unittest.TestCase):
                 with (
                     patch.object(self.tool, "host_platform", return_value="linux-x64"),
                     patch.object(self.tool.subprocess, "run"),
-                    self.assertRaises(ValueError),
+                    self.assertRaisesRegex(ValueError, "portable crash"),
                 ):
                     self.tool.prepare_native_dependencies(
                         "linux-x64", native, stdlib, root

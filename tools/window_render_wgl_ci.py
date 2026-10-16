@@ -14,10 +14,86 @@ import re
 import shutil
 import struct
 import subprocess
+from cleanroom_lint_contexts import checked_coverage
 
 ROOT = Path(__file__).resolve().parents[1]
+CASES = (
+    "windows-wgl-driver",
+    "windows-render-events",
+    "windows-render-public",
+    "windows-render-lifecycle",
+)
 
 
+def lint_jobs(linter, library, output):
+    """Private requested files retain the provenance of their public importer."""
+    # Entry files include their transitive #loads in jailint's report. Recursive
+    # directory roots would also compile Mac-only tests in this Windows gate.
+    public = [
+        library / name / "module.jai"
+        for name in [
+            "Window_Type",
+            "Window_Creation",
+            "Input",
+            "Keymap",
+            "Gamepad",
+            "Gamepad/SDL_Input_Map",
+            "Simp",
+            "Srgb",
+            "Clipboard",
+        ]
+    ]
+    public += [
+        library / name
+        for name in [
+            "Input/tests/windows-device-decoding.jai",
+            "Input/tests/signed-native-fields.jai",
+            "Simp/tests/glyph-atlas.jai",
+            "Simp/tests/texture-packing.jai",
+        ]
+    ]
+    programs = [ROOT / f"tests/window-render/{case}.jai" for case in CASES]
+    private = [
+        library / "internal/rendering/window-contexts.jai",
+        library / "internal/window/lifecycle.jai",
+        library / "internal/input/native-fields.jai",
+        library / "internal/input/windows-devices/module.jai",
+    ]
+    jobs = []
+    for name, paths, context, required in [
+        ("public", public + programs, None, public + programs),
+        ("private", private, programs[1], private),
+    ]:
+        manifest = output / f"owned-WGL-lint-{name}.json"
+        command = [linter, "-D", "warnings", "-I", library, "--manifest", manifest]
+        if context:
+            command += ["--context", context]
+        jobs.append(
+            {
+                "name": name,
+                "command": command + paths,
+                "manifest": manifest,
+                "required": required,
+            }
+        )
+    return jobs
+
+
+def lint_coverage(manifest, status, required):
+    try:
+        coverage = checked_coverage(json.loads(manifest.read_text()), status)
+        coverage["missing_required"] = sorted(
+            str(path.resolve())
+            for path in required
+            if str(path.resolve()) not in coverage["visited_complete"]
+        )
+        coverage["clean"] = coverage["clean"] and not coverage["missing_required"]
+        return coverage
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return {
+            "clean": False,
+            "error": f"invalid or missing lint coverage manifest: {error}",
+        }
 def pe_machine(path):
     with path.open("rb") as source:
         header = source.read(64)
@@ -140,7 +216,7 @@ def main():
         env["GALLIUM_DRIVER"] = "llvmpipe"
     env["JAIC_STDLIB"] = str(args.stdlib.resolve(strict=True))
     env["JAIC_NATIVE_LIBS"] = os.pathsep.join(map(str, search))
-    cases = ["windows-wgl-driver", "windows-render-events", "windows-render-public", "windows-render-lifecycle"]
+    cases = CASES
     records = []
 
     def run(case, mode, command):
@@ -195,8 +271,15 @@ def main():
     # Compile/lint the actual integrated library roots, not local facade copies
     # whose parent directory could prepend inherited dependencies to imports.
     library = args.stdlib.resolve(strict=True)
-    lint_paths = wgl_lint_paths(library, cases)
-    run("owned-WGL-lint", "lint", [linter, "-D", "warnings", "-I", library, *lint_paths])
+    for job in lint_jobs(linter, library, output):
+        # A previous successful run's manifest cannot cover this invocation.
+        job["manifest"].unlink(missing_ok=True)
+        run("owned-WGL-lint", "lint-" + job["name"], job["command"])
+        record = records[-1]
+        record["coverage"] = lint_coverage(
+            job["manifest"], record["exit"], job["required"]
+        )
+        record["passed"] = record["passed"] and record["coverage"]["clean"]
     report = {"machine": machine, "driver_files": deployed, "consumer_dirs": list(map(str, consumers)), "records": records,
               "passed": all(item["passed"] for item in records)}
     (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -221,6 +304,11 @@ def main():
     # This supplies the missing rule and location for the current native lint
     # failure without exposing any dependency/corpus implementation body.
     summary["lint_diagnostics"] = []
+    summary["lint_coverage"] = [
+        {"mode": item["mode"], **item["coverage"]}
+        for item in records
+        if "coverage" in item
+    ]
     for item in records:
         if item["case"] != "owned-WGL-lint":
             continue

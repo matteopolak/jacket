@@ -917,3 +917,13 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Canonical global enum lookup](generator-model-enum-scope.md): lexical-first search reaches the active Generator Block with owner/bounds checks; eight exact ready hashes verified. Supplied Mac SDK enum/callback controls pass; the separate required incomplete opaque-printer gate remains RED and assigned.
 
 - [Nonheap numeric and tagged-union formatting](tools/toml-nonheap-formatting.md): all14 exact ready source/test/doc hashes verified against admitted patch; ten receipt-policy checks pass. Producer proof preserves all four original nonheap cases and reports33 actual Mac interpreter/native executions; combined platform replay remains required. Root-reviewed Basic refinement and sanitized oracle retained.
+
+- [Import argument group preservation](compiler/import-argument-groups.md): exact follow-up on accepted origin validation, retaining both IDE discovery paths. Current merged93 core/101 LSP checks, Rustfmt, warnings-denied clippy and fresh tool build pass; [integration receipt](status/import-groups-integration.json). Root public child-workspace protocol replay remains required.
+
+- [WGL public/private lint contexts](status/wgl-lint-public-context.md): complete required-file coverage, prior DLL/consumer checks and four existing fixtures retained. [Adaptation receipt](status/wgl-public-context-integration.json); eleven policy checks pass, actual Windows graphics replay required.
+
+- [Upstream Linux clipboard closure](tools/upstream-linux-clipboard-closure.md): real C helper preparation plus mandatory source/artifact receipts before application links; eight policies pass, actual Linux consumer replay required.
+
+- [Storage and native elapsed-clock selection](tools/foundations-storage-clock.md): original mixed fixture remains byte-identical/native-required; identical storage assertions retain separate WASM coverage. Four ready source/doc hashes verified; current catalogue regression passes. Producer runtime proof is separately attributed.
+
+- [Portable-data public-context lint](tools/portable-data-context-lint.md): four exact ready hashes verified, four policy controls pass; unchanged runtime/SDK inventories and seven target privacy controls retained. Supplied71 complete lint contexts are separate producer evidence; current Windows native replay remains required.

@@ -160,6 +160,27 @@ class WglConsumerSetup(unittest.TestCase):
             if command[0] == str(linter):
                 self.assertIn("-D", command)
                 self.assertIn("warnings", command)
+                if "--context" not in command:
+                    # The public job succeeds with complete coverage; only the
+                    # private job returns the genuine diagnostic under test.
+                    index = command.index("--manifest")
+                    Path(command[index + 1]).write_text(
+                        json.dumps(
+                            {
+                                "version": 1,
+                                "kind": "source-check",
+                                "incomplete": [],
+                                "contexts": [
+                                    {
+                                        "complete": True,
+                                        "visited_files": command[index + 2 :],
+                                    }
+                                ],
+                                "unvisited_files": [],
+                            }
+                        )
+                    )
+                    return SimpleNamespace(returncode=0, stdout="", stderr="")
                 return SimpleNamespace(
                     returncode=1, stdout="", stderr="warning: genuine owned finding\n"
                 )

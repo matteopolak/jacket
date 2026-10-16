@@ -284,6 +284,8 @@ pub struct Module {
     /// Entry declarations are still being registered (recursive imports may see this instance).
     pub loading: bool,
     pub argument_span: Span,
+    /// Source-list provenance for validating an import before binding its header.
+    pub argument_imports: Vec<Rc<ast::Import>>,
     pub arguments_validated: bool,
     pub name: String,
     pub path: Option<PathBuf>,
