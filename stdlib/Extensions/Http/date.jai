@@ -96,22 +96,6 @@ http_date :: (cache: *Date_Cache, seconds: s64) -> string {
     return result;
 }
 
-// The date for the current time (see http_date).
-http_date_now :: (cache: *Date_Cache) -> string #no_aoc {
-    now := current_time_consensus();
-    epoch := APOLLO_TIME_FOR_JAN_1_1970;
-    elapsed: Apollo_Time;
-    elapsed.low = now.low - epoch.low;
-    borrow: u64 = ifx now.low < epoch.low then 1 else 0;
-
-    elapsed.high = now.high - epoch.high - cast(s64) borrow;
-    seconds, ok := to_seconds(elapsed);
-
-    assert(ok, "HTTP date seconds exceed the supported range");
-
-    return http_date(cache, seconds);
-}
-
 // Reads an IMF-fixdate into seconds since 1970-01-01 UTC. The obsolete RFC 850 and asctime forms
 // are not accepted.
 parse_http_date :: (text: string) -> s64, bool {

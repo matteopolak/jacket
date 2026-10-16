@@ -101,7 +101,9 @@ All append to a `[..] u8` the caller owns.
 - `write_response_head(*out, status, headers, body_length, options) -> Body_Kind, ok` and `write_request_head(*out, method, target, headers, body_length)`. The framing follows from `body_length`: a non-negative length adds `Content-Length` and the body is sent as is; `-1` (unknown) adds `Transfer-Encoding: chunked` on HTTP/1.1, or for an HTTP/1.0 response sends until close. 1xx, 204 and CONNECT 2xx responses get no framing headers, a HEAD response gets the `Content-Length` of the body it does not send. The returned `Body_Kind` says how to send the body. `Response_Options` has `version`, `reason`, `request_method`, `keep_alive` (false adds `Connection: close`), `date` and `server`.
 - Header names must be tokens and values free of control bytes; a CR or LF in a value (header injection) makes the call return `ok = false` with nothing written. Setting `Content-Length` or `Transfer-Encoding` by hand is refused too: the writer owns the framing.
 - `write_chunk(*out, data)` (an empty chunk is skipped, since a zero-size chunk ends the body), `write_last_chunk(*out, trailers)`, `write_continue(*out)`.
-- `Date_Cache` and `http_date(*cache, seconds)` / `http_date_now(*cache)` format the `Date` value once per second; `format_http_date`, `parse_http_date` (IMF-fixdate only) convert; `status_reason(status)`.
+- `Date_Cache` and `http_date(*cache, seconds)` format an explicit seconds value once per second; `format_http_date`, `parse_http_date` (IMF-fixdate only) convert; `status_reason(status)`. These explicit-value date codecs are portable, including WASM.
+
+`http_date_now(*cache)` obtains wall-clock time through `Basic.current_time_consensus()`. That Basic API is declared only for Windows, Linux, Android, and macOS; the reviewed public surface provides no WASM clock ABI or failure contract. Consequently `http_date_now` belongs to the existing native client/server adapter surface, while explicit-seconds formatting and parsing remain available to portable codec users.
 
 ### Names
 

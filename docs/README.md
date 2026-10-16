@@ -769,3 +769,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 [Required WASM tour thread provider](compiler/wasm-workspace-triage.md) uses the private scheduler with real workers; full-tour GPU/Window_Type remains red, and unchanged60d formatter replay passed after root metadata correction.
 
 [Linux Clipboard](portable-clipboard-linux.md) implements native X11 selection transfer with exact helper pins; normal ephemeral-Xvfb and relocated-package CI are wired, Linux runtime remains unverified locally.
+
+[Native HTTP date adapter](extensions/http-native-date-adapter.md) preserves the reviewed helper body/native API; portable WASM date support, real Mac3case proof and retained Windows/WASM failures are separate.

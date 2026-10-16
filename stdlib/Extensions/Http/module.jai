@@ -28,6 +28,7 @@ http_use_simd := true;
 // The server and client need fibers, which WebAssembly code cannot switch: there the module is
 // the codec alone.
 #if OS != .WASM {
+    #load "date_native.jai";
     #load "url.jai";
     #load "message.jai";
     #load "router.jai";
