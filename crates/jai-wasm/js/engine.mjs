@@ -103,7 +103,7 @@ export async function createEngine(wasmBytes, { host } = {}) {
     } catch { return ""; }
   }
   function playPush(channel, text) { for (const byte of encoder.encode(text)) playCheck(api.jai_play_push(channel, byte)); }
-  function prepare(files, main, { budget, args, stdin } = {}) {
+  function prepare(files, main, { budget, args, stdin, libraryRoot } = {}) {
       if (typeof main !== "string" || !files || typeof files !== "object") throw new TypeError("play needs a file map and a main path.");
       if (budget !== undefined && (!Number.isSafeInteger(budget) || budget <= 0)) throw new RangeError("budget must be a positive integer.");
       if (typeof api.jai_play_set_budget === "function") playCheck(api.jai_play_set_budget(budget === undefined ? 0 : Math.min(0xffffffff, Math.ceil(budget / 1000))));
@@ -114,6 +114,11 @@ export async function createEngine(wasmBytes, { host } = {}) {
         playPush(0, name); playPush(1, text); playCheck(api.jai_play_finish_file());
       }
       playPush(2, main);
+      if (libraryRoot !== undefined) {
+        if (typeof libraryRoot !== "string" || !libraryRoot.length) throw new TypeError("libraryRoot must be a nonempty relative directory.");
+        if (typeof api.jai_play_accepts_library_root !== "function" || api.jai_play_accepts_library_root() !== 1) throw new Error("This compiler build does not support a supplied library root.");
+        playPush(5, libraryRoot);
+      }
       // `args`: the program's argv (name first). `stdin`: its whole input; leave it out and the
       // page's `jai_stdin_read` host function supplies input as the program reads (playAsync).
       if (args !== undefined) for (const arg of args) { if (typeof arg !== "string" || arg.includes("\0")) throw new TypeError("Every argument must be text without NUL."); playPush(3, arg); playPush(3, "\0"); }

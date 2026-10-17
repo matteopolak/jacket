@@ -23,13 +23,26 @@ export async function collectPlayFiles(dir, base, files, { moduleWorkspace = fal
   }
 }
 
-export function playRequestSize(files, main) {
+export async function buildPlayRequest(root, test) {
+  const parts = test.path.split("/");
+  const moduleWorkspace = test.family === "modules";
+  const base = path.join(root, ...parts.slice(0, moduleWorkspace ? 1 : 2));
+  const fileBase = moduleWorkspace ? root : base;
+  const files = {};
+  await collectPlayFiles(base, fileBase, files, { moduleWorkspace });
+  const main = path.relative(fileBase, path.join(root, test.path)).replaceAll("\\", "/");
+  const libraryRoot = moduleWorkspace ? path.relative(root, base).replaceAll("\\", "/") : undefined;
+  return { files, main, libraryRoot, request: playRequestSize(files, main, { libraryRoot }) };
+}
+
+export function playRequestSize(files, main, { libraryRoot } = {}) {
   let pathBytes = 0, sourceBytes = 0;
   for (const [name, text] of Object.entries(files)) {
     pathBytes += Buffer.byteLength(name, "utf8");
     sourceBytes += Buffer.byteLength(text, "utf8");
   }
   const mainBytes = Buffer.byteLength(main, "utf8");
-  return { fileCount: Object.keys(files).length, pathBytes, sourceBytes, mainBytes,
-    totalBytes: pathBytes + sourceBytes + mainBytes };
+  const libraryRootBytes = libraryRoot === undefined ? 0 : Buffer.byteLength(libraryRoot, "utf8");
+  return { ...(libraryRoot === undefined ? {} : { libraryRootBytes }), fileCount: Object.keys(files).length, pathBytes, sourceBytes, mainBytes,
+    totalBytes: pathBytes + sourceBytes + mainBytes + libraryRootBytes };
 }

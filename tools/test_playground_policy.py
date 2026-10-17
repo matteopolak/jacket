@@ -7,6 +7,27 @@ import playground_policy as browser
 
 
 class BrowserPolicy(unittest.TestCase):
+    def test_compiler_host_clock_is_declared_before_dispatch_without_target_deferral(self):
+        cases = {case["id"]: case for case in browser.browser_cases()}
+        for name, required in browser.BROWSER_HOST_REQUIREMENTS.items():
+            self.assertEqual(
+                cases[name]["required_browser_host_capabilities"], list(required)
+            )
+            self.assertIn("compiler host unavailable", cases[name]["browser_unavailable_reason"])
+        self.assertIsNone(cases["extensions/http-router-ownership"]["browser_unavailable_reason"])
+        self.assertIsNone(cases["extensions/http-date-now-wasm-negative"]["browser_unavailable_reason"])
+        self.assertEqual(cases["extensions/http-date-now-wasm-negative"]["mode"], "check-fail")
+
+    def test_native_sdk_policy_is_exact_not_a_module_wide_deferral(self):
+        root = Path("/own/workspace")
+        case = {
+            "id": "Bindings_Generator/tests/unclassified-control",
+            "family": "modules",
+            "path": root / "stdlib/Bindings_Generator/tests/control.jai",
+        }
+        with patch.object(browser, "validated_entries", return_value=[case]):
+            self.assertIsNone(browser.browser_cases(root)[0]["browser_unavailable_reason"])
+
     def test_mode_overlay_and_eligibility_use_the_shared_catalogue(self):
         root = Path("/own/workspace")
         original = {

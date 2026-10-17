@@ -6,7 +6,7 @@ use jaic::source::{Diagnostic, Severity, Span};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 include!(concat!(env!("OUT_DIR"), "/stdlib_files.rs"));
@@ -31,8 +31,10 @@ pub struct PlayDiagnostic {
 
 #[derive(Debug, Clone, Default)]
 pub struct PlayResult {
-    /// `None` when compilation failed before the program could run.
+    /// `None` when no program exit is available (input/compile error, runtime trap, or compile-only).
     pub exit_code: Option<i32>,
+    /// Where a diagnosed failure occurred: input validation, compilation or program runtime.
+    pub failure_phase: Option<&'static str>,
     pub stdout: String,
     pub stderr: String,
     /// Everything the program wrote, in order: `("stdout" | "stderr", text)` runs.
@@ -50,6 +52,12 @@ impl PlayResult {
                 let _ = write!(out, "{code}");
             }
             None => out.push_str("null"),
+        }
+        out.push_str(",\"failurePhase\":");
+        if let Some(phase) = self.failure_phase {
+            json_string(&mut out, phase);
+        } else {
+            out.push_str("null");
         }
         out.push_str(",\"stdout\":");
         json_string(&mut out, &self.stdout);
@@ -109,9 +117,15 @@ fn json_string(out: &mut String, text: &str) {
 }
 
 pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
+    workspace_fs(files, true)
+}
+
+fn workspace_fs(files: &BTreeMap<String, Vec<u8>>, bundled: bool) -> VirtualFs {
     let mut fs = VirtualFs::default();
-    for (name, bytes) in BUNDLED {
-        fs.insert(format!("/{name}"), bytes.to_vec());
+    if bundled {
+        for (name, bytes) in BUNDLED {
+            fs.insert(format!("/{name}"), bytes.to_vec());
+        }
     }
     for (name, bytes) in files {
         fs.insert(
@@ -122,7 +136,7 @@ pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
     fs
 }
 
-fn options(main: &str, fs: &dyn FileSystem) -> Options {
+fn options(main: &str, fs: &dyn FileSystem, stdlib: &Path) -> Options {
     let mut options = Options::host();
     options.os = TargetOs::Wasm;
     options.cpu = TargetCpu::Wasm;
@@ -132,11 +146,9 @@ fn options(main: &str, fs: &dyn FileSystem) -> Options {
         .parent()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(WORKSPACE_ROOT));
-    options.import_paths = vec![main_dir.join("modules"), PathBuf::from(STDLIB_ROOT)];
-    options.preload = Some(
-        jaic::find_preload(fs, std::path::Path::new(STDLIB_ROOT))
-            .unwrap_or_else(|| PathBuf::from(STDLIB_ROOT).join(jaic::PRELOAD_ENTRY)),
-    );
+    options.import_paths = vec![main_dir.join("modules"), stdlib.to_path_buf()];
+    options.preload =
+        Some(jaic::find_preload(fs, stdlib).unwrap_or_else(|| stdlib.join(jaic::PRELOAD_ENTRY)));
     options
 }
 
@@ -233,6 +245,18 @@ pub fn run_with_io(
     limits: PlayOptions,
     io: &PlayIo,
 ) -> PlayResult {
+    run_with_library(files, main, limits, io, None)
+}
+
+/// Compile against an explicitly supplied library directory inside this workspace.
+/// Library ownership and private-source access remain the compiler's normal path rules.
+pub fn run_with_library(
+    files: &BTreeMap<String, Vec<u8>>,
+    main: &str,
+    limits: PlayOptions,
+    io: &PlayIo,
+    library_root: Option<&str>,
+) -> PlayResult {
     let style = if limits.styled {
         jaic::render::Style {
             layout: jaic::render::Layout::Unicode,
@@ -242,7 +266,7 @@ pub fn run_with_io(
         jaic::render::Style::PLAIN
     };
     // Scoped to this thread: concurrent runs (parallel tests) keep their own style.
-    jaic::render::with_style(style, || run_styled(files, main, limits, io))
+    jaic::render::with_style(style, || run_styled(files, main, limits, io, library_root))
 }
 
 fn run_styled(
@@ -250,9 +274,11 @@ fn run_styled(
     main: &str,
     limits: PlayOptions,
     io: &PlayIo,
+    library_root: Option<&str>,
 ) -> PlayResult {
     let mut result = PlayResult::default();
     if !files.contains_key(main) {
+        result.failure_phase = Some("input");
         result.diagnostics.push(PlayDiagnostic {
             severity: "error",
             file: String::new(),
@@ -263,7 +289,25 @@ fn run_styled(
         });
         return result;
     }
-    let fs: Rc<dyn FileSystem> = Rc::new(virtual_fs(files));
+    let fs: Rc<dyn FileSystem> = Rc::new(workspace_fs(files, library_root.is_none()));
+    let stdlib = if let Some(root) = library_root {
+        let valid = !root.contains(['\\', ':', '\0'])
+            && root
+                .split('/')
+                .all(|part| !part.is_empty() && part != "." && part != "..");
+        let path = Path::new(WORKSPACE_ROOT).join(root);
+        if !valid || jaic::find_preload(&*fs, &path).is_none() {
+            result.failure_phase = Some("input");
+            result.diagnostics.push(PlayDiagnostic {
+                severity: "error", file: String::new(), line: 0, column: 0,
+                message: "supplied library root must be a relative workspace directory containing its prelude".into(), code: None,
+            });
+            return result;
+        }
+        path
+    } else {
+        PathBuf::from(STDLIB_ROOT)
+    };
     let host = Rc::new(RefCell::new(SandboxHost::with_files(
         fs.clone(),
         WORKSPACE_ROOT,
@@ -277,7 +321,7 @@ fn run_styled(
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: fs.clone(),
-        options: options(main, &*fs),
+        options: options(main, &*fs, &stdlib),
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
@@ -288,7 +332,7 @@ fn run_styled(
         }),
         observer: None,
     });
-    let mut compiler = Compiler::new(options(main, &*fs), fs);
+    let mut compiler = Compiler::new(options(main, &*fs, &stdlib), fs);
     compiler.interp.host = Box::new(crate::host_bridge::PlayHost::new(
         SharedHost(host.clone()),
         limits.budget,
@@ -297,6 +341,7 @@ fn run_styled(
     compiler.attach_workspaces(workspaces.clone());
     let entry = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')));
     workspaces.borrow_mut().main_file = entry.display().to_string();
+    let mut ran_program = false;
     let outcome = match compiler.compile_program(&entry) {
         Ok(()) => match jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget) {
             Err(message) => Err(Box::new(Diagnostic::error(Span::NONE, message))),
@@ -305,13 +350,21 @@ fn run_styled(
                 "compilation failed in a metaprogram workspace (see stderr for diagnostics)",
             ))),
             Ok(()) if limits.compile_only => Ok(None),
-            Ok(()) => compiler.run_program_with_args(&io.args).map(Some),
+            Ok(()) => {
+                ran_program = true;
+                compiler.run_program_with_args(&io.args).map(Some)
+            }
         },
         Err(d) => Err(d),
     };
     match outcome {
         Ok(code) => result.exit_code = code,
         Err(d) => {
+            result.failure_phase = Some(if ran_program {
+                "runtime"
+            } else {
+                "compile"
+            });
             result.rendered = compiler.render(&d);
             result.diagnostics.push(convert(&compiler, &d));
         }
@@ -338,6 +391,108 @@ fn run_styled(
 
 #[cfg(test)]
 mod tests {
+    fn supplied_library_fixture() -> BTreeMap<String, Vec<u8>> {
+        let mut files: BTreeMap<_, _> = BUNDLED
+            .iter()
+            .map(|(name, bytes)| {
+                (
+                    format!("library/{}", name.strip_prefix("stdlib/").unwrap()),
+                    bytes.to_vec(),
+                )
+            })
+            .collect();
+        for (name, text) in [
+            (
+                "library/internal/browser-fixture/module.jai",
+                "answer :: 17;",
+            ),
+            (
+                "library/Public_Fixture/module.jai",
+                "Impl :: #import \"internal/browser-fixture\"; answer :: Impl.answer;",
+            ),
+            (
+                "library/tests/entry.jai",
+                "Impl :: #import \"internal/browser-fixture\"; main :: () { #assert Impl.answer == 17; }",
+            ),
+            (
+                "external/main.jai",
+                "Public :: #import \"Public_Fixture\"; main :: () { #assert Public.answer == 17; }",
+            ),
+            (
+                "external/private.jai",
+                "Impl :: #import \"internal/browser-fixture\"; main :: () {}",
+            ),
+        ] {
+            files.insert(name.into(), text.as_bytes().to_vec());
+        }
+        files
+    }
+
+    #[test]
+    fn supplied_library_preserves_owned_private_context_and_external_boundary() {
+        let files = supplied_library_fixture();
+        let limits = PlayOptions {
+            compile_only: true,
+            ..PlayOptions::default()
+        };
+        for main in ["library/tests/entry.jai", "external/main.jai"] {
+            let result =
+                run_with_library(&files, main, limits, &PlayIo::default(), Some("library"));
+            assert!(
+                result.diagnostics.iter().all(|d| d.severity != "error"),
+                "{result:?}"
+            );
+        }
+        let result = run_with_library(
+            &files,
+            "external/private.jai",
+            limits,
+            &PlayIo::default(),
+            Some("library"),
+        );
+        assert!(
+            result.diagnostics.iter().any(|d| d
+                .message
+                .contains("standard-library internal sources are private")),
+            "{result:?}"
+        );
+        // Replacing the library never exposes the unselected bundled private tree.
+        assert!(!workspace_fs(&files, false).is_dir(Path::new("/stdlib/internal")));
+    }
+
+    #[test]
+    fn supplied_library_rejects_escape_missing_and_invalid_roots() {
+        let files = BTreeMap::from([("main.jai".into(), b"main :: () {}".to_vec())]);
+        for root in [
+            "",
+            "../stdlib",
+            "/stdlib",
+            "x/../stdlib",
+            "x//y",
+            "x\\y",
+            "x:dir",
+            "missing",
+        ] {
+            let result = run_with_library(
+                &files,
+                "main.jai",
+                PlayOptions {
+                    compile_only: true,
+                    ..PlayOptions::default()
+                },
+                &PlayIo::default(),
+                Some(root),
+            );
+            assert!(
+                result
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.message.contains("supplied library root")),
+                "{root}: {result:?}"
+            );
+        }
+    }
+
     use super::*;
 
     fn single(source: &str) -> PlayResult {

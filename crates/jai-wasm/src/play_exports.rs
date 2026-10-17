@@ -5,7 +5,7 @@
 //! Channels for `jai_play_push`: 0 = file path, 1 = file contents, 2 = main file path,
 //! 3 = program arguments (each argument ends with a NUL byte; none pushed passes no `argv`),
 //! 4 = standard input (the whole of it, when fixed; otherwise the page supplies it as the program
-//! reads, see `host_bridge`).
+//! reads, see `host_bridge`); 5 = optional supplied library root relative to the workspace.
 use crate::play;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -18,6 +18,7 @@ struct PlayState {
     path: Vec<u8>,
     content: Vec<u8>,
     main: Vec<u8>,
+    library_root: Vec<u8>,
     args: Vec<u8>,
     stdin: Vec<u8>,
     fixed_stdin: bool,
@@ -92,6 +93,7 @@ pub extern "C" fn jai_play_push(channel: u32, byte: u32) -> u32 {
             1 => s.content.push(byte),
             2 => s.main.push(byte),
             3 => s.args.push(byte),
+            5 => s.library_root.push(byte),
             4 => {
                 s.stdin.push(byte);
                 s.fixed_stdin = true;
@@ -106,6 +108,12 @@ pub extern "C" fn jai_play_push(channel: u32, byte: u32) -> u32 {
 /// (channel 4, or the page's `jai_stdin_read`); a page checks for the export before using them.
 #[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
 pub extern "C" fn jai_play_accepts_arguments() -> u32 {
+    1
+}
+
+/// Whether this build supports an explicit supplied library root on channel 5.
+#[cfg_attr(target_arch = "wasm32", unsafe(no_mangle))]
+pub extern "C" fn jai_play_accepts_library_root() -> u32 {
     1
 }
 
@@ -165,9 +173,18 @@ pub extern "C" fn jai_play_run() -> u32 {
             args,
             stdin: std::mem::take(&mut s.fixed_stdin).then(|| std::mem::take(&mut s.stdin)),
         };
-        s.output = play::run_with_io(&files, &main, s.limits, &io)
-            .to_json()
-            .into_bytes();
+        let Ok(library_root) = String::from_utf8(std::mem::take(&mut s.library_root)) else {
+            return s.fail("library root must be UTF-8");
+        };
+        s.output = play::run_with_library(
+            &files,
+            &main,
+            s.limits,
+            &io,
+            (!library_root.is_empty()).then_some(library_root.as_str()),
+        )
+        .to_json()
+        .into_bytes();
         s.files = files;
         0
     })
@@ -299,13 +316,15 @@ mod tests {
         push(2, "é.jai");
         push(3, "arg\0");
         push(4, "input");
+        push(5, "library");
         let expected = "é.jai".len()
             + "é".len()
             + "pending.jai".len()
             + "pending".len()
             + "é.jai".len()
             + "arg\0".len()
-            + "input".len();
+            + "input".len()
+            + "library".len();
         with(|s| {
             assert_eq!(s.total, expected);
             assert_eq!(s.files.len(), 1);
@@ -321,6 +340,7 @@ mod tests {
                     && s.path.is_empty()
                     && s.content.is_empty()
                     && s.main.is_empty()
+                    && s.library_root.is_empty()
                     && s.args.is_empty()
                     && s.stdin.is_empty()
                     && s.error.is_empty()
@@ -341,7 +361,8 @@ mod tests {
         assert_eq!(jai_play_finish_file(), 0);
         push(2, "a.jai");
         push(3, "arg\0");
-        let used = "a.jai".len() * 2 + "arg\0".len();
+        push(5, "library");
+        let used = "a.jai".len() * 2 + "arg\0".len() + "library".len();
         for _ in used..INPUT_LIMIT {
             assert_eq!(jai_play_push(4, 0), 0);
         }
@@ -356,6 +377,18 @@ mod tests {
         assert_eq!(jai_play_push(1, 0), 0);
         with(|s| assert_eq!(s.total, 1));
         jai_play_reset();
+    }
+
+    #[test]
+    fn protocol_library_root_malformed_bytes_reject_and_reset() {
+        jai_play_reset();
+        assert_eq!(jai_play_accepts_library_root(), 1);
+        push(2, "main.jai");
+        assert_eq!(jai_play_push(5, 255), 0);
+        assert_eq!(jai_play_run(), 1);
+        with(|s| assert_eq!(s.error, b"library root must be UTF-8"));
+        jai_play_reset();
+        with(|s| assert!(s.library_root.is_empty() && s.error.is_empty() && s.total == 0));
     }
 
     #[test]

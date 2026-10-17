@@ -78,3 +78,21 @@ test("AppleDouble filesystem sidecars are not workspace source or fixture files"
     assert.equal(files["Module/tests/.settings.json"], '{"real_fixture":true}');
   });
 });
+
+
+test("module entry and supplied library keep their canonical relative layout", async () => {
+  await workspace(async (base, put) => {
+    await put("stdlib/prelude/module.jai", "prelude source");
+    await put("stdlib/internal/helper.jai", "private_answer :: 7;");
+    await put("stdlib/Example/tests/main.jai", "#import \"internal/helper\";");
+    await put("stdlib/Other/tests/data.json", "fixture");
+    const { buildPlayRequest } = await import("./playground_request.mjs");
+    const request = await buildPlayRequest(base, { family: "modules", path: "stdlib/Example/tests/main.jai" });
+    assert.equal(request.libraryRoot, "stdlib");
+    assert.equal(request.main, "stdlib/Example/tests/main.jai");
+    assert.equal(request.files["stdlib/internal/helper.jai"], "private_answer :: 7;");
+    assert.equal(request.files["stdlib/Other/tests/data.json"], "fixture");
+    assert.equal(request.request.libraryRootBytes, 6);
+    assert.equal(request.request.totalBytes, playRequestSize(request.files, request.main).totalBytes + 6);
+  });
+});

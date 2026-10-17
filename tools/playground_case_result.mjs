@@ -3,7 +3,7 @@ import { playgroundContract } from "./playground_contract.mjs";
 export function playgroundCaseResult(test, result) {
   if (result.requestFailure !== undefined) {
     const request = result.request;
-    const detail = request ? `; input files=${request.fileCount} bytes=${request.totalBytes} (paths=${request.pathBytes}, contents=${request.sourceBytes}, main=${request.mainBytes})` : "";
+    const detail = request ? `; input files=${request.fileCount} bytes=${request.totalBytes} (paths=${request.pathBytes}, contents=${request.sourceBytes}, main=${request.mainBytes}${request.libraryRootBytes === undefined ? "" : `, libraryRoot=${request.libraryRootBytes}`})` : "";
     return { pass: false, why: (result.compilerCrashed ? "compiler crash: " : "request rejected: ") + result.requestFailure + detail };
   }
   if (result.compilerCrashed) return { pass: false, why: "compiler crash" };

@@ -3,7 +3,7 @@
 // separately, never as passing browser execution. No legacy failure baseline is used.
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import { playgroundCaseResult } from "./playground_case_result.mjs";
-import { collectPlayFiles, playRequestSize } from "./playground_request.mjs";
+import { buildPlayRequest } from "./playground_request.mjs";
 import { readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -16,16 +16,11 @@ const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root
 if (!isMainThread) {
   const { directory, test } = workerData;
   const { createEngine } = await import(pathToFileURL(path.join(directory, "engine.mjs")).href);
-  const parts = test.path.split("/");
-  const base = path.join(root, ...parts.slice(0, test.family === "modules" ? 1 : 2));
-  const files = {};
-  // Only our NEW library and independently maintained test family, never corpus vendors.
-  await collectPlayFiles(base, base, files, { moduleWorkspace: test.family === "modules" });
+  // Retain library-owned entry paths beneath the explicit supplied library root.
+  const { files, main, libraryRoot, request } = await buildPlayRequest(root, test);
   const engine = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")));
-  const main = path.relative(base, path.join(root, test.path)).replaceAll("\\", "/");
-  const request = playRequestSize(files, main);
   try {
-    parentPort.postMessage({ ...engine.play(files, main), request });
+    parentPort.postMessage({ ...engine.play(files, main, { libraryRoot }), request });
   } catch (error) {
     parentPort.postMessage({ requestFailure: String(error.message), compilerCrashed: error.compilerCrashed === true || error instanceof WebAssembly.RuntimeError, request });
   }
