@@ -19,6 +19,10 @@
     ],
     "required_capabilities": [
       "native-only stdlib test: not part of the browser engine's catalogue"
+    ],
+    "required_os": [
+      "linux",
+      "macos"
     ]
   },
   {

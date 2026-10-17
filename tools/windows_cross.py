@@ -45,6 +45,7 @@ WINDOWS_PROGRAMS = [
 # calls to the build host. They remain required in native Windows build jobs.
 WINDOWS_BUILD_HOST_CASES = frozenset(
     {
+        "Basic/tests/corpus-api/file-compile-time-qualified",
         "Program_Print/tests/plugin-file-output",
         "compiler/rules-compile-time-execution",
     }

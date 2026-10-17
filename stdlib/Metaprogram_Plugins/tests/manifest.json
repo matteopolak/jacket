@@ -1,0 +1,8 @@
+[
+  {
+    "name": "plugin-initialization",
+    "required_os": [
+      "windows"
+    ]
+  }
+]

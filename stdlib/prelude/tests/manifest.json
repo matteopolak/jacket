@@ -1,0 +1,8 @@
+[
+  {
+    "name": "bootstrap",
+    "required_os": [
+      "windows"
+    ]
+  }
+]
