@@ -143,19 +143,18 @@ class Selection(unittest.TestCase):
                         cases[name], "windows-" + cpu, "windows-" + cpu
                     )
                 )
-            self.assertIn(
-                "imgui",
-                cross.fixture_unavailable_reason(
-                    cases["native/imgui-headless-frames"], target, "linux-x64"
-                ),
-            )
-            self.assertIsNone(
-                cross.fixture_unavailable_reason(
-                    cases["native/imgui-headless-frames"],
-                    "windows-" + cpu,
-                    "windows-" + cpu,
+            # Windows has no libffi varargs bridge, which ImGui formatting needs: neither the
+            # cross target nor a native Windows host runs the frame test.
+            for build_target, build_host in (
+                (target, "linux-x64"),
+                ("windows-" + cpu, "windows-" + cpu),
+            ):
+                self.assertIn(
+                    "linux/macos host",
+                    cross.fixture_unavailable_reason(
+                        cases["native/imgui-headless-frames"], build_target, build_host
+                    ),
                 )
-            )
 
     def test_real_compiler_and_provider_failures_stay_required(self):
         cases = {c["id"]: c for c in cross.stdlib_runtime.validated_entries()}

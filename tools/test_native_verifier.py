@@ -20,7 +20,7 @@ SPEC.loader.exec_module(verifier)
 class NativeVerifierInputs(unittest.TestCase):
     def test_module_owned_fixture_wins_over_stale_external_copy(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             owned = root / "stdlib/SDL/tests/sdl-layout.jai"
             owned.parent.mkdir(parents=True)
             owned.write_text("original owned fixture")

@@ -189,10 +189,6 @@ jobs:
         run: cargo test -p jaic-cli --locked --test stdlib_targets --test objc_selectors
       - name: Prepare hash-pinned SDL Python test inputs
         run: python3 tools/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
-      - name: Policy tests
-        id: policy
-        continue-on-error: true
-        run: python3 -m unittest discover -s tools -p 'test_*.py'
       # Reports doc rules without a test; fails only when a test cites an unknown rule ID.
       - name: Rule coverage
         id: rule-coverage
@@ -203,6 +199,11 @@ jobs:
         id: jai-format
         continue-on-error: true  # recorded, then enforced by the last step like the other checks
         run: just fmt --check --lang jai
+      # After the Jai format check, which builds the jaifmt binary the generator tests format with.
+      - name: Policy tests
+        id: policy
+        continue-on-error: true
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
       # The repository's Jai code must be lint-free (settings: jailint.toml). An optimized
       # jailint: the debug build needs longer than the job's whole timeout to lint the tree.
       - name: Jai lint

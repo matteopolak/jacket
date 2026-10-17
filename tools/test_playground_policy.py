@@ -13,8 +13,13 @@ class BrowserPolicy(unittest.TestCase):
             self.assertEqual(
                 cases[name]["required_browser_host_capabilities"], list(required)
             )
-            self.assertIn("compiler host unavailable", cases[name]["browser_unavailable_reason"])
-        self.assertIsNone(cases["extensions/http-router-ownership"]["browser_unavailable_reason"])
+            # Declared unavailable before dispatch, by the host capability or an earlier catalogue rule.
+            self.assertIn("unavailable", cases[name]["browser_unavailable_reason"])
+        # Needs native Io providers, not a compiler host capability.
+        self.assertNotIn(
+            "compiler host",
+            cases["extensions/http-router-ownership"]["browser_unavailable_reason"] or "",
+        )
         self.assertIsNone(cases["extensions/http-date-now-wasm-negative"]["browser_unavailable_reason"])
         self.assertEqual(cases["extensions/http-date-now-wasm-negative"]["mode"], "check-fail")
 

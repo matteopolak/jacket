@@ -14,7 +14,6 @@ import re
 import shutil
 import struct
 import subprocess
-from cleanroom_lint_contexts import checked_coverage
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = (
@@ -77,6 +76,27 @@ def lint_jobs(linter, library, output):
             }
         )
     return jobs
+
+
+def checked_coverage(document, exit_code):
+    """A visited file in an incomplete or denied run never establishes clean lint."""
+    if document.get("version") != 1 or document.get("kind") != "source-check":
+        raise ValueError("invalid jailint coverage manifest")
+    clean = exit_code == 0 and not document["incomplete"]
+    visited = set()
+    partial = set()
+    for context in document["contexts"]:
+        paths = {str(Path(path).resolve()) for path in context["visited_files"]}
+        if clean and context["complete"]:
+            visited.update(paths)
+        else:
+            partial.update(paths)
+    return {
+        "clean": clean and all(c["complete"] for c in document["contexts"]),
+        "visited_complete": sorted(visited),
+        "visited_partial": sorted(partial),
+        "unvisited": document["unvisited_files"],
+    }
 
 
 def lint_coverage(manifest, status, required):

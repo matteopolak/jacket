@@ -60,6 +60,7 @@ class ReferenceAccounting(unittest.TestCase):
                     "compile_time_only": 0,
                     "expected_negative_checks": 0,
                     "reference_rejected": 1,
+                    "source_check_only": 0,
                 },
             )
             row = data["results"][0]
