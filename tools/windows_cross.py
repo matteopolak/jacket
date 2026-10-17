@@ -69,6 +69,14 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
 )
 
 
+def expects_rejection(case):
+    """A compile-time rejection (`-check`, or an error met while interpreting). A `fault` case
+    builds and ends with a checked runtime failure, so it is an executable like the others."""
+    return case.get("mode") == "check-fail" or (
+        "error_contains" in case and case.get("mode") != "fault"
+    )
+
+
 def fixture_stale_contract_reason(case):
     # Exact legacy source oracle; a corrected fixture must become required.
     if (
@@ -143,13 +151,13 @@ def cases(stdlib, platform=None):
         return
     # Expected compile-time failures are validated separately; they are not executables.
     for case in stdlib_runtime.validated_entries():
-        if case.get("mode") == "check-fail" or "error_contains" in case:
+        if expects_rejection(case):
             continue
         if case["path"] not in listed:
             yield (
                 "stdlib-" + case["id"].replace("/", "-"),
                 case["path"],
-                case.get("exit_code", 0),
+                case["error_contains"] if case.get("mode") == "fault" else case.get("exit_code", 0),
                 case.get("stdout"),
                 True,
             )
@@ -474,7 +482,7 @@ def build(args):
         catalogue = stdlib_runtime.validated_entries()
         target = [] if args.host else ["-os", "windows", "-cpu", args.cpu]
         for case in catalogue:
-            if case.get("mode") != "check-fail" and "error_contains" not in case:
+            if not expects_rejection(case):
                 continue
             reason = fixture_unavailable_reason(case, platform, build_host)
             if reason:
@@ -640,7 +648,7 @@ def build(args):
             case = metadata[source]
             expected[case_id]["contract"] = {
                 key: case[key]
-                for key in ("stdout", "stderr", "error_contains", "exit_code")
+                for key in ("mode", "stdout", "stderr", "error_contains", "exit_code")
                 if key in case
             }
             expected[case_id]["fixture"] = {
@@ -768,7 +776,7 @@ def run(args):
         stderr = result.stderr.decode("utf-8", "replace").replace("\r\n", "\n")
         stdout_ok = want["stdout"] is None or stdout == want["stdout"]
         contract_ok = "contract" not in want or stdlib_runtime.contract_result(
-            want["contract"], result.returncode, stdout, stderr
+            want["contract"], result.returncode, stdout, stderr, native=True
         )
         if "error" in want:
             # A runtime error: any failing status, with the check's message on stderr.
