@@ -5,3 +5,6 @@
 /tools/native/sdl3/macros.c text eol=lf
 /stdlib/Extensions/SDL3/tests/driven/layout-*.jai text eol=lf
 /stdlib/Extensions/SDL3/tests/c-layout-*.h text eol=lf
+
+# jaifmt goldens compare exact bytes (including intentionally mixed newlines).
+/stdlib/Extensions/Jai_Format/tests/fixtures/* -text

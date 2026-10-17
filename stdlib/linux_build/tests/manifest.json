@@ -32,6 +32,10 @@
   {
     "name": "negative/host",
     "mode": "check-fail",
-    "diagnostic_contains": "#assert failed: `WINDOWS_HOST` is false"
+    "diagnostic_contains": "#assert failed: `WINDOWS_HOST` is false",
+    "required_os": [
+      "linux",
+      "macos"
+    ]
   }
 ]

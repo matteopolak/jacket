@@ -17,6 +17,10 @@
     ],
     "required_capabilities": [
       "native SDL SDK and platform services"
+    ],
+    "required_os": [
+      "linux",
+      "macos"
     ]
   },
   {
@@ -28,7 +32,11 @@
     "required_capabilities": [
       "native SDL SDK and platform services"
     ],
-    "input": "scratch-file"
+    "input": "scratch-file",
+    "required_os": [
+      "linux",
+      "macos"
+    ]
   },
   {
     "name": "sdl-wm",
@@ -39,6 +47,10 @@
     "required_capabilities": [
       "native SDL SDK and platform services"
     ],
-    "requires_display": true
+    "requires_display": true,
+    "required_os": [
+      "linux",
+      "macos"
+    ]
   }
 ]

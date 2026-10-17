@@ -1230,6 +1230,8 @@ jobs:
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-${{ matrix.cpu }}
       - name: Stdlib tests, native O2
         if: ${{ !cancelled() }}
+        env:
+          JAIC_TEST_FONT_PATH: C:\Windows\Fonts\arial.ttf
         run: python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
       - name: Data resource discovery and Icon effects
         if: ${{ !cancelled() }}

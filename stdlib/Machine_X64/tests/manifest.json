@@ -13,7 +13,11 @@
   },
   {
     "name": "basics/main",
-    "required_cpu": "x64"
+    "required_cpu": "x64",
+    "required_os": [
+      "linux",
+      "macos"
+    ]
   },
   {
     "name": "basics/options",

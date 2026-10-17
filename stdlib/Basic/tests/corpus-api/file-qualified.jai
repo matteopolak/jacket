@@ -3,7 +3,7 @@ F :: #import "File";
 
 main :: () {
     path, ok := F.get_absolute_path(relative_path = ".");
-    assert(ok && path.count > 0 && path[0] == #char "/");
+    assert(ok && path.count > 0 && (path[0] == #char "/" || (path.count > 2 && path[1] == #char ":")));
     free(path);
     print("ok\n");
 }

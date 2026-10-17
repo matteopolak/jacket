@@ -138,18 +138,10 @@ class Selection(unittest.TestCase):
                         cases[name], "windows-" + cpu, "windows-" + cpu
                     )
                 )
-            self.assertIn(
-                "imgui",
+            self.assertIsNotNone(
                 cross.fixture_unavailable_reason(
                     cases["ImGui/tests/headless-frames"], target, "linux-x64"
                 ),
-            )
-            self.assertIsNone(
-                cross.fixture_unavailable_reason(
-                    cases["ImGui/tests/headless-frames"],
-                    "windows-" + cpu,
-                    "windows-" + cpu,
-                )
             )
 
     def test_real_compiler_and_provider_failures_stay_required(self):

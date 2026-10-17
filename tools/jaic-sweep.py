@@ -534,10 +534,13 @@ def main():
                         1,
                     )
                 extra = [*extra, "--", *arguments]
-        windowed = (
-            a.headless
-            and mode == "run"
-            and (metadata.get("requires_display") or opens_windows(path))
+        # Source-check-only programs must never run (an uninitialized ring, say): they only build.
+        windowed = mode == "run" and (
+            metadata.get("source_check_only") is True
+            or (
+                a.headless
+                and (metadata.get("requires_display") or opens_windows(path))
+            )
         )
         if windowed and expect is not None:
             expect = None  # Only whether it builds is checked.

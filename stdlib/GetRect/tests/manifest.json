@@ -4,7 +4,8 @@
     "required_os": "linux",
     "arguments": [
       "--private-x11-display"
-    ]
+    ],
+    "requires_display": true
   },
   {
     "name": "color-policy-hash",

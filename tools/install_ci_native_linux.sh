@@ -10,6 +10,7 @@ packages=(
   libc++abi-dev
   libdecor-0-dev
   libdrm-dev
+  libevdev-dev
   libegl-dev
   libfontconfig1-dev
   libffi-dev

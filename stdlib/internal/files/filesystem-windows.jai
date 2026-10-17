@@ -47,7 +47,7 @@ add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool {
     return success;
 }
 
-copy_file :: (source: string, dest: string, silent := false) -> bool {
+copy_file :: (source: string, dest: string) -> bool {
     from := Text.to_utf16(source);
     if !from return false;
 
@@ -56,10 +56,7 @@ copy_file :: (source: string, dest: string, silent := false) -> bool {
     if !to return false;
 
     defer free(to);
-    success := W.CopyFileW(from, to, 0) != 0;
-    if !success && !silent context.logger("CopyFileW failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
-
-    return success;
+    return W.CopyFileW(from, to, 0) != 0;
 }
 
 atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: (old_filename: string, new_filename: string) -> bool {

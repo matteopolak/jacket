@@ -194,14 +194,14 @@ main :: () {
     close_like_the_user(second);
     closed := pump(windows, seen, (seen: [] Seen) -> bool {
         return seen[1].quits > 0;
-    });
+    }, 1000);
 
     assert(closed, "no QUIT after closing the second window");
     assert(seen[0].quits == 0, "closing the second window sent QUIT to the first");
     close_like_the_user(first);
     closed = pump(windows, seen, (seen: [] Seen) -> bool {
         return seen[0].quits > 0;
-    });
+    }, 1000);
     assert(closed, "no QUIT after closing the first window");
     print("ok\n");
 }

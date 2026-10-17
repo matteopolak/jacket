@@ -6,7 +6,14 @@ Remap_Context :: () #expand {
 }
 
 remap_context :: () -> (result: #Context) {
-    if context.context_info == type_info(#Context) return context;
+    if context.context_info == type_info(#Context) {
+        // The copy outlives this call, so its stack trace must start at the caller's node.
+        result := context;
+        if result.stack_trace result.stack_trace = result.stack_trace.next;
+
+        return result;
+    }
+
     return remap_context(*context, context.context_info);
 }
 
@@ -27,6 +34,8 @@ remap_context :: (foreign_context: *void, foreign_type: *Type_Info_Struct) -> (r
         entry = entry.next;
     }
 
+    // Trace nodes live in the frames of the context's owner, which this copy outlives.
+    result.stack_trace = null;
     result.context_info = type_info(#Context);
 
     return result;

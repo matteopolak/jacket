@@ -214,6 +214,10 @@ font_context :: () -> #Context {
     persistent := context;
     persistent.allocator = context.default_allocator;
     assert(persistent.allocator.proc != null, "font pools require a long-lived default allocator");
+
+    // The returned copy outlives this call, so its stack trace must start at the caller's node.
+    if persistent.stack_trace persistent.stack_trace = persistent.stack_trace.next;
+
     return persistent;
 }
 

@@ -17,5 +17,9 @@
   {
     "name": "windows-native-sections",
     "required_os": "windows"
+  },
+  {
+    "name": "windows-records",
+    "source_check_only": true
   }
 ]

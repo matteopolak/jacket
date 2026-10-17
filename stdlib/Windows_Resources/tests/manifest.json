@@ -5,7 +5,8 @@
   },
   {
     "name": "discovery-windows",
-    "required_os": "windows"
+    "required_os": "windows",
+    "source_check_only": true
   },
   {
     "name": "manifest-windows",

@@ -40,7 +40,8 @@
     }
 
     check_vector :: (v: Vector) {
-        data := NewArray(v.count + 1, u8);
+        // The hash loads a whole 16-byte lane for a partial tail, so the buffer extends past the input.
+        data := NewArray(v.count + 16, u8);
 
         defer free(data.data);
         fill_input(data.data, v.count);
