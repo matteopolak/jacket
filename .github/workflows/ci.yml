@@ -1201,7 +1201,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           if [ "$CPU" = x64 ]; then cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"; fi
-          python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
+          python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-${{ matrix.cpu }}
       - name: Stdlib contract tests, native O2
         if: ${{ !cancelled() }}
