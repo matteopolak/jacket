@@ -227,6 +227,8 @@ def build(target, output, readobj):
                     "-Wall",
                     "-Wextra",
                     "-Werror",
+                    # MinGW's NtCurrentTeb reads gs:0, which GCC sees as a read through address zero.
+                    *(["-Wno-error=array-bounds"] if mingw else []),
                     "-O2",
                     "-isystem",
                     prepared,
