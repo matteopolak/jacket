@@ -556,7 +556,8 @@ fn module_qualified_struct_constants_resolve() {
     .unwrap();
     let text = format!(
         "Shapes :: #import,file \"{}\";\n\n// Uses [Shapes.Square.SIDES] and [Shapes.Square.side] and [Shapes.Square.nothing].\nf :: () {{ s := Shapes.make(); }}\n",
-        module.display()
+        // Backslashes would start escapes inside the Jai string literal.
+        module.display().to_string().replace('\\', "/")
     );
     let s = open_with(&text);
     let found = s

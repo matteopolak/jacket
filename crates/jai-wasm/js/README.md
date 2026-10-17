@@ -1,7 +1,7 @@
 # jaic browser compiler
 
 > [!NOTE]
-> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+> This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
 The jaic Jai compiler and interpreter, built for `wasm32-unknown-unknown`. The standard library is embedded in the module, so it needs no network or file access. A hosted playground built on it is at https://matteopolak.com/playground/jacket.
 

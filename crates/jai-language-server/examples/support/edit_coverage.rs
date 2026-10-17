@@ -54,15 +54,7 @@ fn position(text: &str, byte: usize) -> Position {
 }
 
 fn file_uri(path: &Path) -> DocumentUri {
-    let mut encoded = String::new();
-    for byte in path.to_string_lossy().bytes() {
-        if byte.is_ascii_alphanumeric() || b"/-._~:".contains(&byte) {
-            encoded.push(byte as char);
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    DocumentUri::parse(&format!("file://{encoded}")).unwrap()
+    DocumentUri::from_path(path).unwrap()
 }
 
 fn environment(stdlib: Option<PathBuf>) -> Environment {

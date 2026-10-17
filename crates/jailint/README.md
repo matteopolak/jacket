@@ -1,7 +1,7 @@
 # jailint
 
 > [!NOTE]
-> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+> This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
 A linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), part of the [Jacket](../../README.md) toolchain. It reports common mistakes and unidiomatic code, and fixes the ones it safely can.
 

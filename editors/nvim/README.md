@@ -1,7 +1,7 @@
 # jacket.nvim
 
 > [!NOTE]
-> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+> This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
 Neovim support for Jai from [Jacket](https://github.com/matteopolak/jacket): the `jailsp` language server (diagnostics with `jailint` lints and quick fixes, hover, completion, go to definition, semantic tokens, doc-comment links), `jaifmt` formatting, a Vim syntax file, and a command that downloads the toolchain. Needs Neovim 0.11 or newer.
 

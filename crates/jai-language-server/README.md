@@ -1,7 +1,7 @@
 # jailsp
 
 > [!NOTE]
-> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+> This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
 The language server for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../../README.md) toolchain. It speaks the Language Server Protocol over stdio. The same Rust session also runs in the browser, compiled to WebAssembly, behind the [online playground](https://matteopolak.com/playground/jacket).
 

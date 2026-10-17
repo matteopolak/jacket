@@ -1,7 +1,7 @@
 # jaifmt
 
 > [!NOTE]
-> This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
+> This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
 A code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), written in Jai. It is part of the [Jacket](../README.md) toolchain.
 

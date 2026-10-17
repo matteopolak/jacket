@@ -43,7 +43,9 @@ const SHORT_REF: u32 = 64;
 pub struct IdeFacts {
     /// Per-analysis missing filesystem discovery; never a placeholder or failed module body.
     missing_modules: HashMap<(ScopeId, Span), IdeMissingModule>,
-    /// Files whose path starts with one of these are recorded.
+    /// Files whose path starts with one of these are recorded. Roots are spelled with `/`
+    /// separators; on Windows a source path is compared in that same spelling, since the
+    /// filesystem may hand the compiler `\`-separated paths.
     roots: Vec<String>,
     wanted: HashMap<FileId, bool>,
     /// The exact body associated with an IDE-final lenient failure. Replacing a
@@ -331,6 +333,7 @@ pub enum IdeReceiver {
 
 
 type IdeMissingModuleEpoch = (usize, usize, usize, usize, u64);
+
 struct IdeMissingModule {
     epoch: IdeMissingModuleEpoch,
     wanted: String,
@@ -449,6 +452,11 @@ impl Compiler {
             return w;
         }
         let path = &self.sources.get(file).path;
+        let path = if cfg!(windows) {
+            std::borrow::Cow::Owned(path.replace('\\', "/"))
+        } else {
+            std::borrow::Cow::Borrowed(path.as_str())
+        };
         let w = ide.roots.iter().any(|r| path.starts_with(r.as_str()));
         ide.wanted.insert(file, w);
         w
