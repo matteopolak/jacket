@@ -30,4 +30,6 @@ main :: () {
     elapsed, elapsed_ok := to_nanoseconds(current_time_monotonic() - current);
 
     assert(elapsed_ok && elapsed >= 0);
+
+    print("ok\n");
 }

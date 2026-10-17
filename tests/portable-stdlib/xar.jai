@@ -1,5 +1,5 @@
 #import "Basic";
-X :: #import "Xar";
+using X :: #import "Xar";
 
 Probe :: struct {
     base: Allocator;

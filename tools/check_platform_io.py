@@ -353,7 +353,7 @@ def main():
             attempt([compiler, bootstrap, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
         diagnostic([compiler, ROOT / "tests/platform-io/pending/windows-arm64-crash-handler.jai",
                            "-os", "windows", "-cpu", "arm64", "-check", "-no_dce"], env,
-                          "the reviewed Windows crash handler supports x64 only")
+                          "the Windows crash handler supports x64 only")
         for optimized in [False, True]:
             for policy in ["off", "on", "default"]:
                 children = ["startup-arguments-contract", "windows-fault", "windows-symbol-fault"]

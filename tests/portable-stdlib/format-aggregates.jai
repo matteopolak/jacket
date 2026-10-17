@@ -79,8 +79,8 @@ main :: () {
     assert(sprint("%", borrowed) == "17");
     number = 19;
     assert(sprint("%", borrowed) == "19");
-    // Partially null Any is a required fault, covered separately by
-    // format-any-missing-value.jai and format-any-missing-type.jai.
+    // Partially null Any is a required fault, covered separately by the faults/
+    // format-any-missing-value.jai and format-any-missing-type.jai cases.
     none: FormatInt;
 
     assert(sprint("%", none) == "(null Any)");

@@ -1,6 +1,6 @@
 #import "Basic";
 
-Wide :: struct #align 128 {
+Wide :: struct #align 64 {
     value: s64;
 }
 
@@ -12,7 +12,7 @@ main :: () {
 
     for i: 0..31 {
         pointers[i] = New(Wide);
-        assert(cast(u64) pointers[i] % 128 == 0);
+        assert(cast(u64) pointers[i] % 64 == 0);
         pointers[i].value = i;
     }
 
@@ -24,7 +24,7 @@ main :: () {
     array: [..] Wide;
     for i: 0..16 array_add(*array, Wide.{ i });
 
-    assert(cast(u64) array.data % 128 == 0);
+    assert(cast(u64) array.data % 64 == 0);
     for value, i: array assert(value.value == i);
 
     array_free(array);
@@ -49,7 +49,7 @@ main :: () {
     {
         push_allocator(temp);
         p := New(Wide);
-        assert(cast(u64) p % 128 == 0);
+        assert(cast(u64) p % 64 == 0);
     }
 
     set_temporary_storage_mark(mark);

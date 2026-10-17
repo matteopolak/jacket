@@ -7,6 +7,7 @@ Unimplemented module fixtures remain unchanged in tests/stdlib-contract.
 import argparse
 import os
 from pathlib import Path
+import platform
 import plistlib
 import shutil
 import signal
@@ -40,7 +41,31 @@ EXPECTED = {
     "meow-dump": "state\n0: 1 2\n1: 3 4\n2: 5 6\n3: 7 8\n4: 9 10\n5: 11 12\n6: 13 14\n7: 15 16\nok\n",
     "command-help": lambda out: all(text in out for text in ["configuration comment", "last option", "--alpha", "--zeta", "--help"]) and out.index("--alpha") < out.index("--zeta") and out.endswith("ok\n"),
 }
-EXPECTED_STDERR = {"print-color": "\x1b[0;44merror\x1b[0m", "basic-output": "err true"}
+
+
+def diagnostics_then_ok(prefixes):
+    """Library diagnostics are printed to stdout by the code under test; they precede the `ok` line."""
+    def check(output):
+        lines = output.splitlines()
+        return output.endswith("ok\n") and all(line.startswith(prefixes) for line in lines[:-1])
+    return check
+
+
+EXPECTED.update({
+    "clipboard-platform-api": "",
+    "executable-lexer-errors": diagnostics_then_ok("lexer:"),
+    "executable-relocations": diagnostics_then_ok("COFF relocation rejected:"),
+    "executable-tbd-errors": diagnostics_then_ok(("TBD negative:", "lexer:")),
+    "format-default-type-identity": "true true true true true true\n",
+    "format-null-any-contract": "continued\n",
+    "format-null-type-probe": "void\n{void, 0}\n",
+    "minimal-build-contracts": lambda out: out.startswith("cwd=") and out.endswith("tests/portable-stdlib\n") and out.count("\n") == 1,
+    "runtime-instrumentation-no-entry": "",
+    "runtime-number-contracts": "0|18446744073709551615|ff|1010|ff|-37|9223372036854775807|done\nunsynchronized\nordinary\n",
+    "thread-pthread-layout": "",
+})
+EXPECTED_STDERR = {"print-color": "\x1b[0;44merror\x1b[0m", "basic-output": "err true",
+                   "runtime-number-contracts": "-25|111\nerror\n"}
 EXPECTED_EXIT = {"basic-output": 17}
 for name in ("basic-logging-output", "basic-print-bytes", "basic-stack-output"):
     EXPECTED[name], EXPECTED_STDERR[name], EXPECTED_EXIT[name] = foundation_output(name)
@@ -72,7 +97,45 @@ FAULT_EXPECTATIONS = {
     "crash-memory-fault": ("crash signal ", "native stack:"),
     "zip-signature": ("assertion failed", "unexpected ZIP directory signature"),
     "zip-descriptor": ("assertion failed", "ZIP data descriptors are unsupported"),
+    "format-any-missing-type": ("assertion failed", "cannot format an Any without type metadata"),
+    "format-any-missing-value": ("assertion failed", "cannot format an Any without payload storage"),
+    "format-any-missing-value-no-assert": ("assertion failed", "cannot format an Any without payload storage"),
+    "format-null-descriptor-probe": ("assertion failed", "a null type descriptor has no type name"),
+    "format-null-lvalue-any-probe": ("assertion failed", "cannot format an Any without payload storage"),
 }
+
+# Cases that other scripts own: the Linux clipboard job runs the X11-only sources.
+DRIVEN_ELSEWHERE = {"bootstrap", "process-parent", "float-power-sweep", "clipboard-linux-api",
+                    "clipboard-linux-no-empty", "clipboard-linux-private", "clipboard-linux-window-source"}
+# Written for x86-64 only (they `#assert CPU == .X64`); other hosts keep the -check target coverage.
+X64_ONLY = {"basic-division-exercise"}
+# Source-only contracts: type-checked, never executed (the program would open a native window).
+SOURCE_ONLY = {"cocoa-appkit-enum-callers": "darwin"}
+# Cases that read their configuration from the command line (assertions enabled is the default build).
+PROGRAM_ARGUMENTS = {"unmapping-protection-retention": ["enabled"]}
+# Native helpers a case links against: case -> (library name, C source, `-add` declaration or None, platforms).
+# The helper is built into a private directory that replaces the native library search path for the case.
+PROBES = {
+    "thread-sdk-storage": ("thread_sdk_identity", "tests/portable-stdlib/thread-sdk-identity.c", None, ("darwin", "linux")),
+    "unmapping-protection-retention": ("test_unmapping_vm", "tests/portable-stdlib/native/unmapping-protection.c",
+                                       'TEST_VM :: #library "test_unmapping_vm";', ("darwin",)),
+}
+
+
+def host_is_x64():
+    return platform.machine().lower() in {"x86_64", "amd64"}
+
+
+def build_probes(output):
+    """Compile each native helper once; returns the directory holding them."""
+    directory = output / "probes"
+    directory.mkdir(parents=True, exist_ok=True)
+    extension = "dylib" if sys.platform == "darwin" else "so"
+    for name, source, _, platforms in PROBES.values():
+        if sys.platform in platforms:
+            subprocess.run([os.environ.get("CC", "cc"), "-shared", "-fPIC", "-o", str(directory / f"lib{name}.{extension}"),
+                            str(ROOT / source)], check=True)
+    return directory
 
 
 def run(command, env, expected=None, cwd=ROOT, expected_stderr="", expected_code=0):
@@ -137,7 +200,7 @@ def main():
                             "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     cases = [(p, EXPECTED.get(p.stem, "ok\n"))
              for p in sorted((ROOT / "tests/portable-stdlib").glob("*.jai"))
-             if p.stem not in {"bootstrap", "process-parent", "float-power-sweep"} and (p.stem != "windows-foundations" or sys.platform == "win32")]
+             if p.stem not in DRIVEN_ELSEWHERE and (p.stem != "windows-foundations" or sys.platform == "win32")]
     if sys.platform != "win32":
         print("Windows filesystem runtime fixture requires a Windows host; retained for Windows target checking", flush=True)
     cases += [(ROOT / f"tests/stdlib-contract/{name}/main.jai", "ok\n") for name in CONTRACTS]
@@ -155,20 +218,40 @@ def main():
             raise
         failures.append("float-power-sweep exact-rational audit")
         print("FAILED specialized float-power audit:", error, flush=True)
+    probe_directory = build_probes(output) if any(sys.platform in probe[3] for probe in PROBES.values()) else None
     for index, (source, expected) in enumerate(cases):
+        name = source.relative_to(ROOT)
         try:
-            run([str(compiler), "-interp", str(source), "--"], env, expected,
+            if source.stem in X64_ONLY and not host_is_x64():
+                print("skipped (x86-64 only)", name, flush=True)
+                continue
+            if source.stem in SOURCE_ONLY:
+                if sys.platform != SOURCE_ONLY[source.stem]:
+                    print(f"skipped (source-only, {SOURCE_ONLY[source.stem]} only)", name, flush=True)
+                    continue
+                run([str(compiler), "-check", str(source)], env)
+                print("passed", name, flush=True)
+                continue
+            case_env, extra = env, []
+            probe = PROBES.get(source.stem)
+            if probe:
+                if sys.platform not in probe[3]:
+                    print("skipped (native helper unavailable on this host)", name, flush=True)
+                    continue
+                case_env = dict(env, JAIC_NATIVE_LIBS=str(probe_directory))
+                extra = ["-add", probe[2]] if probe[2] else []
+            run([str(compiler), "-interp", str(source), *extra, "--", *PROGRAM_ARGUMENTS.get(source.stem, [])], case_env, expected,
                 expected_stderr=EXPECTED_STDERR.get(source.stem,""), expected_code=EXPECTED_EXIT.get(source.stem, 0))
             if args.native:
                 executable = output / f"case-{index}"
-                run([str(compiler), str(source), "-exe", str(executable)], env)
-                run([str(executable)], env, expected, source.parent,
+                run([str(compiler), str(source), *extra, "-exe", str(executable)], case_env)
+                run([str(executable), *PROGRAM_ARGUMENTS.get(source.stem, [])], case_env, expected, source.parent,
                     expected_stderr=EXPECTED_STDERR.get(source.stem,""), expected_code=EXPECTED_EXIT.get(source.stem, 0))
-            print("passed", source.relative_to(ROOT), flush=True)
+            print("passed", name, flush=True)
         except (RuntimeError, subprocess.TimeoutExpired) as error:
             if not args.keep_going: raise
-            failures.append(str(source.relative_to(ROOT)))
-            print("FAILED case; continuing independent tests:", source.relative_to(ROOT), str(error), flush=True)
+            failures.append(str(name))
+            print("FAILED case; continuing independent tests:", name, str(error), flush=True)
     parent_source = ROOT / "tests/portable-stdlib/process-parent.jai"
     for native in ([False, True] if args.native else [False]):
         for keep in [False, True]:
@@ -224,7 +307,7 @@ def main():
         ("unicode-first-byte-store", "cannot assign into the constant `U.firstByteMark`"),
         ("adpcm-step-store", "cannot assign into the constant `A.step_table`"),
         ("adpcm-index-store", "cannot assign into the constant `A.index_table`"),
-        ("register-scalar", "expected a SIMD register operand"),
+        ("register-scalar", "expected an #asm register operand, not a scalar or memory value"),
         ("meow-lane", "INDEX >= 0 && INDEX < 2"),
     ]:
         negative = ROOT / f"tests/portable-stdlib/negative/{name}.jai"

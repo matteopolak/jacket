@@ -1,5 +1,5 @@
 #import "Basic";
-R :: #import "RadixSort";
+using R :: #import "RadixSort";
 P :: #import "Relative_Pointers";
 
 main :: () {

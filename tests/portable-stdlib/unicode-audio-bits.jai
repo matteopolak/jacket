@@ -1,7 +1,7 @@
 #import "Basic";
 U :: #import "Unicode";
 A :: #import "Adpcm";
-B :: #import "Bit_Array";
+using B :: #import "Bit_Array";
 
 only_set :: B.only_set;
 #assert is_constant(U.offsetsFromUTF8);

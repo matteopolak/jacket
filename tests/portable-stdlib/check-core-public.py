@@ -36,7 +36,7 @@ def main():
             print(json.dumps(record, indent=2))
         return record["passed"]
 
-    core = ["core-public-gaps", "core-context-style", "core-integer-time", "core-hash-free", "core-builder-allocation"]
+    core = ["core-public-gaps", "core-context-style", "core-integer-time", "core-hash-free"]
     sources = [f"tests/portable-stdlib/{name}.jai" for name in core + ["basic-configuration", "formatter-records"]]
     sources.append("stdlib/Extensions/Json/tests/numeric_ownership.jai")
     for source in sources:

@@ -2,6 +2,12 @@ B :: #import "Basic";
 D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 S :: #import "String";
 
+// Storage obtained below the memory debugger so the test can record it with a synthetic trace.
+unrecorded_alloc :: (size: s64) -> *void {
+    allocator := context.default_allocator;
+    return allocator.proc(.ALLOCATE, size, 0, null, allocator.data);
+}
+
 capture :: (message: string, data: *void, info: Log_Info) {
     B.append(cast(*B.String_Builder) data, message);
 }
@@ -39,7 +45,7 @@ main :: () {
     root := Stack_Trace_Node.{ info = *root_info };
     site := Stack_Trace_Node.{ info = *site_info, next = *root };
     leaf := Stack_Trace_Node.{ info = *leaf_info, next = *site };
-    memory := B.alloc(24);
+    memory := unrecorded_alloc(24);
 
     memset(memory, 0, 24);
     D.add_allocation_to_table(memory, 24, context.allocator, *leaf);

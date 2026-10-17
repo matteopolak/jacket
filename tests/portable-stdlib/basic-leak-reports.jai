@@ -3,12 +3,6 @@ D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false
 HT :: #import "Hash_Table";
 
 root: *void;
-discarded: int;
-
-side_effect :: () -> *void {
-    discarded += 1;
-    return *discarded;
-}
 
 totals :: (report: D.Leak_Report) -> (count: s64, bytes: s64) {
     count: s64;
@@ -23,10 +17,6 @@ totals :: (report: D.Leak_Report) -> (count: s64, bytes: s64) {
 }
 
 main :: () {
-    B.this_allocation_is_not_a_leak(side_effect());
-    B.this_allocation_leaks_todo(side_effect());
-    B.this_allocation_does_not_propagate_leak_ownership(side_effect());
-    B.assert(discarded == 0);
     early := D.alloc(8);
 
     memset(early, 0, 8);

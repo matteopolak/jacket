@@ -1,5 +1,5 @@
 #import "Basic";
-S :: #import "Soa";
+using S :: #import "Soa";
 
 Point :: struct {
     x: s32;

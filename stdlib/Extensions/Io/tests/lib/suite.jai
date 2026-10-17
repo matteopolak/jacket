@@ -1065,6 +1065,12 @@ test_accept_backlog :: () {
     for 0..COUNT - 1 {
         clients[it], error = Io.connect(address);
         assert(error == .NONE, "connect %: %", it, error);
+
+        // The client names itself: the kernel completes handshakes in its own order when it is busy,
+        // so the order of the accepted sockets is not the order of the connects.
+        name: u8 = cast(u8) (it & 255);
+
+        Io.write(clients[it], .{ 1, *name });
     }
 
     // Everything is accepted once, each socket is connected to its client.
@@ -1073,9 +1079,12 @@ test_accept_backlog :: () {
 
         assert(accept_error == .NONE, "accept %: %", it, accept_error);
 
-        byte: u8 = cast(u8) (it & 255);
+        byte: [1] u8;
+        taken, take_error := Io.read(conn, byte);
 
-        Io.write(conn, .{ 1, *byte });
+        assert(take_error == .NONE && taken == 1, "name %: % %", it, taken, take_error);
+
+        Io.write(conn, byte);
         Io.close(conn);
     }
 
@@ -1160,6 +1169,13 @@ burst_handler :: (job: Burst_Handler) {
     } else {
         written, write_error := Io.write(conn, byte);
         if write_error != .NONE || written != 1 burst_record_error(*diagnostics.server_write, write_error, Io.last_platform_code());
+
+        // The client closes first, so the TIME_WAIT that follows is on its side, where the kernel
+        // reuses the port for the next connect. When the server closes first, the stress runs
+        // (a dozen of these programs, thousands of connections each) fill the ephemeral port range
+        // with server-side TIME_WAIT entries a new connection from the same port cannot get past,
+        // and connects time out.
+        Io.read(conn, byte);
     }
 }
 

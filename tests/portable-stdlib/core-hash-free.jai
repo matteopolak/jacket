@@ -88,4 +88,6 @@ main :: () {
     assert(H.table_find_pointer(*custom, Key.{ 11 }).* == 71);
     H.deinit(*custom);
     assert(owner.allocated > 0 && owner.allocated == owner.freed);
+
+    print("ok\n");
 }

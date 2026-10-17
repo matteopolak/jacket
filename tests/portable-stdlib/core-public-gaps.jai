@@ -1,6 +1,6 @@
-B :: #import "Basic";
+using B :: #import "Basic";
 H :: #import "Hash_Table";
-M :: #import "Math";
+using M :: #import "Math";
 
 main :: () {
     pointer := B.New(int);
@@ -61,4 +61,6 @@ main :: () {
     B.free(output);
     B.free(expected);
     context.print_style.struct_printer = null;
+
+    B.print("ok\n");
 }
