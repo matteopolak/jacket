@@ -1000,3 +1000,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Current four-mode runtime report](status/runtime-d9f32f30.json): all451cases completed,1414passes25failures; required RED with exact classifications.
 
 - [Conda SDK package notices](tools/conda-sdk-notices.md): real owner-provenanced nested license files; actual Intel native replay required.
+
+- [Windows CRT provider identity](native/windows-crt-provider.md): genuine SDK UCRT import metadata, preserved signatures; native Windows replay still required.

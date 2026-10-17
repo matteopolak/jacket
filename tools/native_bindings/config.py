@@ -38,6 +38,8 @@ RPMALLOC_PUBLIC_CONSTRAINTS = (
     ('!ENABLE_ADAPTIVE_THREAD_CACHE || ENABLE_THREAD_CACHE', 'ENABLE_ADAPTIVE_THREAD_CACHE requires ENABLE_THREAD_CACHE'),
 )
 LIBRARIES = {
+    # Official Windows SDK DLL import library, not the CRT startup/static archive.
+    'Crt': 'ucrt',
     'gdi': 'gdi32', 'gl': 'opengl32',
     'glx': 'GLX', 'libX11': 'X11',
     'xxh_vendor': 'xxhash070', 'lib_stb_vorbis': 'stb_vorbis',
