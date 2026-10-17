@@ -2,7 +2,13 @@
 D :: #import "Default_Allocator";
 Unchecked :: #import "Default_Allocator"(ENABLE_ASSERTS = false, ENABLE_VALIDATE_ARGS = false);
 
-#assert !#exists(D.allocator);
+// Only the x64 implementation (heaps, as on the reference platforms) names a ready-made allocator;
+// the others have the procedure alone.
+#if CPU == .X64 && OS != .IOS {
+    #assert #exists(D.allocator);
+} else {
+    #assert !#exists(D.allocator);
+}
 
 main :: () {
     memory := cast(*u8) D.allocator_proc(.ALLOCATE, 8, 0, null, null);
@@ -20,7 +26,11 @@ main :: () {
     caps := cast(Allocator_Caps) cast(u64) D.allocator_proc(.CAPS, 0, 0, null, null);
 
     assert((caps & (.FREE | .ACTUALLY_RESIZE | .MULTIPLE_THREADS)) == (.FREE | .ACTUALLY_RESIZE | .MULTIPLE_THREADS));
-    assert((caps & (.CREATE_HEAP | .IS_THIS_YOURS)) == 0);
+    #if CPU == .X64 && OS != .IOS {
+        assert((caps & (.CREATE_HEAP | .IS_THIS_YOURS)) == (.CREATE_HEAP | .IS_THIS_YOURS));
+    } else {
+        assert((caps & (.CREATE_HEAP | .IS_THIS_YOURS)) == 0);
+    }
     D.allocator_proc(.FREE, 0, 128, grown, null);
     D.unsafe_reset();
     small := Unchecked.allocator_proc(.ALLOCATE, 4, 0, null, null);
