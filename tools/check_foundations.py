@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import platform
 import re
 import sys
 from pathlib import Path
@@ -292,7 +293,10 @@ def main():
     parser.add_argument("--lint-only", action="store_true", help="four strict source-check profiles; no program execution")
     parser.add_argument("--cross", action="store_true")
     parser.add_argument("--wasm", action="store_true", help="execute supported cases under Node WASI at O0/O2")
-    parser.add_argument("--x64-target", default={"darwin": "x86_64-apple-darwin", "linux": "x86_64-unknown-linux-gnu", "win32": "x86_64-pc-windows-msvc"}.get(sys.platform), help="executable native x64 target for the CPU-conditional division diagnostic")
+    # Only macOS runs x64 programs on an arm64 host (Rosetta); an arm64 Linux or Windows host has
+    # no way to link or run them, and the interpreter checks cover the x64 division there.
+    x64_host = platform.machine().lower() in ("x86_64", "amd64")
+    parser.add_argument("--x64-target", default={"darwin": "x86_64-apple-darwin", "linux": "x86_64-unknown-linux-gnu", "win32": "x86_64-pc-windows-msvc"}.get(sys.platform) if x64_host or sys.platform == "darwin" else None, help="executable native x64 target for the CPU-conditional division diagnostic")
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
     build_root = args.build_root.resolve(strict=True)
@@ -389,16 +393,14 @@ def main():
     if result.returncode or result.stderr:
         raise RuntimeError(f"x64 division interpreter failed: {result}")
     check_division_output(result.stdout)
-    if not args.x64_target:
-        raise RuntimeError("an executable --x64-target is required for native division exercise checks")
-    for level in ("O0", "O2"):
+    for level in ("O0", "O2") if args.x64_target else ():
         binary = output / f"division-exercise-x64-{level}"
         run([compiler, "-target", args.x64_target, f"-{level}", exercise, "-exe", binary])
         result = subprocess.run([binary], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
         if result.returncode or result.stderr:
             raise RuntimeError(f"native x64 division exercise failed: {result}")
         check_division_output(result.stdout)
-    print("passed CPU.X64 public division exercise: interpreter/native O0/O2 and independent integer oracle", flush=True)
+    print("passed CPU.X64 public division exercise: " + ("interpreter/native O0/O2" if args.x64_target else "interpreter (no x64 executables on this host)") + " and independent integer oracle", flush=True)
     run([compiler,"-check",ROOT / "tests/portable-stdlib/pending/context-overload-probe.jai"])
     print("passed general context/overload compiler regression", flush=True)
     run([compiler, "-interp", "-I", ROOT / "tests/portable-stdlib/pending",

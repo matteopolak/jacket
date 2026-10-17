@@ -10,8 +10,12 @@ module :: (name: *u8) -> *void #foreign kernel "GetModuleHandleA";
 symbol :: (handle: *void, name: *u8) -> *void #foreign kernel "GetProcAddress";
 exit :: (status: u32) #foreign kernel "ExitProcess";
 
+// Which check failed is the exit status: 91 is the first one made.
+checks_made: u32;
+
 check :: (value: bool) {
-    if !value exit(91);
+    if !value exit(91 + checks_made);
+    checks_made += 1;
 }
 
 release :: (blob: *D.ID3DBlob) {
