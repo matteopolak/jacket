@@ -13,6 +13,7 @@ main :: () {
     first := weighted_sum(3);
     second := weighted_sum(3, scale = 3);
     total := 2;
+
     raise_after(*total);
 
     assert(first == 14 && second == 21, "defaults and named argument skipping");

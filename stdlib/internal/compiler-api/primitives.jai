@@ -108,7 +108,6 @@ Workspace_List :: enum u16 {
     ADDITIONAL_LINKER_ARGUMENT :: 1;
 }
 
-
 #scope_module
 require :: (condition: bool, format: string, args: ..Any, loc := #caller_location) {
     if condition return;

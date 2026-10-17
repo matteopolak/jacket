@@ -7,10 +7,13 @@ Tour_File_Visit_Info :: struct {
 
 tour_visit_files :: (directory: string, recursive: bool, user_data: $T, visitor: (info: *Tour_File_Visit_Info, user_data: T)) -> bool {
     name := to_c_string(directory);
+
     defer free(name);
     stream := tour_directory_open(name);
     if !stream return false;
+
     success := true;
+
     while true {
         error := tour_file_errno();
         error.* = 0;
@@ -19,9 +22,12 @@ tour_visit_files :: (directory: string, recursive: bool, user_data: $T, visitor:
             success = error.* == 0;
             break;
         }
+
         short_name := to_string(entry.name.data);
         if short_name == "." || short_name == ".." continue;
+
         full_name := tprint("%/%", directory, short_name);
+
         if entry.kind == 4 {
             if recursive && !tour_visit_files(full_name, recursive, user_data, visitor) {
                 success = false;
@@ -37,7 +43,9 @@ tour_visit_files :: (directory: string, recursive: bool, user_data: $T, visitor:
             break;
         }
     }
+
     if tour_directory_close(stream) != 0 success = false;
+
     return success;
 }
 
@@ -55,6 +63,7 @@ Tour_Directory_Entry :: struct {
     kind: u8;
     name: [256] u8;
 }
+
 #assert size_of(Tour_Directory_Entry) == 280;
 tour_file_libc :: #system_library "libc";
 tour_directory_open :: (path: *u8) -> *void #foreign tour_file_libc "opendir";

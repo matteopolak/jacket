@@ -35,6 +35,7 @@ Defaulted :: struct {
 
 new_slot_holds_default_value :: () {
     table: H.Table(s64, Defaulted);
+
     for key: 0..99 {
         slot, added := H.find_or_add(*table, key);
 

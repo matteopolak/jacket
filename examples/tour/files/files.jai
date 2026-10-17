@@ -3,10 +3,12 @@
 // an in-memory disk that lasts for one run.
 
 #import "File";
+
 #if OS == .WASM {
     #load "sandbox_files.jai";
 } else {
     #import "File_Utilities";
+
     tour_visit_files :: visit_files;
     Tour_File_Visit_Info :: File_Visit_Info;
     tour_file_exists :: file_exists;
@@ -41,6 +43,7 @@ tour_files :: () {
             census.longest_name = copy_temporary_string(info.short_name);
         }
     });
+
     assert(visited);
     print("The tour has % .jai files and % lines; the longest is % (% lines).\n",
         census.files, census.lines, census.longest_name, census.longest_lines);

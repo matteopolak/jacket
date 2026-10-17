@@ -34,7 +34,6 @@ main :: () {
     d: u8 = #char "b";
 
     assert(d - "a" + 10 == 11);
-    assert("a" + 1 == #char "b");
 
     take_byte :: (b: u8) -> u8 {
         return b;

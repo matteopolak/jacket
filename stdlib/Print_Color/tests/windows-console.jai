@@ -36,20 +36,25 @@
 
         // Redirected: no escape codes, no attribute calls, pushes stay balanced.
         redirected := open_wide("print-color-redirect.tmp", 0x40000000, 1, 2);
+
         assert(redirected != W.INVALID_HANDLE_VALUE, "could not create the redirect target");
         SetStdHandle(W.STD_OUTPUT_HANDLE, redirected);
-        Keep.with_console_color(.RED, #code { write_string("plain text"); }, .BOLD);
+        Keep.with_console_color(.RED, #code {
+            write_string("plain text");
+        }, .BOLD);
         assert(Keep.console_color_depth() == 0);
         SetStdHandle(W.STD_OUTPUT_HANDLE, original);
         W.CloseHandle(redirected);
 
         written, found := read_entire_file("print-color-redirect.tmp");
+
         assert(found && written == "plain text", "redirected output must be untouched: %", written);
         file_delete("print-color-redirect.tmp");
 
         // A real console screen buffer.
         W.AllocConsole();
         console := open_wide("CONOUT$", 0xc0000000, 3, 3);
+
         assert(console != W.INVALID_HANDLE_VALUE, "no console screen buffer is available");
         SetStdHandle(W.STD_OUTPUT_HANDLE, console);
 

@@ -23,11 +23,13 @@ tour_canvas_input :: () -> resize_count: int, quit: bool, pause: bool, palette_c
             resize_count += 1;
             continue;
         }
+
         if event.type != 1 || event.pressed == 0 continue;
         if event.key == 27 quit = true;
         if event.key == 32 pause = !pause;
         if event.key == 168 palette_clicks += 1;
     }
+
     return resize_count, quit, pause, palette_clicks;
 }
 
@@ -46,6 +48,7 @@ Tour_Canvas_Event :: struct {
     utf32: u32;
     repeat: u32;
 }
+
 #assert size_of(Tour_Canvas_Event) == 32;
 
 tour_host_canvas_available :: () -> u32 #foreign "jai_canvas_available";

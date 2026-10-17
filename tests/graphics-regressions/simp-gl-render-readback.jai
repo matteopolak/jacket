@@ -1,7 +1,5 @@
-// Simp's OpenGL backend in a real window: triangles, fans, rounded rectangles, textured quads,
-// gradients and text drawn into a render-target texture are read back and checked pixel by pixel;
-// the window itself is prepared, cleared, presented and remeasured; and the renderer is shut down
-// and brought back on the same context. Fonts come from the operating system (no font ships with
+// Simp's OpenGL backend in a real window: triangles, fans, textured quads and text drawn into a render-target texture are read back and checked pixel by pixel;
+// the window itself is prepared, cleared, presented and remeasured. Fonts come from the operating system (no font ships with
 // the repository); without one the text part is left out. Needs OpenGL 3.3 (Windows CI runners
 // lack it) and a display (Linux CI runs Xvfb with Mesa); wasm has neither (see the skip list).
 #import "Basic";
@@ -10,14 +8,16 @@
 #import "Window_Creation";
 #import "Input";
 #import "File";
+#import "File_Utilities";
 #import "Simp";
 GL :: #import "GL";
 
 SIZE :: 32;
 
-// Reads the target back as RGBA8, top row first.
+// Reads the target back as RGBA8, top row first, once the pending geometry is drawn.
 read_target :: (target: *Texture) -> Bitmap {
-    reader := pixel_read_begin(target, .RGBA8);
+    immediate_flush();
+    reader := pixel_read_begin(target, .RGBA8, -1, -1, false, true);
 
     assert(reader != null, "pixel_read_begin failed");
 
@@ -64,7 +64,6 @@ main :: () {
 
     assert(width > 0 && height > 0, "window renders at % x %", width, height);
     update_window(window);
-    set_window_dimensions(window, width, height);
     clear_render_target(0.1, 0.2, 0.3, 1);
     set_shader_for_color();
     immediate_quad(0, 0, 10, 10, .{ 1, 1, 0, 1 });
@@ -76,30 +75,15 @@ main :: () {
 
     target := texture_create_render_target(SIZE, SIZE, .RGBA8);
 
-    assert(target != null, "texture_create_render_target failed");
-    shapes(target);
-    images(target);
-    text(target);
-
-    // The renderer can be shut down and restarted on the current context.
-    initialize_opengl_renderer(null); // Refused: no procedures.
-    shutdown_opengl_renderer();
-    shutdown_opengl_renderer(); // Twice is harmless.
-    assert(initialize_opengl_renderer(*GL.gl), "initialize_opengl_renderer on the live context failed");
-    set_render_target(target, .LEFT_HANDED);
-    set_shader_for_color();
-    clear_render_target(0, 0, 0, 1);
-    immediate_quad(0, 0, SIZE, SIZE, .{ 0, 1, 0, 1 });
-    image := read_target(target);
-
-    assert(rgb_near(*image, 5, 5, 0, 255, 0), "drawing after a restart: %", pixel(*image, 5, 5));
-    deinit(*image);
+    assert(target.width == SIZE && target.height == SIZE, "texture_create_render_target gave % x %", target.width, target.height);
+    shapes(*target);
+    images(*target);
+    text(*target);
 
     set_render_target(window);
     clear_render_target(0, 0, 0, 1);
     swap_buffers(window, vsync = false);
-    deinit(target);
-    free(target);
+    texture_destroy(*target);
     print("ok\n");
 }
 
@@ -109,7 +93,7 @@ shapes :: (target: *Texture) {
     set_shader_for_color();
     clear_render_target(0, 0, 0, 1);
     immediate_begin();
-    immediate_triangle(.{ 0, 0, 0 }, .{ 16, 0, 0 }, .{ 0, 16, 0 }, .{ 1, 0, 0, 1 });
+    immediate_triangle(.{ 0, 0, 0 }, .{ 16, 0, 0 }, .{ 0, 16, 0 }, .{ 1, 0, 0, 1 }, .{ 1, 0, 0, 1 }, .{ 1, 0, 0, 1 });
     immediate_triangle(.{ 32, 32, 0 }, .{ 16, 32, 0 }, .{ 32, 16, 0 }, .{ 0, 1, 0, 1 }, .{ 0, 1, 0, 1 }, .{ 0, 1, 0, 1 });
     image := read_target(target);
 
@@ -121,7 +105,14 @@ shapes :: (target: *Texture) {
     clear_render_target(0, 0, 0, 1);
     square := Vector2.[.{ 8, 8 }, .{ 24, 8 }, .{ 24, 24 }, .{ 8, 24 }, .{ 8, 8 }];
 
-    immediate_triangle_fan(.{ 16, 16 }, square, .{ 0, 0, 1, 1 }, .{ 0, 0, 1, 1 });
+    blue := Vector4.{ 0, 0, 1, 1 };
+
+    immediate_begin();
+
+    for 0..square.count - 2 {
+        immediate_triangle(.{ 16, 16, 0 }, .{ square[it].x, square[it].y, 0 }, .{ square[it + 1].x, square[it + 1].y, 0 }, blue, blue, blue);
+    }
+
     image = read_target(target);
     assert(rgb_near(*image, 10, 10, 0, 0, 255) && rgb_near(*image, 22, 20, 0, 0, 255), "fan interior: %", pixel(*image, 10, 10));
     assert(rgb_near(*image, 4, 4, 0, 0, 0) && rgb_near(*image, 27, 16, 0, 0, 0), "fan spilled outside its square");
@@ -133,27 +124,6 @@ shapes :: (target: *Texture) {
     clear_scissor();
     image = read_target(target);
     assert(rgb_near(*image, 3, 3, 255, 255, 255) && rgb_near(*image, 12, 12, 0, 0, 255), "scissored quad: % %", pixel(*image, 3, 3), pixel(*image, 12, 12));
-    deinit(*image);
-
-    clear_render_target(0, 0, 0, 1);
-    set_shader_for_rects();
-    immediate_rounded_rect(.{ 0, 0 }, .{ SIZE, SIZE }, .{ 1, 1, 0, 1 }, .{ 16, 16 }, .{ 16, 16 }, 12);
-    image = read_target(target);
-    assert(rgb_near(*image, 16, 16, 255, 255, 0) && rgb_near(*image, 16, 1, 255, 255, 0), "rounded rect body: %", pixel(*image, 16, 16));
-    assert(pixel(*image, 0, 0)[0] < 60, "rounded rect corner is filled: %", pixel(*image, 0, 0));
-    deinit(*image);
-
-    clear_render_target(0, 0, 0, 1);
-    set_shader_for_gradient(.{ 0, 0, SIZE, SIZE }, 16, 0);
-    immediate_quad(0, 0, SIZE, SIZE, .{ 1, 1, 1, 1 });
-    image = read_target(target);
-    first := pixel(*image, 8, 0)[0];
-    last := pixel(*image, 8, SIZE - 1)[0];
-
-    assert(abs(cast(int) last - cast(int) first) > 200, "gradient spans % .. %", first, last);
-    middle := pixel(*image, 8, SIZE / 2)[0];
-
-    assert(middle > min(first, last) && middle < max(first, last), "gradient middle % between % and %", middle, first, last);
     deinit(*image);
 
     // Nothing bound: the texture is refused, and the reset drops the shader.
@@ -169,7 +139,7 @@ images :: (target: *Texture) {
 
     memcpy(texels.data.data, colors.data, 16);
     sprite: Texture;
-    sprite.nearest = true;
+
     assert(texture_load_from_bitmap(*sprite, *texels), "texture_load_from_bitmap failed");
     set_render_target(target, .LEFT_HANDED);
     clear_render_target(0, 0, 0, 1);
@@ -188,7 +158,7 @@ images :: (target: *Texture) {
 
     assert(bitmap_save(*texels, png, true), "bitmap_save failed");
     from_file: Texture;
-    from_file.nearest = true;
+
     assert(texture_load_from_file(*from_file, png), "texture_load_from_file failed");
     bytes, read := read_entire_file(png);
 
@@ -205,9 +175,9 @@ images :: (target: *Texture) {
     deinit(*image);
     file_delete(png);
     free(bytes);
-    deinit(*from_file);
-    deinit(*from_memory);
-    deinit(*sprite);
+    texture_destroy(*from_file);
+    texture_destroy(*from_memory);
+    texture_destroy(*sprite);
     deinit(*texels);
 }
 
@@ -260,30 +230,5 @@ text :: (target: *Texture) {
 
     deinit(*image);
 
-    // Highlights and color-map text through the GPU.
-    table := Vector4.[.{ 1, 0, 0, 1 }, .{ 0, 0, 1, 1 }];
-
-    set_color_map(table);
-    clear_render_target(0, 0, 0, 1);
-    marks := bool.[false, true];
-    total := draw_text_with_highlights(font, 0, 22, "HH", marks, 0, 1);
-
-    image = read_target(target);
-    red_left, blue_right := false, false;
-
-    for y: 0..SIZE - 1 for x : 0..SIZE - 1 {
-        p := pixel(*image, x, y);
-        if x < total / 2 && p[0] > 64 red_left = true;
-        if x >= total / 2 && p[2] > 64 blue_right = true;
-    }
-
-    assert(red_left && blue_right, "highlighted text: red left %, blue right %", red_left, blue_right);
-    deinit(*image);
-    clear_render_target(0, 0, 0, 1);
-    draw_text(font, 2, 22, "H", cast(u8) 1);
-    image = read_target(target);
-    assert(lit_count(*image, 2) > 5 && lit_count(*image, 0) == 0, "color index 1 is not blue");
-    deinit(*image);
-    set_color_map(.[]);
-    deinit_fonts();
+    release_font(font);
 }

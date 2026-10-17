@@ -907,6 +907,7 @@ context_changes :: (builder: *Basic.String_Builder, changes: *C.Code_Node, names
         while end < names.count && names[end] != #char "," end += 1;
 
         node := changes;
+
         if changes.kind == .COMMA_SEPARATED_ARGUMENTS {
             list := cast(*C.Code_Comma_Separated_Arguments) changes;
             if index >= list.arguments.count return false;
@@ -924,6 +925,7 @@ context_changes :: (builder: *Basic.String_Builder, changes: *C.Code_Node, names
 
         index += 1;
         if end >= names.count break;
+
         start = end + 1;
     }
 
@@ -963,6 +965,7 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
         if !compound.comma_separated_assignment return false;
 
         assigns := false;
+
         for arg: compound.comma_separated_assignment.arguments {
             if arg.modifier == .ASSIGN assigns = true;
         }
@@ -974,13 +977,16 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
         arguments := compound.comma_separated_assignment.arguments;
         for arg, i: arguments {
             last := i == arguments.count - 1;
+
             if i Basic.append(builder, ", ");
             if !arg.node return false;
 
             if arg.modifier == .DECLARE {
                 if arg.node.kind != .DECLARATION return false;
+
                 member := cast(*C.Code_Declaration) arg.node;
                 if member.flags & .HAS_SCOPE_MODIFIER Basic.append(builder, "`");
+
                 Basic.append(builder, member.name);
 
                 if assigns {

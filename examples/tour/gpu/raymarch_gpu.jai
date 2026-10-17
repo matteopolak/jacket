@@ -47,6 +47,7 @@ tour_gpu :: () {
 
     instance := wgpuCreateInstance(null);
     surface: WGPUSurface;
+
     #if OS == .WASM {
         // The private host binds this real surface to the supplied page canvas.
         surface = wgpuInstanceCreateSurface(instance, null);
@@ -81,6 +82,7 @@ tour_gpu :: () {
     }
 
     width, height: s32;
+
     #if OS == .WASM {
         width, height = tour_canvas_dimensions();
     } else {
@@ -134,14 +136,18 @@ tour_gpu :: () {
 
     while tour_gpu_seconds() - start < GPU_SECONDS {
         quit := false;
+
         #if OS == .WASM {
             resizes, quit_now, pause, clicks := tour_canvas_input();
+
             quit = quit_now;
             if pause paused = !paused;
+
             while clicks > 0 {
                 palette += 1;
                 clicks -= 1;
             }
+
             while resizes > 0 {
                 width, height = tour_canvas_dimensions();
                 gpu_configure(surface, device, format, width, height);
@@ -149,10 +155,12 @@ tour_gpu :: () {
             }
         } else {
             update_window_events();
+
             for get_window_resizes() {
                 width, height = webgpu_window_size(window);
                 gpu_configure(surface, device, format, width, height);
             }
+
             for events_this_frame {
                 if it.type == .QUIT quit = true; // the window was closed
                 if it.type != .KEYBOARD || !it.key_pressed continue;

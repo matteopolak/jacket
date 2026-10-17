@@ -3,6 +3,7 @@
 
 main :: () {
     memory := alloc(16);
+
     assert(memory != null);
     p := cast(*u8) memory;
     p[0] = 42;

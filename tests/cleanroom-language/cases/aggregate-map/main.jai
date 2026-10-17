@@ -1,7 +1,7 @@
 #import "Basic";
 
 rename_members :: (names: [] string) {
-    for * names {
+    for *names {
         if it.* == "x" it.* = "x_axis";
         if it.* == "hidden" it.* = "";
     }
@@ -15,6 +15,7 @@ Coordinate :: struct {
 
 main :: () {
     point := Coordinate.{ x = 1, y = 2, hidden = 3 };
+
     {
         using,map(rename_members) point;
         x_axis = 9;

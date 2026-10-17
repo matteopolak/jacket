@@ -13,11 +13,13 @@ Grid_Point :: struct {
 
 main :: () {
     points: [5] s64;
+
     for i: 0..4 {
         points[i] = cast(s64) i;
     }
 
     total := 0;
+
     for point: points {
         total += point;
     }

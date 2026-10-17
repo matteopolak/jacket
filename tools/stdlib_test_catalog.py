@@ -163,7 +163,6 @@ def validated_entries(root=ROOT):
         if case["id"] in {
             "native/clipboard-round-trip",
             "native/macos-clipboard-utf8",
-            "graphics/getrect-widgets-driven",
         }:
             case["clipboard_guard"] = True
         termination = {

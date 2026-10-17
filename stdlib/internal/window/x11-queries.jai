@@ -74,4 +74,3 @@ toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window
     // EWMH requests are asynchronous; dimensions describe the current native window.
     return ok, width, height;
 }
-

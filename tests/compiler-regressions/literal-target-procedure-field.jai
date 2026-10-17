@@ -17,7 +17,7 @@ double :: (value: int) -> int {
 
 main :: () {
     widget := Widget.{ base.on_start = double, base.count = 3, extra = 1 };
-    if widget.base.on_start(21) != 42 exit(1);
-    if widget.base.count != 3 || widget.extra != 1 exit(2);
+    assert(widget.base.on_start(21) == 42);
+    assert(widget.base.count == 3 && widget.extra == 1);
     print("ok\n");
 }

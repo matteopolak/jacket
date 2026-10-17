@@ -16,6 +16,7 @@ main :: () {
     add_regs(b, a);
 
     c: u64 = ---;
+
     #asm {
         mov c, b;
     }

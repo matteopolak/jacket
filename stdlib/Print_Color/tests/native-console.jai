@@ -63,7 +63,7 @@ main :: () {
     reset_fake();
     Keep.push_console_color(.RED);
     Keep.pop_console_color();
-    fake_attributes[0] = 0x1e;   // the program changed colors itself
+    fake_attributes[0] = 0x1e; // the program changed colors itself
     Keep.push_console_color(.GREEN);
     Keep.pop_console_color();
     assert(fake_attributes[0] == 0x07, "default policy returns to the first baseline: %", fake_attributes[0]);
@@ -106,6 +106,7 @@ main :: () {
     reset_fake();
     for 1..40 Keep.push_console_color(.RED);
     for 1..40 Keep.pop_console_color();
+
     assert(Keep.console_color_depth() == 0 && fake_attributes[0] == 0x07, "deep: %", fake_attributes[0]);
 
     print("ok\n");

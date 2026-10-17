@@ -89,6 +89,7 @@ console_attributes_for :: (current: u16, color: Console_Color, style: Console_St
     if foreground || background {
         index := (code - 30) % 10;
         bits: u16;
+
         if index & 1 bits |= 0x4;
         if index & 2 bits |= 0x2;
         if index & 4 bits |= 0x1;
@@ -119,11 +120,13 @@ push_console_color :: (color: Console_Color, style: Console_Style = .NORMAL, to_
 
     stream := *native_streams[ifx to_standard_error then 1 else 0];
     level := stream.depth;
+
     stream.depth += 1;
 
     backend := current_backend();
     attributes: u16;
     console := false;
+
     if backend.query attributes, console = backend.query(to_standard_error);
 
     if level < NATIVE_MAX_DEPTH {

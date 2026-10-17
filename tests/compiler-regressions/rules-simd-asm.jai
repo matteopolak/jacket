@@ -358,6 +358,7 @@ main :: () {
         vendor_b: u32;
         vendor_c: u32 = 0;
         vendor_d: u32;
+
         #asm { cpuid maximum, vendor_b, vendor_c, vendor_d; }
         assert(maximum >= 1, "CPUID supports the baseline feature leaf");
         assert((vendor_b | vendor_c | vendor_d) != 0, "CPUID returns a real vendor");
@@ -366,6 +367,7 @@ main :: () {
         repeated_b: u32;
         repeated_c: u32 = 0;
         repeated_d: u32;
+
         #asm { cpuid repeated_maximum, repeated_b, repeated_c, repeated_d; }
         assert(maximum == repeated_maximum && vendor_b == repeated_b &&
                vendor_c == repeated_c && vendor_d == repeated_d,
@@ -379,6 +381,7 @@ main :: () {
         feature_b: u32;
         feature_c: u32 = 0;
         feature_d: u32;
+
         #asm { cpuid feature_a, feature_b, feature_c, feature_d; }
         assert((feature_d & (1 << 26)) != 0, "asm.25 x64 baseline SSE2");
         xsave_prerequisites: u32 = (1 << 26) | (1 << 27);
@@ -386,8 +389,10 @@ main :: () {
             xcr_index: u32 = 0;
             xcr_hi: u32;
             xcr_lo: u32;
+
             #asm { xgetbv xcr_hi, xcr_lo, xcr_index; }
             xcr0 := ((cast(u64) xcr_hi) << 32) | xcr_lo;
+
             assert((xcr0 & 1) != 0, "asm.25 XCR0 keeps x87 enabled");
         }
     }

@@ -1,4 +1,7 @@
-Record :: struct { value: int; }
+Record :: struct {
+    value: int;
+}
+
 main :: () {
     record: Record;
     invalid := record.missing;

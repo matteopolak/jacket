@@ -4,7 +4,7 @@
 Scope :: #import "Body_Import_Scope";
 
 main :: () {
-    if Scope.root_of_sixteen() != 4 exit(1);
-    if Scope.root_of_nine() != 3 exit(2);
+    assert(Scope.root_of_sixteen() == 4);
+    assert(Scope.root_of_nine() == 3);
     print("ok\n");
 }
