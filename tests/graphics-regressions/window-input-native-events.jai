@@ -22,19 +22,26 @@ Seen :: struct {
     text: [..] u32;
 }
 
+// Notes the resizes the last pump reported. A window system that delivers the notification inside
+// the call that resized the window (Win32 sends WM_SIZE synchronously, and Wine does not queue it)
+// reports it before the next frame's update, which discards the record: read it right after.
+record_resizes :: (windows: [] Window_Type, seen: [] Seen) {
+    for resize: get_window_resizes() {
+        for windows if it == resize.window {
+            seen[it_index].resized = true;
+            seen[it_index].width = resize.width;
+            seen[it_index].height = resize.height;
+        }
+    }
+}
+
 // Runs the event pump for up to `frames` frames, recording what arrives for each window.
 // Stops early once `done` says what the caller waits for has arrived.
 pump :: (windows: [] Window_Type, seen: [] Seen, done: (seen: [] Seen) -> bool, frames := 200) -> bool {
     for 1..frames {
         update_window_events();
 
-        for resize: get_window_resizes() {
-            for windows if it == resize.window {
-                seen[it_index].resized = true;
-                seen[it_index].width = resize.width;
-                seen[it_index].height = resize.height;
-            }
-        }
+        record_resizes(windows, seen);
 
         for event: events_this_frame {
             for windows if it == event.window {
@@ -83,6 +90,7 @@ main :: () {
         update_window_events();
         resize_native(first, 330, 250);
         resize_native(second, 210, 160);
+        record_resizes(windows, seen);
     }
 
     // Both windows report a size once they are on screen.
@@ -316,9 +324,8 @@ main :: () {
     }
 
     resize_native :: (window: HWND, width: float64, height: float64) {
-        // Queued, so the WM_SIZE arrives through the pump rather than inside this call, where
-        // the next frame's update would discard its record.
-        ok := SetWindowPos(window, null, 0, 0, cast(s32) width, cast(s32) height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+        // WM_SIZE is sent inside this call; `record_resizes` reads it afterwards.
+        ok := SetWindowPos(window, null, 0, 0, cast(s32) width, cast(s32) height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         assert(ok != 0, "SetWindowPos resize");
     }
 
