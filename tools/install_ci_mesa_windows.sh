@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
-# Unpack Mesa's software OpenGL (llvmpipe) for x64 Windows into a directory, for the window tests
-# on CI runners that only have GDI's OpenGL 1.1. Usage: install_ci_mesa_windows.sh DIR
-# MESA_VERSION and MESA_SHA256 pin the mesa-dist-win release (.github/workflows/ci.yml).
-# Copy DIR/*.dll next to a program (Windows loads opengl32.dll from there before System32) and set
-# GALLIUM_DRIVER=llvmpipe. See docs/tools/development.md.
+# Unpack Mesa's software OpenGL (llvmpipe) for Windows into a directory, for the window tests on CI
+# runners that only have GDI's OpenGL 1.1. Usage: install_ci_mesa_windows.sh CPU DIR (x64 or arm64)
+# MESA_VERSION and the per-CPU MESA_SHA256_X64 / MESA_SHA256_ARM64 pin the mmozeiko/build-mesa
+# release (.github/workflows/ci.yml). The archive holds one self-contained opengl32.dll with
+# llvmpipe linked in; copy it next to a program (Windows loads opengl32.dll from there before
+# System32) and set GALLIUM_DRIVER=llvmpipe. See docs/tools/development.md.
 set -euo pipefail
 
-out=${1:?usage: install_ci_mesa_windows.sh DIR}
-: "${MESA_VERSION:?}" "${MESA_SHA256:?}"
+cpu=${1:?usage: install_ci_mesa_windows.sh CPU DIR}
+out=${2:?usage: install_ci_mesa_windows.sh CPU DIR}
+: "${MESA_VERSION:?}"
+case "$cpu" in
+  x64) : "${MESA_SHA256_X64:?}"; sha=$MESA_SHA256_X64 ;;
+  arm64) : "${MESA_SHA256_ARM64:?}"; sha=$MESA_SHA256_ARM64 ;;
+  *) echo "unknown cpu: $cpu" >&2; exit 2 ;;
+esac
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
-  "https://github.com/pal1000/mesa-dist-win/releases/download/$MESA_VERSION/mesa3d-$MESA_VERSION-release-msvc.7z" \
+  "https://github.com/mmozeiko/build-mesa/releases/download/$MESA_VERSION/mesa-llvmpipe-$cpu-$MESA_VERSION.7z" \
   -o "$work/mesa.7z"
-echo "$MESA_SHA256  $work/mesa.7z" | sha256sum --check --strict -
-# opengl32.dll is a thin front for the Gallium driver library next to it.
-7z e -y -bd "-o$(cygpath -w "$work/x64")" "$(cygpath -w "$work/mesa.7z")" x64/opengl32.dll x64/libgallium_wgl.dll > /dev/null
+echo "$sha  $work/mesa.7z" | sha256sum --check --strict -
 mkdir -p "$out"
-cp "$work/x64/opengl32.dll" "$work/x64/libgallium_wgl.dll" "$out/"
+if command -v 7z > /dev/null; then
+  7z e -y -bd "-o$(cygpath -w "$out")" "$(cygpath -w "$work/mesa.7z")" opengl32.dll > /dev/null
+else
+  # Windows' own bsdtar reads 7z archives; Git's GNU tar does not.
+  "$(cygpath -u "$SYSTEMROOT")/System32/tar.exe" -xf "$(cygpath -w "$work/mesa.7z")" -C "$(cygpath -w "$out")" opengl32.dll
+fi
 ls -l "$out"

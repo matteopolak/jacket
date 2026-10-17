@@ -16,10 +16,11 @@ env:
   # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for Windows arm64.
   LLVM_MINGW_VERSION: '20260922'
   # Mesa's llvmpipe software OpenGL for the Windows window tests (the runners only have GDI's
-  # OpenGL 1.1): the MSVC build of https://github.com/pal1000/mesa-dist-win, which has no arm64
-  # DLLs. Its opengl32.dll goes next to the programs, which Windows searches before System32.
-  MESA_VERSION: 26.1.8
-  MESA_SHA256: 4c6d32e653e0ff9ad07796e40c0bcfabf2764d849e3ce4f3b1590112c87e42f9
+  # OpenGL 1.1): the prebuilt https://github.com/mmozeiko/build-mesa release, one opengl32.dll per
+  # CPU. It goes next to the programs, which Windows searches before System32.
+  MESA_VERSION: 26.2.5
+  MESA_SHA256_X64: d1b713ca2a7fba47a50c058099f13c435ddb76a16a422c334e4d787f9755a31d
+  MESA_SHA256_ARM64: e7df75398d50e07a68bbffa5cff2ece4c85e5f8ef8bda497f560dd04fe60cbbd
   GALLIUM_DRIVER: llvmpipe
 # A newer push to a branch supersedes the older run there. On main the light jobs (compiler
 # tests, lint, wasm, VS Code) finish for every push, while the heavy ones (stdlib runtime,
@@ -1088,17 +1089,14 @@ jobs:
           name: cross-${{ matrix.cpu }}
           path: cross-${{ matrix.cpu }}
       - name: Install Mesa's software OpenGL
-        if: matrix.cpu == 'x64'
         run: |
-          bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
-          cp "$RUNNER_TEMP"/mesa/*.dll cross-x64/
+          bash tools/install_ci_mesa_windows.sh ${{ matrix.cpu }} "$RUNNER_TEMP/mesa"
+          cp "$RUNNER_TEMP"/mesa/*.dll cross-${{ matrix.cpu }}/
       - name: Run
         run: |
           JAIC_TEST_WINDOWS_RESOURCE_DIR="$(cygpath -m "$PWD/cross-${{ matrix.cpu }}/resource-fixture")"
           export JAIC_TEST_WINDOWS_RESOURCE_DIR
-          # Mesa ships no arm64 DLLs, so that runner has no OpenGL 3.3 (the native job builds its own).
-          if [ "${{ matrix.cpu }}" = arm64 ]; then extra=--without-opengl; fi
-          python tools/windows_cross.py run --dir cross-${{ matrix.cpu }} $extra
+          python tools/windows_cross.py run --dir cross-${{ matrix.cpu }}
   windows-native:
     name: jaic on Windows ${{ matrix.cpu }} (MSVC)
     needs: changes
@@ -1117,7 +1115,7 @@ jobs:
             runner: windows-11-arm
             triple: aarch64-pc-windows-msvc
             vs_arch: arm64
-            mesa_dir: target/window-mesa-arm64/driver
+            mesa_dir: target/mesa-driver
             timeout: 120
     concurrency:
       group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}
@@ -1172,60 +1170,15 @@ jobs:
         if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
         run: test "$("$JAIC" tests/compiler/native/windows/variadic.jai -interp | tr -d '\r')" = ok
       - name: Install Mesa's software OpenGL
-        if: ${{ !cancelled() && matrix.cpu == 'x64' }}
-        run: bash tools/install_ci_mesa_windows.sh "$MESA_DIR"
-      - name: Restore the native LLVM installation for the Mesa build
-        if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
-        id: mesa-llvm-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target/window-mesa-cache
-          key: windows-arm64-mesa-llvm-${{ hashFiles('tools/window_render_mesa_windows.py') }}-${{ github.run_id }}
-          restore-keys: |
-            windows-arm64-mesa-llvm-${{ hashFiles('tools/window_render_mesa_windows.py') }}-
-      - name: Build native arm64 Mesa from pinned upstream sources
-        if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
-        shell: pwsh
-        run: |
-          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath
-          if (-not $installation) { throw 'Visual Studio ARM64 C++ tools are required' }
-          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
-          if ($env:VSCMD_ARG_TGT_ARCH -ne 'arm64') { throw 'ARM64 developer environment was not initialized' }
-          python -m venv target/mesa-python
-          $python = Join-Path $PWD 'target/mesa-python/Scripts/python.exe'
-          & $python -m pip install cmake==3.31.6 ninja==1.13.2 meson==1.8.3 Mako==1.3.10 MarkupSafe==3.0.3 packaging==25.0 PyYAML==6.0.3
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:PATH = (Join-Path $PWD 'target/mesa-python/Scripts') + ';' + $env:PATH
-          & $python -u tools/window_render_mesa_windows.py --out target/window-mesa-arm64 --jobs 4
-          exit $LASTEXITCODE
-      - name: Check whether the native LLVM installation is complete
-        if: ${{ always() && !cancelled() && matrix.cpu == 'arm64' }}
-        id: mesa-llvm-completion
-        shell: pwsh
-        run: |
-          $planPath = 'target/window-mesa-arm64/source-build.json'
-          $save = $false
-          if (Test-Path $planPath) {
-            $plan = Get-Content -Raw $planPath | ConvertFrom-Json
-            if ($plan.llvm_cache -and -not $plan.llvm_cache.hit) {
-              $save = Test-Path (Join-Path 'target/window-mesa-cache' ($plan.llvm_cache.key + '/complete.json'))
-            }
-          }
-          "save=$($save.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-      - name: Save the native LLVM installation
-        if: ${{ always() && !cancelled() && steps.mesa-llvm-completion.outputs.save == 'true' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target/window-mesa-cache
-          key: ${{ steps.mesa-llvm-cache.outputs.cache-primary-key }}
+        if: ${{ !cancelled() }}
+        run: bash tools/install_ci_mesa_windows.sh "$CPU" "$MESA_DIR"
       - name: Stdlib runtime tests (interpreter and native) and coverage
         # The third-party libraries (FreeType, stb_*...) are built first (tools/build_native_libs.py).
         if: ${{ !cancelled() }}
         env:
           JAIC_TEST_FONT_PATH: C:\Windows\Fonts\arial.ttf
         run: |
-          if [ "$CPU" = x64 ]; then cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"; fi
+          cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"
           python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-${{ matrix.cpu }}
       - name: Stdlib tests, native O2
