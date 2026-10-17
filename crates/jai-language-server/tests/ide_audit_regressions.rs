@@ -475,13 +475,13 @@ fn open_project_modules_do_not_erase_root_type_facts() {
         },
     );
     session.set_workspace_folders(vec![root.clone()]);
-    let uri = DocumentUri::parse(&format!("file://{}", root.join("main.jai").display())).unwrap();
+    let uri = DocumentUri::from_path(&root.join("main.jai")).unwrap();
     let text = std::fs::read_to_string(root.join("main.jai")).unwrap();
     session.open(uri.clone(), 1, text.clone()).unwrap();
     let module = root.join("modules/Probe/module.jai");
     session
         .open(
-            DocumentUri::parse(&format!("file://{}", module.display())).unwrap(),
+            DocumentUri::from_path(&module).unwrap(),
             1,
             std::fs::read_to_string(&module).unwrap(),
         )
@@ -544,13 +544,13 @@ fn an_open_unloaded_source_file_has_semantic_facts_in_its_own_file_context() {
     s.set_workspace_folders(vec![root.clone()]);
     for file in ["main.jai", "extras.jai"] {
         s.open(
-            DocumentUri::parse(&format!("file://{}", root.join(file).display())).unwrap(),
+            DocumentUri::from_path(&root.join(file)).unwrap(),
             1,
             std::fs::read_to_string(root.join(file)).unwrap(),
         )
         .unwrap();
     }
-    let uri = DocumentUri::parse(&format!("file://{}", root.join("extras.jai").display())).unwrap();
+    let uri = DocumentUri::from_path(&root.join("extras.jai")).unwrap();
     let text = std::fs::read_to_string(root.join("extras.jai")).unwrap();
     assert!(
         s.diagnostics(&uri)

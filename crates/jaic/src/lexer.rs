@@ -192,6 +192,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         out: Vec::with_capacity(text.len() / 4 + 16),
         newline: true,
         regions: None,
+        unclosed: false,
     };
     lx.run()?;
     Ok(lx.out)
@@ -208,6 +209,7 @@ pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
         out: Vec::with_capacity(text.len() / 4 + 16),
         newline: true,
         regions: None,
+        unclosed: false,
     };
     let mut errors = Vec::new();
     while let Err(mut error) = lx.run() {
@@ -215,8 +217,7 @@ pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
         let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
         error.span.end = end as u32;
         // An unclosed comment/here-string has no trustworthy internal token boundaries.
-        let opaque =
-            error.message.contains("block comment") || error.message.contains("here-string");
+        let opaque = std::mem::take(&mut lx.unclosed);
         errors.push(error);
         lx.at = if opaque {
             text.len()
@@ -239,6 +240,7 @@ pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic
         out: Vec::new(),
         newline: true,
         regions: Some(Vec::new()),
+        unclosed: false,
     };
     lx.run()?;
     Ok(lx.regions.unwrap())
@@ -295,6 +297,9 @@ struct Lexer<'a> {
     out: Vec<Token>,
     newline: bool,
     regions: Option<Vec<Span>>,
+    /// The last error left a block comment or here-string open: nothing after it lexes
+    /// reliably.
+    unclosed: bool,
 }
 
 fn is_ident_start(c: u8) -> bool {
@@ -306,6 +311,11 @@ fn is_ident_char(c: u8) -> bool {
 }
 
 impl<'a> Lexer<'a> {
+    fn unclosed_err(&mut self, start: usize, msg: &str) -> Diagnostic {
+        self.unclosed = true;
+        self.err(start, msg)
+    }
+
     fn err(&self, start: usize, msg: &str) -> Diagnostic {
         let mut end = self.at.max(start + 1).min(self.src.len().max(start + 1));
         // A span covers whole characters: the renderer slices the text with it.
@@ -497,7 +507,7 @@ impl<'a> Lexer<'a> {
                 let mut depth = 1;
                 while depth > 0 {
                     if self.at >= self.src.len() {
-                        return Err(self.err(start, "unterminated block comment"));
+                        return Err(self.unclosed_err(start, "unterminated block comment"));
                     }
                     if self.peek(0) == b'/' && self.peek(1) == b'*' {
                         depth += 1;
@@ -739,7 +749,7 @@ impl<'a> Lexer<'a> {
         }
         let tag = self.ident();
         if tag.is_empty() {
-            return Err(self.err(start, "expected here-string terminator"));
+            return Err(self.unclosed_err(start, "expected here-string terminator"));
         }
         let tag = tag.as_bytes();
         // Body starts on the next line.
@@ -792,7 +802,7 @@ impl<'a> Lexer<'a> {
             self.at = line_end + 1;
         }
         self.at = self.src.len();
-        Err(self.err(start, "unterminated here-string"))
+        Err(self.unclosed_err(start, "unterminated here-string"))
     }
 }
 

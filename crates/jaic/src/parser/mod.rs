@@ -29,7 +29,7 @@ mod tests;
 
 use crate::ast::{File, Ident, Note, Stmt};
 use crate::lexer::{P, Tok, Token, lex};
-use crate::source::{Diagnostic, FileId, Span};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 pub(crate) use ide::parse_callee_ide;
 pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
 
@@ -112,9 +112,11 @@ impl<'a> Parser<'a> {
     /// Run `f` one nesting level deeper, failing past `MAX_NESTING`.
     fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> PResult<T>) -> PResult<T> {
         if self.depth >= MAX_NESTING {
-            return Err(self.error(format!(
-                "code is nested too deeply (more than {MAX_NESTING} levels)"
-            )));
+            return Err(self
+                .error(format!(
+                    "code is nested too deeply (more than {MAX_NESTING} levels)"
+                ))
+                .with_kind(DiagnosticKind::NestingLimit));
         }
         self.depth += 1;
         let result = f(self);

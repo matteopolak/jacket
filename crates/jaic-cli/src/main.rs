@@ -2211,17 +2211,8 @@ mod tests {
         );
 
         let host = Options::host();
-        let os = match host.os {
-            TargetOs::Linux => "linux",
-            TargetOs::MacOS => "macos",
-            TargetOs::Windows => "windows",
-            TargetOs::Wasm => "wasm",
-        };
-        let cpu = match host.cpu {
-            TargetCpu::X64 => "x64",
-            TargetCpu::Arm64 => "arm64",
-            TargetCpu::Wasm => "wasm",
-        };
+        let os = jaic::target::os_name(host.os);
+        let cpu = jaic::target::cpu_name(host.cpu);
         let explicit_host = native_backend(&cli(&["main.jai", "-os", os, "-cpu", cpu]));
         assert_eq!(
             explicit_host.workspace_target(&settings).unwrap(),

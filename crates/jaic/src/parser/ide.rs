@@ -171,7 +171,7 @@ impl Parser<'_> {
             Err(error) => {
                 // Do not build a maximum-depth chain of recovered enclosing blocks:
                 // later AST consumers recurse too. Discard the outer statement instead.
-                if in_block && error.message.starts_with("code is nested too deeply") {
+                if in_block && error.kind == crate::source::DiagnosticKind::NestingLimit {
                     return Err(error);
                 }
                 let Some(errors) = self.recovery.as_mut() else {

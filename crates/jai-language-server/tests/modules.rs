@@ -29,7 +29,7 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
 }
 
 fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::parse(&format!("file://{}", path.display())).unwrap()
+    DocumentUri::from_path(&path).unwrap()
 }
 
 #[test]

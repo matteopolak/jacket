@@ -130,13 +130,41 @@ fn native_spelling(path: &str, windows: bool) -> Result<String, Error> {
 /// Normalize native spelling after filesystem canonicalization. Do not casefold filenames:
 /// canonicalization knows actual file identity, including case-sensitive Windows folders.
 pub(crate) fn path_key(path: &Path) -> PathBuf {
-    if cfg!(windows)
+    path_key_on(path, cfg!(windows))
+}
+
+fn path_key_on(path: &Path, windows: bool) -> PathBuf {
+    if windows
         && let Some(text) = path.to_str()
         && let Ok(key) = native_spelling(text, true)
     {
         return PathBuf::from(key);
     }
     path.to_owned()
+}
+
+/// The one spelling of a file the server compares, stores and hands the compiler: `fs`'s
+/// canonical path in `path_key` form. Paths from the client, the settings and the compiler
+/// all meet here, so a mix of separators, drive-letter case or verbatim prefixes still match.
+pub(crate) fn file_key(fs: &dyn jaic::sema::FileSystem, path: &Path) -> PathBuf {
+    file_key_on(fs, path, cfg!(windows))
+}
+
+fn file_key_on(fs: &dyn jaic::sema::FileSystem, path: &Path, windows: bool) -> PathBuf {
+    path_key_on(&fs.canonical(path), windows)
+}
+
+/// `dir`'s key as a string prefix of the keys of the files under it.
+pub(crate) fn dir_prefix(fs: &dyn jaic::sema::FileSystem, dir: &Path) -> String {
+    dir_prefix_on(fs, dir, cfg!(windows))
+}
+
+fn dir_prefix_on(fs: &dyn jaic::sema::FileSystem, dir: &Path, windows: bool) -> String {
+    let mut prefix = file_key_on(fs, dir, windows).to_string_lossy().into_owned();
+    if !prefix.ends_with('/') {
+        prefix.push('/');
+    }
+    prefix
 }
 
 fn hex(c: u8) -> Option<u8> {
@@ -306,5 +334,72 @@ mod tests {
             uri
         );
         assert!(DocumentUri::from_native("relative.jai", false).is_err());
+    }
+
+    /// Canonicalizes the way Windows does: native separators, sometimes a verbatim prefix.
+    struct WindowsFs {
+        verbatim: bool,
+    }
+
+    impl jaic::sema::FileSystem for WindowsFs {
+        fn read(&self, _: &Path) -> Option<Vec<u8>> {
+            None
+        }
+
+        fn is_file(&self, _: &Path) -> bool {
+            true
+        }
+
+        fn is_dir(&self, _: &Path) -> bool {
+            true
+        }
+
+        fn canonical(&self, path: &Path) -> PathBuf {
+            let native = path.to_str().unwrap().replace('/', "\\");
+            PathBuf::from(if self.verbatim {
+                format!(r"\\?\{native}")
+            } else {
+                native
+            })
+        }
+    }
+
+    #[test]
+    fn windows_root_prefix_matches_the_keys_of_its_files() {
+        for verbatim in [false, true] {
+            let fs = WindowsFs {
+                verbatim,
+            };
+            let prefix = dir_prefix_on(&fs, Path::new(r"c:\Users\x\proj"), true);
+            assert_eq!(prefix, "C:/Users/x/proj/");
+            for file in [r"C:\Users\x\proj\main.jai", "c:/Users/x/proj/src/a.jai"] {
+                let key = file_key_on(&fs, Path::new(file), true);
+                assert!(key.to_str().unwrap().starts_with(&prefix), "{key:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn windows_stdlib_setting_and_client_uri_name_the_same_file() {
+        let fs = WindowsFs {
+            verbatim: true,
+        };
+        let stdlib = Path::new(r"C:\Users\x\jai-toolchain\stdlib");
+        let key = file_key_on(&fs, &stdlib.join("Basic").join("Print.jai"), true);
+        assert_eq!(
+            key.to_str().unwrap(),
+            "C:/Users/x/jai-toolchain/stdlib/Basic/Print.jai"
+        );
+        let from_compiler = DocumentUri::from_native(key.to_str().unwrap(), true).unwrap();
+        let from_client = DocumentUri::parse_platform(
+            "file:///c%3A/Users/x/jai-toolchain/stdlib/Basic/Print.jai",
+            true,
+        )
+        .unwrap();
+        assert_eq!(from_compiler, from_client);
+        assert_eq!(
+            from_compiler.as_str(),
+            "file:///C:/Users/x/jai-toolchain/stdlib/Basic/Print.jai"
+        );
     }
 }

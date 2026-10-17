@@ -11,22 +11,6 @@ pub struct LibraryInfo {
     pub ir: usize,
 }
 
-fn os_tag_member(os: TargetOs) -> &'static str {
-    match os {
-        TargetOs::Windows => "WINDOWS",
-        TargetOs::Linux => "LINUX",
-        TargetOs::MacOS => "MACOS",
-        TargetOs::Wasm => "WASM",
-    }
-}
-
-fn cpu_tag_member(cpu: TargetCpu) -> &'static str {
-    match cpu {
-        TargetCpu::X64 => "X64",
-        TargetCpu::Arm64 => "ARM64",
-        TargetCpu::Wasm => "CUSTOM",
-    }
-}
 
 impl Compiler {
     /// Resolve an entity to its value/storage, checking it on first use.
@@ -165,10 +149,13 @@ impl Compiler {
     fn target_constant(&mut self, sym: Sym, span: Span) -> Result<Resolved> {
         let (host_os, host_cpu) = compiler_host();
         let (enum_name, member) = match sym.as_str() {
-            "OS" => ("Operating_System_Tag", os_tag_member(self.options.os)),
-            "BUILD_OS" => ("Operating_System_Tag", os_tag_member(host_os)),
-            "CPU" => ("CPU_Tag", cpu_tag_member(self.options.cpu)),
-            "BUILD_CPU" => ("CPU_Tag", cpu_tag_member(host_cpu)),
+            "OS" => (
+                "Operating_System_Tag",
+                crate::target::os_member(self.options.os),
+            ),
+            "BUILD_OS" => ("Operating_System_Tag", crate::target::os_member(host_os)),
+            "CPU" => ("CPU_Tag", crate::target::cpu_member(self.options.cpu)),
+            "BUILD_CPU" => ("CPU_Tag", crate::target::cpu_member(host_cpu)),
             "TEMPORARY_STORAGE_SIZE" => {
                 self.note_runtime_storage_dependencies(&[self.options.temporary_storage_size]);
                 return Ok(Resolved::Const {
@@ -528,14 +515,14 @@ impl Compiler {
         ty: TypeId,
         span: Span,
     ) -> Result<Resolved> {
-        if foreign.library.is_none() && name.as_str() == "__jaic_build_directory" {
+        if foreign.library.is_none() && name.as_str() == super::runtime_info::BUILD_DIRECTORY {
             let global = self.build_directory_global();
             return Ok(Resolved::Global {
                 storage: ir::Storage::Data(global),
                 ty,
             });
         }
-        if foreign.library.is_none() && name.as_str() == "__runtime_info" {
+        if foreign.library.is_none() && name.as_str() == super::runtime_info::RUNTIME_INFO {
             let global = self.runtime_info_global(span)?;
             return Ok(Resolved::Global {
                 storage: ir::Storage::Data(global),

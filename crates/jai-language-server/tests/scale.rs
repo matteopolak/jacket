@@ -29,11 +29,7 @@ fn project_with_an_unresolvable_import_still_answers() {
         return;
     };
     let mut s = Session::with_environment(Limits::default(), environment());
-    let uri = DocumentUri::parse(&format!(
-        "file://{}",
-        root.canonicalize().unwrap().display()
-    ))
-    .unwrap();
+    let uri = DocumentUri::from_path(&root.canonicalize().unwrap()).unwrap();
     let started = Instant::now();
     s.open(uri.clone(), 1, text).unwrap();
     let diagnostics = s.diagnostics(&uri).unwrap();

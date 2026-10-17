@@ -88,7 +88,10 @@ fn target(s: &Session, position: Position) -> (String, Position) {
 #[test]
 fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
     let s = open_all();
-    let basic = format!("file://{}/Basic/module.jai", stdlib().display());
+    let basic = DocumentUri::from_path(&stdlib().join("Basic/module.jai"))
+        .unwrap()
+        .as_str()
+        .to_owned();
     let start = Position::default();
     for (marker, expected) in [
         ("\"Basic\";\nB", basic.clone()),
@@ -139,7 +142,10 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
             .message
             .contains("module `Missing` not found")
     );
-    let basic = format!("file://{}/Basic/module.jai", stdlib().display());
+    let basic = DocumentUri::from_path(&stdlib().join("Basic/module.jai"))
+        .unwrap()
+        .as_str()
+        .to_owned();
     // `B` of `B.print`: the module's entry file.
     assert_eq!(
         target(&s, at(MAIN, "B.print", 0)),

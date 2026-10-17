@@ -654,22 +654,16 @@ impl Workspaces {
                 .get_or_insert_with(Vec::new)
                 .push(PathBuf::from(value)),
             "os_target" => {
-                s.os = Some(match value {
-                    "WINDOWS" => TargetOs::Windows,
-                    "LINUX" => TargetOs::Linux,
-                    "MACOS" => TargetOs::MacOS,
-                    "WASM" => TargetOs::Wasm,
-                    _ => return Err(format!("jaic cannot build for `os_target = .{value}`")),
-                })
+                s.os = Some(
+                    crate::target::parse_os_member(value)
+                        .ok_or_else(|| format!("jaic cannot build for `os_target = .{value}`"))?,
+                )
             }
             "cpu_target" => {
-                s.cpu = Some(match value {
-                    "X64" => TargetCpu::X64,
-                    "ARM64" => TargetCpu::Arm64,
-                    // `.CUSTOM` is how a wasm target spells its CPU (the triple says which).
-                    "WASM" | "CUSTOM" => TargetCpu::Wasm,
-                    _ => return Err(format!("jaic cannot build for `cpu_target = .{value}`")),
-                })
+                s.cpu = Some(
+                    crate::target::parse_cpu_member(value)
+                        .ok_or_else(|| format!("jaic cannot build for `cpu_target = .{value}`"))?,
+                )
             }
             "optimization" => s.optimization = value.into(),
             "additional_linker_arguments_clear" => s.additional_linker_arguments.clear(),

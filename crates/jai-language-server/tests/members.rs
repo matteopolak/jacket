@@ -183,7 +183,7 @@ fn references_reach_project_files_that_are_not_open() {
     std::fs::write(dir.join("util.jai"), util).unwrap();
     std::fs::write(dir.join("main.jai"), main).unwrap();
     std::fs::write(dir.join("jai.toml"), "build_files = [\"main.jai\"]\n").unwrap();
-    let util_uri = DocumentUri::parse(&format!("file://{}/util.jai", dir.display())).unwrap();
+    let util_uri = DocumentUri::from_path(&dir.join("util.jai")).unwrap();
     let mut s = session();
     s.open(util_uri.clone(), 1, util.into()).unwrap();
     let refs = s.references(&util_uri, at(util, "x:", 0, 0), true).unwrap();

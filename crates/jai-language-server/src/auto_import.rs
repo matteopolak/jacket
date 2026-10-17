@@ -212,7 +212,9 @@ pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
     for parent in path.ancestors().skip(1) {
         if env.fs.is_dir(parent) {
             let suffix = path.strip_prefix(parent).expect("ancestor prefix");
-            return crate::document::path_key(&env.fs.canonical(parent).join(suffix));
+            return crate::document::path_key(
+                &crate::document::file_key(&*env.fs, parent).join(suffix),
+            );
         }
     }
     crate::document::path_key(&canonical)
@@ -635,12 +637,7 @@ impl Sources<'_> {
 
 /// Whether a module asserting `only_os` builds for `os`.
 fn builds_for(only_os: &Option<Vec<String>>, os: TargetOs) -> bool {
-    let name = match os {
-        TargetOs::Windows => "WINDOWS",
-        TargetOs::Linux => "LINUX",
-        TargetOs::MacOS => "MACOS",
-        TargetOs::Wasm => "WASM",
-    };
+    let name = jaic::target::os_member(os);
     only_os
         .as_ref()
         .is_none_or(|targets| targets.iter().any(|t| t == name))

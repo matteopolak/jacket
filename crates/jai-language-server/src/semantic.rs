@@ -5,7 +5,7 @@ use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::intern::Sym;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
-use jaic::sema::{Compiler, FileSystem, Options, TargetCpu, TargetOs};
+use jaic::sema::{Compiler, FileSystem, Options, TargetOs};
 use jaic::source::{FileId, ImportSuggestion};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -135,7 +135,7 @@ impl OverlayFs {
         if let Some(known) = self.canonical.borrow().get(path) {
             return known.clone();
         }
-        let found = crate::document::path_key(&self.base.canonical(&self.at(path)));
+        let found = crate::document::file_key(&*self.base, &self.at(path));
         self.canonical
             .borrow_mut()
             .insert(path.to_path_buf(), found.clone());
@@ -268,6 +268,22 @@ impl Analysis {
     /// called).
     pub fn check_errors(&self, path: &Path) -> Vec<(usize, usize, String)> {
         self.located(path, &self.errors)
+    }
+
+    /// The spans (start, end) in `path` of the compile errors of `kind`.
+    pub fn check_error_spans(
+        &self,
+        path: &Path,
+        kind: jaic::source::DiagnosticKind,
+    ) -> Vec<(usize, usize)> {
+        let Some(file) = self.file(path) else {
+            return Vec::new();
+        };
+        self.errors
+            .iter()
+            .filter(|e| e.kind == kind && e.span.file == file)
+            .map(|e| (e.span.start as usize, e.span.end as usize))
+            .collect()
     }
 
     /// The compiler's warnings (a print format with the wrong argument count, a body that can
@@ -666,9 +682,9 @@ impl Cache {
     ) -> Option<&mut Analysis> {
         let canonical: BTreeMap<PathBuf, Rc<[u8]>> = files
             .iter()
-            .map(|(p, t)| (crate::document::path_key(&env.fs.canonical(p)), t.clone()))
+            .map(|(p, t)| (crate::document::file_key(&*env.fs, p), t.clone()))
             .collect();
-        let path = crate::document::path_key(&env.fs.canonical(path));
+        let path = crate::document::file_key(&*env.fs, path);
         let at = self.entries.iter().rposition(|a| {
             a.usable
                 && a.os.is_none()
@@ -725,7 +741,7 @@ impl Cache {
                 let canonical = match self.canonical.get(p) {
                     Some(c) => c.clone(),
                     None => {
-                        let c = crate::document::path_key(&env.fs.canonical(p));
+                        let c = crate::document::file_key(&*env.fs, p);
                         self.canonical.insert(p.clone(), c.clone());
                         c
                     }
@@ -865,15 +881,8 @@ fn compile(
     let options = || {
         let mut options = (env.options)(root);
         crate::modules::splice(&mut options.import_paths, dirs);
-        if let Some(os) = os {
-            options.os = os;
-            options.cpu = match os {
-                TargetOs::Windows | TargetOs::Linux => TargetCpu::X64,
-                TargetOs::MacOS => TargetCpu::Arm64,
-                TargetOs::Wasm => TargetCpu::Wasm,
-            };
-            options.long_double = jaic::sema::long_double_for(os, options.cpu, false);
-        }
+        // The target `jaic -check -os <os>` would use.
+        jaic::target::select_os_cpu(&mut options, os, None);
         options
     };
     let mut compiler = Compiler::new(options(), fs.clone());
@@ -884,10 +893,8 @@ fn compile(
     )));
     compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
-    let mut prefix = env.fs.canonical(&dir).to_string_lossy().into_owned();
-    if !prefix.ends_with('/') {
-        prefix.push('/');
-    }
+    // Spelled like the compiler's source paths, which come through the overlay's keys.
+    let prefix = crate::document::dir_prefix(&*env.fs, &dir);
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
     // the same way, with no output and the same host, and their compile-time code draws from
     // this compiler's budget.

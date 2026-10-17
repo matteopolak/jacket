@@ -1956,14 +1956,17 @@ impl Compiler {
         if missing.is_empty() {
             return Ok(());
         }
-        err(
-            span,
-            format!(
-                "#complete switch on {} has no case for {}",
-                self.types.name(ty),
-                missing.join(", ")
-            ),
-        )
+        Err(Box::new(
+            Diagnostic::error(
+                span,
+                format!(
+                    "#complete switch on {} has no case for {}",
+                    self.types.name(ty),
+                    missing.join(", ")
+                ),
+            )
+            .with_kind(DiagnosticKind::IncompleteSwitch),
+        ))
     }
 
     fn const_equal(&self, a: &Operand, b: &Operand) -> bool {

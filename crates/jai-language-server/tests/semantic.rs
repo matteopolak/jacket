@@ -161,6 +161,53 @@ fn completion_offers_locals_globals_and_imports_while_typing() {
 }
 
 #[test]
+fn call_arguments_complete_stdlib_parameter_names() {
+    let named = |text: &str| {
+        let mut s = session();
+        let byte = text.find('|').unwrap();
+        let text = text.replacen('|', "", 1);
+        s.open(uri(), 1, text.clone()).unwrap();
+        let at = Position {
+            line: text[..byte].matches('\n').count() as u32,
+            character: text[..byte].rsplit('\n').next().unwrap().len() as u32,
+        };
+        s.completion(&uri(), at)
+            .unwrap()
+            .items
+            .into_iter()
+            .filter(|i| i.detail.starts_with("parameter "))
+            .map(|i| (i.label, i.insert_text.unwrap_or_default()))
+            .collect::<Vec<_>>()
+    };
+    let program = |call: &str| format!("#import \"Basic\";\nmain :: () {{\n    {call}\n}}\n");
+    for call in [
+        "print(\"x\", to_standa|);",
+        "print(\"x\", to_standa|",
+        "print(to_standa|",
+        "print(\"%\", 1, to_standa|);",
+        "x: int = \"wrong\";\n    print(\"x\", to_standa|);",
+        "print(\"%\", undefined_thing, to_standa|);",
+        "print(\"%\", tprint(\"a\"), to_standa|);",
+        "for 1..3 print(\"%\", it, to_standa|);",
+        "print(\"x\",\n        to_standa|);",
+    ] {
+        assert_eq!(
+            named(&program(call)),
+            [(
+                "to_standard_error".to_string(),
+                "to_standard_error = ".to_string()
+            )],
+            "{call}"
+        );
+    }
+    let passed = named(&program("print(\"x\", to_standard_error = true, |);"));
+    assert!(
+        !passed.iter().any(|(label, _)| label == "to_standard_error"),
+        "{passed:?}"
+    );
+}
+
+#[test]
 fn completion_after_a_dot_lists_members() {
     let mut s = session();
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    thing.\n");

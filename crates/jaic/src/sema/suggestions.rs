@@ -375,20 +375,11 @@ impl Compiler {
         }
         // A condition on the target: say which one this compile is for.
         if mentions_target(cond) {
-            let os = match self.options.os {
-                super::TargetOs::Windows => ".WINDOWS",
-                super::TargetOs::Linux => ".LINUX",
-                super::TargetOs::MacOS => ".MACOS",
-                super::TargetOs::Wasm => ".WASM",
-            };
-            let cpu = match self.options.cpu {
-                super::TargetCpu::X64 => ".X64",
-                super::TargetCpu::Arm64 => ".ARM64",
-                super::TargetCpu::Wasm => ".WASM",
-            };
+            let os = crate::target::os_member(self.options.os);
+            let cpu = crate::target::cpu_member(self.options.cpu);
             d = d.with_note(
                 Span::NONE,
-                format!("this compile targets `OS == {os}` and `CPU == {cpu}`; the code is written for other targets"),
+                format!("this compile targets `OS == .{os}` and `CPU == .{cpu}`; the code is written for other targets"),
             );
         }
         if literal_false {

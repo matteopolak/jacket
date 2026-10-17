@@ -846,7 +846,10 @@ impl Compiler {
                         .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context)),
                 };
                 if let Some(hook) = hook {
-                    if name.as_str() == "__jaic_type_table" {
+                    if matches!(
+                        hook,
+                        crate::interp::Hook::Meta(crate::build::MetaOp::TypeTable, _)
+                    ) {
                         self.type_table_func = Some(func);
                         if let Some(workspaces) = &self.interp.workspaces {
                             crate::build::Workspaces::note_type_table_used(workspaces);
@@ -1571,7 +1574,7 @@ impl Compiler {
         _header: &ast::ProcHeader,
     ) -> Result<()> {
         let name = self.proc(id).name;
-        if name.as_str() == "__jaic_runtime_temporary_storage_size" {
+        if name.as_str() == super::calls::RUNTIME_TEMPORARY_STORAGE_SIZE {
             let Operand::Value {
                 val, ..
             } = self.runtime_storage_operand(&mut f, sig, self.proc(id).span)?

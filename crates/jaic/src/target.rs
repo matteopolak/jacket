@@ -42,6 +42,47 @@ pub fn cpu_name(cpu: TargetCpu) -> &'static str {
     }
 }
 
+/// The `Operating_System_Tag` member that names `os` (`OS`, `os_target`, `#module_parameters`
+/// assertions).
+pub fn os_member(os: TargetOs) -> &'static str {
+    match os {
+        TargetOs::Windows => "WINDOWS",
+        TargetOs::Linux => "LINUX",
+        TargetOs::MacOS => "MACOS",
+        TargetOs::Wasm => "WASM",
+    }
+}
+
+/// The `CPU_Tag` member that names `cpu`. A wasm target's CPU is `.CUSTOM`.
+pub fn cpu_member(cpu: TargetCpu) -> &'static str {
+    match cpu {
+        TargetCpu::X64 => "X64",
+        TargetCpu::Arm64 => "ARM64",
+        TargetCpu::Wasm => "CUSTOM",
+    }
+}
+
+pub fn parse_os_member(name: &str) -> Option<TargetOs> {
+    [
+        TargetOs::Windows,
+        TargetOs::Linux,
+        TargetOs::MacOS,
+        TargetOs::Wasm,
+    ]
+    .into_iter()
+    .find(|&os| os_member(os) == name)
+}
+
+/// Parse a `CPU_Tag` member; `.WASM` is accepted for `.CUSTOM`.
+pub fn parse_cpu_member(name: &str) -> Option<TargetCpu> {
+    if name == "WASM" {
+        return Some(TargetCpu::Wasm);
+    }
+    [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm]
+        .into_iter()
+        .find(|&cpu| cpu_member(cpu) == name)
+}
+
 /// What a target triple such as `aarch64-pc-windows-msvc` says about `OS` and `CPU`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Triple {
@@ -124,6 +165,25 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tag_members_round_trip() {
+        for os in [
+            TargetOs::Windows,
+            TargetOs::Linux,
+            TargetOs::MacOS,
+            TargetOs::Wasm,
+        ] {
+            assert_eq!(parse_os_member(os_member(os)), Some(os));
+            assert_eq!(parse_os(os_name(os)), Some(os));
+        }
+        for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
+            assert_eq!(parse_cpu_member(cpu_member(cpu)), Some(cpu));
+            assert_eq!(parse_cpu(cpu_name(cpu)), Some(cpu));
+        }
+        assert_eq!(parse_cpu_member("WASM"), Some(TargetCpu::Wasm));
+        assert_eq!(parse_os_member("macos"), None);
+    }
 
     #[test]
     fn triples_name_an_os_cpu_and_environment() {

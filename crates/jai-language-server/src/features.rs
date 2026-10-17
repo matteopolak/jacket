@@ -525,11 +525,16 @@ impl Session {
             .is_none_or(|only| only.iter().any(|k| k.starts_with("refactor")))
         {
             // The quick fix already adds the cases of a switch with an error.
-            fixes.extend(
-                self.refactor_actions(uri, start, end)
-                    .into_iter()
-                    .filter(|a| !(fixed_switch && a.title.starts_with("Add missing cases"))),
-            );
+            fixes.extend(self.refactor_actions(
+                uri,
+                start,
+                end,
+                if fixed_switch {
+                    crate::refactor::Pick::AllButFillSwitch
+                } else {
+                    crate::refactor::Pick::All
+                },
+            ));
         }
         let Some(e) = self
             .expansions(uri)
@@ -1005,7 +1010,7 @@ impl Session {
         let path = self
             .environment
             .as_ref()
-            .map_or(path.clone(), |e| e.fs.canonical(&path));
+            .map_or(path.clone(), |e| crate::document::file_key(&*e.fs, &path));
         DocumentUri::from_path(&path).ok()
     }
 

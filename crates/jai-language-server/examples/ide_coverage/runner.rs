@@ -141,8 +141,8 @@ fn run() -> Result<(Report, bool, bool), String> {
             "--stdlib-id" => stdlib_id=next(&mut args)?,
             "--stdlib" => stdlib=PathBuf::from(next(&mut args)?),
             "--review" => manifest=serde_json::from_slice(&std::fs::read(next(&mut args)?).map_err(|e|e.to_string())?).map_err(|e|format!("review: {e}"))?,
-            "--os" => os=Some(match next(&mut args)?.as_str(){"windows"=>TargetOs::Windows,"linux"=>TargetOs::Linux,"macos"=>TargetOs::MacOS,"wasm"|"wasi"=>TargetOs::Wasm,_=>return Err("invalid --os".into())}),
-            "--cpu" => cpu=Some(match next(&mut args)?.as_str(){"x64"=>TargetCpu::X64,"arm64"=>TargetCpu::Arm64,"wasm"=>TargetCpu::Wasm,_=>return Err("invalid --cpu".into())}),
+            "--os" => os=Some(jaic::target::parse_os(&next(&mut args)?).ok_or("invalid --os")?),
+            "--cpu" => cpu=Some(jaic::target::parse_cpu(&next(&mut args)?).ok_or("invalid --cpu")?),
             "--list" | "--errors" | "--stats" => {}, // Replaced by structured file/gap/failure records.
             "--help" => return Err("ide_coverage [--json] [--strict] [--redacted] [--review FILE] [--case-id ID] [--progress NEW_JSONL] [--inputs RELATIVE_PATHS_JSON] [--only-inputs ID,ID] [--stdlib DIR] [--stdlib-id ID] [--no-runtime] [--os OS] [--cpu CPU] DIR...".into()),
             _ if arg.starts_with('-') => return Err(format!("unknown option {arg}")),
@@ -236,12 +236,7 @@ fn run() -> Result<(Report, bool, bool), String> {
         let options = env.options;
         env.options = Box::new(move |path| {
             let mut options = options(path);
-            if let Some(os) = os {
-                options.os = os;
-            }
-            if let Some(cpu) = cpu {
-                options.cpu = cpu;
-            }
+            jaic::target::select_os_cpu(&mut options, os, cpu);
             options
         });
         let mut session = Session::with_environment(Limits::default(), env);

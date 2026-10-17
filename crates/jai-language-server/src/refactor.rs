@@ -16,7 +16,7 @@ use jaic::ast::{
     StmtKind as S, UnOp,
 };
 use jaic::intern::Sym;
-use jaic::source::FileId;
+use jaic::source::{DiagnosticKind, FileId};
 use jailint::syntax::{Node, walk};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
@@ -45,9 +45,17 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
+        let incomplete: Vec<_> = self
+            .with_semantic(uri, &doc.text, |analysis, path| {
+                Some(analysis.check_error_spans(path, DiagnosticKind::IncompleteSwitch))
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(start, end)| self.range_of(uri, Span::new(start, end)))
+            .collect();
         let mut out = Vec::new();
         for diagnostic in self.check_diagnostics(uri) {
-            if !diagnostic.message.starts_with("#complete switch on") {
+            if !incomplete.contains(&diagnostic.range) {
                 continue;
             }
             let (Ok(a), Ok(b)) = (
@@ -64,9 +72,9 @@ impl Session {
             }
             // The error is on the switched value, which the refactoring reads as "in the switch".
             let fill = self
-                .refactor_actions(uri, a, a)
+                .refactor_actions(uri, a, a, Pick::FillSwitch)
                 .into_iter()
-                .find(|action| action.title.starts_with("Add missing cases"));
+                .next();
             if let Some(mut fix) = fill {
                 fix.kind = Some("quickfix");
                 fix.is_preferred = true;
@@ -77,12 +85,14 @@ impl Session {
         out
     }
 
-    /// The refactorings that apply to the selection `start..end` (bytes) of `uri`.
+    /// The refactorings of the `pick` kinds that apply to the selection `start..end` (bytes) of
+    /// `uri`.
     pub(crate) fn refactor_actions(
         &self,
         uri: &DocumentUri,
         start: usize,
         end: usize,
+        pick: Pick,
     ) -> Vec<CodeAction> {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
@@ -120,15 +130,31 @@ impl Session {
             types: OnceCell::new(),
         };
         let mut out = Vec::new();
-        cx.extract_variable(&mut out);
-        cx.extract_procedure(&mut out);
-        cx.inline_variable(&mut out);
-        cx.fill_switch(&mut out);
-        cx.fill_struct(&mut out);
-        cx.ifx_to_if(&mut out);
-        cx.if_to_ifx(&mut out);
+        if pick != Pick::FillSwitch {
+            cx.extract_variable(&mut out);
+            cx.extract_procedure(&mut out);
+            cx.inline_variable(&mut out);
+        }
+        if pick != Pick::AllButFillSwitch {
+            cx.fill_switch(&mut out);
+        }
+        if pick != Pick::FillSwitch {
+            cx.fill_struct(&mut out);
+            cx.ifx_to_if(&mut out);
+            cx.if_to_ifx(&mut out);
+        }
         out
     }
+}
+
+/// Which refactorings `refactor_actions` offers.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Pick {
+    All,
+    /// Only "Add missing cases" of a switch.
+    FillSwitch,
+    /// Everything but "Add missing cases", when the quick fix already offers it.
+    AllButFillSwitch,
 }
 
 struct Root<'a> {

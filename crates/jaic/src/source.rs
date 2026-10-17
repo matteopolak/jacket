@@ -165,6 +165,11 @@ pub enum DiagnosticKind {
     /// The compiled program stopped with a trap (a failed check, an assertion) while running
     /// `main`, after it compiled; a trap in compile-time code is a compile error instead.
     Runtime,
+    /// A `#complete` switch leaves out members of its enum.
+    IncompleteSwitch,
+    /// The parser gave up past `MAX_NESTING` levels. Error recovery stops at it rather than
+    /// rebuilding the enclosing blocks; it has no code of its own.
+    NestingLimit,
 }
 
 impl DiagnosticKind {
@@ -172,11 +177,12 @@ impl DiagnosticKind {
     /// diagnostics without a kind of their own.
     pub fn code(self) -> Option<&'static str> {
         match self {
-            DiagnosticKind::Other => None,
+            DiagnosticKind::Other | DiagnosticKind::NestingLimit => None,
             DiagnosticKind::UnknownIdentifier {
                 ..
             } => Some("unknown-identifier"),
             DiagnosticKind::TypeMismatch => Some("type-mismatch"),
+            DiagnosticKind::IncompleteSwitch => Some("incomplete-switch"),
             DiagnosticKind::InterfaceConstraint => Some("interface-constraint"),
             DiagnosticKind::StaticAssert => Some("static-assert"),
             DiagnosticKind::UnknownLibrary => Some("unknown-library"),
