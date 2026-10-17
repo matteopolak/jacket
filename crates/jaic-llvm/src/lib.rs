@@ -972,6 +972,7 @@ const MSVC_RUNTIME_LIBRARIES: &[&str] = &[
     "ucrt.lib",
     "oldnames.lib",
     "legacy_stdio_definitions.lib",
+    "legacy_stdio_wide_specifiers.lib",
 ];
 
 /// [`LinkInputs`] for `libraries` on `target` (`None`: the host), rendered as [`link`] would
