@@ -1,18 +1,18 @@
-# jai.nvim
+# jacket.nvim
 
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
 Neovim support for Jai from [Jacket](https://github.com/matteopolak/jacket): the `jailsp` language server (diagnostics with `jailint` lints and quick fixes, hover, completion, go to definition, semantic tokens, doc-comment links), `jaifmt` formatting, a Vim syntax file, and a command that downloads the toolchain. Needs Neovim 0.11 or newer.
 
-This directory is mirrored to [matteopolak/jai.nvim](https://github.com/matteopolak/jai.nvim) on every release. Install from there, or use a checkout of the jacket repository.
+This directory is mirrored to [matteopolak/jacket.nvim](https://github.com/matteopolak/jacket.nvim) on every release. Install from there, or use a checkout of the jacket repository.
 
 ## Install
 
 With `vim.pack` (Neovim 0.12+):
 
 ```lua
-vim.pack.add({ 'https://github.com/matteopolak/jai.nvim' })
+vim.pack.add({ 'https://github.com/matteopolak/jacket.nvim' })
 require('jai').setup({}) -- optional
 ```
 
@@ -20,7 +20,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  'matteopolak/jai.nvim',
+  'matteopolak/jacket.nvim',
   ft = 'jai',
   opts = {}, -- optional; see Settings
 }
@@ -29,7 +29,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 By hand, as a package:
 
 ```sh
-git clone https://github.com/matteopolak/jai.nvim ~/.local/share/nvim/site/pack/jai/start/jai.nvim
+git clone https://github.com/matteopolak/jacket.nvim ~/.local/share/nvim/site/pack/jai/start/jacket.nvim
 ```
 
 Or from a checkout of the jacket repository, in `init.lua`:
@@ -123,7 +123,7 @@ Without `JAILSP` the end-to-end spec is skipped. From the repository root, `just
 
 ## Publishing the mirror (maintainers)
 
-The `neovim` job of `.github/workflows/release.yml` pushes this directory to `matteopolak/jai.nvim` and tags it `vX.Y.Z`. It authenticates with an SSH deploy key: add the public key to `jai.nvim` as a deploy key with write access and the private key to the jai repository as the secret `NVIM_MIRROR_DEPLOY_KEY`. Without the secret the job skips.
+The `neovim` job of `.github/workflows/release.yml` pushes this directory to `matteopolak/jacket.nvim` and tags it `vX.Y.Z`. It authenticates with an SSH deploy key: add the public key to `jacket.nvim` as a deploy key with write access and the private key to the jai repository as the secret `NVIM_MIRROR_DEPLOY_KEY`. Without the secret the job skips.
 
 ## Licence
 

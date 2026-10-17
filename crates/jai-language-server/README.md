@@ -18,7 +18,7 @@ nix profile install github:matteopolak/jacket
 
 There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/package-managers.md).
 
-**VS Code and compatible editors:** install the [Jai extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain) (also on [Open VSX](https://open-vsx.org/extension/matteopolak/jai-toolchain)). It starts `jailsp` from your `PATH`, or offers to download the toolchain ([details](../../docs/tools/vscode-extension.md)).
+**VS Code and compatible editors:** install the [Jai extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jacket) (also on [Open VSX](https://open-vsx.org/extension/matteopolak/jacket)). It starts `jailsp` from your `PATH`, or offers to download the toolchain ([details](../../docs/tools/vscode-extension.md)).
 
 **Other editors:** start `jailsp` with no arguments as the language server for `.jai` files, and `jaifmt --stdin` as the formatter. `jailsp --help` and `--version` work from a terminal.
 

@@ -10,8 +10,8 @@ import { ToolchainManager, type Installed } from "./toolchainManager";
 
 /** Settings files jailsp reads as open documents, so unsaved edits apply at once. */
 const SETTINGS_FILES = ["jailint.toml", "jai.toml"];
-/** The extension's ID up to 0.4.1, before the Marketplace's name clash forced a new one. */
-const OLD_EXTENSION_ID = "matteopolak.jai";
+/** Earlier IDs of this extension: `matteopolak.jai` up to 0.4.1, then `matteopolak.jai-toolchain`. */
+export const OLD_EXTENSION_IDS = ["matteopolak.jai", "matteopolak.jai-toolchain"];
 
 let client: LanguageClient | undefined;
 let log: vscode.LogOutputChannel;
@@ -56,8 +56,9 @@ function locate<T>(find: () => T): T | undefined {
 export async function activate(context: vscode.ExtensionContext): Promise<{ client: () => LanguageClient | undefined }> {
   // Both register the same command IDs and whichever activates second fails, so this one
   // stands aside until the old one is uninstalled.
-  if (vscode.extensions.getExtension(OLD_EXTENSION_ID)) {
-    void offerToUninstallOldExtension();
+  const old = OLD_EXTENSION_IDS.filter((id) => vscode.extensions.getExtension(id));
+  if (old.length > 0) {
+    void offerToUninstallOldExtensions(old);
     return { client: () => undefined };
   }
   log = vscode.window.createOutputChannel("Jai", { log: true });
@@ -105,16 +106,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
   return { client: () => client };
 }
 
-async function offerToUninstallOldExtension(): Promise<void> {
-  const uninstall = `Uninstall ${OLD_EXTENSION_ID}`;
+async function offerToUninstallOldExtensions(ids: string[]): Promise<void> {
+  const list = ids.join(", ");
+  const uninstall = "Uninstall";
   const choice = await vscode.window.showWarningMessage(
-    `Jacket (Jai toolchain) is now matteopolak.jai-toolchain, but the old ${OLD_EXTENSION_ID} is still installed. Both provide the same commands, so this one stays off until the old one is uninstalled.`,
+    `The Jai extension is now Jacket (matteopolak.jacket), but the old ${list} ${ids.length > 1 ? "are" : "is"} still installed. They provide the same commands, so this extension stays off until ${ids.length > 1 ? "they are" : "it is"} uninstalled.`,
     uninstall,
   );
   if (choice !== uninstall) return;
-  await vscode.commands.executeCommand("workbench.extensions.uninstallExtension", OLD_EXTENSION_ID);
+  for (const id of ids) {
+    await vscode.commands.executeCommand("workbench.extensions.uninstallExtension", id);
+  }
   const reload = "Reload Window";
-  if ((await vscode.window.showInformationMessage(`Uninstalled ${OLD_EXTENSION_ID}. Reload the window to start Jacket.`, reload)) === reload) {
+  if ((await vscode.window.showInformationMessage(`Uninstalled ${list}. Reload the window to start Jacket.`, reload)) === reload) {
     await vscode.commands.executeCommand("workbench.action.reloadWindow");
   }
 }

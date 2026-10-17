@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-The project is now called Jacket ("Jai kit") and lives at [matteopolak/jacket](https://github.com/matteopolak/jacket). The binaries (`jaic`, `jailsp`, `jaifmt`, `jailint`), crates and editor extension IDs keep their names. The Homebrew formula is now `matteopolak/tap/jacket`, and `brew upgrade` moves existing `jai` installs to it.
+The project is now called Jacket ("Jai kit") and lives at [matteopolak/jacket](https://github.com/matteopolak/jacket). The binaries (`jaic`, `jailsp`, `jaifmt`, `jailint`) and crates keep their names. The Neovim plugin mirror is now [matteopolak/jacket.nvim](https://github.com/matteopolak/jacket.nvim) (the Lua module `jai` and the `:Jai` command are unchanged), and `vim.pack` and lazy.nvim installs should use that repository.
+
+The VS Code extension is now `matteopolak.jacket` (it was `matteopolak.jai-toolchain`, and `matteopolak.jai` before that). If either old ID is installed, the new extension offers to uninstall it and stays inactive until it is gone; `jai.*` settings are unchanged. The Homebrew formula is now `matteopolak/tap/jacket`, and `brew upgrade` moves existing `jai` installs to it.
 
 ## [0.17.0] - 2026-10-13
 

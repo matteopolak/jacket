@@ -12,12 +12,12 @@ SUMS = "\n".join([
     f"{'b' * 64}  jai-macos-arm64.tar.gz",
     f"{'1' * 64}  jai-linux-arm64.tar.gz",
     f"{'2' * 64}  jai-macos-x64.tar.gz",
-    f"{'e' * 64}  jai-vscode-1.2.3.vsix",
+    f"{'e' * 64}  jacket-vscode-1.2.3.vsix",
     "",
 ])
 # 0.4.0 and earlier named their archives jaic-<platform>, and had no Intel macOS or arm64 Linux build.
 OLD_SUMS = "\n".join(line for line in SUMS.splitlines() if "macos-x64" not in line and "linux-arm64" not in line)
-OLD_SUMS = OLD_SUMS.replace("  jai-", "  jaic-").replace(" *jai-", " *jaic-").replace("jaic-vscode", "jai-vscode")
+OLD_SUMS = OLD_SUMS.replace("  jai-", "  jaic-").replace(" *jai-", " *jaic-")
 
 
 class RenderTests(unittest.TestCase):

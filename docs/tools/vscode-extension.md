@@ -2,7 +2,7 @@
 
 ## What it is
 
-`editors/vscode/` is the Visual Studio Code extension for Jai: a TextMate grammar, language configuration and snippets, a client for [`jailsp`](../compiler/language-server.md) (which also carries [jailint](jailint.md)'s findings and fixes), [`jaifmt`](jaifmt.md) as the document formatter, *Run/Build/Check File* commands, and a downloader for the compiler release named in its checksum manifest. The extension package version and compiler version are independent so a checksum repin can ship without changing the compiler version. Its ID is `matteopolak.jai-toolchain` (publisher `matteopolak`, name `jai-toolchain`; up to 0.4.1 it was `matteopolak.jai`, see [The old extension ID](#the-old-extension-id)), under the repository's AGPL-3.0-or-later license. It ships as a `.vsix` attached to GitHub releases and is published to the Marketplace and Open VSX once their tokens are configured ([Publishing](#publishing)).
+`editors/vscode/` is the Visual Studio Code extension for Jai: a TextMate grammar, language configuration and snippets, a client for [`jailsp`](../compiler/language-server.md) (which also carries [jailint](jailint.md)'s findings and fixes), [`jaifmt`](jaifmt.md) as the document formatter, *Run/Build/Check File* commands, and a downloader for the compiler release named in its checksum manifest. The extension package version and compiler version are independent so a checksum repin can ship without changing the compiler version. Its ID is `matteopolak.jacket` (publisher `matteopolak`, name `jacket`; it was `matteopolak.jai` up to 0.4.1 and `matteopolak.jai-toolchain` after, see [The old extension IDs](#the-old-extension-ids)), under the repository's AGPL-3.0-or-later license. It ships as a `.vsix` attached to GitHub releases and is published to the Marketplace and Open VSX once their tokens are configured ([Publishing](#publishing)).
 
 ## How it works
 
@@ -104,8 +104,8 @@ pnpm run build            # grammar, schemas, dist/extension.cjs
 pnpm run lint             # oxlint, tsc, generated files up to date
 pnpm test                 # unit tests (node --test) and grammar tests
 JAILSP=../../target/debug/jailsp [JAIFMT=../../target/release/jaifmt] pnpm run test:e2e
-pnpm run package          # jai-toolchain-<version>.vsix
-code --install-extension jai-toolchain-<version>.vsix
+pnpm run package          # jacket-vscode-<version>.vsix
+code --install-extension jacket-vscode-<version>.vsix
 ```
 
 For development, open `editors/vscode` in VS Code and run the extension host (F5) after `pnpm run watch`.
@@ -161,7 +161,7 @@ Test environment variables: `JAILSP`, `JAIFMT` (unit and integration tests), `VS
 
 The `vscode-extension` job in `ci.yml` checks npm and Cargo dependency ages, installs with `pnpm install --frozen-lockfile --ignore-scripts`, runs `pnpm run lint` and `pnpm test`, builds a debug `jailsp`, runs the integration tests under `xvfb-run` (with a stand-in formatter, `test/e2e/fake-jaifmt.ts`, since building jaifmt needs LLVM) and uploads the `.vsix` as an artifact.
 
-In `release.yml`, the `vscode` job packages `jai-vscode-<editor-version>.vsix`: the editor version defaults to the compiler tag, and a manual `editor_version` can advance it independently. `scripts/pin-toolchain.ts` stores the compiler version and archive checksums separately from the extension manifest version. The GitHub release attaches the VSIX and includes it in `SHA256SUMS`. Marketplace and Open VSX publish that same package with `--skip-duplicate`; a repin therefore requires a new editor version because store releases cannot replace an existing version. A manual run without a tag builds an artifact but publishes nothing. Forced tag updates also skip publishing; dispatch with the compiler `tag` and a fresh `editor_version` to repin checksums safely.
+In `release.yml`, the `vscode` job packages `jacket-vscode-<editor-version>.vsix`: the editor version defaults to the compiler tag, and a manual `editor_version` can advance it independently. `scripts/pin-toolchain.ts` stores the compiler version and archive checksums separately from the extension manifest version. The GitHub release attaches the VSIX and includes it in `SHA256SUMS`. Marketplace and Open VSX publish that same package with `--skip-duplicate`; a repin therefore requires a new editor version because store releases cannot replace an existing version. A manual run without a tag builds an artifact but publishes nothing. Forced tag updates also skip publishing; dispatch with the compiler `tag` and a fresh `editor_version` to repin checksums safely.
 
 ### Publishing
 
@@ -172,31 +172,40 @@ Publishing needs accounts only the repository owner can create. Until the secret
 3. **Open VSX.** Sign in at <https://open-vsx.org> with GitHub, sign the Eclipse Foundation publisher agreement from your profile, and create an access token (*Settings → Access Tokens*). The release workflow creates the `matteopolak` namespace if it does not exist yet.
 4. **Repository secrets.** *Settings → Secrets and variables → Actions*: `VSCE_PAT` (step 2) and `OVSX_PAT` (step 3).
 
-The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace requires a `name` (and display name) no other extension uses, across all publishers: another publisher's extension is already named `jai` and displayed as *Jai*, so 0.4.0's Marketplace publish failed on the display name and 0.4.1's on the name. That is why the extension is `jai-toolchain`, displayed as *Jacket (Jai toolchain)*, on both stores. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
+The next tag release then publishes the same `.vsix` it attaches to the release. The listing (display name, description, categories, keywords, icon, dark gallery banner, repository, homepage and issue links) comes from `package.json`, and the page from `editors/vscode/README.md`. The Marketplace requires a `name` (and display name) no other extension uses, across all publishers: another publisher's extension is already named `jai` and displayed as *Jai*, so 0.4.0's Marketplace publish failed on the display name and 0.4.1's on the name. That is why the extension is `jacket`, displayed as *Jacket*, on both stores. The Marketplace and Open VSX badges in the repository's `README.md` show a version once the first publish has gone through. To publish an existing release by hand:
 
 ```sh
 cd editors/vscode && pnpm install --frozen-lockfile
-gh release download v0.4.2 -p 'jai-vscode-*.vsix'   # 0.4.2 or later: older ones are named jai
-VSCE_PAT=... pnpm exec vsce publish --packagePath jai-vscode-0.4.2.vsix
+gh release download v0.4.2 -p 'jacket-vscode-*.vsix'   # 0.4.2 or later: older ones are named jai-vscode
+VSCE_PAT=... pnpm exec vsce publish --packagePath jacket-vscode-0.4.2.vsix
 pnpm exec ovsx create-namespace matteopolak -p "$OVSX_PAT"   # once; "already exists" is fine
-pnpm exec ovsx publish jai-vscode-0.4.2.vsix -p "$OVSX_PAT"
+pnpm exec ovsx publish jacket-vscode-0.4.2.vsix -p "$OVSX_PAT"
 ```
 
-The release asset keeps the name `jai-vscode-<version>.vsix` whatever the extension's `name` is; the stores read the ID from the manifest inside, not from the file name.
+The release asset keeps the name `jacket-vscode-<version>.vsix` whatever the extension's `name` is; the stores read the ID from the manifest inside, not from the file name.
 
-### The old extension ID
+### The old extension IDs
 
-Up to 0.4.1 the extension was `matteopolak.jai`, published only to Open VSX (the Marketplace refused it). Editors never move an installed extension to a new ID, so anyone who installed `matteopolak.jai` keeps it until they uninstall it. Open VSX has no publisher-side deprecation setting; it is done by a pull request adding the old ID to the `deprecated` object of [`extension-control/extensions.json`](https://github.com/open-vsx/publish-extensions/blob/master/extension-control/extensions.json), which a nightly job applies. Open VSX editors then show `matteopolak.jai` as deprecated with `matteopolak.jai-toolchain` as its replacement, and `disallowInstall` stops new installs of it:
+The extension was `matteopolak.jai` up to 0.4.1 (Open VSX only) and `matteopolak.jai-toolchain` after. Editors never move an installed extension to a new ID, so old installs keep working until uninstalled. All of them contribute the same language, settings and command IDs, and `registerCommand` throws on a duplicate, so whichever activates second would fail. `activate` in `src/extension.ts` therefore checks `OLD_EXTENSION_IDS` first: if any is installed, the new extension registers nothing, offers to uninstall them (`workbench.extensions.uninstallExtension`), then offers a window reload. Drop an ID from the list once few installs remain.
 
-```json
-"matteopolak.jai": {
-  "disallowInstall": true,
-  "extension": { "id": "matteopolak.jai-toolchain", "displayName": "Jacket (Jai toolchain)" },
-  "additionalInfo": "Renamed so the extension has the same ID on Open VSX and the Visual Studio Marketplace."
-}
-```
+After the first `matteopolak.jacket` publish, deprecate the old IDs:
 
-Both extensions contribute the same language, settings and command IDs, and `registerCommand` throws when a command already exists, so whichever activates second would fail. `activate` in `src/extension.ts` therefore checks for `OLD_EXTENSION_ID` first: when it is installed, the new extension registers nothing and shows a warning with an *Uninstall matteopolak.jai* button (`workbench.extensions.uninstallExtension`), then offers to reload the window. The old one keeps working meanwhile. The check can go once few installs of the old ID remain.
+- **Open VSX** has no publisher-side setting. Open a pull request to [open-vsx/publish-extensions](https://github.com/open-vsx/publish-extensions) adding `matteopolak.jai-toolchain` to the `deprecated` object of `extension-control/extensions.json` and pointing the existing `matteopolak.jai` entry at the new ID (a nightly job applies it):
+
+  ```json
+  "matteopolak.jai": {
+    "disallowInstall": true,
+    "extension": { "id": "matteopolak.jacket", "displayName": "Jacket" },
+    "additionalInfo": "Renamed to matteopolak.jacket."
+  },
+  "matteopolak.jai-toolchain": {
+    "disallowInstall": true,
+    "extension": { "id": "matteopolak.jacket", "displayName": "Jacket" },
+    "additionalInfo": "Renamed to matteopolak.jacket."
+  }
+  ```
+
+- **VS Code Marketplace** (`matteopolak.jai-toolchain`): *Manage Publishers → jai-toolchain → Deprecate*, with *Jacket* as the replacement.
 
 ## Dependencies
 
