@@ -3,7 +3,7 @@
 A :: #import "Android/Toolchain";
 F :: #import "File";
 
-Verifier :: #library "../../../../target/portable-crypto-integration/sdk-verify";
+Verifier :: #library "../../../../../target/portable-crypto-integration/sdk-verify";
 verify_signature :: (public_key: *u8, public_count: u64, message: *u8, message_count: u64, signature: *u8, signature_count: u64) -> s32 #foreign Verifier "integration_verify_signature";
 
 main :: () {

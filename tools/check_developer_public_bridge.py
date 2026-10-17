@@ -19,7 +19,7 @@ def main():
     host = platform.system()
     if host not in ["Darwin", "Linux"]:
         raise RuntimeError("Native bridge runner requires a configured macOS/Linux SDK")
-    target = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
+    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     scratch = Path(tempfile.mkdtemp(prefix="canonical-public-bridge-", dir=target))
     compiler, formatter, linter = (
         target / "debug/jaic",

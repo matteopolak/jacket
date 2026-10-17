@@ -77,7 +77,7 @@ def main():
     args = parser.parse_args()
     if args.linux_runtime and platform.system() != "Linux":
         parser.error("Linux native execution requires an actual Linux host/display")
-    base = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
+    base = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     work = Path(tempfile.mkdtemp(prefix="clipboard-proof-", dir=base))
     target = work / "tools"
     temporary = work / "tmp"

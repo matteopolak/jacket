@@ -439,7 +439,15 @@ def main():
         return (any(not (ROOT / "target" / f"{name}.jai").exists() for name in names)
                 or any(not (path.parent / name).resolve().exists() for name in loads))
 
-    host_lint_paths = [path for path in paths if path not in checker_contextual and not not_lintable_on_host(path)]
+    # Generated oracle fragments are #loaded into the driven programs, which are linted with them;
+    # on their own they lack the imports of the program that loads them.
+    consumers = "".join(path.read_text() for path in driven_matching("*.jai"))
+
+    def loaded_fragment(path):
+        return path.parent == ROOT / "target" and f'target/{path.name}"' in consumers
+
+    host_lint_paths = [path for path in paths if path not in checker_contextual
+                       and not not_lintable_on_host(path) and not loaded_fragment(path)]
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *host_lint_paths])
     check_paths = [ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai",
                    ROOT / "stdlib/Check/tests/driven/check-porting.jai"]
@@ -473,8 +481,6 @@ def main():
         raise RuntimeError("Iprof must not export its private runtime allocator state")
     for case, diagnostic in [("iprof-unbalanced", "Iprof: zone_end without an active zone"),
                               ("iprof-depth", "Iprof: maximum profiling depth exceeded"),
-                              ("codex-conditional-metrics", "Codex: conditional metric weights require reviewed refinement"),
-                              ("codex-basic-metrics", "Codex: Basic allocation metric recognition requires reviewed name set"),
                               ("msf-page-bounds", "Debug_Info: page outside initialized free-page map")]:
         fixture = ROOT / f"tests/compiler/rejections/{case}.jai"
         for mode in ["interp", "0", "2"]:

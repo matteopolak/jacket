@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    target = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
+    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     scratch = Path(tempfile.mkdtemp(prefix="refined-emission-", dir=target))
     compiler, formatter, linter = (
         target / "debug/jaic",

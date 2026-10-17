@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    base = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
+    base = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     work = Path(tempfile.mkdtemp(prefix="clipboard-clock-", dir=base))
     names = {
         "stdlib/Clipboard/tests/native/clock-failure.c",

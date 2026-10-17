@@ -67,7 +67,7 @@ def main():
         parser.error("provide compiler, linter and formatter together")
     if args.sdk_runtime and platform.system() != "Windows":
         parser.error("actual Windows SDK/runtime checks require a Windows host")
-    target = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
+    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     work = Path(tempfile.mkdtemp(prefix="windows-time-zone-", dir=target))
     temporary = work / "tmp"
     temporary.mkdir()

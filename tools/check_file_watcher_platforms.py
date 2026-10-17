@@ -70,7 +70,7 @@ def main():
         parser.error(
             "platform runtime acceptance requires an actual Linux/Windows host"
         )
-    target = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
+    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
     work = Path(tempfile.mkdtemp(prefix="file-watcher-proof-", dir=target))
     temporary = work / "tmp"
     temporary.mkdir()
