@@ -70,9 +70,18 @@ def profile_sources(owned, target_os):
     return library, fixtures
 
 
+def canonical(path):
+    """One spelling of a file for comparing sets of paths: Windows reports them with a verbatim
+    prefix, either slash and any case."""
+    text = str(path)
+    for prefix in ("\\\\?\\", "//?/"):
+        text = text.removeprefix(prefix)
+    return Path(os.path.normcase(os.path.realpath(text)))
+
+
 def complete_checked_paths(report, checked):
     visited = {
-        Path(path).resolve()
+        canonical(path)
         for context in report["contexts"]
         if context["complete"]
         for path in context["visited_files"]
@@ -82,7 +91,7 @@ def complete_checked_paths(report, checked):
 
 
 def require_coverage(owned, covered):
-    missing = set(owned) - covered
+    missing = {canonical(path) for path in owned} - covered
     if missing:
         raise RuntimeError(
             "owned sources not completely linted: "
@@ -168,7 +177,7 @@ def lint_owned(linter, stdlib, output, roots):
             )
             if report is not None and checked_file.is_file():
                 checked = {
-                    Path(path).resolve()
+                    canonical(path)
                     for path in checked_file.read_text().splitlines()
                     if path
                 }
@@ -196,7 +205,7 @@ def lint_owned(linter, stdlib, output, roots):
             )
         )
         print(label, "private-guard", "PASS" if passed else "FAIL", flush=True)
-    missing = sorted(set(owned) - covered)
+    missing = sorted({canonical(path) for path in owned} - covered)
     changed = [path for path, value in before.items() if digest(Path(path)) != value]
     passed = (
         not missing and not changed and all(command["passed"] for command in commands)
