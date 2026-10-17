@@ -178,7 +178,9 @@ main :: () {
         assert(wait_for(*sem, 30) == .TIMEOUT);
         waited := (monotonic_ns() - start) / 1000000;
 
-        assert(waited >= 25, "a 30 ms timed wait returned after % ms", waited);
+        // Windows rounds timed waits to its ~15.6 ms scheduler tick and may return up to one tick
+        // early, so only a wait that returned almost at once is wrong.
+        assert(waited >= 10, "a 30 ms timed wait returned after % ms", waited);
         for 1..3 signal(*sem);
 
         assert(wait_for(*sem, 1000) == .SUCCESS);
@@ -266,9 +268,12 @@ main :: () {
 
         #if OS != .WASM {
             start := monotonic_ns();
+
             assert(!thread_is_done(*thread, 20), "a timed thread_is_done on a blocked thread");
             waited := (monotonic_ns() - start) / 1000000;
-            assert(waited >= 15, "thread_is_done(20) returned after % ms", waited);
+
+            // As above: a Windows timed wait may end up to one scheduler tick early.
+            assert(waited >= 5, "thread_is_done(20) returned after % ms", waited);
         }
 
         signal(*release.go);

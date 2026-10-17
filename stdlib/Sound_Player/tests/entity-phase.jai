@@ -60,7 +60,15 @@ main :: () {
     check_unlocked();
     set_repeating(stream, false);
     set_repeating(stream, true);
-    sleep_milliseconds(200);
+
+    // A loaded machine (a sanitized build on a virtual audio device) may take a while to run
+    // the device callback, so wait for the mixer instead of for a fixed time.
+    for 1..100 {
+        if stream.samples_streamed_since_entity_update > 0 break;
+
+        sleep_milliseconds(50);
+    }
+
     stop_stream_abruptly(77);
     assert(released == 1 && find(77, 0) == null);
     post_entity_update(0.01);
