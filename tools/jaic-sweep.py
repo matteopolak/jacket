@@ -115,7 +115,16 @@ def cases(name):
             if c["family"] != wanted:
                 continue
             CASE_METADATA[c["id"]] = c
-            expect = c if ("stdout" in c or "error_contains" in c) else None
+            expect = (
+                c
+                if (
+                    "stdout" in c
+                    or "stdout_one_of" in c
+                    or "error_contains" in c
+                    or c.get("mode") == "check-fail"
+                )
+                else None
+            )
             yield (
                 c["id"],
                 c["path"],
@@ -590,7 +599,11 @@ def main():
                     ok = False
                     err += "\npositive baseline failed:\n" + baseline_err
         elif expect and "error_contains" in expect:
-            ok = code == expect["exit_code"] and expect["error_contains"] in out + err
+            from stdlib_runtime import contract_result
+
+            ok = contract_result(expect, code, out, err, native=a.native and mode == "run")
+        elif expect and "stdout_one_of" in expect:
+            ok = code == expect.get("exit_code", 0) and out in expect["stdout_one_of"]
         elif expect is None:
             ok = code == 0
         elif "upstream" in expect:

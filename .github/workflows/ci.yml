@@ -514,10 +514,10 @@ jobs:
       # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
       # -O2 is where LLVM acts on undefined behaviour and the bounds checks see the most objects.
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
-        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined corpus stdlib modules
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined corpus modules regressions
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
-        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined corpus stdlib modules
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined corpus modules regressions
   sdl3:
     # SDL3 built from the pinned source on every platform, its installed SDK audited and the
     # generated bindings checked (docs/extensions/sdl3.md).

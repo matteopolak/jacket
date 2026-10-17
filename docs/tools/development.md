@@ -91,7 +91,7 @@ Always-on jobs:
 - `vscode-extension`, `neovim-plugin`: see [VS Code extension](vscode-extension.md), [Neovim plugin](neovim-plugin.md).
 - `stdlib-runtime` (macOS arm64, Linux x86-64/arm64): every [stdlib runtime test](testing.md#stdlib-runtime-tests) in all modes (`--strict`, Xvfb and Mesa on Linux), headless and window WebGPU tests, and the per-module coverage ratchet against `tests/stdlib-coverage.txt`.
 - `upstream-smoke`: builds and runs pinned third-party projects ([upstream corpus](upstream-corpus.md#smoke-tests)).
-- `sanitizers` (Linux x86-64, macOS arm64): `tools/jaic-sweep.py --sanitize address,undefined corpus stdlib modules` at `-O0` and `-O2` ([sanitizers](../native/sanitizers.md)).
+- `sanitizers` (Linux x86-64, macOS arm64): `tools/jaic-sweep.py --sanitize address,undefined corpus modules regressions` at `-O0` and `-O2` ([sanitizers](../native/sanitizers.md)).
 
 Path-gated jobs: `sdl3` (native SDL3 artifacts), `clipboard-linux` (X11 clipboard on Xvfb), `nix` (flake check and build; [releases](releases.md#nix)), the packaging jobs (install scripts and Homebrew formula on macOS, Linux, Windows), and the Windows jobs: `windows-cross` (MinGW cross-builds corpus and stdlib programs, x64 and arm64), `windows-run-cross` (runs them on Windows), `windows-native` (builds `jaic` against the official LLVM and runs the stdlib runtime tests, `cargo test --test native` and the WebGPU tests on D3D12 WARP) and `windows-smoke` (third-party projects). The x64 Windows jobs install Mesa's llvmpipe `opengl32.dll` from a pinned, checksum-verified mesa-dist-win (`tools/install_ci_mesa_windows.sh`) because runners only have GDI OpenGL 1.1. See [Windows](../native/windows.md).
 
