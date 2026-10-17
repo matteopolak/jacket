@@ -96,6 +96,7 @@ PLATFORM_REQUIREMENTS = {
     "native/macos-clipboard-utf8": "macos",
     "native/objc-window-levels": "macos",
     "native/posix-stat-and-mutex": ("linux", "macos"),
+    "native/proc-sentinel-constant": ("linux", "macos"),
     "graphics/macos-window-context-reopen": "macos",
     "graphics/input-multi-window-focus": "macos",
     "graphics/input-published-events": "macos",

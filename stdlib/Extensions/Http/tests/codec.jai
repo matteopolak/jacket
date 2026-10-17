@@ -564,14 +564,14 @@ test_dates :: () {
     // The live-clock helper belongs to the reviewed native adapter surface.
     // Explicit-seconds formatting, parsing and cache checks above also run on WASM.
     #if OS != .WASM {
-        before, before_ok := to_timespec(current_time_consensus());
+        before, before_ok := to_seconds(current_time_consensus() - APOLLO_TIME_FOR_JAN_1_1970);
         now := http_date_now(*cache);
-        after, after_ok := to_timespec(current_time_consensus());
+        after, after_ok := to_seconds(current_time_consensus() - APOLLO_TIME_FOR_JAN_1_1970);
 
         check(now.count == 29 && ends_with(now, " GMT"), "the current date has the right shape");
         seconds, parsed := parse_http_date(now);
 
-        check(before_ok && after_ok && parsed && seconds >= before.tv_sec && seconds <= after.tv_sec,
+        check(before_ok && after_ok && parsed && seconds >= before && seconds <= after,
               "the current date agrees with the canonical Unix-time conversion");
     }
 }
