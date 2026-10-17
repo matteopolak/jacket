@@ -18,7 +18,17 @@ import { WASI } from 'node:wasi';
 let options = process.argv.slice(2);
 const trapUnknown = options[0] === '--unknown-imports-trap';
 if (trapUnknown) options = options.slice(1);
-const [path, ...args] = options;
+const [path, ...rawArgs] = options;
+// A WASI module has no drive letters: `/` is the root of the current drive on Windows, so a
+// path on that drive (`D:\a\b`, `D:/a/b`) is given as `/a/b`.
+const guestPath = (text) => {
+  if (process.platform !== 'win32') return text;
+  const drive = /^([A-Za-z]):[\\/]/.exec(text);
+  const here = /^([A-Za-z]):/.exec(process.cwd());
+  if (!drive || !here || drive[1].toLowerCase() !== here[1].toLowerCase()) return text;
+  return text.slice(2).replaceAll('\\', '/');
+};
+const args = rawArgs.map(guestPath);
 if (!path) {
   console.error('usage: node tools/wasi_run.mjs [--unknown-imports-trap] module.wasm [args...]');
   process.exit(2);
@@ -26,7 +36,7 @@ if (!path) {
 const wasi = new WASI({
   version: 'preview1',
   args: [path, ...args],
-  env: { ...process.env, PWD: process.cwd() },
+  env: { ...process.env, PWD: guestPath(process.cwd()) },
   preopens: { '/': '/', '/tmp': realpathSync(tmpdir()) },
   returnOnExit: true,
 });

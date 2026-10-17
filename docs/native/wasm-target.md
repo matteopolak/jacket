@@ -43,7 +43,7 @@ options.additional_linker_arguments = .["-z", "stack-size=1048576"];  // passed 
 - **Files**: WASI has no global file system; the host pre-opens directories. `files.jai` makes each C path absolute against its working directory (`$PWD` when a pre-open covers it, else `/`), normalizes `.`/`..` lexically and hands it to the pre-open whose name is its longest prefix; otherwise `ENOENT`. Results use Linux x86-64 `stat`/`dirent` layouts. There are no modes or owners.
 - **Math**: `fma`, `fmod` and the binary128 helpers round once from a wide exact accumulator; transcendentals work in float64 pairs and round once (`sin`/`cos`/`tan` reduce with 2/pi to 1344 bits).
 - The sandbox's `OS == .WASM` code is unaffected: the same C names are answered by `SandboxHost` in the interpreter and browser, and bind to Wasi_Runtime's exports in a native wasm build, so no stdlib code distinguishes them.
-- **Running**: `tools/wasi_run.mjs` runs a command with node's WASI, exits with the module's status (134 on a trap, 127 naming every missing import). `--unknown-imports-trap` resolves missing function imports to trapping functions so a WebGPU program runs and finds no WebGPU.
+- **Running**: `tools/wasi_run.mjs` runs a command with node's WASI, exits with the module's status (134 on a trap, 127 naming every missing import). `--unknown-imports-trap` resolves missing function imports to trapping functions so a WebGPU program runs and finds no WebGPU. On a Windows host `/` is the root of the current drive, so an argument or `PWD` naming a path on that drive (`D:\a\b`) reaches the module as `/a/b`; paths a program compiled in (`#filepath`) keep their drive letter and cannot be opened.
 
 ### Threads in WASI builds (green threads)
 
