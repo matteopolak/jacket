@@ -76,7 +76,7 @@ def main():
     path.write_text("\n".join(generated) + "\n")
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", path])
     evidence["clang_version"] = run([prefix / "bin/clang", "--version"])
-    (ROOT / "docs/native/developer-tools-dwarf-lines-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (ROOT / "target/developer-tools-dwarf-lines-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

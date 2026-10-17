@@ -62,7 +62,7 @@ is the model for the options and the results format.
     project with its root file (`build.jai`, `first.jai` or `tests.jai`) open. They cover different shapes
     (metaprogram builds, a library with a test root, a formatter), so a speedup tuned to Focus alone shows up as
     a flat line elsewhere. Check several of them, not just `focus`, before calling a change a win.
-  - `gen-60k`, `gen-240k`: [`tools/benchgen.py`](benchmark-generator.md) programs (seed 1) split into 12 and 48
+  - `gen-60k`, `gen-240k`: `tools/benchgen.py` programs (seed 1) split into 12 and 48
     files; the middle `part_N.jai` is measured, `main.jai` is open.
   - `large-25k`, `large-100k`: one-file programs (`benchgen` with `files=1`) of about 0.8 MB and 3.3 MB, the single
     large documents (the old caps of 256 KiB per document and 1 MiB per message made them `limit` rows).

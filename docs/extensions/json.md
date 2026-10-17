@@ -59,7 +59,7 @@ Written as a note after the member's `;`, options comma-separated: `@json(rename
 | `as_number` | enum member | encode as the enum's number |
 | `deny_unknown_fields`, `transparent` | struct | unknown keys are errors; a one-field struct encodes as that field |
 
-Deviation from the plan: `with=` names procedures declared inside the struct, not file-scope ones, because generated code cannot see user-scope identifiers.
+Note: `with=` names procedures declared inside the struct, not file-scope ones, because generated code cannot see user-scope identifiers.
 
 Unknown fields are ignored unless denied; a missing field with no `default` is an error naming it; duplicate keys are an error. Attribute mistakes are compile errors reported through `compiler_report`.
 

@@ -8,7 +8,7 @@ if (!binary) throw new Error("usage: node tools/check_enum_dependencies_wasm.mjs
 const engine = await createEngine(await readFile(binary));
 for (const [file, expected] of [
     ["../tests/compiler-semantics/enum-dependencies.jai", 0],
-    ["../tests/producer-requests/forward-enum-dependencies.jai", 5],
+    ["../tests/fixtures/enum-dependencies/forward-enum-dependencies.jai", 5],
 ]) {
     const source = await readFile(new URL(file, import.meta.url), "utf8");
     const result = engine.play({ "main.jai": source }, "main.jai");

@@ -104,7 +104,7 @@ def main():
                 "probe_generator_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "public_symbol_lookups": len(exports), "missing_public_symbols": missing,
                 "native_expressions": [{"c": c, "jai": j, "value": int(value)} for (c, j), value in zip(expressions, values)]}
-    (ROOT / "docs/native/developer-tools-native-abi-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (ROOT / "target/developer-tools-native-abi-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print(f"Native SDK oracle prepared {len(expressions)} layout/enum comparisons; {len(exports)} public symbols resolve (not invoked)")
 
 

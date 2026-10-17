@@ -195,7 +195,7 @@ Variables stay in stack slots. Promoting them (`mem2reg` at `-O0`) was measured 
 
 ## How to change it
 
-- Measure with `jaic x.jai -exe out -timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` ([benchmark generator](../tools/benchmark-generator.md); `gen-10k`/`gen-60k`/`gen-240k` in `compile_bench.py`).
+- Measure with `jaic x.jai -exe out -timings` on the same machine, 5 or more warm runs, and check the machine is idle (a stray busy process moves results by 10 to 20%). `tools/compile_bench.py` ([compile-time benchmark](../tools/compile-time-benchmark.md)) runs the corpus projects; for scaling use the corpus-shaped programs from `tools/benchgen.py` (benchmark generator; `gen-10k`/`gen-60k`/`gen-240k` in `compile_bench.py`).
 - To compare ISel strategies externally, `llc -O0 -global-isel=0` on `-emit_ir` output.
 - A new per-function or per-module step in `lower.rs` should not iterate over the whole program in every shard: use the lazy accessors. Any lookup of a symbol by name must call `declare_named` first.
 - Profile with samply as described in [benchmarks](../tools/benchmarks.md); `Interp::run_code` is the main self-time item left for metaprogram-heavy code, then `trace_enter`, then `build::call` and `write_item`, which read and write compiler records through the probe field by field.

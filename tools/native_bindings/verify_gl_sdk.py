@@ -57,7 +57,7 @@ def main():
     if sdk_result['exit'] != 0:
         raise SystemExit(sdk_result['stderr'])
     sdk = Path(sdk_result['stdout'].strip())
-    pins = json.loads((ROOT/'docs/native/apple-sdk-inputs.json').read_text())['files']
+    pins = json.loads((ROOT/'tools/native_bindings/apple-sdk-inputs.json').read_text())['files']
     report['sdk_headers'] = {}
     for name in ('OpenGL.h','CGLTypes.h','CGLCurrent.h'):
         relative = 'System/Library/Frameworks/OpenGL.framework/Headers/'+name

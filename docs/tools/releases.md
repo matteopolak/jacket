@@ -1,10 +1,5 @@
 # Releases
 
-Clean-room publication is held for planned v0.18.0. Only the coordinator may
-perform final history insertion, signing, pushing and publication after combined
-verification and user acceptance. Do not rebuild historical releases for this
-integration. Temporary CI must use nonpublishing CI jobs, never release dispatch.
-
 ## What it is
 
 `.github/workflows/release.yml` builds `jaic`, `jailsp`, `jailint` and `jaifmt` for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and Windows (x86-64 and arm64): six archives, `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz`, `jai-linux-arm64.tar.gz`, `jai-windows-x64.zip` and `jai-windows-arm64.zip`. It smoke-tests each archive and can publish a GitHub release from a pushed `v*` tag or a manual run selecting the tag that matches this workflow revision's Cargo version. Historical releases use their own tag workflow. Release notes come from the selected tag's section of `CHANGELOG.md`.
@@ -52,12 +47,6 @@ git tag -s v0.17.0 -m 'Jai Toolchain 0.17.0'
 git push origin v0.17.0
 ```
 
-For this integration, the coordinator must review a nonpublishing temporary CI
-branch before pushing it. Release workflows, tag creation, publication and
-historical rebuilds are outside clean implementation/integration authorization.
-Ordinary current-branch CI still needs native macOS x64 and Windows validation;
-source checks on a Mac ARM64 host do not close those gates. Existing workflow
-capabilities for historical releases do not authorize invoking them.
 
 Gotchas:
 

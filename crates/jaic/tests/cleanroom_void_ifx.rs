@@ -16,7 +16,7 @@ fn compile(source: &str) -> Result<(), String> {
 #[test]
 fn discarded_void_ifx_executes_only_the_selected_branch() {
     compile(include_str!(
-        "../../../tests/producer-requests/ifx-discarded-void.jai"
+        "../../../tests/fixtures/void-ifx/ifx-discarded-void.jai"
     ))
     .unwrap();
 }

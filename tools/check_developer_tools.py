@@ -119,7 +119,7 @@ def prepare_cpp_visitors(prefix):
                         "sdk_evidence": "developer-tools-clang-evidence.json",
                         "original_fixture_sha256": {name: hashlib.sha256((ROOT / 'tests/developer-tools' / name).read_bytes()).hexdigest()
                                                    for name in ["bindings-clang-cpp.h", "bindings-cpp-visitors.c", "bindings-clang-cpp.jai"]}}
-    (ROOT / "docs/native/developer-tools-cpp-evidence.json").write_text(json.dumps(visitor_evidence, indent=2) + "\n")
+    (ROOT / "target/developer-tools-cpp-evidence.json").write_text(json.dumps(visitor_evidence, indent=2) + "\n")
     for triple in ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]:
         run([prefix / "bin/clang++", "-target", triple, "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
              "-fsyntax-only", ROOT / "tests/developer-tools/bindings-clang-cpp.h"])
@@ -411,7 +411,7 @@ def main():
              ROOT / "target/developer-tools-dwarf-line-wire.jai",
              ROOT / "target/developer-tools-dwarf-line-wire-oracle.jai"]
     format_paths = [*paths, *sorted((ROOT / "tests/developer-tools/rejections").glob("*.jai")),
-                    *sorted((ROOT / "tests/developer-tools/compiler-requests").glob("*.jai")),
+                    *sorted((ROOT / "tests/developer-tools/metaprograms").glob("*.jai")),
                     ROOT / "tests/developer-tools/iprof-client-input.jai.inc"]
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *format_paths])
     shutil.copyfile(ROOT / "tests/developer-tools/rewrite-input.jai", rewritten)

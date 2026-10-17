@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Command};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/ifx-discarded-void.jai")
+        .join("../../tests/fixtures/void-ifx/ifx-discarded-void.jai")
 }
 
 fn success(command: &mut Command) {

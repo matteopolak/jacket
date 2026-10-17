@@ -24,13 +24,13 @@ fn readiness_probe_does_not_discard_an_imported_invalid_condition() {
             (
                 "/app/main.jai",
                 include_str!(
-                    "../../../tests/producer-requests/readiness-error-preservation/invalid/main.jai"
+                    "../../../tests/fixtures/readiness/error-preservation/invalid/main.jai"
                 ),
             ),
             (
                 "/app/flags.jai",
                 include_str!(
-                    "../../../tests/producer-requests/readiness-error-preservation/invalid/flags.jai"
+                    "../../../tests/fixtures/readiness/error-preservation/invalid/flags.jai"
                 ),
             ),
         ],
@@ -51,19 +51,19 @@ fn acyclic_imported_conditional_flag_becomes_ready() {
             (
                 "/app/main.jai",
                 include_str!(
-                    "../../../tests/producer-requests/readiness-error-preservation/valid-exported/main.jai"
+                    "../../../tests/fixtures/readiness/error-preservation/valid-exported/main.jai"
                 ),
             ),
             (
                 "/app/flags.jai",
                 include_str!(
-                    "../../../tests/producer-requests/readiness-error-preservation/valid-exported/flags.jai"
+                    "../../../tests/fixtures/readiness/error-preservation/valid-exported/flags.jai"
                 ),
             ),
             (
                 "/app/config.jai",
                 include_str!(
-                    "../../../tests/producer-requests/readiness-error-preservation/valid-exported/config.jai"
+                    "../../../tests/fixtures/readiness/error-preservation/valid-exported/config.jai"
                 ),
             ),
         ],
@@ -200,19 +200,19 @@ fn officially_rejected_conditional_cycle_remains_an_error() {
             (
                 "/app/main.jai",
                 include_str!(
-                    "../../../tests/producer-requests/conditional-module-dependency/main.jai"
+                    "../../../tests/fixtures/readiness/conditional-module-dependency/main.jai"
                 ),
             ),
             (
                 "/app/consumer.jai",
                 include_str!(
-                    "../../../tests/producer-requests/conditional-module-dependency/consumer.jai"
+                    "../../../tests/fixtures/readiness/conditional-module-dependency/consumer.jai"
                 ),
             ),
             (
                 "/app/config.jai",
                 include_str!(
-                    "../../../tests/producer-requests/conditional-module-dependency/config.jai"
+                    "../../../tests/fixtures/readiness/conditional-module-dependency/config.jai"
                 ),
             ),
         ],

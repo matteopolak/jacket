@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Command};
 
 fn source() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/callable-declaration-provenance.jai")
+        .join("../../tests/fixtures/callable-provenance/callable-declaration-provenance.jai")
 }
 
 fn success(command: &mut Command) {

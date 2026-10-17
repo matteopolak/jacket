@@ -7,22 +7,25 @@ use std::{
 const CASES: &[(&str, &str)] = &[
     ("stdlib-contract/compiler-using-records/main.jai", "ok\n"),
     (
-        "producer-requests/using-parameter-roundtrip.jai",
+        "fixtures/code-roundtrip/using-parameter-roundtrip.jai",
         "using parameters ok\n",
     ),
     (
-        "producer-requests/named-while-roundtrip.jai",
+        "fixtures/code-roundtrip/named-while-roundtrip.jai",
         "named while roundtrip ok\n",
     ),
     (
-        "producer-requests/named-literal-target-roundtrip.jai",
+        "fixtures/code-roundtrip/named-literal-target-roundtrip.jai",
         "named literal targets ok\n",
     ),
-    ("producer-requests/code-record-defaults.jai", ""),
-    ("producer-requests/inherited-record-defaults.jai", ""),
-    ("producer-requests/compiler-derived-record-defaults.jai", ""),
+    ("fixtures/code-roundtrip/code-record-defaults.jai", ""),
+    ("fixtures/code-roundtrip/inherited-record-defaults.jai", ""),
     (
-        "producer-requests/late-import-conditional-procedure.jai",
+        "fixtures/code-roundtrip/compiler-derived-record-defaults.jai",
+        "",
+    ),
+    (
+        "fixtures/code-roundtrip/late-import-conditional-procedure.jai",
         "",
     ),
 ];
@@ -60,7 +63,7 @@ fn filtered_parameters_and_caller_visible_while_roundtrip_in_the_interpreter() {
 #[test]
 fn explicitly_reset_record_kind_is_rejected_without_shape_guessing() {
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
-        .arg(source("producer-requests/code-record-reset-tag.jai"))
+        .arg(source("fixtures/code-roundtrip/code-record-reset-tag.jai"))
         .arg("-check")
         .output()
         .unwrap();

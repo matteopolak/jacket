@@ -3,7 +3,7 @@
 # crates/jaic-cli/tests/abi_layout/mod.rs turns the entries for one target into a C program
 # (system headers) and a Jai program (stdlib bindings) and compares every value they report.
 # The `stdlib_c_abi_matches_host_headers` native test does this on every CI host; other targets
-# can be checked without running them (JAIC_ABI_CROSS). See docs/stdlib/native-bindings.md.
+# can be checked without running them (JAIC_ABI_CROSS).
 #
 # Syntax (one item per line, `#` starts a comment line):
 #   [linux macos-x64 ...]       the following lines apply to these OSes or os-cpu targets

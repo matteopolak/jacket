@@ -1,6 +1,6 @@
 // Io_Uring: Linux's io_uring interface, as thin as the kernel makes it. A jaic extension, not
 // official Jai: other Jai compilers have no such module, and it may change between jaic releases.
-// See docs/stdlib/io-uring.md.
+// See docs/extensions/io-uring.md.
 //
 //     Io_Uring :: #import "Extensions/Io_Uring";
 //

@@ -126,7 +126,7 @@ prefetcht0/1/2 and prefetchnta (real x64 hints), int3 (`int 3`), rdtsc/rdtscp (a
 counter and AUX), `syscall` (see below), rdrand/rdseed (single hardware attempt with actual CF),
 cpuid (real leaf/subleaf results). Timestamp/random/fence/pause/prefetch operations require
 x64; interpreter execution requires an x64 host and optional instructions check real CPUID.
-See [architectural instruction semantics](x86-machine-instructions.md). Other cache operations
+See architectural instruction semantics. Other cache operations
 (prefetchw/wt1, clflush/opt, clwb, cldemote) explicitly diagnose unimplemented support.
 Remaining synthetic gaps are rdpid (0), xgetbv (all outputs 0), stmxcsr (0x1f80),
 ldmxcsr (ignored); these are not implemented architectural behavior.

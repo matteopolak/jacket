@@ -23,7 +23,7 @@
     #load "windows.jai";
 }
 
-// wgpu-native, from artifacts/native-libs (see docs/stdlib/webgpu.md). Unused in the browser.
+// wgpu-native, from artifacts/native-libs (see docs/extensions/webgpu.md). Unused in the browser.
 libwgpu :: #library "libwgpu_native";
 
 // Whether WebGPU can be used here. Natively wgpu-native is linked, so this is true (an adapter
@@ -63,7 +63,7 @@ to_string :: (view: WGPUStringView) -> string {
 // Process events until `done` is set (by a callback with mode .AllowProcessEvents or
 // .AllowSpontaneous). Natively this polls wgpu-native and sleeps a little between polls once
 // the wait gets long; in the browser each poll gives the page a turn (and other Jai threads run
-// meanwhile, see docs/stdlib/webgpu.md).
+// meanwhile, see docs/extensions/webgpu.md).
 webgpu_wait :: (instance: WGPUInstance, done: *bool) {
     polls := 0;
 

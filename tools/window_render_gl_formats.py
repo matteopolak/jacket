@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--formatter", type=Path, default=ROOT / "target/window-jaifmt")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    metadata = json.loads((ROOT / "docs/window-render-gl-formats.json").read_text())
+    metadata = json.loads((ROOT / "tools/window-render-gl-formats.json").read_text())
     rows = metadata["scalar_formats"] + metadata["block_formats"]
     names = [row["format"] for row in rows]
     if len(set(names)) != len(names) or not set(metadata["srgb"]).issubset(names):

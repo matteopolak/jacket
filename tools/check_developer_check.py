@@ -143,7 +143,7 @@ def main():
                     "llvm_library": sdk_links[0], "configured_sdk_runtime_sha256": sdk_hash, "parsing_pool_effects": stats_measurements,
                     "continuable_diagnostics": 12, "module_availability": "Windows only; NEW code staged on Mac",
                     "windows_native_execution": False, "actual_compiler_header_integration": "pending producer ELSEWHERE metadata fix"}
-        (ROOT / "docs/native/developer-tools-check-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        (ROOT / "target/developer-tools-check-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("Check staged public mangled-signature effects passed interpreter/native Mac O0/O2; Windows native execution remains unverified")
 
 

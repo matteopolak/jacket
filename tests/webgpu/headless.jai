@@ -2,7 +2,7 @@
 // each back through a mapped buffer, and check that an invalid shader is a validation error in
 // an error scope. Exercises adapter and device requests, buffer mapping and error scopes, all of
 // which finish through callbacks. Run by CI on every platform with a (software) adapter
-// (docs/stdlib/webgpu.md#tests):
+// (docs/extensions/webgpu.md#tests):
 //
 //     jaic tests/webgpu/headless.jai -interp                   # interpreted
 //     jaic tests/webgpu/headless.jai -exe ./headless && ./headless

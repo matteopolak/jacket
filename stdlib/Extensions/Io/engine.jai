@@ -4,7 +4,7 @@
 // knows which backend runs: io_uring (Linux), epoll (Linux), kqueue (macOS), or completion ports
 // with an optional IoRing for files (Windows), picked at startup by `engine_start`.
 //
-// Rules the backends keep (docs/plans/async-io.md, "The internal engine"):
+// Rules the backends keep:
 //   - A handle is an opaque descriptor plus a kind tag.
 //   - The buffer and address of an operation belong to it until its completion arrives, even after
 //     a cancel. A canceled operation is never abandoned: the fiber stays parked until the engine

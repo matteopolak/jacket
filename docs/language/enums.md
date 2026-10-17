@@ -21,7 +21,7 @@ A member prints by name, `cast(int)` gives its value, and an `enum_flags` combin
 
 - A value with no matching name prints as `(enum out of range: 99)` for `cast(Color) 99` {#enum.6}. An `enum_flags` value lists its named bits and then any leftover bits in hex (`X | Z | 0xf8`); with no named bit it is the hex number alone, and zero prints `0`.
 - A member name appears once, and every value must fit the enum's integer type (`A :: 256` in an `enum u8` is an error).
-- Explicit values may refer to later members. Values resolve by dependency; implicit numbering and reflection retain selected declaration order. See [enum dependency resolution](../compiler/enum-dependencies.md) for structural dependency boundaries.
+- Explicit values may refer to later members. Values resolve by dependency; implicit numbering and reflection retain selected declaration order.
 - `enum_flags` members are powers of two and combine with `|` and `&` {#enum.7}; `fl & .WRITE` works as an `if` condition {#enum.8}.
 - `Color.loose` (`Types::loose_enum`) converts implicitly to and from integers and `Color` (`implicit_cost` in `sema/convert.rs`) {#enum.9}.
 - `.FIRST == x` works: `check_binary` checks the right side first, so the inferred member takes its type {#enum.14}.

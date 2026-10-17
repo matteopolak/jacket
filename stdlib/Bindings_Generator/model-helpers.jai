@@ -1,4 +1,4 @@
-// Explicit-input operations on the canonical model; policies: docs/generator-model.md.
+// Explicit-input operations on the canonical model.
 #load "generator-state.jai";
 
 create_elaborated_type :: (ty: CXType, cur: CXCursor) -> *CType {

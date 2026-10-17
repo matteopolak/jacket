@@ -1,6 +1,6 @@
 //! Compile errors in `Extensions/Http` routes: a route that cannot work is reported where it is
 //! registered, in terms of the route and the handler, not as a failure inside the module.
-//! The behavior is described in docs/stdlib/http-server.md.
+//! The behavior is described in docs/extensions/http-server.md.
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 

@@ -314,16 +314,6 @@ def main():
             "No application/window/GUI/clipboard/fault program.",
         ]
         output.write_text(json.dumps(report, indent=2) + "\n")
-        if executing:
-            with (ROOT / "docs/worker-inbox.md").open("a") as stream:
-                stream.write(
-                    "\n\n## Bindings receiver SDK slot RELEASED\n\n"
-                    + str(report["sdk_programs"])
-                    + " SDK programs finished/reaped; slot RELEASED in finally. "
-                    + "Exact source/native report "
-                    + str(output)
-                    + ". No GUI/window/clipboard/fault/benchmark.\n"
-                )
     print(output)
     raise SystemExit(
         0

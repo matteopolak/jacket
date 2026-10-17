@@ -38,7 +38,7 @@ def main():
     evidence["fixture_sha256"] = hashlib.sha256(fixture.read_bytes()).hexdigest()
     evidence["sdk_header_sha256"] = {name: hashlib.sha256((sdk / "x86_64-w64-mingw32/include" / name).read_bytes()).hexdigest()
                                       for name in ["windows.h", "profileapi.h", "winnt.h"]}
-    (ROOT / "docs/native/developer-tools-profiler-windows-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (ROOT / "target/developer-tools-profiler-windows-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("Windows profiler SDK ABI/import links passed; native timing execution pending")
 
 

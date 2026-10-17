@@ -258,6 +258,14 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
         return False, str(error)
     wasm = mode.startswith("wasm")
     target = ["-os", "wasm"] if wasm else []
+    if metadata and metadata.get("source_check_only") is True:
+        code, stdout, stderr = run_command(
+            [args.jaic, str(path), *target, "-check"], path.parent, args.timeout, env
+        )
+        detail = stdout + stderr
+        if code is None:
+            detail = f"timed out after {args.timeout:.0f}s\n{detail}"
+        return (None if code == 0 else False), detail
     if mode in ("interp", "wasm-interp"):
         record = Path(scratch) / f"{test.replace('/', '-')}-{mode}.coverage"
         if args.coverage:
@@ -510,6 +518,7 @@ def main():
                     "error_contains" in case or case.get("mode") == "check-fail",
                     time.monotonic() - started,
                     rejected,
+                    case.get("source_check_only") is True,
                 )
             )
         return test, results
@@ -518,7 +527,7 @@ def main():
         [],
         [],
         [],
-        {m: [0, 0, 0, 0, 0, 0] for m in modes},
+        {m: [0, 0, 0, 0, 0, 0, 0] for m in modes},
     )
     records = []
 
@@ -545,6 +554,7 @@ def main():
                                         "compile_time_only",
                                         "expected_negative_checks",
                                         "reference_rejected",
+                                        "source_check_only",
                                     ),
                                     count,
                                 )
@@ -571,6 +581,7 @@ def main():
                     negative,
                     elapsed,
                     rejected,
+                    source_only,
                 ) in results:
                     c = counts[mode]
                     if rejected is not None:
@@ -582,7 +593,7 @@ def main():
                     elif negative and passed:
                         c[4] += 1
                     elif passed is None:
-                        c[3] += 1
+                        c[6 if source_only else 3] += 1
                     elif passed:
                         c[0] += 1
                     else:
@@ -596,6 +607,7 @@ def main():
                             "platform_unavailable": reason,
                             "expected_negative": negative,
                             "reference_rejected": rejected,
+                            "source_check_only": source_only,
                             "elapsed_seconds": elapsed,
                             "timed_out": detail.startswith("timed out after "),
                             "failure_detail": detail if passed is False else None,
@@ -617,9 +629,9 @@ def main():
         print("REFERENCE_REJECTED " + line)
     print(f"\nstdlib runtime tests on {args.platform} ({len(todo)} tests):")
     for mode in modes:
-        p, f, u, b, n, r = counts[mode]
+        p, f, u, b, n, r, s = counts[mode]
         print(
-            f"  {mode:<12} {p} passed, {f} failed, {u} platform unavailable, {b} compile-time only, {n} expected negative checks, {r} reference-rejected fixtures"
+            f"  {mode:<12} {p} passed, {f} failed, {u} platform unavailable, {b} compile-time only, {n} expected negative checks, {r} reference-rejected fixtures, {s} source-check only"
         )
     return 1 if failures else 0
 

@@ -124,7 +124,7 @@ def main():
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", generated])
         run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", generated])
-        (ROOT / "docs/native/developer-tools-configured-sdk-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        (ROOT / "target/developer-tools-configured-sdk-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     finally:
         build_developer_bindings.build(primary)
     print("Configured SDK production helper/links/discovery and two public interpreter/native O0/O2 fixtures passed")

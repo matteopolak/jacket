@@ -1,5 +1,5 @@
 // A spinning triangle with WebGPU. Natively it opens a window (wgpu-native, see
-// docs/stdlib/webgpu.md); in the browser playground it draws into the page's canvas.
+// docs/extensions/webgpu.md); in the browser playground it draws into the page's canvas.
 // Space pauses, a mouse click changes the background, Escape quits.
 
 #import "Basic";

@@ -96,7 +96,7 @@ def main():
                 "sdk_headers_sha256": inputs, "clang_version": run([prefix / "bin/clang", "--version"], expected=None),
                 "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 "tests": "interpreter/native O0/O2 call and mutation, callbacks, enum and record layout; rejection preserves output; Linux/Windows target-dependent long"}
-    (ROOT / "docs/native/developer-tools-clang-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    (ROOT / "target/developer-tools-clang-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print("Private libclang pipeline: C/Jai effects and callback round trips, rejection preservation, deterministic output and two target ABI checks passed")
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Runs the HTTP conformance suites: the codec's (docs/stdlib/http-codec.md) and the server's
-(docs/stdlib/http-server.md).
+"""Runs the HTTP conformance suites: the codec's (docs/extensions/http-codec.md) and the server's
+(docs/extensions/http-server.md).
 
     python3 tools/http_conformance.py                       # corpus check + all codec tests, interp and native
     python3 tools/http_conformance.py --modes interp,native,wasm-interp,wasm-native
@@ -288,7 +288,7 @@ def external_suites(garden):
         return True
 
     print("http-garden: Docker and a checkout are present. Build tools/http_garden/server.jai into its image "
-          "(docs/stdlib/http-server.md) and run its differential tests against it; that run needs the "
+          "(docs/extensions/http-server.md) and run its differential tests against it; that run needs the "
           "garden's own Docker setup and is not driven from here")
 
     return True

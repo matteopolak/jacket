@@ -85,7 +85,7 @@ def main():
     data[block * 10:block * 11] = payload[:block]
     data[block * 8:block * 8 + len(payload) - block] = payload[block:]
     (ROOT / "target/developer-tools-msf-synthetic.bin").write_bytes(data)
-    (ROOT / "docs/native/developer-tools-msf-page-evidence.json").write_text(json.dumps(page_evidence, indent=2) + "\n")
+    (ROOT / "target/developer-tools-msf-page-evidence.json").write_text(json.dumps(page_evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

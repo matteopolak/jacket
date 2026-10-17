@@ -1,6 +1,6 @@
 name: http conformance
 # The HTTP codec against llhttp's fixtures, the smuggling table and the chunking tests, in all four
-# stdlib runtime modes (tools/http_conformance.py, docs/stdlib/http-codec.md). It runs when the
+# stdlib runtime modes (tools/http_conformance.py, docs/extensions/http-codec.md). It runs when the
 # Http module or its tooling changes, and by hand; every push already runs the same tests among
 # the stdlib runtime tests, so this adds the focused report and the optional external suites.
 on:

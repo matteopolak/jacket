@@ -187,7 +187,7 @@ def public_source(module, spec, os_name, cpu, parameters=None, arguments=""):
             )
             expression = "type_of(M." + name + ")" if variable else "M." + name
             lines.append("visible_" + str(i) + " :: " + expression + ";")
-    coverage = json.loads((ROOT / "docs/native/bindings-coverage.json").read_text())[
+    coverage = json.loads((ROOT / "tools/native_bindings/coverage.json").read_text())[
         "modules"
     ][module]
     members = sorted(
@@ -529,7 +529,7 @@ def run_verification(cleanup):
             "SDL",
         ):
             coverage = json.loads(
-                (ROOT / "docs/native/bindings-coverage.json").read_text()
+                (ROOT / "tools/native_bindings/coverage.json").read_text()
             )["modules"][module]
             members = [
                 Declaration(m["signature"], m["condition"])

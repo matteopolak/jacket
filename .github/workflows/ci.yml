@@ -45,7 +45,7 @@ jobs:
           node tools/check_scripting_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
           node tools/check_jai_format_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
-        # docs/stdlib/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
+        # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.
         run: JAI_WASM_DIR=artifacts/ci-wasm node --experimental-wasm-jspi tools/test_webgpu_host.mjs
       - name: Run every stdlib test in the browser engine

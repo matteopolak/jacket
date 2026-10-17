@@ -56,7 +56,7 @@ def main():
     # Independent organization by platform and device identity, stable for duplicates.
     records.sort(key=lambda item: item[:2])
     payload = "# Derived from the official SDL 2.0.9 native controller database.\n"
-    payload += "# Normalized and platform-qualified; see docs/window-render-sdl-database.json.\n"
+    payload += "# Normalized and platform-qualified; see tools/window-render-sdl-database.json.\n"
     payload += "".join(record + "\n" for _, _, record in records)
     out = ROOT / "stdlib/Gamepad/SDL_Input_Map/database.jai"
     out.write_text(license_text + "\n// Altered data extraction: platform-qualified and sorted by device identity.\n"
@@ -66,7 +66,7 @@ def main():
                 "normalized_payload_sha256": hashlib.sha256(payload.encode()).hexdigest(),
                 "normalization": "LF, explicit platform metadata, stable platform/GUID sorting",
                 "license": "SDL zlib notice retained in database.jai"}
-    (ROOT / "docs/window-render-sdl-database.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    (ROOT / "tools/window-render-sdl-database.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print(f"generated {len(records)} native SDK mapping records")
 
 

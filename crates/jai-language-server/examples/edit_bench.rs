@@ -5,7 +5,7 @@
 //! DIR is opened as a workspace folder and FILE (under it) as the one open document, as an
 //! editor would. Each round inserts a statement before 1-based LINE (or removes the one inserted
 //! last time), then asks for diagnostics and hovers the first identifier of the line. Prints
-//! each round's time and how many compiles it started. See docs/tools/edit-bench.md.
+//! each round's time and how many compiles it started.
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session, TextChange};
 use std::path::PathBuf;
 use std::time::Instant;

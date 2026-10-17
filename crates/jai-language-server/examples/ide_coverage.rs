@@ -5,8 +5,7 @@
 //! Each DIR is opened as a workspace folder with all of its `.jai` files open, as an editor
 //! would. Every identifier and directive outside comments and strings is asked for hover, and
 //! every identifier (including declarations) for go to definition. A hover that is only the syntax layer's
-//! fallback counts as missing. Typecheck failures never waive gaps. Original corpus bodies
-//! are opaque coordinator-only inputs. See docs/tools/ide-coverage.md.
+//! fallback counts as missing. Typecheck failures never waive gaps.
 use jai_language_server::{Environment, Position};
 use jaic::lexer::{P, Tok};
 use std::path::PathBuf;

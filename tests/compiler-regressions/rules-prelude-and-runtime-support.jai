@@ -1,5 +1,5 @@
 // rules: prelude.1 prelude.2 prelude.3 prelude.4 prelude.5
-// Pins the claims of docs/metaprogramming/prelude-and-runtime-support.md. No module is
+// Pins the prelude and runtime-support rules listed above. No module is
 // imported before the prelude.1 checks: Preload and Runtime_Support are there implicitly.
 
 // prelude.1: Preload declarations need no import.

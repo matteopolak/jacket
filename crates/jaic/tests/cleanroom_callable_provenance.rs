@@ -351,7 +351,7 @@ fn metadata_discovery_does_not_evaluate_runtime_default_expressions() {
 #[test]
 fn same_shaped_field_declarations_keep_names_defaults_and_alias_provenance() {
     compile(include_str!(
-        "../../../tests/producer-requests/callable-declaration-provenance.jai"
+        "../../../tests/fixtures/callable-provenance/callable-declaration-provenance.jai"
     ))
     .unwrap();
 }

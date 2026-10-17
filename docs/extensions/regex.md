@@ -144,7 +144,7 @@ Throughput (`-O2`, Apple M5, 16 MB of mixed ASCII and Unicode text, `Regex.Stati
 | `the` | 4,600 | 5,600 |
 | `[a-zA-Z]+ing` | 920 | 730 |
 
-Dense matches (`the`, `\b\w+\b`) are bound by the cost per match. The [regex benchmark](../tools/regex-benchmark.md) compares eight engines and records the numbers in `benchmarks/results/regex.md`.
+Dense matches (`the`, `\b\w+\b`) are bound by the cost per match. The regex benchmark compares eight engines and records the numbers in `benchmarks/results/regex.md`.
 
 ## Dependencies
 

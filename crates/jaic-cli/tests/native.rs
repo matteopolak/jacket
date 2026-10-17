@@ -498,7 +498,7 @@ fn stdlib_c_abi_matches_host_headers() {
 
 /// The same check for targets this host cannot run, from `JAIC_ABI_CROSS` (`;`-separated
 /// `os-cpu[:clang args]`, e.g. `macos-x64;windows-x64`); clang must have that target's headers.
-/// Does nothing when the variable is unset. See docs/stdlib/native-bindings.md.
+/// Does nothing when the variable is unset.
 #[test]
 fn stdlib_c_abi_matches_cross_target_headers() {
     let Ok(specs) = std::env::var("JAIC_ABI_CROSS") else {

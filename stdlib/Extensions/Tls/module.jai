@@ -1,6 +1,6 @@
 // Tls: TLS 1.2 and 1.3 over Io readers and writers, on a vendored mbedTLS (tools/native-libs.json).
 // A jaic extension, not official Jai: other Jai compilers have no such module, and it may change
-// between jaic releases. See docs/stdlib/tls.md.
+// between jaic releases. See docs/extensions/tls.md.
 //
 //     Tls :: #import "Extensions/Tls";
 //

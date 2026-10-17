@@ -87,7 +87,7 @@ fn a_qualified_namespace_does_not_implicitly_import_operators() {
 fn called_library_body_interception_and_filters_complete_successfully() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for path in [
-        "tests/producer-requests/profiler-stdlib-bodies.jai",
+        "tests/fixtures/profiler-context/profiler-stdlib-bodies.jai",
         "tests/compiler-semantics/interception-canonical-bodies.jai",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -183,9 +183,9 @@ fn retained_member_and_real_library_bodies_are_modifiable() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for path in [
         "tests/compiler-semantics/code-modify-members.jai",
-        "tests/developer-tools/compiler-requests/profiler-member-modify.jai",
-        "tests/developer-tools/compiler-requests/profiler-stdlib-modify.jai",
-        "tests/developer-tools/compiler-requests/profiler-array-local-modify.jai",
+        "tests/developer-tools/metaprograms/profiler-member-modify.jai",
+        "tests/developer-tools/metaprograms/profiler-stdlib-modify.jai",
+        "tests/developer-tools/metaprograms/profiler-array-local-modify.jai",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))

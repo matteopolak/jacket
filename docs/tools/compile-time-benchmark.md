@@ -16,7 +16,7 @@ instead.
   project's release switch (Jails' `-release` is O3). Vk-Engine is left out: its `Build.jai` rewrites files in
   the corpus.
 - **Generated workloads**: `gen-10k`, `gen-60k` and `gen-240k` (`check` and `build-O0`) write a program from
-  [`tools/benchgen.py`](benchmark-generator.md) (seed 1) into a temporary directory first. They measure scaling
+  `tools/benchgen.py` (seed 1) into a temporary directory first. They measure scaling
   on corpus-shaped code and need no corpus checkout. Changing the generator changes these programs, so
   results from before and after are not comparable.
 - **Setup**: a workload can name `tools/upstream-cases.json` ids whose `setup` commands run first (forbear's

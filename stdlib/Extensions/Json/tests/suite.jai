@@ -1,6 +1,6 @@
 // JSONTestSuite (nst/JSONTestSuite, MIT, data/JSONTestSuite/LICENSE): every `y_` case must be
 // accepted, every `n_` case rejected, and the `i_` cases (the standard leaves them open) must
-// not crash. The choices made for the `i_` cases are listed in docs/stdlib/json.md and pinned
+// not crash. The choices made for the `i_` cases are listed in docs/extensions/json.md and pinned
 // here, so a change in behavior is noticed.
 //
 //     jaic stdlib/Extensions/Json/tests/suite.jai -interp

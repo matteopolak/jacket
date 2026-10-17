@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Command};
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/import-scope")
+        .join("../../tests/fixtures/import-scope")
         .join(name)
 }
 

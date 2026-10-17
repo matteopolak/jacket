@@ -3,18 +3,21 @@ use std::{
     path::PathBuf,
     process::{Command, Output},
 };
+
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
+
 fn source(name: &str) -> PathBuf {
     if name == "human" {
-        root().join("tests/producer-requests/human-insert-declaration-scope/main.jai")
+        root().join("tests/fixtures/insert-scope/main.jai")
     } else {
         root().join(format!(
             "tests/cleanroom-language/insert-declaration-scope/{name}.jai"
         ))
     }
 }
+
 fn success(output: Output, expected: &str) {
     assert!(
         output.status.success(),
@@ -24,11 +27,13 @@ fn success(output: Output, expected: &str) {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
 }
+
 const POSITIVE: &[(&str, &str)] = &[
     ("human", "b: 2\n"),
     ("main", "ok\n"),
     ("roundtrip", "roundtrip ok\n"),
 ];
+
 const NEGATIVE: &[(&str, &str)] = &[
     ("braced-private", "unknown identifier"),
     ("double-braced-private", "unknown identifier"),
@@ -36,6 +41,7 @@ const NEGATIVE: &[(&str, &str)] = &[
     ("nested-private", "unknown identifier"),
     ("duplicate", "already declared"),
 ];
+
 #[test]
 fn exact_human_and_scope_roundtrips_check_and_interpret() {
     for &(name, expected) in POSITIVE {
@@ -57,6 +63,7 @@ fn exact_human_and_scope_roundtrips_check_and_interpret() {
         );
     }
 }
+
 #[test]
 fn explicit_block_privacy_preinsert_constants_and_duplicates_reject() {
     for &(name, diagnostic) in NEGATIVE {
@@ -75,6 +82,7 @@ fn explicit_block_privacy_preinsert_constants_and_duplicates_reject() {
         }
     }
 }
+
 #[cfg(feature = "llvm")]
 #[test]
 fn insertion_scope_runs_native_o0_o2_and_wasi() {

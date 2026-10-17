@@ -12,7 +12,7 @@ host has no adapter; each mode then tries again asking for the fallback (softwar
 Without --require-adapter, no adapter at all is a skip (macOS runners are VMs that may have no
 Metal device); with it, a failure. The window test opens a Window_Creation window and presents
 --frames frames to its surface, so it needs a display (Xvfb on Linux CI); it exits 2 when it
-cannot open a window. See docs/stdlib/webgpu.md#tests.
+cannot open a window. See docs/extensions/webgpu.md#tests.
 """
 from __future__ import annotations
 

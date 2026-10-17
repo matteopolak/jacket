@@ -201,17 +201,6 @@ def main():
             "Linux/Windows native and supported-driver callback/sync/break tests remain separate gates.",
         ]
         save()
-        if args.native:
-            root = Path(__file__).resolve().parents[2]
-            with (root / "docs/worker-inbox.md").open("a") as inbox:
-                inbox.write(
-                    "\n\n## Bindings RELEASE GL debug policy bounded native lease\n\n"
-                    + str(report["native_executions"])
-                    + " native programs completed/reaped; lease RELEASED in finally. "
-                    "No GUI/GPUcontext/trap/fault program. Exact policy-only proof: "
-                    + str(work / "report.json")
-                    + "\n"
-                )
     print(work / "report.json")
     raise SystemExit(
         0

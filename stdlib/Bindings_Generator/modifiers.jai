@@ -1,4 +1,4 @@
-// Canonical-model modifiers; policies: docs/generator-modifiers.md.
+// Canonical-model modifiers.
 #load "active-context.jai";
 
 add_access_flags :: (decl: *Declaration, cur: CXCursor) {

@@ -167,10 +167,10 @@ def main():
              ROOT / "stdlib/Bindings_Generator/module.jai", *owned])
     except RuntimeError as error:
         evidence["module_root_lint"] = "failed; independent #add_context-after-bootstrap driver ordering reduction reported"
-        (ROOT / "docs/native/generator-platform-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        (ROOT / "target/generator-platform-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
         raise error
     evidence["module_root_lint"] = "passed with warnings denied"
-    (ROOT / "docs/native/generator-platform-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (ROOT / "target/generator-platform-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("Generator platform original-object/library effects passed interpreter/native Mac O0/O2; six desktop source checks passed")
 
 

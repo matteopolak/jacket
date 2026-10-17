@@ -43,7 +43,7 @@ The suite does not settle underspecified behavior such as allocator-specific fai
 
 The legacy replaced-stdlib suite is now retired by explicit user authorization.
 Compiler, ABI, Extensions and graphics fixtures moved to dedicated regression
-families; per-file hashes and reasons are in docs/status/stdlib-test-migration.json.
+families.
 Descriptions above of old path adaptations are historical and are not new
 acceptance gates. New public-only Hash baseline and exact private HASH_INIT
 negative rejection execute successfully; the runner's check-fail mode requires

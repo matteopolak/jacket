@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Command};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/host-result-transfer.jai")
+        .join("../../tests/fixtures/host-runs/host-result-transfer.jai")
 }
 
 fn success(command: &mut Command) {
@@ -23,9 +23,8 @@ fn success(command: &mut Command) {
 
 #[cfg(feature = "llvm")]
 #[test]
-fn reviewed_workspace_host_clock_produces_a_linux_x64_object() {
-    let tests =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/coordinator-reductions");
+fn workspace_host_clock_produces_a_linux_x64_object() {
+    let tests = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/host-runs");
     let directory = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("host-clock-object");
     std::fs::create_dir_all(&directory).unwrap();
     success(

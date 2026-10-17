@@ -4,7 +4,7 @@ use std::process::{Command, Output};
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/plugin-registration")
+        .join("../../tests/fixtures/plugin-registration")
         .join(name)
 }
 

@@ -3,7 +3,7 @@
 // a Jai procedure, so the host queues finished requests and these call them
 // (webgpu_dispatch_record in generated_wasm.jai).
 //
-// Callback modes, as far as the browser allows (docs/stdlib/webgpu.md):
+// Callback modes, as far as the browser allows (docs/extensions/webgpu.md):
 // - .AllowProcessEvents: in wgpuInstanceProcessEvents, or in wgpuInstanceWaitAny on its future.
 // - .WaitAnyOnly: only in wgpuInstanceWaitAny on its future.
 // - .AllowSpontaneous: in either, and also when webgpu_present waited for a frame. JavaScript

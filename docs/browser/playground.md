@@ -108,7 +108,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
   [interpreter threads](../compiler/interpreter-threads.md#inline-threads-sandbox-host-browser).
   This describes the sandbox scheduler, not public `Thread` module compatibility. A busy wait must poll
   (an atomic read, `pause`, `sched_yield`) for the other threads to run, and sleeping only moves the virtual clock.
-  [Independent runtime regression design](sandbox-runtime-verification.md) tests real suspension,
+  Independent runtime regression design tests real suspension,
   contention, join results, files and public target rejection without importing native-only facades.
 - **Path semantics**: `normalize` clamps `..` at the root, so `#load "../../stdlib/X.jai"` from `/workspace/a.jai`
   reaches `/stdlib/X.jai` as on a real file system.
@@ -127,7 +127,7 @@ To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LO
 
 ## Configuration
 
-- Build: `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or `tools/build_scripting_wasm.py` to also stage the bundle. `--target-dir` and `CARGO_TARGET_DIR` select the build directory ([build storage](../tools/build-storage.md)).
+- Build: `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or `tools/build_scripting_wasm.py` to also stage the bundle. `--target-dir` and `CARGO_TARGET_DIR` select the build directory (build storage).
 - Native test: `cargo test -p jai-wasm play`. `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs fixtures against the built module (exit codes, phases, nested `#load`, diagnostics) and the `tests/examples.json` programs (the tour) under their playground budget. `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | dir>` runs the formatter driver the way a Format button would. CI (`.github/workflows/ci.yml`) runs both on a debug build.
 - The release module is about 11 MB, mostly the embedded stdlib.
 

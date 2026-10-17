@@ -25,7 +25,6 @@ def main():
     jaic = ROOT / "target/debug/jaic"
     emitter = tests / "bindings-variadic.jai"
     consumer = tests / "bindings-variadic-roundtrip.jai"
-    producer = tests / "producer-requests/c-variadic-abi.jai"
     generated = [ROOT / f"target/developer-tools-variadic-{name}.jai" for name in ["default", "generated", "signature"]]
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
@@ -40,12 +39,12 @@ def main():
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
                  *flags, tests / "bindings-variadic-native.c", "-o", ROOT / f"target/libdeveloper_tools_variadic.{suffix}"])
-            for source, tag in [(producer, "producer"), (consumer, "generated")]:
+            for source, tag in [(consumer, "generated")]:
                 run([jaic, source, "-interp", "-I", ROOT / "target"], "ok\n")
                 executable = ROOT / f"target/developer-tools-variadic-{tag}-{mode}-o{optimization}"
                 run([jaic, source, f"-O{optimization}", "-exe", executable, "-I", ROOT / "target"])
                 run([executable], "ok\n")
-    paths = [emitter, consumer, producer, *generated, ROOT / "stdlib/Bindings_Generator/module.jai",
+    paths = [emitter, consumer, *generated, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/binding-native-model.jai",
              ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai"]
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])

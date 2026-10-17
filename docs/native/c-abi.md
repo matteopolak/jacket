@@ -87,7 +87,7 @@ Tests:
 
 - `tests/native/c-structs-by-value/` (`c_structs_by_value` in `crates/jaic-cli/tests/native.rs`) compares interpreter and native output and calls `#c_call` callbacks from C. It needs `cc` (on Windows `clang` and `llvm-ar`, native output only). `tools/windows_cross.py` builds it for Windows with MinGW GCC or Clang.
 - `tests/stdlib/c-variadic-foreign-calls.jai` and `c_variadic_calls`.
-- `tests/native/c-aggregate-abi/` and `tests/native/c-variadic-aggregates/` (`c_aggregate_abi_shapes`, `c_variadic_aggregates`): see [ABI coverage](c-abi-coverage.md).
+- `tests/native/c-aggregate-abi/` and `tests/native/c-variadic-aggregates/` (`c_aggregate_abi_shapes`, `c_variadic_aggregates`): see ABI coverage.
 - `cpp_non_pod_callback_results`: `#cpp_return_type_is_non_pod` callbacks called from C++ (`x8` on arm64, `x0` on Windows arm64).
 - `tests/native/c-long-double/` (`c_long_double`, which also runs an x86-64 build under Rosetta on Apple silicon).
 - `tests/stdlib/cpp-method-and-array-decay.jai`.

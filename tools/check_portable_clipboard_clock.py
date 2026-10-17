@@ -15,8 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     base = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
     work = Path(tempfile.mkdtemp(prefix="clipboard-clock-", dir=base))
-    prior = json.loads((ROOT / "docs/status/stdlib-clipboard-linux.json").read_text())
-    names = set(prior["files"]) | {
+    names = {
         "tests/portable-stdlib/native/clipboard-clock-failure.c",
         "tools/check_portable_clipboard_clock.py",
     }
@@ -115,7 +114,6 @@ def main():
         commands=rows,
         passed=not drift and all(row["passed"] for row in rows),
         scope="Native clock/queue/cleanup unit proof; no Display or clipboard operation",
-        baseline="Prior 35 commands retained; clock policy rejected. Accepted309 access denied; integration frozen replay pending.",
     )
     (work / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
     print(work / "summary.json", flush=True)

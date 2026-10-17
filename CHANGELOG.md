@@ -57,7 +57,7 @@ HTTPS in the async IO stack, and a round of hardening and speed for `Extensions/
 
 ### Highlights
 
-- `Extensions/Tls`: TLS 1.2 and 1.3 on a bundled mbedTLS, with the system's trust store on Linux, macOS and Windows. `https://` works in the `Http` client, and `app.config.tls` serves HTTPS. See [tls](https://github.com/matteopolak/jai/blob/main/docs/stdlib/tls.md).
+- `Extensions/Tls`: TLS 1.2 and 1.3 on a bundled mbedTLS, with the system's trust store on Linux, macOS and Windows. `https://` works in the `Http` client, and `app.config.tls` serves HTTPS. See [tls](https://github.com/matteopolak/jai/blob/main/docs/extensions/tls.md).
 - An idle keep-alive connection costs about 16 KB instead of 35 KB: it holds no read buffer while it waits (`Io.wait_readable`).
 - epoll serves 10% to 17% more HTTP requests per second (edge-triggered, one registration per socket); io_uring accepts with one multishot request per listener.
 - `Json` parses 1.3x to 1.7x faster and reads floats up to 6x faster (Eisel-Lemire), with float64 printed by Schubfach; results are unchanged.
@@ -65,7 +65,7 @@ HTTPS in the async IO stack, and a round of hardening and speed for `Extensions/
 
 ### Breaking changes
 
-Names are now consistent across Io, Tls, Http and Json (see [conventions](https://github.com/matteopolak/jai/blob/main/docs/stdlib/extensions-conventions.md)), and internals are no longer exported.
+Names are now consistent across Io, Tls, Http and Json (see [conventions](https://github.com/matteopolak/jai/blob/main/docs/extensions/extensions-conventions.md)), and internals are no longer exported.
 
 | Was | Now |
 | --- | --- |
@@ -101,7 +101,7 @@ Programs that import `Http` now link mbedTLS (about 1 MB).
 - `Extensions/Io` on Windows (x64 and arm64): I/O completion ports for sockets (AcceptEx, ConnectEx, WSARecv, WSASend, CancelIoEx) and files, and an IoRing for files on Windows 11 22H2 and newer, loaded from KernelBase.dll at run time so older Windows keeps using completion ports. `JAI_IO_BACKEND=iocp` or `ioring` forces one; `backend_reason()` says why a fallback happened. Name lookups work too. The Io tests, which printed a skip on Windows, now run there.
 - `Extensions/Io` file thread pool for epoll and kqueue: reads and writes longer than `JAI_IO_FILE_INLINE` bytes (default 32768) run on `JAI_IO_FILE_THREADS` worker threads (default 4, 0 for none) instead of blocking the scheduler's thread, and wake it through an eventfd or an `EVFILT_USER` event. `Backend` gains `.IOCP` and `.IORING`.
 - `Extensions/Http` server: `get(*app, "/users/{id}", handler)` registers a plain function; its parameter types (`Path`, `Params`, `Rest`, `Query`, `Json`, `Form`, `Header`, `Header_Optional`, `Bytes`, `Text`, `*Request`, `*State(T)`) say what it needs and are checked against the route at compile time, with errors that point at the route. A radix router with 405/`Allow`, automatic HEAD and OPTIONS and startup conflict detection; return values map to JSON, text, bytes or `Response`; `Http_Error` helpers send RFC 9457 problem documents; middleware and nested groups; `serve` with one scheduler per core, limits and timeouts, keep-alive, pipelining, `Expect: 100-continue` and graceful shutdown on SIGINT/SIGTERM.
-- `Extensions/Io`: scheduler-local storage and an interrupt flag (`catch_interrupts`, `interrupted`); `make_pipe`, in-memory duplex streams that honour deadlines and cancellation; `in_scheduler()`. `Reader` and `Writer` are small handles (a data pointer and procedures) over a file, a TCP connection, a pipe or a source of your own (`reader_of`, `writer_of`), and every source has the same operations: `read`, `read_full`, `write`, `write_some`, `read_all` and `close(x, now = false)`. `with_deadline(ms, #code { ... })` is the deadline primitive. `Io.read_json(reader, T)` decodes JSON straight from a stream. See `docs/stdlib/io-streams.md`.
+- `Extensions/Io`: scheduler-local storage and an interrupt flag (`catch_interrupts`, `interrupted`); `make_pipe`, in-memory duplex streams that honour deadlines and cancellation; `in_scheduler()`. `Reader` and `Writer` are small handles (a data pointer and procedures) over a file, a TCP connection, a pipe or a source of your own (`reader_of`, `writer_of`), and every source has the same operations: `read`, `read_full`, `write`, `write_some`, `read_all` and `close(x, now = false)`. `with_deadline(ms, #code { ... })` is the deadline primitive. `Io.read_json(reader, T)` decodes JSON straight from a stream. See `docs/extensions/io-streams.md`.
 - `Extensions/Http` client: a `Client` value (`base_url`, default headers with `set_header`, `timeout`, `max_redirects`, a pluggable `transport`; a zeroed `api: Client;` is ready to use), `send` and the verbs `get`, `post`, `put`, `patch`, `delete`, `head` and `options`, a per-scheduler connection pool, redirects and DNS through Io. Plain http only. A request returns a response with the status and headers, and the body is read from it afterwards with `read_text`, `read_bytes`, `read_json(*response, T)` or, in pieces, `read_some`. A connection goes back to the pool when its body has been read to the end; `close(*response)` releases one that was not. `error_for_status` turns a non-2xx response into an error. Errors are a `Client_Error` (`TRANSPORT`, `TIMEOUT`, `INVALID_URL`, `UNSUPPORTED`, `REDIRECTS`, `DECODE` with the `Json_Error`, `BODY`, `TOO_LARGE`, `STATUS`). Calls made outside `Io.io_run` run a scheduler for that call.
 - `Extensions/Http` testing: `test_client(*app)` is the ordinary client wired to an `App` through an in-memory connection, so end-to-end tests need no socket and no `io_run` while the whole stack (codec, keep-alive, middleware, routing, extractors, error mapping) still runs, deterministically. `expect_status`, `expect_json`, `expect_problem`, `expect_header`, `expect_text`, `expect_redirect`, `expect` and `expect_equal` print the request, the response with its body and the caller's location when they fail, and `run_tests` runs named tests with a summary and a non-zero exit code. `test_client(*app, .{ over_tcp = true })` runs the same tests over a loopback socket. `examples/http/crud_test.jai` tests the notes API, now split into `notes.jai` and `crud.jai`.
 - `tools/http_conformance.py` also builds an echo server and probes it with smuggling shapes, limits and a SIGINT shutdown. `stdlib/Extensions/Http/bench/server_bench.jai` measures requests per second.
@@ -145,7 +145,7 @@ Three new stdlib extensions: regular expressions that match Rust's `regex` crate
 
 ### Highlights
 
-- `Extensions/Regex`: Rust `regex` syntax, full Unicode, linear time. `Regex.Static` compiles patterns with the program and fills typed fields from named groups. See [Regex](https://github.com/matteopolak/jai/blob/main/docs/stdlib/regex.md).
+- `Extensions/Regex`: Rust `regex` syntax, full Unicode, linear time. `Regex.Static` compiles patterns with the program and fills typed fields from named groups. See [Regex](https://github.com/matteopolak/jai/blob/main/docs/extensions/regex.md).
 - `Extensions/SIMD`: fixed-width vectors (`u8x16`, `f32x4`, ...) with the same results on every target and real vector instructions in native builds.
 - `Extensions/Byte_Search`: byte, byte set and substring search at memory bandwidth, on par with `memchr`.
 - Native builds honour `inline` and `no_inline`, and leave stack trace nodes out of more procedures.
@@ -360,7 +360,7 @@ Builds with optimizations on compile up to 2.7 times faster, and unoptimized bui
 
 ### Fixes
 
-- The GPU stop of the tour draws in its own window instead of aborting; without a display it says it skipped. See [WebGPU](https://github.com/matteopolak/jai/blob/main/docs/stdlib/webgpu.md).
+- The GPU stop of the tour draws in its own window instead of aborting; without a display it says it skipped. See [WebGPU](https://github.com/matteopolak/jai/blob/main/docs/extensions/webgpu.md).
 - `File_Watcher` no longer misses a change because of float rounding.
 - Windows: `JAIC_LINKER` finds the SDK and C runtime libraries outside a developer prompt.
 
@@ -393,7 +393,7 @@ Programs get checked more thoroughly: `print` format strings, null pointers, not
 
 - `print`-style format strings are checked at compile time. See [format string check](https://github.com/matteopolak/jai/blob/main/docs/compiler/format-string-check.md).
 - Built programs stop with `null pointer dereference` at the offending line instead of crashing.
-- New [`Extensions/Args`](https://github.com/matteopolak/jai/blob/main/docs/stdlib/args.md): declare a struct and get a command-line parser with help, suggestions and shell completions. `jaifmt` uses it.
+- New [`Extensions/Args`](https://github.com/matteopolak/jai/blob/main/docs/extensions/args.md): declare a struct and get a command-line parser with help, suggestions and shell completions. `jaifmt` uses it.
 - Editor refactorings: extract into variable or procedure, inline variable, add missing cases or fields, convert `ifx`.
 - Call hierarchy, expand selection, pull diagnostics, and rename of struct fields and enum members. See [refactorings](https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server-refactorings.md).
 - A procedure that can end without returning a value warns. See [diagnostics](https://github.com/matteopolak/jai/blob/main/docs/compiler/diagnostics.md#compile-warnings-compilerwarnings).
@@ -488,7 +488,7 @@ WebGPU graphics on every platform and in the playground, threads in WebAssembly 
 
 ### Highlights
 
-- New `Extensions/WebGPU` module: one program draws in a window on macOS, Linux and Windows, and in the playground's new **Render** pane. See [WebGPU](https://github.com/matteopolak/jai/blob/main/docs/stdlib/webgpu.md).
+- New `Extensions/WebGPU` module: one program draws in a window on macOS, Linux and Windows, and in the playground's new **Render** pane. See [WebGPU](https://github.com/matteopolak/jai/blob/main/docs/extensions/webgpu.md).
 - Release archives ship the WebGPU library; nothing else to install.
 - New examples: a triangle, a ray marcher and a compute shader.
 - `jaic build -os wasm` programs can use threads. See [threads in WASI builds](https://github.com/matteopolak/jai/blob/main/docs/native/wasm-threads.md).
@@ -503,7 +503,7 @@ WebGPU graphics on every platform and in the playground, threads in WebAssembly 
 | `jaic-<platform>` archives | `jai-<platform>` |
 | `JAIC_VERSION`, `JAIC_INSTALL_DIR`, `JAIC_BIN_DIR` | `JAI_VERSION`, `JAI_INSTALL_DIR`, `JAI_BIN_DIR` (the old names still work) |
 
-An import of a moved module fails with an error naming the import to write. See [stdlib extensions](https://github.com/matteopolak/jai/blob/main/docs/stdlib/extensions.md).
+An import of a moved module fails with an error naming the import to write. See [stdlib extensions](https://github.com/matteopolak/jai/blob/main/docs/extensions/extensions.md).
 
 ### Fixes
 

@@ -85,7 +85,7 @@ def main():
     path = ROOT / "target/developer-tools-eh-frame-oracle.jai"
     path.write_text("\n".join(source) + "\n")
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", path])
-    (ROOT / "docs/native/developer-tools-eh-frames-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (ROOT / "target/developer-tools-eh-frames-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

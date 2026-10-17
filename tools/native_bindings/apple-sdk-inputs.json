@@ -1,0 +1,29 @@
+{
+  "sdk_version": "27.0",
+  "files": {
+    "System/Library/Frameworks/CoreFoundation.framework/Headers/CFBase.h": "b4cff7c99779f092e14fa6d3eea151d05c0324f106e1f103b27c5727223f023f",
+    "System/Library/Frameworks/CoreFoundation.framework/Headers/CFString.h": "ed49de9f86adc90f53a2f6d5a10666e1e4b865a15adea1311d8104083d9fac31",
+    "System/Library/Frameworks/CoreGraphics.framework/Headers/CGColorSpace.h": "0da9cb75bc3fe3c5477145954c05ccf884d046918e16e7c5f4b619a63d5dde50",
+    "System/Library/Frameworks/CoreFoundation.framework/Headers/CFDate.h": "31f7691c4a4f49337dbb4d23692104f1b46314b38a3c4a6cc6033bd3ca993a23",
+    "System/Library/Frameworks/Metal.framework/Headers/MTLDevice.h": "bb4222866870a4a703cd1581fe55cf4fee4769fbee5efc795af51fbff95f2989",
+    "usr/include/dlfcn.h": "01b3575f40973f5549655b9d44fb845b67c663fa201bdb1f3a0b0266e5ec046b",
+    "System/Library/Frameworks/Metal.framework/Headers/MTLTypes.h": "22cbc7d8debea369bc66336dae01f2cca7023feab5f9598d6fad0da7e2fd999f",
+    "System/Library/Frameworks/Metal.framework/Headers/MTLRenderPass.h": "fd017d86feff941db68c2067f26656e9b366ec598800d66cfeb765a9b1b2085c",
+    "System/Library/Frameworks/IOSurface.framework/Headers/IOSurfaceRef.h": "8ee2890f7a5392ac2040c2e0b3d3cb773cdebe3627ad3452881fc7d20a759bd5",
+    "usr/include/ffi/ffi.h": "cfc632aa9411334f99e14681008b2db105bc52b834f31b4d714d4326deac3a85",
+    "usr/include/curl/curl.h": "bc859632290c0495e45d80157ebb97bb296f7391d7efa054d127c7cf14469190",
+    "usr/include/curl/curlver.h": "454e77732340eeb1119d47f501fa448a3577ea613d9e98d81b36d5bb72c242df",
+    "System/Library/Frameworks/OpenGL.framework/Headers/OpenGL.h": "875e10229940be9cbb2c8186829c92d2d22108514bdb6fd67ad20746dd1f94c5",
+    "System/Library/Frameworks/OpenGL.framework/Headers/CGLTypes.h": "6e7f302c334dbb33790df6a42c184b380585ffab12768fd54be3d04075f0a9ce",
+    "System/Library/Frameworks/OpenGL.framework/Headers/CGLCurrent.h": "e8930268ae3caa5079441b2880e78cd2bf2f398c37ea00d7ba0b28fff7273fa2",
+    "System/Library/Frameworks/AppKit.framework/Headers/NSOpenGL.h": "48a0456928b5fe7fe5c6f34a266921f9ddf5e6351a6141498b5b13cf3c934926",
+    "System/Library/Frameworks/CoreServices.framework/Frameworks/FSEvents.framework/Headers/FSEvents.h": "493ab211ffd5683e83b3ec77b9924730a7df44a39738b560b8a28465b1c48a90"
+  },
+  "usage": "Private contextual scalar typedefs and CF byte conversion contract; public exports come from reviewed specs.; CGL native test signatures and pixel-format tokens.; FSEvents private context order, synchronous copy and native callback lifetime contract.",
+  "curl_runtime_version": "libcurl/8.7.1 SecureTransport (LibreSSL/3.3.6) zlib/1.2.12 nghttp2/1.69.0",
+  "freetype_installed_inputs": {
+    "/opt/homebrew/Cellar/freetype/2.14.3/include/freetype2/freetype/freetype.h": "fd45e7ee01c8f0f2419186d3fc9dd58e25cd866ef0c49f0b347c2d141665a364",
+    "/opt/homebrew/Cellar/freetype/2.14.3/include/freetype2/freetype/fttypes.h": "27663e885fdb62982c221cbe1dba3e2f0d2730f5aa54aec333613bc60e05d1fe",
+    "/opt/homebrew/Cellar/freetype/2.14.3/lib/libfreetype.6.dylib": "e4b41d886673fd1c282764a3113224d83b09bd705d12db7c36366fb04b7592dc"
+  }
+}

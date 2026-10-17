@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    evidence = json.loads((ROOT / "docs/native/developer-tools-dwarf-lines-evidence.json").read_text())
+    evidence = json.loads((ROOT / "target/developer-tools-dwarf-lines-evidence.json").read_text())
     output = ["check_native_line_wire :: () {"]
     flag_bits = {"is_stmt": 1, "basic_block": 2, "prologue_end": 4, "epilogue_begin": 8}
     for fixture in evidence["fixtures"]:

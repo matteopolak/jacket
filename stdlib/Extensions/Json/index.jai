@@ -21,7 +21,7 @@
 //
 // A simdjson-style index of every structural character was tried and dropped: for documents of
 // short strings and numbers it cost more to build than the scalar reader's own byte checks cost
-// to repeat (see docs/stdlib/json.md).
+// to repeat (see docs/extensions/json.md).
 
 #scope_module
 

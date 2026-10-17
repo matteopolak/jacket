@@ -178,6 +178,10 @@ def apply_foundations_capabilities(case):
     """Merge only explicit requirements, preserving other owners' metadata."""
     required = []
     name = case["id"]
+    if name == "extensions/io-uring-dependency-repro":
+        # Authored as a source-only atomic-call reduction. Its uninitialized
+        # ring is intentionally not a valid runtime consumer.
+        case["source_check_only"] = True
     if name in NATIVE_SERVICE_CASES:
         required.append(NATIVE_SERVICE_CASES[name])
     if name in {

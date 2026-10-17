@@ -1,7 +1,7 @@
 // Regex: regular expressions with the syntax and guarantees of Rust's `regex` crate, full
 // Unicode support, and patterns that can be compiled while your program compiles. A jaic
 // extension, not official Jai: other Jai compilers have no such module, and it may change
-// between jaic releases. See docs/stdlib/regex.md.
+// between jaic releases. See docs/extensions/regex.md.
 //
 //     Regex :: #import "Extensions/Regex";
 //
@@ -79,7 +79,7 @@ free_regex :: (re: *Regex) {
     re.engine = null;
 }
 
-// Whether captures for this pattern are found in a single scan (see docs/stdlib/regex.md).
+// Whether captures for this pattern are found in a single scan (see docs/extensions/regex.md).
 is_one_pass :: (re: *Regex) -> bool {
     return re.engine.onepass.ok;
 }

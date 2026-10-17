@@ -8,7 +8,6 @@ Generates the corpus (benchmarks/regex/corpus.py), builds every harness under be
 runs the engines one after another (never in parallel) and prints a Markdown report, which it also
 writes to benchmarks/results/regex.md. Build products live in benchmarks/regex/target (gitignored).
 An engine whose library or toolchain is missing is skipped with a note.
-See docs/tools/regex-benchmark.md.
 """
 from __future__ import annotations
 

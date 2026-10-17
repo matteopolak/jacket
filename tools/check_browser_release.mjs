@@ -58,7 +58,7 @@ export async function inspectAssets(directory) {
   assert.equal(metadata.jaifmt_wasm_sha256, formatter, "build-metadata.json must describe the staged jaifmt.wasm");
   const engine = await readFile(path.join(directory, "engine.mjs"), "utf8");
   assert(!/^\s*(?:import\b|export\b[^;\n]*\bfrom\b)|\bimport\s*\(/m.test(engine), "engine.mjs must be self-contained");
-  // The WebGPU host (docs/stdlib/webgpu.md) imports only its generated bindings, which import nothing.
+  // The WebGPU host (docs/extensions/webgpu.md) imports only its generated bindings, which import nothing.
   const imports = text => [...text.matchAll(/^\s*import\b[^;]*?from\s*"([^"]+)"|\bimport\s*\(/gm)].map(m => m[1] ?? "dynamic import");
   assert.deepEqual(imports(await readFile(path.join(directory, "webgpu_host.mjs"), "utf8")), ["./webgpu_bindings.generated.mjs"],
     "webgpu_host.mjs may import only ./webgpu_bindings.generated.mjs");

@@ -334,7 +334,7 @@
   ],
   "native_sdk": {
     "path": "tests/audio/native-output.c",
-    "provenance": "Official C/OS SDK APIs linked in docs/features/audio-native-integration.md",
+    "provenance": "Official C/OS SDK APIs",
     "modes": [
       "native SDK build/link",
       "native exact-host silent runtime optional --require-device"

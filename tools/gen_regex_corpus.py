@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes stdlib/Extensions/Regex/tests/data/differential_cases.jai: random patterns and texts,
 with what Rust's regex crate matches for each (via tools/regex_oracle). The Jai test checks that
-Extensions/Regex finds the same matches and capture spans. See docs/stdlib/regex.md.
+Extensions/Regex finds the same matches and capture spans. See docs/extensions/regex.md.
 
     cargo build --release --manifest-path tools/regex_oracle/Cargo.toml
     python3 tools/gen_regex_corpus.py --oracle tools/regex_oracle/target/release/regex-oracle

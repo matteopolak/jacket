@@ -23,7 +23,7 @@ Tls_Config :: struct {
     private_key_pem: string;
 
     // The certificate authorities to trust, as PEM (any number of certificates). Empty: the system's
-    // (see docs/stdlib/tls.md for where each OS keeps them).
+    // (see docs/extensions/tls.md for where each OS keeps them).
     roots_pem: string;
 
     // The protocols to offer (client) or accept (server) through ALPN, most preferred first:

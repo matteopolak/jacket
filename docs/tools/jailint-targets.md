@@ -5,20 +5,9 @@ are resolved relative to the invocation working directory, consistent with jaic.
 They are anchored before each source/module root is compiled, including loaded
 fragments and child workspaces. Missing roots stay missing; source-local directories
 with the same relative name cannot accidentally supply a module. Absolute roots
-retain their behavior. The original staged developer-tools reproducer and an
-independent CLI regression cover relative/absolute/no-I controls, ./ and .. paths,
+retain their behavior. Regression tests cover relative/absolute/no-I controls, `./` and `..` paths,
 loaded fragment context, source-local shadows and invalid imported bodies. No
 warning is relaxed and failed imports/bodies remain incomplete/fatal.
-
-Verification: target/lint-relative-includes-red.log retains the original failure;
-the complete configured jailint suite and clippy -D warnings are in
-target/lint-relative-includes-suite-configured.log and lint-relative-includes-clippy.log.
-Own jaic -check and strict jailint both accept the staged producer input with
-the same relative -I path (target/lint-relative-producer-{jaic,jailint}.log).
-An initial suite invocation omitted JAIC_STDLIB and failed three existing CLI
-cases for missing prelude; that log is retained without assertion/test changes.
-The configured complete run passes all 39 jailint tests; final clippy evidence is
-target/lint-relative-includes-clippy-final.log. Rustfmt and item-spacing checks pass.
 
 Jailint accepts the compiler's source-checking target flags:
 
@@ -71,7 +60,7 @@ complete uses. Every actual compiler context visits its requested files, rather
 than treating an earlier workspace's visit as coverage for a later target.
 Identical findings are deduplicated after checking, not by skipping bodies.
 
-## Manifest and full-runner handoff
+## Manifest
 
 --manifest writes version-1 JSON even when source compilation fails. It reports:
 
@@ -92,57 +81,8 @@ compilation or denied findings still returns 1; usage/configuration errors retur
 2. --fix retains existing initial-pass exit/report behavior; the manifest labels
 that phase explicitly.
 
-Integration owns the full-lint runner: invoke separate target/context groups,
-retain --config/-I and real parameter-providing bootstrap or enclosing program,
-collect separate manifests, and require existing strict diagnostics. Do not run
-a parameter-required module as an unbound root or import private implementation
-from an application wrapper. No module-name lint exceptions are needed or added.
-No peer runner files or integration assertion-hook/LSP recovery files were edited.
-
-## Verification and limits
-
-All 38 jailint library/CLI/rule/original target tests pass:
-
-```sh
-JAIC_STDLIB="$PWD/target/runtime-configuration-candidate/stdlib" CARGO_TARGET_DIR=target RUSTC_WRAPPER= cargo test --locked -p jailint --all-targets
-CARGO_TARGET_DIR=target RUSTC_WRAPPER= cargo clippy --locked -p jailint --all-targets -- -D warnings
-```
-
-Logs: target/jailint-target-full-final.log and jailint-target-final-clippy.log.
-Original red logs retain missing target flags and missing manifest support.
-target/jailint-explicit-context-red.log retains the missing context-option case;
-target/jailint-context-unvisited-red.log proves that an unrelated context formerly
-returned success without visiting an explicitly requested file. That case now
-fails with a coverage diagnostic rather than becoming a false check.
-Independent fixtures cover Windows/Linux/macOS x64/ARM64, WASI, host/target
-separation, active findings, selected invalid bodies, inactive branches, imports,
-loaded file privacy, actual required parameter bindings and failure when absent,
-custom source/runtime options, config provenance, parallel roots and fix passes.
-An actual child workspace created through implemented private compiler primitives
-inherits Windows/ARM64 and records its successful body check; invalid child code
-still fails. Explicit context tests exercise real imported parameter bindings
-and prove that application private imports remain forbidden.
-The first target run had two incorrect test assertions: diagnostic source excerpts
-contain inactive names, and a file-private read was incorrectly called as an
-export. Assertions now match the actual finding message, and the fixture exports
-only the intended public read while retaining a private helper. Failure evidence
-is retained in target/jailint-targets-first.log; no compiler visibility was relaxed.
-The first missing-context-value test accidentally appended a valid source path,
-which the CLI correctly consumed as the value. It now tests a genuinely incomplete
-argument vector and requires the missing-value diagnostic; that initial failure
-is retained in target/jailint-target-context-missing-value-fixture.log.
-
-Rust formatting/item spacing and host/Windows x64/ARM64 all-target clippy pass.
-Windows source-clippy logs are target/jailint-target-windows-{x64,arm64}-clippy.log;
-they are not native executable-link evidence. No new standalone Jai implementation
-files were added: the intentional finding/rejection cases are embedded original
-Rust test inputs, verified by their required lint/compile outcomes rather than
-misrepresented as warning-free production modules.
-
-This is source checking on the host, not native Windows/Linux/WASI execution or
-full stdlib integration. Compile-time code that actually requires an unavailable
-foreign API, the sandbox budget/backend or an unsupported operation still fails;
-it is never counted as completed body checking. Polymorphic sketches retain the
-compiler's existing limits. No native SDK execution is necessary to verify target
-branch selection, but it remains necessary for separate native ABI/runtime claims.
-JSON uses the already pinned serde_json version; no dependency version changed.
+To lint a whole project, invoke separate target/context groups, retain
+--config/-I and the real parameter-providing bootstrap or enclosing program,
+collect the separate manifests, and require strict diagnostics. Do not run a
+parameter-required module as an unbound root or import private implementation
+from an application wrapper.

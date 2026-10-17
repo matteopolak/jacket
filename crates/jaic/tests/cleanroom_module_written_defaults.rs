@@ -3,13 +3,11 @@ use jaic::sema::{Compiler, Options, VirtualFs};
 use std::path::Path;
 use std::rc::Rc;
 
-const LEAF: &str = include_str!(
-    "../../../tests/producer-requests/module-written-default-identity/modules/Leaf/module.jai"
-);
+const LEAF: &str =
+    include_str!("../../../tests/fixtures/module-written-defaults/modules/Leaf/module.jai");
 
-const BRIDGE: &str = include_str!(
-    "../../../tests/producer-requests/module-written-default-identity/modules/Bridge/module.jai"
-);
+const BRIDGE: &str =
+    include_str!("../../../tests/fixtures/module-written-defaults/modules/Bridge/module.jai");
 
 fn compiler(main: &str) -> Compiler {
     let mut fs = VirtualFs::default();
@@ -25,7 +23,7 @@ fn compiler(main: &str) -> Compiler {
 #[test]
 fn written_defaults_forwarding_and_storage_follow_instance_identity() {
     let mut c = compiler(include_str!(
-        "../../../tests/producer-requests/module-written-default-identity/main.jai"
+        "../../../tests/fixtures/module-written-defaults/main.jai"
     ));
     if let Err(error) = c.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&c.sources));

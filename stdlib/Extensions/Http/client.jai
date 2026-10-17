@@ -20,7 +20,7 @@
 //
 // A connection goes back to the pool when its body has been read to the end. A response whose body
 // is not wanted is released with `close(*response)`, which is safe to call at any time and more
-// than once. See docs/stdlib/http-client.md for the exact rule.
+// than once. See docs/extensions/http-client.md for the exact rule.
 //
 // Every call takes the `Client` it goes through. A zeroed `Client` is a working one (no base URL,
 // TCP, 30 seconds), so `api: Client;` is all a one-off script needs. A call made outside
@@ -32,7 +32,7 @@
 // `https://` URLs work like `http://` ones: the connection is a TLS 1.2 or 1.3 session, the server's
 // certificate is checked against the system's trusted roots (macOS and Windows ask the operating
 // system) and the name in the URL, and ALPN offers `http/1.1`. `client.tls` replaces that with a
-// `Tls_Config` of your own (private roots, a client certificate); see docs/stdlib/tls.md. A failed
+// `Tls_Config` of your own (private roots, a client certificate); see docs/extensions/tls.md. A failed
 // handshake or certificate check is a `.TLS` error. There is no way to turn certificate
 // checking off from the client except a config with `verify = false`.
 //

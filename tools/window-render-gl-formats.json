@@ -1,0 +1,253 @@
+{
+  "native_source": "https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml",
+  "organization": "scalar and packed texels, floating point, integer, depth, compressed blocks",
+  "scalar_formats": [
+    {
+      "format": "R8",
+      "internal": "R8",
+      "external": "RED",
+      "scalar": "UNSIGNED_BYTE",
+      "integer": false
+    },
+    {
+      "format": "RG8",
+      "internal": "RG8",
+      "external": "RG",
+      "scalar": "UNSIGNED_BYTE",
+      "integer": false
+    },
+    {
+      "format": "RGB8",
+      "internal": "RGB8",
+      "external": "RGB",
+      "scalar": "UNSIGNED_BYTE",
+      "integer": false
+    },
+    {
+      "format": "RGBA8",
+      "internal": "RGBA8",
+      "external": "RGBA",
+      "scalar": "UNSIGNED_BYTE",
+      "integer": false
+    },
+    {
+      "format": "RGBX8",
+      "internal": "RGB8",
+      "external": "RGBA",
+      "scalar": "UNSIGNED_BYTE",
+      "integer": false
+    },
+    {
+      "format": "BGRA8",
+      "internal": "RGBA8",
+      "external": "BGRA",
+      "scalar": "UNSIGNED_BYTE",
+      "integer": false
+    },
+    {
+      "format": "B5G6R5",
+      "internal": "RGB565",
+      "external": "RGB",
+      "scalar": "UNSIGNED_SHORT_5_6_5",
+      "integer": false
+    },
+    {
+      "format": "RGB10A2",
+      "internal": "RGB10_A2",
+      "external": "RGBA",
+      "scalar": "UNSIGNED_INT_2_10_10_10_REV",
+      "integer": false
+    },
+    {
+      "format": "R16",
+      "internal": "R16",
+      "external": "RED",
+      "scalar": "UNSIGNED_SHORT",
+      "integer": false
+    },
+    {
+      "format": "R16F",
+      "internal": "R16F",
+      "external": "RED",
+      "scalar": "HALF_FLOAT",
+      "integer": false
+    },
+    {
+      "format": "RG16F",
+      "internal": "RG16F",
+      "external": "RG",
+      "scalar": "HALF_FLOAT",
+      "integer": false
+    },
+    {
+      "format": "RGBA16F",
+      "internal": "RGBA16F",
+      "external": "RGBA",
+      "scalar": "HALF_FLOAT",
+      "integer": false
+    },
+    {
+      "format": "R32F",
+      "internal": "R32F",
+      "external": "RED",
+      "scalar": "FLOAT",
+      "integer": false
+    },
+    {
+      "format": "RG32F",
+      "internal": "RG32F",
+      "external": "RG",
+      "scalar": "FLOAT",
+      "integer": false
+    },
+    {
+      "format": "RGBA32F",
+      "internal": "RGBA32F",
+      "external": "RGBA",
+      "scalar": "FLOAT",
+      "integer": false
+    },
+    {
+      "format": "RG11B10F",
+      "internal": "R11F_G11F_B10F",
+      "external": "RGB",
+      "scalar": "UNSIGNED_INT_10F_11F_11F_REV",
+      "integer": false
+    },
+    {
+      "format": "RGB9E5F",
+      "internal": "RGB9_E5",
+      "external": "RGB",
+      "scalar": "UNSIGNED_INT_5_9_9_9_REV",
+      "integer": false
+    },
+    {
+      "format": "R16I",
+      "internal": "R16I",
+      "external": "RED_INTEGER",
+      "scalar": "SHORT",
+      "integer": true
+    },
+    {
+      "format": "RG16I",
+      "internal": "RG16I",
+      "external": "RG_INTEGER",
+      "scalar": "SHORT",
+      "integer": true
+    },
+    {
+      "format": "RGBA16I",
+      "internal": "RGBA16I",
+      "external": "RGBA_INTEGER",
+      "scalar": "SHORT",
+      "integer": true
+    },
+    {
+      "format": "R32I",
+      "internal": "R32I",
+      "external": "RED_INTEGER",
+      "scalar": "INT",
+      "integer": true
+    },
+    {
+      "format": "RG32I",
+      "internal": "RG32I",
+      "external": "RG_INTEGER",
+      "scalar": "INT",
+      "integer": true
+    },
+    {
+      "format": "RGBA32I",
+      "internal": "RGBA32I",
+      "external": "RGBA_INTEGER",
+      "scalar": "INT",
+      "integer": true
+    },
+    {
+      "format": "D16",
+      "internal": "DEPTH_COMPONENT16",
+      "external": "DEPTH_COMPONENT",
+      "scalar": "UNSIGNED_SHORT",
+      "integer": false
+    },
+    {
+      "format": "D24S8",
+      "internal": "DEPTH24_STENCIL8",
+      "external": "DEPTH_STENCIL",
+      "scalar": "UNSIGNED_INT_24_8",
+      "integer": false
+    },
+    {
+      "format": "D32F",
+      "internal": "DEPTH_COMPONENT32F",
+      "external": "DEPTH_COMPONENT",
+      "scalar": "FLOAT",
+      "integer": false
+    },
+    {
+      "format": "D32FS8",
+      "internal": "DEPTH32F_STENCIL8",
+      "external": "DEPTH_STENCIL",
+      "scalar": "FLOAT_32_UNSIGNED_INT_24_8_REV",
+      "integer": false
+    }
+  ],
+  "block_formats": [
+    {
+      "format": "BC1",
+      "internal": "COMPRESSED_RGBA_S3TC_DXT1_EXT"
+    },
+    {
+      "format": "BC3",
+      "internal": "COMPRESSED_RGBA_S3TC_DXT5_EXT"
+    },
+    {
+      "format": "BC4",
+      "internal": "COMPRESSED_RED_RGTC1"
+    },
+    {
+      "format": "BC5",
+      "internal": "COMPRESSED_RG_RGTC2"
+    },
+    {
+      "format": "BC6",
+      "internal": "COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT"
+    },
+    {
+      "format": "BC7",
+      "internal": "COMPRESSED_RGBA_BPTC_UNORM"
+    },
+    {
+      "format": "ETC_RGB",
+      "internal": "COMPRESSED_RGB8_ETC2"
+    },
+    {
+      "format": "ETC_RGBA",
+      "internal": "COMPRESSED_RGBA8_ETC2_EAC"
+    },
+    {
+      "format": "ETC_R",
+      "internal": "COMPRESSED_R11_EAC"
+    },
+    {
+      "format": "ETC_RG",
+      "internal": "COMPRESSED_RG11_EAC"
+    },
+    {
+      "format": "ETC_RGB_A1",
+      "internal": "COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2"
+    }
+  ],
+  "srgb": {
+    "RGB8": "SRGB8",
+    "RGBX8": "SRGB8",
+    "RGBA8": "SRGB8_ALPHA8",
+    "BGRA8": "SRGB8_ALPHA8",
+    "BC1": "COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT",
+    "BC3": "COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT",
+    "BC7": "COMPRESSED_SRGB_ALPHA_BPTC_UNORM",
+    "ETC_RGB": "COMPRESSED_SRGB8_ETC2",
+    "ETC_RGBA": "COMPRESSED_SRGB8_ALPHA8_ETC2_EAC",
+    "ETC_RGB_A1": "COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2"
+  }
+}

@@ -2,7 +2,7 @@
 
 ## What it is
 
-`tools/bench.py` times `jaic` on small interpreter and compile-time programs (`benchmarks/*.jai`) and on the larger corpus projects. `JAIC_PROFILE=1` reports where interpreted time goes, per Jai procedure. samply with `tools/profile_report.py` covers the native compiler. Whole-project compile times (check, `-O0`, `-O2`, peak RSS, phases) are measured by the [compile-time benchmark](compile-time-benchmark.md), and `Extensions/Regex` against other engines by the [regex benchmark](regex-benchmark.md).
+`tools/bench.py` times `jaic` on small interpreter and compile-time programs (`benchmarks/*.jai`) and on the larger corpus projects. `JAIC_PROFILE=1` reports where interpreted time goes, per Jai procedure. samply with `tools/profile_report.py` covers the native compiler. Whole-project compile times (check, `-O0`, `-O2`, peak RSS, phases) are measured by the [compile-time benchmark](compile-time-benchmark.md), and `Extensions/Regex` against other engines by the regex benchmark.
 
 ## How it works
 
@@ -21,7 +21,7 @@
 | `jaison-tests` | jaison's test suite run in the interpreter (U128 math, the memory debugger) |
 | `jails-check`, `sgpu-examples-check` | metaprograms of two mid-sized projects |
 
-Vk-Engine is left out: its `Build.jai` rewrites generated bindings inside the corpus and fails at the Jolt step (see [Vk-Engine](../native/vk-engine.md)).
+Vk-Engine is left out: its `Build.jai` rewrites generated bindings inside the corpus and fails at the Jolt step (see Vk-Engine).
 
 ```sh
 python3 tools/bench.py --out before.json

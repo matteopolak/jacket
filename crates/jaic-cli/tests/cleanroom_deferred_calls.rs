@@ -6,7 +6,7 @@ use std::{
 
 fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/plugin-registration")
+        .join("../../tests/fixtures/plugin-registration")
         .join(name)
 }
 
@@ -82,7 +82,7 @@ fn a_child_workspace_services_its_own_sources_while_its_first_run_is_active() {
 #[test]
 fn insertion_dependency_service_does_not_run_final_assertions_before_resumption() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/producer-requests/placeholder-scheduling/insert-generator.jai");
+        .join("../../tests/fixtures/deferred-calls/placeholder-scheduling/insert-generator.jai");
     expect_success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -96,7 +96,7 @@ fn insertion_dependency_service_does_not_run_final_assertions_before_resumption(
 #[test]
 fn parent_interception_can_define_an_unstarted_generator_dependency_at_phase() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/coordinator-reductions/placeholder-defined-by-metaprogram.jai");
+        .join("../../tests/fixtures/deferred-calls/placeholder-defined-by-metaprogram.jai");
     expect_success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -110,7 +110,7 @@ fn parent_interception_can_define_an_unstarted_generator_dependency_at_phase() {
 #[test]
 fn a_source_queued_before_an_indirect_call_is_bound_before_body_execution() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/coordinator-reductions/deferred-body-added-before-indirect-call.jai");
+        .join("../../tests/fixtures/deferred-calls/deferred-body-added-before-indirect-call.jai");
     expect_success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)

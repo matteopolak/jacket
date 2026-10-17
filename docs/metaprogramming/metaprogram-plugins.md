@@ -31,8 +31,5 @@ retains its separately reviewed parsing/initialization API.
 - `-exe`, `-output_path`, `-add` and `-run` apply to the child. WASI runtime
   insertion follows the same build-target decision as a normal CLI build.
 
-Original regression: `crates/jaic-cli/tests/cleanroom_plugins.rs` checks lifecycle,
-option refusal, check-only behavior and actual native child execution. Existing
-CLI hook-order/repeated-plugin tests remain passing. Source-built independent
-library staging is required. [Producer requests](../compiler/producer-integration-requests.md)
-record the remaining Autorun executable-path issue separately from CLI support.
+Regression: `crates/jaic-cli/tests/cleanroom_plugins.rs` checks lifecycle,
+option refusal, check-only behavior and actual native child execution.

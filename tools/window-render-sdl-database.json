@@ -1,0 +1,8 @@
+{
+  "source_url": "https://raw.githubusercontent.com/libsdl-org/SDL/release-2.0.9/src/joystick/SDL_gamecontrollerdb.h",
+  "source_sha256": "62417b27c620a325f887a0da5df5b148b773a5f7582eeb3750f9a54a0a0f8361",
+  "record_count": 541,
+  "normalized_payload_sha256": "7b291524c387f463de708d5f8f402d56943bc6b04321fc9f3ea2ac198c7f0e45",
+  "normalization": "LF, explicit platform metadata, stable platform/GUID sorting",
+  "license": "SDL zlib notice retained in database.jai"
+}

@@ -21,8 +21,7 @@ fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
     options.preload = Some(root.join("prelude/module.jai"));
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let result = compiler.compile_sources(&[ProgramSource::String(
-        include_str!("../../../tests/producer-requests/human-insert-declaration-scope/main.jai")
-            .into(),
+        include_str!("../../../tests/fixtures/insert-scope/main.jai").into(),
     )]);
     result
         .map_err(|error| error.render(&compiler.sources))

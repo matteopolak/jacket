@@ -44,7 +44,7 @@ xxhash070's pinned v0.7.0 Windows ARM64 source receives a hash-checked,
 build-local intrinsic guard correction: the x86/x64-only __emulu is replaced
 by selecting the same header's existing portable multiplication branch.
 Other targets, exports, CRT flags and cached originals are unchanged. See
-[ARM64 repair, source provenance and mandatory native tests](xxhash-arm64-build.md).
+ARM64 repair, source provenance and mandatory native tests.
 
 - `tools/native-libs.json` pins each source: a GitHub repository and revision with a sha256 per
   file, or an `archive` URL (`.tar.gz` or `.zip`) with its sha256 and top-level directory, and the
@@ -202,7 +202,7 @@ Examples request `VK_LAYER_KHRONOS_validation` (hence the layers). `04_mesh_shad
 
 ## Vk-Engine (ImGui, VMA, JoltC)
 
-`tools/build_vk_engine_libs.py` builds the C++ libraries Vk-Engine's `Build.jai` expects under `Modules/<M>/Libs/MacOS/` (`libImGui.dylib`, `libVkMemAlloc.a`, `libJoltC.dylib`, the last from JoltC + Jolt Physics v5.6.0 through CMake). Details and options: [Vk-Engine](../native/vk-engine.md).
+`tools/build_vk_engine_libs.py` builds the C++ libraries Vk-Engine's `Build.jai` expects under `Modules/<M>/Libs/MacOS/` (`libImGui.dylib`, `libVkMemAlloc.a`, `libJoltC.dylib`, the last from JoltC + Jolt Physics v5.6.0 through CMake). Details and options: Vk-Engine.
 
 ## How to change it
 

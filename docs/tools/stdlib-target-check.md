@@ -32,8 +32,4 @@ Checking stops at the first error, so a listed module is only checked up to its 
 - `cargo test -p jaic-cli --test stdlib_targets` (add `--release` for speed, `--no-default-features` to build without LLVM). The check needs no native libraries or toolchains.
 - `tests/stdlib-targets.txt`: `skip Module` and `Module target: file: first error` lines, where the target is `linux-x64`, `macos-arm64`, ... or `wasm`; `#` starts a comment.
 
-The focused [833 target-policy repair](foundations-833-target-policy.md) verifies
-all seven targets for macOS, nvidia_aftermath and nvtt without replacing the full
-matrix. `tools/check_foundations_target_guards.py --compiler <jaic> --output
-<new-directory>` preserves raw diagnostics, required positive/negative outcomes
-and source hashes. Source checks do not establish native SDK/runtime availability.
+Source checks do not establish native SDK/runtime availability.

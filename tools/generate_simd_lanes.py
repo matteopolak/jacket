@@ -2,7 +2,7 @@
 """Emit portable scalar-lane kernels grouped independently by operation family.
 
 Public names/headers/flags come from reviewed SIMD declarations. Behavioral
-choices not established there remain explicit in docs/portable-simd.md.
+choices not established there are noted in the generated sources.
 """
 from pathlib import Path
 import subprocess

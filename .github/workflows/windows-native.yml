@@ -319,7 +319,7 @@ jobs:
           python -u tools/check_windows_d3dcompiler_provider.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --stdlib stdlib --import-library "$importLibrary" --report target/d3dcompiler-amd64/provider.json
           if ($LASTEXITCODE -ne 0) { throw 'Actual D3DCompiler provider interpreter/native check failed' }
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
-        # tests/webgpu/headless.jai interpreted and built; docs/stdlib/webgpu.md#tests.
+        # tests/webgpu/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
         if: success() || failure()
         run: python -u tools/test_webgpu_native.py --jaic target/x86_64-pc-windows-msvc/debug/jaic.exe --platform windows-x64 --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)

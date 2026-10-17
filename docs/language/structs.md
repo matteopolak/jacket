@@ -42,7 +42,7 @@ c.packed = 0x04030201;   // c.r == 1, c.a == 4, c.v[3] == 4, size_of(Rgba) == 4
 
 The members share storage as the comment shows {#struct.12}.
 
-Overlay anchors may refer to later declarations, including chained aliases and promoted inline using members. Offset dependencies resolve independently of field/reflection order. Overlays never consume the sequential cursor, including over a zero-sized anchor. Layout/type cycles diagnose; pointer promotion cannot provide an inline anchor. See [forward layout resolution](../compiler/forward-overlay-layout.md).
+Overlay anchors may refer to later declarations, including chained aliases and promoted inline using members. Offset dependencies resolve independently of field/reflection order. Overlays never consume the sequential cursor, including over a zero-sized anchor. Layout/type cycles diagnose; pointer promotion cannot provide an inline anchor.
 
 `#overlay(a)` is a statement of a struct body only. It works inside `#if`, in `#insert`ed members, in unions and in nested anonymous structs; several `#overlay(a)` members may share one target, and the struct's size is the end of the farthest member {#struct.22}. Anywhere else (a procedure body) it is the error ``#overlay` is only allowed in a struct body`` (`S::Overlay` in `sema/stmt.rs`).
 

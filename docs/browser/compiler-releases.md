@@ -52,7 +52,7 @@ python3 -m unittest discover -s tools -p 'test_*.py'
 node --test tools/test_browser_release.mjs
 ```
 
-`--jaic` is required: it compiles `jaifmt.wasm` and needs LLVM 23 and `wasm-ld` ([wasm target](../native/wasm-target.md)). `--output` must name a new or empty directory; inside the checkout it must be gitignored. `--target-dir` overrides the environment and Cargo configuration through the [shared helper](../tools/build-storage.md). The workflow's `compiler_revision` must be a lowercase full commit SHA.
+`--jaic` is required: it compiles `jaifmt.wasm` and needs LLVM 23 and `wasm-ld` ([wasm target](../native/wasm-target.md)). `--output` must name a new or empty directory; inside the checkout it must be gitignored. `--target-dir` overrides the environment and Cargo configuration through the shared helper. The workflow's `compiler_revision` must be a lowercase full commit SHA.
 
 To run the probe on a local, uncommitted build: stage it with `build_scripting_wasm.py`, replace its `build-metadata.json` with the relocatable form above (any 40-hex commit), then run `node tools/check_browser_release.mjs <dir>`.
 

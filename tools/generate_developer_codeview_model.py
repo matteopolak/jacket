@@ -59,7 +59,7 @@ def main():
     destination = ROOT / "stdlib/Debug_Info/codeview-values.jai"
     destination.write_text("\n".join(output))
     subprocess.run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", destination], check=True)
-    (ROOT / "docs/native/developer-tools-codeview-model-pending.json").write_text(json.dumps({"scope": "precise reviewed constant dependencies; no guessed values or additional exports", "pending_aliases": pending}, indent=2) + "\n")
+    (ROOT / "target/developer-tools-codeview-model-pending.json").write_text(json.dumps({"scope": "precise reviewed constant dependencies; no guessed values or additional exports", "pending_aliases": pending}, indent=2) + "\n")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 // Byte_Search: fast searches for bytes and substrings, with vector instructions. A jaic
 // extension, not official Jai: other Jai compilers have no such module, and it may change
-// between jaic releases. See docs/stdlib/byte-search.md.
+// between jaic releases. See docs/extensions/byte-search.md.
 //
 //     Byte_Search :: #import "Extensions/Byte_Search";
 //

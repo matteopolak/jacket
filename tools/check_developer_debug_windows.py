@@ -77,7 +77,7 @@ def main():
                 "sdk_header_sha256": {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in headers},
                 "gcc_version": run([gcc, "--version"]).splitlines()[0],
                 "exports": sorted(names), "runtime_status": "pending coordinator Windows native CI"}
-    (ROOT / "docs/native/developer-tools-windows-debug-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    (ROOT / "target/developer-tools-windows-debug-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print("Windows Debug x64 SDK DLL/import/export checks and arm64 compilation passed; native runtime evidence pending")
 
 

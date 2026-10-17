@@ -3,7 +3,7 @@
 // WebGPU error. Where the surface can be copied from, the last frame is also read back before
 // it is presented: the middle must be the triangle's color and the corners the clear color. Run
 // by CI on Linux under Xvfb with Mesa's lavapipe and on Windows with D3D12's WARP adapter
-// (docs/stdlib/webgpu.md#tests):
+// (docs/extensions/webgpu.md#tests):
 //
 //     jaic tests/webgpu/window.jai -interp -- frames 30
 //     jaic tests/webgpu/window.jai -exe ./window && ./window frames 30

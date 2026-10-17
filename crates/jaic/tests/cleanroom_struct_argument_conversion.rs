@@ -16,7 +16,7 @@ fn compile(source: &str) -> Result<(), String> {
 #[test]
 fn typed_callback_arguments_instantiate_before_metadata_and_preserve_identity() {
     compile(include_str!(
-        "../../../tests/producer-requests/typed-generic-procedure-parameter.jai"
+        "../../../tests/fixtures/struct-arguments/typed-generic-procedure-parameter.jai"
     ))
     .unwrap();
 }

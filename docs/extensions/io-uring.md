@@ -2,7 +2,7 @@
 
 ## What it is
 
-`stdlib/Extensions/Io_Uring` is the Linux io_uring kernel interface and nothing more: the kernel's constants, enums and structs, the three system calls, and a small `Ring` type that maps the shared rings and keeps the head/tail protocol. It is a jaic extension (other Jai compilers have no such module) and a low-level binding, the way `POSIX` is. It is not an IO API: fibers over files and sockets are `Extensions/Io` ([fibers](io-fibers.md)), and the completion engine of [the async IO plan](../plans/async-io.md) will be built on this module.
+`stdlib/Extensions/Io_Uring` is the Linux io_uring kernel interface and nothing more: the kernel's constants, enums and structs, the three system calls, and a small `Ring` type that maps the shared rings and keeps the head/tail protocol. It is a jaic extension (other Jai compilers have no such module) and a low-level binding, the way `POSIX` is. It is not an IO API: fibers over files and sockets are `Extensions/Io` ([fibers](io-fibers.md)), and the completion engine of `Io` is built on this module.
 
 It is Linux only: importing it anywhere else is a compile error (`Extensions/Io_Uring is Linux only`).
 

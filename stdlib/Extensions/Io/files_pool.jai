@@ -6,7 +6,7 @@
 // of worker threads that make the blocking `pread`/`pwrite` call, and the completion comes back to
 // the scheduler that asked. Shorter ones run inline: a short read nearly always hits the page
 // cache and finishes in a couple of microseconds, which is far less than the hand-off to a worker
-// and back (docs/stdlib/io-engine.md has the numbers). io_uring and the Windows backends do not use
+// and back (docs/extensions/io-engine.md has the numbers). io_uring and the Windows backends do not use
 // the pool; they have native file operations.
 //
 // Shape:

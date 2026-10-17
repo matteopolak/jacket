@@ -110,7 +110,7 @@ fn module_context_extensions_precede_bootstrap_body_layout() {
 fn independent_context_producer_lints_with_integrated_bootstrap() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let module =
-        root.join("tests/producer-requests/profiler-context/modules/Context_Probe/module.jai");
+        root.join("tests/fixtures/profiler-context/library-roots/modules/Context_Probe/module.jai");
     let result = run(&options(&root, module));
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
     assert!(result.lints.is_empty(), "{:?}", result.lints);
