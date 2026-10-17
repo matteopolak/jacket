@@ -4,17 +4,38 @@
     "mode": "fault",
     "error_contains": "ZIP data descriptors are unsupported",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/zip-signature",
     "mode": "fault",
     "error_contains": "unexpected ZIP directory signature",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "zip-directory",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   }
 ]

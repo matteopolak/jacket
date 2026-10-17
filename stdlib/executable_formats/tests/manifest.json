@@ -1,7 +1,14 @@
 [
   {
     "name": "archive",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "bitfields",
@@ -17,7 +24,14 @@
   },
   {
     "name": "objects",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "relocations",
@@ -25,7 +39,14 @@
   },
   {
     "name": "tbd",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "tbd-errors",

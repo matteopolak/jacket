@@ -4,8 +4,105 @@
     "required_os": "linux"
   },
   {
+    "name": "color-policy-hash",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "cursor-callbacks",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "custom-indicator-target",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "decimal-precision",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "default-draw-procs",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "font-required",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "keyboard-shortcuts",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "native-ui-cursors",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "render-callbacks",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
     "name": "retained-default-assertions",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "simp-gl-frame",
@@ -17,6 +114,86 @@
       "native SDK, OS or graphics services"
     ],
     "window_lease": true
+  },
+  {
+    "name": "text-capacity",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "text-capacity-assert",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "texture-loader-required",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "type-indicator",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "ui",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "ui-interaction",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "ui-smoke",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "wheel-events",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "widgets-driven",

@@ -24,6 +24,16 @@
     "required_os": "windows"
   },
   {
+    "name": "queries",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
     "name": "render-events",
     "required_os": "windows"
   },

@@ -1,5 +1,15 @@
 [
   {
+    "name": "filename",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
     "name": "resource",
     "unsupported_modes": [
       "wasm-interp",
@@ -9,5 +19,15 @@
       "native stb_image_resize image provider and real caller scratch-directory input"
     ],
     "input": "scratch-directory"
+  },
+  {
+    "name": "wire",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   }
 ]

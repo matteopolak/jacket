@@ -1,23 +1,58 @@
 [
   {
     "name": "audio",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "audio-stereo",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "block-set",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "buffer",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "buffer-boundaries",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "decode",
@@ -31,14 +66,28 @@
   },
   {
     "name": "default-assertions",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/audio-crc",
     "mode": "fault",
     "error_contains": "MPEG audio checksum mismatch",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/audio-quantizer",
@@ -59,7 +108,14 @@
     "mode": "fault",
     "error_contains": "MPEG B picture violates no-delay assumption",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/picture-hole",
@@ -73,14 +129,28 @@
     "mode": "fault",
     "error_contains": "invalid MPEG timestamp marker",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/program-truncated",
     "mode": "fault",
     "error_contains": "truncated MPEG PES packet",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/sequence-change",
@@ -121,7 +191,14 @@
   },
   {
     "name": "no-start-code",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "pixels",
@@ -129,22 +206,57 @@
   },
   {
     "name": "program",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "put-pixel",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "sequence",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "video",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "video-synthetic",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   }
 ]

@@ -1,11 +1,25 @@
 [
   {
     "name": "basics",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "io",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "lifecycle",
@@ -15,6 +29,16 @@
     ],
     "required_capabilities": [
       "native Process launch and pipes"
+    ]
+  },
+  {
+    "name": "parent",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
     ]
   },
   {
@@ -31,5 +55,15 @@
   {
     "name": "windows-process",
     "required_os": "windows"
+  },
+  {
+    "name": "windows-process-child",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   }
 ]

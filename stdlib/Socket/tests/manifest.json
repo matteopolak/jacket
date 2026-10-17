@@ -1,36 +1,95 @@
 [
   {
     "name": "cmsg-layout",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
-    "name": "cmsg/compile-time"
+    "name": "cmsg/compile-time",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "databases/main",
-    "stdout": "hostent 32 0 8 16 20 24\nnetent 24 0 8 16 20\nprotoent 24 0 8 16\nservent 32 0 8 16 24\nrpcent 24 0 8 16\n"
+    "stdout": "hostent 32 0 8 16 20 24\nnetent 24 0 8 16 20\nprotoent 24 0 8 16\nservent 32 0 8 16 24\nrpcent 24 0 8 16\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "descriptor-domain",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/cmsg-negative",
     "mode": "fault",
     "error_contains": "ancillary size cannot be aligned",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "faults/cmsg-overflow",
     "mode": "fault",
     "error_contains": "ancillary length exceeds u32",
     "exit_code": 1,
-    "stdout": ""
+    "stdout": "",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "fd-set",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "format-struct-long-form",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "linux-socket/fields",
@@ -38,7 +97,14 @@
   },
   {
     "name": "loopback",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "numeric-address-format",
@@ -53,7 +119,14 @@
   },
   {
     "name": "resolver/main",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "scope-word",
@@ -61,7 +134,24 @@
   },
   {
     "name": "select",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
+    "name": "tcp-udp-loopback",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "windows-socket/main",

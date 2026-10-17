@@ -41,7 +41,14 @@
   },
   {
     "name": "configuration-protocol/main",
-    "stdout": "child configuration accepted\nparent protocol complete\n"
+    "stdout": "child configuration accepted\nparent protocol complete\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "configured-production",

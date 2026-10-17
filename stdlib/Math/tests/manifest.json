@@ -1,5 +1,15 @@
 [
   {
+    "name": "augmented-generic",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
+  },
+  {
     "name": "float16-edge-vectors",
     "stdout": "ok\n"
   },

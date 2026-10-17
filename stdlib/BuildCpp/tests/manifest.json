@@ -1,21 +1,49 @@
 [
   {
     "name": "basics",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "negative/compile",
     "mode": "check-fail",
-    "diagnostic_contains": "BuildCpp tool failed"
+    "diagnostic_contains": "BuildCpp tool failed",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "negative/target",
     "mode": "check-fail",
-    "diagnostic_contains": "BuildCpp object target validation failed"
+    "diagnostic_contains": "BuildCpp object target validation failed",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   },
   {
     "name": "negative/tool",
     "mode": "check-fail",
-    "diagnostic_contains": "BuildCpp tool failed"
+    "diagnostic_contains": "BuildCpp tool failed",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only stdlib test: not part of the browser engine's catalogue"
+    ]
   }
 ]

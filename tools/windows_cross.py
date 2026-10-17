@@ -777,7 +777,7 @@ def run(args):
             status_ok = result.returncode == want["exit_code"]
             wanted = want["exit_code"]
         if (
-            args.without_opengl
+            getattr(args, "without_opengl", False)
             and not status_ok
             and stderr.startswith("WGL creation failed")
         ):
