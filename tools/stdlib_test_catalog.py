@@ -263,7 +263,7 @@ def unavailable_reason(case, mode, actual_platform=None):
     if deferred:
         return deferred
     if (
-        case["id"] in WINDOWS_HOST_FIXTURE_CASES
+        case.get("id") in WINDOWS_HOST_FIXTURE_CASES
         and target_os == "windows"
         and platform.system() == "Windows"
     ):

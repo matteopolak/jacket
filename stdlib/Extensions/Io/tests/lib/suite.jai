@@ -1246,12 +1246,17 @@ test_accept_bursts :: () {
 
     address, _ := Io.local_address(listener);
 
+    // Every connection uses an ephemeral port that stays in TIME_WAIT for a minute (macOS: 15 s of
+    // a 16k range), and the stress runs start a dozen of these programs: the rounds are few so
+    // that they do not use up the range. A burst the kernel's backlog cannot hold is retried by
+    // the client with a growing delay, so each round must also stay small enough to be served
+    // within the clients' deadline on a busy machine.
     #if OS == .LINUX {
-        COUNT :: 300;
-        ROUNDS :: 15;
+        COUNT :: 200;
+        ROUNDS :: 3;
     } else {
         COUNT :: 100;
-        ROUNDS :: 5;
+        ROUNDS :: 2;
     }
 
     acceptor_group: Io.Wait_Group;
@@ -1280,6 +1285,10 @@ test_accept_bursts :: () {
 
         assert(failed == 0, "round %: % of % connections were not served", it, failed, COUNT);
     }
+
+    // The handlers end when their client has closed, which can be after the round: they write to
+    // `diagnostics`, so they must be done before it goes.
+    while diagnostics.handlers_finished < diagnostics.accepted Io.sleep(1);
 
     assert(Io.close(listener) == .NONE);
     Io.wait(*acceptor_group);

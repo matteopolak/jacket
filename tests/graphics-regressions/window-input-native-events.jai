@@ -330,8 +330,9 @@ main :: () {
     }
 
     close_like_the_user :: (window: HWND) {
-        // The close button sends WM_SYSCOMMAND SC_CLOSE, which becomes a sent WM_CLOSE.
-        SendMessageW(window, 0x112, 0xf060, 0);
+        // What the close button ends in: a sent WM_CLOSE (the system menu's SC_CLOSE only gets
+        // there for a window that has a system menu).
+        SendMessageW(window, 0x10, 0, 0);
     }
 
     GetCursor :: () -> HCURSOR #foreign user32;
