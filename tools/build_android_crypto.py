@@ -15,6 +15,9 @@ import shutil
 import subprocess
 import tempfile
 
+from openssl_sdk import OpenSSLSDK, SDKError, discover_sdk
+from android_crypto_linux import build_linux
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'tools/android-crypto-native.json'
 
@@ -31,7 +34,10 @@ def dependencies(binary):
 
 def build(sdk, stdlib):
     spec = json.loads(MANIFEST.read_text())
-    sdk = sdk.absolute()
+    if platform.system() == 'Linux':
+        descriptor = sdk if isinstance(sdk, OpenSSLSDK) else discover_sdk(sdk)
+        return build_linux(descriptor, stdlib, spec, ROOT, MANIFEST)
+    sdk = (sdk.prefix if isinstance(sdk, OpenSSLSDK) else sdk).absolute()
     for name in spec['sdk_inputs']:
         if not (sdk / name).is_file():
             raise ValueError(f'OpenSSL SDK is missing {name}: {sdk}')
@@ -43,7 +49,7 @@ def build(sdk, stdlib):
     if not version:
         raise ValueError('OpenSSL SDK has no public version text')
     if platform.system() != 'Darwin':
-        raise ValueError('only actual Mac packaging is implemented; Linux/Windows remain unverified')
+        raise ValueError('native packaging is implemented for Darwin and Linux; Windows remains unverified')
     output = stdlib.absolute() / spec['provider_relative_directory']
     output.parent.mkdir(parents=True, exist_ok=True)
     # Validate everything in a sibling staging directory before replacing output.
@@ -112,14 +118,25 @@ def build(sdk, stdlib):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--openssl-prefix', required=True, type=Path,
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument('--openssl-sdk-descriptor', type=Path,
+                           help='JSON descriptor from canonical OpenSSL SDK discovery')
+    selection.add_argument('--openssl-prefix', type=Path,
                         help='configured package-build SDK input, not a runtime override')
     parser.add_argument('--stdlib', required=True, type=Path,
                         help='distribution staging stdlib to receive the native package')
     args = parser.parse_args()
     try:
-        print(build(args.openssl_prefix, args.stdlib))
-    except (ValueError, subprocess.CalledProcessError) as error:
+        sdk = args.openssl_prefix
+        if args.openssl_sdk_descriptor:
+            fields = json.loads(args.openssl_sdk_descriptor.read_text())
+            for key in ('prefix', 'include_dir', 'library'):
+                fields[key] = Path(fields[key])
+            for key in ('cflags', 'ldflags'):
+                fields[key] = tuple(fields[key])
+            sdk = OpenSSLSDK(**fields)
+        print(build(sdk, args.stdlib))
+    except (ValueError, SDKError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'{error}\n' + (error.stderr if isinstance(error, subprocess.CalledProcessError) else ''))
 
 
