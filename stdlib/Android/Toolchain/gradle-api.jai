@@ -1,6 +1,6 @@
 __no_gradle_build_be_verbose := false;
 
-android_generate_apk :: (project_path: string, release := false) -> bool, string #deprecated "Use android_generate_apk that takes Android_Build_Options as first argument" {
+android_generate_apk :: (project_path: string, release := false) -> bool, string #deprecated "Pass an Android_Build_Options as the first argument instead." {
     return android_gradle_apk(project_path, release);
 }
 

@@ -68962,7 +68962,7 @@
         },
         {
           "name": "epoll_ctl",
-          "signature": "epoll_ctl :: (epfd: s32, op: s32, fd: s32, event: *epoll_event) -> s32 #foreign libc #deprecated \"Use the variant that takes Epoll_Ctl\"",
+          "signature": "epoll_ctl :: (epfd: s32, op: s32, fd: s32, event: *epoll_event) -> s32 #foreign libc #deprecated \"Pass an Epoll_Ctl operation instead of an s32.\"",
           "condition": "OS == .LINUX",
           "spec_line": 36,
           "status": "declared"

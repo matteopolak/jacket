@@ -935,7 +935,7 @@ libc :: #library,system "c";
 }
 
 #if OS == .LINUX {
-    epoll_ctl :: (epfd: s32, op: s32, fd: s32, event: *epoll_event) -> s32 #foreign libc #deprecated "Use the variant that takes Epoll_Ctl";
+    epoll_ctl :: (epfd: s32, op: s32, fd: s32, event: *epoll_event) -> s32 #foreign libc #deprecated "Pass an Epoll_Ctl operation instead of an s32.";
 }
 
 #if OS == .LINUX {

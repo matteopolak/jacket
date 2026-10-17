@@ -36,7 +36,7 @@ Table :: struct(Key_Type: Type, Value_Type: Type, given_hash_function: (Key_Type
     #assert LOAD_FACTOR_PERCENT > 0 && LOAD_FACTOR_PERCENT < 100;
 }
 
-init :: (using table: *Table, slots_to_allocate: s64 = 0) #deprecated "Calling init() on a Hash_Table is no longer necessary (a default-initialized table is all you need)." {
+init :: (using table: *Table, slots_to_allocate: s64 = 0) #deprecated "Not needed: a zero-initialized Table is ready to use." {
     if slots_to_allocate > 0 expand(table, slots_to_allocate);
 }
 
