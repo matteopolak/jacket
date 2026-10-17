@@ -2122,7 +2122,8 @@ impl Compiler {
 
     /// Resolve the target of a `using` statement at file/struct scope.
     pub fn using_target(&mut self, scope: ScopeId, value: &ast::Expr) -> Result<UsingEntry> {
-        match self.eval_const(scope, value, None)? {
+        // `using global_var;` names a variable, which is not a constant but is a valid target.
+        match self.eval_const_or_run(scope, value, None)? {
             Operand::Module(m) => Ok(UsingEntry::Module(m, None)),
             Operand::Type(t) => Ok(UsingEntry::Type(t)),
             other => {

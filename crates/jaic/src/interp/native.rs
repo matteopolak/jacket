@@ -167,7 +167,9 @@ impl Library {
             candidates.push(joined(&base, &format!("{file}.{ext}")));
             candidates.push(joined(&base, &format!("lib{file}.{ext}")));
         }
-        let bare = name.strip_prefix("lib").unwrap_or(name);
+        // A name with a directory part (`crash-native/portable_crash`) that is not beside the
+        // source is looked up by file name.
+        let bare = file.strip_prefix("lib").unwrap_or(&file);
         for d in library_dirs() {
             candidates.push(d.join(format!("lib{bare}.{ext}")).display().to_string());
         }

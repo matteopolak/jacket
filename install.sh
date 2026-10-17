@@ -8,6 +8,9 @@
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
 #   JAI_INSTALL_DIR  where releases are unpacked, one folder per version (default: ~/.local/share/jai)
 #   JAI_BIN_DIR      where the command symlinks go (default: ~/.local/bin)
+#   JAI_BASE_URL     where release assets are fetched from, as <base>/v<version>/<asset> (default:
+#                    https://github.com/matteopolak/jai/releases/download). For mirrors and for
+#                    testing against local archives with a file:// URL; needs JAI_VERSION.
 #
 # Running it again installs the requested (or latest) version, points the symlinks at it and
 # removes the versions it installed before. See docs/tools/releases.md.
@@ -21,7 +24,10 @@ fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 download() { # url dest
     if command -v curl > /dev/null 2>&1; then
-        curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$2" "$1"
+        case "$1" in
+            file://*) curl -fsSL -o "$2" "$1" ;; # only reachable through JAI_BASE_URL
+            *) curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$2" "$1" ;;
+        esac
     elif command -v wget > /dev/null 2>&1; then
         wget -q -O "$2" "$1"
     else
@@ -88,7 +94,9 @@ main() {
     plat="$(platform)"
     version="${JAI_VERSION:-${JAIC_VERSION:-}}"
     version="${version#v}"
+    base_url="${JAI_BASE_URL:-${JAIC_BASE_URL:-https://github.com/$REPO/releases/download}}"
     if [ -z "$version" ] || [ "$version" = latest ]; then
+        [ "$base_url" = "https://github.com/$REPO/releases/download" ] || fail "JAI_BASE_URL needs JAI_VERSION"
         version="$(latest_version)"
     fi
     case "$version" in
@@ -98,7 +106,7 @@ main() {
     bin_dir="${JAI_BIN_DIR:-${JAIC_BIN_DIR:-$HOME/.local/bin}}"
     root="jacket-$plat" # the archive's top folder
     archive="$root.tar.gz"
-    base="https://github.com/$REPO/releases/download/v$version"
+    base="${base_url%/}/v$version"
 
     tmp="$(mktemp -d 2> /dev/null || mktemp -d -t jai-install)"
     trap 'rm -rf "$tmp"' EXIT

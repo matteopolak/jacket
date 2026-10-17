@@ -75,9 +75,10 @@ def native_plan(target, native, stdlib, root=ROOT):
             str(root / "tools/build_portable_runtime.py"),
             "--platform",
             target,
-            "--stdlib",
-            str(stdlib),
+            "--output-dir",
+            str(native),
         ]
+        runtime = native
         suffix = ".dylib" if system == "macos" else ".so"
         required = [runtime / ("libportable_crash" + ext) for ext in [".a", suffix]]
         required += [
@@ -100,8 +101,15 @@ def native_plan(target, native, stdlib, root=ROOT):
             for name in ["libportable_clipboard.a", "libportable_clipboard.so"]
         ]
     if system == "macos":
-        commands.append([sys.executable, str(root / "tools/build_portable_watcher.py")])
-        required.append(stdlib / "internal/watching/native/libportable_watch.dylib")
+        commands.append(
+            [
+                sys.executable,
+                str(root / "tools/build_portable_watcher.py"),
+                "--output-dir",
+                str(native),
+            ]
+        )
+        required.append(native / "libportable_watch.dylib")
     return {"commands": commands, "required": required, "runtime": runtime}
 
 

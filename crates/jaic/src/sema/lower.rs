@@ -208,6 +208,9 @@ pub struct FnCtx {
     pub file: FileId,
     /// Set when the body runs only at compile time.
     pub compile_time: bool,
+    /// Set while a constant is being evaluated: reading a variable is an error, with this
+    /// text as the start of the message (`#run` bodies get their own context and may read).
+    pub constant_only: Option<&'static str>,
     /// Macro expansion stack: (caller scope, return block, result slots, defer depth).
     pub macros: Vec<MacroFrame>,
     /// `#insert (break=..., continue=..., remove=...) body` of for_expansion macros being
@@ -369,6 +372,7 @@ impl FnCtx {
             loops: Vec::new(),
             file,
             compile_time: false,
+            constant_only: None,
             macros: Vec::new(),
             insert_replacements: Vec::new(),
             pending_for_body: None,

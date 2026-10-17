@@ -156,7 +156,6 @@ jobs:
       - name: Build the native helper libraries
         run: |
           if [ "$RUNNER_OS" = Linux ]; then bash tools/ci_native_deps.sh clipboard; fi
-          python3 tools/build_portable_runtime.py
           bash tools/ci_native_deps.sh developer
       - name: Format check
         id: format
@@ -579,8 +578,6 @@ jobs:
           sudo apt-get install -y libx11-dev xvfb xauth clang-format
           python3 -m pip install ruff==0.14.14
           cargo fetch --locked
-      - name: Build the Linux runtime helper
-        run: python3 tools/build_portable_runtime.py
       - name: X11 clients, the Jai runtime and the relocated package
         run: |
           mkdir -p "$CARGO_TARGET_DIR"
@@ -649,10 +646,31 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # No release yet (a new repository, or before the first tag): the steps that install a
+      # published release are skipped with a notice. Any other failure of `gh` still fails the job.
+      - name: Is there a published release?
+        id: released
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
+            echo "Latest release: $tag"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
+            msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
+            echo "::notice title=No published release::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "$RUNNER_TEMP/gh-err.txt"
+            exit 1
+          fi
       # A release may lack this platform's archive: then install.sh must pick the platform and
       # say the release has no build for it.
       - name: Does the latest release have this platform's archive?
         id: release
+        if: steps.released.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -667,6 +685,50 @@ jobs:
           if echo "$assets" | grep -Eqx "jacket-$plat\.tar\.gz"; then has=true; else has=false; fi
           echo "$plat in the latest release: $has"
           echo "has=$has" >> "$GITHUB_OUTPUT"
+      # Stub toolchains in archives laid out like a release's (SHA256SUMS, jai-<platform>.tar.gz),
+      # served through JAI_BASE_URL=file://...: install, upgrade, a bad checksum and an occupied
+      # command are exercised whether or not a release exists.
+      - name: Install from locally built archives
+        run: |
+          case "$(uname -s)-$(uname -m)" in
+            Darwin-arm64) plat=macos-arm64 ;;
+            Darwin-x86_64) plat=macos-x64 ;;
+            Linux-x86_64) plat=linux-x64 ;;
+            Linux-aarch64) plat=linux-arm64 ;;
+          esac
+          root="$RUNNER_TEMP/local-release"
+          build() { # version
+            stage="$RUNNER_TEMP/stage-$1"
+            rm -rf "$stage"
+            mkdir -p "$stage/jacket-$plat/stdlib/prelude" "$root/v$1"
+            for tool in jaic jailsp jailint jaifmt; do
+              printf '#!/bin/sh\necho "%s %s"\n' "$tool" "$1" > "$stage/jacket-$plat/$tool"
+              chmod +x "$stage/jacket-$plat/$tool"
+            done
+            : > "$stage/jacket-$plat/stdlib/prelude/module.jai"
+            tar -czf "$root/v$1/jacket-$plat.tar.gz" -C "$stage" "jacket-$plat"
+            (cd "$root/v$1" && shasum -a 256 "jacket-$plat.tar.gz" > SHA256SUMS)
+          }
+          build 9.0.1
+          build 9.0.2
+          export JAI_BASE_URL="file://$root" JAI_INSTALL_DIR="$RUNNER_TEMP/local/share" JAI_BIN_DIR="$RUNNER_TEMP/local/bin"
+          JAI_VERSION=9.0.1 ./install.sh
+          test "$("$JAI_BIN_DIR/jaic")" = "jaic 9.0.1"
+          JAI_VERSION=9.0.2 ./install.sh
+          test "$("$JAI_BIN_DIR/jaifmt")" = "jaifmt 9.0.2"
+          test -d "$JAI_INSTALL_DIR/9.0.2" && test ! -e "$JAI_INSTALL_DIR/9.0.1"
+          test "$(readlink "$JAI_BIN_DIR/jaic")" = "$JAI_INSTALL_DIR/9.0.2/jaic"
+          # A damaged download is refused before anything is unpacked.
+          echo damaged >> "$root/v9.0.2/jacket-$plat.tar.gz"
+          if JAI_VERSION=9.0.2 ./install.sh 2> "$RUNNER_TEMP/err.txt"; then exit 1; fi
+          cat "$RUNNER_TEMP/err.txt" && grep -q "checksum mismatch" "$RUNNER_TEMP/err.txt"
+          # A command that is not one of our symlinks is never replaced.
+          mkdir -p "$RUNNER_TEMP/occupied" && touch "$RUNNER_TEMP/occupied/jaic"
+          if JAI_VERSION=9.0.1 JAI_BIN_DIR="$RUNNER_TEMP/occupied" ./install.sh 2> "$RUNNER_TEMP/err.txt"; then exit 1; fi
+          cat "$RUNNER_TEMP/err.txt" && grep -q "is not a symlink" "$RUNNER_TEMP/err.txt"
+          # An override needs an explicit version.
+          if ./install.sh 2> "$RUNNER_TEMP/err.txt"; then exit 1; fi
+          grep -q "JAI_BASE_URL needs JAI_VERSION" "$RUNNER_TEMP/err.txt"
       - name: Without one, install.sh names the missing archive
         if: steps.release.outputs.has == 'false'
         run: |
@@ -725,8 +787,63 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # No release yet (a new repository, or before the first tag): the steps that install a
+      # published release are skipped with a notice. Any other failure of `gh` still fails the job.
+      - name: Is there a published release?
+        id: released
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
+            echo "Latest release: $tag"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
+            msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
+            echo "::notice title=No published release::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "$RUNNER_TEMP/gh-err.txt"
+            exit 1
+          fi
+      # A stub toolchain in a release-shaped zip, served through JAI_BASE_URL=file:///...: runs
+      # whether or not a release exists.
+      - name: Install from a locally built archive
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'local-release'
+          function Build($version) {
+            $stage = Join-Path $env:RUNNER_TEMP "stage-$version"
+            $top = Join-Path $stage 'jacket-windows-x64'
+            New-Item -ItemType Directory -Force (Join-Path $top 'stdlib\prelude') | Out-Null
+            foreach ($tool in 'jaic', 'jailsp', 'jailint', 'jaifmt') { "stub $version" | Set-Content (Join-Path $top "$tool.exe") }
+            $dir = Join-Path $root "v$version"
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            $zip = Join-Path $dir 'jacket-windows-x64.zip'
+            Compress-Archive -Path $top -DestinationPath $zip -Force
+            $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+            "$hash  jacket-windows-x64.zip" | Set-Content (Join-Path $dir 'SHA256SUMS')
+          }
+          Build '9.0.1'
+          Build '9.0.2'
+          $env:JAI_BASE_URL = ([Uri]$root).AbsoluteUri
+          $env:JAI_INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'local-install'
+          $env:JAI_VERSION = '9.0.1'
+          Get-Content -Raw install.ps1 | Invoke-Expression
+          $env:JAI_VERSION = '9.0.2'
+          Get-Content -Raw install.ps1 | Invoke-Expression
+          if (-not (Test-Path (Join-Path $env:JAI_INSTALL_DIR '9.0.2\jaic.exe'))) { throw '9.0.2 was not installed' }
+          if (Test-Path (Join-Path $env:JAI_INSTALL_DIR '9.0.1')) { throw '9.0.1 was not removed by the upgrade' }
+          if (-not (Test-Path (Join-Path $env:JAI_INSTALL_DIR 'current\jaic.exe'))) { throw 'the current junction is broken' }
+          # A damaged download is refused.
+          Add-Content (Join-Path $root 'v9.0.2\jacket-windows-x64.zip') 'damaged'
+          $rejected = $false
+          try { Get-Content -Raw install.ps1 | Invoke-Expression } catch { $rejected = "$_" -match 'checksum mismatch' }
+          if (-not $rejected) { throw 'a damaged archive was not rejected with a checksum error' }
       # Windows PowerShell 5.1, the way `irm ... | iex` runs it on a stock machine.
       - name: Install the latest release twice (the second run is an upgrade in place)
+        if: steps.released.outputs.published == 'true'
         shell: powershell
         run: |
           Get-Content -Raw install.ps1 | Invoke-Expression
@@ -737,6 +854,7 @@ jobs:
           @(Get-ChildItem -Directory (Join-Path $env:LOCALAPPDATA 'Programs\jai')).Count
           $current | Out-File -Encoding ascii -Append $env:GITHUB_PATH
       - name: Run the installed toolchain outside the checkout
+        if: steps.released.outputs.published == 'true'
         shell: pwsh
         run: |
           Set-Location $env:RUNNER_TEMP
@@ -767,7 +885,28 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      # No release yet (a new repository, or before the first tag): the steps that install a
+      # published release are skipped with a notice. Any other failure of `gh` still fails the job.
+      - name: Is there a published release?
+        id: released
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
+            echo "Latest release: $tag"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
+            msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
+            echo "::notice title=No published release::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            cat "$RUNNER_TEMP/gh-err.txt"
+            exit 1
+          fi
       - name: Render the formula for the latest release
+        if: steps.released.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -795,6 +934,7 @@ jobs:
           brew audit --formula --strict jaiall/local/jacket
           brew untap jaiall/local
       - name: Install the formula from a local tap and run its test
+        if: steps.released.outputs.published == 'true'
         run: |
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
           brew --version

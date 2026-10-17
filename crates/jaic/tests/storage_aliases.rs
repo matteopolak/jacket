@@ -104,7 +104,7 @@ fn foreign_storage_type_queries_and_reexports_need_no_runtime_symbol() {
 #[test]
 fn unavailable_foreign_value_expressions_still_require_runtime_storage() {
     let (c, result) = compile(
-        r#"missing:s64 #elsewhere; computed :: missing+1; #assert computed==1; main :: () {}"#,
+        r#"missing:s64 #elsewhere; computed :: #run missing+1; #assert computed==1; main :: () {}"#,
         TargetOs::MacOS,
         TargetCpu::Arm64,
     );

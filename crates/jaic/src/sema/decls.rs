@@ -356,7 +356,8 @@ impl Compiler {
                 }
             }
         } else {
-            self.eval_const(scope, value, expected)?
+            let what = "constant declaration needs a constant value";
+            self.eval_const_as(scope, value, expected, Some(what))?
         };
         match op.without_callable() {
             Operand::Type(t) => Ok(Resolved::Const {
@@ -673,7 +674,19 @@ impl Compiler {
     }
 
     pub fn eval_static_condition(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<bool> {
-        let holds = self.static_condition(scope, expr);
+        self.eval_static_condition_as(scope, expr, Some("#if condition must be a constant"))
+    }
+
+    /// `eval_static_condition`, with `what` starting the error for a variable read (`None`
+    /// allows variables: a `#assert` executes its condition, so it may read what compile-time
+    /// code wrote).
+    pub fn eval_static_condition_as(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        what: Option<&'static str>,
+    ) -> Result<bool> {
+        let holds = self.static_condition(scope, expr, what);
         if self.ide.is_some()
             && let Ok(holds) = holds
         {
@@ -682,8 +695,13 @@ impl Compiler {
         holds
     }
 
-    fn static_condition(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<bool> {
-        match self.eval_const(scope, expr, Some(TypeId::BOOL))? {
+    fn static_condition(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        what: Option<&'static str>,
+    ) -> Result<bool> {
+        match self.eval_const_as(scope, expr, Some(TypeId::BOOL), what)? {
             Operand::Const {
                 value: Value::Bool(b),
                 ..
@@ -727,8 +745,26 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
+        self.eval_const_as(
+            scope,
+            expr,
+            expected,
+            Some("this must be a constant expression"),
+        )
+    }
+
+    /// `eval_const`, with `what` starting the error for a variable read (`None` allows
+    /// variables, whose values are then read at compile time).
+    fn eval_const_as(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        expected: Option<TypeId>,
+        what: Option<&'static str>,
+    ) -> Result<Operand> {
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+        f.constant_only = what;
         // Runtime locals of the enclosing procedure are not visible to constants.
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, expected)?;
@@ -780,6 +816,7 @@ impl Compiler {
         };
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+        f.constant_only = Some("constant declaration needs a constant value");
         let scope = self.thunk_scope(scope);
         let op = self.check_expr(&mut f, scope, expr, None)?;
         let value = match &op {
@@ -807,7 +844,7 @@ impl Compiler {
         expr: &ast::Expr,
         expected: Option<TypeId>,
     ) -> Result<Operand> {
-        self.eval_const(scope, expr, expected)
+        self.eval_const_as(scope, expr, expected, None)
     }
 }
 

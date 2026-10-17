@@ -32,7 +32,6 @@ clipboard() {
 }
 
 full() {
-  python3 tools/build_portable_runtime.py
   python3 tools/window_render_native.py
   python3 tools/build_native_libs.py
   developer

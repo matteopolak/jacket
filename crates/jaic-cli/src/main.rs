@@ -14,6 +14,8 @@ use std::rc::Rc;
 #[global_allocator]
 static ALLOCATOR: jaic::memory_limit::CountingAllocator = jaic::memory_limit::CountingAllocator;
 
+mod crash_runtime;
+
 /// `-timings`: wall time per compiler phase, printed to stderr when the command ends.
 mod timings {
     use std::sync::Mutex;
@@ -68,6 +70,13 @@ fn stdlib_dir() -> PathBuf {
 /// Where `tools/build_native_libs.py` puts third-party libraries for this host, or the
 /// `JAIC_NATIVE_LIBS` path list.
 fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
+    let mut dirs = configured_native_lib_dirs(stdlib);
+    // The crash runtime is built into jaic itself (docs/native/crash-runtime-build.md).
+    dirs.extend(crash_runtime::dir());
+    dirs
+}
+
+fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     if let Some(dirs) = std::env::var_os("JAIC_NATIVE_LIBS") {
         return std::env::split_paths(&dirs).collect();
     }

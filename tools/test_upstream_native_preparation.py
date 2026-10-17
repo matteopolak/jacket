@@ -73,10 +73,7 @@ class NativePreparation(unittest.TestCase):
                             str(root / "tools/build_portable_watcher.py"),
                             plan["commands"][2],
                         )
-                        self.assertIn(
-                            root / "stdlib/internal/watching/native/libportable_watch.dylib",
-                            plan["required"],
-                        )
+                        self.assertIn(native / "libportable_watch.dylib", plan["required"])
                     if system == "linux":
                         clipboard = plan["commands"][2]
                         self.assertIn(
@@ -114,11 +111,9 @@ class NativePreparation(unittest.TestCase):
                             str(root / "tools/build_portable_runtime.py"), crash
                         )
                         self.assertEqual(crash[crash.index("--platform") + 1], platform)
-                        self.assertIn(
-                            root
-                            / "stdlib/internal/runtime/crash-native/libportable_crash.a",
-                            plan["required"],
-                        )
+                        self.assertEqual(Path(crash[crash.index("--output-dir") + 1]), native)
+                        self.assertNotIn("--stdlib", crash)
+                        self.assertIn(native / "libportable_crash.a", plan["required"])
                         self.assertIn(
                             native / "libjai_audio_output.a", plan["required"]
                         )
@@ -251,12 +246,13 @@ class NativePreparation(unittest.TestCase):
                     }
                 )
             )
-            source = plan["runtime"] / "runtime.c"
+            source = root / "stdlib/internal/runtime/crash-native/runtime.c"
+            source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("/* original hash-contract fixture, never compiled */\n")
             artifacts = {
                 p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in plan["required"]
-                if p.parent == plan["runtime"]
+                if p.name.startswith("libportable_crash.")
             }
             recipe = {
                 "platform": "linux-x64",

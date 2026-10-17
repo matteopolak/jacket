@@ -519,7 +519,7 @@ impl Compiler {
                     args,
                 } = &**boxed;
                 // A sketch's stand-ins meet no condition.
-                let holds = self.eval_static_condition(scope, cond);
+                let holds = self.eval_static_condition_as(scope, cond, None);
                 if self.sketching() {
                     return Ok(());
                 }

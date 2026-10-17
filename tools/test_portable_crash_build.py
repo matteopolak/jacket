@@ -46,6 +46,23 @@ class PortableCrashBuild(unittest.TestCase):
                         self.assertIn(f"--target={triple}-unknown-linux-gnu", compile_)
                         self.assertIn("-shared", shared)
 
+    def test_build_script_uses_the_same_recipe(self):
+        # crates/jaic-cli/build.rs is the build's implementation; this helper is its twin.
+        script = (Path(__file__).parent.parent / "crates/jaic-cli/build.rs").read_text()
+        plan = self.tool.build_plan(
+            "linux-x64", Path("/out"), Path("/target"), "clang", "llvm-ar"
+        )
+        flags = {
+            flag
+            for command in plan["commands"]
+            for flag in command
+            if flag.startswith("-") and "=" not in flag and flag not in ("-o", "-c")
+        } - {"-Werror", "-arch"}
+        for flag in sorted(flags):
+            self.assertIn(f'"{flag}"', script, flag)
+        for flag in ("-dynamiclib", "-Wl,-install_name,@rpath/libportable_crash.dylib"):
+            self.assertIn(f'"{flag}"', script)
+
     def test_windows_is_not_substituted_with_posix(self):
         with self.assertRaisesRegex(ValueError, "POSIX"):
             self.tool.build_plan(

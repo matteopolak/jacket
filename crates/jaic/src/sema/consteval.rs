@@ -477,7 +477,7 @@ impl Compiler {
         while self.asserts_done < self.asserts.len() {
             let (cond, message, args, scope) = self.asserts[self.asserts_done].clone();
             let misses = self.placeholder_misses;
-            let holds = self.eval_static_condition(scope, &cond);
+            let holds = self.eval_static_condition_as(scope, &cond, None);
             if holds.is_err() && !self.placeholders_final && self.placeholder_misses != misses {
                 return Ok(());
             }

@@ -10,11 +10,11 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Compiler
 
-[Architecture](compiler/architecture.md), [parser](compiler/parser.md), [sema](compiler/sema.md), [IR](compiler/ir.md), [interpreter](compiler/interpreter.md), [diagnostics](compiler/diagnostics.md), [compile speed](compiler/compile-speed.md), [`#asm`](compiler/asm.md), [stack traces](compiler/stack-traces.md), [doc comments](compiler/doc-comments.md), [language server](compiler/language-server.md).
+[Architecture](compiler/architecture.md), [parser](compiler/parser.md), [sema](compiler/sema.md), [variables vs constants](compiler/variable-constness.md), [IR](compiler/ir.md), [interpreter](compiler/interpreter.md), [diagnostics](compiler/diagnostics.md), [compile speed](compiler/compile-speed.md), [`#asm`](compiler/asm.md), [stack traces](compiler/stack-traces.md), [doc comments](compiler/doc-comments.md), [language server](compiler/language-server.md).
 
 ## Native and browser
 
-[LLVM backend](native/llvm-backend.md), [C ABI](native/c-abi.md), [Windows](native/windows.md), [WebAssembly](native/wasm-target.md), [debug info](native/debug-info.md), [linking](native/native-linking.md), [sanitizers](native/sanitizers.md), [browser build and playground](browser/playground.md).
+[LLVM backend](native/llvm-backend.md), [C ABI](native/c-abi.md), [Windows](native/windows.md), [WebAssembly](native/wasm-target.md), [debug info](native/debug-info.md), [linking](native/native-linking.md), [crash runtime build](native/crash-runtime-build.md), [sanitizers](native/sanitizers.md), [browser build and playground](browser/playground.md).
 
 ## Tools and editors
 

@@ -863,6 +863,12 @@ impl Compiler {
                 storage,
                 ty,
             } => {
+                if let Some(what) = f.constant_only
+                    && !f.type_only
+                {
+                    let name = self.entity(id).name;
+                    return err(span, format!("{what}, but `{name}` is a variable"));
+                }
                 let addr = f.b.storage_addr(storage);
                 let parameters = if matches!(self.types.kind(ty), TypeKind::Proc(_)) {
                     self.callable_entity_parameters(id)?
@@ -1087,7 +1093,15 @@ impl Compiler {
                         }
                     }
                 } else {
-                    self.check_expr(f, scope, a, None)?
+                    // The address of a variable (`*global`, `*global.field`) is constant even
+                    // though the variable is not: naming it reads no value.
+                    let constant_only = f.constant_only;
+                    if names_variable_path(a) {
+                        f.constant_only = None;
+                    }
+                    let inner = self.check_expr(f, scope, a, None);
+                    f.constant_only = constant_only;
+                    inner?
                 };
                 match inner {
                     Operand::Type(t) => Ok(Operand::Type(self.types.pointer(t))),
@@ -3101,5 +3115,14 @@ pub(crate) fn forward_slashes(path: &str) -> String {
         path.replace('\\', "/")
     } else {
         path.to_string()
+    }
+}
+
+/// `name` or `name.member.member`: a path that only names storage.
+fn names_variable_path(expr: &ast::Expr) -> bool {
+    match &expr.kind {
+        E::Ident(_) => true,
+        E::Member(base, _) => names_variable_path(base),
+        _ => false,
     }
 }

@@ -1483,6 +1483,23 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
             }
             return Ok(args);
         }
+        // Not beside the source: a helper the compiler provides (the crash runtime) is found
+        // by file name in the library directories, as the interpreter does.
+        if name.contains('/') && !cross && flavor == LinkFlavor::Unix {
+            for lib_dir in jaic::interp::library_dirs() {
+                for candidate in &candidates {
+                    let full = lib_dir.join(candidate);
+                    if !full.exists() {
+                        continue;
+                    }
+                    let mut args = vec![LinkArg::File(full.display().to_string())];
+                    if candidate.ends_with(".dylib") || candidate.ends_with(".so") {
+                        args.push(LinkArg::Rpath(lib_dir.display().to_string()));
+                    }
+                    return Ok(args);
+                }
+            }
+        }
         // A path is never a system library name: report it instead of a confusing `-l`.
         if name.contains('/') {
             return Err(format!(

@@ -11,7 +11,6 @@ from portable_toolchain import default_compiler
 ROOT = Path(__file__).resolve().parents[1]
 if platform.system() != "Darwin":
     raise RuntimeError("the implemented watcher backend currently requires macOS")
-subprocess.run(["python3", "-B", str(ROOT / "tools/build_portable_watcher.py")], cwd=ROOT, check=True)
 foundation.compose()
 stdlib = foundation.LIBRARY
 for module in ["File_Watcher", "internal/watching", "Pool", "internal/allocation"]:

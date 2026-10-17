@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Build matching static/shared private POSIX crash libraries from our C source.
 
-No executable or fault harness runs. The source-relative archive and shared
-library are installed together; intermediate objects honor CARGO_TARGET_DIR.
+Not a step of the normal build: `crates/jaic-cli/build.rs` builds and embeds the
+runtime itself (docs/native/crash-runtime-build.md). This helper is the same
+recipe for tools that need the libraries and a hash receipt as files (native
+dependency preparation, the init check). It writes only to --output-dir, by
+default under target/, never to the source tree. No executable or fault harness
+runs.
 """
 
 import argparse
@@ -29,11 +33,11 @@ def host_platform():
     return system + "-" + cpu
 
 
-def build_plan(target, stdlib, temporary, cc, ar):
+def build_plan(target, output, temporary, cc, ar):
     if target not in {"macos-x64", "macos-arm64", "linux-x64", "linux-arm64"}:
         raise ValueError("portable crash builder supports desktop POSIX targets only")
     system, cpu = target.split("-")
-    directory = stdlib / "internal/runtime/crash-native"
+    directory = output
     obj = temporary / "portable-crash.o"
     archive = directory / "libportable_crash.a"
     shared = directory / (
@@ -108,24 +112,27 @@ def main():
     parser.add_argument(
         "--platform", choices=["macos-x64", "macos-arm64", "linux-x64", "linux-arm64"]
     )
-    parser.add_argument("--stdlib", type=Path, default=ROOT / "stdlib")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="where libportable_crash.* and portable-crash-build.json go "
+        "(default: <target dir>/native-helpers/<platform>/crash-runtime)",
+    )
     args = parser.parse_args()
     target = args.platform or host_platform()
     if target != host_platform():
         parser.error(
             "native preparation requires the actual host; cross SDK builds are separate"
         )
-    stdlib = args.stdlib.resolve(strict=True)
-    if not stdlib.is_relative_to(ROOT):
-        parser.error("helper install must remain in this checkout")
     temporary = (
         Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
         / "native-helpers"
         / target
     )
+    output = (args.output_dir or temporary / "crash-runtime").resolve()
     temporary.mkdir(parents=True, exist_ok=True)
     plan = build_plan(
-        target, stdlib, temporary, "clang", shutil.which("llvm-ar") or "ar"
+        target, output, temporary, "clang", shutil.which("llvm-ar") or "ar"
     )
     plan["archive"].parent.mkdir(parents=True, exist_ok=True)
     plan["archive"].unlink(missing_ok=True)
