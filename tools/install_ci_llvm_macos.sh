@@ -45,6 +45,8 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     $static && packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "zstd-static" "libcxx")
     MAMBA_ROOT_PREFIX="$tools/root" "$tools/bin/micromamba" create --yes --quiet \
         --prefix "$prefix" --override-channels --channel conda-forge "${packages[@]}"
+    # Keep the owning package cache and its info/licenses: runtime packaging
+    # resolves real per-package notices through the installed conda metadata.
     if $static; then
         # Every dylib, not only those LLVM names: rustc's own `-liconv` (std on Apple) would
         # otherwise find conda's libiconv here before the system's.

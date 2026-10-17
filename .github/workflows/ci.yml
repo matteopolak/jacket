@@ -127,6 +127,7 @@ jobs:
       - name: Build source-relative native workspace providers
         run: |
           python3 tools/build_portable_runtime.py
+          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
           python3 tools/build_developer_bindings.py
           python3 tools/build_developer_debug.py
           python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
@@ -365,6 +366,7 @@ jobs:
           python3 tools/build_portable_runtime.py
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
+          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
           python3 tools/build_developer_bindings.py
           python3 tools/build_developer_debug.py
           python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
@@ -508,6 +510,7 @@ jobs:
           echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
       - name: Build actual compiler and Debug host helpers
         run: |
+          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
           python3 tools/build_developer_bindings.py
           python3 tools/build_developer_debug.py
           python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
@@ -586,6 +589,7 @@ jobs:
           python3 tools/build_portable_runtime.py
           python3 tools/window_render_native.py
           python3 tools/build_native_libs.py
+          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
           python3 tools/build_developer_bindings.py
           python3 tools/build_developer_debug.py
           python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools

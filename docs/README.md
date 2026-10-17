@@ -998,3 +998,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [SDL window-manager failure evidence](tools/sdl-wm-failure-evidence.md): actual driver/provider/result diagnostics on failure, preserving every runtime assertion.
 
 - [Current four-mode runtime report](status/runtime-d9f32f30.json): all451cases completed,1414passes25failures; required RED with exact classifications.
+
+- [Conda SDK package notices](tools/conda-sdk-notices.md): real owner-provenanced nested license files; actual Intel native replay required.
