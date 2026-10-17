@@ -512,7 +512,7 @@ release_retired_streams :: () {
 
         free(stream);
     }
-}
+} @Releases
 
 Decoder_Window :: struct {
     stream: *Sound_Stream;

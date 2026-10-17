@@ -33,7 +33,7 @@ free_channel :: (channel: *Channel($T)) {
 
     if channel.buffer release_owned(channel.buffer, channel.allocator);
     release_owned(channel, channel.allocator);
-}
+} @Releases
 
 // Puts `value` into the channel, blocking while it is full. `.CLOSED` if the channel is (or becomes)
 // closed, `.CANCELED` if the fiber is canceled while it waits.
@@ -122,7 +122,7 @@ close :: (channel: *Channel($T)) {
 
         wake(waiter.fiber);
     }
-}
+} @Releases
 
 // Waits for a number of tasks, as many as were `add`ed and have not yet been `done`.
 Wait_Group :: struct {

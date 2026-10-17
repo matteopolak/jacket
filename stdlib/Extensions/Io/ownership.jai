@@ -11,7 +11,7 @@ allocate_owned :: ($T: Type, owner: Allocator) -> *T {
 release_owned :: (memory: *void, owner: Allocator) {
     push_allocator(owner);
     free(memory);
-}
+} @Releases
 
 // Io owns the initial slab; Basic owns overflow-page allocation and reset.
 prepare_scratch :: (storage: *Temporary_Storage, owner: Allocator) {
@@ -31,7 +31,7 @@ release_scratch :: (storage: *Temporary_Storage, owner: Allocator) {
     reset_temporary_storage(storage);
     if storage.data release_owned(storage.data, owner);
     storage.* = .{};
-}
+} @Releases
 
 // thread_deinit reaps a completed worker; it is not a completion wait.
 finish_thread :: (thread: *Thread.Thread) {

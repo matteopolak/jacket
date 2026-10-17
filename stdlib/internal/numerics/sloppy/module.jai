@@ -4,15 +4,15 @@ is_approximately_zero :: (f: float, epsilon := DEFAULT_EPSILON) -> bool {
 
 values_are_close :: (f0: float, f1: float, epsilon := DEFAULT_EPSILON) -> bool {
     return Math.abs(f0 - f1) <= epsilon;
-}
+} @Releases
 
 values_are_close :: (a: Math.Vector2, b: Math.Vector2, epsilon := DEFAULT_EPSILON) -> bool {
     return values_are_close(a.x, b.x, epsilon) && values_are_close(a.y, b.y, epsilon);
-}
+} @Releases
 
 values_are_close :: (a: Math.Vector3, b: Math.Vector3, epsilon := DEFAULT_EPSILON) -> bool {
     return values_are_close(a.x, b.x, epsilon) && values_are_close(a.y, b.y, epsilon) && values_are_close(a.z, b.z, epsilon);
-}
+} @Releases
 
 max_of_type :: inline ($T: Type) -> T {
     #if T == float32 return Math.FLOAT32_MAX;

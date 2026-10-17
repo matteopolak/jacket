@@ -182,7 +182,7 @@ close :: (stream: *Pipe_Stream, now := false) -> Io_Error {
     }
 
     return .NONE;
-}
+} @Releases
 
 #scope_module
 

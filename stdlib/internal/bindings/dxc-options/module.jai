@@ -48,7 +48,7 @@ build :: (stage: string, args: $T) -> [..] string {
 release :: (arguments: [..] string) {
     for text: arguments Basic.free(text);
     Basic.array_free(arguments);
-}
+} @Releases
 
 #scope_file
 Basic :: #import "Basic";

@@ -166,7 +166,7 @@ release_failed_directory :: (watcher: *$T/File_Watcher, state: *State, info: *Di
     watcher.directories.count -= 1;
     info.next = state.spare_directory;
     state.spare_directory = info;
-}
+} @Releases
 
 classify_windows :: (action: u32) -> File_Change_Event {
     if action == W.FILE_ACTION_ADDED return .ADDED;
@@ -264,4 +264,4 @@ backend_deinit :: (watcher: *$T/File_Watcher, state: *State) -> bool {
     B.array_free(watcher.directories);
 
     return true;
-}
+} @Releases

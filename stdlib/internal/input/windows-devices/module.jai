@@ -64,7 +64,7 @@ close :: (window: W.HWND) {
         Basic.array_unordered_remove_by_index(*registrations, index);
         return;
     }
-}
+} @Releases
 
 #scope_module
 W :: #import "Windows";

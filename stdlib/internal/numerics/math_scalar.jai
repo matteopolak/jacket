@@ -30,23 +30,23 @@ U32_MAX: u32 : 0xffff_ffff;
 S64_MIN: s64 : 0x8000_0000_0000_0000;
 S64_MAX: s64 : 0x7fff_ffff_ffff_ffff;
 U64_MAX: u64 : 0xffff_ffff_ffff_ffff;
-ceil :: (x: float64) -> float64 #intrinsic;
-floor :: (x: float64) -> float64 #intrinsic;
+ceil :: (x: float64) -> float64 #intrinsic; @UseResult
+floor :: (x: float64) -> float64 #intrinsic; @UseResult
 
-ceil :: (f: float) -> float #intrinsic;
+ceil :: (f: float) -> float #intrinsic; @UseResult
 
-floor :: (f: float) -> float #intrinsic;
+floor :: (f: float) -> float #intrinsic; @UseResult
 
-sqrt :: inline (x: float) -> float #intrinsic;
+sqrt :: inline (x: float) -> float #intrinsic; @UseResult
 
-sqrt :: (x: float64) -> float64 #intrinsic;
+sqrt :: (x: float64) -> float64 #intrinsic; @UseResult
 
-sin :: (x: float32) -> float32 #intrinsic;
+sin :: (x: float32) -> float32 #intrinsic; @UseResult
 
-cos :: (x: float32) -> float32 #intrinsic;
+cos :: (x: float32) -> float32 #intrinsic; @UseResult
 
-sin :: (x: float64) -> float64 #intrinsic;
-cos :: (x: float64) -> float64 #intrinsic;
+sin :: (x: float64) -> float64 #intrinsic; @UseResult
+cos :: (x: float64) -> float64 #intrinsic; @UseResult
 
 sin_or_cos :: (x: float64, $IS_SIN: bool) -> float64 {
     #if IS_SIN return sin(x);
@@ -62,21 +62,21 @@ abs :: inline (x: $T/ .[s64, s32, s16, s8]) -> T {
     if x >= 0 return x;
     assert(x != cast,trunc(T) ((cast(u64) 1) << (size_of(T) * 8 - 1)));
     return -x;
-}
+} @UseResult
 
 abs :: inline (x: float64) -> float64 {
     u: Bits64;
     u.f = x;
     u.u &= 0x7fff_ffff_ffff_ffff;
     return u.f;
-}
+} @UseResult
 
 abs :: inline (x: float32) -> float32 {
     u: Bits32;
     u.f = x;
     u.u &= 0x7fff_ffff;
     return u.f;
-}
+} @UseResult
 
 is_nan_is_inf :: (x: float64) -> (isnan: bool, isinf: bool) {
     return x != x, abs(x) == FLOAT64_INFINITY;
@@ -147,17 +147,17 @@ reduc :: (x: float64) -> float64 {
 
 lerp :: inline (a: float, b: float, t: float) -> float {
     return a + (b - a) * t;
-}
+} @UseResult
 
 lerp :: inline (a: float64, b: float64, t: float64) -> float64 {
     return a + (b - a) * t;
-}
+} @UseResult
 
 lerp :: (a: $R, b: R, t: float) -> R #modify {
     return R != float32 && R != float64;
 } {
     return a + (b - a) * t;
-}
+} @UseResult
 
 signbit :: inline (x: float64) -> u64 {
     u: Bits64;
@@ -403,11 +403,11 @@ acos :: inline (theta: float) -> float {
 
 tan :: (x: float64) -> float64 {
     return sin(x) / cos(x);
-}
+} @UseResult
 
 tan :: inline (theta: float) -> float {
     return sin(theta) / cos(theta);
-}
+} @UseResult
 
 cot :: (x: float64) -> float64 {
     return cos(x) / sin(x);

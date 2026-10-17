@@ -77,7 +77,7 @@ free_regex :: (re: *Regex) {
     onepass_free(*re.engine.onepass);
     free(re.engine);
     re.engine = null;
-}
+} @Releases
 
 // Whether captures for this pattern are found in a single scan (see docs/extensions/regex.md).
 is_one_pass :: (re: *Regex) -> bool {

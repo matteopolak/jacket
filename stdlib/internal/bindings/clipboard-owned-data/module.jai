@@ -9,7 +9,7 @@ release :: (buffer: *$T) {
     buffer.width = 0;
     buffer.height = 0;
     buffer.pitch = 0;
-}
+} @Releases
 
 #scope_file
 Basic :: #import "Basic";

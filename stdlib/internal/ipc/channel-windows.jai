@@ -207,4 +207,4 @@ release_windows_channel :: (header: **Header, mapping: *W.HANDLE, reader: bool) 
     release_registration(record);
 
     return true;
-}
+} @Releases

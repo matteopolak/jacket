@@ -226,11 +226,11 @@ temporary_text :: (text: *u16, count: s64) -> string, bool {
 
 close_native_handle :: (handle: W.HANDLE) {
     assert(W.CloseHandle(handle) != 0, "native handle cleanup failed");
-}
+} @Releases
 
 release_local_memory :: (memory: *void) {
     assert(W.LocalFree(memory) == null, "native memory cleanup failed");
-}
+} @Releases
 
 account_profile :: (username: string) -> string, bool {
     name := Text.utf16_path(username);

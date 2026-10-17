@@ -126,4 +126,4 @@ visualization_array_add :: (array: *[..] $T, value: T) {
 visualization_array_free :: (array: *[..] $T) {
     if array.data array.allocator.proc(.FREE, 0, array.allocated * size_of(T), array.data, array.allocator.data);
     array.* = .{};
-}
+} @Releases

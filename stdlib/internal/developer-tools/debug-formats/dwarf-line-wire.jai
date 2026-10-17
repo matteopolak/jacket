@@ -41,7 +41,7 @@ line_wire_release :: (table: *Line_Wire_Table) {
     array_free(table.files);
     array_free(table.rows);
     table.* = .{};
-}
+} @Releases
 
 line_wire_decode :: (data: [] u8, offset: s64, address_size: s64) -> Line_Wire_Table, bool {
     empty: Line_Wire_Table;

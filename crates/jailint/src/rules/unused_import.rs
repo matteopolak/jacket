@@ -21,6 +21,7 @@ use jaic::sema::scope::{EntityKind, Found};
 use jaic::sema::{Compiler, ModuleId, ScopeId};
 use jaic::source::{FileId, Span};
 use std::path::PathBuf;
+use std::rc::Rc;
 
 /// An import found unused, before the rule decides whether to report it.
 pub(crate) struct Unused {
@@ -30,9 +31,17 @@ pub(crate) struct Unused {
     named: bool,
 }
 
+/// What is learned about a module once and reused for each of its files.
+#[derive(Default)]
+pub(crate) struct ModuleFacts {
+    identifiers: HashMap<ModuleId, Rc<HashMap<Sym, usize>>>,
+    entry_points: HashMap<ModuleId, bool>,
+}
+
 /// Find the unused imports of `file` (needs the compiler mutably: module lookups may load).
 pub(crate) fn prepare(
     compiler: &mut Compiler,
+    cache: &mut ModuleFacts,
     file: FileId,
     ast: &File,
     tokens: &[Token],
@@ -43,7 +52,7 @@ pub(crate) fn prepare(
     };
     let (file_scope, module) = (info.scope, info.module);
     let module_scope = compiler.modules[module.0 as usize].scope;
-    let mut names: Option<HashMap<Sym, usize>> = None;
+    let mut names: Option<Rc<HashMap<Sym, usize>>> = None;
     for s in &ast.stmts {
         let S::Import(imp) = &s.kind else {
             continue;
@@ -65,8 +74,9 @@ pub(crate) fn prepare(
                 .any(|t| matches!(t.tok, Tok::Ident(n) if n == name.name) && t.span != name.span)
                 || {
                     // Another file of the module (or one it `#load`s under an `#if`) may use it.
-                    let names = names
-                        .get_or_insert_with(|| module_identifiers(compiler, module, file, tokens));
+                    let names = names.get_or_insert_with(|| {
+                        module_identifiers(compiler, cache, module, file, tokens)
+                    });
                     names.get(&name.name).is_some_and(|&n| n > 1)
                 };
             let declared = [file_scope, module_scope].iter().any(|&sc| {
@@ -91,11 +101,12 @@ pub(crate) fn prepare(
             .ide
             .as_ref()
             .is_some_and(|i| i.used_imports.contains(&(scope, index)))
-            || exports_entry_points(compiler, m)
+            || exports_entry_points(compiler, cache, m)
         {
             continue;
         }
-        let names = names.get_or_insert_with(|| module_identifiers(compiler, module, file, tokens));
+        let names =
+            names.get_or_insert_with(|| module_identifiers(compiler, cache, module, file, tokens));
         let mut found = false;
         for &n in names.keys() {
             match compiler.module_lookup(m, n) {
@@ -144,35 +155,47 @@ fn entry(
 }
 
 /// The module adds program entry points (`#program_export`): importing it has an effect.
-fn exports_entry_points(compiler: &Compiler, m: ModuleId) -> bool {
-    compiler
-        .files
-        .iter()
-        .filter(|f| f.module == m)
-        .any(|f| compiler.sources.get(f.id).text.contains("#program_export"))
+fn exports_entry_points(compiler: &Compiler, cache: &mut ModuleFacts, m: ModuleId) -> bool {
+    *cache.entry_points.entry(m).or_insert_with(|| {
+        compiler
+            .files
+            .iter()
+            .filter(|f| f.module == m)
+            .any(|f| compiler.sources.get(f.id).text.contains("#program_export"))
+    })
 }
 
 /// How often each identifier is written in the files of `module`, including files they
 /// `#load` that the compiler left out (an `#if` for another platform). `file`'s own tokens
-/// are `tokens`, so that file is not lexed again.
+/// are `tokens`, so that file is not lexed again. The same for every file of the module, so
+/// it is worked out once, for whichever file asks first.
 fn module_identifiers(
     compiler: &Compiler,
+    cache: &mut ModuleFacts,
     module: ModuleId,
     file: FileId,
     tokens: &[Token],
-) -> HashMap<Sym, usize> {
+) -> Rc<HashMap<Sym, usize>> {
+    if let Some(found) = cache.identifiers.get(&module) {
+        return found.clone();
+    }
     let mut out = HashMap::default();
     let mut seen: HashSet<PathBuf> = HashSet::default();
     let mut queue: Vec<(PathBuf, String)> = Vec::new();
+    let mut own: Option<PathBuf> = None;
     for f in compiler.files.iter().filter(|f| f.module == module) {
         let src = compiler.sources.get(f.id);
         let path = PathBuf::from(&src.path);
+        // Every file of the module counts once, however it is reached.
         seen.insert(std::fs::canonicalize(&path).unwrap_or(path.clone()));
         if f.id == file {
-            count(tokens, &path, &mut out, &mut seen, &mut queue);
+            own = Some(path);
         } else {
             queue.push((path, src.text.to_string()));
         }
+    }
+    if let Some(path) = own {
+        count(tokens, &path, &mut out, &mut seen, &mut queue);
     }
     while let Some((path, text)) = queue.pop() {
         let Ok(tokens) = jaic::lexer::lex(FileId(0), &text) else {
@@ -180,6 +203,8 @@ fn module_identifiers(
         };
         count(&tokens, &path, &mut out, &mut seen, &mut queue);
     }
+    let out = Rc::new(out);
+    cache.identifiers.insert(module, out.clone());
     out
 }
 

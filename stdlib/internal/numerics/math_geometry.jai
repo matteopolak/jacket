@@ -26,7 +26,7 @@ normalize :: (using p: Plane3) -> Plane3 {
     n := length(normal);
     if n == 0 return p;
     return .{ a / n, b / n, c / n, d / n };
-}
+} @UseResult
 
 normalized_plane_from_points :: (p0: Vector3, p1: Vector3, p2: Vector3) -> Plane3 {
     return make_plane(unit_vector(cross(p1 - p0, p2 - p0)), p0);

@@ -5,7 +5,7 @@ slice :: inline (s: string, index: s64, count: s64) -> string {
     assert(index >= 0 && count >= 0);
     if index >= s.count return "";
     return .{ min(count, s.count - index), s.data + index };
-}
+} @UseResult
 
 compare :: (a: string, b: string) -> int {
     for i: 0..min(a.count, b.count) - 1 {
@@ -17,7 +17,7 @@ compare :: (a: string, b: string) -> int {
     if a.count > b.count return 1;
 
     return 0;
-}
+} @UseResult
 
 compare_nocase :: (a: string, b: string) -> int {
     for i: 0..min(a.count, b.count) - 1 {
@@ -35,7 +35,7 @@ compare_nocase :: (a: string, b: string) -> int {
 
 equal :: (a: string, b: string) -> bool {
     return a == b;
-}
+} @UseResult
 
 equal_nocase :: (a: string, b: string) -> bool {
     return compare_nocase(a, b) == 0;
@@ -43,11 +43,11 @@ equal_nocase :: (a: string, b: string) -> bool {
 
 begins_with :: (s: string, prefix: string) -> bool {
     return s.count >= prefix.count && slice(s, 0, prefix.count) == prefix;
-}
+} @UseResult
 
 ends_with :: (s: string, suffix: string) -> bool {
     return s.count >= suffix.count && slice(s, s.count - suffix.count, suffix.count) == suffix;
-}
+} @UseResult
 
 begins_with_nocase :: (s: string, prefix: string) -> bool {
     return s.count >= prefix.count && equal_nocase(slice(s, 0, prefix.count), prefix);
@@ -65,7 +65,7 @@ is_any :: (c: u8, chars: string) -> bool {
 find_index_from_left :: (s: string, byte: u8, start_index := 0) -> s64 #no_abc {
     for i: start_index..s.count - 1 if s[i] == byte return i;
     return -1;
-}
+} @UseResult
 
 find_index_from_right :: (s: string, byte: u8) -> s64 #no_abc {
     i := s.count;
@@ -75,7 +75,7 @@ find_index_from_right :: (s: string, byte: u8) -> s64 #no_abc {
     }
 
     return -1;
-}
+} @UseResult
 
 find_index_of_any_from_left :: (s: string, bytes: string, start_index := 0) -> s64 #no_abc {
     for i: start_index..s.count - 1 if is_any(s[i], bytes) return i;
@@ -96,7 +96,7 @@ find_index_from_left :: (s: string, substring: string, start_index := 0) -> s64 
     if substring.count == 0 return -1;
     for i: start_index..s.count - substring.count if slice(s, i, substring.count) == substring return i;
     return -1;
-}
+} @UseResult
 
 find_index_from_right :: (s: string, substring: string) -> s64 {
     if substring.count == 0 return -1;
@@ -108,7 +108,7 @@ find_index_from_right :: (s: string, substring: string) -> s64 {
     }
 
     return -1;
-}
+} @UseResult
 
 index_of_string_nocase :: (s: string, substring: string) -> int, found: bool {
     if substring.count == 0 return -1, false;
@@ -120,7 +120,7 @@ contains :: (s: string, substring: string) -> (found: bool, remainder: string) {
     i := find_index_from_left(s, substring);
     if i < 0 return false, "";
     return true, slice(s, i + substring.count, s.count);
-}
+} @UseResult
 
 contains_nocase :: (s: string, substring: string) -> (found: bool, remainder: string) {
     i, found := index_of_string_nocase(s, substring);
@@ -132,7 +132,7 @@ contains :: (s: string, char: u8) -> (found: bool, remainder: string) {
     i := find_index_from_left(s, char);
     if i < 0 return false, "";
     return true, slice(s, i + 1, s.count);
-}
+} @UseResult
 
 contains_any_character :: (s: string, chars: string) -> (found: bool, remainder: string) {
     i := find_index_of_any_from_left(s, chars);
@@ -164,29 +164,29 @@ to_lower_copy :: (s: string) -> string {
     result := copy_string(s);
     to_lower_in_place(result);
     return result;
-}
+} @UseResult
 
 to_upper_copy :: (s: string) -> string {
     result := copy_string(s);
     to_upper_in_place(result);
     return result;
-}
+} @UseResult
 
 trim_left :: (s: string, chars := DEFAULT_SPACES) -> string {
     i: s64;
     while i < s.count && is_any(s[i], chars) i += 1;
     return slice(s, i, s.count - i);
-}
+} @UseResult
 
 trim_right :: (s: string, chars := DEFAULT_SPACES) -> string {
     count := s.count;
     while count > 0 && is_any(s[count - 1], chars) count -= 1;
     return slice(s, 0, count);
-}
+} @UseResult
 
 trim :: (s: string, chars := DEFAULT_SPACES) -> string {
     return trim_right(trim_left(s, chars), chars);
-}
+} @UseResult
 
 eat_trailing_spaces :: (_s: string) -> string {
     return trim_right(_s);
@@ -268,7 +268,7 @@ split :: (s: string, separator: $T/ .[string, u8]) -> [] string {
     }
 
     return result;
-}
+} @UseResult
 
 join :: (inputs: ..string, separator := "", before_first := false, after_last := false) -> string {
     builder: String_Builder;
@@ -285,7 +285,7 @@ join :: (inputs: ..string, separator := "", before_first := false, after_last :=
     if after_last append(*builder, separator);
 
     return builder_to_string(*builder);
-}
+} @UseResult
 
 replace :: (s: string, old: string, new: string) -> string, ocurrences: int {
     builder: String_Builder;
@@ -306,4 +306,4 @@ replace :: (s: string, old: string, new: string) -> string, ocurrences: int {
     }
 
     return builder_to_string(*builder), count;
-}
+} @UseResult

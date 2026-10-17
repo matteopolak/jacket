@@ -23,7 +23,7 @@ const MAX_VARIANTS: usize = 4;
 /// Longest expansion text kept.
 const MAX_TEXT: usize = 64 * 1024;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum IdeExpansionKind {
     /// `#insert`: the code inserted.
     Insert,
@@ -190,11 +190,8 @@ impl Compiler {
         let Some(ide) = self.ide.as_mut() else {
             return;
         };
-        if let Some(e) = ide
-            .expansions
-            .iter_mut()
-            .find(|e| e.span == span && e.kind == kind)
-        {
+        if let Some(&at) = ide.expansion_index.get(&(span, kind)) {
+            let e = &mut ide.expansions[at];
             if !e.texts.contains(&text) && e.texts.len() < MAX_VARIANTS {
                 e.texts.push(text);
             }
@@ -206,6 +203,8 @@ impl Compiler {
         if ide.expansions.len() >= MAX_EXPANSIONS {
             return;
         }
+        ide.expansion_index
+            .insert((span, kind), ide.expansions.len());
         ide.expansions.push(IdeExpansion {
             span,
             kind,

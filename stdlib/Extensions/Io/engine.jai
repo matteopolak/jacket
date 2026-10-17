@@ -261,7 +261,7 @@ free_op :: (engine: *Engine, op: *Op) {
     op.state = .FREE;
     op.next = engine.free_ops;
     engine.free_ops = op;
-}
+} @Releases
 
 // Starts `op`. Returns true if it already finished (its result is set, nothing will be reported
 // later), false if the engine will report it through `finish_op`.

@@ -357,7 +357,7 @@ init_generator :: (using generator: *Generator, options: Generate_Bindings_Optio
 
 deinit_generator :: (generator: *Generator) {
     gm_deinit_generator(generator);
-}
+} @Releases
 
 #scope_module
 #load "../internal/developer-tools/generator-lifecycle.jai";

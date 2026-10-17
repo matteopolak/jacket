@@ -111,7 +111,7 @@ method_encoding :: (procedure: *Type_Info_Procedure, class_info: *Type_Info,
 
 free_string :: (value: string) {
     if value.data context.allocator.proc(.FREE, 0, value.count, value.data, context.allocator.data);
-}
+} @Releases
 
 #scope_file
 Basic :: #import "Basic";

@@ -25,7 +25,7 @@ free_resources :: (using radix: *RadixSort) {
     ranks = .{};
     ranks2 = .{};
     valid_ranks = false;
-}
+} @Releases
 
 rank :: (using radix: *RadixSort, i: int) -> u32 {
     assert(valid_ranks && i >= 0 && i < ranks.count);
@@ -109,7 +109,7 @@ free_rank_buffer :: (buffer: [] u32, allocator: Allocator) {
     raw := cast(*u8) buffer.data - 8;
     capacity := (cast(*s64) raw).*;
     allocator.proc(.FREE, 0, capacity * 4 + 8, raw, allocator.data);
-}
+} @Releases
 
 sort_ranks :: (radix: *RadixSort, input: *$T, count: u32) {
     if !input || count == 0 return;

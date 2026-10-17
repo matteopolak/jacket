@@ -79,10 +79,11 @@ destroy :: (font: *Loaded_Font) {
 
     allocator.proc(.FREE, 0, 0, font.name.data, allocator.data);
     font.name = "";
-}
+} @Releases
 
 #scope_module
 font_library: FT_Library;
+
 font_page_width: s32 = 2048;
 font_page_height: s32 = 1024;
 

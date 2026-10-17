@@ -298,7 +298,7 @@ MAX_TRANSFER :: 0x4000_0000;
 
     sys_close :: (fd: s64) -> s64 {
         return checked(c_close(cast(s32) fd));
-    }
+    } @Releases
 
     // A pipe whose read end is non-blocking when `nonblocking` (the backend waits for readiness);
     // the write end always blocks, which a one-byte wake-up never does for long.

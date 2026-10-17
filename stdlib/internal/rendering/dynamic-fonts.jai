@@ -86,7 +86,7 @@ load_font_part_2 :: (result: *Dynamic_Font, loaded_font: Loaded_Font, pixel_heig
 
 release_font :: (font: *Dynamic_Font) {
     // Reviewed API retains dynamic fonts/faces/atlas pools in module registries.
-}
+} @Releases
 
 set_unknown_character :: (using font: *Dynamic_Font, utf32: u32) -> bool {
     index := FT_Get_Char_Index(private1, utf32);

@@ -147,7 +147,7 @@ deinit :: (process: *Process) {
     close_pipe(*process.error);
     process.pid = 0;
     #if OS == .MACOS close_fd(*process.kevent_queue);
-}
+} @Releases
 
 #scope_module
 cancel_or_report :: (process: *Process) {
@@ -160,7 +160,7 @@ cancel_or_report :: (process: *Process) {
 close_pipe :: (pipe: *Process.Pipe) {
     close_fd(*pipe.handle);
     pipe.eof = true;
-}
+} @Releases
 
 find_state :: (process: *Process) -> *Process_State {
     registry_acquire();
@@ -183,7 +183,7 @@ close_fd :: (fd: *s32) {
         fd.* = -1;
         if result != 0 context.logger("process descriptor close failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
     }
-}
+} @Releases
 
 wait_child :: (pid: P.pid_t, status: *s32, flags: s32) -> P.pid_t #no_context {
     while true {
@@ -220,7 +220,7 @@ registry_acquire :: () {
 registry_release :: () {
     success := compare_and_swap(*registry_lock, cast(s32) 1, cast(s32) 0);
     assert(success);
-}
+} @Releases
 
 close_inherited_process_descriptors :: () #no_context {
     // Another supervisor must not retain this parent's older process controls
@@ -238,7 +238,7 @@ close_inherited_process_descriptors :: () #no_context {
 
     registry = null;
     registry_lock = 0;
-}
+} @Releases
 
 new_pipe :: (pair: *[2] s32) -> bool {
     if P.pipe(pair) != 0 return false;
@@ -262,7 +262,7 @@ make_nonblocking :: (fd: s32) -> bool {
 
 child_close :: (fd: s32) #no_context {
     if fd >= 0 && P.close(fd) != 0 P._exit(125);
-}
+} @Releases
 
 read_exact :: (fd: s32, data: *void, count: s64) -> bool #no_context {
     cursor: s64;

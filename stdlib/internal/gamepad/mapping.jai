@@ -11,7 +11,7 @@ deinit :: (map: SDL_Gamepad_Mapping) {
     free(map.name);
     free(map.platform);
     array_free(map.mappings);
-}
+} @Releases
 
 get_guid_string :: (bustype: s16, vendor: s16, product: s16, version: s16) -> temp_string: string {
     result := talloc_string(32);

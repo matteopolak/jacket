@@ -46,4 +46,4 @@ bitmap_alloc :: (using bitmap: *Bitmap, w: s32, h: s32, _format: Texture_Format)
 deinit :: (bitmap: *Bitmap) {
     if bitmap.flags & .FREE_DATA_ON_DEINIT Basic.free(bitmap.data.data);
     bitmap.* = .{};
-}
+} @Releases

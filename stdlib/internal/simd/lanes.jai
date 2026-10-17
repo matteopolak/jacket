@@ -172,25 +172,25 @@ min :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = B.min(a.data[it], b.data[it]);
     return result;
-}
+} @UseResult @Minimum
 
 min :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = B.min(a.data[it], factor);
     return result;
-}
+} @UseResult @Minimum
 
 max :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = B.max(a.data[it], b.data[it]);
     return result;
-}
+} @UseResult @Maximum
 
 max :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = B.max(a.data[it], factor);
     return result;
-}
+} @UseResult @Maximum
 
 horizontal_sum :: (a: $T/SIMD_Array) -> a.type {
     result: a.type;

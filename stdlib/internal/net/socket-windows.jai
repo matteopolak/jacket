@@ -69,7 +69,7 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
         if status != 0 report_error();
         s.* = INVALID_SOCKET;
     }
-}
+} @Releases
 
 FD_SET :: (fd: Socket, set: *fd_set) {
     Control.add_descriptor(fd, set);

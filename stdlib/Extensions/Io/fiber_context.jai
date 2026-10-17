@@ -30,6 +30,6 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 
 // Gives back what the compiler keeps for `fiber` (nothing for native code; the interpreter's
 // stacks for that context). Call it once a context is never used again, and not for the running one.
-fiber_free :: (fiber: *Fiber_Context) #intrinsic;
+fiber_free :: (fiber: *Fiber_Context) #intrinsic; @Releases
 
 #scope_export

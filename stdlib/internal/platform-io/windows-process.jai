@@ -154,7 +154,7 @@ terminate :: (child: *Child) -> bool {
 
 close_input :: (child: *Child) {
     close_stream(*child.input);
-}
+} @Releases
 
 initialize_pipe :: (pipe: *Stream, is_input: bool) -> success: bool, client_handle: W.HANDLE = W.INVALID_HANDLE_VALUE {
     return pipe_pair(pipe, is_input);
@@ -162,7 +162,7 @@ initialize_pipe :: (pipe: *Stream, is_input: bool) -> success: bool, client_hand
 
 destroy_pipe :: (pipe: *Stream) {
     close_stream(pipe);
-}
+} @Releases
 
 read_pipe :: (pipe: *Stream, buffer: [] u8) -> success: bool, bytes_read: int {
     ok, count := begin_read(pipe, buffer);
@@ -184,7 +184,7 @@ destroy :: (child: *Child) {
     if child.info.hProcess checked_close(child.info.hProcess);
 
     child.info = .{};
-}
+} @Releases
 
 write_input :: (child: *Child, data: [] u8) -> bool, s64 {
     stream := *child.input;
@@ -297,7 +297,7 @@ valid_handle :: (handle: W.HANDLE) -> bool {
 
 checked_close :: (handle: W.HANDLE) {
     assert(W.CloseHandle(handle) != 0, "Windows process handle cleanup failed");
-}
+} @Releases
 
 wait_handles :: (count: u32, handles: *W.HANDLE, milliseconds: s64) -> u32 {
     if milliseconds == 0 return W.WaitForMultipleObjects(count, handles, 0, 0);
@@ -413,7 +413,7 @@ close_stream :: (stream: *Stream) {
 
     stream.* = .{};
     stream.eof = true;
-}
+} @Releases
 
 begin_read :: (stream: *Stream, buffer: [] u8) -> bool, s64 {
     if stream.eof || buffer.count == 0 return true, 0;

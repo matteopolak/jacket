@@ -148,7 +148,7 @@ release_object :: (object: *void) {
     Send :: #type (receiver: *void, selector: *void) #c_call;
     send := cast(Send) objc_send;
     send(object, selector("release"));
-}
+} @Releases
 
 native_string :: (text: string) -> *void {
     return O.NSString.getTempString(text);

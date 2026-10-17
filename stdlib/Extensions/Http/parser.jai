@@ -164,7 +164,7 @@ parser_free :: (p: *Parser) {
     array_reset(*p.tbytes);
     array_reset(*p.tspans);
     array_reset(*p.tlist);
-}
+} @Releases
 
 // Between messages: gives back the head and trailer storage that grew past `limit` bytes (each of
 // the six arrays on its own), so a connection that once saw a huge head does not keep it. The

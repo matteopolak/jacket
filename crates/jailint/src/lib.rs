@@ -69,6 +69,7 @@ pub fn lint_files(
     complete: bool,
 ) -> Vec<Lint> {
     let mut out = Vec::new();
+    let mut module_facts = rules::unused_import::ModuleFacts::default();
     let Some(facts) = facts::Facts::collect(compiler, files) else {
         return out;
     };
@@ -91,7 +92,7 @@ pub fn lint_files(
             continue;
         }
         let imports = if wanted.iter().any(|r| r.name == "unused_import") {
-            rules::unused_import::prepare(compiler, file, &ast, &tokens)
+            rules::unused_import::prepare(compiler, &mut module_facts, file, &ast, &tokens)
         } else {
             Vec::new()
         };

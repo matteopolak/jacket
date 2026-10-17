@@ -26,14 +26,14 @@ deinit_unmapping_allocator :: (a: Allocator) {
 
     deinit(wrapper);
     owner.proc(.FREE, 0, size_of(Wrapper_Allocation), allocation, owner.data);
-}
+} @Releases
 
 deinit :: (ua: *Unmapping_Allocator) {
     T.lock(*ua.mutex);
     H.deinit(*ua.table);
     T.unlock(*ua.mutex);
     T.destroy(*ua.mutex);
-}
+} @Releases
 
 unmapping_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {

@@ -21,9 +21,14 @@ use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::{Condvar, Mutex};
+
+/// Most roots compiled at once when the number is left to `jailint`: each holds a whole
+/// compiler, so memory grows with it long before the CPUs run out.
+pub const MAX_AUTO_JOBS: usize = 8;
 
 /// Basic blocks compile-time code may run per root (a `#run` may loop forever).
 const BLOCK_BUDGET: u64 = 200_000_000;
@@ -39,7 +44,7 @@ pub struct Options {
     pub import_dirs: Vec<PathBuf>,
     pub stdlib: PathBuf,
     pub config: Config,
-    /// Compile this many roots at once.
+    /// Compile this many roots at once; 0 picks one per CPU, at most [`MAX_AUTO_JOBS`].
     pub jobs: usize,
     /// Print each root as it is compiled.
     pub verbose: bool,
@@ -96,6 +101,100 @@ fn canonical(path: &Path) -> PathBuf {
     std::fs::canonicalize(path)
         .or_else(|_| std::path::absolute(path))
         .unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Canonical paths, remembered for one run: the file system does not change under it, and every
+/// root asks about the same few hundred stdlib paths.
+#[derive(Default)]
+struct Canon(Mutex<HashMap<PathBuf, PathBuf>>);
+
+impl Canon {
+    fn get(&self, path: &Path) -> PathBuf {
+        if let Some(found) = self.0.lock().expect("canon lock").get(path) {
+            return found.clone();
+        }
+        let resolved = canonical(path);
+        self.0
+            .lock()
+            .expect("canon lock")
+            .insert(path.to_path_buf(), resolved.clone());
+        resolved
+    }
+}
+
+/// Which root reports each file. A file several roots compile is reported from the first of
+/// them (by position in the sorted root list), so a root need not lint a file an earlier one
+/// compiled; it only has to know which files those were. Roots run concurrently, so each
+/// publishes the files it compiled as soon as it has, and then waits for every earlier root to
+/// have done the same.
+struct Claims {
+    state: Mutex<ClaimState>,
+    published: Condvar,
+}
+
+struct ClaimState {
+    /// The lowest published root that compiled each file.
+    owner: HashMap<PathBuf, usize>,
+    done: Vec<bool>,
+    /// Roots `0..prefix` have all published.
+    prefix: usize,
+}
+
+impl Claims {
+    fn new(roots: usize) -> Claims {
+        Claims {
+            state: Mutex::new(ClaimState {
+                owner: HashMap::new(),
+                done: vec![false; roots],
+                prefix: 0,
+            }),
+            published: Condvar::new(),
+        }
+    }
+
+    /// Record the files root `index` compiled. Publishing twice does nothing.
+    fn publish(&self, index: usize, files: impl IntoIterator<Item = PathBuf>) {
+        let mut state = self.state.lock().expect("claims lock");
+        if state.done[index] {
+            return;
+        }
+        for file in files {
+            let slot = state.owner.entry(file).or_insert(index);
+            *slot = (*slot).min(index);
+        }
+        state.done[index] = true;
+        while state.prefix < state.done.len() && state.done[state.prefix] {
+            state.prefix += 1;
+        }
+        self.published.notify_all();
+    }
+
+    /// Wait until every root before `index` has published, then say which of `files` root
+    /// `index` reports.
+    fn owned(&self, index: usize, files: &BTreeSet<PathBuf>) -> HashSet<PathBuf> {
+        let mut state = self.state.lock().expect("claims lock");
+        while state.prefix < index {
+            state = self.published.wait(state).expect("claims lock");
+        }
+        files
+            .iter()
+            .filter(|file| state.owner.get(*file) == Some(&index))
+            .cloned()
+            .collect()
+    }
+}
+
+/// Publishes nothing on behalf of a root that stops before publishing, so the roots after it
+/// are not left waiting.
+struct Release<'a> {
+    claims: &'a Claims,
+    index: usize,
+}
+
+impl Drop for Release<'_> {
+    fn drop(&mut self) {
+        self.claims.publish(self.index, std::iter::empty());
+    }
 }
 
 /// The `.jai` files under `path`, sorted, excluding what the configuration excludes.
@@ -298,6 +397,9 @@ struct RootResult {
 struct RootedFs {
     base: PathBuf,
     virtual_source: Option<(PathBuf, Vec<u8>)>,
+    /// Paths that exist, resolved: the compiler asks about the same few hundred files for
+    /// every access check and import.
+    resolved: RefCell<HashMap<PathBuf, PathBuf>>,
 }
 
 impl RootedFs {
@@ -336,7 +438,18 @@ impl FileSystem for RootedFs {
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
-        NativeFs.canonical(&self.at(path))
+        let path = self.at(path);
+        if let Some(found) = self.resolved.borrow().get(&path) {
+            return found.clone();
+        }
+        match jaic::canonicalize(&path) {
+            Ok(real) => {
+                self.resolved.borrow_mut().insert(path, real.clone());
+                real
+            }
+            // Not there: the compiler's lexical form, asked for again next time.
+            Err(_) => NativeFs.canonical(&path),
+        }
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
@@ -365,7 +478,18 @@ impl WorkspaceObserver for Collect {
 
 /// Compile `root` with lint facts and lint the files in `report` it compiled, following the
 /// workspaces its metaprogram creates (`build.jai` compiling the real program).
-fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> RootResult {
+fn lint_root(
+    root: &Root,
+    index: usize,
+    options: &Options,
+    report: &BTreeSet<PathBuf>,
+    canon: &Canon,
+    claims: &Claims,
+) -> RootResult {
+    let _release = Release {
+        claims,
+        index,
+    };
     let main_dir = match root {
         Root::Module {
             dir, ..
@@ -388,12 +512,13 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     // directories are invocation configuration, so anchor them before that rebasing.
     // Also anchor nonexistent roots: they must not accidentally find a source-local shadow.
     for path in &mut copts.import_paths {
-        *path = canonical(path);
+        *path = canon.get(path);
     }
     copts
         .preload
         .get_or_insert_with(|| options.stdlib.join(jaic::PRELOAD_ENTRY));
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
+        resolved: RefCell::default(),
         base: main_dir.clone(),
         virtual_source: match root {
             Root::Module {
@@ -474,7 +599,7 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
                     module
                         .path
                         .as_ref()
-                        .is_some_and(|path| canonical(path) == *entry)
+                        .is_some_and(|path| canon.get(path) == *entry)
                 }) {
                     compiler
                         .add_source(&ProgramSource::File(dir.join(".jailint-module-root.jai")))?;
@@ -505,9 +630,14 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
     }
     compilers.reverse();
     compilers.push((compiler, !top_complete));
-    let mut lints = Vec::new();
-    let mut texts = BTreeMap::new();
-    let mut contexts = Vec::new();
+    // Check every program first: which files this root compiled settles which it reports.
+    struct Checked {
+        compiler: Box<Compiler>,
+        complete: bool,
+        /// Facts cover every requested file, including loads outside the root folder.
+        files: Vec<(jaic::source::FileId, PathBuf)>,
+    }
+    let mut checked = Vec::new();
     for (mut compiler, failed) in compilers {
         let diagnostics = compiler.ide_check_all();
         let complete = !failed && diagnostics.is_empty();
@@ -516,39 +646,62 @@ fn lint_root(root: &Root, options: &Options, report: &BTreeSet<PathBuf>) -> Root
         {
             error = Some(diagnostic.message.clone());
         }
-        // Facts cover every requested file, including loads outside the root folder.
-        let files: Vec<jaic::source::FileId> = (0..compiler.sources.len() as u32)
+        let files = (0..compiler.sources.len() as u32)
             .map(jaic::source::FileId)
-            .filter(|&f| {
-                let path = &compiler.sources.get(f).path;
-                let path_buf = canonical(Path::new(path));
-                report.contains(&path_buf)
+            .filter_map(|f| {
+                let path = canon.get(Path::new(&compiler.sources.get(f).path));
+                report.contains(&path).then_some((f, path))
             })
             .collect();
-        for &f in &files {
-            let src = compiler.sources.get(f);
-            texts.insert(
-                canonical(Path::new(&src.path))
-                    .to_string_lossy()
-                    .into_owned(),
-                src.text.clone(),
-            );
+        checked.push(Checked {
+            compiler,
+            complete,
+            files,
+        });
+    }
+    let compiled: BTreeSet<PathBuf> = checked
+        .iter()
+        .flat_map(|c| c.files.iter().map(|(_, path)| path.clone()))
+        .collect();
+    claims.publish(index, compiled.iter().cloned());
+    let owned = claims.owned(index, &compiled);
+    let mut lints = Vec::new();
+    let mut texts = BTreeMap::new();
+    let mut contexts = Vec::new();
+    for Checked {
+        mut compiler,
+        complete,
+        files,
+    } in checked
+    {
+        for (f, path) in &files {
+            if owned.contains(path) {
+                texts.insert(
+                    path.to_string_lossy().into_owned(),
+                    compiler.sources.get(*f).text.clone(),
+                );
+            }
         }
         contexts.push(CheckedContext {
             root: root.path().to_path_buf(),
             os: compiler.options.os,
             cpu: compiler.options.cpu,
             complete,
-            visited_files: files
-                .iter()
-                .map(|&file| canonical(Path::new(&compiler.sources.get(file).path)))
-                .collect(),
+            visited_files: files.iter().map(|(_, path)| path.clone()).collect(),
         });
-        let mut found = lint_files(&mut compiler, &files, &options.config, complete);
-        for l in &mut found {
-            l.path = canonical(Path::new(&l.path)).to_string_lossy().into_owned();
+        // Files an earlier root compiled are linted, and reported, from that root.
+        let own: Vec<jaic::source::FileId> = files
+            .iter()
+            .filter(|(_, path)| owned.contains(path))
+            .map(|&(f, _)| f)
+            .collect();
+        if !own.is_empty() {
+            let mut found = lint_files(&mut compiler, &own, &options.config, complete);
+            for l in &mut found {
+                l.path = canon.get(Path::new(&l.path)).to_string_lossy().into_owned();
+            }
+            lints.extend(found);
         }
-        lints.extend(found);
         // Drop the compiler now: they hold the workspace registry, which held them.
         drop(compiler);
     }
@@ -574,10 +727,18 @@ pub fn run(options: &Options) -> Outcome {
     let mut results: Vec<Option<Sent>> = (0..roots.len()).map(|_| None).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected = std::sync::Mutex::new(Vec::new());
-    let jobs = options.jobs.max(1).min(roots.len().max(1));
+    let canon = Canon::default();
+    let claims = Claims::new(roots.len());
+    let wanted = if options.jobs == 0 {
+        std::thread::available_parallelism().map_or(1, |n| n.get().min(MAX_AUTO_JOBS))
+    } else {
+        options.jobs
+    };
+    let jobs = wanted.min(roots.len().max(1));
     std::thread::scope(|s| {
         for _ in 0..jobs {
             let (roots, report, next, collected) = (&roots, &report, &next, &collected);
+            let (canon, claims) = (&canon, &claims);
             // Checking recurses on the syntax tree: give it the compiler's stack.
             std::thread::Builder::new()
                 .stack_size(1 << 30)
@@ -590,7 +751,7 @@ pub fn run(options: &Options) -> Outcome {
                         if options.verbose {
                             eprintln!("jailint: checking {}", root.path().display());
                         }
-                        let r = lint_root(root, options, report);
+                        let r = lint_root(root, i, options, report, canon, claims);
                         // Texts cross threads as `String` (`Rc` cannot).
                         let texts = r
                             .texts

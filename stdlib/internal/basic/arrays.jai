@@ -115,19 +115,19 @@ array_ordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
     }
 
     array_pointer.count -= 1;
-}
+} @RemovesElements
 
 array_unordered_remove_by_index :: inline (array_pointer: *[] $T, index: s64) {
     assert(index >= 0 && index < array_pointer.count);
     array_pointer.count -= 1;
     array_pointer.data[index] = array_pointer.data[array_pointer.count];
-}
+} @RemovesElements
 
 array_ordered_remove_by_value :: inline (array_pointer: *[] $T, item: T) -> bool {
     found, index := array_find(array_pointer.*, item);
     if found array_ordered_remove_by_index(array_pointer, index);
     return found;
-}
+} @RemovesElements
 
 array_unordered_remove_by_value :: inline (array: *[] $T, item: T, $stop_after_first := false, $compare: (T, T) -> bool = null) -> s64 {
     removed: s64;
@@ -142,7 +142,7 @@ array_unordered_remove_by_value :: inline (array: *[] $T, item: T, $stop_after_f
     }
 
     return removed;
-}
+} @RemovesElements
 
 peek_pointer :: inline (array: [] $T) -> *T {
     assert(array.count > 0);
@@ -165,22 +165,22 @@ array_reset_keeping_memory :: inline (array: *[..] $T) {
 
 array_free :: inline (array: [] $T) {
     free(array.data);
-}
+} @Releases
 
 array_free :: (array: [..] $T) {
     if array.allocator.proc allocator_call(array.allocator, .FREE, 0, array.allocated * size_of(T), array.data);
     else free(array.data);
-}
+} @Releases
 
 array_reset :: (array: *[] $T) {
     array_free(array.*);
     array.* = .{};
-}
+} @Releases
 
 array_reset :: (array: *[..] $T) {
     array_free(array.*);
     array.* = .{};
-}
+} @Releases
 
 array_resize :: (array: *[..] $T, new_count: s64, $initialize := true) {
     assert(new_count >= 0);
@@ -233,7 +233,7 @@ array_copy :: (array: [] $T) -> [] T {
     assert(result.data != null || result.count == 0);
     memcpy(result.data, array.data, array.count * size_of(T));
     return result;
-}
+} @UseResult
 
 array_copy :: (dest: *[..] $T, source: [] T) {
     array_resize(dest, source.count, false);

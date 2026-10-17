@@ -57,6 +57,8 @@ pub struct IdeFacts {
     pub scopes: Vec<(Span, ScopeId)>,
     /// What `#insert`, `#run`, `#if` and macro calls produced (see `ide_meta`).
     pub expansions: Vec<super::ide_meta::IdeExpansion>,
+    /// Position in `expansions` of each (span, kind), so recording one is not a scan.
+    pub(super) expansion_index: HashMap<(Span, super::ide_meta::IdeExpansionKind), usize>,
     /// Calls and the procedure and parameters they resolved to.
     pub calls: Vec<super::ide_meta::IdeCall>,
     pub(super) call_spans: HashSet<Span>,

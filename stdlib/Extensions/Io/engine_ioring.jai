@@ -260,7 +260,7 @@
         win_close_handle(state.stop_event);
 
         state.ring = 0;
-    }
+    } @Releases
 
     // Waits for the ring's completion event and tells the scheduler's port.
     ring_waiter :: (thread: *Thread.Thread) -> s64 {

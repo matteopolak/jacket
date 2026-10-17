@@ -164,7 +164,7 @@ free_buffers :: (using builder: *String_Builder) {
     current_buffer = null;
     initialized = false;
     failed = false;
-}
+} @Releases
 
 reset :: (using builder: *String_Builder) {
     free_buffers(builder);

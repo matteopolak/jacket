@@ -213,7 +213,7 @@ allocate_registration :: (name: string) -> *Registration {
 release_registration :: (record: *Registration) {
     allocator := record.allocator;
     allocator.proc(.FREE, 0, size_of(Registration) + record.name.count + 1, record, allocator.data);
-}
+} @Releases
 
 lock_registry :: () {
     acquired := compare_and_swap(*registry_lock, cast(s32) 0, cast(s32) 1);

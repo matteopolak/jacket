@@ -132,7 +132,7 @@ release_metadata :: (package: *Load_Package) {
     B.array_free(package.entries);
     package.entries = .{};
     package.table_of_contents = .{};
-}
+} @Releases
 
 #scope_file
 read_header :: (bytes: string, name: string) -> bool, Package_Header {

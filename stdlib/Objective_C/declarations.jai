@@ -2932,7 +2932,7 @@ release :: (self: *$instancetype) -> id #no_context {
     send := cast(Send) binding_objc_send;
     send(cast(*void) self, binding_objc_selector("release"));
     return null;
-}
+} @Releases
 
 retain :: (self: *$instancetype) -> *instancetype #no_context {
     Send :: #type (receiver: *void, op: *void) -> *instancetype #c_call;

@@ -208,7 +208,7 @@ close_output_device :: () -> bool {
     device_notice = 0;
 
     return true;
-}
+} @Releases
 
 #scope_export
 

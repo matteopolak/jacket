@@ -47,7 +47,7 @@ deinit :: (using x: *Text_File_Handler) {
     if file_data_to_free.data free(file_data_to_free);
     file_data_to_free = "";
     file_data = "";
-}
+} @Releases
 
 consume_next_line :: (sp: *string) -> string, bool {
     if sp.count <= 0 return "", false;

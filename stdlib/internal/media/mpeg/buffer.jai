@@ -146,7 +146,7 @@ buffer_destroy :: (using buffer: *Buffer) {
     if file_initted && close_when_done F.file_close(*fh);
     if free_when_done B.free(bytes);
     B.free(buffer);
-}
+} @Releases
 
 buffer_get_size :: (buffer: *Buffer) -> s64 {
     check_state(buffer);

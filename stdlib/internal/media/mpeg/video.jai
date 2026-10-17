@@ -77,7 +77,7 @@ video_destroy :: (video: *Video) {
     if video.destroy_buffer_when_done buffer_destroy(video.buffer);
     B.free(video.frames_data);
     B.free(video);
-}
+} @Releases
 
 video_has_header :: (video: *Video) -> bool {
     B.assert(video != null && video.buffer != null);

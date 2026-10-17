@@ -153,7 +153,7 @@ close :: (file: *Io_File, now := false) -> Io_Error {
     }
 
     return close_handle(file.handle);
-}
+} @Releases
 
 // The whole content of a file, in memory from `context.allocator` (free it with `free`).
 read_file :: (path: string) -> [] u8, Io_Error {

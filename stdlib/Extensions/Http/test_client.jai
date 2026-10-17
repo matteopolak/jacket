@@ -80,7 +80,7 @@ free_test_client :: (client: *Client) {
 
     array_reset(*client.headers);
     free(client);
-}
+} @Releases
 
 #scope_module
 
@@ -107,7 +107,7 @@ test_clients: [..] *Client;
 
 free_test_clients :: () {
     while test_clients.count > 0 free_test_client(test_clients[test_clients.count - 1]);
-}
+} @Releases
 
 test_host :: (target: *Test_Target) -> *Test_Host, Io.Io_Error {
     hosts := cast(*Test_Hosts) Io.scheduler_local(*test_hosts_key);

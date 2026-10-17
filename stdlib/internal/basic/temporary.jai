@@ -159,7 +159,7 @@ free_pages_down_to :: (ts: *Temporary_Storage_Paged_Alloc, page: *Overflow_Page)
         ts.data = ts.original_data;
         ts.size = ts.original_size;
     }
-}
+} @Releases
 
 get_temporary_storage_mark :: inline () -> Temporary_Storage_State {
     ts := cast(*Temporary_Storage_Paged_Alloc) context.temporary_storage;

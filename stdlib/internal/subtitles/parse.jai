@@ -11,7 +11,7 @@ free :: (using subtitles: *Subtitles) {
     if data_owned && data.data != null Basic.free(data);
 
     subtitles.* = .{};
-}
+} @Releases
 
 load_subtitles_from_file :: (path: string) -> bool, Subtitles {
     bytes, read_ok := F.read_entire_file(path);

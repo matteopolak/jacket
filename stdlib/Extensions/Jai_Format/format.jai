@@ -1351,7 +1351,7 @@ closes :: (open: string, close: string) -> bool {
     if close == ")" return open == "(";
     if close == "]" return open == "[" || open == ".[";
     return false;
-}
+} @Releases
 
 // Does the next code token begin a statement (rather than continue the previous line's)?
 starts_statement :: (f: *Formatter) -> bool {

@@ -54,7 +54,7 @@ create :: () -> (handles: [8] *void, success: bool, message: string) {
 destroy :: (handles: [8] *void) {
     #if OS == .MACOS for handle: handles if handle != null objc_release(handle);
     // Windows LoadCursorW returns shared system handles: DestroyCursor is forbidden.
-}
+} @Releases
 
 set :: (handle: *void) -> (success: bool, message: string) {
     if handle == null return false, "Cannot set a null native cursor";

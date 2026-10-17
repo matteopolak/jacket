@@ -36,7 +36,7 @@ destroy :: (using m: *Mutex) {
     result := P.pthread_mutex_destroy(*csection);
     if !sdk_ok(result, "pthread mutex destruction failed") return;
     #if THREAD_DEBUG initialized = false;
-}
+} @Releases
 
 lock :: (using m: *Mutex) {
     result := P.pthread_mutex_lock(*csection);
@@ -62,7 +62,7 @@ destroy :: (using cv: *Condition_Variable) {
     result := P.pthread_cond_destroy(*condition_variable);
     if !sdk_ok(result, "pthread condition destruction failed") return;
     #if THREAD_DEBUG initialized = false;
-}
+} @Releases
 
 csection_lock :: (csection: *Per_OS_Critical_Section_Type) #expand {
     result := P.pthread_mutex_lock(csection);
@@ -114,7 +114,7 @@ init :: (s: *Semaphore, initial_value: s32 = 0) {
 
 destroy :: (s: *Semaphore) {
     destroy_semaphore(s);
-}
+} @Releases
 
 signal :: (s: *Semaphore) {
     signal_semaphore(s);
@@ -224,7 +224,7 @@ destroy_semaphore :: (s: *Semaphore) -> bool {
     }
 
     return true;
-}
+} @Releases
 
 absolute_timeout :: (milliseconds: s32) -> P.timespec, bool #no_context {
     value: P.timespec;

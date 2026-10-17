@@ -326,7 +326,7 @@ closest :: (word: string, candidates: [] string) -> string {
     if best_distance > limit return "";
 
     return best;
-}
+} @Releases
 
 edit_distance :: (a: string, b: string) -> s64 {
     if !a.count return b.count;

@@ -203,4 +203,4 @@ acquire_output_lock :: () #no_context {
 release_output_lock :: () #no_context {
     released := Write_Lock.release();
     if !released c_abort();
-}
+} @Releases

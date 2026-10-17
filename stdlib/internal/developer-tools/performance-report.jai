@@ -95,4 +95,4 @@ release_report :: (p: *Metaprogram_Plugin) {
     free_buffers(*state.text);
     push_allocator(state.allocator);
     free(state);
-}
+} @Releases

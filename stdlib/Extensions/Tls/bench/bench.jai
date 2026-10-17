@@ -141,7 +141,7 @@ close_pair :: (pair: *Pair) {
         Io.close(pair.tcps[0]);
         Io.close(pair.tcps[1]);
     }
-}
+} @Releases
 
 // ---------------------------------------------------------------------------------------------
 // One transfer

@@ -102,7 +102,7 @@ onepass_free :: (t: *OnePass) {
     array_free(t.finals);
     array_free(t.updates);
     t.* = .{};
-}
+} @Releases
 
 // Fills `slots` (-1 where a group did not take part) with the offsets of the match
 // text[s .. e] that starts at `s`, which must be the match the pattern prefers there. False if

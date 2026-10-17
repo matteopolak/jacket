@@ -17,3 +17,15 @@ main :: () {
         defer array_reset(*items);
     }
 }
+
+dispose :: (memory: *void) {
+    free(memory);
+} @Releases
+
+noted_release :: () {
+    buffer := alloc(8);
+
+    for 1..2 {
+        defer dispose(buffer);
+    }
+}

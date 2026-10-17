@@ -78,7 +78,7 @@ free_json :: (error: *Json_Error) {
     if error.path.data free(error.path);
 
     error.* = .{};
-}
+} @Releases
 
 // Encodes `value`. Output is compact unless `pretty` (two-space indent). The result comes from
 // context.allocator.
@@ -236,7 +236,7 @@ free_json :: (value: *$T) {
     defaults: T;
 
     free_json_fields(value, *defaults);
-}
+} @Releases
 
 // Writes the JSON of the value `value` points to. This and json_decode are what `with=`
 // handlers call for the parts they do not encode themselves.
@@ -269,7 +269,7 @@ free_json_fields :: (value: *$T, defaults: *T) {
     #insert -> string {
         return generate_freer(T);
     };
-}
+} @Releases
 
 simd_enabled :: inline () -> bool {
     #if OS == .WASM return false;

@@ -856,7 +856,7 @@ emit_free :: (g: *Gen, out: *String_Builder, target: string, info: *Type_Info, d
                 print(out, "{\ndefault_%: type_of(%);\nfree_json_fields(%, *default_%);\n}\n", id, target, address_of(target), id);
             }
     }
-}
+} @Releases
 
 // The body of free_json_fields for T: `value` is what to free, `defaults` a default T.
 generate_freer :: (T: Type) -> string {

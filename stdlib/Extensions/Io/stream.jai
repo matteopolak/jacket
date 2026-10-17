@@ -173,13 +173,13 @@ close :: (reader: Reader, now := false) -> Io_Error {
     if !reader.close_proc return .NONE;
 
     return reader.close_proc(reader.data, now);
-}
+} @Releases
 
 close :: (writer: Writer, now := false) -> Io_Error {
     if !writer.close_proc return .NONE;
 
     return writer.close_proc(writer.data, now);
-}
+} @Releases
 
 // ---------------------------------------------------------------------------------------------
 // The built-in sources

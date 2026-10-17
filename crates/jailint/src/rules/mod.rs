@@ -21,7 +21,6 @@ mod identity_op;
 mod index_only_loop;
 mod infinite_loop;
 mod integer_division_in_float;
-pub(crate) mod library;
 mod lossy_xx;
 mod manual_assign_op;
 mod manual_index_counter;
@@ -233,7 +232,7 @@ pub static RULES: &[RuleInfo] = &[
     RuleInfo {
         name: "unused_result",
         default: Level::Warn,
-        summary: "a call to a library procedure that only computes a value, as a statement",
+        summary: "a call to a `@UseResult` procedure, as a statement",
         check: unused_result::check,
     },
     RuleInfo {
@@ -352,6 +351,29 @@ pub(crate) fn callee_procs<'c>(cx: &'c Cx, callee: &Expr) -> &'c [ProcId] {
         _ => return &[],
     };
     cx.facts.procs_at(span)
+}
+
+/// The procedure is declared with the note `@name`, on its header or after its body.
+pub(crate) fn has_note(cx: &Cx, proc: ProcId, name: &str) -> bool {
+    let is_name = |note: &jaic::ast::Note| &*note.text == name;
+    cx.compiler.procs[proc.0 as usize]
+        .lit
+        .header
+        .notes
+        .iter()
+        .any(is_name)
+        || cx
+            .compiler
+            .proc_decl_notes
+            .get(&proc)
+            .is_some_and(|notes| notes.iter().any(is_name))
+}
+
+/// Every procedure the callee named carries the note `@name`: the declaration, not the
+/// spelling of the name, says what the call means.
+pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
+    let procs = callee_procs(cx, callee);
+    !procs.is_empty() && procs.iter().all(|&p| has_note(cx, p, name))
 }
 
 /// Some statement inside `stmt` (itself included, nested procedures not entered) satisfies `f`.

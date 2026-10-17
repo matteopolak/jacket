@@ -19,4 +19,4 @@ allocate_values :: (count: s64, $T: Type) -> [] T, *void {
 
 release_values :: (memory: *void) {
     context.allocator.proc(.FREE, 0, 0, memory, context.allocator.data);
-}
+} @Releases

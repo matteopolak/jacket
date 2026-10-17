@@ -4,10 +4,10 @@
 //! `clamp(x, 0, 100)` (or `max(0, min(100, x))`).
 //!
 //! Fires on `min(a, max(b, x))` with literal bounds `a < b`, and `max(a, min(b, x))` with
-//! `a > b`, in either argument order, when `min` and `max` are the library's (`Basic` or
-//! `Math`).
-use super::library::MIN_MAX;
-use super::{finding, int_literal};
+//! `a > b`, in either argument order, when the outer and inner calls are to procedures
+//! declared with the notes `@Minimum` and `@Maximum` (the library's `min` and `max` carry
+//! them, whatever they are called where they are used).
+use super::{calls_noted, finding, int_literal};
 use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{Expr, ExprKind as E};
@@ -72,7 +72,7 @@ fn literal(e: &Expr) -> Option<f64> {
     }
 }
 
-/// `min(a, b)` or `max(a, b)` from the library: the name and the two arguments.
+/// A call of a `@Minimum` or `@Maximum` procedure: `min` or `max`, and the two arguments.
 fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2])> {
     let E::Call {
         callee,
@@ -88,10 +88,9 @@ fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2]
     if a.name.is_some() || b.name.is_some() || a.spread || b.spread {
         return None;
     }
-    let name = MIN_MAX
-        .names
-        .iter()
-        .copied()
-        .find(|n| MIN_MAX.calls(cx, callee, n))?;
+    let name = [("min", "Minimum"), ("max", "Maximum")]
+        .into_iter()
+        .find(|(_, note)| calls_noted(cx, callee, note))?
+        .0;
     Some((name, [&a.value, &b.value]))
 }

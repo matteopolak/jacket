@@ -1,6 +1,6 @@
 dot_product :: (a: Vector2, b: Vector2) -> float {
     return a.x * b.x + a.y * b.y;
-}
+} @UseResult
 
 length_squared :: inline (a: Vector2) -> float {
     return dot_product(a, a);
@@ -8,11 +8,11 @@ length_squared :: inline (a: Vector2) -> float {
 
 length :: (a: Vector2) -> float {
     return cast(float) length_wide(a);
-}
+} @UseResult
 
 abs :: inline (using v: Vector2) -> Vector2 {
     return .{ abs(v.x), abs(v.y) };
-}
+} @UseResult
 
 saturate :: (a: Vector2) -> Vector2 {
     return .{ saturate(a.x), saturate(a.y) };
@@ -20,15 +20,15 @@ saturate :: (a: Vector2) -> Vector2 {
 
 lerp :: (a: Vector2, b: Vector2, t: float) -> Vector2 {
     return .{ lerp(a.x, b.x, t), lerp(a.y, b.y, t) };
-}
+} @UseResult
 
 min :: inline (v1: Vector2, v2: Vector2) -> Vector2 {
     return .{ min(v1.x, v2.x), min(v1.y, v2.y) };
-}
+} @UseResult @Minimum
 
 max :: inline (v1: Vector2, v2: Vector2) -> Vector2 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y) };
-}
+} @UseResult @Maximum
 
 operator + :: (a: Vector2, b: Vector2) -> Vector2 {
     return .{ a.x + b.x, a.y + b.y };
@@ -84,7 +84,7 @@ distance_squared :: inline (a: Vector2, b: Vector2) -> float {
 
 unit_vector :: (v: Vector2) -> Vector2 {
     return unit_vector_wide(v);
-}
+} @UseResult
 
 distance :: (a: Vector2, b: Vector2) -> float {
     return length(a - b);
@@ -92,7 +92,7 @@ distance :: (a: Vector2, b: Vector2) -> float {
 
 dot_product :: (a: Vector3, b: Vector3) -> float {
     return a.x * b.x + a.y * b.y + a.z * b.z;
-}
+} @UseResult
 
 length_squared :: inline (a: Vector3) -> float {
     return dot_product(a, a);
@@ -100,11 +100,11 @@ length_squared :: inline (a: Vector3) -> float {
 
 length :: (a: Vector3) -> float {
     return cast(float) length_wide(a);
-}
+} @UseResult
 
 abs :: inline (using v: Vector3) -> Vector3 {
     return .{ abs(v.x), abs(v.y), abs(v.z) };
-}
+} @UseResult
 
 saturate :: (a: Vector3) -> Vector3 {
     return .{ saturate(a.x), saturate(a.y), saturate(a.z) };
@@ -112,15 +112,15 @@ saturate :: (a: Vector3) -> Vector3 {
 
 lerp :: (a: Vector3, b: Vector3, t: float) -> Vector3 {
     return .{ lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t) };
-}
+} @UseResult
 
 min :: inline (v1: Vector3, v2: Vector3) -> Vector3 {
     return .{ min(v1.x, v2.x), min(v1.y, v2.y), min(v1.z, v2.z) };
-}
+} @UseResult @Minimum
 
 max :: inline (v1: Vector3, v2: Vector3) -> Vector3 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z) };
-}
+} @UseResult @Maximum
 
 operator + :: (a: Vector3, b: Vector3) -> Vector3 {
     return .{ a.x + b.x, a.y + b.y, a.z + b.z };
@@ -168,7 +168,7 @@ distance_squared :: inline (a: Vector3, b: Vector3) -> float {
 
 unit_vector :: (v: Vector3) -> Vector3 {
     return unit_vector_wide(v);
-}
+} @UseResult
 
 distance :: (a: Vector3, b: Vector3) -> float {
     return length(a - b);
@@ -176,7 +176,7 @@ distance :: (a: Vector3, b: Vector3) -> float {
 
 dot_product :: (a: Vector4, b: Vector4) -> float {
     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-}
+} @UseResult
 
 length_squared :: inline (a: Vector4) -> float {
     return dot_product(a, a);
@@ -184,11 +184,11 @@ length_squared :: inline (a: Vector4) -> float {
 
 length :: (a: Vector4) -> float {
     return cast(float) length_wide(a);
-}
+} @UseResult
 
 abs :: inline (using v: Vector4) -> Vector4 {
     return .{ abs(v.x), abs(v.y), abs(v.z), abs(v.w) };
-}
+} @UseResult
 
 saturate :: (a: Vector4) -> Vector4 {
     return .{ saturate(a.x), saturate(a.y), saturate(a.z), saturate(a.w) };
@@ -196,15 +196,15 @@ saturate :: (a: Vector4) -> Vector4 {
 
 lerp :: (a: Vector4, b: Vector4, t: float) -> Vector4 {
     return .{ lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t), lerp(a.w, b.w, t) };
-}
+} @UseResult
 
 min :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
     return .{ min(v1.x, v2.x), min(v1.y, v2.y), min(v1.z, v2.z), min(v1.w, v2.w) };
-}
+} @UseResult @Minimum
 
 max :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z), max(v1.w, v2.w) };
-}
+} @UseResult @Maximum
 
 operator + :: (a: Vector4, b: Vector4) -> Vector4 {
     return .{ a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };
@@ -267,7 +267,7 @@ normalize :: (v: $T/MyVectors, epsilon := 0.0, fallback := T.{}) -> T {
     r := v;
     normalize(*r, epsilon, fallback);
     return r;
-}
+} @UseResult
 
 make_vector3 :: (c: [3] float) -> Vector3 {
     return .{ c[0], c[1], c[2] };
@@ -305,7 +305,7 @@ cross :: cross_product;
 
 cross_product :: (a: Vector3, b: Vector3) -> Vector3 {
     return .{ a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
-}
+} @UseResult
 
 rotate :: (v: Vector2, theta: float) -> Vector2 {
     c := cos(theta);

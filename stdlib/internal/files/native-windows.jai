@@ -54,7 +54,7 @@ file_close :: (file: *File) {
     }
 
     file.handle = W.INVALID_HANDLE_VALUE;
-}
+} @Releases
 
 file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, total_read: s64) {
     if !is_valid(f) || !vdata || bytes_to_read <= 0 return false, 0;

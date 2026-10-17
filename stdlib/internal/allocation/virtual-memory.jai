@@ -21,7 +21,7 @@
 
     release :: (start: *u8, bytes: u64) -> bool {
         return W.VirtualFree(start, 0, W.MEM_RELEASE) != 0;
-    }
+    } @Releases
 } else #if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
     page_size :: () -> s64 {
         return P.sysconf(P._SC_PAGESIZE);
@@ -43,7 +43,7 @@
 
     release :: (start: *u8, bytes: u64) -> bool {
         return P.munmap(start, bytes) == 0;
-    }
+    } @Releases
 }
 
 #scope_file

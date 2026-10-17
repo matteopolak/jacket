@@ -25,7 +25,7 @@ options:
   --context <file>  check an enclosing program; report only the requested paths
   --checked-files <file> write the actual checked paths, one per line
   --add <source>     add source in the program scope (also -add)
-  -j <n>              compile n programs at once (default 1)
+  -j <n>              compile n programs at once (default: one per CPU, at most 8)
   --list              list the rules and their default levels
   --color <when>      auto, always or never
   -v, --verbose       show each program as it is compiled
@@ -82,7 +82,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         config: None,
         levels: Vec::new(),
         imports: Vec::new(),
-        jobs: 1,
+        jobs: 0,
         color: jaic::render::ColorChoice::Auto,
         verbose: false,
     };

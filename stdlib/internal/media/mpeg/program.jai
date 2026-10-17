@@ -81,7 +81,7 @@ plm_destroy :: (using self: *Plm) {
     }
 
     B.free(self);
-}
+} @Releases
 
 has_headers :: (using self: *Plm) -> bool {
     B.assert(self != null && demux != null);

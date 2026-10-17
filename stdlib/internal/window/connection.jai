@@ -26,7 +26,7 @@ release_window :: (window: X11.Window) {
         Basic.array_unordered_remove_by_index(*X11.x_global_windows, index);
         break;
     }
-}
+} @Releases
 
 pointer_motion :: (window: X11.Window, x: s32, y: s32) -> int, int {
     for *resource: resources if resource.window == window {

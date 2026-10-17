@@ -114,7 +114,7 @@ free_app :: (app: *App) {
     array_reset(*app.groups);
     array_reset(*app.middleware);
     array_reset(*app.setup_errors);
-}
+} @Releases
 
 // Adds middleware that wraps every request (in the order added), including ones with no route.
 use :: (app: *App, middleware: Middleware) {

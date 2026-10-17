@@ -279,7 +279,7 @@ lerp :: (a: Matrix3, b: Matrix3, t: float) -> Matrix3 {
     r: Matrix3;
     for i: 0..8 r.floats[i] = lerp(a.floats[i], b.floats[i], t);
     return r;
-}
+} @UseResult
 
 adjoint_transpose :: (m: Matrix3) -> Matrix3 {
     return make_matrix_from_rows(cross(m.v[1], m.v[2]), cross(m.v[2], m.v[0]), cross(m.v[0], m.v[1]), Matrix3);

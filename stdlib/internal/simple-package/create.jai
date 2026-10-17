@@ -9,7 +9,7 @@ deinit :: (using package: *Create_Package) {
     B.array_free(entries);
     Pools.release(*pool);
     package.* = .{};
-}
+} @Releases
 
 add :: (package: *Create_Package, entry_name: string, data: [] u8) {
     B.assert(entry_name.count >= 0 && entry_name.count <= 0xffffffff);

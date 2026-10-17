@@ -190,7 +190,7 @@ thread_deinit :: (thread: *Thread) {
     release_thread_state(state);
     thread.index = 0;
     #if SET_THREAD_NAMES && SET_NAME_INSIDE_THREAD thread.c_name = null;
-}
+} @Releases
 
 #scope_module
 Init_Handler :: #type (thread: *Thread);
@@ -275,7 +275,7 @@ release_thread_state :: (state: *Thread_State) {
 
     allocator.proc(.FREE, 0, size_of(Thread_State), state, allocator.data);
     thread.index = 0;
-}
+} @Releases
 
 #if OS != .WINDOWS cleanup_thread_semaphores :: (state: *Thread_State) -> bool {
     if state.alive_initialized {

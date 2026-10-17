@@ -91,4 +91,4 @@ stack_allocate :: (bytes: s64) -> Stack {
 
 stack_release :: (stack: Stack) {
     if stack.base unmap_stack(stack.base, stack.size);
-}
+} @Releases

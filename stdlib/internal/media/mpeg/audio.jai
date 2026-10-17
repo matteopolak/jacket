@@ -59,7 +59,7 @@ audio_destroy :: (audio: *Audio) {
     remove_audio_private(audio);
     if audio.destroy_buffer_when_done buffer_destroy(audio.buffer);
     B.free(audio);
-}
+} @Releases
 
 audio_has_header :: (audio: *Audio) -> bool {
     B.assert(audio != null);
@@ -447,7 +447,7 @@ remove_audio_private :: (audio: *Audio) {
 free_private :: (node: *Audio_Private) {
     allocator := node.allocator;
     allocator.proc(.FREE, 0, 0, node, allocator.data);
-}
+} @Releases
 
 crc_bits :: (current: u16, bits: u32, count: s64) -> u16 {
     B.assert(count >= 0 && count <= 32);

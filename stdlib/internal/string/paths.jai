@@ -7,7 +7,7 @@
 path_filename :: (path: string) -> string {
     i := find_index_of_any_from_right(path, "/\\");
     return slice(path, i + 1, path.count);
-}
+} @UseResult
 
 path_strip_filename :: (path: string) -> string {
     i := find_index_of_any_from_right(path, "/\\");
@@ -19,14 +19,14 @@ path_extension :: (path: string) -> (extension: string, found_extension: bool) {
     dot := find_index_from_right(file, cast(u8) 46);
     if dot <= 0 return "", false;
     return slice(file, dot + 1, file.count), true;
-}
+} @UseResult
 
 path_strip_extension :: (path: string) -> string {
     file := path_filename(path);
     dot := find_index_from_right(file, cast(u8) 46);
     if dot <= 0 return path;
     return slice(path, 0, path.count - file.count + dot);
-}
+} @UseResult
 
 path_decomp :: (name: string) -> (path: string, basename: string, extension: string, basename_with_extension: string) {
     directory := path_strip_filename(name);

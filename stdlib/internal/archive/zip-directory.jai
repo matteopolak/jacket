@@ -7,7 +7,7 @@ deinit :: (dir: *Zip_Directory) {
 
     dir.* = .{};
     dir.file = retained;
-}
+} @Releases
 
 load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bool, dir: Zip_Directory) {
     file, opened := file_open(zip_filename, log_errors = false);

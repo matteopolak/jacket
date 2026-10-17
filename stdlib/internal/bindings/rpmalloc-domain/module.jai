@@ -47,7 +47,7 @@ restore :: (previous: *void) {
 destroy :: () {
     Bridge.domain_destroy(cast(*void) handle);
     handle = null;
-}
+} @Releases
 
 #scope_file
 Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = STATISTICS, RAW = RAW, PUBLIC_HEAPS = PUBLIC_HEAPS, GLOBAL_CACHE = GLOBAL_CACHE, THREAD_CACHE = THREAD_CACHE, ASSERTS = ASSERTS, VALIDATE_ARGS = VALIDATE_ARGS, ADAPTIVE = ADAPTIVE);

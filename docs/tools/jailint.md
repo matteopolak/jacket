@@ -12,7 +12,7 @@ jailint -D warnings stdlib    # fail on any finding (CI)
 jailint --list                # rules and default levels
 ```
 
-Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `-D warnings`), `--config`, `-I <dir>`, `-j <n>`, `--add <source>` (extra program-scope source, like jaic), `--color`, `-v`. Exit status: 0 clean, 1 a denied finding or incomplete compilation, 2 usage or configuration error. Output goes through the shared `jaic::render`, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` apply as in the compiler.
+Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `-D warnings`), `--config`, `-I <dir>`, `-j <n>` (programs compiled at once; default one per CPU, at most 8), `--add <source>` (extra program-scope source, like jaic), `--color`, `-v`. Exit status: 0 clean, 1 a denied finding or incomplete compilation, 2 usage or configuration error. Output goes through the shared `jaic::render`, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` apply as in the compiler.
 
 ## How it works
 
@@ -35,6 +35,26 @@ jailint --context app/main.jai path/to/parameterized-module
 `-os linux|windows|macos|wasm`, `-cpu x64|arm64` and `-target <triple>` select real compiler options; they do not rewrite OS/CPU constants. Windows from another OS defaults to the GNU ABI unless a `*-pc-windows-msvc` triple is given. Linker and SDK availability are not checked.
 
 `--context <program>` checks a module inside a real enclosing program (so module parameters are real) while reporting only the requested paths; an absent requested file fails the check. `--manifest <file>` writes JSON listing each compiler context (OS/CPU, `complete`, `visited_files`), `unvisited_files` (target-inactive conditional loads) and incomplete roots with their first error. A file visited in an incomplete context is not coverage; run one invocation per target and context group and merge the manifests. Do not lint a parameter-required module as an unbound root.
+
+## Declaration notes
+
+Four rules decide what a call means from a note on the procedure's declaration, never from its name. Write the note after the body (`} @UseResult`) or, for a bodiless declaration, after the semicolon. A call counts only when every procedure the callee resolved to carries the note, so notes work the same on your own procedures as on the library's, and a procedure that merely shares a name with a library one is left alone. The library's `Basic`, `String` and `Math` procedures are annotated where they are declared (`stdlib/internal/`).
+
+| Note | Rule | Meaning |
+| --- | --- | --- |
+| `@UseResult` | `unused_result` | calling it as a statement is a mistake: it only computes its result and leaves its arguments alone |
+| `@Minimum` | `min_max` | returns the smaller of its two arguments (the library's `min`) |
+| `@Maximum` | `min_max` | returns the larger of its two arguments (the library's `max`) |
+| `@RemovesElements` | `remove_in_for` | removes elements from the array its first argument points to |
+| `@Releases` | `defer_in_loop` | frees, closes or destroys what its argument holds (`free`, `array_free`, `array_reset`, closers and `deinit`s) |
+
+```jai
+shout :: (s: string) -> string {
+    return to_upper_copy(s);
+} @UseResult
+```
+
+To change what a rule recognises, annotate the declaration; `jailint` has no name lists, so adding a note needs no change to the linter.
 
 ## Rules
 
@@ -74,7 +94,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `shadowed_it` | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
 | `unused_import` | warn | yes | an `#import` nothing in its scope uses |
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
-| `unused_result` | warn | no | `trim(line);`: a library call that only computes a value, as a statement |
+| `unused_result` | warn | no | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
 | `unused_variable` | warn | yes | a local variable that is never used |
 | `wrapping_constant` | warn | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
 
@@ -89,7 +109,7 @@ Only when the other side is a non-constant `bool`.
 ### broken_doc_link
 Only comments directly above a declaration (or trailing a field or parameter) are read, and links resolve like the language server's. Whether bracketed text counts as a link is decided by `jaic::docs` (see [doc comments](../compiler/doc-comments.md)): `[x]`, `[TODO]`, `a[i]`, plain lowercase words and URL targets are not. A single close misspelling is offered as a quick fix. `// jailint: allow(broken_doc_link)` inside the comment silences it.
 ### defer_in_loop
-The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for release-like calls (`free`, `array_free`, `deinit`, names starting with `close`/`destroy`/`release`, ...) on values declared before the loop and not used earlier in the body.
+The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@Releases` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
 ### duplicate_condition
 Conditions must be side-effect-free; a call in between restarts the comparison.
 ### erasing_op
@@ -115,7 +135,7 @@ Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter
 `n := 0` right before a forward `for`, `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
 ### min_max
-Literal bounds only, with `Basic`'s or `Math`'s `min`/`max`. Use `clamp`.
+Literal bounds only, with `@Minimum`/`@Maximum` procedures (the library's `min`/`max`). Use `clamp`.
 ### needless_bool
 A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal. Comments inside the `if` withhold the fix.
 ### no_effect
@@ -127,7 +147,7 @@ Style rule, deliberately narrow so the fix never changes behaviour: the two stat
 ### redundant_cast
 Aliases like `c_long` differ per platform, so the value must be declared with the same type spelling. Polymorphic bodies and macros are skipped.
 ### remove_in_for
-The loop steps past the element moved into the removed slot. Use `remove it;`. Quiet for backwards loops and when `break`/`return` follows.
+The loop steps past the element moved into the removed slot. Use `remove it;`. Fires on `@RemovesElements` procedures (`Basic`'s `array_*_remove_*`). Quiet for backwards loops and when `break`/`return` follows.
 ### reversed_range
 Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-only.
 ### self_assignment
@@ -139,7 +159,7 @@ Unnamed imports count as used when any lookup went through them, or (guard for u
 ### unused_parameter
 Only for procedures whose every caller is in view: named, only called (never taken as a value), called at least once, not overloaded or exported, no `#c_call`/`#foreign`/`#expand`/notes. Also skipped when a variant exists (same name and parameter names, e.g. another platform's definition in an `#if` branch or sibling `.jai` file the program does not load; those files are parsed, not text-searched). Prefix a name with `_` to keep it.
 ### unused_result
-Fixed list of `Basic`/`String`/`Math` procedures, checked by what the name resolved to. Calls with a pointer argument (works in place) are skipped.
+Procedures declared with `@UseResult` (many in `Basic`/`String`/`Math`), so a program's own `trim` is left alone unless it carries the note. Calls with a pointer argument (works in place) are skipped.
 ### unused_variable
 A name that appears anywhere else in its block is never reported (covers `#if`-excluded code and `#asm`). Skipped: backtick declarations, `using`, `_` names, blocks with `#insert`, macros. Fix removes the declaration, drops trailing call results, or renames to `_`.
 ### wrapping_constant

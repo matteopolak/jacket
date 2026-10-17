@@ -18,3 +18,17 @@ main :: () {
     trim(*other);
     print("% % %\n", line, v, other);
 }
+
+// Without the note the name means nothing, even a library's name.
+trim :: (s: string) -> string {
+    return s;
+}
+
+plain :: (s: string) -> string {
+    return s;
+}
+
+unnoted_user_procedures :: () {
+    trim("quiet");
+    plain("quiet");
+}

@@ -198,7 +198,7 @@ env_number :: (name: *u8, fallback: s64) -> s64 {
         Thread.destroy(*pool.work);
 
         release_owned(pool, pool.allocator);
-    }
+    } @Releases
 
     // Hands the read or write `op` to a worker. False if the pool is not available.
     pool_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {

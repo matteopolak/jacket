@@ -8,6 +8,14 @@ The VS Code extension is now `matteopolak.jacket` (it was `matteopolak.jai-toolc
 
 Release archives are now named `jacket-<platform>.tar.gz` / `.zip` and unpack to `jacket-<platform>/` (they were `jai-<platform>`); `install.sh`, `install.ps1`, Homebrew and the editor extensions use the new names, and all earlier releases are removed.
 
+### Breaking changes
+
+`jailint` rules that treated some procedures specially now read a note on the declaration instead of matching names: `@UseResult` (`unused_result`), `@Minimum` and `@Maximum` (`min_max`), `@RemovesElements` (`remove_in_for`) and `@Releases` (`defer_in_loop`). The standard library carries them, so its behaviour is unchanged; a procedure of your own that a rule used to recognise by name needs the note. See [jailint](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md).
+
+### Performance
+
+`jailint` is several times faster on large trees: each file is linted once, not once per program that compiles it, it compiles programs in parallel by default (`-j`), and compiler lookups that scanned every scope or expansion are indexed.
+
 ## [0.17.0] - 2026-10-13
 
 One `jaic` command line instead of the `run`, `check` and `build` subcommands, with more options for the program being built.

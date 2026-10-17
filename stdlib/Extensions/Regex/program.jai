@@ -333,7 +333,7 @@ free_trie :: (node: *Trie_Node) {
     for node.edges if it.child free_trie(it.child);
     array_free(node.edges);
     free(node);
-}
+} @Releases
 
 trie_insert :: (root: *Trie_Node, path: [] Byte_Range) {
     node := root;

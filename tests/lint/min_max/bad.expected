@@ -16,3 +16,12 @@ warning[min_max]: this is always `100`: the bounds are swapped
    = help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
    = note: `min_max` is `warn` by default
 
+warning[min_max]: this is always `0`: the bounds are swapped
+  --> tests/lint/min_max/bad.jai:22:12
+   |
+22 |     return smallest(0, largest(100, n));
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: to keep a value between 0 and 100, write `clamp(value, 0, 100)`
+   = note: `min_max` is `warn` by default
+

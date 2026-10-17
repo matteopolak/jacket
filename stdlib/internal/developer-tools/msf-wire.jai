@@ -29,7 +29,7 @@ tools_msf_release :: (view: *Tools_Msf_View) {
     array_free(view.streams);
     array_free(view.directory_pages);
     view.* = .{};
-}
+} @Releases
 
 tools_msf_decode :: (content: string) -> Tools_Msf_View, Tools_Msf_Error {
     empty: Tools_Msf_View;

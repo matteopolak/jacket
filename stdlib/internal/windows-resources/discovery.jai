@@ -88,7 +88,7 @@ registry_text :: (key_name: string, value_name: string) -> string {
 close_registry_key :: (key: W.HKEY) {
     status := R.RegCloseKey(key);
     if status != 0 B.log_error("Registry key close failed (Win32 error %)", status);
-}
+} @Releases
 
 Version_Selection :: struct {
     fields: s32;

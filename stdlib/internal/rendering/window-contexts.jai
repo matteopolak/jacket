@@ -416,7 +416,7 @@ close_window :: (window: WT.Window_Type) {
             return;
         }
     }
-}
+} @Releases
 
 find :: (window: WT.Window_Type) -> *Context {
     for *item: contexts if item.window == window return item;

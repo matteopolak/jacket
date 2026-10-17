@@ -26,7 +26,7 @@ make_bit_array :: (count: int) -> Bit_Array {
 deinit :: (using array: *Bit_Array) {
     if slots.data allocator.proc(.FREE, 0, slots.count * 8, slots.data, allocator.data);
     slots.data = null;
-}
+} @Releases
 
 set_bit :: (using array: *Bit_Array, i: int) {
     assert(i >= 0 && i < count);

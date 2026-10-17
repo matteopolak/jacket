@@ -11,7 +11,7 @@ get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
 
 free :: (memory: *void) {
     allocator_call(context.allocator, .FREE, 0, 0, memory);
-}
+} @Releases
 
 realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
     assert(size >= 0 && old_size >= 0);
@@ -20,7 +20,7 @@ realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
 
 free :: inline (s: string) {
     free(s.data);
-}
+} @Releases
 
 alloc_string :: (count: int) -> string {
     memory := alloc(count);
@@ -32,7 +32,7 @@ copy_string :: (s: string) -> string {
     result := alloc_string(s.count);
     memcpy(result.data, s.data, s.count);
     return result;
-}
+} @UseResult
 
 to_string :: inline (s: *u8, length: s64) -> string {
     return .{ length, s };

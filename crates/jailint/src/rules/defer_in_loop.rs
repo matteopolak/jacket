@@ -11,9 +11,10 @@
 //! }
 //! ```
 //!
-//! Fires only when the deferred statement is a call that releases or destroys a value
-//! (`free`, `array_free`, `array_reset`, `deinit`, `uninit`, `destroy*`, `close*`,
-//! `release*`, `*_free`, ...). Other deferred statements (`level += 1`, `reset(*pool)`,
+//! Fires only when the deferred statement is a call of a procedure declared with the note
+//! `@Releases`: one that frees, closes or destroys what its argument holds (`free`,
+//! `array_free`, `array_reset` and the library's closers carry it; a program marks its own
+//! the same way). Other deferred statements (`level += 1`, `reset(*pool)`,
 //! `print(...)`) are deliberate per-iteration epilogues and stay quiet.
 //!
 //! Fires when the deferred statement uses only variables declared before the loop, and none
@@ -21,6 +22,7 @@
 //! pairs (`lock(*m); defer unlock(*m);`, `f := open(it); defer close(f);`), whose resource is
 //! taken in the same iteration, and loop steps such as `while i < n { defer i += 1; ... }`,
 //! whose variable the loop's header reads.
+use super::calls_noted;
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk, walk_node};
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
@@ -77,7 +79,7 @@ fn examine(
     before: &[Stmt],
     deferred: &Stmt,
 ) -> Option<Finding> {
-    if !releases(deferred) {
+    if !releases(cx, deferred) {
         return None;
     }
     // The variables the deferred code uses, and where they were declared.
@@ -132,37 +134,15 @@ fn examine(
 }
 
 /// Whether the deferred statement is made only of calls that release or destroy a value.
-fn releases(s: &Stmt) -> bool {
+fn releases(cx: &Cx, s: &Stmt) -> bool {
     match &s.kind {
         S::Expr(e) => match &e.kind {
             E::Call {
                 callee, ..
-            } => {
-                let name = match &callee.kind {
-                    E::Ident(n) => n.as_str(),
-                    E::Member(_, m) => m.name.as_str(),
-                    _ => return false,
-                };
-                is_release(name)
-            }
+            } => calls_noted(cx, callee, "Releases"),
             _ => false,
         },
-        S::Block(b) => !b.stmts.is_empty() && b.stmts.iter().all(releases),
+        S::Block(b) => !b.stmts.is_empty() && b.stmts.iter().all(|s| releases(cx, s)),
         _ => false,
     }
-}
-
-fn is_release(name: &str) -> bool {
-    let n = name.to_ascii_lowercase();
-    matches!(
-        n.as_str(),
-        "free" | "deinit" | "uninit" | "array_reset" | "array_free"
-    ) || ["destroy", "close", "release", "free_", "deinit_", "uninit_"]
-        .iter()
-        .any(|p| n.starts_with(p))
-        || [
-            "_free", "_destroy", "_close", "_release", "_deinit", "_uninit",
-        ]
-        .iter()
-        .any(|p| n.ends_with(p))
 }

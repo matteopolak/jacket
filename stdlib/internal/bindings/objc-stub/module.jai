@@ -46,4 +46,4 @@ instance_size :: (class: *void) -> u64 #foreign objc "class_getInstanceSize";
 
 release_string :: (value: string) {
     if value.data context.allocator.proc(.FREE, 0, value.count, value.data, context.allocator.data);
-}
+} @Releases

@@ -243,7 +243,7 @@ free_work_list :: (list: *Work_List, allocator: Allocator) {
     list.count = 0;
     destroy(*list.semaphore);
     destroy(*list.mutex);
-}
+} @Releases
 
 group_worker :: (thread: *Thread) -> s64 {
     worker := thread.worker_info;

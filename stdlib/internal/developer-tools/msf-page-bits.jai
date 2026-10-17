@@ -51,7 +51,7 @@ free_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     bits := cast(u64) fpm.rgw[word];
     bits |= mask;
     fpm.rgw[word] = cast(s64) bits;
-}
+} @Releases
 
 is_fpm_page_number :: (using fpm: Free_Page_Map, pn: UPN) -> bool {
     assert(fpm.fBigMsf && fpm.cbPg == 4096, "Debug_Info: unsupported free-page map format");

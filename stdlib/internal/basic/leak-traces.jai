@@ -32,4 +32,4 @@ raw_trace_copy :: (allocator: Allocator, node: *Stack_Trace_Node) -> *Packed_Sta
 raw_trace_free :: (allocator: Allocator, trace: *Packed_Stack_Trace) {
     if !trace return;
     allocator.proc(.FREE, 0, size_of(Packed_Stack_Trace) + trace.nodes.count * size_of(Stack_Trace_Node), trace, allocator.data);
-}
+} @Releases

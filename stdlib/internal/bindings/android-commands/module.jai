@@ -15,7 +15,7 @@ release_saved_state :: (app: *$T) {
         app.savedState = null;
         app.savedStateSize = 0;
     }
-}
+} @Releases
 
 pre_state :: (app: *$T, cmd: s8) {
     if cmd == 1 {

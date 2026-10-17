@@ -43,11 +43,11 @@ string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool,
     if negative value = 0 - value;
 
     return cast,truncate(T) value, true, advance(t, cursor);
-}
+} @UseResult
 
 to_integer :: (s: string) -> result: int, success: bool, remainder: string {
     return string_to_int(s);
-}
+} @UseResult
 
 eat_spaces :: (_s: string) -> string {
     i: s64;
@@ -61,7 +61,7 @@ string_to_float64 :: (_s: string) -> (result: float64, success: bool, remainder:
 
 string_to_float :: (arg: string) -> (result: float, success: bool, remainder: string) {
     return parse_float_number(arg, float32);
-}
+} @UseResult
 
 string_to_float64_new :: (_s: string) -> (success: bool, result: float64, remainder: string) {
     value, ok, rest := string_to_float64(_s);

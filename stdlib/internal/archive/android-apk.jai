@@ -51,7 +51,7 @@ apk_deinit :: (apk: *Android_Apk) {
     Apk_Zip.deinit(*apk.zip_dir);
     free(apk.data);
     memset(apk, 0, size_of(Android_Apk));
-}
+} @Releases
 
 for_expansion :: (apk: Android_Apk, body: Code, flags: For_Flags) #expand {
     #assert (flags & .POINTER) == 0, "APK iteration yields values, not pointers";

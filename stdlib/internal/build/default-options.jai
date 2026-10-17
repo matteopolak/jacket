@@ -141,4 +141,4 @@ free_build_request :: (request: *Build_Request) {
     array_free(request.import_paths);
     array_free(request.plugin_requests);
     array_free(request.target_arguments);
-}
+} @Releases

@@ -124,7 +124,7 @@ append_argument :: (args: *[..] string, value: string) {
 release_arguments :: (args: *[..] string) {
     for arg: args.* free(arg);
     array_free(args.*);
-}
+} @Releases
 
 link_arguments :: (root: string, phase: *C.Message_Phase, output: string) -> [..] string {
     args: [..] string;

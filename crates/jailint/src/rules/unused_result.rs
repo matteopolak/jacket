@@ -1,15 +1,14 @@
 //! `unused_result`: `trim(line);`, `to_upper_copy(name);`, `min(a, b);` as statements.
 //!
-//! These library procedures only compute a value: they do not change their arguments. Calling
+//! These procedures only compute a value: they do not change their arguments. Calling
 //! one as a statement does nothing (or leaks the copy it made), and the usual intent was to
 //! update the argument: `line = trim(line);`.
 //!
-//! Fires on an expression statement that calls one of a fixed list of value-returning
-//! procedures from `Basic`, `String` and `Math` (checked by what the name resolved to, so a
-//! program's own `trim` is not affected), when the call returns a value and no argument is a
-//! pointer (`normalize(*v)` normalizes in place).
-use super::library::VALUE_ONLY;
-use super::{finding, pure};
+//! Fires on an expression statement that calls a procedure declared with the note
+//! `@UseResult` (the library marks its value-returning `String`, `Basic` and `Math`
+//! procedures; a program marks its own the same way), when the call returns a value and no
+//! argument is a pointer (`normalize(*v)` normalizes in place).
+use super::{calls_noted, finding, pure};
 use crate::Finding;
 use crate::syntax::{Cx, Node, root_ident, walk};
 use jaic::ast::{ExprKind as E, StmtKind as S};
@@ -38,7 +37,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
-            if chain.iter().any(|a| matches!(a, Node::Expr(_))) || !VALUE_ONLY.called_by(cx, callee)
+            if chain.iter().any(|a| matches!(a, Node::Expr(_)))
+                || !calls_noted(cx, callee, "UseResult")
             {
                 return true;
             }

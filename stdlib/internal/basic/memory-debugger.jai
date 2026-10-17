@@ -25,7 +25,7 @@ _check_free :: inline (allocator: Allocator, memory: *void) {
         debug_release(allocator, memory, false);
         #if MEMORY_DEBUGGER && VISUALIZE_MEMORY_DEBUGGER && REPLACEMENT_INTERFACE == Memory_Debugger_Interface vis_update_if_it_has_been_long_enough();
     }
-}
+} @Releases
 
 _check_create_heap :: (a: Allocator) {
     if Debug_Context.is_active() return;
@@ -57,7 +57,7 @@ create_heap :: (a: Allocator) -> Allocator {
 destroy_heap :: (b: Allocator) {
     #if MEMORY_DEBUGGER Memory_Debugger.check_destroy_heap(b);
     b.proc(.DESTROY_HEAP, 0, 0, null, b.data);
-}
+} @Releases
 
 #load "allocator-call.jai";
 
@@ -279,4 +279,4 @@ debug_release :: (owner: Allocator, memory: *void, heap: bool) {
         metadata.proc(.FREE, 0, size_of(Allocation), released, metadata.data);
         released = next;
     }
-}
+} @Releases

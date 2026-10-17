@@ -72,9 +72,10 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
         if P.close(s.*) != 0 report_error();
         s.* = INVALID_SOCKET;
     }
-}
+} @Releases
 
 FD_BITS_ELEMENT_TYPE :: type_of(fd_set.fds_bits[0]);
+
 BITS_PER_FD_SET_MASK :: size_of(FD_BITS_ELEMENT_TYPE) * 8;
 
 check_fd_set :: (fd: s32, set: *fd_set) -> bool {

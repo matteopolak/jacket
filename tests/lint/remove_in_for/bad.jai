@@ -14,3 +14,15 @@ main :: () {
 
     print("%\n", xs);
 }
+
+drop_at :: (array: *[..] int, index: int) {
+    array_unordered_remove_by_index(array, index);
+} @RemovesElements
+
+noted_remover :: () {
+    values: [..] int;
+
+    for values {
+        drop_at(*values, it_index);
+    }
+}

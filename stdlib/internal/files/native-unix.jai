@@ -35,7 +35,7 @@ file_close :: (file: *File) {
     }
 
     file.handle = null;
-}
+} @Releases
 
 is_valid :: (file: File) -> bool {
     return file.handle != null;

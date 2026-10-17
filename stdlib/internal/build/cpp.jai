@@ -173,7 +173,7 @@ enum_cpp_files :: (path: string, recursive := false) -> [..] string {
 free_cpp_files :: (files: [] string) {
     for file: files free(file);
     array_free(files);
-}
+} @Releases
 
 #scope_file
 perform_universal :: (lib_path: string, files: ..string, type: Build_Type, debug := false, extra: [] string = .[], failure: *string) -> bool {

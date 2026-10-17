@@ -148,7 +148,7 @@ dfa_free :: (d: *Dfa) {
     array_free(d.stack);
     array_free(d.mark_a);
     array_free(d.mark_b);
-}
+} @Releases
 
 // Builds every state, so that no search ever needs the program. False if there are more than
 // the limit.

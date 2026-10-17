@@ -178,7 +178,7 @@ ring_deinit :: (ring: *Ring) {
     if ring.fd >= 0 close(ring.fd);
 
     ring.* = .{};
-}
+} @Releases
 
 // The next free submission entry, zeroed, or null when the submission queue is full (submit, then
 // ask again). Fill it in (prep_rw, prep_nop or by hand), set `user_data`, and call submit. With

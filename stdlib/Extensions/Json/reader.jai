@@ -54,7 +54,7 @@ reader_free :: (r: *Json_Reader) {
     array_free(r.scratch);
     array_free(r.values);
     array_free(r.members);
-}
+} @Releases
 
 #scope_export
 

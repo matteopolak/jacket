@@ -34,7 +34,7 @@ pipe_link :: (pipe: *Io.Pipe_Stream) -> Link {
 // it once. With `now` it does not wait (see `Io.close`).
 close :: (link: Link, now := false) -> Io.Io_Error {
     return Io.close(link.reader, now);
-}
+} @Releases
 
 // A `with_deadline` argument for a timeout setting in milliseconds where 0 or less means no limit.
 within :: (timeout: s64) -> s64 {

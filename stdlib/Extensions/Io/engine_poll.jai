@@ -277,7 +277,7 @@ poll_close :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {
     if engine.backend == .EPOLL && state.registered epoll_remove(engine, fd);
 
     state.* = .{};
-}
+} @Releases
 
 wait_append :: (state: *Fd_State, op: *Op) {
     op.next = null;

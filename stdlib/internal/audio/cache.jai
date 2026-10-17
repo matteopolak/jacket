@@ -65,7 +65,7 @@ free_unmarked_pages :: (using decoder: *Cached_Decoder) {
 
         pages.count -= 1;
     }
-}
+} @Releases
 
 find_page_by_base_address :: (using decoder: *Cached_Decoder, start_address: s64) -> *Cached_Decoder_Page {
     for page: pages if page.start_address == start_address return page;
@@ -87,7 +87,7 @@ deinit :: (using decoder: *Cached_Decoder) {
     if !decoder return;
     dispose_decoder_resources(decoder);
     free(decoder);
-}
+} @Releases
 
 #scope_module
 dispose_decoder_resources :: (using decoder: *Cached_Decoder) {

@@ -25,3 +25,12 @@ warning[unused_result]: the result of `sqrt` is discarded; it does not change it
    = help: use the result, or remove the call
    = note: `unused_result` is `warn` by default
 
+warning[unused_result]: the result of `shout` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:22:5
+   |
+22 |     shout("quiet");
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: use the result, or remove the call
+   = note: `unused_result` is `warn` by default
+

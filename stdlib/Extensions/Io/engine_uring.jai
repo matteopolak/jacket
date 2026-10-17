@@ -225,7 +225,7 @@ Accept_Wait :: struct {
         sqe = uring_entry(scheduler, engine);
         Uring.prep_rw(sqe, .CLOSE, fd, null, 0, 0);
         sqe.user_data = cast(u64) cast(*void) op;
-    }
+    } @Releases
 
     uring_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {
         sqe := uring_entry(scheduler, engine);
@@ -459,7 +459,7 @@ Accept_Wait :: struct {
 
         array_reset(*slot.queue);
         release_owned(slot, state.allocator);
-    }
+    } @Releases
 
     // The listener `fd` is being closed: sockets accepted ahead of time are closed, and the slot
     // goes when the kernel has ended its request (the close cancels it).

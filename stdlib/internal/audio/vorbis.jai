@@ -77,7 +77,7 @@ deinit_proc_ogg :: (decoder: *Cached_Decoder) {
         V.stb_vorbis_close(ogg.vorbis_file);
         ogg.vorbis_file = null;
     }
-}
+} @Releases
 
 make_page_ogg :: (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page {
     push_allocator(context.default_allocator);

@@ -1,10 +1,10 @@
 dot_product :: (a: Quaternion, b: Quaternion) -> float {
     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-}
+} @UseResult
 
 length :: (a: Quaternion) -> float {
     return length(xyzw(a.x, a.y, a.z, a.w));
-}
+} @UseResult
 
 normalize_or_identity :: (using q: *Quaternion) -> float {
     wide := length_wide(q.*);
@@ -20,7 +20,7 @@ normalize_or_identity :: (using q: *Quaternion) -> float {
 
 lerp :: (a: Quaternion, b: Quaternion, t: float) -> Quaternion {
     return .{ lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t), lerp(a.w, b.w, t) };
-}
+} @UseResult
 
 nlerp :: inline (p0: Quaternion, p1: Quaternion, fraction: float) -> Quaternion {
     q := lerp(p0, p1, fraction);

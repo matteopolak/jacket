@@ -11,7 +11,7 @@ terminated_copy :: (text: string) -> *u8 #no_context {
 
 release :: (memory: *void) #no_context {
     free(memory);
-}
+} @Releases
 
 allocate :: (bytes: s64) -> *void #no_context {
     p := malloc(cast(u64) bytes);

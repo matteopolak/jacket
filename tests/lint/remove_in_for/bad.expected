@@ -16,3 +16,12 @@ warning[remove_in_for]: `array_ordered_remove_by_index` changes `xs` while this 
    = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < xs`)
    = note: `remove_in_for` is `warn` by default
 
+warning[remove_in_for]: `drop_at` changes `values` while this `for` walks it
+  --> tests/lint/remove_in_for/bad.jai:26:9
+   |
+26 |         drop_at(*values, it_index);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: the element moved into the freed slot is skipped; use `remove it;` (or loop backwards with `for < values`)
+   = note: `remove_in_for` is `warn` by default
+

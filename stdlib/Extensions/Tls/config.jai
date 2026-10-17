@@ -110,7 +110,7 @@ tls_config_free :: (config: *Tls_Config) {
     release_native(config.native);
 
     config.native = null;
-}
+} @Releases
 
 // Whether `tls_accept` works with this config: it was set up, and has a certificate and key.
 can_accept :: (config: *Tls_Config) -> bool {
@@ -325,4 +325,4 @@ release_native :: (native: *Tls_Native) {
     array_free(native.alpn_list);
 
     free(native);
-}
+} @Releases

@@ -204,4 +204,4 @@ release_rewrites :: (p: *Metaprogram_Plugin) {
     }
 
     deinit(*my.files_to_rewrite);
-}
+} @Releases

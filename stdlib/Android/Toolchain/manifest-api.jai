@@ -9,7 +9,7 @@ deinit :: (using manifest: *Android_Manifest_Binary) {
     if free_data_on_deinit free(raw_data);
 
     memset(manifest, 0, size_of(Android_Manifest_Binary));
-}
+} @Releases
 
 read_binary_manifest_from_memory :: (data: string, filename := "<memory>") -> bool, Android_Manifest_Binary {
     result: Android_Manifest_Binary;

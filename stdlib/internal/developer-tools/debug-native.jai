@@ -10,9 +10,10 @@ backtrace :: (skip := 0) -> [] string {
 
 free_backtrace :: (trace_symbols: [] string) {
     native_free_symbols(trace_symbols.data);
-}
+} @Releases
 
 backtrace_symbols :: os_backtrace_symbols;
+
 translate_symbols :: backtrace_symbols;
 
 os_backtrace :: (trace: [] *void, maxcount: int, skip := 0) -> int {

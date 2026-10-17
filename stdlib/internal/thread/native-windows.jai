@@ -11,7 +11,7 @@ init :: (using m: *Mutex, desired_name := "", desired_order: Mutex_Order = -1) {
 
 destroy :: (using m: *Mutex) {
     W.DeleteCriticalSection(*csection);
-}
+} @Releases
 
 lock :: (using m: *Mutex) {
     W.EnterCriticalSection(*csection);
@@ -41,7 +41,7 @@ init :: (using cv: *Condition_Variable, desired_name := "") {
 destroy :: (using cv: *Condition_Variable) {
     // Win32 condition variables have no destruction API or allocated resource.
     condition_variable = .{};
-}
+} @Releases
 
 cvariable_wait :: (condition_variable: *Per_OS_Condition_Variable_Type, csection: *Per_OS_Critical_Section_Type, wait_time_ms: s32 = -1) {
     timeout := cast,no_check(u32) wait_time_ms;
@@ -80,7 +80,7 @@ destroy :: (s: *Semaphore) {
     closed := W.CloseHandle(s.event);
     if !windows_thread_check(closed != 0, "semaphore destruction failed") return;
     s.event = null;
-}
+} @Releases
 
 signal :: (s: *Semaphore) {
     released := W.ReleaseSemaphore(s.event, 1, null);

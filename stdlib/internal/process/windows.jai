@@ -18,11 +18,11 @@ create_process :: (process: *Process, args: ..string, working_directory := "", c
 
 deinit :: (process: *Process) {
     Engine.destroy(process);
-}
+} @Releases
 
 deinit :: (pipe: *Process.Pipe) {
     Engine.destroy_pipe(pipe);
-}
+} @Releases
 
 write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_written: int {
     return Engine.write_input(process, data);
@@ -58,7 +58,7 @@ W :: #import "Windows";
 
 close_pipe :: (pipe: *Process.Pipe) {
     deinit(pipe);
-}
+} @Releases
 
 cancel_or_report :: (process: *Process) {
     if !kill_process(process) context.logger("process termination failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });

@@ -44,7 +44,7 @@ inspect :: (data: string) -> bool, Directory {
 release :: (directory: *Directory) {
     B.array_free(directory.images);
     directory.* = .{};
-}
+} @Releases
 
 // Policy is supplied by the native caller; no public compatibility IDs are guessed.
 make_group :: (directory: Directory, first_image_id: u16) -> bool, string {
