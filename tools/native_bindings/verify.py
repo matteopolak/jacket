@@ -1143,16 +1143,14 @@ def run_verification(cleanup):
             (headers[0] if headers else "no error line")[:400],
             file=sys.stderr,
         )
-        if not headers:
-            # Nothing in the output names the problem: print what the check said, since the
-            # report is not kept anywhere a CI log reader can reach.
-            detail = {
-                key: (value[-600:] if isinstance(value, str) else value)
-                for key, value in failure.items()
-                if key in ("exit", "stdout", "stderr", "reason", "message", "error", "missing")
-                and value not in ("", None)
-            }
-            print("   ", json.dumps(detail), file=sys.stderr)
+        # What the check said: the report is not kept anywhere a CI log reader can reach.
+        detail = {
+            key: (value[-1500:] if isinstance(value, str) else value)
+            for key, value in failure.items()
+            if key in ("exit", "stdout", "stderr", "reason", "message", "error", "missing")
+            and value not in ("", None)
+        }
+        print("   ", json.dumps(detail), file=sys.stderr)
     if len(failures) > 40:
         print(
             "Remaining failed binding checks retained in report:",
