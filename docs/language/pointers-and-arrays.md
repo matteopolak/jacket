@@ -38,6 +38,7 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 
 - `remove v` copies the last element into the current slot, shrinks the count, and revisits the slot, so order is not preserved {#ptr.1}. It only works in a `for` over a view or dynamic array {#ptr.2}; otherwise `check_remove` (`sema/stmt.rs`) reports `remove is only valid inside a for loop over an array` {#ptr.3}.
 - `p += 1` and `p - q` scale by element size {#ptr.4}; `p - *buf[0]` is an element count {#ptr.5}.
+- Arrays (`[N]T`, `[]T`, `[..]T`) do not compare with `==` or `!=`: it is an error whose note names the type. Strings do compare. Compare lengths and elements instead (check in `check_binary`, `sema/expr.rs`).
 - `null` takes its type from context {#ptr.6}; `!p` and `p == null` test for null {#ptr.7}.
 - `*T` converts to `*void` implicitly; `cast(*int) void_ptr` goes back {#ptr.8}.
 - `arr.data` is a `*T` to the first element; pass it to hand an array to C {#ptr.9}.

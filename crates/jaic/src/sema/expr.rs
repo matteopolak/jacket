@@ -1501,7 +1501,17 @@ impl Compiler {
             // under the expected type as before {#num.16}.
             self.check_expr(f, scope, a, None)?
         } else {
-            self.check_expr(f, scope, a, lhs_expected)?
+            let own = is_complement_literal(a) && !is_shift && !is_cmp;
+            self.check_expr(
+                f,
+                scope,
+                a,
+                if own {
+                    None
+                } else {
+                    lhs_expected
+                },
+            )?
         };
         if let Operand::PolyStruct(ps) = lhs {
             lhs = Operand::Type(self.poly_struct_type(ps));
@@ -1532,24 +1542,28 @@ impl Compiler {
                 f,
                 scope,
                 b,
-                rhs_expected.or(if is_cmp || is_shift {
+                if is_complement_literal(b) && !is_shift && !is_cmp {
                     None
                 } else {
-                    expected
-                }),
+                    rhs_expected.or(if is_cmp || is_shift {
+                        None
+                    } else {
+                        expected
+                    })
+                },
             )?,
         };
         if let Operand::PolyStruct(ps) = rhs {
             rhs = Operand::Type(self.poly_struct_type(ps));
         }
-        // `s[0] == "-"`, `c - "0"`: a one-byte string constant next to an integer compares
-        // and offsets as that byte.
+        // `s[0] == "-"`, `c - "0"`: a one-byte string constant next to a `u8` compares and
+        // offsets as that byte. Wider integers do not take the conversion.
         if is_cmp || matches!(op, BinOp::Add | BinOp::Sub) {
             let byte_of = |c: &Compiler, op: &Operand, other: &Operand| match op {
                 Operand::Const {
                     value: Value::String(bytes),
                     ..
-                } if bytes.len() == 1 && c.types.is_integer(other.ty()) => {
+                } if bytes.len() == 1 && c.types.repr(other.ty()) == TypeId::U8 => {
                     Some(Operand::untyped_int(bytes[0] as i128))
                 }
                 _ => None,
@@ -1644,6 +1658,29 @@ impl Compiler {
             };
         }
         let (lty, rty) = (lhs.ty(), rhs.ty());
+        // Arrays (`[]T`, `[N]T`, `[..]T`) have no `==`; strings do.
+        if matches!(op, BinOp::Eq | BinOp::Ne) {
+            for t in [lty, rty] {
+                if matches!(self.types.kind(self.types.repr(t)), TypeKind::Array { .. }) {
+                    let symbol = if op == BinOp::Eq {
+                        "=="
+                    } else {
+                        "!="
+                    };
+                    return Err(Box::new(
+                        Diagnostic::error(
+                            span,
+                            format!("arrays cannot be compared with `{symbol}`"),
+                        )
+                        .with_note(
+                            span,
+                            format!("the compared type is `{}`", self.types.name(t)),
+                        )
+                        .with_help("compare the lengths and elements in a loop"),
+                    ));
+                }
+            }
+        }
         // Pointer arithmetic.
         if !is_cmp && self.types.is_pointer(lty) && matches!(op, BinOp::Add | BinOp::Sub) {
             let (_, base) = self.rvalue(f, lhs, span)?;
@@ -1754,6 +1791,35 @@ impl Compiler {
         // Unify operand types.
         let patterns = (self.bit_pattern(a.span), self.bit_pattern(b.span));
         let ty = self.binary_operand_type(&lhs, &rhs, expected, is_shift, patterns, span)?;
+        // A negative constant cannot meet a `u64`: nothing wider takes its place.
+        if !is_shift {
+            for (constant, other) in [(&rhs, &lhs), (&lhs, &rhs)] {
+                if let Operand::Const {
+                    value: Value::Int(v),
+                    untyped: true,
+                    ..
+                } = constant
+                    && *v < 0
+                    && !matches!(
+                        other,
+                        Operand::Const {
+                            untyped: true,
+                            ..
+                        }
+                    )
+                    && self.types.int_info(other.ty()) == Some((64, false))
+                    && !matches!(self.types.kind(other.ty()), TypeKind::Enum(_))
+                {
+                    return err(
+                        span,
+                        format!(
+                            "signedness mismatch: the constant {v} does not fit in `{}`",
+                            self.types.name(other.ty())
+                        ),
+                    );
+                }
+            }
+        }
         if self.types.repr(ty) == TypeId::BOOL
             && matches!(
                 op,
@@ -2468,7 +2534,12 @@ impl Compiler {
                     BinOp::Add => Some(float(a + b)),
                     BinOp::Sub => Some(float(a - b)),
                     BinOp::Mul => Some(float(a * b)),
-                    BinOp::Div => Some(float(a / b)),
+                    BinOp::Div => {
+                        if b == 0.0 {
+                            return err(span, "division by zero in constant expression");
+                        }
+                        Some(float(a / b))
+                    }
                     _ => a.partial_cmp(&b).and_then(cmp),
                 }
             }
@@ -2633,6 +2704,143 @@ impl Compiler {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// The type an `ifx` branch contributes, or `None` when it adapts to the other branch
+    /// (an untyped constant) or is not a plain value.
+    fn ifx_branch_type(op: &Operand) -> Option<TypeId> {
+        match op {
+            Operand::Const {
+                untyped: true, ..
+            }
+            | Operand::Procs(_)
+            | Operand::Void => None,
+            other => Some(other.ty()),
+        }
+    }
+
+    /// Both arms of an `ifx` must meet in one type: `ifx c then 1 else "a"` has none.
+    fn ifx_branch_agreement(
+        &mut self,
+        then_op: &Operand,
+        else_op: &Operand,
+        then_e: &ast::Expr,
+        else_e: &ast::Expr,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<()> {
+        if matches!(
+            then_op,
+            Operand::Procs(_) | Operand::Void | Operand::Type(_)
+        ) || matches!(
+            else_op,
+            Operand::Procs(_) | Operand::Void | Operand::Type(_)
+        ) {
+            return Ok(());
+        }
+        let (tt, et) = (
+            Self::ifx_branch_type(then_op),
+            Self::ifx_branch_type(else_op),
+        );
+        let number = |c: &Self, o: &Operand| {
+            matches!(
+                o,
+                Operand::Const {
+                    value: Value::Int(_) | Value::Float(_, _),
+                    untyped: true,
+                    ..
+                }
+            ) && !c.types.is_pointer(o.ty())
+        };
+        let agree = match (tt, et) {
+            (Some(a), Some(b)) if a != b => {
+                let to = |c: &mut Self, from: TypeId, into: TypeId| {
+                    c.implicit_cost(from, false, into).is_some()
+                };
+                to(self, a, b)
+                    || to(self, b, a)
+                    || expected.is_some_and(|e| to(self, a, e) && to(self, b, e))
+            }
+            (None, Some(b)) => !(number(self, then_op) && self.types.repr(b) == TypeId::STRING),
+            (Some(a), None) => !(number(self, else_op) && self.types.repr(a) == TypeId::STRING),
+            _ => true,
+        };
+        if agree {
+            return Ok(());
+        }
+        let describe = |c: &mut Self, o: &Operand| match Self::ifx_branch_type(o) {
+            Some(t) => c.types.name(t).to_string(),
+            None => {
+                let d = c.settle_untyped(o.clone(), None).ty();
+                format!("{} (untyped constant)", c.types.name(d))
+            }
+        };
+        let (a, b) = (describe(self, then_op), describe(self, else_op));
+        Err(Box::new(
+            Diagnostic::error(span, "the branches of `ifx` have different types")
+                .with_note(then_e.span, format!("the `then` value is `{a}`"))
+                .with_note(else_e.span, format!("the `else` value is `{b}`")),
+        ))
+    }
+
+    /// `ifx` with a constant condition: the taken branch is the value, so it stays constant,
+    /// but the other branch is still checked, and the arms must still agree on a type.
+    #[allow(clippy::too_many_arguments)]
+    fn fold_constant_ifx(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        cond_holds: bool,
+        then_e: &ast::Expr,
+        else_e: &ast::Expr,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<Operand> {
+        let (taken_e, other_e) = if cond_holds {
+            (then_e, else_e)
+        } else {
+            (else_e, then_e)
+        };
+        let taken = self.check_expr(f, scope, taken_e, expected)?;
+        // The other arm is lowered into a block nothing reaches.
+        let dead = f.b.new_block();
+        let after = f.b.new_block();
+        let never = f.b.iconst(Ty::I8, 0);
+        f.b.branch(never, dead, after);
+        f.b.switch_to(dead);
+        let other = self.check_expr(f, scope, other_e, expected);
+        f.b.jump(after);
+        f.b.switch_to(after);
+        let other = other?;
+        let (then_op, else_op) = if cond_holds {
+            (&taken, &other)
+        } else {
+            (&other, &taken)
+        };
+        self.ifx_branch_agreement(then_op, else_op, then_e, else_e, expected, span)?;
+        // A one-character string only becomes a byte where a string is converted directly,
+        // not through `ifx`.
+        if let (
+            Operand::Const {
+                value: Value::String(_),
+                ..
+            },
+            Some(e),
+        ) = (&taken, expected)
+            && self.types.is_integer(self.types.repr(e))
+        {
+            let (ty, val) = self.rvalue(f, taken.clone(), span)?;
+            self.convert(
+                f,
+                Operand::Value {
+                    ty,
+                    val,
+                },
+                e,
+                span,
+            )?;
+        }
+        Ok(taken)
+    }
+
     fn check_ifx(
         &mut self,
         f: &mut FnCtx,
@@ -2662,6 +2870,9 @@ impl Compiler {
                 _ => None,
             };
             if let Some(t) = taken {
+                if let (Some(then_e), Some(else_e)) = (then_value, else_value) {
+                    return self.fold_constant_ifx(f, scope, t, then_e, else_e, expected, span);
+                }
                 if t {
                     return self.check_expr(f, scope, then_value.unwrap(), expected);
                 } else if let Some(else_value) = else_value {
@@ -2721,6 +2932,9 @@ impl Compiler {
             Some(e) => Some(self.check_expr(f, scope, e, result_ty.or(expected))?),
             None => None,
         };
+        if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
+            self.ifx_branch_agreement(&then_op, else_op, then_e, else_e, expected, span)?;
+        }
         // Without a target type, a narrower numeric then-value widens to the else-value's
         // type (`ifx hit then entry.score_s16 else evaluate()` is an `s64`).
         let else_wider = match (then_ty, expected, &else_op) {
@@ -3095,6 +3309,12 @@ fn cast_operand_needs_target(e: &ast::Expr) -> bool {
         } => cast_operand_needs_target(a) && cast_operand_needs_target(b),
         _ => false,
     }
+}
+
+/// `~7`, `~0`: the complement of a constant. It is a 64-bit pattern whatever the other operand
+/// is, so it does not adapt to the width of that operand.
+fn is_complement_literal(e: &ast::Expr) -> bool {
+    matches!(&e.kind, E::Unary(ast::UnOp::BitNot, x) if is_number_literal(x))
 }
 
 /// A numeric literal, possibly signed or parenthesised arithmetic of literals (`-1`, `(2 * 3)`):

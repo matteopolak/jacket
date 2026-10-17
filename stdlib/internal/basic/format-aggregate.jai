@@ -91,7 +91,6 @@ render_struct :: (builder: *String_Builder, info: *Type_Info_Struct, base: *void
             if lines formatter_repeat(builder, 32, cast(s64) style.indentation_depth * cast(s64) format.indentation_width);
             append(builder, member.name);
             append(builder, format.separator_between_name_and_value);
-            append(builder, format.separator_between_name_and_value);
         } else if printed > 0 append(builder, format.short_form_separator_between_fields);
 
         value := Any.{ member.type, cast(*u8) base + member.offset_in_bytes };

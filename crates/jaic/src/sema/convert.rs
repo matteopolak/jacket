@@ -335,7 +335,17 @@ impl Compiler {
                 ),
             )
             .with_kind(DiagnosticKind::TypeMismatch);
-            if let Some(help) = self.conversion_help(from, to) {
+            if to == TypeId::U8
+                && let Operand::Const {
+                    value: Value::String(s),
+                    ..
+                } = &op
+            {
+                d = d.with_help(format!(
+                    "only a one-character string converts to a `u8`, and this one has {} bytes",
+                    s.len()
+                ));
+            } else if let Some(help) = self.conversion_help(from, to) {
                 d = d.with_help(help);
             }
             return Err(Box::new(d));
