@@ -970,6 +970,8 @@ pub struct SwitchStmt {
     pub value: Expr,
     pub cases: Vec<Case>,
     pub complete: bool,
+    /// `if #complete x == {`: from the `if` through the opening brace.
+    pub header: Span,
 }
 
 #[derive(Clone, Debug)]

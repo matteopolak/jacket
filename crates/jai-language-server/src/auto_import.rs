@@ -65,6 +65,13 @@ pub(crate) struct Module {
 pub(crate) struct Index {
     /// Module folders found for a program root (`modules.rs`), with the files they were read from.
     pub(crate) import_dirs: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>,
+    /// What each build metaprogram did when it last ran to the end (`semantic::BuildFacts`),
+    /// by its canonical path. Where a metaprogram has an entry here, discovery follows it
+    /// instead of reading the metaprogram's text.
+    pub(crate) builds: BTreeMap<PathBuf, crate::semantic::BuildFacts>,
+    /// The build files run to see what they build, with a hash of everything they were run
+    /// from: a metaprogram is run again only after that changes.
+    pub(crate) probed: BTreeMap<PathBuf, u64>,
     stdlib: Option<(PathBuf, Rc<Vec<Module>>)>,
     module_dirs: BTreeMap<PathBuf, Rc<Vec<Module>>>,
     /// Scans of files read from the environment.
@@ -153,6 +160,9 @@ struct Program {
     dir: PathBuf,
     /// The project's entry files: never offered for `#load`.
     entries: BTreeSet<PathBuf>,
+    /// `jai.toml`'s `build_files` that exist, when no entry's loads reach the document: one of
+    /// them may build it in a way only running it shows (a computed path).
+    unattributed: Vec<PathBuf>,
     /// Folders of user modules, searched in order.
     module_dirs: Vec<PathBuf>,
     os: TargetOs,
@@ -300,10 +310,16 @@ impl Sources<'_> {
             for load in &scan.loads {
                 pending.push(project::normalize(&dir.join(&load.path)));
             }
-            // What a build metaprogram compiles belongs to its program: relative to the
-            // metaprogram's folder, where `set_working_directory(#filepath)` usually puts it.
-            for build in &scan.builds {
-                pending.push(project::normalize(&dir.join(build)));
+            // What a build metaprogram compiles belongs to its program. After a run, the files
+            // it added; before the first run (or without a compile), the literal paths of its
+            // `add_build_file` calls, relative to the metaprogram's folder, where
+            // `set_working_directory(#filepath)` usually puts it.
+            if let Some(facts) = index.builds.get(&file) {
+                pending.extend(facts.programs.iter().flat_map(|p| p.files.iter().cloned()));
+            } else {
+                for build in &scan.builds {
+                    pending.push(project::normalize(&dir.join(build)));
+                }
             }
         }
         seen
@@ -556,6 +572,14 @@ impl Sources<'_> {
                 }
             }
         }
+        let unattributed: Vec<PathBuf> = match (&found, &config) {
+            (None, Some((_, config))) if !config.build_files.is_empty() => entries
+                .iter()
+                .filter(|e| self.is_file(e))
+                .cloned()
+                .collect(),
+            _ => Vec::new(),
+        };
         let (root, closure) = match found {
             Some(found) => found,
             None => {
@@ -628,6 +652,7 @@ impl Sources<'_> {
             closure,
             dir,
             entries,
+            unattributed,
             module_dirs,
             os: options.os,
             stdlib,
@@ -656,6 +681,40 @@ impl Session {
     /// Auto-import items for `prefix` at the cursor of `uri` (whose text is `text`), leaving out
     /// `visible` names; and whether the list is incomplete (more matches, or too short a prefix
     /// yet, so the client asks again as the word grows).
+    /// The `jai.toml` build files whose run is still unknown and could attribute `uri` to a
+    /// program, with a hash of what each would be run from (see `Index::probed`).
+    pub(crate) fn unrecorded_builds(&self, uri: &DocumentUri) -> Vec<(PathBuf, u64)> {
+        let Some(env) = self.environment.as_ref() else {
+            return Vec::new();
+        };
+        let sources = self.sources(env);
+        let mut index = self.index.borrow_mut();
+        let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
+        let mut out = Vec::new();
+        for entry in program.unattributed {
+            if index.builds.contains_key(&entry) {
+                continue;
+            }
+            // Everything the run reads: the metaprogram, what it loads, the settings file.
+            let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
+            if let Some((folder, _)) = sources.config(&mut index, &entry) {
+                files.push(folder.join(CONFIG_FILE));
+            }
+            let mut texts = String::new();
+            for file in files {
+                texts.push_str(&file.to_string_lossy());
+                texts.push('\0');
+                texts.push_str(&sources.read(&file).unwrap_or_default());
+                texts.push('\0');
+            }
+            let hash = hash(&texts);
+            if index.probed.get(&entry) != Some(&hash) {
+                out.push((entry, hash));
+            }
+        }
+        out
+    }
+
     /// The entry file of the project program `uri` belongs to (`jai.toml`'s `build_files`, an
     /// inferred entry, or the file that loads it), read from disk and the open documents.
     pub(crate) fn project_root(&self, uri: &DocumentUri) -> Option<PathBuf> {

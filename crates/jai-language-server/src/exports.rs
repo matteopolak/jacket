@@ -67,7 +67,8 @@ pub struct FileScan {
     pub imports: Vec<Directive>,
     pub loads: Vec<Directive>,
     /// Files a build metaprogram compiles: the string literal of each `add_build_file("x", w)`
-    /// call, anywhere in the file.
+    /// call, anywhere in the file. A fallback: once the metaprogram has run, the files it really
+    /// added (`semantic::BuildFacts`) are used instead.
     pub builds: Vec<String>,
     /// The targets a top-level `#assert OS == .A || OS == .B` allows (`["A", "B"]`).
     pub only_os: Option<Vec<String>>,

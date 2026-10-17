@@ -2443,6 +2443,7 @@ impl Exporter<'_> {
                     value,
                     cases,
                     complete,
+                    ..
                 } = &**boxed;
                 self.switch(value, cases, 0x1 | ((*complete as i64) * 0x8), span)
             }

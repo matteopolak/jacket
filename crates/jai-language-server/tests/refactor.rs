@@ -91,7 +91,11 @@ fn actions(text: &str, range: Range) -> Vec<CodeAction> {
         .code_actions(&uri(), range)
         .unwrap()
         .into_iter()
-        .filter(|a| a.kind.is_some_and(|k| k.starts_with("refactor")))
+        .filter(|a| {
+            a.kind.is_some_and(|k| k.starts_with("refactor"))
+                // On a `#complete` switch's error the fill-in is the error's quick fix.
+                || (a.kind == Some("quickfix") && a.title.starts_with("Add missing cases"))
+        })
         .collect()
 }
 
@@ -736,5 +740,101 @@ fn an_incomplete_switch_keeps_types_and_offers_its_missing_cases() {
     assert!(
         apply(INCOMPLETE, fills[0])
             .contains("            print(\"%\\n\", three[index]);\n        case .NULL;\n    }")
+    );
+}
+
+/// Every layout of the switch body gets its cases, with the braces rewritten when they share
+/// a line with the cases.
+#[test]
+fn missing_cases_fill_every_switch_shape() {
+    const A: &str = "Kind :: enum { ONE; TWO; THREE; }\n";
+    let head = |body: &str, sw: &str| {
+        format!("{A}f :: (k: Kind) -> int {{\n    {sw}{body}\n    return 1;\n}}\n")
+    };
+    let all = "\n        case .ONE;\n        case .TWO;\n        case .THREE;\n    }";
+    let cases = [
+        ("if #complete k == ", "{ }", format!("{{{all}")),
+        ("if k == ", "{}", format!("{{{all}")),
+        ("if k == ", "{\n    }", format!("{{{all}")),
+        (
+            "if k == ",
+            "{ case .TWO; }",
+            "{ case .TWO;\n        case .ONE;\n        case .THREE;\n    }".to_string(),
+        ),
+        (
+            "if k == ",
+            "{ case .TWO; case; }",
+            "{ case .TWO;\n        case .ONE;\n        case .THREE;\n        case; }".to_string(),
+        ),
+        (
+            "if k == ",
+            "{\n        case .TWO; case; }",
+            "{\n        case .TWO;\n        case .ONE;\n        case .THREE;\n        case; }"
+                .to_string(),
+        ),
+    ];
+    for (sw, body, want) in cases {
+        let text = head(body, sw);
+        let out = run(&text, cursor(&text, "if ", 1), "Add missing cases");
+        assert_eq!(out, head(&want, sw), "{sw}{body}");
+    }
+}
+
+/// The incomplete-switch error spans the header (`if #complete x == {`), and the quick fix is
+/// offered anywhere in it.
+#[test]
+fn incomplete_switch_error_spans_the_header() {
+    let text = "Kind :: enum { A; B; }\nf :: (k: Kind) {\n    if #complete k == { }\n}\n";
+    let s = open(text);
+    let diagnostics = s.diagnostics(&uri()).unwrap();
+    let d = diagnostics
+        .iter()
+        .find(|d| d.message.starts_with("#complete switch on"))
+        .expect("an error");
+    let header = "if #complete k == {";
+    let at = text.find(header).unwrap();
+    assert_eq!(d.range.start, position(text, at));
+    assert_eq!(d.range.end, position(text, at + header.len()));
+    for marker in ["if #", "#complete", "k ==", "== {", "{ }"] {
+        let range = cursor(text, marker, 1);
+        let fixes: Vec<_> = s
+            .code_actions(&uri(), range)
+            .unwrap()
+            .into_iter()
+            .filter(|a| a.kind == Some("quickfix") && a.title.starts_with("Add missing cases"))
+            .collect();
+        assert_eq!(fixes.len(), 1, "{marker}");
+    }
+}
+
+#[test]
+fn missing_cases_keep_crlf_and_tabs() {
+    let text = "Kind :: enum { ONE; TWO; }\r\nf :: (k: Kind) {\r\n\tif k == { }\r\n}\r\n";
+    let out = run(text, cursor(text, "if k", 1), "Add missing cases");
+    assert_eq!(
+        out,
+        "Kind :: enum { ONE; TWO; }\r\nf :: (k: Kind) {\r\n\tif k == {\r\n\t\tcase .ONE;\r\n\t\tcase .TWO;\r\n\t}\r\n}\r\n"
+    );
+}
+
+#[test]
+fn missing_cases_for_flags_nested_enums_and_member_values() {
+    let text = "Flags :: enum_flags { READ; WRITE; EXEC; }\nf :: (k: Flags) { if k == { } }\n";
+    let out = run(text, cursor(text, "if k", 1), "Add missing cases (3)");
+    assert!(
+        out.contains("case .READ;") && out.contains("case .EXEC;"),
+        "{out}"
+    );
+    let text = "Shape :: struct { Kind :: enum { A; B; } }\nf :: (k: Shape.Kind) { if #complete k == { } }\n";
+    let out = run(text, cursor(text, "if #", 1), "Add missing cases (2)");
+    assert!(
+        out.contains("case .A;") && out.contains("case .B;"),
+        "{out}"
+    );
+    let text = "Kind :: enum { A; B; }\nP :: struct { kind: Kind; }\nf :: (p: P) {\n    if p.kind == {\n    }\n}\n";
+    let out = run(text, cursor(text, "if p", 1), "Add missing cases (2)");
+    assert!(
+        out.contains("        case .A;\n        case .B;\n    }"),
+        "{out}"
     );
 }

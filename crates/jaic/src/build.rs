@@ -238,6 +238,12 @@ pub trait WorkspaceObserver {
     /// The workspace is done (`failed`: it did not compile); the compiler is handed over
     /// instead of being dropped.
     fn finished(&mut self, compiler: Box<Compiler>, failed: bool);
+
+    /// The metaprogram added a file (`add_build_file`, as its canonical path) or a string
+    /// (`add_build_string`) to workspace `workspace`, the id the workspace's compiler carries
+    /// as `Compiler::workspace`.
+    fn source_added(&mut self, _workspace: i64, _source: &ProgramSource) {
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1876,13 +1882,19 @@ pub fn call(
                     )
                 }));
             }
-            let ws = reg.ws(id).map_err(trap)?;
-            ws.queue_source(if op == MetaOp::AddFile {
+            let source = if op == MetaOp::AddFile {
                 ProgramSource::File(path)
             } else {
                 ProgramSource::String(value)
-            })
-            .map_err(trap)?;
+            };
+            let ws = reg.ws(id).map_err(trap)?;
+            ws.queue_source(source.clone()).map_err(trap)?;
+            let observer = reg.env.observer.take();
+            drop(reg);
+            if let Some(mut o) = observer {
+                o.source_added(id, &source);
+                shared.borrow_mut().env.observer = Some(o);
+            }
             Ok(Rets::default())
         }
         MetaOp::DestroyWorkspace => {

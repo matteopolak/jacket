@@ -203,8 +203,10 @@ pub(crate) struct Analysis {
     pub diagnostics: Vec<Diagnostic>,
     pub loads: Vec<(DocumentUri, Span)>,
     pub opaque_scopes: Vec<Span>,
-    /// Print-family calls with a literal format string.
+    /// Calls with a literal format string (candidates; see `Session::format_calls`).
     pub format_calls: Vec<crate::format::FormatCall>,
+    /// Names this document declares with the `@PrintLike` note.
+    pub print_like: std::collections::HashSet<String>,
     /// `#load` / `#import` strings.
     pub links: Vec<crate::links::Link>,
     pub complete: bool,
@@ -253,6 +255,7 @@ impl Analysis {
             loads: vec![],
             opaque_scopes: vec![],
             format_calls: vec![],
+            print_like: Default::default(),
             links: vec![],
             complete: false,
             key: crate::semantic::text_key(text),
@@ -280,6 +283,7 @@ impl Analysis {
         }
         result.tokens = converted;
         result.format_calls = crate::format::calls(&tokens, text);
+        result.print_like = crate::format::local_print_like(&tokens);
         result.links = crate::links::links(&tokens);
         if nesting(&tokens) > limits.recursive_tokens {
             result.diagnostic(
@@ -314,6 +318,7 @@ impl Analysis {
         // those current tokens too, or an unaffected name may still look like a string.
         result.tokens = editor_tokens(&parsed.tokens);
         result.format_calls = crate::format::calls(&parsed.tokens, text);
+        result.print_like = crate::format::local_print_like(&parsed.tokens);
         result.links = crate::links::links(&parsed.tokens);
         if result.tokens.len() > limits.tokens {
             let at = result.tokens[limits.tokens].span;

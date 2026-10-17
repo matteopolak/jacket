@@ -84,8 +84,8 @@ pub struct IdeCallInfo {
     /// Index of the chosen procedure in `signatures`.
     pub active: usize,
     pub args: Vec<IdeArgInfo>,
-    /// Header parameter that takes the format string, when the procedure is print-like: a
-    /// `string` parameter followed by a variadic `Any` one.
+    /// Header parameter that takes the format string, when the procedure is declared
+    /// `@PrintLike`: its `string` parameter followed by a variadic `Any` one.
     pub format_param: Option<usize>,
 }
 
@@ -749,6 +749,7 @@ impl Compiler {
                 && matches!(&w[1].ty, Some(ast::Expr { kind: ast::ExprKind::Ident(n), .. }) if n.as_str() == "Any");
             is_string && any_args
         });
+        let format_param = format_param.filter(|_| self.is_print_like(call.chosen));
         let args = call
             .args
             .iter()

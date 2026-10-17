@@ -239,7 +239,7 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
     }
 
     return !builder.failed;
-}
+} @PrintLike
 
 my_is_digit :: (c: s64) -> bool {
     return c >= 48 && c <= 57;
@@ -265,7 +265,7 @@ sprint :: (format_string: string, args: ..Any) -> string {
     defer free_buffers(*builder);
     if !print_to_builder(*builder, format_string, ..args) return "";
     return builder_to_string(*builder);
-} @UseResult
+} @UseResult @PrintLike
 
 print :: print_to_builder;
 
@@ -278,7 +278,7 @@ tprint :: (format_string: string, args: ..Any) -> string {
     push_allocator(temp);
 
     return builder_to_string(*builder);
-} @UseResult
+} @UseResult @PrintLike
 
 print_character :: (_c: u8) {
     write_string(string.{ 1, *_c });

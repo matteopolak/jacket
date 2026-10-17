@@ -817,25 +817,51 @@ impl<'a> Cx<'a> {
             return;
         }
         let (sa, sb) = stmt_extent(self.text, stmt);
+        if self.text.get(sb.saturating_sub(1)..sb) != Some("}") {
+            return;
+        }
         // New cases go before a `case;` that takes the rest, else before the closing brace.
         let before = match cases.iter().find(|c| c.values.is_empty()) {
             Some(default) => default.span.start as usize,
-            None => sb.saturating_sub(1),
+            None => sb - 1,
         };
-        if self.text.get(sb.saturating_sub(1)..sb) != Some("}") || !starts_line(self.text, before) {
-            return;
-        }
+        let outer = indent_at(self.text, sa).to_string();
         let indent = match cases.first() {
-            Some(c) => indent_at(self.text, c.span.start as usize).to_string(),
-            None => format!("{}{}", indent_at(self.text, sa), self.unit),
+            Some(c) if starts_line(self.text, c.span.start as usize) => {
+                indent_at(self.text, c.span.start as usize).to_string()
+            }
+            _ => format!("{outer}{}", self.unit),
         };
-        let at = line_start(self.text, before);
-        let text: String = missing
-            .iter()
-            .map(|n| format!("{indent}case .{n};{}", self.nl))
-            .collect();
+        let nl = self.nl;
+        let edit = if starts_line(self.text, before) {
+            // A line of its own: whole lines go in above it.
+            let at = line_start(self.text, before);
+            let text: String = missing
+                .iter()
+                .map(|n| format!("{indent}case .{n};{nl}"))
+                .collect();
+            self.edit(at, at, text)
+        } else {
+            // Something shares the line (`{ }`, `{ case .A; }`): break the line before `before`
+            // and put what follows on a line of its own, indented like the line it was on.
+            let keep = if before == sb - 1 {
+                &outer
+            } else {
+                &indent
+            };
+            let from = before
+                - (self.text[..before].len()
+                    - self.text[..before].trim_end_matches([' ', '\t']).len());
+            let mut text: String = missing
+                .iter()
+                .map(|n| format!("{nl}{indent}case .{n};"))
+                .collect();
+            text.push_str(nl);
+            text.push_str(keep);
+            self.edit(from, before, text)
+        };
         let title = format!("Add missing cases ({})", missing.len());
-        out.extend(self.action(title, REWRITE, vec![self.edit(at, at, text)]));
+        out.extend(self.action(title, REWRITE, vec![edit]));
     }
 
     /// The members of the enum or struct at `at`.

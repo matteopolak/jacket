@@ -338,8 +338,9 @@ impl Compiler {
                     value,
                     cases,
                     complete,
+                    header,
                 } = &**boxed;
-                self.check_switch(f, scope, value, cases, *complete, span)
+                self.check_switch(f, scope, value, cases, *complete, *header, span)
             }
             S::StaticSwitch(boxed) => {
                 let crate::ast::SwitchStmt {
@@ -1715,6 +1716,7 @@ impl Compiler {
         value: &ast::Expr,
         cases: &[ast::Case],
         complete: bool,
+        header: Span,
         span: Span,
     ) -> Result<()> {
         let v = self.check_expr(f, scope, value, None)?;
@@ -1765,7 +1767,7 @@ impl Compiler {
                     cases,
                     &taken,
                     complete,
-                    value,
+                    header,
                     span,
                 );
             }
@@ -1777,7 +1779,7 @@ impl Compiler {
                     cases,
                     &[],
                     complete,
-                    value,
+                    header,
                     span,
                 );
             }
@@ -1810,7 +1812,7 @@ impl Compiler {
         }
         // A missing case is reported after the bodies are checked, so they still have types.
         let missing = if complete {
-            self.check_switch_complete(vty, &covered, value.span)
+            self.check_switch_complete(vty, &covered, header)
         } else {
             Ok(())
         };
@@ -1858,7 +1860,7 @@ impl Compiler {
         cases: &[ast::Case],
         taken: &[usize],
         complete: bool,
-        value: &ast::Expr,
+        header: Span,
         span: Span,
     ) -> Result<()> {
         let mut covered = Vec::new();
@@ -1896,7 +1898,7 @@ impl Compiler {
         }
         f.b.switch_to(here);
         if complete {
-            self.check_switch_complete(vty, &covered, value.span)?;
+            self.check_switch_complete(vty, &covered, header)?;
         }
         Ok(())
     }
@@ -2653,6 +2655,9 @@ impl Compiler {
             if let Resolved::Proc(p) = self.resolve_entity(id)? {
                 procs.push(p);
             }
+        }
+        if let Some(iterator) = &for_.iterator {
+            self.ide_note_for_iterator(iterator, &procs);
         }
         if procs.is_empty() {
             return err(

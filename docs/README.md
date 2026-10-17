@@ -10,7 +10,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Compiler
 
-[Architecture](compiler/architecture.md), [parser](compiler/parser.md), [sema](compiler/sema.md), [variables vs constants](compiler/variable-constness.md), [IR](compiler/ir.md), [interpreter](compiler/interpreter.md), [diagnostics](compiler/diagnostics.md), [compile speed](compiler/compile-speed.md), [`#asm`](compiler/asm.md), [compiler builtins](compiler/compiler-builtins.md), [targets](compiler/targets.md), [stack traces](compiler/stack-traces.md), [doc comments](compiler/doc-comments.md), [language server](compiler/language-server.md).
+[Architecture](compiler/architecture.md), [parser](compiler/parser.md), [sema](compiler/sema.md), [variables vs constants](compiler/variable-constness.md), [IR](compiler/ir.md), [interpreter](compiler/interpreter.md), [diagnostics](compiler/diagnostics.md), [compile speed](compiler/compile-speed.md), [`#asm`](compiler/asm.md), [compiler builtins](compiler/compiler-builtins.md), [targets](compiler/targets.md), [stack traces](compiler/stack-traces.md), [doc comments](compiler/doc-comments.md), [language server](compiler/language-server.md), [file identity](compiler/file-identity.md).
 
 ## Native and browser
 

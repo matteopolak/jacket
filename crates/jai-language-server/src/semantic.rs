@@ -169,6 +169,22 @@ impl FileSystem for OverlayFs {
     }
 }
 
+/// What one run of a build metaprogram did: per workspace it created, the files it added with
+/// `add_build_file` (canonical keys), how many strings with `add_build_string`, and the module
+/// folders its build options add to the import path. Recorded while the metaprogram runs, so
+/// computed paths (`tprint`, variables, loops) are known exactly.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BuildFacts {
+    pub programs: Vec<BuiltProgram>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BuiltProgram {
+    pub files: Vec<PathBuf>,
+    pub strings: usize,
+    pub import_dirs: Vec<PathBuf>,
+}
+
 /// The open documents' texts by path, shared so that asking again with the same inputs is
 /// known by address alone.
 pub type Buffers = Rc<BTreeMap<PathBuf, Rc<[u8]>>>;
@@ -330,6 +346,20 @@ impl Analysis {
             }
         }
         out
+    }
+
+    /// The replacement the compile error in `path` suggests (a misspelled module or name): the
+    /// span as (start, end) and the text for it.
+    pub fn suggested_replacement(&mut self, path: &Path) -> Option<(usize, usize, String)> {
+        let file = self.file(path)?;
+        let error = self.errors.first()?;
+        if error.span.file != file {
+            return None;
+        }
+        let suggested = self.compiler.with_name_suggestion(error);
+        let fixes = suggested.as_ref().unwrap_or(error).fixes.as_ref()?;
+        let (span, text) = fixes.replace.clone()?;
+        (span.file == file).then(|| (span.start as usize, span.end as usize, text))
     }
 
     /// The `#import`s that would declare the unknown name the compile error in `path` reports,
@@ -571,6 +601,11 @@ pub struct Cache {
     /// Workspace trust is withheld: compiles run no compile-time code (see
     /// `IdeFacts::untrusted`). Survives `reset`; change it with `set_trusted`.
     untrusted: bool,
+    /// The last good run of each build metaprogram (by its canonical root path). A run that
+    /// fails or runs out of budget leaves these alone.
+    pub(crate) recorded: BTreeMap<PathBuf, BuildFacts>,
+    /// Moves on whenever `recorded` changes.
+    pub(crate) recorded_version: u64,
 }
 
 fn hash(
@@ -786,8 +821,35 @@ impl Cache {
             self.make_room(os, root);
             self.compiles += 1;
             let snapshot = files.clone();
-            let (compiler, errors, others) =
-                compile(env, root, dirs, files, os, &self.parses, self.untrusted);
+            // Folders a past run of this metaprogram added are not handed back to it: it adds
+            // them again if it still does, and a removed `import_path` line must disappear.
+            let past = self
+                .recorded
+                .get(&crate::document::path_key(&env.fs.canonical(root)));
+            let given_dirs: Vec<PathBuf> = dirs
+                .iter()
+                .filter(|d| {
+                    !past.is_some_and(|f| f.programs.iter().any(|p| p.import_dirs.contains(d)))
+                })
+                .cloned()
+                .collect();
+            let (compiler, errors, others, facts) = compile(
+                env,
+                root,
+                &given_dirs,
+                files,
+                os,
+                &self.parses,
+                self.untrusted,
+            );
+            // Another target's compile says nothing new about what the metaprogram did.
+            if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
+                let key = crate::document::path_key(&env.fs.canonical(root));
+                if self.recorded.get(&key) != Some(&facts) {
+                    self.recorded.insert(key, facts);
+                    self.recorded_version += 1;
+                }
+            }
             let cost = std::iter::once(&compiler)
                 .chain(others.iter().map(|p| &p.compiler))
                 .flat_map(|c| {
@@ -842,11 +904,12 @@ fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
 /// going to `host`, with what jailint needs (expression types, casts, uses) when `lint`.
 fn editor_facts(
     prefix: &str,
+    open: &[PathBuf],
     host: &Rc<RefCell<SandboxHost>>,
     lint: bool,
     untrusted: bool,
 ) -> Box<IdeFacts> {
-    let mut facts = IdeFacts::new(vec![prefix.to_string()]);
+    let mut facts = IdeFacts::new(vec![prefix.to_string()]).with_files(open.to_vec());
     facts.output = Some(host.clone());
     facts.lint = lint;
     facts.untrusted = untrusted;
@@ -855,7 +918,10 @@ fn editor_facts(
 
 /// Gives each compiler a metaprogram creates editor facts, and keeps it when it is done.
 struct Built {
+    /// What `add_build_file` / `add_build_string` added, by workspace.
+    added: Rc<RefCell<BTreeMap<i64, Vec<jaic::sema::ProgramSource>>>>,
     prefix: String,
+    open: Vec<PathBuf>,
     host: Rc<RefCell<SandboxHost>>,
     lint: bool,
     untrusted: bool,
@@ -866,6 +932,7 @@ impl WorkspaceObserver for Built {
     fn created(&mut self, compiler: &mut Compiler) {
         compiler.ide = Some(editor_facts(
             &self.prefix,
+            &self.open,
             &self.host,
             self.lint,
             self.untrusted,
@@ -874,6 +941,14 @@ impl WorkspaceObserver for Built {
 
     fn finished(&mut self, compiler: Box<Compiler>, _failed: bool) {
         self.done.borrow_mut().push(*compiler);
+    }
+
+    fn source_added(&mut self, workspace: i64, source: &jaic::sema::ProgramSource) {
+        self.added
+            .borrow_mut()
+            .entry(workspace)
+            .or_default()
+            .push(source.clone());
     }
 }
 
@@ -925,8 +1000,14 @@ fn compile(
     os: Option<TargetOs>,
     parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
     untrusted: bool,
-) -> (Compiler, Vec<jaic::source::Diagnostic>, Vec<Program>) {
+) -> (
+    Compiler,
+    Vec<jaic::source::Diagnostic>,
+    Vec<Program>,
+    Option<BuildFacts>,
+) {
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
+    let open: Vec<PathBuf> = files.keys().cloned().collect();
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
         base: env.fs.clone(),
         dir: dir.clone(),
@@ -958,6 +1039,7 @@ fn compile(
     // environment's own.
     let lint = os.is_none();
     let built = Rc::new(RefCell::new(Vec::new()));
+    let added = Rc::new(RefCell::new(BTreeMap::new()));
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: compiler.fs.clone(),
@@ -967,7 +1049,9 @@ fn compile(
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(|_| {}),
         observer: Some(Box::new(Built {
+            added: added.clone(),
             prefix: prefix.clone(),
+            open: open.clone(),
             host: host.clone(),
             lint,
             untrusted,
@@ -975,7 +1059,7 @@ fn compile(
         })),
     });
     compiler.attach_workspaces(workspaces);
-    compiler.ide = Some(editor_facts(&prefix, &host, lint, untrusted));
+    compiler.ide = Some(editor_facts(&prefix, &open, &host, lint, untrusted));
     let number = parses.borrow_mut().begin();
     compiler.parse_reuse = Some((parses.clone(), number));
     let errors = compiler
@@ -984,6 +1068,9 @@ fn compile(
         .into_iter()
         .map(|e| *e)
         .collect::<Vec<_>>();
+    // A metaprogram that failed or ran out of budget did not finish what it did: its facts
+    // would be a prefix of the real ones.
+    let ran_to_the_end = errors.is_empty();
     // Workspaces no message loop drove compile once the metaprogram is done, as in a build.
     // Their stopping error is in their own facts, so the message here adds nothing.
     if errors.is_empty()
@@ -993,10 +1080,32 @@ fn compile(
     }
     let errors = check_rest(&mut compiler, errors);
     let errors = known(&compiler, errors);
+    let base_paths = (env.options)(root).import_paths;
+    let mut recorded: Vec<(i64, BuiltProgram)> = Vec::new();
     let mut others: Vec<Program> = built
         .take()
         .into_iter()
         .map(|mut compiler| {
+            let id = compiler.workspace;
+            let mut program = BuiltProgram::default();
+            for source in added.borrow().get(&id).into_iter().flatten() {
+                match source {
+                    jaic::sema::ProgramSource::File(path) => {
+                        program
+                            .files
+                            .push(crate::document::path_key(&env.fs.canonical(path)));
+                    }
+                    _ => program.strings += 1,
+                }
+            }
+            program.import_dirs = compiler
+                .options
+                .import_paths
+                .iter()
+                .filter(|p| !base_paths.contains(p))
+                .map(|p| crate::document::path_key(&env.fs.canonical(p)))
+                .collect();
+            recorded.push((id, program));
             // The metaprogram's code spent the budget; checking the rest gets its own.
             compiler.interp.block_budget = Some(BLOCK_BUDGET);
             let errors = check_rest(&mut compiler, Vec::new());
@@ -1024,7 +1133,11 @@ fn compile(
     }
     // Every interpreter on the host is closed: what compile-time code left allocated goes too.
     host.borrow_mut().release_memory();
-    (compiler, errors, others)
+    recorded.sort_by_key(|(id, _)| *id);
+    let facts = ran_to_the_end.then(|| BuildFacts {
+        programs: recorded.into_iter().map(|(_, p)| p).collect(),
+    });
+    (compiler, errors, others, facts)
 }
 
 thread_local! {

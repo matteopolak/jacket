@@ -429,6 +429,7 @@ impl Parser<'_> {
         if self.at_directive("complete") {
             self.bump();
         }
+        let header = start.to(self.span());
         let cases = self.parse_cases()?;
         let span = start.to(self.prev_span());
         Ok(stmt(
@@ -436,6 +437,7 @@ impl Parser<'_> {
                 value,
                 cases,
                 complete,
+                header,
             })),
             span,
         ))

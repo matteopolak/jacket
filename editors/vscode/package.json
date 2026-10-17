@@ -170,7 +170,7 @@
       {
         "id": "formatSpecifier",
         "superType": "string",
-        "description": "A `%` directive in a print-family format string."
+        "description": "A `%` directive in the format string of a call to a procedure declared `@PrintLike`."
       }
     ],
     "semanticTokenScopes": [

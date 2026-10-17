@@ -41,6 +41,9 @@ impl Session {
         let Some(diagnostic) = self.check_diagnostics(uri).into_iter().next() else {
             return Vec::new();
         };
+        let replacement = self.with_semantic(uri, &doc.text, |analysis, path| {
+            analysis.suggested_replacement(path)
+        });
         let Some((at, to, imports)) = self.with_semantic(uri, &doc.text, |analysis, path| {
             analysis.missing_imports(path)
         }) else {
@@ -55,25 +58,45 @@ impl Session {
         }
         // Preferred only when the compiler knows of one module that declares the name.
         let unambiguous = imports.len() == 1;
-        planned(&doc.text, &imports)
-            .into_iter()
-            .filter_map(|(statement, offset, new_text)| {
-                let range = self.range_of(uri, Span::new(offset, offset))?;
-                Some(CodeAction {
-                    title: format!("Add `{statement}`"),
-                    kind: Some("quickfix"),
-                    edit: Some((
-                        uri.as_str().into(),
-                        vec![TextEdit {
-                            range,
-                            new_text,
-                        }],
-                    )),
-                    diagnostics: vec![diagnostic.clone()],
-                    is_preferred: unambiguous,
-                    ..CodeAction::default()
-                })
+        // A misspelled module or name: the closest one the compiler found.
+        let spelled = replacement.and_then(|(from, to, text)| {
+            let range = self.range_of(uri, Span::new(from, to))?;
+            Some(CodeAction {
+                title: format!("Replace with `{text}`"),
+                kind: Some("quickfix"),
+                edit: Some((
+                    uri.as_str().into(),
+                    vec![TextEdit {
+                        range,
+                        new_text: text,
+                    }],
+                )),
+                diagnostics: vec![diagnostic.clone()],
+                is_preferred: imports.is_empty(),
+                ..CodeAction::default()
             })
+        });
+        spelled
+            .into_iter()
+            .chain(planned(&doc.text, &imports).into_iter().filter_map(
+                |(statement, offset, new_text)| {
+                    let range = self.range_of(uri, Span::new(offset, offset))?;
+                    Some(CodeAction {
+                        title: format!("Add `{statement}`"),
+                        kind: Some("quickfix"),
+                        edit: Some((
+                            uri.as_str().into(),
+                            vec![TextEdit {
+                                range,
+                                new_text,
+                            }],
+                        )),
+                        diagnostics: vec![diagnostic.clone()],
+                        is_preferred: unambiguous,
+                        ..CodeAction::default()
+                    })
+                },
+            ))
             .collect()
     }
 }

@@ -1,24 +1,13 @@
-//! Format strings of print-family calls, found from tokens alone (no type checking), so they
-//! work while the text does not parse.
+//! Format strings in the calls of a document, found from tokens alone (no type checking), so
+//! they work while the text does not parse. A call here is only a candidate: whether its callee
+//! takes a format string is the callee's `@PrintLike` note, read by `Session::format_calls`
+//! (from the compile, or from this document's own declarations when there is no compile).
 //!
 //! Formatting follows the bundled `Basic` module: `%` (or `%0`) takes the next argument, `%N`
 //! takes argument N (1-based) and a following `%` continues after it, `%00` prints nothing,
 //! and `%%` is two arguments in a row. A literal percent sign is written `\%`.
 use crate::analysis::Span;
 use jaic::lexer::{P, Tok, Token};
-
-/// Procedures whose first string-literal argument (among the first two) is a format string.
-pub const PRINT_FAMILY: &[&str] = &[
-    "print",
-    "sprint",
-    "tprint",
-    "print_to_builder",
-    "print_color",
-    "log",
-    "log_error",
-    "log_warning",
-    "assert",
-];
 
 /// One `%` directive of a format string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +20,8 @@ pub struct Spec {
 
 #[derive(Clone, Debug)]
 pub struct FormatCall {
+    /// The name written before the `(` of the call.
+    pub callee: String,
     /// The format string literal, quotes included.
     pub string: Span,
     pub specs: Vec<Spec>,
@@ -40,21 +31,17 @@ pub struct FormatCall {
     pub spread: bool,
 }
 
-/// Print-family calls of `text` with a literal format string.
+/// Calls in `text` with a literal format string among their first two arguments.
 pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
     let mut out = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
         let Tok::Ident(name) = &token.tok else {
             continue;
         };
-        if !PRINT_FAMILY.contains(&name.as_str())
-            || !matches!(tokens.get(i + 1).map(|t| &t.tok), Some(Tok::Punct(P::LParen)))
-            // `x.print(` or a declaration `print :: (`.
-            || matches!(
-                i.checked_sub(1).map(|p| &tokens[p].tok),
-                Some(Tok::Punct(P::Dot | P::ColonColon))
-            )
-        {
+        if !matches!(
+            tokens.get(i + 1).map(|t| &t.tok),
+            Some(Tok::Punct(P::LParen))
+        ) {
             continue;
         }
         let args = arguments(tokens, i + 2);
@@ -70,6 +57,7 @@ pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
         let string = span(&tokens[args[at].tokens.start]);
         let rest = &args[at + 1..];
         out.push(FormatCall {
+            callee: name.as_str().to_string(),
             string,
             specs: specs(text, string),
             args: rest
@@ -79,6 +67,78 @@ pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
                 .collect(),
             spread: rest.iter().any(|a| a.spread),
         });
+    }
+    out
+}
+
+/// Names this document declares with the `@PrintLike` note: `name :: (...) ... @PrintLike {`.
+pub fn local_print_like(tokens: &[Token]) -> std::collections::HashSet<String> {
+    let mut out = std::collections::HashSet::new();
+    for (i, token) in tokens.iter().enumerate() {
+        let Tok::Ident(name) = &token.tok else {
+            continue;
+        };
+        if !matches!(
+            (
+                tokens.get(i + 1).map(|t| &t.tok),
+                tokens.get(i + 2).map(|t| &t.tok)
+            ),
+            (Some(Tok::Punct(P::ColonColon)), Some(Tok::Punct(P::LParen)))
+        ) {
+            continue;
+        }
+        // Past the parameter list, then through the return type to the body.
+        let mut depth = 0usize;
+        let mut j = i + 2;
+        while j < tokens.len() {
+            match &tokens[j].tok {
+                Tok::Punct(P::LParen) => depth += 1,
+                Tok::Punct(P::RParen) => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                Tok::Eof => break,
+                _ => {}
+            }
+            j += 1;
+        }
+        // Through the return type to the body, past it, and over the notes that follow.
+        let mut k = j + 1;
+        let (mut parens, mut braces) = (0usize, 0usize);
+        let mut after_body = false;
+        while k < tokens.len() {
+            match &tokens[k].tok {
+                Tok::Punct(P::LParen) => parens += 1,
+                Tok::Punct(P::RParen) => parens = parens.saturating_sub(1),
+                Tok::Punct(P::LBrace) if parens == 0 => braces += 1,
+                Tok::Punct(P::RBrace) if braces > 0 => {
+                    braces -= 1;
+                    if braces == 0 {
+                        after_body = true;
+                        k += 1;
+                        break;
+                    }
+                }
+                Tok::Punct(P::Semi) if braces == 0 => {
+                    after_body = true;
+                    k += 1;
+                    break;
+                }
+                Tok::Eof => break,
+                _ => {}
+            }
+            k += 1;
+        }
+        if after_body {
+            while let Some(Tok::Note(n)) = tokens.get(k).map(|t| &t.tok) {
+                if n.trim() == "PrintLike" {
+                    out.insert(name.as_str().to_string());
+                }
+                k += 1;
+            }
+        }
     }
     out
 }

@@ -158,7 +158,7 @@ pub enum SemanticTokenKind {
     EnumMember,
     /// A note, `@name`.
     Decorator,
-    /// `%`, `%N` in the format string of a print-family call.
+    /// `%`, `%N` in the format string of a `@PrintLike` call.
     FormatSpecifier,
 }
 

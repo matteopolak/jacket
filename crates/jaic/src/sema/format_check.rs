@@ -77,6 +77,14 @@ fn forwards_format(text: &str, format: Sym, values: Sym) -> bool {
 }
 
 impl Compiler {
+    /// Whether `p` is declared with the `@PrintLike` note: its `string` parameter before a
+    /// variadic `..Any` takes a format string.
+    pub fn is_print_like(&self, p: ProcId) -> bool {
+        let noted = |notes: &[ast::Note]| notes.iter().any(|n| n.text.trim() == "PrintLike");
+        noted(&self.proc(p).lit.header.notes)
+            || self.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
+    }
+
     /// Check a call to `chosen` with literal format string and argument count.
     pub(super) fn check_format_call(
         &mut self,
@@ -116,12 +124,17 @@ impl Compiler {
         {
             return Ok(());
         }
-        let (Some(body), Some(f), Some(v)) = (&lit.body, params[fmt].name, params[fmt + 1].name)
-        else {
-            return Ok(());
-        };
-        if !forwards_format(self.sources.snippet(body.span), f.name, v.name) {
-            return Ok(());
+        // `@PrintLike` states the intent; without it a body that hands both parameters to one
+        // call (a wrapper around `print`) is taken for a formatter.
+        if !self.is_print_like(chosen) {
+            let (Some(body), Some(f), Some(v)) =
+                (&lit.body, params[fmt].name, params[fmt + 1].name)
+            else {
+                return Ok(());
+            };
+            if !forwards_format(self.sources.snippet(body.span), f.name, v.name) {
+                return Ok(());
+            }
         }
         let need = arguments_used(bytes);
         let name = self.proc(chosen).name;

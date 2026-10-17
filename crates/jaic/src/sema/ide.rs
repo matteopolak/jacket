@@ -7,7 +7,7 @@ use super::scope::{EntityId, EntityKind, EntityState, Found, Resolved, ScopeId, 
 use super::value::ProcId;
 use super::*;
 use crate::types::{ArrayKind, StructId, TypeKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Lengths of `IdeFacts::refs`, `Compiler::entities` and `Compiler::procs` at a point.
 #[derive(Clone, Copy, Debug)]
@@ -47,6 +47,8 @@ pub struct IdeFacts {
     /// separators; on Windows a source path is compared in that same spelling, since the
     /// filesystem may hand the compiler `\`-separated paths.
     roots: Vec<String>,
+    /// Files recorded wherever they are: the open documents, as `FileSystem::canonical` keys.
+    files: Vec<PathBuf>,
     wanted: HashMap<FileId, bool>,
     /// The exact body associated with an IDE-final lenient failure. Replacing a
     /// procedure's AST invalidates that failure even without another source load.
@@ -285,6 +287,12 @@ impl IdeFacts {
         *self.by_position.get_mut() = RefIndex::default();
     }
 
+    /// Also record `files` (open documents), whichever folder they are in.
+    pub fn with_files(mut self, files: Vec<PathBuf>) -> Self {
+        self.files = files;
+        self
+    }
+
     pub fn new(roots: Vec<String>) -> Self {
         Self {
             roots,
@@ -460,12 +468,12 @@ impl Compiler {
             return w;
         }
         let path = &self.sources.get(file).path;
-        let path = if cfg!(windows) {
-            std::borrow::Cow::Owned(path.replace('\\', "/"))
-        } else {
-            std::borrow::Cow::Borrowed(path.as_str())
-        };
-        let w = ide.roots.iter().any(|r| path.starts_with(r.as_str()));
+        // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a folder name
+        // one file. Virtual sources (`<input>`) have no path on disk and compare as written.
+        let key = self.fs.canonical(Path::new(path));
+        let w = ide.roots.iter().any(|r| {
+            path.starts_with(r.as_str()) || (key.is_absolute() && key.starts_with(Path::new(r)))
+        }) || ide.files.contains(&key);
         ide.wanted.insert(file, w);
         w
     }
@@ -553,6 +561,22 @@ impl Compiler {
                 span,
                 what,
                 ty,
+                decl: false,
+            });
+        }
+    }
+
+    /// The name after `for :` names the `for_expansion` procedures the loop expands through,
+    /// like any other use of a procedure name.
+    pub(super) fn ide_note_for_iterator(&mut self, name: &ast::Ident, procs: &[ProcId]) {
+        if self.sketching() || !self.ide_wants(name.span.file) {
+            return;
+        }
+        if let Some(ide) = self.ide.as_mut() {
+            ide.refs.push(IdeRef {
+                span: name.span,
+                what: IdeWhat::Procs(procs.to_vec()),
+                ty: TypeId::COMPILE_TIME,
                 decl: false,
             });
         }

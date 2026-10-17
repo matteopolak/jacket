@@ -61,7 +61,7 @@ print_color :: (format_string: string, args: ..Any, color: Console_Color, style:
     set_console_color(color, style, to_standard_error);
     defer reset_console_color(to_standard_error);
     B.print(format_string, ..args, to_standard_error = to_standard_error);
-}
+} @PrintLike
 
 #scope_file
 B :: #import "Basic";

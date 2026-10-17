@@ -94,12 +94,14 @@ impl Parser<'_> {
         let value = self.parse_expr()?;
         if self.at(P::EqEq) {
             self.bump();
+            let header = start.to(self.span());
             let cases = self.parse_cases()?;
             return Ok(stmt(
                 StmtKind::StaticSwitch(Box::new(SwitchStmt {
                     value,
                     cases,
                     complete: false,
+                    header,
                 })),
                 start.to(self.prev_span()),
             ));

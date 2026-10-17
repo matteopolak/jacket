@@ -3,8 +3,7 @@
 //! The compiler looks for `#import "Name"` in the importing file's `modules/` folder, then in
 //! its import paths: its own module folder (here the standard library) and whatever the build
 //! options add (`Build_Options.import_path`, a metaprogram's `array_add(*import_path, ...)`).
-//! An editor does not run the metaprogram, so the folders it would add are found three ways,
-//! best first, and every one that is a folder is searched before the standard library:
+//! An editor finds the folders the metaprogram adds three ways, best first, and every one that is a folder is searched before the standard library:
 //!
 //! 1. `modules/` next to the root file, then next to each folder above it up to the project
 //!    base (the folder of the nearest `jai.toml`, else the workspace folder holding the file).
@@ -13,7 +12,8 @@
 //!    itself) writes in a statement that mentions `import_path`: `array_add(*import_path,
 //!    "modules");`, `options.import_path = .["a", "b"];`. Relative paths are taken from the
 //!    entry's folder and from the project base. Computed paths (a `%` format, a variable) are
-//!    not followed.
+//!    not followed by this scan, but once the metaprogram has run (`semantic::BuildFacts`) its
+//!    recorded `import_path` replaces the scan for that entry, computed paths included.
 use crate::auto_import::{Index, Sources};
 use crate::project::{self, CONFIG_FILE, INFERRED_ENTRIES};
 use jaic::lexer::{P, Tok};
@@ -144,6 +144,16 @@ impl Sources<'_> {
                 continue;
             };
             deps.push(entry.clone());
+            // A metaprogram that ran: the folders its build options really had.
+            if let Some(facts) = index.builds.get(&self.key(&entry)) {
+                dirs.extend(
+                    facts
+                        .programs
+                        .iter()
+                        .flat_map(|p| p.import_dirs.iter().cloned()),
+                );
+                continue;
+            }
             let here = entry.parent().unwrap_or(Path::new("/")).to_path_buf();
             for path in declared_import_paths(&text) {
                 let path = Path::new(&path);

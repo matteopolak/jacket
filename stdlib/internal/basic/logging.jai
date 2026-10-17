@@ -1,18 +1,18 @@
 log :: (format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0, section: *Log_Section = null) {
     dispatch_log(format_string, args, loc, flags, user_flags, section);
-}
+} @PrintLike
 
 log :: (section: *Log_Section, format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0) {
     dispatch_log(format_string, args, loc, flags, user_flags, section);
-}
+} @PrintLike
 
 log_error :: (format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0, section: *Log_Section = null) {
     dispatch_log(format_string, args, loc, flags | .ERROR, user_flags, section);
-}
+} @PrintLike
 
 log_error :: (section: *Log_Section, format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0) {
     dispatch_log(format_string, args, loc, flags | .ERROR, user_flags, section);
-}
+} @PrintLike
 
 #scope_module
 dispatch_log :: (format_string: string, args: [] Any, loc: Source_Code_Location, flags: Log_Flags, user_flags: u32, section: *Log_Section) {

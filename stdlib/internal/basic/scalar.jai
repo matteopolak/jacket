@@ -26,7 +26,7 @@ print :: (format_string: string, args: ..Any, to_standard_error := false) -> byt
     defer free_buffers(*builder);
     if !print_to_builder(*builder, format_string, ..args) return 0;
     return write_builder(*builder, to_standard_error = to_standard_error);
-}
+} @PrintLike
 
 is_integer_type :: ($T: Type) -> (is_integer: bool, is_signed: bool, bits: u8) {
     info := type_info(T);

@@ -208,6 +208,41 @@ impl Session {
         }
     }
 
+    /// The file a `#import` / `#load` string names, as the compiler reads it.
+    pub(crate) fn link_hover(
+        &self,
+        uri: &DocumentUri,
+        byte: usize,
+    ) -> Option<(usize, usize, HoverText)> {
+        let analysis = self.analysis_for(uri)?;
+        let link = analysis
+            .links
+            .iter()
+            .find(|l| l.string.start <= byte && byte <= l.string.end)?;
+        let doc = self.document(uri).ok()?;
+        let target = self.link_target(uri, link)?;
+        let shown = doc
+            .text
+            .get(link.string.start..link.string.end)?
+            .to_string();
+        let path = Path::new(target.path());
+        let shown_path = self
+            .workspace_folders
+            .iter()
+            .find_map(|f| path.strip_prefix(f).ok())
+            .unwrap_or(path)
+            .display()
+            .to_string();
+        Some((
+            link.string.start,
+            link.string.end,
+            HoverText::new(vec![
+                Block::Code(shown),
+                Block::Para(vec![Inline::Code(shown_path)]),
+            ]),
+        ))
+    }
+
     /// Hover over `#insert`, `#run`, `#if`, `#ifx` or `#assert`: what it produced.
     pub(crate) fn directive_hover(
         &self,
@@ -318,7 +353,52 @@ impl Session {
         hover
     }
 
-    /// Hover over the format string of a print-family call: each `%` with the argument it
+    /// The calls of the document with a literal format string whose callee is declared
+    /// `@PrintLike`: from the compile's resolved callee, else (no compile available) from this
+    /// document's own `@PrintLike` declarations.
+    pub(crate) fn format_calls(&self, uri: &DocumentUri) -> Vec<crate::format::FormatCall> {
+        let Some(analysis) = self.analysis_for(uri) else {
+            return Vec::new();
+        };
+        if analysis.format_calls.is_empty() {
+            return Vec::new();
+        }
+        if self.environment.is_none() {
+            let local = &analysis.print_like;
+            return analysis
+                .format_calls
+                .iter()
+                .filter(|c| local.contains(&c.callee))
+                .cloned()
+                .collect();
+        }
+        let semantic = self.calls(uri);
+        analysis
+            .format_calls
+            .iter()
+            .filter(|call| {
+                semantic
+                    .iter()
+                    .filter(|c| {
+                        c.span.start as usize <= call.string.start
+                            && call.string.end <= c.span.end as usize
+                    })
+                    .min_by_key(|c| c.span.end - c.span.start)
+                    .is_some_and(|info| {
+                        info.format_param.is_some_and(|param| {
+                            info.args.iter().any(|a| {
+                                a.span.start as usize == call.string.start
+                                    && !a.named
+                                    && a.param == param
+                            })
+                        })
+                    })
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Hover over the format string of a `@PrintLike` call: each `%` with the argument it
     /// formats and that argument's type, the one under the cursor marked.
     pub(crate) fn format_hover(
         &self,
@@ -327,9 +407,8 @@ impl Session {
     ) -> Option<(usize, usize, HoverText)> {
         let doc = self.document(uri).ok()?;
         let text = &doc.text;
-        let call = self
-            .analysis_for(uri)?
-            .format_calls
+        let calls = self.format_calls(uri);
+        let call = calls
             .iter()
             .find(|c| c.string.start <= byte && byte < c.string.end)?;
         let semantic = self

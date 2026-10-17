@@ -74,6 +74,8 @@ pub struct Session {
     /// Type-checked answers (absent: syntax only).
     pub(crate) environment: Option<Environment>,
     pub(crate) semantic: RefCell<semantic::Cache>,
+    /// `Cache::recorded_version` as of the last time discovery was given the recorded builds.
+    synced_builds: std::cell::Cell<u64>,
     /// Open `jailint.toml` files: settings for the lints of documents under their directory.
     /// They are not Jai documents, so they get no analysis or diagnostics of their own.
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
@@ -120,6 +122,7 @@ impl Session {
             parsed: BTreeMap::new(),
             environment: None,
             semantic: RefCell::default(),
+            synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),
             auto_import: true,
             workspace_folders: Vec::new(),
@@ -179,10 +182,19 @@ impl Session {
 
     /// Drop everything cached (compiles, scans) after a failure: it is rebuilt on demand.
     pub fn reset_caches(&self) {
+        // What the metaprograms did is not lost with the compiles that recorded it.
         let trusted = self.semantic.borrow().trusted();
+        let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
+        let version = self.semantic.borrow().recorded_version;
         *self.semantic.borrow_mut() = Default::default();
-        self.semantic.borrow_mut().set_trusted(trusted);
+        {
+            let mut cache = self.semantic.borrow_mut();
+            cache.set_trusted(trusted);
+            cache.recorded = recorded;
+            cache.recorded_version = version + 1;
+        }
         *self.index.borrow_mut() = Default::default();
+        self.synced_builds.set(0);
         self.touch();
     }
 
@@ -192,6 +204,13 @@ impl Session {
     pub fn set_trusted(&mut self, trusted: bool) {
         if self.semantic.borrow().trusted() != trusted {
             self.semantic.borrow_mut().set_trusted(trusted);
+            // Without trust nothing runs, so discovery falls back to the static scan; what
+            // earlier runs recorded goes with the cache.
+            let mut index = self.index.borrow_mut();
+            index.builds.clear();
+            index.probed.clear();
+            index.import_dirs.clear();
+            self.synced_builds.set(0);
             self.touch();
         }
     }
@@ -568,7 +587,9 @@ impl Session {
                     "Incomplete lexical edit; this literal or comment is omitted from IDE analysis.");
             }
             for (target, span) in analysis.loads.clone() {
-                if self.document(&target).is_err() {
+                // A file the environment can read is loaded by the compile; only when nothing
+                // can read it (no open document, no file system) does the syntax-only view warn.
+                if self.document(&target).is_err() && self.source(&target).is_none() {
                     analysis.diagnostic(
                         &document.index,
                         &document.text,
@@ -694,6 +715,7 @@ impl Session {
         // file (which may load it, or build it from a metaprogram), so the files of the program
         // that are not open are checked too.
         let open_root = self.root(uri);
+        self.run_unrecorded_builds(&open_root, &files);
         let root = match self.project_root(&open_root) {
             Some(entry) if environment.fs.is_file(&entry) => entry,
             _ => PathBuf::from(open_root.path()),
@@ -722,7 +744,47 @@ impl Session {
         let analysis = cache.analyze(environment, &root, &dirs, files);
         let path = Path::new(uri.path());
         analysis.focus(path);
-        query(analysis, path)
+        let answer = query(analysis, path);
+        self.sync_builds(&cache);
+        answer
+    }
+
+    /// Runs the `jai.toml` build files that could build `uri` but have not been run (or were
+    /// changed since), once each, so their recorded facts decide which program `uri` is in
+    /// instead of a scan of their text. A run that fails is not repeated until the
+    /// metaprogram, what it loads or `jai.toml` changes.
+    fn run_unrecorded_builds(&self, uri: &DocumentUri, files: &BTreeMap<PathBuf, Rc<[u8]>>) {
+        let Some(environment) = self.environment.as_ref() else {
+            return;
+        };
+        if !self.trusted() {
+            return;
+        }
+        let pending = self.unrecorded_builds(uri);
+        if pending.is_empty() {
+            return;
+        }
+        let buffers: semantic::Buffers = Rc::new(files.clone());
+        for (entry, hash) in pending {
+            self.index.borrow_mut().probed.insert(entry.clone(), hash);
+            let dirs = self.import_dirs(&entry);
+            let mut cache = self.semantic.borrow_mut();
+            cache.analyze(environment, &entry, &dirs, buffers.clone());
+            self.sync_builds(&cache);
+        }
+    }
+
+    /// Hands what the build metaprograms did (`Cache::recorded`) to discovery, which then finds
+    /// the files and module folders they really added; what was worked out before is dropped.
+    pub(crate) fn sync_builds(&self, cache: &semantic::Cache) {
+        if cache.recorded_version == self.synced_builds.get() {
+            return;
+        }
+        self.synced_builds.set(cache.recorded_version);
+        let mut index = self.index.borrow_mut();
+        index.builds = cache.recorded.clone();
+        index.import_dirs.clear();
+        *self.inputs.borrow_mut() = None;
     }
 
     /// Like `with_semantic` for a question about `byte` of `uri`. When the program's compile
@@ -742,9 +804,12 @@ impl Session {
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache.analyze(environment, &root, &dirs, files.clone());
         analysis.focus(path);
-        if let Some(found) = query(analysis, path) {
+        let first = query(analysis, path);
+        self.sync_builds(&cache);
+        if let Some(found) = first {
             return Some(found);
         }
+        let analysis = cache.analyze(environment, &root, &dirs, files.clone());
         if !analysis.skipped(path, byte) {
             return None;
         }
@@ -1073,6 +1138,9 @@ impl Session {
                 )?,
             }))
         };
+        if let Some((start, end, text)) = self.link_hover(uri, byte) {
+            return found(start, end, text);
+        }
         if let Some((start, end, text)) = self.format_hover(uri, byte) {
             return found(start, end, text);
         }
@@ -1694,8 +1762,8 @@ impl Session {
                     .push(row.location);
             }
         }
-        let mut specs: Vec<Span> = analysis
-            .format_calls
+        let format_calls = self.format_calls(uri);
+        let mut specs: Vec<Span> = format_calls
             .iter()
             .flat_map(|c| c.specs.iter().map(|s| s.span))
             .collect();
