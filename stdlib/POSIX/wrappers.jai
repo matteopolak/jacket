@@ -1,4 +1,4 @@
-// Preserve the reviewed Linux public record/constants. ARM64 uses a complete
+// Preserve the Linux public record/constants. ARM64 uses a complete
 // private kernel record and syscall definitions, then explicitly marshals it.
 #if OS == .LINUX {
     stat :: (path: *u8, buf: *stat_t) -> s64 {

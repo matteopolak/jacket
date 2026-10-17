@@ -138,7 +138,7 @@ set_windows_thread_name :: (thread: *Thread, name: string) {
 }
 
 #scope_file
-Text :: #import "internal/platform-io/windows-text";
+Text :: #import "internal/files/windows-text";
 
 kernel32 :: #system_library "kernel32";
 libc :: #system_library "libc";

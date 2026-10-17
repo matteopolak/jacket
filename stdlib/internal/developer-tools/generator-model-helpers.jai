@@ -180,7 +180,7 @@ gm_primitive_size :: (type: *CType, _decl: *Declaration) -> int {
 
         if type.pointer_to || type.type_of_function || type.type_of_struct || type.type_of_declaration return -1;
 
-        // These spellings encode the reviewed canonical numeric types. An
+        // These spellings encode the canonical numeric types. An
         // arbitrary hardcoded Jai name still does not establish a primitive.
         if type.hardcoded_jai_string && !gm_named_wide_scalar(type) return -1;
 

@@ -1,4 +1,4 @@
-// Independently authored client setup; reviewed purpose, no literal-text compatibility promise.
+// Independently authored client setup; purpose, no literal-text compatibility promise.
 
 #if !MANUAL_MODE && !USE_GRAPHICS && !DO_HISTORY {
     TO_INSERT :: #string PROFILE_CLIENT_SETUP

@@ -146,7 +146,7 @@ class RunnerContracts(unittest.TestCase):
         for profile in profiles:
             self.assertIn(profile["sdk"], libraries)
             self.assertIn(profile["callbacks"], libraries)
-        self.assertLess(len(profiles), len(build_ci_native_bindings.PROFILES))
+        self.assertEqual(len(profiles), len(build_ci_native_bindings.PROFILES))
 
     def test_failed_or_empty_run_has_a_real_empty_coverage_record(self):
         with tempfile.TemporaryDirectory(dir=SCRATCH) as directory:

@@ -1,4 +1,4 @@
-// The reviewed public WM record is a platform prefix, while current SDL2
+// The public WM record is a platform prefix, while current SDL2
 // reserves a 64-byte native union. Never let SDL write into the public prefix.
 SDL_GetWindowWMInfo :: (window: *SDL_Window, info: *SDL_SysWMinfo) -> SDL_bool #c_call {
     if !info {

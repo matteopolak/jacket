@@ -76,7 +76,7 @@ decode_inline_site_line_info :: (info: Codeview_Debug_Info, procedure: Codeview_
 
                 state.column = cast(u16) first;
             case .CHANGE_COLUMN_END, .CHANGE_COLUMN_END_DELTA;
-            // The reviewed public line shape stores start columns only.
+            // The public line shape stores start columns only.
             case; return .{}, false;
         }
 

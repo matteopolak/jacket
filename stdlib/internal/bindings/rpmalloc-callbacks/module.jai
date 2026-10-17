@@ -6,1080 +6,123 @@ SDK :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = STATISTICS, RAW = R
 #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_validate_args_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_asserts_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_no_asserts_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_asserts_no_validate_args_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_thread_cache_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_thread_cache_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_thread_cache_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_thread_cache_no_asserts_finalize";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_asserts_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_no_validate_args_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_finalize";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_no_global_cache_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
+} else #if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_adaptive_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_nostats_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_nostats_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_validate_args_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_asserts_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_asserts_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_asserts_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_asserts_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_asserts_no_validate_args_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_no_asserts_finalize";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_validate_args_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_validate_args_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_finalize";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_adaptive_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_thread_cache_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_thread_cache_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_thread_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_asserts_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_initialize";
     finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_validate_args_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_finalize";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    initialize :: (config: *SDK.rpmalloc_config_t, name: *u8, name_length: u64, huge_name: *u8, huge_name_length: u64) -> s32 #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_initialize";
-    finalize :: () #foreign bridge "binding_rpmalloc_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args_finalize";
+} else {
+    #assert false, "these rpmalloc options select a native profile that is not built; see tools/native_bindings/ci-rpmalloc-profiles.json";
 }
 
 #scope_file
 #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_no_validate_args";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_no_asserts";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_no_asserts_no_validate_args";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_thread_cache";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_thread_cache_no_validate_args";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_thread_cache_no_asserts";
-}
-
-#if !RAW && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_validate_args";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_asserts";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_asserts_no_validate_args";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache_no_validate_args";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache_no_asserts";
-}
-
-#if !RAW && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_no_global_cache_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
+} else #if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_nostats_adaptive";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_nostats";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_validate_args_adaptive";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_asserts_adaptive";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_asserts";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_asserts_no_validate_args_adaptive";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_asserts_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_thread_cache";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_thread_cache_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_thread_cache_no_asserts";
-}
-
-#if !RAW && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_adaptive";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_validate_args_adaptive";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts_adaptive";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts_no_validate_args_adaptive";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_asserts_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache_no_validate_args";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache_no_asserts";
-}
-
-#if !RAW && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_thread_cache";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_thread_cache_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_thread_cache_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_no_global_cache_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_validate_args_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts_no_validate_args_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_validate_args_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts_no_validate_args_adaptive";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache_no_validate_args";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts";
-}
-
-#if RAW && !PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_base_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_thread_cache";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_thread_cache_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_thread_cache_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_no_global_cache_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_validate_args_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_asserts_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_asserts_no_validate_args_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_thread_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_validate_args_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts_no_validate_args_adaptive";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_asserts_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
+} else #if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
     bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache_no_validate_args";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache_no_asserts";
-}
-
-#if RAW && PUBLIC_HEAPS && !STATISTICS && !GLOBAL_CACHE && !THREAD_CACHE && !ASSERTS && !VALIDATE_ARGS && !ADAPTIVE {
-    bridge :: #library,system "binding_rpmalloc_callbacks_raw_nostats_no_global_cache_no_thread_cache_no_asserts_no_validate_args";
+} else {
+    #assert false, "these rpmalloc options select a native profile that is not built; see tools/native_bindings/ci-rpmalloc-profiles.json";
 }

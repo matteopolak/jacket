@@ -1,4 +1,4 @@
-// The reviewed public topology arrays intentionally remain live mutable storage.
+// The public topology arrays intentionally remain live mutable storage.
 arcs_6ch := Vbap_Arc.[
     .{ .CENTER, .FRONT_LEFT, .{} },
     .{ .FRONT_LEFT, .REAR_LEFT, .{} },

@@ -23,7 +23,7 @@
         dest_fbo_handle: GLuint;
     }
 } else {
-    #assert render_api == .NONE, "the reviewed Simp spec supplies texture layouts for OPENGL and NONE only";
+    #assert render_api == .NONE, "the Simp spec supplies texture layouts for OPENGL and NONE only";
     Texture_Platform_Specific :: struct {}
     Shader_Platform :: struct {}
     Pixel_Read_Platform :: struct {}

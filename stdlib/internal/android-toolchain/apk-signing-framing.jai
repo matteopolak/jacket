@@ -64,7 +64,7 @@ apk_v2_read_container :: (input: string, verify_structure := false) -> bool, Apk
                 padding := string.{ pair.count - 4, pair.data + 4 };
                 for byte: padding if byte != 0 return false, .{};
             } else {
-                // V3.1 follows the reviewed unknown-ID path, unlike v3.
+                // V3.1 follows the unknown-ID path, unlike v3.
                 context.logger("Unknown APK signing block ID\n", context.logger_data, .{});
             }
         }

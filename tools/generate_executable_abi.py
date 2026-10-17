@@ -12,7 +12,7 @@ inventory = dict(re.findall(r"^- `([A-Za-z_0-9]+)\s*::\s*([^`]+)`$", SPEC.split(
 blocks = re.findall(r"^#### `([^`]+)` \(([^)]+)\)\n(.*?)(?=^#### |^## |\Z)", SPEC, re.M | re.S)
 withheld = {"Archive", "Archive_File", "Elf_Program_Header",
             "Coff_Raw_Codeview_Info", "Coff_Codeview_Info", "Coff_Optional_Header", "Coff"}
-out = ["// Explicit public ABI transcribed from the reviewed executable-formats spec.\n"]
+out = ["// Explicit public ABI transcribed from the executable-formats spec.\n"]
 written = set()
 for name, declaration in inventory.items():
     if declaration.startswith(("struct", "enum")) or "->" in declaration or declaration.startswith("("):
@@ -69,7 +69,7 @@ views = {
                                   ("r_length", 28, 2, False), ("r_pcrel", 30, 1, True),
                                   ("r_scattered", 31, 1, True)],
 }
-out = ["// Storage masks are part of the reviewed public contract.\n"]
+out = ["// Storage masks are part of the public contract.\n"]
 for record, fields in views.items():
     for name, shift, width, boolean in fields:
         mask = (1 << width) - 1

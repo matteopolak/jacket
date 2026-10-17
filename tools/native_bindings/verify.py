@@ -102,6 +102,7 @@ PRIVATE_UNIT_DEPENDENCIES = {
     },
     "rpmalloc-native-storage": {
         "tests/native-bindings/generated/rpmalloc-storage-layout.jai": "rpmalloc/generated/rpmalloc-storage-layout.jai",
+        "tests/native-bindings/generated/rpmalloc-storage-records.jai": "rpmalloc/generated/rpmalloc-storage-records.jai",
     },
 }
 

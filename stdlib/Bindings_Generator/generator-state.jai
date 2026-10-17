@@ -1,4 +1,4 @@
-// Single canonical storage, from the reviewed public type inventory.
+// Single canonical storage, from the public type inventory.
 Generator :: struct #type_info_none {
     global_scope: Block;
     pointer_size: s64;

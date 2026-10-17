@@ -3,7 +3,7 @@
 // proves storage separation; it is not a public heap implementation.
 #import "Basic";
 Native :: #import "internal/bindings/rpmalloc-sdk";
-Storage :: #import "internal/bindings/rpmalloc-storage";
+Storage :: #import,file "generated/rpmalloc-storage-records.jai";
 
 probe :: #library,system "rpmalloc_storage_probe";
 storage_size :: (index: u32) -> u64 #foreign probe "binding_rpmalloc_storage_size";

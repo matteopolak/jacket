@@ -98,7 +98,7 @@ video_process_macroblock :: (video: *Video, d: *u8, s: *u8, motion_h: s32, motio
     }
 }
 
-// The reviewed parameter is named d; it denotes the reference frame here.
+// The parameter is named d; it denotes the reference frame here.
 video_copy_macroblock :: (video: *Video, motion_h: s32, motion_v: s32, d: *Frame) {
     B.assert(video != null && d != null);
     video_process_macroblock(video, video.frame_current.y.data, d.y.data, motion_h, motion_v, 16, false);

@@ -201,7 +201,7 @@ get_number_of_processors :: ($type: Processor_Query_Type = .PERFORMANCE_LOGICAL)
 #scope_file
 #import "Basic";
 W :: #import "Windows";
-Text :: #import "internal/platform-io/windows-text";
+Text :: #import "internal/files/windows-text";
 
 advapi32 :: #system_library "advapi32";
 userenv :: #system_library "userenv";

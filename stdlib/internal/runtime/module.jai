@@ -190,10 +190,8 @@ Runtime_Context_Header :: struct {
 
 libc :: #system_library "libc";
 #if OS != .WINDOWS c_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
-c_malloc :: (size: u64) -> *void #foreign libc "malloc";
-c_realloc :: (memory: *void, size: u64) -> *void #foreign libc "realloc";
-c_free :: (memory: *void) #foreign libc "free";
-c_abort :: () #foreign libc "abort";
+
+#import "internal/libc";
 
 Write_Lock :: #import "internal/runtime/output-lock";
 #if OS == .ANDROID Android_Output :: #import "internal/runtime/android-output";

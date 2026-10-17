@@ -273,7 +273,7 @@ header_declarator :: (info: *Header_Info, ti: *Type_Info, name: string, function
         return header_declarator(info, pointer.pointer_to, nested, false);
     } else if ti.type == .ARRAY {
         array := cast(*Type_Info_Array) ti;
-        if array.array_type != .FIXED return "", header_error("array views and resizable arrays require a reviewed C storage projection");
+        if array.array_type != .FIXED return "", header_error("array views and resizable arrays require a C storage projection");
         if array.array_count <= 0 return "", header_error("C does not support zero-sized fixed arrays");
         return header_declarator(info, array.element_type, tprint("%[%]", name, array.array_count), false);
     } else if ti.type == .PROCEDURE {

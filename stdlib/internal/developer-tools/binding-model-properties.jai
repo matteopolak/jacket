@@ -38,7 +38,7 @@ is_same_literal :: (a: *Literal, b: *Literal) -> bool {
     if a.literal_kind == .IDENTIFIER return a.identifier != null && a.identifier == b.identifier;
     if a.literal_kind == .MACRO return false;
 
-    log_error("Bindings_Generator: literal comparison lacks a reviewed raw-token payload mapping\n");
+    log_error("Bindings_Generator: literal comparison lacks a raw-token payload mapping\n");
 
     return false;
 }
@@ -105,7 +105,7 @@ model_equal_type :: (a_in: *CType, b_in: *CType, top: bool, path: *[..] Model_Ty
 
         cv :: CType.Flags.CONST | .VOLATILE;
         if !current.top && ((current.a.flags & cv) != (current.b.flags & cv) || (a.flags & cv) != (b.flags & cv)) {
-            log_error("Bindings_Generator: nested qualifier comparison requires reviewed precision\n");
+            log_error("Bindings_Generator: nested qualifier comparison requires precision\n");
             return false;
         }
 
@@ -122,7 +122,7 @@ model_equal_type :: (a_in: *CType, b_in: *CType, top: bool, path: *[..] Model_Ty
         if a.array_element_type || b.array_element_type || (a.hardcoded_jai_string && !gm_named_wide_scalar(a)) ||
            (b.hardcoded_jai_string && !gm_named_wide_scalar(b)) || a.type_of_declaration || b.type_of_declaration ||
            a.template_instantiation_params.count || b.template_instantiation_params.count || a.number_flags & .CHAR || b.number_flags & .CHAR {
-            log_error("Bindings_Generator: type comparison contains an unreviewed model category\n");
+            log_error("Bindings_Generator: type comparison contains an unknown model category\n");
             return false;
         }
 
@@ -161,7 +161,7 @@ model_equal_type :: (a_in: *CType, b_in: *CType, top: bool, path: *[..] Model_Ty
             if x.arguments.count != y.arguments.count return false;
 
             if (x.flags & .VARIADIC) != (y.flags & .VARIADIC) {
-                log_error("Bindings_Generator: variadic function comparison requires reviewed precision\n");
+                log_error("Bindings_Generator: variadic function comparison requires precision\n");
                 return false;
             }
 

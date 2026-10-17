@@ -20,7 +20,7 @@ HeapBridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENABLE_STA
 initialized: bool;
 active_config: rpmalloc_config_t;
 
-// All reviewed option combinations have a private storage/policy route.
+// All option combinations have a private storage/policy route.
 // Native build identity and live domain ownership are checked before mutation.
 #scope_file
 boundary_initialize :: () -> s32 {
@@ -109,7 +109,7 @@ boundary_initialize_config :: (boundary_config: *rpmalloc_config_t) -> s32 {
                                  active_config.huge_page_name.data,
                                  cast(u64) active_config.huge_page_name.count);
     if result == 0 {
-        // The reviewed fallback/page-aligned batch is observable through
+        // The fallback/page-aligned batch is observable through
         // the module-owned configuration, not merely the private SDK copy.
         active_config.span_map_count = cast(Boundary_Size) Native.rpmalloc_config().span_map_count;
         active_config.page_size = cast(Boundary_Size) Native.rpmalloc_config().page_size;

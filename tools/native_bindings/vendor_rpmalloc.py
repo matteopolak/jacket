@@ -159,7 +159,7 @@ def storage_outputs(vendor, functions, work, formatter):
     temporary = work/'storage.jai'
     temporary.write_text(code)
     run([formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
-    outputs = {ROOT/'stdlib/internal/bindings/rpmalloc-storage/module.jai':temporary.read_text()}
+    outputs = {ROOT/'tests/native-bindings/generated/rpmalloc-storage-records.jai':temporary.read_text()}
     # Include unmodified pinned C source so probes measure its actual private
     # declarations. Prefix all SDK exports; this probe never initializes or
     # allocates from its separately compiled SDK instance.
@@ -227,7 +227,6 @@ def storage_outputs(vendor, functions, work, formatter):
                 'source_export_profiles':{str(k):sorted(v) for k,v in source_exports.items()},
                 'probe_sdk_exports':'All pinned SDK exports prefixed; probe instance never executed',
                 'verification':'Host C source parsing here; native/source evidence indexed separately'}
-    outputs[ROOT/'stdlib/internal/bindings/rpmalloc-storage/provenance.json'] = json.dumps(metadata,indent=2,sort_keys=True)+'\n'
     return outputs, metadata, source_exports[1]
 
 

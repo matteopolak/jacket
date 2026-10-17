@@ -75,7 +75,7 @@ load_audio_data :: (name_for_error_reporting: string, data: string) -> Sound_Dat
 
 #scope_module
 assign_channel_directions :: (data: *Sound_Data) {
-    // The reviewed API defines no dedicated seven-channel/center-rear layout.
+    // The API defines no dedicated seven-channel/center-rear layout.
     // Preserve configured directions; callers can set them before stream start.
     if data.nchannels == 7 return;
 

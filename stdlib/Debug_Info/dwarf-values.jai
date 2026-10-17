@@ -1,4 +1,4 @@
-// Public DWARF values from the reviewed spec; independently grouped by role.
+// Public DWARF values from the spec; independently grouped by role.
 
 Dwarf_Base_Type :: enum {
     ADDRESS :: 0x01;

@@ -1,4 +1,4 @@
-// Canonical reviewed CodeView type records, including common using base storage.
+// Canonical CodeView type records, including common using base storage.
 Codeview_Builtin :: struct {
     using base: Codeview_Type = .{ kind = .BUILTIN };
     id: Type_Id;

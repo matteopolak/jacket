@@ -340,9 +340,9 @@ cv_read_annotations :: (input: *Line_Wire_Input, output: *[..] Codeview_Binary_A
 }
 
 cv_consume_aux_symbol :: (input: *Line_Wire_Input, kind: Codeview_Symbol_Type) -> bool {
-    // These framed records have no reviewed common-base return storage. Their
+    // These framed records have no common-base return storage. Their
     // wire payloads are validated, while the projected symbol graph consists
-    // of the reviewed compiler/procedure/inline records above.
+    // of the compiler/procedure/inline records above.
     if kind == {
         case .OBJNAME, .UDT;
             cv_u32(input);

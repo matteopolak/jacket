@@ -1,4 +1,4 @@
-// Independent packaging default. The reviewed public import parameter list
+// Independent packaging default. The public import parameter list
 // does not declare FIRST_CLASS_HEAPS. configure_rpmalloc.py supplies a build's
 // explicit selection without extending the public module parameters.
 FIRST_CLASS_HEAPS :: false;

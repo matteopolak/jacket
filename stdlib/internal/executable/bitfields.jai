@@ -1,4 +1,4 @@
-// Storage masks are part of the reviewed public contract.
+// Storage masks are part of the public contract.
 get_isym :: (fields: dylib_reference) -> u32 {
     return ((fields.__bitfield >> 0) & 0xffffff);
 }

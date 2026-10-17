@@ -1,4 +1,4 @@
-// Additional reviewed native ABI reexports. Invocation coverage is tracked separately.
+// Additional native ABI reexports. Invocation coverage is tracked separately.
 
 clang_CXCursorSet_contains :: (cset: CXCursorSet, cursor: CXCursor) -> u32 #foreign libclang;
 

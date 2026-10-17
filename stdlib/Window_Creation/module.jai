@@ -35,7 +35,7 @@ Window_Type :: WT.Window_Type;
 } else #if OS == .ANDROID {
     Saved_Window_Info :: struct {}
 } else {
-    #assert false, "Window_Creation has no reviewed declarations for this target";
+    #assert false, "Window_Creation has no declarations for this target";
 }
 
 #scope_module

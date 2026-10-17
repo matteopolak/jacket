@@ -1,5 +1,4 @@
-TEST_K :: 1.0;
-DELTA_RATE_MAX :: 18.0 * (1.0 / 40000.0) * TEST_K;
+DELTA_RATE_MAX :: 18.0 * (1.0 / 40000.0);
 DELTA_RATE_MIN :: -DELTA_RATE_MAX;
 
 samples_to_bytes :: (stream: *Sound_Stream, num_samples: s64) -> s64 {

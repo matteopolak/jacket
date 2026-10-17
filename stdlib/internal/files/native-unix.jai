@@ -167,5 +167,4 @@ get_absolute_path :: inline (relative_path: string) -> string, success: bool {
 #if OS == .WASM P :: #import "internal/files/wasi-libc";
 else P :: #import "POSIX";
 
-libc :: #system_library "libc";
-c_free :: (memory: *void) #foreign libc "free";
+#import "internal/libc";

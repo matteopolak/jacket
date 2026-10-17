@@ -313,7 +313,7 @@ get_path_os_saved_games :: () -> string {
 
 #scope_file
 W :: #import "Windows";
-Text :: #import "internal/platform-io/windows-text";
+Text :: #import "internal/files/windows-text";
 
 shell32 :: #system_library "shell32";
 ole32 :: #system_library "ole32";

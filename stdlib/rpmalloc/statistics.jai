@@ -69,7 +69,7 @@ Statistics_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENA
             if !Statistics_Basic.print_to_builder(builder, "global mapped % peak % cached % huge % huge-peak % mapped-total % unmapped-total %\n", global.mapped, global.mapped_peak, global.cached, global.huge_alloc, global.huge_alloc_peak, global.mapped_total, global.unmapped_total) return;
         }
     } else {
-        // Explicit reviewed empty expansion when statistics are disabled.
+        // Explicit empty expansion when statistics are disabled.
         dump_statistics :: (builder: *void) #expand {}
     }
 }

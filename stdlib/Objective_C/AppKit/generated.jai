@@ -1,4 +1,4 @@
-// Generated from reviewed appkit.md by generate_appkit.py.
+// AppKit declarations; the hand-written API is in module.jai.
 
 NSOpenGLPFAAllRenderers: NSOpenGLPixelFormatAttribute : 1;
 NSOpenGLPFATripleBuffer: NSOpenGLPixelFormatAttribute : 3;

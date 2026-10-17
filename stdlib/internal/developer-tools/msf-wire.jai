@@ -1,4 +1,4 @@
-// Private staged MSF 7 wire reader. This is not the reviewed Msf facade.
+// Private staged MSF 7 wire reader. This is not the Msf facade.
 #scope_module
 Tools_Msf_Error :: enum {
     NONE;

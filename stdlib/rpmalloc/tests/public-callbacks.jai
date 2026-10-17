@@ -1,5 +1,5 @@
 // Reviewed rpmalloc.md: paired callbacks, retry/decline, matching lifetime,
-// and reviewed bounded mapping offsets. Native fixture uses libc.
+// and bounded mapping offsets. Native fixture uses libc.
 #import "Basic";
 
 #add_context callback_marker: s64;
@@ -206,7 +206,7 @@ main :: () {
     RPM.rpfree(memory);
     RPM.finalize();
     assert(count(1, 0) > 0 && count(1, 0) == count(2, 0));
-    // Paired offsets retain their value within the reviewed 16-bit range;
+    // Paired offsets retain their value within the 16-bit range;
     // the adapter does not reinterpret the custom callbacks units.
     saved_offset = 7;
     setup();

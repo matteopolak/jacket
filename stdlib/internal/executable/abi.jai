@@ -1,4 +1,4 @@
-// Explicit public ABI transcribed from the reviewed executable-formats spec.
+// Explicit public ABI transcribed from the executable-formats spec.
 vm_prot_t :: s32;
 CPU_THREADTYPE_NONE :: cast(cpu_threadtype_t) 0;
 CPU_THREADTYPE_INTEL_HTT :: cast(cpu_threadtype_t) 1;

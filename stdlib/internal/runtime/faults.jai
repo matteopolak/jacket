@@ -59,9 +59,6 @@ one_time_init :: (synch_value: *s32, to_insert: Code) #expand {
 }
 
 #scope_file
-libc :: #system_library "libc";
-c_abort :: () #foreign libc "abort";
-
 report_location :: (filename: *u8, line: s64) #no_context {
     write_string(to_string(filename), true);
     write_string(":", true);

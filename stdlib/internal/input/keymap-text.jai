@@ -135,7 +135,7 @@ print_to_builder :: (builder: *String_Builder, keymap: *Keymap) {
 
 print_keymap_mappings_to_builder :: (builder: *String_Builder, keymap: *Keymap) {
     for mapping: keymap.mappings {
-        assert(!mapping.modifier_flags.cmd_meta_pressed, "reviewed keymap persistence grammar has no Meta modifier prefix");
+        assert(!mapping.modifier_flags.cmd_meta_pressed, "keymap persistence grammar has no Meta modifier prefix");
         if mapping.modifier_flags.shift_pressed append(builder, "S-");
         if mapping.modifier_flags.ctrl_pressed append(builder, "C-");
         if mapping.modifier_flags.alt_pressed append(builder, "A-");

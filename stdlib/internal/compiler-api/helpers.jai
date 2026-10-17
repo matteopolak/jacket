@@ -80,7 +80,7 @@ get_basename_and_path :: (input_name: string) -> (basename: string, path: string
 }
 
 is_subclass_of :: (info: *Type_Info, base_name: string, first_call := true) -> bool {
-    require(first_call, "is_subclass_of(first_call=false) requires a reviewed behavioral contract");
+    require(first_call, "is_subclass_of(first_call=false) requires a behavioral contract");
     return has_base_type(info, base_name);
 }
 

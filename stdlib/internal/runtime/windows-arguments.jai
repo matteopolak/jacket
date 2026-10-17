@@ -45,13 +45,11 @@ release :: (arguments: *Arguments) #no_context {
 }
 
 #scope_file
+#import "internal/libc";
+
 kernel32 :: #system_library "kernel32";
 shell32 :: #system_library "shell32";
-libc :: #system_library "libc";
 GetCommandLineW :: () -> *u16 #foreign kernel32;
 CommandLineToArgvW :: (command: *u16, count: *s32) -> **u16 #foreign shell32;
 WideCharToMultiByte :: (code_page: u32, flags: u32, source: *u16, source_count: s32, destination: *u8, capacity: s32, default_character: *u8, used_default: *s32) -> s32 #foreign kernel32;
 LocalFree :: (memory: *void) -> *void #foreign kernel32;
-c_malloc :: (bytes: u64) -> *void #foreign libc "malloc";
-c_free :: (memory: *void) #foreign libc "free";
-c_abort :: () #foreign libc "abort";

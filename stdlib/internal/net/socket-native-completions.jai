@@ -1,11 +1,11 @@
-// Supplemental native shape verified against Apple's public SDK netinet/in.h.
+// in_addr as declared by Apple's netinet/in.h.
 #if OS == .MACOS {
     in_addr :: struct {
         s_addr: in_addr_t;
     }
 }
 
-// Reviewed Android public records; native field ABI agrees with bionic headers.
+// Android records, laid out as in the bionic headers.
 #if OS == .ANDROID {
     SHUT :: enum u32 {
         RD :: 0;

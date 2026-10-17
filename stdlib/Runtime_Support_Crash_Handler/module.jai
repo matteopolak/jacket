@@ -1,5 +1,5 @@
 #if OS == .WINDOWS {
-    #assert CPU == .X64, "the reviewed Windows crash handler supports x64 only";
+    #assert CPU == .X64, "the Windows crash handler supports x64 only";
 
     #load "../internal/runtime/windows-crash-types.jai";
     #load "../internal/runtime/windows-crash-handler.jai";

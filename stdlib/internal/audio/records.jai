@@ -1,4 +1,4 @@
-// Generated reviewed public layouts; independent dependency grouping.
+// Generated public layouts; independent dependency grouping.
 MAX_CHANNELS_PER_SOUND :: 8;
 ACHANNEL_MAX :: 8;
 OUTPUT_CHANNELS_MAX :: ACHANNEL_MAX;

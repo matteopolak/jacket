@@ -1,4 +1,4 @@
-// Generated from complete reviewed rpmalloc contextual record contracts.
+// Generated from complete rpmalloc contextual record contracts.
 
 // Regenerate with tools/native_bindings/generate.py; do not hand-edit.
 

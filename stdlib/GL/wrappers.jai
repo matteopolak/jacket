@@ -234,7 +234,7 @@ gl_enable_debug_output :: (break_on_error: bool = false) {
     if break_on_error gl.glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 }
 
-// The reviewed convenience API intentionally leaves native lifetime ownership
+// The convenience API intentionally leaves native lifetime ownership
 // with the caller and exposes no result. Use constructors for explicit handles.
 gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 = 0,
                       compatibility := false, debug := false, wanted_msaa: s32 = DEFAULT_MSAA) {
@@ -258,7 +258,7 @@ gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 =
             return;
         }
 
-        // Explicit reviewed behavior: this void wrapper does not check or
+        // Explicit behavior: this void wrapper does not check or
         // expose glXMakeCurrent's result. Native lifetime remains caller-owned.
         X.glXMakeCurrent(X.x_global_display, win, created);
     } else #if OS == .MACOS {
@@ -279,7 +279,7 @@ gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 =
         NativeNSGL.attach(created, view);
         NativeNSGL.make_current(created);
     } else {
-        #assert false, "OpenGL has no reviewed context path for this target";
+        #assert false, "OpenGL has no context path for this target";
     }
 }
 

@@ -21,7 +21,7 @@ main :: () {
     assert(offset_of(S.SDL_Surface, "pixels") == native_offset(2));
     assert(offset_of(S.SDL_Surface, "clip_rect") == native_offset(3));
     assert(offset_of(S.SDL_RWops, "type") == native_offset(4));
-    // Public prefixes retain the reviewed layout. C receives complete storage.
+    // Public prefixes retain the layout. C receives complete storage.
     assert(size_of(S.SDL_RWops) == 48 && align_of(S.SDL_RWops) == 8);
     assert(size_of(S.SDL_UserEvent) == 8 && align_of(S.SDL_UserEvent) == 4);
     assert(offset_of(S.SDL_UserEvent, "type") == 0 && offset_of(S.SDL_UserEvent, "timestamp") == 4);

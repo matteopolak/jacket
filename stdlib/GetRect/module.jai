@@ -1,6 +1,6 @@
 #module_parameters(Type_Indicator: Type = void);
 
-#load "../internal/numerics/ui_types_right.jai";
+#load "../internal/numerics/ui_types.jai";
 #load "../internal/numerics/ui_context.jai";
 #load "../internal/numerics/ui_geometry.jai";
 #load "../internal/numerics/ui_core.jai";

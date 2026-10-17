@@ -6,7 +6,7 @@ Allocator_Settings :: #import "internal/bindings/rpmalloc-build";
 Allocator_Frames :: #import "internal/bindings/callback-context";
 Allocator_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENABLE_STATISTICS, RAW = USE_RAW, PUBLIC_HEAPS = !USE_RAW || Allocator_Settings.FIRST_CLASS_HEAPS, GLOBAL_CACHE = ENABLE_GLOBAL_CACHE, THREAD_CACHE = ENABLE_THREAD_CACHE, ASSERTS = ENABLE_ASSERTS, VALIDATE_ARGS = ENABLE_VALIDATE_ARGS, ADAPTIVE = ENABLE_ADAPTIVE_THREAD_CACHE && !ENABLE_STATISTICS);
 
-// Exact reviewed CAPS identity; static borrowed storage survives all calls.
+// Exact CAPS identity; static borrowed storage survives all calls.
 allocator_name: string = "rpmalloc 1.4.4";
 
 #scope_export
@@ -27,7 +27,7 @@ rpmalloc_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size:
     }
 
     if mode == .STARTUP {
-        // The reviewed generic callback explicitly ignores this result.
+        // The generic callback explicitly ignores this result.
         initialize();
         return null;
     }

@@ -1,4 +1,4 @@
-// Additional reviewed native ABI types; no native implementation bodies are reproduced.
+// Additional native ABI types; no native implementation bodies are reproduced.
 
 #if OS == .WINDOWS {
     CXAvailabilityKind :: enum s32 {

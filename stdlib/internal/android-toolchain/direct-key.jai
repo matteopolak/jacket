@@ -1,5 +1,5 @@
 android_generate_signing_key_direct :: (out_path: string, key_name: string, algorithm := Android_Signing_Key_Signature_Algorithm.EC, key_size := 0, common_name := "Jai Android", organization_name := "Jai", country_code := "US") -> bool, Android_Signing_Key {
-    // The reviewed generator ignores key_size; actual EC/RSA sizes are fixed.
+    // The generator ignores key_size; actual EC/RSA sizes are fixed.
     if algorithm != .EC && algorithm != .RSA return false, .{};
     if key_name.count == 0 return false, .{};
     for byte: key_name if byte == 0 || byte == 47 || byte == 92 return false, .{};

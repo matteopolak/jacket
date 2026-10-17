@@ -1,4 +1,4 @@
-// Generated from reviewed compiler/prelude record inventories.
+// Generated from compiler/prelude record inventories.
 #scope_module
 register_compiler_types :: () {
     register_type(type_info(C.Global_Data_Info));

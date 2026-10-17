@@ -11,7 +11,7 @@ argument :: (text: string) -> *u16 {
     return utf16_path(text);
 }
 
-#load "../../platform-io/windows-text.jai";
+#load "../../files/windows-text.jai";
 
 #scope_file
 Basic :: #import "Basic";

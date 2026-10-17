@@ -68,7 +68,7 @@ BUFFER_DEFAULT_SIZE :: 128 * 1024;
 
 // Adapted from MIT-licensed PL_MPEG by Dominic Szablewski.
 // Original C input/attribution: third_party/pl_mpeg. This is a separate Jai
-// implementation using reviewed layouts and checked bounds/I/O; no Jai port input.
+// implementation using layouts and checked bounds/I/O; no Jai port input.
 
 buffer_create_with_memory :: (memory: [] u8, free_when_done: bool) -> *Buffer {
     if memory.count < 0 || memory.count > MAX_BUFFER_BYTES || (memory.count > 0 && !memory.data) return null;

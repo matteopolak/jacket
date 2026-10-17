@@ -4,7 +4,7 @@ formatter_style :: () -> *Print_Style {
 }
 
 // The context callback has one canonical, assert-enabled builder ABI. Other
-// Basic configurations retain their reviewed buffer layout and copy callback
+// Basic configurations retain their buffer layout and copy callback
 // output through an owned canonical scratch builder instead of reinterpreting it.
 #if !ENABLE_ASSERT Canonical_Print :: #import "internal/basic";
 

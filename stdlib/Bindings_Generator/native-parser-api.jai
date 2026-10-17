@@ -1,4 +1,4 @@
-// Native parser subset; declarations from the reviewed platform-specific inventories.
+// Native parser subset; declarations from the platform-specific inventories.
 CINDEX_VERSION_MAJOR :: 0;
 CINDEX_VERSION_MINOR :: 64;
 CXIndex :: *void;

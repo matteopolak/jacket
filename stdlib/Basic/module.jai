@@ -230,7 +230,7 @@ NewArray :: Impl.NewArray;
 
 get_command_line_arguments :: Impl.get_command_line_arguments;
 
-// Reexport the canonical reviewed overload sets through ordinary visibility.
+// Reexport the canonical overload sets through ordinary visibility.
 using,only(.["==", "!", "+", "-", "<", "<=", ">", ">="]) #import "internal/basic"(MEMORY_DEBUGGER = MEMORY_DEBUGGER, ENABLE_ASSERT = ENABLE_ASSERT, REPLACEMENT_INTERFACE = REPLACEMENT_INTERFACE, VISUALIZE_MEMORY_DEBUGGER = VISUALIZE_MEMORY_DEBUGGER, TEMP_ALLOCATOR_OVERWRITE_MEMORY = TEMP_ALLOCATOR_OVERWRITE_MEMORY);
 
 #scope_file

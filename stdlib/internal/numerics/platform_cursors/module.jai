@@ -1,7 +1,7 @@
 // Native system cursors. Windows handles are borrowed shared cursors; macOS
 // objects are retained explicitly and released by destroy. No private selectors.
 // One shared borrowed-object identity is used by every UI module instance.
-// No reviewed concrete NSCursor layout is supplied; never allocate/dereference.
+// No concrete NSCursor layout is supplied; never allocate/dereference.
 NSCursor :: struct {}
 
 create :: () -> (handles: [8] *void, success: bool, message: string) {

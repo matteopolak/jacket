@@ -81,7 +81,7 @@ NSWindow :: struct {
     }
 
     makeFirstResponder :: (self: *NSWindow, view: O.id) {
-        // AppKit returns BOOL; this reviewed convenience signature discards it.
+        // AppKit returns BOOL; this convenience signature discards it.
         Send :: #type (receiver: *NSWindow, selector: O.Selector, view: O.id) -> O.BOOL #c_call;
         send := cast(Send) binding_send;
         send(self, O.selector("makeFirstResponder:"), view);

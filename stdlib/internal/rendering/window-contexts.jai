@@ -70,7 +70,7 @@ prepare :: (window: WT.Window_Type, wanted_msaa: s32) -> s32 {
 
         Lifecycle.listen(close_window);
     } else {
-        #assert false, "this rendering backend requires a reviewed native OpenGL context path";
+        #assert false, "this rendering backend requires a native OpenGL context path";
     }
 
     if !contexts.allocator.proc contexts.allocator = context.default_allocator;

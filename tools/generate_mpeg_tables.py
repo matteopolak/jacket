@@ -28,7 +28,7 @@ for line in text.splitlines():
         declarations[declaration.split()[0]] = declaration + ";"
 for declaration in re.findall(r"```jai\n(.*?)\n```", (SPEC / "pl-mpeg-public-tables.md").read_text(), re.S):
     declarations[declaration.split()[0]] = declaration.strip()
-output = "// Generated from reviewed public specifications by tools/generate_mpeg_tables.py.\n"
+output = "// Generated from the public specifications by tools/generate_mpeg_tables.py.\n"
 for title, names in groups:
     output += "\n// " + title + ".\n\n"
     output += "\n\n".join(declarations[name] for name in names) + "\n"

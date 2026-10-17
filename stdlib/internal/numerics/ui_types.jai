@@ -193,7 +193,8 @@ Button_Theme :: struct {
     surface_color_down := Vector4.{ .28, .28, .38, 1.0 };
     text_color_over := Vector4.{ .95, .95, .95, 1.0 };
     text_color_pressed := Vector4.{ .99, .99, .99, 1.0 };
-    text_offset_down := Vector2.{ .12, .12 };
+    #if LEFT_HANDED text_offset_down := Vector2.{ .12, .12 };
+    else text_offset_down := Vector2.{ .12, -.12 };
     frame_thickness_over := .04;
     frame_thickness_down := .05;
     frame_thickness_flash := .07;
@@ -536,7 +537,7 @@ Dropdown_State :: struct #type_info_none {
     theme: Dropdown_Theme = ---;
     loc: Source_Code_Location;
     z: s32;
-    original_value: s32 = -1;
+    #if LEFT_HANDED original_value: s32 = -1;
     current_value_pointer: *s32;
     current_value_state: *Button_State;
 }
@@ -597,6 +598,10 @@ Subwindow_State :: struct #type_info_none {
     dragging_resize_control: Resize_Controls;
     resizing_aspect: float;
     theme: Subwindow_Theme;
+    #if !LEFT_HANDED {
+        draw_proc_adjusted_y := false;
+        draw_proc_new_y1 := 0.0;
+    }
 }
 
 Color_Picker_State :: struct #type_info_none {
@@ -645,7 +650,9 @@ Color_Animation_Editor_State :: struct #type_info_none {
     dragging_keyframe_index: int;
     color_picker_keyframe_index: int;
     color_picker_subwindow_info: Subwindow_Info;
+    #if !LEFT_HANDED color_picker_subwindow_info.open = false;
     time_view_subwindow_info: Subwindow_Info;
+    #if !LEFT_HANDED time_view_subwindow_info.open = false;
     color_picker_editing_color_applied: Vector3;
     color_picker_subwindow_rect_initialized := false;
     theme: *Color_Animation_Editor_Theme;

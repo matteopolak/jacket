@@ -14,7 +14,7 @@
     Window_Type :: *void;
     INVALID_WINDOW: Window_Type : null;
 } else {
-    #assert false, "Window_Type has no reviewed native handle for this target";
+    #assert false, "Window_Type has no native handle for this target";
 }
 
 #scope_module

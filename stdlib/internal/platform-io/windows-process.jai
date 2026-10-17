@@ -251,7 +251,7 @@ read_pair :: (child: *Child, output: [] u8, error: [] u8, timeout_ms: s64 = -1) 
 #load "../process/arguments.jai";
 W :: #import "Windows";
 Types :: #import "internal/process/windows-types";
-Text :: #import "internal/platform-io/windows-text";
+Text :: #import "internal/files/windows-text";
 
 Startup_Extended :: struct {
     info: W.STARTUPINFOW;

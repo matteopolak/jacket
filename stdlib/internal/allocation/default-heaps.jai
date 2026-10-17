@@ -70,7 +70,7 @@ heap_free_all :: (heap: *Heap) {
 }
 
 global_statistics :: () -> Global_Statistics {
-    // The reviewed standard variant explicitly returns dummy statistics.
+    // The standard variant explicitly returns dummy statistics.
     return .{};
 }
 
@@ -194,10 +194,7 @@ initialized: bool;
 guard: s32;
 next_id: s32;
 
-libc :: #system_library "libc";
-c_malloc :: (size: u64) -> *void #foreign libc "malloc";
-c_realloc :: (memory: *void, size: u64) -> *void #foreign libc "realloc";
-c_free :: (memory: *void) #foreign libc "free";
+#import "internal/libc";
 
 acquire :: () {
     acquired := compare_and_swap(*guard, cast(s32) 0, cast(s32) 1);

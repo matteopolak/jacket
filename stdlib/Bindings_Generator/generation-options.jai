@@ -1,4 +1,4 @@
-// Public data contract from the reviewed specification; private algorithms are independent.
+// Public data contract from the specification; private algorithms are independent.
 
 Generate_Bindings_Options :: struct #type_info_none {
     os := TARGET_OS;

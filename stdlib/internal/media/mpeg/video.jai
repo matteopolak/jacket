@@ -1,4 +1,4 @@
-// Canonical reviewed shapes retain ABI field order.
+// Canonical shapes retain ABI field order.
 Video_Motion :: struct {
     full_px: s32;
     is_set: s32;
@@ -145,7 +145,7 @@ video_decode_sequence_header :: (video: *Video) -> bool {
     width := buffer_read(buffer, 12);
     height := buffer_read(buffer, 12);
 
-    buffer_skip(buffer, 4); // Aspect ratio has no field in the reviewed shape.
+    buffer_skip(buffer, 4); // Aspect ratio has no field in the shape.
     rate := buffer_read(buffer, 4);
 
     buffer_skip(buffer, 18);

@@ -1,4 +1,4 @@
-// Native SDK mechanics only. Public ID/language policy awaits reviewed contracts.
+// Native SDK mechanics only. Public ID/language policy awaits contracts.
 write_icon_resources :: (filename: string, icon: string, group_id: u16, first_image_id: u16, language: u16, delete_existing: bool) -> bool {
     valid, directory := Icons.inspect(icon);
     if !valid return diagnostic(filename, "invalid ICO directory");

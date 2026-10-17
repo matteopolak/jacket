@@ -20,7 +20,7 @@ Reference for what the compiler accepts, one topic per page: [language/](languag
 
 ## Standard library
 
-[Extensions overview](extensions/README.md) and [conventions](extensions/extensions-conventions.md). The behaviour of the standard library modules is specified in [specs/stdlib/](specs/stdlib/); open questions are in [specs/questions/](specs/questions/).
+[Extensions overview](extensions/README.md) and [conventions](extensions/extensions-conventions.md); how the native-heavy modules are laid out is in [stdlib native layout](stdlib-native-layout.md). The behaviour of the standard library modules is specified in [specs/stdlib/](specs/stdlib/); open questions are in [specs/questions/](specs/questions/).
 
 ## Specifications
 

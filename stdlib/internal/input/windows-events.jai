@@ -62,7 +62,7 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
             if delta < 0 event.key_code = .MOUSE_WHEEL_DOWN;
         }
 
-        // Horizontal messages retain their signed delta. The reviewed Event
+        // Horizontal messages retain their signed delta. The Event
         // has no axis field; UNKNOWN avoids misreporting a vertical direction.
         Basic.array_add(*events_this_frame, event);
 

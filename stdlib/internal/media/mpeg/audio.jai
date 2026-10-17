@@ -1,4 +1,4 @@
-// Canonical reviewed shapes retain ABI field order.
+// Canonical shapes retain ABI field order.
 Samples :: struct {
     time: float64;
     count: u32;

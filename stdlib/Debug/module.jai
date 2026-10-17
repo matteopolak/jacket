@@ -10,7 +10,7 @@ using,only(CRASH_HANDLER_USE_SEPARATE_THREAD, Crash_Handler, crash_handler, Asse
 
 #if OS == .WINDOWS && CRASH_HANDLER_USE_SEPARATE_THREAD {
     init_crash_handler_thread :: () {
-        // The reviewed alternate declaration promises no initialization effect.
+        // The alternate declaration promises no initialization effect.
     }
 }
 

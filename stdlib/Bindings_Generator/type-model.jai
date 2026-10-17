@@ -1,4 +1,4 @@
-// Public data contract from the reviewed specification; private algorithms are independent.
+// Public data contract from the specification; private algorithms are independent.
 
 CType :: struct {
     hardcoded_jai_string: string;

@@ -1,9 +1,20 @@
-"""One native domain inventory for generated imports and real C compilation."""
+"""One native domain inventory for generated imports and real C compilation.
 
+Every combination of the build options names a native library, and foreign library and symbol
+names are string literals, so each profile costs one block in the generated Jai modules. Only
+the profiles listed in ci-rpmalloc-profiles.json are built and bound; any other combination is a
+compile-time error in the modules.
+"""
+
+import json
 from itertools import product
+from pathlib import Path
+
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 
-PROFILES = []
+SUPPORTED = json.loads(Path(__file__).with_name("ci-rpmalloc-profiles.json").read_text())["sdk_profiles"]
+
+_COMBINATIONS = []
 for raw, public_heaps in ((False, True), (True, False), (True, True)):
     for statistics in (True, False):
         for global_cache, thread_cache, assertions, validation, adaptive in product(
@@ -33,7 +44,7 @@ for raw, public_heaps in ((False, True), (True, False), (True, True)):
             condition += " && " + ("ASSERTS" if assertions else "!ASSERTS")
             condition += " && " + ("VALIDATE_ARGS" if validation else "!VALIDATE_ARGS")
             condition += " && " + ("ADAPTIVE" if adaptive else "!ADAPTIVE")
-            PROFILES.append(
+            _COMBINATIONS.append(
                 dict(
                     raw=raw,
                     public_heaps=public_heaps,
@@ -64,13 +75,20 @@ for raw, public_heaps in ((False, True), (True, False), (True, True)):
             )
 
 
+PROFILES = [p for p in _COMBINATIONS if p["sdk"] in SUPPORTED]
+assert len(PROFILES) == len(SUPPORTED), "ci-rpmalloc-profiles.json names an unknown profile"
+
+
 def select_blocks(render):
-    return (
-        "\n".join(
-            "#if " + p["condition"] + " {\n" + render(p) + "\n}" for p in PROFILES
-        )
-        + "\n"
+    """One `#if` per built profile, closed by an error for the combinations without a library."""
+    chain = " else ".join(
+        "#if " + p["condition"] + " {\n" + render(p) + "\n}" for p in PROFILES
     )
+    message = (
+        "these rpmalloc options select a native profile that is not built; "
+        "see tools/native_bindings/ci-rpmalloc-profiles.json"
+    )
+    return chain + ' else {\n#assert false, "' + message + '";\n}\n'
 
 
 def parameters():

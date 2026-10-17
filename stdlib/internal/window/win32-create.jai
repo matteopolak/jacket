@@ -55,7 +55,7 @@ create_window :: (width: int, height: int, window_name: string, window_x := -1, 
         if window_y == -1 window_y = work.top;
     }
 
-    title := window_utf16(window_name);
+    title := Text.to_utf16(window_name);
 
     defer Basic.free(title);
     if !title return null;
@@ -121,27 +121,7 @@ win_get_class_info :: (instance: Windows.HINSTANCE, name: *u16, info: *Windows.W
 
 Basic :: #import "Basic";
 Input :: #import "Input";
+Text :: #import "internal/files/windows-text";
 
 window_class_registered := false;
 window_class_name := u16.[67, 108, 101, 97, 110, 114, 111, 111, 109, 87, 105, 110, 100, 111, 119, 0];
-
-window_utf16 :: (text: string) -> *u16 {
-    if text.count > 0x7fffffff return null;
-    for byte: text if byte == 0 return null;
-
-    count := Windows.MultiByteToWideChar(65001, 8, text.data, cast(s32) text.count, null, 0);
-    if count == 0 && text.count != 0 return null;
-
-    result := cast(*u16) Basic.alloc((cast(int) count + 1) * 2);
-
-    Basic.assert(result != null, "window title allocation failed");
-
-    if count > 0 && Windows.MultiByteToWideChar(65001, 8, text.data, cast(s32) text.count, result, count) != count {
-        Basic.free(result);
-        return null;
-    }
-
-    result[count] = 0;
-
-    return result;
-}

@@ -1,4 +1,4 @@
-// Public DirectSound ABI declarations from the reviewed contract.
+// Public DirectSound ABI declarations from the contract.
 
 DSSPEAKER :: enum {
     HEADPHONE :: 1;

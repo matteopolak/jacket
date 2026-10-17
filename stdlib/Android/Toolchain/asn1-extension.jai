@@ -1,4 +1,4 @@
-// Load once in the Android/Toolchain module scope; see the integration handoff.
+// Load once in the Android/Toolchain module scope.
 #load "../../internal/android-toolchain/asn1-identity.jai";
 #load "../../internal/android-toolchain/asn1-tags.jai";
 #load "../../internal/android-toolchain/asn1-values.jai";

@@ -2,7 +2,6 @@
 """Derive complete private domain globals from the pinned official C SDK."""
 import argparse
 import difflib
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -41,7 +40,6 @@ def generate(vendor, work):
         body=body.replace(old, '#if BINDING_RPMALLOC_RUNTIME_CONFIGURATION\n\tbinding_domain_fls_heap('+value+');\n#else\n\t'+old+'\n#endif')
     # Audit every native host conditional separately; no implicit missing field
     # is filled with guessed storage. Windows FLS is separately source-guarded.
-    audits=[]
     original=vendor/'rpmalloc/rpmalloc.c'
     for statistics, global_cache, adaptive in ((1,1,0),(0,1,0),(0,1,1),(1,0,0),(0,0,0)):
         command=['clang','-std=c11','-DRPMALLOC_FIRST_CLASS_HEAPS=1','-DRPMALLOC_CONFIGURABLE=1',
@@ -52,17 +50,11 @@ def generate(vendor, work):
         missing=actual-set(names)-{'_memory_thread_heap'}
         if missing:
             raise ValueError('Unowned SDK global state: '+repr(missing))
-        audits.append(dict(statistics=statistics,global_cache=global_cache,adaptive=adaptive,globals=sorted(actual)))
     folder=ROOT/'stdlib/internal/bindings/rpmalloc-heaps'
     outputs={folder/'sdk-domains.patch':''.join(difflib.unified_diff(source.splitlines(True),body.splitlines(True),
         fromfile='a/rpmalloc.c',tofile='b/rpmalloc.c')),
         folder/'runtime-domain-native-fields.inc':'/* Generated complete pinned SDK globals; preserve conditional fields. */\n'+fields,
         folder/'runtime-domain-native-aliases.inc':'/* Generated SDK state indirection; never a public ABI record. */\n'+aliases}
-    metadata=dict(source='Pinned official rpmalloc C; no Jai implementation input',
-        prepared_base_sha256=hashlib.sha256(source.encode()).hexdigest(),globals=names,
-        per_thread=['_memory_thread_heap'],windows=['fls_key'],conditional_host_ast_audits=audits,
-        outputs={str(p.relative_to(ROOT)):hashlib.sha256(text.encode()).hexdigest()for p,text in outputs.items()})
-    outputs[folder/'runtime-domain-provenance.json']=json.dumps(metadata,indent=2)+'\n'
     return outputs
 
 

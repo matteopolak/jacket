@@ -64,7 +64,7 @@ accum_scale_target_2_source_mono :: (stream: *Sound_Stream, plane_dir: Vector2, 
     if stream.user_flags & .SPATIALIZED adjust_stereo_dots_by_closeness(*left, *right, get_target_2_closeness(stream));
 
     // The shared base keeps uncovered directions audible; its private magnitude
-    // is independently selected pending a numeric reviewed refinement.
+    // is independently selected pending a numeric refinement.
     left += 0.5;
     right += 0.5;
     magnitude := sqrt(left * left + right * right);
