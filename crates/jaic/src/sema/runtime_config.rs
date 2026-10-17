@@ -5,7 +5,7 @@ use super::*;
 use crate::types::StructId;
 
 
-/// Provenance of the reviewed compiler constant, kept outside reflected values/types.
+/// Where a compiler constant came from, kept outside reflected values/types.
 #[derive(Default)]
 pub(super) struct RuntimeStorageDependencies {
     pub captures: Vec<Vec<i64>>,

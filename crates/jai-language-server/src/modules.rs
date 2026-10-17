@@ -185,20 +185,7 @@ impl crate::Session {
             return Vec::new();
         };
         let mut index = self.index.borrow_mut();
-        let sources = Sources {
-            env,
-            open: self
-                .documents
-                .iter()
-                .chain(&self.lint_configs)
-                .map(|(u, d)| {
-                    (
-                        crate::auto_import::canonical_key(env, Path::new(u.path())),
-                        d.text.as_str(),
-                    )
-                })
-                .collect(),
-        };
+        let sources = self.sources(env);
         sources
             .import_dirs(&mut index, root, &self.workspace_folders)
             .0

@@ -1,4 +1,4 @@
-//! Original public compiler capability diagnostics retained during fixture migration.
+//! Diagnostics for public compiler capabilities this compiler does not provide.
 use std::{path::PathBuf, process::Command};
 
 #[test]

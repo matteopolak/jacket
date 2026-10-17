@@ -1,4 +1,4 @@
-// Deliberately scoped test bootstrap: these are the reviewed fields needed by
+// Deliberately scoped test bootstrap: these are the fields needed by
 // these tests, not a substitute for integrated prelude verification.
 pub const BOOTSTRAP: &str = r#"
 Type_Info :: struct { type: u32; runtime_size: s64; }

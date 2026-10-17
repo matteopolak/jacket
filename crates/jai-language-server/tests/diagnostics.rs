@@ -152,6 +152,16 @@ fn a_clean_program_has_no_check_errors() {
     assert!(checks(&s).is_empty());
 }
 
+/// Declarations from an inserted `#code` value or string are visible to the statements
+/// after the `#insert`, so they are not reported as unresolved.
+#[test]
+fn inserted_declarations_resolve_in_the_inserting_scope() {
+    let mut s = session();
+    let text = "#import \"Basic\";\nmain :: () {\n    a :: #code b := 2;\n    #insert a;\n    #insert \"c := b + 1; d := c;\";\n    print(\"b: % %\\n\", b, d);\n}\n";
+    s.open(uri(), 1, text.into()).unwrap();
+    assert!(checks(&s).is_empty(), "{:?}", checks(&s));
+}
+
 /// A print whose format string and arguments disagree is a compiler warning: it shows as a
 /// warning at the call, and no error.
 #[test]

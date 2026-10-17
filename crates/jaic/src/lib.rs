@@ -25,6 +25,7 @@ pub mod sema;
 pub mod source;
 pub mod stack_trace;
 pub mod suggest;
+pub mod target;
 pub mod types;
 pub mod wide_float;
 

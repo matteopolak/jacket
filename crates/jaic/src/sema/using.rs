@@ -26,7 +26,7 @@ pub(super) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym>
 }
 
 /// Filters use public operator symbols; lookup still uses the original declaration.
-/// Restrict translation to reviewed operator forms, leaving ordinary names intact.
+/// Translate only operator forms, leaving ordinary names intact.
 fn public_filter_name(name: Sym) -> Sym {
     match name.as_str().strip_prefix("operator") {
         Some(

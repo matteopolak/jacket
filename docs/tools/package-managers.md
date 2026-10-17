@@ -6,21 +6,21 @@ Ways to install a released Jai toolchain (`jaic`, `jailsp`, `jailint`, `jaifmt` 
 
 | Channel | Platforms | Users run | Published by |
 | --- | --- | --- | --- |
-| Homebrew tap | macOS arm64 and x86-64, Linux x86-64 and arm64 | `brew install matteopolak/tap/jai` | `homebrew` job in `release.yml`, secret `HOMEBREW_TAP_TOKEN` |
-| `install.sh` | macOS arm64 and x86-64, Linux x86-64 and arm64 | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh \| sh` | nothing to publish: it reads the latest release |
-| `install.ps1` | Windows x64, arm64 | `irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 \| iex` | same |
-| Nix flake | Linux, macOS (builds from source) | `nix profile install github:matteopolak/jai` | [Nix flake](nix.md) |
+| Homebrew tap | macOS arm64 and x86-64, Linux x86-64 and arm64 | `brew install matteopolak/tap/jacket` | `homebrew` job in `release.yml`, secret `HOMEBREW_TAP_TOKEN` |
+| `install.sh` | macOS arm64 and x86-64, Linux x86-64 and arm64 | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh \| sh` | nothing to publish: it reads the latest release |
+| `install.ps1` | Windows x64, arm64 | `irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 \| iex` | same |
+| Nix flake | Linux, macOS (builds from source) | `nix profile install github:matteopolak/jacket` | [Nix flake](nix.md) |
 
 The package is named `jai` (formula `jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives are named after it too: `jai-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jai-<platform>/`, since 0.4.1. Releases up to 0.4.0 shipped `jaic-<platform>` and keep those names, so everything that downloads an archive picks the name from the version (see [archive names](#archive-names)). Releases after 0.4.1 have Intel macOS (`macos-x64`) and arm64 Linux (`linux-arm64`) archives too; 0.4.1 and earlier do not, so for those versions Homebrew refuses the two platforms with `depends_on arch:` and the installer script says the release has no build for them (build from source, use Nix, or install a later version).
 
 ### Other ways to install
 
-- **Archives:** every release on the [releases page](https://github.com/matteopolak/jai/releases) has one per platform. Unpack it anywhere and put `jaic` on your `PATH`, directly or through a symlink.
+- **Archives:** every release on the [releases page](https://github.com/matteopolak/jacket/releases) has one per platform. Unpack it anywhere and put `jaic` on your `PATH`, directly or through a symlink.
 - **GitHub Actions:** [setup-jai](https://github.com/matteopolak/setup-jai) (`- uses: matteopolak/setup-jai@v1`).
 - **From source:** you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([LLVM setup](llvm-setup.md)):
 
   ```sh
-  git clone https://github.com/matteopolak/jai.git && cd jai
+  git clone https://github.com/matteopolak/jacket.git && cd jai
   cargo build -p jaic-cli -p jai-language-server -p jailint --release --locked
   ```
 
@@ -43,7 +43,7 @@ Published assets are never renamed. The rule (`jaic` up to 0.4.0, else `jai`) li
 
 ```sh
 python3 tools/render_packages.py --version v0.4.0 --sums SHA256SUMS --out out
-# out/homebrew/jai.rb
+# out/homebrew/jacket.rb
 ```
 
 `--sums` reads a release's `SHA256SUMS`; `--archives DIR` hashes the archives in a directory instead (dry runs, before a release exists). It fails if an archive is missing from the checksums or a placeholder is unknown. The `macos-x64` and `linux-arm64` archives (`NEWER_PLATFORMS`) are required only for a version after 0.4.1; when a release lacks one, its block gets the nearest build's URL and checksum (`macos-arm64`, `linux-x64`) and a `depends_on arch:` line (`@MACOS_ARCH@` is `:arm64`, `@LINUX_ARCH@` `:x86_64`). With both present those placeholders are `None`, and `render` leaves out every line holding a `None` placeholder, plus the blank line after it. Tests: `tools/test_render_packages.py`.
@@ -52,13 +52,13 @@ python3 tools/render_packages.py --version v0.4.0 --sums SHA256SUMS --out out
 
 After `publish` creates the GitHub release, the `homebrew` job in `release.yml` runs. It depends on `publish`, so it cannot hold up the release or the extension stores; a failure only marks its own job red.
 
-- `homebrew` (ubuntu): downloads the release's `SHA256SUMS`, renders `jai.rb`, puts it in a throwaway local tap, runs `brew style`, `brew audit --strict --online`, `brew install` and `brew test` (Linux x86-64), then clones `matteopolak/homebrew-tap` with `HOMEBREW_TAP_TOKEN`, writes `Formula/jai.rb` (creating `Formula/` on the first run) and pushes a `jai <version>` commit to its default branch. An unchanged formula is not committed.
+- `homebrew` (ubuntu): downloads the release's `SHA256SUMS`, renders `jacket.rb`, puts it in a throwaway local tap, runs `brew style`, `brew audit --strict --online`, `brew install` and `brew test` (Linux x86-64), then clones `matteopolak/homebrew-tap` with `HOMEBREW_TAP_TOKEN`, writes `Formula/jacket.rb` (creating `Formula/` on the first run) and pushes a `jai <version>` commit to its default branch. An unchanged formula is not committed.
 
 Without its secret the job prints that it skipped and succeeds. A run without a tag (Actions, release, Run workflow, empty tag) renders from that run's archives and the `Cargo.toml` version, validates (`brew style` and offline `brew audit`) and publishes nothing.
 
 ### Homebrew formula
 
-`packaging/homebrew/jai.rb.tmpl` downloads `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz` or `jai-linux-arm64.tar.gz` (`on_macos`/`on_linux` with `on_arm`/`on_intel`; `jaic-*` when rendered for 0.4.0 or earlier), installs the four binaries, `stdlib/` (including its prelude) and `artifacts/` (the prebuilt native libraries: wgpu-native, `stb_*`, `rpmalloc`; see [native libraries](native-libs.md)) into `libexec`, and links the binaries into `bin`. Every channel installs the whole archive tree, so `artifacts/native-libs/<platform>/` stays beside `stdlib/`, where `jaic` looks for it: `install.sh` and `install.ps1` move the unpacked folder, and the formula installs `artifacts` when the archive has it (0.4.1 and later). `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Rendered for 0.4.1 or earlier, Intel macOS and arm64 Linux get the other architecture's URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic -interp`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
+`packaging/homebrew/jacket.rb.tmpl` downloads `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz` or `jai-linux-arm64.tar.gz` (`on_macos`/`on_linux` with `on_arm`/`on_intel`; `jaic-*` when rendered for 0.4.0 or earlier), installs the four binaries, `stdlib/` (including its prelude) and `artifacts/` (the prebuilt native libraries: wgpu-native, `stb_*`, `rpmalloc`; see [native libraries](native-libs.md)) into `libexec`, and links the binaries into `bin`. Every channel installs the whole archive tree, so `artifacts/native-libs/<platform>/` stays beside `stdlib/`, where `jaic` looks for it: `install.sh` and `install.ps1` move the unpacked folder, and the formula installs `artifacts` when the archive has it (0.4.1 and later). `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Rendered for 0.4.1 or earlier, Intel macOS and arm64 Linux get the other architecture's URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic -interp`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
 
 ### install.sh
 
@@ -92,7 +92,7 @@ Nothing in `packaging.yml` publishes.
 
 ## How to change it
 
-- Formula: edit the template in `packaging/`, then render against the latest release and check locally (`brew tap-new --no-git you/local`, copy `out/homebrew/jai.rb` into its `Formula/`, `brew style`, `brew audit --formula --strict --online you/local/jai`, `brew install`, `brew test`, `brew uninstall`, `brew untap`). A new placeholder needs a value in `substitutions()` in `tools/render_packages.py`; an unknown one is an error.
+- Formula: edit the template in `packaging/`, then render against the latest release and check locally (`brew tap-new --no-git you/local`, copy `out/homebrew/jacket.rb` into its `Formula/`, `brew style`, `brew audit --formula --strict --online you/local/jacket`, `brew install`, `brew test`, `brew uninstall`, `brew untap`). A new placeholder needs a value in `substitutions()` in `tools/render_packages.py`; an unknown one is an error.
 - A new platform archive: add it to `PLATFORM_ASSETS` in `tools/render_packages.py` (or, if older releases lack it and their formulas must still render, to `NEWER_PLATFORMS` with a fallback), to the formula (`on_macos`/`on_linux` with `on_arm`/`on_intel`) or the installer list, to the `platform` functions of both install scripts, to `RELEASE_ASSETS` in the extension's `src/toolchain.ts`, and to `packaging.yml`'s runners.
 
 Gotchas:

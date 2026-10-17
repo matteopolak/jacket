@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/matteopolak/jai/editors/vscode/schemas/jaifmt.schema.json",
+  "$id": "https://github.com/matteopolak/jacket/editors/vscode/schemas/jaifmt.schema.json",
   "title": "jaifmt.toml",
-  "description": "Settings for the jaifmt formatter. https://github.com/matteopolak/jai/blob/main/docs/tools/jaifmt.md#configuration",
+  "description": "Settings for the jaifmt formatter. https://github.com/matteopolak/jacket/blob/main/docs/tools/jaifmt.md#configuration",
   "type": "object",
   "additionalProperties": false,
   "properties": {

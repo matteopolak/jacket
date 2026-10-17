@@ -16,7 +16,7 @@ version = "0.17.0"
 edition = "2024"
 rust-version = "1.95"
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/matteopolak/jai"
+repository = "https://github.com/matteopolak/jacket"
 
 [workspace.dependencies]
 jai-language-server = { path = "crates/jai-language-server" }

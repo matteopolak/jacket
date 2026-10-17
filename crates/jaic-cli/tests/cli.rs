@@ -15,7 +15,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
     let provider = dir.join("provider.c");
     std::fs::write(
         &provider,
-        "#include <pthread.h>\nint cleanroom_root_thread(void) { return pthread_main_np(); }\n",
+        "#include <pthread.h>\nint root_thread_probe(void) { return pthread_main_np(); }\n",
     )
     .unwrap();
     let library = dir.join("libmain-route-probe.dylib");
@@ -32,7 +32,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
         String::from_utf8_lossy(&built.stderr)
     );
     let source = dir.join("main.jai");
-    std::fs::write(&source, "lib :: #library \"main-route-probe\";\nprobe :: () -> s32 #foreign lib \"cleanroom_root_thread\";\nmain :: () -> s32 { return ifx probe() == 1 then 0 else 1; }\n").unwrap();
+    std::fs::write(&source, "lib :: #library \"main-route-probe\";\nprobe :: () -> s32 #foreign lib \"root_thread_probe\";\nmain :: () -> s32 { return ifx probe() == 1 then 0 else 1; }\n").unwrap();
     let output = Command::new(JAIC)
         .arg(&source)
         .arg("-interp")

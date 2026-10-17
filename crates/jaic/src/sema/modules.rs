@@ -505,13 +505,25 @@ impl Compiler {
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         let file = self.read_source(path, span)?;
         let text = self.sources.get(file).text.clone();
+        let shared;
+        let own;
         let ast = if let Some(ide) = self.ide.as_mut() {
-            let parsed = crate::parser::parse_file_ide(file, &text);
-            ide.parse_errors.extend(parsed.diagnostics.iter().cloned());
-            ide.errors.extend(parsed.diagnostics);
-            parsed.file
+            shared = match &self.parse_reuse {
+                Some((reuse, compile)) => reuse.borrow_mut().parse(*compile, path, file, &text),
+                None => {
+                    let parsed = crate::parser::parse_file_ide(file, &text);
+                    Rc::new(crate::parser::SharedParse {
+                        file: parsed.file,
+                        diagnostics: parsed.diagnostics,
+                    })
+                }
+            };
+            ide.parse_errors.extend(shared.diagnostics.iter().cloned());
+            ide.errors.extend(shared.diagnostics.iter().cloned());
+            &shared.file
         } else {
-            crate::parser::parse_file(file, &text).map_err(Box::new)?
+            own = crate::parser::parse_file(file, &text).map_err(Box::new)?;
+            &own
         };
         let module_scope = self.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
@@ -1332,9 +1344,13 @@ impl Compiler {
             // The module sees the same entity (a copy would resolve to a second,
             // distinct type).
             for id in self.lookup(file_scope, name)? {
-                let names = self.scope_mut(module_scope).names.entry(name).or_default();
-                if !names.contains(&id) {
-                    names.push(id);
+                if !self
+                    .scope(module_scope)
+                    .names
+                    .get(&name)
+                    .is_some_and(|n| n.contains(&id))
+                {
+                    self.bind_name(module_scope, name, id);
                 }
             }
         }
@@ -1570,7 +1586,7 @@ impl Compiler {
                         .exported_usings
                         .push(entry.clone());
                 }
-                self.scope_mut(scope).usings.push(entry);
+                self.push_using(scope, entry);
             }
             _ => unreachable!("only conditional items are pending"),
         }
@@ -1579,13 +1595,14 @@ impl Compiler {
 
     /// Resolve the module behind import entry `index` of `scope`, loading it on first use.
     pub fn import_module(&mut self, scope: ScopeId, index: usize) -> Result<Option<ModuleId>> {
-        let entry = self.scope(scope).imports[index].clone();
-        if let Some(module) = entry.module {
+        let known = &self.scope(scope).imports[index];
+        if let Some(module) = known.module {
             return Ok(Some(module));
         }
-        if entry.loading {
+        if known.loading {
             return Ok(None);
         }
+        let entry = known.clone();
         self.scope_mut(scope).imports[index].loading = true;
         let resolved = (|| {
             let filter = self.resolve_name_filter(entry.from_scope, &entry.filter)?;

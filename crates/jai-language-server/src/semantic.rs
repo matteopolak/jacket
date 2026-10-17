@@ -550,6 +550,8 @@ pub struct Cache {
     canonical: BTreeMap<PathBuf, PathBuf>,
     /// Programs compiled so far.
     compiles: usize,
+    /// Parsed files compiles share: most files are the same from one compile to the next.
+    parses: Rc<RefCell<jaic::parser::ParseReuse>>,
 }
 
 fn hash(
@@ -749,7 +751,7 @@ impl Cache {
             self.make_room(os, root);
             self.compiles += 1;
             let snapshot = files.clone();
-            let (compiler, errors, others) = compile(env, root, dirs, files, os);
+            let (compiler, errors, others) = compile(env, root, dirs, files, os, &self.parses);
             let cost = std::iter::once(&compiler)
                 .chain(others.iter().map(|p| &p.compiler))
                 .flat_map(|c| {
@@ -851,6 +853,7 @@ fn compile(
     dirs: &[PathBuf],
     files: BTreeMap<PathBuf, Rc<[u8]>>,
     os: Option<TargetOs>,
+    parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
 ) -> (Compiler, Vec<jaic::source::Diagnostic>, Vec<Program>) {
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
@@ -910,6 +913,8 @@ fn compile(
     });
     compiler.attach_workspaces(workspaces);
     compiler.ide = Some(editor_facts(&prefix, &host, lint));
+    let number = parses.borrow_mut().begin();
+    compiler.parse_reuse = Some((parses.clone(), number));
     let errors = compiler
         .compile_program(root)
         .err()

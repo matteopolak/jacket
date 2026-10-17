@@ -951,7 +951,7 @@ mod tests {
     }
 
     /// C stream input retains empty and unterminated lines. The test program
-    /// trims CRLF for display; it does not depend on an unreviewed stdlib helper.
+    /// trims CRLF for display; it does not depend on a stdlib helper.
     #[test]
     fn c_stream_lines_include_empty_and_unterminated_lines() {
         let r = with_input(
@@ -981,7 +981,7 @@ mod tests {
     }
 
     /// The C process-exit bridge retains output and returns the supplied status.
-    /// Basic.exit is reviewed only for native POSIX/Windows targets.
+    /// Basic.exit is only supported on native POSIX/Windows targets.
     #[test]
     fn exit_ends_the_program_with_its_code() {
         let r = single(

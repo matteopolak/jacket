@@ -2,7 +2,7 @@
 
 This project does not accept pull requests. Reviewing outside code takes longer than writing the change, so pull requests are closed without review.
 
-Issues are welcome: [open one](https://github.com/matteopolak/jai/issues/new/choose).
+Issues are welcome: [open one](https://github.com/matteopolak/jacket/issues/new/choose).
 
 - **Bug reports.** A program jaic, jailsp, jaifmt, jailint or the playground gets wrong. The smallest program that shows it is the most useful part; say what Jai does if you know.
 - **Feature requests.** Missing language behaviour, stdlib modules, tool features or lints, with the project that needs them.

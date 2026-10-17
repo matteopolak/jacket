@@ -1,8 +1,8 @@
 #!/bin/sh
-# Installs the Jai toolchain (jaic, jailsp, jailint, jaifmt) from a GitHub release of
-# https://github.com/matteopolak/jai, verified against the release's SHA256SUMS:
+# Installs Jacket, the Jai toolchain (jaic, jailsp, jailint, jaifmt) from a GitHub release of
+# https://github.com/matteopolak/jacket, verified against the release's SHA256SUMS:
 #
-#   curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh
 #
 # Environment (each JAI_* name also works as JAIC_*; JAI_* wins when both are set):
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
@@ -13,7 +13,7 @@
 # removes the versions it installed before. See docs/tools/package-managers.md.
 set -eu
 
-REPO="matteopolak/jai"
+REPO="matteopolak/jacket"
 TOOLS="jaic jailsp jailint jaifmt"
 
 say() { printf '%s\n' "$*"; }

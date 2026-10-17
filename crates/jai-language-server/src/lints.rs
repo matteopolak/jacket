@@ -22,7 +22,7 @@ pub const FIX_ALL_KIND: &str = "source.fixAll.jailint";
 
 /// Where each rule is documented.
 pub fn rule_url(rule: &str) -> String {
-    format!("https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#{rule}")
+    format!("https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#{rule}")
 }
 
 /// A settings file rather than a Jai document: `jailint.toml`, or the project's `jai.toml`.

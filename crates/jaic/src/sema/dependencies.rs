@@ -23,10 +23,9 @@ impl Compiler {
         let Some(callee) = initial_direct_callee(function) else {
             return Ok(());
         };
-        let Some(index) = self.procs.iter().position(|procedure| {
-            matches!(procedure.target, Some(procs::ProcTarget::Func(id)) if id == callee)
-        }) else { return Ok(()); };
-        let procedure = ProcId(index as u32);
+        let Some(procedure) = self.procs_of_func(callee).next() else {
+            return Ok(());
+        };
         if self.proc(procedure).body_state == procs::BodyState::Queued {
             self.lower_body(procedure)?;
         }
@@ -103,12 +102,12 @@ impl Compiler {
         callable: bool,
         optional: bool,
     ) -> Result<bool> {
-        let Some(index) = self.procs.iter().position(|procedure| {
-            matches!(procedure.target, Some(procs::ProcTarget::Func(id)) if id == function)
-        }) else {
-            return err(Span::NONE, "compile-time dependency has no declared procedure");
+        let Some(procedure) = self.procs_of_func(function).next() else {
+            return err(
+                Span::NONE,
+                "compile-time dependency has no declared procedure",
+            );
         };
-        let procedure = ProcId(index as u32);
         let info = self.proc(procedure);
         if info.body_state == procs::BodyState::Lowering {
             if optional {

@@ -5,7 +5,7 @@ local toolchain = require('jai.toolchain')
 
 local M = {}
 
-M.REPOSITORY = 'matteopolak/jai'
+M.REPOSITORY = 'matteopolak/jacket'
 M.RELEASES_URL = 'https://github.com/' .. M.REPOSITORY .. '/releases'
 M.TOOLS = { 'jaic', 'jailsp', 'jailint', 'jaifmt' }
 

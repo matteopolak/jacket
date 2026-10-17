@@ -348,3 +348,112 @@ mod callee_tests {
         }
     }
 }
+
+/// An editor parse that later compiles may share.
+pub struct SharedParse {
+    pub file: File,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+struct KeptParse {
+    text: std::rc::Rc<str>,
+    parse: std::rc::Rc<SharedParse>,
+    /// The last compile that used it.
+    used: u64,
+}
+
+/// Editor parses kept from one compile for the next ones: a file read again with the same
+/// text under the same id is not parsed again. The trees are never changed after parsing.
+/// A compile takes each kept parse at most once, so every tree in it is its own (the same
+/// file loaded into two module instances is parsed for each, as without reuse).
+#[derive(Default)]
+pub struct ParseReuse {
+    kept: crate::fxhash::HashMap<(std::path::PathBuf, FileId), KeptParse>,
+    compiles: u64,
+}
+
+/// Parses not used by this many of the latest compiles are dropped.
+const PARSES_KEPT_FOR: u64 = 4;
+
+impl ParseReuse {
+    /// Start a compile: the number that `parse` takes.
+    pub fn begin(&mut self) -> u64 {
+        self.compiles += 1;
+        let now = self.compiles;
+        self.kept
+            .retain(|_, kept| kept.used + PARSES_KEPT_FOR >= now);
+        now
+    }
+
+    /// The parse of `text`, file `file` read from `path`, for compile `compile`.
+    pub fn parse(
+        &mut self,
+        compile: u64,
+        path: &std::path::Path,
+        file: FileId,
+        text: &std::rc::Rc<str>,
+    ) -> std::rc::Rc<SharedParse> {
+        let key = (path.to_path_buf(), file);
+        if let Some(kept) = self.kept.get_mut(&key)
+            && kept.used != compile
+            && *kept.text == **text
+        {
+            kept.used = compile;
+            return kept.parse.clone();
+        }
+        let IdeParse {
+            file: tree,
+            diagnostics,
+            ..
+        } = parse_file_ide(file, text);
+        let parse = std::rc::Rc::new(SharedParse {
+            file: tree,
+            diagnostics,
+        });
+        if self.kept.get(&key).is_none_or(|kept| kept.used != compile) {
+            self.kept.insert(
+                key,
+                KeptParse {
+                    text: text.clone(),
+                    parse: parse.clone(),
+                    used: compile,
+                },
+            );
+        }
+        parse
+    }
+}
+
+#[cfg(test)]
+mod reuse_tests {
+    use super::*;
+    use std::path::Path;
+    use std::rc::Rc;
+
+    #[test]
+    fn kept_parses_are_shared_across_compiles_only() {
+        let mut reuse = ParseReuse::default();
+        let text: Rc<str> = "a :: 1;".into();
+        let path = Path::new("/p/a.jai");
+        let first = reuse.begin();
+        let a = reuse.parse(first, path, FileId(3), &text);
+        // A second instance in the same compile gets its own tree.
+        let b = reuse.parse(first, path, FileId(3), &text);
+        assert!(!Rc::ptr_eq(&a, &b));
+        let second = reuse.begin();
+        assert!(Rc::ptr_eq(&a, &reuse.parse(second, path, FileId(3), &text)));
+        // Another id or another text is parsed again.
+        let third = reuse.begin();
+        assert!(!Rc::ptr_eq(&a, &reuse.parse(third, path, FileId(4), &text)));
+        let changed: Rc<str> = "a :: 2;".into();
+        assert!(!Rc::ptr_eq(
+            &a,
+            &reuse.parse(third, path, FileId(3), &changed)
+        ));
+        // Unused parses are dropped after a few compiles.
+        for _ in 0..=PARSES_KEPT_FOR {
+            reuse.begin();
+        }
+        assert!(reuse.kept.is_empty());
+    }
+}

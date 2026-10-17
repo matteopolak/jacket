@@ -1,4 +1,4 @@
-//! Independent bounded byte channels for the shared language server; no pointers or IO.
+//! Bounded byte channels for the shared language server; no pointers or IO.
 use crate::play::{STDLIB_ROOT, virtual_fs};
 use jai_language_server::{Environment, JsonSession, Limits};
 use jaic::sema::{Options, TargetCpu, TargetOs};

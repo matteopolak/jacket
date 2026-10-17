@@ -420,12 +420,8 @@ impl Compiler {
             for run in &stats {
                 let callee = run
                     .callee
-                    .and_then(|f| {
-                        self.procs.iter().position(
-                            |p| matches!(p.target, Some(procs::ProcTarget::Func(g)) if g == f),
-                        )
-                    })
-                    .map_or(0, |p| self.header_record(r, ProcId(p as u32)));
+                    .and_then(|f| self.procs_of_func(f).next())
+                    .map_or(0, |p| self.header_record(r, p));
                 let mut record = Record::new("Record");
                 record
                     .ptr("callee", callee)

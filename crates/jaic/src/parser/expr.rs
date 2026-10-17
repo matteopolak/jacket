@@ -17,8 +17,8 @@ pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
 /// This is Jai's table, not C's: the bitwise and shift operators share one level that binds
 /// tighter than `*` (`1 << 2 + 3` is 7, `1 | 2 & 4` is 0), and `%` sits between `*`/`/`
 /// and `+`/`-` (`10 % 3 * 2` is 4, `n - i % n` takes the remainder first). Prefix operators
-/// bind tighter still; a prefix `cast`/`xx` sits at `CAST_PREC`. The evidence for each
-/// relation is in docs/language/operators.md.
+/// bind tighter still; a prefix `cast`/`xx` sits at `CAST_PREC`. Each relation is
+/// documented in docs/language/operators.md.
 fn binary_op(p: P) -> Option<(u8, BinOp)> {
     Some(match p {
         P::OrOr => (1, BinOp::Or),

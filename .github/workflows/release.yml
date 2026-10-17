@@ -491,15 +491,15 @@ jobs:
             fi
             gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
             if [ "$TAG" = "v$CURRENT_VERSION" ]; then
-              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md --latest
             else
-              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md
+              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md
             fi
           elif grep -qi 'release not found' release-error.txt; then
             if [ "$TAG" = "v$CURRENT_VERSION" ]; then
-              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest --verify-tag
+              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md --latest --verify-tag
             else
-              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jai Toolchain ${TAG#v}" --notes-file notes.md --latest=false --verify-tag
+              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md --latest=false --verify-tag
             fi
           else
             cat release-error.txt >&2
@@ -637,21 +637,21 @@ jobs:
           fi
           python3 tools/render_packages.py --version "$version" "${source[@]}" --out "$RUNNER_TEMP/packages"
           echo "VERSION=$version" >> "$GITHUB_ENV"
-          cat "$RUNNER_TEMP/packages/homebrew/jai.rb"
+          cat "$RUNNER_TEMP/packages/homebrew/jacket.rb"
       - name: Validate the formula (and, for a release, install and test it)
         run: |
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           brew tap-new --no-git jairelease/local
-          cp "$RUNNER_TEMP/packages/homebrew/jai.rb" "$(brew --repository jairelease/local)/Formula/jai.rb"
+          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" "$(brew --repository jairelease/local)/Formula/jacket.rb"
           brew trust jairelease/local 2> /dev/null || true
-          brew style jairelease/local/jai
+          brew style jairelease/local/jacket
           if [ -z "$TAG" ]; then
             # The URLs exist only once the release does.
-            brew audit --formula --strict jairelease/local/jai
+            brew audit --formula --strict jairelease/local/jacket
           else
-            brew audit --formula --strict --online jairelease/local/jai
-            brew install --build-from-source jairelease/local/jai
-            brew test jairelease/local/jai
+            brew audit --formula --strict --online jairelease/local/jacket
+            brew install --build-from-source jairelease/local/jacket
+            brew test jairelease/local/jacket
           fi
       # The tap may hold only a README: the first push creates Formula/.
       - name: Push the formula to matteopolak/homebrew-tap
@@ -663,13 +663,16 @@ jobs:
           git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/matteopolak/homebrew-tap.git" "$RUNNER_TEMP/tap"
           cd "$RUNNER_TEMP/tap"
           mkdir -p Formula
-          cp "$RUNNER_TEMP/packages/homebrew/jai.rb" Formula/jai.rb
-          git add Formula/jai.rb
-          if git diff --cached --quiet; then echo "Formula/jai.rb is already at $VERSION"; exit 0; fi
+          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" Formula/jacket.rb
+          # The formula was called jai before 0.18.0; the rename lets `brew upgrade` move old installs.
+          git rm -q --ignore-unmatch Formula/jai.rb
+          echo '{ "jai": "jacket" }' > formula_renames.json
+          git add Formula/jacket.rb formula_renames.json
+          if git diff --cached --quiet; then echo "Formula/jacket.rb is already at $VERSION"; exit 0; fi
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -q -m "jai $VERSION"
+            commit -q -m "jacket $VERSION"
           git push origin HEAD
-          echo "Pushed jai $VERSION to matteopolak/homebrew-tap"
+          echo "Pushed jacket $VERSION to matteopolak/homebrew-tap"
 
   # The Neovim plugin (editors/nvim) is mirrored to matteopolak/jai.nvim, because vim.pack and
   # plugin managers need a repository whose root is the plugin. The mirror's main branch is

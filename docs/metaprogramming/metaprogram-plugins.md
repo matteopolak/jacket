@@ -31,5 +31,5 @@ retains its separately reviewed parsing/initialization API.
 - `-exe`, `-output_path`, `-add` and `-run` apply to the child. WASI runtime
   insertion follows the same build-target decision as a normal CLI build.
 
-Regression: `crates/jaic-cli/tests/cleanroom_plugins.rs` checks lifecycle,
+Regression: `crates/jaic-cli/tests/plugins.rs` checks lifecycle,
 option refusal, check-only behavior and actual native child execution.

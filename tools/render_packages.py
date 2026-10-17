@@ -5,7 +5,7 @@ The version and checksums come from the release itself: its tag and its SHA256SU
 
     python3 tools/render_packages.py --version 0.3.0 --sums SHA256SUMS --out packages
 
-writes packages/homebrew/jai.rb.
+writes packages/homebrew/jacket.rb.
 See docs/tools/package-managers.md.
 """
 import argparse
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "packaging"
-REPOSITORY = "matteopolak/jai"
+REPOSITORY = "matteopolak/jacket"
 
 # Placeholder -> release asset (without its `<prefix>-`) whose SHA-256 it takes.
 PLATFORM_ASSETS = {
@@ -132,9 +132,9 @@ def render(template, values):
 def render_all(values, out):
     """Write every package file under `out`; returns the paths written."""
     written = []
-    formula = out / "homebrew" / "jai.rb"
+    formula = out / "homebrew" / "jacket.rb"
     formula.parent.mkdir(parents=True, exist_ok=True)
-    formula.write_text(render((TEMPLATES / "homebrew" / "jai.rb.tmpl").read_text(), values))
+    formula.write_text(render((TEMPLATES / "homebrew" / "jacket.rb.tmpl").read_text(), values))
     written.append(formula)
     return written
 

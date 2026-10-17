@@ -1,4 +1,4 @@
-//! Original caller-visible condition value and loop-control regression.
+//! Caller-visible condition value and loop-control regression.
 pub const SOURCE: &str = r#"
 next :: (state:*u32) -> u32 #no_context { state.*+=1; if state.*==5 return 0; return state.*; }
 with_loop :: (body:Code, faults:*u32) #expand {

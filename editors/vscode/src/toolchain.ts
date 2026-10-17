@@ -6,7 +6,7 @@ import { execFile } from "node:child_process";
 import { existsSync, promises as fs, readFileSync } from "node:fs";
 import * as path from "node:path";
 
-export const REPOSITORY = "matteopolak/jai";
+export const REPOSITORY = "matteopolak/jacket";
 export const RELEASES_URL = `https://github.com/${REPOSITORY}/releases`;
 export const TOOLS = ["jaic", "jailsp", "jailint", "jaifmt"] as const;
 export type Tool = (typeof TOOLS)[number];

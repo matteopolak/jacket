@@ -1,4 +1,4 @@
-//! Original reduction: module-mode lint must discover Context additions before final layout.
+//! Reduction: module-mode lint must discover Context additions before final layout.
 use jailint::{
     config::Config,
     driver::{Options, run},

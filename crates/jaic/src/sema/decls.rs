@@ -11,6 +11,23 @@ pub struct LibraryInfo {
     pub ir: usize,
 }
 
+fn os_tag_member(os: TargetOs) -> &'static str {
+    match os {
+        TargetOs::Windows => "WINDOWS",
+        TargetOs::Linux => "LINUX",
+        TargetOs::MacOS => "MACOS",
+        TargetOs::Wasm => "WASM",
+    }
+}
+
+fn cpu_tag_member(cpu: TargetCpu) -> &'static str {
+    match cpu {
+        TargetCpu::X64 => "X64",
+        TargetCpu::Arm64 => "ARM64",
+        TargetCpu::Wasm => "CUSTOM",
+    }
+}
+
 impl Compiler {
     /// Resolve an entity to its value/storage, checking it on first use.
     pub fn resolve_entity(&mut self, id: EntityId) -> Result<Resolved> {
@@ -148,31 +165,10 @@ impl Compiler {
     fn target_constant(&mut self, sym: Sym, span: Span) -> Result<Resolved> {
         let (host_os, host_cpu) = compiler_host();
         let (enum_name, member) = match sym.as_str() {
-            "OS" | "BUILD_OS" => (
-                "Operating_System_Tag",
-                match if sym.as_str() == "BUILD_OS" {
-                    host_os
-                } else {
-                    self.options.os
-                } {
-                    TargetOs::Windows => "WINDOWS",
-                    TargetOs::Linux => "LINUX",
-                    TargetOs::MacOS => "MACOS",
-                    TargetOs::Wasm => "WASM",
-                },
-            ),
-            "CPU" | "BUILD_CPU" => (
-                "CPU_Tag",
-                match if sym.as_str() == "BUILD_CPU" {
-                    host_cpu
-                } else {
-                    self.options.cpu
-                } {
-                    TargetCpu::X64 => "X64",
-                    TargetCpu::Arm64 => "ARM64",
-                    TargetCpu::Wasm => "CUSTOM",
-                },
-            ),
+            "OS" => ("Operating_System_Tag", os_tag_member(self.options.os)),
+            "BUILD_OS" => ("Operating_System_Tag", os_tag_member(host_os)),
+            "CPU" => ("CPU_Tag", cpu_tag_member(self.options.cpu)),
+            "BUILD_CPU" => ("CPU_Tag", cpu_tag_member(host_cpu)),
             "TEMPORARY_STORAGE_SIZE" => {
                 self.note_runtime_storage_dependencies(&[self.options.temporary_storage_size]);
                 return Ok(Resolved::Const {

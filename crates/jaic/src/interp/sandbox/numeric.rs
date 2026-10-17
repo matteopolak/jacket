@@ -5,7 +5,15 @@ pub(super) struct Parsed {
     pub range_error: bool,
 }
 
-pub(super) fn parse(text: &str, narrow: bool) -> Parsed {
+/// Width of the floating-point value a conversion produces.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Precision {
+    Binary32,
+    Binary64,
+}
+
+pub(super) fn parse(text: &str, precision: Precision) -> Parsed {
+    let narrow = precision == Precision::Binary32;
     let b = text.as_bytes();
     let mut at = 0;
     while b
@@ -255,7 +263,7 @@ mod tests {
             ("1,5", 1.0f64.to_bits(), 1),
             ("\u{a0}1", 0, 0),
         ] {
-            let value = parse(text, false);
+            let value = parse(text, Precision::Binary64);
             assert_eq!((value.bits, value.used), (bits, used), "{text:?}");
         }
     }
@@ -273,7 +281,19 @@ mod tests {
             ("0x1.fffffffffffffp1023", false, 0x7fefffffffffffff),
             ("0x1.fffffffffffff8p1023", false, 0x7ff0000000000000),
         ] {
-            assert_eq!(parse(text, narrow).bits, bits, "{text}");
+            assert_eq!(
+                parse(
+                    text,
+                    if narrow {
+                        Precision::Binary32
+                    } else {
+                        Precision::Binary64
+                    }
+                )
+                .bits,
+                bits,
+                "{text}"
+            );
         }
     }
 
@@ -314,7 +334,14 @@ mod tests {
                     ""
                 };
                 let text = format!("{sign}0x{mantissa:x}p{scale}");
-                let parsed = parse(&text, narrow);
+                let parsed = parse(
+                    &text,
+                    if narrow {
+                        Precision::Binary32
+                    } else {
+                        Precision::Binary64
+                    },
+                );
                 assert_eq!(parsed.bits, bits, "{text}");
                 assert_eq!(parsed.used, text.len());
                 assert!(!parsed.range_error, "{text}");
@@ -324,14 +351,14 @@ mod tests {
 
     #[test]
     fn c_numeric_special_tokens_and_implemented_range_policy() {
-        assert_eq!(parse("-nan()tail", true).bits, 0xffc00000);
-        assert_eq!(parse("nan(bad!)", false).used, 3);
-        assert_eq!(parse("+INFINITY!", false).used, 9);
+        assert_eq!(parse("-nan()tail", Precision::Binary32).bits, 0xffc00000);
+        assert_eq!(parse("nan(bad!)", Precision::Binary64).used, 3);
+        assert_eq!(parse("+INFINITY!", Precision::Binary64).used, 9);
         for text in ["inf", "nan", "0e-99999", "0x0p-99999", "0x1p-1074"] {
-            assert!(!parse(text, false).range_error, "{text}");
+            assert!(!parse(text, Precision::Binary64).range_error, "{text}");
         }
         for text in ["1e99999", "1e-99999", "-0x1p-99999"] {
-            assert!(parse(text, false).range_error, "{text}");
+            assert!(parse(text, Precision::Binary64).range_error, "{text}");
         }
     }
 }

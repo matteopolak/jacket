@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = join(root, "..", "..");
-const DOCS = "https://github.com/matteopolak/jai/blob/main/docs/tools";
+const DOCS = "https://github.com/matteopolak/jacket/blob/main/docs/tools";
 
 export function parseRules(source: string) {
   const rules: { name: string; level: string; summary: string }[] = [];
@@ -34,7 +34,7 @@ const level = (rule: { name: string; level: string; summary: string }) => ({
 
 const jailint = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://github.com/matteopolak/jai/editors/vscode/schemas/jailint.schema.json",
+  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jailint.schema.json",
   title: "jailint.toml",
   description: "Settings for jailint and the lints jailsp reports.",
   type: "object",
@@ -63,7 +63,7 @@ const count = (minimum: number, maximum: number, fallback: number | undefined, t
 });
 const jaifmt = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://github.com/matteopolak/jai/editors/vscode/schemas/jaifmt.schema.json",
+  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jaifmt.schema.json",
   title: "jaifmt.toml",
   description: `Settings for the jaifmt formatter. ${DOCS}/jaifmt.md#configuration`,
   type: "object",
@@ -91,9 +91,9 @@ const jaifmt = {
 const paths = (text: string) => ({ type: "array", items: { type: "string" }, markdownDescription: text });
 const project = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://github.com/matteopolak/jai/editors/vscode/schemas/jai.schema.json",
+  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jai.schema.json",
   title: "jai.toml",
-  description: `Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server.md#project-settings-jaitoml`,
+  description: `Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jacket/blob/main/docs/compiler/language-server.md#project-settings-jaitoml`,
   type: "object",
   additionalProperties: false,
   properties: {

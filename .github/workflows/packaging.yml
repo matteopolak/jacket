@@ -167,7 +167,7 @@ jobs:
           tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
           python3 tools/render_packages.py --version "$tag" --sums "$RUNNER_TEMP/SHA256SUMS" --out "$RUNNER_TEMP/packages"
-          cat "$RUNNER_TEMP/packages/homebrew/jai.rb"
+          cat "$RUNNER_TEMP/packages/homebrew/jacket.rb"
       # Every platform's url and sha256 from synthetic checksums: the formula a release after
       # 0.4.1 gets, with Intel macOS and arm64 Linux builds and no `depends_on arch:`.
       - name: Render and audit a formula for all four platforms
@@ -177,28 +177,28 @@ jobs:
             echo "$(printf '%s' "$asset" | shasum -a 256 | cut -d ' ' -f 1)  jai-$asset"
           done > "$sums"
           python3 tools/render_packages.py --version 99.0.0 --sums "$sums" --out "$RUNNER_TEMP/all-platforms"
-          formula="$RUNNER_TEMP/all-platforms/homebrew/jai.rb"
+          formula="$RUNNER_TEMP/all-platforms/homebrew/jacket.rb"
           cat "$formula"
           grep -q 'jai-macos-x64.tar.gz' "$formula" && grep -q 'jai-linux-arm64.tar.gz' "$formula"
           if grep -q 'depends_on arch: :' "$formula"; then echo "the formula still restricts the architecture"; exit 1; fi
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
           brew tap-new --no-git jaiall/local
-          cp "$formula" "$(brew --repository jaiall/local)/Formula/jai.rb"
+          cp "$formula" "$(brew --repository jaiall/local)/Formula/jacket.rb"
           brew trust jaiall/local 2> /dev/null || true
-          brew style jaiall/local/jai
-          brew audit --formula --strict jaiall/local/jai
+          brew style jaiall/local/jacket
+          brew audit --formula --strict jaiall/local/jacket
           brew untap jaiall/local
       - name: Install the formula from a local tap and run its test
         run: |
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
           brew --version
           brew tap-new --no-git jaitest/local
-          cp "$RUNNER_TEMP/packages/homebrew/jai.rb" "$(brew --repository jaitest/local)/Formula/jai.rb"
+          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" "$(brew --repository jaitest/local)/Formula/jacket.rb"
           brew trust jaitest/local 2> /dev/null || true
-          brew style jaitest/local/jai
-          brew audit --formula --strict --online jaitest/local/jai
-          brew install --build-from-source jaitest/local/jai
-          brew test jaitest/local/jai
-          brew linkage jaitest/local/jai || true
-          brew uninstall jaitest/local/jai
+          brew style jaitest/local/jacket
+          brew audit --formula --strict --online jaitest/local/jacket
+          brew install --build-from-source jaitest/local/jacket
+          brew test jaitest/local/jacket
+          brew linkage jaitest/local/jacket || true
+          brew uninstall jaitest/local/jacket
           brew untap jaitest/local

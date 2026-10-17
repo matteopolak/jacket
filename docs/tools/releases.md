@@ -29,13 +29,13 @@ To cut a release:
    - `### Highlights`: 2 to 6 one-line bullets for what users notice, with at most one number each.
    - `### Breaking changes` (only if any): a small "Was | Now" table or short bullets, saying what to do.
    - `### Fixes`: one-line bullets, about 15 words at most. Merge related ones and drop trivia.
-   - Leave out internal tooling, implementation details and rule or flag lists. When a feature needs explaining, link to its doc with an absolute `https://github.com/matteopolak/jai/blob/main/docs/...` URL (release pages cannot use relative paths) instead of explaining it in the notes.
+   - Leave out internal tooling, implementation details and rule or flag lists. When a feature needs explaining, link to its doc with an absolute `https://github.com/matteopolak/jacket/blob/main/docs/...` URL (release pages cannot use relative paths) instead of explaining it in the notes.
    - Use `###` headings or lower; a `## [` line would end the extracted notes.
 
    Images are SVGs committed under `docs/images/releases/`, named `<version>-<topic>.svg`: a before/after bar chart for a measured win, or a terminal-style picture of real tool output. Draw your own background so they read on light and dark themes, use no external resources, and keep them small (a few KB). Reference them with an absolute `raw.githubusercontent.com` URL and alt text, since release pages and the archived copy of `CHANGELOG.md` cannot use relative paths:
 
    ```md
-   ![jaifmt turns messy code into formatted code](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.2.0-jaifmt.svg)
+   ![jaifmt turns messy code into formatted code](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.2.0-jaifmt.svg)
    ```
 
    Commit the image before tagging, so the URL resolves when the release is published. Use about one image per few releases, where it shows something words cannot.
@@ -43,7 +43,7 @@ To cut a release:
 3. Commit, then tag and push:
 
 ```sh
-git tag -s v0.17.0 -m 'Jai Toolchain 0.17.0'
+git tag -s v0.18.0 -m 'Jacket 0.18.0'
 git push origin v0.17.0
 ```
 

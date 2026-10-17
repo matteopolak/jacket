@@ -141,6 +141,48 @@ fn inferred_flags(expr: &ast::Expr) -> bool {
     }
 }
 
+/// Name of the private intrinsic that reads the workspace's temporary-storage size.
+pub(super) const RUNTIME_TEMPORARY_STORAGE_SIZE: &str = "__jaic_runtime_temporary_storage_size";
+
+/// The `atomic_*_order` intrinsics, whose trailing parameter is a constant memory order.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OrderedAtomic {
+    Load,
+    Store,
+    Exchange,
+    Add,
+    Sub,
+    And,
+    Or,
+    Xor,
+    CompareExchange,
+}
+
+impl OrderedAtomic {
+    const ALL: [(OrderedAtomic, &'static str); 9] = [
+        (OrderedAtomic::Load, "atomic_load_order"),
+        (OrderedAtomic::Store, "atomic_store_order"),
+        (OrderedAtomic::Exchange, "atomic_exchange_order"),
+        (OrderedAtomic::Add, "atomic_fetch_add_order"),
+        (OrderedAtomic::Sub, "atomic_fetch_sub_order"),
+        (OrderedAtomic::And, "atomic_fetch_and_order"),
+        (OrderedAtomic::Or, "atomic_fetch_or_order"),
+        (OrderedAtomic::Xor, "atomic_fetch_xor_order"),
+        (
+            OrderedAtomic::CompareExchange,
+            "atomic_compare_exchange_order",
+        ),
+    ];
+
+    fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.iter().find(|(_, n)| *n == name).map(|(k, _)| *k)
+    }
+
+    fn name(self) -> &'static str {
+        Self::ALL.iter().find(|(k, _)| *k == self).unwrap().1
+    }
+}
+
 impl Compiler {
     pub fn check_call(
         &mut self,
@@ -2745,7 +2787,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let name = self.proc(proc).name;
-        if name.as_str() == "__jaic_runtime_temporary_storage_size" {
+        if name.as_str() == RUNTIME_TEMPORARY_STORAGE_SIZE {
             return self.runtime_storage_operand(f, sig, span);
         }
         let mut values = Vec::new();
@@ -2766,22 +2808,15 @@ impl Compiler {
             "atomic_load" => ir::Intrinsic::AtomicLoad(ir::ORDER_SEQ_CST),
             "atomic_store" => ir::Intrinsic::AtomicStore(ir::ORDER_SEQ_CST),
             "atomic_exchange" => ir::Intrinsic::AtomicRmw(ir::AtomicOp::Xchg, ir::ORDER_SEQ_CST),
-            "atomic_load_order"
-            | "atomic_store_order"
-            | "atomic_exchange_order"
-            | "atomic_fetch_add_order"
-            | "atomic_fetch_sub_order"
-            | "atomic_fetch_and_order"
-            | "atomic_fetch_or_order"
-            | "atomic_fetch_xor_order"
-            | "atomic_compare_exchange_order" => {
+            ordered if OrderedAtomic::from_name(ordered).is_some() => {
+                let kind = OrderedAtomic::from_name(ordered).unwrap();
                 // The last parameter is the memory order, a compile-time constant that the IR
                 // op carries (a compare-exchange packs success | failure << 4).
-                let mode = self.const_int_arg(f, slots, &args, name.as_str(), span)?;
+                let mode = self.const_int_arg(f, slots, &args, ordered, span)?;
                 if !header.params.last().is_some_and(|p| p.baked) {
                     values.pop();
                 }
-                self.atomic_intrinsic(name.as_str(), mode, span)?
+                self.atomic_intrinsic(kind, mode, span)?
             }
             "debug_break" => ir::Intrinsic::DebugBreak,
             "sqrt" => ir::Intrinsic::Sqrt,
@@ -2973,15 +3008,21 @@ impl Compiler {
     }
 
     /// The IR operation of an `atomic_*_order` intrinsic with memory order(s) `mode`.
-    fn atomic_intrinsic(&self, name: &str, mode: i64, span: Span) -> Result<ir::Intrinsic> {
+    fn atomic_intrinsic(
+        &self,
+        kind: OrderedAtomic,
+        mode: i64,
+        span: Span,
+    ) -> Result<ir::Intrinsic> {
         use ir::AtomicOp as Op;
+        let name = kind.name();
         let order = |v: i64| -> Result<u8> {
             match u8::try_from(v) {
                 Ok(o) if o <= ir::ORDER_SEQ_CST => Ok(o),
                 _ => err(span, format!("`{name}` was given an unknown memory order")),
             }
         };
-        let cas = name == "atomic_compare_exchange_order";
+        let cas = kind == OrderedAtomic::CompareExchange;
         if cas && !(0..=0xff).contains(&mode) {
             return err(span, format!("`{name}` was given an unknown memory order"));
         }
@@ -2991,8 +3032,8 @@ impl Compiler {
             (order(mode)?, ir::ORDER_RELAXED)
         };
         let released = |o: u8| o == ir::ORDER_RELEASE || o == ir::ORDER_ACQ_REL;
-        Ok(match name {
-            "atomic_load_order" => {
+        Ok(match kind {
+            OrderedAtomic::Load => {
                 if released(first) {
                     return err(
                         span,
@@ -3001,7 +3042,7 @@ impl Compiler {
                 }
                 ir::Intrinsic::AtomicLoad(first)
             }
-            "atomic_store_order" => {
+            OrderedAtomic::Store => {
                 if first == ir::ORDER_ACQUIRE || first == ir::ORDER_ACQ_REL {
                     return err(
                         span,
@@ -3010,13 +3051,13 @@ impl Compiler {
                 }
                 ir::Intrinsic::AtomicStore(first)
             }
-            "atomic_exchange_order" => ir::Intrinsic::AtomicRmw(Op::Xchg, first),
-            "atomic_fetch_add_order" => ir::Intrinsic::AtomicRmw(Op::Add, first),
-            "atomic_fetch_sub_order" => ir::Intrinsic::AtomicRmw(Op::Sub, first),
-            "atomic_fetch_and_order" => ir::Intrinsic::AtomicRmw(Op::And, first),
-            "atomic_fetch_or_order" => ir::Intrinsic::AtomicRmw(Op::Or, first),
-            "atomic_fetch_xor_order" => ir::Intrinsic::AtomicRmw(Op::Xor, first),
-            _ => {
+            OrderedAtomic::Exchange => ir::Intrinsic::AtomicRmw(Op::Xchg, first),
+            OrderedAtomic::Add => ir::Intrinsic::AtomicRmw(Op::Add, first),
+            OrderedAtomic::Sub => ir::Intrinsic::AtomicRmw(Op::Sub, first),
+            OrderedAtomic::And => ir::Intrinsic::AtomicRmw(Op::And, first),
+            OrderedAtomic::Or => ir::Intrinsic::AtomicRmw(Op::Or, first),
+            OrderedAtomic::Xor => ir::Intrinsic::AtomicRmw(Op::Xor, first),
+            OrderedAtomic::CompareExchange => {
                 if released(second) {
                     return err(
                         span,
@@ -3952,7 +3993,7 @@ impl Compiler {
                 if let Some(filter) = &param.using_filter {
                     entry = self.filter_using_entry(mscope, entry, filter, param.span)?;
                 }
-                self.scope_mut(mscope).usings.push(entry);
+                self.push_using(mscope, entry);
             }
         }
         if self.ide.is_some() {

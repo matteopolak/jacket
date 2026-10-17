@@ -34,7 +34,7 @@ Reflection: `type_info(Color)` has `names` and `values` {#enum.10}, and `enum_ty
 
 ## How to change it
 
-Member collection and evaluation are in `sema/enums.rs`; inserted members go through `eval_insert_enum_items`. Reflection data is built by `build_type_info` in `sema/typeinfo.rs`. Original general regressions live in `crates/jaic/tests/cleanroom_enum_dependencies.rs` and the matching LLVM harness, using `tests/compiler-semantics/enum-dependencies.jai`.
+Member collection and evaluation are in `sema/enums.rs`; inserted members go through `eval_insert_enum_items`. Reflection data is built by `build_type_info` in `sema/typeinfo.rs`. Original general regressions live in `crates/jaic/tests/enum_dependencies.rs` and the matching LLVM harness, using `tests/compiler-semantics/enum-dependencies.jai`.
 
 ## Dependencies
 

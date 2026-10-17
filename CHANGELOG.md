@@ -2,13 +2,15 @@
 
 ## [Unreleased]
 
+The project is now called Jacket ("Jai kit") and lives at [matteopolak/jacket](https://github.com/matteopolak/jacket). The binaries (`jaic`, `jailsp`, `jaifmt`, `jailint`), crates and editor extension IDs keep their names. The Homebrew formula is now `matteopolak/tap/jacket`, and `brew upgrade` moves existing `jai` installs to it.
+
 ## [0.17.0] - 2026-10-13
 
 One `jaic` command line instead of the `run`, `check` and `build` subcommands, with more options for the program being built.
 
 ### Breaking changes
 
-`jaic` has one command line, `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`, and no subcommands. A build is the default. See [the command line](https://github.com/matteopolak/jai/blob/main/docs/tools/cli.md).
+`jaic` has one command line, `jaic [options] file.jai [options] [+Plugin ...] [- metaprogram args] [-- program args]`, and no subcommands. A build is the default. See [the command line](https://github.com/matteopolak/jacket/blob/main/docs/tools/cli.md).
 
 | Was | Now |
 |---|---|
@@ -38,7 +40,7 @@ Optimized builds of large programs, faster TLS and JSON encoding, and fixes in `
 
 ### Highlights
 
-- `-O2` build time now grows linearly with program size: a 250,000-line program builds in 17 s instead of 301 s on 4 cores. See [compile speed](https://github.com/matteopolak/jai/blob/main/docs/compiler/compile-speed.md#fourth-pass--o2-time-grows-linearly).
+- `-O2` build time now grows linearly with program size: a 250,000-line program builds in 17 s instead of 301 s on 4 cores. See [compile speed](https://github.com/matteopolak/jacket/blob/main/docs/compiler/compile-speed.md#fourth-pass--o2-time-grows-linearly).
 - Typed `to_json` is 1.2x to 1.5x faster, with byte-identical output.
 - TLS streams batch records into fewer system calls, about 10% more throughput per stream.
 - `Http/bench/server_bench.jai` reports p50 to p99.9 latency and can run at a fixed request rate.
@@ -46,7 +48,7 @@ Optimized builds of large programs, faster TLS and JSON encoding, and fixes in `
 
 ### Fixes
 
-- Windows `Input`: scrolling down, or a cursor or window left of or above the primary monitor, no longer crashes with a cast overflow ([#1](https://github.com/matteopolak/jai/issues/1)).
+- Windows `Input`: scrolling down, or a cursor or window left of or above the primary monitor, no longer crashes with a cast overflow ([#1](https://github.com/matteopolak/jacket/issues/1)).
 - `Http` client: an https body read until the connection closes ends normally when the server skips close_notify.
 - io_uring: a burst of over 128 connections could leave queued connections unaccepted.
 - epoll: timers no longer fire up to a millisecond late.
@@ -57,7 +59,7 @@ HTTPS in the async IO stack, and a round of hardening and speed for `Extensions/
 
 ### Highlights
 
-- `Extensions/Tls`: TLS 1.2 and 1.3 on a bundled mbedTLS, with the system's trust store on Linux, macOS and Windows. `https://` works in the `Http` client, and `app.config.tls` serves HTTPS. See [tls](https://github.com/matteopolak/jai/blob/main/docs/extensions/tls.md).
+- `Extensions/Tls`: TLS 1.2 and 1.3 on a bundled mbedTLS, with the system's trust store on Linux, macOS and Windows. `https://` works in the `Http` client, and `app.config.tls` serves HTTPS. See [tls](https://github.com/matteopolak/jacket/blob/main/docs/extensions/tls.md).
 - An idle keep-alive connection costs about 16 KB instead of 35 KB: it holds no read buffer while it waits (`Io.wait_readable`).
 - epoll serves 10% to 17% more HTTP requests per second (edge-triggered, one registration per socket); io_uring accepts with one multishot request per listener.
 - `Json` parses 1.3x to 1.7x faster and reads floats up to 6x faster (Eisel-Lemire), with float64 printed by Schubfach; results are unchanged.
@@ -65,7 +67,7 @@ HTTPS in the async IO stack, and a round of hardening and speed for `Extensions/
 
 ### Breaking changes
 
-Names are now consistent across Io, Tls, Http and Json (see [conventions](https://github.com/matteopolak/jai/blob/main/docs/extensions/extensions-conventions.md)), and internals are no longer exported.
+Names are now consistent across Io, Tls, Http and Json (see [conventions](https://github.com/matteopolak/jacket/blob/main/docs/extensions/extensions-conventions.md)), and internals are no longer exported.
 
 | Was | Now |
 | --- | --- |
@@ -145,7 +147,7 @@ Three new stdlib extensions: regular expressions that match Rust's `regex` crate
 
 ### Highlights
 
-- `Extensions/Regex`: Rust `regex` syntax, full Unicode, linear time. `Regex.Static` compiles patterns with the program and fills typed fields from named groups. See [Regex](https://github.com/matteopolak/jai/blob/main/docs/extensions/regex.md).
+- `Extensions/Regex`: Rust `regex` syntax, full Unicode, linear time. `Regex.Static` compiles patterns with the program and fills typed fields from named groups. See [Regex](https://github.com/matteopolak/jacket/blob/main/docs/extensions/regex.md).
 - `Extensions/SIMD`: fixed-width vectors (`u8x16`, `f32x4`, ...) with the same results on every target and real vector instructions in native builds.
 - `Extensions/Byte_Search`: byte, byte set and substring search at memory bandwidth, on par with `memchr`.
 - Native builds honour `inline` and `no_inline`, and leave stack trace nodes out of more procedures.
@@ -216,7 +218,7 @@ Jai now has a Neovim plugin, and doc comments behave in every popup while you ty
 
 ### Highlights
 
-- **Neovim plugin**: [jai.nvim](https://github.com/matteopolak/jai.nvim) sets up `jailsp`, `jaifmt` formatting, `jailint` and syntax highlighting, and can download the toolchain for you (`:Jai install`). Install it with `vim.pack.add({ 'https://github.com/matteopolak/jai.nvim' })` or lazy.nvim. See [the Neovim plugin](https://github.com/matteopolak/jai/blob/main/docs/tools/neovim-plugin.md).
+- **Neovim plugin**: [jai.nvim](https://github.com/matteopolak/jai.nvim) sets up `jailsp`, `jaifmt` formatting, `jailint` and syntax highlighting, and can download the toolchain for you (`:Jai install`). Install it with `vim.pack.add({ 'https://github.com/matteopolak/jai.nvim' })` or lazy.nvim. See [the Neovim plugin](https://github.com/matteopolak/jacket/blob/main/docs/tools/neovim-plugin.md).
 - Jai code in doc comment fences is highlighted by the language server, so every editor colours it.
 - Doc comment links reach the fields and parameters of polymorphic structs (`[Ring.items]`).
 - The playground tour shows off doc comments in its basics and polymorphism stops.
@@ -232,7 +234,7 @@ Doc comments are now real documentation: the editor renders them as Markdown and
 
 ### Highlights
 
-- Doc comments show as Markdown in hover, completion and signature help, with per-parameter docs. See [doc comments](https://github.com/matteopolak/jai/blob/main/docs/compiler/doc-comments.md).
+- Doc comments show as Markdown in hover, completion and signature help, with per-parameter docs. See [doc comments](https://github.com/matteopolak/jacket/blob/main/docs/compiler/doc-comments.md).
 - Links like `[print]`, `[Basic.print]` and `[Point.LIMIT]` in doc comments resolve: hover, go to definition and clickable links.
 - VS Code highlights Markdown in comments, and Jai inside fenced code blocks.
 - New `jailint` rules: `broken_doc_link` and `redundant_alias` (`a := f(); b := a;`).
@@ -275,7 +277,7 @@ Faster debug builds: programs built without optimization run up to 1.7x faster, 
 
 Smaller downloads, more checks that catch mistakes, and more of your program visible to compile-time code.
 
-![Release archive sizes, 0.6.2 against 0.7.0: every platform is smaller](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.7.0-download-size.svg)
+![Release archive sizes, 0.6.2 against 0.7.0: every platform is smaller](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.7.0-download-size.svg)
 
 ### Highlights
 
@@ -312,7 +314,7 @@ Programs built from source behave better, and type info reports more.
 
 The language server now copes with real projects and very large files, and uses a fraction of the memory.
 
-![Language server peak memory, 0.6.0 against 0.6.1: down by a factor of two to five](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.6.1-language-server-memory.svg)
+![Language server peak memory, 0.6.0 against 0.6.1: down by a factor of two to five](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.6.1-language-server-memory.svg)
 
 ### Highlights
 
@@ -332,21 +334,21 @@ The language server now copes with real projects and very large files, and uses 
 - A crash while answering one request no longer ends the server.
 - Sanitized builds on Intel Macs keep `file:line` for every frame.
 
-Language server timings can be measured with [the benchmark script](https://github.com/matteopolak/jai/blob/main/docs/tools/lsp-benchmark.md).
+Language server timings can be measured with [the benchmark script](https://github.com/matteopolak/jacket/blob/main/docs/tools/lsp-benchmark.md).
 
 ## [0.6.0] - 2026-10-09
 
 Builds with optimizations on compile up to 2.7 times faster, and unoptimized builds of large programs about 1.3 times faster.
 
-![Optimized build times, 0.5.1 against 0.6.0: Focus 12.7 to 7.8 seconds, chess-jai 4.5 to 1.7 seconds](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.6.0-build-time.svg)
+![Optimized build times, 0.5.1 against 0.6.0: Focus 12.7 to 7.8 seconds, chess-jai 4.5 to 1.7 seconds](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.6.0-build-time.svg)
 
 ### Highlights
 
-- Faster builds: see the chart, and [compile speed](https://github.com/matteopolak/jai/blob/main/docs/compiler/compile-speed.md) for how.
+- Faster builds: see the chart, and [compile speed](https://github.com/matteopolak/jacket/blob/main/docs/compiler/compile-speed.md) for how.
 - `jailsp` completes inside range expressions such as `for i: 0..table.co`.
 - `jailint`'s `index_only_loop` also catches loops that fill elements from their index, and offers a fix.
 - `self_assignment` and `absurd_comparison` get editor quick fixes.
-- Compiler messages `PERFORMANCE_REPORT` and `DEBUG_DUMP` are sent, so the `Performance_Report` plugin works. See [build options](https://github.com/matteopolak/jai/blob/main/docs/metaprogramming/build-options.md).
+- Compiler messages `PERFORMANCE_REPORT` and `DEBUG_DUMP` are sent, so the `Performance_Report` plugin works. See [build options](https://github.com/matteopolak/jacket/blob/main/docs/metaprogramming/build-options.md).
 - The playground tour runs every stop in order, without waiting for input.
 
 ### Breaking changes
@@ -360,7 +362,7 @@ Builds with optimizations on compile up to 2.7 times faster, and unoptimized bui
 
 ### Fixes
 
-- The GPU stop of the tour draws in its own window instead of aborting; without a display it says it skipped. See [WebGPU](https://github.com/matteopolak/jai/blob/main/docs/extensions/webgpu.md).
+- The GPU stop of the tour draws in its own window instead of aborting; without a display it says it skipped. See [WebGPU](https://github.com/matteopolak/jacket/blob/main/docs/extensions/webgpu.md).
 - `File_Watcher` no longer misses a change because of float rounding.
 - Windows: `JAIC_LINKER` finds the SDK and C runtime libraries outside a developer prompt.
 
@@ -381,23 +383,23 @@ Unoptimized builds and compile-time code both run about twice as fast, and relea
 - C functions that take or return a `Vector2` by value now get the right values (every Dear ImGui function returning an `ImVec2`).
 - `-sanitize` reports on Intel Macs show `file.jai:line` again.
 
-See [compile speed](https://github.com/matteopolak/jai/blob/main/docs/compiler/compile-speed.md) for what changed.
+See [compile speed](https://github.com/matteopolak/jacket/blob/main/docs/compiler/compile-speed.md) for what changed.
 
 ## [0.5.0] - 2026-10-09
 
 Programs get checked more thoroughly: `print` format strings, null pointers, notes and clashing names. There is also a command-line parser for your own tools and a much bigger set of editor refactorings.
 
-![jaic warns that a print call has too few arguments for its format string](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.5.0-print-check.svg)
+![jaic warns that a print call has too few arguments for its format string](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.5.0-print-check.svg)
 
 ### Highlights
 
-- `print`-style format strings are checked at compile time. See [format string check](https://github.com/matteopolak/jai/blob/main/docs/compiler/format-string-check.md).
+- `print`-style format strings are checked at compile time. See [format string check](https://github.com/matteopolak/jacket/blob/main/docs/compiler/format-string-check.md).
 - Built programs stop with `null pointer dereference` at the offending line instead of crashing.
-- New [`Extensions/Args`](https://github.com/matteopolak/jai/blob/main/docs/extensions/args.md): declare a struct and get a command-line parser with help, suggestions and shell completions. `jaifmt` uses it.
+- New [`Extensions/Args`](https://github.com/matteopolak/jacket/blob/main/docs/extensions/args.md): declare a struct and get a command-line parser with help, suggestions and shell completions. `jaifmt` uses it.
 - Editor refactorings: extract into variable or procedure, inline variable, add missing cases or fields, convert `ifx`.
-- Call hierarchy, expand selection, pull diagnostics, and rename of struct fields and enum members. See [refactorings](https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server-refactorings.md).
-- A procedure that can end without returning a value warns. See [diagnostics](https://github.com/matteopolak/jai/blob/main/docs/compiler/diagnostics.md#compile-warnings-compilerwarnings).
-- New `just` commands for building, formatting, linting and testing the repository. See [Justfile](https://github.com/matteopolak/jai/blob/main/docs/tools/justfile.md).
+- Call hierarchy, expand selection, pull diagnostics, and rename of struct fields and enum members. See [refactorings](https://github.com/matteopolak/jacket/blob/main/docs/compiler/language-server-refactorings.md).
+- A procedure that can end without returning a value warns. See [diagnostics](https://github.com/matteopolak/jacket/blob/main/docs/compiler/diagnostics.md#compile-warnings-compilerwarnings).
+- New `just` commands for building, formatting, linting and testing the repository. See [Justfile](https://github.com/matteopolak/jacket/blob/main/docs/tools/justfile.md).
 
 ### Breaking changes
 
@@ -416,9 +418,9 @@ Programs get checked more thoroughly: `print` format strings, null pointers, not
 - `jailsp` shows type errors for every declaration, not just the first.
 - Names from files you have not opened are visible to the language server.
 - `jailint` given a file that another program `#load`s now lints it as part of that program.
-- C structs now pass correctly in more cases, including packed structs and structs through `...`. See [C ABI](https://github.com/matteopolak/jai/blob/main/docs/native/c-abi.md).
+- C structs now pass correctly in more cases, including packed structs and structs through `...`. See [C ABI](https://github.com/matteopolak/jacket/blob/main/docs/native/c-abi.md).
 - New `File.file_read_line` and `File.read_stdin_line`; `exit(n)` works in the playground.
-- More `Compiler` module procedures work, and more directives reach metaprograms as their own node kinds. See [the Compiler module](https://github.com/matteopolak/jai/blob/main/docs/metaprogramming/compiler-module.md).
+- More `Compiler` module procedures work, and more directives reach metaprograms as their own node kinds. See [the Compiler module](https://github.com/matteopolak/jacket/blob/main/docs/metaprogramming/compiler-module.md).
 - More `#asm` instructions, and `offset_of` and `is_value_type` are implemented.
 - Windows: `#file` and `get_absolute_path` use `/`, and a metaprogram's custom link command handles five or more libraries.
 - `rpmalloc` no longer crashes when a new thread allocates.
@@ -429,7 +431,7 @@ Numbers and `print` now behave as Jai programs expect, mistakes that used to com
 
 ### Highlights
 
-- Auto-import: type part of a name you haven't imported and accept it; the `#import` or `#load` is added. See [auto-import](https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server.md#auto-import-completion).
+- Auto-import: type part of a name you haven't imported and accept it; the `#import` or `#load` is added. See [auto-import](https://github.com/matteopolak/jacket/blob/main/docs/compiler/language-server.md#auto-import-completion).
 - A new `jai.toml` names a project's build files and module folders when they can't be inferred.
 - Number constants must fit their type: `x: u32 = -1;` and `cast(u8) 300` are errors.
 - `print` handles negative numbers in other bases, rounding, `Inf`/`NaN` and unnamed enum values correctly.
@@ -471,7 +473,7 @@ Intel Mac and arm64 Linux builds, programs that run on any CPU of their family, 
 | `ERROR_CONTINUABLE` reports let the build pass | They fail the build |
 | Built programs used the build machine's CPU | The baseline CPU |
 
-See [build options](https://github.com/matteopolak/jai/blob/main/docs/metaprogramming/build-options.md) for what is supported.
+See [build options](https://github.com/matteopolak/jacket/blob/main/docs/metaprogramming/build-options.md) for what is supported.
 
 ### Fixes
 
@@ -488,10 +490,10 @@ WebGPU graphics on every platform and in the playground, threads in WebAssembly 
 
 ### Highlights
 
-- New `Extensions/WebGPU` module: one program draws in a window on macOS, Linux and Windows, and in the playground's new **Render** pane. See [WebGPU](https://github.com/matteopolak/jai/blob/main/docs/extensions/webgpu.md).
+- New `Extensions/WebGPU` module: one program draws in a window on macOS, Linux and Windows, and in the playground's new **Render** pane. See [WebGPU](https://github.com/matteopolak/jacket/blob/main/docs/extensions/webgpu.md).
 - Release archives ship the WebGPU library; nothing else to install.
 - New examples: a triangle, a ray marcher and a compute shader.
-- `jaic build -os wasm` programs can use threads. See [threads in WASI builds](https://github.com/matteopolak/jai/blob/main/docs/native/wasm-threads.md).
+- `jaic build -os wasm` programs can use threads. See [threads in WASI builds](https://github.com/matteopolak/jacket/blob/main/docs/native/wasm-threads.md).
 - The playground tour has four new stops, and VS Code highlights `#string WGSL`, `GLSL`, `SQL` and `JSON` bodies.
 - The extension is listed as **Jai Toolchain** on the VS Code Marketplace.
 
@@ -503,7 +505,7 @@ WebGPU graphics on every platform and in the playground, threads in WebAssembly 
 | `jaic-<platform>` archives | `jai-<platform>` |
 | `JAIC_VERSION`, `JAIC_INSTALL_DIR`, `JAIC_BIN_DIR` | `JAI_VERSION`, `JAI_INSTALL_DIR`, `JAI_BIN_DIR` (the old names still work) |
 
-An import of a moved module fails with an error naming the import to write. See [stdlib extensions](https://github.com/matteopolak/jai/blob/main/docs/extensions/extensions.md).
+An import of a moved module fails with an error naming the import to write. See [stdlib extensions](https://github.com/matteopolak/jacket/blob/main/docs/extensions/extensions.md).
 
 ### Fixes
 
@@ -516,7 +518,7 @@ An import of a moved module fails with an error naming the import to write. See 
 
 A VS Code extension, one-command installs and error messages that say what to change.
 
-![jaic reports a type mismatch with the expected type and a suggested cast](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.4.0-error.svg)
+![jaic reports a type mismatch with the expected type and a suggested cast](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.4.0-error.svg)
 
 ### Highlights
 
@@ -531,9 +533,9 @@ A VS Code extension, one-command installs and error messages that say what to ch
 
 | Platform | Command |
 | --- | --- |
-| macOS, Linux | `brew install matteopolak/tap/jai` |
-| macOS, Linux | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh \| sh` |
-| Windows | `irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 \| iex` |
+| macOS, Linux | `brew install matteopolak/tap/jacket` |
+| macOS, Linux | `curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh \| sh` |
+| Windows | `irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 \| iex` |
 | Windows | `winget install matteopolak.jai` (once accepted into winget-pkgs) |
 
 The VS Code extension is on [Open VSX](https://open-vsx.org/extension/matteopolak/jai) and attached to this release as `jai-vscode-0.4.0.vsix`.
@@ -558,7 +560,7 @@ The VS Code extension is on [Open VSX](https://open-vsx.org/extension/matteopola
 
 The linter arrives: `jailint`, with 31 rules, automatic fixes and editor integration. Also new: WebAssembly output and faster release binaries.
 
-![jailint reports a loop that only uses its index, with the suggested rewrite](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.3.0-jailint.svg)
+![jailint reports a loop that only uses its index, with the suggested rewrite](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.3.0-jailint.svg)
 
 ### Highlights
 
@@ -588,7 +590,7 @@ The linter arrives: `jailint`, with 31 rules, automatic fixes and editor integra
 
 Native Windows executables, debug information, a code formatter and a much richer language server.
 
-![jaifmt turns messy code into formatted code](https://raw.githubusercontent.com/matteopolak/jai/main/docs/images/releases/0.2.0-jaifmt.svg)
+![jaifmt turns messy code into formatted code](https://raw.githubusercontent.com/matteopolak/jacket/main/docs/images/releases/0.2.0-jaifmt.svg)
 
 ### Highlights
 

@@ -468,6 +468,19 @@ pub struct Compiler {
     /// so its locals have types.
     pub(super) code_procs: HashMap<usize, ProcId>,
     parked_epoch: u64,
+    /// Bumped whenever a name, import, `using` or expanded item becomes visible in a scope
+    /// that is not a body's own (`Scope::namespace_changed`): part of `lower_epoch`.
+    namespace_generation: u64,
+    /// The procedures targeting each IR function (`procs_of_func`).
+    func_targets: HashMap<ir::FuncId, Vec<ProcId>>,
+    /// `module_declarations` answers (before `bound_entities`) and the `namespace_generation`
+    /// they hold for. Only answers that no later expansion or import can change are kept.
+    module_names: HashMap<(ModuleId, Sym), (u64, Rc<[EntityId]>)>,
+    /// Set while computing a `module_declarations` answer that may still change.
+    module_names_unsettled: bool,
+    /// Debug builds check `namespace_generation` against a full count of scope contents.
+    #[cfg(debug_assertions)]
+    namespace_check: std::cell::Cell<(usize, u64)>,
     /// Type_Info globals per type.
     pub type_infos: HashMap<TypeId, ir::GlobalId>,
     /// Type_Info globals whose descriptor could not be built yet (`type_info_global`).
@@ -542,7 +555,7 @@ pub struct Compiler {
     /// `using,only(...) field.path;` aliases declared in struct bodies.
     pub member_aliases: HashMap<crate::types::StructId, Vec<structs::MemberAlias>>,
     /// `using,only(..)`/`using,except(..)` on struct members: field index and filter.
-    pub using_filters: HashMap<crate::types::StructId, Vec<(usize, ast::UsingFilter)>>,
+    using_filters: HashMap<crate::types::StructId, structs::UsingFilters>,
     pub default_images: HashMap<TypeId, Option<Rc<value::Aggregate>>>,
     pub default_globals: HashMap<TypeId, ir::GlobalId>,
     pub initializers: HashMap<TypeId, ir::FuncId>,
@@ -607,6 +620,9 @@ pub struct Compiler {
     frozen: HashMap<(u64, u64), ir::GlobalId>,
     /// Editor facts recorded while checking (`ide.rs`); `None` outside the language server.
     pub ide: Option<Box<ide::IdeFacts>>,
+    /// Editor parses shared with other compiles, and this compile's number in it (see
+    /// `ParseReuse::begin`). Only read while `ide` is set.
+    pub parse_reuse: Option<(Rc<std::cell::RefCell<crate::parser::ParseReuse>>, u64)>,
     /// Set by `finish_program`: pending items no longer wait for placeholders.
     pub placeholders_final: bool,
     /// Set while the plain `#if` pass expands an item: lookups then leave other pending items
@@ -727,6 +743,13 @@ impl Compiler {
             multi_consts: HashMap::default(),
             code_procs: HashMap::default(),
             parked_epoch: 0,
+            namespace_generation: 0,
+            func_targets: HashMap::default(),
+            parse_reuse: None,
+            module_names: HashMap::default(),
+            module_names_unsettled: false,
+            #[cfg(debug_assertions)]
+            namespace_check: std::cell::Cell::new((0, 0)),
             interp: crate::interp::Interp::default(),
             type_infos: HashMap::default(),
             failed_type_infos: HashMap::default(),

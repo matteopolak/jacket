@@ -1303,8 +1303,8 @@ impl Compiler {
         }
     }
 
-    /// Default precision follows the reviewed lexer heuristic, including its
-    /// fractional-digit rule and special handling of IEEE bit-pattern spellings.
+    /// Default precision follows `lexer::float_literal_precision`: the fractional-digit count for
+    /// decimal spellings and the digit width for `0h` bit patterns.
     fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
         let precision = crate::lexer::float_literal_precision(self.sources.snippet(span), v);
         if precision.defaults_to_float64 || precision.requires_float64 {

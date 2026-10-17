@@ -271,7 +271,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
     assert_eq!(String::from_utf8_lossy(&run.stdout), "1007\n");
 }
 
-/// Independent compiler and C ABI regressions whose bugs showed only in compiled code.
+/// Compiler and C ABI regressions whose bugs showed only in compiled code.
 #[test]
 fn compiler_and_abi_regressions_run_natively() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stdlib-tests");
@@ -306,7 +306,7 @@ fn compiler_and_abi_regressions_run_natively() {
     }
 }
 
-/// Reviewed File reads preserve piped standard input and EOF; the fixture owns
+/// File reads preserve piped standard input and EOF; the fixture owns
 /// line splitting because File exports no read_stdin_line helper.
 #[test]
 fn stdin_lines_are_read_natively() {
@@ -437,7 +437,7 @@ fn stack_traces() {
         stderr.contains("trace.jai:6\n") && !stderr.contains("assert_helper"),
         "{stderr}"
     );
-    // The reviewed runtime reports the caller location; absolute-versus-relative
+    // The runtime reports the caller location; absolute-versus-relative
     // presentation is not a compatibility contract.
     assert!(
         stderr.lines().next().unwrap().contains("trace.jai:6:")

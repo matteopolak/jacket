@@ -18,19 +18,19 @@
 Run without installing:
 
 ```sh
-nix run github:matteopolak/jai -- hello.jai -interp
-nix run github:matteopolak/jai -- hello.jai -exe hello
-nix run github:matteopolak/jai#jaifmt -- --check src
-nix run github:matteopolak/jai#jailint -- src
+nix run github:matteopolak/jacket -- hello.jai -interp
+nix run github:matteopolak/jacket -- hello.jai -exe hello
+nix run github:matteopolak/jacket#jaifmt -- --check src
+nix run github:matteopolak/jacket#jailint -- src
 ```
 
-Install into a profile: `nix profile install github:matteopolak/jai`.
+Install into a profile: `nix profile install github:matteopolak/jacket`.
 
 As a flake input, in a NixOS (or nix-darwin) configuration:
 
 ```nix
 {
-  inputs.jai.url = "github:matteopolak/jai";
+  inputs.jai.url = "github:matteopolak/jacket";
 
   outputs = { nixpkgs, jai, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {

@@ -22,6 +22,8 @@ use crate::project::{self, CONFIG_FILE, INFERRED_ENTRIES, ProjectConfig};
 use crate::semantic::Environment;
 use crate::session::Session;
 use jaic::sema::TargetOs;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -158,9 +160,39 @@ struct Program {
 }
 
 /// Files as the server sees them: open documents over the environment's file system.
+/// Made for one request: the file system is taken not to change while it lives.
 pub(crate) struct Sources<'a> {
     pub(crate) env: &'a Environment,
     pub(crate) open: BTreeMap<PathBuf, &'a str>,
+    /// `canonical_key` of the paths asked about, each a few file system calls.
+    keys: RefCell<HashMap<PathBuf, PathBuf>>,
+}
+
+impl Session {
+    /// The open documents and lint configurations over the file system of `env`.
+    pub(crate) fn sources<'a>(&'a self, env: &'a Environment) -> Sources<'a> {
+        let keys = RefCell::new(HashMap::default());
+        let open = self
+            .documents
+            .iter()
+            .chain(&self.lint_configs)
+            .map(|(u, d)| (memo_key(&keys, env, Path::new(u.path())), d.text.as_str()))
+            .collect();
+        Sources {
+            env,
+            open,
+            keys,
+        }
+    }
+}
+
+fn memo_key(keys: &RefCell<HashMap<PathBuf, PathBuf>>, env: &Environment, path: &Path) -> PathBuf {
+    if let Some(key) = keys.borrow().get(path) {
+        return key.clone();
+    }
+    let key = canonical_key(env, path);
+    keys.borrow_mut().insert(path.to_path_buf(), key.clone());
+    key
 }
 
 fn hash(text: &str) -> u64 {
@@ -188,7 +220,7 @@ pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
 
 impl Sources<'_> {
     pub(crate) fn key(&self, path: &Path) -> PathBuf {
-        canonical_key(self.env, path)
+        memo_key(&self.keys, self.env, path)
     }
 
     pub(crate) fn read(&self, path: &Path) -> Option<String> {
@@ -631,15 +663,7 @@ impl Session {
     /// inferred entry, or the file that loads it), read from disk and the open documents.
     pub(crate) fn project_root(&self, uri: &DocumentUri) -> Option<PathBuf> {
         let env = self.environment.as_ref()?;
-        let sources = Sources {
-            env,
-            open: self
-                .documents
-                .iter()
-                .chain(&self.lint_configs)
-                .map(|(u, d)| (canonical_key(env, Path::new(u.path())), d.text.as_str()))
-                .collect(),
-        };
+        let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
         Some(program.root)
@@ -657,15 +681,7 @@ impl Session {
         let Some(env) = self.environment.as_ref().filter(|_| room > 0) else {
             return Vec::new();
         };
-        let sources = Sources {
-            env,
-            open: self
-                .documents
-                .iter()
-                .chain(&self.lint_configs)
-                .map(|(u, d)| (canonical_key(env, Path::new(u.path())), d.text.as_str()))
-                .collect(),
-        };
+        let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let mut folders: BTreeSet<PathBuf> = self.workspace_folders.iter().cloned().collect();
         for uri in self.documents.keys() {
@@ -744,15 +760,7 @@ impl Session {
         if prefix.chars().count() < MIN_PREFIX {
             return (Vec::new(), true);
         }
-        let sources = Sources {
-            env,
-            open: self
-                .documents
-                .iter()
-                .chain(&self.lint_configs)
-                .map(|(u, d)| (canonical_key(env, Path::new(u.path())), d.text.as_str()))
-                .collect(),
-        };
+        let sources = self.sources(env);
         let file = sources.key(Path::new(uri.path()));
         let here = file.parent().unwrap_or(Path::new("/")).to_path_buf();
         let lower = prefix.to_lowercase();

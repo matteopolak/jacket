@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/matteopolak/jai/editors/vscode/schemas/jai.schema.json",
+  "$id": "https://github.com/matteopolak/jacket/editors/vscode/schemas/jai.schema.json",
   "title": "jai.toml",
-  "description": "Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jai/blob/main/docs/compiler/language-server.md#project-settings-jaitoml",
+  "description": "Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jacket/blob/main/docs/compiler/language-server.md#project-settings-jaitoml",
   "type": "object",
   "additionalProperties": false,
   "properties": {

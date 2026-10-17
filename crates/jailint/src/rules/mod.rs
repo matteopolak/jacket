@@ -21,6 +21,7 @@ mod identity_op;
 mod index_only_loop;
 mod infinite_loop;
 mod integer_division_in_float;
+pub(crate) mod library;
 mod lossy_xx;
 mod manual_assign_op;
 mod manual_index_counter;
@@ -351,89 +352,6 @@ pub(crate) fn callee_procs<'c>(cx: &'c Cx, callee: &Expr) -> &'c [ProcId] {
         _ => return &[],
     };
     cx.facts.procs_at(span)
-}
-
-/// The callee is one of `names` from one of the library `modules`: every procedure it named
-/// is declared in such a module of an import directory.
-pub(crate) fn calls_library(cx: &Cx, callee: &Expr, modules: &[&str], names: &[&str]) -> bool {
-    let name = match &callee.kind {
-        E::Ident(n) => *n,
-        E::Member(_, n) => n.name,
-        _ => return false,
-    };
-    if !names.contains(&name.as_str()) {
-        return false;
-    }
-    let procs = callee_procs(cx, callee);
-    !procs.is_empty()
-        && procs.iter().all(|&p| {
-            let file = cx.compiler.procs[p.0 as usize].lit.header.span.file;
-            library_module(cx, &cx.compiler.sources.get(file).path)
-                .is_some_and(|m| modules.contains(&m))
-                || cx.compiler.modules.iter().any(|module| {
-                    let Some(path) = module.path.as_ref().and_then(|path| path.to_str()) else {
-                        return false;
-                    };
-                    if !library_module(cx, path).is_some_and(|module| modules.contains(&module)) {
-                        return false;
-                    }
-                    cx.compiler
-                        .scope(module.scope)
-                        .names
-                        .get(&name)
-                        .is_some_and(|ids| {
-                            ids.iter().any(|&id| {
-                                use jaic::sema::scope::{EntityState, Resolved};
-                                let entity = cx.compiler.entity(id);
-                                if !entity.exported {
-                                    return false;
-                                }
-                                match &entity.state {
-                                    EntityState::Done(Resolved::Proc(candidate))
-                                    | EntityState::Done(Resolved::Const {
-                                        value: jaic::sema::Value::Proc(candidate),
-                                        ..
-                                    }) => procedure_or_instance(cx, *candidate, p),
-                                    EntityState::Done(Resolved::ProcSet(candidates)) => candidates
-                                        .iter()
-                                        .any(|&candidate| procedure_or_instance(cx, candidate, p)),
-                                    _ => false,
-                                }
-                            })
-                        })
-                })
-        })
-}
-
-/// Exact declared procedure identity and its explicit generic instance tree;
-/// equal source text/spans in independently inserted code do not imply identity.
-fn procedure_or_instance(cx: &Cx, candidate: ProcId, actual: ProcId) -> bool {
-    let mut pending = vec![candidate];
-    let mut seen = std::collections::HashSet::new();
-    while let Some(candidate) = pending.pop() {
-        if candidate == actual {
-            return true;
-        }
-        if seen.insert(candidate) {
-            pending.extend(
-                cx.compiler.procs[candidate.0 as usize]
-                    .instances
-                    .values()
-                    .copied(),
-            );
-        }
-    }
-    false
-}
-
-/// The module a file in an import directory belongs to: `Basic` for `<dir>/Basic/Array.jai`
-/// or `<dir>/Basic.jai`.
-fn library_module<'p>(cx: &Cx, path: &'p str) -> Option<&'p str> {
-    cx.compiler.options.import_paths.iter().find_map(|dir| {
-        let rest = std::path::Path::new(path).strip_prefix(dir).ok()?;
-        let first = rest.components().next()?.as_os_str().to_str()?;
-        Some(first.strip_suffix(".jai").unwrap_or(first))
-    })
 }
 
 /// Some statement inside `stmt` (itself included, nested procedures not entered) satisfies `f`.

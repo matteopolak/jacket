@@ -3,7 +3,7 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
-A code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), written in Jai. It is part of the [`jai{c,lsp,fmt,lint}`](../README.md) toolchain.
+A code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), written in Jai. It is part of the [Jacket](../README.md) toolchain.
 
 `jaifmt` produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and zero or one space between tokens, whatever the input looked like. Formatting twice changes nothing. Comments, blank lines (up to a limit) and the line breaks inside expressions are kept; long lines are not re-wrapped.
 
@@ -20,11 +20,11 @@ jaifmt --stdin < in.jai > out.jai   # editor integration
 `jaifmt` ships in every toolchain install, next to `jaic`, `jailsp` and `jailint`:
 
 ```sh
-brew install matteopolak/tap/jai        # macOS and Linux
-nix profile install github:matteopolak/jai
+brew install matteopolak/tap/jacket        # macOS and Linux
+nix profile install github:matteopolak/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jai/releases); see the [main README](../README.md#install) and [package managers](../docs/tools/package-managers.md).
+There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../README.md#install) and [package managers](../docs/tools/package-managers.md).
 
 The [VS Code extension](../docs/tools/vscode-extension.md) uses `jaifmt` as the document formatter. Other editors can run `jaifmt --stdin` as an external formatter.
 

@@ -838,7 +838,14 @@ impl Host for SandboxHost {
             }
             "atof" | "strtod" | "strtof" => {
                 let text = cstr(arg(0));
-                let parsed = numeric::parse(&text, symbol == "strtof");
+                let parsed = numeric::parse(
+                    &text,
+                    if symbol == "strtof" {
+                        numeric::Precision::Binary32
+                    } else {
+                        numeric::Precision::Binary64
+                    },
+                );
                 if symbol != "atof" && arg(1) != 0 {
                     write_u64(arg(1), arg(0) + parsed.used as u64);
                 }

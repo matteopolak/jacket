@@ -341,16 +341,14 @@ fn tour_runtime_provider_runs_as_wasi_with_real_workers() {
             "{stdout}{}",
             text(&output.stderr)
         );
+        // The prime counts of each slice and the squares the consumer received; the
+        // surrounding wording is the program's own.
         assert!(
-            stdout.contains(
-                "3 workers counted the primes in 8 slices of 1000: 168 135 127 120 119 114 117 107"
-            ),
+            stdout.contains("168 135 127 120 119 114 117 107"),
             "{stdout}"
         );
-        assert!(
-            stdout.contains("The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)"),
-            "{stdout}"
-        );
+        assert!(stdout.contains("1 4 9 16 25 36 49 64 81 100"), "{stdout}");
+        assert!(stdout.contains("385"), "{stdout}");
     }
 }
 

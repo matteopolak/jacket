@@ -108,13 +108,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
 async function offerToUninstallOldExtension(): Promise<void> {
   const uninstall = `Uninstall ${OLD_EXTENSION_ID}`;
   const choice = await vscode.window.showWarningMessage(
-    `Jai Toolchain is now matteopolak.jai-toolchain, but the old ${OLD_EXTENSION_ID} is still installed. Both provide the same commands, so this one stays off until the old one is uninstalled.`,
+    `Jacket (Jai toolchain) is now matteopolak.jai-toolchain, but the old ${OLD_EXTENSION_ID} is still installed. Both provide the same commands, so this one stays off until the old one is uninstalled.`,
     uninstall,
   );
   if (choice !== uninstall) return;
   await vscode.commands.executeCommand("workbench.extensions.uninstallExtension", OLD_EXTENSION_ID);
   const reload = "Reload Window";
-  if ((await vscode.window.showInformationMessage(`Uninstalled ${OLD_EXTENSION_ID}. Reload the window to start Jai Toolchain.`, reload)) === reload) {
+  if ((await vscode.window.showInformationMessage(`Uninstalled ${OLD_EXTENSION_ID}. Reload the window to start Jacket.`, reload)) === reload) {
     await vscode.commands.executeCommand("workbench.action.reloadWindow");
   }
 }

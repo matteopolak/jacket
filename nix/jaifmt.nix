@@ -37,7 +37,7 @@ stdenv.mkDerivation {
 
   meta = {
     description = "Code formatter for Jai";
-    homepage = "https://github.com/matteopolak/jai";
+    homepage = "https://github.com/matteopolak/jacket";
     mainProgram = "jaifmt";
     inherit (jaic.meta) platforms;
   };

@@ -3,34 +3,34 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
-Language support for [Jai](https://github.com/matteopolak/jai), backed by the `jaic` toolchain: the `jailsp` language server, `jailint` lints and fixes, `jaifmt` formatting and syntax highlighting.
+Language support for Jai from [Jacket](https://github.com/matteopolak/jacket), the toolchain behind `jaic`: the `jailsp` language server, `jailint` lints and fixes, `jaifmt` formatting and syntax highlighting.
 
-![Hover over a struct: its fields, size and alignment](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/hover.png)
+![Hover over a struct: its fields, size and alignment](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/hover.png)
 
 ## Features
 
 - **Errors as you type** from the real compiler, with hover (types, values, memory layout), completion, go to definition, references, rename, inlay hints, signature help, code lenses, `#insert`/`#run`/macro expansions and *Add `#import`* fixes.
 
-  ![A type mismatch reported inline](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/error.png)
+  ![A type mismatch reported inline](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/error.png)
 
 - **Completion** of members, procedures, modules and directives, with auto-import: `prin` offers `print` and adds `#import "Basic";` when accepted (likewise for your own modules, and `#load` for your project's other files; `jai.completion.autoImport`). A `jai.toml` at the project root can name its build files and module folders.
 
-  ![Completing the fields of a struct](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/completion.png)
+  ![Completing the fields of a struct](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/completion.png)
 
 - **Inline assembly help**: inside `#asm` blocks, completion and hover for every instruction jaic accepts, with its operand forms and the CPU feature it needs, and signature help for its operands.
 
-  ![Completing an AVX2 instruction in an #asm block](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/asm-completion.png)
+  ![Completing an AVX2 instruction in an #asm block](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/asm-completion.png)
 
 - **Refactorings** in the lightbulb menu: extract the selected expression into a variable, extract statements into a procedure (parameters and results worked out; declined when it cannot be done safely), inline a variable, add the missing cases of an `if x == {` on an enum, add the missing fields of a `Type.{...}` literal, and convert between `ifx` and `if`/`else`. **Call hierarchy** (incoming and outgoing calls) and **expand selection** work too.
 - **Lints** from `jailint` with quick fixes; `source.fixAll.jailint` applies every safe fix, on demand or on save. Unsaved edits to `jailint.toml` apply at once.
 
-  ![A jailint warning and its documentation link](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/lint.png)
+  ![A jailint warning and its documentation link](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/lint.png)
 
-  ![The quick fix for it](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/quick-fix.png)
+  ![The quick fix for it](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/quick-fix.png)
 
 - **Formatting** with `jaifmt`, honouring `jaifmt.toml` (including its `ignore` globs); works with `editor.formatOnSave`.
 
-  ![A file before and after Format Document](https://raw.githubusercontent.com/matteopolak/jai/main/editors/vscode/images/formatting.png)
+  ![A file before and after Format Document](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/formatting.png)
 
 - **Doc comments**: the comment above a declaration is shown as Markdown in hover, completion and signature help, with per-parameter docs (`- name: text` in the comment) and `[print]` / `[Type.field]` / `[text](print)` links you can click or go to the definition of. The Markdown in comments is highlighted, and fenced code in them as Jai.
 - **Highlighting**: a TextMate grammar for keywords, directives, here-strings, numbers (`0x`, `0b`, `0h`, `_`), nested comments, declarations and `$T`/`$$x` polymorph variables, refined by the server's semantic tokens.
@@ -40,7 +40,7 @@ Language support for [Jai](https://github.com/matteopolak/jai), backed by the `j
 
 ## Getting the toolchain
 
-The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next to `jai.compiler.path` or the `jaic` on `PATH`. If none is found it **asks** before downloading the compiler release pinned into this extension (`jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library) from [github.com/matteopolak/jai/releases](https://github.com/matteopolak/jai/releases), and checks it against SHA-256 checksums pinned into the extension. Set `jai.toolchain.autoDownload` to `never` to turn this off, or `always` to skip the question. Prebuilt toolchains exist for macOS, Linux and Windows, each on x86-64 and arm64; elsewhere, build from source and set the paths.
+The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next to `jai.compiler.path` or the `jaic` on `PATH`. If none is found it **asks** before downloading the compiler release pinned into this extension (`jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library) from [github.com/matteopolak/jacket/releases](https://github.com/matteopolak/jacket/releases), and checks it against SHA-256 checksums pinned into the extension. Set `jai.toolchain.autoDownload` to `never` to turn this off, or `always` to skip the question. Prebuilt toolchains exist for macOS, Linux and Windows, each on x86-64 and arm64; elsewhere, build from source and set the paths.
 
 ## Settings
 
@@ -60,4 +60,4 @@ The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next
 }
 ```
 
-See [the extension's documentation](https://github.com/matteopolak/jai/blob/main/docs/tools/vscode-extension.md) for how it works and how to change it.
+See [the extension's documentation](https://github.com/matteopolak/jacket/blob/main/docs/tools/vscode-extension.md) for how it works and how to change it.

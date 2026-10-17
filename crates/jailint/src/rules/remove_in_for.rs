@@ -10,18 +10,12 @@
 //! the call is directly followed by `break` or `return` (removing the one element searched
 //! for and stopping is fine), or the loop body assigns its index (`i -= 1;` after the removal
 //! steps back by hand).
-use super::{calls_library, finding, statement_lists};
+use super::library::ARRAY_REMOVERS;
+use super::{finding, statement_lists};
 use crate::Finding;
 use crate::syntax::{Cx, Node, squash, walk};
 use jaic::ast::{Expr, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::source::Span;
-
-const REMOVERS: &[&str] = &[
-    "array_unordered_remove_by_index",
-    "array_ordered_remove_by_index",
-    "array_unordered_remove_by_value",
-    "array_ordered_remove_by_value",
-];
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
@@ -55,7 +49,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Unary(UnOp::Star, array) = &first.value.kind else {
                 return true;
             };
-            if !calls_library(cx, callee, &["Basic"], REMOVERS) {
+            if !ARRAY_REMOVERS.called_by(cx, callee) {
                 return true;
             }
             let array_text = squash(cx.whole_src(array.span));

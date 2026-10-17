@@ -1,6 +1,6 @@
 {
   "name": "jai-toolchain",
-  "displayName": "Jai Toolchain",
+  "displayName": "Jacket (Jai toolchain)",
   "description": "Jai language support: language server, linter, formatter and syntax highlighting",
   "version": "0.3.0",
   "publisher": "matteopolak",
@@ -10,14 +10,14 @@
     "color": "#1e1e1e",
     "theme": "dark"
   },
-  "homepage": "https://github.com/matteopolak/jai/blob/main/docs/tools/vscode-extension.md",
+  "homepage": "https://github.com/matteopolak/jacket/blob/main/docs/tools/vscode-extension.md",
   "repository": {
     "type": "git",
-    "url": "https://github.com/matteopolak/jai.git",
+    "url": "https://github.com/matteopolak/jacket.git",
     "directory": "editors/vscode"
   },
   "bugs": {
-    "url": "https://github.com/matteopolak/jai/issues"
+    "url": "https://github.com/matteopolak/jacket/issues"
   },
   "type": "module",
   "packageManager": "pnpm@12.6.0",
@@ -271,7 +271,7 @@
           ],
           "default": "prompt",
           "scope": "machine",
-          "markdownDescription": "What to do when no `jailsp` is configured or on `PATH`: download the toolchain release whose version matches this extension from github.com/matteopolak/jai, verified against pinned SHA-256 checksums."
+          "markdownDescription": "What to do when no `jailsp` is configured or on `PATH`: download the toolchain release whose version matches this extension from github.com/matteopolak/jacket, verified against pinned SHA-256 checksums."
         },
         "jai.completion.autoImport": {
           "type": "boolean",

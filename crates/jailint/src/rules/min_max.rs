@@ -6,12 +6,11 @@
 //! Fires on `min(a, max(b, x))` with literal bounds `a < b`, and `max(a, min(b, x))` with
 //! `a > b`, in either argument order, when `min` and `max` are the library's (`Basic` or
 //! `Math`).
-use super::{calls_library, finding, int_literal};
+use super::library::MIN_MAX;
+use super::{finding, int_literal};
 use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{Expr, ExprKind as E};
-
-const MODULES: &[&str] = &["Basic", "Math"];
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
@@ -89,8 +88,10 @@ fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&'e Expr; 2]
     if a.name.is_some() || b.name.is_some() || a.spread || b.spread {
         return None;
     }
-    let name = ["min", "max"]
-        .into_iter()
-        .find(|n| calls_library(cx, callee, MODULES, &[*n]))?;
+    let name = MIN_MAX
+        .names
+        .iter()
+        .copied()
+        .find(|n| MIN_MAX.calls(cx, callee, n))?;
     Some((name, [&a.value, &b.value]))
 }

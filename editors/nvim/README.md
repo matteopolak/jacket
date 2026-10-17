@@ -3,9 +3,9 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
-Neovim support for [Jai](https://github.com/matteopolak/jai): the `jailsp` language server (diagnostics with `jailint` lints and quick fixes, hover, completion, go to definition, semantic tokens, doc-comment links), `jaifmt` formatting, a Vim syntax file, and a command that downloads the toolchain. Needs Neovim 0.11 or newer.
+Neovim support for Jai from [Jacket](https://github.com/matteopolak/jacket): the `jailsp` language server (diagnostics with `jailint` lints and quick fixes, hover, completion, go to definition, semantic tokens, doc-comment links), `jaifmt` formatting, a Vim syntax file, and a command that downloads the toolchain. Needs Neovim 0.11 or newer.
 
-This directory is mirrored to [matteopolak/jai.nvim](https://github.com/matteopolak/jai.nvim) on every release. Install from there, or use a checkout of the jai repository.
+This directory is mirrored to [matteopolak/jai.nvim](https://github.com/matteopolak/jai.nvim) on every release. Install from there, or use a checkout of the jacket repository.
 
 ## Install
 
@@ -32,7 +32,7 @@ By hand, as a package:
 git clone https://github.com/matteopolak/jai.nvim ~/.local/share/nvim/site/pack/jai/start/jai.nvim
 ```
 
-Or from a checkout of the jai repository, in `init.lua`:
+Or from a checkout of the jacket repository, in `init.lua`:
 
 ```lua
 vim.opt.rtp:append('/path/to/jai/editors/nvim')

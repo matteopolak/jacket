@@ -1,18 +1,20 @@
-# `jai{c,lsp,fmt,lint}`
+# Jacket
+
+Jacket ("Jai kit") is an independently implemented toolchain for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language.
 
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
-[![Compiler checks](https://github.com/matteopolak/jai/actions/workflows/ci.yml/badge.svg)](https://github.com/matteopolak/jai/actions/workflows/ci.yml)
+[![Compiler checks](https://github.com/matteopolak/jacket/actions/workflows/ci.yml/badge.svg)](https://github.com/matteopolak/jacket/actions/workflows/ci.yml)
 
-An independent toolchain for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language:
+It includes:
 
 - `jaic`, a compiler that type-checks, interprets and natively builds real Jai programs and libraries, with its own standard library;
 - `jailsp`, a language server;
 - `jaifmt`, a formatter;
 - `jailint`, a linter.
 
-It is an independently implemented Jai compiler. It builds native executables for macOS, Linux and Windows (x86-64 and arm64) and WebAssembly, and real projects such as the Focus editor compile and run.
+`jaic` builds native executables for macOS, Linux and Windows (x86-64 and arm64) and WebAssembly, and real projects such as the Focus editor compile and run.
 
 **[Try it in the browser →](https://matteopolak.com/playground/jai)**
 
@@ -21,9 +23,9 @@ It is an independently implemented Jai compiler. It builds native executables fo
 Each install includes `jaic`, `jailsp`, `jailint`, `jaifmt` and the standard library.
 
 ```sh
-brew install matteopolak/tap/jai               # macOS, Linux
-nix profile install github:matteopolak/jai     # Nix
-curl -fsSL https://raw.githubusercontent.com/matteopolak/jai/main/install.sh | sh
+brew install matteopolak/tap/jacket               # macOS, Linux
+nix profile install github:matteopolak/jacket     # Nix
+curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh
 ```
 
 The last line is the install script for macOS and Linux. There are also a PowerShell script, prebuilt archives, a GitHub Action and [build-from-source steps](docs/tools/package-managers.md#other-ways-to-install).
@@ -68,7 +70,7 @@ jailint src/ --fix                                 # apply the safe fixes
 
 ## Contributing
 
-Pull requests are not accepted. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jai/issues/new/choose); see [CONTRIBUTING.md](CONTRIBUTING.md).
+Pull requests are not accepted. Bug reports and feature requests are welcome as [issues](https://github.com/matteopolak/jacket/issues/new/choose); see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

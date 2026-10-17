@@ -8,7 +8,7 @@
 #include "stack-iteration.h"
 
 #if !defined(_M_X64) && !defined(__x86_64__)
-#error The reviewed public Windows crash-backtrace contract supports x64 only
+#error The Windows crash handler supports x64 only
 #endif
 _Static_assert(sizeof(CONTEXT) == 1232, "public x64 context ABI");
 _Static_assert(offsetof(CONTEXT, Rsp) == 152, "public stack pointer offset");

@@ -1,7 +1,7 @@
-# Installs the Jai toolchain (jaic, jailsp, jailint, jaifmt) from a GitHub release of
-# https://github.com/matteopolak/jai, verified against the release's SHA256SUMS:
+# Installs Jacket, the Jai toolchain (jaic, jailsp, jailint, jaifmt) from a GitHub release of
+# https://github.com/matteopolak/jacket, verified against the release's SHA256SUMS:
 #
-#   irm https://raw.githubusercontent.com/matteopolak/jai/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 | iex
 #
 # Environment (each JAI_* name also works as JAIC_*; JAI_* wins when both are set):
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
@@ -18,7 +18,7 @@
     $ProgressPreference = 'SilentlyContinue'
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-    $repo = 'matteopolak/jai'
+    $repo = 'matteopolak/jacket'
 
     $arch = $null
     try { $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString() } catch { }

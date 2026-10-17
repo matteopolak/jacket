@@ -680,7 +680,7 @@ fn lints_are_diagnostics_with_quick_fixes() {
     assert_eq!(diagnostic["source"], "jailint");
     assert_eq!(
         diagnostic["codeDescription"]["href"],
-        "https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md#bool_comparison"
+        "https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#bool_comparison"
     );
 }
 

@@ -796,8 +796,15 @@ impl<'a> Lexer<'a> {
     }
 }
 
-/// Decimal literal precision heuristic documented by the public lexer contract.
-/// This is independent of whether rounding to f32 happens to preserve the value.
+/// Default precision of a floating literal.
+///
+/// A decimal literal counts its fractional digits (trailing zeros ignored, integer digits
+/// excluded): more than eight require `float64`, exactly eight default to `float64`, fewer
+/// default to `float32`; a normal binary exponent outside -126..=127 also requires `float64`.
+/// This is independent of whether rounding to `float32` happens to preserve the value.
+///
+/// A `0h` bit-pattern literal is `float64` when it has 16 hex digits and `float32` otherwise;
+/// the checker rejects widths other than 4, 8 and 16.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct FloatLiteralPrecision {
     pub defaults_to_float64: bool,
@@ -854,6 +861,41 @@ mod tests {
         assert_eq!(t[12], Tok::Float(1500.0));
         assert_eq!(t[14], Tok::Directive(Sym::intern("run")));
         assert!(matches!(&t[19], Tok::Note(n) if &**n == "note"));
+    }
+
+    #[test]
+    fn hex_float_precision_follows_the_bit_pattern_width() {
+        for (text, float64) in [
+            ("0h3c00", false),
+            ("0h3f800000", false),
+            ("0h3f80_0000", false),
+            ("0h3ff0000000000000", true),
+            ("0H3FF0_0000_0000_0000", true),
+        ] {
+            let precision = float_literal_precision(text, 1.0);
+            assert_eq!(precision.defaults_to_float64, float64, "{text}");
+            assert!(!precision.requires_float64, "{text}");
+        }
+    }
+
+    #[test]
+    fn decimal_float_precision_counts_fractional_digits() {
+        for (text, value, defaults, requires) in [
+            ("1.5", 1.5, false, false),
+            ("1.1234567", 1.1234567, false, false),
+            ("1.12345678", 1.12345678, true, false),
+            ("1.123456780", 1.12345678, true, false),
+            ("0.123456789", 0.123456789, false, true),
+            ("12342345234.0", 12342345234.0, false, false),
+            ("1.0e39", 1.0e39, false, true),
+        ] {
+            let precision = float_literal_precision(text, value);
+            assert_eq!(
+                (precision.defaults_to_float64, precision.requires_float64),
+                (defaults, requires),
+                "{text}"
+            );
+        }
     }
 
     #[test]

@@ -179,10 +179,41 @@ pub(super) enum FieldUsing {
     Inline(TypeId, ast::UsingFilter),
 }
 
+/// The `using,only(...)`/`using,except(...)` filters of a struct's fields, by field index.
+#[derive(Default)]
+pub(super) struct UsingFilters(Vec<(usize, ast::UsingFilter)>);
+
+impl UsingFilters {
+    /// Record the filter of field `index`; fields are visited in order.
+    fn push(&mut self, index: usize, filter: ast::UsingFilter) {
+        debug_assert!(self.0.last().is_none_or(|(last, _)| *last < index));
+        self.0.push((index, filter));
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    fn get(&self, index: usize) -> Option<&ast::UsingFilter> {
+        let at = self.0.binary_search_by_key(&index, |(i, _)| *i).ok()?;
+        Some(&self.0[at].1)
+    }
+
+    /// The name to look up in the `using` field `index` for the promoted `name`: `name` itself
+    /// when the field has no filter, the name after the filter's renames, or `None` when the
+    /// filter hides it.
+    fn target(&self, index: usize, name: Sym) -> Option<Sym> {
+        match self.get(index) {
+            Some(filter) => super::using::filter_target(filter, name),
+            None => Some(name),
+        }
+    }
+}
+
 /// Candidate fields for a promoted name, applying each embedding's filter.
 fn using_candidates(
     fields: &[Field],
-    filters: &[(usize, ast::UsingFilter)],
+    filters: &UsingFilters,
     name: Sym,
 ) -> Vec<(TypeId, u64, Sym)> {
     fields
@@ -192,10 +223,7 @@ fn using_candidates(
             if !field.using {
                 return None;
             }
-            let target = match filters.iter().find(|(i, _)| *i == index) {
-                Some((_, filter)) => super::using::filter_target(filter, name)?,
-                None => name,
-            };
+            let target = filters.target(index, name)?;
             Some((field.ty, field.offset, target))
         })
         .collect()
@@ -710,7 +738,7 @@ impl Compiler {
         let mut end = 0u64;
         let mut align = 1u64;
         let mut aliases = Vec::new();
-        let mut filters = Vec::new();
+        let mut filters = UsingFilters::default();
         let mut sizes = Vec::new();
         let mut layout = Vec::new();
         let mut names = HashMap::default();
@@ -750,7 +778,7 @@ impl Compiler {
                             scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
                             _ => filter,
                         };
-                        filters.push((index, filter));
+                        filters.push(index, filter);
                     }
                     fields.push(Field {
                         name: d.name,
@@ -912,7 +940,7 @@ impl Compiler {
         &mut self,
         owner: StructId,
         fields: &[Field],
-        filters: &[(usize, ast::UsingFilter)],
+        filters: &UsingFilters,
         names: &HashMap<Sym, usize>,
         name: Sym,
         span: Span,
@@ -921,12 +949,8 @@ impl Compiler {
             return Ok((index, 0));
         }
         for (index, field) in fields.iter().enumerate().filter(|(_, f)| f.using) {
-            let target = match filters.iter().find(|(i, _)| *i == index) {
-                Some((_, filter)) => match super::using::filter_target(filter, name) {
-                    Some(name) => name,
-                    None => continue,
-                },
-                None => name,
+            let Some(target) = filters.target(index, name) else {
+                continue;
             };
             if let Some((path, _, _)) =
                 self.find_promoted_member(vec![(field.ty, 0, target)], span, &mut vec![owner])?
@@ -964,11 +988,7 @@ impl Compiler {
     /// Two `using` members that bring in the same name are an error, as in Jai. A field of the
     /// struct itself may repeat a promoted name (it shadows it, {#using.15}). Only field names
     /// are compared; the constants and procedures declared in the members' bodies are not.
-    fn check_using_clashes(
-        &mut self,
-        fields: &[Field],
-        filters: &[(usize, ast::UsingFilter)],
-    ) -> Result<()> {
+    fn check_using_clashes(&mut self, fields: &[Field], filters: &UsingFilters) -> Result<()> {
         if !fields.iter().any(|f| f.using) {
             return Ok(());
         }
@@ -979,7 +999,7 @@ impl Compiler {
             if !f.using {
                 continue;
             }
-            let filter = filters.iter().find(|(at, _)| *at == i).map(|(_, x)| x);
+            let filter = filters.get(i);
             let mut names = Vec::new();
             if !self.exposed_names(f.ty, filter, &mut Vec::new(), &mut names) {
                 continue;
@@ -1038,8 +1058,8 @@ impl Compiler {
         for (i, f) in info.fields.iter().enumerate() {
             names.extend(f.name);
             if f.using {
-                let inner = own_filters.and_then(|l| l.iter().find(|(at, _)| *at == i));
-                if !self.exposed_names(f.ty, inner.map(|(_, x)| x), searched, &mut names) {
+                let inner = own_filters.and_then(|l| l.get(i));
+                if !self.exposed_names(f.ty, inner, searched, &mut names) {
                     return false;
                 }
             }
@@ -1526,7 +1546,8 @@ impl Compiler {
                 Some((s, index)),
             )));
         }
-        let filters = self.using_filters.get(&s).map_or(&[][..], Vec::as_slice);
+        let no_filters = UsingFilters::default();
+        let filters = self.using_filters.get(&s).unwrap_or(&no_filters);
         let candidates = using_candidates(fields, filters, name);
         if let Some(found) = self.find_promoted_member(candidates, span, searched)? {
             return Ok(Some(found));
@@ -1966,7 +1987,11 @@ impl Compiler {
             return self.declared_promoted_field_type(scope, name, span);
         };
         let ty = self.resolve_field_decl_type(scope, &decl)?;
-        let declared = decl.names.iter().find(|n| n.name == name).unwrap().span;
+        let declared = decl
+            .names
+            .iter()
+            .find(|n| n.name == name)
+            .map_or(decl.span, |n| n.span);
         self.ide_note_named_field(span, name, declared, ty);
         Ok(Some(ty))
     }

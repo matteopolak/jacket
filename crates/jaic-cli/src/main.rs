@@ -142,9 +142,56 @@ impl Added {
 
 /// One `+Name` plugin with the arguments that follow it.
 struct Plugin {
-    /// The module name; it may carry module parameters, `Check(CHECK_BINDINGS=false)`.
-    name: String,
+    /// The module name, without its module parameters.
+    module: String,
+    /// The text inside `Name(...)`: module parameters, `A=1,B=2`.
+    parameters: Option<String>,
     options: Vec<String>,
+}
+
+impl Plugin {
+    /// Split a `Name` or `Name(A=1,B=2)` plugin argument.
+    fn parse(spec: &str) -> Self {
+        let (module, parameters) = match spec.split_once('(') {
+            Some((module, rest)) => (module, Some(rest.strip_suffix(')').unwrap_or(rest))),
+            None => (spec, None),
+        };
+        Plugin {
+            module: module.to_string(),
+            parameters: parameters.map(str::to_string),
+            options: Vec::new(),
+        }
+    }
+
+    /// Give module parameter `name` the value `value` unless the plugin already sets it.
+    fn default_parameter(&mut self, name: &str, value: &str) {
+        let set = self.parameters.as_deref().is_some_and(|parameters| {
+            parameters.split(',').any(|assignment| {
+                assignment
+                    .split('=')
+                    .next()
+                    .is_some_and(|k| k.trim() == name)
+            })
+        });
+        if !set {
+            let assignment = format!("{name}={value}");
+            match &mut self.parameters {
+                Some(parameters) if !parameters.is_empty() => {
+                    parameters.push(',');
+                    parameters.push_str(&assignment);
+                }
+                parameters => *parameters = Some(assignment),
+            }
+        }
+    }
+
+    /// The module parameter list as it follows `#import "Name"`.
+    fn import_parameters(&self) -> String {
+        self.parameters
+            .as_ref()
+            .map(|parameters| format!("({parameters})"))
+            .unwrap_or_default()
+    }
 }
 
 /// Parsed command line.
@@ -265,27 +312,6 @@ fn windows_triple(cpu: TargetCpu, msvc: bool) -> &'static str {
         (_, true) => "x86_64-pc-windows-msvc",
         (_, false) => "x86_64-pc-windows-gnu",
     }
-}
-
-/// `OS` and `CPU` as a target triple implies them.
-fn os_and_cpu(triple: &str) -> (TargetOs, TargetCpu) {
-    let os = if triple.contains("windows") || triple.contains("mingw") {
-        TargetOs::Windows
-    } else if triple.contains("apple") || triple.contains("darwin") || triple.contains("macos") {
-        TargetOs::MacOS
-    } else if triple.starts_with("wasm") {
-        TargetOs::Wasm
-    } else {
-        TargetOs::Linux
-    };
-    let cpu = if triple.starts_with("aarch64") || triple.starts_with("arm64") {
-        TargetCpu::Arm64
-    } else if triple.starts_with("wasm") {
-        TargetCpu::Wasm
-    } else {
-        TargetCpu::X64
-    };
-    (os, cpu)
 }
 
 /// `jaic -help`.
@@ -651,10 +677,7 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
         }
         // A plugin takes every argument up to the next `+Name`, `-` or `--`.
         if let Some(name) = arg.strip_prefix('+').filter(|name| !name.is_empty()) {
-            cli.plugins.push(Plugin {
-                name: name.to_string(),
-                options: Vec::new(),
-            });
+            cli.plugins.push(Plugin::parse(name));
             continue;
         }
         if let Some(plugin) = cli.plugins.last_mut() {
@@ -698,15 +721,11 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
             "-run" => cli.added.push(Added::Run(value(a)?)),
             "-os" => {
                 let os = value(a)?;
-                cli.os = Some(match os.as_str() {
-                    "linux" => TargetOs::Linux,
-                    "windows" => TargetOs::Windows,
-                    "macos" => TargetOs::MacOS,
-                    "wasm" => TargetOs::Wasm,
-                    _ => {
-                        let names = ["linux", "windows", "macos", "wasm"];
+                cli.os = Some(match jaic::target::parse_os(&os) {
+                    Some(os) => os,
+                    None => {
                         let mut error = CliError::new(format!("unknown OS `{os}` for `-os`"));
-                        if let Some(near) = jaic::suggest::closest(&os, names) {
+                        if let Some(near) = jaic::suggest::closest(&os, jaic::target::OS_NAMES) {
                             error = error.help(format!("did you mean `-os {near}`?"));
                         }
                         return Err(error.help("the OS names are linux, windows, macos and wasm"));
@@ -715,9 +734,8 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
             }
             "-cpu" => {
                 let cpu = value(a)?;
-                cli.cpu = Some(match cpu.as_str() {
-                    "x64" | "x86_64" => TargetCpu::X64,
-                    "arm64" | "aarch64" => TargetCpu::Arm64,
+                cli.cpu = Some(match jaic::target::parse_cpu(&cpu) {
+                    Some(cpu) if cpu != TargetCpu::Wasm => cpu,
                     _ => {
                         return Err(CliError::new(format!("unknown CPU `{cpu}` for `-cpu`"))
                             .help("the CPU names are x64 (or x86_64) and arm64 (or aarch64)"));
@@ -880,12 +898,17 @@ fn parse(args: &[String]) -> Result<Request, CliError> {
             "`-quiet` and `-verbose` contradict each other",
         ));
     }
+    if cli.no_check_bindings {
+        for plugin in cli.plugins.iter_mut().filter(|p| p.module == "Check") {
+            plugin.default_parameter("CHECK_BINDINGS", "false");
+        }
+    }
     // Plugins compile the program in a workspace of their own, which `-interp` cannot start.
     if !cli.plugins.is_empty() && cli.mode == Mode::Interp {
         return Err(
             CliError::new("plugins work with a build or `-check`, not `-interp`").help(format!(
                 "use `jaic {} +{} ...` and run the executable",
-                cli.file, cli.plugins[0].name
+                cli.file, cli.plugins[0].module
             )),
         );
     }
@@ -1153,12 +1176,6 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         return ExitCode::from(1);
     }
     let mut options = Options::host();
-    if let Some(os) = cli.os {
-        options.os = os;
-    }
-    if let Some(cpu) = cli.cpu {
-        options.cpu = cpu;
-    }
     if cli.no_dce {
         options.dead_code = DeadCode::None;
     }
@@ -1183,22 +1200,15 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             );
             return ExitCode::from(2);
         }
-        Ok(Some(triple)) => {
-            let (os, cpu) = os_and_cpu(&triple);
-            options.os = os;
-            options.cpu = cpu;
-            let gnu = triple.contains("gnu") || triple.contains("mingw");
-            options.long_double = jaic::sema::long_double_for(os, cpu, gnu);
-        }
-        Ok(None) if cli.os.is_some() || cli.cpu.is_some() => {
-            // `-os`/`-cpu` for checking only: that OS and CPU, with its usual C compiler. A wasm
-            // target has its own CPU (`CUSTOM`), as a `-os wasm` build and the browser give it.
-            if options.os == TargetOs::Wasm && cli.cpu.is_none() {
-                options.cpu = TargetCpu::Wasm;
+        Ok(Some(triple)) => match jaic::target::Triple::parse(&triple) {
+            Ok(triple) => triple.apply(&mut options),
+            Err(message) => {
+                print_error(&message);
+                return ExitCode::from(2);
             }
-            options.long_double = jaic::sema::long_double_for(options.os, options.cpu, false);
-        }
-        Ok(None) => {}
+        },
+        // `-os`/`-cpu` for checking only.
+        Ok(None) => jaic::target::select_os_cpu(&mut options, cli.os, cli.cpu),
         Err(message) => {
             print_error(&message);
             return ExitCode::from(2);
@@ -1294,7 +1304,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         };
         eprintln!("jaic: {what} {}", shown(&path));
         if !cli.plugins.is_empty() {
-            let names: Vec<&str> = cli.plugins.iter().map(|p| p.name.as_str()).collect();
+            let names: Vec<&str> = cli.plugins.iter().map(|p| p.module.as_str()).collect();
             eprintln!("jaic: plugins: {}", names.join(", "));
         }
     }
@@ -1463,7 +1473,7 @@ fn flush_sandbox(host: &Rc<RefCell<SandboxHost>>) {
 }
 
 /// The metaprogram `+Plugin` stands for: import each plugin module, then compile `path` in a
-/// workspace using the reviewed public Compiler lifecycle primitives.
+/// workspace using the public Compiler lifecycle procedures.
 fn plugin_metaprogram(cli: &Cli, path: &Path, wasi: bool) -> String {
     let quote = |s: &str| {
         let escaped = s
@@ -1491,16 +1501,11 @@ fn plugin_metaprogram(cli: &Cli, path: &Path, wasi: bool) -> String {
     };
     let mut text = String::from("Compiler :: #import \"Compiler\";\n");
     for (i, plugin) in cli.plugins.iter().enumerate() {
-        // `Name(PARAM=value)` passes module parameters along.
-        let (name, params) = plugin
-            .name
-            .split_at(plugin.name.find('(').unwrap_or(plugin.name.len()));
-        let params = if cli.no_check_bindings && name == "Check" {
-            check_bindings_off(params)
-        } else {
-            params.to_string()
-        };
-        text += &format!("__plugin_{i} :: #import {}{params};\n", quote(name));
+        text += &format!(
+            "__plugin_{i} :: #import {}{};\n",
+            quote(&plugin.module),
+            plugin.import_parameters()
+        );
     }
     text += "#scope_file\n__jaic_plugin_failure :: (plugins: [] *Compiler.Metaprogram_Plugin, initialized: s64, w: Workspace, message: string) {\n    for p: plugins {\n        if it_index >= initialized break;\n        if p.shutdown p.shutdown(p);\n    }\n    Compiler.compiler_set_workspace_status(.FAILED, w);\n    Compiler.compiler_report(\"\", 0, 0, message);\n}\n";
     text += &format!(
@@ -1556,16 +1561,6 @@ fn plugin_metaprogram(cli: &Cli, path: &Path, wasi: bool) -> String {
     }
     text += "    failed := false;\n    while true {\n        message := Compiler.compiler_wait_for_message();\n        if message == null Compiler.compiler_report(\"\", 0, 0, \"plugin workspace ended without COMPLETE\");\n        for p: plugins if p.message p.message(p, message);\n        if message.workspace == w && message.kind == .COMPLETE {\n            complete := cast(*Compiler.Message_Complete) message;\n            failed = complete.error_code != .NONE;\n            break;\n        }\n    }\n    Compiler.compiler_end_intercept(w);\n    for p: plugins if p.finish p.finish(p);\n    for p: plugins if p.shutdown p.shutdown(p);\n    if failed Compiler.compiler_set_workspace_status(.FAILED, w);\n}\n";
     text
-}
-
-/// Module parameters `params` (`""` or `(A=1,B=2)`) with `CHECK_BINDINGS=false` added, unless
-/// they already say what `CHECK_BINDINGS` is.
-fn check_bindings_off(params: &str) -> String {
-    match params.strip_suffix(')') {
-        _ if params.contains("CHECK_BINDINGS") => params.to_string(),
-        Some(open) => format!("{open},CHECK_BINDINGS=false)"),
-        None => "(CHECK_BINDINGS=false)".into(),
-    }
 }
 
 /// Write the top-level program. `-exe`, `-output_path` and the optimization options override
@@ -2104,9 +2099,10 @@ mod tests {
         ]);
         assert_eq!(c.imports, [PathBuf::from("d")]);
         assert_eq!(c.plugins.len(), 2);
-        assert_eq!(c.plugins[0].name, "One");
+        assert_eq!(c.plugins[0].module, "One");
         assert_eq!(c.plugins[0].options, ["-x", "1"]);
-        assert_eq!(c.plugins[1].name, "Two(A=1)");
+        assert_eq!(c.plugins[1].module, "Two");
+        assert_eq!(c.plugins[1].import_parameters(), "(A=1)");
         assert!(c.plugins[1].options.is_empty());
         assert_eq!(c.command_line, ["meta"]);
         assert!(
@@ -2123,13 +2119,16 @@ mod tests {
     }
 
     #[test]
-    fn check_bindings_off_edits_module_parameters() {
-        assert_eq!(check_bindings_off(""), "(CHECK_BINDINGS=false)");
-        assert_eq!(check_bindings_off("(A=1)"), "(A=1,CHECK_BINDINGS=false)");
-        assert_eq!(
-            check_bindings_off("(CHECK_BINDINGS=true)"),
-            "(CHECK_BINDINGS=true)"
-        );
+    fn default_plugin_parameters_do_not_override_explicit_ones() {
+        let mut bare = Plugin::parse("Check");
+        bare.default_parameter("CHECK_BINDINGS", "false");
+        assert_eq!(bare.import_parameters(), "(CHECK_BINDINGS=false)");
+        let mut other = Plugin::parse("Check(A=1)");
+        other.default_parameter("CHECK_BINDINGS", "false");
+        assert_eq!(other.import_parameters(), "(A=1,CHECK_BINDINGS=false)");
+        let mut set = Plugin::parse("Check(CHECK_BINDINGS=true)");
+        set.default_parameter("CHECK_BINDINGS", "false");
+        assert_eq!(set.import_parameters(), "(CHECK_BINDINGS=true)");
     }
 
     #[test]
@@ -2261,9 +2260,5 @@ mod tests {
             triple(&["-target", "aarch64-w64-mingw32"], x64.0, x64.1).as_deref(),
             Some("aarch64-w64-mingw32")
         );
-        assert!(matches!(
-            os_and_cpu("aarch64-pc-windows-msvc"),
-            (TargetOs::Windows, TargetCpu::Arm64)
-        ));
     }
 }

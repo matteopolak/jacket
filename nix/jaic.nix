@@ -124,7 +124,7 @@ rustPlatform.buildRustPackage {
 
   meta = {
     description = "Independent compiler for the Jai programming language";
-    homepage = "https://github.com/matteopolak/jai";
+    homepage = "https://github.com/matteopolak/jacket";
     mainProgram = "jaic";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };

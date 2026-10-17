@@ -845,7 +845,7 @@ impl Compiler {
                     decl.using_filter().unwrap_or(&ast::UsingFilter::None),
                     name.span,
                 )?;
-                self.scope_mut(target).usings.push(entry);
+                self.push_using(target, entry);
             }
         }
         Ok(())
@@ -1529,7 +1529,7 @@ impl Compiler {
                             filter,
                             value.span,
                         )?;
-                        self.scope_mut(scope).usings.push(entry);
+                        self.push_using(scope, entry);
                         self.ide_note_entity_use(value.span, id, ty);
                         return Ok(());
                     }
@@ -1547,7 +1547,7 @@ impl Compiler {
                                 filter,
                                 value.span,
                             )?;
-                            self.scope_mut(scope).usings.push(entry);
+                            self.push_using(scope, entry);
                             self.ide_note_entity_use(value.span, id, ty);
                             return Ok(());
                         }
@@ -1635,7 +1635,7 @@ impl Compiler {
             }
         };
         let entry = self.filter_using_entry(scope, entry, filter, value.span)?;
-        self.scope_mut(scope).usings.push(entry);
+        self.push_using(scope, entry);
         Ok(())
     }
 
@@ -2967,7 +2967,7 @@ impl Compiler {
             }
         }
         // Check newly formed overload sets now: an unreferenced enclosing body
-        // may be checked after the driver's earlier declared-overload audit.
+        // may be checked after the driver's earlier declared-overload check.
         // The regular checker uses the logical receiving namespace while the
         // entities keep their captured lookup scopes.
         let mut sets = Vec::<Vec<EntityId>>::new();
@@ -2994,14 +2994,13 @@ impl Compiler {
         // Validate the complete namespace before publishing any of it. A bad
         // insertion must not leave a partially published set of declarations.
         for (name, id) in publish {
-            self.scope_mut(target)
-                .names
-                .entry(name)
-                .or_default()
-                .push(id);
+            self.bind_name(target, name, id);
         }
         let usings = self.scope(source).usings.clone();
-        self.scope_mut(target).usings.extend(usings);
+        if !usings.is_empty() {
+            self.scope_mut(target).usings.extend(usings);
+            self.namespace_changed(target);
+        }
         Ok(())
     }
 
@@ -3063,6 +3062,7 @@ impl Compiler {
                 if let Some(names) = self.scope_mut(body.scope).names.get_mut(&original) {
                     names.retain(|&e| e != id);
                 }
+                self.namespace_changed(body.scope);
                 hidden.push((original, id));
             }
         }
@@ -3093,16 +3093,13 @@ impl Compiler {
         f.insert_replacements.push(replacements);
         let result = self.check_scoped(f, body.scope, &body.body);
         for (original, id) in hidden {
-            self.scope_mut(body.scope)
-                .names
-                .entry(original)
-                .or_default()
-                .push(id);
+            self.bind_name(body.scope, original, id);
         }
         for (name, id) in borrowed {
             if let Some(names) = self.scope_mut(body.scope).names.get_mut(&name) {
                 names.retain(|&e| e != id);
             }
+            self.namespace_changed(body.scope);
         }
         f.insert_replacements.pop();
         f.macros.extend(saved);

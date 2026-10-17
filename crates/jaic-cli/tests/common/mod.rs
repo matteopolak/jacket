@@ -1,5 +1,7 @@
 //! Fixtures shared by the `jaic` integration tests.
+#![allow(dead_code)]
 use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
 
 /// A plugin module for `+Echo_Plugin`: `init` takes the plugin's own options, `add_source`
 /// adds code to the program, `message` sees typechecked procedures and `finish` reports.
@@ -40,4 +42,38 @@ pub fn write_plugin_program(dir: &Path) -> PathBuf {
     )
     .unwrap();
     source
+}
+
+/// Run `command` and require it to succeed without printing anything.
+pub fn success_silent(command: &mut Command) {
+    let output = command.output().unwrap();
+    assert!(
+        output.status.success(),
+        "{:?}: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stdout.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+/// Require `output` to be a success whose stdout is exactly `expected`.
+pub fn success_with_stdout(output: Output, expected: &str) {
+    assert!(
+        output.status.success(),
+        "{:?}: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
+}
+
+/// A file in `tests/fixtures/plugin-registration`.
+pub fn plugin_registration_fixture(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/plugin-registration")
+        .join(name)
 }

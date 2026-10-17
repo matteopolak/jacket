@@ -117,7 +117,7 @@ fn missing_runtime_requirement_fails_without_loading_in_the_sandbox() {
     let source = dir.join("main.jai");
     std::fs::write(
         &source,
-        "required :: #library,link_always \"cleanroom_deliberately_missing_requirement\";\n\
+        "required :: #library,link_always \"deliberately_missing_requirement\";\n\
          #assert #run -> int { return 3 + 4; } == 7;\nmain :: () {}\n",
     )
     .unwrap();
@@ -131,7 +131,7 @@ fn missing_runtime_requirement_fails_without_loading_in_the_sandbox() {
     assert!(!native.status.success());
     assert!(
         String::from_utf8_lossy(&native.stderr).contains(
-            "required native library `cleanroom_deliberately_missing_requirement` could not be loaded"
+            "required native library `deliberately_missing_requirement` could not be loaded"
         ),
         "{}",
         String::from_utf8_lossy(&native.stderr)

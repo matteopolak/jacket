@@ -78,7 +78,7 @@ describe("platform to release archive", () => {
   it("names the download URL by tag", () => {
     assert.equal(
       downloadUrl("0.4.0", "jaic-linux-x64.tar.gz"),
-      "https://github.com/matteopolak/jai/releases/download/v0.4.0/jaic-linux-x64.tar.gz",
+      "https://github.com/matteopolak/jacket/releases/download/v0.4.0/jaic-linux-x64.tar.gz",
     );
   });
 });

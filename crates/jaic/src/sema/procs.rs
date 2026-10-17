@@ -765,7 +765,7 @@ impl Compiler {
         if lit_is_entry_point(&header) && self.proc(id).lit.body.is_none() {
             let func = self.entry_point_wrapper(id, span)?;
             let target = ProcTarget::Func(func);
-            self.procs[id.0 as usize].target = Some(target);
+            self.set_proc_target(id, target);
             return Ok(target);
         }
         let target = if let Some(foreign) = &header.foreign {
@@ -818,7 +818,7 @@ impl Compiler {
             self.body_queue.push(id);
             ProcTarget::Func(func)
         };
-        self.procs[id.0 as usize].target = Some(target);
+        self.set_proc_target(id, target);
         if self.runtime_interpreter_assertion == Some(id) {
             let ProcTarget::Func(func) = target else {
                 return err(
@@ -869,7 +869,7 @@ impl Compiler {
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let func = self.program.reserve_func("__entry_point".into());
-        self.procs[id.0 as usize].target = Some(ProcTarget::Func(func));
+        self.set_proc_target(id, ProcTarget::Func(func));
         let main = match self.program_main(span) {
             Ok(main) => main,
             // The editor checks every body in the project's files, also a vendored
@@ -1104,36 +1104,68 @@ impl Compiler {
         // progress too. Body-local scopes are recreated by each lowering attempt;
         // their bindings cannot repair another procedure and are not progress.
         let namespaces = if self.ide.is_some() {
-            self.sources.len()
-                + self
-                    .scopes
-                    .iter()
-                    .filter(|scope| {
-                        !matches!(
-                            scope.kind,
-                            ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
-                        )
-                    })
-                    .map(|scope| {
-                        scope.names.values().map(Vec::len).sum::<usize>()
-                            + scope.imports.len()
-                            + scope.usings.len()
-                            + scope.pending_done
-                    })
-                    .sum::<usize>()
+            #[cfg(debug_assertions)]
+            self.check_namespace_generation();
+            self.sources.len() as u64 + self.namespace_generation
         } else {
             0
         };
-        (base + namespaces) as u64
+        base as u64 + namespaces
+    }
+
+    /// Every change to what the scopes hold must move `namespace_generation`.
+    #[cfg(debug_assertions)]
+    fn check_namespace_generation(&self) {
+        let total = self
+            .scopes
+            .iter()
+            .filter(|scope| {
+                !matches!(
+                    scope.kind,
+                    ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
+                )
+            })
+            .map(|scope| {
+                scope.names.values().map(Vec::len).sum::<usize>()
+                    + scope.imports.len()
+                    + scope.usings.len()
+                    + scope.pending_done
+            })
+            .sum::<usize>();
+        let (last_total, last_generation) = self.namespace_check.get();
+        debug_assert!(
+            total == last_total || self.namespace_generation != last_generation,
+            "a scope changed without `namespace_changed`"
+        );
+        self.namespace_check.set((total, self.namespace_generation));
+    }
+
+    fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
+        self.procs[id.0 as usize].target = Some(target);
+        if let ProcTarget::Func(func) = target {
+            let procs = self.func_targets.entry(func).or_default();
+            if let Err(at) = procs.binary_search(&id) {
+                procs.insert(at, id);
+            }
+        }
+    }
+
+    /// The procedures whose target is IR function `func`, lowest id first.
+    pub(super) fn procs_of_func(&self, func: ir::FuncId) -> impl Iterator<Item = ProcId> + '_ {
+        self.func_targets
+            .get(&func)
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(
+                move |&id| matches!(self.proc(id).target, Some(ProcTarget::Func(f)) if f == func),
+            )
     }
 
     /// The procedure behind IR function `func` if its body is queued (not lowered yet).
     pub fn queued_proc_of(&self, func: ir::FuncId) -> Option<ProcId> {
-        let i = self.procs.iter().position(|p| {
-            p.body_state == BodyState::Queued
-                && matches!(p.target, Some(ProcTarget::Func(f)) if f == func)
-        })?;
-        Some(ProcId(i as u32))
+        self.procs_of_func(func)
+            .find(|&id| self.proc(id).body_state == BodyState::Queued)
     }
 
     /// Lower the queued bodies reachable from IR function `root` (calls, procedure addresses,
@@ -1408,7 +1440,7 @@ impl Compiler {
                     if let Some(filter) = &param.using_filter {
                         entry = self.filter_using_entry(scope, entry, filter, param.span)?;
                     }
-                    self.scope_mut(scope).usings.push(entry);
+                    self.push_using(scope, entry);
                 }
             }
         }

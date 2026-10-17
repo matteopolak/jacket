@@ -3,7 +3,7 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
-The language server for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [`jai{c,lsp,fmt,lint}`](../../README.md) toolchain. It speaks the Language Server Protocol over stdio. The same Rust session also runs in the browser, compiled to WebAssembly, behind the [online playground](https://matteopolak.com/playground/jai).
+The language server for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../../README.md) toolchain. It speaks the Language Server Protocol over stdio. The same Rust session also runs in the browser, compiled to WebAssembly, behind the [online playground](https://matteopolak.com/playground/jai).
 
 It type-checks your code with `jaic`, the toolchain's compiler, including compile-time code (`#run`, `#insert`, macros and metaprograms). Hover, completion and diagnostics therefore come from the real type checker, and not from a separate approximation of the language.
 
@@ -12,11 +12,11 @@ It type-checks your code with `jaic`, the toolchain's compiler, including compil
 `jailsp` ships in every toolchain install, next to `jaic`, `jailint` and `jaifmt`:
 
 ```sh
-brew install matteopolak/tap/jai        # macOS and Linux
-nix profile install github:matteopolak/jai
+brew install matteopolak/tap/jacket        # macOS and Linux
+nix profile install github:matteopolak/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jai/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/package-managers.md).
+There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/package-managers.md).
 
 **VS Code and compatible editors:** install the [Jai extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jai-toolchain) (also on [Open VSX](https://open-vsx.org/extension/matteopolak/jai-toolchain)). It starts `jailsp` from your `PATH`, or offers to download the toolchain ([details](../../docs/tools/vscode-extension.md)).
 

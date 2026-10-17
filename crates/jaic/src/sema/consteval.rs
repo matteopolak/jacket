@@ -424,7 +424,7 @@ impl Compiler {
         }
     }
 
-    /// Service available producers without evaluating final assertions while an
+    /// Service the runs that are ready without evaluating final assertions while an
     /// enclosing generator/body controller still owns a suspended continuation.
     /// Sources a run adds to this workspace are loaded immediately after it.
     pub(super) fn service_top_level_runs(&mut self) -> Result<()> {

@@ -98,11 +98,45 @@ fn store(interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
         .ok_or_else(|| unwritable(p))
 }
 
-fn store_pair(interp: &mut Interp, p: u64, count: u64, data: u64) -> Result<(), Trap> {
-    let mut bytes = [0; 16];
-    bytes[..8].copy_from_slice(&count.to_le_bytes());
-    bytes[8..].copy_from_slice(&data.to_le_bytes());
-    store(interp, p, &bytes)
+/// Freshly allocated builder memory being filled: the bytes for `len` bytes at `base`, written
+/// to the program in one transfer once complete. The memory is zeroed and unread until then.
+struct Image<'a> {
+    base: u64,
+    bytes: &'a mut [u8],
+}
+
+impl Image<'_> {
+    fn put(&mut self, p: u64, value: &[u8]) -> Result<(), Trap> {
+        let at = p.checked_sub(self.base).map(|at| at as usize);
+        let range = at.and_then(|at| Some(at..at.checked_add(value.len())?));
+        match range.and_then(|range| self.bytes.get_mut(range)) {
+            Some(slot) => {
+                slot.copy_from_slice(value);
+                Ok(())
+            }
+            None => Err(unwritable(p)),
+        }
+    }
+
+    fn put_pair(&mut self, p: u64, count: u64, data: u64) -> Result<(), Trap> {
+        let mut bytes = [0; 16];
+        bytes[..8].copy_from_slice(&count.to_le_bytes());
+        bytes[8..].copy_from_slice(&data.to_le_bytes());
+        self.put(p, &bytes)
+    }
+
+    /// The part of this image for `len` bytes at `p`.
+    fn part(&mut self, p: u64, len: usize) -> Result<Image<'_>, Trap> {
+        let at = p.checked_sub(self.base).map(|at| at as usize);
+        let range = at.and_then(|at| Some(at..at.checked_add(len)?));
+        match range.and_then(|range| self.bytes.get_mut(range)) {
+            Some(bytes) => Ok(Image {
+                base: p,
+                bytes,
+            }),
+            None => Err(unwritable(p)),
+        }
+    }
 }
 
 /// The Jai `string` at `p`, or "" when it cannot be read.
@@ -220,7 +254,13 @@ impl Builder {
             let root = self.obtain(&mut fill, id, expected)?;
             while let Some((id, memory, info)) = fill.queue.pop() {
                 let plan = self.plans[&info].clone();
-                self.fill_struct(&mut fill, interp, memory, &plan, id)?;
+                let mut bytes = vec![0; plan.size as usize];
+                let mut image = Image {
+                    base: memory,
+                    bytes: &mut bytes,
+                };
+                self.fill_struct(&mut fill, interp, &mut image, memory, &plan, id)?;
+                self.place(interp, memory, &bytes)?;
                 if let Some(at) = plan.constant_storage {
                     self.patch_constant_pointers(&mut fill, interp, memory + at, id)?;
                 }
@@ -360,6 +400,28 @@ impl Builder {
         self.ids.entry(pointer).or_insert(id);
     }
 
+    /// Copy `bytes` to `p`, memory from `alloc` that the program has not been given yet. It
+    /// is the builder's own, so it is copied in place rather than through the interpreter's
+    /// checked transfers (one kernel call each on some hosts).
+    fn place(&mut self, interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
+        let words = bytes.len().div_ceil(16);
+        let chunk = self.chunks.iter_mut().rev().find_map(|chunk| {
+            let start = chunk.as_ptr() as u64;
+            let at = p.checked_sub(start)?;
+            let index = (at % 16 == 0).then_some(at as usize / 16)?;
+            chunk.get_mut(index..index.checked_add(words)?)
+        });
+        let Some(slots) = chunk else {
+            return store(interp, p, bytes);
+        };
+        for (slot, word) in slots.iter_mut().zip(bytes.chunks(16)) {
+            let mut value = [0; 16];
+            value[..word.len()].copy_from_slice(word);
+            *slot = u128::from_ne_bytes(value);
+        }
+        Ok(())
+    }
+
     /// Zeroed, 16-byte aligned memory that lives as long as the builder.
     fn alloc(&mut self, size: usize) -> u64 {
         let size = (size.max(1) + 15) & !15;
@@ -385,6 +447,7 @@ impl Builder {
         &mut self,
         fill: &mut Fill,
         interp: &mut Interp,
+        image: &mut Image,
         memory: u64,
         plan: &Plan,
         id: i64,
@@ -421,11 +484,17 @@ impl Builder {
                         .filter(|&n| n <= crate::sema::value::MAX_IMAGE)
                         .ok_or_else(|| Trap::new("records: array size overflow"))?;
                     let data = self.alloc(bytes as usize);
+                    let mut elements = vec![0; bytes as usize];
+                    let mut array = Image {
+                        base: data,
+                        bytes: &mut elements,
+                    };
                     for (k, item) in items.iter().enumerate() {
                         let item = &item;
                         self.fill_item(
                             fill,
                             interp,
+                            &mut array,
                             entry.element_kind,
                             size as usize,
                             entry.target,
@@ -433,9 +502,10 @@ impl Builder {
                             data + k as u64 * size,
                         )?;
                     }
-                    store_pair(interp, target, items.len() as u64, data)?;
+                    self.place(interp, data, &elements)?;
+                    image.put_pair(target, items.len() as u64, data)?;
                     if entry.resizable {
-                        store(interp, target + 16, &(items.len() as u64).to_le_bytes())?;
+                        image.put(target + 16, &(items.len() as u64).to_le_bytes())?;
                     }
                 }
                 FieldRef::List(_) => {
@@ -451,6 +521,7 @@ impl Builder {
                     self.fill_item(
                         fill,
                         interp,
+                        image,
                         entry.kind,
                         entry.size,
                         entry.target,
@@ -469,6 +540,7 @@ impl Builder {
         &mut self,
         fill: &mut Fill,
         interp: &mut Interp,
+        image: &mut Image,
         kind: u64,
         size: usize,
         type_target: u64,
@@ -477,18 +549,18 @@ impl Builder {
     ) -> Result<(), Trap> {
         match (kind, item) {
             (PLAN_INT, Item::Int(v) | Item::Ref(v)) => {
-                store(interp, target, &v.to_le_bytes()[..size.min(8)])
+                image.put(target, &v.to_le_bytes()[..size.min(8)])
             }
             (PLAN_STRING, Item::Str(s)) => {
                 fill.kept.push(s.clone());
-                store_pair(interp, target, s.len() as u64, s.as_ptr() as u64)
+                image.put_pair(target, s.len() as u64, s.as_ptr() as u64)
             }
             (PLAN_POINTER, item) => {
                 let id = number(item).ok_or_else(|| {
                     Trap::new("records: pointer field requires a record reference")
                 })?;
                 let p = self.obtain(fill, id, type_target)?;
-                store(interp, target, &p.to_le_bytes())
+                image.put(target, &p.to_le_bytes())
             }
             (PLAN_STRUCT, item) => {
                 let id = number(item).ok_or_else(|| {
@@ -502,7 +574,15 @@ impl Builder {
                     .get(&type_target)
                     .cloned()
                     .ok_or_else(|| Trap::new("records: nested struct has no plan"))?;
-                self.fill_struct(fill, interp, target, &plan, id)
+                let size = plan.size as usize;
+                self.fill_struct(
+                    fill,
+                    interp,
+                    &mut image.part(target, size)?,
+                    target,
+                    &plan,
+                    id,
+                )
             }
             _ => Err(Trap::new(format!(
                 "records: value shape does not match plan kind {kind}"

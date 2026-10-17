@@ -31,7 +31,7 @@ use crate::ast::{File, Ident, Note, Stmt};
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Diagnostic, FileId, Span};
 pub(crate) use ide::parse_callee_ide;
-pub use ide::{IdeParse, parse_file_ide, parse_tokens_ide};
+pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
 

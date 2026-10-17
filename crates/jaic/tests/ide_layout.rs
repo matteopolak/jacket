@@ -1,4 +1,4 @@
-//! Original dependency-order regression, independent of standard-library modules.
+//! Dependency-order regression, independent of standard-library modules.
 use jaic::intern::Sym;
 use jaic::sema::ide::IdeFacts;
 use jaic::sema::{Compiler, EntityId, NativeFs, Options, ProgramSource};
