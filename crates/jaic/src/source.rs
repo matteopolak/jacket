@@ -170,6 +170,9 @@ pub enum DiagnosticKind {
     /// The parser gave up past `MAX_NESTING` levels. Error recovery stops at it rather than
     /// rebuilding the enclosing blocks; it has no code of its own.
     NestingLimit,
+    /// Compile-time code was not run because the workspace is untrusted (editor trust mode):
+    /// the value is unknown, not wrong, so editors do not report it.
+    Untrusted,
 }
 
 impl DiagnosticKind {
@@ -191,6 +194,7 @@ impl DiagnosticKind {
             DiagnosticKind::UnboundGenericParameter => Some("unbound-generic-parameter"),
             DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
             DiagnosticKind::Runtime => Some("runtime-error"),
+            DiagnosticKind::Untrusted => Some("untrusted"),
         }
     }
 }

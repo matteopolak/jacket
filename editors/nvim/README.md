@@ -81,8 +81,11 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 | `toolchain.version` | `''` | Toolchain version to download; empty is the plugin's version |
 | `completion.auto_import` | `true` | Complete names the file cannot see yet and add the `#import` |
 | `run.arguments` | `{}` | Extra `jaic` arguments, e.g. `{ '-O2' }` |
+| `trusted` | `true` | Set `false` for code you did not write: `jailsp` runs no `#run`, build metaprogram or computed `#insert`, and `:Jai run`, `build` and `check` are off (see [workspace trust](../../docs/tools/workspace-trust.md)) |
 | `format_on_save` | `false` | Format with `jaifmt` before writing |
 | `lsp.enable` | `true` | Call `vim.lsp.enable('jailsp')` when the plugin loads |
+
+`trusted = false` reaches the server as `initializationOptions.trusted`; changing it with `setup()` later sends `workspace/didChangeConfiguration`, so a running server switches (and re-analyses) at once. Neovim has no workspace-trust prompt of its own for this; set it per project, for example from a trusted `.nvim.lua`, or start with `vim.g.jai = { trusted = false }` and call `require('jai').setup({ trusted = true })` once you have read the code.
 
 `completion.auto_import` reaches the server as its initialization options and `workspace/didChangeConfiguration`, as in the VS Code extension. Change the server's client settings per project with `vim.lsp.config('jailsp', { ... })`; it is merged over `lsp/jailsp.lua`.
 

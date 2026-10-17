@@ -12,6 +12,7 @@
 
 ## How to change it
 
+- **Workspace trust:** `trusted` (default `true`) is sent to `jailsp` and gates `:Jai run/build/check`; see [workspace trust](workspace-trust.md).
 - **Setting:** add it to the defaults and `jai.Config` annotation in `config.lua` and the README table; if `jailsp` should receive it, add it to `config.server_settings()` after the server reads it (`JsonSession::configure` in `protocol.rs`).
 - **`:Jai` subcommand:** add to `subcommands` in `commands.lua`. **Platform:** a row in `install.asset_for` and the VS Code `RELEASE_ASSETS`. **Archive layout** (one top folder with the four executables and `stdlib/`): change it here, in the install scripts and in VS Code together.
 - **Syntax words** in `syntax/jai.vim` copy `editors/vscode/scripts/build-grammar.ts`; nothing checks them against each other.

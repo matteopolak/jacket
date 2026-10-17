@@ -24,6 +24,15 @@ export async function runJaic(
     void vscode.window.showWarningMessage("Jai: open a .jai file first.");
     return;
   }
+  if (!vscode.workspace.isTrusted) {
+    // Compiling and running execute the workspace's compile-time code and program.
+    void vscode.window
+      .showWarningMessage("Jai: trust this workspace to run, build or check files: they execute its compile-time code.", "Manage Workspace Trust")
+      .then((choice) => {
+        if (choice) void vscode.commands.executeCommand("workbench.trust.manage");
+      });
+    return;
+  }
   if (document.isUntitled) {
     void vscode.window.showWarningMessage("Jai: save the file first; jaic works on files on disk.");
     return;

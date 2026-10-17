@@ -102,6 +102,18 @@ impl Compiler {
 
     /// Finish the compile-time function `f` and run it; returns its scalar results.
     pub fn call_thunk(&mut self, f: FnCtx, span: Span) -> Result<Vec<u64>> {
+        // The one place compile-time code starts running (`#run`, computed `#insert`,
+        // `#modify`, build metaprograms): an untrusted workspace's code never does.
+        if let Some(ide) = self.ide.as_mut().filter(|ide| ide.untrusted) {
+            ide.refused.push(span);
+            return Err(Box::new(
+                Diagnostic::error(
+                    span,
+                    "compile-time code is not run in an untrusted workspace",
+                )
+                .with_kind(DiagnosticKind::Untrusted),
+            ));
+        }
         let func = f.b.finish();
         self.preflight_thunk_entry(&func)?;
         let id = self.program.reserve_func(func.name.clone());

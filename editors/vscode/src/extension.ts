@@ -97,6 +97,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
         void restart(expansions);
       }
     }),
+    // Granting trust makes the workspace's settings (tool paths) count and lets jailsp run
+    // compile-time code: a restart starts it trusted, from the settings now in force.
+    vscode.workspace.onDidGrantWorkspaceTrust(() => void restart(expansions)),
     ...syncSettingsFiles(),
     { dispose: () => void client?.stop() },
   );
@@ -227,8 +230,12 @@ function isSettingsFile(document: vscode.TextDocument): boolean {
 }
 
 /** The settings jailsp reads, as `initializationOptions` (the shape of the `jai` section). */
-function serverSettings(): { completion: { autoImport: boolean } } {
-  return { completion: { autoImport: vscode.workspace.getConfiguration("jai").get<boolean>("completion.autoImport", true) } };
+function serverSettings(): { completion: { autoImport: boolean }; trusted: boolean } {
+  return {
+    completion: { autoImport: vscode.workspace.getConfiguration("jai").get<boolean>("completion.autoImport", true) },
+    // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
+    trusted: vscode.workspace.isTrusted,
+  };
 }
 
 function openSettingsFiles(target: LanguageClient): void {

@@ -307,6 +307,12 @@ impl JsonSession {
         self.defer_publications = on;
     }
 
+    /// Withhold (`false`) or allow running the workspace's compile-time code; see
+    /// `Session::set_trusted`. A server for an untrusted workspace calls this before serving.
+    pub fn set_trusted(&mut self, trusted: bool) {
+        self.session.set_trusted(trusted);
+    }
+
     /// (compiles so far, compiles alive); see `Session::compile_counts`.
     pub fn compile_counts(&self) -> (usize, usize) {
         self.session.compile_counts()
@@ -539,6 +545,11 @@ impl JsonSession {
                     .and_then(Value::as_bool)
                     == Some(true);
             self.configure(&params["initializationOptions"]);
+            // A server started untrusted (`--untrusted`) stays so unless the client grants
+            // trust later; initialization options can only withhold it.
+            if params["initializationOptions"]["trusted"].as_bool() == Some(false) {
+                self.session.set_trusted(false);
+            }
             let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
                 Some(folders) => folders
                     .iter()
@@ -1008,8 +1019,26 @@ impl JsonSession {
                     })?;
             }
             "workspace/didChangeConfiguration" => {
+                let trusted = self.session.trusted();
                 self.configure(&params["settings"]["jai"]);
+                if let Some(on) = params["settings"]["jai"]["trusted"].as_bool() {
+                    self.session.set_trusted(on);
+                }
+                if trusted != self.session.trusted() {
+                    let mut messages = self.publications();
+                    messages.extend(self.refresh());
+                    return Ok(messages);
+                }
                 return Ok(self.refresh());
+            }
+            // The client's answer to workspace trust: `{ "trusted": true }` allows the
+            // workspace's compile-time code to run, `false` withholds it.
+            "jai/setTrusted" => {
+                let Some(on) = params["trusted"].as_bool() else {
+                    return Err((-32602, "jai/setTrusted needs a boolean `trusted`".into()));
+                };
+                self.session.set_trusted(on);
+                settings_touched = true;
             }
             "workspace/didChangeWorkspaceFolders" => {
                 let event = &params["event"];

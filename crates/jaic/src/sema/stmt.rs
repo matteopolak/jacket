@@ -48,6 +48,12 @@ impl Compiler {
         failed: &mut Option<Box<Diagnostic>>,
     ) -> Result<()> {
         if let Err(error) = self.check_block_stmt(f, scope, stmt) {
+            // A statement that needs compile-time code that was not run (untrusted
+            // workspace) has unknown values, not wrong ones: its names stay declared (as
+            // stand-ins) so the statements after it check without cascading errors.
+            if error.kind == DiagnosticKind::Untrusted && !self.sketching() {
+                self.sketch_salvage(f, scope, stmt);
+            }
             self.check_block_error_ide(f, failed, error)?;
         }
         Ok(())

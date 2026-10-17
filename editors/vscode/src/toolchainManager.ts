@@ -42,7 +42,9 @@ export class ToolchainManager {
   }
 
   get autoDownload(): AutoDownload {
-    return vscode.workspace.getConfiguration("jai").get<AutoDownload>("toolchain.autoDownload", "prompt");
+    const mode = vscode.workspace.getConfiguration("jai").get<AutoDownload>("toolchain.autoDownload", "prompt");
+    // Never download without asking for a workspace nobody has trusted.
+    return mode === "always" && !vscode.workspace.isTrusted ? "prompt" : mode;
   }
 
   /** Checksums pinned into this build of the extension by the release workflow. */

@@ -46,6 +46,20 @@
     "workspaceContains:**/*.jai",
     "workspaceContains:**/jailint.toml"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In an untrusted workspace the language server runs without compile-time execution (no #run, build metaprograms or computed #insert), the Run, Build and Check File commands are off, and workspace settings that name a program, a library directory or compiler arguments are ignored.",
+      "restrictedConfigurations": [
+        "jai.server.path",
+        "jai.compiler.path",
+        "jai.formatter.path",
+        "jai.stdlib.path",
+        "jai.toolchain.autoDownload",
+        "jai.run.arguments"
+      ]
+    }
+  },
   "contributes": {
     "languages": [
       {

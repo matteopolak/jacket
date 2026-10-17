@@ -568,6 +568,9 @@ pub struct Cache {
     compiles: usize,
     /// Parsed files compiles share: most files are the same from one compile to the next.
     parses: Rc<RefCell<jaic::parser::ParseReuse>>,
+    /// Workspace trust is withheld: compiles run no compile-time code (see
+    /// `IdeFacts::untrusted`). Survives `reset`; change it with `set_trusted`.
+    untrusted: bool,
 }
 
 fn hash(
@@ -600,6 +603,22 @@ fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs
 }
 
 impl Cache {
+    /// Whether compile-time code may run. A change drops every compile kept, which were made
+    /// under the other setting.
+    pub fn set_trusted(&mut self, trusted: bool) {
+        if self.untrusted == !trusted {
+            return;
+        }
+        *self = Self {
+            untrusted: !trusted,
+            ..Self::default()
+        };
+    }
+
+    pub fn trusted(&self) -> bool {
+        !self.untrusted
+    }
+
     /// Programs compiled so far, and compiles alive now.
     pub fn counts(&self) -> (usize, usize) {
         (self.compiles, self.entries.len())
@@ -767,7 +786,8 @@ impl Cache {
             self.make_room(os, root);
             self.compiles += 1;
             let snapshot = files.clone();
-            let (compiler, errors, others) = compile(env, root, dirs, files, os, &self.parses);
+            let (compiler, errors, others) =
+                compile(env, root, dirs, files, os, &self.parses, self.untrusted);
             let cost = std::iter::once(&compiler)
                 .chain(others.iter().map(|p| &p.compiler))
                 .flat_map(|c| {
@@ -820,10 +840,16 @@ fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
 
 /// The editor facts a compile records for the files under `prefix`, its compile-time output
 /// going to `host`, with what jailint needs (expression types, casts, uses) when `lint`.
-fn editor_facts(prefix: &str, host: &Rc<RefCell<SandboxHost>>, lint: bool) -> Box<IdeFacts> {
+fn editor_facts(
+    prefix: &str,
+    host: &Rc<RefCell<SandboxHost>>,
+    lint: bool,
+    untrusted: bool,
+) -> Box<IdeFacts> {
     let mut facts = IdeFacts::new(vec![prefix.to_string()]);
     facts.output = Some(host.clone());
     facts.lint = lint;
+    facts.untrusted = untrusted;
     Box::new(facts)
 }
 
@@ -832,12 +858,18 @@ struct Built {
     prefix: String,
     host: Rc<RefCell<SandboxHost>>,
     lint: bool,
+    untrusted: bool,
     done: Rc<RefCell<Vec<Compiler>>>,
 }
 
 impl WorkspaceObserver for Built {
     fn created(&mut self, compiler: &mut Compiler) {
-        compiler.ide = Some(editor_facts(&self.prefix, &self.host, self.lint));
+        compiler.ide = Some(editor_facts(
+            &self.prefix,
+            &self.host,
+            self.lint,
+            self.untrusted,
+        ));
     }
 
     fn finished(&mut self, compiler: Box<Compiler>, _failed: bool) {
@@ -862,6 +894,28 @@ fn check_rest(
     errors
 }
 
+/// Without the errors that only say compile-time code was not run (an untrusted workspace):
+/// what it would have produced is unknown, not wrong. Code a `#insert` would have generated
+/// may declare any name, so a file that has one refused cannot report names as unknown.
+fn known(
+    compiler: &Compiler,
+    mut errors: Vec<jaic::source::Diagnostic>,
+) -> Vec<jaic::source::Diagnostic> {
+    use jaic::source::DiagnosticKind;
+    let refused = |file: FileId| {
+        compiler
+            .ide
+            .as_ref()
+            .is_some_and(|ide| ide.refused.iter().any(|s| s.file == file))
+            && compiler.sources.get(file).text.contains("#insert")
+    };
+    errors.retain(|e| {
+        e.kind != DiagnosticKind::Untrusted
+            && !(matches!(e.kind, DiagnosticKind::UnknownIdentifier { .. }) && refused(e.span.file))
+    });
+    errors
+}
+
 /// The compiled program and its errors, and the programs its metaprogram built.
 fn compile(
     env: &Environment,
@@ -870,6 +924,7 @@ fn compile(
     files: BTreeMap<PathBuf, Rc<[u8]>>,
     os: Option<TargetOs>,
     parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
+    untrusted: bool,
 ) -> (Compiler, Vec<jaic::source::Diagnostic>, Vec<Program>) {
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let fs: Rc<dyn FileSystem> = Rc::new(OverlayFs {
@@ -915,11 +970,12 @@ fn compile(
             prefix: prefix.clone(),
             host: host.clone(),
             lint,
+            untrusted,
             done: built.clone(),
         })),
     });
     compiler.attach_workspaces(workspaces);
-    compiler.ide = Some(editor_facts(&prefix, &host, lint));
+    compiler.ide = Some(editor_facts(&prefix, &host, lint, untrusted));
     let number = parses.borrow_mut().begin();
     compiler.parse_reuse = Some((parses.clone(), number));
     let errors = compiler
@@ -936,6 +992,7 @@ fn compile(
         let _ = jaic::build::finish_all(&workspaces, &mut compiler.interp.block_budget);
     }
     let errors = check_rest(&mut compiler, errors);
+    let errors = known(&compiler, errors);
     let mut others: Vec<Program> = built
         .take()
         .into_iter()
@@ -943,6 +1000,7 @@ fn compile(
             // The metaprogram's code spent the budget; checking the rest gets its own.
             compiler.interp.block_budget = Some(BLOCK_BUDGET);
             let errors = check_rest(&mut compiler, Vec::new());
+            let errors = known(&compiler, errors);
             Program {
                 compiler,
                 // Core does not expose a generated program's selected entry. Never borrow

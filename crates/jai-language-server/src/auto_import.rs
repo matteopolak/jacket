@@ -666,6 +666,17 @@ impl Session {
         Some(program.root)
     }
 
+    /// `root` compiles other files by running a build metaprogram (`add_build_file("x", w)`),
+    /// which an untrusted workspace does not: those files are compiled as their own programs.
+    pub(crate) fn is_build_metaprogram(&self, root: &Path) -> bool {
+        let Some(env) = self.environment.as_ref() else {
+            return false;
+        };
+        let sources = self.sources(env);
+        let mut index = self.index.borrow_mut();
+        !sources.scan(&mut index, root).builds.is_empty()
+    }
+
     /// Top-level declarations of the project's `.jai` files that are not open, whose name
     /// contains `query` (lower case), at most `room` of them. The files come from the
     /// workspace folders and the folders of the open documents' programs, are scanned from

@@ -18,7 +18,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Tools and editors
 
-[jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md).
+[jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
 
 ## Standard library
 

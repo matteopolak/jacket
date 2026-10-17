@@ -127,6 +127,9 @@ local function compile(command)
   if vim.bo.filetype ~= 'jai' or file == '' then
     return notify('open a saved .jai file first', vim.log.levels.WARN)
   end
+  if not config.get().trusted then
+    return notify('the workspace is untrusted (trusted = false): jaic would run its compile-time code', vim.log.levels.WARN)
+  end
   local compiler = toolchain.find('jaic')
   if not compiler then
     return notify('jaic was not found: set compiler.path, put jaic on PATH, or run :Jai install', vim.log.levels.WARN)

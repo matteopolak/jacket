@@ -97,7 +97,7 @@ node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wa
 
 - `JAIC_STDLIB` overrides the native stdlib directory.
 - `jailint.toml`, `jai.toml`: nearest above the document.
-- `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`).
+- `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`), `trusted` (default `true`; `false` runs no compile-time code, see [workspace trust](../tools/workspace-trust.md)). `jailsp --untrusted` starts untrusted; the `jai/setTrusted` notification switches at runtime.
 - Constants: `semantic.rs` (`BLOCK_BUDGET`, `CACHED`, `ALTERNATES`, `PARSES_KEPT`), `auto_import.rs` (`MAX_ITEMS`, `MIN_PREFIX`, `MAX_PROJECT_FILES`), `ide_meta.rs` (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_VARIANTS`, `MAX_TEXT`), `features.rs` (`HINT_CHARS`).
 - `Limits` are safety caps (512 documents, 32 MiB per document, 64 MiB per message); `Limits::browser()` is smaller. A document over a cap is not opened and the client gets a `window/showMessage`.
 - Benchmark: `python3 tools/lsp_bench.py` ([benchmarks](../tools/benchmarks.md)).

@@ -179,9 +179,25 @@ impl Session {
 
     /// Drop everything cached (compiles, scans) after a failure: it is rebuilt on demand.
     pub fn reset_caches(&self) {
+        let trusted = self.semantic.borrow().trusted();
         *self.semantic.borrow_mut() = Default::default();
+        self.semantic.borrow_mut().set_trusted(trusted);
         *self.index.borrow_mut() = Default::default();
         self.touch();
+    }
+
+    /// Allow or withhold running the workspace's compile-time code (`#run`, build
+    /// metaprograms, computed `#insert`). Trusted by default. A change drops the compiles made
+    /// under the other setting; the caller republishes diagnostics.
+    pub fn set_trusted(&mut self, trusted: bool) {
+        if self.semantic.borrow().trusted() != trusted {
+            self.semantic.borrow_mut().set_trusted(trusted);
+            self.touch();
+        }
+    }
+
+    pub fn trusted(&self) -> bool {
+        self.semantic.borrow().trusted()
     }
 
     /// The inputs of a compile may have changed.
@@ -681,6 +697,13 @@ impl Session {
         let root = match self.project_root(&open_root) {
             Some(entry) if environment.fs.is_file(&entry) => entry,
             _ => PathBuf::from(open_root.path()),
+        };
+        // Untrusted: the metaprogram that would build the open file does not run, so the file
+        // is its own program.
+        let root = if !self.trusted() && self.is_build_metaprogram(&root) {
+            PathBuf::from(open_root.path())
+        } else {
+            root
         };
         let dirs = self.import_dirs(&root);
         Some((Rc::new(files), root, dirs))

@@ -61,6 +61,8 @@ Gotchas:
 | `jai.toolchain.autoDownload` | `prompt` | `prompt`, `always`, `never` |
 | `jai.completion.autoImport` | `true` | complete names from unimported modules and add the import |
 | `jai.run.arguments` | `[]` | extra arguments for the commands |
+
+In an untrusted workspace `server.path`, `compiler.path`, `formatter.path`, `stdlib.path`, `toolchain.autoDownload` and `run.arguments` are ignored when set by the workspace (`restrictedConfigurations`), jailsp is started with `trusted: false` (no `#run`, build metaprograms or computed `#insert`), Run/Build/Check File refuse, and granting trust restarts the client. See [workspace trust](workspace-trust.md).
 | `jai.trace.server` | `off` | `messages`/`verbose` log LSP traffic |
 
 Test environment: `JAILSP`, `JAIFMT`, `VSCODE_EXECUTABLE`.

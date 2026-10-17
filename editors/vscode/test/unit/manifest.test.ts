@@ -33,3 +33,28 @@ describe("extension ID", () => {
     for (const old of oldIds) assert.ok(source.includes(`"${old}"`), `extension.ts does not look for ${old}`);
   });
 });
+
+describe("workspace trust", () => {
+  const capability = manifest.capabilities?.untrustedWorkspaces;
+  const properties: Record<string, { type?: string; scope?: string }> = manifest.contributes.configuration.properties;
+
+  it("is supported in a limited way, with a description", () => {
+    assert.equal(capability?.supported, "limited");
+    assert.ok(String(capability.description).length > 20);
+  });
+
+  it("restricts every setting that names a program, a directory it reads or compiler arguments", () => {
+    const restricted: string[] = capability.restrictedConfigurations;
+    for (const name of Object.keys(properties)) {
+      const executes = name.endsWith(".path") || name === "jai.run.arguments" || name === "jai.toolchain.autoDownload";
+      assert.equal(restricted.includes(name), executes, name);
+    }
+    for (const name of restricted) assert.ok(name in properties, `${name} is not a setting`);
+  });
+
+  it("is passed to the language server and acted on when granted", () => {
+    const source = readFileSync(path.join(root, "src", "extension.ts"), "utf8");
+    assert.match(source, /trusted: vscode\.workspace\.isTrusted/);
+    assert.match(source, /onDidGrantWorkspaceTrust/);
+  });
+});

@@ -8,12 +8,15 @@ const DIAGNOSTICS_DEBOUNCE: std::time::Duration = std::time::Duration::from_mill
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> std::process::ExitCode {
     use std::io::{Read, Write};
-    fn serve() -> Result<u8, Box<dyn std::error::Error>> {
+    fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
         let limits = jai_language_server::Limits::default();
         let mut session =
             jai_language_server::JsonSession::with_environment(limits, native_environment());
         let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
         session.defer_publications(true);
+        if untrusted {
+            session.set_trusted(false);
+        }
         let stdout = std::io::stdout();
         let mut output = stdout.lock();
         // A thread reads stdin so the loop below can wait for more input with a timeout.
@@ -94,15 +97,16 @@ fn main() -> std::process::ExitCode {
             }
         }
     }
-    if let Some(code) = command_line() {
-        return code;
-    }
+    let untrusted = match command_line() {
+        Err(code) => return code,
+        Ok(untrusted) => untrusted,
+    };
     // Type checking recurses on the syntax tree: give it the compiler's stack (as `jaic` does),
     // not the main thread's 8 MiB.
     let worker = std::thread::Builder::new()
         .name("jailsp".into())
         .stack_size(1 << 30)
-        .spawn(|| serve().map_err(|error| error.to_string()));
+        .spawn(move || serve(untrusted).map_err(|error| error.to_string()));
     match worker.map(|handle| handle.join()) {
         Ok(Ok(Ok(code))) => std::process::ExitCode::from(code),
         Ok(Ok(Err(error))) => {
@@ -117,45 +121,51 @@ fn main() -> std::process::ExitCode {
 }
 
 const USAGE: &str = "\
-usage: jailsp [--stdio]
+usage: jailsp [--stdio] [--untrusted]
 
 The Jai language server. An editor starts it and exchanges Language Server Protocol messages
 with it over stdin and stdout; it takes no files on the command line.
 
 options:
   --stdio        talk over stdin and stdout (the default and only transport)
+  --untrusted    start without workspace trust: run no compile-time code (`#run`, build
+                 metaprograms, computed `#insert`) from the workspace until the client sends
+                 `jai/setTrusted` with `{\"trusted\": true}`
   --help, -h     show this text
   --version, -V  show the version
 
 To check a file from a terminal, use `jaic file.jai -check`; for lints, `jailint file.jai`.
 ";
 
-/// Handles the command line: `Some(status)` when jailsp should exit without serving.
+/// Handles the command line: `Err(status)` when jailsp should exit without serving, else
+/// whether to start untrusted.
 #[cfg(not(target_arch = "wasm32"))]
-fn command_line() -> Option<std::process::ExitCode> {
+fn command_line() -> Result<bool, std::process::ExitCode> {
     use std::io::IsTerminal;
+    let mut untrusted = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "--stdio" => {}
+            "--untrusted" => untrusted = true,
             "--help" | "-h" => {
                 print!("{USAGE}");
-                return Some(std::process::ExitCode::SUCCESS);
+                return Err(std::process::ExitCode::SUCCESS);
             }
             "--version" | "-V" => {
                 println!("jailsp {}", env!("CARGO_PKG_VERSION"));
-                return Some(std::process::ExitCode::SUCCESS);
+                return Err(std::process::ExitCode::SUCCESS);
             }
             file if !file.starts_with('-') => {
                 eprintln!(
                     "error: jailsp takes no files: it is a language server that an editor starts"
                 );
                 eprintln!("help: to check `{file}` from a terminal, use `jaic {file} -check`");
-                return Some(std::process::ExitCode::from(2));
+                return Err(std::process::ExitCode::from(2));
             }
             other => {
                 eprintln!("error: unknown option `{other}`");
                 eprintln!("help: `jailsp --help` lists the options");
-                return Some(std::process::ExitCode::from(2));
+                return Err(std::process::ExitCode::from(2));
             }
         }
     }
@@ -164,7 +174,7 @@ fn command_line() -> Option<std::process::ExitCode> {
             "note: jailsp is waiting for Language Server Protocol messages on stdin; an editor normally starts it (Ctrl-D quits)"
         );
     }
-    None
+    Ok(untrusted)
 }
 
 /// Large blocks go back to the operating system when freed (see `large_alloc`).

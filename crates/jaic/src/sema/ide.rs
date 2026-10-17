@@ -100,6 +100,12 @@ pub struct IdeFacts {
     by_position: std::cell::RefCell<RefIndex>,
     /// Lint mode (`jailint`): also record the facts below.
     pub lint: bool,
+    /// Workspace trust is withheld: no compile-time code runs (`call_thunk` refuses with
+    /// `DiagnosticKind::Untrusted`), so `#run` results, computed `#insert`s and build
+    /// metaprograms stay unknown.
+    pub untrusted: bool,
+    /// Where compile-time code was refused for that reason.
+    pub refused: Vec<Span>,
     /// Type of each checked expression of the recorded files, by span.
     pub exprs: HashMap<Span, IdeExprFact>,
     /// Each `cast(T) x` / `xx x` of the recorded files whose target was known, by span.

@@ -10,6 +10,7 @@ local M = {}
 ---@field toolchain { auto_download: 'prompt'|'always'|'never', version: string }
 ---@field completion { auto_import: boolean }  Offer names the file cannot see yet.
 ---@field run { arguments: string[] }  Extra `jaic` arguments for Run/Build/Check.
+---@field trusted boolean  The workspace is trusted: `jailsp` may run its compile-time code (`#run`, build metaprograms, computed `#insert`) and `:Jai run`/`build`/`check` are on.
 ---@field format_on_save boolean  Format Jai buffers with `jaifmt` before writing.
 ---@field lsp { enable: boolean }  Enable `jailsp` when the plugin loads.
 local defaults = {
@@ -20,6 +21,7 @@ local defaults = {
   toolchain = { auto_download = 'prompt', version = '' },
   completion = { auto_import = true },
   run = { arguments = {} },
+  trusted = true,
   format_on_save = false,
   lsp = { enable = true },
 }
@@ -42,9 +44,10 @@ end
 
 ---What `jailsp` reads as `initializationOptions` and as the `jai` section of
 ---`workspace/didChangeConfiguration`.
----@return { completion: { autoImport: boolean } }
+---@return { completion: { autoImport: boolean }, trusted: boolean }
 function M.server_settings()
-  return { completion = { autoImport = M.get().completion.auto_import } }
+  local cfg = M.get()
+  return { completion = { autoImport = cfg.completion.auto_import }, trusted = cfg.trusted }
 end
 
 ---Environment for `jailsp` and `jaic`: `JAIC_STDLIB` from `stdlib.path`.
