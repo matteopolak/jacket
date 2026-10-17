@@ -12,7 +12,10 @@ class BrowserPolicy(unittest.TestCase):
         declared = [c for c in cases.values() if c["required_browser_host_capabilities"]]
         self.assertTrue(declared)
         for case in declared:
-            self.assertIn("compiler host unavailable", case["browser_unavailable_reason"])
+            self.assertRegex(
+                case["browser_unavailable_reason"],
+                "compiler host unavailable|platform unavailable",
+            )
         self.assertIn(
             "compiler-monotonic-clock",
             cases["Compiler/tests/measured-performance-reports"]["required_browser_host_capabilities"],

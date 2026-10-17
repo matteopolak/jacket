@@ -38,6 +38,7 @@ def main():
     binding_native = args.bindings_native_libs.resolve(strict=True) if args.bindings_native_libs else native
     search = list(dict.fromkeys([str(binding_native), str(native), *filter(None, os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep))]))
     env = dict(os.environ, JAIC_STDLIB=str(library), JAIC_NATIVE_LIBS=os.pathsep.join(search))
+    env.setdefault("CARGO_TARGET_DIR", str(ROOT / "target"))
     if args.font:
         env["JAIC_TEST_FONT_PATH"] = str(args.font.resolve(strict=True))
     commands = {

@@ -79,7 +79,7 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Extensions/WebGPU/tests/window",
         "Runtime_Support_Crash_Handler/tests/windows-native-sections",
         "Runtime_Support_Crash_Handler/tests/windows-records",
-        "Flat_Pool/tests/release-main",
+        "Flat_Pool/tests/release/main",
         "SDL/tests/geometry-timer",
         "Gamepad/tests/shared-sdk",
         "Gamepad/tests/virtual",

@@ -77,12 +77,12 @@ def check(name, command, marker=None, diagnostic=False):
 for source, path, marker in [
     (
         "native_clipboard",
-        library / "GetRect/tests/native_clipboard.jai",
+        library / "GetRect/tests/native-clipboard.jai",
         "native clipboard ok",
     ),
     (
         "native_cursors",
-        library / "GetRect/tests/native_cursors.jai",
+        library / "GetRect/tests/native-cursors.jai",
         "native cursor lifecycle ok",
     ),
     (

@@ -143,7 +143,8 @@ def copy_private_fixture(source, target, boundary, cleanup):
 def relocate_private_loads(data):
     # Fixtures load internal bindings relative to their home under
     # stdlib/<Module>/tests/...; placed units sit one level below the library.
-    return data.replace(b'#load "../../../../internal/', b'#load "../internal/')
+    data = data.replace(b'#load "../../../../internal/', b'#load "../internal/')
+    return data.replace(b'#load "../../../../rpmalloc/', b'#load "../rpmalloc/')
 
 
 def place_private_unit(name, source, stdlib, hashes, cleanup):

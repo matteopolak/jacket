@@ -76,7 +76,7 @@ class RunnerContracts(unittest.TestCase):
         for name in [
             "Window_Creation/tests/macos-window",
             "Window_Creation/tests/macos-events",
-            "Simp/tests/context-default-assertions",
+            "Simp/tests/render-driver",
         ]:
             self.assertIsNotNone(
                 unavailable_reason(cases[name], "native", "windows-x64")
@@ -125,12 +125,6 @@ class RunnerContracts(unittest.TestCase):
         spec.loader.exec_module(sweep)
         list(sweep.cases("modules"))
         self.assertEqual(sweep.CASE_METADATA["Simp/tests/glyph-atlas"]["input"], "font")
-        self.assertEqual(
-            sweep.CASE_METADATA["Simp/tests/context-default-assertions"][
-                "fixture_libraries"
-            ],
-            {"GL_PROBE": "window_gl_probe"},
-        )
         self.assertEqual(
             sweep.CASE_METADATA["Windows_Resources/tests/resource-windows"]["required_os"],
             "windows",

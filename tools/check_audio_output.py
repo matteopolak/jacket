@@ -43,7 +43,8 @@ def main():
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"),
-               JAIC_NATIVE_LIBS=str(args.native_libs.resolve(strict=True)))
+               JAIC_NATIVE_LIBS=os.pathsep.join(
+                   [str(args.native_libs.resolve(strict=True)), *filter(None, [os.environ.get("JAIC_NATIVE_LIBS")])]))
     if args.require_device:
         for name in DEVICE_CASES:
             if run([compiler, TESTS / (name + ".jai"), "-interp"], env) == UNAVAILABLE:

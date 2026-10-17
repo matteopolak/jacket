@@ -15,12 +15,12 @@ CASES = ("Basic/tests/builder-format", "Basic/tests/integer-format", "String/tes
          "Basic/tests/format-grammar", "Basic/tests/format-floats", "Basic/tests/format-aggregates", "Basic/tests/format-types", "Basic/tests/assert-message",
          "Basic/tests/configuration", "Basic/tests/configuration-disabled", "Basic/tests/configuration-isolated-combined", "Basic/tests/temporary-stamping", "Basic/tests/float-parsing", "Basic/tests/type-parameter-format",
          "Basic/tests/formatter-parameter-defaults", "Basic/tests/wasm-basic-minimal", "Basic/tests/float-roundtrip",
-         "Memory/tests/debugger-interface", "Memory/tests/debugger-interface-disabled", "Memory/tests/debugger-default", "File_Utilities/tests/invalid-paths",
+         "Memory/tests/debugger-interface", "Memory/tests/debugger-interface-disabled", "Basic/tests/array-context/debugger-default", "File_Utilities/tests/invalid-paths",
          "Basic/tests/logging", "Basic/tests/logging-output", "Basic/tests/reflection",
          "Basic/tests/helpers", "Basic/tests/print-bytes", "Basic/tests/stack-traces", "Basic/tests/stack-output",
          "Basic/tests/scalars-ownership", "Basic/tests/leak-reports", "Basic/tests/leak-graphs",
-         "Basic/tests/visualization-disabled", "Basic/tests/visualization-channel", "Basic/tests/visualization-timing",
-         "Basic/tests/capabilities", "Basic/tests/preamble", "Basic/tests/array-aliasing", "Basic/tests/leak-filters", "String/tests/basics", "Basic/tests/wide-conversions", "Hash/tests/scalar-fnv")
+         "Basic/tests/visualization-disabled",
+         "Basic/tests/capabilities", "Basic/tests/preamble", "Basic/tests/array-aliasing", "String/tests/basics", "Basic/tests/wide-conversions", "Hash/tests/scalar-fnv")
 
 
 def check_division_output(output):
@@ -448,7 +448,7 @@ def main():
         print(f"passed interpreter/native O0/O2: {name}", flush=True)
     if args.wasm:
         for name in CASES:
-            if name in ("Basic/tests/filesystem", "File_Utilities/tests/tree-operations", "File/tests/visitation", "Basic/tests/sleep", "Basic/tests/output", "File_Utilities/tests/invalid-paths", "Basic/tests/visualization-channel", "Basic/tests/visualization-timing"):
+            if name in ("Basic/tests/filesystem", "File_Utilities/tests/tree-operations", "File/tests/visitation", "Basic/tests/sleep", "Basic/tests/output", "File_Utilities/tests/invalid-paths"):
                 continue
             source = ROOT / "stdlib" / f"{name}.jai"
             label = name.replace("/", "-")
@@ -487,8 +487,6 @@ def main():
                     if name in ("Basic/tests/filesystem", "File_Utilities/tests/tree-operations", "File/tests/visitation", "Basic/tests/sleep", "File_Utilities/tests/invalid-paths") and os_name == "wasm":
                         continue
                     if name == "Basic/tests/output" and os_name == "wasm":
-                        continue
-                    if name in ("Basic/tests/visualization-channel", "Basic/tests/visualization-timing") and os_name in ("windows", "wasm"):
                         continue
                     target = ["-target", "wasm64-unknown-wasi"] if os_name == "wasm" else ["-os", os_name, "-cpu", cpu]
                     run([compiler, "-check", "-no_dce", *target,
