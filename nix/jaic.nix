@@ -44,7 +44,6 @@ rustPlatform.buildRustPackage {
       ../Cargo.lock
       ../crates
       ../stdlib
-      ../tools/stdlib-api-audit
       ../examples
     ];
   };
