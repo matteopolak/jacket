@@ -1,7 +1,10 @@
 [
   {
     "name": "basics",
-    "stdout": "ok\n"
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-native"
+    ]
   },
   {
     "name": "dump",

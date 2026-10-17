@@ -336,7 +336,7 @@ FileOps :: #import "File";
 
     write_files :: () {
         for FILES {
-            ok := write_entire_file(tprint("interop-%", it), load(it));
+            ok := FileOps.write_entire_file(tprint("interop-%", it), load(it));
 
             assert(ok, "could not write interop-%", it);
         }

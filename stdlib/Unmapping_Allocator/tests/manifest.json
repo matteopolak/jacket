@@ -51,6 +51,9 @@
     ],
     "fixture_libraries": {
       "TEST_VM": "unmapping_protection"
-    }
+    },
+    "arguments": [
+      "enabled"
+    ]
   }
 ]

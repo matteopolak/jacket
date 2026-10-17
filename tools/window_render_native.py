@@ -55,8 +55,17 @@ def main():
         subprocess.run(["cc", "-dynamiclib", str(gl_obj), "-framework", "AppKit", "-framework", "OpenGL", "-o",
                         str(output / "libwindow_gl_probe.dylib")], check=True)
         unmapping = ROOT / "stdlib/Unmapping_Allocator/tests/native/unmapping-protection.c"
-        subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", "-dynamiclib", str(unmapping), "-o",
+        unmapping_obj = output / "unmapping_protection.o"
+        subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", "-c", str(unmapping), "-o", str(unmapping_obj)], check=True)
+        subprocess.run(["ar", "rcs", str(output / "libunmapping_protection.a"), str(unmapping_obj)], check=True)
+        subprocess.run(["cc", "-dynamiclib", str(unmapping_obj), "-o",
                         str(output / "libunmapping_protection.dylib")], check=True)
+    # The POSIX thread ABI control: the interpreter loads the shared library, native builds link the archive.
+    identity = ROOT / "stdlib/Thread/tests/sdk-identity.c"
+    identity_obj = output / "thread_sdk_identity.o"
+    subprocess.run(["cc", "-O2", "-fPIC", "-Wall", "-Wextra", "-Werror", "-c", str(identity), "-o", str(identity_obj)], check=True)
+    subprocess.run(["ar", "rcs", str(output / "libthread_sdk_identity.a"), str(identity_obj)], check=True)
+    subprocess.run(["cc", shared_flag, str(identity_obj), "-o", str(output / f"libthread_sdk_identity.{extension}")], check=True)
     print(output)
 
 

@@ -67,7 +67,6 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "SDL/tests/sdl-wm",
         "native/sdl2-geometry-timer",
         "Debug/tests/ignore-ownership",
-        "Bindings_Generator/tests/generator-macro-shared-state",
         "Bindings_Generator/tests/generator-run-macro-print",
         "Bindings_Generator/tests/generator-run-toplevel",
         "Android/Toolchain/tests/device",
