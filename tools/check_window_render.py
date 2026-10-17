@@ -135,7 +135,7 @@ def main():
     unsupported = subprocess.run([str(compiler), str(ROOT / "tests/window-render/keymap-meta-persistence-negative.jai"),
                                   "-interp", "-I", str(args.stdlib)], cwd=ROOT, env=env,
                                  capture_output=True, text=True, timeout=60)
-    if unsupported.returncode == 0 or unsupported.stdout or "reviewed keymap persistence grammar has no Meta modifier prefix" not in unsupported.stderr:
+    if unsupported.returncode == 0 or unsupported.stdout or "keymap persistence grammar has no Meta modifier prefix" not in unsupported.stderr:
         failures.append(f"unsupported Meta persistence diagnostic regression: {unsupported.stdout}{unsupported.stderr}")
     else:
         count += 1
