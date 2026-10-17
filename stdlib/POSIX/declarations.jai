@@ -19635,6 +19635,12 @@ OS_Error_Code :: #type,isa s32;
     mode_t :: u32;
 }
 
+#if OS == .LINUX {
+    MREMAP_MAYMOVE :: 1;
+    MREMAP_FIXED :: 2;
+    MREMAP_DONTUNMAP :: 4;
+}
+
 #if OS == .ANDROID && CPU == .ARM64 {
     MREMAP_DONTUNMAP :: 4;
 }

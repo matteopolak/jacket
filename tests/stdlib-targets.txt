@@ -9,109 +9,141 @@ skip Default_Metaprogram
 skip Minimal_Metaprogram
 
 # Bindings to native libraries that have no wasm build.
-Curl wasm: Curl/format.jai: unknown identifier `curl_mprintf_CFormat`
-Gamepad wasm: SDL/module.jai: unknown library `SDL2`
-ImGui wasm: ImGui/unix.jai: unknown library `imgui`
-Keymap wasm: SDL/module.jai: unknown library `SDL2`
-Mail wasm: Mail.jai: module `Curl` has no exported member `curl_easy_init`
-SDL wasm: SDL/SDL_surface.jai: unknown library `SDL2`
-meshoptimizer wasm: meshoptimizer/meshoptimizer.jai: unknown library `meshopt_lib`
 
 # Modules for other platforms or CPUs, and procedures that stop the build on a target they do not support.
-Android linux-arm64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Android linux-x64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Android macos-arm64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Android macos-x64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Android wasm: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Android windows-arm64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-Android windows-x64: Android/Native_App/module.jai: #assert failed: This module is only supported on Android
-GetRect wasm: Window_Creation/module.jai: #assert failed: this `#assert(false)` was compiled
-GetRect_LeftHanded wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
-Linux windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-Linux windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-MacOS_Bundler windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-MacOS_Bundler windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-Metal linux-arm64: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
-Metal linux-x64: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
-Metal wasm: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
-Metal windows-arm64: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
-Metal windows-x64: Metal/module.jai: #assert failed: Metal is only supported on Apple platforms
-Objective_C linux-arm64: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
-Objective_C linux-x64: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
-Objective_C wasm: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
-Objective_C windows-arm64: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
-Objective_C windows-x64: Objective_C/module.jai: #assert failed: Objective_C is only supported on Apple platforms
-POSIX windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-POSIX windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-POSIX_old wasm: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
-POSIX_old windows-arm64: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
-POSIX_old windows-x64: POSIX_old/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS` is false
-Simp wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
-Sound_Player wasm: stb_vorbis/module.jai: #assert failed: this `#assert(false)` was compiled
-Thekla_Atlas wasm: Thekla_Atlas/unix.jai: #assert failed: this `#assert(false)` was compiled
-Thekla_Baker wasm: Thekla_Baker/module.jai: #assert failed: this `#assert(false)` was compiled
-Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: unmapping allocator needs a POSIX or Windows virtual-memory backend
-Vulkan macos-arm64: Vulkan/module.jai: #assert failed: Unsupported OS
-Vulkan macos-x64: Vulkan/module.jai: #assert failed: Unsupported OS
-Vulkan wasm: Vulkan/module.jai: #assert failed: Unsupported OS
-Extensions/Io wasm: Extensions/Io/module.jai: #assert failed: Extensions/Io needs fibers, and WebAssembly code cannot switch stacks
-Extensions/Io_Uring macos-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
-Extensions/Io_Uring macos-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
-Extensions/Io_Uring wasm: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
-Extensions/Io_Uring windows-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
-Extensions/Io_Uring windows-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
-Extensions/Tls wasm: Extensions/Tls/module.jai: #assert failed: Extensions/Tls runs on fibers over Io, and WebAssembly has neither
-Extensions/Wasi_Runtime linux-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Extensions/Wasi_Runtime linux-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Extensions/Wasi_Runtime macos-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Extensions/Wasi_Runtime windows-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Extensions/Wasi_Runtime windows-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
-Window_Creation wasm: Window_Creation/module.jai: #assert failed: this `#assert(false)` was compiled
-Windows linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Registry linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Registry linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Registry macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Registry macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Registry wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Resources linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Resources linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Resources macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Resources macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-Windows_Resources wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-X11 windows-arm64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-X11 windows-x64: POSIX/module.jai: #assert failed: `OS == .LINUX || OS == .ANDROID || OS == .MACOS || OS == .WASM` is false
-d3d11 linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d11 linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d11 macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d11 macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d11 wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d12 linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d12 linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d12 macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d12 macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d12 wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d_compiler linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d_compiler linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d_compiler macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d_compiler macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-d3d_compiler wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-dxc_compiler linux-arm64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
-dxc_compiler linux-x64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
-dxc_compiler macos-arm64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
-dxc_compiler macos-x64: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
-dxc_compiler wasm: dxc_compiler/compile-helpers.jai: #assert failed: The retained DXC ABI uses Windows UTF-16 arguments
-dxgi linux-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-dxgi linux-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-dxgi macos-arm64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-dxgi macos-x64: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-dxgi wasm: Windows.jai: #assert failed: `OS == .WINDOWS` is false
-freetype wasm: freetype-2.12.1/unix.jai: #assert failed: this `#assert(false)` was compiled
-freetype-2.12.1 wasm: freetype-2.12.1/unix.jai: #assert failed: this `#assert(false)` was compiled
+Android linux-arm64: Android/module.jai: #assert failed: Android requires its documented native platform
+Android linux-x64: Android/module.jai: #assert failed: Android requires its documented native platform
+Android macos-arm64: Android/module.jai: #assert failed: Android requires its documented native platform
+Android macos-x64: Android/module.jai: #assert failed: Android requires its documented native platform
+Android wasm: Android/module.jai: #assert failed: Android requires its documented native platform
+Android windows-arm64: Android/module.jai: #assert failed: Android requires its documented native platform
+Android windows-x64: Android/module.jai: #assert failed: Android requires its documented native platform
+Android/AAudio linux-arm64: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/AAudio linux-x64: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/AAudio macos-arm64: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/AAudio macos-x64: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/AAudio wasm: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/AAudio windows-arm64: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/AAudio windows-x64: Android/AAudio/module.jai: #assert failed: Android/AAudio requires its documented native platform
+Android/EGL linux-arm64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/EGL linux-x64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/EGL macos-arm64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/EGL macos-x64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/EGL wasm: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/EGL windows-arm64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/EGL windows-x64: Android/EGL/module.jai: #assert failed: Android/EGL requires its documented native platform
+Android/Toolchain wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+Autorun wasm: Autorun/module.jai: #assert failed: Autorun currently requires the Unix Process backend
+Autorun windows-arm64: Autorun/module.jai: #assert failed: Autorun currently requires the Unix Process backend
+Autorun windows-x64: Autorun/module.jai: #assert failed: Autorun currently requires the Unix Process backend
+Bindings_Generator wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+BuildCpp wasm: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
+BuildCpp windows-arm64: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
+BuildCpp windows-x64: BuildCpp/module.jai: #assert failed: BuildCpp currently supports Unix host toolchains
+Clipboard wasm: Clipboard/module.jai: #assert failed: Clipboard requires macOS, Windows or Linux/X11
+Deep_Copy wasm: internal/memory/deep-copy.jai: #assert failed: Deep_Copy timer backend is unavailable on this target
+File_Watcher wasm: File_Watcher/module.jai: #assert failed: File_Watcher backend is unavailable for this target
+GL wasm: GL/module.jai: #assert failed: GL requires its documented native platform
+Gamepad wasm: SDL/module.jai: #assert failed: SDL requires its documented native platform
+GetRect wasm: Window_Type/module.jai: #assert failed: Window_Type has no native handle for this target
+GetRect_LeftHanded wasm: Window_Type/module.jai: #assert failed: Window_Type has no native handle for this target
+Input wasm: Window_Type/module.jai: #assert failed: Window_Type has no native handle for this target
+Keymap wasm: SDL/module.jai: #assert failed: SDL requires its documented native platform
+Linux macos-arm64: Linux/module.jai: #assert failed: Linux requires its documented native platform
+Linux macos-x64: Linux/module.jai: #assert failed: Linux requires its documented native platform
+Linux wasm: Linux/module.jai: #assert failed: Linux requires its documented native platform
+Linux windows-arm64: Linux/module.jai: #assert failed: Linux requires its documented native platform
+Linux windows-x64: Linux/module.jai: #assert failed: Linux requires its documented native platform
+Machine_X64 linux-arm64: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
+Machine_X64 macos-arm64: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
+Machine_X64 wasm: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
+Machine_X64 windows-arm64: Machine_X64/module.jai: #assert failed: `CPU == .X64` is false
+Metal linux-arm64: Metal/module.jai: #assert failed: Metal requires its documented native platform
+Metal linux-x64: Metal/module.jai: #assert failed: Metal requires its documented native platform
+Metal wasm: Metal/module.jai: #assert failed: Metal requires its documented native platform
+Metal windows-arm64: Metal/module.jai: #assert failed: Metal requires its documented native platform
+Metal windows-x64: Metal/module.jai: #assert failed: Metal requires its documented native platform
+Objective_C linux-arm64: Objective_C/module.jai: #assert failed: Objective_C requires its documented native platform
+Objective_C linux-x64: Objective_C/module.jai: #assert failed: Objective_C requires its documented native platform
+Objective_C wasm: Objective_C/module.jai: #assert failed: Objective_C requires its documented native platform
+Objective_C windows-arm64: Objective_C/module.jai: #assert failed: Objective_C requires its documented native platform
+Objective_C windows-x64: Objective_C/module.jai: #assert failed: Objective_C requires its documented native platform
+Objective_C/AppKit linux-arm64: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
+Objective_C/AppKit linux-x64: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
+Objective_C/AppKit wasm: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
+Objective_C/AppKit windows-arm64: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
+Objective_C/AppKit windows-x64: Objective_C/AppKit/module.jai: #assert failed: Objective_C/AppKit requires macOS
+Overwriting_Allocator wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+POSIX wasm: POSIX/module.jai: #assert failed: POSIX requires its documented native platform
+POSIX windows-arm64: POSIX/module.jai: #assert failed: POSIX requires its documented native platform
+POSIX windows-x64: POSIX/module.jai: #assert failed: POSIX requires its documented native platform
+Process wasm: Process/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+Project_Generator wasm: System/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+Project_Generator windows-arm64: internal/system/windows.jai: error during compile-time execution: foreign procedure `GetModuleFileNameW` is not available here
+Project_Generator windows-x64: internal/system/windows.jai: error during compile-time execution: foreign procedure `GetModuleFileNameW` is not available here
+Runtime_Support_Crash_Handler wasm: Runtime_Support_Crash_Handler/module.jai: #assert failed: native crash diagnostics support Windows x64, Linux and macOS
+Runtime_Support_Crash_Handler windows-arm64: Runtime_Support_Crash_Handler/module.jai: #assert failed: the Windows crash handler supports x64 only
+SDL wasm: SDL/module.jai: #assert failed: SDL requires its documented native platform
+Shared_Memory_Channel wasm: Shared_Memory_Channel/module.jai: #assert failed: Shared_Memory_Channel requires native shared-memory mappings
+Simp wasm: GL/module.jai: #assert failed: GL requires its documented native platform
+Socket wasm: Socket/module.jai: #assert failed: `OS_IS_UNIX || OS == .WINDOWS` is false
+Sound_Player wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+System wasm: System/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+Thread wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
+Unmapping_Allocator wasm: Unmapping_Allocator/module.jai: #assert failed: `OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS` is false
+Vulkan macos-arm64: Vulkan/module.jai: #assert failed: Vulkan requires its documented native platform
+Vulkan macos-x64: Vulkan/module.jai: #assert failed: Vulkan requires its documented native platform
+Vulkan wasm: Vulkan/module.jai: #assert failed: Vulkan requires its documented native platform
+Wasi_Numeric_Runtime linux-arm64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
+Wasi_Numeric_Runtime linux-x64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
+Wasi_Numeric_Runtime macos-arm64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
+Wasi_Numeric_Runtime macos-x64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
+Wasi_Numeric_Runtime windows-arm64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
+Wasi_Numeric_Runtime windows-x64: Wasi_Numeric_Runtime/module.jai: #assert failed: Wasi_Numeric_Runtime is only for wasm targets
+Window_Creation wasm: Window_Creation/module.jai: #assert failed: Window_Creation has no declarations for this target
+Window_Type wasm: Window_Type/module.jai: #assert failed: Window_Type has no native handle for this target
+Windows linux-arm64: Windows/module.jai: #assert failed: Windows requires its documented native platform
+Windows linux-x64: Windows/module.jai: #assert failed: Windows requires its documented native platform
+Windows macos-arm64: Windows/module.jai: #assert failed: Windows requires its documented native platform
+Windows macos-x64: Windows/module.jai: #assert failed: Windows requires its documented native platform
+Windows wasm: Windows/module.jai: #assert failed: Windows requires its documented native platform
+X11 macos-arm64: X11/module.jai: #assert failed: X11 requires its documented native platform
+X11 macos-x64: X11/module.jai: #assert failed: X11 requires its documented native platform
+X11 wasm: X11/module.jai: #assert failed: X11 requires its documented native platform
+X11 windows-arm64: X11/module.jai: #assert failed: X11 requires its documented native platform
+X11 windows-x64: X11/module.jai: #assert failed: X11 requires its documented native platform
+d3d11 linux-arm64: d3d11/module.jai: #assert failed: d3d11 requires its documented native platform
+d3d11 linux-x64: d3d11/module.jai: #assert failed: d3d11 requires its documented native platform
+d3d11 macos-arm64: d3d11/module.jai: #assert failed: d3d11 requires its documented native platform
+d3d11 macos-x64: d3d11/module.jai: #assert failed: d3d11 requires its documented native platform
+d3d11 wasm: d3d11/module.jai: #assert failed: d3d11 requires its documented native platform
+d3d12 linux-arm64: d3d12/module.jai: #assert failed: d3d12 requires its documented native platform
+d3d12 linux-x64: d3d12/module.jai: #assert failed: d3d12 requires its documented native platform
+d3d12 macos-arm64: d3d12/module.jai: #assert failed: d3d12 requires its documented native platform
+d3d12 macos-x64: d3d12/module.jai: #assert failed: d3d12 requires its documented native platform
+d3d12 wasm: d3d12/module.jai: #assert failed: d3d12 requires its documented native platform
+d3d_compiler linux-arm64: d3d_compiler/module.jai: #assert failed: d3d_compiler requires its documented native platform
+d3d_compiler linux-x64: d3d_compiler/module.jai: #assert failed: d3d_compiler requires its documented native platform
+d3d_compiler macos-arm64: d3d_compiler/module.jai: #assert failed: d3d_compiler requires its documented native platform
+d3d_compiler macos-x64: d3d_compiler/module.jai: #assert failed: d3d_compiler requires its documented native platform
+d3d_compiler wasm: d3d_compiler/module.jai: #assert failed: d3d_compiler requires its documented native platform
+dxc_compiler linux-arm64: dxc_compiler/module.jai: #assert failed: dxc_compiler requires its documented native platform
+dxc_compiler linux-x64: dxc_compiler/module.jai: #assert failed: dxc_compiler requires its documented native platform
+dxc_compiler macos-arm64: dxc_compiler/module.jai: #assert failed: dxc_compiler requires its documented native platform
+dxc_compiler macos-x64: dxc_compiler/module.jai: #assert failed: dxc_compiler requires its documented native platform
+dxc_compiler wasm: dxc_compiler/module.jai: #assert failed: dxc_compiler requires its documented native platform
+dxgi linux-arm64: dxgi/module.jai: #assert failed: dxgi requires its documented native platform
+dxgi linux-x64: dxgi/module.jai: #assert failed: dxgi requires its documented native platform
+dxgi macos-arm64: dxgi/module.jai: #assert failed: dxgi requires its documented native platform
+dxgi macos-x64: dxgi/module.jai: #assert failed: dxgi requires its documented native platform
+dxgi wasm: dxgi/module.jai: #assert failed: dxgi requires its documented native platform
+linux_build linux-arm64: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
+linux_build linux-x64: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
+linux_build macos-arm64: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
+linux_build macos-x64: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
+linux_build wasm: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
+linux_build windows-arm64: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
+linux_build windows-x64: linux_build/module.jai: #assert failed: `WINDOWS_HOST` is false
 macOS linux-arm64: macOS/module.jai: #assert failed: macOS requires its documented native platform
 macOS linux-x64: macOS/module.jai: #assert failed: macOS requires its documented native platform
 macOS wasm: macOS/module.jai: #assert failed: macOS requires its documented native platform
@@ -123,7 +155,17 @@ nvidia_aftermath macos-arm64: nvidia_aftermath/module.jai: #assert failed: nvidi
 nvidia_aftermath macos-x64: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
 nvidia_aftermath wasm: nvidia_aftermath/module.jai: #assert failed: nvidia_aftermath requires its documented native platform
 nvtt wasm: nvtt/module.jai: #assert failed: nvtt requires its documented native platform
-stb_image wasm: stb_image/module.jai: #assert failed: this `#assert(false)` was compiled
-stb_image_resize wasm: stb_image_resize/bindings.jai: #assert failed: this `#assert(false)` was compiled
-stb_image_write wasm: stb_image_write/bindings.jai: #assert failed: this `#assert(false)` was compiled
-stb_vorbis wasm: stb_vorbis/module.jai: #assert failed: this `#assert(false)` was compiled
+Extensions/Io wasm: Extensions/Io/module.jai: #assert failed: Extensions/Io needs fibers, and WebAssembly code cannot switch stacks
+Extensions/Io_Uring macos-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring macos-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring wasm: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring windows-arm64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/Io_Uring windows-x64: Extensions/Io_Uring/module.jai: #assert failed: Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface
+Extensions/SDL3 wasm: Extensions/SDL3/module.jai: #assert failed: SDL3 supports x64 and arm64 release targets
+Extensions/Tls wasm: Extensions/Tls/module.jai: #assert failed: Extensions/Tls runs on fibers over Io, and WebAssembly has neither
+Extensions/Wasi_Runtime linux-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime linux-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime macos-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime windows-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
+Extensions/Wasi_Runtime windows-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets

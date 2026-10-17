@@ -232,6 +232,10 @@ provide_import :: (w: Workspace, message: *C.Message_Failed_Import, type: C.Prov
     __jaic_workspace_provide_import(resolve_workspace(w), message.host_module_name, message.target_module_name, cast(u8) type, value);
 }
 
+append_linker_argument :: (w: Workspace, argument: string) {
+    __jaic_workspace_append_list(w, .ADDITIONAL_LINKER_ARGUMENT, argument);
+}
+
 #scope_module
 snapshot_options :: (w: Workspace, options: *C.Build_Options, save: bool) -> bool {
     strings: [..] s64;
@@ -296,10 +300,6 @@ enum_text :: (value: $T) -> string {
     for number, i: info.values if number == cast(s64) value return info.names[i];
     require(false, "unrecognized compiler enum value");
     return "";
-}
-
-append_linker_argument :: (w: Workspace, argument: string) {
-    __jaic_workspace_append_list(w, .ADDITIONAL_LINKER_ARGUMENT, argument);
 }
 
 set_number :: (w: Workspace, option: Workspace_Number, value: $T) {
