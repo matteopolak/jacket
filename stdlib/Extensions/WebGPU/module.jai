@@ -23,7 +23,7 @@
     #load "windows.jai";
 }
 
-// wgpu-native, from artifacts/native-libs (see docs/extensions/webgpu.md). Unused in the browser.
+// wgpu-native, from target/native-libs (see docs/extensions/webgpu.md). Unused in the browser.
 libwgpu :: #library "libwgpu_native";
 
 // Whether WebGPU can be used here. Natively wgpu-native is linked, so this is true (an adapter

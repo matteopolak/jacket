@@ -13,7 +13,7 @@ for Windows and Linux, so this tool does the same for the host:
                                                                         the options `Build.jai` passes to Jolt-Jai's generate.jai)
 
 Sources come from `tools/fetch_upstreams.py` (Vk-Engine, Jolt-Jai and its JoltC submodule); Jolt Physics itself is
-cloned at the tag JoltC's CMakeLists names (v5.6.0) into artifacts/thirdparty/JoltPhysics. Idempotent: existing
+cloned at the tag JoltC's CMakeLists names (v5.6.0) into target/thirdparty/JoltPhysics. Idempotent: existing
 outputs are kept unless --force. Paths resolve through the git common dir, so it works from a worktree.
 Needs a C++17/20 compiler, CMake and git (`brew install cmake`).
 """
@@ -22,6 +22,8 @@ import os
 import shutil
 import subprocess
 import sys
+
+from repo_output import main_checkout, shared_output_dir
 
 JOLT_TAG = "v5.6.0"
 JOLT_URL = "https://github.com/jrouwe/JoltPhysics"
@@ -33,13 +35,6 @@ JOLTC = os.path.join("corpus", "upstream", "ostef--JoltC")
 def run(cmd, **kw):
     print("+", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, **kw)
-
-
-def main_checkout():
-    here = os.path.dirname(os.path.abspath(__file__))
-    common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                            cwd=here, capture_output=True, text=True)
-    return os.path.dirname(common.stdout.strip()) if common.returncode == 0 else os.path.dirname(here)
 
 
 def build_imgui(root, libdir, ext, cxx, release):
@@ -71,11 +66,11 @@ def build_vma(root, libdir, cxx, release):
 
 
 def build_joltc(root, libdir, ext, jobs, release):
-    jolt = os.path.join(root, "artifacts", "thirdparty", "JoltPhysics")
+    jolt = str(shared_output_dir("thirdparty", "JoltPhysics"))
     if not os.path.isdir(os.path.join(jolt, ".git")):
         os.makedirs(os.path.dirname(jolt), exist_ok=True)
         run(["git", "clone", "--depth", "1", "--branch", JOLT_TAG, JOLT_URL, jolt])
-    build = os.path.join(root, "artifacts", "thirdparty", "joltc-build-" + ("release" if release else "debug"))
+    build = str(shared_output_dir("thirdparty", "joltc-build-" + ("release" if release else "debug")))
     on = lambda b: "ON" if b else "OFF"
     # Mirrors JoltCompileOptions.Default | CombinedSharedLibs (| UseAsserts in Debug) from Jolt-Jai/generate.jai.
     debug = not release
@@ -106,7 +101,7 @@ def build_joltc(root, libdir, ext, jobs, release):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("libs", nargs="*", help="imgui, vma, joltc (default: all)")
-    ap.add_argument("--root", default=main_checkout(), help="repo checkout holding artifacts/ and corpus/")
+    ap.add_argument("--root", default=str(main_checkout()), help="repo checkout holding corpus/")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--force", action="store_true", help="rebuild even if outputs exist")
     ap.add_argument("--release", action="store_true", help="optimized build (upstream default is Debug)")

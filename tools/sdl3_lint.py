@@ -2,7 +2,7 @@
 """Lint owned SDL3 files and all six source-identical generated declaration sets.
 
 jailint normally loads only the host branch of module.jai. Isolated module roots below
-artifacts/sdl3/lint/ make every other target's exact source visible to its existing rules.
+target/sdl3/lint/ make every other target's exact source visible to its existing rules.
 This is source/type/lint validation, never execution of foreign target binaries.
 """
 from __future__ import annotations
@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 from sdl3_gen import ROOT, OUT, TARGETS
+from repo_output import output_dir
 
 
 def main():
@@ -32,7 +33,7 @@ def main():
     lint([str(OUT),str(ROOT/'tests/sdl3')])
     roots=[]
     for profile in TARGETS:
-        directory=ROOT/'artifacts/sdl3/lint'/profile
+        directory=output_dir('sdl3','lint',profile)
         directory.mkdir(parents=True,exist_ok=True)
         pairs=[(OUT/f'{profile}.jai','declarations.jai'),(OUT/'macros.jai','macros.jai'),
                (OUT/f'link-{profile.split("-")[0]}.jai','link.jai'),

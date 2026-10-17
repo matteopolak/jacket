@@ -9,15 +9,17 @@ import sys
 from target_contracts import target_contract
 
 root = Path(__file__).resolve().parents[2]
-compiler = root / "artifacts/current-target/debug/jaic"
+sys.path.insert(0, str(root / "tools"))
+from repo_output import output_dir
+compiler = output_dir("numerics", "current-target", "debug", "jaic")
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--stdlib", type=Path, default=root / "artifacts/canonical-reviewed"
+    "--stdlib", type=Path, default=output_dir("numerics", "canonical-reviewed")
 )
 parser.add_argument("--compiler", type=Path, default=compiler)
 parser.add_argument("--canonical-dependencies", action="store_true", default=True)
 parser.add_argument(
-    "--output", type=Path, default=root / "artifacts/canonical-corrective-reviewed"
+    "--output", type=Path, default=output_dir("numerics", "canonical-corrective-reviewed")
 )
 parser.add_argument(
     "--private-x11-display",
@@ -28,8 +30,8 @@ args = parser.parse_args()
 library = args.stdlib.resolve()
 compiler = args.compiler.resolve()
 out = args.output.resolve()
-if not out.is_relative_to(root / "artifacts"):
-    raise SystemExit("evidence must remain in local artifacts")
+if not out.is_relative_to(output_dir().resolve()):
+    raise SystemExit("evidence must remain in the repository output directory")
 out.mkdir(parents=True, exist_ok=True)
 imports = []
 env = dict(os.environ, JAIC_STDLIB=str(library))

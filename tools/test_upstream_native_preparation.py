@@ -60,7 +60,7 @@ class NativePreparation(unittest.TestCase):
                 with self.subTest(system=system, cpu=cpu):
                     platform = system + "-" + cpu
                     root = Path("/owned-checkout")
-                    native = root / "artifacts/native-libs" / platform
+                    native = root / "target/native-libs" / platform
                     plan = self.tool.native_plan(
                         platform, native, root / "stdlib", root
                     )

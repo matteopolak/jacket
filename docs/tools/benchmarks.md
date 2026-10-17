@@ -58,7 +58,7 @@ python3 tools/lsp_bench.py --only jails --diagnostics pull --repeat 1      # smo
 
 ## Configuration
 
-`JAIC_PROFILE`, `JAIC_NATIVE_LIBS` (worktrees without `artifacts/native-libs`), `[profile.profiling]` in the root `Cargo.toml`. Common flags: `--jaic` (default `$CARGO_TARGET_DIR/release/jaic`), `--repeat`, `--only`, `--out`, `--compare`, `--list`.
+`JAIC_PROFILE`, `JAIC_NATIVE_LIBS` (worktrees without `target/native-libs`), `[profile.profiling]` in the root `Cargo.toml`. Common flags: `--jaic` (default `$CARGO_TARGET_DIR/release/jaic`), `--repeat`, `--only`, `--out`, `--compare`, `--list`.
 
 ## Dependencies
 

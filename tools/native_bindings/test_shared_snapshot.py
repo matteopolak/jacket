@@ -8,14 +8,12 @@ import unittest
 from unittest.mock import patch
 
 import shared_snapshot
+from repo_output import output_dir
 
 
 class SharedSnapshotTests(unittest.TestCase):
     def setUp(self):
-        output = (
-            Path(__file__).resolve().parents[2]
-            / "artifacts/shared-integration/snapshot-tests"
-        )
+        output = output_dir("shared-integration", "snapshot-tests")
         output.mkdir(parents=True, exist_ok=True)
         self.temporary = tempfile.TemporaryDirectory(dir=output)
         self.root = Path(self.temporary.name)
@@ -30,7 +28,7 @@ class SharedSnapshotTests(unittest.TestCase):
 
     def test_local_output_captures_only_inputs_and_detects_mutation(self):
         snapshot, receipt = shared_snapshot.capture(
-            self.root / "artifacts/ordinary-output"
+            self.root / "target/ordinary-output"
         )
         self.assertEqual(set(receipt["files"]), {"stdlib/module.jai"})
         self.assertEqual((snapshot / "stdlib/module.jai").read_text(), "value :: 17;\n")
@@ -55,7 +53,7 @@ class SharedSnapshotTests(unittest.TestCase):
 
     def test_a_selected_ancestor_prevents_recursive_capture(self):
         with self.assertRaises(ValueError):
-            shared_snapshot.capture(self.root / "artifacts/output", (".",))
+            shared_snapshot.capture(self.root / "target/output", (".",))
 
     def test_executable_helpers_keep_execution_without_write_permissions(self):
         tools = self.root / "tools"
@@ -64,7 +62,7 @@ class SharedSnapshotTests(unittest.TestCase):
         helper.write_text('print("capture helper ok")\n')
         helper.chmod(0o755)
         snapshot, receipt = shared_snapshot.capture(
-            self.root / "artifacts/output", ("tools",)
+            self.root / "target/output", ("tools",)
         )
         copied = snapshot / "tools/consumer.py"
         expected = 0o444 | (helper.stat().st_mode & 0o111)

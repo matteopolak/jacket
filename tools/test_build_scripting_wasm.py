@@ -33,7 +33,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
                 {'id': 'walk', 'bundle': 'walk', 'directory': 'examples/walk', 'main': 'main.jai'},
                 {'id': 'native-only', 'directory': 'examples/walk', 'main': 'main.jai'}]}))
             prefix = ['/own/rustup', 'run', 'nightly-2026-08-29', 'cargo']
-            with patch.object(wasm, 'ROOT', root), patch.dict(os.environ, {}, clear=True), \
+            with patch.object(wasm, 'ROOT', root), patch.dict(os.environ, {'JACKET_OUTPUT_DIR': str(root / 'target')}, clear=True), \
                  patch.object(wasm, 'pinned_cargo_command', return_value=prefix), \
                  patch.object(wasm.subprocess, 'check_output', return_value=json.dumps({'target_directory': str(target)})) as metadata, \
                  patch.object(wasm.subprocess, 'run') as build, \
@@ -46,13 +46,13 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             self.assertEqual(build.call_args.kwargs['env']['CARGO_TARGET_DIR'], str(target))
             self.assertIn('--offline', command); self.assertIn('--locked', command)
             self.assertEqual(metadata.call_args.args[0][:len(prefix)], prefix)
-            output = root / 'artifacts/scripting-runtime'
+            output = root / 'target/scripting-runtime'
             self.assertEqual((output / 'jai_wasm.wasm').read_bytes(), compiled.read_bytes())
             receipt = json.loads((output / 'build-metadata.json').read_text())
             self.assertEqual(receipt['target_directory']['path'], str(target))
             self.assertEqual(receipt['wasm_build_path'], str(compiled))
             self.assertEqual(receipt['wasm_sha256'], hashlib.sha256(compiled.read_bytes()).hexdigest())
-            self.assertFalse((root / 'target').exists())
+            self.assertFalse((root / 'target/wasm32-unknown-unknown').exists())
             self.assertEqual(sorted(path.name for path in output.iterdir()),
                              ['README.md', 'build-metadata.json', 'engine.mjs', 'jai_wasm.wasm', 'jaifmt-playground.jai',
                               'walk', 'walk.json', 'webgpu_bindings.generated.mjs', 'webgpu_host.mjs'])

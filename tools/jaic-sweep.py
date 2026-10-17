@@ -156,7 +156,7 @@ def cases(name):
 
 def use_native_libs():
     """Point jaic at the third-party C libraries (rpmalloc, stb_*) that some cases call or link,
-    building any that are missing. Worktrees share the main checkout's artifacts/."""
+    building any that are missing. Worktrees share the main checkout's target/."""
     if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in ("darwin", "linux"):
         return
     sys.path.insert(0, str(ROOT / "tools"))

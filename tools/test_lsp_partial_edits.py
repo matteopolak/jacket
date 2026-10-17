@@ -7,11 +7,12 @@ from types import SimpleNamespace
 import unittest
 
 from lsp_partial_edits import ROOT, run_file
+from repo_output import output_dir
 
 
 class WorkerProtocol(unittest.TestCase):
     def setUp(self):
-        directory = ROOT / "artifacts/lsp-edits/runner-tests"
+        directory = output_dir("lsp-edits", "runner-tests")
         directory.mkdir(parents=True, exist_ok=True)
         self.scratch = tempfile.TemporaryDirectory(dir=directory)
         self.addCleanup(self.scratch.cleanup)

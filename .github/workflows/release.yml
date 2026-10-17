@@ -218,9 +218,9 @@ jobs:
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
           # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/webgpu.json),
-          # where jaic looks for native libraries: <stdlib>/../artifacts/native-libs/<platform>.
+          # where jaic looks for native libraries: <stdlib>/../native-libs/<platform>.
           # The static library is what `jaic` links, the shared one what `jaic -interp` loads.
-          python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
+          python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
           # The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
           # stb_vorbis, lz4, meshoptimizer, pl_mpeg, FreeType, Dear ImGui and MojoShader; rpmalloc
           # on macOS and Linux; SDL2 on Windows x64), built from the pinned, checksum-verified
@@ -231,16 +231,16 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then
             export MACOSX_DEPLOYMENT_TARGET="${{ matrix.name == 'macos-x64' && '10.12' || '11.0' }}"
           fi
-          python3 tools/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/artifacts/native-libs/${{ matrix.name }}"
+          python3 tools/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
           unset MACOSX_DEPLOYMENT_TARGET
-          ls -l "$dir/artifacts/native-libs/${{ matrix.name }}"
+          ls -l "$dir/native-libs/${{ matrix.name }}"
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
           # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
           "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"
           # SDL3's generated source must satisfy the real repository formatter and linter.
           # No missing dependency or syntax-only lint fallback is accepted by these checks.
           "$dir/jaifmt$exe" --check stdlib/Extensions/SDL3 tests/sdl3
-          python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
+          python3 tools/sdl3_gen.py --source target/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
           python3 tools/sdl3_lint.py --jailint "$PWD/$dir/jailint$exe" --stdlib "$PWD/$dir/stdlib"
           ls "$dir"
           if [ "$RUNNER_OS" = "Windows" ]; then
@@ -311,7 +311,7 @@ jobs:
           # declared runtime export and artifact hash, then compile/run ABI + headless tests
           # with the packaged static archive, outside the checkout and without system SDL3.
           python3 "$GITHUB_WORKSPACE/tools/test_sdl3.py" --jaic "$jaic" \
-            --native "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}" \
+            --native "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}" \
             --platform "${{ matrix.name }}" --work "$work/sdl3"
           # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
           # the packaged shared libraries, and the built executable links the static ones.
@@ -332,8 +332,8 @@ jobs:
             if [ -n "${{ matrix.llvm }}" ]; then
               "$jaic" "$lib_test.jai" -exe "$lib_test"
               # Executables load SDL2.dll from their own directory.
-              if [ -f "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}/SDL2.dll" ]; then
-                cp "$GITHUB_WORKSPACE/$PACKAGE_DIR/artifacts/native-libs/${{ matrix.name }}/SDL2.dll" .
+              if [ -f "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}/SDL2.dll" ]; then
+                cp "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}/SDL2.dll" .
               fi
               "./$lib_test$exe"
             fi

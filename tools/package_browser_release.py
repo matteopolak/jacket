@@ -31,7 +31,6 @@ FORBIDDEN = {
     "corpus",
     "protected",
     "vendor",
-    "artifacts",
     "target",
     ".git",
     "node_modules",

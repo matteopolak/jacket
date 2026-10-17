@@ -13,6 +13,8 @@ import subprocess
 import urllib.parse
 import urllib.request
 
+from repo_output import main_checkout, shared_output_dir
+
 REPOSITORIES = (
     'focus-editor/focus', 'Ivo-Balbaert/The_Way_to_Jai', 'SogoCZE/Jails',
     'rluba/jaison', 'withlang-dev/open-jai', 'ostef/Vk-Engine', 'roeyb1/sgpu',
@@ -103,12 +105,7 @@ MODULE_LINKS = (
 )
 ROOT = Path(__file__).resolve().parents[1]
 
-def data_root() -> Path:
-    # Worktrees share the gitignored corpus/upstream and artifacts/ with the main checkout.
-    common = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-                            cwd=ROOT, capture_output=True, text=True)
-    return Path(common.stdout.strip()).parent if common.returncode == 0 else ROOT
-DATA = data_root()
+DATA = main_checkout()
 
 def git(cache: Path, *args: str) -> str:
     return subprocess.check_output(['git', '--git-dir', str(cache), *args], text=True).strip()
@@ -135,7 +132,7 @@ NATIVE_SOURCE_SUFFIXES = ('.c', '.h', '.m', '.mm', '.cpp', '.cc', '.hpp', '.inl'
 
 def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
     key = repo.replace('/', '--')
-    cache = DATA / 'artifacts/upstream-cache' / f'{key}.git'
+    cache = shared_output_dir('cache', 'upstream') / f'{key}.git'
     cache.parent.mkdir(parents=True, exist_ok=True)
     if not cache.exists():
         subprocess.run(['git', 'clone', '--bare', '--filter=blob:none', '--depth=128', f'https://github.com/{repo}.git', str(cache)], check=True)

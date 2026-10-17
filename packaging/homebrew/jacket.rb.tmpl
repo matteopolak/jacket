@@ -36,9 +36,9 @@ class Jacket < Formula
   def install
     # jaic, jailint and jailsp find stdlib/ (including its prelude) next to the real file
     # behind the bin/ symlinks, and native libraries (wgpu-native, stb_*, rpmalloc) in
-    # ../artifacts/native-libs.
+    # ../native-libs.
     libexec.install "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
-    libexec.install "artifacts"
+    libexec.install "native-libs"
     bin.install_symlink libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
     doc.install "README.md", "CHANGELOG.md"
   end

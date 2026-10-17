@@ -6,12 +6,14 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from repo_output import output_dir
 
 
 def main():
     root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=root / "artifacts/extensions-dependencies/uring-protocol")
+    parser.add_argument("--output", type=Path, default=output_dir("extensions-dependencies", "uring-protocol"))
     parser.add_argument("--compiler", type=Path, default=root / "target/debug/jaic")
     parser.add_argument("--linter", type=Path, default=root / "target/debug/jailint")
     parser.add_argument("--formatter", type=Path, default=root / "target/jaifmt")

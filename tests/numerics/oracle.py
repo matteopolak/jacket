@@ -3,6 +3,9 @@ from pathlib import Path
 import math, random, struct
 from fractions import Fraction
 root=Path(__file__).resolve().parents[2]
+import sys
+sys.path.insert(0,str(root/'tools'))
+from repo_output import output_dir
 rng=random.Random(0x986831)
 lines=['#import "Basic";', 'M :: #import "Math";', 'H :: #import "Float16";', 'C :: #import "Color_Interpolation";',
        'B :: union { f:float32; u:u32; }', 'main :: () {']
@@ -93,6 +96,6 @@ for r,g,b in colors:
         lines.append(f'      assert(M.abs(cast(float64) rgb.component[{i}]-cast(float64) {value!r})<0.000001);')
     lines.append('    }')
 lines += ['    print("independent oracle ok\\n");','}']
-p=root/'artifacts/numeric_oracle.jai'; p.parent.mkdir(exist_ok=True); p.write_text('\n'.join(lines)+'\n')
+p=output_dir('numerics','numeric_oracle.jai'); p.parent.mkdir(parents=True,exist_ok=True); p.write_text('\n'.join(lines)+'\n')
 count=sum(line.count('assert(') for line in lines)
 print(f'{p}: {count} independent assertions')

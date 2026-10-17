@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import subprocess
+from repo_output import output_dir
 from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,7 +75,7 @@ def main():
     root = ROOT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release", action="store_true")
-    parser.add_argument("--output", type=Path, default=root / "artifacts/scripting-runtime")
+    parser.add_argument("--output", type=Path, default=output_dir("scripting-runtime"))
     parser.add_argument("--target-dir", type=Path,
                         help="Override CARGO_TARGET_DIR or Cargo target configuration")
     parser.add_argument("--jaic", type=Path, help="native jaic that compiles jaifmt.wasm into the bundle")

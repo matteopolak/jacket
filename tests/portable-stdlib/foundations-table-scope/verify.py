@@ -5,14 +5,17 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "tools"))
+from repo_output import output_dir
 HERE = Path(__file__).resolve().parent
 T7 = Path("/Volumes/T7/codex-builds/jai-cleanroom-01a137eb/foundations")
 JAIC = T7 / "table-order-fresh-target/debug/jaic"
 LINT = T7 / "table-order-fresh-target/debug/jailint"
-APP = Path("/Users/matthew/projects/jai/artifacts/cleanroom-workers/application-corpus")
+APP = output_dir("cleanroom-workers", "application-corpus")
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()

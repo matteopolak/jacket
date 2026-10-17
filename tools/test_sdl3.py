@@ -13,6 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from sdl3_native import ROOT, host
+from repo_output import output_dir
 
 def audit(native,plat):
     native=native.resolve()
@@ -74,7 +75,7 @@ def main():
     a=p.parse_args(); audit(a.native,a.platform)
     if a.audit_only:return
     if not a.jaic:p.error('--jaic is required unless --audit-only')
-    out=(a.work or ROOT/'artifacts/sdl3/tests'/a.platform).resolve();out.mkdir(parents=True,exist_ok=True)
+    out=(a.work or output_dir('sdl3','tests',a.platform)).resolve();out.mkdir(parents=True,exist_ok=True)
     for fixture in (ROOT/'tests/sdl3').glob('*.jai'):shutil.copy2(fixture,out/fixture.name)
     env=dict(os.environ,JAIC_NATIVE_LIBS=str(a.native.resolve()))
     stdlib=(a.stdlib or a.jaic.resolve().parent/'stdlib').resolve()

@@ -14,6 +14,8 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+from repo_output import output_dir
+
 ROOT=Path(__file__).resolve().parent.parent
 PLATFORMS=('macos-x64','macos-arm64','linux-x64','linux-arm64','windows-x64','windows-arm64')
 WINDOWS_ARTIFACTS={'SDL3.lib':('lib/SDL3-static.lib','static'),
@@ -185,7 +187,7 @@ def package_installed_sdk(stage, out, manifest):
                      for p in sorted(sdk.rglob('*')) if p.is_file()}}
 
 def check_relocated_consumers(out, info, plat, cmake_args, jobs):
-    work=ROOT/'artifacts/sdl3/consumers'/plat
+    work=output_dir('sdl3','consumers',plat)
     if work.exists():shutil.rmtree(work)
     work.mkdir(parents=True)
     relocated=work/'relocated SDK'
@@ -219,10 +221,10 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     if plat not in PLATFORMS: raise ValueError(plat)
     if plat.split('-')[0]!=host().split('-')[0]: raise ValueError('build SDL3 on the target OS with its native SDK')
     if plat.startswith(('linux','windows')) and plat!=host(): raise ValueError('Linux/Windows SDL3 release builds require a native target runner (no host-architecture fallback)')
-    cache=(cache or ROOT/'artifacts/sdl3').resolve()
+    cache=(cache or output_dir('sdl3')).resolve()
     src,source=checked_archive(cache,offline)
-    builddir=ROOT/'artifacts/sdl3/build'/plat
-    stage=ROOT/'artifacts/sdl3/install'/plat
+    builddir=output_dir('sdl3','build',plat)
+    stage=output_dir('sdl3','install',plat)
     options=configure_options(plat)
     consumer_args=[option for option in options if option.startswith(('-DCMAKE_OSX_','-DCMAKE_MSVC_RUNTIME_LIBRARY='))]
     if plat.startswith('windows'):
@@ -314,4 +316,4 @@ if __name__=='__main__':
         if not a.platform.startswith('windows'):p.error('--show-toolchain requires a Windows platform')
         print(json.dumps(windows_toolchain(a.platform),indent=2))
     else:
-        build(a.out or ROOT/'artifacts/native-libs'/a.platform,a.platform,a.cache,a.offline,a.jobs)
+        build(a.out or output_dir('native-libs',a.platform),a.platform,a.cache,a.offline,a.jobs)

@@ -89,25 +89,25 @@ jobs:
       - name: Verify the wasm boundary and language server
         run: cargo test --locked -j 1 -p jai-language-server -p jai-wasm
       - name: Build and stage the real WebAssembly compiler without the native backend
-        run: python3 tools/build_scripting_wasm.py --release --output artifacts/ci-wasm
+        run: python3 tools/build_scripting_wasm.py --release --output target/ci-wasm
       - name: Execute the real WebAssembly module
         run: |
           node --version
-          node tools/check_scripting_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
-          node tools/check_jai_format_wasm.mjs artifacts/ci-wasm/jai_wasm.wasm
+          node tools/check_scripting_wasm.mjs target/ci-wasm/jai_wasm.wasm
+          node tools/check_jai_format_wasm.mjs target/ci-wasm/jai_wasm.wasm
       - name: WebGPU host bridge (mock WebGPU; the engine suspends through JSPI)
         # docs/extensions/webgpu.md#tests. Node 24 has JSPI behind a V8 flag, so the file runs
         # directly (node:test in this process) rather than in a `--test` child without the flag.
-        run: JAI_WASM_DIR=artifacts/ci-wasm node --experimental-wasm-jspi tools/test_webgpu_host.mjs
+        run: JAI_WASM_DIR=target/ci-wasm node --experimental-wasm-jspi tools/test_webgpu_host.mjs
       - name: Run every stdlib test in the browser engine
         # because they need what the browser lacks (native libraries, windows); a test that only
         # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
-        run: node tools/check_playground_stdlib.mjs artifacts/ci-wasm
+        run: node tools/check_playground_stdlib.mjs target/ci-wasm
       - name: Interpreter and browser engine agree (corpus and generated programs)
         # docs/tools/testing.md; the host jaic needs no LLVM to interpret.
         run: |
           cargo build --locked -j 2 -p jaic-cli --no-default-features
-          python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm artifacts/ci-wasm corpus gen:1:40
+          python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
   test:
     name: compiler (${{ matrix.runner }})
     strategy:
@@ -544,7 +544,7 @@ jobs:
       - name: Offline rebuild from the source cache
         run: python3 tools/sdl3_native.py --platform "${{ matrix.platform }}" --offline
       - name: Audit version, runtime symbols, licenses and the installed SDK
-        run: python3 tools/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "artifacts/native-libs/${{ matrix.platform }}"
+        run: python3 tools/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "target/native-libs/${{ matrix.platform }}"
       - uses: ./.github/actions/setup-unix
         if: matrix.platform == 'linux-x64'
         with:
@@ -554,7 +554,7 @@ jobs:
         run: |
           cargo build --locked -p jaic-cli
           JAIC_STDLIB="$PWD/stdlib" target/debug/jaic jaifmt/main.jai -O2 -exe "$PWD/target/jaifmt"
-          python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --jaifmt "$PWD/target/jaifmt" --check
+          python3 tools/sdl3_gen.py --source target/sdl3/SDL3-3.4.18 --jaifmt "$PWD/target/jaifmt" --check
   clipboard-linux:
     # The Linux clipboard against real X11 clients on Xvfb, and the relocated package.
     name: Linux clipboard (X11)
@@ -1242,8 +1242,8 @@ jobs:
       - name: Native WGL driver diagnostics and public rendering
         if: ${{ !cancelled() }}
         run: |
-          mkdir -p artifacts/native-libs/windows-${{ matrix.cpu }}
-          python -u tools/window_render_wgl_ci.py --jaic "$JAIC" --jailint "$JAILINT" --stdlib stdlib --native-libs artifacts/native-libs/windows-${{ matrix.cpu }} --driver-dir "$MESA_DIR" --consumer-dir native-exes
+          mkdir -p target/native-libs/windows-${{ matrix.cpu }}
+          python -u tools/window_render_wgl_ci.py --jaic "$JAIC" --jailint "$JAILINT" --stdlib stdlib --native-libs target/native-libs/windows-${{ matrix.cpu }} --driver-dir "$MESA_DIR" --consumer-dir native-exes
       - name: Signed mouse wheel events reach the program (interpreter, O0, O2)
         if: ${{ !cancelled() }}
         run: |

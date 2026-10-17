@@ -21,7 +21,7 @@ class SdlPythonSetup(unittest.TestCase):
         ):
             with self.subTest(name=name):
                 self.assertNotIn(
-                    "artifacts/sdl3/tmp", (root / "tools" / name).read_text()
+                    "target/sdl3/tmp", (root / "tools" / name).read_text()
                 )
 
     def test_scratch_parent_is_created_only_under_explicit_root(self):

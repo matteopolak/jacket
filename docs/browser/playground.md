@@ -34,13 +34,13 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 
 ```sh
 rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
-python3 tools/build_scripting_wasm.py --release --output artifacts/scripting-runtime
-node tools/check_scripting_wasm.mjs artifacts/scripting-runtime/jai_wasm.wasm
-node tools/check_jai_format_wasm.mjs artifacts/scripting-runtime
-node tools/check_playground_stdlib.mjs artifacts/scripting-runtime
+python3 tools/build_scripting_wasm.py --release --output target/scripting-runtime
+node tools/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
+node tools/check_jai_format_wasm.mjs target/scripting-runtime
+node tools/check_playground_stdlib.mjs target/scripting-runtime
 ```
 
-`build_scripting_wasm.py` runs an offline, locked, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header, stages the bundle (default `artifacts/scripting-runtime`) and refuses to start below 2 GiB free. With `--jaic <native jaic>` it also builds `jaifmt.wasm`. To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LOCAL=<bundle dir>`. Native test: `cargo test -p jai-wasm play`. The release module is about 11 MB, mostly the stdlib.
+`build_scripting_wasm.py` runs an offline, locked, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header, stages the bundle (default `target/scripting-runtime`) and refuses to start below 2 GiB free. With `--jaic <native jaic>` it also builds `jaifmt.wasm`. To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LOCAL=<bundle dir>`. Native test: `cargo test -p jai-wasm play`. The release module is about 11 MB, mostly the stdlib.
 
 `check_playground_stdlib.mjs` runs every `tests/stdlib/*.jai` through `engine.play` with a fresh instance each, and every test must pass. A test needing something the browser lacks skips that part with a runtime `if OS == .WASM` (preferred over `#if`, so the code stays type-checked); a test with nothing left to run gets a `playground` line in `tests/stdlib-runtime-skips.txt` (the check fails if it passes, so remove the line then). `PLAYGROUND_VERBOSE=1 ... name.jai` prints one test's output.
 
@@ -62,7 +62,7 @@ To add a stop: write `examples/tour/<topic>/<file>.jai` with a `tour_<topic> :: 
 4. `node tools/check_browser_release.mjs <stage>` runs the **staged** engine: the exact inventory, a `tour/` matching `tour.json`, execution probes (exit codes, phases, nested `#load`, diagnostics, a `#run` workspace message loop, the virtual clock, the budget, a refused `#foreign`), the tour, a format, the language server, and `check_playground_stdlib.mjs`. Any failure means nothing is published.
 5. The ZIP uses fixed timestamps and modes (identical inputs give identical bytes), is read back against the inventory, and is written with `jai-playground.manifest.json` (`schema_version: 2`, `commit`, `files: [{path, size, sha256}]`, `archive`, `capabilities`) into an absent or empty output directory.
 
-Run it with `python3 tools/package_browser_release.py --output artifacts/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
+Run it with `python3 tools/package_browser_release.py --output target/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
 
 ## How to change it
 

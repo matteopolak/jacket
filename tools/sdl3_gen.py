@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import sdl3_coverage as coverage
+from repo_output import output_dir
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -383,7 +384,7 @@ def main():
             if '/include/SDL3/' in member.name and member.isfile():
                 rel=Path(member.name).relative_to('SDL3-3.4.18')
                 if (a.source/rel).read_bytes()!=t.extractfile(member).read(): raise ValueError(f'header differs from pin: {rel}')
-    work=ROOT/'artifacts/sdl3/generator'; work.mkdir(parents=True,exist_ok=True)
+    work=output_dir('sdl3','generator'); work.mkdir(parents=True,exist_ok=True)
     inventory={}
     equivalents={}
     files={}

@@ -27,7 +27,7 @@ A missing library fails at link time; `link_failure` adds a help when the linker
 ## Configuration
 
 - `JAIC_STDLIB`: stdlib directory (default `<repo>/stdlib`).
-- `JAIC_NATIVE_LIBS`: path list searched for third-party static archives; default `artifacts/native-libs/<os>-<arch>` next to the stdlib, produced by `tools/build_native_libs.py` ([third-party native libraries](../tools/native-libs.md)).
+- `JAIC_NATIVE_LIBS`: path list searched for third-party static archives; default `native-libs/<os>-<arch>` (release package) or `target/native-libs/<os>-<arch>` (checkout), next to the stdlib, produced by `tools/build_native_libs.py` ([third-party native libraries](../tools/native-libs.md)).
 - `JAIC_LINKER`, `JAIC_AR`: override the linker or archiver.
 - CLI: `-exe name`, `-output_path dir`, `-o`, `-od`, `-very_debug`, `-O0..-O3`, `-no_inline`, `-no_split`, `-emit_ir file.ll`, `-sanitize address,undefined` ([sanitizers](sanitizers.md)), `-I dir`, `-os windows`, `-cpu x64|arm64`, `-target triple`.
 

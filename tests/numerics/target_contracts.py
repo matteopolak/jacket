@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+# The generated oracle lives in the output directory; its contract is keyed by this name.
+ORACLE = "target/numerics/numeric_oracle.jai"
+
+
 @dataclass(frozen=True)
 class TargetContract:
     available: bool
@@ -46,7 +50,7 @@ PORTABLE_CASES = frozenset(
         "tests/numerics/normalization_ieee.jai",
         "tests/numerics/abs_ieee.jai",
         "tests/numerics/half_overflow.jai",
-        "artifacts/numeric_oracle.jai",
+        ORACLE,
         "tests/stdlib-contract/math-float16/main.jai",
     }
 )

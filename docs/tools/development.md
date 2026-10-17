@@ -46,6 +46,20 @@ Rust uses the pinned nightly `rustfmt` and `rustfmt.toml` (edition 2024, `max_wi
 
 **Format-only commits** (repo-wide `jaifmt` or `cargo fmt`, or a style option change) contain nothing else, use the message `style: format with jaifmt` (or `rustfmt`), and are listed in `.git-blame-ignore-revs`. The hash is only known after committing, so add it in a second commit, and only after the commit has landed on `main` (a rebase changes the hash). Locally opt in once with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 
+## Output directory
+
+Tools and test scripts write build products, downloads and scratch output under `target/` (ignored; shared with cargo). `tools/repo_output.py` (`output_dir`, `shared_output_dir`) and `tools/repo_output.mjs` (`outputDir`) are the single helpers; never hard-code a path. `JACKET_OUTPUT_DIR` relocates the whole tree (`jaic` honours it when looking for `native-libs/<platform>`). `shared_output_dir` resolves to the main checkout's directory so worktrees reuse native builds and downloads.
+
+| Directory under the output dir | Contents |
+|---|---|
+| `native-libs/<platform>`, `native-libs/sources` | `tools/build_native_libs.py` output and downloaded sources |
+| `sdl3/` | SDL3 source cache, builds, generator, lint and test scratch |
+| `thirdparty/` | Slang, JoltPhysics clones and builds |
+| `cache/upstream/` | bare clones for `tools/fetch_upstreams.py` |
+| `webgpu/<rev>/` | pinned `webgpu.yml` |
+| `scripting-runtime/`, `ci-wasm/`, `wasm/`, `browser-release/` | browser bundles |
+| `lsp-edits/`, `numerics/`, `extensions-*`, `http-client-*`, `core-public-verification/` | test and verification evidence |
+
 ## Dependency policy
 
 Cargo only selects crate versions published at least 14 days ago, direct and transitive. A git dependency must pin a full commit hash that landed upstream at least 14 days ago. `jaic` has no external dependencies; the external crates are `serde`/`serde_json` (language server) and `inkwell`/`llvm-sys` (LLVM backend). The same age rule applies to npm packages in `editors/vscode` ([VS Code extension](vscode-extension.md)).

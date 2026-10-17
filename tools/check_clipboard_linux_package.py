@@ -54,7 +54,7 @@ def main():
     shutil.copy2(compiler, package / "jaic")
     shutil.copytree(ROOT / "stdlib", package / "stdlib")
     cpu = {"x86_64": "x64", "aarch64": "arm64"}[platform.machine()]
-    native_relative = Path("artifacts/native-libs") / ("linux-" + cpu)
+    native_relative = Path("native-libs") / ("linux-" + cpu)
     subprocess.run(
         [
             sys.executable,

@@ -6,12 +6,14 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from repo_output import output_dir
 
 
 def main():
     root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=root / "artifacts/core-public-verification")
+    parser.add_argument("--output", type=Path, default=output_dir("core-public-verification"))
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)

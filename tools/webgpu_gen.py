@@ -4,7 +4,7 @@
     python3 tools/webgpu_gen.py [--yml PATH] [--check-header webgpu.h]
 
 Reads the pinned webgpu.yml (tools/webgpu.json: revision + sha256; downloaded into
-artifacts/webgpu/ unless --yml is given) and writes:
+target/webgpu/ unless --yml is given) and writes:
 
   stdlib/Extensions/WebGPU/generated.jai                      types, enums, structs, callbacks, #foreign procs
   stdlib/Extensions/WebGPU/generated_wasm.jai                 callback dispatch for the browser sandbox
@@ -24,6 +24,8 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+
+from repo_output import shared_output_dir
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'webgpu.json'
@@ -739,19 +741,13 @@ def check_header(spec: Spec, header: str) -> int:
 
 # ---------------------------------------------------------------------------
 
-def shared_root() -> Path:
-    common = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-                            cwd=ROOT, capture_output=True, text=True)
-    return Path(common.stdout.strip()).parent if common.returncode == 0 else ROOT
-
-
 def load_yml(path: str | None) -> tuple[str, str, str]:
     pin = json.loads(MANIFEST.read_text())['webgpu_headers']
     rev, digest = pin['revision'], pin['files']['webgpu.yml']
     if path:
         data = Path(path).read_bytes()
     else:
-        cache = shared_root() / 'artifacts' / 'webgpu' / rev / 'webgpu.yml'
+        cache = shared_output_dir('webgpu', rev, 'webgpu.yml')
         if cache.exists() and hashlib.sha256(cache.read_bytes()).hexdigest() == digest:
             data = cache.read_bytes()
         else:

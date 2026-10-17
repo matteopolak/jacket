@@ -33,7 +33,7 @@ webgpu.yml (pinned) --tools/webgpu_gen.py--> stdlib/Extensions/WebGPU/generated.
 
 **Helpers** (`module.jai`): `webgpu_create_surface` (per-OS code in `macos.jai`, `windows.jai`, `linux.jai`; wgpu-native aborts on most calls with a null surface, so check); `webgpu_surface_format` (first format whose sRGB-ness matches; macOS prefers `bgra8unorm-srgb`, browsers `bgra8unorm`, so without it the same shader looks different); `webgpu_request_adapter/device`, `webgpu_map_buffer` (replaces `WGPU_WHOLE_MAP_SIZE`, which wgpu-native rejects), `webgpu_pop_error_scope`, `webgpu_present` (in the browser also waits for the next animation frame), `webgpu_window_size`. `WEBGPU_SURFACE_OCCLUDED` is wgpu-native's extra status for a non-visible Metal window: skip the frame, do not reconfigure. Callback strings are only valid during the callback, so helpers copy them.
 
-**Native:** `generated.jai` declares procedures `#foreign libwgpu`. `jaic -interp` loads the shared library from the native-libs directory ([native libraries](../tools/native-libs.md)); built programs link the static one (`.a`/`.lib`), with system libraries listed `link_always` in `macos.jai`, `linux.jai`, `windows.jai`. Release archives ship wgpu-native in `artifacts/native-libs/<platform>/` ([releases](../tools/releases.md)); in a checkout run `python3 tools/fetch_wgpu_native.py`.
+**Native:** `generated.jai` declares procedures `#foreign libwgpu`. `jaic -interp` loads the shared library from the native-libs directory ([native libraries](../tools/native-libs.md)); built programs link the static one (`.a`/`.lib`), with system libraries listed `link_always` in `macos.jai`, `linux.jai`, `windows.jai`. Release archives ship wgpu-native in `native-libs/<platform>/` ([releases](../tools/releases.md)); in a checkout run `python3 tools/fetch_wgpu_native.py`.
 
 **Browser:** the program runs in the interpreter inside `jai_wasm.wasm` in a worker owning an `OffscreenCanvas`.
 
@@ -59,14 +59,14 @@ webgpu.yml (pinned) --tools/webgpu_gen.py--> stdlib/Extensions/WebGPU/generated.
 ```sh
 python3 tools/webgpu_gen.py [--yml webgpu.yml] [--check-header webgpu.h]
 python3 tools/fetch_wgpu_native.py [--platform windows-arm64] [--out DIR] [--force]
-JAIC_NATIVE_LIBS=<checkout>/artifacts/native-libs/macos-arm64 jaic examples/webgpu/triangle.jai -interp   # from a worktree
+JAIC_NATIVE_LIBS=<checkout>/target/native-libs/macos-arm64 jaic examples/webgpu/triangle.jai -interp   # from a worktree
 ```
 
 Browser embedders pass `createEngine(bytes, { host: createWebGPUHost({ canvas, output, onSurface }) })`, run with `playAsync`, and forward events with `host.input(event)`/`host.resize(w, h)`. Without a host or `navigator.gpu`, `webgpu_available()` is false.
 
 ## Dependencies and tests
 
-webgpu-headers `webgpu.yml` (pinned, downloaded to `artifacts/webgpu/`, not vendored), wgpu-native release zips (pinned by sha256), `interp::Host`, the inline thread scheduler, `jai-wasm` `host_bridge`, `stdlib/Input`, `Window_Creation`. Tests run in the `stdlib-runtime`, `windows-native` and `scripting-wasm` jobs of `.github/workflows/ci.yml`:
+webgpu-headers `webgpu.yml` (pinned, downloaded to `target/webgpu/`, not vendored), wgpu-native release zips (pinned by sha256), `interp::Host`, the inline thread scheduler, `jai-wasm` `host_bridge`, `stdlib/Input`, `Window_Creation`. Tests run in the `stdlib-runtime`, `windows-native` and `scripting-wasm` jobs of `.github/workflows/ci.yml`:
 
 - `tests/webgpu/headless.jai` (triangle into a texture and pixel check, compute, texture readback, invalid shader in an error scope, null surface) and `window.jai` (window, surface, N presented frames) via `python3 tools/test_webgpu_native.py --jaic target/debug/jaic [--test window --frames 120] [--require-adapter]` (exit 77 means no adapter).
 - Host bridge against a mock WebGPU plus `tests/webgpu/bridge.jai`: `node --experimental-wasm-jspi tools/test_webgpu_host.mjs` (set `JAI_WASM_DIR` for the end-to-end part).

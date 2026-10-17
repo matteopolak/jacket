@@ -7,9 +7,11 @@ import os
 import subprocess
 import sys
 import time
-from target_contracts import target_contract
+from target_contracts import ORACLE, target_contract
 
 root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(root / "tools"))
+from repo_output import output_dir
 parser = argparse.ArgumentParser()
 parser.add_argument("--compiler", type=Path, required=True)
 parser.add_argument("--stdlib", type=Path, required=True)
@@ -21,14 +23,14 @@ parser.add_argument(
     help="Canonical dependencies are required; this explicit flag is retained for callers",
 )
 parser.add_argument(
-    "--output", type=Path, default=root / "artifacts/numerics-verification"
+    "--output", type=Path, default=output_dir("numerics", "verification")
 )
 args = parser.parse_args()
 compiler = args.compiler.resolve()
 env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve()))
 out = args.output.resolve()
-if not out.is_relative_to(root / "artifacts"):
-    raise SystemExit("evidence must remain in this workspace artifacts")
+if not out.is_relative_to(output_dir().resolve()):
+    raise SystemExit("evidence must remain in the repository output directory")
 out.mkdir(parents=True, exist_ok=True)
 records = []
 imports = []
@@ -127,11 +129,11 @@ tests = {
         "IEEE normalization ok",
     ),
     "abs-ieee": ("tests/numerics/abs_ieee.jai", "IEEE absolute value ok"),
-    "oracle": ("artifacts/numeric_oracle.jai", "independent oracle ok"),
+    "oracle": ("target/numerics/numeric_oracle.jai", "independent oracle ok"),
     "public-contract": ("tests/stdlib-contract/math-float16/main.jai", "ok"),
 }
 for name, (source, sentinel) in tests.items():
-    common = [compiler, source] + imports
+    common = [compiler, str(output_dir("numerics", "numeric_oracle.jai")) if source == ORACLE else source] + imports
     run(name + "-interp", common + ["-interp"], sentinel)
     if args.quick:
         continue

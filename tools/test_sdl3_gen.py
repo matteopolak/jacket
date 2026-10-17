@@ -90,7 +90,7 @@ class Types(unittest.TestCase):
     def test_variadic_c_signature(self):
         self.assertEqual(gen.jai_type('int (*)(const char *, ...)'), '(arg0: *u8, args: ..Any) -> s32 #c_call')
     def test_contract_anonymous_record_spelling_is_clang_version_independent(self):
-        source=Path('artifacts/sdl3/SDL3-3.4.18')
+        source=Path('target/sdl3/SDL3-3.4.18')
         for kind in ('struct','union'):
             for anonymity in ('unnamed','anonymous'):
                 expected=f'{kind} ({anonymity} at SDL3/SDL_gamepad.h:271:5)'

@@ -5,7 +5,6 @@
 /stdlib/internal/developer-tools/generator-platform-nm.txt
 /.work/
 .build/
-/artifacts/
 /corpus/upstream
 /corpus/lsp-applications/
 **/__pycache__/

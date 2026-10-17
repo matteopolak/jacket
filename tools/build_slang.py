@@ -4,7 +4,7 @@
     python3 tools/build_slang.py [--jobs N] [--force]
 
 Clones https://github.com/shader-slang/slang at a pinned tag into
-<repo>/artifacts/thirdparty/slang, builds a Release shared library with CMake, and installs
+<repo>/target/thirdparty/slang, builds a Release shared library with CMake, and installs
 `libslang.dylib` (macOS) / `libslang.so` (Linux) plus the runtime modules Slang dlopens next to it
 (glslang, glsl-module) into <sgpu>/modules/slang/<mac|linux>/. Idempotent: reruns reuse the clone and
 build directory, and skip the install when the files are already present (use --force to redo it).
@@ -17,6 +17,8 @@ import shutil
 import subprocess
 import sys
 
+from repo_output import main_checkout, shared_output_dir
+
 TAG = "v2025.24.2"
 URL = "https://github.com/shader-slang/slang"
 SGPU = os.path.join("corpus", "upstream", "roeyb1--sgpu")
@@ -25,18 +27,6 @@ SGPU = os.path.join("corpus", "upstream", "roeyb1--sgpu")
 def run(cmd, **kw):
     print("+", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, **kw)
-
-
-def main_checkout():
-    # Worktrees share artifacts/ and corpus/ with the main checkout; resolve through the git common dir.
-    here = os.path.dirname(os.path.abspath(__file__))
-    common = subprocess.run(
-        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        cwd=here, capture_output=True, text=True,
-    )
-    if common.returncode == 0:
-        return os.path.dirname(common.stdout.strip())
-    return os.path.dirname(here)
 
 
 def build_vulkan_extras(root, mac, ext, sub):
@@ -69,7 +59,7 @@ def build_vulkan_extras(root, mac, ext, sub):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=main_checkout(), help="repo checkout holding artifacts/ and corpus/")
+    ap.add_argument("--root", default=str(main_checkout()), help="repo checkout holding corpus/ and the module install dirs")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--force", action="store_true", help="reinstall even if outputs exist")
     args = ap.parse_args()
@@ -77,7 +67,7 @@ def main():
     mac = sys.platform == "darwin"
     ext = "dylib" if mac else "so"
     sub = "mac" if mac else "linux"
-    src = os.path.join(args.root, "artifacts", "thirdparty", "slang")
+    src = str(shared_output_dir("thirdparty", "slang"))
     build = os.path.join(src, "build")
     dest = os.path.join(args.root, SGPU, "modules", "slang", sub)
     if not os.path.isdir(os.path.join(args.root, SGPU)):

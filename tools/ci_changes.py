@@ -18,7 +18,7 @@ AREAS = {
     "sdl3": [
         "stdlib/Extensions/SDL3/**", "tools/sdl3*.py", "tools/sdl_test_support.py",
         "tools/prepare_sdl_python_tests.py", "tools/test_sdl*.py", "tools/native/sdl3/**",
-        "tools/native-libs.json", "tools/build_native_libs.py", "tests/sdl3/**", ".gitattributes",
+        "tools/native-libs.json", "tools/build_native_libs.py", "tools/repo_output.py", "tests/sdl3/**", ".gitattributes",
     ],
     "clipboard": [
         "stdlib/Clipboard/**", "stdlib/internal/clipboard/**", "stdlib/internal/window/connection.jai",

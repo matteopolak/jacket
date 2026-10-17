@@ -17,6 +17,8 @@ import threading
 import time
 from collections import deque
 
+from repo_output import output_dir
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -49,7 +51,7 @@ def build_worker():
         msg = json.loads(line)
         if msg.get("reason") == "compiler-artifact" and msg.get("target", {}).get("name") == "partial_edit_coverage" and msg.get("executable"):
             # Later local builds must not change the binary midway through a sweep.
-            worker_dir = ROOT / "artifacts/lsp-edits/workers"
+            worker_dir = output_dir("lsp-edits", "workers")
             worker_dir.mkdir(parents=True, exist_ok=True)
             worker = worker_dir / str(uuid.uuid4())
             shutil.copy2(msg["executable"], worker)

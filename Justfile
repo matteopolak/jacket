@@ -78,10 +78,10 @@ hooks:
 fetch-upstreams *args:
     {{ py }} tools/fetch_upstreams.py {{ args }}
 
-# Build the browser compiler bundle (wasm32) into artifacts/wasm.
+# Build the browser compiler bundle (wasm32) into target/wasm.
 [group('web')]
 wasm *args:
-    {{ py }} tools/build_scripting_wasm.py --release --output artifacts/wasm {{ args }}
+    {{ py }} tools/build_scripting_wasm.py --release --output target/wasm {{ args }}
 
 # Run an editors/vscode package script (lint, test, build, package, ...) through pnpm.
 [group('web')]

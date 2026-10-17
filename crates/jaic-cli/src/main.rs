@@ -67,8 +67,8 @@ fn stdlib_dir() -> PathBuf {
     jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
 }
 
-/// Where `tools/build_native_libs.py` puts third-party libraries for this host, or the
-/// `JAIC_NATIVE_LIBS` path list.
+/// Where `tools/build_native_libs.py` (or a release package) puts third-party libraries for this
+/// host, or the `JAIC_NATIVE_LIBS` path list.
 fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     let mut dirs = configured_native_lib_dirs(stdlib);
     // The crash runtime is built into jaic itself (docs/native/crash-runtime-build.md).
@@ -91,8 +91,19 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
         "x86_64" => "x64",
         _ => return Vec::new(),
     };
-    let dir = stdlib.join(format!("../artifacts/native-libs/{os}-{arch}"));
-    jaic::canonicalize(&dir)
+    let platform = format!("{os}-{arch}");
+    // `JACKET_OUTPUT_DIR` (tools/repo_output.py) relocates the build output directory; a
+    // release package carries `native-libs/` beside `stdlib/`, a checkout builds them under
+    // `target/`.
+    let mut candidates = Vec::new();
+    if let Some(output) = std::env::var_os("JACKET_OUTPUT_DIR") {
+        candidates.push(PathBuf::from(output).join("native-libs").join(&platform));
+    }
+    candidates.push(stdlib.join("../native-libs").join(&platform));
+    candidates.push(stdlib.join("../target/native-libs").join(&platform));
+    candidates
+        .iter()
+        .find_map(|dir| jaic::canonicalize(dir).ok())
         .map(|d| vec![d])
         .unwrap_or_default()
 }

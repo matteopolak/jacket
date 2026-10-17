@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from repo_output import output_dir
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compiler", type=Path, default=ROOT / "target/debug/jaic")
-    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/extensions-assert-profiles")
+    parser.add_argument("--output", type=Path, default=output_dir("extensions-assert-profiles"))
     args = parser.parse_args()
     compiler = args.compiler.resolve(strict=True)
     output = args.output.resolve()

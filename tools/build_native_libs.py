@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the third-party C libraries the stdlib binds (stb_image, ...) from pinned sources.
 
-Output: artifacts/native-libs/<os>-<arch>/, which `jaic` searches for `#system_library` /
+Output: target/native-libs/<os>-<arch>/ (see tools/repo_output.py), which `jaic` searches for `#system_library` /
 `#library` names (see docs/tools/native-libs.md): lib<name>.a and lib<name>.<dylib|so> on macOS
 and Linux, <name>.lib and <name>.dll on Windows (built with Clang for the MSVC toolchain).
 `--platform windows-<cpu>-mingw` cross-builds lib<name>.a for `jaic -os windows` (MinGW-w64
@@ -23,6 +23,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from repo_output import output_dir as repo_output_dir, shared_output_dir
+
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'native-libs.json'
 
@@ -32,17 +34,8 @@ WINDOWS_TRIPLES = {'windows-x64': 'x86_64-pc-windows-msvc', 'windows-arm64': 'aa
 MINGW_PREFIXES = {'windows-x64-mingw': 'x86_64-w64-mingw32', 'windows-arm64-mingw': 'aarch64-w64-mingw32'}
 
 
-def shared_root() -> Path:
-    """The main checkout: git worktrees share its (ignored) artifacts/ instead of rebuilding."""
-    common = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-                            cwd=ROOT, capture_output=True, text=True)
-    if common.returncode == 0:
-        return Path(common.stdout.strip()).parent
-    return ROOT
-
-
 def output_dir(plat: str | None = None) -> Path:
-    return shared_root() / 'artifacts' / 'native-libs' / (plat or host_dir())
+    return shared_output_dir('native-libs', plat or host_dir())
 
 
 def static_name(name: str, plat: str) -> str:
@@ -382,7 +375,7 @@ def main() -> None:
                         help='output directory name, e.g. windows-arm64 (default: the host\'s)')
     parser.add_argument('--out', type=Path, default=None,
                         help='directory to write the libraries to (default: the main checkout\'s '
-                             'artifacts/native-libs/<platform>); release.yml builds into the package')
+                             'target/native-libs/<platform>); release.yml builds into the package')
     args = parser.parse_args()
     plat = args.platform or host_dir()
     if plat not in MINGW_PREFIXES and plat.split('-')[0] != host_dir().split('-')[0]:
@@ -394,10 +387,10 @@ def main() -> None:
     names = args.names or sorted(n for n, lib in manifest['libraries'].items() if wanted(lib, plat))
     # SDL3's clean-room cache and default output stay in this worktree.
     sdl3_only = names == ['SDL3']
-    out = (args.out or (ROOT / 'artifacts/native-libs' / plat if sdl3_only else output_dir(plat))).resolve()
+    out = (args.out or (repo_output_dir('native-libs', plat) if sdl3_only else output_dir(plat))).resolve()
     out.mkdir(parents=True, exist_ok=True)
     # Downloaded sources stay in the shared cache, never in --out (which may be a package).
-    cache = ROOT / 'artifacts/sdl3' if sdl3_only else output_dir(plat).parent / 'sources'
+    cache = repo_output_dir('sdl3') if sdl3_only else output_dir(plat).parent / 'sources'
     licensed = set()
     for name in names:
         lib = manifest['libraries'].get(name)
