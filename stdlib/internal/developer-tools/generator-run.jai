@@ -56,6 +56,17 @@ gr_run :: (generator: *Generator, options: Generate_Bindings_Options) -> bool {
 
     for declaration: generator.global_scope.members visit_declarations(omit_unnecessary_typedefs_and_macros, null, declaration);
 
+    for declaration: generator.global_scope.members {
+        path: [..] *Declaration;
+
+        defer array_free(path);
+
+        if !gr_namespace_acyclic(declaration, *path) {
+            log_error("Bindings_Generator: cyclic or excessive output namespace graph\n");
+            return false;
+        }
+    }
+
     gr_final_view(generator, owner, active);
 
     // Unsupported later model diagnostics do not redefine the native
@@ -243,6 +254,20 @@ gr_merge_namespaces :: (members: *[..] *Declaration, owner: *GM_Sessions.Session
     }
 
     members.count = retained;
+}
+
+// Visitors may rewire namespace members; the final view needs a finite tree.
+gr_namespace_acyclic :: (declaration: *Declaration, path: *[..] *Declaration) -> bool {
+    if !declaration || declaration.kind != .NAMESPACE return true;
+    if path.count >= 128 || array_find(path.*, declaration) return false;
+
+    array_add(path, declaration);
+
+    defer path.count -= 1;
+
+    for child: (cast(*Namespace) declaration).declarations if !gr_namespace_acyclic(child, path) return false;
+
+    return true;
 }
 
 gr_namespace_visible :: (declaration: *Declaration, options: *Generate_Bindings_Options) -> bool {

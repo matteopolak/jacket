@@ -154,6 +154,7 @@ should_unwrap_typedef :: (cur: CXCursor) -> bool {
 
 should_be_omitted :: (decl: *Declaration, parent_decl: *Declaration) -> bool {
     if decl && decl.decl_flags & .OMIT_FROM_OUTPUT return true;
+    if decl && decl.kind == .MACRO_DEFINITION && decl.macro_value_result == .DISCARD return true;
 
     seen: [..] *Declaration;
 

@@ -32,16 +32,25 @@ binding_declaration :: (builder: *String_Builder, declaration: *Declaration, sco
         if !declaration.expression || declaration.expression.kind != .LITERAL return false;
 
         literal := cast(*Literal) declaration.expression;
-        if literal.literal_kind != .MACRO return false;
-        if declaration.macro_value_result == .NEEDS_CHECKING check_macro_value(declaration);
-        if declaration.macro_value_result != .KEEP return false;
 
-        text := string_from_macro_value(literal.macro_value, name = declaration.name);
+        if literal.literal_kind != .MACRO {
+            // An evaluated constant standing in for an inexpressible spelling.
+            if declaration.macro_value_result != .KEEP || !declaration.type return false;
 
-        defer free(text);
-        if !text return false;
+            print_to_builder(builder, "% :: ", declaration.output_name);
+            print_literal_to_builder(builder, literal, declaration.type, scope);
+            append(builder, ";\n");
+        } else {
+            if declaration.macro_value_result == .NEEDS_CHECKING check_macro_value(declaration);
+            if declaration.macro_value_result != .KEEP return false;
 
-        print_to_builder(builder, "% :: %;\n", declaration.output_name, text);
+            text := string_from_macro_value(literal.macro_value, name = declaration.name);
+
+            defer free(text);
+            if !text return false;
+
+            print_to_builder(builder, "% :: %;\n", declaration.output_name, text);
+        }
     } else if declaration.kind == .BITFIELD {
         group := cast(*Bitfield) declaration;
         unwrapped := maybe_unwrap_bitfield_declaration(declaration);

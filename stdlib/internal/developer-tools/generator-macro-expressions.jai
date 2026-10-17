@@ -219,9 +219,24 @@ gme_macro_text :: (value: Macro_Value, enumeration: *Enum, name: string, ignore_
         if token.kind == .Comment {
             gme_comment(*builder, token.text);
         } else if token.kind == .Literal {
-            converted, success, _was_string := convert_literal_value(token.text);
+            converted, success, was_string := convert_literal_value(token.text);
             if !success return "", false, "unsupported literal spelling";
-            append(*builder, converted);
+
+            if was_string {
+                // Adjacent C string literals form one string; Jai has no such
+                // syntax, so merge their contents between a single pair of quotes.
+                append(*builder, slice(converted, 0, converted.count - 1));
+
+                while index + 1 < limit && tokens[index + 1].kind == .Literal {
+                    next, next_success, next_string := convert_literal_value(tokens[index + 1].text);
+                    if !next_success || !next_string break;
+
+                    append(*builder, slice(next, 1, next.count - 2));
+                    index += 1;
+                }
+
+                append(*builder, "\"");
+            } else append(*builder, converted);
         } else if token.text == "(" {
             fragment: String_Builder;
 
@@ -343,7 +358,7 @@ gme_macro_form :: (value: Macro_Value, name: string) -> bool, string {
         }
 
         word := token.kind == .Identifier || token.kind == .Keyword;
-        if (word || is_string) && (previous_word || previous_string) return false, "adjacent identifier/string concatenation";
+        if (word || is_string) && (previous_word || previous_string) && !(is_string && previous_string) return false, "adjacent identifier/string concatenation";
 
         previous = token.text;
         previous_word = word;
@@ -410,12 +425,32 @@ gme_check_macro :: (declaration: *Declaration) {
     defer free(text);
 
     if !converted {
+        if evaluated.literal_kind == .INTEGER || evaluated.literal_kind == .UNSIGNED_INTEGER || evaluated.literal_kind == .FLOAT {
+            // The spelling has no Jai equivalent (for example sizeof), but the
+            // native value is exact: keep the macro as that typed constant.
+            declaration.expression = cast(*Expression) evaluated;
+            declaration.type = native_type;
+            declaration.macro_value_result = .KEEP;
+
+            return;
+        }
+
         gme_unsupported(declaration.name, conversion_reason);
         declaration.macro_value_result = .DISCARD;
+
         return;
     }
 
-    // Keep the public token expression and any caller-supplied type intact.
+    // A value beyond the signed 64-bit range would read back as a negative
+    // untyped constant, so it is kept as its evaluated unsigned constant.
+    if evaluated.literal_kind == .UNSIGNED_INTEGER && evaluated.uint_value > 0x7fffffffffffffff {
+        declaration.expression = cast(*Expression) evaluated;
+        declaration.type = native_type;
+        declaration.macro_value_result = .KEEP;
+        return;
+    }
+
+    // Otherwise keep the public token expression and any caller-supplied type intact.
     // Validation's established public mutation is the conversion decision.
     declaration.macro_value_result = .KEEP;
 }

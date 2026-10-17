@@ -153,6 +153,9 @@ native_cpp_shape_matches :: (type: *CType, native: CXType, depth := 0, inherited
     if view.number_flags & .FLOAT return floating;
     if floating || (!signed && !unsigned) return false;
 
+    // Plain `char` is modeled as a byte whatever the target's default signedness.
+    if native.kind == .Char_S || native.kind == .Char_U return view.size == 1;
+
     return ((view.number_flags & .SIGNED) != 0) == signed;
 }
 

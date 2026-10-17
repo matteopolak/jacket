@@ -186,6 +186,9 @@ jai_literal_fragment :: (builder: *String_Builder, literal: *Literal, target: *C
         return !builder.failed;
     }
 
+    // Decimal spellings beyond the signed range do not read back as unsigned.
+    if literal.literal_kind == .UNSIGNED_INTEGER && literal.uint_value > 0x7fffffffffffffff hexadecimal = true;
+
     numeric := literal.literal_kind == .INTEGER || literal.literal_kind == .UNSIGNED_INTEGER || literal.literal_kind == .FLOAT;
     base := strip_type(target, typedefs = true, enums = true);
     nominal := strip_type(target, typedefs = true);

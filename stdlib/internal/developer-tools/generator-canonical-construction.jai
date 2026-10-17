@@ -66,6 +66,19 @@ gm_scope_index :: (session: *GM_Sessions.Session, declaration: *Declaration) -> 
     return -1;
 }
 
+// Language-linkage blocks add no scope of their own, so their members belong to
+// the enclosing namespace.
+gm_append_unlinked_children :: (result: *[..] CXCursor, cur: CXCursor, depth: int) {
+    children := native_children(cur);
+
+    defer array_free(children);
+
+    for child: children {
+        if child.kind == .LinkageSpec && depth < 128 gm_append_unlinked_children(result, child, depth + 1);
+        else array_add(result, child);
+    }
+}
+
 gm_namespace_children :: (cur: CXCursor, depth := 0) -> [..] CXCursor {
     result: [..] CXCursor;
 
@@ -85,9 +98,7 @@ gm_namespace_children :: (cur: CXCursor, depth := 0) -> [..] CXCursor {
 
     for sibling: siblings {
         if sibling.kind != .Namespace || clang_equalCursors(clang_getCanonicalCursor(sibling), canonical) == 0 continue;
-        children := native_children(sibling);
-        defer array_free(children);
-        for child: children array_add(*result, child);
+        gm_append_unlinked_children(*result, sibling, 0);
     }
 
     return result;
@@ -123,15 +134,9 @@ gm_prepare_typedef :: (alias: *Typedef, cur: CXCursor) {
             return;
         }
 
-        // Libclang also synthesizes the alias's spelling for anonymous typedef tags.
-        // Equal unqualified names in distinct scopes still introduce distinct public names.
-        nominal_parent := clang_getCanonicalCursor(clang_getCursorSemanticParent(native));
-        alias_parent := clang_getCanonicalCursor(clang_getCursorSemanticParent(cur));
-
-        if nominal.name == alias.name && clang_equalCursors(nominal_parent, alias_parent) != 0 {
-            alias.decl_flags |= .OMIT_FROM_OUTPUT;
-            return;
-        }
+        // An alias spelled like its tag is omitted only if it still prints as the
+        // tag after user visitors run (see omit_unnecessary_typedefs_and_macros),
+        // so a renamed tag keeps its original spelling available as an alias.
     }
 
     matches := false;

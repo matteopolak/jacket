@@ -414,6 +414,18 @@ jai_model_type :: (builder: *String_Builder, type: *CType, scope: *Declaration, 
         return true;
     }
 
+    // An omitted naming alias lends its spelling to the record or enum it names,
+    // so references print that declaration's (possibly renamed) output name.
+    if type.type_of_typedef {
+        alias := type.type_of_typedef;
+        target := alias.type;
+
+        if alias.decl_flags & .OMIT_FROM_OUTPUT && target && (target.type_of_struct || target.type_of_enum) {
+            nominal := ifx target.type_of_struct then cast(*Declaration) target.type_of_struct else cast(*Declaration) target.type_of_enum;
+            if nominal.name == alias.name return jai_model_type(builder, target, scope, flags, depth + 1, existing);
+        }
+    }
+
     if type.type_of_struct || type.type_of_enum || type.type_of_typedef || type.type_of_declaration {
         declaration := query_named_declaration(type);
 

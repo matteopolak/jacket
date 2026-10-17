@@ -60,7 +60,19 @@ convert_literal_value :: (c_value: string) -> value: string, success: bool, was_
 
     if c_value[0] == #char "\"" {
         if c_value.count < 2 || c_value[c_value.count - 1] != #char "\"" return "", false, false;
-        for index: 1..c_value.count - 2 if c_value[index] == #char "\"" return "", false, false;
+
+        index: s64 = 1;
+        last := c_value.count - 1;
+
+        while index < last {
+            if c_value[index] == #char "\\" index += 2;
+            else if c_value[index] == #char "\"" return "", false, false;
+            else index += 1;
+        }
+
+        // A backslash before the closing quote would escape it.
+        if index != last return "", false, false;
+
         return c_value, true, true;
     }
 
