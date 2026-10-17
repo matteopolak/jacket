@@ -315,6 +315,8 @@ static int receive(Service *service, Command *command) {
   XSelectInput(service->display, window,
                PropertyChangeMask | StructureNotifyMask);
   int status = -1;
+  // The owner refused both text targets: it holds something else (an image), and the text is empty.
+  int no_text = 0;
   Atom target = service->utf8;
   for (int attempt = 0; attempt < 2; ++attempt) {
     XDeleteProperty(service->display, window, service->property);
@@ -384,8 +386,10 @@ static int receive(Service *service, Command *command) {
       } else
         dispatch(service, &event);
     }
-    if (service->failure || !refused || target == XA_STRING)
+    if (service->failure || !refused || target == XA_STRING) {
+      no_text = refused && target == XA_STRING;
       break;
+    }
     target = XA_STRING;
   }
   if (window)
@@ -394,6 +398,8 @@ static int receive(Service *service, Command *command) {
     status = -1;
   if (service->failure)
     return service->failure;
+  if (status && no_text)
+    return 0;
   if (!status && target == XA_STRING) {
     unsigned char *utf8 = NULL;
     size_t size = 0;
