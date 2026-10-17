@@ -78,7 +78,7 @@ main :: () {
     assert(B.library_symbol_cache[0].os == OS && B.library_symbol_cache[0].cpu == CPU);
     assert(B.library_symbol_cache[0].full_path == path);
     assert(write_entire_file(path, bytes));
-    different_path := sprint("%../../../../target/../../../../target/generator-platform-cache.o", #filepath);
+    different_path := sprint("%../../../../target/./generator-platform-cache.o", #filepath);
 
     defer free(different_path);
 

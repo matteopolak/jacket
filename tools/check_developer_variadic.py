@@ -29,7 +29,7 @@ def main():
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     # The generator loads the configured library, so it must exist before the first generation.
-    run([prefix / "bin/clang", "-std=c11", "-O0", *flags, tests / "bindings-variadic-native.c",
+    run([prefix / "bin/clang", "-std=c11", "-O0", *flags, driven("bindings-variadic-native.c"),
          "-o", ROOT / f"target/libdeveloper_tools_variadic.{suffix}"])
     for mode in ["interp", "0", "2"]:
         if mode == "interp":

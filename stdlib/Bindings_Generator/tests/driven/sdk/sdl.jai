@@ -38,13 +38,13 @@ main :: () {
     check(surface.format.Rmask == 0xff && surface.format.Amask == 0xff000000);
     S.SDL_FreeSurface(surface);
     check(pixels[0] == 0xff0000ff);
-    check(write_fixture(".work/native/sdl-test.bmp") == 0);
-    bitmap := S.SDL_LoadBMP(".work/native/sdl-test.bmp");
+    check(write_fixture("target/sdl-test.bmp") == 0);
+    bitmap := S.SDL_LoadBMP("target/sdl-test.bmp");
 
     check(bitmap != null && bitmap.w == 2 && bitmap.h == 1);
     S.SDL_FreeSurface(bitmap);
     S.SDL_ClearError();
-    missing := S.SDL_LoadBMP(".work/native/no-such-bitmap.bmp");
+    missing := S.SDL_LoadBMP("target/no-such-bitmap.bmp");
 
     check(missing == null);
     error := S.SDL_GetError();

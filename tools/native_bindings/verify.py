@@ -364,7 +364,10 @@ def select_stdlib(work, foundation=None, production=None):
     return destination
 
 
-def fixture_arguments(name, env):
+def fixture_arguments(name, env, work=None):
+    if name == "sdl-rwops":
+        # The program creates, loads and removes this file itself.
+        return [str(Path(work) / "sdl-rwops-data")]
     if name != "freetype":
         return []
     font = env.get("JAIC_TEST_FONT_PATH")
@@ -988,7 +991,7 @@ def run_verification(cleanup):
                 )
             runtime_env = private_env if name in PRIVATE_UNITS else env
             try:
-                arguments = fixture_arguments(name, runtime_env)
+                arguments = fixture_arguments(name, runtime_env, work)
             except ValueError as error:
                 report["native"].append(
                     {

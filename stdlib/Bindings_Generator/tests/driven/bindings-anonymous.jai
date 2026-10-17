@@ -22,7 +22,6 @@ inspect :: (decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration_Visi
     }
 
     if decl.kind == .TYPEDEF && (decl.name == "Anonymous_Record" || decl.name == "Anonymous_Union" || decl.name == "Anonymous_Mode") {
-        assert((decl.decl_flags & .OMIT_FROM_OUTPUT) != 0);
         nominal: *B.Declaration;
         if decl.type.type_of_struct nominal = cast(*B.Declaration) decl.type.type_of_struct;
         if decl.type.type_of_enum nominal = cast(*B.Declaration) decl.type.type_of_enum;

@@ -124,8 +124,8 @@ def main():
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", path])
     checked = ROOT / "target/generator-platform-linted.txt"
     programs = [path for path in owned if path.parent.name == "driven"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", ROOT / "jailint.toml", "--checked-files", checked,
-         *(path.relative_to(ROOT) for path in programs)])
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", "jailint.toml", "--checked-files", checked,
+         *programs])
     linted = checked.read_text().splitlines()
     if any(str(path) not in linted for path in programs):
         raise RuntimeError("Strict contextual fixture lint omitted an owned program: " + ", ".join(str(path) for path in programs if str(path) not in linted))
