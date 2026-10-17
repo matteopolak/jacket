@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.18.0] - 2026-10-18
+## [0.18.0] - 2026-10-17
 
 The project has a new name: **Jacket** ("Jai kit"). This release also lets editors open code you don't trust safely, and makes `jailint` faster and easier to extend.
 
