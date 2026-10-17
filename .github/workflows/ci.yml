@@ -4,6 +4,11 @@ on:
     branches: [main, staging]
   pull_request:
   workflow_dispatch:
+    inputs:
+      jobs:
+        description: 'Comma-separated job ids to run (empty runs everything); select needed jobs together'
+        required: false
+        default: ''
 permissions:
   contents: read
 env:
@@ -47,6 +52,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: python3 tools/ci_changes.py
   fuzz-regressions:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',fuzz-regressions,'))
     # Replays the saved crash inputs so fixed crashes stay fixed (nightly fuzzing: fuzz.yml).
     name: replay fuzz regressions
     runs-on: ubuntu-24.04
@@ -62,6 +68,7 @@ jobs:
       - name: Replay fuzz/regressions through the harnesses
         run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
   scripting-wasm:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',scripting-wasm,'))
     name: scripting interpreter (LLVM-free WebAssembly)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -111,6 +118,7 @@ jobs:
           cargo build --locked -j 2 -p jaic-cli --no-default-features
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
   test:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',test,'))
     name: compiler (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -249,6 +257,7 @@ jobs:
           echo "One or more checks failed; see their original step diagnostics."
           exit 1
   vscode-extension:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',vscode-extension,'))
     # editors/vscode: lint, unit and grammar tests, VS Code integration tests against a debug
     # jailsp, and the .vsix (docs/tools/vscode-extension.md).
     name: VS Code extension
@@ -301,6 +310,7 @@ jobs:
           path: editors/vscode/jacket-vscode.vsix
           if-no-files-found: error
   neovim-plugin:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',neovim-plugin,'))
     # editors/nvim: the headless tests, including an end-to-end run against a debug jailsp
     # (docs/tools/neovim-plugin.md).
     name: Neovim plugin
@@ -329,6 +339,7 @@ jobs:
       - name: Run the plugin tests (builds only jailsp)
         run: just nvim-test -j 2
   stdlib-runtime:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',stdlib-runtime,'))
     name: stdlib runtime tests (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -415,6 +426,7 @@ jobs:
         if: ${{ always() && !cancelled() }}
         run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }}
   upstream-smoke:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',upstream-smoke,'))
     # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
     # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
     # their tests, games and editors open a window on a virtual display for a few seconds and must
@@ -481,6 +493,7 @@ jobs:
           path: target/smoke-screenshots
           if-no-files-found: ignore
   sanitizers:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',sanitizers,'))
     # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
     # with the interpreter's expectations; any sanitizer report fails the case
     # (docs/native/sanitizers.md).
@@ -523,7 +536,7 @@ jobs:
     # generated bindings checked (docs/extensions/sdl3.md).
     name: SDL3 native artifacts (${{ matrix.platform }})
     needs: changes
-    if: needs.changes.outputs.sdl3 == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',sdl3,')) && (needs.changes.outputs.sdl3 == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -579,7 +592,7 @@ jobs:
     # The Linux clipboard against real X11 clients on Xvfb, and the relocated package.
     name: Linux clipboard (X11)
     needs: changes
-    if: needs.changes.outputs.clipboard == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',clipboard-linux,')) && (needs.changes.outputs.clipboard == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -608,7 +621,7 @@ jobs:
     # programs natively) and runs the packaged compiler; see docs/tools/releases.md.
     name: flake (${{ matrix.runner }})
     needs: changes
-    if: needs.changes.outputs.nix == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',nix,')) && (needs.changes.outputs.nix == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -643,7 +656,7 @@ jobs:
   # is published from here (release.yml publishes); see docs/tools/releases.md.
   shellcheck:
     needs: changes
-    if: needs.changes.outputs.packaging == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',shellcheck,')) && (needs.changes.outputs.packaging == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -654,7 +667,7 @@ jobs:
         run: shellcheck --version && shellcheck -s sh install.sh
   install-sh:
     needs: changes
-    if: needs.changes.outputs.packaging == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',install-sh,')) && (needs.changes.outputs.packaging == 'true')
     name: install.sh (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -809,7 +822,7 @@ jobs:
           cat err.txt && grep -q "is not a symlink" err.txt
   install-ps1:
     needs: changes
-    if: needs.changes.outputs.packaging == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',install-ps1,')) && (needs.changes.outputs.packaging == 'true')
     runs-on: windows-2025
     timeout-minutes: 15
     steps:
@@ -904,7 +917,7 @@ jobs:
           (Get-Command jaifmt, jailsp).Source
   homebrew:
     needs: changes
-    if: needs.changes.outputs.packaging == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',homebrew,')) && (needs.changes.outputs.packaging == 'true')
     name: homebrew (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -1002,7 +1015,7 @@ jobs:
   windows-cross:
     name: cross-build ${{ matrix.cpu }} (Linux, ${{ matrix.mingw }})
     needs: changes
-    if: needs.changes.outputs.windows == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-cross,')) && (needs.changes.outputs.windows == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -1052,6 +1065,7 @@ jobs:
           path: cross-${{ matrix.cpu }}
           if-no-files-found: error
   windows-run-cross:
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-run-cross,'))
     name: run cross-built programs (Windows ${{ matrix.cpu }})
     needs: windows-cross
     strategy:
@@ -1088,7 +1102,7 @@ jobs:
   windows-native:
     name: jaic on Windows ${{ matrix.cpu }} (MSVC)
     needs: changes
-    if: needs.changes.outputs.windows == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-native,')) && (needs.changes.outputs.windows == 'true')
     strategy:
       fail-fast: false
       matrix:
@@ -1329,7 +1343,7 @@ jobs:
     # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
     name: third-party projects (Windows x64)
     needs: changes
-    if: needs.changes.outputs.windows == 'true'
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-smoke,')) && (needs.changes.outputs.windows == 'true')
     concurrency:
       group: ${{ github.workflow }}-windows-smoke-${{ github.ref }}
       cancel-in-progress: true
