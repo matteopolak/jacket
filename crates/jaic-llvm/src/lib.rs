@@ -820,6 +820,8 @@ enum LinkArg {
     Rpath(String),
     /// Link-time search directory.
     SearchDir(String),
+    /// An option for the linker driver, passed as it is.
+    Option(String),
 }
 
 /// Puts the library files (built archives such as `libstb_vorbis.a`) ahead of libraries linked
@@ -828,6 +830,22 @@ enum LinkArg {
 /// dropped before the archive needs it; system libraries never need our archives.
 fn order_link_groups(groups: &mut [Vec<LinkArg>]) {
     groups.sort_by_key(|group| !group.iter().any(|arg| matches!(arg, LinkArg::File(_))));
+}
+
+/// `library_args`, kept in the link when nothing references the library: with `--as-needed`
+/// (Ubuntu's default) the linker drops a shared library no symbol needs, and a
+/// `#library,link_always` one exists for its constructor.
+fn library_group(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<LinkArg>, String> {
+    let mut args = library_args(lib, flavor, cross)?;
+    if lib.link_always
+        && flavor == LinkFlavor::Unix
+        && !args.is_empty()
+        && !cfg!(target_os = "macos")
+    {
+        args.insert(0, LinkArg::Option("-Wl,--push-state,--no-as-needed".into()));
+        args.push(LinkArg::Option("-Wl,--pop-state".into()));
+    }
+    Ok(args)
 }
 
 /// Link object files into an executable (or shared library) for `target` (`None`: the
@@ -853,7 +871,7 @@ pub fn link(
     // Each library's argument group is added once (`-framework X` is two arguments).
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_args(lib, flavor, cross)?;
+        let args = library_group(lib, flavor, cross)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
@@ -985,7 +1003,7 @@ pub fn link_inputs(
     let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_args(lib, flavor, cross)?;
+        let args = library_group(lib, flavor, cross)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
@@ -1008,6 +1026,7 @@ pub fn link_inputs(
                 inputs.user_libraries.push(format!("/LIBPATH:{dir}"))
             }
             LinkArg::SearchDir(dir) => inputs.user_libraries.push(format!("-L{dir}")),
+            LinkArg::Option(option) => inputs.user_libraries.push(option),
         }
     }
     if flavor == LinkFlavor::Msvc {
@@ -1163,6 +1182,7 @@ fn render_link_arg(cmd: &mut Command, arg: &LinkArg, msvc_style: bool) {
         (LinkArg::Rpath(dir), _) => cmd.arg(format!("-Wl,-rpath,{dir}")),
         (LinkArg::SearchDir(dir), false) => cmd.arg(format!("-L{dir}")),
         (LinkArg::SearchDir(dir), true) => cmd.arg(format!("/LIBPATH:{dir}")),
+        (LinkArg::Option(option), _) => cmd.arg(option),
     };
 }
 
