@@ -804,11 +804,6 @@ fn unsupported_compiler_requests_are_errors() {
             "raw LLVM command-line options are unavailable",
         ),
         (
-            "natvis",
-            "options := get_build_options(w); options.use_natvis_compatible_types = true; set_build_options(options, w);",
-            "Natvis-compatible type emission is unavailable",
-        ),
-        (
             "os",
             "options := get_build_options(w); options.os_target = .PS5; set_build_options(options, w);",
             "jaic cannot build for `os_target = .PS5`",
@@ -917,10 +912,6 @@ fn default_metaprogram_options() {
         (&["-os", "plan9"][..], "Unknown option '-os'"),
         (&["-cpu", "mips"][..], "Unknown option '-cpu'"),
         (&["-no_output"][..], "Unknown option '-no_output'"),
-        (
-            &["-natvis"][..],
-            "Natvis-compatible type emission is unavailable",
-        ),
     ] {
         let output = run(options);
         let stderr = format!(
