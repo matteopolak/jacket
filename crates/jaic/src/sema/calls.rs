@@ -934,13 +934,13 @@ impl Compiler {
                 return err(arg.span, "register operands require an expanded procedure");
             }
             if let Some(expr) = &arg.expr
-                && let Some((asm::AsmReg::Vec, _)) = self.asm_reg_named(arg.scope, expr)?
+                && self.asm_reg_named(arg.scope, expr)?.is_some()
             {
                 return Ok(convert::EXACT);
             }
             return err(
                 arg.span,
-                "expected a SIMD register operand, not a scalar or memory value",
+                "expected an #asm register operand, not a scalar or memory value",
             );
         }
 
@@ -3778,9 +3778,15 @@ impl Compiler {
                 let Some(expr) = &args[*a].expr else {
                     return err(param.span, "register operands need a caller register");
                 };
-                let Some((asm::AsmReg::Vec, addr)) = self.asm_reg_named(args[*a].scope, expr)?
-                else {
-                    return err(args[*a].span, "expected a SIMD register operand");
+                let Some((kind, addr)) = self.asm_reg_named(args[*a].scope, expr)? else {
+                    return err(args[*a].span, "expected an #asm register operand");
+                };
+                // A general-purpose or mask register is a 64-bit local, so the parameter is
+                // seen as such inside the body; only a vector register carries the marker type.
+                let ty = if kind == asm::AsmReg::Vec {
+                    param.ty
+                } else {
+                    TypeId::U64
                 };
                 let depth = self.scope(mscope).proc_depth;
                 let entity = self.add_entity(
@@ -3788,13 +3794,13 @@ impl Compiler {
                     name,
                     param.span,
                     EntityKind::Local {
-                        ty: param.ty,
+                        ty,
                         addr,
                         depth,
                     },
                     false,
                 );
-                self.asm_regs.insert(entity, asm::AsmReg::Vec);
+                self.asm_regs.insert(entity, kind);
                 continue;
             }
             if param.ty == TypeId::CODE {

@@ -287,6 +287,13 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
                 if !expression(builder, arg.expression, true, bodies, next) return false;
             }
 
+            // What follows `,,` changes the context for this call; it is not an argument.
+            changes := syntax_child(node, "__syntax_context_arguments");
+            if changes {
+                names := syntax_string(node, "__syntax_context_names");
+                if !context_changes(builder, changes, names, bodies, next) return false;
+            }
+
             Basic.append(builder, ")");
 
             return true;
@@ -889,6 +896,40 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
     return false;
 }
 
+// The context changes written after `,,` in a call. `names` holds each one's parameter name
+// (empty when it is positional), separated by commas, in the order of the changes.
+context_changes :: (builder: *Basic.String_Builder, changes: *C.Code_Node, names: string, bodies: bool, depth: s64) -> bool {
+    start := 0;
+    index := 0;
+
+    while true {
+        end := start;
+        while end < names.count && names[end] != #char "," end += 1;
+
+        node := changes;
+        if changes.kind == .COMMA_SEPARATED_ARGUMENTS {
+            list := cast(*C.Code_Comma_Separated_Arguments) changes;
+            if index >= list.arguments.count return false;
+            node = list.arguments[index].node;
+        } else if index > 0 return false;
+
+        Basic.append(builder, " ,, ");
+
+        if end > start {
+            Basic.append(builder, string.{ end - start, names.data + start });
+            Basic.append(builder, " = ");
+        }
+
+        if !expression(builder, node, true, bodies, depth) return false;
+
+        index += 1;
+        if end >= names.count break;
+        start = end + 1;
+    }
+
+    return true;
+}
+
 declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print_using: bool, compound: *C.Code_Compound_Declaration, print_type: bool, bodies: bool, depth: s64, parameter := false) -> bool {
     if !decl || depth > 512 return false;
     if syntax_int(decl, .INCOMPLETE) return false;
@@ -921,7 +962,18 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
     if compound {
         if !compound.comma_separated_assignment return false;
 
-        for arg, i: compound.comma_separated_assignment.arguments {
+        assigns := false;
+        for arg: compound.comma_separated_assignment.arguments {
+            if arg.modifier == .ASSIGN assigns = true;
+        }
+
+        // Targets that are only declared print as `a, b := value`. Once an existing variable
+        // is assigned too, every element but the last carries its own marker (`:` after a
+        // declared name, `=` after an assigned target) and the last shares the `=` that
+        // introduces the values: `a:, existing = value`, `existing =, b: int = value`.
+        arguments := compound.comma_separated_assignment.arguments;
+        for arg, i: arguments {
+            last := i == arguments.count - 1;
             if i Basic.append(builder, ", ");
             if !arg.node return false;
 
@@ -930,10 +982,29 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
                 member := cast(*C.Code_Declaration) arg.node;
                 if member.flags & .HAS_SCOPE_MODIFIER Basic.append(builder, "`");
                 Basic.append(builder, member.name);
+
+                if assigns {
+                    Basic.append(builder, ":");
+
+                    type_inst := member.type_inst;
+                    if !type_inst && last type_inst = decl.type_inst;
+
+                    if print_type && type_inst {
+                        Basic.append(builder, " ");
+                        if !expression(builder, type_inst, true, bodies, depth + 1) return false;
+                    }
+                }
             } else if arg.modifier == .ASSIGN {
                 if !expression(builder, arg.node, true, bodies, depth + 1) return false;
-                Basic.append(builder, "=");
+                if assigns && !last Basic.append(builder, " =");
             } else return false;
+        }
+
+        if assigns {
+            if !decl.expression return false;
+
+            Basic.append(builder, " = ");
+            return expression(builder, decl.expression, true, bodies, depth + 1);
         }
     } else {
         if decl.flags & .HAS_SCOPE_MODIFIER Basic.append(builder, "`");

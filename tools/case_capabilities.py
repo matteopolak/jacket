@@ -4,13 +4,7 @@ Consumers declare required_capabilities in reviewed case metadata. This table
 does not discover/import projects or change compiler/module configuration.
 """
 
-USER_DEFERRED_CAPABILITIES = {
-    "native-windows-console-colors": {
-        "os": "windows",
-        "date": "2026-10-16",
-        "reference": "TODO.md#deferred-native-windows-console-colors",
-    },
-}
+USER_DEFERRED_CAPABILITIES = {}
 
 
 def user_deferred_reason(case, target_os):

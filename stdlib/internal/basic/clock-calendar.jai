@@ -45,6 +45,10 @@
     }
 
     current_time_monotonic :: () -> Apollo_Time {
+        #if OS != BUILD_OS {
+            if #compile_time return host_monotonic_time();
+        }
+
         value: Clock_Native.timespec;
         status := Clock_Native.clock_gettime(.MONOTONIC, *value);
 

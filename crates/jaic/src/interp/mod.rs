@@ -61,6 +61,10 @@ pub enum Hook {
     /// `write_strings(strings: ..string, to_standard_error: bool)`
     WriteStrings,
     DebugBreak,
+    /// `() -> s64`: nanoseconds on the compiler host's monotonic clock. Compile-time code runs on
+    /// the host whatever target is selected, so the clock identifiers of the target's C library
+    /// (`clock_gettime`'s differ between Linux and macOS) cannot be passed to the host's.
+    HostMonotonicNanos,
     /// A runtime-opted-in assertion callback: a failed
     /// `assert`, reported by the compiler as a runtime error (`Trap::assertion`) rather than
     /// printed by the runtime. `context` says whether it takes a context pointer.
@@ -2133,6 +2137,15 @@ impl Interp {
                 }
             }
             Hook::DebugBreak => return self.trap("debug_break() was called"),
+            Hook::HostMonotonicNanos => {
+                static ORIGIN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+                // Start above zero so a reading is never mistaken for an unset value.
+                let nanos = ORIGIN
+                    .get_or_init(std::time::Instant::now)
+                    .elapsed()
+                    .as_nanos();
+                return Ok(Rets::one((nanos as u64).saturating_add(1_000_000_000)));
+            }
             Hook::AssertionFailed {
                 context,
                 location,

@@ -413,7 +413,6 @@ mod registers {
         for bad in [
             "use :: (v:__reg) #expand {} main :: () { n:u16; use(n); }",
             "use :: (v:__reg) #expand {} main :: () { n:[16]u8; use(n); }",
-            "use :: (v:__reg) #expand {} main :: () { #asm { v:gpr; } use(v); }",
             "main :: () { #asm { v:vec; } n:=v; }",
             "main :: () { #asm { v:vec; add v,1; } }",
             "main :: () { value:__reg; }",

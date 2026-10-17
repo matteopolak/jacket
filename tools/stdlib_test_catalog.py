@@ -100,6 +100,7 @@ PLATFORM_REQUIREMENTS = {
     "compiler/socket-select-canonical-timeval": ("linux", "macos"),
     "extensions/io-uring-dependency-repro": "linux",
     "Input/tests/windows-device-decoding": "windows",
+    "Print_Color/tests/windows-console": "windows",
     "tests/portable-data-console-windows": "windows",
     "tests/portable-data-discovery-windows": "windows",
     "tests/portable-data-manifest-windows": "windows",

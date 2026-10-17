@@ -14,7 +14,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Native and browser
 
-[LLVM backend](native/llvm-backend.md), [C ABI](native/c-abi.md), [Windows](native/windows.md), [WebAssembly](native/wasm-target.md), [debug info](native/debug-info.md), [linking](native/native-linking.md), [crash runtime build](native/crash-runtime-build.md), [sanitizers](native/sanitizers.md), [browser build and playground](browser/playground.md).
+[LLVM backend](native/llvm-backend.md), [C ABI](native/c-abi.md), [Windows](native/windows.md), [WebAssembly](native/wasm-target.md), [Windows console colors](native/windows-console-colors.md), [debug info](native/debug-info.md), [linking](native/native-linking.md), [crash runtime build](native/crash-runtime-build.md), [sanitizers](native/sanitizers.md), [browser build and playground](browser/playground.md).
 
 ## Tools and editors
 

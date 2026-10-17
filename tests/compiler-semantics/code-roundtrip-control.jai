@@ -58,6 +58,14 @@ main :: () -> int {
         first =, third: int = 29, 31;
         if first != 29 || second != 23 || third != 31 return 13;
 
+        fourth:, first = 37, 41;
+        if fourth != 37 || first != 41 return 14;
+
+        scratch: [..] int;
+        array_add(*scratch, 5 ,, temp);
+        array_add(*scratch, 6 ,, allocator = temp);
+        if scratch.count != 2 || scratch[1] != 6 return 15;
+
         text := "quote\" slash\\ tab\t nul\x00 high\xff";
         if !(text.count == 29) return 7;
 

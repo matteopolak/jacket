@@ -17,7 +17,7 @@ impl Compiler {
         scope: ScopeId,
         stmts: &[ast::Stmt],
     ) -> Result<()> {
-        // `#import` in a body is visible to the whole file, also before the statement.
+        // `#import` in a body is visible to the whole module, also before the statement.
         let file_scope = self.file_scope_of(scope);
         self.hoist_body_imports(file_scope, stmts, false);
         // Constants are visible throughout their block, also before their declaration.
@@ -590,7 +590,7 @@ impl Compiler {
     }
 
     /// Add the unnamed (or `using`) `#import`s among `stmts` (and, when `nested`, inside their plain
-    /// blocks and control flow, but not `#if` branches) to `file_scope`, once each.
+    /// blocks and control flow, but not `#if` branches) to the module of `file_scope`, once each.
     pub(super) fn hoist_body_imports(
         &mut self,
         file_scope: ScopeId,
@@ -602,8 +602,14 @@ impl Compiler {
                 // `using Name :: #import` brings the names in like an unnamed import.
                 S::Import(import) if import.name.is_none() || import.using.is_some() => {
                     if self.hoisted_imports.insert(import.span) {
+                        // An anonymous import belongs to the module's import environment,
+                        // wherever it is written (as a top-level one does), so the module's
+                        // other files see it too. Paths and parameters still resolve from
+                        // the file that wrote it.
+                        let module = self.scope(file_scope).module;
+                        let target = self.modules[module.0 as usize].scope;
                         self.push_import(
-                            file_scope,
+                            target,
                             scope::ImportEntry {
                                 import: import.clone(),
                                 module: None,

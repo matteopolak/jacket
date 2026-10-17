@@ -454,6 +454,17 @@ jobs:
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/upstream_smoke.py --jaic target/release/jaic --platform ${{ matrix.platform }}
+      - name: Check the x64-only projects
+        # Examples and projects that need an x86-64 host (CPUID, #asm, the Linux Vulkan
+        # configuration of Vk-Engine) are checked or built through the sweep's upstream cases.
+        if: ${{ matrix.platform == 'linux-x64' }}
+        run: |
+          python3 tools/fetch_upstreams.py --only Ivo-Balbaert/The_Way_to_Jai ostef/Vk-Engine ostef/Linalg ostef/Jolt-Jai ostef/JoltC danieltan1517/chess-jai
+          rc=0
+          for filter in ttwj-28-28.5- ttwj-28-28.7- ttwj-30-jai-raylib-build chess-jai-ui-check chess-jai-engine-check vk-engine-; do
+            xvfb-run -a python3 -u tools/jaic-sweep.py --jaic target/release/jaic --timeout 600 -v upstream --filter "$filter" || rc=1
+          done
+          exit $rc
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:
@@ -1310,6 +1321,14 @@ jobs:
           python tools/fetch_upstreams.py --only "${project_names[@]}"
       - name: Build and run the projects
         run: python -u tools/upstream_smoke.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --platform windows-x64 --dlls "$RUNNER_TEMP/mesa"
+      - name: Check the x64-only projects
+        run: |
+          python tools/fetch_upstreams.py --only Ivo-Balbaert/The_Way_to_Jai danieltan1517/chess-jai
+          rc=0
+          for filter in ttwj-28-28.5- ttwj-28-28.7- ttwj-30-jai-raylib-build chess-jai-ui-check chess-jai-engine-check; do
+            python -u tools/jaic-sweep.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --timeout 600 -v upstream --filter "$filter" || rc=1
+          done
+          exit $rc
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:

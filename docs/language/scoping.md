@@ -18,7 +18,7 @@ secret :: 1;         // this file only
 ```
 
 - Module-private and file-private names fail importer lookup with a missing-export diagnostic, including qualified `M.name`. A `#import` under `#scope_file` is visible only in that file. Each `#load`ed file starts as exported.
-- `using Color;` makes enum members unqualified; `using v;` on a struct local makes its fields plain ([using](using.md)). `using S :: #import "M";` names the module and exposes its members; at export visibility this re-exports them. An `#import` inside a procedure body is visible file-wide (`hoist_body_imports`, `sema/stmt.rs`).
+- `using Color;` makes enum members unqualified; `using v;` on a struct local makes its fields plain ([using](using.md)). `using S :: #import "M";` names the module and exposes its members; at export visibility this re-exports them. An `#import` inside a procedure body joins the module's imports, like a top-level anonymous one, so it is visible in every file of the module (`hoist_body_imports`, `sema/stmt.rs`).
 - A top-level `#if` selects declarations and `#load`s by a constant condition, with or without braces. Plain-constant conditions expand first, before any `#run`, so a conditional `#load` (and its `#add_context`) lands before the Context type is laid out.
 - `#this` inside an `#expand` macro, including a backtick `defer`, is the procedure the macro expanded into (`check_this` retried per macro frame and `backtick_scope`). `type_of(field)` in a procedure nested in a struct names the field's type with no value (`type_field_type`, `sema/calls.rs`).
 
@@ -36,7 +36,7 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 - Both module-private and file-private names fail importer lookup with a missing-export diagnostic. A `#import` under `#scope_file` is visible only in that file {#scope.4}; sibling files cannot use its names. Each `#load`ed file starts with export visibility independently of its caller's active directive.
 - `using Color;` makes enum members unqualified {#scope.5}; `using v;` on a struct local makes its fields plain names {#scope.6}. See [using](using.md).
 - `using S :: #import "M";` names the module and exposes its members {#scope.7}. At export visibility this re-exports them to importers {#scope.8}; `using global;` does the same for a global {#scope.9}.
-- `#import "Math";` inside a procedure body works, and its names are visible in the whole file (`hoist_body_imports` in `stmt.rs`) {#scope.10}.
+- `#import "Math";` inside a procedure body works, and its names are visible in every file of the module, not just the one that wrote it (`hoist_body_imports` in `stmt.rs`) {#scope.10}.
 - A top-level `#if` selects declarations and `#load`s by a constant condition {#scope.11}, with or without braces and with an optional `else` {#scope.12}; `#exists(name)` tests whether a name is declared {#scope.13}.
 - `#if` conditions that are plain constants are expanded first, before any `#run`, so a conditional `#load` (and any `#add_context` in it) lands before the Context type is laid out {#scope.14}.
 - `#this` inside an `#expand` macro, including in a backtick `defer`, is the procedure the macro expanded into {#scope.15}: `check_this` is retried from each macro frame's caller scope and from `backtick_scope`.

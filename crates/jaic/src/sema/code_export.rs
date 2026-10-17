@@ -1799,11 +1799,25 @@ impl Exporter<'_> {
                 args,
                 hint,
             } => {
+                // `f(x ,, allocator = a)`: what follows `,,` changes the context for the call
+                // and is no argument of the procedure.
+                let (changes, plain): (Vec<_>, Vec<_>) =
+                    args.iter().cloned().partition(|arg| arg.context);
                 let resolved = self
-                    .resolve_call(callee, args.len())
+                    .resolve_call(callee, plain.len())
                     .map(|p| self.instance_called_at(p, span));
                 let callee = self.expr(callee);
-                let (unsorted, sorted) = self.args(args);
+                let (unsorted, sorted) = self.args(&plain);
+                let change_values: Vec<i64> = changes.iter().map(|a| self.expr(&a.value)).collect();
+                let change_names = changes
+                    .iter()
+                    .map(|a| {
+                        a.name
+                            .map_or(String::new(), |n| n.name.as_str().to_string())
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let change_list = self.node_list(&change_values, span);
                 let mut rec = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
                 rec.ptr("procedure_expression", callee)
                     .int(
@@ -1816,6 +1830,10 @@ impl Exporter<'_> {
                     )
                     .refs("arguments_unsorted", unsorted)
                     .refs("arguments_sorted", sorted);
+                if !change_values.is_empty() {
+                    rec.ptr("__syntax_context_arguments", change_list)
+                        .str("__syntax_context_names", change_names.as_bytes());
+                }
                 if let Some(p) = resolved {
                     let header = self.resolved_header(p);
                     rec.ptr("resolved_procedure_expression", header);

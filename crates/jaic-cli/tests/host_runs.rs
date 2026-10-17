@@ -42,6 +42,19 @@ fn workspace_host_clock_produces_a_linux_x64_object() {
 }
 
 #[test]
+fn compile_time_clock_reads_the_host_for_every_target_os() {
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/host-runs/cross-target-compile-time-clock.jai");
+    for os in ["linux", "macos", "windows"] {
+        success(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .arg(&source)
+                .args(["-check", "-os", os, "-cpu", "x64"]),
+        );
+    }
+}
+
+#[test]
 fn host_values_runs_in_the_interpreter() {
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))

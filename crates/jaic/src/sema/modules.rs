@@ -982,7 +982,7 @@ impl Compiler {
                         self.note_declaration(id, decl);
                     }
                 }
-                // A procedure's body `#import`s are visible to the whole file (`#if`-guarded
+                // A procedure's body `#import`s are visible to the whole module (`#if`-guarded
                 // ones once their branch is checked).
                 if let Some(ast::Expr {
                     kind: ast::ExprKind::Proc(lit),

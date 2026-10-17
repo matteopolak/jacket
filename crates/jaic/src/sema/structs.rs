@@ -2609,7 +2609,9 @@ impl Compiler {
             let Operand::Place {
                 ty: pty,
                 addr,
-            } = self.literal_target(f, scope, ty, tmp, target)?
+            } = self
+                .literal_target(f, scope, ty, tmp, target)?
+                .without_callable()
             else {
                 return err(target.span, "this field target cannot be assigned");
             };

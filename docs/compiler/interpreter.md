@@ -37,6 +37,10 @@ The sandbox also stands in for calls a metaprogram written for another target ma
 - Relative `add_build_file` and `import_path` entries resolve against the host's working directory.
 - An unknown call traps with "unavailable". To add one, add an arm to `windows_foreign` or the POSIX match in `sandbox.rs`; arguments arrive as raw `u64`s, report errors through `set_errno` and return -1.
 
+### Compile-time code for another target
+
+`#run` code runs on the machine compiling, whatever `-os` says. Stdlib code that chooses constants by target OS (Linux clock IDs, `struct` layouts) therefore disagrees with the host libc when the two differ. Where a call has a portable host equivalent, the stdlib asks the interpreter for it instead: `current_time_monotonic` ends in `compile_time_host_monotonic_nanoseconds` (`stdlib/internal/basic/host-clock.jai`, `Hook::HostMonotonicNanos`) whenever `OS != BUILD_OS` and the code runs at compile time. Anything else that needs the real operating system (forking, pipes, file locking) belongs in `#run,host` or on a host of the target's own OS.
+
 ### Native foreign calls
 
 Every call in `native.rs` goes through one C prototype with 8 integer and 8 `double` register arguments plus 16 eight-byte stack slots. Arguments are classified with `jaic::abi` (shared with `jaic-llvm`): scalars fill registers in order, larger structs are copied and passed by pointer (arm64) or `byval` (x86-64), and the return shape (`II`, `IF`, `FF`, ..., or a hidden result pointer) comes from the same classification. On Apple arm64 variadic arguments go on the stack and a stack argument under 8 bytes is an error. Limit: about 18 stack words.
