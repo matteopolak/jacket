@@ -11,7 +11,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -92,17 +92,6 @@
     "stdout": "-42 true text 55\n"
   },
   {
-    "name": "builder-allocation",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
     "name": "builder-format",
     "stdout": "ok\n"
   },
@@ -147,17 +136,6 @@
     "stdout": "ok\n"
   },
   {
-    "name": "context-style",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
     "name": "corpus-api/file-compile-time-qualified",
     "stdout": "ok\n"
   },
@@ -191,7 +169,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -223,7 +201,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -309,7 +287,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -340,7 +318,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -351,7 +329,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -384,24 +362,13 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
     "name": "negative/builder-buffer-visibility",
     "mode": "check-fail",
     "diagnostic_contains": "module `Basic` has no exported member `Buffer`"
-  },
-  {
-    "name": "negative/file-compile-time-private",
-    "stdout": "",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
   },
   {
     "name": "negative/interface-import-visibility",
@@ -430,7 +397,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -532,7 +499,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -543,7 +510,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -565,7 +532,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -575,7 +542,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -585,7 +552,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -637,7 +604,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -673,7 +640,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -684,7 +651,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -695,7 +662,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ],
     "required_os": [
       "linux",
@@ -718,7 +685,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -733,7 +700,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -744,7 +711,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -759,7 +726,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ],
     "required_os": [
       "linux",
@@ -774,7 +741,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {

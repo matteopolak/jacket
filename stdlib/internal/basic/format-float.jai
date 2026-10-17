@@ -170,6 +170,7 @@ shortest_text :: (value: float64, wide: bool, power_of_two: bool) -> string {
     }
 
     assert(raw.data != null, "shortest float conversion failed to round-trip");
+
     return raw;
 }
 
@@ -177,9 +178,11 @@ shortest_text :: (value: float64, wide: bool, power_of_two: bool) -> string {
 // are zeros, so the digits past that precision are not the exact integer the bits encode.
 padded_integer :: (value: float64) -> string {
     scientific := portable_float(value, 101, 17);
+
     defer free(scientific);
 
     builder: String_Builder;
+
     defer free_buffers(*builder);
 
     digits: s64;
@@ -202,6 +205,7 @@ padded_integer :: (value: float64) -> string {
     if negative_exponent exponent_value = -exponent_value;
 
     formatter_repeat(*builder, 48, max(cast(s64) 0, exponent_value + 1 - digits));
+
     return builder_to_string(*builder);
 }
 

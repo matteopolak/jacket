@@ -21,9 +21,9 @@ JAI = [
     "stdlib/Clipboard/tests/linux-api.jai",
     "stdlib/Clipboard/tests/linux-roundtrip.jai",
     "stdlib/Clipboard/tests/linux-no-empty.jai",
-    "stdlib/Clipboard/tests/linux-private.jai",
+    "stdlib/Clipboard/tests/driven/linux-private.jai",
     "stdlib/Clipboard/tests/platform-api.jai",
-    "stdlib/Clipboard/tests/linux-window-source.jai",
+    "stdlib/Clipboard/tests/driven/linux-window-source.jai",
 ]
 C = [
     "stdlib/internal/clipboard/native/" + name for name in ["x11.c", "data.c", "data.h"]
@@ -149,7 +149,7 @@ def main():
             for fixture in [
                 "linux-api.jai",
                 "linux-roundtrip.jai",
-                "linux-window-source.jai",
+                "driven/linux-window-source.jai",
             ]:
                 run(
                     "linux-source:" + cpu + ":" + fixture,
@@ -166,7 +166,7 @@ def main():
                 )
             for fixture, name in [
                 ("linux-no-empty.jai", "os_clipboard_empty"),
-                ("linux-private.jai", "native_read"),
+                ("driven/linux-private.jai", "native_read"),
             ]:
                 run(
                     "linux-negative:" + cpu + ":" + fixture,
@@ -229,7 +229,7 @@ def main():
                     "-cpu",
                     cpu,
                     "--context",
-                    ROOT / "stdlib/Clipboard/tests/linux-window-source.jai",
+                    ROOT / "stdlib/Clipboard/tests/driven/linux-window-source.jai",
                     "--manifest",
                     work / ("lint-connection-" + cpu + ".json"),
                     ROOT / JAI[2],

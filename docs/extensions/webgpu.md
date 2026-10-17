@@ -69,5 +69,5 @@ Browser embedders pass `createEngine(bytes, { host: createWebGPUHost({ canvas, o
 webgpu-headers `webgpu.yml` (pinned, downloaded to `target/webgpu/`, not vendored), wgpu-native release zips (pinned by sha256), `interp::Host`, the inline thread scheduler, `jai-wasm` `host_bridge`, `stdlib/Input`, `Window_Creation`. Tests run in the `stdlib-runtime`, `windows-native` and `scripting-wasm` jobs of `.github/workflows/ci.yml`:
 
 - `stdlib/Extensions/WebGPU/tests/headless.jai` (triangle into a texture and pixel check, compute, texture readback, invalid shader in an error scope, null surface) and `window.jai` (window, surface, N presented frames) via `python3 tools/test_webgpu_native.py --jaic target/debug/jaic [--test window --frames 120] [--require-adapter]` (exit 77 means no adapter).
-- Host bridge against a mock WebGPU plus `stdlib/Extensions/WebGPU/tests/bridge.jai`: `node --experimental-wasm-jspi tools/test_webgpu_host.mjs` (set `JAI_WASM_DIR` for the end-to-end part).
+- Host bridge against a mock WebGPU plus `stdlib/Extensions/WebGPU/tests/driven/bridge.jai`: `node --experimental-wasm-jspi tools/test_webgpu_host.mjs` (set `JAI_WASM_DIR` for the end-to-end part).
 - Generator rules: `python3 tools/test_webgpu_gen.py`. Browser bundle packaging: `tools/check_browser_release.mjs`. Bridge memory: `cargo test -p jai-wasm`.

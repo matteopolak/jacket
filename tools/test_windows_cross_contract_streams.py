@@ -24,7 +24,7 @@ class ContractStreams(unittest.TestCase):
             )
             entries = [dict(case, id="negative", path=Path(__file__))]
             if baseline:
-                entries[0]["positive_baseline"] = "positive"
+                entries[0]["positive_baseline_id"] = "contracts/positive"
                 entries.append(dict(id="contracts/positive", path=Path(__file__)))
             output = io.StringIO()
             with (

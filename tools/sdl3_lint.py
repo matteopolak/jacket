@@ -37,7 +37,7 @@ def main():
         directory.mkdir(parents=True,exist_ok=True)
         pairs=[(OUT/f'{profile}.jai','declarations.jai'),(OUT/'macros.jai','macros.jai'),
                (OUT/f'link-{profile.split("-")[0]}.jai','link.jai'),
-               (ROOT/f'stdlib/Extensions/SDL3/tests/layout-{profile}.jai','abi.jai')]
+               (ROOT/f'stdlib/Extensions/SDL3/tests/driven/layout-{profile}.jai','abi.jai')]
         for source,name in pairs:
             dest=directory/name
             shutil.copyfile(source,dest)

@@ -6,7 +6,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -51,7 +51,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -66,7 +66,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -80,25 +80,5 @@
   {
     "name": "temp-default",
     "stdout": "ok\n"
-  },
-  {
-    "name": "windows-default-startup-build",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "windows-startup-build",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
   }
 ]

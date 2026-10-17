@@ -19,7 +19,7 @@ WINDOW_RENDER_TESTS = {
     "keymap-meta-persistence-negative": "stdlib/Keymap/tests/negative/meta-persistence.jai",
     "mapping": "stdlib/Gamepad/tests/input-mapping.jai",
     "mipmap": "stdlib/Simp/tests/mipmap.jai",
-    "portable": "stdlib/Input/tests/button-states.jai",
+    "portable": "stdlib/Input/tests/driven/button-states.jai",
     "private-atlas-negative": "stdlib/Simp/tests/negative/private-atlas.jai",
     "private-helper-negative": "stdlib/Simp/tests/negative/private-helper.jai",
     "public-window": "stdlib/Window_Creation/tests/public-window.jai",

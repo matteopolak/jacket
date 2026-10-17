@@ -161,7 +161,7 @@ for source, marker in [
 # augmented-keyframe functionality. Check that the exact failure is still present.
 check(
     "augmented-restriction-blocker",
-    [compiler, "stdlib/Math/tests/augmented-generic.jai", "-check"],
+    [compiler, "stdlib/Math/tests/driven/augmented-generic.jai", "-check"],
     "Augmented does not satisfy the restriction `Key`",
     diagnostic=True,
 )

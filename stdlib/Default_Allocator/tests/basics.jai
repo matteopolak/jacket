@@ -26,11 +26,13 @@ main :: () {
     caps := cast(Allocator_Caps) cast(u64) D.allocator_proc(.CAPS, 0, 0, null, null);
 
     assert((caps & (.FREE | .ACTUALLY_RESIZE | .MULTIPLE_THREADS)) == (.FREE | .ACTUALLY_RESIZE | .MULTIPLE_THREADS));
+
     #if CPU == .X64 && OS != .IOS {
         assert((caps & (.CREATE_HEAP | .IS_THIS_YOURS)) == (.CREATE_HEAP | .IS_THIS_YOURS));
     } else {
         assert((caps & (.CREATE_HEAP | .IS_THIS_YOURS)) == 0);
     }
+
     D.allocator_proc(.FREE, 0, 128, grown, null);
     D.unsafe_reset();
     small := Unchecked.allocator_proc(.ALLOCATE, 4, 0, null, null);

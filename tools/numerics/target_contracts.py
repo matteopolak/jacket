@@ -43,7 +43,7 @@ PORTABLE_CASES = frozenset(
     {
         "stdlib/Float16/tests/core.jai",
         "stdlib/Color_Interpolation/tests/policies.jai",
-        "stdlib/Math/tests/augmented-generic.jai",
+        "stdlib/Math/tests/driven/augmented-generic.jai",
         "stdlib/Float16/tests/algebra.jai",
         "stdlib/Color_Interpolation/tests/precision-rounding.jai",
         "stdlib/Math/tests/normalization-ieee.jai",

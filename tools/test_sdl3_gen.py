@@ -41,7 +41,7 @@ class Types(unittest.TestCase):
                    'stdlib/Extensions/SDL3/inventory.json','stdlib/Extensions/SDL3/macros.jai',
                    'stdlib/Extensions/SDL3/THIRD-PARTY-NOTICES.txt',
                    'tools/native/sdl3/inline-windows-arm64.c','tools/native/sdl3/macros.c',
-                   'stdlib/Extensions/SDL3/tests/layout-windows-x64.jai','stdlib/Extensions/SDL3/tests/c-layout-linux-arm64.h']
+                   'stdlib/Extensions/SDL3/tests/driven/layout-windows-x64.jai','stdlib/Extensions/SDL3/tests/c-layout-linux-arm64.h']
             for name in paths+['stdlib/Extensions/SDL/module.jai']:
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(payload)
             git('init','--quiet');git('add','--all')

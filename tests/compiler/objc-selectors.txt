@@ -2,3 +2,6 @@
 # crates/jaic-cli/tests/objc_selectors.rs on macOS. Each line is what the check prints:
 # `missing <class or protocol> <instance|class> <selector>` or `unknown <class or protocol>`.
 # A `#` after the entry gives the reason. See docs/tools/objc-selector-check.md.
+missing NSApplication class postEvent:atStart: # an instance method; the scan reads the shared-application call as a class use
+missing NSBitmapImageRep class initWithData: # an instance method on an allocated object; the scan reads the alloc receiver as a class use
+missing NSCursor class set # an instance method on a cursor object; the scan reads the cursor lookup as a class use

@@ -228,7 +228,7 @@ jobs:
         # (docs/native/wasm-target.md).
         run: |
           cargo build --locked -p jaic-cli
-          python3 tools/check_platform_io.py --jaic target/debug/jaic --stdlib stdlib --wasm --case file-contract
+          python3 tools/check_platform_io.py --jaic target/debug/jaic --stdlib stdlib --wasm --case File/tests/unicode-paths
           target/debug/jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe target/jaifmt.wasm
           ls -l target/jaifmt.wasm
           node --no-warnings tools/check_jaifmt_wasm.mjs target/jaifmt.wasm target/jaifmt

@@ -6,7 +6,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -16,7 +16,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -26,7 +26,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   },
   {
@@ -36,67 +36,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "layout-linux-arm64",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "layout-linux-x64",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "layout-macos-arm64",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "layout-macos-x64",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "layout-windows-arm64",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
-    ]
-  },
-  {
-    "name": "layout-windows-x64",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "native-only stdlib test: not part of the browser engine's catalogue"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
     ]
   }
 ]

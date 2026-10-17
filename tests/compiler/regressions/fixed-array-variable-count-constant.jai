@@ -2,9 +2,11 @@
 // other arrays even though the variable itself is not a constant.
 #import "Basic";
 
-Slot :: struct { id: int; }
+Slot :: struct {
+    id: int;
+}
 
-slots := Slot.[.{1}, .{2}, .{3}];
+slots := Slot.[.{ 1 }, .{ 2 }, .{ 3 }];
 
 history: [slots.count] int;
 doubled: [2 * slots.count] int;

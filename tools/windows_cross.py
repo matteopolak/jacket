@@ -48,6 +48,8 @@ WINDOWS_BUILD_HOST_CASES = frozenset(
         "Basic/tests/corpus-api/file-compile-time-qualified",
         "Program_Print/tests/plugin-file-output",
         "compiler/rules-compile-time-execution",
+        "Android/Toolchain/tests/helper",
+        "Minimal_Metaprogram/tests/minimal-build",
     }
 )
 
@@ -65,6 +67,35 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Bindings_Generator/tests/generator-macro-shared-state",
         "Bindings_Generator/tests/generator-run-macro-print",
         "Bindings_Generator/tests/generator-run-toplevel",
+        "Android/Toolchain/tests/device",
+        "Android/Toolchain/tests/manifest",
+        "Extensions/SDL3/tests/callbacks",
+        "Extensions/SDL3/tests/entry",
+        "Extensions/SDL3/tests/headless",
+        "Extensions/WebGPU/tests/headless",
+        "Extensions/WebGPU/tests/window",
+        "GL/tests/default-assertions",
+        "Runtime_Support_Crash_Handler/tests/windows-fault",
+        "Runtime_Support_Crash_Handler/tests/windows-native-sections",
+        "Runtime_Support_Crash_Handler/tests/windows-records",
+        "Runtime_Support_Crash_Handler/tests/windows-symbol-fault",
+        "Sound_Player/tests/assertion-independent",
+        "Sound_Player/tests/compressed-stream",
+        "Sound_Player/tests/concurrent-factories",
+        "Sound_Player/tests/concurrent-render-stop",
+        "Sound_Player/tests/controlled-output",
+        "Sound_Player/tests/decode-queue",
+        "Sound_Player/tests/device-lifecycle",
+        "Sound_Player/tests/entity-lifecycle",
+        "Sound_Player/tests/entity-phase",
+        "Sound_Player/tests/failed-init",
+        "Sound_Player/tests/queue-retirement",
+        "Sound_Player/tests/region-lifetime",
+        "Sound_Player/tests/signatures",
+        "Sound_Player/tests/streams",
+        "Sound_Player/tests/verbose-config",
+        "Unmapping_Allocator/tests/unmapping-protection-retention",
+        "Window_Creation/tests/default-assertions",
     }
 )
 
@@ -513,7 +544,7 @@ def build(args):
             )
             valid = stdlib_runtime.contract_result(case, code, stdout, stderr)
             output = stdout + stderr
-            if case.get("positive_baseline"):
+            if case.get("positive_baseline_id"):
                 baseline = next(
                     c
                     for c in catalogue

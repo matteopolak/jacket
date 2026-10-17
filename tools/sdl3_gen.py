@@ -418,7 +418,7 @@ def main():
     for plat in TARGETS:
         data,checks,c_checks,glue,report=generate(a.source,plat,work,a.clang)
         files[OUT/f'{plat}.jai']=data
-        files[ROOT/f'stdlib/Extensions/SDL3/tests/layout-{plat}.jai']=checks
+        files[ROOT/f'stdlib/Extensions/SDL3/tests/driven/layout-{plat}.jai']=checks
         files[ROOT/f'stdlib/Extensions/SDL3/tests/c-layout-{plat}.h']=c_checks
         files[ROOT/f'tools/native/sdl3/inline-{plat}.c']='// Generated altered translation. SDL copyright/license: stdlib/Extensions/SDL3/LICENSE.txt\n'+HEADER+'\n'.join(glue)+'\n'
         contracts=[json.dumps({'format':1,'profile':plat,'source_version':'3.4.18'},sort_keys=True)]

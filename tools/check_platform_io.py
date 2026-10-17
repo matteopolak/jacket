@@ -379,7 +379,7 @@ def main():
                     children.append("Runtime_Support_Crash_Handler/tests/windows-nullguard")
                 for child_name in children:
                     enabled = policy != "off"
-                    builder = ROOT / "stdlib/Runtime_Support/tests" / (
+                    builder = ROOT / "stdlib/Runtime_Support/tests/driven" / (
                         "windows-default-startup-build.jai" if policy == "default" else "windows-startup-build.jai")
                     label = f"{cpu}-O{2 if optimized else 0}-{policy}-{child_name.rsplit('/', 1)[1]}"
                     crash_output = output / "windows-crash" / label

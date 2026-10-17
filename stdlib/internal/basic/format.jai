@@ -153,6 +153,7 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
         }
 
         if info.type == .PROCEDURE append(builder, "procedure 0x");
+
         print_u64_base_n(builder, cast(u64) pointer, style.default_format_absolute_pointer);
 
         return;
