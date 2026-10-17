@@ -69,7 +69,7 @@ toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window
     if XSendEvent(dpy, root, 0, SubstructureRedirectMask | SubstructureNotifyMask, *event) == 0 return false, 0, 0;
 
     XFlush(dpy);
-    x, y, width, height, ok := get_dimensions(win, false);
+    _, _, width, height, ok := get_dimensions(win, false);
 
     // EWMH requests are asynchronous; dimensions describe the current native window.
     return ok, width, height;

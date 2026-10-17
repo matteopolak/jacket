@@ -298,9 +298,12 @@ enum_text :: (value: $T) -> string {
     return "";
 }
 
+#scope_export
 append_linker_argument :: (w: Workspace, argument: string) {
     __jaic_workspace_append_list(w, .ADDITIONAL_LINKER_ARGUMENT, argument);
 }
+
+#scope_module
 
 set_number :: (w: Workspace, option: Workspace_Number, value: $T) {
     __jaic_workspace_set_number(w, option, cast(s64) value);

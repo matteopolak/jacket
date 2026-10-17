@@ -106,6 +106,10 @@ fn nested_modules(directory: &Path, prefix: &str, names: &mut Vec<String>) {
         if !entry.file_type().unwrap().is_dir() {
             continue;
         }
+        // A module's tests hold their own helper modules; those are not stdlib modules.
+        if entry.file_name() == "tests" {
+            continue;
+        }
         let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
         if entry.path().join("module.jai").is_file() {
             names.push(name.clone());
