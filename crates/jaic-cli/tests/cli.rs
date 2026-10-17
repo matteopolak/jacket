@@ -944,7 +944,7 @@ fn default_metaprogram_options() {
         .output()
         .unwrap();
     assert!(version.status.success());
-    assert!(String::from_utf8_lossy(&version.stdout).contains("jaic"));
+    assert!(String::from_utf8_lossy(&version.stdout).contains("Jacket"));
 }
 
 /// A Linux futex wrapper written with `#asm` `syscall` type-checks for x86-64 Linux, and the

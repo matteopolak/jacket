@@ -1,6 +1,3 @@
-<<<<<<< HEAD:tests/portable-stdlib/winsock-control.jai
-#load "../../stdlib/Socket/tests/portable-winsock-control.jai";
-=======
 // Exact production pure kernels; this does not emulate or claim Winsock execution.
 #import "Basic";
 #load "../../internal/net/winsock-control.jai";
@@ -42,4 +39,3 @@ main :: () {
     assert(set.fd_count == 0);
     print("ok\n");
 }
->>>>>>> main:stdlib/Socket/tests/winsock-control.jai

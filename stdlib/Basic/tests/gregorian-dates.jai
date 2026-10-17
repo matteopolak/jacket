@@ -1,6 +1,3 @@
-<<<<<<< HEAD:tests/portable-stdlib/gregorian-dates.jai
-#load "../../stdlib/Basic/tests/portable-gregorian-dates.jai";
-=======
 // Exercise the exact production validation kernel without a fake Windows API.
 #import "Basic";
 #load "../../internal/time/gregorian.jai";
@@ -36,4 +33,3 @@ main :: () {
     assert(total == 146097);
     print("ok\n");
 }
->>>>>>> main:stdlib/Basic/tests/gregorian-dates.jai

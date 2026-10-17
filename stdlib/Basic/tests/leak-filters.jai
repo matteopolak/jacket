@@ -1,14 +1,5 @@
 B :: #import "Basic";
 D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
-<<<<<<< HEAD:tests/portable-stdlib/basic-leak-filters.jai
-
-// Storage obtained below the memory debugger so the test can record it with a synthetic trace.
-unrecorded_alloc :: (size: s64) -> *void {
-    allocator := context.default_allocator;
-    return allocator.proc(.ALLOCATE, size, 0, null, allocator.data);
-}
-=======
->>>>>>> main:stdlib/Basic/tests/leak-filters.jai
 
 main :: () {
     infos: [7] Stack_Trace_Procedure_Info;
@@ -26,15 +17,13 @@ main :: () {
         if index + 1 < nodes.count node.next = *nodes[index + 1];
     }
 
-    memory := unrecorded_alloc(24);
+    memory := B.alloc(24);
 
     memset(memory, 0, 24);
     D.add_allocation_to_table(memory, 24, context.allocator, nodes.data);
     leaves: [1] D.Procedure_To_Elide = .[.{ "site", "/app/" }];
     roots: [1] D.Procedure_To_Elide = .[.{ "skip", "" }];
     group_path := B.copy_string("/app/");
-
-    D.this_allocation_is_not_a_leak(group_path.data);
     groups: [3] D.Procedure_To_Elide = .[.{ "sit", "/app/" }, .{ "site", "/APP/" }, .{ "site", group_path }];
     options := D.Leak_Report_Options.{ known_allocation_leaves = leaves, roots_to_skip = roots, group_by_these_calls = groups, scan_global_memory_to_remove_leaks = false, scan_leaks_to_combine = false };
     report := D.make_leak_report(options);
@@ -58,7 +47,7 @@ main :: () {
     D.deinit(*report);
 
     // A root filter cannot trim a matching interior frame beyond a nonmatch.
-    memory = unrecorded_alloc(8);
+    memory = B.alloc(8);
     memset(memory, 0, 8);
     nodes[2].next = *nodes[3];
     D.add_allocation_to_table(memory, 8, context.allocator, nodes.data);

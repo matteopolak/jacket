@@ -1,6 +1,3 @@
-<<<<<<< HEAD:tests/portable-stdlib/counter-kernel.jai
-#load "../../stdlib/Basic/tests/portable-counter-kernel.jai";
-=======
 #import "Basic";
 #load "../../internal/time/counter.jai";
 
@@ -39,4 +36,3 @@ from_counter :: (counter: s64, frequency: s64) -> Apollo_Time {
     if !valid return APOLLO_TIME_INVALID;
     return .{ low, high };
 }
->>>>>>> main:stdlib/Basic/tests/counter-kernel.jai

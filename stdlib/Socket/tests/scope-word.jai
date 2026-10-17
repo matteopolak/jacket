@@ -1,6 +1,3 @@
-<<<<<<< HEAD:tests/portable-stdlib/socket-scope-word.jai
-#load "../../stdlib/Socket/tests/portable-socket-scope-word.jai";
-=======
 // Exact production native-word arithmetic; no Windows backend is emulated.
 #import "Basic";
 #load "../../internal/net/scope-word.jai";
@@ -24,4 +21,3 @@ main :: () {
     assert(with_level(0xafffffff, 0x12345678) == 0x8fffffff);
     print("ok\n");
 }
->>>>>>> main:stdlib/Socket/tests/scope-word.jai

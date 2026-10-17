@@ -1,11 +1,5 @@
-<<<<<<< HEAD:tests/portable-stdlib/temporary-stamping.jai
-B :: #import "Basic"()(TEMP_ALLOCATOR_OVERWRITE_MEMORY = true);
-
-Stamped :: B;
-=======
 B :: #import "Basic";
 Stamped :: #import "Basic"()(TEMP_ALLOCATOR_OVERWRITE_MEMORY = true);
->>>>>>> main:stdlib/Basic/tests/temporary-stamping.jai
 
 main :: () {
     initial: [256] u8;
@@ -38,6 +32,18 @@ main :: () {
         for i: 0..15 B.assert(first[i] == Stamped.RESET_STORAGE_STAMP);
 
         B.assert(storage.current_page_bytes_occupied == 0);
+    }
+
+    plain: B.Temporary_Storage_Paged_Alloc;
+    plain.data = initial.data;
+    plain.size = initial.count;
+
+    push_context {
+        context.temporary_storage = *plain;
+        memory := cast(*u8) B.talloc(16);
+        memory[0] = 7;
+        B.reset_temporary_storage();
+        B.assert(memory[0] == 7);
     }
 
     B.print("ok\n");

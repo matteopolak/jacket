@@ -256,7 +256,7 @@ def main():
     ]
     for include in includes:
         static_command += ["-isystem", str(include)]
-    static_command += [str(ROOT / "tests/native-bindings/abi_probe.c"), "-o", str(probe_object)]
+    static_command += [str(ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/abi_probe.c"), "-o", str(probe_object)]
     subprocess.run(static_command, check=True)
     subprocess.run(["ar", "rcs", str(output / "libabi_probe.a"), str(probe_object)], check=True)
     queries = []

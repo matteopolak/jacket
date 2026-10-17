@@ -508,7 +508,7 @@ def build(args):
                 baseline = next(
                     c
                     for c in catalogue
-                    if c["id"] == "contracts/" + case["positive_baseline"]
+                    if c["id"] == case["positive_baseline_id"]
                 )
                 bcode, bout, berr = stdlib_runtime.run_command(
                     [

@@ -31,7 +31,7 @@ if (!isMainThread) {
   const tests = catalogue.filter(c => !only.length || only.includes(c.id));
   for (const test of [...tests]) {
     if (test.positive_baseline) {
-      const baseline = catalogue.find(c => c.id === "contracts/" + test.positive_baseline);
+      const baseline = catalogue.find(c => c.id === test.positive_baseline_id);
       if (!baseline) throw new Error("missing positive baseline for " + test.id);
       if (!tests.includes(baseline)) tests.push(baseline);
     }
@@ -65,7 +65,7 @@ if (!isMainThread) {
   let next = 0;
   await Promise.all(Array.from({ length: 4 }, async () => { while (next < tests.length) { const c = tests[next++]; results.set(c.id, await runOne(c)); } }));
   for (const test of tests) {
-    if (test.positive_baseline && !results.get("contracts/" + test.positive_baseline)?.pass) {
+    if (test.positive_baseline && !results.get(test.positive_baseline_id)?.pass) {
       results.set(test.id, { pass: false, why: "positive public baseline did not pass" });
     }
   }

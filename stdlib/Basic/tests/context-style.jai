@@ -1,9 +1,6 @@
 B :: #import "Basic";
-<<<<<<< HEAD:tests/portable-stdlib/core-context-style.jai
-=======
 Off :: #import "Basic"()(ENABLE_ASSERT = false);
 Other :: #import "Basic"()(VISUALIZE_MEMORY_DEBUGGER = false);
->>>>>>> main:stdlib/Basic/tests/context-style.jai
 
 Record :: struct {
     number: int;
@@ -41,8 +38,11 @@ declining :: (builder: *B.String_Builder, _item: Any, _data: *void) -> bool {
 
 main :: () {
     backing = context.allocator;
+    B.assert(B.Print_Style == Off.Print_Style && B.Print_Style == Other.Print_Style);
+    B.assert(B.FormatInt == Off.FormatInt);
     B.assert((cast(*Type_Info_Struct) type_info(B.Print_Style)).name == "Print_Style");
     B.assert((cast(*Type_Info_Struct) type_info(B.Formatter)).name == "Formatter");
+    B.assert(size_of(B.String_Builder.Buffer) != size_of(Off.String_Builder.Buffer));
     info := cast(*Type_Info_Struct) type_info(#Context);
     fields := 0;
 
@@ -52,20 +52,20 @@ main :: () {
     context.print_style.default_format_int.base = 16;
     context.print_style.default_format_array.begin_string = "<";
     context.print_style.default_format_array.end_string = ">";
-    text := B.sprint("%", 255);
+    text := Other.sprint("%", 255);
 
     B.assert(text == "ff");
     B.free(text);
-    text = B.sprint("%", int.[10, 11]);
+    text = Off.sprint("%", int.[10, 11]);
     B.assert(text == "<a, b>");
-    B.free(text);
-    formatter := B.formatInt(31, base = 2, minimum_digits = 8);
+    Off.free(text);
+    formatter := Other.formatInt(31, base = 2, minimum_digits = 8);
 
-    text = B.sprint("%", formatter);
+    text = Off.sprint("%", formatter);
     B.assert(text == "00011111");
-    B.free(text);
+    Off.free(text);
     context.print_style.default_format_float.mode = .SHORTEST;
-    text = B.sprint("%", cast(float64) 1.25);
+    text = Other.sprint("%", cast(float64) 1.25);
     B.assert(text == "1.25");
     B.free(text);
 
@@ -75,17 +75,17 @@ main :: () {
         context.print_style.struct_printer_data = *calls;
         record := Record.{ 7 };
         first := B.sprint("prefix:%", record);
-        second := B.sprint("prefix:%", record);
+        second := Off.sprint("prefix:%", record);
 
         B.assert(first == second && first.count == 5007 && calls == 2);
         B.free(first);
-        B.free(second);
+        Off.free(second);
         context.print_style.struct_printer = declining;
         first = B.sprint("prefix:%", record);
-        second = B.sprint("prefix:%", record);
+        second = Off.sprint("prefix:%", record);
         B.assert(first == second && first.count > 8);
         B.free(first);
-        B.free(second);
+        Off.free(second);
         context.print_style.struct_printer = null;
     }
 
@@ -94,12 +94,10 @@ main :: () {
     copied := context;
     copied.print_style.default_format_int.base = 10;
     push_context copied {
-        text = B.sprint("%", 255);
-        B.assert(text == "255");
-        B.free(text);
+        text = Off.sprint("%", 255);
+        Off.assert(text == "255");
+        Off.free(text);
     }
 
     B.assert(context.print_style.default_format_int.base == 16);
-
-    B.print("ok\n");
 }

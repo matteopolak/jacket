@@ -547,7 +547,7 @@ def main():
                 baseline = next(
                     c
                     for c in validated_entries()
-                    if c["id"] == "contracts/" + expect["positive_baseline"]
+                    if c["id"] == expect["positive_baseline_id"]
                 )
                 _, baseline_err, baseline_code = run_limited(
                     [a.jaic, str(baseline["path"]), "-check"],

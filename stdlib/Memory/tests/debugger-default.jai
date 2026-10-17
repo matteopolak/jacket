@@ -1,10 +1,7 @@
 #import "Basic";
 S :: #import "String";
 D :: #import "Basic"()(MEMORY_DEBUGGER = true);
-<<<<<<< HEAD:tests/portable-stdlib/memory-debugger-default.jai
-=======
 Quiet :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
->>>>>>> main:stdlib/Memory/tests/debugger-default.jai
 
 messages: int;
 errors: int;
@@ -36,6 +33,10 @@ main :: () {
 
         D.free(memory);
         D.memory_visualizer_per_frame_update();
+        plain := Quiet.alloc(8);
+
+        Quiet.free(plain);
+        Quiet.memory_visualizer_per_frame_update();
     }
 
     defer free(received);

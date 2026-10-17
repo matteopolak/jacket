@@ -1,6 +1,3 @@
-<<<<<<< HEAD:tests/portable-stdlib/time-errors.jai
-#load "../../stdlib/Basic/tests/portable-time-errors.jai";
-=======
 #import "Basic";
 #load "../../internal/basic/time-errors.jai";
 
@@ -30,4 +27,3 @@ main :: () {
     context.handling_assertion_failure = false;
     print("ok\n");
 }
->>>>>>> main:stdlib/Basic/tests/time-errors.jai

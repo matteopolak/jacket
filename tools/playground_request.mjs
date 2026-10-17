@@ -4,14 +4,19 @@ import path from "node:path";
 
 const textFile = /\.(jai|txt|json|md)$/;
 
-export async function collectPlayFiles(dir, base, files, { moduleWorkspace = false } = {}) {
+export async function collectPlayFiles(dir, base, files, { moduleWorkspace = false, ownTests = null } = {}) {
   const entries = await readdir(dir, { withFileTypes: true });
   entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   for (const entry of entries) {
     // AppleDouble files are filesystem sidecars, not checked-in inputs.
     if (entry.name.startsWith("._")) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) await collectPlayFiles(full, base, files, { moduleWorkspace });
+    if (entry.isDirectory()) {
+      // Every module keeps its tests beside its sources, so a request carries only the suite it
+      // runs: the other modules' test directories are neither imported nor loaded by it.
+      if (ownTests && entry.name === "tests" && full !== ownTests && !full.startsWith(ownTests + path.sep)) continue;
+      await collectPlayFiles(full, base, files, { moduleWorkspace, ownTests });
+    }
     else if (entry.isFile() && textFile.test(entry.name)) {
       const relative = path.relative(base, full).replaceAll("\\", "/");
       // Module workspaces retain every source (including relative #load inputs)
@@ -29,7 +34,9 @@ export async function buildPlayRequest(root, test) {
   const base = path.join(root, ...parts.slice(0, moduleWorkspace ? 1 : 2));
   const fileBase = moduleWorkspace ? root : base;
   const files = {};
-  await collectPlayFiles(base, fileBase, files, { moduleWorkspace });
+  const suite = parts.indexOf("tests");
+  const ownTests = moduleWorkspace && suite >= 0 ? path.join(root, ...parts.slice(0, suite + 1)) : null;
+  await collectPlayFiles(base, fileBase, files, { moduleWorkspace, ownTests });
   const main = path.relative(fileBase, path.join(root, test.path)).replaceAll("\\", "/");
   const libraryRoot = moduleWorkspace ? path.relative(root, base).replaceAll("\\", "/") : undefined;
   return { files, main, libraryRoot, request: playRequestSize(files, main, { libraryRoot }) };
