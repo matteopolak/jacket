@@ -53,13 +53,6 @@ sha256() {
     fi
 }
 
-# The release archive's name before -<platform>: jai since 0.4.1, jaic for 0.4.0 and earlier.
-archive_prefix() { # version
-    printf '%s\n' "$1" | awk -F '[.-]' '{
-        if ($1 + 0 > 0 || $2 + 0 > 4 || ($2 + 0 == 4 && $3 + 0 > 0)) print "jai"; else print "jaic"
-    }'
-}
-
 platform() {
     os="$(uname -s)"
     arch="$(uname -m)"
@@ -103,7 +96,7 @@ main() {
     esac
     install_dir="${JAI_INSTALL_DIR:-${JAIC_INSTALL_DIR:-$HOME/.local/share/jai}}"
     bin_dir="${JAI_BIN_DIR:-${JAIC_BIN_DIR:-$HOME/.local/bin}}"
-    root="$(archive_prefix "$version")-$plat" # the archive's top folder
+    root="jacket-$plat" # the archive's top folder
     archive="$root.tar.gz"
     base="https://github.com/$REPO/releases/download/v$version"
 
@@ -114,7 +107,6 @@ main() {
     say "Downloading jai $version ($archive)"
     download "$base/SHA256SUMS" "$tmp/SHA256SUMS" || fail "could not download $base/SHA256SUMS (is $version a release?)"
     expected="$(awk -v f="$archive" '$2 == f || $2 == "*" f { print $1 }' "$tmp/SHA256SUMS")"
-    # Releases up to 0.4.1 have no Intel macOS or Linux arm64 archive.
     [ -n "$expected" ] || fail "jai $version has no $archive (SHA256SUMS lists no build for $plat).
 Install a later version, or build from source: https://github.com/$REPO#install"
     download "$base/$archive" "$tmp/$archive" || fail "could not download $base/$archive"

@@ -2,7 +2,7 @@
 
 ## What it is
 
-`tools/package_browser_release.py` turns one clean compiler commit into a relocatable browser bundle with a SHA-256 inventory: the [WebAssembly compiler](playground.md), its `engine.mjs` glue, the jaifmt driver, the [language tour](tour.md), release metadata and a README. The portfolio site consumes it to serve the hosted playground (https://matteopolak.com/playground/jai). There is no UI in the bundle.
+`tools/package_browser_release.py` turns one clean compiler commit into a relocatable browser bundle with a SHA-256 inventory: the [WebAssembly compiler](playground.md), its `engine.mjs` glue, the jaifmt driver, the [language tour](tour.md), release metadata and a README. The portfolio site consumes it to serve the hosted playground (https://matteopolak.com/playground/jacket). There is no UI in the bundle.
 
 ## How it works
 

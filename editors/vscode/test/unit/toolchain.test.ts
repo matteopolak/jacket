@@ -10,7 +10,6 @@ import {
   INSTALLED_MARKER,
   ToolchainError,
   ToolchainStore,
-  archivePrefix,
   archiveRoot,
   assetFor,
   compareVersions,
@@ -30,28 +29,18 @@ const offline: Fetch = async () => {
 
 describe("platform to release archive", () => {
   it("maps each released platform", () => {
-    assert.equal(assetFor("darwin", "arm64", "0.4.1"), "jai-macos-arm64.tar.gz");
-    assert.equal(assetFor("darwin", "x64", "0.4.1"), "jai-macos-x64.tar.gz");
-    assert.equal(assetFor("linux", "x64", "0.4.1"), "jai-linux-x64.tar.gz");
-    assert.equal(assetFor("linux", "arm64", "0.4.1"), "jai-linux-arm64.tar.gz");
-    assert.equal(assetFor("win32", "x64", "0.5.0"), "jai-windows-x64.zip");
-    assert.equal(assetFor("win32", "arm64", "1.0.0"), "jai-windows-arm64.zip");
-  });
-
-  it("keeps the jaic- names of releases up to 0.4.0", () => {
-    assert.equal(assetFor("darwin", "arm64", "0.4.0"), "jaic-macos-arm64.tar.gz");
-    assert.equal(assetFor("linux", "x64", "0.3.0"), "jaic-linux-x64.tar.gz");
-    assert.equal(assetFor("win32", "arm64", "0.4.0"), "jaic-windows-arm64.zip");
-    assert.equal(archivePrefix("0.4.0"), "jaic");
-    assert.equal(archivePrefix("0.4.1"), "jai");
-    assert.equal(archivePrefix("0.4.1-rc.1"), "jai");
-    assert.equal(archivePrefix("0.10.0"), "jai");
+    assert.equal(assetFor("darwin", "arm64"), "jacket-macos-arm64.tar.gz");
+    assert.equal(assetFor("darwin", "x64"), "jacket-macos-x64.tar.gz");
+    assert.equal(assetFor("linux", "x64"), "jacket-linux-x64.tar.gz");
+    assert.equal(assetFor("linux", "arm64"), "jacket-linux-arm64.tar.gz");
+    assert.equal(assetFor("win32", "x64"), "jacket-windows-x64.zip");
+    assert.equal(assetFor("win32", "arm64"), "jacket-windows-arm64.zip");
   });
 
   it("has no archive for other systems", () => {
-    assert.equal(assetFor("freebsd", "x64", "0.4.0"), undefined);
-    assert.equal(assetFor("linux", "ia32", "0.4.1"), undefined);
-    assert.equal(assetFor("win32", "ia32", "0.4.1"), undefined);
+    assert.equal(assetFor("freebsd", "x64"), undefined);
+    assert.equal(assetFor("linux", "ia32"), undefined);
+    assert.equal(assetFor("win32", "ia32"), undefined);
     assert.match(unsupportedMessage("freebsd", "x64"), /no prebuilt Jai toolchain for freebsd x64/);
     assert.match(unsupportedMessage("darwin", "x64"), /jai\.server\.path/);
   });
@@ -65,30 +54,30 @@ describe("platform to release archive", () => {
     const matrix = workflow.slice(matrixStart, matrixEnd);
     const built = [...matrix.matchAll(/- name: ([a-z0-9-]+)/g)].map((m) => m[1]);
     assert.ok(built.length >= 4, `found ${built.join(", ")}`);
-    assert.match(workflow, /dir="jai-\$\{\{ matrix\.name \}\}"/, "release.yml packages jai-<platform>");
+    assert.match(workflow, /dir="jacket-\$\{\{ matrix\.name \}\}"/, "release.yml packages jacket-<platform>");
     for (const name of built) {
-      const asset = `${name}.${name.startsWith("windows") ? "zip" : "tar.gz"}`;
+      const asset = `jacket-${name}.${name.startsWith("windows") ? "zip" : "tar.gz"}`;
       assert.ok(Object.values(RELEASE_ASSETS).includes(asset), `release.yml builds ${asset}; add it to RELEASE_ASSETS`);
     }
     for (const asset of Object.values(RELEASE_ASSETS)) {
-      assert.ok(built.includes(archiveRoot(asset)), `${asset} is not built by release.yml`);
+      assert.ok(built.includes(archiveRoot(asset).replace(/^jacket-/, "")), `${asset} is not built by release.yml`);
     }
   });
 
   it("names the download URL by tag", () => {
     assert.equal(
-      downloadUrl("0.4.0", "jaic-linux-x64.tar.gz"),
-      "https://github.com/matteopolak/jacket/releases/download/v0.4.0/jaic-linux-x64.tar.gz",
+      downloadUrl("0.4.0", "jacket-linux-x64.tar.gz"),
+      "https://github.com/matteopolak/jacket/releases/download/v0.4.0/jacket-linux-x64.tar.gz",
     );
   });
 });
 
 describe("checksums", () => {
   it("parses sha256sum output", () => {
-    const text = `${"a".repeat(64)}  jaic-linux-x64.tar.gz\n${"B".repeat(64)} *jaic-windows-x64.zip\nnot a line\n`;
+    const text = `${"a".repeat(64)}  jacket-linux-x64.tar.gz\n${"B".repeat(64)} *jacket-windows-x64.zip\nnot a line\n`;
     assert.deepEqual(parseSha256Sums(text), {
-      "jaic-linux-x64.tar.gz": "a".repeat(64),
-      "jaic-windows-x64.zip": "b".repeat(64),
+      "jacket-linux-x64.tar.gz": "a".repeat(64),
+      "jacket-windows-x64.zip": "b".repeat(64),
     });
   });
 
@@ -98,16 +87,6 @@ describe("checksums", () => {
     assert.equal(verifyChecksum("x.tar.gz", data, good.toUpperCase()), good);
     assert.throws(() => verifyChecksum("x.tar.gz", data, "0".repeat(64)), (e: ToolchainError) => e.kind === "integrity");
     assert.throws(() => verifyChecksum("x.tar.gz", data, undefined), (e: ToolchainError) => e.kind === "integrity");
-  });
-
-  it("the committed pins name only released archives", () => {
-    const pins = JSON.parse(readFileSync(path.join(__dirname, "..", "..", "..", "toolchain-checksums.json"), "utf8"));
-    assert.match(pins.version, /^\d+\.\d+\.\d+/);
-    const released = Object.values(RELEASE_ASSETS).map((asset) => `${archivePrefix(pins.version)}-${asset}`);
-    for (const [asset, sum] of Object.entries(pins.sha256)) {
-      assert.ok(released.includes(asset), asset);
-      assert.match(sum as string, /^[0-9a-f]{64}$/);
-    }
   });
 });
 
@@ -121,7 +100,7 @@ describe("versions", () => {
   it("does not reuse a cached toolchain when the pinned archive checksum changed", async () => {
     const storage = await fs.mkdtemp(path.join(tmpdir(), "jai-toolchain-pin-"));
     const store = new ToolchainStore(storage, "linux");
-    const asset = assetFor("linux", "x64", "0.17.0")!;
+    const asset = assetFor("linux", "x64")!;
     const bin = store.binDir("0.17.0", asset);
     await fs.mkdir(bin, { recursive: true });
     await fs.writeFile(store.toolPath("0.17.0", asset, "jailsp"), "old binary");
@@ -157,28 +136,9 @@ function fakeUnpack(asset: string, tools = ["jaic", "jailsp", "jailint", "jaifmt
 }
 
 describe("install", () => {
-  const asset = "jaic-linux-x64.tar.gz";
+  const asset = "jacket-linux-x64.tar.gz";
   const archive = new TextEncoder().encode("pretend this is a tarball");
   const pinned = { version: "0.4.0", sha256: { [asset]: sha256(archive) } };
-
-  it("installs a jai-* archive of a release after 0.4.0", async () => {
-    const newer = "jai-linux-x64.tar.gz";
-    const store = new ToolchainStore(mkdtempSync(path.join(tmpdir(), "jai-toolchain-")), "linux");
-    const { fetcher, requests } = fakeRelease({ [newer]: archive });
-    const dir = await install({
-      version: "0.4.1",
-      asset: newer,
-      store,
-      fetcher,
-      pinned: { version: "0.4.1", sha256: { [newer]: sha256(archive) } },
-      log: () => {},
-      unpack: fakeUnpack(newer),
-    });
-    assert.equal(dir, path.join(store.root, "0.4.1", "jai-linux-x64"));
-    assert.deepEqual(requests, [downloadUrl("0.4.1", newer)]);
-    assert.ok(store.isInstalled("0.4.1", newer));
-    assert.ok(!store.isInstalled("0.4.1", asset));
-  });
 
   it("downloads, verifies, unpacks into a versioned folder and removes older versions", async () => {
     const storage = mkdtempSync(path.join(tmpdir(), "jai-toolchain-"));
@@ -198,7 +158,7 @@ describe("install", () => {
       progress: (received) => progress.push(received),
       unpack: fakeUnpack(asset),
     });
-    assert.equal(dir, path.join(storage, "toolchain", "0.4.0", "jaic-linux-x64"));
+    assert.equal(dir, path.join(storage, "toolchain", "0.4.0", "jacket-linux-x64"));
     assert.ok(store.isInstalled("0.4.0", asset));
     assert.ok(existsSync(path.join(dir, "stdlib", "prelude", "module.jai")), "the stdlib stays next to the binaries");
     assert.equal(statSync(path.join(dir, "jailsp")).mode & 0o111, 0o111, "executable bits are set");
@@ -253,7 +213,7 @@ describe("install", () => {
     const store = new ToolchainStore(mkdtempSync(path.join(tmpdir(), "jai-toolchain-")), "linux");
     const { fetcher, requests } = fakeRelease({});
     await assert.rejects(
-      install({ version: "0.4.0", asset: "jaic-windows-arm64.zip", store, fetcher, pinned, log: () => {} }),
+      install({ version: "0.4.0", asset: "jacket-windows-arm64.zip", store, fetcher, pinned, log: () => {} }),
       (e: ToolchainError) => e.kind === "unsupported",
     );
     assert.deepEqual(requests, []);
@@ -306,7 +266,7 @@ describe("install", () => {
   });
 
   it("uses .exe names in Windows archives", async () => {
-    const zip = "jaic-windows-x64.zip";
+    const zip = "jacket-windows-x64.zip";
     const store = new ToolchainStore(mkdtempSync(path.join(tmpdir(), "jai-toolchain-")), "win32");
     const { fetcher } = fakeRelease({ [zip]: archive });
     const dir = await install({

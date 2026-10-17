@@ -18,21 +18,13 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATES = ROOT / "packaging"
 REPOSITORY = "matteopolak/jacket"
 
-# Placeholder -> release asset (without its `<prefix>-`) whose SHA-256 it takes.
+# Placeholder -> release asset whose SHA-256 it takes.
 PLATFORM_ASSETS = {
-    "SHA256_MACOS_ARM64": "macos-arm64.tar.gz",
-    "SHA256_LINUX_X64": "linux-x64.tar.gz",
+    "SHA256_MACOS_ARM64": "jacket-macos-arm64.tar.gz",
+    "SHA256_MACOS_INTEL": "jacket-macos-x64.tar.gz",
+    "SHA256_LINUX_X64": "jacket-linux-x64.tar.gz",
+    "SHA256_LINUX_ARM": "jacket-linux-arm64.tar.gz",
 }
-# Platforms built since the release after 0.4.1: (placeholder suffix, asset, the asset a release
-# without it falls back to, the architecture the formula then requires on that OS). A release
-# up to 0.4.1 (or a dry run of the workflow at such a version) may lack them; a later one may not.
-NEWER_PLATFORMS = [
-    ("MACOS_INTEL", "macos-x64.tar.gz", "macos-arm64.tar.gz", "MACOS_ARCH", ":arm64"),
-    ("LINUX_ARM", "linux-arm64.tar.gz", "linux-x64.tar.gz", "LINUX_ARCH", ":x86_64"),
-]
-LAST_WITHOUT_NEWER_PLATFORMS = (0, 4, 1)
-# Archives are `jai-<platform>` since 0.4.1; 0.4.0 and earlier shipped `jaic-<platform>`.
-LAST_JAIC_NAMED = (0, 4, 0)
 VERSION = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
 PLACEHOLDER = re.compile(r"@([A-Z0-9_]+)@")
 
@@ -59,74 +51,30 @@ def hash_archives(directory):
     return sums
 
 
-def version_core(version):
-    """(major, minor, patch) of `version`."""
-    return tuple(int(part) for part in re.match(r"(\d+)\.(\d+)\.(\d+)", version).groups())
-
-
-def expected_prefix(version):
-    """The archive prefix a release of `version` was published with: `jaic` up to 0.4.0, else `jai`."""
-    return "jaic" if version_core(version) <= LAST_JAIC_NAMED else "jai"
-
-
-def archive_prefix(version, sums):
-    """The prefix whose archives `sums` lists for every platform: the one `version` was released
-    with, else the other (a dry run of the release workflow builds `jai-*` archives at whatever
-    version Cargo.toml has, 0.4.0 included)."""
-    preferred = expected_prefix(version)
-    other = "jai" if preferred == "jaic" else "jaic"
-    for prefix in (preferred, other):
-        if all(f"{prefix}-{asset}" in sums for asset in PLATFORM_ASSETS.values()):
-            return prefix
-    missing = [f"{preferred}-{asset}" for asset in PLATFORM_ASSETS.values() if f"{preferred}-{asset}" not in sums]
-    raise ValueError(f"SHA256SUMS has no entry for {', '.join(missing)}")
-
-
 def substitutions(version, sums, base_url):
     if not VERSION.fullmatch(version):
         raise ValueError(f"version {version!r} is not x.y.z (without the leading v)")
+    missing = [asset for asset in PLATFORM_ASSETS.values() if asset not in sums]
+    if missing:
+        raise ValueError(f"SHA256SUMS has no entry for {', '.join(missing)}")
     values = {
         "VERSION": version,
         "BASE_URL": base_url or f"https://github.com/{REPOSITORY}/releases/download/v{version}",
     }
-    prefix = archive_prefix(version, sums)
-    values["ARCHIVE_PREFIX"] = prefix
     for key, asset in PLATFORM_ASSETS.items():
-        values[key] = sums[f"{prefix}-{asset}"]
-    newer_required = version_core(version) > LAST_WITHOUT_NEWER_PLATFORMS
-    for name, asset, fallback, arch_key, arch in NEWER_PLATFORMS:
-        if f"{prefix}-{asset}" in sums:
-            values[f"{name}_ASSET"] = asset
-            values[f"SHA256_{name}"] = sums[f"{prefix}-{asset}"]
-            values[arch_key] = None
-        elif newer_required:
-            raise ValueError(f"SHA256SUMS has no entry for {prefix}-{asset}")
-        else:
-            values[f"{name}_ASSET"] = fallback
-            values[f"SHA256_{name}"] = sums[f"{prefix}-{fallback}"]
-            values[arch_key] = arch
+        values[key] = sums[asset]
     return values
 
 
 def render(template, values):
-    """Fill in the @PLACEHOLDERS@. A line holding one whose value is None is left out, together
-    with a blank line right after it."""
+    """Fill in the @PLACEHOLDERS@."""
     def replace(match):
         key = match.group(1)
         if key not in values:
             raise ValueError(f"unknown placeholder @{key}@")
         return values[key]
 
-    lines = []
-    dropped = False
-    for line in template.splitlines(keepends=True):
-        if dropped and not line.strip():
-            dropped = False
-            continue
-        dropped = any(values.get(key, "") is None for key in PLACEHOLDER.findall(line))
-        if not dropped:
-            lines.append(PLACEHOLDER.sub(replace, line))
-    return "".join(lines)
+    return PLACEHOLDER.sub(replace, template)
 
 
 def render_all(values, out):

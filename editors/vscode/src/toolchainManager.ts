@@ -37,7 +37,7 @@ export class ToolchainManager {
   ) {
     this.pinnedChecksums = this.readPinned();
     this.version = this.pinnedChecksums?.version ?? (context.extension.packageJSON.version as string);
-    this.asset = assetFor(process.platform, process.arch, this.version);
+    this.asset = assetFor(process.platform, process.arch);
     this.store = new ToolchainStore(context.globalStorageUri.fsPath);
   }
 
@@ -70,12 +70,10 @@ export class ToolchainManager {
     if (currentInstalled) {
       return { version: this.version, dir: this.store.binDir(this.version, this.asset) };
     }
-    // Each version's own archive name: one downloaded by an older extension unpacked as jaic-*.
     for (const version of await this.store.installedVersions()) {
       if (version === this.version) continue; // this version was checked against the current pin above
-      const asset = assetFor(process.platform, process.arch, version);
-      if (asset && this.store.isInstalled(version, asset)) {
-        return { version, dir: this.store.binDir(version, asset) };
+      if (this.store.isInstalled(version, this.asset)) {
+        return { version, dir: this.store.binDir(version, this.asset) };
       }
     }
     return undefined;

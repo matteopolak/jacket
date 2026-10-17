@@ -11,31 +11,24 @@ class Jacket < Formula
     strategy :github_latest
   end
 
-  # Releases after 0.4.1 have a build for each of these. For 0.4.1 and earlier,
-  # tools/render_packages.py gives Intel macOS and arm64 Linux the URL of the nearest build, so the
-  # formula still loads there, and adds `depends_on arch:` lines that refuse the install there.
   on_macos do
-    depends_on arch: @MACOS_ARCH@
-
     on_arm do
-      url "@BASE_URL@/@ARCHIVE_PREFIX@-macos-arm64.tar.gz"
+      url "@BASE_URL@/jacket-macos-arm64.tar.gz"
       sha256 "@SHA256_MACOS_ARM64@"
     end
     on_intel do
-      url "@BASE_URL@/@ARCHIVE_PREFIX@-@MACOS_INTEL_ASSET@"
+      url "@BASE_URL@/jacket-macos-x64.tar.gz"
       sha256 "@SHA256_MACOS_INTEL@"
     end
   end
 
   on_linux do
-    depends_on arch: @LINUX_ARCH@
-
     on_arm do
-      url "@BASE_URL@/@ARCHIVE_PREFIX@-@LINUX_ARM_ASSET@"
+      url "@BASE_URL@/jacket-linux-arm64.tar.gz"
       sha256 "@SHA256_LINUX_ARM@"
     end
     on_intel do
-      url "@BASE_URL@/@ARCHIVE_PREFIX@-linux-x64.tar.gz"
+      url "@BASE_URL@/jacket-linux-x64.tar.gz"
       sha256 "@SHA256_LINUX_X64@"
     end
   end
@@ -43,9 +36,9 @@ class Jacket < Formula
   def install
     # jaic, jailint and jailsp find stdlib/ (including its prelude) next to the real file
     # behind the bin/ symlinks, and native libraries (wgpu-native, stb_*, rpmalloc) in
-    # ../artifacts/native-libs. Archives up to 0.4.0 have no artifacts/.
+    # ../artifacts/native-libs.
     libexec.install "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
-    libexec.install "artifacts" if File.directory?("artifacts")
+    libexec.install "artifacts"
     bin.install_symlink libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
     doc.install "README.md", "CHANGELOG.md"
   end

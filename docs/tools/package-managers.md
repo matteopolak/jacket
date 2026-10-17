@@ -11,12 +11,12 @@ Ways to install a released Jai toolchain (`jaic`, `jailsp`, `jailint`, `jaifmt` 
 | `install.ps1` | Windows x64, arm64 | `irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 \| iex` | same |
 | Nix flake | Linux, macOS (builds from source) | `nix profile install github:matteopolak/jacket` | [Nix flake](nix.md) |
 
-The package is named `jai` (formula `jai`, matching the VS Code extension `matteopolak.jai`) because it installs all four tools. The release archives are named after it too: `jai-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jai-<platform>/`, since 0.4.1. Releases up to 0.4.0 shipped `jaic-<platform>` and keep those names, so everything that downloads an archive picks the name from the version (see [archive names](#archive-names)). Releases after 0.4.1 have Intel macOS (`macos-x64`) and arm64 Linux (`linux-arm64`) archives too; 0.4.1 and earlier do not, so for those versions Homebrew refuses the two platforms with `depends_on arch:` and the installer script says the release has no build for them (build from source, use Nix, or install a later version).
+The package is named `jacket` (formula `jacket`) because it installs all four tools. The release archives are named after it too: `jacket-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jacket-<platform>/`. Every release has all six platforms, Intel macOS and arm64 Linux included.
 
 ### Other ways to install
 
 - **Archives:** every release on the [releases page](https://github.com/matteopolak/jacket/releases) has one per platform. Unpack it anywhere and put `jaic` on your `PATH`, directly or through a symlink.
-- **GitHub Actions:** [setup-jai](https://github.com/matteopolak/setup-jai) (`- uses: matteopolak/setup-jai@v1`).
+- **GitHub Actions:** [setup-jacket](https://github.com/matteopolak/setup-jacket) (`- uses: matteopolak/setup-jacket@v1`).
 - **From source:** you need [Rustup](https://rustup.rs/) (it picks up the pinned toolchain) and, for native builds, LLVM 23 with Clang ([LLVM setup](llvm-setup.md)):
 
   ```sh
@@ -30,16 +30,11 @@ The package is named `jai` (formula `jai`, matching the VS Code extension `matte
 
 ### Archive names
 
-| Release | Archive | Top folder |
-| --- | --- | --- |
-| 0.4.0 and earlier | `jaic-<platform>.tar.gz` / `.zip` | `jaic-<platform>/` |
-| 0.4.1 and later | `jai-<platform>.tar.gz` / `.zip` | `jai-<platform>/` |
-
-Published assets are never renamed. The rule (`jaic` up to 0.4.0, else `jai`) lives in four places, kept in step by hand: `archive_prefix` in `install.sh`, `$prefix` in `install.ps1`, `archivePrefix` in the extension's `src/toolchain.ts`, and `expected_prefix` in `tools/render_packages.py`. `release.yml` always packages `jai-<platform>`, even on a dry run while `Cargo.toml` still says 0.4.0, so the renderer takes whichever prefix `SHA256SUMS` (or the archive folder) has for every platform, trying the version's own first. The installed layout does not depend on the name: both install scripts move the archive's top folder to `<install dir>/<version>`, so upgrading a 0.4.0 install to a `jai-` release (or back) is an ordinary upgrade.
+`jacket-<platform>.tar.gz` / `.zip`, with top folder `jacket-<platform>/`. The name is written once in each consumer: `install.sh`, `install.ps1`, `RELEASE_ASSETS` in the extension's `src/toolchain.ts`, `PLATFORM_ASSETS` in `tools/render_packages.py` and the formula template. The installed layout does not depend on the name: both install scripts move the archive's top folder to `<install dir>/<version>`.
 
 ### Rendering
 
-`tools/render_packages.py` fills the templates in `packaging/` (`@VERSION@`, `@BASE_URL@`, `@ARCHIVE_PREFIX@` (`jai` or `jaic`), `@SHA256_<PLATFORM>@`, and for the formula's Intel macOS and arm64 Linux blocks `@MACOS_INTEL_ASSET@`/`@SHA256_MACOS_INTEL@`, `@LINUX_ARM_ASSET@`/`@SHA256_LINUX_ARM@` and `@MACOS_ARCH@`/`@LINUX_ARCH@`):
+`tools/render_packages.py` fills the templates in `packaging/` (`@VERSION@`, `@BASE_URL@` and one `@SHA256_<PLATFORM>@` per archive):
 
 ```sh
 python3 tools/render_packages.py --version v0.4.0 --sums SHA256SUMS --out out
@@ -58,18 +53,18 @@ Without its secret the job prints that it skipped and succeeds. A run without a 
 
 ### Homebrew formula
 
-`packaging/homebrew/jacket.rb.tmpl` downloads `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz` or `jai-linux-arm64.tar.gz` (`on_macos`/`on_linux` with `on_arm`/`on_intel`; `jaic-*` when rendered for 0.4.0 or earlier), installs the four binaries, `stdlib/` (including its prelude) and `artifacts/` (the prebuilt native libraries: wgpu-native, `stb_*`, `rpmalloc`; see [native libraries](native-libs.md)) into `libexec`, and links the binaries into `bin`. Every channel installs the whole archive tree, so `artifacts/native-libs/<platform>/` stays beside `stdlib/`, where `jaic` looks for it: `install.sh` and `install.ps1` move the unpacked folder, and the formula installs `artifacts` when the archive has it (0.4.1 and later). `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). Rendered for 0.4.1 or earlier, Intel macOS and arm64 Linux get the other architecture's URL anyway so the formula loads everywhere (`brew info`, tap JSON), and `depends_on arch:` refuses the install with Homebrew's own message. The `test do` block runs a hello world with `jaic -interp`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
+`packaging/homebrew/jacket.rb.tmpl` downloads `jacket-macos-arm64.tar.gz`, `jacket-macos-x64.tar.gz`, `jacket-linux-x64.tar.gz` or `jacket-linux-arm64.tar.gz` (`on_macos`/`on_linux` with `on_arm`/`on_intel`), installs the four binaries, `stdlib/` (including its prelude) and `artifacts/` (the prebuilt native libraries: wgpu-native, `stb_*`, `rpmalloc`; see [native libraries](native-libs.md)) into `libexec`, and links the binaries into `bin`. Every channel installs the whole archive tree, so `artifacts/native-libs/<platform>/` stays beside `stdlib/`, where `jaic` looks for it: `install.sh` and `install.ps1` move the unpacked folder, and the formula installs `artifacts` too. `jaic` finds `libexec/stdlib` by resolving the `bin` symlinks to the real file (`jaic::stdlib_dir`, see [releases](releases.md#how-it-works)). The `test do` block runs a hello world with `jaic -interp`, formats a line with `jaifmt --stdin` and lints with `jailint`. The license is `AGPL-3.0-or-later`; the runtime library exception has no SPDX id, so `brew audit` would reject it in the `license` line and it is noted in a comment instead.
 
 ### install.sh
 
-POSIX `sh` (checked with `shellcheck -s sh`). It maps `uname` to an archive (`macos-arm64`, `macos-x64`, `linux-x64`, `linux-arm64`; on macOS it also detects Apple silicon under Rosetta, so a translated shell still gets the arm64 build), finds the latest version from the `releases/latest` redirect (no API rate limit), downloads `SHA256SUMS` and then the archive with `curl` or `wget` (a release whose `SHA256SUMS` lists no archive for the platform, such as 0.4.1 on an Intel Mac, stops with a message before the download), checks the hash with `sha256sum` or `shasum`, and unpacks into `~/.local/share/jai/<version>`. It then points `~/.local/bin/{jaic,jailsp,jailint,jaifmt}` at it (only the tools the archive has: 0.2.0 shipped just `jaic` and `jailsp`), deletes the versions it installed earlier, and prints how to add the bin folder to `PATH` when it is missing. It refuses to replace a bin entry that is not a symlink, so it never overwrites another install. The whole script is one function called on the last line, so a download cut short by `curl | sh` runs nothing.
+POSIX `sh` (checked with `shellcheck -s sh`). It maps `uname` to an archive (`macos-arm64`, `macos-x64`, `linux-x64`, `linux-arm64`; on macOS it also detects Apple silicon under Rosetta, so a translated shell still gets the arm64 build), finds the latest version from the `releases/latest` redirect (no API rate limit), downloads `SHA256SUMS` and then the archive with `curl` or `wget` (a release whose `SHA256SUMS` lists no archive for the platform stops with a message before the download), checks the hash with `sha256sum` or `shasum`, and unpacks into `~/.local/share/jai/<version>`. It then points `~/.local/bin/{jaic,jailsp,jailint,jaifmt}` at it (only the tools the archive has: 0.2.0 shipped just `jaic` and `jailsp`), deletes the versions it installed earlier, and prints how to add the bin folder to `PATH` when it is missing. It refuses to replace a bin entry that is not a symlink, so it never overwrites another install. The whole script is one function called on the last line, so a download cut short by `curl | sh` runs nothing.
 
 ```sh
 JAI_VERSION=0.3.0 sh install.sh                      # a specific release (v prefix optional)
 JAI_INSTALL_DIR=/opt/jai JAI_BIN_DIR=/usr/local/bin sh install.sh
 ```
 
-`JAI_VERSION`, `JAI_INSTALL_DIR` and `JAI_BIN_DIR` are also read as `JAIC_VERSION`, `JAIC_INSTALL_DIR` and `JAIC_BIN_DIR` (the names before 0.4.1, still used by `packaging.yml`); the `JAI_` name wins when both are set. A version up to 0.4.0 downloads the `jaic-<platform>` archive, a later one `jai-<platform>`.
+`JAI_VERSION`, `JAI_INSTALL_DIR` and `JAI_BIN_DIR` are also read as `JAIC_VERSION`, `JAIC_INSTALL_DIR` and `JAIC_BIN_DIR` (still used by `packaging.yml`); the `JAI_` name wins when both are set.
 
 To try a change against a release that does not exist yet, repackage an archive under the new name with its own `SHA256SUMS` in a folder `<dir>/v<version>/`, and run a copy of the script with the `base=` URL replaced by `file://<dir>/v$version` and curl's `--proto '=https' --tlsv1.2` removed (curl reads `file://` URLs); the script itself has no URL override.
 
@@ -116,4 +111,4 @@ winget support was dropped before any release was accepted into winget-pkgs: the
 
 ## Dependencies
 
-The GitHub release assets (`jai-*.tar.gz`/`.zip`, `jaic-*` up to 0.4.0, and `SHA256SUMS`), Homebrew on the runners, Python 3 for the renderer, and `curl`/`wget`, `tar` and `sha256sum`/`shasum` on users' machines for `install.sh`.
+The GitHub release assets (`jacket-*.tar.gz`/`.zip` and `SHA256SUMS`), Homebrew on the runners, Python 3 for the renderer, and `curl`/`wget`, `tar` and `sha256sum`/`shasum` on users' machines for `install.sh`.

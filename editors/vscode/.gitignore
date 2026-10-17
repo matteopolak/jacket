@@ -5,3 +5,5 @@ out/
 *.vsix
 # Copied from the repository root when packaging.
 LICENSE
+# Written by scripts/pin-toolchain.ts when packaging.
+toolchain-checksums.json

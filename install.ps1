@@ -47,10 +47,7 @@
     if ($version -notmatch '^[0-9A-Za-z.-]+$') { throw "JAI_VERSION '$version' is not a version like 0.4.0" }
 
     $installDir = if ($env:JAI_INSTALL_DIR) { $env:JAI_INSTALL_DIR } elseif ($env:JAIC_INSTALL_DIR) { $env:JAIC_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\jai' }
-    # The archive and its top folder are jai-<platform> since 0.4.1, jaic-<platform> before.
-    $prefix = 'jai'
-    if ($version -match '^(\d+)\.(\d+)\.(\d+)' -and [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])" -le [version]'0.4.0') { $prefix = 'jaic' }
-    $root = "$prefix-$platform"
+    $root = "jacket-$platform"
     $archive = "$root.zip"
     $base = "https://github.com/$repo/releases/download/v$version"
     $tmp = Join-Path ([IO.Path]::GetTempPath()) ("jai-install-" + [Guid]::NewGuid())

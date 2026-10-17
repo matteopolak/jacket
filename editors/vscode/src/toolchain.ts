@@ -12,33 +12,21 @@ export const TOOLS = ["jaic", "jailsp", "jailint", "jaifmt"] as const;
 export type Tool = (typeof TOOLS)[number];
 
 /**
- * The release archive per `${process.platform}-${process.arch}`, without its `jai-`/`jaic-`
- * prefix (see `archivePrefix`). A platform without a row has no prebuilt toolchain: add a row
- * here when release.yml starts building it. Releases up to 0.4.1 have no `macos-x64` or
- * `linux-arm64` archive; their pinned checksums then lack the asset (an "unsupported" error).
+ * The release archive per `${process.platform}-${process.arch}`. A platform without a row has no
+ * prebuilt toolchain: add a row here when release.yml starts building it.
  */
 export const RELEASE_ASSETS: Readonly<Record<string, string>> = {
-  "darwin-arm64": "macos-arm64.tar.gz",
-  "darwin-x64": "macos-x64.tar.gz",
-  "linux-x64": "linux-x64.tar.gz",
-  "linux-arm64": "linux-arm64.tar.gz",
-  "win32-x64": "windows-x64.zip",
-  "win32-arm64": "windows-arm64.zip",
+  "darwin-arm64": "jacket-macos-arm64.tar.gz",
+  "darwin-x64": "jacket-macos-x64.tar.gz",
+  "linux-x64": "jacket-linux-x64.tar.gz",
+  "linux-arm64": "jacket-linux-arm64.tar.gz",
+  "win32-x64": "jacket-windows-x64.zip",
+  "win32-arm64": "jacket-windows-arm64.zip",
 };
 
-/** The last release whose archives are named `jaic-<platform>`; later ones are `jai-<platform>`. */
-export const LAST_JAIC_NAMED_RELEASE = "0.4.0";
-
-/** The archive name prefix of a release: `jaic` up to 0.4.0, `jai` from 0.4.1 on. */
-export function archivePrefix(version: string): "jai" | "jaic" {
-  const core = /^\d+\.\d+\.\d+/.exec(version)?.[0] ?? version;
-  return compareVersions(core, LAST_JAIC_NAMED_RELEASE) <= 0 ? "jaic" : "jai";
-}
-
-/** The release archive of `version` for a platform, or `undefined` when no release is built for it. */
-export function assetFor(platform: NodeJS.Platform, arch: string, version: string): string | undefined {
-  const asset = RELEASE_ASSETS[`${platform}-${arch}`];
-  return asset && `${archivePrefix(version)}-${asset}`;
+/** The release archive for a platform, or `undefined` when no release is built for it. */
+export function assetFor(platform: NodeJS.Platform, arch: string): string | undefined {
+  return RELEASE_ASSETS[`${platform}-${arch}`];
 }
 
 /** Why there is no download for a platform, and what to do instead. */
@@ -55,7 +43,7 @@ export function platformName(platform: NodeJS.Platform, arch: string): string {
   return `${os} ${arch}`;
 }
 
-/** The folder the archive unpacks to: `jai-linux-x64.tar.gz` holds `jai-linux-x64/`. */
+/** The folder the archive unpacks to: `jacket-linux-x64.tar.gz` holds `jacket-linux-x64/`. */
 export function archiveRoot(asset: string): string {
   return asset.replace(/\.(tar\.gz|zip)$/, "");
 }

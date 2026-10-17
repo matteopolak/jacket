@@ -2,7 +2,7 @@
 
 ## What it is
 
-`.github/workflows/release.yml` builds `jaic`, `jailsp`, `jailint` and `jaifmt` for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and Windows (x86-64 and arm64): six archives, `jai-macos-arm64.tar.gz`, `jai-macos-x64.tar.gz`, `jai-linux-x64.tar.gz`, `jai-linux-arm64.tar.gz`, `jai-windows-x64.zip` and `jai-windows-arm64.zip`. It smoke-tests each archive and can publish a GitHub release from a pushed `v*` tag or a manual run selecting the tag that matches this workflow revision's Cargo version. Historical releases use their own tag workflow. Release notes come from the selected tag's section of `CHANGELOG.md`.
+`.github/workflows/release.yml` builds `jaic`, `jailsp`, `jailint` and `jaifmt` for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and Windows (x86-64 and arm64): six archives, `jacket-macos-arm64.tar.gz`, `jacket-macos-x64.tar.gz`, `jacket-linux-x64.tar.gz`, `jacket-linux-arm64.tar.gz`, `jacket-windows-x64.zip` and `jacket-windows-arm64.zip`. It smoke-tests each archive and can publish a GitHub release from a pushed `v*` tag or a manual run selecting the tag that matches this workflow revision's Cargo version. Historical releases use their own tag workflow. Release notes come from the selected tag's section of `CHANGELOG.md`.
 
 ## How it works
 

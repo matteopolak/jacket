@@ -44,8 +44,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Releases up to 0.4.1 have no Intel macOS or arm64 Linux archive: there install.sh must
-      # pick the platform and then say the release has no build for it.
+      # A release may lack this platform's archive: then install.sh must pick the platform and
+      # say the release has no build for it.
       - name: Does the latest release have this platform's archive?
         id: release
         env:
@@ -59,7 +59,7 @@ jobs:
           esac
           echo "PLATFORM=$plat" >> "$GITHUB_ENV"
           assets="$(gh release view --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')"
-          if echo "$assets" | grep -Eqx "jaic?-$plat\.tar\.gz"; then has=true; else has=false; fi
+          if echo "$assets" | grep -Eqx "jacket-$plat\.tar\.gz"; then has=true; else has=false; fi
           echo "$plat in the latest release: $has"
           echo "has=$has" >> "$GITHUB_OUTPUT"
       - name: Without one, install.sh names the missing archive
@@ -67,7 +67,7 @@ jobs:
         run: |
           if ./install.sh 2> err.txt; then exit 1; fi
           cat err.txt
-          grep -Eq "has no jaic?-$PLATFORM\.tar\.gz" err.txt
+          grep -Eq "has no jacket-$PLATFORM\.tar\.gz" err.txt
       - name: Install an older release, then upgrade to the latest through a pipe
         if: steps.release.outputs.has == 'true'
         env:
@@ -168,18 +168,17 @@ jobs:
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
           python3 tools/render_packages.py --version "$tag" --sums "$RUNNER_TEMP/SHA256SUMS" --out "$RUNNER_TEMP/packages"
           cat "$RUNNER_TEMP/packages/homebrew/jacket.rb"
-      # Every platform's url and sha256 from synthetic checksums: the formula a release after
-      # 0.4.1 gets, with Intel macOS and arm64 Linux builds and no `depends_on arch:`.
+      # Every platform's url and sha256 from synthetic checksums.
       - name: Render and audit a formula for all four platforms
         run: |
           sums="$RUNNER_TEMP/all-platforms.SHA256SUMS"
           for asset in macos-arm64.tar.gz macos-x64.tar.gz linux-x64.tar.gz linux-arm64.tar.gz; do
-            echo "$(printf '%s' "$asset" | shasum -a 256 | cut -d ' ' -f 1)  jai-$asset"
+            echo "$(printf '%s' "$asset" | shasum -a 256 | cut -d ' ' -f 1)  jacket-$asset"
           done > "$sums"
           python3 tools/render_packages.py --version 99.0.0 --sums "$sums" --out "$RUNNER_TEMP/all-platforms"
           formula="$RUNNER_TEMP/all-platforms/homebrew/jacket.rb"
           cat "$formula"
-          grep -q 'jai-macos-x64.tar.gz' "$formula" && grep -q 'jai-linux-arm64.tar.gz' "$formula"
+          grep -q 'jacket-macos-x64.tar.gz' "$formula" && grep -q 'jacket-linux-arm64.tar.gz' "$formula"
           if grep -q 'depends_on arch: :' "$formula"; then echo "the formula still restricts the architecture"; exit 1; fi
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
           brew tap-new --no-git jaiall/local

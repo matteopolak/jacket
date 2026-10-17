@@ -165,7 +165,7 @@ link time, which `jaic` has no way to learn from a plain `libSDL2.a`. So:
 python3 tools/build_native_libs.py              # all libraries
 python3 tools/build_native_libs.py stb_image    # just one (an explicit list skips the completeness check)
 python tools/build_native_libs.py --platform windows-arm64   # Windows: needs clang, llvm-lib, llvm-nm
-python3 tools/build_native_libs.py --out jai-linux-x64/artifacts/native-libs/linux-x64   # into a package
+python3 tools/build_native_libs.py --out jacket-linux-x64/artifacts/native-libs/linux-x64   # into a package
 ```
 
 The output goes to the main checkout's `artifacts/` even when run from a git worktree (resolved through

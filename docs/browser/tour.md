@@ -2,7 +2,7 @@
 
 ## What it is
 
-`examples/tour/` is a multi-file Jai program that walks through most of the language, one topic per file. The hosted playground (https://matteopolak.com/playground/jai) opens it as the default workspace. It ships in the browser bundle as `tour/` plus a `tour.json` index, so it is versioned and tested with the compiler that runs it.
+`examples/tour/` is a multi-file Jai program that walks through most of the language, one topic per file. The hosted playground (https://matteopolak.com/playground/jacket) opens it as the default workspace. It ships in the browser bundle as `tour/` plus a `tour.json` index, so it is versioned and tested with the compiler that runs it.
 
 | File | Shows |
 | --- | --- |

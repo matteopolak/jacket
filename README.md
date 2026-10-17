@@ -16,7 +16,7 @@ It includes:
 
 `jaic` builds native executables for macOS, Linux and Windows (x86-64 and arm64) and WebAssembly, and real projects such as the Focus editor compile and run.
 
-**[Try it in the browser →](https://matteopolak.com/playground/jai)**
+**[Try it in the browser →](https://matteopolak.com/playground/jacket)**
 
 ## Install
 

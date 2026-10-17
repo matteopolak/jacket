@@ -23,8 +23,7 @@ if (!validVersion(toolchainVersion) || !validVersion(extensionVersion)) {
 }
 
 const sha256: Record<string, string> = {};
-// jai-<platform> since 0.4.1; jaic-<platform> for 0.4.0 and earlier (re-pinning an old release).
-const isArchive = (name: string) => /^jaic?-(?!vscode-)[a-z0-9-]+\.(?:tar\.gz|zip)$/.test(name);
+const isArchive = (name: string) => /^jacket-(?!vscode-)[a-z0-9-]+\.(?:tar\.gz|zip)$/.test(name);
 const sums = arg("--sums");
 const archives = arg("--archives");
 if (sums) {
@@ -42,7 +41,7 @@ if (sums) {
   process.exit(2);
 }
 if (Object.keys(sha256).length === 0) {
-  console.error("no jai-* (or jaic-*) archives found to pin");
+  console.error("no jacket-* archives found to pin");
   process.exit(1);
 }
 

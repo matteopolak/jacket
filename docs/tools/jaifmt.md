@@ -346,7 +346,7 @@ formatted, ok, error := format_source(source, config); // config defaults to .{}
 
 ## Browser playground
 
-The [hosted playground](https://matteopolak.com/playground/jai) runs `jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
+The [hosted playground](https://matteopolak.com/playground/jacket) runs `jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
 
 ```js
 const driver = await (await fetch("jaifmt-playground.jai")).text();   // jaifmt/playground.jai

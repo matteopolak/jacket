@@ -3,7 +3,7 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla or the official Jai project.
 
-The language server for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../../README.md) toolchain. It speaks the Language Server Protocol over stdio. The same Rust session also runs in the browser, compiled to WebAssembly, behind the [online playground](https://matteopolak.com/playground/jai).
+The language server for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../../README.md) toolchain. It speaks the Language Server Protocol over stdio. The same Rust session also runs in the browser, compiled to WebAssembly, behind the [online playground](https://matteopolak.com/playground/jacket).
 
 It type-checks your code with `jaic`, the toolchain's compiler, including compile-time code (`#run`, `#insert`, macros and metaprograms). Hover, completion and diagnostics therefore come from the real type checker, and not from a separate approximation of the language.
 

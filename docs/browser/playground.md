@@ -4,7 +4,7 @@
 
 `crates/jai-wasm` compiles the compiler core `crates/jaic` (lexer, parser, sema, interpreter) and the shared language server to `wasm32-unknown-unknown`. The full `stdlib/` (including `stdlib/prelude/`) are embedded in the module, so `#import "Basic"` and friends work offline.
 
-This repository ships the module and a small JavaScript glue file, not a UI. The hosted playground at https://matteopolak.com/playground/jai lives in the portfolio repository (`matteopolak/portfolio`), which has its own editor, worker and engine wrapper. From a bundle it uses `jai_wasm.wasm`, `jaifmt-playground.jai` and the [language tour](tour.md) (`tour.json`, `tour/`); it can use `jaifmt.wasm` for the Format button. The tour's later stops exercise the browser host itself: runtime safety checks, threads, the in-memory file system, `#asm` and `Long_Double`.
+This repository ships the module and a small JavaScript glue file, not a UI. The hosted playground at https://matteopolak.com/playground/jacket lives in the portfolio repository (`matteopolak/portfolio`), which has its own editor, worker and engine wrapper. From a bundle it uses `jai_wasm.wasm`, `jaifmt-playground.jai` and the [language tour](tour.md) (`tour.json`, `tour/`); it can use `jaifmt.wasm` for the Format button. The tour's later stops exercise the browser host itself: runtime safety checks, threads, the in-memory file system, `#asm` and `Long_Double`.
 
 A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 

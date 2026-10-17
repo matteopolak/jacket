@@ -201,8 +201,7 @@ jobs:
         run: |
           exe=""
           if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
-          # jai-<platform> since 0.4.1 (0.4.0 and earlier shipped jaic-<platform>).
-          dir="jai-${{ matrix.name }}"
+          dir="jacket-${{ matrix.name }}"
           mkdir -p "$dir"
           out="target/pgo/dist"
           # Symbol tables are about a tenth of the macOS binary (docs/tools/releases.md,
@@ -719,11 +718,11 @@ jobs:
               echo "return {"
               echo "  version = '$version',"
               echo "  sha256 = {"
-              awk '$2 ~ /^jai-.*\.(tar\.gz|zip)$/ { printf "    [\047%s\047] = \047%s\047,\n", $2, $1 }' "$RUNNER_TEMP/SHA256SUMS"
+              awk '$2 ~ /^jacket-.*\.(tar\.gz|zip)$/ { printf "    [\047%s\047] = \047%s\047,\n", $2, $1 }' "$RUNNER_TEMP/SHA256SUMS"
               echo "  },"
               echo "}"
             } > lua/jai/checksums.lua
-            grep -c "jai-linux-x64.tar.gz" lua/jai/checksums.lua
+            grep -c "jacket-linux-x64.tar.gz" lua/jai/checksums.lua
             cat lua/jai/checksums.lua
           fi
       - name: Push to matteopolak/jacket.nvim
