@@ -111896,2429 +111896,2429 @@
         {
           "name": "SYS__sysctl",
           "signature": "SYS__sysctl :: 156",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1340,
           "status": "declared"
         },
         {
           "name": "SYS_accept",
           "signature": "SYS_accept :: 43",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1341,
           "status": "declared"
         },
         {
           "name": "SYS_accept4",
           "signature": "SYS_accept4 :: 288",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1342,
           "status": "declared"
         },
         {
           "name": "SYS_access",
           "signature": "SYS_access :: 21",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1343,
           "status": "declared"
         },
         {
           "name": "SYS_acct",
           "signature": "SYS_acct :: 163",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1344,
           "status": "declared"
         },
         {
           "name": "SYS_add_key",
           "signature": "SYS_add_key :: 248",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1345,
           "status": "declared"
         },
         {
           "name": "SYS_adjtimex",
           "signature": "SYS_adjtimex :: 159",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1346,
           "status": "declared"
         },
         {
           "name": "SYS_afs_syscall",
           "signature": "SYS_afs_syscall :: 183",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1347,
           "status": "declared"
         },
         {
           "name": "SYS_alarm",
           "signature": "SYS_alarm :: 37",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1348,
           "status": "declared"
         },
         {
           "name": "SYS_arch_prctl",
           "signature": "SYS_arch_prctl :: 158",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1349,
           "status": "declared"
         },
         {
           "name": "SYS_bind",
           "signature": "SYS_bind :: 49",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1350,
           "status": "declared"
         },
         {
           "name": "SYS_bpf",
           "signature": "SYS_bpf :: 321",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1351,
           "status": "declared"
         },
         {
           "name": "SYS_brk",
           "signature": "SYS_brk :: 12",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1352,
           "status": "declared"
         },
         {
           "name": "SYS_capget",
           "signature": "SYS_capget :: 125",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1353,
           "status": "declared"
         },
         {
           "name": "SYS_capset",
           "signature": "SYS_capset :: 126",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1354,
           "status": "declared"
         },
         {
           "name": "SYS_chdir",
           "signature": "SYS_chdir :: 80",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1355,
           "status": "declared"
         },
         {
           "name": "SYS_chmod",
           "signature": "SYS_chmod :: 90",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1356,
           "status": "declared"
         },
         {
           "name": "SYS_chown",
           "signature": "SYS_chown :: 92",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1357,
           "status": "declared"
         },
         {
           "name": "SYS_chroot",
           "signature": "SYS_chroot :: 161",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1358,
           "status": "declared"
         },
         {
           "name": "SYS_clock_adjtime",
           "signature": "SYS_clock_adjtime :: 305",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1359,
           "status": "declared"
         },
         {
           "name": "SYS_clock_getres",
           "signature": "SYS_clock_getres :: 229",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1360,
           "status": "declared"
         },
         {
           "name": "SYS_clock_gettime",
           "signature": "SYS_clock_gettime :: 228",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1361,
           "status": "declared"
         },
         {
           "name": "SYS_clock_nanosleep",
           "signature": "SYS_clock_nanosleep :: 230",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1362,
           "status": "declared"
         },
         {
           "name": "SYS_clock_settime",
           "signature": "SYS_clock_settime :: 227",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1363,
           "status": "declared"
         },
         {
           "name": "SYS_clone",
           "signature": "SYS_clone :: 56",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1364,
           "status": "declared"
         },
         {
           "name": "SYS_clone3",
           "signature": "SYS_clone3 :: 435",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1365,
           "status": "declared"
         },
         {
           "name": "SYS_close",
           "signature": "SYS_close :: 3",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1366,
           "status": "declared"
         },
         {
           "name": "SYS_connect",
           "signature": "SYS_connect :: 42",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1367,
           "status": "declared"
         },
         {
           "name": "SYS_copy_file_range",
           "signature": "SYS_copy_file_range :: 326",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1368,
           "status": "declared"
         },
         {
           "name": "SYS_creat",
           "signature": "SYS_creat :: 85",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1369,
           "status": "declared"
         },
         {
           "name": "SYS_create_module",
           "signature": "SYS_create_module :: 174",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1370,
           "status": "declared"
         },
         {
           "name": "SYS_delete_module",
           "signature": "SYS_delete_module :: 176",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1371,
           "status": "declared"
         },
         {
           "name": "SYS_dup",
           "signature": "SYS_dup :: 32",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1372,
           "status": "declared"
         },
         {
           "name": "SYS_dup2",
           "signature": "SYS_dup2 :: 33",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1373,
           "status": "declared"
         },
         {
           "name": "SYS_dup3",
           "signature": "SYS_dup3 :: 292",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1374,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_create",
           "signature": "SYS_epoll_create :: 213",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1375,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_create1",
           "signature": "SYS_epoll_create1 :: 291",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1376,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_ctl",
           "signature": "SYS_epoll_ctl :: 233",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1377,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_ctl_old",
           "signature": "SYS_epoll_ctl_old :: 214",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1378,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_pwait",
           "signature": "SYS_epoll_pwait :: 281",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1379,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_wait",
           "signature": "SYS_epoll_wait :: 232",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1380,
           "status": "declared"
         },
         {
           "name": "SYS_epoll_wait_old",
           "signature": "SYS_epoll_wait_old :: 215",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1381,
           "status": "declared"
         },
         {
           "name": "SYS_eventfd",
           "signature": "SYS_eventfd :: 284",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1382,
           "status": "declared"
         },
         {
           "name": "SYS_eventfd2",
           "signature": "SYS_eventfd2 :: 290",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1383,
           "status": "declared"
         },
         {
           "name": "SYS_execve",
           "signature": "SYS_execve :: 59",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1384,
           "status": "declared"
         },
         {
           "name": "SYS_execveat",
           "signature": "SYS_execveat :: 322",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1385,
           "status": "declared"
         },
         {
           "name": "SYS_exit",
           "signature": "SYS_exit :: 60",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1386,
           "status": "declared"
         },
         {
           "name": "SYS_exit_group",
           "signature": "SYS_exit_group :: 231",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1387,
           "status": "declared"
         },
         {
           "name": "SYS_faccessat",
           "signature": "SYS_faccessat :: 269",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1388,
           "status": "declared"
         },
         {
           "name": "SYS_fadvise64",
           "signature": "SYS_fadvise64 :: 221",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1389,
           "status": "declared"
         },
         {
           "name": "SYS_fallocate",
           "signature": "SYS_fallocate :: 285",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1390,
           "status": "declared"
         },
         {
           "name": "SYS_fanotify_init",
           "signature": "SYS_fanotify_init :: 300",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1391,
           "status": "declared"
         },
         {
           "name": "SYS_fanotify_mark",
           "signature": "SYS_fanotify_mark :: 301",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1392,
           "status": "declared"
         },
         {
           "name": "SYS_fchdir",
           "signature": "SYS_fchdir :: 81",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1393,
           "status": "declared"
         },
         {
           "name": "SYS_fchmod",
           "signature": "SYS_fchmod :: 91",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1394,
           "status": "declared"
         },
         {
           "name": "SYS_fchmodat",
           "signature": "SYS_fchmodat :: 268",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1395,
           "status": "declared"
         },
         {
           "name": "SYS_fchown",
           "signature": "SYS_fchown :: 93",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1396,
           "status": "declared"
         },
         {
           "name": "SYS_fchownat",
           "signature": "SYS_fchownat :: 260",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1397,
           "status": "declared"
         },
         {
           "name": "SYS_fcntl",
           "signature": "SYS_fcntl :: 72",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1398,
           "status": "declared"
         },
         {
           "name": "SYS_fdatasync",
           "signature": "SYS_fdatasync :: 75",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1399,
           "status": "declared"
         },
         {
           "name": "SYS_fgetxattr",
           "signature": "SYS_fgetxattr :: 193",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1400,
           "status": "declared"
         },
         {
           "name": "SYS_finit_module",
           "signature": "SYS_finit_module :: 313",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1401,
           "status": "declared"
         },
         {
           "name": "SYS_flistxattr",
           "signature": "SYS_flistxattr :: 196",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1402,
           "status": "declared"
         },
         {
           "name": "SYS_flock",
           "signature": "SYS_flock :: 73",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1403,
           "status": "declared"
         },
         {
           "name": "SYS_fork",
           "signature": "SYS_fork :: 57",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1404,
           "status": "declared"
         },
         {
           "name": "SYS_fremovexattr",
           "signature": "SYS_fremovexattr :: 199",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1405,
           "status": "declared"
         },
         {
           "name": "SYS_fsconfig",
           "signature": "SYS_fsconfig :: 431",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1406,
           "status": "declared"
         },
         {
           "name": "SYS_fsetxattr",
           "signature": "SYS_fsetxattr :: 190",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1407,
           "status": "declared"
         },
         {
           "name": "SYS_fsmount",
           "signature": "SYS_fsmount :: 432",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1408,
           "status": "declared"
         },
         {
           "name": "SYS_fsopen",
           "signature": "SYS_fsopen :: 430",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1409,
           "status": "declared"
         },
         {
           "name": "SYS_fspick",
           "signature": "SYS_fspick :: 433",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1410,
           "status": "declared"
         },
         {
           "name": "SYS_fstat",
           "signature": "SYS_fstat :: 5",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1411,
           "status": "declared"
         },
         {
           "name": "SYS_fstatfs",
           "signature": "SYS_fstatfs :: 138",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1412,
           "status": "declared"
         },
         {
           "name": "SYS_fsync",
           "signature": "SYS_fsync :: 74",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1413,
           "status": "declared"
         },
         {
           "name": "SYS_ftruncate",
           "signature": "SYS_ftruncate :: 77",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1414,
           "status": "declared"
         },
         {
           "name": "SYS_futex",
           "signature": "SYS_futex :: 202",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1415,
           "status": "declared"
         },
         {
           "name": "SYS_futimesat",
           "signature": "SYS_futimesat :: 261",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1416,
           "status": "declared"
         },
         {
           "name": "SYS_get_kernel_syms",
           "signature": "SYS_get_kernel_syms :: 177",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1417,
           "status": "declared"
         },
         {
           "name": "SYS_get_mempolicy",
           "signature": "SYS_get_mempolicy :: 239",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1418,
           "status": "declared"
         },
         {
           "name": "SYS_get_robust_list",
           "signature": "SYS_get_robust_list :: 274",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1419,
           "status": "declared"
         },
         {
           "name": "SYS_get_thread_area",
           "signature": "SYS_get_thread_area :: 211",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1420,
           "status": "declared"
         },
         {
           "name": "SYS_getcpu",
           "signature": "SYS_getcpu :: 309",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1421,
           "status": "declared"
         },
         {
           "name": "SYS_getcwd",
           "signature": "SYS_getcwd :: 79",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1422,
           "status": "declared"
         },
         {
           "name": "SYS_getdents",
           "signature": "SYS_getdents :: 78",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1423,
           "status": "declared"
         },
         {
           "name": "SYS_getdents64",
           "signature": "SYS_getdents64 :: 217",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1424,
           "status": "declared"
         },
         {
           "name": "SYS_getegid",
           "signature": "SYS_getegid :: 108",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1425,
           "status": "declared"
         },
         {
           "name": "SYS_geteuid",
           "signature": "SYS_geteuid :: 107",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1426,
           "status": "declared"
         },
         {
           "name": "SYS_getgid",
           "signature": "SYS_getgid :: 104",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1427,
           "status": "declared"
         },
         {
           "name": "SYS_getgroups",
           "signature": "SYS_getgroups :: 115",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1428,
           "status": "declared"
         },
         {
           "name": "SYS_getitimer",
           "signature": "SYS_getitimer :: 36",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1429,
           "status": "declared"
         },
         {
           "name": "SYS_getpeername",
           "signature": "SYS_getpeername :: 52",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1430,
           "status": "declared"
         },
         {
           "name": "SYS_getpgid",
           "signature": "SYS_getpgid :: 121",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1431,
           "status": "declared"
         },
         {
           "name": "SYS_getpgrp",
           "signature": "SYS_getpgrp :: 111",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1432,
           "status": "declared"
         },
         {
           "name": "SYS_getpid",
           "signature": "SYS_getpid :: 39",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1433,
           "status": "declared"
         },
         {
           "name": "SYS_getpmsg",
           "signature": "SYS_getpmsg :: 181",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1434,
           "status": "declared"
         },
         {
           "name": "SYS_getppid",
           "signature": "SYS_getppid :: 110",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1435,
           "status": "declared"
         },
         {
           "name": "SYS_getpriority",
           "signature": "SYS_getpriority :: 140",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1436,
           "status": "declared"
         },
         {
           "name": "SYS_getrandom",
           "signature": "SYS_getrandom :: 318",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1437,
           "status": "declared"
         },
         {
           "name": "SYS_getresgid",
           "signature": "SYS_getresgid :: 120",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1438,
           "status": "declared"
         },
         {
           "name": "SYS_getresuid",
           "signature": "SYS_getresuid :: 118",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1439,
           "status": "declared"
         },
         {
           "name": "SYS_getrlimit",
           "signature": "SYS_getrlimit :: 97",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1440,
           "status": "declared"
         },
         {
           "name": "SYS_getrusage",
           "signature": "SYS_getrusage :: 98",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1441,
           "status": "declared"
         },
         {
           "name": "SYS_getsid",
           "signature": "SYS_getsid :: 124",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1442,
           "status": "declared"
         },
         {
           "name": "SYS_getsockname",
           "signature": "SYS_getsockname :: 51",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1443,
           "status": "declared"
         },
         {
           "name": "SYS_getsockopt",
           "signature": "SYS_getsockopt :: 55",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1444,
           "status": "declared"
         },
         {
           "name": "SYS_gettid",
           "signature": "SYS_gettid :: 186",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1445,
           "status": "declared"
         },
         {
           "name": "SYS_gettimeofday",
           "signature": "SYS_gettimeofday :: 96",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1446,
           "status": "declared"
         },
         {
           "name": "SYS_getuid",
           "signature": "SYS_getuid :: 102",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1447,
           "status": "declared"
         },
         {
           "name": "SYS_getxattr",
           "signature": "SYS_getxattr :: 191",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1448,
           "status": "declared"
         },
         {
           "name": "SYS_init_module",
           "signature": "SYS_init_module :: 175",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1449,
           "status": "declared"
         },
         {
           "name": "SYS_inotify_add_watch",
           "signature": "SYS_inotify_add_watch :: 254",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1450,
           "status": "declared"
         },
         {
           "name": "SYS_inotify_init",
           "signature": "SYS_inotify_init :: 253",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1451,
           "status": "declared"
         },
         {
           "name": "SYS_inotify_init1",
           "signature": "SYS_inotify_init1 :: 294",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1452,
           "status": "declared"
         },
         {
           "name": "SYS_inotify_rm_watch",
           "signature": "SYS_inotify_rm_watch :: 255",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1453,
           "status": "declared"
         },
         {
           "name": "SYS_io_cancel",
           "signature": "SYS_io_cancel :: 210",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1454,
           "status": "declared"
         },
         {
           "name": "SYS_io_destroy",
           "signature": "SYS_io_destroy :: 207",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1455,
           "status": "declared"
         },
         {
           "name": "SYS_io_getevents",
           "signature": "SYS_io_getevents :: 208",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1456,
           "status": "declared"
         },
         {
           "name": "SYS_io_pgetevents",
           "signature": "SYS_io_pgetevents :: 333",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1457,
           "status": "declared"
         },
         {
           "name": "SYS_io_setup",
           "signature": "SYS_io_setup :: 206",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1458,
           "status": "declared"
         },
         {
           "name": "SYS_io_submit",
           "signature": "SYS_io_submit :: 209",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1459,
           "status": "declared"
         },
         {
           "name": "SYS_io_uring_enter",
           "signature": "SYS_io_uring_enter :: 426",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1460,
           "status": "declared"
         },
         {
           "name": "SYS_io_uring_register",
           "signature": "SYS_io_uring_register :: 427",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1461,
           "status": "declared"
         },
         {
           "name": "SYS_io_uring_setup",
           "signature": "SYS_io_uring_setup :: 425",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1462,
           "status": "declared"
         },
         {
           "name": "SYS_ioctl",
           "signature": "SYS_ioctl :: 16",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1463,
           "status": "declared"
         },
         {
           "name": "SYS_ioperm",
           "signature": "SYS_ioperm :: 173",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1464,
           "status": "declared"
         },
         {
           "name": "SYS_iopl",
           "signature": "SYS_iopl :: 172",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1465,
           "status": "declared"
         },
         {
           "name": "SYS_ioprio_get",
           "signature": "SYS_ioprio_get :: 252",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1466,
           "status": "declared"
         },
         {
           "name": "SYS_ioprio_set",
           "signature": "SYS_ioprio_set :: 251",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1467,
           "status": "declared"
         },
         {
           "name": "SYS_kcmp",
           "signature": "SYS_kcmp :: 312",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1468,
           "status": "declared"
         },
         {
           "name": "SYS_kexec_file_load",
           "signature": "SYS_kexec_file_load :: 320",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1469,
           "status": "declared"
         },
         {
           "name": "SYS_kexec_load",
           "signature": "SYS_kexec_load :: 246",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1470,
           "status": "declared"
         },
         {
           "name": "SYS_keyctl",
           "signature": "SYS_keyctl :: 250",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1471,
           "status": "declared"
         },
         {
           "name": "SYS_kill",
           "signature": "SYS_kill :: 62",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1472,
           "status": "declared"
         },
         {
           "name": "SYS_lchown",
           "signature": "SYS_lchown :: 94",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1473,
           "status": "declared"
         },
         {
           "name": "SYS_lgetxattr",
           "signature": "SYS_lgetxattr :: 192",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1474,
           "status": "declared"
         },
         {
           "name": "SYS_link",
           "signature": "SYS_link :: 86",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1475,
           "status": "declared"
         },
         {
           "name": "SYS_linkat",
           "signature": "SYS_linkat :: 265",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1476,
           "status": "declared"
         },
         {
           "name": "SYS_listen",
           "signature": "SYS_listen :: 50",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1477,
           "status": "declared"
         },
         {
           "name": "SYS_listxattr",
           "signature": "SYS_listxattr :: 194",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1478,
           "status": "declared"
         },
         {
           "name": "SYS_llistxattr",
           "signature": "SYS_llistxattr :: 195",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1479,
           "status": "declared"
         },
         {
           "name": "SYS_lookup_dcookie",
           "signature": "SYS_lookup_dcookie :: 212",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1480,
           "status": "declared"
         },
         {
           "name": "SYS_lremovexattr",
           "signature": "SYS_lremovexattr :: 198",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1481,
           "status": "declared"
         },
         {
           "name": "SYS_lseek",
           "signature": "SYS_lseek :: 8",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1482,
           "status": "declared"
         },
         {
           "name": "SYS_lsetxattr",
           "signature": "SYS_lsetxattr :: 189",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1483,
           "status": "declared"
         },
         {
           "name": "SYS_lstat",
           "signature": "SYS_lstat :: 6",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1484,
           "status": "declared"
         },
         {
           "name": "SYS_madvise",
           "signature": "SYS_madvise :: 28",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1485,
           "status": "declared"
         },
         {
           "name": "SYS_mbind",
           "signature": "SYS_mbind :: 237",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1486,
           "status": "declared"
         },
         {
           "name": "SYS_membarrier",
           "signature": "SYS_membarrier :: 324",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1487,
           "status": "declared"
         },
         {
           "name": "SYS_memfd_create",
           "signature": "SYS_memfd_create :: 319",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1488,
           "status": "declared"
         },
         {
           "name": "SYS_migrate_pages",
           "signature": "SYS_migrate_pages :: 256",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1489,
           "status": "declared"
         },
         {
           "name": "SYS_mincore",
           "signature": "SYS_mincore :: 27",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1490,
           "status": "declared"
         },
         {
           "name": "SYS_mkdir",
           "signature": "SYS_mkdir :: 83",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1491,
           "status": "declared"
         },
         {
           "name": "SYS_mkdirat",
           "signature": "SYS_mkdirat :: 258",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1492,
           "status": "declared"
         },
         {
           "name": "SYS_mknod",
           "signature": "SYS_mknod :: 133",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1493,
           "status": "declared"
         },
         {
           "name": "SYS_mknodat",
           "signature": "SYS_mknodat :: 259",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1494,
           "status": "declared"
         },
         {
           "name": "SYS_mlock",
           "signature": "SYS_mlock :: 149",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1495,
           "status": "declared"
         },
         {
           "name": "SYS_mlock2",
           "signature": "SYS_mlock2 :: 325",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1496,
           "status": "declared"
         },
         {
           "name": "SYS_mlockall",
           "signature": "SYS_mlockall :: 151",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1497,
           "status": "declared"
         },
         {
           "name": "SYS_mmap",
           "signature": "SYS_mmap :: 9",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1498,
           "status": "declared"
         },
         {
           "name": "SYS_modify_ldt",
           "signature": "SYS_modify_ldt :: 154",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1499,
           "status": "declared"
         },
         {
           "name": "SYS_mount",
           "signature": "SYS_mount :: 165",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1500,
           "status": "declared"
         },
         {
           "name": "SYS_move_mount",
           "signature": "SYS_move_mount :: 429",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1501,
           "status": "declared"
         },
         {
           "name": "SYS_move_pages",
           "signature": "SYS_move_pages :: 279",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1502,
           "status": "declared"
         },
         {
           "name": "SYS_mprotect",
           "signature": "SYS_mprotect :: 10",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1503,
           "status": "declared"
         },
         {
           "name": "SYS_mq_getsetattr",
           "signature": "SYS_mq_getsetattr :: 245",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1504,
           "status": "declared"
         },
         {
           "name": "SYS_mq_notify",
           "signature": "SYS_mq_notify :: 244",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1505,
           "status": "declared"
         },
         {
           "name": "SYS_mq_open",
           "signature": "SYS_mq_open :: 240",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1506,
           "status": "declared"
         },
         {
           "name": "SYS_mq_timedreceive",
           "signature": "SYS_mq_timedreceive :: 243",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1507,
           "status": "declared"
         },
         {
           "name": "SYS_mq_timedsend",
           "signature": "SYS_mq_timedsend :: 242",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1508,
           "status": "declared"
         },
         {
           "name": "SYS_mq_unlink",
           "signature": "SYS_mq_unlink :: 241",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1509,
           "status": "declared"
         },
         {
           "name": "SYS_mremap",
           "signature": "SYS_mremap :: 25",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1510,
           "status": "declared"
         },
         {
           "name": "SYS_msgctl",
           "signature": "SYS_msgctl :: 71",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1511,
           "status": "declared"
         },
         {
           "name": "SYS_msgget",
           "signature": "SYS_msgget :: 68",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1512,
           "status": "declared"
         },
         {
           "name": "SYS_msgrcv",
           "signature": "SYS_msgrcv :: 70",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1513,
           "status": "declared"
         },
         {
           "name": "SYS_msgsnd",
           "signature": "SYS_msgsnd :: 69",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1514,
           "status": "declared"
         },
         {
           "name": "SYS_msync",
           "signature": "SYS_msync :: 26",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1515,
           "status": "declared"
         },
         {
           "name": "SYS_munlock",
           "signature": "SYS_munlock :: 150",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1516,
           "status": "declared"
         },
         {
           "name": "SYS_munlockall",
           "signature": "SYS_munlockall :: 152",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1517,
           "status": "declared"
         },
         {
           "name": "SYS_munmap",
           "signature": "SYS_munmap :: 11",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1518,
           "status": "declared"
         },
         {
           "name": "SYS_name_to_handle_at",
           "signature": "SYS_name_to_handle_at :: 303",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1519,
           "status": "declared"
         },
         {
           "name": "SYS_nanosleep",
           "signature": "SYS_nanosleep :: 35",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1520,
           "status": "declared"
         },
         {
           "name": "SYS_newfstatat",
           "signature": "SYS_newfstatat :: 262",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1521,
           "status": "declared"
         },
         {
           "name": "SYS_nfsservctl",
           "signature": "SYS_nfsservctl :: 180",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1522,
           "status": "declared"
         },
         {
           "name": "SYS_open",
           "signature": "SYS_open :: 2",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1523,
           "status": "declared"
         },
         {
           "name": "SYS_open_by_handle_at",
           "signature": "SYS_open_by_handle_at :: 304",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1524,
           "status": "declared"
         },
         {
           "name": "SYS_open_tree",
           "signature": "SYS_open_tree :: 428",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1525,
           "status": "declared"
         },
         {
           "name": "SYS_openat",
           "signature": "SYS_openat :: 257",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1526,
           "status": "declared"
         },
         {
           "name": "SYS_pause",
           "signature": "SYS_pause :: 34",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1527,
           "status": "declared"
         },
         {
           "name": "SYS_perf_event_open",
           "signature": "SYS_perf_event_open :: 298",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1528,
           "status": "declared"
         },
         {
           "name": "SYS_personality",
           "signature": "SYS_personality :: 135",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1529,
           "status": "declared"
         },
         {
           "name": "SYS_pidfd_open",
           "signature": "SYS_pidfd_open :: 434",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1530,
           "status": "declared"
         },
         {
           "name": "SYS_pidfd_send_signal",
           "signature": "SYS_pidfd_send_signal :: 424",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1531,
           "status": "declared"
         },
         {
           "name": "SYS_pipe",
           "signature": "SYS_pipe :: 22",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1532,
           "status": "declared"
         },
         {
           "name": "SYS_pipe2",
           "signature": "SYS_pipe2 :: 293",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1533,
           "status": "declared"
         },
         {
           "name": "SYS_pivot_root",
           "signature": "SYS_pivot_root :: 155",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1534,
           "status": "declared"
         },
         {
           "name": "SYS_pkey_alloc",
           "signature": "SYS_pkey_alloc :: 330",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1535,
           "status": "declared"
         },
         {
           "name": "SYS_pkey_free",
           "signature": "SYS_pkey_free :: 331",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1536,
           "status": "declared"
         },
         {
           "name": "SYS_pkey_mprotect",
           "signature": "SYS_pkey_mprotect :: 329",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1537,
           "status": "declared"
         },
         {
           "name": "SYS_poll",
           "signature": "SYS_poll :: 7",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1538,
           "status": "declared"
         },
         {
           "name": "SYS_ppoll",
           "signature": "SYS_ppoll :: 271",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1539,
           "status": "declared"
         },
         {
           "name": "SYS_prctl",
           "signature": "SYS_prctl :: 157",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1540,
           "status": "declared"
         },
         {
           "name": "SYS_pread64",
           "signature": "SYS_pread64 :: 17",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1541,
           "status": "declared"
         },
         {
           "name": "SYS_preadv",
           "signature": "SYS_preadv :: 295",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1542,
           "status": "declared"
         },
         {
           "name": "SYS_preadv2",
           "signature": "SYS_preadv2 :: 327",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1543,
           "status": "declared"
         },
         {
           "name": "SYS_prlimit64",
           "signature": "SYS_prlimit64 :: 302",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1544,
           "status": "declared"
         },
         {
           "name": "SYS_process_vm_readv",
           "signature": "SYS_process_vm_readv :: 310",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1545,
           "status": "declared"
         },
         {
           "name": "SYS_process_vm_writev",
           "signature": "SYS_process_vm_writev :: 311",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1546,
           "status": "declared"
         },
         {
           "name": "SYS_pselect6",
           "signature": "SYS_pselect6 :: 270",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1547,
           "status": "declared"
         },
         {
           "name": "SYS_ptrace",
           "signature": "SYS_ptrace :: 101",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1548,
           "status": "declared"
         },
         {
           "name": "SYS_putpmsg",
           "signature": "SYS_putpmsg :: 182",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1549,
           "status": "declared"
         },
         {
           "name": "SYS_pwrite64",
           "signature": "SYS_pwrite64 :: 18",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1550,
           "status": "declared"
         },
         {
           "name": "SYS_pwritev",
           "signature": "SYS_pwritev :: 296",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1551,
           "status": "declared"
         },
         {
           "name": "SYS_pwritev2",
           "signature": "SYS_pwritev2 :: 328",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1552,
           "status": "declared"
         },
         {
           "name": "SYS_query_module",
           "signature": "SYS_query_module :: 178",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1553,
           "status": "declared"
         },
         {
           "name": "SYS_quotactl",
           "signature": "SYS_quotactl :: 179",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1554,
           "status": "declared"
         },
         {
           "name": "SYS_read",
           "signature": "SYS_read :: 0",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1555,
           "status": "declared"
         },
         {
           "name": "SYS_readahead",
           "signature": "SYS_readahead :: 187",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1556,
           "status": "declared"
         },
         {
           "name": "SYS_readlink",
           "signature": "SYS_readlink :: 89",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1557,
           "status": "declared"
         },
         {
           "name": "SYS_readlinkat",
           "signature": "SYS_readlinkat :: 267",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1558,
           "status": "declared"
         },
         {
           "name": "SYS_readv",
           "signature": "SYS_readv :: 19",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1559,
           "status": "declared"
         },
         {
           "name": "SYS_reboot",
           "signature": "SYS_reboot :: 169",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1560,
           "status": "declared"
         },
         {
           "name": "SYS_recvfrom",
           "signature": "SYS_recvfrom :: 45",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1561,
           "status": "declared"
         },
         {
           "name": "SYS_recvmmsg",
           "signature": "SYS_recvmmsg :: 299",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1562,
           "status": "declared"
         },
         {
           "name": "SYS_recvmsg",
           "signature": "SYS_recvmsg :: 47",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1563,
           "status": "declared"
         },
         {
           "name": "SYS_remap_file_pages",
           "signature": "SYS_remap_file_pages :: 216",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1564,
           "status": "declared"
         },
         {
           "name": "SYS_removexattr",
           "signature": "SYS_removexattr :: 197",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1565,
           "status": "declared"
         },
         {
           "name": "SYS_rename",
           "signature": "SYS_rename :: 82",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1566,
           "status": "declared"
         },
         {
           "name": "SYS_renameat",
           "signature": "SYS_renameat :: 264",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1567,
           "status": "declared"
         },
         {
           "name": "SYS_renameat2",
           "signature": "SYS_renameat2 :: 316",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1568,
           "status": "declared"
         },
         {
           "name": "SYS_request_key",
           "signature": "SYS_request_key :: 249",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1569,
           "status": "declared"
         },
         {
           "name": "SYS_restart_syscall",
           "signature": "SYS_restart_syscall :: 219",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1570,
           "status": "declared"
         },
         {
           "name": "SYS_rmdir",
           "signature": "SYS_rmdir :: 84",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1571,
           "status": "declared"
         },
         {
           "name": "SYS_rseq",
           "signature": "SYS_rseq :: 334",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1572,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigaction",
           "signature": "SYS_rt_sigaction :: 13",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1573,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigpending",
           "signature": "SYS_rt_sigpending :: 127",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1574,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigprocmask",
           "signature": "SYS_rt_sigprocmask :: 14",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1575,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigqueueinfo",
           "signature": "SYS_rt_sigqueueinfo :: 129",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1576,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigreturn",
           "signature": "SYS_rt_sigreturn :: 15",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1577,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigsuspend",
           "signature": "SYS_rt_sigsuspend :: 130",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1578,
           "status": "declared"
         },
         {
           "name": "SYS_rt_sigtimedwait",
           "signature": "SYS_rt_sigtimedwait :: 128",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1579,
           "status": "declared"
         },
         {
           "name": "SYS_rt_tgsigqueueinfo",
           "signature": "SYS_rt_tgsigqueueinfo :: 297",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1580,
           "status": "declared"
         },
         {
           "name": "SYS_sched_get_priority_max",
           "signature": "SYS_sched_get_priority_max :: 146",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1581,
           "status": "declared"
         },
         {
           "name": "SYS_sched_get_priority_min",
           "signature": "SYS_sched_get_priority_min :: 147",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1582,
           "status": "declared"
         },
         {
           "name": "SYS_sched_getaffinity",
           "signature": "SYS_sched_getaffinity :: 204",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1583,
           "status": "declared"
         },
         {
           "name": "SYS_sched_getattr",
           "signature": "SYS_sched_getattr :: 315",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1584,
           "status": "declared"
         },
         {
           "name": "SYS_sched_getparam",
           "signature": "SYS_sched_getparam :: 143",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1585,
           "status": "declared"
         },
         {
           "name": "SYS_sched_getscheduler",
           "signature": "SYS_sched_getscheduler :: 145",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1586,
           "status": "declared"
         },
         {
           "name": "SYS_sched_rr_get_interval",
           "signature": "SYS_sched_rr_get_interval :: 148",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1587,
           "status": "declared"
         },
         {
           "name": "SYS_sched_setaffinity",
           "signature": "SYS_sched_setaffinity :: 203",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1588,
           "status": "declared"
         },
         {
           "name": "SYS_sched_setattr",
           "signature": "SYS_sched_setattr :: 314",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1589,
           "status": "declared"
         },
         {
           "name": "SYS_sched_setparam",
           "signature": "SYS_sched_setparam :: 142",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1590,
           "status": "declared"
         },
         {
           "name": "SYS_sched_setscheduler",
           "signature": "SYS_sched_setscheduler :: 144",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1591,
           "status": "declared"
         },
         {
           "name": "SYS_sched_yield",
           "signature": "SYS_sched_yield :: 24",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1592,
           "status": "declared"
         },
         {
           "name": "SYS_seccomp",
           "signature": "SYS_seccomp :: 317",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1593,
           "status": "declared"
         },
         {
           "name": "SYS_security",
           "signature": "SYS_security :: 185",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1594,
           "status": "declared"
         },
         {
           "name": "SYS_select",
           "signature": "SYS_select :: 23",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1595,
           "status": "declared"
         },
         {
           "name": "SYS_semctl",
           "signature": "SYS_semctl :: 66",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1596,
           "status": "declared"
         },
         {
           "name": "SYS_semget",
           "signature": "SYS_semget :: 64",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1597,
           "status": "declared"
         },
         {
           "name": "SYS_semop",
           "signature": "SYS_semop :: 65",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1598,
           "status": "declared"
         },
         {
           "name": "SYS_semtimedop",
           "signature": "SYS_semtimedop :: 220",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1599,
           "status": "declared"
         },
         {
           "name": "SYS_sendfile",
           "signature": "SYS_sendfile :: 40",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1600,
           "status": "declared"
         },
         {
           "name": "SYS_sendmmsg",
           "signature": "SYS_sendmmsg :: 307",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1601,
           "status": "declared"
         },
         {
           "name": "SYS_sendmsg",
           "signature": "SYS_sendmsg :: 46",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1602,
           "status": "declared"
         },
         {
           "name": "SYS_sendto",
           "signature": "SYS_sendto :: 44",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1603,
           "status": "declared"
         },
         {
           "name": "SYS_set_mempolicy",
           "signature": "SYS_set_mempolicy :: 238",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1604,
           "status": "declared"
         },
         {
           "name": "SYS_set_robust_list",
           "signature": "SYS_set_robust_list :: 273",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1605,
           "status": "declared"
         },
         {
           "name": "SYS_set_thread_area",
           "signature": "SYS_set_thread_area :: 205",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1606,
           "status": "declared"
         },
         {
           "name": "SYS_set_tid_address",
           "signature": "SYS_set_tid_address :: 218",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1607,
           "status": "declared"
         },
         {
           "name": "SYS_setdomainname",
           "signature": "SYS_setdomainname :: 171",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1608,
           "status": "declared"
         },
         {
           "name": "SYS_setfsgid",
           "signature": "SYS_setfsgid :: 123",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1609,
           "status": "declared"
         },
         {
           "name": "SYS_setfsuid",
           "signature": "SYS_setfsuid :: 122",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1610,
           "status": "declared"
         },
         {
           "name": "SYS_setgid",
           "signature": "SYS_setgid :: 106",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1611,
           "status": "declared"
         },
         {
           "name": "SYS_setgroups",
           "signature": "SYS_setgroups :: 116",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1612,
           "status": "declared"
         },
         {
           "name": "SYS_sethostname",
           "signature": "SYS_sethostname :: 170",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1613,
           "status": "declared"
         },
         {
           "name": "SYS_setitimer",
           "signature": "SYS_setitimer :: 38",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1614,
           "status": "declared"
         },
         {
           "name": "SYS_setns",
           "signature": "SYS_setns :: 308",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1615,
           "status": "declared"
         },
         {
           "name": "SYS_setpgid",
           "signature": "SYS_setpgid :: 109",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1616,
           "status": "declared"
         },
         {
           "name": "SYS_setpriority",
           "signature": "SYS_setpriority :: 141",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1617,
           "status": "declared"
         },
         {
           "name": "SYS_setregid",
           "signature": "SYS_setregid :: 114",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1618,
           "status": "declared"
         },
         {
           "name": "SYS_setresgid",
           "signature": "SYS_setresgid :: 119",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1619,
           "status": "declared"
         },
         {
           "name": "SYS_setresuid",
           "signature": "SYS_setresuid :: 117",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1620,
           "status": "declared"
         },
         {
           "name": "SYS_setreuid",
           "signature": "SYS_setreuid :: 113",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1621,
           "status": "declared"
         },
         {
           "name": "SYS_setrlimit",
           "signature": "SYS_setrlimit :: 160",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1622,
           "status": "declared"
         },
         {
           "name": "SYS_setsid",
           "signature": "SYS_setsid :: 112",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1623,
           "status": "declared"
         },
         {
           "name": "SYS_setsockopt",
           "signature": "SYS_setsockopt :: 54",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1624,
           "status": "declared"
         },
         {
           "name": "SYS_settimeofday",
           "signature": "SYS_settimeofday :: 164",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1625,
           "status": "declared"
         },
         {
           "name": "SYS_setuid",
           "signature": "SYS_setuid :: 105",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1626,
           "status": "declared"
         },
         {
           "name": "SYS_setxattr",
           "signature": "SYS_setxattr :: 188",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1627,
           "status": "declared"
         },
         {
           "name": "SYS_shmat",
           "signature": "SYS_shmat :: 30",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1628,
           "status": "declared"
         },
         {
           "name": "SYS_shmctl",
           "signature": "SYS_shmctl :: 31",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1629,
           "status": "declared"
         },
         {
           "name": "SYS_shmdt",
           "signature": "SYS_shmdt :: 67",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1630,
           "status": "declared"
         },
         {
           "name": "SYS_shmget",
           "signature": "SYS_shmget :: 29",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1631,
           "status": "declared"
         },
         {
           "name": "SYS_shutdown",
           "signature": "SYS_shutdown :: 48",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1632,
           "status": "declared"
         },
         {
           "name": "SYS_sigaltstack",
           "signature": "SYS_sigaltstack :: 131",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1633,
           "status": "declared"
         },
         {
           "name": "SYS_signalfd",
           "signature": "SYS_signalfd :: 282",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1634,
           "status": "declared"
         },
         {
           "name": "SYS_signalfd4",
           "signature": "SYS_signalfd4 :: 289",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1635,
           "status": "declared"
         },
         {
           "name": "SYS_socket",
           "signature": "SYS_socket :: 41",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1636,
           "status": "declared"
         },
         {
           "name": "SYS_socketpair",
           "signature": "SYS_socketpair :: 53",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1637,
           "status": "declared"
         },
         {
           "name": "SYS_splice",
           "signature": "SYS_splice :: 275",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1638,
           "status": "declared"
         },
         {
           "name": "SYS_stat",
           "signature": "SYS_stat :: 4",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1639,
           "status": "declared"
         },
         {
           "name": "SYS_statfs",
           "signature": "SYS_statfs :: 137",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1640,
           "status": "declared"
         },
         {
           "name": "SYS_statx",
           "signature": "SYS_statx :: 332",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1641,
           "status": "declared"
         },
         {
           "name": "SYS_swapoff",
           "signature": "SYS_swapoff :: 168",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1642,
           "status": "declared"
         },
         {
           "name": "SYS_swapon",
           "signature": "SYS_swapon :: 167",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1643,
           "status": "declared"
         },
         {
           "name": "SYS_symlink",
           "signature": "SYS_symlink :: 88",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1644,
           "status": "declared"
         },
         {
           "name": "SYS_symlinkat",
           "signature": "SYS_symlinkat :: 266",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1645,
           "status": "declared"
         },
         {
           "name": "SYS_sync",
           "signature": "SYS_sync :: 162",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1646,
           "status": "declared"
         },
         {
           "name": "SYS_sync_file_range",
           "signature": "SYS_sync_file_range :: 277",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1647,
           "status": "declared"
         },
         {
           "name": "SYS_syncfs",
           "signature": "SYS_syncfs :: 306",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1648,
           "status": "declared"
         },
         {
           "name": "SYS_sysfs",
           "signature": "SYS_sysfs :: 139",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1649,
           "status": "declared"
         },
         {
           "name": "SYS_sysinfo",
           "signature": "SYS_sysinfo :: 99",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1650,
           "status": "declared"
         },
         {
           "name": "SYS_syslog",
           "signature": "SYS_syslog :: 103",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1651,
           "status": "declared"
         },
         {
           "name": "SYS_tee",
           "signature": "SYS_tee :: 276",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1652,
           "status": "declared"
         },
         {
           "name": "SYS_tgkill",
           "signature": "SYS_tgkill :: 234",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1653,
           "status": "declared"
         },
         {
           "name": "SYS_time",
           "signature": "SYS_time :: 201",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1654,
           "status": "declared"
         },
         {
           "name": "SYS_timer_create",
           "signature": "SYS_timer_create :: 222",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1655,
           "status": "declared"
         },
         {
           "name": "SYS_timer_delete",
           "signature": "SYS_timer_delete :: 226",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1656,
           "status": "declared"
         },
         {
           "name": "SYS_timer_getoverrun",
           "signature": "SYS_timer_getoverrun :: 225",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1657,
           "status": "declared"
         },
         {
           "name": "SYS_timer_gettime",
           "signature": "SYS_timer_gettime :: 224",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1658,
           "status": "declared"
         },
         {
           "name": "SYS_timer_settime",
           "signature": "SYS_timer_settime :: 223",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1659,
           "status": "declared"
         },
         {
           "name": "SYS_timerfd_create",
           "signature": "SYS_timerfd_create :: 283",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1660,
           "status": "declared"
         },
         {
           "name": "SYS_timerfd_gettime",
           "signature": "SYS_timerfd_gettime :: 287",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1661,
           "status": "declared"
         },
         {
           "name": "SYS_timerfd_settime",
           "signature": "SYS_timerfd_settime :: 286",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1662,
           "status": "declared"
         },
         {
           "name": "SYS_times",
           "signature": "SYS_times :: 100",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1663,
           "status": "declared"
         },
         {
           "name": "SYS_tkill",
           "signature": "SYS_tkill :: 200",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1664,
           "status": "declared"
         },
         {
           "name": "SYS_truncate",
           "signature": "SYS_truncate :: 76",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1665,
           "status": "declared"
         },
         {
           "name": "SYS_tuxcall",
           "signature": "SYS_tuxcall :: 184",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1666,
           "status": "declared"
         },
         {
           "name": "SYS_umask",
           "signature": "SYS_umask :: 95",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1667,
           "status": "declared"
         },
         {
           "name": "SYS_umount2",
           "signature": "SYS_umount2 :: 166",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1668,
           "status": "declared"
         },
         {
           "name": "SYS_uname",
           "signature": "SYS_uname :: 63",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1669,
           "status": "declared"
         },
         {
           "name": "SYS_unlink",
           "signature": "SYS_unlink :: 87",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1670,
           "status": "declared"
         },
         {
           "name": "SYS_unlinkat",
           "signature": "SYS_unlinkat :: 263",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1671,
           "status": "declared"
         },
         {
           "name": "SYS_unshare",
           "signature": "SYS_unshare :: 272",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1672,
           "status": "declared"
         },
         {
           "name": "SYS_uselib",
           "signature": "SYS_uselib :: 134",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1673,
           "status": "declared"
         },
         {
           "name": "SYS_userfaultfd",
           "signature": "SYS_userfaultfd :: 323",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1674,
           "status": "declared"
         },
         {
           "name": "SYS_ustat",
           "signature": "SYS_ustat :: 136",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1675,
           "status": "declared"
         },
         {
           "name": "SYS_utime",
           "signature": "SYS_utime :: 132",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1676,
           "status": "declared"
         },
         {
           "name": "SYS_utimensat",
           "signature": "SYS_utimensat :: 280",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1677,
           "status": "declared"
         },
         {
           "name": "SYS_utimes",
           "signature": "SYS_utimes :: 235",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1678,
           "status": "declared"
         },
         {
           "name": "SYS_vfork",
           "signature": "SYS_vfork :: 58",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1679,
           "status": "declared"
         },
         {
           "name": "SYS_vhangup",
           "signature": "SYS_vhangup :: 153",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1680,
           "status": "declared"
         },
         {
           "name": "SYS_vmsplice",
           "signature": "SYS_vmsplice :: 278",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1681,
           "status": "declared"
         },
         {
           "name": "SYS_vserver",
           "signature": "SYS_vserver :: 236",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1682,
           "status": "declared"
         },
         {
           "name": "SYS_wait4",
           "signature": "SYS_wait4 :: 61",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1683,
           "status": "declared"
         },
         {
           "name": "SYS_waitid",
           "signature": "SYS_waitid :: 247",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1684,
           "status": "declared"
         },
         {
           "name": "SYS_write",
           "signature": "SYS_write :: 1",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1685,
           "status": "declared"
         },
         {
           "name": "SYS_writev",
           "signature": "SYS_writev :: 20",
-          "condition": "OS == .LINUX",
+          "condition": "OS == .LINUX && CPU == .X64",
           "spec_line": 1686,
           "status": "declared"
         },
