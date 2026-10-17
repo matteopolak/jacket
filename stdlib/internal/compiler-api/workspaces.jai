@@ -35,7 +35,8 @@ get_build_options :: (w: Workspace = -1) -> C.Build_Options #compiler {
 set_build_options :: (options: C.Build_Options, w: Workspace = -1, loc := #caller_location) #compiler {
     // `.X64` asks for the quick-to-compile debug code generator. This compiler has a single code
     // generator, so the request is built with it; the program behaves the same either way.
-    require(!options.use_natvis_compatible_types, "Natvis-compatible type emission is unavailable");
+    // `use_natvis_compatible_types` only renames debug-info types for Visual Studio; it is accepted and stored.
+    require(!options.interactive_bytecode_debugger, "interactive bytecode debugging is unavailable");
     require(options.llvm_options.command_line.count == 0, "raw LLVM command-line options are unavailable; use explicit build settings");
     require(!options.llvm_options.function_sections && !options.llvm_options.disable_mem2reg, "these LLVM pass switches are not implemented by the current backend");
     ws := resolve_workspace(w);
@@ -99,6 +100,7 @@ set_build_options :: (options: C.Build_Options, w: Workspace = -1, loc := #calle
 }
 
 set_build_options_dc :: (options: C.Build_Options_During_Compile, w: Workspace = -1) #compiler {
+    require(!options.interactive_bytecode_debugger, "interactive bytecode debugging is unavailable");
     ws := resolve_workspace(w);
     stored := get_build_options(ws);
     stored.write_added_strings = options.write_added_strings;
