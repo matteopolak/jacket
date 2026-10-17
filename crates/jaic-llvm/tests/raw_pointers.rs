@@ -29,7 +29,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: wasm.then(|| jaic::target::Target::wasm_module()),
+                    target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: level,
                     emit_ir: Some(ir.clone()),
                     ..Default::default()

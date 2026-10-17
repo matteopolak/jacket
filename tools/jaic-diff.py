@@ -125,7 +125,10 @@ class Result:
 
 
 def runtime_error_text(err):
-    return "runtime error" in err or "panic" in err.lower() or "wasm trap" in err
+    # A native runtime check stops the program with `file:line: error: message` and exit status 1;
+    # the interpreter says `runtime error`, and its location carries a column.
+    return ("runtime error" in err or "panic" in err.lower() or "wasm trap" in err
+            or re.search(r"(^|\n)\S+:\d+: error: ", err) is not None)
 
 
 class WasmPool:

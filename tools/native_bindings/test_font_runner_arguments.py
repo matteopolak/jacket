@@ -28,7 +28,7 @@ class FontArguments(unittest.TestCase):
         self.assertEqual(self.arguments("lz4", {}), [])
 
     def test_missing_nonexistent_or_directory_font_fails(self):
-        with tempfile.TemporaryDirectory(dir=os.environ["TMPDIR"]) as directory:
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
             for value in (None, str(Path(directory) / "absent.ttf"), directory):
                 with (
                     self.subTest(value=value),
@@ -40,7 +40,7 @@ class FontArguments(unittest.TestCase):
                     )
 
     def test_exact_caller_path_is_passed_to_both_modes(self):
-        with tempfile.TemporaryDirectory(dir=os.environ["TMPDIR"]) as directory:
+        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
             font = Path(directory) / "caller 字 font.ttf"
             font.write_bytes(b"input policy marker only; never executed as a font")
             self.assertEqual(

@@ -28,7 +28,7 @@ fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
 }
 
 fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::from_path(&path).unwrap()
+    DocumentUri::from_path(path).unwrap()
 }
 
 fn open(folder: &Path, file: &str) -> (Session, DocumentUri, String) {

@@ -340,7 +340,7 @@ impl Compiler {
                     complete,
                     header,
                 } = &**boxed;
-                self.check_switch(f, scope, value, cases, *complete, *header, span)
+                self.check_switch(f, scope, value, cases, *complete, (*header, span))
             }
             S::StaticSwitch(boxed) => {
                 let crate::ast::SwitchStmt {
@@ -1722,8 +1722,7 @@ impl Compiler {
         value: &ast::Expr,
         cases: &[ast::Case],
         complete: bool,
-        header: Span,
-        span: Span,
+        (header, span): (Span, Span),
     ) -> Result<()> {
         let v = self.check_expr(f, scope, value, None)?;
         // Constant switch (types, constants): pick the case at compile time.

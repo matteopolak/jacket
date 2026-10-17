@@ -11,26 +11,32 @@ struct CountingFs {
     fs: RefCell<VirtualFs>,
     listings: Cell<usize>,
 }
+
 impl CountingFs {
     fn insert(&self, path: &str, text: &str) {
         self.fs.borrow_mut().insert(path, text.as_bytes());
     }
 }
+
 impl FileSystem for CountingFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         self.fs.borrow().read(path)
     }
+
     fn is_file(&self, path: &Path) -> bool {
         self.fs.borrow().is_file(path)
     }
+
     fn is_dir(&self, path: &Path) -> bool {
         self.fs.borrow().is_dir(path)
     }
+
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         self.listings.set(self.listings.get() + 1);
         self.fs.borrow().list_dir(path)
     }
 }
+
 fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usize) {
     let fs = Rc::new(CountingFs::default());
     fs.insert("/discovery/main.jai", source);
@@ -64,6 +70,7 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
     fs.listings.set(0);
     (c, fs, scope, index)
 }
+
 const SOURCE: &str = "#import \"Unavailable\"; #import \"Available\"; healthy :: () -> s64 { return published; } independent :: () { independent_missing; } trigger :: () -> s64 { return 7; } main :: () {}";
 
 #[test]

@@ -374,6 +374,9 @@ pub enum ProvidedKind {
     FullText,
 }
 
+/// A cached `module_declarations` answer and the `namespace_generation` it holds for.
+type ModuleNames = (u64, Rc<[EntityId]>);
+
 pub struct Compiler {
     // Rust drops fields in declaration order. Join interpreter workers before any
     // compiler-owned program/source/type storage that their frames may borrow.
@@ -463,7 +466,7 @@ pub struct Compiler {
     func_targets: HashMap<ir::FuncId, Vec<ProcId>>,
     /// `module_declarations` answers (before `bound_entities`) and the `namespace_generation`
     /// they hold for. Only answers that no later expansion or import can change are kept.
-    module_names: HashMap<(ModuleId, Sym), (u64, Rc<[EntityId]>)>,
+    module_names: HashMap<(ModuleId, Sym), ModuleNames>,
     /// Set while computing a `module_declarations` answer that may still change.
     module_names_unsettled: bool,
     /// Debug builds check `namespace_generation` against a full count of scope contents.

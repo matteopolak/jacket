@@ -21,7 +21,7 @@ SPEC.loader.exec_module(runtime)
 
 class CondaNotices(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(dir=os.environ["TMPDIR"])
+        self.temporary = tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR"))
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.sdk, self.cache, self.output = [

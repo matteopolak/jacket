@@ -254,7 +254,7 @@ mod xgetbv {
             include_str!("../../../tests/compiler-semantics/xgetbv.jai"),
         );
         result.unwrap();
-        let function = |c: &Compiler, name: &str| {
+        let function = |c: &jaic::sema::Compiler, name: &str| {
             jaic::ir::FuncId(
                 c.program
                     .funcs
@@ -520,7 +520,7 @@ mod x86_machine {
             include_str!("../../../tests/compiler-semantics/x86-machine.jai"),
         );
         result.unwrap();
-        let function = |c: &Compiler, name: &str| {
+        let function = |c: &jaic::sema::Compiler, name: &str| {
             jaic::ir::FuncId(
                 c.program
                     .funcs

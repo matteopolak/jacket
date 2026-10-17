@@ -359,7 +359,7 @@ impl Analysis {
         let suggested = self.compiler.with_name_suggestion(error);
         let fixes = suggested.as_ref().unwrap_or(error).fixes.as_ref()?;
         let (span, text) = fixes.replace.clone()?;
-        (span.file == file).then(|| (span.start as usize, span.end as usize, text))
+        (span.file == file).then_some((span.start as usize, span.end as usize, text))
     }
 
     /// The `#import`s that would declare the unknown name the compile error in `path` reports,

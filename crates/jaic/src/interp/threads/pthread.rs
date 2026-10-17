@@ -3,6 +3,7 @@ use super::Worker;
 
 #[cfg(target_os = "macos")]
 type Handle = *mut std::ffi::c_void;
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 type Handle = usize;
 
@@ -10,8 +11,10 @@ type Handle = usize;
 unsafe extern "C" {
     fn pthread_self() -> Handle;
     fn pthread_getname_np(thread: Handle, name: *mut u8, len: usize) -> i32;
+
     #[cfg(target_os = "macos")]
     fn pthread_setname_np(name: *const u8) -> i32;
+
     #[cfg(not(target_os = "macos"))]
     fn pthread_setname_np(thread: Handle, name: *const u8) -> i32;
 }
@@ -28,7 +31,7 @@ pub(super) fn worker_identity(worker: &Worker) -> Option<u64> {
     #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
     {
         use std::os::unix::thread::JoinHandleExt;
-        Some(worker.as_pthread_t() as u64)
+        Some(worker.as_pthread_t() as _)
     }
     #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
     {

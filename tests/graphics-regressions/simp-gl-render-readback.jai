@@ -10,7 +10,6 @@
 #import "File";
 #import "File_Utilities";
 #import "Simp";
-GL :: #import "GL";
 
 SIZE :: 32;
 

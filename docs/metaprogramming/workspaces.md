@@ -69,3 +69,26 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 - | `COMPLETE` (3) | int 0 = error code (0 none, 1 failed) {#ws.13} |
 - When `do_output` is set and `output_type != NO_OUTPUT`, the embedder's `OutputBackend::write_output` gets the IR program and `BuildSettings` (path `output_path/output_executable_name`). `jaic` and `jaic -interp` pass an LLVM backend (object file, `cc` link, `-shared` for `DYNAMIC_LIBRARY`, `ar` for `STATIC_LIBRARY`): `-interp` differs from a build only in interpreting the top-level program instead of compiling it, so a build metaprogram (`jaic first.jai -interp`) writes and can launch what it builds. `jaic -check`, `jaic -interp -no_workspace_output` (used by `tools/jaic-sweep.py`), the browser, jailsp and jailint pass none, so workspaces are only checked {#ws.15}. Without a backend, `BuildEnv::unwritten_output_hint` decides whether a workspace that asks for output is told it was not written: `jaic -check` warns ``warning: `jaic -check` does not write build/game (workspace `Build` asks for an executable)`` with ``help: `jaic first.jai` (or `jaic first.jai -interp`) writes it`` (the path is shown relative to where jaic was started, the main file as it was typed); `-no_workspace_output` and the tools set `None` and say nothing {#ws.17}.
 - Workspace 2's own settings decide whether `jaic` writes the top-level program, so a metaprogram calling `set_build_options_dc(.{do_output = false})` produces no output of its own {#ws.16}.
+
+## Plugins
+
+`jaic file.jai +Name` compiles `file.jai` with the plugin module `Name` hooked into the compilation {#plugin.1}. Profilers use this to instrument every procedure, and lint plugins to inspect typechecked code. A plugin is a module with `get_plugin :: () -> *Metaprogram_Plugin` {#plugin.2}; the struct (`stdlib/Compiler/workspace.jai`) holds the hooks `init`, `handle_one_option`, `before_intercept`, `add_source`, `message`, `finish`, `shutdown` and `log_help`.
+
+`build_with_plugins` (`stdlib/Metaprogram_Plugins.jai`) creates the "Target Program" workspace, delivers each plugin its options, calls `before_intercept`, starts intercepting, calls `add_source`, adds the file, forwards every compiler message to each plugin's `message` until `COMPLETE`, then calls `finish` and `shutdown` {#plugin.3}. A failed compilation, or an option no plugin accepts, makes jaic exit non-zero {#plugin.4}.
+
+- `+Name` may repeat, and each plugin gets its own options {#plugin.5}. Module parameters are part of the name: `'+Check(CHECK_BINDINGS=false)'` {#plugin.6}.
+- Everything after `+Name` up to the next `+Name`, a lone `-` or `--` belongs to that plugin (`+tracy -min_size 1`) {#plugin.7}. jaic's own options before the first plugin stay jaic's {#plugin.8}.
+- An option jaic does not know, with no plugin to take it, is a usage error (exit 2) {#plugin.9}. Plugins do not combine with `-interp`: that is a usage error too {#plugin.10}.
+- The plugin workspace's program is written to `-exe` or, without it, next to the source under the source's name {#plugin.11}.
+
+To add a hook, add the field to `Metaprogram_Plugin` and call it from `build_with_plugins`. Option delivery is `deliver_plugin_options` in the same file. Tests: `plug_hooks_a_plugin_into_check` in `crates/jaic-cli/tests/cli.rs` and the plugin tests in `crates/jaic-cli/tests/native.rs`.
+
+## Bootstrap modules
+
+Every program implicitly loads two bootstrap modules {#prelude.1}. Preload holds compiler-owned declarations (`Type_Info`, `Allocator`, intrinsics); Runtime_Support holds the entry point, context initialisation and write helpers. `Compiler::load_bootstrap` (`sema/driver.rs`) loads Preload, then, if `Options::runtime_support` is set, `Runtime_Support` with `DEFINE_SYSTEM_ENTRY_POINT=true`, `DEFINE_INITIALIZATION=true`, `ENABLE_BACKTRACE_ON_CRASH=false` and `TEMPORARY_STORAGE_SIZE` from `Options::temporary_storage_size`. Both are visible from every module {#prelude.2}.
+
+A program can import Runtime_Support itself with other arguments and gets its own instance {#prelude.3}. Without the entry point there is no exported `main`.
+
+`context_type` (`sema/structs.rs`) builds the `Context` struct: Preload's `FIRST_ADD_CONTEXT` comes first, resolved in Runtime_Support's scope (which defines `Context_Base`), followed by every `#add_context` in load order {#prelude.4}. The intrinsics in `prelude/intrinsics.jai` are bound by name in `sema/calls.rs` {#prelude.5}; see [intrinsics](../language/intrinsics.md).
+
+Keep Preload declarative: no imports, `#run` or side effects. Runtime behaviour (allocators, temporary storage, crash output) belongs in Runtime_Support, whose module parameters are the contract with `load_bootstrap`.

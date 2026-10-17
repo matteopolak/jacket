@@ -15,7 +15,7 @@ import stdlib_coverage
 from stdlib_test_catalog import validated_entries, unavailable_reason
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRATCH = os.environ.get("RUNNER_TEMP") or os.environ["TMPDIR"]
+SCRATCH = os.environ.get("RUNNER_TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir()
 
 
 def load_function(path, name, namespace):

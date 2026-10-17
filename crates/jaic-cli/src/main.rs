@@ -1822,7 +1822,7 @@ impl LlvmBackend {
         });
         let options = jaic_llvm::Options {
             opt_level,
-            target: target.clone(),
+            target,
             emit_ir,
             debug_info,
             sanitize,

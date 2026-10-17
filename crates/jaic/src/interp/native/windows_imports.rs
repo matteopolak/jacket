@@ -5,12 +5,15 @@ fn bytes(data: &[u8], at: usize, len: usize) -> Result<&[u8], String> {
     data.get(at..at.checked_add(len).ok_or("COFF offset overflow")?)
         .ok_or_else(|| "truncated COFF import metadata".into())
 }
+
 fn u16_at(data: &[u8], at: usize) -> Result<u16, String> {
     Ok(u16::from_le_bytes(bytes(data, at, 2)?.try_into().unwrap()))
 }
+
 fn u32_at(data: &[u8], at: usize) -> Result<u32, String> {
     Ok(u32::from_le_bytes(bytes(data, at, 4)?.try_into().unwrap()))
 }
+
 fn terminated(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
     let end = data
         .iter()
@@ -18,6 +21,7 @@ fn terminated(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
         .ok_or("unterminated COFF import name")?;
     Ok((&data[..end], &data[end + 1..]))
 }
+
 fn provider(data: &[u8]) -> Result<String, String> {
     let (name, _) = terminated(data)?;
     if name.is_empty()
@@ -107,6 +111,7 @@ fn symbol(data: &[u8]) -> Result<String, String> {
     }
     String::from_utf8(data.to_vec()).map_err(|_| "invalid short import symbol/export name".into())
 }
+
 // Parse and validate before selecting an ABI. An archive may contain separate
 // ARM64EC and ARM64 imports; their machine tags must never be conflated.
 fn object(data: &[u8]) -> Result<Vec<Record>, String> {

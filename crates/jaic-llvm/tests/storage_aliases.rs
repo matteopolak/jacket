@@ -32,7 +32,7 @@ fn filtered_reexports_share_actual_c_memory_native_and_wasm_o0_o2() {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: wasm.then(|| jaic::target::Target::wasm_module()),
+                    target: wasm.then(jaic::target::Target::wasm_module),
                     opt_level: level,
                     ..Default::default()
                 },

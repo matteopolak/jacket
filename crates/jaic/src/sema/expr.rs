@@ -241,13 +241,19 @@ impl Compiler {
                     f,
                     scope,
                     cond,
-                    then_value.as_deref(),
-                    Some(e),
+                    (then_value.as_deref(), Some(e)),
                     expected,
                     span,
                 ),
                 // `ifx c then a` / `ifx c`: the value, or zero when the condition is false.
-                None => self.check_ifx(f, scope, cond, then_value.as_deref(), None, expected, span),
+                None => self.check_ifx(
+                    f,
+                    scope,
+                    cond,
+                    (then_value.as_deref(), None),
+                    expected,
+                    span,
+                ),
             },
             E::StructLit {
                 ty,
@@ -2846,8 +2852,7 @@ impl Compiler {
         f: &mut FnCtx,
         scope: ScopeId,
         cond: &ast::Expr,
-        then_value: Option<&ast::Expr>,
-        else_value: Option<&ast::Expr>,
+        (then_value, else_value): (Option<&ast::Expr>, Option<&ast::Expr>),
         expected: Option<TypeId>,
         span: Span,
     ) -> Result<Operand> {

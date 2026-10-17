@@ -87,7 +87,7 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
     }
     let object = dir.join("atomics.o");
     let options = jaic_llvm::Options {
-        target: wasm.then(|| jaic::target::Target::wasm_module()),
+        target: wasm.then(jaic::target::Target::wasm_module),
         opt_level: if optimized {
             OptLevel::O2
         } else {

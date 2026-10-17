@@ -2,16 +2,20 @@
 use super::*;
 
 struct AliasFs;
+
 impl jaic::sema::FileSystem for AliasFs {
     fn read(&self, _: &Path) -> Option<Vec<u8>> {
         None
     }
+
     fn is_file(&self, path: &Path) -> bool {
         path == Path::new("/alias/helper.jai")
     }
+
     fn is_dir(&self, path: &Path) -> bool {
         path == Path::new("/alias")
     }
+
     fn canonical(&self, path: &Path) -> PathBuf {
         if path == Path::new("/alias/Helper.jai") {
             PathBuf::from("/alias/helper.jai")
@@ -19,6 +23,7 @@ impl jaic::sema::FileSystem for AliasFs {
             path.to_owned()
         }
     }
+
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         if self.is_dir(path) {
             vec![("helper.jai".into(), false)]

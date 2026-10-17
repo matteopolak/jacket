@@ -13,7 +13,7 @@ import stdlib_runtime as runtime
 
 class DynamicPackage(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(dir=os.environ["TMPDIR"])
+        self.temporary = tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR"))
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
 

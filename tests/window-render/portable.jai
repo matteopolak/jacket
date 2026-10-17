@@ -28,7 +28,7 @@ main :: () {
     S.bitmap_alloc(*bitmap, 7, 3, .RGBA8);
     assert(bitmap.data.count == 84 && bitmap.stride == 28);
     assert(bitmap.width == 7 && bitmap.height == 3);
-    for i: 0..bitmap.data.count - 1 bitmap.data[i] = cast(u8) i;
+    for *bitmap.data it.* = cast(u8) it_index;
 
     S.deinit(*bitmap);
     assert(bitmap.data.count == 0 && bitmap.data.data == null);

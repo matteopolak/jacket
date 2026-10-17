@@ -114,16 +114,20 @@ fn auto_import_keeps_authored_docs_for_encoded_module_directory() {
 }
 
 struct ProvenAlias;
+
 impl jaic::sema::FileSystem for ProvenAlias {
     fn read(&self, _: &Path) -> Option<Vec<u8>> {
         None
     }
+
     fn is_file(&self, _: &Path) -> bool {
         false
     }
+
     fn is_dir(&self, _: &Path) -> bool {
         false
     }
+
     fn canonical(&self, path: &Path) -> PathBuf {
         if path == Path::new("/file-uris/Helper.jai") {
             PathBuf::from("/file-uris/helper.jai")

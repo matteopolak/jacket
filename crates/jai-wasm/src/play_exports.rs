@@ -303,6 +303,7 @@ mod tests {
             "{json}"
         );
     }
+
     #[test]
     fn protocol_reset_clears_every_request_buffer_but_preserves_limits() {
         jai_play_reset();
