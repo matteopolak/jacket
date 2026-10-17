@@ -247,7 +247,7 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             filter(None, env["JAIC_NATIVE_LIBS"].split(os.pathsep))
         )))
     env.setdefault("JAIC_MEMORY_LIMIT", "3G")
-    # Tests may read the mode (docs/tools/stdlib-runtime-tests.md), for example to avoid what the
+    # Tests may read the mode (docs/tools/testing.md), for example to avoid what the
     # interpreter cannot do yet.
     env["JAIC_STDLIB_TEST_MODE"] = mode
     try:

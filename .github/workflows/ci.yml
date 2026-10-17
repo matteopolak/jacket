@@ -1,7 +1,21 @@
 name: compiler checks
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+env:
+  LLVM_VERSION: 23.1.2
+  # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for Windows arm64.
+  LLVM_MINGW_VERSION: '20260922'
+  # Mesa's llvmpipe software OpenGL for the Windows window tests (the runners only have GDI's
+  # OpenGL 1.1): the MSVC build of https://github.com/pal1000/mesa-dist-win, which has no arm64
+  # DLLs. Its opengl32.dll goes next to the programs, which Windows searches before System32.
+  MESA_VERSION: 26.1.8
+  MESA_SHA256: 4c6d32e653e0ff9ad07796e40c0bcfabf2764d849e3ce4f3b1590112c87e42f9
+  GALLIUM_DRIVER: llvmpipe
 # A newer push to a branch supersedes the older run there. On main the light jobs (compiler
 # tests, lint, wasm, VS Code) finish for every push, while the heavy ones (stdlib runtime,
 # third-party projects, sanitizers, macOS Intel) set their own concurrency so a newer push to
@@ -10,6 +24,43 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 jobs:
+  changes:
+    # Which of the path-gated jobs below run (tools/ci_changes.py lists the paths).
+    name: select what runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sdl3: ${{ steps.select.outputs.sdl3 }}
+      clipboard: ${{ steps.select.outputs.clipboard }}
+      nix: ${{ steps.select.outputs.nix }}
+      packaging: ${{ steps.select.outputs.packaging }}
+      windows: ${{ steps.select.outputs.windows }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: select
+        env:
+          EVENT_BEFORE: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SHA: ${{ github.sha }}
+        run: python3 tools/ci_changes.py
+  fuzz-regressions:
+    # Replays the saved crash inputs so fixed crashes stay fixed (nightly fuzzing: fuzz.yml).
+    name: replay fuzz regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup toolchain install nightly-2026-08-29 --profile minimal
+      - name: Validate fuzz dependency ages
+        run: python3 tools/check_dependency_age.py --lockfile fuzz/Cargo.lock
+      - name: Replay fuzz/regressions through the harnesses
+        run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
   scripting-wasm:
     name: scripting interpreter (LLVM-free WebAssembly)
     runs-on: ubuntu-24.04
@@ -53,7 +104,7 @@ jobs:
         # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
         run: node tools/check_playground_stdlib.mjs artifacts/ci-wasm
       - name: Interpreter and browser engine agree (corpus and generated programs)
-        # docs/tools/differential-testing.md; the host jaic needs no LLVM to interpret.
+        # docs/tools/testing.md; the host jaic needs no LLVM to interpret.
         run: |
           cargo build --locked -j 2 -p jaic-cli --no-default-features
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm artifacts/ci-wasm corpus gen:1:40
@@ -62,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15-intel only on pushes to main (its runners queue for a long time); see docs/tools/continuous-integration.md
+        # macos-15-intel only on pushes to main (its runners queue for a long time); see docs/tools/development.md
         include: ${{ fromJSON(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cleanroom-integration') && '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"},{"runner":"macos-15-intel","architecture":"x86_64"}]' || '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"}]') }}
     concurrency:
       group: ${{ github.workflow }}-test-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.runner == 'macos-15-intel' && 'newest' || github.sha }}
@@ -77,12 +128,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: ./.github/actions/setup-unix
         with:
-          python-version: '3.14'
-      # The format and lint steps below run the Justfile's recipes (docs/tools/justfile.md).
+          lld: 'true'
+          font: 'false'
+      # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: '1.58.0'
@@ -96,20 +146,6 @@ jobs:
         run: python3 tools/check_dependency_age.py
       - name: Validate public checkout compilation inputs
         run: python3 tools/check_ci_sources.py
-      - name: Install LLVM 23 (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
-          tools/install_ci_llvm_macos.sh --lld
-          brew install openssl@3 pkg-config
-      - name: Install LLVM 23 (Linux)
-        if: runner.os == 'Linux'
-        timeout-minutes: 15
-        run: |
-          bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
-          bash tools/install_ci_native_linux.sh
       - name: Verify native host and LLVM
         run: |
           uname -sm
@@ -117,20 +153,11 @@ jobs:
           llvm-config --version
           clang --version
           node --version
-      - name: Build the real Linux clipboard provider
-        if: runner.os == 'Linux'
+      - name: Build the native helper libraries
         run: |
-          python3 tools/build_native_libs.py
-          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
-          python3 tools/build_portable_clipboard.py --output target/clipboard-native
-          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
-      - name: Build source-relative native workspace providers
-        run: |
+          if [ "$RUNNER_OS" = Linux ]; then bash tools/ci_native_deps.sh clipboard; fi
           python3 tools/build_portable_runtime.py
-          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
-          python3 tools/build_developer_bindings.py
-          python3 tools/build_developer_debug.py
-          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
+          bash tools/ci_native_deps.sh developer
       - name: Format check
         id: format
         continue-on-error: true
@@ -158,8 +185,8 @@ jobs:
         id: stdlib-targets
         continue-on-error: true
         # Every stdlib module with -no_dce for linux, macos, windows and wasm, against
-        # tests/stdlib-targets.txt (docs/tools/stdlib-target-check.md); every Objective-C selector
-        # against its arguments and, on macOS, the runtime (docs/tools/objc-selector-check.md).
+        # tests/stdlib-targets.txt (docs/tools/testing.md); every Objective-C selector
+        # against its arguments and, on macOS, the runtime (docs/tools/testing.md).
         run: cargo test -p jaic-cli --locked --test stdlib_targets --test objc_selectors
       - name: Prepare hash-pinned SDL Python test inputs
         run: python3 tools/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
@@ -186,7 +213,7 @@ jobs:
         id: backends
         continue-on-error: true
         # The interpreter, -O0 and -O2 native builds must print the same for the corpus and a
-        # fixed set of generated programs (docs/tools/differential-testing.md has the full run).
+        # fixed set of generated programs (docs/tools/testing.md has the full run).
         run: |
           cargo build --locked -p jaic-cli
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,native,native-O2 corpus gen:1:40
@@ -316,76 +343,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: ./.github/actions/setup-unix
         with:
-          python-version: '3.14'
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
-      - name: Install LLVM 23, LLD and SDL2 (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          tools/install_ci_llvm_macos.sh --lld
-          brew install openssl@3 pkg-config
+          lld: 'true'
           # The stdlib's FreeType is built by tools/build_native_libs.py and found first;
           # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
           # tests/native-regressions/sdl2-geometry-timer.jai uses Homebrew's.
-          brew list freetype > /dev/null 2>&1 || brew install freetype
-          brew list sdl2 > /dev/null 2>&1 || brew install sdl2
-          echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"
-      - name: Install LLVM 23, the window libraries and a virtual display (Linux)
-        if: runner.os == 'Linux'
-        timeout-minutes: 15
-        run: |
-          bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
-          # X11, GL (Mesa's software renderer) and FreeType for Window_Creation, Input, Simp and
-          # GetRect; Xvfb is the display the window tests open their windows on. XFixes lets the
-          # input test see the cursor, xclip backs the clipboard test, and ALSA is Sound_Player's
-          # output, played into a null PCM since the runners have no sound card.
-          # Mesa's lavapipe (mesa-vulkan-drivers) is the Vulkan adapter of the WebGPU test.
-          bash tools/install_ci_native_linux.sh
-          echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"
-      - name: Configure the real headless ALSA provider
-        if: runner.os == 'Linux'
-        run: |
-          test -r /usr/share/alsa/alsa.conf
-          test -r "$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf"
-          echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
-          echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
+          brew: freetype sdl2
+          alsa: 'true'
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
       - name: Build production compiler and lint tools
         run: |
           cargo build --locked -p jaic-cli -p jailint
           cargo build --locked --release -p jaic-cli
           target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
       - name: Build private native dependencies from source
-        run: |
-          python3 tools/build_portable_runtime.py
-          python3 tools/window_render_native.py
-          python3 tools/build_native_libs.py
-          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
-          python3 tools/build_developer_bindings.py
-          python3 tools/build_developer_debug.py
-          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
-          audio=(--test-runtime)
-          [[ "$RUNNER_OS" == Linux ]] && audio+=(--require-device)
-          python3 tools/audio_build_native.py "${audio[@]}"
-          python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
-          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
-          echo "JAIC_NATIVE_LIBS=$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
-          if [[ "$RUNNER_OS" == macOS ]]; then
-            clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
-            echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
-          fi
-      - name: Build the real Linux clipboard provider
-        if: runner.os == 'Linux'
-        run: |
-          native="$JAIC_NATIVE_LIBS"
-          python3 tools/build_portable_clipboard.py --output target/clipboard-native
-          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
+        run: bash tools/ci_native_deps.sh full
       - name: Run reviewed contracts and retained regressions
         run: |
           ulimit -c 0
@@ -431,24 +406,12 @@ jobs:
       - name: Informational interpreter reachability
         if: ${{ always() && !cancelled() }}
         run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }}
-      - name: Preserve strict audio SDK receipts
-        if: ${{ always() && !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: audio-provider-${{ github.job }}-${{ matrix.runner }}
-          path: |
-            target/audio-native/audio-runtime.json
-            target/audio-native/audio-routing-runtime.json
-            target/audio-native/audio-close-runtime.json
-            target/audio-native/audio-environment-runtime.json
-          retention-days: 7
-          if-no-files-found: warn
   upstream-smoke:
     # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
     # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
     # their tests, games and editors open a window on a virtual display for a few seconds and must
-    # draw something (docs/tools/third-party-smoke-test.md). Windows runs the same checks in
-    # windows-native.yml.
+    # draw something (docs/tools/upstream-corpus.md). `windows-smoke` runs the same checks on
+    # Windows.
     name: third-party projects (${{ matrix.platform }})
     strategy:
       fail-fast: false
@@ -471,49 +434,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: ./.github/actions/setup-unix
         with:
-          python-version: '3.14'
-      - name: Install LLVM 23 and FreeType (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          tools/install_ci_llvm_macos.sh
-          brew install openssl@3 pkg-config
-          brew list freetype > /dev/null 2>&1 || brew install freetype
-      - name: Install LLVM 23, the window libraries and a virtual display (Linux)
-        if: runner.os == 'Linux'
-        timeout-minutes: 15
-        run: |
-          bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
-          # As the stdlib runtime job, plus x11-apps (xwd takes the screenshots) and the xcb and
-          # fontconfig libraries Focus loads at run time, and libc++ (jai-tracy links it).
-          bash tools/install_ci_native_linux.sh
-      - name: Configure the real headless ALSA provider
-        if: runner.os == 'Linux'
-        run: |
-          test -r /usr/share/alsa/alsa.conf
-          test -r "$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf"
-          echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
-          echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
+          brew: freetype
+          alsa: 'true'
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
-      - name: Build the real Linux clipboard provider
-        if: runner.os == 'Linux'
+      - name: Build the native helper libraries
         run: |
-          python3 tools/build_native_libs.py
-          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
-          python3 tools/build_portable_clipboard.py --output target/clipboard-native
-          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
-      - name: Build actual compiler and Debug host helpers
-        run: |
-          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
-          python3 tools/build_developer_bindings.py
-          python3 tools/build_developer_debug.py
-          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
+          if [ "$RUNNER_OS" = Linux ]; then bash tools/ci_native_deps.sh clipboard; fi
+          bash tools/ci_native_deps.sh developer
       - name: Fetch the pinned projects
         run: |
           project_list="$(python3 tools/upstream_smoke.py --jaic x --projects)"
@@ -551,64 +481,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: ./.github/actions/setup-unix
         with:
-          python-version: '3.14'
-      - name: Install LLVM 23 and its sanitizer runtimes (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          tools/install_ci_llvm_macos.sh
-          brew install openssl@3 pkg-config
           # tests/native-regressions/sdl2-geometry-timer.jai links the installed SDL2.
-          brew list sdl2 > /dev/null 2>&1 || brew install sdl2
-          brew list freetype > /dev/null 2>&1 || brew install freetype
-          echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"
-      - name: Install LLVM 23 and its sanitizer runtimes (Linux)
-        if: runner.os == 'Linux'
-        timeout-minutes: 15
-        run: |
-          bash tools/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
-      - name: Install the libraries Simp and GetRect link (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          bash tools/install_ci_native_linux.sh
-          echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"
-      - name: Configure the real headless ALSA provider
-        if: runner.os == 'Linux'
-        run: |
-          test -r /usr/share/alsa/alsa.conf
-          test -r "$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf"
-          echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
-          echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
-      - name: Build real private runtime and ABI8 fixture providers
-        run: |
-          python3 tools/build_portable_runtime.py
-          python3 tools/window_render_native.py
-          python3 tools/build_native_libs.py
-          TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
-          python3 tools/build_developer_bindings.py
-          python3 tools/build_developer_debug.py
-          python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
-          audio=(--test-runtime)
-          [[ "$RUNNER_OS" == Linux ]] && audio+=(--require-device)
-          python3 tools/audio_build_native.py "${audio[@]}"
-          python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
-          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
-          echo "JAIC_NATIVE_LIBS=$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$native" >> "$GITHUB_ENV"
-          if [[ "$RUNNER_OS" == macOS ]]; then
-            clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
-            echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
-          fi
-      - name: Build the real Linux clipboard provider
-        if: runner.os == 'Linux'
-        run: |
-          native="$JAIC_NATIVE_LIBS"
-          python3 tools/build_portable_clipboard.py --output target/clipboard-native
-          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
+          brew: sdl2 freetype
+          alsa: 'true'
+      - name: Build the native helper libraries
+        run: bash tools/ci_native_deps.sh full
       - name: Build jaic
         id: build-jaic
         run: cargo build --locked -p jaic-cli
@@ -620,15 +499,680 @@ jobs:
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
         run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined corpus stdlib modules
-      - name: Preserve strict audio SDK receipts
-        if: ${{ always() && !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  sdl3:
+    # SDL3 built from the pinned source on every platform, its installed SDK audited and the
+    # generated bindings checked (docs/extensions/sdl3.md).
+    name: SDL3 native artifacts (${{ matrix.platform }})
+    needs: changes
+    if: needs.changes.outputs.sdl3 == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {platform: macos-arm64, runner: macos-15}
+          - {platform: macos-x64, runner: macos-15-intel}
+          - {platform: linux-x64, runner: ubuntu-24.04}
+          - {platform: linux-arm64, runner: ubuntu-24.04-arm}
+          - {platform: windows-x64, runner: windows-2025}
+          - {platform: windows-arm64, runner: windows-11-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          name: audio-provider-${{ github.job }}-${{ matrix.runner }}
-          path: |
-            target/audio-native/audio-runtime.json
-            target/audio-native/audio-routing-runtime.json
-            target/audio-native/audio-close-runtime.json
-            target/audio-native/audio-environment-runtime.json
-          retention-days: 7
-          if-no-files-found: warn
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install the Linux backend SDKs
+        if: runner.os == 'Linux'
+        run: bash tools/install_ci_native_linux.sh
+      - name: Prepare hash-pinned SDL Python test inputs
+        run: python3 tools/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
+      - name: Generator and build tests
+        run: python3 -m unittest discover -s tools -p 'test_sdl*.py'
+      - name: Show the Windows MSVC toolchain
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --version
+          python tools/sdl3_native.py --platform "${{ matrix.platform }}" --show-toolchain
+      - name: Build SDL3 and run C/C++ static and shared consumers against the installed SDK
+        run: python3 tools/build_native_libs.py SDL3 --platform "${{ matrix.platform }}"
+      - name: Offline rebuild from the source cache
+        run: python3 tools/sdl3_native.py --platform "${{ matrix.platform }}" --offline
+      - name: Audit version, runtime symbols, licenses and the installed SDK
+        run: python3 tools/test_sdl3.py --audit-only --platform "${{ matrix.platform }}" --native "artifacts/native-libs/${{ matrix.platform }}"
+      - uses: ./.github/actions/setup-unix
+        if: matrix.platform == 'linux-x64'
+        with:
+          native-libs: 'false'
+      - name: Generated bindings are current
+        if: matrix.platform == 'linux-x64'
+        run: |
+          cargo build --locked -p jaic-cli
+          JAIC_STDLIB="$PWD/stdlib" target/debug/jaic jaifmt/main.jai -O2 -exe "$PWD/target/jaifmt"
+          python3 tools/sdl3_gen.py --source artifacts/sdl3/SDL3-3.4.18 --jaifmt "$PWD/target/jaifmt" --check
+  clipboard-linux:
+    # The Linux clipboard against real X11 clients on Xvfb, and the relocated package.
+    name: Linux clipboard (X11)
+    needs: changes
+    if: needs.changes.outputs.clipboard == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/clipboard-linux
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          native-libs: 'false'
+      - name: Install the X11 build and display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev xvfb xauth clang-format
+          python3 -m pip install ruff==0.14.14
+          cargo fetch --locked
+      - name: Build the Linux runtime helper
+        run: python3 tools/build_portable_runtime.py
+      - name: X11 clients, the Jai runtime and the relocated package
+        run: |
+          mkdir -p "$CARGO_TARGET_DIR"
+          xvfb-run -a python3 tools/check_portable_clipboard.py --linux-runtime | tee "$CARGO_TARGET_DIR/runtime.log"
+          xvfb-run -a python3 tools/check_clipboard_linux_package.py --verification-receipt "$(tail -n 1 "$CARGO_TARGET_DIR/runtime.log")" --output "$CARGO_TARGET_DIR/package"
+  nix:
+    # Evaluates the flake, builds jaic and jaifmt through Nix (their install checks build and run
+    # programs natively) and runs the packaged compiler; see docs/tools/releases.md.
+    name: flake (${{ matrix.runner }})
+    needs: changes
+    if: needs.changes.outputs.nix == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - name: Check the lock file is current
+        run: nix flake lock --no-update-lock-file
+      - name: Check the flake
+        run: nix flake check --print-build-logs
+      - name: Build
+        run: nix build --print-build-logs .#jaic .#jaifmt
+      - name: Run the packaged compiler outside the checkout
+        run: |
+          work="$RUNNER_TEMP/smoke"
+          mkdir -p "$work"
+          printf '#import "Basic";\nmain :: () { print("hello from nix\\n"); }\n' > "$work/hello.jai"
+          nix run .# -- "$work/hello.jai" -interp
+          jaic="$PWD/result/bin/jaic"
+          cd "$work"
+          "$jaic" hello.jai -exe hello
+          ./hello
+          printf 'x:=1;\n' | "$GITHUB_WORKSPACE/result-1/bin/jaifmt" --stdin
+          nix develop "$GITHUB_WORKSPACE" --command sh -c 'cargo --version && llvm-config --version && python3 --version && node --version && echo "$LLVM_SYS_231_PREFIX"'
+  # Package channels against the latest published release: install.sh, install.ps1 and the
+  # Homebrew formula rendered by tools/render_packages.py, each installed for real and run. Nothing
+  # is published from here (release.yml publishes); see docs/tools/releases.md.
+  shellcheck:
+    needs: changes
+    if: needs.changes.outputs.packaging == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint install.sh as POSIX sh
+        run: shellcheck --version && shellcheck -s sh install.sh
+  install-sh:
+    needs: changes
+    if: needs.changes.outputs.packaging == 'true'
+    name: install.sh (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A release may lack this platform's archive: then install.sh must pick the platform and
+      # say the release has no build for it.
+      - name: Does the latest release have this platform's archive?
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$(uname -s)-$(uname -m)" in
+            Darwin-arm64) plat=macos-arm64 ;;
+            Darwin-x86_64) plat=macos-x64 ;;
+            Linux-x86_64) plat=linux-x64 ;;
+            Linux-aarch64) plat=linux-arm64 ;;
+          esac
+          echo "PLATFORM=$plat" >> "$GITHUB_ENV"
+          assets="$(gh release view --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')"
+          if echo "$assets" | grep -Eqx "jacket-$plat\.tar\.gz"; then has=true; else has=false; fi
+          echo "$plat in the latest release: $has"
+          echo "has=$has" >> "$GITHUB_OUTPUT"
+      - name: Without one, install.sh names the missing archive
+        if: steps.release.outputs.has == 'false'
+        run: |
+          if ./install.sh 2> err.txt; then exit 1; fi
+          cat err.txt
+          grep -Eq "has no jacket-$PLATFORM\.tar\.gz" err.txt
+      - name: Install an older release, then upgrade to the latest through a pipe
+        if: steps.release.outputs.has == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --json tagName -q '.[1].tagName')"
+          latest="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+          echo "previous=$previous latest=$latest"
+          JAIC_VERSION="$previous" ./install.sh
+          test -d "$HOME/.local/share/jai/${previous#v}"
+          # A PATH without the bin folder (the runners already have ~/.local/bin on theirs).
+          PATH=/usr/bin:/bin sh < install.sh | tee out.txt
+          grep -q "is not on your PATH" out.txt
+          test -d "$HOME/.local/share/jai/${latest#v}"
+          test ! -e "$HOME/.local/share/jai/${previous#v}"
+          test "$(readlink "$HOME/.local/bin/jaic")" = "$HOME/.local/share/jai/${latest#v}/jaic"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Run the installed toolchain outside the checkout
+        if: steps.release.outputs.has == 'true'
+        run: |
+          cd "$RUNNER_TEMP"
+          printf '#import "Basic";\n\nmain :: () {\n    print("hello from install.sh\\n");\n}\n' > hello.jai
+          test "$(jaic hello.jai -interp)" = "hello from install.sh"
+          jailint hello.jai
+          test "$(echo 'main::(){x:=1;}' | jaifmt --stdin)" = "$(printf 'main :: () {\n    x := 1;\n}')"
+          command -v jailsp
+      - name: Custom directories (the JAI_* names; the steps around use JAIC_*), and a re-run of the same version
+        if: steps.release.outputs.has == 'true'
+        run: |
+          export JAI_INSTALL_DIR="$RUNNER_TEMP/custom/share" JAI_BIN_DIR="$RUNNER_TEMP/custom/bin"
+          ./install.sh
+          ./install.sh
+          test "$(find "$JAI_INSTALL_DIR" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = 1
+          cd "$RUNNER_TEMP" && "$JAI_BIN_DIR/jaic" hello.jai -interp
+      - name: Bad versions and occupied commands fail with a message
+        run: |
+          if JAIC_VERSION=0.0.0-missing JAIC_INSTALL_DIR="$RUNNER_TEMP/x" JAIC_BIN_DIR="$RUNNER_TEMP/xb" ./install.sh 2> err.txt; then exit 1; fi
+          cat err.txt && grep -q "could not download" err.txt
+          # (Without an archive for this platform, install.sh stops before looking at the links.)
+          if [ "${{ steps.release.outputs.has }}" != true ]; then exit 0; fi
+          mkdir -p "$RUNNER_TEMP/occupied" && touch "$RUNNER_TEMP/occupied/jaic"
+          if JAIC_BIN_DIR="$RUNNER_TEMP/occupied" ./install.sh 2> err.txt; then exit 1; fi
+          cat err.txt && grep -q "is not a symlink" err.txt
+  install-ps1:
+    needs: changes
+    if: needs.changes.outputs.packaging == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Windows PowerShell 5.1, the way `irm ... | iex` runs it on a stock machine.
+      - name: Install the latest release twice (the second run is an upgrade in place)
+        shell: powershell
+        run: |
+          Get-Content -Raw install.ps1 | Invoke-Expression
+          Get-Content -Raw install.ps1 | Invoke-Expression
+          $current = Join-Path $env:LOCALAPPDATA 'Programs\jai\current'
+          if (-not (Test-Path (Join-Path $current 'stdlib\prelude\module.jai'))) { throw 'no stdlib next to jaic.exe' }
+          if (([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') -notcontains $current) { throw 'user PATH lacks the install' }
+          @(Get-ChildItem -Directory (Join-Path $env:LOCALAPPDATA 'Programs\jai')).Count
+          $current | Out-File -Encoding ascii -Append $env:GITHUB_PATH
+      - name: Run the installed toolchain outside the checkout
+        shell: pwsh
+        run: |
+          Set-Location $env:RUNNER_TEMP
+          "#import `"Basic`";`n`nmain :: () {`n    print(`"hello from install.ps1\n`");`n}`n" | Set-Content -NoNewline hello.jai
+          $out = jaic hello.jai -interp
+          if ($LASTEXITCODE -ne 0 -or $out -ne 'hello from install.ps1') { throw "jaic -interp printed '$out'" }
+          jailint hello.jai
+          if ($LASTEXITCODE -ne 0) { throw 'jailint failed' }
+          (Get-Command jaifmt, jailsp).Source
+  homebrew:
+    needs: changes
+    if: needs.changes.outputs.packaging == 'true'
+    name: homebrew (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      HOMEBREW_NO_ENV_HINTS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Render the formula for the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" -p SHA256SUMS -D "$RUNNER_TEMP"
+          python3 tools/render_packages.py --version "$tag" --sums "$RUNNER_TEMP/SHA256SUMS" --out "$RUNNER_TEMP/packages"
+          cat "$RUNNER_TEMP/packages/homebrew/jacket.rb"
+      # Every platform's url and sha256 from synthetic checksums.
+      - name: Render and audit a formula for all four platforms
+        run: |
+          sums="$RUNNER_TEMP/all-platforms.SHA256SUMS"
+          for asset in macos-arm64.tar.gz macos-x64.tar.gz linux-x64.tar.gz linux-arm64.tar.gz; do
+            echo "$(printf '%s' "$asset" | shasum -a 256 | cut -d ' ' -f 1)  jacket-$asset"
+          done > "$sums"
+          python3 tools/render_packages.py --version 99.0.0 --sums "$sums" --out "$RUNNER_TEMP/all-platforms"
+          formula="$RUNNER_TEMP/all-platforms/homebrew/jacket.rb"
+          cat "$formula"
+          grep -q 'jacket-macos-x64.tar.gz' "$formula" && grep -q 'jacket-linux-arm64.tar.gz' "$formula"
+          if grep -q 'depends_on arch: :' "$formula"; then echo "the formula still restricts the architecture"; exit 1; fi
+          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
+          brew tap-new --no-git jaiall/local
+          cp "$formula" "$(brew --repository jaiall/local)/Formula/jacket.rb"
+          brew trust jaiall/local 2> /dev/null || true
+          brew style jaiall/local/jacket
+          brew audit --formula --strict jaiall/local/jacket
+          brew untap jaiall/local
+      - name: Install the formula from a local tap and run its test
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
+          brew --version
+          brew tap-new --no-git jaitest/local
+          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" "$(brew --repository jaitest/local)/Formula/jacket.rb"
+          brew trust jaitest/local 2> /dev/null || true
+          brew style jaitest/local/jacket
+          brew audit --formula --strict --online jaitest/local/jacket
+          brew install --build-from-source jaitest/local/jacket
+          brew test jaitest/local/jacket
+          brew linkage jaitest/local/jacket || true
+          brew uninstall jaitest/local/jacket
+          brew untap jaitest/local
+  # Native Windows executables from `jaic` for x64 and arm64: built on Windows with the MSVC
+  # toolchain, and cross-built from Linux with MinGW-w64 (llvm-mingw for arm64) then run on
+  # Windows (docs/native/windows.md). Runs on manual runs, on the Windows work branches, and on
+  # main when a path its coverage is about changes (tools/ci_changes.py).
+  windows-cross:
+    name: cross-build ${{ matrix.cpu }} (Linux, ${{ matrix.mingw }})
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {cpu: x64, mingw: MinGW-w64}
+          - {cpu: arm64, mingw: llvm-mingw}
+    concurrency:
+      group: ${{ github.workflow }}-windows-cross-${{ github.ref }}-${{ matrix.cpu }}
+      cancel-in-progress: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: target
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-unix
+        with:
+          font: 'false'
+      - name: Install MinGW-w64
+        if: matrix.cpu == 'x64'
+        run: |
+          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          x86_64-w64-mingw32-gcc --version
+      - name: Install llvm-mingw
+        if: matrix.cpu == 'arm64'
+        run: |
+          name="llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64"
+          curl -fsSL -o llvm-mingw.tar.xz "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$name.tar.xz"
+          mkdir -p "$RUNNER_TEMP/llvm-mingw"
+          tar -xJf llvm-mingw.tar.xz -C "$RUNNER_TEMP/llvm-mingw" --strip-components=1
+          rm llvm-mingw.tar.xz
+          echo "$RUNNER_TEMP/llvm-mingw/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/llvm-mingw/bin/aarch64-w64-mingw32-clang" --version
+      - name: Build jaic
+        run: cargo build --locked -p jaic-cli
+      - name: Build the resource-only PE fixture
+        run: python3 tools/build_windows_resource_fixture.py --cpu ${{ matrix.cpu }} --out cross-${{ matrix.cpu }}/resource-fixture --rc /usr/lib/llvm-23/bin/llvm-rc --linker /usr/lib/llvm-23/bin/lld-link --readobj /usr/lib/llvm-23/bin/llvm-readobj
+      - name: Cross-build the Windows test programs
+        # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
+        # MinGW-w64 or llvm-mingw as static archives (tools/build_native_libs.py).
+        run: python3 tools/windows_cross.py build --stdlib --cpu ${{ matrix.cpu }} --jaic target/debug/jaic --out cross-${{ matrix.cpu }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cross-${{ matrix.cpu }}
+          path: cross-${{ matrix.cpu }}
+          if-no-files-found: error
+  windows-run-cross:
+    name: run cross-built programs (Windows ${{ matrix.cpu }})
+    needs: windows-cross
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {cpu: x64, runner: windows-2025}
+          - {cpu: arm64, runner: windows-11-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: cross-${{ matrix.cpu }}
+          path: cross-${{ matrix.cpu }}
+      - name: Install Mesa's software OpenGL
+        if: matrix.cpu == 'x64'
+        run: |
+          bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
+          cp "$RUNNER_TEMP"/mesa/*.dll cross-x64/
+      - name: Run
+        run: |
+          JAIC_TEST_WINDOWS_RESOURCE_DIR="$(cygpath -m "$PWD/cross-${{ matrix.cpu }}/resource-fixture")"
+          export JAIC_TEST_WINDOWS_RESOURCE_DIR
+          python tools/windows_cross.py run --dir cross-${{ matrix.cpu }}
+  windows-native:
+    name: jaic on Windows ${{ matrix.cpu }} (MSVC)
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cpu: x64
+            runner: windows-2025
+            triple: x86_64-pc-windows-msvc
+            vs_arch: amd64
+            mesa_dir: target/mesa-driver
+            timeout: 60
+          - cpu: arm64
+            runner: windows-11-arm
+            triple: aarch64-pc-windows-msvc
+            vs_arch: arm64
+            mesa_dir: target/window-mesa-arm64/driver
+            timeout: 120
+    concurrency:
+      group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}
+      cancel-in-progress: true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      JAIC: target/${{ matrix.triple }}/debug/jaic.exe
+      JAILINT: target/${{ matrix.triple }}/debug/jailint.exe
+      MESA_DIR: ${{ matrix.mesa_dir }}
+      CPU: ${{ matrix.cpu }}
+      VS_ARCH: ${{ matrix.vs_arch }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-windows
+        with:
+          cpu: ${{ matrix.cpu }}
+          triple: ${{ matrix.triple }}
+      - name: Build jaic with the LLVM backend
+        run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
+      - name: Windows dynamic package tests
+        run: TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tools -p test_windows_dynamic_package.py -v
+      - uses: ./.github/actions/windows-provider
+        with:
+          cpu: ${{ matrix.cpu }}
+          triple: ${{ matrix.triple }}
+      - name: Platform I/O (interpreter and native O0/O2)
+        if: ${{ !cancelled() }}
+        run: python -u tools/check_platform_io.py --jaic "$JAIC" --stdlib stdlib --native --windows-crash
+      - name: Socket, calendar and shared-channel execution
+        if: ${{ !cancelled() }}
+        run: |
+          for check in socket calendar channel; do
+            python -u tools/check_portable_windows_$check.py --jaic "$JAIC" --stdlib stdlib --native
+          done
+      - name: Build the caller-owned Windows resource fixture
+        run: |
+          python tools/build_windows_resource_fixture.py --cpu "$CPU" --out "$RUNNER_TEMP/windows-resources"
+          printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$RUNNER_TEMP/windows-resources")" >> "$GITHUB_ENV"
+      - name: Build and run the Windows test programs natively
+        run: |
+          mkdir -p native-exes
+          "$JAIC" tests/corpus/positive/integer-control.jai -exe native-exes/smoke
+          python -u tools/windows_cross.py build --jaic "$JAIC" --out native-exes --host --keep-going
+          python -u tools/windows_cross.py run --dir native-exes
+      - name: Interpreter variadic foreign calls
+        if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
+        run: test "$("$JAIC" tests/native/windows/variadic.jai -interp | tr -d '\r')" = ok
+      - name: Install Mesa's software OpenGL
+        if: ${{ !cancelled() && matrix.cpu == 'x64' }}
+        run: bash tools/install_ci_mesa_windows.sh "$MESA_DIR"
+      - name: Restore the native LLVM installation for the Mesa build
+        if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
+        id: mesa-llvm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/window-mesa-cache
+          key: windows-arm64-mesa-llvm-${{ hashFiles('tools/window_render_mesa_windows.py') }}-${{ github.run_id }}
+          restore-keys: |
+            windows-arm64-mesa-llvm-${{ hashFiles('tools/window_render_mesa_windows.py') }}-
+      - name: Build native arm64 Mesa from pinned upstream sources
+        if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio ARM64 C++ tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch arm64 -HostArch amd64 -SkipAutomaticLocation
+          if ($env:VSCMD_ARG_TGT_ARCH -ne 'arm64') { throw 'ARM64 developer environment was not initialized' }
+          python -m venv target/mesa-python
+          $python = Join-Path $PWD 'target/mesa-python/Scripts/python.exe'
+          & $python -m pip install cmake==3.31.6 ninja==1.13.2 meson==1.8.3 Mako==1.3.10 MarkupSafe==3.0.3 packaging==25.0 PyYAML==6.0.3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PATH = (Join-Path $PWD 'target/mesa-python/Scripts') + ';' + $env:PATH
+          & $python -u tools/window_render_mesa_windows.py --out target/window-mesa-arm64 --jobs 4
+          exit $LASTEXITCODE
+      - name: Check whether the native LLVM installation is complete
+        if: ${{ always() && !cancelled() && matrix.cpu == 'arm64' }}
+        id: mesa-llvm-completion
+        shell: pwsh
+        run: |
+          $planPath = 'target/window-mesa-arm64/source-build.json'
+          $save = $false
+          if (Test-Path $planPath) {
+            $plan = Get-Content -Raw $planPath | ConvertFrom-Json
+            if ($plan.llvm_cache -and -not $plan.llvm_cache.hit) {
+              $save = Test-Path (Join-Path 'target/window-mesa-cache' ($plan.llvm_cache.key + '/complete.json'))
+            }
+          }
+          "save=$($save.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      - name: Save the native LLVM installation
+        if: ${{ always() && !cancelled() && steps.mesa-llvm-completion.outputs.save == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/window-mesa-cache
+          key: ${{ steps.mesa-llvm-cache.outputs.cache-primary-key }}
+      - name: Stdlib runtime tests (interpreter and native) and coverage
+        # The third-party libraries (FreeType, stb_*...) are built first (tools/build_native_libs.py).
+        if: ${{ !cancelled() }}
+        run: |
+          if [ "$CPU" = x64 ]; then cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"; fi
+          python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes interp,native --strict --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
+          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-${{ matrix.cpu }}
+      - name: Stdlib contract tests, native O2
+        if: ${{ !cancelled() }}
+        run: python -u tests/stdlib-contract/run.py --jaic "$PWD/$JAIC" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+      - name: Data resource discovery and Icon effects
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch $env:VS_ARCH -HostArch amd64 -SkipAutomaticLocation
+          $env:JAIC_STDLIB = (Resolve-Path stdlib).Path
+          & $env:JAIC jaifmt/main.jai -O2 -exe target/jaifmt.exe
+          if ($LASTEXITCODE -ne 0) { throw 'jaifmt build failed' }
+          python tests/portable-data/build_windows_images.py --cpu $env:CPU
+          if ($LASTEXITCODE -ne 0) { throw 'Native image SDK build failed' }
+          python -u tests/portable-data/run.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Native data/resource suite failed' }
+      - name: A Simp game's metaprogram build without Clang on PATH
+        # tests/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
+        # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
+        # `link` in /usr/bin, jaic must skip that `link` and use Visual Studio's link.exe with
+        # the LIB it works out. The stb libraries come from the stdlib runtime step.
+        if: ${{ !cancelled() && matrix.cpu == 'x64' }}
+        run: |
+          jaic="$PWD/$JAIC"
+          game="$RUNNER_TEMP/simp-game"
+          cp -R tests/native/simp-game "$game"
+          mkdir -p "$game/build"
+          cp "$MESA_DIR"/*.dll "$game/build/"
+          cd "$game"
+          PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi llvm | paste -sd:)"
+          export PATH
+          if command -v clang; then echo "clang is still on PATH"; exit 1; fi
+          which -a link
+          # First with the runner's older Clang in Program Files\LLVM (found off PATH), then
+          # with that and Visual Studio's bundled Clang moved away, so link.exe links.
+          "$jaic" first.jai -interp
+          vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")"
+          hidden=()
+          for dir in "/c/Program Files/LLVM" "$vs/VC/Tools/Llvm"; do
+            if [ -d "$dir" ]; then mv "$dir" "$dir.hidden"; hidden+=("$dir"); fi
+          done
+          rm -f build/game.exe
+          set +e
+          "$jaic" first.jai -interp
+          status=$?
+          set -e
+          for dir in "${hidden[@]}"; do mv "$dir.hidden" "$dir"; done
+          test "$status" = 0
+          ls -l build
+          # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
+          "$jaic" src/main.jai -interp
+      - name: D3DCompiler provider and interpreter identity
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m unittest discover -s tools -p 'test_windows_d3dcompiler*.py' -v
+          if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler diagnostic tests failed' }
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch $env:VS_ARCH -HostArch amd64 -SkipAutomaticLocation
+          $importLibrary = $env:LIB.Split(';') | ForEach-Object { Join-Path $_ 'd3dcompiler.lib' } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if (-not $importLibrary) { throw 'Selected SDK LIB search has no d3dcompiler.lib' }
+          python -u tools/check_windows_d3dcompiler_provider.py --jaic $env:JAIC --stdlib stdlib --import-library "$importLibrary" --report "target/d3dcompiler-$env:CPU/provider.json"
+          if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler provider interpreter/native check failed' }
+      - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
+        # tests/webgpu/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
+        if: ${{ !cancelled() }}
+        run: python -u tools/test_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
+      - name: WebGPU in a window (HWND surface on WARP, presented)
+        # tests/webgpu/window.jai: a Window_Creation window in the runner's interactive desktop
+        # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.
+        if: ${{ !cancelled() }}
+        run: python -u tools/test_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter --test window --frames 120
+      - name: Native WGL driver diagnostics and public rendering
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p artifacts/native-libs/windows-${{ matrix.cpu }}
+          python -u tools/window_render_wgl_ci.py --jaic "$JAIC" --jailint "$JAILINT" --stdlib stdlib --native-libs artifacts/native-libs/windows-${{ matrix.cpu }} --driver-dir "$MESA_DIR" --consumer-dir native-exes
+      - name: Signed mouse wheel events reach the program (interpreter, O0, O2)
+        if: ${{ !cancelled() }}
+        run: |
+          "$JAIC" tests/window-render/signed-wheel-windows.jai -interp
+          "$JAIC" tests/window-render/signed-wheel-windows.jai -exe native-exes/signed-wheel
+          native-exes/signed-wheel.exe
+          "$JAIC" tests/window-render/windows-render-events.jai -interp
+          for opt in O0 O2; do
+            "$JAIC" tests/window-render/windows-render-events.jai -$opt -exe native-exes/render-wheel-$opt
+            native-exes/render-wheel-$opt.exe
+          done
+      - name: Native backend tests
+        if: ${{ !cancelled() }}
+        run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
+      - name: Native File_Watcher and Windows time-zone SDK ABI fixtures
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio native SDK tools are required' }
+          & (Join-Path $installation 'Common7/Tools/Launch-VsDevShell.ps1') -Arch $env:VS_ARCH -HostArch amd64 -SkipAutomaticLocation
+          python -u tools/check_file_watcher_platforms.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe --native-runtime
+          $watcherExit = $LASTEXITCODE
+          python -u tools/check_windows_time_zone.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe --sdk-runtime
+          $abiExit = $LASTEXITCODE
+          if ($watcherExit -ne 0 -or $abiExit -ne 0) { throw 'Native File_Watcher or SDK time-zone ABI suite failed' }
+  windows-smoke:
+    # The third-party projects of `upstream-smoke`, built and run on Windows with the interactive
+    # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
+    name: third-party projects (Windows x64)
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    concurrency:
+      group: ${{ github.workflow }}-windows-smoke-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: windows-2025
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-windows
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - name: Build jaic with the LLVM backend
+        run: cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm
+      - uses: ./.github/actions/windows-provider
+        with:
+          cpu: x64
+          triple: x86_64-pc-windows-msvc
+      - name: Install Mesa's software OpenGL
+        run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
+      - name: Fetch the pinned projects
+        run: |
+          project_list="$(python tools/upstream_smoke.py --jaic x --projects)"
+          read -r -a project_names <<< "$project_list"
+          python tools/fetch_upstreams.py --only "${project_names[@]}"
+      - name: Build and run the projects
+        run: python -u tools/upstream_smoke.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --platform windows-x64 --dlls "$RUNNER_TEMP/mesa"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && !cancelled() }}
+        with:
+          name: smoke-screenshots-windows-x64
+          path: target/smoke-screenshots
+          if-no-files-found: ignore

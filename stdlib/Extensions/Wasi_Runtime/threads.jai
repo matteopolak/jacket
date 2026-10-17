@@ -10,7 +10,7 @@
 // unwinding, and to jump back to where it was when the scheduler resumes the thread by calling
 // its entry again. jaic does that only to programs that call `pthread_create`, and then sets
 // `green.enabled`; without it, a wait that nothing could end reports EDEADLK at once, as there
-// is no other thread. See docs/native/wasm-threads.md.
+// is no other thread. See docs/native/wasm-target.md.
 
 // The compiler reads these by offset: state at 0, top at 8, limit at 16, enabled at 24.
 Green_Control :: struct {

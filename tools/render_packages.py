@@ -6,7 +6,7 @@ The version and checksums come from the release itself: its tag and its SHA256SU
     python3 tools/render_packages.py --version 0.3.0 --sums SHA256SUMS --out packages
 
 writes packages/homebrew/jacket.rb.
-See docs/tools/package-managers.md.
+See docs/tools/releases.md.
 """
 import argparse
 import hashlib

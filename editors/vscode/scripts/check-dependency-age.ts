@@ -1,6 +1,6 @@
 // Every package in pnpm-lock.yaml (direct and transitive), and the pnpm release named by
 // package.json's packageManager, must have been published on the npm registry at least 14 days
-// ago, the same policy as Cargo.lock (docs/tools/dependency-policy.md). Runs before any install,
+// ago, the same policy as Cargo.lock (docs/tools/development.md). Runs before any install,
 // so it reads the lockfile with a few regular expressions instead of a YAML library.
 // Fails closed: an entry that is not a plain registry package with an integrity hash, or whose
 // publish time the registry does not report, is an error.

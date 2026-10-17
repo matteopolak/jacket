@@ -1,5 +1,5 @@
 // Io: fibers and a cooperative scheduler. A jaic extension, not official Jai: other Jai compilers
-// have no such module, and it may change between jaic releases. See docs/extensions/io-fibers.md.
+// have no such module, and it may change between jaic releases. See docs/extensions/io-engine.md.
 //
 //     Io :: #import "Extensions/Io";
 //

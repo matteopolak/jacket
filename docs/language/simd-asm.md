@@ -2,18 +2,17 @@
 
 ## What it is
 
-`#asm` blocks with x64 scalar, string, SSE through AVX2, FMA, AES and AVX-512 instructions, including op-mask registers. jaic never emits machine code for them: each instruction is lowered to ordinary IR, so `#asm` runs on any CPU, in the interpreter and in the browser. This page is the user-facing view; the instruction list and internals are in [jaic `#asm` blocks](../compiler/asm.md).
+`#asm` blocks with x64 scalar, string, SSE through AVX2, FMA, AES and AVX-512 instructions, including op-mask registers. jaic never emits machine code for them: each instruction lowers to ordinary IR, so `#asm` runs on any CPU, in the interpreter and in the browser. Instruction list and internals: [jaic `#asm` blocks](../compiler/asm.md).
 
 ## How it works
 
-Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, except that `syscall` reads the registers pinned to its arguments (Linux x86-64 hosts and targets only), and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
+Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory and declared registers. Registers are not modelled: pinning (`=== rax`) is ignored except that `syscall` reads its pinned registers (Linux x86-64 only).
 
 ```jai
 x: s64 = 10;
 #asm { add x, 5; sub x, 3; }        // x == 12
 
-a := float32.[1, 2, 3, 4];
-b := float32.[10, 20, 30, 40];
+a := float32.[1, 2, 3, 4];  b := float32.[10, 20, 30, 40];
 pa, pb := a.data, b.data;
 #asm {
     movups.x v:, [pa];
@@ -23,8 +22,22 @@ pa, pb := a.data, b.data;
 }
 ```
 
-The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160` {#asm.5}.
+- Size comes from the `.b/.w/.d/.q` suffix, else the first variable operand, else 64 bits. 32-bit writes zero-extend; 8/16-bit writes merge. Vector width comes from `.x/.y/.z`, else the block default (256 bits under an `AVX` modifier).
+- Flags are tracked within a block for `setcc`/`cmovcc`; `lock_` operations use a compare-and-swap loop. Implicit registers are explicit operands (`div hi, lo, d`).
+- A floating-point variable is a vector register; an integer instruction cannot take one (compile error).
+- A `name:` destination declares a register of the class the instruction writes.
+- Unsupported instructions (x87, `push`/`pop`, privileged, some AVX-512 extensions) are compile errors naming the instruction; reasons are in the compiler asm page. `cpuid` returns real data on x64 only.
 
+## How to change it
+
+Add a mnemonic in `sema/asm.rs` or `asm/scalar.rs`, `asm/mask.rs`, or `lookup_simd` in `asm/simd.rs`, plus a test case. Vectors are 64-byte locals processed through a scratch buffer so aliased operands behave as on hardware; never write the destination before every source is read. Tests: `tests/stdlib/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-avx512-masks.jai` (expected values recorded on x86-64 hardware). AST types: `AsmBlock`, `AsmInst`, `AsmOperand` in `ast.rs`.
+
+## Rules
+
+Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+
+- Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, except that `syscall` reads the registers pinned to its arguments (Linux x86-64 hosts and targets only), and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
+- The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160` {#asm.5}.
 - Operand size comes from the `.b/.w/.d/.q` suffix, else the first Jai variable operand, else 64 bits {#asm.6}. 32-bit writes zero-extend {#asm.7}; 8- and 16-bit writes merge into the low bits {#asm.8}.
 - Vector width comes from `.x/.y/.z` (16/32/64 bytes), else the block default (256 bits under an `AVX` feature modifier) {#asm.9}. A leading `v` (`vaddps`) is accepted {#asm.10}. Two operands mean `dst op= src`, three mean `dst = a op b` {#asm.11}.
 - Flags (CF, ZF, SF, OF, PF) are tracked within one block for `setcc`/`cmovcc` {#asm.12}. `lock_` prefixed memory operations use a compare-and-swap loop {#asm.13}.
@@ -37,15 +50,3 @@ The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160
 - The SSE4.2 string compares `pcmpistri`, `pcmpestri`, `pcmpistrm` and `pcmpestrm` take the implicit registers as operands in the order `ecx` (or `xmm0`), then `eax`, `edx` for the explicit-length forms, the two strings and the control byte (`pcmpistri ecx, a, b, 0x0c`), and match the hardware for every control byte, flags included {#asm.30}. `mpsadbw` (SSE4.1 and AVX2) and the AVX-512 IFMA `pmadd52luq`/`pmadd52huq` are supported too {#asm.31}.
 - `rcp*`/`rsqrt*` return exact results {#asm.24}. `cpuid` returns real leaf/subleaf data on x64 {#asm.25}; it cannot execute on an ARM interpreter host. XGETBV execution needs actual XSAVE/OSXSAVE support; the real-instruction implementation is being integrated separately. Literal-zero XGETBV lowering is an open limitation, not a feature query. The catalogue guards this instruction with real feature bits and checks enabled XCR0 state when available.
 - A `name:` destination declares a register of the class the instruction writes: a general-purpose register for the vector instructions whose result is an integer (`pmovmskb.x found:, v`, `movmskps/pd`, `pextr*`, `extractps`, `cvt*2si`/`cvt*2usi`), a vector register otherwise {#asm.27}.
-
-## How to change it
-
-Add an instruction to the mnemonic match in `sema/asm.rs` or `asm/scalar.rs` (scalar), `asm/mask.rs` (op-mask) or `lookup_simd` in `asm/simd.rs` (vector), and add a case to the matching test.
-
-Vectors are 64-byte stack locals processed through a scratch buffer, so aliased operands (`addps v, v, v`) behave as on hardware. Keep it that way: never write the destination before every source is read.
-
-Tests (each prints `ok`): `tests/stdlib/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-scalar-extended.jai`, `asm-simd-extended.jai`, `asm-avx512-masks.jai`, `asm-evex-decorations.jai`, `machine-x64-intrinsics.jai`. The expected values were recorded on x86-64 hardware (under Rosetta), so they also check the lowering against real instructions.
-
-## Dependencies
-
-`AsmBlock`, `AsmInst`, `AsmOperand` in `ast.rs`, the asm parser, and the IR builder.

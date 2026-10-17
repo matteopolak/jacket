@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fuzz one target for a fixed time with the settings CI uses (see docs/tools/fuzzing.md).
+# Fuzz one target for a fixed time with the settings CI uses (see docs/tools/testing.md).
 #
 #   fuzz/run.sh <target> [seconds=600] [workers=1] [extra libFuzzer flags...]
 #

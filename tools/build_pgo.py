@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build jaic, jailsp and jailint with profile-guided optimisation, and optionally BOLT.
 
-Steps (docs/tools/pgo-and-bolt.md):
+Steps (docs/tools/releases.md):
   1. build instrumented binaries (`-Cprofile-generate`) into <target-dir>/pgo/instrumented;
   2. run the training workload in this repository with them (sweep sets, native builds,
      benchmarks, jailint over the stdlib, a scripted jailsp session);
@@ -122,7 +122,7 @@ def pgo_works(target):
     Not on arm64 Windows (nightly-2026-08-29): processes that merge into an existing .profraw
     crash in lprofMergeValueProfData, and with value profiling off the files they write are
     still rejected by llvm-profdata ("symbol name is empty"). That target gets a plain release
-    build. See docs/tools/pgo-and-bolt.md.
+    build. See docs/tools/releases.md.
     """
     return not (target.startswith("aarch64") and "windows" in target)
 

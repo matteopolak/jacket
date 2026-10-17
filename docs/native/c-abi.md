@@ -2,105 +2,55 @@
 
 ## What it is
 
-How `jaic` passes C structs by value, variadic arguments and C++ method receivers across `#foreign` calls and `#c_call` callbacks. One classification drives both the interpreter's native foreign calls (`jaic -interp`) and the LLVM backend (`jaic`).
+How `jaic` passes C structs by value, variadic arguments and C++ method receivers across `#foreign` calls and `#c_call` callbacks. One classification drives both the interpreter's native foreign calls and the LLVM backend.
 
 ## How it works
 
-`crates/jaic/src/abi.rs` (`classify_arg`, `classify_vararg`, `classify_ret`) classifies an `AggLayout` (size, alignment, flattened scalar fields, from `ir.rs`) for one of four conventions:
+`crates/jaic/src/abi.rs` (`classify_arg`, `classify_vararg`, `classify_ret`) classifies an `AggLayout` (size, alignment, flattened scalar fields) for one of four conventions, picked by `Arch::from_triple` (builds) or `Arch::host()` (interpreter):
 
-| `Arch` | Convention | Picked for |
-| --- | --- | --- |
-| `Aarch64` | AAPCS64 | Apple and Linux arm64 |
-| `Win64Arm` | AAPCS64 with Windows variadic rules | any `windows`/`mingw` aarch64 triple |
-| `X86_64` | System V | Linux and macOS x86-64 |
-| `Win64` | Microsoft x64 | any `windows`/`mingw` x86-64 triple |
+| `Arch` | Convention |
+| --- | --- |
+| `Aarch64` | AAPCS64 (Apple and Linux arm64) |
+| `Win64Arm` | AAPCS64 with Windows variadic rules |
+| `X86_64` | System V (Linux, macOS) |
+| `Win64` | Microsoft x64 |
 
-`Arch::from_triple` picks one for a build, `Arch::host()` for the interpreter. `agg_layout` in `sema/procs.rs` flattens the fields and drops repeats of the same offset and type, so members placed over each other (`Math`'s `Vector2`, whose `component: [2] float` overlays `x, y`) count once: the struct is two floats to C, not four, and returns in `s0`/`s1` or `xmm0` like `struct { float x, y; }` (the ImGui bindings return `ImVec2 :: Vector2` by value). `tests/native/c-structs-by-value` covers it (`Placed`).
-
-How aggregates travel:
+`agg_layout` (`sema/procs.rs`) flattens fields and drops repeats of the same offset and type, so overlaid members (`Math`'s `Vector2` with `component: [2] float` over `x, y`) count once: two floats to C, not four.
 
 | | AArch64 | x86-64 System V | Microsoft x64 |
 |---|---|---|---|
-| in registers | up to 16 bytes as `i64` chunks in x registers; homogeneous float aggregates (HFAs, up to 4 members) as separate `float`/`double` | up to 16 bytes, per eightbyte: `i64`, `double`, `float` or `<2 x float>` | exactly 1, 2, 4 or 8 bytes as one `i64`, even when the members are floats |
+| in registers | up to 16 bytes as `i64` chunks; homogeneous float aggregates (up to 4) as separate floats | up to 16 bytes, per eightbyte | exactly 1, 2, 4 or 8 bytes as one `i64` |
 | otherwise | caller copy, pointer passed | `byval` pointer | caller copy, pointer passed |
-| no registers left | the whole aggregate on the stack | the whole aggregate on the stack (`RegBudget` turns it into `byval`) | n/a |
 | return | chunks in registers, else `sret` | same | same |
 
-`#no_padding` structs and members with `#align 1` are C's `__attribute__((packed))`. System V puts an aggregate with a member that is not naturally aligned (`char; int`, `int; double` packed) in MEMORY however small, so `classify_registers` rejects it; AAPCS64 and Microsoft x64 only look at the size, so a packed `char; int` is one `i64` chunk on arm64 and a caller copy on Microsoft x64. Checked with `clang -S -emit-llvm` for each triple: packed `{float,float}` stays an HFA, packed `{double,int}` (aligned members) stays two eightbytes.
-
-Register exhaustion: when an aggregate needs more registers than are left, System V and AAPCS64 pass all of it on the stack and later arguments of that class may keep using registers (System V) or none do (AAPCS64). On x86-64 `abi::RegBudget` counts registers in `lower_sig` and turns an aggregate that no longer fits into `byval`. On AArch64 a multi-piece aggregate is one array parameter (`[2 x i64]`, `[4 x float]`, `ParamPlan::AggArray`), which the backend gives all of its registers or none, as Clang's IR does; separate scalars would be split between x7 and the stack. (The Windows arm64 variadic case keeps separate pieces, which straddle on purpose.)
-
-On Microsoft x64, scalars, the shadow space, stack slots past the fourth argument and variadic doubles duplicated in integer registers are LLVM's job once the function type is right.
-
-### Variadic calls
-
-`args: ..Any` on a `#foreign` procedure uses the platform's variadic convention. It matters on Apple arm64 (variadic arguments go on the stack), Win64 (variadic doubles duplicated in integer registers) and Windows arm64.
-
-A struct passed through `...` travels by value as an aggregate (`c_vararg_layouts` in `sema/calls.rs` records its `AggLayout` after the fixed ones in `CAbi::params`): the C callee reads it with `va_arg`. System V and AAPCS64 classify it like a fixed argument; Apple arm64 puts its words (or, over 16 bytes and not a float aggregate, a copy's address) in consecutive stack slots (the interpreter does that in `call_with`); Microsoft x64 passes anything over 8 bytes by reference; Windows arm64 ignores HFAs as below. Before, a struct in a variadic call went as a bare pointer. `tests/native/c-variadic-aggregates` covers it.
-On Windows arm64 a variadic procedure puts nothing in v registers, for all of its arguments, fixed ones included. `float`/`double` travel as bits in x0-x7 and then on the stack (LLVM does this from the variadic function type), and aggregates are not HFAs: `classify_vararg` makes anything up to 16 bytes one or two `i64` pieces and passes larger ones by reference. An aggregate may straddle x7 and the stack. Results are unaffected. Clang's IR for the same C, which the unit tests mirror:
-
-```
-// struct F4 { float a, b, c, d; };  struct D4 { double a, b, c, d; };
-declare %struct.F4 @take_f4([4 x float])          ; fixed: HFA in s0-s3
-call i32 (i32, ...) @vf(i32 1, double 1.5, [2 x i64] %f4, ptr %d4_copy)   ; variadic
-```
-
-The LLVM backend uses `classify_vararg` for every parameter of a variadic signature; the interpreter's `call_with` does the same on a Windows arm64 host (`general_only`).
-
-### Where marshalling happens
-
-`sema/procs.rs` attaches a `CAbi` (`params: Vec<Option<AggLayout>>`, `ret`, `ret_indirect`) to each `Conv::C` signature. The IR itself passes aggregates by pointer, so marshalling happens at the boundary:
-
-- Interpreter: `interp/native.rs` loads register pieces from the aggregate and calls the function pointer; see [interpreter](../compiler/interpreter.md#native-foreign-calls). Callbacks from C into interpreted procedures go through `interp/native/callbacks.rs` (`callbacks/win64.rs` on Windows x64).
-- LLVM: the call site and `bind_params`; see [LLVM backend](llvm-backend.md#c-abi).
+- `#no_padding` structs and `#align 1` members are C's packed attribute. System V puts an aggregate with a misaligned member in MEMORY however small (`classify_registers` rejects it); AAPCS64 and Microsoft x64 look only at size.
+- **Register exhaustion**: an aggregate needing more registers than remain goes entirely on the stack. On x86-64 `abi::RegBudget` counts registers in `lower_sig` and turns it into `byval`. On AArch64 a multi-piece aggregate is one array parameter (`ParamPlan::AggArray`) that gets all its registers or none, as Clang does; separate scalars would split between x7 and the stack.
+- **Variadic calls** (`args: ..Any` on a `#foreign` procedure) use the platform's variadic convention: Apple arm64 puts variadic arguments on the stack, Win64 duplicates doubles into integer registers, Windows arm64 puts nothing in v registers (`classify_vararg`: anything up to 16 bytes is one or two `i64` pieces, larger by reference; an aggregate may straddle x7 and the stack). A struct passed through `...` travels by value (`c_vararg_layouts` in `sema/calls.rs`); the interpreter's `call_with` and the LLVM backend both use `classify_vararg`.
+- **Where marshalling happens**: `sema/procs.rs` attaches a `CAbi` (`params`, `ret`, `ret_indirect`) to each `Conv::C` signature. The IR passes aggregates by pointer, so the boundary converts: `interp/native.rs` ([interpreter](../compiler/interpreter.md#native-foreign-calls)) and `bind_params` plus call lowering in the LLVM backend ([LLVM backend](llvm-backend.md)).
+- **Struct return shapes in the interpreter**: every register shape the classifier produces works (one or two integer/SSE eightbytes, HFAs, `rax` results, hidden pointers). Callback thunks are fixed-prototype `extern "C"` functions that cannot see AArch64's `x8`, so those results use naked assembly stubs (`a64_sret_stub`). Results over 512 bytes (`SRET_WORDS`) pass their pointer explicitly (first integer argument on x86-64, `x8` via `wide.rs` on AArch64). "unsupported C aggregate return shape" remains only for piece lists the classifier cannot produce.
 
 ### `long double`
 
-[`Long_Double`](../language/long-double.md) is a 16-byte memory-class value flattened into an `AggLayout` with one `Ty::F80` (x87) or `Ty::F128` (binary128) field, so it follows the aggregate rules:
-
-- x86-64 System V: an aggregate that is exactly one `F80` is `Registers([PieceTy::X87])`: passed in a 16-aligned stack slot, returned in `st0`. Any other aggregate containing an `F80` is MEMORY (`byval`/`sret`), matching clang.
-- AArch64 Linux: `F128` counts as a float member of an HFA (up to four `q` registers, `PieceTy::F128`).
-- MinGW x64: 16 bytes, so by reference and `sret`.
-
-Plain `extern "C"` function pointers can't express x87 or 128-bit vector registers, so `interp/native.rs` hands those calls to `interp/native/wide.rs`: inline-asm call blocks that load the argument registers and stack words, call the target, and store `st0` (`fstp tbyte`) or `q0`-`q3` back. Callbacks with these types are rejected (`callbacks.rs`), and variadic `long double` arguments are a compile error.
+[`Long_Double`](../language/long-double.md) is a 16-byte value flattened to an `AggLayout` with one `Ty::F80` (x87) or `Ty::F128` field. x86-64 System V passes a lone `F80` in a 16-aligned stack slot and returns it in `st0` (any other aggregate with an `F80` is MEMORY). AArch64 Linux treats `F128` as a float HFA member. MinGW x64 passes it by reference. Plain `extern "C"` function pointers cannot express x87 or 128-bit vector registers, so `interp/native/wide.rs` uses inline-asm call blocks. Callbacks with these types are rejected and variadic `long double` is a compile error.
 
 ### C++ methods
 
-`#cpp_method` procedure types are treated as `#c_call` (no `context`) with the object pointer first (`sema/procs.rs`, `sema/expr.rs`); reflection flag `0x1000` marks them (`sema/code_export.rs`).
+`#cpp_method` procedure types are treated as `#c_call` (no `context`) with the object pointer first; reflection flag `0x1000` marks them.
 
 ```jai
 Vtable :: struct { add: #type (this: *Obj, x: s32) -> s32 #cpp_method; }
-add_impl :: (this: *Obj, x: s32) -> s32 #c_call { return this.base + x; }
-// vt.add(*o, 2) == 42
 ```
 
-`#cpp_return_type_is_non_pod` on a foreign procedure forces a struct result through the hidden result pointer whatever its size (`CAbi::ret_indirect`; on Windows arm64 that pointer goes in x0, as MSVC does, not x8). The LLVM backend does the same in `lower_sig` (an `sret` parameter, plus `inreg` on Windows arm64 to select x0); `cpp_non_pod_results_use_the_hidden_pointer` in `crates/jaic-cli/tests/native.rs` covers it.
+`#cpp_return_type_is_non_pod` on a foreign procedure forces a struct result through the hidden result pointer whatever its size (`CAbi::ret_indirect`; `x8` on arm64, `rdi` on x86-64, `x0` on Windows arm64, via `sret` plus `inreg` in `lower_sig`).
 
 ## How to change it
 
-- New architecture or rule: extend `abi.rs` (it has unit tests), then the LLVM `bind_params` and call lowering in `crates/jaic-llvm/src/lower.rs`, and `interp/native.rs`. Keep them in step.
-- Compare against clang: `clang --target=x86_64-pc-windows-msvc -S -emit-llvm structs.c` (or `aarch64-pc-windows-msvc`, `arm64-apple-macos`, ...) next to `jaic ... -target <same triple> -emit_ir out.ll`. Clang emits IR for any target without its libraries, so this works on any host.
-- Pieces become separate LLVM parameters (`f32, f32`, not clang's `[2 x float]`). Register assignment matches except when an aggregate needs two registers and only one is left: AAPCS64 puts all of it on the stack, while separate parameters would split it.
-- Small signed integers are not sign- or zero-extended per the C ABI, because the IR doesn't carry signedness.
-
-Tests:
-
-- `tests/native/c-structs-by-value/` (`c_structs_by_value` in `crates/jaic-cli/tests/native.rs`) compares interpreter and native output and calls `#c_call` callbacks from C. It needs `cc` (on Windows `clang` and `llvm-ar`, native output only). `tools/windows_cross.py` builds it for Windows with MinGW GCC or Clang.
-- `tests/stdlib/c-variadic-foreign-calls.jai` and `c_variadic_calls`.
-- `tests/native/c-aggregate-abi/` and `tests/native/c-variadic-aggregates/` (`c_aggregate_abi_shapes`, `c_variadic_aggregates`): see ABI coverage.
-- `cpp_non_pod_callback_results`: `#cpp_return_type_is_non_pod` callbacks called from C++ (`x8` on arm64, `x0` on Windows arm64).
-- `tests/native/c-long-double/` (`c_long_double`, which also runs an x86-64 build under Rosetta on Apple silicon).
-- `tests/stdlib/cpp-method-and-array-decay.jai`.
+- New architecture or rule: extend `abi.rs` (it has unit tests), then LLVM `bind_params` and call lowering in `crates/jaic-llvm/src/lower.rs`, and `interp/native.rs`. Keep them in step.
+- Compare against clang: `clang --target=<triple> -S -emit-llvm structs.c` next to `jaic ... -target <same triple> -emit_ir out.ll`. Clang emits IR for any target without its libraries.
+- Pieces become separate LLVM parameters (`f32, f32`, not `[2 x float]`); assignment matches except when an aggregate needs two registers and one is left.
+- Small signed integers are not sign- or zero-extended per the C ABI, because the IR carries no signedness.
+- Tests (in `crates/jaic-cli/tests/native.rs`, fixtures in `tests/native/`): `c-structs-by-value/`, `c-aggregate-abi/`, `c-variadic-aggregates/`, `c-struct-returns/` (58 shapes), `c-long-double/`, plus `tests/stdlib/c-variadic-foreign-calls.jai` and `cpp-method-and-array-decay.jai`. They need `cc` (on Windows `clang` and `llvm-ar`).
 
 ## Dependencies
 
-`crates/jaic/src/abi.rs`, `interp/native.rs`, `crates/jaic-llvm/src/lower.rs`; the system `cc` for the native fixtures.
-
-## Struct return shapes in the interpreter
-
-Foreign calls and `#c_call` callbacks in the interpreter cover every register shape the classifier produces: one or two integer or SSE eightbytes (System V), homogeneous float aggregates of one to four members (AArch64), one to eight bytes in `rax` (Microsoft x64), and memory-class results through a hidden pointer. The callback thunks of `interp/native/callbacks.rs` are plain `extern "C"` functions with a fixed prototype, which cannot see AArch64's `x8` result pointer; those results use naked assembly stubs (`a64_sret_stub`) that save `x8` and the frame record in a 32-byte frame and call `a64_sret_inner`, whose `dispatch` shifts the stack words by that frame. Results over 512 bytes (`SRET_WORDS` in `interp/native.rs`, the size of the by-value `Sret` buffer) pass their pointer explicitly: as the first integer argument on x86-64, through the assembly call block of `wide.rs` (`x8`) on AArch64; the `big1k` shape (1 KiB) covers it. A `#cpp_return_type_is_non_pod` callback result goes through the same hidden pointer as a large struct (`x8` on AArch64 outside Windows, `rdi` on x86-64, `x0` on Windows arm64) whatever its size.
-
-The `"unsupported C aggregate return shape"` errors remain only for piece lists the classifier cannot produce.
-
-`tests/native/c-struct-returns/` has 58 shapes (integer widths, `f32`/`f64` vectors of 1 to 5 members, mixed eightbytes, arrays, nested structs, unions). Each is returned by C to Jai, passed by Jai to C, returned by a `#c_call` Jai procedure that C reads, and round-tripped; `returns.c` and `returns.jai` are generated (regenerate by editing the shape list of a script with the same layout and keeping the four checks per shape). `c_struct_return_shapes` in `crates/jaic-cli/tests/native.rs` runs it in the interpreter and as a native build, and on Windows against a DLL.
-
+`crates/jaic/src/abi.rs`, `interp/native.rs`, `crates/jaic-llvm/src/lower.rs`; the system `cc` for native fixtures.

@@ -1,0 +1,61 @@
+name: Set up Linux or macOS
+description: Pinned Rust toolchain, Python, LLVM 23 and the native libraries the CI jobs link.
+inputs:
+  lld:
+    description: Install wasm-ld (macOS)
+    default: 'false'
+  brew:
+    description: Extra Homebrew packages (macOS)
+    default: ''
+  native-libs:
+    description: Install the Linux window, audio and display libraries (tools/install_ci_native_linux.sh)
+    default: 'true'
+  alsa:
+    description: Point ALSA at the headless test configuration (Linux)
+    default: 'false'
+  font:
+    description: Export JAIC_TEST_FONT_PATH
+    default: 'true'
+runs:
+  using: composite
+  steps:
+    - name: Install the pinned Rust toolchain
+      shell: bash
+      run: rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.14'
+    - name: Install LLVM 23 (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        LLD: ${{ inputs.lld }}
+        BREW: ${{ inputs.brew }}
+        FONT: ${{ inputs.font }}
+      run: |
+        # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
+        tools/install_ci_llvm_macos.sh $([ "$LLD" = true ] && echo --lld)
+        brew install openssl@3 pkg-config
+        for package in $BREW; do brew list "$package" > /dev/null 2>&1 || brew install "$package"; done
+        if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"; fi
+    - name: Install LLVM 23 (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        NATIVE: ${{ inputs.native-libs }}
+        FONT: ${{ inputs.font }}
+      run: |
+        bash tools/install_ci_llvm_linux.sh
+        echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+        echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+        # X11, GL (Mesa's software renderer), FreeType, Xvfb, ALSA and Mesa's lavapipe (the
+        # Vulkan adapter of the WebGPU tests).
+        if [ "$NATIVE" = true ]; then bash tools/install_ci_native_linux.sh; fi
+        if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"; fi
+    - name: Configure the headless ALSA provider
+      if: runner.os == 'Linux' && inputs.alsa == 'true'
+      shell: bash
+      run: |
+        test -r /usr/share/alsa/alsa.conf
+        echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
+        echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"

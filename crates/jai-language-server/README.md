@@ -16,7 +16,7 @@ brew install matteopolak/tap/jacket        # macOS and Linux
 nix profile install github:matteopolak/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/package-managers.md).
+There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/releases.md).
 
 **VS Code and compatible editors:** install the [Jai extension](https://marketplace.visualstudio.com/items?itemName=matteopolak.jacket) (also on [Open VSX](https://open-vsx.org/extension/matteopolak/jacket)). It starts `jailsp` from your `PATH`, or offers to download the toolchain ([details](../../docs/tools/vscode-extension.md)).
 
@@ -89,7 +89,7 @@ Jails describes itself as experimental and unstable, and its readme lists go to 
 
 ### Performance
 
-`tools/lsp_bench.py` starts each server fresh for each session over stdio and times a fixed script of requests on real and generated projects ([method](../../docs/tools/lsp-benchmark.md)). Milliseconds are the median of the warm sessions (two, from `--repeat 3`); CPU is the server's total user plus system seconds for a session; RSS is the peak resident set. Both servers were driven as push-diagnostics clients.
+`tools/lsp_bench.py` starts each server fresh for each session over stdio and times a fixed script of requests on real and generated projects ([method](../../docs/tools/benchmarks.md)). Milliseconds are the median of the warm sessions (two, from `--repeat 3`); CPU is the server's total user plus system seconds for a session; RSS is the peak resident set. Both servers were driven as push-diagnostics clients.
 
 Apple M5, 10 cores, 16 GiB, macOS 27.0, 9 October 2026. Both servers are release builds; jailsp is checkout `e15e3678` (`jailsp 0.6.0`), which includes the debounced push diagnostics.
 
@@ -144,6 +144,6 @@ Jails ran with no `jails.json` in the workloads (nothing was written into the co
 The docs under `docs/` are the source of truth:
 
 - [Shared Jai language server](../../docs/compiler/language-server.md): feature list, how semantic analysis, the compile cache and completion work, configuration and limits
-- [Language server refactorings](../../docs/compiler/language-server-refactorings.md)
-- [Language server benchmark](../../docs/tools/lsp-benchmark.md) and [latest results](../../benchmarks/results/lsp-apple-m5.md)
+- [Language server refactorings](../../docs/compiler/language-server.md)
+- [Language server benchmark](../../docs/tools/benchmarks.md) and [latest results](../../benchmarks/results/lsp-apple-m5.md)
 - [VS Code extension](../../docs/tools/vscode-extension.md), [jailint](../../docs/tools/jailint.md), [browser build](../../docs/browser/playground.md)

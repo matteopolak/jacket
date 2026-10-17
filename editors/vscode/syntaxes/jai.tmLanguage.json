@@ -1112,6 +1112,10 @@
           "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}$])(?!(?:if|ifx|then|else|case|for|while|break|continue|return|remove|defer|push_context|using)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*(?=(?:\\s*,\\s*[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)*\\s*:=)"
         },
         {
+          "name": "variable.other.constant.declaration.jai",
+          "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}$])(?!(?:if|ifx|then|else|case|for|while|break|continue|return|remove|defer|push_context|using)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*(?=(?:\\s*,\\s*[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)*\\s*:(?![:=])[^:=;,(){}\\n]+:(?![:=]))"
+        },
+        {
           "name": "variable.other.declaration.jai",
           "match": "(?<![A-Za-z0-9_\\x{80}-\\x{10FFFF}$])(?!(?:if|ifx|then|else|case|for|while|break|continue|return|remove|defer|push_context|using)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}]))[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*(?=(?:\\s*,\\s*[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)*\\s*:(?![:=]))"
         }

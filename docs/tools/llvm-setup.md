@@ -2,50 +2,7 @@
 
 ## What it is
 
-`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit of its main branch) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `jaic -interp` don't use it at run time. `jai-wasm` doesn't depend on LLVM.
-
-## How it works
-
-`llvm-sys` finds LLVM through `LLVM_SYS_231_PREFIX` (a directory containing `bin/llvm-config` and `lib/`). CI sets it per platform: Homebrew's `llvm@23` on arm64 macOS (`tools/install_ci_llvm_macos.sh`, which runs `brew update` and retries when a runner image's Homebrew predates the `llvm@23` alias); on Intel macOS, where Homebrew has no bottles and would build LLVM from source past the job's timeout, the same script installs conda-forge's LLVM 23.1 packages (`llvmdev`, `libllvm23`, `llvm-tools`, `clang`, `compiler-rt`, `lld`) with a pinned, checksummed micromamba into the runner's temp directory, links the binaries it builds with an rpath to that `lib/` (`RUSTFLAGS`, since conda's libraries load through `@rpath`), sets `SDKROOT`, and puts only LLVM's own tools on `PATH` so conda's `cc`, `ld` and other cctools do not replace the system's (with `--static`, for the release's `macos-x64` archive, it installs only the static libraries and links nothing from the environment at run time; see [releases](releases.md#how-to-change-it)); and `tools/install_ci_llvm_linux.sh` on Ubuntu 24.04 (x86-64 or ARM64), which adds the signed apt.llvm.org archive after checking its signing-key fingerprint and installs the 23.1 packages into `/usr/lib/llvm-23`. The runners' Ubuntu mirror sometimes stalls mid-transfer and apt would wait on it forever, so the script also writes `/etc/apt/apt.conf.d/80jai-ci-network` (30-second network timeouts, five retries; it applies to the job's later `apt-get` calls too) and runs `apt-get update` and `install` under a ten-minute `timeout`, three attempts each; the workflow steps that call it have `timeout-minutes: 15`, so a stall fails the step instead of using up the job. The script needs `sudo` and writes system apt configuration; use it on fresh CI runners only.
-
-`jaic -os wasm` also needs LLD's `wasm-ld`, which Homebrew and Debian package separately from LLVM (`lld`, `lld-23`); CI installs both ([wasm target](../native/wasm-target.md)).
-
-The same prefix is read at run time, to find the sanitizer link driver (`bin/clang`, see [sanitizers](../native/sanitizers.md)), `llvm-symbolizer` in the sweep and `llvm-dwarfdump` in `tests/debug_info.rs`.
-
-### Windows MSVC builds
-
-The official `clang+llvm-23.1.2-{x86_64,aarch64}-pc-windows-msvc` archives are not linkable by llvm-sys as shipped. Their `llvm-config --link-static --system-libs` prints
-
-```
-psapi.lib shell32.lib ole32.lib uuid.lib advapi32.lib ws2_32.lib ntdll.lib zs.lib S:/llvm/utils/release/llvm_package_23.1.2/build_amd64_stage0/zstdbuild/install/lib/zstd_static.lib xml2s.lib
-```
-
-llvm-sys 231 only strips `.lib` from each entry on MSVC and emits `cargo:rustc-link-lib=S:/llvm/.../zstd_static`; rustc reads `S:` as a library rename and fails with "renaming of the library `S` was specified". llvm-sys has no variable to override or filter system libraries, and the archive ships none of `zs.lib` (zlib), `zstd_static.lib` and `xml2s.lib`.
-
-`tools/windows-llvm/prepare.sh <llvm dir>`, run by `windows-native.yml` and `release.yml` right after unpacking the archive, fixes this:
-
-- `xml2s.lib`: an empty library. Only LLVMWindowsManifest (lld, llvm-mt) uses libxml2 and jaic links nothing from it.
-- `zs.lib` and `zstd_static.lib`: zlib and zstd (versions and SHA-256s pinned in the script) compiled with the release's clang against the static CRT, into the archive's `lib/`, which is already on llvm-sys's search path. LLVM's MC and Object libraries reference the compression API, so an empty stub would not link.
-- `bin/llvm-config-23.exe`: `llvm-config-shim.c`, compiled there. llvm-sys tries `llvm-config-<LLVM major>.exe` (23, derived from its own version 231) before `llvm-config.exe`, so it runs the shim, which runs the real `llvm-config.exe` and, for `--system-libs` only, rewrites path-qualified `*.lib` entries to their file names. The script then checks that every system library is a Windows import library or exists in `lib/`, and fails otherwise.
-
-Locally, the same steps apply from Git Bash after unpacking the archive; then set `LLVM_SYS_231_PREFIX` to it (with forward slashes) and build with `+crt-static` ([Windows](../native/windows.md#configuration)).
-
-Inkwell 0.10.0 on crates.io stops at LLVM 22, so the root `Cargo.toml` takes Inkwell from git at an exact commit that satisfies the [dependency policy](dependency-policy.md). That revision's `const_int` masks values to the type's width (LLVM 23 no longer truncates them itself), so jaic's callers, which pass sign-extended `u64`s for narrow types, behave as before.
-
-## How to change it
-
-For a new LLVM major version:
-
-- `Cargo.toml` (workspace `inkwell` feature) and `crates/jaic-llvm/Cargo.toml` (`dynamic`/`static` features), then `cargo update -p inkwell` and `python3 tools/check_dependency_age.py`.
-- The `LLVM_SYS_*_PREFIX` name and the versioned tool names (`llvm-config-NN`, `clang-NN`, `llvm-symbolizer-NN`, `wasm-ld-NN`, the `lld@NN` keg and `/usr/lib/llvm-NN`) in `crates/jaic-llvm/src/lib.rs`, `crates/jaic-llvm/src/wasm.rs`, `crates/jaic-cli/tests/debug_info.rs` and `tools/jaic-sweep.py`.
-- CI: `ci.yml`, `compile-bench.yml`, `nix.yml`, `release.yml` and `windows-native.yml` (`LLVM_VERSION`, prefix variable, Homebrew formula), and the archive and version check in `install_ci_llvm_linux.sh`. Review the archive key fingerprint whenever the script is updated.
-- Windows: the shim's file name in `tools/windows-llvm/prepare.sh` (`llvm-config-23.exe`, the LLVM major version) and its known import-library list; re-check the archive's `--system-libs` output (printed by the workflows) and drop the shim once llvm-sys or the archive stop emitting absolute paths.
-- Nix: `llvmPackages_NN` in `flake.nix` and `nix/jaic.nix` ([Nix](nix.md)).
-- Check the workarounds in [LLVM backend](../native/llvm-backend.md) against the new release, and compare compile times ([compile-time benchmark](compile-time-benchmark.md)).
-
-`git grep -n -E 'LLVM_SYS_|llvm@|llvm-[0-9]+'` finds the places that name a version.
-
-## Configuration
+`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit; see [development](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` do not use it at run time. `jai-wasm` does not depend on it.
 
 ```sh
 brew install llvm@23 lld   # lld: wasm-ld, only for `jaic -os wasm`
@@ -54,8 +11,30 @@ export PATH="$LLVM_SYS_231_PREFIX/bin:$PATH"
 cargo build -p jaic-cli --locked
 ```
 
-Homebrew's plain `llvm` is LLVM 23 as well, so `/opt/homebrew/opt/llvm` works as the prefix. Any LLVM 23.1 install with `llvm-config` and the shared `libLLVM` works, for example a distribution package. The official release tarballs ship only static, LTO-bitcode libraries on macOS, which only the release workflow's lld-based link can use ([releases](releases.md)).
+Any LLVM 23.1 install with `llvm-config` and shared `libLLVM` works. The official macOS tarballs ship only static LTO-bitcode libraries, usable only by the release workflow's lld-based link ([releases](releases.md)).
+
+## How it works
+
+`llvm-sys` finds LLVM through `LLVM_SYS_231_PREFIX` (a directory with `bin/llvm-config` and `lib/`). The same prefix is read at run time for the sanitizer link driver (`bin/clang`, [sanitizers](../native/sanitizers.md)), `llvm-symbolizer` in the sweep and `llvm-dwarfdump` in `tests/debug_info.rs`. CI sets it per platform:
+
+- **macOS arm64:** Homebrew `llvm@23` via `tools/install_ci_llvm_macos.sh`. **macOS Intel:** Homebrew has no bottles, so the script installs conda-forge's LLVM 23.1 with a pinned micromamba, links with an rpath to it, and puts only LLVM's tools on `PATH` so conda's `cc`/`ld` do not shadow the system's (`--static` installs only static libraries for the release's `macos-x64` archive).
+- **Linux (Ubuntu 24.04, x86-64/ARM64):** `tools/install_ci_llvm_linux.sh` adds the signed apt.llvm.org archive after checking its key fingerprint and installs into `/usr/lib/llvm-23`. It writes apt network timeouts and retries (the mirror sometimes stalls) and needs `sudo`; use it on fresh CI runners only.
+- **Windows MSVC:** the official `clang+llvm-23.1.2-*-pc-windows-msvc` archives are not linkable by llvm-sys as shipped: `llvm-config --system-libs` prints absolute build-machine paths (`S:/llvm/.../zstd_static.lib`) that rustc reads as a library rename, and `zs.lib`, `zstd_static.lib`, `xml2s.lib` are missing. `tools/windows-llvm/prepare.sh <llvm dir>` (run by the Windows and release workflows after unpacking) adds an empty `xml2s.lib`, builds zlib and zstd (pinned versions and SHA-256) into `lib/`, and compiles `bin/llvm-config-23.exe`, a shim llvm-sys picks first, which runs the real `llvm-config` and rewrites path-qualified `*.lib` entries to file names. It then verifies every system library resolves. Locally: run it from Git Bash, set `LLVM_SYS_231_PREFIX` (forward slashes) and build with `+crt-static` ([Windows](../native/windows.md#configuration)).
+
+`jaic -os wasm` also needs LLD's `wasm-ld` (packaged separately: `lld`, `lld-23`; [wasm target](../native/wasm-target.md)).
+
+### Registered backends and binary size
+
+`jaic` registers only the x86-64, AArch64 and WebAssembly backends (`target_machine` in `crates/jaic-llvm/src/lib.rs`), not `Target::initialize_all`, which links all twenty (0.6.2's macOS arm64 `jaic` was 136 MiB). The root `Cargo.toml` enables inkwell's `target-x86`, `target-aarch64` and `target-webassembly` features. The disassembler is skipped; the asm parser stays because inline asm is assembled by the backend. Other architectures are rejected before LLVM sees them (`jaic::abi::Arch::from_triple`). Unreferenced archive members are never loaded and the linker drops the rest. `llvm-sys`'s `disable-alltargets-init` is deliberately not enabled: an unverified link failure on one of six release platforms costs more than it saves.
+
+The release workflow strips packaged `jaic`, `jailsp` and `jailint` after the PGO/BOLT build (`strip -x` then ad-hoc `codesign` on macOS, `strip --strip-unneeded` on Linux; Windows symbols live in the unshipped `.pdb`). Backtraces from stripped binaries have no function names; build from source for symbolised ones. Internal-error reports are unaffected.
+
+## How to change it
+
+- **New target architecture:** an `Arch` variant in `crates/jaic/src/abi.rs`, the `target-<name>` inkwell feature, and `Target::initialize_<name>` in `target_machine`; expect the static binary to grow.
+- **New LLVM major version:** `Cargo.toml` and `crates/jaic-llvm/Cargo.toml` features (then `cargo update -p inkwell` and `tools/check_dependency_age.py`); the `LLVM_SYS_*_PREFIX` name and versioned tool names (`llvm-config-NN`, `clang-NN`, `llvm-symbolizer-NN`, `wasm-ld-NN`, `lld@NN`, `/usr/lib/llvm-NN`) in `crates/jaic-llvm/src/lib.rs`, `wasm.rs`, `crates/jaic-cli/tests/debug_info.rs` and `tools/jaic-sweep.py`; `ci.yml`, `compile-bench.yml`, `release.yml` (`LLVM_VERSION`, prefix, Homebrew formula) and the version check in `install_ci_llvm_linux.sh` (recheck the key fingerprint); the shim name in `tools/windows-llvm/prepare.sh` (drop the shim once llvm-sys or the archive stop emitting absolute paths); `llvmPackages_NN` in `flake.nix` and `nix/jaic.nix`. Recheck the workarounds in [LLVM backend](../native/llvm-backend.md) and compile times. `git grep -n -E 'LLVM_SYS_|llvm@|llvm-[0-9]+'` finds version mentions.
+- Inkwell's `const_int` at the pinned revision masks values to the type's width (LLVM 23 no longer truncates), so jaic's sign-extended `u64` arguments for narrow types behave as before.
 
 ## Dependencies
 
-Inkwell (git, `b7cbeed24af8`), llvm-sys 231, LLVM and Clang 23.1, and LLD 23 for wasm. Windows CI also downloads zlib's and zstd's sources from their GitHub releases. The code generator is described in [LLVM backend](../native/llvm-backend.md).
+Inkwell (git), llvm-sys 231, LLVM and Clang 23.1, LLD 23 for wasm, the platform's `strip` and `codesign`. Windows CI also downloads zlib and zstd sources.

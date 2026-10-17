@@ -1,0 +1,30 @@
+name: Build the Windows runtime provider
+description: Builds the crash provider for the target CPU, puts it on the DLL search path and loads it from a C program.
+inputs:
+  cpu:
+    description: x64 or arm64
+    required: true
+  triple:
+    description: Rust and clang target triple
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Build the provider and the Debug helper
+      shell: bash
+      env:
+        CPU: ${{ inputs.cpu }}
+      run: |
+        python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu "$CPU"
+        python -u tools/build_developer_debug.py
+        cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
+    - name: Load the provider from a C program
+      shell: bash
+      env:
+        CPU: ${{ inputs.cpu }}
+        TRIPLE: ${{ inputs.triple }}
+      run: |
+        entry=platform_io_windows_crash_prepare; [ "$CPU" = arm64 ] && entry=platform_io_arm64_crash_init
+        mkdir -p target/provider-load
+        clang --target="$TRIPLE" -std=c11 -Wall -Wextra -Werror tests/native-provider/windows-provider-load.c -o target/provider-load/provider-load.exe
+        target/provider-load/provider-load.exe "$(cygpath -m "$PWD/stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")" "$entry"

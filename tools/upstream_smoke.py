@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build pinned open-source Jai projects with their own entry points and run them headlessly.
 
-Checks live in tools/upstream-smoke.json (docs/tools/third-party-smoke-test.md). Each runs in a
+Checks live in tools/upstream-smoke.json (docs/tools/upstream-corpus.md). Each runs in a
 scratch copy of its project under corpus/upstream, so a build that writes into its tree never
 changes the pinned sources. Exits 1 when a check that was not skipped fails.
 """

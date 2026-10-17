@@ -28,7 +28,7 @@ nix profile install github:matteopolak/jacket     # Nix
 curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh
 ```
 
-The last line is the install script for macOS and Linux. There are also a PowerShell script, prebuilt archives, a GitHub Action and [build-from-source steps](docs/tools/package-managers.md#other-ways-to-install).
+The last line is the install script for macOS and Linux. There are also a PowerShell script, prebuilt archives, a GitHub Action and [build-from-source steps](docs/tools/releases.md#other-ways-to-install).
 
 ## Usage
 

@@ -75,17 +75,7 @@ def main():
     shapes = defaultdict(list)
     for shape in spec.shapes:
         shapes[shape.name].append(shape)
-    files, ledger, seen = defaultdict(list), [], set()
-    net = ROOT / "stdlib/internal/net"
-
-    def authored(file):
-        text = (net / file).read_text() if (net / file).exists() else ""
-        return set(re.findall(r"^\s*(\w+)\s*::", text, re.MULTILINE))
-
-    authored_fields = authored("socket-fields-macos.jai")
-    authored_scope = authored("socket-fields-windows.jai")
-    authored_linux = authored("socket-fields-tcp-unix.jai")
-    authored_cmsg = authored("socket-cmsg.jai")
+    files, seen = defaultdict(list), set()
     manual = {"Socket", "INVALID_SOCKET", "SOCKET_ERROR", "SOCKET_WOULDBLOCK", "SOCKET_WOULDBLOCK_CONNECT",
               "FD_BITS_ELEMENT_TYPE", "BITS_PER_FD_SET_MASK"}
     for declaration in sorted(spec.declarations, key=declaration_group):
@@ -94,34 +84,13 @@ def main():
         if (guard, code) in seen:
             continue
         seen.add((guard, code))
-        record = {"name": name, "condition": guard, "spec_line": declaration.line}
         if name == "in_addr" and guard == "OS == .MACOS":
-            record["status"] = "native shape supplemented from Apple SDK netinet/in.h"
-            ledger.append(record)
-            continue
+            continue  # shape supplemented from the Apple SDK netinet/in.h
         if "#char ," in code:
-            if name == "FIONBIO":
-                record["status"] = "incomplete reviewed literal resolved by official Winsock2 ABI; authored IOW/FIONBIO wrapper"
-            else:
-                record["status"] = "unresolved incomplete character literal in reviewed declaration"
-            ledger.append(record)
-            continue
+            continue  # incomplete character literal; FIONBIO has an authored wrapper
         procedure = re.match(r"^\w+\s*::\s*(?:inline\s+)?\((.*?)\)\s*(?:->|#|$)", code)
         if name in manual or (procedure and (":" in procedure[1] or not procedure[1]) and "#foreign" not in code and "#elsewhere" not in code):
-            if name in authored_fields and guard == "OS == .MACOS":
-                record["status"] = "authored native field accessor; native SDK vector verification separate"
-            elif name in authored_scope and guard == "OS == .WINDOWS":
-                record["status"] = "authored native scope accessor; cross-target compile-time vectors verified, native Windows pending"
-            elif name in authored_linux and guard == "OS == .LINUX":
-                record["status"] = "authored native TCP accessor; cross-target compile-time vectors verified, native Linux pending"
-            elif name in authored_linux and guard == "OS == .ANDROID" and "tcpi_" not in name:
-                record["status"] = "authored shared TCP accessor; bionic header ABI checked on host, Android target unavailable"
-            elif name in authored_cmsg:
-                record["status"] = "authored native ancillary helper; host SDK vectors verified, other native platforms pending"
-            else:
-                record["status"] = "authored wrapper or pending helper"
-            ledger.append(record)
-            continue
+            continue  # authored wrapper or accessor
         if re.search(r"::\s*(?:struct|union|enum(?:_flags)?)(?:\s|$)", code):
             candidates = [s for s in shapes[name] if condition(s.condition) == guard]
             if not candidates:
@@ -129,8 +98,6 @@ def main():
             if not candidates and len(shapes[name]) == 1:
                 candidates = shapes[name]
             if not candidates:
-                record["status"] = "unresolved shape"
-                ledger.append(record)
                 continue
             bodies = []
             for shape in candidates:
@@ -148,8 +115,6 @@ def main():
             emitted = code + ";"
         target, residual = route(guard)
         files[target].append(guarded(emitted, residual))
-        record["status"] = "native declaration; runtime/ABI verification separate"
-        ledger.append(record)
     # Only the Windows names these declarations use are imported by name: a wildcard import would
     # let same-named types (notably the Windows GUI MSG versus the Socket flag enum) capture them.
     windows_spec = parse_spec((ROOT / "docs/specs/stdlib/modules/windows.md").read_text())

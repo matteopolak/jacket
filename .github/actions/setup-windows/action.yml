@@ -1,0 +1,52 @@
+name: Set up Windows
+description: Pinned Rust toolchain, Node, and the official LLVM release with the static CRT.
+inputs:
+  cpu:
+    description: x64 or arm64
+    required: true
+  triple:
+    description: Rust target triple
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install the pinned Rust toolchain
+      shell: bash
+      env:
+        TRIPLE: ${{ inputs.triple }}
+      run: |
+        if ! command -v rustup > /dev/null; then
+          curl -fsSL -o "$RUNNER_TEMP/rustup-init.exe" "https://static.rust-lang.org/rustup/dist/$TRIPLE/rustup-init.exe"
+          "$RUNNER_TEMP/rustup-init.exe" -y --default-toolchain none --profile minimal
+          printf '%s\n' "$USERPROFILE\\.cargo\\bin" >> "$GITHUB_PATH"
+          export PATH="$PATH:$(cygpath -u "$USERPROFILE")/.cargo/bin"
+        fi
+        rustup toolchain install nightly-2026-08-29 --profile minimal
+        # The official LLVM release is built against the static C runtime (/MT); mixing it with
+        # Rust's default dynamic CRT crashes at run time. A target-specific flag keeps it off
+        # build scripts and proc macros.
+        flags="CARGO_TARGET_$(echo "$TRIPLE" | tr 'a-z-' 'A-Z_')_RUSTFLAGS"
+        echo "$flags=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+        echo "CARGO_BUILD_TARGET=$TRIPLE" >> "$GITHUB_ENV"
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: '24'
+    - name: Install the official LLVM release
+      shell: bash
+      env:
+        CPU: ${{ inputs.cpu }}
+      run: |
+        arch=x86_64; [ "$CPU" = arm64 ] && arch=aarch64
+        curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$arch-pc-windows-msvc.tar.xz"
+        # GNU tar reads `D:\...` as a remote host: extract to the POSIX spelling of the path.
+        llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
+        mkdir -p "$llvm"
+        tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
+        rm llvm.tar.xz
+        echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
+        cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
+        test -x "$llvm/bin/wasm-ld.exe"
+        echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"
+        # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
+        # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
+        bash tools/windows-llvm/prepare.sh "$llvm"

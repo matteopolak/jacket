@@ -1,4 +1,4 @@
-//! The stack-switching code behind fibers (`docs/compiler/fibers.md`).
+//! The stack-switching code behind fibers (`docs/compiler/interpreter.md`).
 //!
 //! A fiber's saved state is a [`Context`] (`Fiber_Context` in `stdlib/Extensions/Io/fiber_context.jai`):
 //! the stack pointer, with the callee-saved registers pushed on that stack, plus the stack bounds

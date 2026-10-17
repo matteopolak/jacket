@@ -2,393 +2,85 @@
 
 ## What it is
 
-`jaifmt` is a code formatter for Jai, written in Jai. The formatter itself is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser playground; `jaifmt/main.jai` is the command-line front end. It produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and exactly zero or one space between tokens, whatever the input's spacing. Comments, blank lines (up to `max_blank_lines`) and the breaks inside expressions are kept; lines are not re-wrapped. It refuses to write any output whose token stream differs from the input, so it cannot change what a program means.
+`jaifmt` formats Jai source and is itself written in Jai. The formatter is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser; `jaifmt/main.jai` is the command-line front end. Output is canonical: it depends on the input's tokens, comments and blank lines, not its spacing. Lines are never re-wrapped. Output whose token stream differs from the input is refused, so formatting cannot change what a program means.
 
 ```sh
-target/debug/jaic jaifmt/build.jai   # or: jaic jaifmt/main.jai -O2 -exe target/jaifmt
+jaic jaifmt/build.jai                      # optimised build -> target/jaifmt (add `- wasm` for jaifmt.wasm)
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
-target/jaifmt --stdin < in.jai > out.jai   # editor integration
+target/jaifmt --stdin < in.jai > out.jai   # editors
+jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"   # interpreter: use absolute paths
 ```
 
-Options: `--check`, `--stdin`, `--config <file>`, `--verbose`/`-v` (summary, files formatted, lines over `max_width`), `--color auto|always|never` (`auto` decides like jaic and jailint: off when `NO_COLOR` is set, on when `FORCE_COLOR` or `CLICOLOR_FORCE` is set to something other than empty or `0`, otherwise on for a terminal whose `TERM` is not `dumb`; on Windows only for a console that understands ANSI codes, such as Windows Terminal or ConEmu), `--help`/`-h`. The command line is parsed by [`Extensions/Args`](../extensions/args.md), so every flag also has a `--no-` form (`--no-check`), values can be written `--config=file` or `--config file`, `--` ends the options, a mistyped option gets a suggestion, and `--help` is generated from the declarations at the top of `jaifmt/main.jai`. Paths are files or directories (searched recursively for `*.jai`, skipping dot-directories and not following symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (bad usage, unreadable files, input that does not lex, unbalanced brackets, a failed token check). `--check` prints `path:line` with the first line that would change; paths inside the current directory are shown relative to it, as in its error messages.
+Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md) (`--help` is generated from them). Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that does not lex, unbalanced brackets, failed token check).
 
-```
-$ jaifmt --help
-Formats Jai source files in place. Directories are searched recursively for *.jai files.
-
-Exit status: 0 success, 1 files would change (--check), 2 errors.
-
-Usage: jaifmt [OPTIONS] [PATHS]...
-
-Arguments:
-  [PATHS]...           Files or directories to format
-
-Options:
-      --[no-]check     Do not write; list the files that would change and exit with 1
-      --[no-]stdin     Format standard input to standard output
-      --config <FILE>  Use this config instead of the nearest jaifmt.toml
-  -v, --[no-]verbose   Report every file, a summary, and lines over max_width
-      --color <COLOR>  Colour errors; auto means on a terminal, unless NO_COLOR is set [possible values: auto, always, never]
-  -h, --help           Print help
-```
-
-Errors use the compilers' layout, a lowercase message and a `help:` line saying what to do; paths are relative to the current directory:
-
-```
-src/bad.jai:1:20: error: unbalanced `}`
-help: the file was left unchanged; jaifmt formats only code whose brackets balance
-error: `missing.jai` does not exist
-error: unknown option `--chek`
-help: did you mean `--check`?
-usage: jaifmt [OPTIONS] [PATHS]...
-For more information, run `jaifmt --help`.
-error: `<PATHS>` cannot be used with `--stdin`
-```
-
-A bad `jaifmt.toml` is reported as ``in `path`, line N: ...`` with the fix.
-
-Under the interpreter: `jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"`. `jaic -interp` starts programs in the main file's directory, so pass absolute paths.
-
-### Building with the metaprogram (`jaifmt/build.jai`)
-
-The program lives in the top-level `jaifmt/` directory (`main.jai`, the browser drivers `playground.jai` and `wasm.jai`, and `build.jai`); `tools/` is for repository-maintenance scripts. `build.jai` is a [Compiler module](../metaprogramming/compiler-module.md) metaprogram that builds an optimised jaifmt in a workspace of its own:
-
-```sh
-jaic jaifmt/build.jai                     # target/jaifmt (native, optimised, no debug info)
-jaic jaifmt/build.jai - wasm              # target/jaifmt.wasm (WASI, same as -os wasm)
-jaic jaifmt/build.jai - -o /abs/path/fmt  # choose the output file
-jaic jaifmt/build.jai - --help            # the options, parsed by Extensions/Args
-```
-
-- It must be `jaic` (or `jaic -interp`): `jaic -check` has no output backend, so the workspace is only type-checked ([workspaces](../metaprogramming/workspaces.md#output)).
-- The default output is `target/` at the repository root (anchored on `#filepath`), wherever `jaic` was started. A relative `-o` path is relative to `jaifmt/`, because `jaic`, like `jai`, runs from the main file's directory. The default is not `jaifmt` at the root because that is the source directory.
-- `set_optimization(.OPTIMIZED)` means `-O2` code with bounds, null and cast checks off, as a shipping build. The plain `jaic jaifmt/main.jai -O2` (used by CI, the Nix package and the tests) keeps the checks. Both pass the token-equivalence check, which is what guards the output.
-- The wasm build sets `os_target = .WASM`, `cpu_target = .CUSTOM` and the triple `wasm64-unknown-wasi`, which makes `jaic` link `Wasi_Runtime` exactly as `-os wasm` does.
+`jaifmt/build.jai` is a [metaprogram](../metaprogramming/compiler-module.md) building with `set_optimization(.OPTIMIZED)` (no bounds/null/cast checks). It needs real `jaic`, not `-check`. The default output is `target/` at the repository root; a relative `-o` is relative to `jaifmt/`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
 
 ## How it works
 
-The output is canonical: it depends on the tokens, comments and blank lines of the input, not on how the input was spaced. Two inputs that differ only in spacing between tokens, in where braces and `else` sit, or in how many statements share a line format to the same text. Formatting is idempotent.
+`stdlib/Extensions/Jai_Format/` holds:
 
-`stdlib/Extensions/Jai_Format/module.jai` holds the public API (below) and loads three files:
+- `lexer.jai`: same token boundaries as `crates/jaic/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
+- `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
+- `config.jai`: `jaifmt.toml` parsing and ignore globs.
 
-- `lexer.jai`: a tokenizer with the same token boundaries as `crates/jaic/src/lexer.rs` (same punctuation table, here-strings, `@` notes, `\` identifier separators, `.5` floats, a leading `#!` line, which it keeps as a line comment), but comments are tokens and every token records the whitespace before it (`ws_start`, `newlines`, `column`).
-- `format.jai`: two passes over the tokens. `plan_lines` decides the line structure (`breaks[i]`: line breaks before token i). The emit loop then writes each line: indentation from a stack of `Frame`s, and zero or one space between neighbors (`spacing_rule`).
-- `config.jai`: `jaifmt.toml` parsing and ignore globs (the caller reads the file).
+Behaviour in short:
 
-`jaifmt/main.jai` adds the file side: arguments, the directory walk, upward discovery of `jaifmt.toml` (cached per directory), `--check` reporting and writing files. `jaifmt/playground.jai` is the browser engine's driver and `jaifmt/wasm.jai` the WASI driver compiled to `jaifmt.wasm` (see [Browser playground](#browser-playground)).
-
-**Line structure** (`plan_lines`). The source's line breaks are the starting point; then:
-
-- With `brace_style = "same_line"`, a `{` on its own line joins the code before it, whatever the header is: `main :: ()`, `-> int`, `struct`, `enum u8`, `if s == "a"`, `if x ==` (a switch), `for arr`, `else`, `#run`, `#if X`, a note, blank lines in between. Not after `;`, `{`, `}`, `,`, `(`, `#scope_*`, `#load`/`#import`: there the `{` starts a block statement. `else` on a line after `}` joins it (`} else {`).
-- Every non-empty `{ ... }` (procedure bodies, struct/enum bodies, control flow, `#code`, `#run` and procedure literals in expressions) has its body on lines of its own: a break after `{` and before `}`. `{}` stays, and `{` `}` with only whitespace between become `{}`. A statement written after a block's `}` on the same line moves down (`{ a(); } b();`).
-- Statements separated by `;` inside a block (or at file level) go on separate lines: `x:=1;   if x>0 {...}` becomes two statements. Exception: a `case` label keeps one simple statement after it when written on the same line (`case .A; return 1;`, `case 2; #through;`), the common Jai idiom; `case 2; a(); b();` is split.
-- Unchanged: `.{ }` and `.[ ]` literals keep their line structure, braceless bodies (`if x return;`), `#run f()` without a block, expressions continued over lines, trailing comments (`x := 1; // why`). A `{` with a comment between it and its header stays on its own line (joining would reorder the comment).
-- Blank lines between file-level items (`separate_items`, on unless `blank_lines_between_items = false`); see below.
-- Blank lines between the statements of code blocks (`separate_statements`, four opt-in options); see below.
-- Trailing whitespace is removed, runs of blank lines are capped at `max_blank_lines`, leading blank lines are dropped and the file ends with exactly one newline. Files that mostly use CRLF keep CRLF.
-
-**Blank lines between items** (`separate_items`).
-
-An *item* is a file-level declaration or directive: everything up to its `;`, or up to the `}` of its block when no `else`, note, `;` or `,` follows on the next line. Between two neighbouring items, at least one blank line is ensured when:
-
-- either item spans more than one output line (a procedure with a body, a struct, enum or union, a here-string or multi-line string, a `#run { }` or `#if { }` block, a declaration continued over lines), or
-- one is an import and the other is not. An import is an item with a `#import` or `#load` of its own: `#import "A";`, `#import,file "a.jai";`, `A :: #import "A";`, `#if OS == .MACOS #load "mac.jai";`.
-
-Consecutive imports never get one forced between them (even a multi-line `A :: #import "A"(X = 1, ...)`), and neither do consecutive one-line items (`COUNT :: 4;`, `Handle :: u32;`, `empty :: () {}`, `#run f();`). Note that `Vec2 :: struct { x, y: float; }` is not a one-line item: the block rule above puts its body on its own lines first.
-
-Before:
-
-```jai
-#import "Basic";
-#load "util.jai";
-COUNT :: 4;
-LIMIT :: 8;
-// Doubles x.
-twice :: (x: int) -> int {
-    return x * 2;
-}
-#scope_file
-helper :: () {}
-```
-
-After:
-
-```jai
-#import "Basic";
-#load "util.jai";
-
-COUNT :: 4;
-LIMIT :: 8;
-
-// Doubles x.
-twice :: (x: int) -> int {
-    return x * 2;
-}
-
-#scope_file
-helper :: () {}
-```
-
-Details:
-
-- Comments directly above an item (no blank line between) belong to it: the blank line goes before the first line after the previous item, so above the comments. If there is already a blank line anywhere between the two items, nothing changes. Comments are never moved.
-- A `#scope_file`/`#scope_module`/`#scope_export` line is not an item; like a comment it belongs to the item below it, so the blank line goes above the directive and none is forced between it and that item.
-- The body of a file-level `#if` (and its `else` blocks, including `else #if`) is file-level too: its items are separated by the same rules, and the `#if` block as a whole is a multi-line item. A `#if x == { case ...; }` switch is not, nor are struct bodies, procedure bodies or `#run` blocks.
-- Blank lines are only added, never removed; the usual `max_blank_lines` cap still applies (with `max_blank_lines = 0` none is written). Only line breaks that already exist are deepened, so the token check is unaffected. Items inside `// jaifmt: off` regions, and items sharing a line, are left alone.
-- To change the rules: `separate_pair` (when a blank is wanted), `finish_item` (what makes an item multi-line or an import), `block_ends_item` (where an item ends) and `is_item_container` (which `{` holds file-level items), at the end of `plan_lines` in `format.jai`. Golden cases: `items` and `items-off`.
-
-**Blank lines inside code blocks** (`separate_statements`). Four opt-in options, all `false` by default, add blank lines between the statements of *code blocks* to break up dense code. A code block is a procedure body (local and nested procedures too), a control-flow body (`if`/`else`/`for`/`while`/`defer`/`case`), a `#run { }` or `#code { }` block, or a `#if` body inside a procedure. Struct, union and enum bodies, `.{ }` literals and the file level (that is `blank_lines_between_items`' job) are never touched.
-
-Like `blank_lines_between_items` they only deepen line breaks that already exist, never remove a blank line, never move a comment, respect `max_blank_lines` (0 means none), and leave `// jaifmt: off` regions and statements that share a line alone. Comments directly above a statement belong to it, so a blank wanted "before statement S" goes above S's comments. A *statement* ends at its `;`, or at the `}` of its block when no `else` or note follows (an `if` with its `else` chain is one statement).
-
-`blank_line_after_declarations`: after a run of declarations, a blank line when the next statement is not one. A declaration is a statement whose leading names are followed by a top-level `:`, `:=` or `::` (`x := 1;`, `a, b := f();`, `x: int;`, `N :: 4;`, a local procedure); assignments and `using x;` are not. Nothing goes before the closing `}` or before an `else`/`case`. Two exceptions keep a setup line with its use: a *single* declaration stays next to a following block or braceless `if`/`for`/`while` whose header mentions a name it declared (`x, ok := f();` then `if !ok return;`), and a declaration stays next to an assignment that sets what it declared (`r: T;` then `r.x = 1;`). Bodies of four lines or fewer (`SHORT_BODY_LINES`) get no such blank, so a short helper stays compact.
-
-```jai
-count := items.count;
-total := 0;
-for items total += it;
-ok := run();
-if !ok return;
-```
-
-```jai
-count := items.count;
-total := 0;
-
-for items total += it;
-ok := run();
-if !ok return;
-```
-
-`blank_lines_around_blocks`: a statement that spans several output lines because it has a block body (`if`/`else` chain, `for`, `while`, `defer { }`, `#if`, `if x == { }`, `#insert #run { }`, a nested procedure, `#asm { }`) gets a blank line before and after it. Not at the start or end of the enclosing block, between `}` and `else`, or before a `case`. A braceless `if x return;` or a long call is not a block statement. Exceptions: the block stays next to a single declaration its header uses (the exception above), or next to an assignment whose names its header uses (`ok = f();` then `if !ok {`); and a run of *tiny* blocks (three lines each: header, one body line, `}`) is not pulled apart, so guard sequences and repeated table entries stay compact, with a blank only around the run.
-
-```jai
-a := f();
-if a.ready {
-    go(a);
-}
-log("done");
-```
-
-```jai
-a := f();
-if a.ready {
-    go(a);
-}
-
-log("done");
-```
-
-`blank_line_between_cases`: in `if x == { case ... }`, a blank line before a `case` label when the previous arm (label plus body) spans more than one output line. One-line arms (`case .A; #through;`, `case 1; return 2;`) and runs of them stay together.
-
-```jai
-case .A; return 1;
-case .B;
-    log("b");
-    return 2;
-case .C; return 3;
-```
-
-```jai
-case .A; return 1;
-case .B;
-    log("b");
-    return 2;
-
-case .C; return 3;
-```
-
-`blank_line_before_comments`: a comment that starts a line in a code block gets a blank line above it when the line before is code. Not after a `{`, after a `case` label line or after another comment line, and trailing comments are unaffected. Together with `blank_lines_around_blocks` the blank goes above the whole comment group, never between a comment and its statement.
-
-```jai
-a();
-// then b
-b();
-```
-
-```jai
-a();
-
-// then b
-b();
-```
-
-`blank_line_after_guards`: a blank line after a guard, an `if`, `for` or `while` written on one line (`if !x return null;`). A run of guards stays together, and so does a declaration with the guard that tests it (that is `blank_line_after_declarations`). Bodies of four lines or fewer are left alone.
-
-```jai
-if !window return null;
-view := content_view(window);
-if !view return null;
-attach(view);
-show(view);
-```
-
-```jai
-if !window return null;
-
-view := content_view(window);
-if !view return null;
-
-attach(view);
-show(view);
-```
-
-`blank_line_before_return`: a blank line above a `return` in a body longer than four lines. In a switch the arm is measured instead, so `case 1; return 2;` and short arms stay as they are, and a `return` right after a `case` label is never moved.
-
-- To change the rules: `statement_wants_blank` (when a blank is wanted, per option), `finish_statement` (what kind of statement it is and where its header ends), `block_kind` (which `{` holds code) and `separate_statements` (the walk), after `separate_pair` in `format.jai`. `add_blank_line` is the shared way to put the blank above a statement's comments. Golden cases: `stmt-declarations`, `stmt-blocks`, `stmt-cases`, `stmt-comments` (one option each) and `stmt-combined`.
-
-**Indentation** follows bracket nesting:
-
-- A `{` that ends its output line opens a block: its lines are indented one level from the statement that opened it (so a multi-line procedure header still indents the body by one level), and the `}` returns to that level.
-- Inside `(`, `[`, or a `.{ }` literal spanning lines, a continuation line written further right than the opening bracket keeps its offset from the bracket (aligned argument lists stay aligned even when spacing earlier on the line changes); otherwise it keeps its offset from the line that holds the bracket.
-- A line that does not start a statement (the previous code token is not `;`, `{`, `}`, a `#scope_*` directive or a note after `}`/`;`) keeps its offset from the statement's first line, but is never left of it. This covers braceless `if x` bodies, `#if` bodies, and expressions continued over lines.
-- In `if x == {` (and `if #complete x == {`) blocks, `case` lines are indented by `case_indent` and the statements under a case by `case_body_indent` more. A comment line takes the indentation of the code that follows it.
-- Block comments that start a line move as a unit: continuation lines shift by the same amount (dedenting only if every line has room).
-
-These continuation offsets are the one place where the input's layout still shows in the output: lines are never re-wrapped, so a hand-broken argument list keeps its shape.
-
-**Spacing** between two tokens on a line is exactly none or one space. There is no alignment: runs of spaces are not kept, aligned `::` constants and aligned trailing comments are not preserved. The rules (`spacing_rule`, first match wins), chosen to match the dominant style of `corpus/upstream` and `stdlib/`:
-
-| Pair | Result |
-| --- | --- |
-| before a line comment (`x := 1; // c`) | one space |
-| after a directive and inside its flags (`#library,system`, `#type, distinct`, `#location(x)`), and between `operator` and `::` | one space if the source had any whitespace, else none: the parser checks adjacency there |
-| before `,` `;`, after `(` `[` `.[`, before `)` `]` | none: `f(a, b)`, `.[1, 2, 3]` |
-| after `,` (not a cast flag comma `cast,no_check`, not `,,` context arguments) and after `;` on a line | one space |
-| `.{` literals | spaced inside: `.{ x = 1, y = 2 }`; empty `.{}` |
-| `{` literals without the dot | like `.{`: `f({ .A, 1 })`, `return { w, h };`. A `{` after `(`, `,`, `=`, `:=`, `[` or `return` that holds no `;` is a literal (`opens_dotless_literal`); any other `{` is a block |
-| `{` `}` | one space around (`if x {`); `{}` when empty |
-| `x: int`, `N: int : 5` | the first `:` of a declaration attaches to its names, a second `:` is spaced |
-| `=` `:=` `::` `==` `!=` `<=` `>=` `&&` `\|\|` compound assignments `->` `=>` | spaced |
-| `/ % \| ^ >> <<< >>>`, and `+ - * & << < >` used as binary operators | spaced: `a * b`, `n - 1`, `x << 2` |
-| prefix `-x` `+x` `*T` `<<p` `!ok` `~x` `$T` `` `x ``, `**T` | attached |
-| `$T/Interface` | tight |
-| `a.b`, `x.*`, `Vec.{`, `int.[`, `0..n`, `..rest`, `[..]` | tight; `.A` after an operator or keyword is spaced (`x == .A`, `return .{}`) |
-| `foo(`, `a[i]`, `cast(T)`, `size_of(T)`, `struct(T: Type)` | tight |
-| `if (` `while (` `return (` `xx (` `case (` and other keywords before `(` / `[` | one space |
-| after `cast(T)` and after an array type `[4] int`, `[..] *u8`, `[] u8` | one space |
-| `for < i: 0..n` | spaced |
-| everything else (words, literals, notes, directives) | one space |
-
-Binary versus prefix is decided from the previous code token: an operand (identifier, literal, `)` of a call or group, `]` of an index, `}` of a `.{ }` literal, `.*`, value directives like `#line`) means binary; an operator, keyword, `(`, `)` of `cast(T)`, `]` of an array type, the `}` of a block or another directive means prefix; after a note it is unknown and whether the source had a space is kept. A "none" that would glue two tokens into a different one (`- -x` would lex as `---`, `a / *p` as a comment, a number followed by `.`) becomes one space (`would_merge`).
-
-**Verbatim regions**: string literals, here-strings (`#string TAG ... TAG`, body and terminator line byte for byte), the inside of `#asm { }`, and everything between `// jaifmt: off` and `// jaifmt: on` (or the end of file).
-
-**Long lines** are not wrapped. `--verbose` counts lines over `max_width`.
-
-**Safety check** (`check_equivalent`): after formatting, the output is lexed again and compared with the input: same tokens (kind and text) in the same order, the same comments (up to whitespace), and a line break before the same tokens, because the parser is line-sensitive in a few places (`}` then a line starting with `*`/`-`/`+`/`<<` begins a new statement; a directive on the next line ends a declaration's flags; a note after `;` attaches to the declaration). Line breaks may differ only where the parser never looks (`break_change_allowed`): after a block's `{`, after `;` (except before a note), before `}`, between `}` and a word (`} else`, a statement after a block), after a note, and before a `{` joined to its header (removal only). It also requires the same adjacency after directives and their flags (`directive_zone`): `#library,system` is a flag but `#library, system` is an argument, and `#location(x)` takes an operand that `#location (x)` does not. On a mismatch the file is left unchanged and jaifmt exits with 2 and an "internal error" naming the token.
-
-## How to change it
-
-- New spacing rule: add it to `spacing_rule` in `stdlib/Extensions/Jai_Format/format.jai`, above the more general rules it should override, and add a line to `stdlib/Extensions/Jai_Format/tests/cases/spacing.in.jai`. Return `.PRESENCE` only where the parser itself looks at adjacency; everything else must be `.NONE` or `.SPACE` so the output stays canonical.
-- New blank-line rule for code blocks: `statement_wants_blank` in `format.jai` (one `if` per option; add a field to `Format_Config` in `module.jai` and a key to `parse_config_into` in `config.jai`), with a `stmt-*` golden case. It may only call `add_blank_line`, which deepens an existing break.
-- New line-structure rule: `plan_lines` (where breaks are added or removed). Any break it adds or removes must be one `break_change_allowed` accepts, and that function must only accept breaks the parser ignores.
-- New indentation behavior: `line_indent` (where a line starts) and `track` (what a token does to the frame stack). `starts_statement` decides statement versus continuation lines.
-- Lexer changes must mirror `crates/jaic/src/lexer.rs`; if the two disagree about where a token ends, the safety check can accept output that `jaic` lexes differently. Likewise, if the parser starts to depend on whitespace somewhere new (look for `newline_before` and `span.start == ...end` in `crates/jaic/src/parser/`), teach `check_equivalent` about it and make the formatter keep that spacing.
-- The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and `corpus/upstream` (point a worktree's `corpus/upstream` symlink at the copy) and run the sweep. This is how the directive-flag adjacency rule was found.
-- Golden tests: `stdlib/Extensions/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (with `<name>.toml` as config if present). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp` (part of the sweep's `modules` set); after an intended change, regenerate with `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp -- --bless` and review the diff. The same test checks idempotence, the refusal of malformed input, the safety check, config parsing and globs, and that the formatter's own sources are formatted.
-- `tests/stdlib/jai-format-api.jai` exercises the public API on in-memory text only, so it runs unchanged in the browser engine (`tools/check_playground_stdlib.mjs`). `node tools/check_jai_format_wasm.mjs <jai_wasm.wasm | staged-dir>` runs the browser driver through the wasm engine on every golden case (CI runs it on the debug wasm).
-- Moving or renaming `jaifmt/`: CI (`ci.yml`), `nix/jaifmt.nix`, `tools/build_scripting_wasm.py` (and its test), `tools/build_pgo.py`, `tools/check_jaifmt_wasm.mjs`, `tools/check_jai_format_wasm.mjs`, the jaic-cli tests and the last entry of `SOURCES` in `stdlib/Extensions/Jai_Format/tests/golden.jai` all name its files. The browser bundle's names (`jaifmt-playground.jai`, `jaifmt.wasm`) are what pages fetch, so they do not follow the source path.
-- Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
-- `crates/jaic-cli/tests/native.rs` (`jaifmt_builds_and_formats`) builds the tool natively and checks the CLI: `--stdin`, `--check`, in-place rewrites, ignore globs and exit codes. `jaifmt_build_metaprogram` (and `jaifmt_wasm_from_the_build_metaprogram` in `tests/wasm_target`) builds it through `jaifmt/build.jai`. `jaifmt_is_idempotent_on_the_repository` formats a copy of every `.jai` file under `stdlib/`, `tests/` (minus `tests/corpus`), `tools/`, `jaifmt/`, `benchmarks/` and `examples/` and checks that a second run changes nothing.
-- A file whose layout matters (generated tables, test fixtures with recorded line numbers such as `tests/native/debug-info`): add it to `ignore`, or wrap the region in `// jaifmt: off` / `// jaifmt: on`. Tests that compare `#location` lines must not rely on two statements sharing a line, since they will be split.
+- **Lines.** Non-empty `{ ... }` bodies go on their own lines; with `brace_style = "same_line"` a `{` on its own line joins its header (except after `;`, `{`, `}`, `,`, `(`, `#scope_*`, where it starts a block). `;`-separated statements are split, except one simple statement after a `case` label. Kept as written: `.{ }`/`.[ ]` literals, braceless bodies, continued expressions, trailing comments.
+- **Blank lines.** Trailing whitespace removed, blank runs capped at `max_blank_lines`, one final newline, CRLF kept if mostly CRLF. Blank lines are only added where a break already exists, never removed, and comments stay attached to the item below.
+  - `blank_lines_between_items` (default on): a blank between file-level items when either spans several lines or one is an import and the other is not; runs of imports and runs of one-line items stay together.
+  - Opt-in code-block options (all off by default): `blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_between_cases`, `blank_line_before_comments`, `blank_line_after_guards`, `blank_line_before_return`. Short bodies (four lines or fewer) and tiny single-line-body block runs are left compact.
+- **Indentation** follows bracket nesting. Continuation lines inside brackets keep their offset from the bracket (aligned argument lists stay aligned); other continuation lines keep their offset from the statement's first line. This is the one place input layout still shows.
+- **Spacing** is none or one space, with no alignment. `spacing_rule` (first match wins) follows the dominant style of `stdlib/`. Binary versus prefix is decided from the previous code token. `.PRESENCE` (keep the source's choice) is used only where the parser checks adjacency (`#library,system` versus `#library, system`, `#location(x)`).
+- **Verbatim:** strings, here-strings, `#asm { }` bodies and everything between `// jaifmt: off` and `// jaifmt: on`.
+- **Safety check** (`check_equivalent`): the output is re-lexed and must have the same tokens, comments and line breaks before the same tokens, because the parser is line-sensitive in a few places (`}` then a line starting with `*`, a directive on the next line, a note after `;`). Only breaks the parser ignores may differ (`break_change_allowed`). On mismatch the file is left unchanged, exit 2, "internal error" naming the token.
 
 ## Configuration
 
-`jaifmt.toml`, one `key = value` per line with `#` comments (a small TOML subset: integers, quoted strings and one-line string arrays; unknown keys and bad values are errors reported as `line N: ...`). The CLI uses the one in the file's directory or the nearest parent (per file; `--config` overrides it for all files):
+`jaifmt.toml` (small TOML subset: integers, quoted strings, one-line string arrays; unknown keys are errors). The nearest one up the tree applies per file; `--config` overrides.
 
 ```toml
 indent_width = 4          # 1-16
-case_indent = 4           # `case` lines in `if x == {`; default indent_width
-case_body_indent = 4      # statements under a case; default indent_width
-max_blank_lines = 2       # consecutive blank lines kept
-max_width = 100           # only reported by --verbose; lines are never wrapped
+case_indent = 4           # default indent_width
+case_body_indent = 4      # default indent_width
+max_blank_lines = 2
+max_width = 100           # only reported by --verbose
 brace_style = "same_line" # or "preserve"
-blank_lines_between_items = true  # or false: no blank lines added between file-level items
-blank_line_after_declarations = false  # true: blank line after a run of declarations in code blocks
-blank_lines_around_blocks = false      # true: blank lines around statements with a block body
-blank_line_between_cases = false       # true: blank line before a `case` after a multi-line arm
-blank_line_before_comments = false     # true: blank line above a comment that follows code
-blank_line_after_guards = false        # true: blank line after a run of one-line if/for/while
-blank_line_before_return = false       # true: blank line above a return in a longer body
-ignore = ["tests/corpus/**", "generated/*.jai"]
+blank_lines_between_items = true
+blank_line_after_declarations = false   # plus the five other opt-in options above
+ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file; `**` crosses directories
 ```
 
-Ignore globs are relative to the config file's directory: `*` and `?` stay within a path component, `**` crosses components, and a glob that matches a directory ignores everything below it. Explicitly named files are ignored too. The repository's root `jaifmt.toml` ignores `tests/corpus/**` (fixtures pinned by `sha256` in `tests/corpus/manifest.json`, plus deliberately malformed negative cases), `stdlib/Extensions/Jai_Format/tests/cases/**` (golden inputs) and `tests/native/debug-info/**` (breakpoints at fixed line numbers). The defaults match the dominant style of `stdlib/` and `corpus/upstream`: 4 spaces, braces on the same line, `case` one level in and its body one more. The repository's own config also turns on four of the stricter blank-line options (`blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_after_guards` and `blank_line_before_return`, which are off by default) and keeps at most one blank line in a row.
-
-**CI**: the `test` job in `.github/workflows/ci.yml` builds `jaifmt` with the debug `jaic` and runs `jaifmt --check stdlib tests benchmarks tools jaifmt examples`. Like the other checks it is recorded with `continue-on-error` and enforced by the job's last step, so an unformatted file fails CI. Format-only commits go in `.git-blame-ignore-revs`.
-
-**Speed** (Apple M5, including the safety check and compiling the program where it applies):
-
-| Run | Time |
-| --- | --- |
-| native `-O2`, ~650 files / 180k lines | 0.4 s (building the tool: about 1 s) |
-| `jaic -interp` (release `jaic`), whole repository | 30 s |
-| `jaic -interp`, one 327-line file / one 814-line file | 0.14 s / 0.21 s |
-| browser engine (release wasm), 327-line file | 75 ms (a golden case: ~25 ms) |
-| browser engine (debug wasm, as in CI), 327-line file | 375 ms |
-| `jaifmt.wasm` under node 24, 327-line file / a golden case | 2.2 ms / 0.7 ms (a fresh instance each run; compiling the module: under 1 ms) |
+The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`. Format-only commits go in `.git-blame-ignore-revs` (see [development](development.md)).
 
 ## Module API
 
 ```jai
 #import "Extensions/Jai_Format";
-
-config, ok, error := parse_config(toml_text);       // Format_Config, bool, string
-formatted, ok, error := format_source(source, config); // config defaults to .{}
+config, ok, error := parse_config(toml_text);
+formatted, ok, error := format_source(source, config);   // free `formatted`; on failure it is ""
 ```
 
-- `format_source(text, config = .{}) -> result: string, ok: bool, error: string`: on success `result` is newly allocated (`free` it); on failure it is `""` and `error` (temporary storage) says why, usually as `line:column: message`: text that does not lex, unbalanced brackets, or a failed token check. Input is never partially formatted.
-- `parse_config(text) -> config: Format_Config, ok: bool, error: string`: parses `jaifmt.toml` text. `config.root` is left empty; set it to the config's directory if you use `format_is_ignored`.
-- `Format_Config` fields: `indent_width` (4), `case_indent` and `case_body_indent` (-1: `indent_width`), `max_blank_lines` (2), `max_width` (100, reporting only), `brace_style` (`.SAME_LINE` or `.PRESERVE`), `blank_lines_between_items` (true), `blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_between_cases`, `blank_line_before_comments`, `blank_line_after_guards` and `blank_line_before_return` (all false), `ignore`, `root`.
-- Also: `format_tokens_equivalent(before, after) -> ok, why` (the safety check), `format_is_ignored(config, path)`, `format_glob_match(pattern, text)`, `format_count_long_lines(text, max_width)`, `FORMAT_CONFIG_FILE_NAME` (`"jaifmt.toml"`).
+Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.root` first), `format_glob_match`, `format_count_long_lines`. `Format_Config` fields mirror the TOML keys.
 
-## Browser playground
+## Browser
 
-The [hosted playground](https://matteopolak.com/playground/jacket) runs `jaifmt/playground.jai` in the wasm engine against its virtual `/workspace`. It formats `/workspace/main.jai` (the `TARGET` constant; replace that line to format another file), with the nearest `jaifmt.toml` between the file's directory and `/workspace`:
+- `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai`. Source on stdin, config from `--config` or `JAIFMT_CONFIG`, same exit contract. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/check_jaifmt_wasm.mjs jaifmt.wasm target/jaifmt` and `tools/check_jai_format_wasm.mjs` compare it with native on every golden case.
 
-```js
-const driver = await (await fetch("jaifmt-playground.jai")).text();   // jaifmt/playground.jai
-const files = { ...workspaceFiles, "__jaifmt__.jai": driver.replace(/^TARGET :: ".*";$/m, `TARGET :: ${JSON.stringify(path)};`) };
-const result = engine.play(files, "__jaifmt__.jai");
-if (result.exitCode === 0) editor.setText(result.stdout);   // the formatted file
-else showError(result.stderr);                                // "jaifmt: main.jai:3:7: unbalanced ..."
-```
+## How to change it
 
-`tools/build_scripting_wasm.py` stages the driver as `jaifmt-playground.jai` next to `jai_wasm.wasm`, so it is part of every browser release bundle (`tools/package_browser_release.py`, [browser compiler](../browser/playground.md)); the portfolio serves it from `/jai/<commit>/jaifmt-playground.jai`. Exit code 0 means stdout is the whole formatted file; 1 means stdout is empty and stderr has one `jaifmt: ...` line (bad config, unreadable file, or input that cannot be formatted safely). To let users configure it, create `/workspace/jaifmt.toml`, for example `indent_width = 2`. The page can instead call the module from its own driver: `#import "Extensions/Jai_Format"` is bundled with the rest of `stdlib/`.
-
-### WebAssembly build (`jaifmt.wasm`)
-
-`jaifmt/wasm.jai` is jaifmt as a WASI command, compiled by a native `jaic` ([wasm target](../native/wasm-target.md)):
-
-```sh
-jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm
-node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai > out.jai
-node --no-warnings tools/check_jaifmt_wasm.mjs jaifmt.wasm target/jaifmt   # golden cases, byte-identical to native
-```
-
-It reads the source from stdin and writes the formatted file to stdout with exit 0. The `jaifmt.toml` text comes from `--config <text>`, else the `JAIFMT_CONFIG` environment variable, else the defaults. `--name <file>` sets the name used in messages (default `main.jai`). Its options are parsed by [`Extensions/Args`](../extensions/args.md) like `main.jai`'s, so `--help` works and a bad command line exits 2 with the usual `error:`/`usage:` lines. On a config or format error stdout is empty, stderr has one `jaifmt: ...` line and the exit status is 1, the same contract as the engine driver.
-
-It is about 35 times faster than interpreting `jaifmt-playground.jai` in the engine, and does not need the engine loaded:
-
-| | `jaifmt-playground.jai` in the engine (release) | `jaifmt.wasm` |
-| --- | --- | --- |
-| download | `jai_wasm.wasm` (shared with the playground) | 369 KB (100 KB gzip, 77 KB brotli) |
-| 327-line file | 75 ms | 2.2 ms |
-| golden case | ~25 ms | 0.7 ms |
-| runtimes | any wasm32 browser | Memory64: Chrome 133, Firefox 134, node 24; not Safari yet |
-
-(Apple M5, LLVM 23, `-O2 -no_debug_info`, no `wasm-opt`; node 24.12.)
-
-`tools/build_scripting_wasm.py --jaic <native jaic>` stages it as `jaifmt.wasm` and records `jaifmt_wasm_sha256` in `build-metadata.json`; release bundles require it ([compiler releases](../browser/compiler-releases.md)). To use it, a page:
-
-1. Fetches `/jai/<commit>/jaifmt.wasm` and compiles it once (`WebAssembly.compile`).
-2. Per run, instantiates it with a WASI preview 1 shim providing `fd_read`, `fd_write`, `args_sizes_get`, `args_get`, `environ_sizes_get`, `environ_get`, `clock_time_get` and `proc_exit` from `wasi_snapshot_preview1`. Every pointer argument is a 32-bit offset (`i32`) into the module's 64-bit memory, so index the memory's `ArrayBuffer` with `Number(ptr)`; `memory.buffer` must be read again after calls, since it can grow.
-3. Passes `["jaifmt.wasm", "--config", tomlText]` as arguments, serves the source to `fd_read(0, ...)`, collects `fd_write(1/2, ...)`, and calls `_start`. `proc_exit(code)` ends the run: throw from the shim and catch it around `_start`.
-4. On exit 0 replaces the editor text with stdout; on 1 shows stderr.
-5. Where `WebAssembly.validate` rejects the module (no Memory64, Safari today), falls back to `jaifmt-playground.jai` in the engine.
+- **Spacing:** add to `spacing_rule` above the rules it overrides, plus a line in `tests/cases/spacing.in.jai`. Return `.NONE` or `.SPACE`; `.PRESENCE` only where the parser looks at adjacency.
+- **Blank-line rule for code blocks:** `statement_wants_blank` (one `if` per option), a field in `Format_Config`, a key in `parse_config_into`, and a `stmt-*` golden case. It may only call `add_blank_line`. File-level items: `separate_pair`, `finish_item`, `block_ends_item`, `is_item_container`.
+- **Line structure:** `plan_lines`; any break it adds or removes must be accepted by `break_change_allowed`, which must accept only breaks the parser ignores.
+- **Indentation:** `line_indent`, `track`, `starts_statement`.
+- **Lexer:** mirror `crates/jaic/src/lexer.rs`. If the parser starts depending on whitespace somewhere new (look for `newline_before` in `crates/jaic/src/parser/`), teach `check_equivalent` and keep that spacing.
+- **Golden tests:** `stdlib/Extensions/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (optional `<name>.toml`). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff. `tests/stdlib/jai-format-api.jai` covers the API in memory so it also runs in the browser engine. `crates/jaic-cli/tests/native.rs` covers the CLI and checks idempotence over the repository's Jai files.
+- The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and the upstream corpus and run the sweep.
+- Layout-sensitive files: add to `ignore` or wrap in `// jaifmt: off`/`on`. Tests comparing `#location` lines must not rely on two statements sharing a line.
+- Moving `jaifmt/`: CI, `nix/jaifmt.nix`, `tools/build_scripting_wasm.py`, `tools/build_pgo.py`, the two wasm check scripts, the jaic-cli tests and `SOURCES` in `tests/golden.jai` name its files.
+- Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
 
 ## Dependencies
 
-`Jai_Format` uses only `Basic` and `String`. The CLI adds `File`, `File_Utilities` and `Sort`, plus `POSIX` (or `Windows` on Windows) to read standard input; it keeps paths with forward slashes, so it runs on Windows too (release archives ship `jaifmt.exe`); the playground driver adds `File`. The browser path needs the wasm engine (`crates/jai-wasm/js/engine.mjs`, [`tools/build_scripting_wasm.py`](../../tools/build_scripting_wasm.py)), or, for `jaifmt.wasm`, a native `jaic` with `wasm-ld` to build it, `Wasi_Runtime`, and a Memory64 runtime. Running it under the interpreter needs `jaic ... -interp -- args` ([interpreter](../compiler/interpreter.md)). The token rules come from `crates/jaic/src/lexer.rs`; the line-sensitive parser spots from `crates/jaic/src/parser/expr.rs` and `decl.rs`.
+`Jai_Format` uses `Basic` and `String` only. The CLI adds `File`, `File_Utilities`, `Sort` and `POSIX`/`Windows` for stdin. The browser path needs `crates/jai-wasm/js/engine.mjs`; `jaifmt.wasm` needs a native `jaic` with `wasm-ld` and `Wasi_Runtime`.

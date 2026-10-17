@@ -1,5 +1,5 @@
 # cargo-fuzz (libFuzzer) targets for the compiler. Kept out of the main workspace: it needs a
-# nightly sanitizer build and its own lock file. See docs/tools/fuzzing.md.
+# nightly sanitizer build and its own lock file. See docs/tools/testing.md.
 [package]
 name = "jai-fuzz"
 version = "0.0.0"

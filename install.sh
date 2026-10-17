@@ -10,7 +10,7 @@
 #   JAI_BIN_DIR      where the command symlinks go (default: ~/.local/bin)
 #
 # Running it again installs the requested (or latest) version, points the symlinks at it and
-# removes the versions it installed before. See docs/tools/package-managers.md.
+# removes the versions it installed before. See docs/tools/releases.md.
 set -eu
 
 REPO="matteopolak/jacket"

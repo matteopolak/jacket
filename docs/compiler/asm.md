@@ -1,238 +1,52 @@
-# jaic `#asm` blocks
+# `#asm` blocks
 
 ## What it is
 
-Jai's `#asm { ... }` inline assembly. jaic never emits machine code for it: each x64 instruction is parsed into an AST and lowered to ordinary IR operations on the Jai variables used as operands. A block therefore behaves the same in the interpreter, the browser and the LLVM backend, on any host CPU; an arm64 Mac runs x64 `#asm` correctly. General-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AES/PCLMUL, SHA, F16C, GFNI and common AVX-512 instructions, including op-mask (`k`) registers, are supported. Anything else is rejected with an error naming the instruction.
+Jai's `#asm { ... }` inline assembly. jaic never emits machine code for it: each x64 instruction is parsed into an AST and lowered to ordinary IR operations on the Jai variables used as operands. A block behaves the same in the interpreter, the browser and the LLVM backend on any host CPU; an arm64 Mac runs x64 `#asm` correctly.
 
-The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md); this page is the reference.
-
-## `syscall`
-
-`syscall rcx_out:, r11_out:, rax_inout` is the Linux x86-64 system call (feature `SYSCALL_SYSRET`). It reads the number from the
-third operand and the arguments from the declared registers pinned to `di`, `si`, `d`, `10`, `8` and `9` (a register
-that is not pinned reads 0; a pin is `=== a`, `=== di`, `=== 10`, or `r10`), and lowers to `Intrinsic::Syscall` (seven `I64` in, one `I64` out: the kernel's raw result,
-`-errno` on failure). The result is written to the third operand and to the register pinned to `a`; `rcx_out` and
-`r11_out` read 0.
-
-- Native builds emit inline asm `syscall` with rax/rdi/rsi/rdx/r10/r8/r9 constraints and rcx/r11/memory clobbers on
-  x86-64 targets (`lower.rs`); other targets fail the build with "`syscall` in #asm needs an x86-64 target". The
-  system call numbers are the target OS's: only Linux's are meaningful.
-- The interpreter calls the host's `syscall(2)` on a Linux x86-64 host (`interp/native.rs::syscall`, errno turned back into
-  `-errno`); on any other host it traps with a runtime error. A host without native linking (the sandbox, `-os wasm`,
-  the browser) never makes the call and returns `-1` (`-EPERM`).
-- Gotcha: only declared `gpr`s record pins, since registers are otherwise not modelled; pinning a Jai variable
-  (`x === a` on a non-register) is ignored.
+Supported: general-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AES/PCLMUL, SHA, F16C, GFNI and common AVX-512 including op-mask (`k`) registers. Anything else is the error `` unsupported #asm instruction `x` ``. The user-facing summary is [SIMD and `#asm`](../language/simd-asm.md). The authoritative instruction list is the catalog (`jaic::sema::asm_catalog`), which the [language server](language-server.md) also uses.
 
 ## How it works
 
-- **Parsing** (`parser/asm.rs`) is mnemonic-agnostic and produces `ast::AsmBlock` (`ExprKind::Asm`): feature
-  modifiers (`#asm AVX2 {`), then `;`-separated items. An item is an instruction (`mnemonic[.size|?size] operands`) or a
-  declaration/pin statement (`x: gpr;`, `t: gpr === a;`, `x === a;`). Operands are a variable/constant expression, a
-  memory operand `[base + index*scale +/- disp]` (each term a unary expression, so `*x` and `(size_of(u64))` work) or
-  an inline declaration (`tmp:`, `tmp: gpr === 15`). `===` lexes as `==` `=` and is recognised by adjacency.
-- **Lowering** is split by instruction family. `asm_inst` in `sema/asm.rs` tries, in order:
-  1. `lookup_op` (`sema/asm.rs`): the integer core (mov, ALU, shifts, bit ops, setcc/cmovcc, atomics).
-  2. `asm_scalar_inst` (`sema/asm/scalar.rs`): division, widening, double shifts, BMI/ADX, CRC32, string
-     instructions, `cmpxchg8b/16b`, flags transfer, hints.
-  3. `asm_mask_inst` (`sema/asm/mask.rs`): the `k*` op-mask instructions.
-  4. `asm_vec_inst` (`sema/asm/vec.rs`): vector instructions; `lookup_vec` falls back to `simd::lookup_simd`
-     (`sema/asm/simd.rs`) for the larger SIMD set. F16C, SHA and GFNI live in `sema/asm/simd/ext.rs`.
-- **Float variables.** A `float32`/`float64` variable is a vector register, as in Jai: a vector instruction works on a
-  zero-extended 64-byte copy of it and, when the variable is the destination, stores the low 4 or 8 bytes back
-  (`vec_operand_class`, `asm_vec_inst_floats`), so it never reads or writes past the variable. `movd`/`movq` between it
-  and an integer operand copy its bits, and integer instructions reject it (`asm_place`).
-- **Registers.** Variables are read and written in place through their stack slots. Declared registers are locals
-  added to the *enclosing* scope (blocks are not scopes; macros see them). They start at zero. Classes: `gpr` (8
-  bytes), `vec` (64 bytes; `xmm/ymm/zmm` by width), `str` (MMX, a `vec` used at 8 bytes), `omr`/`kmask` (an 8-byte
-  op-mask). An inline declaration `name:` takes its class from the position: a gpr in scalar instructions, a `vec` in
-  vector ones, an `omr` in `k*` instructions and as the destination of a compare-into-mask. Registers are not
-  modelled: `===` pins are parsed and ignored, except that `syscall` reads the declared `gpr`s pinned to its argument
-  registers (`asm_pins`). A declared register's value only means something inside the block
-  that declares it; reload values in each block.
-- **Operation size**: explicit suffix (`.b/.w/.d/.q`, `.8/.16/.32/.64`, or `?T` / `?BITS`), else the size of the first
-  Jai variable operand, else 64 bits. 32-bit writes zero-extend into a 64-bit destination; 8/16-bit writes merge.
+- **Parsing** (`parser/asm.rs`) is mnemonic-agnostic and produces `ast::AsmBlock`: feature modifiers (`#asm AVX2 {`), then `;`-separated items. An item is an instruction (`mnemonic[.size|?size] operands`) or a declaration/pin (`x: gpr;`, `t: gpr === a;`). Operands are an expression, a memory operand `[base + index*scale + disp]`, or an inline declaration (`tmp:`).
+- **Lowering** is split by family; `asm_inst` (`sema/asm.rs`) tries in order: `lookup_op` (integer core), `asm_scalar_inst` (`asm/scalar.rs`: division, BMI/ADX, string ops, CRC32), `asm_mask_inst` (`asm/mask.rs`), `asm_vec_inst` (`asm/vec.rs`, falling back to `simd::lookup_simd` in `asm/simd.rs`; F16C, SHA, GFNI in `asm/simd/ext.rs`).
+- **Registers** are not modelled. Variables are read and written in place through their stack slots. Declared registers are locals added to the enclosing scope, start at zero, and only mean something inside the declaring block. Classes: `gpr` (8 bytes), `vec` (64 bytes), `str` (MMX), `omr`/`kmask` (op-mask). `===` pins are parsed and ignored, except `syscall` reads `gpr`s pinned to its argument registers.
+- **Operation size**: suffix (`.b/.w/.d/.q`, `.8`..`.64`, `?T`), else the first Jai variable operand's size, else 64. 32-bit writes zero-extend; 8/16-bit writes merge.
 - **Implicit registers are explicit operands**, in Jai's order:
 
   | Instruction | Form | Meaning |
   | --- | --- | --- |
   | `mul`/`imul` | `mul hi, lo, src` | `hi:lo = lo * src` |
-  | `div`/`idiv` | `div hi, lo, d` (`div.b ax, d`) | `lo = hi:lo / d`, `hi = remainder` |
-  | `cbw/cwde/cdqe` | `cdqe a` | sign-extend the low half of `a` |
-  | `cwd/cdq/cqo` | `cqo d, a` | `d` = sign of `a` |
-  | `mulx` | `mulx hi, lo, src, d` | `hi:lo = d * src`, flags untouched |
-  | `rep_movs.q` | `rep_movs.q di, si, c` | copy `c` elements, advance `di`, `si`, clear `c` |
-  | `rep_stos.d` | `rep_stos.d di, a, c` | fill |
-  | `rep_lods.b` | `rep_lods.b a, si, c` | load |
-  | `repe_cmps.b` | `repe_cmps.b di, si, c` | flags from `[si] - [di]` |
-  | `repne_scas.b` | `repne_scas.b di, a, c` | flags from `a - [di]` |
-  | `cmpxchg16b` | `cmpxchg16b d, a, [mem], c, b` | compare `d:a` with 16 bytes, store `c:b` |
-  | `xlat` | `xlat table, a` | `al = [table + al]` |
-  | `cmpxchg` | `cmpxchg dest, src, acc` | |
+  | `div`/`idiv` | `div hi, lo, d` | `lo = hi:lo / d`, `hi = remainder` |
+  | `rep_movs.q` | `rep_movs.q di, si, c` | copy `c` elements |
+  | `cmpxchg16b` | `cmpxchg16b d, a, [mem], c, b` | compare `d:a`, store `c:b` |
 
-  String instructions need a size suffix and register operands; without a `rep*` prefix they run once.
-- **Flags** CF/ZF/SF/OF/PF are IR values tracked per block (unset flags read as 0); `setcc`/`cmovcc`
-  code evaluates conditions from them, including `p/pe/np/po`. PF is kept lazily as the low result byte. The
-  direction flag is tracked statically: `std` makes later string instructions in the same block walk downwards,
-  `cld` resets it, and each block starts with DF clear (as the ABI guarantees). `lahf`/`sahf` move SF/ZF/PF/CF.
-- **Division** traps (`#DE` on hardware: `Intrinsic::Trap`) on a zero divisor or a quotient that does not fit, like
-  hardware. 128-by-64 division uses a fast path when the high half is zero, otherwise a restoring shift-subtract loop.
-- **Atomics.** `lock_` read-modify-write instructions on memory, and `xchg` with memory, use a compare-and-swap loop
-  (`Intrinsic::CompareAndSwap`). `lock_ cmpxchg16b` (and `8b`) is atomic with respect to other `lock_ cmpxchg16b`
-  users only: it takes a global spin lock (`Compiler::asm_pair_lock`), since the IR has no 128-bit CAS.
-- **Vectors** (`vec.rs`, `simd.rs`). A `vec` register is a 64-byte local; each instruction runs lane by lane on memory
-  into a scratch buffer that is then copied to the destination, so aliasing operands work. Size: `.x/.y/.z`
-  (16/32/64 bytes; `.q` = 8 for MMX forms), else 32 in a block with an AVX feature, 64 with AVX-512, otherwise 16.
-  A leading `v` is accepted (`vpaddd`). Two operands mean `dst op= src`, three `dst = a op b`. With an AVX feature, a
-  register write clears the bytes above the written size (VEX); otherwise they are kept. A Jai variable operand is
-  memory at its address (integers act as general-purpose registers for `movd`/`movq`/`movmsk*`/`pextr*`, floats as
-  vector registers).
-  A `name:` destination declares a `vec` register, except for instructions that write a general-purpose value
-  (`movmsk*`, `pextr*`, `extractps`, `cvt*2si`): there it is a `gpr` (`dst_class` in `vec.rs` and `simd.rs`).
-  `pmovmskb` lowers to `Intrinsic::SignMask` and `pshufb` to one `Intrinsic::ByteLookup` per 16-byte block, so both become
-  real vector instructions in native builds ([intrinsics](../language/intrinsics.md)). `ByteLookup` zeroes every index of
-  16 or more, while `pshufb` ignores bits 4-6 of an index and zeroes only when bit 7 is set; the lowering first masks each
-  index with `0x8F`, which maps one onto the other, so results stay bit-exact with hardware. Masked EVEX forms use the
-  same path, with the mask applied afterwards like any other instruction.
-- **Masks.** An `omr` register is an 8-byte local. `dst: &k` (merge) / `dst: &*k` (zero) apply after the instruction
-  ran; a masked store to memory writes only selected elements. Compares (`pcmp*`, `cmpps`) whose destination is an
-  `omr` write a bit per lane, and a `&k` on them ANDs the result. Instructions that consume the mask themselves
-  (compress, expand, blendm, gather, scatter) handle it directly; EVEX gather and scatter clear the mask, as hardware
-  does.
-- **F16C, SHA, GFNI** (`simd/ext.rs`) are integer bit manipulation on lanes, so they are bit-exact everywhere.
-  `cvtps2ph` rounds with the imm8 mode (`0` nearest even, `1` down, `2` up, `3` toward zero; bit 2 means MXCSR,
-  which is always nearest here): it keeps the hidden bit in the significand so a rounding carry moves into the
-  exponent, rounds into half subnormals, saturates overflow to infinity or `0x7bff` by mode, and quiets NaNs keeping
-  the top 10 payload bits. `cvtph2ps` is exact (subnormals are normalized with `Ctlz`). Its EVEX form handles its
-  own `{k}` mask, because the generic merge works on the full vector width and the result is half as wide. F16C
-  and `v`-prefixed GFNI forms clear a register destination above the result (they are always VEX/EVEX); SHA and
-  legacy GFNI keep it, whatever the block's features. `sha256rnds2` takes the implicit `xmm0` as its last operand
-  (`sha256rnds2 cdgh, abef, wk`). `gf2p8affineinvqb` reads a 256-byte field-inverse table appended to the AES
-  tables; the affine matrix broadcast (`[m]!`) repeats 8 bytes while masking stays per byte
-  (`simd::broadcast_size`).
-- **IR** additions: `Intrinsic::{Popcount, Ctlz, Cttz, Bswap}` (value, width in bits) and `Intrinsic::Fma` (three
-  `F64` bit patterns, single rounding). They are implemented in `interp/mod.rs` and in `jaic-llvm`
-  (`llvm.ctpop/ctlz/cttz/bswap/fma`). AES S-box and inverse tables are generated in Rust into one read-only global
-  (`Compiler::asm_aes_tables`) on first use.
-- Canonical `__reg` retains its distinct source type and binds an expanded parameter to the caller SIMD register storage. Generic expanded parameters preserve the operand marker; ordinary scalar/storage/ABI use diagnoses an unsupported operation. Code remains a separate quoted-expression type.
-
-### Supported instructions
-
-Scalar: mov, movnti, movzx/movsx, movbe, lea, xchg, xadd, cmpxchg, cmpxchg8b/16b, add, sub, adc, sbb, and, or, xor,
-cmp, test, inc, dec, neg, not, shl/sal/shr/sar/rol/ror, rcl/rcr, shld/shrd, bt/bts/btr/btc, bsf, bsr, popcnt, lzcnt,
-tzcnt, bswap, mul, imul, div, idiv, cbw/cwde/cdqe, cwd/cdq/cqo, BMI1/2 (andn, bextr, blsr/blsi/blsmsk, bzhi, pdep,
-pext, shlx/shrx/sarx, rorx, mulx), adcx/adox, crc32 (`crc32d`/`crc32q`, CRC-32C), setcc, cmovcc, clc/stc/cmc,
-cld/std, lahf/sahf, xlat, movs/stos/lods/cmps/scas with `rep_`/`repe_`/`repz_`/`repne_`/`repnz_`, nop/pause/fences,
-prefetcht0/1/2 and prefetchnta (real x64 hints), int3 (`int 3`), rdtsc/rdtscp (actual x64
-counter and AUX), `syscall` (see below), rdrand/rdseed (single hardware attempt with actual CF),
-cpuid (real leaf/subleaf results). Timestamp/random/fence/pause/prefetch operations require
-x64; interpreter execution requires an x64 host and optional instructions check real CPUID.
-See architectural instruction semantics. Other cache operations
-(prefetchw/wt1, clflush/opt, clwb, cldemote) explicitly diagnose unimplemented support.
-Remaining synthetic gaps are rdpid (0), xgetbv (all outputs 0), stmxcsr (0x1f80),
-ldmxcsr (ignored); these are not implemented architectural behavior.
-
-Op-mask: kmov, kand, kandn, kor, kxor, kxnor, knot, kadd, kshiftl, kshiftr, ktest, kortest (each with b/w/d/q), and
-kunpckbw/wd/dq.
-
-Vector (any `ps/pd/ss/sd` or `b/w/d/q` variant that exists on hardware):
-
-- Moves: `mov{u,a}{ps,pd}`, `movdq{u,a}{,8,16,32,64}`, `lddqu`, `movnt*`, `movd/movq`, `movss/movsd`,
-  `movhps/movlps/movhpd/movlpd`, `movhlps/movlhps`, `movddup/movshdup/movsldup`, broadcasts (`broadcastss/sd`,
-  `pbroadcastb/w/d/q`, `broadcast{i,f}{128,32x2,32x4,64x2,32x8,64x4}`, `pbroadcastmb2q/mw2d`).
-- Integer: `padd/psub` (also saturating `s/us`), `pmull`, `pmulh{,u,rs}w`, `pmuludq/pmuldq`, `pmaddwd`, `pmaddubsw`,
-  `psadbw`, `pavgb/w`, `pmin/pmax` (signed/unsigned), `pabs`, `psign`, shifts by immediate/register/vector
-  (`psll/psrl/psra`, `psllv/psrlv/psrav`, `pslldq/psrldq`), rotates (`prol/pror/prolv/prorv`), horizontal
-  (`phadd/phsub{w,d,sw}`, `phminposuw`), `pcmpeq/pcmpgt` and AVX-512 `pcmp{,u}{b,w,d,q}` with a predicate,
-  `vpopcnt`, `plzcnt`, `pconflict`, `pternlog`, `pdpbusd/pdpwssd` (VNNI), `ptest`, `ptestm/ptestnm`.
-- Float: `add/sub/mul/div/min/max/sqrt`, `rcp/rsqrt` (and the `14`/`28` forms), `round`/`rndscale`, `cmp` with all
-  32 predicates, `comis/ucomis`, `hadd/hsub`, `addsub`, `dpps/dppd`, FMA
-  (`f[n]m{add,sub}{132,213,231}{ps,pd,ss,sd}`, `fmaddsub/fmsubadd`).
-- Shuffles: `pshufd/pshufhw/pshuflw`, `pshufb`, `shufps/shufpd`, unpacks (`unpck{l,h}{ps,pd}`, `punpck{l,h}{bw,wd,dq,qdq}`),
-  `palignr`, `valignd/q`, blends (`blendps/pd`, `pblendw/d`, `blendv*`, `pblendvb`, `blendmps/pd`, `pblendm*`),
-  permutes (`permps/pd`, `perm{d,q,w,b}`, `permilps/pd`, `perm2i128/f128`, `shuf{i,f}{32x4,64x2}`,
-  `permt2*`, `permi2*`), inserts/extracts (`insert/extract{i,f}{128,32x4,64x2,32x8,64x4}`, `insertps`, `extractps`,
-  `pinsr*`, `pextr*`), `compress/expand` (`ps/pd`, `pcompress*`, `pexpand*`) to registers or memory.
-- Conversions: `cvt{t,}{ps,pd,ss,sd}2{dq,udq,qq,uqq,si,usi}`, `cvt{dq,udq,qq,uqq}2{ps,pd}`, `cvtsi2ss/sd`,
-  `cvtusi2ss/sd`, `cvtps2pd/cvtpd2ps`, `cvtss2sd/cvtsd2ss`, packs (`packss/packus`), sign/zero extension
-  (`pmovsx/pmovzx`), down-conversion (`pmov`, `pmovs`, `pmovus` to registers or memory), `pmovm2*`, `pmov*2m`,
-  `movmskps/pd`, `pmovmskb`.
-- Memory: gathers (`gather*`, `pgather*`; AVX2 vector-mask and AVX-512 `&k` forms), scatters (`scatter*`,
-  `pscatter*`), `maskmovps/pd`, `pmaskmovd/q`.
-- Crypto: `aesenc/aesenclast/aesdec/aesdeclast/aesimc/aeskeygenassist`, `pclmulqdq` (and the `lqlq`-style aliases),
-  `sha1rnds4`, `sha1nexte`, `sha1msg1`, `sha1msg2`, `sha256rnds2 dst, src, wk`, `sha256msg1`, `sha256msg2`.
-- GFNI: `gf2p8mulb`, `gf2p8affineqb`, `gf2p8affineinvqb` (legacy two-source, VEX three-source, EVEX with `&k` /
-  `&*k` and a broadcast matrix).
-- F16C: `vcvtph2ps dst, src` and `vcvtps2ph dst, src, imm8`; the size suffix is the single-precision width
-  (`vcvtps2ph.y [m128], ymm, 0`), and the AVX-512 `.z` form takes masks.
-- String compare: `pcmpistri`, `pcmpestri`, `pcmpistrm`, `pcmpestrm` (SSE4.2; `ecx`/`xmm0` first, then `eax`, `edx`
-  for the explicit forms, as Jai's operand lists have them). The control byte must be a constant, so the aggregation
-  (equal any, ranges, equal each, equal ordered), polarity and output selection are chosen when compiling and only
-  per-element booleans are computed at run time (`asm_pcmpstr` in `simd.rs`). `mpsadbw`, `pmadd52luq/huq`.
-- `zeroupper`.
-
-EVEX decorations: `[mem]!` (embedded broadcast), `!z/!n/!d/!u` rounding on `cvtps2dq`, `&k` / `&*k` masks.
-
-### Not supported
-
-Compile error `` unsupported #asm instruction `x` ``:
-
-- **x87** (`fld`, `fadd`, ...): Jai's `#asm` has no x87 instructions or registers (the `str` class is MMX), so there
-  is nothing to accept.
-- `push`/`pop`, `call`/`jmp`/`jcc`, `int n` other than 3: the stack pointer is not modelled and Jai `#asm` has no
-  labels, so there is no control flow to express. Real programs use Jai control flow around the block.
-- I/O and privileged instructions: they fault outside ring 0.
-- `getexp/getmant/scalef/fpclass/range/reduce` (AVX-512 floating-point special functions), BF16/FP16 arithmetic, the
-  SHA-512/SM3/SM4 extensions, AMX: rarely written by hand in Jai programs, and each needs its own exact special-case
-  rules; add them as `SOp`s when a program needs one.
-
-Known differences from hardware: `rcp*/rsqrt*` return the exact result (hardware approximates to 12 or 14 bits);
-single-precision FMA computes in double and rounds once more (exact except in rare double-rounding cases); MXCSR is
-not modeled (round-to-nearest, no exceptions, no DAZ/FTZ; `cvtps2ph` with imm8 bit 2 rounds to nearest); `cpuid`/`xgetbv` report no features, so runtime dispatch on them picks
-the baseline path.
+- **Flags** CF/ZF/SF/OF/PF are IR values tracked per block (unset reads as 0). The direction flag is tracked statically (`std`/`cld`; each block starts clear). Division traps on zero or overflow like hardware.
+- **Atomics**: `lock_` read-modify-write and `xchg` on memory use a compare-and-swap loop. `lock_ cmpxchg16b` is atomic only against other `lock_ cmpxchg16b` (global spin lock), since the IR has no 128-bit CAS.
+- **Vectors**: a `vec` register is a 64-byte local; each instruction runs lane by lane into a scratch buffer, so aliasing works. Width: `.x/.y/.z` suffix, else 32 in an AVX block, 64 with AVX-512, otherwise 16. With an AVX feature a write clears the bytes above it. `float32`/`float64` variables act as vector registers (zero-extended copy, low bytes stored back). `pmovmskb` and `pshufb` lower to `Intrinsic::SignMask`/`ByteLookup` (indices masked with `0x8F` to match hardware).
+- **Masks**: `dst: &k` (merge) / `&*k` (zero) apply after the instruction; masked stores write only selected elements; compares into an `omr` write one bit per lane.
+- **`syscall rcx_out:, r11_out:, rax_inout`** is the Linux x86-64 system call. Native x86-64 builds emit the real instruction; the interpreter calls the host `syscall(2)` on Linux x86-64 and traps elsewhere; hosts without native linking (sandbox, `-os wasm`, browser) return `-EPERM`.
+- **Not supported**: x87, `push`/`pop`, `call`/`jmp`, `int n` other than 3 (no stack pointer or labels), I/O and privileged instructions, AVX-512 `getexp/getmant/scalef/fpclass/range/reduce`, BF16/FP16, SHA-512/SM3/SM4, AMX. Add them as `SOp`s when a program needs one.
+- **Known differences from hardware**: `rcp*/rsqrt*` are exact; single-precision FMA rounds twice in rare cases; MXCSR is not modelled (round to nearest, no exceptions); `cpuid`/`xgetbv` report no features so runtime dispatch picks the baseline path; `rdpid` is 0, `stmxcsr` 0x1f80.
 
 ## How to change it
 
-- New integer instruction: an `Op` in `lookup_op` plus an arm in `asm_inst` (`sema/asm.rs`), or an `XOp` in
-  `scalar.rs` when it has implicit operands or a loop. Reuse `asm_read`/`asm_write` (size-aware operand access),
-  `rmw_begin`/`rmw_end` (atomic when `lock_`) and `asm_alu` for flag-setting arithmetic.
-- A small instruction family with its own operand rules: an `SOp` that forwards to a method in `simd/ext.rs` (as F16C,
-  SHA and GFNI do), which can reach `simd.rs` helpers because it is a child module.
-- New op-mask instruction: a `KOp` and `lookup_kop` entry in `mask.rs`.
-- New vector instruction: a `VOp`/`Lane` in `vec.rs` for the simple lane-wise forms, otherwise an `SOp` in `simd.rs`:
-  add the mnemonic to `lookup_simd`, give it an element size (`elem_size`, used for masking), a destination class
-  (`dst_class`) if it writes a mask or gpr, and an arm in `asm_simd`. Helpers: `simd_args` (sources), `simd_out`
-  (store with masking), `load_lane`/`store_lane`, `when` (conditional block).
-- New condition code: `Cond` + `lookup_cond` + `eval_cond`.
-- Editor data (`sema/asm/catalog.rs`, public as `jaic::sema::asm_catalog`): every new semantic variant needs an arm
-  in its feature, forms and description matches there (they are exhaustive, so the build says where). A new spelling
-  is picked up when a `PATTERNS` entry expands to it; the catalog tests fail if a string literal of the `asm`
-  sources (alone or with a short suffix) is accepted by the lookups but not listed. Register classes live in
-  `REG_CLASSES` (`asm.rs`), which both `asm_declare` and the catalog read.
-- Tests: add a case to the matching `tests/stdlib/asm-*.jai`. For instructions the host can run, record the expected
-  value on real hardware (an x86-64 C program with intrinsics or inline asm, run natively or under Rosetta with
-  `ROSETTA_ADVERTISE_AVX=1` for AVX2/FMA/BMI) rather than deriving it from the implementation. AVX-512 has no
-  hardware here, so `asm-avx512-masks.jai` computes expectations with plain Jai code. Rosetta
-  advertises F16C (its hashes in `asm-f16c-sha-gfni.jai` were recorded there) but not SHA or GFNI, so that test
-  checks SHA through FIPS 180-4 digests and GFNI against plain Jai field arithmetic and the AES S-box.
-- Gotchas:
-  - A `Val` defined inside a loop or CAS retry is only valid after the loop exit dominates it; keep loop-carried
-    values in stack slots (`udiv128`, `asm_string`).
-  - The IR `select` is arithmetic on both arms, so a float-to-int conversion must clamp before converting (an
-    out-of-range `FToS` is poison in LLVM even on the unselected arm).
+- **Integer instruction**: an `Op` in `lookup_op` plus an arm in `asm_inst`, or an `XOp` in `scalar.rs` if it has implicit operands or a loop. Reuse `asm_read`/`asm_write`, `rmw_begin`/`rmw_end` (atomic when `lock_`), `asm_alu`.
+- **Small family with its own operand rules**: an `SOp` forwarding to `simd/ext.rs`.
+- **Op-mask instruction**: a `KOp` and `lookup_kop` entry in `mask.rs`.
+- **Vector instruction**: a `VOp`/`Lane` in `vec.rs` for lane-wise forms; otherwise an `SOp` in `simd.rs` (mnemonic in `lookup_simd`, `elem_size`, `dst_class` if it writes a mask or gpr, an arm in `asm_simd`).
+- **Condition code**: `Cond` + `lookup_cond` + `eval_cond`.
+- **Editor catalog** (`sema/asm/catalog.rs`): each new variant needs an arm in its feature, forms and description matches (exhaustive, the build says where). Catalog tests fail if a spelling the lookups accept is not listed. Register classes live in `REG_CLASSES`.
+- **Tests**: add a case to the matching `tests/stdlib/asm-*.jai`. Record expected values on real hardware (an x86-64 C program, or under Rosetta with `ROSETTA_ADVERTISE_AVX=1`) rather than deriving them from the implementation. AVX-512 has no hardware here, so `asm-avx512-masks.jai` computes expectations in plain Jai.
+- **Gotchas**:
+  - A `Val` defined inside a loop or CAS retry is valid only after the loop exit dominates it; keep loop-carried values in stack slots.
+  - IR `select` evaluates both arms, so clamp before a float-to-int conversion (out-of-range `FToS` is poison in LLVM).
   - x86 masks shift counts first (`& 31`/`& 63`); IR shifts are total, so only the masking is needed.
 
 ## Configuration
 
-None. Feature modifiers after `#asm` are validated against `FEATURES` in `sema/asm.rs` (every CPUID feature-flag
-name of `Machine_X64`, plus older spellings such as `AVX512VBMI`). They only choose the default vector width
-(`AVX*` = 256 bits, `AVX512*` = 512 bits). `#if CPU == .X64` still selects Jai-level fallbacks as usual. Jai has no
-arm64 `#asm`, so there is nothing to add for arm64; x64 blocks simply run there through the IR.
+None. Feature modifiers after `#asm` are validated against `FEATURES` in `sema/asm.rs` and only choose the default vector width (`AVX*` = 256, `AVX512*` = 512). `#if CPU == .X64` selects Jai-level fallbacks as usual.
 
 ## Dependencies
 
-`ir` (builder, `Intrinsic::{CompareAndSwap, CycleCounter, Pause, DebugBreak, Trap, Popcount, Ctlz, Cttz, Bswap,
-Fma}`), `sema::calls` (macro expansion, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests:
-`tests/stdlib/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-evex-decorations.jai`, `asm-scalar-extended.jai`,
-`asm-simd-extended.jai`, `asm-avx512-masks.jai`, `asm-f16c-sha-gfni.jai` (swept by `tools/jaic-sweep.py stdlib`; the
-last four also built and run natively by `asm_instructions_run_natively` in `crates/jaic-cli/tests/native.rs`) and the
-`asm_*` parser tests.
+`ir` (`Intrinsic::{CompareAndSwap, Popcount, Ctlz, Cttz, Bswap, Fma, SignMask, ByteLookup, ...}`), `sema::calls` (macros, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests: `tests/stdlib/lang-asm.jai` and `asm-*.jai` (swept by `tools/jaic-sweep.py stdlib`; some also run natively in `crates/jaic-cli/tests/native.rs`) and the `asm_*` parser tests.

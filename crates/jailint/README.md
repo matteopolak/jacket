@@ -17,7 +17,7 @@ jailint -target wasm64-unknown-wasi --manifest target/wasi-lint.json src/
 ```
 
 Target flags select source-checking contexts; they do not run native target code.
-[Target checking and coverage manifests](../../docs/tools/jailint-targets.md) describe
+[Target checking and coverage manifests](../../docs/tools/jailint.md) describe
 ABI defaults, private/library roots, required bindings and incomplete-check failures.
 
 Each finding gives its level and rule, the location, and the source line with the span marked:
@@ -42,7 +42,7 @@ brew install matteopolak/tap/jacket        # macOS and Linux
 nix profile install github:matteopolak/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/package-managers.md). The [VS Code extension](../../docs/tools/vscode-extension.md) shows jailint's findings and fixes through `jailsp`.
+There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/releases.md). The [VS Code extension](../../docs/tools/vscode-extension.md) shows jailint's findings and fixes through `jailsp`.
 
 From a checkout: `cargo build -p jailint --release --locked` (the binary is `target/release/jailint`).
 

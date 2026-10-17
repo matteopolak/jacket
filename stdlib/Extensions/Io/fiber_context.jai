@@ -1,4 +1,4 @@
-// The compiler's stack-switching primitives (docs/compiler/fibers.md) and the state they save.
+// The compiler's stack-switching primitives (docs/compiler/interpreter.md) and the state they save.
 // Internal to the module: programs use `spawn` and `io_run`. A program that wants the primitives
 // itself declares them (tests/native/fibers/switch.jai shows how).
 

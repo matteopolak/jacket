@@ -2,205 +2,100 @@
 
 ## What it is
 
-Every message `jaic`, `jailint`, `jaifmt` and `jailsp` show the user: compile errors, lints, runtime check failures (under `jaic -interp`, in `#run` code, and in built executables) and command-line mistakes. This page is the style guide for writing them, and it explains how they are rendered.
+Every message `jaic`, `jailint`, `jaifmt` and `jailsp` show: compile errors, warnings, lints, runtime check failures (under `jaic -interp`, in `#run`, and in built executables) and command-line mistakes. This page is the style guide and explains how they are produced and rendered.
 
 ## Style guide
 
-**Rule 1: say what the problem is, and how to get what the user wants.** Each diagnostic:
+Each diagnostic says what the problem is in the user's terms, points at the user's own code (the wrong argument, not the whole call; the user's call into the stdlib, not a line deep inside it), and adds a `help:` with a concrete fix when one is clear, or a `note:` explaining why when there is none. A message the user cannot act on is a bug.
 
-- states the problem plainly, in the user's terms rather than the compiler's (`` cannot declare `r` from `random_seed(...)`, which has no value ``, not `expression has no value`);
-- points at the user's own code: the argument that is wrong rather than the whole call, the user's call into the standard library rather than the line deep inside it;
-- adds a `help:` line with a concrete fix when one is clear (``help: convert with `cast(s64)`, which drops the fraction``), or a `note:` that explains why, when there is no single fix (``note: this compile targets `OS == .MACOS` ...``).
-
-A message the user cannot act on is a bug in the message.
-
-The other rules:
-
-- rustc's layout: `error:` / `warning:`, the location, the snippet, then `note:` and `help:` lines.
-- Messages start in lowercase and have no trailing period. Several sentences go in separate `note:`/`help:` lines.
-- Names, types, tokens and code are quoted with backticks: `` unknown identifier `countr` ``, `` expected `;` after statement, found `}` ``. Not single quotes.
-- Types are shown as jaic names them (`s64`, `float32`); the declared alias (`int`) appears in the snippet.
-- A help that is a code change uses `with_fix` (shown as a diff outside the plain layout); one that is advice uses `with_help`.
-- Prefer naming things the user can type: `jaic file.jai -check`, `-import_dir ../libs`, `#import "Basic";`.
-- Paths are shown relative to where the tool was started when they are inside it (`jaic::display_path`).
-- Internal names stay out: `__`-prefixed procedures, `name#N` polymorphic suffixes, the interpreter's thunks (`#run`/`#const` code is described as such, by the `ir::FuncOrigin` its function and `TrapFrame` carry).
+- rustc's layout: `error:` / `warning:`, location, snippet, then `note:` and `help:`.
+- Messages start in lowercase with no trailing period. Several sentences go in separate `note:`/`help:` lines.
+- Names, types, tokens and code are quoted with backticks, not single quotes: `` unknown identifier `countr` ``.
+- Types are shown as jaic names them (`s64`); a help that is a code change uses `with_fix`, advice uses `with_help`.
+- Prefer things the user can type: `jaic file.jai -check`, `-import_dir ../libs`, `#import "Basic";`.
+- Keep internal names out: `__` procedures, `name#N` polymorphic suffixes, interpreter thunks (`#run`/`#const` code is described by `ir::FuncOrigin`).
 
 ## How it works
 
-### The `Diagnostic` value (compiler)
+### `Diagnostic` (compiler)
 
-`source::Diagnostic` holds the severity, the primary `span`, the `message`, an optional `label` (text under the carets), `notes` (each with a span, or `Span::NONE` for text only; `Span` has no `Default`, so `Span::NONE` is the one span without a location), `help` lines and an optional `fix` (span + replacement). Builders: `Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_fix(help, span, text)`. Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form for a message with nothing else.
+`source::Diagnostic` holds severity, primary `span`, `message`, optional `label`, `notes` (with a span, or `Span::NONE` for text only), `help` lines and an optional `fix`.
 
-Suggestions that need extra work are computed when the error is rendered, not when it is created, because failed lookups are routine while checking overloads and `#if`s (`sema/suggestions.rs`):
+```rust
+Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_fix(help, span, text)
+```
 
-- unknown identifier: a build metaprogram next to the file that adds the name with `add_build_string`; else a visible name within edit distance (`suggest::closest`) and the stdlib modules that declare it at their top level, the most used first (`` help: `print` is declared in the `Basic` module: add `#import "Basic";` ``, then ``other modules that declare `log`: `Math` `` when there are several), or, for a name that is itself a module (`Math.sqrt`), `Math :: #import "Math";`. The suggested imports are also data on the diagnostic (`Diagnostic::fixes.imports`), which the language server turns into quick fixes.
-- missing module (`sema/modules.rs`): the directories searched, a module with a close name, or a folder nearby that holds it and the `-import_dir` that finds it.
-- missing `#load` file: where it looked and a file with a close name.
-- unknown member: the closest member, or the list of members.
-- call mismatches (`sema/calls.rs`, `call_mismatch`): the error moves to the argument concerned and a note shows the procedure's declaration; a misspelled named argument gets the closest parameter.
-- type mismatches (`sema/convert.rs`, `conversion_help`): the usual conversions (`cast`, `.data`/`to_c_string`, `tprint`, `.*`, `*value`); a declaration's mismatch points at the value with the declared type as a note, and a `return`'s at the returned value with the procedure's return type as a note (`return_type_mismatch` in `sema/stmt.rs`).
+Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form. Extra suggestions are computed at render time, not creation, because failed lookups are routine during overload and `#if` checks (`sema/suggestions.rs`): unknown identifiers (a build metaprogram that adds the name, close names, stdlib modules declaring it, exposed as `Diagnostic::fixes.imports` for the language server), missing modules and `#load` files (searched directories, close names), unknown members, call mismatches (`call_mismatch` moves the error to the argument and notes the declaration), and type mismatches (`conversion_help` suggests `cast`, `.data`, `tprint`, ...).
 
 ### Rendering (`crates/jaic/src/render.rs`)
 
-One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors (`jaifmt` is a Jai program and prints the plain form itself). `Report` is the renderer's input: severity, optional code (a lint's rule), message, a primary `Label`, secondary labels, notes and helps (a help may carry a `Fix`, shown as changed lines). `Diagnostic::report` converts a compiler diagnostic; `Report::from_text` turns text with `help:`/`note:` lines (errors from the backend, the linker or a config parser) into one.
+One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors. `Report` is its input; `Diagnostic::report` converts a compiler diagnostic and `Report::from_text` converts text with `help:`/`note:` lines. Layouts, picked once per process (`render::detect`, then `set_style`):
 
-Four layouts, picked once per process (`render::detect`, then `set_style`; `jaic -msvc_format` sets `msvc` afterwards):
+| Layout | When |
+|---|---|
+| `plain` | stderr not a terminal, or `TERM=dumb`: `path:line:col: error: message`, line, carets, `note:`/`help:`. Stable: tests and tools match it. |
+| `ascii` | terminal without UTF-8 locale |
+| `unicode` | terminal with UTF-8 locale, or Windows Terminal (box drawing) |
+| `msvc` | `jaic -msvc_format`: `path(line,col): error: message`, no snippet or colour |
 
-| Layout | When | Looks like |
-|---|---|---|
-| `plain` | stderr is not a terminal, or `TERM=dumb` | `path:line:col: error: message`, the line, carets, then `note:`/`help:` lines. jailint keeps its `-->` block. Stable: tests and tools match it. |
-| `ascii` | a terminal without a UTF-8 locale | rustc-like block: gutter line numbers, a context line either side, labels for every span, multi-line spans with a connector, fixes as `~` lines |
-| `unicode` | a terminal with a UTF-8 locale, or Windows Terminal | the same with box drawing (`╭─[`, `│`, `━`) |
-| `msvc` | `jaic -msvc_format` | one line per item, `path(line,col): error: message`; notes and helps repeat the primary place as `path(line,col): note: ...` (a help reads `note: help: ...`). No snippet and no colour. |
+`jailsp` and the browser playground always use plain text. Layout is separate from colour (errors red, warnings yellow, notes cyan, helps green).
 
-Example (`unicode`):
+### Warnings
 
-```
-error: type mismatch: expected `s64`, found `float32`
-   ╭─[t10.jai:1:39]
- 1 │ main :: () { a: float = 1.0; b: int = a; }
-   ·                                       ━
-   ·                                 ─── expected because of this type
-   ╰─
-   = help: convert with `cast(s64)`, which drops the fraction
-```
+`Compiler::warn` records a warning once per span and message; every `jaic` mode prints them before any error and they never change the exit status. `sema/flow.rs` reads procedure body shape for two of them: ``not all control paths return a value`` (a `return` counts, an `if` only with a returning `else`, a `switch` only with a default or `#complete`; `while true {}` warns, `while cond { return x; }` does not, as in Jai) and ``statements in block after `return` are never reached``. It runs from `lower_proc_body` and does not evaluate conditions.
 
-The same error in the `plain` layout:
+### Format string check
 
-```
-t10.jai:1:39: error: type mismatch: expected `s64`, found `float32`
-    main :: () { a: float = 1.0; b: int = a; }
-                                          ^
-t10.jai:1:33: note: expected because of this type
-    main :: () { a: float = 1.0; b: int = a; }
-                                    ^^^
-help: convert with `cast(s64)`, which drops the fraction
-```
-
-Colour is separate from the layout: errors red, warnings yellow, notes cyan, helps green, the gutter blue, primary carets in the severity's colour and secondary labels blue. Long lines are cut around their labels and tabs are expanded outside the plain layout. `jailsp` and the browser playground always use plain text.
-
-### Compile warnings (`Compiler::warnings`)
-
-Sema records a warning with `Compiler::warn` (once per span and message, since polymorphic instances check the same source again); every mode of `jaic` prints them before any error, and the playground adds them to its diagnostics. `jailsp` does not show them yet. Warnings never change the exit status.
-
-Two warnings read the shape of a procedure body, in `sema/flow.rs`; neither evaluates a condition. ``not all control paths return a value`` (at the procedure's header) fires when a procedure with results has a body none of whose paths is certain to return: a `return` counts, an `if` only with an `else` that returns too, a `switch` only with a default (or `#complete`) and every case returning, a `while` when its body does, a `for` never, an `#if` by the branch it took. So `if true return 1;`, `while true {}` and a `while` loop that may `break` all warn, while `while cond { return x; }` does not, as in Jai itself. A procedure whose results are all named returns them at the end and never warns, and a body that expanded a macro with a backtick `return` is left alone (the macro's own paths are not followed). ``statements in block after `return` are never reached`` (also `break`, `continue`) is reported once per block at the first statement that follows, skipping constants and empty statements; a `case` body is not a block of its own and the statements after a `return` there are not reported. `lower_proc_body` (`sema/procs.rs`) runs both after lowering a body. Each procedure body also records the branch of every `#if` it took (`FnCtx::static_taken`) for the analysis. jailint has no rule that overlaps (`infinite_loop` is about loop conditions).
+`check_format_call` (`sema/format_check.rs`) runs in `call_procs` after overload resolution. A callee is print-like when a `string` parameter is directly followed by `..Any` and its body passes both to one call (`print`, `sprint`, `tprint`, `log`, `assert` messages, user wrappers). It warns when a literal format string's directive count differs from the arguments passed (`print("% is %\n", name)`), worded like Jai. Skipped when the format is not a literal, the call spreads an array or names a variadic argument, or the callee has no body. Directive rules follow `__format_to_builder` in `stdlib/Basic/Print.jai`: `%`/`%0` next argument, `%N` argument N (a following `%` continues after it), `%00` none, `%%` two arguments, `\%` a literal percent. Keep `arguments_used` in step with that function and `jailint::format_string` (used by the language server's hover). Tests: `format_string_argument_count_is_checked` in `crates/jaic-cli/tests/diagnostics.rs`.
 
 ### Runtime failures (`sema/trap_report.rs`)
 
-When interpreted code fails a check (array bounds, a narrowing cast whose value does not fit, a `#complete` switch that matches no case, null pointer, stack overflow, division by zero, a procedure that falls off its end without returning a value, `#asm` faults, an assertion), the interpreter returns a `Trap` with the message, the statement, and the procedures it unwound through (`Trap::frames`, filled in `Interp::exec`, capped at 64). `Compiler::trap_diagnostic` turns it into a diagnostic:
-
-- the primary location is the innermost frame in the user's own code; when the check failed inside the standard library, a note says which procedure it failed in;
-- `note: call stack (innermost first):` lists the frames, with library frames kept, internal names left out and recursion folded;
-- a `help:` explains the common checks (valid index range, the range a cast's target holds and how to truncate on purpose, a `#complete` switch's default label, null pointers, recursion depth, missing `return`, a zero divisor);
-- for `#run` code, a note marks the directive that started it.
+When interpreted code fails a check (bounds, narrowing cast, `#complete` switch, null pointer, stack overflow, divide by zero, missing return, `#asm` fault, assertion), the interpreter returns a `Trap` with the message, statement and unwound procedures (`Trap::frames`, capped at 64). `Compiler::trap_diagnostic` makes the primary location the innermost frame in user code, adds `note: call stack (innermost first):` and a `help:` for common checks:
 
 ```
 bounds.jai:4:5: error: runtime error: array bounds check failed: index 3 is outside an array of 3 elements
-        return xs[i];
-        ^^^^^^^^^^^^
 note: call stack (innermost first):
     `get` at bounds.jai:4
     `main` at bounds.jai:9
 help: valid indices are 0 up to the array's count minus one; check the index or the array's length first
 ```
 
-A failed assert invokes context.assertion_failed. The selected runtime can opt its default ordinary Jai callback into interpreter fault transport through a private __jaic_interpreter_assertion alias. Compiler::prepare_interpreter_assertion validates the signature and records the callback procedure identity; Hook::AssertionFailed reads the canonical source-location fields using Compiler::location_layout and raises Trap::assertion. The ordinary native body remains checked and emitted; custom callbacks retain their normal behavior. The interpreter reports the assertion at the supplied user location and removes assertion machinery above that location. Explicit #no_debug headers also hide interpreter unwind frames, without filtering procedure names. Native default assertion output follows the reviewed Runtime_Support contract: message/location, context stack trace, then termination. The private alias is not a public runtime declaration or module parameter.
+Messages come from one place, `ir::check_message`, keyed by `ir::TRAP_*`. In a built executable a failed check calls the runtime's file-private `__jaic_check_failed` (resolved into `ir::Program::check_failed` by `note_check_handler`; checks go through `emit_check_failed`/`emit_trap`), printing the same message as `path:line: error: <message>`, then trapping. A `.NONFATAL` check prints `warning:` and continues in both backends. A metaprogram's own error (`compiler_report`, `.FAILED` status) sets `Trap::reported` and is shown as written.
 
-The checks' messages come from one place, `ir::check_message`, keyed by the `ir::TRAP_*` reason. In a built executable a failed check calls the selected runtime's file-private __jaic_check_failed extension (resolved into `ir::Program::check_failed` by `note_check_handler` in `sema/expr.rs`; every check sema emits goes through `emit_check_failed` or `emit_trap`, which resolve it, and the LLVM backend's own division-by-zero check resolves it from `binary_op`), which prints the same message as `path:line: error: <message>` with the path relative to the build's directory, and the program then traps. A `.NONFATAL` check prints `warning:` instead and goes on, in both backends.
-
-A metaprogram's own error (`compiler_report`, `compiler_set_workspace_status(.FAILED)`) sets `Trap::reported`: it is shown as the metaprogram wrote it, at the place it named, without the compile-time-execution prefix.
+Assertions: `context.assertion_failed` is invoked; the selected runtime can mark its default callback with the private `__jaic_interpreter_assertion` alias so the interpreter reports the assertion at the user's location (`Compiler::prepare_interpreter_assertion`, `Hook::AssertionFailed`, `Trap::assertion`). Custom callbacks keep their normal behavior.
 
 #### Crashes in native code (`interp/crash.rs`)
 
-`jaic -interp` and `#run` call foreign procedures in jaic's own process, so a bad pointer passed to C faults inside jaic. While a foreign call is in progress, `crash::ForeignCall` publishes the symbol, the calling thread's interpreter state (`ExecState`, set aside for the call) and the program in a thread-local, and a fault handler (POSIX `sigaction` for SIGSEGV, SIGBUS, SIGILL and SIGFPE with `SA_ONSTACK`, so a native stack overflow still has a stack to report on; a vectored exception handler on Windows) prints:
-
-```
-crash.jai:4:5: error: native code crashed (SIGSEGV, invalid memory access at address 0x10) while calling foreign procedure `strlen`
-note: call stack (innermost first):
-    `measure` at crash.jai:4
-    `main` at crash.jai:10
-help: check the arguments passed to `strlen` (pointers and sizes) and its `#foreign` declaration against the C signature; jaic cannot continue after a crash in native code
-```
-
-and exits with status 121. The call stack comes from `Interp::calls` (each running procedure with the location it was called from, pushed and popped in `Interp::exec`), which `call_native` moves into the thread's `ExecState` for the call. Other threads run interpreted code while one is in C, so the call in progress is per OS thread: the faulting thread receives the signal (or exception) and reports its own call. The report is formatted into a fixed buffer and written with `write(2)`/`WriteFile`, since the crash may have happened inside `malloc`; it has no source excerpt for the same reason.
-
-The handler runs on the thread that faulted and reads that thread's record, so a crash is blamed only on the foreign call that thread was making. A fault on a thread with no foreign call in progress is not the handler's (jaic's own code, or a thread a C library started that crashed on its own while the interpreter waits in `pthread_join`): it puts the previous action back (Rust's stack overflow report, or the default) and returns, so the fault repeats under it. On macOS, a call forwarded to the main thread (`native::main_thread::forward`) carries the worker's record there (`crash::Attribution`). Only one thread reports: one that faults while another is reporting (`REPORTING`) blocks in `sys::wait_forever` (`pause`, `Sleep`) until the reporter exits the process. The interpreter's own recursion limit (`MAX_DEPTH`) and value-stack check do not use signals and are unaffected.
-
-Tests: `crash_in_native_code_names_the_foreign_call` and `crash_on_a_c_thread_is_not_blamed_on_another_call` in `crates/jaic-cli/tests/diagnostics.rs` (Unix, run by the Linux and macOS CI jobs) and `crash_in_native_code_is_reported_on_windows` in `tests/native.rs`, the suite the Windows workflow runs.
+`jaic -interp` and `#run` call foreign procedures in jaic's own process. While one runs, `crash::ForeignCall` publishes the symbol, the thread's interpreter state and the program in a thread-local; a fault handler (`sigaction` on an alternate stack; a vectored exception handler on Windows) prints the foreign call, the call stack and a help, then exits with status 121. The report is written into a fixed buffer with `write(2)` because the crash may be inside `malloc`, so it has no source excerpt. A fault on a thread with no foreign call in progress is not the handler's: it restores the previous action and returns. Tests: `crash_in_native_code_names_the_foreign_call` in `crates/jaic-cli/tests/diagnostics.rs`, `crash_in_native_code_is_reported_on_windows` in `tests/native.rs`.
 
 ### Command-line errors
 
-`jaic`'s argument parser returns a `CliError` (message + helps): unknown commands and options get the closest match, misplaced files and options say where they go, `-os`/`-cpu` list their values. Input files are checked before compiling (missing file with a close name, a directory with its entry file, permissions). A missing file's suggestion is `suggest::similar_sibling` (`name.jai` when only the extension was left off, else the closest entry of its directory), shared by `jaic`, `jailint` and, through `suggest::similar_entry` over the compiler's file system, a missing `#load`. `jailint`, `jaifmt` and `jailsp` follow the same rules; `jailsp` run by hand says it is a language server and how to check a file instead.
-
-Build problems are caught before the backend runs where possible: an output path that is a directory or cannot be written, a program without `main`, an unknown sanitizer. A linker that is missing says how to install one (and that `jaic -interp` needs none); a failed link keeps the linker's output and adds a help when it says a library or symbol is missing.
-
-A Rust panic is reported as `error: internal compiler error: ...` with a note and the issue tracker link (`install_panic_hook`).
+`CliError` (message + helps): unknown commands and options get the closest match, missing input files suggest `suggest::similar_sibling`, build problems (output path is a directory, no `main`, unknown sanitizer) are caught before the backend, and a missing linker says how to install one. A Rust panic prints `error: internal compiler error: ...` with the issue tracker link (`install_panic_hook`).
 
 ### Exit status
 
-| Tool | 0 | 1 | 2 | other |
-|---|---|---|---|---|
-| `jaic` | success (`-interp`: the program's own status) | compile error, runtime error, build or link failure, unreadable input | command-line mistake | 3 a build of a program without `main` (nothing to write), 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal compiler error |
-| `jailint` | no `deny` findings | a `deny` finding | command-line or `jailint.toml` mistake, unreadable path | |
-| `jaifmt` | success | `--check`: files would change | errors (command line, config, unreadable or unformattable files) | |
-| `jailsp` | `exit` after `shutdown` | input ended or the protocol broke | command-line mistake | |
+`jaic`: 0 success (`-interp`: the program's own status), 1 compile/runtime/build/link error or unreadable input, 2 command-line mistake, 3 no `main`, 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal error. `jailint`: 1 for a `deny` finding, 2 for a command-line or `jailint.toml` mistake. `jaifmt`: 1 when `--check` finds files that would change.
 
 ## How to change it
 
-- New compile error: build the `Diagnostic` where the problem is found, at the narrowest span the user wrote. Add a `with_help` when the fix is clear; a `with_note(span, ..)` for a related place (a declaration, the type a value had to match). Add a case to `crates/jaic-cli/tests/diagnostics.rs`.
-- Changing an existing message breaks substring checks: `tests/corpus/manifest.json` (`negative` cases; run `python3 tools/jaic-sweep.py negative`), `tests/stdlib-targets.txt` (first errors of the stdlib target check), parser tests in `crates/jaic/src/parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, the language server's tests and docs that quote messages. Code never matches message text: sema reacts to `Diagnostic::kind`, and `tools/jaic-diff.py` and `tools/jaic-sweep.py` go by exit statuses and the playground's diagnostic `code`s.
-- An error that other code reacts to (a suggestion added at render time, a note added by an enclosing statement, a tool deciding a case cannot run somewhere) gets a `DiagnosticKind` (`source.rs`) with `with_kind`. `kind.code()` is its stable name, which the browser playground's JSON carries as `code`. `with_name_suggestion` finds the scope an unknown identifier was looked up from in its kind, `call_mismatch` passes an unknown name through and wraps anything else (the wrapped error's kind is `Other`), and `return_type_mismatch`/`declared_type_mismatch` only annotate `TypeMismatch`.
-- New runtime check: add an `ir::TRAP_*` reason with its wording in `ir::check_message` (and the same wording in `runtime_support_check_failed` for built executables), raise it with `Interp::check_trap`, and if it is common, a help in `help_for` (`trap_report.rs`). The report decides notes and helps from `Trap::kind`, never from the message text, so messages can be reworded freely.
-- Layout or colour changes: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable; `jailint`'s `tests/lint/*/bad.expected` and the jaic tests depend on it.
-- A command-line tool that prints errors should call `jaic::render::set_style(detect(choice))` once and print `Report`s, so a colour option, `NO_COLOR` and `JAIC_DIAGNOSTICS` behave the same everywhere (`jaic` has `-no_color`, `jailint` has `--color`). Code that renders for a caller with its own choice (the browser playground's `run_with`, where tests run concurrently) wraps the work in `render::with_style(style, || ...)` instead: the style applies to that thread until the closure returns, and the process-wide one is untouched.
+- **New error**: build the `Diagnostic` at the narrowest span the user wrote; add `with_help` when the fix is clear and `with_note(span, ..)` for a related place. Add a case to `crates/jaic-cli/tests/diagnostics.rs`.
+- **Rewording a message** breaks substring checks in `tests/corpus/manifest.json` (`python3 tools/jaic-sweep.py negative`), `tests/stdlib-targets.txt`, `parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, language server tests and docs. Code never matches message text: sema reacts to `Diagnostic::kind`.
+- **Errors other code reacts to** get a `DiagnosticKind` (`source.rs`, `with_kind`); `kind.code()` is the stable name the playground carries as `code`.
+- **New runtime check**: add an `ir::TRAP_*` reason with wording in `ir::check_message` (and the same in `runtime_support_check_failed` for executables), raise it with `Interp::check_trap`, and add a help in `help_for` if common. Notes and helps key off `Trap::kind`, never message text.
+- **Layout/colour**: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.expected` depend on it).
+- A command-line tool should call `jaic::render::set_style(detect(choice))` once and print `Report`s. Code rendering for a caller with its own style (the playground's `run_with`) uses `render::with_style(style, || ...)`.
 
 ## Configuration
 
 | Setting | Effect |
 |---|---|
-| `--color auto\|always\|never` (`jaic`, `jailint`, `jaifmt`) | colour; `auto` (the default) colours terminals |
-| `NO_COLOR` (any value) | no colour under `auto` |
-| `CLICOLOR_FORCE`, `FORCE_COLOR` (set, not `0`) | colour under `auto` even when not a terminal |
+| `--color auto\|always\|never` (`jaic`, `jailint`, `jaifmt`) | colour; `auto` colours terminals |
+| `NO_COLOR` | no colour under `auto` |
+| `CLICOLOR_FORCE`, `FORCE_COLOR` (set, not `0`) | colour even when not a terminal |
 | `TERM=dumb` | plain layout, no colour |
 | `JAIC_DIAGNOSTICS=plain\|ascii\|unicode` | force a layout |
 | `LC_ALL` / `LC_CTYPE` / `LANG` with `UTF-8`, or `WT_SESSION` | `unicode` layout on a terminal |
 
-On Windows, `auto` colours only consoles known to accept ANSI sequences (Windows Terminal, ConEmu, ANSICON, or a `TERM`).
-
 ## Dependencies
 
-No crates beyond the standard library: `render.rs` (layouts, colour), `suggest.rs` (edit distance), `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai` (assertion reports in executables).
-
-## What the upstream corpus shows
-
-`jaic -check` (and the curated cases' `-interp` runs) over every entry point in `corpus/upstream` (931 invocations, `tools/fetch_upstreams.py` projects) ranked the messages users meet most. Most failures are programs that need their build metaprogram, a module path or an `#import`; the improvements above target those first.
-
-| Count | Message (first error of a failing invocation) | Before | After |
-|---:|---|---|---|
-| 56 | unknown identifier | ``unknown identifier 'print'``, sometimes a far-fetched similar name | the build metaprogram that adds the name (`add_build_string`), else a similar name, plus the stdlib module that declares it: ``help: `print` is declared in the `Basic` module: add `#import "Basic";` `` |
-| 28 | module not found | where it looked, generic help | the folder nearby that holds the module and the `-import_dir` that finds it |
-| 11 | type has no member | ``type bool has no member 'open'`` | the closest member as a fix, or the list of members |
-| 9 | expected `;` after statement | ``found '}'`` for `f({1})` | `f({1})` is now a struct literal (see [structs](../language/structs.md)); a brace that cannot be one still gets help: struct literals in expressions start with a dot (`.{1, 2}`) |
-| 8 | type mismatch: expected T, found T | the whole declaration underlined | the value underlined, the declared type as a note, a conversion help (`cast`, `.data`, `tprint`, `.*`) |
-| 7 | `#asm`: expected a general-purpose register or memory destination | - | fixed: `pmovmskb.x found_gpr:, v;` declares a general-purpose register (a jaic gap, see below) |
-| 5 | unknown library | ``unknown library 'x'`` | how to declare it with `#library`, and that `#if OS` declarations exist only for that OS |
-| 5 | #assert failed | `#assert failed` | the condition (`` `OS == .WINDOWS` is false ``), the target being compiled for, or what `#assert(false)` means |
-| 4 | cannot declare a variable from an expression with no value | as is | ``cannot declare `r` from `random_seed(...)`, which has no value`` + help |
-| 4 | in call to: argument type does not match | the whole call underlined | the argument underlined, the declaration as a note, a conversion help |
-| 4 | in call to: unknown identifier | reported as a call problem | reported as the argument's unknown identifier, with the suggestions above |
-| 3 | in call to: no parameter named | - | the closest parameter, or the parameter list |
-| 3 | expression has no value (stdlib `File_Async`) | a stdlib bug | fixed: the module checks |
-| 1 | type mismatch: `u8` and `string` | - | fixed: `c - "0"` is a byte, which toml-jai, jai-utils and jai-protobuf rely on (rule `str.19`); other operators keep ``help: `"2"` is a string; for the character's code write `#char "2"` `` |
-| 1 | metaprogram marked the workspace as failed | ``error during compile-time execution: error: The workspace was marked as failed by its metaprogram.`` | ``error: the metaprogram marked the workspace as failed`` at the user's call |
-
-The rest were single occurrences. Crashes and limits (5): two segfaults inside native SDL/GL calls made by a `#run` metaprogram (a program bug; jaic now names the foreign call, its line and the call stack, see [crashes in native code](#crashes-in-native-code-interpcrashrs)), one timeout (a large project) and two `JAIC_MEMORY_LIMIT` stops (a jaic bug, fixed below).
-
-Found along the way (jaic gaps rather than user errors), and what became of them:
-
-- `#asm`: `pmovmskb.x found_gpr:, results_vec;` (a register declared in the destination) was rejected (`smari--jai-xml`, 7 programs). Fixed (rule `asm.27`). They then stopped at `#if must` on a `$$must: bool = false` parameter whose omitted default was not baked; fixed too (rule `poly.17`), and `test.jai` and the examples run.
-- Mixed declare-and-assign whose assigned target is not a plain name, `ok:, toki.str = f();`, did not parse (`sjorsdonkers--toml-jai`, 6 programs). Fixed (rule `decl.22`). Behind it were `Type_Info_Struct_Member.Flags.OVERLAY` (rule `struct.18`), one-byte strings as `u8` outside comparisons (`str.19`), `string_to_float64_new`, `null` over a union default (`struct.19`) and parameters that the callee changed for the caller (`proc.12`), all fixed; see [the upstream corpus notes](../tools/upstream-corpus.md) for where `first` and `custom_handlers` stop.
-- Positional struct literals without a dot, `f({1})` and `f({.A, 1})`, did not parse (`jai_parser` tests, `UnNabbo--no_api`). They are struct literals now (rule `struct.17`): no_api's own examples and README use them, and `jai_parser` parses them. no_api also needed `A : :5` enum members (rule `enum.17`).
-- `stdlib/Bindings_Generator`: `Enum.enumerates` held `Enumerate` values, so the Vulkan generators of `ostef--Vk-Engine` and `sgpu` failed to type-check. They use the newer API, in which each value is a `*Declaration` (Vk-Engine moved to it in October 2025), so the module now follows it, along with `Library_Info.identifier` (sgpu); both generators run. `UnNabbo--no_api`'s generator uses the older value API (`for * enumerates`) and no longer type-checks; the two cannot both. The earlier note that Jai rejects Vk-Engine's generator was wrong: the generator targets the newer API, which jaic's module lacked.
-- `print("% % %\n", root.kind, expressions.count, code_to_string(compiler_get_code(root)))` in `#run` exceeded 3 GiB (`withlang-dev--open-jai`, 2 programs): each rerun of the compile-time code to serve a typed `compiler_get_nodes` request made the code a new id, which asked for another export. Fixed (rule `records.29`); both programs run.
-- A fault in native code called from `#run` (here SDL/GL without initialisation) killed jaic with SIGSEGV and no message. Fixed: see [crashes in native code](#crashes-in-native-code-interpcrashrs).
-
+Standard library only: `render.rs`, `suggest.rs` (edit distance), `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai` (assertion reports in executables).

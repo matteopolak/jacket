@@ -31,6 +31,15 @@ MAX :: 64;
 N :: (1 + 2) * 3;
 // <- variable.other.constant.declaration.jai
 
+MASK : u32 : 0xff;
+// <---- variable.other.constant.declaration.jai
+
+ORIGIN : Vec3 : .{0, 0, 0};
+// <------ variable.other.constant.declaration.jai
+
+  limit : int = 4;
+//^^^^^ variable.other.declaration.jai
+
   count := 0;
 //^^^^^ variable.other.declaration.jai
 //      ^^ keyword.operator.declaration.jai

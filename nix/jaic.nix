@@ -1,5 +1,5 @@
 # jaic, jailsp and jailint, built with the LLVM 23 backend and installed next to `stdlib/`
-# the way the release archives lay them out (see docs/tools/nix.md).
+# the way the release archives lay them out (see docs/tools/releases.md).
 {
   lib,
   stdenv,

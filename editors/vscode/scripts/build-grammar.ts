@@ -331,6 +331,8 @@ const grammar = {
       patterns: [
         { name: "variable.other.constant.declaration.jai", match: `${B}(?!(?:${CONTROL.join("|")}|using)${E})${ID}${namesThen("::")}` },
         { name: "variable.other.declaration.jai", match: `${B}(?!(?:${CONTROL.join("|")}|using)${E})${ID}${namesThen(":=")}` },
+        // A typed constant, `N : u32 : 5`. Types holding parens or colons (procedure types) fall through.
+        { name: "variable.other.constant.declaration.jai", match: `${B}(?!(?:${CONTROL.join("|")}|using)${E})${ID}${namesThen(":(?![:=])[^:=;,(){}\\n]+:(?![:=])")}` },
         { name: "variable.other.declaration.jai", match: `${B}(?!(?:${CONTROL.join("|")}|using)${E})${ID}${namesThen(":(?![:=])")}` },
       ],
     },

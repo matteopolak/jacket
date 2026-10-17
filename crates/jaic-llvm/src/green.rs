@@ -1,4 +1,4 @@
-//! Green threads for WASI programs (`docs/native/wasm-threads.md`).
+//! Green threads for WASI programs (`docs/native/wasm-target.md`).
 //!
 //! WASI preview 1 has no threads, and wasm code cannot switch stacks, so Wasi_Runtime runs a
 //! program's threads one at a time on the host's only thread

@@ -1,4 +1,4 @@
-//! Fibers under the interpreter (`fiber_init`, `fiber_switch`; see `docs/compiler/fibers.md`).
+//! Fibers under the interpreter (`fiber_init`, `fiber_switch`; see `docs/compiler/interpreter.md`).
 //!
 //! A fiber here is a native stack of its own for the interpreter's Rust frames, plus an
 //! `ExecState` (the interpreted value stack, call depth and trace state). Switching saves the

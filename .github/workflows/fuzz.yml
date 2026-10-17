@@ -1,9 +1,7 @@
 name: fuzzing
-# Nightly libFuzzer runs of every target (docs/tools/fuzzing.md), plus a fast replay of the
-# saved crash inputs on every push and pull request so fixed crashes stay fixed.
+# Nightly libFuzzer runs of every target (docs/tools/testing.md). The saved crash inputs are
+# replayed on every push and pull request by the `fuzz-regressions` job of ci.yml.
 on:
-  push:
-  pull_request:
   schedule:
     - cron: '23 3 * * *'
   workflow_dispatch:
@@ -13,36 +11,9 @@ on:
         default: '600'
 permissions:
   contents: read
-# A newer push supersedes an older push's replay; nightly and dispatched runs are never cancelled.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'push' && 'push' || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
 jobs:
-  regressions:
-    name: replay fuzz regressions
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      CARGO_INCREMENTAL: '0'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install the pinned toolchain
-        run: rustup toolchain install nightly-2026-08-29 --profile minimal
-      - name: Validate fuzz dependency ages
-        run: python3 tools/check_dependency_age.py --lockfile fuzz/Cargo.lock
-      - name: Replay fuzz/regressions through the harnesses
-        run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
-
   fuzz:
     name: fuzz ${{ matrix.target }}
-    # Scheduled and manual runs fuzz for real; a push to ci/fuzz runs a one-minute check of the
-    # workflow itself.
-    if: >-
-      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/ci/fuzz')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -51,7 +22,7 @@ jobs:
         target: [lexer, parser, check, interp, generated, lsp, lsp_json, lsp_edits, jaifmt]
     env:
       CARGO_INCREMENTAL: '0'
-      SECONDS_PER_TARGET: ${{ github.event_name == 'push' && '60' || inputs.seconds || '600' }}
+      SECONDS_PER_TARGET: ${{ inputs.seconds || '600' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

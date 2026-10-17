@@ -4,7 +4,7 @@
 //! least specific and ends in the portable one (`generic`), which works everywhere. A backend
 //! returns `Ok(true)` when it emitted the operation and `Ok(false)` when the target lacks
 //! what it needs; it picks by the typed `features::Target`, never by a CPU name.
-//! See docs/compiler/simd-lowering.md for how to add an intrinsic or an instruction set.
+//! See docs/native/llvm-backend.md for how to add an intrinsic or an instruction set.
 
 mod aarch64;
 mod features;

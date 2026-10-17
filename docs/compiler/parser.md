@@ -2,71 +2,48 @@
 
 ## What it is
 
-The recursive-descent parser in `crates/jaic/src/parser/`. It turns the tokens from `lexer::lex` into an `ast::File` and stops at the first error; there is no recovery.
-
-```rust
-let file = jaic::parser::parse_file(file_id, text)?; // Result<ast::File, Diagnostic>
-```
+The recursive-descent parser in `crates/jaic/src/parser/`. It turns tokens from `lexer::lex` into an `ast::File` and stops at the first error; there is no recovery.
 
 ## How it works
 
-- Keywords are plain identifiers, recognised only where one is expected (`kw()`, `at_kw("if")`). Directives arrive as `Tok::Directive(name)`.
-- Types are ordinary expressions: `*T` is `Unary(Star)`, `[N] T` is `ArrayType`, a bodiless procedure header is `ProcType`, and `struct`/`enum` literals are expressions.
-- Expressions use precedence climbing (`expr.rs`) over Jai's table in `binary_op` ([operator precedence](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`, `.(T)`).
+- Keywords are plain identifiers, recognised only where expected (`kw()`, `at_kw("if")`). Directives arrive as `Tok::Directive(name)`.
+- Types are ordinary expressions: `*T` is `Unary(Star)`, `[N] T` is `ArrayType`, a bodiless procedure header is `ProcType`.
+- Expressions use precedence climbing (`expr.rs`) over `binary_op` ([operator precedence](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`).
 - Files, struct bodies and blocks share one statement grammar (`stmt.rs`). Declarations (`decl.rs`) are recognised by lookahead: `name {, name} :`, `::` or `:=`.
-- A statement needs `;` unless the previous token closed a brace body, a here-string, or `{} #flags` (`Parser::ends_block`). `@notes` after a statement attach to it.
-- A UTF-8 byte order mark and then a `#!` line at the very start of a file (`#!/usr/bin/env jai`, as in jai-protobuf's `build.jai`) are skipped by `Lexer::run`; a `#!` anywhere else is still an error. Test: `tests/stdlib/shebang-line.jai`.
-- Here-strings (`here_string` in `lexer.rs`) keep every line ending of the body, including the one before the terminator line: `#string END\nabc\nEND` is `"abc\n"`. See [strings and literals](../language/strings-and-literals.md).
+- A statement needs `;` unless the previous token closed a brace body, a here-string or `{} #flags` (`Parser::ends_block`).
+- A BOM and then a `#!` line at the start of a file are skipped by `Lexer::run`; a `#!` elsewhere is an error.
+- Here-strings keep every line ending of the body, including the one before the terminator: `#string END\nabc\nEND` is `"abc\n"`.
 
 ### Lookahead decisions
 
 | Question | Rule |
 | --- | --- |
-| Is `(` a procedure header or a parenthesized expression? | `paren_starts_header`: a header if the matching `)` is followed by `->`, `=>` or a header directive (`#c_call`, ...), or the interior is empty or starts like a parameter (`name:`, `$T`, `using`, `..`, a top-level comma). |
-| Struct literal or block? | `.{` is one token, so `T.{..}` is always a literal and `cond {` always a block. A bare `{1, .A}` or `{ a = 1 }` in expression position is a literal (`brace_is_struct_literal`) unless it holds a `;` at its own level, starts with a statement keyword (`if`, `for`, `return`, ...: `stmt::Keyword`, the list statement parsing dispatches on, minus `ifx`, which also starts expressions), a directive other than `#char`, a backtick or a declaration (`name :=`), or follows `=>` (a lambda body). |
-| `if x == {` | `peek_binary_op` refuses `==` when `{` or `#complete {` follows, so the `if` parser sees a switch. |
-| `[2]int.[1, 2]` | The element type is parsed without `.{`/`.[` postfix, so the literal applies to the whole array type. |
-| `#run,stallable` | `parse_directive_flags`: a comma right after the directive, then an identifier. A few known flags (`distinct`, `file`, ...) may be spaced. |
-| `#library, system, link_always "Metal"` | Flags before the name string may be spaced after the first (`parse_unknown_directive`). |
-| `#if #complete X == {` | `parse_static_if` skips `#complete`; a static switch has no completeness check. |
-| `(-cast,no_check(int) x)` | `has_top_level_comma` ignores a comma between a cast keyword and its modifier, so this stays an expression. |
-| `arrow.to\,` | `\` after an identifier joins lines (`ident_with_separators` in the lexer); a trailing one before a non-identifier is dropped. |
-| Commas after a return type | Inside argument and parameter lists (`in_list`) a comma ends the return type instead of adding a return value. |
-| `a=, b := f()`, `a:, b = f()` | One `Decl` with `existing` set per name. A `name:` marker only matters in an assignment (`=`); in `ok, shader:, time := f()` every name is declared. An existing entry may be a place (`ok:, t.str = f()`, `t.a[i]=, n := g()`): `decl_ahead` skips members, indexes and `.*` (`place_end`), the place goes in `Decl::targets` and its root variable in `names`. Without a marker, `a.b, c = f()` stays a plain assignment. |
-| How far `cast(T)` and `xx` reach | `parse_cast_value`: a unary operand plus any chain of bitwise and shift operators (the levels above `CAST_PREC`). See [casts](../language/casts-and-conversions.md#how-far-a-prefix-cast-reaches). `cast(T, x)` and `.(T)` are unaffected. |
+| `(` header or parenthesized expression? | `paren_starts_header`: a header if the matching `)` is followed by `->`, `=>` or a header directive, or the interior is empty or starts like a parameter (`name:`, `$T`, `using`, `..`, a top-level comma). |
+| Struct literal or block? | `.{` is one token, so `T.{..}` is always a literal and `cond {` a block. A bare `{1, .A}` in expression position is a literal (`brace_is_struct_literal`) unless it has a `;` at its level, starts with a statement keyword, a non-`#char` directive, a backtick or a declaration, or follows `=>`. |
+| `if x == {` | `peek_binary_op` refuses `==` when `{` or `#complete {` follows, so it parses as a switch. |
+| `a=, b := f()`, `ok:, t.str = f()` | One `Decl` with `existing` set per name; a place goes in `Decl::targets` and its root in `names` (`decl_ahead`, `place_end`). A `name:` marker only matters in an assignment. |
+| Reach of `cast(T)` / `xx` | `parse_cast_value`: a unary operand plus bitwise and shift operators ([casts](../language/casts-and-conversions.md#how-far-a-prefix-cast-reaches)). |
 
 ## How to change it
 
-- Expression-level directive: an arm in `parse_directive_expr` (`directive.rs`) and an `ExprKind` variant in `ast.rs`.
-- Statement-level directive: an arm in `parse_directive_stmt` (`directive_stmt.rs`).
-- Procedure flag: `apply_directive_flag` in `procedure.rs`, plus a `ProcFlags` field, or add the name to `OTHER_FLAGS` to keep it by name only.
-- Declaration flag: `DECL_FLAGS` in `decl.rs`. Flags on the next line are not consumed; they start the next statement.
+- **Expression directive**: an arm in `parse_directive_expr` (`directive.rs`) and an `ExprKind` variant in `ast.rs`.
+- **Statement directive**: an arm in `parse_directive_stmt` (`directive_stmt.rs`).
+- **Procedure flag**: `apply_directive_flag` in `procedure.rs` plus a `ProcFlags` field, or add the name to `OTHER_FLAGS`. **Declaration flag**: `DECL_FLAGS` in `decl.rs`.
+- Add syntax to `lexer.rs`, `parser/` and `ast.rs` with tests in `parser/tests.rs`.
 
-## Node sizes
+### Node sizes
 
-The language server keeps the syntax tree of every compile alive, so the size of the nodes is a memory budget. On 64-bit targets `Expr` is 56 bytes (was 80), `Stmt` 88 (was 272), `Decl` 176 (was 640) and `Arg` 88 (was 152). A unit test in `ast.rs` (`node_sizes_stay_small`) holds those bounds. How they are met:
+The language server keeps the syntax tree of every compile alive, so node size is a memory budget: `Expr` 56 bytes, `Stmt` 88, `Decl` 176, `Arg` 88, held by `node_sizes_stay_small` in `ast.rs`. When you add a field or variant, box it if it is rare or over about 32 bytes; do not raise the bounds.
 
-- Rare, large payloads sit behind a `Box`: `ExprKind::Insert(Box<InsertExpr>)`, `UnknownDirective`, `Block`, and the `StmtKind` variants `Switch`, `StaticSwitch` (both `SwitchStmt`), `While`, `Using`, `PushContext`, `PushContextDefer`, `StaticIf`, `Insert`, `Assert`, `ModuleParameters`, `Directive`, `Run`, `Place` and `Overlay`. Match them as `StmtKind::While(w)` and read `w.cond`; a boxed payload cannot be destructured in the pattern. `If`, `Assign`, `Return`, `Defer`, `Block`, `Decl` and `Expr` stay inline.
-- `Decl` keeps the fields most declarations use (`names`, `ty`, `value`, the `using`/`as_`/`backtick` flags, `notes`) and moves the rest (`extra_values`, `existing`, `targets`, `using_filter`, `backtick_names`, `align`, `flags`, `foreign`, `union_tag`) into `rare: Option<Box<DeclRare>>`. Read them through the accessors (`decl.extra_values()`, `decl.align()`, ...), which return an empty slice or `None` when there is no box. The parser fills them with `rare_mut()` and ends a declaration with `trim_rare()`, so `rare` is `None` unless a field is really set; a hand-built `Decl` uses `rare: None` or `set_rare`.
-- `Stmt::notes` and `Decl::notes` are `Notes`, one nullable pointer that reads as a `[Note]` slice (`is_empty()`, `iter()`, `to_vec()`); `Notes::from(vec)` and `extend` build it.
-- `ExprKind::Int` holds an `Int128` (two `u64` words with `new`/`get`) so `ExprKind` needs 8-byte alignment instead of 16.
-- `Arg::target` is boxed (named arguments are common, `a[i] = x` targets in literals are not).
+- Rare large payloads are boxed (`StmtKind::While(w)`, `Switch`, `StaticIf`, ...). Match `StmtKind::While(w)` and read `w.cond`; a boxed payload cannot be destructured in the pattern.
+- `Decl` keeps common fields and moves the rest into `rare: Option<Box<DeclRare>>`. Read through accessors (`decl.extra_values()`, `decl.align()`); fill with `rare_mut()` and finish with `trim_rare()`.
+- `Notes` is one nullable pointer that reads as a `[Note]` slice. `ExprKind::Int` holds an `Int128` (two `u64` words) so `ExprKind` needs only 8-byte alignment.
 
-When you add a field or variant, box it if it is rare or over about 32 bytes; do not raise the test's bounds. `Stmt` stays at 88 because `Assign` (an operator and two `Vec`s) is a little over what would let `StmtKind` fit in 56 bytes; boxing it would add an allocation to every assignment.
-
-Gotchas:
-
-- `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line right after `}`, so `Foo :: struct {}` followed by `*p = 1;` stays two statements.
-- `AstId::fresh()` counters are per thread.
+Gotchas: `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line right after `}`, so `Foo :: struct {}` then `*p = 1;` stays two statements. `AstId::fresh()` counters are per thread.
 
 ## Configuration
 
-`crates/jaic/tests/corpus.rs` lexes or parses whole corpora. `JAIC_CORPUS_ROOT` is the checkout holding them (default: this repo) and `JAIC_CORPUS_STAGE` is `lex` or `parse`:
-
-```sh
-JAIC_CORPUS_ROOT=/path/to/jai JAIC_CORPUS_STAGE=parse \
-  cargo test -p jaic --test corpus -- --ignored --nocapture
-```
+`crates/jaic/tests/corpus.rs` lexes or parses whole corpora: `JAIC_CORPUS_ROOT=/path JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture` (root defaults to this repo).
 
 ## Dependencies
 

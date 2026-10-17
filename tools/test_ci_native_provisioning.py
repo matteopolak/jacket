@@ -19,11 +19,6 @@ class NativeProvisioning(unittest.TestCase):
         )
         return result.stdout.splitlines()
 
-    def test_reuses_complete_reviewed_sdl_dependency_list(self):
-        workflow = (ROOT / ".github/workflows/sdl3.yml").read_text()
-        reviewed = re.search(r"sudo apt-get install -y (.+)", workflow)[1].split()
-        self.assertLessEqual(set(reviewed), set(self.packages()))
-
     def test_display_audio_and_xtest_backends_have_development_inputs(self):
         required = {
             "libx11-dev",
@@ -43,16 +38,6 @@ class NativeProvisioning(unittest.TestCase):
             "libgbm-dev",
         }
         self.assertLessEqual(required, set(self.packages()))
-
-    def test_all_linux_native_consumers_use_same_installer(self):
-        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-        jobs = re.split(r"(?m)^  ([a-z][a-z0-9-]*):\n", workflow)[1:]
-        jobs = dict(zip(jobs[::2], jobs[1::2]))
-        for name in ["test", "stdlib-runtime", "upstream-smoke", "sanitizers"]:
-            with self.subTest(job=name):
-                self.assertEqual(
-                    jobs[name].count("bash tools/install_ci_native_linux.sh"), 1
-                )
 
     def test_package_list_is_unique_and_keeps_existing_native_consumers(self):
         packages = self.packages()

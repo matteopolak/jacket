@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Make an unpacked official Windows LLVM release (clang+llvm-*-{x86_64,aarch64}-pc-windows-msvc)
-# linkable by llvm-sys. Used by .github/workflows/windows-native.yml and release.yml; see
+# linkable by llvm-sys. Used by .github/workflows/ci.yml and release.yml; see
 # docs/tools/llvm-setup.md ("Windows MSVC builds").
 #
 #   bash tools/windows-llvm/prepare.sh <llvm dir, POSIX spelling>

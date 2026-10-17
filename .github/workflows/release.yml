@@ -1,7 +1,7 @@
 name: release
 # Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
 # Windows (x86-64 and arm64), optimized with PGO (except Windows arm64) and BOLT on Linux x86-64
-# (tools/build_pgo.py, docs/tools/pgo-and-bolt.md).
+# (tools/build_pgo.py, docs/tools/releases.md).
 # A `v*` tag push builds and publishes the matching compiler version. Manual runs from the default
 # branch also require a tag matching that workflow revision's Cargo version. Historical releases
 # are rebuilt by dispatching each historical workflow from its own tag, preserving its toolchain
@@ -591,7 +591,7 @@ jobs:
           fi
           pnpm exec ovsx publish "$vsix" -p "$OVSX_PAT" --skip-duplicate
 
-  # Package managers (docs/tools/package-managers.md). After the GitHub release, the Homebrew
+  # Package managers (docs/tools/releases.md). After the GitHub release, the Homebrew
   # formula is rendered from the tag and the release's own SHA256SUMS
   # by tools/render_packages.py, validated, and published when their secret is set (otherwise the
   # job says it skipped). They run after `publish`, so a failure here never holds up the release.

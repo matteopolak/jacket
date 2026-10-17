@@ -260,7 +260,7 @@ fn target_machine(
     static TARGETS: std::sync::Once = std::sync::Once::new();
     TARGETS.call_once(|| {
         // Only the backends `Arch::from_triple` accepts: initialising all of them would make
-        // the static link keep every LLVM backend (see docs/tools/llvm-backends.md). No
+        // the static link keep every LLVM backend (see docs/tools/llvm-setup.md). No
         // disassembler: nothing reads machine code back. The asm parser is needed for inline asm.
         let config = InitializationConfig {
             disassembler: false,

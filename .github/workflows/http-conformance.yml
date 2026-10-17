@@ -1,64 +1,25 @@
 name: http conformance
 # The HTTP codec against llhttp's fixtures, the smuggling table and the chunking tests, in all four
 # stdlib runtime modes (tools/http_conformance.py, docs/extensions/http-codec.md). It runs when the
-# Http module or its tooling changes, and by hand; every push already runs the same tests among
+# Http module or this harness changes, and by hand; every push already runs the same tests among
 # the stdlib runtime tests, so this adds the focused report and the optional external suites.
 on:
   push:
+    branches: [main, staging]
     paths:
       - stdlib/Extensions/Http/**
-      - stdlib/Extensions/SIMD/**
-      - stdlib/Extensions/Io/**
-      - stdlib/Extensions/Tls/**
-      - tools/native/mbedtls/**
       - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
       - tools/http_native.py
-      - tools/test_http_native.py
-      - tools/check_io_burst_diagnostics.py
-      - tools/io_failure_observer.py
-      - tools/test_io_failure_wiring.py
-      - tests/tools/test_io_failure_observer.py
-      - tools/io_stress.py
-      - tools/test_io_stress_diagnostics.py
-      - tools/test_io_stress_observation.py
-      - tools/ci_test_scratch.py
-      - tools/test_ci_test_scratch.py
-      - tools/test_http_observer_artifacts.py
-      - tests/tools/test_io_burst_diagnostics.py
-      - tests/extensions/io-accept-burst-diagnostics.jai
-      - tools/build_native_libs.py
-      - tools/native-libs.json
-      - tools/io_stress.py
       - tools/gen_http_corpus.py
       - tools/http_deviations.json
       - .github/workflows/http-conformance.yml
   pull_request:
     paths:
       - stdlib/Extensions/Http/**
-      - stdlib/Extensions/SIMD/**
-      - stdlib/Extensions/Io/**
-      - stdlib/Extensions/Tls/**
-      - tools/native/mbedtls/**
       - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
       - tools/http_native.py
-      - tools/test_http_native.py
-      - tools/check_io_burst_diagnostics.py
-      - tools/io_failure_observer.py
-      - tools/test_io_failure_wiring.py
-      - tests/tools/test_io_failure_observer.py
-      - tools/io_stress.py
-      - tools/test_io_stress_diagnostics.py
-      - tools/test_io_stress_observation.py
-      - tools/ci_test_scratch.py
-      - tools/test_ci_test_scratch.py
-      - tools/test_http_observer_artifacts.py
-      - tests/tools/test_io_burst_diagnostics.py
-      - tests/extensions/io-accept-burst-diagnostics.jai
-      - tools/build_native_libs.py
-      - tools/native-libs.json
-      - tools/io_stress.py
       - tools/gen_http_corpus.py
       - tools/http_deviations.json
       - .github/workflows/http-conformance.yml

@@ -24,7 +24,7 @@ brew install matteopolak/tap/jacket        # macOS and Linux
 nix profile install github:matteopolak/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../README.md#install) and [package managers](../docs/tools/package-managers.md).
+There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../README.md#install) and [package managers](../docs/tools/releases.md).
 
 The [VS Code extension](../docs/tools/vscode-extension.md) uses `jaifmt` as the document formatter. Other editors can run `jaifmt --stdin` as an external formatter.
 
@@ -73,5 +73,5 @@ The formatter itself is the library `stdlib/Extensions/Jai_Format`, which the pr
 The docs are the source of truth for rules, options and internals:
 
 - [jaifmt (Jai formatter)](../docs/tools/jaifmt.md): spacing and line-structure rules, configuration, the module API, tests and how to change a rule
-- [Code formatting](../docs/tools/code-formatting.md): how this repository checks formatting
-- [Package managers](../docs/tools/package-managers.md) and the [VS Code extension](../docs/tools/vscode-extension.md)
+- [Code formatting](../docs/tools/development.md): how this repository checks formatting
+- [Package managers](../docs/tools/releases.md) and the [VS Code extension](../docs/tools/vscode-extension.md)

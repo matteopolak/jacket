@@ -2,65 +2,53 @@
 
 ## What it is
 
-`jailint` reports common mistakes and unidiomatic code in Jai programs and fixes the ones it can. Its rules run on the program after `jaic` has type-checked it, so they know each expression's type and what each name refers to. The same findings appear in editors through `jailsp`, as diagnostics with quick fixes.
+`jailint` reports common mistakes and unidiomatic code in Jai programs and fixes the ones it can. Rules run on the program after `jaic` has type-checked it, so they know each expression's type and what each name refers to. `jailsp` shows the same findings in editors as diagnostics with quick fixes.
 
 ```sh
 cargo build -p jailint --release
 jailint src/                  # lint every .jai file under src/
-jailint main.jai --fix        # apply the fixes that are safe to apply
+jailint main.jai --fix        # apply the safe fixes
 jailint -D warnings stdlib    # fail on any finding (CI)
-jailint --list                # the rules and their default levels
+jailint --list                # rules and default levels
 ```
 
-Each finding gives its level and rule, the location, and the source line with the span marked:
+Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `-D warnings`), `--config`, `-I <dir>`, `-j <n>`, `--add <source>` (extra program-scope source, like jaic), `--color`, `-v`. Exit status: 0 clean, 1 a denied finding or incomplete compilation, 2 usage or configuration error. Output goes through the shared `jaic::render`, so `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` apply as in the compiler.
 
-```text
-warning[index_only_loop]: `i` counts through `names` to index it
-  --> list.jai:21:5
-   |
-21 |     for i: 0..names.count - 1 {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-help: loop over the elements: `for names`, with `it` and `it_index`
-   |
-21 ~     for names {
-22 ~         if it_index > 0 print(", ");
-23 ~         print("%", it);
-   |
-   = note: `index_only_loop` is `warn` by default
+## How it works
+
+1. **Plan** (`driver.rs`). Paths become `.jai` files minus `exclude`. `module.jai` and files directly in an import directory are modules, compiled by importing them from an empty program so every procedure is checked. A file that a module (or a nearby program) `#load`s is compiled as part of that module or program (`enclosing_module`, `enclosing_program`); otherwise `unused_parameter` would flag a module's exported interface. Only the listed files are reported.
+2. **Compile** with lint facts on (`IdeFacts::lint`): per-expression types and constness, cast types, every entity a name resolved to, and which import answered each lookup. Compile-time code runs in the sandboxed host with a block budget; workspaces a metaprogram creates are linted too (`jaic::build::WorkspaceObserver`).
+3. **Lint** (`lib.rs`). Re-parse, build suppressions, collect procedure bodies and whether every instance checked fully, then run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
+4. **Report.** `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes (`fix.rs`). The language server's `source.fixAll.jailint` applies one pass. A file reached from several roots is reported once.
+
+Editors: `jailsp` lints each open document using the cached compile that hover uses. Diagnostics carry the rule as `code` and a link to its `### <rule>` section below, and `deny` rules are errors. Settings come from the nearest `jailint.toml` (the browser build sends it as an open document). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
+
+## Target checking
+
+```sh
+jailint -os windows -cpu arm64 -D warnings path/to/module
+jailint -target wasm64-unknown-wasi -D warnings path/to/module
+jailint -os windows --manifest target/windows-lint.json path/to/module
+jailint --context app/main.jai path/to/parameterized-module
 ```
 
-Options: `--fix`, `--config <file>`, `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all` names every rule, `-D warnings` turns every warning into an error), `-I <dir>` (import directory), `--os windows|linux|macos|wasm` and `--cpu x64|arm64|wasm` (default host), `--checked-files <file>` (write the actual checked source paths, one per line), `-j <n>` (programs compiled at once), `--list`, `--color auto|always|never`, `-v` (each program as it is compiled).
+`-os linux|windows|macos|wasm`, `-cpu x64|arm64` and `-target <triple>` select real compiler options; they do not rewrite OS/CPU constants. Windows from another OS defaults to the GNU ABI unless a `*-pc-windows-msvc` triple is given. Linker and SDK availability are not checked.
 
-`--add <source>` (also `-add`) supplies additional source in the program scope,
-matching jaic's build-configuration mechanism. Use the real definitions required
-by a metaprogram when linting it; module isolation remains unchanged. The linter
-also checks workspaces that the metaprogram creates.
-
-Exit status: 0 when checking finished and nothing at level `deny` was found, 1 for a denied finding or incomplete compilation, 2 on a usage or configuration error. Incomplete roots always report their first compiler error. A summary goes to stderr.
-
-Files nested under an import directory are module roots. A private library module is imported through an in-memory source owned by that library, retaining the compiler's normal import-privacy rules. No wrapper is written to disk. Existing bootstrap module instances retain their configured parameters. Loaded files outside a root's directory are checked in their containing module or program, and appear in the checked-file manifest. Library-call rules recognize the canonical procedures exported by a public facade, including aliases whose bodies live in private modules.
-Target source checking accepts `-os linux|windows|macos|wasm`,
-`-cpu x64|arm64` (also x86_64/aarch64), and `-target <triple>`.
-`--manifest <file>` records actual target contexts and source coverage, including
-failed checks and unvisited conditional loads. See [target checking](jailint-targets.md)
-for defaults, ABI selection and full-runner integration. No flags keeps host behavior.
-`--context <program>` supplies a real enclosing program and its module arguments
-while reporting only the requested paths; application/private visibility is retained.
-
-Incomplete compilation remains an unconditional exit1 and appears in the manifest; visiting a file in an incomplete context is not full coverage.
-
-Findings and command-line errors go through jaic's shared renderer (`jaic::render`), so they look like compiler diagnostics and follow `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS` the same way (see [diagnostics](../compiler/diagnostics.md)). Mistakes say what to change: an unknown option or rule suggests the closest one, a missing path says so, and a bad `jailint.toml` is reported as ``in `path`, line N: ...`` with a `help:` line.
+`--context <program>` checks a module inside a real enclosing program (so module parameters are real) while reporting only the requested paths; an absent requested file fails the check. `--manifest <file>` writes JSON listing each compiler context (OS/CPU, `complete`, `visited_files`), `unvisited_files` (target-inactive conditional loads) and incomplete roots with their first error. A file visited in an incomplete context is not coverage; run one invocation per target and context group and merge the manifests. Do not lint a parameter-required module as an unbound root.
 
 ## Rules
 
+Columns: `yes` means `--fix` applies the fix; `editor` means the fix may change behaviour, so it is only a quick fix in the editor; `no` means none. "Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `jailint.toml` naming a removed rule fails with `unknown rule`.
+
+Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ `bad.expected`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a table row and a `### <rule>` section here, because editors link to the anchor.
+
 | Rule | Default | Fix | Finds |
 | --- | --- | --- | --- |
-| `absurd_comparison` | warn | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or always false |
+| `absurd_comparison` | warn | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or false |
 | `almost_swapped` | warn | no | `a = b; b = a;`, a swap that sets both to `b` |
 | `bitwise_precedence` | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | warn | yes | `x == true`, `x != false`, `false == x` |
-| `broken_doc_link` | warn | editor | a link in a doc comment (`[prnt]`, `[Type.fild]`) that names no declaration |
+| `broken_doc_link` | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
 | `defer_in_loop` | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
 | `duplicate_condition` | warn | no | an `else if` or `case` that repeats an earlier one and can never run |
 | `erasing_op` | warn | no | `x * 0`, `x & 0`, `x % 1`: always `0` |
@@ -72,13 +60,13 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `infinite_loop` | warn | no | a `while` whose condition nothing in the loop changes |
 | `integer_division_in_float` | warn | no | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
 | `lossy_xx` | allow | yes | `xx` that narrows a number to a smaller type |
-| `manual_assign_op` | warn | yes | `a = a + b` → `a += b` |
+| `manual_assign_op` | warn | yes | `a = a + b` to `a += b` |
 | `manual_index_counter` | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
-| `min_max` | warn | no | `min(0, max(100, x))`: a clamp with swapped bounds, always one value |
+| `min_max` | warn | no | `min(0, max(100, x))`: a clamp with swapped bounds |
 | `needless_bool` | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
 | `no_effect` | warn | no | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
 | `range_past_count` | warn | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
-| `redundant_alias` | warn | yes | a local that only exists to be copied into another local (`a := f(); b := a;`) or returned right away |
+| `redundant_alias` | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
 | `redundant_cast` | warn | yes | a cast to the type the value already has |
 | `remove_in_for` | warn | no | `array_*_remove_*` on the array a `for` is walking |
 | `reversed_range` | warn | editor | `for i: 10..0`: a range that never runs |
@@ -88,381 +76,131 @@ Findings and command-line errors go through jaic's shared renderer (`jaic::rende
 | `unused_parameter` | warn | no | a parameter the procedure never uses |
 | `unused_result` | warn | no | `trim(line);`: a library call that only computes a value, as a statement |
 | `unused_variable` | warn | yes | a local variable that is never used |
-| `wrapping_constant` | warn | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps to the other operand's type |
-
-`yes` means `--fix` applies the fix; `editor` means the fix changes or may change behaviour, so it is only offered as a quick fix in the editor (`jailsp` code actions); `no` means no mechanical fix exists.
-
-A rule is removed once `jaic` rejects what it found (`format_arg_count`, now a [compile error](../compiler/format-string-check.md)). A `jailint.toml` that still names a removed rule fails to load with `unknown rule`, like any other unknown name.
-
-Each rule's module (`crates/jailint/src/rules/<rule>.rs`) starts with a doc comment that explains why the rule exists and exactly when it fires. `tests/lint/<rule>/` has code it fires on (`bad.jai`, with the expected output in `bad.expected` and the fixed code in `bad.fixed.jai`) and code it must not fire on (`good.jai`). Every rule has a section below; editors link a finding to it (`#<rule>`).
-
-"Side-effect-free" below means names, member paths, literals, indexing, casts and operators over them: no calls. Rules that compare two expressions compare them as written, ignoring whitespace.
+| `wrapping_constant` | warn | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
 
 ### absurd_comparison
-
-The editor offers to replace the comparison by its constant answer (`--fix` does not apply it). An unsigned value is never below zero, so `if i < 0 return;` guards nothing and `while i >= 0 { ...; i -= 1; }` counting down an unsigned `i` never stops: `i` wraps to its largest value. Fires when an integer literal is compared with a non-constant integer whose type holds nothing on the other side of it (`u >= 0`, `0 > u`, `u > -1`, `s8 < -128`). Only the bottom of a type is checked: the width of aliases such as `c_ulong` differs between platforms, so a comparison with the top may matter on another one.
-
+An unsigned value is never below zero, so counting down an unsigned `i` with `while i >= 0` never stops. Only the bottom of a type is checked: aliases like `c_ulong` change width per platform.
 ### almost_swapped
-
-`a = b; b = a;` sets both to `b`. Fires on two consecutive statements of that shape with side-effect-free sides of the same type. Between two types (`u = handle; handle = u;`) it is a round trip, not a swap. A swap is `a, b = b, a;`.
-
+Two consecutive statements with side-effect-free sides of the same type. A real swap is `a, b = b, a;`.
 ### bitwise_precedence
-
-Jai puts every bitwise and shift operator on one level that binds tighter than `*` and groups left to right. C puts shifts below `+` and gives `&`, `^`, `|` levels of their own, so C-style code means something else:
-
-| Written | Jai reads | C reads |
-| --- | --- | --- |
-| `1 << n - 1` | `(1 << n) - 1` | `1 << (n - 1)` |
-| `flags \| 1 << 3` | `(flags \| 1) << 3` | `flags \| (1 << 3)` |
-| `x & 0xFF + 1` | `(x & 0xFF) + 1` | `x & (0xFF + 1)` |
-
-Fires on an unparenthesized bitwise operation that is an operand of `+ - * / %`, or the left operand of a bitwise operator C would apply first (`a | b << c`, `a ^ b & c`). The fix adds the parentheses Jai already implies, so behaviour does not change. If the C reading was meant, move them.
-
+Jai gives all bitwise and shift operators one level above `*`, grouped left to right, so `1 << n - 1` is `(1 << n) - 1`. The fix adds the parentheses Jai already implies; move them if the C reading was meant.
 ### bool_comparison
-
-`if ready == true` → `if ready`; `x == false` → `!x`. Only when the other side is a non-constant `bool`, so integers and types with `operator ==` are left alone.
-
+Only when the other side is a non-constant `bool`.
 ### broken_doc_link
-
-A doc comment link that names nothing is not clickable and does not warn, so it rots when the declaration is renamed (see [doc comments](../compiler/doc-comments.md)):
-
-```jai
-// Prints the point with [prnt], or [`Point.xx`].
-show :: (p: Point) {}
-```
-
-```text
-warning[broken_doc_link]: `[prnt]` doesn't resolve to a declaration
-help: did you mean `print`?
-```
-
-Only comments directly above a declaration (or trailing a field, member or parameter) are read; a comment above a statement is not. Links resolve with the language server's rules, from the scope of the documented declaration, so a module (`[Basic.print]`) has to be one the file imports and uses. Unresolved links are reported only when they look meant as links, the same test everywhere (`jaic::docs`):
-
-- reported: ``[`name`]``, `[name()]`, `[text](name)`, a dotted path (`[Type.field]`, `[Basic.print]`) and a bare word of two or more characters that is not all capitals and either has an underscore or a capital in it (`[print_all]`, `[Point]`) or is a close misspelling of a name in scope (`[prnt]`, four letters or more);
-- not reported: one letter (`[x]`), all capitals (`[TODO]`, `[NOTE]`), a plain lowercase word that is nothing like a name in scope (`[sic]`, `[yet]`, `[keys]`), a dotted lowercase path whose first part is no name in scope (`[table.header]`), a word glued to quotes or slashes (`'..[name]'`), a link followed by `:` or named by a `[label]: url` line in the same comment (reference definitions), and everything that is not a link in the first place: `a[i]`, `[0]`, `[x][y]`, `[ ]`, `[^1]`, `[some words]`, URL targets, and text in code spans and fences.
-
-When exactly one name in scope (for a dotted path, one member of what the path leads to) is a close misspelling of the last segment (edit distance up to a third of its length, or a different case), the finding offers it as a fix (`did you mean `print`?`). It is a guess, so `--fix` leaves it alone and the editor offers it as a quick fix. A `// jailint: allow(broken_doc_link)` line inside the comment silences the links below it.
-
+Only comments directly above a declaration (or trailing a field or parameter) are read, and links resolve like the language server's. Whether bracketed text counts as a link is decided by `jaic::docs` (see [doc comments](../compiler/doc-comments.md)): `[x]`, `[TODO]`, `a[i]`, plain lowercase words and URL targets are not. A single close misspelling is offered as a quick fix. `// jailint: allow(broken_doc_link)` inside the comment silences it.
 ### defer_in_loop
-
-A loop body's scope ends every iteration, so this frees `buffer` after the first file:
-
-```jai
-buffer := alloc(SIZE);
-for files {
-    defer free(buffer);
-    read_into(buffer, it);
-}
-```
-
-It fires only when the deferred statement is a call that releases or destroys a value: `free`, `array_free`, `array_reset`, `deinit`, `uninit`, or a name starting with `destroy`, `close`, `release`, `free_`, `deinit_`, `uninit_` or ending in `_free`, `_destroy`, `_close`, `_release`, `_deinit`, `_uninit`. Other deferred statements are deliberate per-iteration epilogues and stay quiet: `defer level += 1`, `defer reset(*pool)`, `defer print(...)`. It also requires that everything the deferred statement uses was declared before the loop and is not mentioned in the body before the `defer`. That leaves out the usual per-iteration pairs (`lock(*m); defer unlock(*m);`, `f := open(it); defer close(f);`), and a deferred loop step such as `while i < n { defer i += 1; ... }`, whose variable the loop's header reads.
-
+The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for release-like calls (`free`, `array_free`, `deinit`, names starting with `close`/`destroy`/`release`, ...) on values declared before the loop and not used earlier in the body.
 ### duplicate_condition
-
-```jai
-if key == .LEFT       move(-1);
-else if key == .RIGHT move(1);
-else if key == .LEFT  jump();     // never runs
-```
-
-Fires when a side-effect-free condition in an `if`/`else if` chain repeats an earlier one (a call in between, which could change what they read, starts the comparison over), and when a value in `if x == { case ...; }` or `#if x == {}` repeats an earlier `case`.
-
+Conditions must be side-effect-free; a call in between restarts the comparison.
 ### erasing_op
-
-`x * 0`, `0 * x`, `x & 0`, `x % 1`, `0 / x`, `0 % x`, `0 << x` are `0` whatever `x` is, so the literal is probably wrong (`flags & 0` for `flags & MASK`). Fires when the other operand is a non-constant integer. Inside an index or an array literal (`m[0 * 4 + 1]`, lined up with the other rows) it is left alone.
-
+Left alone inside an index or array literal, where a `0 *` lines up with other rows.
 ### float_equality
-
-Off by default. `if total == expected` with two computed floats. Comparisons with a constant (`x == 0`), the NaN test `x != x` and comparisons inside `operator ==` are not reported. Exact comparison is often deliberate ("did this value change"), and on the stdlib it finds only such cases.
-
+Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
 ### identical_branches
-
-`if c { A } else { A }` and `ifx c then a else a`: the condition decides nothing, so one branch was probably meant to differ. Compared by tokens (comments and layout do not count). Empty branches, `#if` (often the same code for two platforms) and the last link of an `else if` chain (`else if f == .NEVER { return .Never; } else { return .Never; }` names its case before the default on purpose) are left alone.
-
+Compared by tokens. Empty branches, `#if`, and the last link of an `else if` chain are left alone.
 ### identical_operands
-
-`a.y == a.y` (for `a.y == b.y`), `n - n`, `ok || ok`: the result is fixed or the operand itself. Fires for comparisons, `-`, `/`, `%`, `&`, `|`, `^`, `&&` and `||` between the same side-effect-free, non-constant expression of a number, bool, pointer or enum type. Float `==`, `!=` and `-` are left alone (`x != x` is the NaN test, `x - x == 0` tests for a finite value), and so are operator procedures.
-
+Float `==`, `!=` and `-` are left alone (NaN tests), as are operator procedures.
 ### identity_op
-
-`x + 0`, `x * 1`, `x | 0`, `x / 1` leave `x` unchanged. The fix drops the operation. `0 + x` is left alone (a base plus an offset, usually next to `K + x`), and so are operations inside an index or array literal (`data[i * 4 + 0]` lined up with `+ 1`, `+ 2`), and shifts by `0` (`(rgb >> 0) & 0xFF` beside `>> 8`).
-
+`0 + x`, operations inside indexes/array literals and shifts by `0` are left alone (they line up with neighbours).
 ### index_only_loop
-
-`for i: 0..xs.count - 1` whose `i` only indexes `xs` (an array, or a string, whose bytes `for` visits as `u8`) becomes `for xs` with `it`. When elements are written (`xs[i].x += 1`) it becomes `for *xs` with `it`. Other uses of the index become `it_index`, also when elements are filled from it: `for i: 0..t.count-1 { t[i] = sin(cast(float) i * step); }` becomes `for *t { it.* = sin(cast(float) it_index * step); }`. It stays quiet when:
-
-- the loop could change `xs` itself (assignment, `array_add`, taking its address, `remove`);
-- it walks a grid (`for c: 0..xs[i].count - 1` inside);
-- the index is used with other arrays or computed with inside an index (`ys[i]`, `xs[i + 1]`);
-- `xs` is a constant (`xs :: T.[...]`) and the suggestion would be `for *xs`, since a constant has no elements to point at;
-- the body also indexes `xs` with another variable (`ms[i] - ms[j]` in two nested loops over `ms`): walking pairs reads best with both indices, so neither loop is reported.
-
-Nested loops: when an element use of the outer index sits inside a `for` that binds `it` (unnamed, or a `for j: 0..ys.count-1` this rule rewrites to bind `it` in the same run), `it` would name the inner element. The outer loop is still reported but gets no fix; the help suggests a named iterator (`for elem: xs` and `elem`). The inner loop is fixed, so `for i: 0..str.count-1 { for j: 0..to_find.count-1 { if str[i] == to_find[j] ... } }` becomes `for i: ... { for to_find { if str[i] == it ... } }`.
-
+Becomes `for xs` (or `for *xs` when elements are written), other uses of `i` become `it_index`. Quiet when the loop may change `xs`, walks a grid, indexes other arrays or `xs[i + 1]`, or when `xs` is a constant. When the rewrite would make `it` name an inner loop's element, the fix is withheld and a named iterator is suggested.
 ### infinite_loop
-
-```jai
-i := 0;
-while i < count {
-    total += values[i];      // forgot `i += 1;`
-}
-```
-
-Fires when a `while` condition reads only local variables and parameters (numbers, bools, enums, members of local structs and arrays such as `xs.count`), literals and operators, and the body never assigns them or takes their address and has no `break`, `return`, `remove`, `#insert`, `#asm`, `using` or macro call (macros can assign the caller's variables). Variables whose address is taken anywhere in the procedure, and procedures with `using`, are skipped.
-
+Condition reads only locals, parameters and literals; skipped for bodies with `break`, `return`, `#insert`, `#asm`, `using`, macro calls or taken addresses.
 ### integer_division_in_float
-
-Operands are typed before the operator sees its context, so in `cast(float)(done / total)` the integers divide first and the remainder is gone before the conversion; `1 / 2 * width` is `0 * width`. Fires on an integer `/` whose value is cast to a float or is an operand of float arithmetic. A variable divided by a literal power of two (`cast(float)(w / 2)`, centring on whole pixels) is taken as deliberate.
-
+Operands are typed before the cast, so the integers divide first. A variable divided by a power-of-two literal is taken as deliberate.
 ### lossy_xx
-
-Off by default. `small: u16 = xx big` with `big: s64`, `n: int = xx 2.75`, `f32: float32 = xx f64`. The fix spells the conversion out as `cast(T)`. Values masked, shifted or reduced with `%` to fit, constants, widening and enum targets are skipped. `xx` for narrowing is common, deliberate Jai style (graphics APIs take `s32`/`u32`).
-
+Off by default: narrowing with `xx` is common Jai style. The fix spells out `cast(T)`.
 ### manual_assign_op
-
-`total = total + x;` → `total += x;`. The compound form names a long target once (`state.players[i].score`), so it cannot be misspelled on one side. Fires for the operators with a compound form when the target is side-effect-free, of a number or enum type, and the operation keeps its type. `a = b OP a` is reported for `+`, `*`, `&`, `|` and `^` on integers.
-
+Target must be side-effect-free and the operation must keep its type.
 ### manual_index_counter
-
-```jai
-n := 0;
-for names {
-    print("% %\n", n, it);
-    n += 1;
-}
-```
-
-It fires when `n := 0` comes right before a forward `for` over an array or string, the body ends with `n += 1` (and has no `continue`) or starts with `defer n += 1;`, and `n` is not used after the loop. The fix removes the counter and uses `it_index`.
-
+`n := 0` right before a forward `for`, `n += 1` at the end of the body (or `defer n += 1`), `n` unused after the loop.
 ### min_max
-
-`min(0, max(100, x))` is always 0: `max(100, x)` is at least 100. Fires on `min(a, max(b, x))` with literal bounds `a < b` and `max(a, min(b, x))` with `a > b`, in either argument order, when `min` and `max` are `Basic`'s or `Math`'s. Use `clamp(x, 0, 100)`.
-
+Literal bounds only, with `Basic`'s or `Math`'s `min`/`max`. Use `clamp`.
 ### needless_bool
-
-The condition already is the `bool`. Fixes:
-
-- `ifx c then true else false` → `c` (and `!c` for the reverse);
-- `if c return true; else return false;` → `return c;`;
-- `if c return true; return false;` → `return c;`, unless an earlier `if` in the same block returns a literal too (`if a return false; x := f(); if b return false; return true;`): it is then the last of a series of guards and reads best like the others;
-- `if c x = true; else x = false;` → `x = c;`.
-
-A negated integer comparison is flipped (`!(n < 10)` → `n >= 10`). Comments inside a rewritten `if` keep the fix from being offered.
-
+A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal. Comments inside the `if` withhold the fix.
 ### no_effect
-
-`x == 5;` (for `x = 5;`), `count + 1;` (for `count += 1;`), `flush;` (for `flush();`). Fires on an expression statement with no call in it. Statements inside an expression (a block's value, `#code`) are left alone.
-
+An expression statement containing no call.
 ### range_past_count
-
-Ranges include their end, so `for i: 0..xs.count { xs[i] }` reads one past the last element. Fires when a range ends at exactly `xs.count` for an array or string and the body indexes `xs[i]` with the loop variable, unless the body mentions `xs.count` (it may guard the last index). The suggested `xs.count - 1` changes what the loop does, so `--fix` does not apply it.
-
+Ranges include their end. Quiet when the body mentions `xs.count` (it may guard the index). The `- 1` fix changes behaviour, so it is editor-only.
 ### redundant_alias
-
-A style rule: `total := a + b; result := total;` becomes `result := a + b;`, and `x := compute(); return x;` becomes `return compute();`. The first name may be a deliberately descriptive one, so lower the level (or suppress) where that is the intent. The fix never changes behaviour or types, so it fires only when all of this holds:
-
-- The two statements are adjacent in one statement list and only whitespace and `;` lies between them (a comment between them, even a trailing one, keeps the rule quiet). Reordering a non-adjacent initializer past other statements could change what it reads, so those are never reported, literal initializers included.
-- The first is `a := <init>;` or `a: T = <init>;`: one plain variable with an initializer that is not `---`, no `using`, backtick, notes, flags or `#align`. Its name is written exactly twice in the whole procedure body, the declaration and one use, and that use resolves to this local. That rules out mutation, address-taking, `defer`, uses in nested procedures, `#run` / `#code` / `#insert` and code in `#if` branches; a body with any `#insert` is skipped.
-- Copy: the second is `b := a;` with one name and no explicit type (so no conversion, cast or `xx` happens), `b` has the same type as `a`, and `b` is not named in `a`'s initializer. The fix declares `b` where `a` was (keeping `b`, the name the rest of the code uses) and deletes the second statement. `b` being changed later is fine.
-- Return: the second is `return x;` as the only value of a procedure with one unnamed return value whose type is exactly the type of `x`, and `x` was declared without an explicit type. A different return type would convert (or change how the initializer is typed, as in `3 / 2` for a float). If the initializer is a call, the callee must resolve and return one value.
-
-Parameters, loop variables and globals are never the first name. Macro bodies, generated files and procedures that did not check are skipped.
-
+Style rule, deliberately narrow so the fix never changes behaviour: the two statements are adjacent with nothing (not even a comment) between, the first name appears exactly twice in the body, the types are identical, and no `#insert`, `using`, notes or flags are involved. Parameters, loop variables, globals, macros and generated files are skipped.
 ### redundant_cast
-
-`cast(s32) x` where `x: s32`, or `v: u8 = xx w` where `w: u8`. Aliases such as `c_long` can be `s64` on one platform and `s32` on another, so equal types are not enough. The value must be declared with the same type spelling as the cast (`int`≡`s64`, `float`≡`float32`), or be another cast to it. Polymorphic bodies, macros and cast flags are skipped.
-
+Aliases like `c_long` differ per platform, so the value must be declared with the same type spelling. Polymorphic bodies and macros are skipped.
 ### remove_in_for
-
-Removing from the array a forward `for` walks moves another element into the slot just visited (or shifts the rest down), and the loop steps past it. Fires on `Basic`'s `array_unordered_remove_by_index`, `array_ordered_remove_by_index` and the `_by_value` forms with `*xs` inside `for xs` over the same array. Not reported when the loop runs backwards, the call is directly followed by `break` or `return`, or the body assigns the loop's index (stepping back by hand). Use `remove it;`.
-
+The loop steps past the element moved into the removed slot. Use `remove it;`. Quiet for backwards loops and when `break`/`return` follows.
 ### reversed_range
-
-A range counts up, so `for i: 10..0` runs zero times; counting down is `for < i: 0..10`. Fires on a forward range whose ends are integer literals with the start greater, or that ends at `0` and starts at a `.count` expression (`xs.count - 1..0`). The suggested fix changes behaviour and is not applied by `--fix`.
-
+Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-only.
 ### self_assignment
-
-`x = x;` does nothing. The editor offers to remove the statement (`--fix` does not: the slip may be on the other side). After `using info;`, `width = width;` assigns the field to itself rather than the local of the same name. Fires on `=` between the same side-effect-free expression whose names resolve to the same entities. When a name is found only through `using` and is also declared earlier in the procedure (`presentMode = presentMode;` with a local `presentMode` declared before `using info;`), the two sides may differ, so it is not reported.
-
+Not auto-fixed: the slip may be on the other side. After `using info;`, `width = width;` assigns a field to itself; names found only through `using` that also exist as earlier locals are not reported.
 ### shadowed_it
-
-An unnamed `for` inside another hides the outer `it`, and the outer loop uses `it` again after the inner loop. Copying the outer `it` to a name first (`row := it;`), the usual idiom, is not reported. Uses are told apart by what the compiler resolved each `it` to.
-
+`row := it;` before the inner loop is the usual idiom and is not reported.
 ### unused_import
-
-Unnamed imports count as used when any lookup went through them during checking, which covers operators and `for_expansion`. As a guard for unchecked code, an identifier anywhere in the importing module's files that the module exports also counts. That includes files `#load`ed under an `#if` for another platform. Named imports (`M :: #import "X"`) count as used when `M` is used or written anywhere in the module. These imports are not reported:
-
-- imports with module parameters;
-- imports of modules with `#program_export`;
-- unnamed imports in a program that did not compile completely;
-- imports in generated files (see below).
-
-Files whose first 10 lines say a tool generated them (`Automatically generated`, `auto-generated`, `Generated by`, `DO NOT EDIT`, in any case) are skipped by every `unused_*` rule (`unused_import`, `unused_parameter`, `unused_result`, `unused_variable`), since generators emit imports, parameters and locals whether or not the output uses them.
-
+Unnamed imports count as used when any lookup went through them, or (guard for unchecked code) when the module's files mention a name it exports. Not reported: imports with module parameters, modules with `#program_export`, programs that did not compile fully, generated files. Files whose first 10 lines say a tool generated them (`Automatically generated`, `DO NOT EDIT`, ...) are skipped by every `unused_*` rule.
 ### unused_parameter
-
-Only procedures whose every caller is in view. That means named procedures that are only ever called (never taken as a value, which could make them a callback), and that are:
-
-- called at least once;
-- not overloaded;
-- not exported from a module;
-- not `#c_call`, `#foreign`, `#expand`, an operator or `for_expansion`;
-- without notes;
-- without a variant (below).
-
-A variant is another definition of the same name whose parameters have the same names in the same order (their types may differ: `HWND` on one platform, `*void` on another). Some other definition of the name that does not match, such as an unrelated `update` or `draw` elsewhere in the tree, does not count. The procedure is checked against:
-
-- the other definitions in its own file, including the `#if` branches the build did not select (`#if OS == .MACOS { f :: (window: W) {} } else { f :: (window: W) { use(window); } }`);
-- `.jai` files the program does not load, which the compiler cannot see: first the siblings in the file's directory, then the files of the directory above and of its immediate subdirectories (`src/platform/macos.jai` against `src/platform/windows.jai`, or `utils/macos_window.jai` against `utils/win32_window.jai`). These files are parsed with the compiler's parser, not searched as text; procedures nested in other procedures count too. At most 300 files of up to 1 MiB are parsed per directory, once per process, and `*.fixed.jai` files are left out.
-
-Overload sets are skipped before any of this, from the compiler's own view of the scope.
-
-Empty bodies (stubs), bodies with `#insert`, and parameters whose type has a `$` (the argument settles a polymorphic type) are skipped. Prefix a name with `_` to keep a parameter on purpose.
-
+Only for procedures whose every caller is in view: named, only called (never taken as a value), called at least once, not overloaded or exported, no `#c_call`/`#foreign`/`#expand`/notes. Also skipped when a variant exists (same name and parameter names, e.g. another platform's definition in an `#if` branch or sibling `.jai` file the program does not load; those files are parsed, not text-searched). Prefix a name with `_` to keep it.
 ### unused_result
-
-`trim(line);` does nothing: `trim` returns the trimmed string and leaves `line` alone. Fires on an expression statement calling a value-returning procedure from a fixed list in `Basic`, `String` and `Math` (`trim`, `to_upper_copy`, `replace`, `copy_string`, `sprint`, `min`, `max`, `clamp`, `abs`, `sqrt`, `normalize`, ...), checked by what the name resolved to, so a program's own `trim` is not affected. Calls with a pointer argument (`normalize(*v)` works in place) are skipped.
-
+Fixed list of `Basic`/`String`/`Math` procedures, checked by what the name resolved to. Calls with a pointer argument (works in place) are skipped.
 ### unused_variable
-
-Locals in bodies that checked cleanly, decided by what the compiler resolved names to across every polymorph instance. A variable whose name appears anywhere else in its block is never reported, which covers code an `#if` left out and `#asm`. Backtick declarations, `using` and `_`-prefixed names are skipped, and so are blocks with `#insert` (inserted code may use any name) and macro bodies. The fixes:
-
-- remove a pure single declaration;
-- drop trailing results of a call (`value, found := f();` → `value := f();`);
-- drop a name from `a, b: T;`;
-- otherwise rename to `_`.
-
+A name that appears anywhere else in its block is never reported (covers `#if`-excluded code and `#asm`). Skipped: backtick declarations, `using`, `_` names, blocks with `#insert`, macros. Fix removes the declaration, drops trailing call results, or renames to `_`.
 ### wrapping_constant
+A constant takes the other operand's type, so the first divides `-41` by `h`. Only `/ % < <= > >=` next to a non-constant integer; `+ - *`, `==`, bitwise operators, named constants and casts are not reported. Suggested fix is computing in `s64`.
 
-A constant operand takes the other operand's type. A value outside that type's range but within its bits is taken as that bit pattern without a word: with `h: s32`, `(0xffff_ffff - 40) / h` divides `-41` by `h`, and `h < 0x8000_0000` compares with `-2147483648` (always false). (A value too wide for the bits widens the expression instead; `u8_value + 300` is an `s64`.)
+### Left out on purpose
 
-Fires on constants written with literals and arithmetic that are operands of `/`, `%`, `<`, `<=`, `>`, `>=` (or the right side of `/=`, `%=`) next to a non-constant integer. The help offers both readings: compute in `s64` (or `u64`) by casting the other operand, which is the suggested fix (not applied by `--fix`, since the result's type changes), or write the wrapped value if it is meant. Not reported: `+`, `-` and `*`, which give the same bits whether the constant or the result wraps (`h + 0xffff_ffff` is `h - 1` either way); bitwise operators and `==`/`!=`, where the bit pattern is the point (`h & 0xffff_ffff`, `handle == 0xFFFF_FFFF`); expressions with `~` (`flags & ~0x7`); named constants; casts and `xx`; enums.
-
-### Rules considered and left out
-
-- `never_loop`: `for table { first = it; break; }` is the idiom for a table's first entry.
-- `collapsible_if`, `collapsible_else_if`, `needless_return`, `let_and_return`, `redundant_else`: style with no bug behind it; Jai code often keeps them on purpose.
-- `cast_possible_truncation`, `cast_sign_loss`: covered by `lossy_xx`, which is off by default for the same reason.
-- `approx_constant` (`3.14159` for `PI`): common and harmless in examples; little value.
-- `manual_swap`: `t := a; a = b; b = t;` is clear and correct.
-- `len_zero` (`xs.count == 0`): that is idiomatic Jai.
-- `cmp_null`: `p == null` is idiomatic Jai.
-- `out_of_bounds_indexing`: constant indices into fixed arrays are already checked by the compiler.
-- `zero_ptr` (`cast(*T) 0`): rare, and only style.
-- `double_comparisons`, `int_plus_one`, `nonminimal_bool`, `manual_range_contains`: style; rewrites read no better in Jai.
-- `size_of_ref`-style mistakes (`size_of(type_of(ptr))` in `memcpy`): needs to know which argument is a size; deferred.
-- `suspicious_assignment_formatting` (`a =- b`): `jaifmt` rewrites the spacing, so formatted code cannot show it.
-
-### Measured on this repository
-
-Every finding below was checked by hand. Findings that turned out wrong were fixed in the rules (the exceptions listed above), not suppressed. The repository's own Jai code now has none at the default levels:
-
-- **stdlib, examples and `jaifmt/`**: 84 findings were fixed in the stdlib: 74 unused variables (mostly extra results nobody read), 5 unused imports, 4 index loops and 1 shadowed `it`. `float_equality` and `lossy_xx` would add 6 and 8 hits, all deliberate (exact comparisons in tests and sorting, `xx` from floats to pixel coordinates).
-- **`tests/corpus/positive`**: no findings.
-- **`wrapping_constant`** (stdlib, examples, `jaifmt/`, `tests/corpus` and every upstream project but `focus` and `open-jai`): one finding, genuine: `Clipboard`'s overflow guard `pitch > (0xffff_ffff - 40) / height` divided `-41` by an `s32` height, so it rejected every bitmap (fixed by dividing by `cast(s64) height`). Also reporting `+`, `-`, `*`, `==`, `!=` and the bitwise operators found nothing more there; they stay out because the bits come out the same, or the bit pattern is what is meant.
-- **Upstream corpus** (`tools/upstream-cases.json` entry points): 127 findings, all genuine. `lossy_xx` adds 23 deliberate narrowings.
-- **Upstream projects, whole trees** (the bug and style rules from `absurd_comparison` to `unused_result`, each project linted as a directory; `focus` and `open-jai` were skipped after 240 s): 46 findings, all genuine: `manual_assign_op` 22, `needless_bool` 13, `no_effect` 7 (`exit;` without the call, `if !ok false;` without `return`, a lone `barrier.srcAccessMask;`), and one each of `bitwise_precedence` (`a | b & c` written for C), `identical_operands` (`assert(window == window)`), `identical_branches` (two blocks a comment says should differ) and `self_assignment` (`presentMode = presentMode` where a `using` made both sides the same field). The other twelve rules found nothing. The first run's wrong hits shaped the exceptions above: `0 + ply` and `(rgb >> 0) & 0xFF` (`identity_op`), a round trip through a distinct type (`almost_swapped`), a removal loop that steps its own index back (`remove_in_for`), `height / 2` for a pixel centre (`integer_division_in_float`), guard chains (`needless_bool`) and an explicit last case before the default (`identical_branches`).
-
-## How it works
-
-1. **Plan** (`driver.rs`). Paths become `.jai` files, minus `exclude`. A file that another listed file `#load`s is compiled as part of it. `module.jai`, or a file directly in an import directory, is a module: it is compiled by importing it from an empty program, so every procedure is checked whether or not anything calls it. A file the `module.jai` of its directory (or one above) `#load`s is compiled as that module even when only the file is listed (`enclosing_module`): compiled as a program, the module's exported procedures would have every caller in view and `unused_parameter` would flag their interface (`stdlib/Compiler/workspace.jai`'s `get_runtime_info(w)` did). A file that no module loads but a nearby program does (a `.jai` file in its directory or the two above `#load`s it, directly or not; of several loaders, the one no other loader loads) is compiled as part of that program (`enclosing_program`), so the [pre-commit hook](pre-commit-hook.md) can pass only the touched file; only the listed files are reported. Anything else is a program.
-2. **Compile** with lint facts on (`facts::enable` sets `IdeFacts::lint`). On top of the editor facts (`jaic::sema::ide`), the checker then records:
-   - each expression's type and constness (`exprs`; marked conflicting when polymorph instances disagree);
-   - each cast's source and target types (`casts`);
-   - every entity a name resolved to (`used`);
-   - which import answered each lookup (`used_imports`).
-
-   Compile-time code runs in the sandboxed host with a block budget, which also covers the workspaces' compile-time code. Workspaces a metaprogram creates are compiled too: a `build.jai` that adds `src/main.jai` gets `src/` linted. This uses `jaic::build::WorkspaceObserver`, which hands each workspace's compiler to jailint. Relative paths a metaprogram names resolve against the root file's directory.
-3. **Lint** (`lib.rs`, `lint_files`). Per file:
-   - re-parse and lex;
-   - build the in-source suppressions;
-   - collect procedure bodies with whether every instance checked to the end (`syntax::Cx::procs`);
-   - run each enabled rule.
-
-   Rules walk the syntax tree (`syntax::walk`) and ask the facts about types and names. Where the compiler did not look (an `#if` branch left out, a body that failed), they fall back to the text and stay quiet.
-4. **Report**. Findings get their level, suppressed ones are dropped, and the rest are rendered (`render.rs`). `--fix` applies each machine-applicable fix whose edits do not overlap one already taken, leaving a fix whose edits enclose another fix's edits (an outer loop around a rewritten inner one) for the next pass (`fix.rs`). It then lints the fixed files again, up to 5 passes in all, only while some fix was left over; most runs lint once. The language server's `source.fixAll.jailint` applies one pass.
-
-A file compiled by several roots is reported once, from the first root. Within a root, a workspace's compile wins over the metaprogram's.
-
-### In editors
-
-`jailsp` lints each open document that parses. It uses the same cached, type-checked compile as hover and inlay hints, so an edit costs one compile however many features ask. Findings are diagnostics with the rule as `code`, `jailint` as `source` and a link to the rule's section above as `codeDescription`; `deny` rules are errors. Each fix is a `quickfix` on the finding (preferred when machine-applicable) with the rule in `data.rule`, and `source.fixAll.jailint` applies every safe fix at once, as `--fix` does. Settings come from the nearest `jailint.toml`; a client without a disk (the browser build) sends it as an open document (`didOpen` of a URI ending in `/jailint.toml`). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
+`never_loop` (`for t { first = it; break; }` is the first-entry idiom), the style lints `collapsible_if`, `needless_return`, `redundant_else`, `manual_swap`, `len_zero`, `cmp_null`, `nonminimal_bool` (idiomatic or no better in Jai), `cast_possible_truncation`/`cast_sign_loss` (covered by `lossy_xx`), `out_of_bounds_indexing` (the compiler checks constant indices), `suspicious_assignment_formatting` (`jaifmt` normalizes it).
 
 ## Suppression
 
 ```jai
 // jailint: allow(unused_variable)        covers the next line with code
-x := compute(); // jailint: allow(all)     after code: covers its own line
-// jailint: allow-file(float_equality)     anywhere: covers the whole file
+x := compute(); // jailint: allow(all)     after code: its own line
+// jailint: allow-file(float_equality)     whole file
 
 callback :: (event: int, data: *void) {
     print("%\n", event);
-} @jailint_allow(unused_parameter)        // after a declaration: covers all of it
+} @jailint_allow(unused_parameter)        // after a declaration: all of it
 ```
 
-Several rules can be listed, separated by commas, and `all` stands for every rule. A suppression only silences findings. A name starting with `_` is how code says "unused on purpose" for variables and parameters.
+Rules are comma-separated; `all` means every rule. A `_` prefix marks an unused variable or parameter as intentional.
 
 ## Configuration
 
-`jailint.toml`, found by walking up from the first path (or `--config`):
+`jailint.toml`, found by walking up from the first path (or `--config`). Only this TOML subset is read; unknown keys, rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file.
 
 ```toml
-# Globs relative to this file: `*`, `**`, `?`; a directory pattern covers what is under it.
-exclude = ["tests/corpus/negative/**", "generated/**"]
+exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to this file
 
 [rules]
 float_equality = "warn"
 unused_parameter = "allow"
 ```
 
-Only this subset of TOML is read. An unknown key, rule or level is an error, so a typo cannot silently leave a rule on. Command-line `-A`/`-W`/`-D` override the file.
+It is separate from `jaifmt.toml` because the formatter is written in Jai and parses its own file. The repository's file excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks`; deliberate findings in tests carry an `allow` with the reason.
 
-Settings live in their own file rather than `jaifmt.toml` because the formatter is written in Jai and parses its own file. Keeping the two separate means neither tool has to accept the other's keys or reject them as typos.
-
-The repository's `jailint.toml` excludes the negative compiler cases, each rule's bad cases in `tests/lint`, the formatter's golden inputs and the fuzzer seeds; everything else the repository owns is linted with the default levels. Deliberate findings in tests (a test of operator grouping, of `cast(bool) x == true`, of an empty range) carry an `allow` with the reason. CI runs `jailint -D warnings -j 2 prelude stdlib examples tools jaifmt tests benchmarks` (see [continuous integration](continuous-integration.md)).
+| Setting | Effect |
+| --- | --- |
+| `JAIC_STDLIB` | stdlib directory (default: next to the executable, else the checkout's) |
+| `JAILINT_BLESS=1` | with `cargo test -p jailint`, rewrite `bad.expected` and `bad.fixed.jai` |
+| `BLOCK_BUDGET` (`driver.rs`) | basic blocks compile-time code may run per root |
 
 ## How to change it
 
 **Add a rule:**
 
-1. Create `crates/jailint/src/rules/<name>.rs`. Start it with a doc comment saying what it finds, why it matters and exactly when it fires. Then write `pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>)`.
-2. Register it in `rules/mod.rs` (`mod` line and a `RULES` entry with the default level and a one-line summary).
-3. Add `tests/lint/<name>/bad.jai` and `good.jai` (each a whole program with `main`), then generate the expected files with `JAILINT_BLESS=1 cargo test -p jailint`. Read them before committing.
-4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit. A rule that is wrong once in a while costs more trust than it earns.
-5. Add it to the table above, give it a `### <name>` section (editors link to that anchor; the `every_rule_is_documented` test checks both), and add it to the changelog.
+1. Create `crates/jailint/src/rules/<name>.rs` with a doc comment (what, why, exactly when) and `pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>)`.
+2. Register it in `rules/mod.rs` (`mod` line, `RULES` entry with default level and summary).
+3. Add `tests/lint/<name>/bad.jai` and `good.jai` (whole programs with `main`), then `JAILINT_BLESS=1 cargo test -p jailint` and read the output.
+4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit; a rule that is sometimes wrong costs more trust than it earns.
+5. Add the table row and a `### <name>` section here.
 
-Inside a rule:
-
-- `cx.procs` lists the procedure bodies. Use `p.clean` (every instance checked to the end) or `p.typed()` (clean, not polymorphic, not a macro) before trusting facts.
-- `cx.ty(expr)` and `cx.constant(expr)` give recorded types and constness.
-- `cx.entities(span)` gives what a name resolved to, and `cx.compiler.is_used(entity)` whether anything used it.
-- `cx.mentions(name, start, end, except)` is the textual guard for unchecked code.
-- `syntax::walk` visits statements and expressions with their ancestors. It does not enter nested procedures or struct bodies.
-
-A fix is a list of byte edits. Mark it `machine_applicable` only when applying it cannot change behaviour, and make the result compile (the `fixed_cases_are_clean` test lints `bad.fixed.jai` again).
-
-**New facts.** If a rule needs something the checker does not record, add it to `IdeFacts` (`crates/jaic/src/sema/ide.rs`) behind `lint`, so normal compiles do not pay for it.
+Inside a rule: `cx.procs` lists bodies (trust facts only for `p.clean` / `p.typed()`); `cx.ty`, `cx.constant`, `cx.entities(span)` and `cx.compiler.is_used` read facts; `cx.mentions` is the textual guard for unchecked code; `syntax::walk` does not enter nested procedures or struct bodies. A fix is byte edits; mark it `machine_applicable` only if it cannot change behaviour and the result still compiles (`fixed_cases_are_clean` re-lints `bad.fixed.jai`). New facts go in `IdeFacts` (`crates/jaic/src/sema/ide.rs`) behind `lint`.
 
 Gotchas:
 
-- Facts are recorded only for files under the root's directory (the `IdeFacts` prefix), so module files reached from a program are not linted from that program.
-- `ide_check_all` checks bodies nothing called. A body that failed in any polymorph instance is not clean. The language server's sketches of uncalled polymorphs come after `IdeFacts::sketch_from`, and `Facts::collect` stops at that mark, so rules never see stand-in types.
-- Compile-time code runs in the sandbox. A metaprogram that needs a foreign call the sandbox lacks (running a process, `localtime`) stops there. Its root is reported with `-v`, and only what was compiled is linted.
-
-## Configuration reference
-
-| Setting | Where | Effect |
-| --- | --- | --- |
-| `exclude` | `jailint.toml` | glob patterns of files and directories not to lint |
-| `[rules] <rule> = "allow" \| "warn" \| "deny"` | `jailint.toml` | a rule's level |
-| `-A`/`-W`/`-D <rule>`, `-D warnings` | command line | override levels; make warnings errors |
-| `-I <dir>` | command line | extra import directory (searched after the root's `modules/`, before the stdlib) |
-| `JAIC_STDLIB` | environment | stdlib directory (default: `stdlib/` next to the executable, else the checkout's) |
-| `JAILINT_BLESS=1` | environment, tests | rewrite `tests/lint/*/bad.expected` and `bad.fixed.jai` |
-| `BLOCK_BUDGET` | `driver.rs` | basic blocks compile-time code may run per root |
+- Facts are recorded only for files under the root's directory, so module files reached from a program are not linted from it.
+- `ide_check_all` checks bodies nothing called; a body that failed in any polymorph instance is not clean. Language-server sketches come after `IdeFacts::sketch_from` and rules never see them.
+- A metaprogram needing a foreign call the sandbox lacks stops there; only what compiled is linted (`-v` shows the root).
 
 ## Dependencies
 
-- `crates/jaic`: parser, lexer, the type checker with IDE and lint facts (`sema::ide`), the workspace observer (`build::WorkspaceObserver`) and the sandboxed compile-time host.
-- `crates/jai-language-server` depends on `jailint` to publish lints. Its format-string features share `jailint::format_string`.
-- No other crates.
+`crates/jaic` (parser, checker with lint facts, workspace observer, sandboxed host). `crates/jai-language-server` depends on `jailint` and shares `jailint::format_string`.
