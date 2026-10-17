@@ -25,6 +25,21 @@ const TARGETS: [&str; 7] = [
     "wasm",
 ];
 
+/// Whether `key` (`Module os-cpu`) fails because compile-time code calls a foreign procedure of
+/// another OS, which only a host of that OS can run. The same program passes there, so the
+/// result does not say anything about the module on the other hosts.
+fn depends_on_host(key: &str, error: &str) -> bool {
+    let host = if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(windows) {
+        "windows"
+    } else {
+        "linux"
+    };
+    let target = key.rsplit(' ').next().unwrap_or("");
+    error.contains("is not available here") && target.split('-').next() != Some(host)
+}
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
@@ -226,6 +241,7 @@ fn every_stdlib_module_checks_for_every_target() {
     let mut problems = Vec::new();
     for (key, error) in &actual {
         match expected.get(key) {
+            None if depends_on_host(key, error) => {}
             None => problems.push(format!("new failure: {key}: {error}")),
             Some(want) if want != error => {
                 problems.push(format!("{key} now fails with `{error}` (listed: `{want}`)"));
@@ -233,8 +249,10 @@ fn every_stdlib_module_checks_for_every_target() {
             Some(_) => {}
         }
     }
-    for key in expected.keys() {
-        if !actual.contains_key(key) {
+    for (key, error) in &expected {
+        // Listed from another host, where the foreign procedure is not available.
+        let listed_for_another_host = error.contains("is not available here");
+        if !actual.contains_key(key) && !listed_for_another_host {
             problems.push(format!(
                 "{key} passes now: remove it from tests/stdlib-targets.txt"
             ));

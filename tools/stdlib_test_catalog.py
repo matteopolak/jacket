@@ -7,6 +7,7 @@ from WASM execution and must be exercised by native CI.
 
 import hashlib
 import json
+import platform
 from pathlib import Path
 
 from case_capabilities import user_deferred_reason
@@ -90,6 +91,28 @@ PROGRAM_ARGUMENTS = {
     "Clipboard/tests/cocoa-operations": ["enabled"],
     "Simp/tests/context-default-assertions": ["enabled"],
 }
+# Programs linked against fixture and provider libraries (rpmalloc probes, the SDL ABI probes,
+# libclang for the generator, the Debug helpers) that tools/ci_native_deps.sh builds on macOS and
+# Linux with `cc`. No Windows host job builds them, so a Windows host cannot run these; a Windows
+# target built on another host still can (tools/windows_cross.py).
+WINDOWS_HOST_FIXTURE_CASES = frozenset(
+    [
+        "SDL/tests/sdl-layout",
+        "SDL/tests/sdl-rwops",
+        "SDL/tests/sdl-wm",
+        "native/sdl2-geometry-timer",
+        "Debug/tests/ignore-ownership",
+        "Bindings_Generator/tests/generator-macro-shared-state",
+        "Bindings_Generator/tests/generator-run-macro-print",
+        "Bindings_Generator/tests/generator-run-toplevel",
+        "rpmalloc/tests/adaptive-cache",
+        "rpmalloc/tests/live-config",
+        "rpmalloc/tests/live-config-raw",
+        "rpmalloc/tests/no-thread-cache",
+        "rpmalloc/tests/public-callbacks",
+        "rpmalloc/tests/public-configurable",
+    ]
+)
 PLATFORM_REQUIREMENTS = {
     "Clipboard/tests/cocoa-operations": "macos",
     "Simp/tests/context-default-assertions": "macos",
@@ -98,6 +121,9 @@ PLATFORM_REQUIREMENTS = {
     "native/macos-clipboard-utf8": "macos",
     "native/objc-window-levels": "macos",
     "native/posix-stat-and-mutex": ("linux", "macos"),
+    # Writes through libc `write`, which the Windows C runtime only exports as `_write`: the
+    # interpreter cannot bind it there.
+    "Android/tests/logger-output": ("linux", "macos"),
     "native/proc-sentinel-constant": ("linux", "macos"),
     # ImGui formats through the libffi varargs bridge, which no Windows job builds.
     "native/imgui-headless-frames": ("linux", "macos"),
@@ -236,6 +262,12 @@ def unavailable_reason(case, mode, actual_platform=None):
     deferred = user_deferred_reason(case, target_os)
     if deferred:
         return deferred
+    if (
+        case["id"] in WINDOWS_HOST_FIXTURE_CASES
+        and target_os == "windows"
+        and platform.system() == "Windows"
+    ):
+        return "links fixture libraries that no Windows host job builds; native execution remains required, not passed on windows"
     required = case.get("required_os")
     required = [required] if isinstance(required, str) else required
     if required and target_os and target_os not in required:
