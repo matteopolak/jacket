@@ -58,6 +58,12 @@ render_struct :: (builder: *String_Builder, info: *Type_Info_Struct, base: *void
         return;
     }
 
+    // A union's members share storage, so none of them can be read without knowing which is live.
+    if (info.textual_flags & .UNION) != 0 {
+        append(builder, "(union)");
+        return;
+    }
+
     count: s64;
     for *member: info.members if printable_member(member) count += 1;
 

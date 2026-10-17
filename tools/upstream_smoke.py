@@ -453,6 +453,8 @@ STEPS = {"run": run_step, "gui": gui_step, "serve": serve_step, "lsp": lsp_step}
 
 def unavailable_decision(check, plat):
     """Return (accounting status, reason), or None when execution is required."""
+    if check.get("disabled"):
+        return "disabled", check["disabled"]
     deferred = user_deferred_reason(check, plat.split("-")[0])
     if deferred:
         return "platform_unavailable", deferred
@@ -715,7 +717,7 @@ def main():
         print(f"  {status:5} {id_}" + (f"  {note}" if note else ""))
     counts = {
         status: sum(s == status for _, s, _ in results)
-        for status in ("pass", "FAIL", "skip", "platform_unavailable")
+        for status in ("pass", "FAIL", "skip", "platform_unavailable", "disabled")
     }
     print("  " + ", ".join(f"{count} {status}" for status, count in counts.items()))
     if args.report:

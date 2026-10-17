@@ -63,7 +63,9 @@ impl Compiler {
         }
         self.entity_mut(id).state = EntityState::Resolving;
         let traps = self.ct_traps;
+        self.resolving_depth += 1;
         let result = self.resolve_entity_inner(id);
+        self.resolving_depth -= 1;
         match &result {
             Ok(r) => self.entity_mut(id).state = EntityState::Done(r.clone()),
             Err(e) if self.ct_traps != traps => {

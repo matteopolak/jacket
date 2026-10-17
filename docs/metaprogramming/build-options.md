@@ -16,8 +16,8 @@ set_build_options(options, w);
 ```
 
 - Honoured: output type, names and paths, `import_path`, linker arguments, `os_target`/`cpu_target` (an unbuildable target is an error), `intermediate_path`, `entry_point_name`, `append_executable_filename_extension`, `stack_trace`, `dead_code_elimination`, `array_bounds_check`, `null_pointer_check`, `cast_bounds_check`, `arithmetic_overflow_check`, `runtime_support_definitions`, `backtrace_on_crash`, `minimum_os_version`, `enable_frame_pointers`, `disable_redzone`, `emit_debug_info`, `temporary_storage_size` and the `Llvm_Options` switches.
-- Rejected with a `require` error: `interactive_bytecode_debugger`, raw `llvm_options.command_line`, `function_sections` and `disable_mem2reg`, compiler memory breakpoints, `developer_debug`, `get_runtime_info` of another workspace, `add_build_string` with a message from another workspace, and `compiler_custom_link_command_is_complete` when no link is pending.
-- Options without effect in jaic (no bytecode inliner, no `write_added_strings` output, `use_natvis_compatible_types`) are accepted and stored for `get_build_options` but change nothing.
+- Rejected with a `require` error: `use_natvis_compatible_types`, raw `llvm_options.command_line`, `function_sections` and `disable_mem2reg`, compiler memory breakpoints, `developer_debug`, `get_runtime_info` of another workspace, `add_build_string` with a message from another workspace, and `compiler_custom_link_command_is_complete` when no link is pending.
+- Options without effect in jaic (no bytecode inliner, no interactive bytecode debugger, no `write_added_strings` output) are accepted and stored for `get_build_options` but change nothing.
 - `compiler_begin_intercept`'s `SKIP_*` flags clear those lists in `TYPECHECKED` messages (`filter_typechecked` in `messages.jai`), then rebuild `all`. `DEBUG_DUMP` is sent for `#dump` procedures with a listing of the IR (do not parse it).
 
 ### Custom link commands

@@ -113,7 +113,7 @@ class IoUringSourceOnly(unittest.TestCase):
                     patch.object(runtime, "validated_entries", return_value=[case]),
                     patch.object(runtime, "unavailable_reason", return_value=None),
                     patch.object(
-                        runtime, "reference_rejected_reason", return_value=None
+                        runtime, "disabled_reason", return_value=None
                     ),
                     patch.object(runtime, "use_native_libs"),
                     patch.object(

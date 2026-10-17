@@ -40,18 +40,13 @@ class Selection(unittest.TestCase):
                 )
             )
 
-    def test_original_overloaded_ifx_is_only_exact_reference_rejection(self):
-        source = cross.ROOT / "tests/compiler/regressions/proc-type-defaults-ifx.jai"
-        case = {"id": "compiler/proc-type-defaults-ifx", "path": source}
-        self.assertIsNotNone(cross.fixture_reference_rejected_reason(case))
-        independent = dict(case, id="producer/ifx-official-selection")
-        self.assertIsNone(cross.fixture_reference_rejected_reason(independent))
-        with tempfile.TemporaryDirectory() as directory:
-            changed = Path(directory) / "changed.jai"
-            changed.write_text("main :: () {}\n")
-            self.assertIsNone(
-                cross.fixture_reference_rejected_reason(dict(case, path=changed))
-            )
+    def test_disabled_reason_comes_from_the_case(self):
+        case = {"id": "compiler/example", "path": cross.ROOT / "x.jai"}
+        self.assertIsNone(cross.fixture_disabled_reason(case))
+        self.assertEqual(
+            cross.fixture_disabled_reason(dict(case, disabled="source error")),
+            "source error",
+        )
 
     def test_native_cli_requires_actual_windows_host(self):
         for arguments in (

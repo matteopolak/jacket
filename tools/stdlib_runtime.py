@@ -24,7 +24,7 @@ import time
 from stdlib_test_catalog import (
     validated_entries,
     unavailable_reason,
-    reference_rejected_reason,
+    disabled_reason,
     case_for_mode,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -519,7 +519,7 @@ def main():
         source_case = case
         for mode in modes:
             case = case_for_mode(source_case, mode)
-            rejected = reference_rejected_reason(case)
+            rejected = disabled_reason(case)
             # A cross-target check applies to the cases that could run on that target.
             reason = unavailable_reason(
                 case,
@@ -590,7 +590,7 @@ def main():
             )
         return test, results
 
-    failures, unavailable, reference_rejected, counts = (
+    failures, unavailable, disabled, counts = (
         [],
         [],
         [],
@@ -620,7 +620,7 @@ def main():
                                         "platform_unavailable",
                                         "compile_time_only",
                                         "expected_negative_checks",
-                                        "reference_rejected",
+                                        "disabled",
                                         "source_check_only",
                                     ),
                                     count,
@@ -653,7 +653,7 @@ def main():
                     c = counts[mode]
                     if rejected is not None:
                         c[5] += 1
-                        reference_rejected.append(f"{test} [{mode}]: {rejected}")
+                        disabled.append(f"{test} [{mode}]: {rejected}")
                     elif reason is not None:
                         c[2] += 1
                         unavailable.append(f"{test} [{mode}]: {reason}")
@@ -673,7 +673,7 @@ def main():
                             "passed": passed,
                             "platform_unavailable": reason,
                             "expected_negative": negative,
-                            "reference_rejected": rejected,
+                            "disabled": rejected,
                             "source_check_only": source_only,
                             "elapsed_seconds": elapsed,
                             "timed_out": detail.startswith("timed out after "),
@@ -692,13 +692,13 @@ def main():
             print(f"    {line}")
     for line in unavailable:
         print("UNAVAILABLE " + line)
-    for line in reference_rejected:
-        print("REFERENCE_REJECTED " + line)
+    for line in disabled:
+        print("DISABLED " + line)
     print(f"\nstdlib runtime tests on {args.platform} ({len(todo)} tests):")
     for mode in modes:
         p, f, u, b, n, r, s = counts[mode]
         print(
-            f"  {mode:<12} {p} passed, {f} failed, {u} platform unavailable, {b} compile-time only, {n} expected negative checks, {r} reference-rejected fixtures, {s} source-check only"
+            f"  {mode:<12} {p} passed, {f} failed, {u} platform unavailable, {b} compile-time only, {n} expected negative checks, {r} disabled, {s} source-check only"
         )
     return 1 if failures else 0
 

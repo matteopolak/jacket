@@ -320,6 +320,10 @@
     ]
   },
   {
+    "name": "proc-type-defaults-ifx",
+    "disabled": "the ifx branches have different procedure types (an overloaded and a concrete one)"
+  },
+  {
     "name": "push-context-defer-pop",
     "unsupported_modes": [
       "wasm-interp",

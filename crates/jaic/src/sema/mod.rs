@@ -603,6 +603,9 @@ pub struct Compiler {
     /// Lookups that reached something still being computed (a signature, entity or layout in
     /// progress): a failure that did so may succeed once that finishes, so it is not memoized.
     pub in_progress_misses: u64,
+    /// Entities being resolved right now (nested): a conditional item whose condition names one
+    /// of them fails as circular only because the outer resolution has not finished.
+    pub resolving_depth: u32,
     /// How deeply each `#insert`ed string file is nested in other inserted strings (absent: a
     /// real file). Bounds code that inserts itself (`X :: "#insert X;"`).
     insert_depth: HashMap<FileId, u32>,
@@ -804,6 +807,7 @@ impl Compiler {
             ct_executions: 0,
             dependencies: dependencies::Dependencies::default(),
             in_progress_misses: 0,
+            resolving_depth: 0,
             insert_depth: HashMap::default(),
             frozen: HashMap::default(),
             ide: None,

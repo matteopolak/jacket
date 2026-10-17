@@ -24,6 +24,10 @@ Entry points that work are sweep cases in `tools/upstream-cases.json` ([testing]
             "source": "The_Way_to_Jai `// =>` annotations, lines 20, 22, 26"}}
 ```
 
+A case that cannot run on every host carries `only` (a list of platform names, e.g. `["linux-x64"]`) and `only_reason`; the sweep reports it as platform unavailable elsewhere instead of failing.
+
+A case whose own source has a genuine error (a removed API, a deprecated directive, wrong arity) carries `disabled` with a short reason. The sweep and the smoke run skip it and count it separately; manifest rows of the stdlib and compiler test catalogues accept the same key.
+
 Expected values must come from the project (docs, tests, golden outputs written by people who ran Jai), never from jaic's own output, which only freezes current behaviour. A missing expected line is a jaic bug until shown otherwise; reject an annotation only when the book is wrong about current Jai. Per-example outputs from open-jai are not used: it produced them with its own reimplementation.
 
 ## Smoke tests

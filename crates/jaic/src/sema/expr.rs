@@ -177,6 +177,28 @@ impl Compiler {
                 {
                     return Ok(op);
                 }
+                // A fixed array's count is part of its type, so `variable.count` is constant
+                // although the variable is not: naming it reads no value.
+                if f.constant_only.is_some()
+                    && member.name.as_str() == "count"
+                    && names_variable_path(base)
+                {
+                    let saved = f.constant_only.take();
+                    let named = self.check_expr(f, scope, base, None);
+                    f.constant_only = saved;
+                    if let Ok(op) = named
+                        && let TypeKind::Array {
+                            kind: ArrayKind::Fixed(n),
+                            ..
+                        } = self.types.kind(self.types.repr(op.ty()))
+                    {
+                        return Ok(Operand::Const {
+                            ty: TypeId::S64,
+                            value: Value::Int(*n as i128),
+                            untyped: true,
+                        });
+                    }
+                }
                 let base_op = self.check_expr(f, scope, base, None)?;
                 if self.ide.is_some() {
                     self.ide_note_receiver(member.span, &base_op);

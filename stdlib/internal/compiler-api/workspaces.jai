@@ -35,8 +35,7 @@ get_build_options :: (w: Workspace = -1) -> C.Build_Options #compiler {
 set_build_options :: (options: C.Build_Options, w: Workspace = -1, loc := #caller_location) #compiler {
     // `.X64` asks for the quick-to-compile debug code generator. This compiler has a single code
     // generator, so the request is built with it; the program behaves the same either way.
-    // `use_natvis_compatible_types` only renames debug-info types for Visual Studio; it is accepted and stored.
-    require(!options.interactive_bytecode_debugger, "interactive bytecode debugging is unavailable");
+    require(!options.use_natvis_compatible_types, "Natvis-compatible type emission is unavailable");
     require(options.llvm_options.command_line.count == 0, "raw LLVM command-line options are unavailable; use explicit build settings");
     require(!options.llvm_options.function_sections && !options.llvm_options.disable_mem2reg, "these LLVM pass switches are not implemented by the current backend");
     ws := resolve_workspace(w);
@@ -100,7 +99,6 @@ set_build_options :: (options: C.Build_Options, w: Workspace = -1, loc := #calle
 }
 
 set_build_options_dc :: (options: C.Build_Options_During_Compile, w: Workspace = -1) #compiler {
-    require(!options.interactive_bytecode_debugger, "interactive bytecode debugging is unavailable");
     ws := resolve_workspace(w);
     stored := get_build_options(ws);
     stored.write_added_strings = options.write_added_strings;
@@ -232,10 +230,6 @@ provide_import :: (w: Workspace, message: *C.Message_Failed_Import, type: C.Prov
     __jaic_workspace_provide_import(resolve_workspace(w), message.host_module_name, message.target_module_name, cast(u8) type, value);
 }
 
-append_linker_argument :: (w: Workspace, argument: string) {
-    __jaic_workspace_append_list(w, .ADDITIONAL_LINKER_ARGUMENT, argument);
-}
-
 #scope_module
 snapshot_options :: (w: Workspace, options: *C.Build_Options, save: bool) -> bool {
     strings: [..] s64;
@@ -300,6 +294,10 @@ enum_text :: (value: $T) -> string {
     for number, i: info.values if number == cast(s64) value return info.names[i];
     require(false, "unrecognized compiler enum value");
     return "";
+}
+
+append_linker_argument :: (w: Workspace, argument: string) {
+    __jaic_workspace_append_list(w, .ADDITIONAL_LINKER_ARGUMENT, argument);
 }
 
 set_number :: (w: Workspace, option: Workspace_Number, value: $T) {

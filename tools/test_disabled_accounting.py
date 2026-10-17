@@ -12,13 +12,14 @@ import stdlib_runtime as runtime
 from ci_test_scratch import assigned_scratch
 
 
-class ReferenceAccounting(unittest.TestCase):
-    def test_rejected_positive_is_separate_from_pass_and_platform(self):
+class DisabledAccounting(unittest.TestCase):
+    def test_disabled_case_is_separate_from_pass_and_platform(self):
         with tempfile.TemporaryDirectory(dir=assigned_scratch()) as directory:
             report = Path(directory) / "report.json"
             case = {
                 "id": "compiler/proc-type-defaults-ifx",
                 "family": "compiler",
+                "disabled": "source has a genuine error",
                 "path": runtime.ROOT
                 / "tests/compiler/regressions/proc-type-defaults-ifx.jai",
             }
@@ -59,14 +60,14 @@ class ReferenceAccounting(unittest.TestCase):
                     "platform_unavailable": 0,
                     "compile_time_only": 0,
                     "expected_negative_checks": 0,
-                    "reference_rejected": 1,
+                    "disabled": 1,
                     "source_check_only": 0,
                 },
             )
             row = data["results"][0]
             self.assertIsNone(row["passed"])
             self.assertIsNone(row["platform_unavailable"])
-            self.assertIsNotNone(row["reference_rejected"])
+            self.assertIsNotNone(row["disabled"])
 
 
 if __name__ == "__main__":

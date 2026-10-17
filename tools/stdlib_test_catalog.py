@@ -15,7 +15,6 @@ This holds no expected-failure baseline. Every selected supported case runs; com
 errors remain failures.
 """
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -51,6 +50,8 @@ ROW_KEYS = frozenset(
         "diagnostic_contains",
         "positive_baseline",
         "mode_contracts",
+        # A reason the case is switched off: the source has a genuine error.
+        "disabled",
         # Where the case can run.
         "required_os",
         "required_cpu",
@@ -71,14 +72,9 @@ ROW_KEYS = frozenset(
 )
 
 
-def reference_rejected_reason(case):
-    if (
-        case["id"] == "compiler/proc-type-defaults-ifx"
-        and hashlib.sha256(case["path"].read_bytes()).hexdigest()
-        == "e2aaa5f6c468e62fb635f48ca5ada3532abeba02f8f7e2388cfec634f5108968"
-    ):
-        return "root official compiler rejects the original overloaded/concrete ifx mismatch; not a supported positive, regardless of raw local acceptance"
-    return None
+def disabled_reason(case):
+    """Why a case is switched off (a manifest row's or upstream case's `disabled` text), or None."""
+    return case.get("disabled")
 
 
 def visible(path):

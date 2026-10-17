@@ -31,6 +31,11 @@ UPSTREAM = ROOT / "corpus/upstream"
 # changes the pinned corpus. Case id -> scratch root, filled before the cases start.
 WORKDIRS = {}
 CASE_METADATA = {}
+# Upstream cases that name the platforms they can run on (`only`, with `only_reason`), by id.
+UPSTREAM_PLATFORMS = {}
+
+# Upstream cases switched off in tools/upstream-cases.json (`disabled`, with the reason), by id.
+UPSTREAM_DISABLED = {}
 
 
 def upstream_root(c):
@@ -133,6 +138,10 @@ def cases(name):
             )
     elif name == "upstream":
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
+            if "only" in c:
+                UPSTREAM_PLATFORMS[c["id"]] = c
+            if "disabled" in c:
+                UPSTREAM_DISABLED[c["id"]] = c["disabled"]
             yield (
                 c["id"],
                 upstream_root(c) / c["path"],
@@ -157,7 +166,20 @@ def use_native_libs():
         subprocess.run(
             [sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True
         )
-    os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir())
+    # The Debug module's native helper is built into the stdlib tree of this checkout.
+    suffix = "dylib" if sys.platform == "darwin" else "so"
+    helper = ROOT / f"stdlib/internal/developer-tools/debug-native/libdeveloper_tools_debug.{suffix}"
+    if not helper.exists():
+        subprocess.run([sys.executable, str(ROOT / "tools/build_developer_debug.py")], check=True)
+    libs = [str(build_native_libs.output_dir())]
+    # The source-built SDK providers (tools/build_ci_native_bindings.py): the stdlib's rpmalloc
+    # allocator and the other bound SDKs load them when they exist.
+    from repo_output import shared_output_dir
+
+    providers = shared_output_dir("production-bindings", "native")
+    if providers.is_dir():
+        libs.insert(0, str(providers))
+    os.environ["JAIC_NATIVE_LIBS"] = os.pathsep.join(libs)
 
 
 def physical_memory_gib():
@@ -281,7 +303,7 @@ def symbolizer():
 # `run_native`'s status for a program whose build writes no executable.
 NO_EXECUTABLE = "no executable"
 PLATFORM_UNAVAILABLE = "platform unavailable"
-REFERENCE_REJECTED = "reference rejected"
+DISABLED = "disabled"
 HEADLESS_BUILD = "headless build only"
 
 
@@ -457,17 +479,26 @@ def main():
 
     def run(case):
         cid, path, mode, expect, extra = case
+        if cid in UPSTREAM_DISABLED:
+            return cid, None, "", UPSTREAM_DISABLED[cid], DISABLED
+        if cid in UPSTREAM_PLATFORMS:
+            from stdlib_runtime import host_platform
+
+            only = UPSTREAM_PLATFORMS[cid]
+            if host_platform() not in only["only"]:
+                reason = f"runs only on {', '.join(only['only'])}: {only.get('only_reason', '')}"
+                return cid, None, "", reason, PLATFORM_UNAVAILABLE
         metadata = CASE_METADATA.get(cid, {})
         if metadata:
             from stdlib_test_catalog import (
                 unavailable_reason,
-                reference_rejected_reason,
+                disabled_reason,
             )
             from stdlib_runtime import host_platform, program_arguments, prepare_program
 
-            rejected = reference_rejected_reason(metadata)
+            rejected = disabled_reason(metadata)
             if rejected:
-                return cid, None, "", rejected, REFERENCE_REJECTED
+                return cid, None, "", rejected, DISABLED
             reason = unavailable_reason(
                 metadata, "native" if a.native else "interp", host_platform()
             )
@@ -604,7 +635,7 @@ def main():
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
         for cid, ok, out, err, code in pool.map(run, todo):
             if ok is None:
-                if code == REFERENCE_REJECTED:
+                if code == DISABLED:
                     rejected.append((cid, err))
                     continue
                 if code == PLATFORM_UNAVAILABLE:
@@ -639,13 +670,13 @@ def main():
     for cid, reason in unavailable:
         print(f"UNAVAILABLE {cid}: {reason}")
     for cid, reason in rejected:
-        print(f"REFERENCE_REJECTED {cid}: {reason}")
+        print(f"DISABLED {cid}: {reason}")
     if built_only:
         print(
             "Built only under --headless (runtime not passed): " + ", ".join(built_only)
         )
     print(
-        f"\n{passed} passed, {len(failed)} failed, {len(unavailable)} platform unavailable, {len(built_only)} built only, {len(rejected)} reference-rejected fixtures"
+        f"\n{passed} passed, {len(failed)} failed, {len(unavailable)} platform unavailable, {len(built_only)} built only, {len(rejected)} disabled"
         + (f", {len(no_exe)} not run natively" if no_exe else "")
     )
     # A failing status lets CI use the sweep directly.

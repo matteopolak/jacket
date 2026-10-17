@@ -1,5 +1,5 @@
 // A one-character string constant converts to u8: comparisons and switch cases on bytes,
-// arithmetic next to an integer, `u8` arguments and casts (sjorsdonkers/toml-jai's parser).
+// arithmetic next to a byte, `u8` arguments and casts (sjorsdonkers/toml-jai's parser).
 // rules: str.19
 #import "Basic";
 

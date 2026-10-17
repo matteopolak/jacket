@@ -690,10 +690,11 @@ impl Compiler {
                 // (a lookup reached this scope) cannot call procedures that are
                 // themselves mid-lowering. Put the item back and retry it later.
                 let reentrant = !self.retrying_pending
-                    && self
-                        .procs
-                        .iter()
-                        .any(|p| p.body_state == super::procs::BodyState::Lowering);
+                    && (self.resolving_depth > 0
+                        || self
+                            .procs
+                            .iter()
+                            .any(|p| p.body_state == super::procs::BodyState::Lowering));
                 let misses = self.placeholder_misses;
                 let executions = self.ct_executions;
                 let in_progress = self.in_progress_misses;
