@@ -51,6 +51,23 @@ WINDOWS_BUILD_HOST_CASES = frozenset(
 )
 
 
+# Programs linked against fixture or developer-tool libraries that only the Windows host jobs build
+# (tools/build_ci_native_bindings.py, tools/build_developer_*.py); the cross jobs build no such
+# library, so these stay required in the native Windows jobs.
+WINDOWS_HOST_LIBRARY_CASES = frozenset(
+    {
+        "SDL/tests/sdl-layout",
+        "SDL/tests/sdl-rwops",
+        "SDL/tests/sdl-wm",
+        "native/sdl2-geometry-timer",
+        "Debug/tests/ignore-ownership",
+        "Bindings_Generator/tests/generator-macro-shared-state",
+        "Bindings_Generator/tests/generator-run-macro-print",
+        "Bindings_Generator/tests/generator-run-toplevel",
+    }
+)
+
+
 def fixture_stale_contract_reason(case):
     # Exact legacy source oracle; a corrected fixture must become required.
     if (
@@ -77,6 +94,12 @@ def fixture_unavailable_reason(case, platform, build_host):
         and not build_host.startswith("windows-")
     ):
         return "target Win32 File/Process calls during ordinary #run require a Windows build host; native Windows coverage remains required"
+    if (
+        case["id"] in WINDOWS_HOST_LIBRARY_CASES
+        and platform.startswith("windows-")
+        and not build_host.startswith("windows-")
+    ):
+        return "links native fixture libraries that only the Windows host jobs build; native Windows coverage remains required"
     if case["id"] == "compiler/lang-asm" and platform.split("-")[1] != "x64":
         return "fixture contains architectural x86 CPUID/PAUSE/fences; requires x64, not an ARM64 instruction-emulation claim"
     if case["id"] == "native/imgui-headless-frames":
