@@ -242,6 +242,23 @@ def main():
         str(probe),
     ]
     subprocess.run(compile_command, check=True)
+    # The compiler links a named `#library` from the static `lib<name>.a` in the native
+    # directories, so the probe is also published as an archive.
+    probe_object = output / "abi_probe.o"
+    static_command = [
+        "cc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-fPIC",
+        "-c",
+        *font_flags,
+    ]
+    for include in includes:
+        static_command += ["-isystem", str(include)]
+    static_command += [str(ROOT / "tests/native-bindings/abi_probe.c"), "-o", str(probe_object)]
+    subprocess.run(static_command, check=True)
+    subprocess.run(["ar", "rcs", str(output / "libabi_probe.a"), str(probe_object)], check=True)
     queries = []
     keys = [
         "statistics",

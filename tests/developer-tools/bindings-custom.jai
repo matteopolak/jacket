@@ -83,6 +83,7 @@ main :: () {
     assert(B.generate_bindings(options, tprint("%../../target/developer-tools-custom-generated.jai", #filepath), log_results = false));
     options.source_files[0] = tprint("%bindings-model-input.h", #filepath);
     options.visitor = null;
+    options.log_stripped_declarations = false;
     options.get_func_args_for_printing = B._default_get_func_args_for_printing;
     assert(B.generate_bindings(options, tprint("%../../target/developer-tools-model-generated.jai", #filepath), log_results = false));
     options.source_files[0] = tprint("%bindings-input.h", #filepath);

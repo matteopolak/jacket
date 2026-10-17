@@ -45,6 +45,7 @@ RUNTIME_HOSTS = {
         "macos",
         "metal",
         "nsgl",
+        "gl-context",
     )
 }
 PRIVATE_UNITS = {
@@ -60,6 +61,8 @@ PRIVATE_UNITS = {
     "rpmalloc-raw-base-marshalling": "rpmalloc/sdk-raw-base-marshalling-unit.jai",
 }
 PRIVATE_UNITS["rpmalloc-no-thread-cache"] = "rpmalloc/sdk-no-thread-cache-unit.jai"
+PRIVATE_UNITS["graphics-math"] = "d3d12/graphics-math-unit.jai"
+PRIVATE_UNITS["dxc-options"] = "dxc_compiler/dxc-options-unit.jai"
 PRIVATE_UNITS["shader-bytes"] = "d3d_compiler/sdk-shader-bytes-unit.jai"
 PRIVATE_UNITS["clipboard-owned-data"] = "X11/sdk-clipboard-owned-data-unit.jai"
 PRIVATE_UNITS["android-commands"] = "Android/sdk-command-unit.jai"

@@ -36,6 +36,7 @@ INPUTS = {
     'binding_rpmalloc_callbacks_nostats': {'rpmalloc'},
     'rpmalloc_callback_probe': {'rpmalloc'}, 'rpmalloc_storage_probe': {'rpmalloc'},
     'fsevents_context_probe': set(), 'objc_runtime_probe': set(),
+    'posix_abi_probe': set(), 'imgui_abi_probe': {'imgui'},
 }
 
 LIBRARY_DEPENDENCIES = {
