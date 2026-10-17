@@ -208,7 +208,7 @@ walk_directory :: (path: string, recursive: bool, user_data: $T, proc: (info: *F
             defer free(short);
 
             if short != "." && short != ".." {
-                full := S.path_join(path, short);
+                full := S.path_join(path, short, separator = #char "/");
 
                 defer free(full);
                 info: File_Visit_Info;

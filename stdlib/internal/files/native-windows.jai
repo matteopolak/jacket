@@ -208,7 +208,19 @@ get_absolute_path :: inline (relative_path: string) -> string, success: bool {
         defer free(buffer);
         count := W.GetFullPathNameW(path, capacity, buffer, null);
         if count == 0 return "", false;
-        if count < capacity return Text.utf8_text(buffer, count);
+
+        if count < capacity {
+            result, ok := Text.utf8_text(buffer, count);
+
+            // `/` as on every other target, so a path can go into a string literal or a `#load`.
+            if ok {
+                for *result {
+                    if it.* == #char "\\" it.* = #char "/";
+                }
+            }
+
+            return result, ok;
+        }
 
         capacity = count;
     }
