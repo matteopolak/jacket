@@ -7,7 +7,6 @@ Unimplemented module fixtures remain unchanged in tests/stdlib-contract.
 import argparse
 import os
 from pathlib import Path
-import platform
 import plistlib
 import shutil
 import signal
@@ -105,10 +104,12 @@ FAULT_EXPECTATIONS = {
 }
 
 # Cases that other scripts own: the Linux clipboard job runs the X11-only sources.
-DRIVEN_ELSEWHERE = {"bootstrap", "process-parent", "float-power-sweep", "clipboard-linux-api",
+DRIVEN_ELSEWHERE = {"bootstrap", "process-parent", "float-power-sweep", "basic-division-exercise", "clipboard-linux-api",
                     "clipboard-linux-no-empty", "clipboard-linux-private", "clipboard-linux-window-source"}
-# Written for x86-64 only (they `#assert CPU == .X64`); other hosts keep the -check target coverage.
-X64_ONLY = {"basic-division-exercise"}
+# basic-division-exercise (x86-64 only, and it prints its samples) is run by tools/check_foundations.py
+# against an independent integer oracle.
+# Programs whose work is a `#run` in the build (they drive a child workspace and write no executable).
+BUILD_TIME_PROGRAMS = {"minimal-build-contracts"}
 # Source-only contracts: type-checked, never executed (the program would open a native window).
 SOURCE_ONLY = {"cocoa-appkit-enum-callers": "darwin"}
 # Cases that read their configuration from the command line (assertions enabled is the default build).
@@ -120,10 +121,6 @@ PROBES = {
     "unmapping-protection-retention": ("test_unmapping_vm", "tests/portable-stdlib/native/unmapping-protection.c",
                                        'TEST_VM :: #library "test_unmapping_vm";', ("darwin",)),
 }
-
-
-def host_is_x64():
-    return platform.machine().lower() in {"x86_64", "amd64"}
 
 
 def build_probes(output):
@@ -222,9 +219,6 @@ def main():
     for index, (source, expected) in enumerate(cases):
         name = source.relative_to(ROOT)
         try:
-            if source.stem in X64_ONLY and not host_is_x64():
-                print("skipped (x86-64 only)", name, flush=True)
-                continue
             if source.stem in SOURCE_ONLY:
                 if sys.platform != SOURCE_ONLY[source.stem]:
                     print(f"skipped (source-only, {SOURCE_ONLY[source.stem]} only)", name, flush=True)
@@ -242,7 +236,12 @@ def main():
                 extra = ["-add", probe[2]] if probe[2] else []
             run([str(compiler), "-interp", str(source), *extra, "--", *PROGRAM_ARGUMENTS.get(source.stem, [])], case_env, expected,
                 expected_stderr=EXPECTED_STDERR.get(source.stem,""), expected_code=EXPECTED_EXIT.get(source.stem, 0))
-            if args.native:
+            if args.native and source.stem in BUILD_TIME_PROGRAMS:
+                # The program is its compile: its output comes from the build and no executable
+                # is written.
+                run([str(compiler), str(source), *extra, "-exe", str(output / f"case-{index}")], case_env, expected,
+                    expected_stderr=EXPECTED_STDERR.get(source.stem, ""))
+            elif args.native:
                 executable = output / f"case-{index}"
                 run([str(compiler), str(source), *extra, "-exe", str(executable)], case_env)
                 run([str(executable), *PROGRAM_ARGUMENTS.get(source.stem, [])], case_env, expected, source.parent,

@@ -740,6 +740,7 @@ def run(args):
     environment = run_environment()
     expected = json.loads((directory / "expected.json").read_text())
     failures = []
+    unrunnable = []
     for case_id, want in sorted(expected.items()):
         exe = directory / f"{case_id}.exe"
         cwd = ROOT / want.get("cwd", ".")
@@ -775,13 +776,27 @@ def run(args):
         else:
             status_ok = result.returncode == want["exit_code"]
             wanted = want["exit_code"]
+        if (
+            args.without_opengl
+            and not status_ok
+            and stderr.startswith("WGL creation failed")
+        ):
+            # This runner has only GDI's OpenGL 1.1 and no driver for the CPU (Mesa ships none
+            # for arm64): the program cannot create its context here, whatever it does after.
+            unrunnable.append(case_id)
+            continue
         if not status_ok or not stdout_ok or not contract_ok:
             failures.append(
                 f"{case_id}: exit {result.returncode} (want {wanted}), "
                 f"stdout {stdout!r} (want {want['stdout']!r}), "
                 f"stderr {stderr[-2000:]!r}"
             )
-    print(f"{len(expected) - len(failures)} of {len(expected)} programs match")
+    print(
+        f"{len(expected) - len(failures) - len(unrunnable)} of {len(expected) - len(unrunnable)} "
+        "programs match"
+    )
+    for case_id in unrunnable:
+        print(f"SKIPPED {case_id}: no OpenGL 3.3 driver on this runner")
     for failure in failures:
         print(f"FAIL {failure}")
     return 1 if failures else 0
@@ -814,6 +829,11 @@ def main():
     )
     r = sub.add_parser("run")
     r.add_argument("--dir", required=True)
+    r.add_argument(
+        "--without-opengl",
+        action="store_true",
+        help="the runner has no OpenGL 3.3 driver: programs that cannot create a context are skipped",
+    )
     args = parser.parse_args()
     if (
         args.command == "run" or args.host

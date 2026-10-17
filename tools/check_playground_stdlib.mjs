@@ -43,7 +43,14 @@ if (!isMainThread) {
     }
     const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { directory, test }, resourceLimits: { maxOldGenerationSizeMb: 4096 } });
     let finished = false;
-    const done = value => { if (finished) return; finished = true; clearTimeout(timer); resolve(value); };
+    const started = Date.now();
+    const done = value => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (process.env.PLAYGROUND_PROGRESS) console.log(`${Date.now() - started} ms ${test.id}${value.pass === false ? " (" + value.why + ")" : ""}`);
+      resolve(value);
+    };
     const timer = setTimeout(() => { done({ pass: false, why: "timeout" }); worker.terminate(); }, 120000);
     worker.on("message", r => {
       const result = playgroundCaseResult(test, r);

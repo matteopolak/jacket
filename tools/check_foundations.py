@@ -116,6 +116,13 @@ def negative_lint_sources():
     return sources
 
 
+def host_profile():
+    """(os, cpu) of this machine in the names of LINT_PROFILES."""
+    system = {"darwin": "macos", "linux": "linux", "win32": "windows"}.get(sys.platform, sys.platform)
+    cpu = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64"
+    return system, cpu
+
+
 def lint_profile_sources(target_os, target_cpu):
     """Select actual target bodies, retaining every source on a supported profile."""
     windows_only = {
@@ -151,9 +158,9 @@ def lint_profile_sources(target_os, target_cpu):
             continue
         if (
             relative == "tests/portable-stdlib/pending/host-target-predicate.jai"
-            and target_os == "macos"
+            and (target_os, target_cpu) == host_profile()
         ):
-            continue  # This fixture explicitly requires OS != BUILD_OS.
+            continue  # This fixture requires a target other than the host.
         (library if path.is_relative_to(ROOT / "stdlib") else fixtures).append(path)
     return library, fixtures
 
