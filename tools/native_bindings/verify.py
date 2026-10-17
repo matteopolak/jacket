@@ -1140,9 +1140,19 @@ def run_verification(cleanup):
             failure.get("module", failure.get("name", "unknown")),
             failure.get("check", failure.get("phase", "")),
             failure["status"],
-            (headers[0] if headers else "see exact report for diagnostic")[:400],
+            (headers[0] if headers else "no error line")[:400],
             file=sys.stderr,
         )
+        if not headers:
+            # Nothing in the output names the problem: print what the check said, since the
+            # report is not kept anywhere a CI log reader can reach.
+            detail = {
+                key: (value[-600:] if isinstance(value, str) else value)
+                for key, value in failure.items()
+                if key in ("exit", "stdout", "stderr", "reason", "message", "error", "missing")
+                and value not in ("", None)
+            }
+            print("   ", json.dumps(detail), file=sys.stderr)
     if len(failures) > 40:
         print(
             "Remaining failed binding checks retained in report:",
