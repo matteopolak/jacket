@@ -7,6 +7,7 @@ Producer-owned specialized suites remain required separate integration gates.
 """
 
 import argparse
+import hashlib
 import json
 import threading
 import os
@@ -206,10 +207,45 @@ def run_program(command, cwd, timeout, env, case):
         return run_command([*prefix, *command], cwd, timeout + 30, guarded_env)
 
 
+def windows_library_dirs(directories):
+    result = []
+    for directory in directories:
+        directory = Path(directory)
+        imports = directory / "dynamic-imports"
+        if imports.is_dir():
+            result.append(imports)
+        result.append(directory)
+    return list(dict.fromkeys(result))
+
+
+def deploy_windows_dlls(directories, destination):
+    """Stage actual package DLLs; reject basename collisions before any copy."""
+    planned = {}
+    for directory in directories:
+        for source in Path(directory).glob("*.dll"):
+            key = source.name.casefold()
+            digest = hashlib.sha256(source.read_bytes()).digest()
+            if key in planned and planned[key][1] != digest:
+                raise ValueError("conflicting Windows DLL providers: " + source.name)
+            planned.setdefault(key, (source, digest))
+    for source, digest in planned.values():
+        target = Path(destination) / source.name
+        if target.exists() and hashlib.sha256(target.read_bytes()).digest() != digest:
+            raise ValueError("conflicting Windows DLL destination: " + source.name)
+    for source, _ in planned.values():
+        target = Path(destination) / source.name
+        if not target.exists():
+            shutil.copy2(source, target)
+
+
 def run_mode(args, test, path, mode, scratch, metadata=None):
     """(passed, detail) of one test in one mode; passed is None when the build wrote nothing to
     run (the program did its work at compile time)."""
     env = dict(os.environ)
+    if sys.platform == "win32" and env.get("JAIC_NATIVE_LIBS"):
+        env["JAIC_NATIVE_LIBS"] = os.pathsep.join(map(str, windows_library_dirs(
+            filter(None, env["JAIC_NATIVE_LIBS"].split(os.pathsep))
+        )))
     env.setdefault("JAIC_MEMORY_LIMIT", "3G")
     # Tests may read the mode (docs/tools/stdlib-runtime-tests.md), for example to avoid what the
     # interpreter cannot do yet.
@@ -307,11 +343,13 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             # Windows loads a DLL from the executable's directory before the system's.
             for dll in args.dlls.glob("*.dll"):
                 shutil.copy2(dll, exe.parent / dll.name)
-        if sys.platform == "win32" and not wasm and os.environ.get("JAIC_NATIVE_LIBS"):
-            # SDL2 ships as an import library plus its DLL (tools/native-libs.json), which the
-            # executable needs beside it; the other native libraries are linked statically.
-            for dll in Path(os.environ["JAIC_NATIVE_LIBS"]).glob("SDL2.dll"):
-                shutil.copy2(dll, exe.parent / dll.name)
+        if sys.platform == "win32" and not wasm and env.get("JAIC_NATIVE_LIBS"):
+            try:
+                deploy_windows_dlls(
+                    filter(None, env["JAIC_NATIVE_LIBS"].split(os.pathsep)), exe.parent
+                )
+            except (OSError, ValueError) as error:
+                return False, "Windows native DLL deployment failed: " + str(error)
         command = (
             ["node", "--no-warnings", str(ROOT / "tools/wasi_run.mjs"), str(built[0])]
             if wasm

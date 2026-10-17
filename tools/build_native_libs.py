@@ -61,12 +61,14 @@ def wanted(lib: dict, plat: str) -> bool:
 
 
 def missing(plat: str | None = None) -> list[str]:
-    """Libraries in the manifest whose static archive has not been built for `plat`."""
+    """Libraries whose complete shipped package has not been built for `plat`."""
     plat = plat or host_dir()
     libraries = json.loads(MANIFEST.read_text())['libraries']
     out = output_dir(plat)
+    manifest = json.loads(MANIFEST.read_text())
     return sorted(name for name, lib in libraries.items()
-                  if wanted(lib, plat) and not (out / static_name(name, plat)).exists())
+                  if wanted(lib, plat) and any(not (out / file).is_file() for file in
+                      shipped_files({'libraries': {name: lib}, 'sources': manifest['sources']}, plat)))
 
 
 def host_dir() -> str:
@@ -303,11 +305,16 @@ def build(name: str, lib: dict, src: Path, out: Path, plat: str) -> None:
         if plat.startswith('windows'):
             subprocess.run(['llvm-lib', '/nologo', f'/out:{static}', *map(str, objects)], check=True)
             definitions = windows_exports(objects, tmp, name, lib.get('cxx_exports', False))
-            # The DLL's import library would take the static library's name: it goes to tmp.
+            # Retain the real matching import archive separately from the static
+            # archive. The interpreter requires DLL provider metadata, not .obj bodies.
+            imports = out / 'dynamic-imports'
+            imports.mkdir(parents=True, exist_ok=True)
+            import_library = imports / f'{name}.lib'
+            import_library.unlink(missing_ok=True)
             # The DLL carries its own copy of the static runtime (what `jaic -interp` loads).
             subprocess.run(['clang', f'--target={WINDOWS_TRIPLES[plat]}', '-fms-runtime-lib=static', '-shared',
                             '-o', str(out / f'{name}.dll'), *map(str, objects), f'-Wl,/DEF:{definitions}',
-                            '-Wl,/DEFAULTLIB:libcmt', f'-Wl,/IMPLIB:{tmp / "import.lib"}'], check=True)
+                            '-Wl,/DEFAULTLIB:libcmt', f'-Wl,/IMPLIB:{import_library}'], check=True)
             return
         check_no_cxx_runtime(name, objects)
         subprocess.run(['ar', 'rcs', str(static), *map(str, objects)], check=True)
@@ -336,6 +343,8 @@ def shipped_files(manifest: dict, plat: str) -> list[str]:
         files.append(static_name(name, plat))
         if plat.startswith('windows') and plat not in MINGW_PREFIXES:
             files.append(f'{name}.dll')
+            if lib.get('builder') != 'sdl3':
+                files.append(f'dynamic-imports/{name}.lib')
         elif plat not in MINGW_PREFIXES:
             files.append(f'lib{name}.{"dylib" if plat.startswith("macos") else "so"}')
         if lib.get('builder') == 'sdl3':
