@@ -97,7 +97,7 @@ check_options :: () -> bool {
     }
 
     assert(info.major == numbers[0] && info.minor == numbers[1] && info.micro == numbers[2], "compiler.14: parsed numbers");
-    assert(info.major == 0 && info.minor == 2 && info.micro == 30, "compiler.14: the Jai language version, not the jaic version");
+    assert(begins_with(text, "Jacket "), "compiler.14: the Jacket product version");
 
     compiler_begin_intercept(w);
     add_build_string("M :: #import \"Configured_Import\"; #assert M.value == 42; main :: () {}", w);
