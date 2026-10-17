@@ -981,3 +981,5 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Installed OpenSSL SDK discovery](tools/openssl-sdk-discovery.md): real SDK probing and canonical X509 inputs; native Linux/Windows package support remains required.
 
 - [Module default forwarding](compiler/module-default-forwarding-boundary.md): written-list identity and preserved canonical storage/type checks; root official verdict confirms distinction.
+
+- [Basic wide-float presentation](basic-wide-float-presentation.md): reviewed float64 conversion with canonical metadata; original Linux native replay required.
