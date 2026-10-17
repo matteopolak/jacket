@@ -1,5 +1,5 @@
 #import "Basic";
-P :: #import "Print_Color"(USE_ANSI_CODES_ON_WINDOWS = true);
+P :: #import "Print_Color"()(USE_ANSI_CODES_ON_WINDOWS = true);
 
 early_return :: () {
     P.with_console_color(.GREEN, #code {

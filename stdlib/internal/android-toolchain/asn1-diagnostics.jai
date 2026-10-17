@@ -124,7 +124,7 @@ Diagnostic_Frame :: struct {
 }
 
 diagnostic_banner :: (name: string) {
-    Colors :: #import "Print_Color"(USE_ANSI_CODES_ON_WINDOWS = true);
+    Colors :: #import "Print_Color"()(USE_ANSI_CODES_ON_WINDOWS = true);
     Colors.print_color("--- % ---\n", name, color = .YELLOW);
 }
 

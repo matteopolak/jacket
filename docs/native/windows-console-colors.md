@@ -31,7 +31,7 @@ Limits: a process that dies abnormally inside a block (assert, abort, crash, kil
 
 - The console is reached through `Console_Backend { query, apply }`. `set_console_backend` swaps it and `reset_console_backend` restores the system one. Tests install a fake that holds an attribute word per stream.
 - To add a style bit, extend `console_attributes_for` and the fake test.
-- The `#module_parameters` live in `stdlib/Print_Color/module.jai`. Both are ordinary (per-import) parameters, so two imports can use different policies.
+- The `#module_parameters` live in `stdlib/Print_Color/module.jai`. `SAVE_RESTORE_ON_WINDOWS` is an ordinary (per-import) parameter, so two imports can use different restore policies. `USE_ANSI_CODES_ON_WINDOWS` is a program parameter (the second list: `#import "Print_Color"()(USE_ANSI_CODES_ON_WINDOWS = true)`), shared by every import because one process writes one console.
 
 ## Configuration
 
