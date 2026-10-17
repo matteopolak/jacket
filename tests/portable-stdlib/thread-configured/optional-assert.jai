@@ -1,6 +1,6 @@
 // Reviewed thread.md native synchronization/lifecycle. Verification stays enabled
 // while the runner independently changes Thread's DEFAULT Basic specialization.
-#import "Basic"(ENABLE_ASSERT = true);
+#import "Basic"()(ENABLE_ASSERT = true);
 T :: #import "Thread";
 
 State :: struct {

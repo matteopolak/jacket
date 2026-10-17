@@ -1,5 +1,5 @@
 B :: #import "Basic";
-D :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
+D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 Pools :: #import "Pool";
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS Flat_Pools :: #import "Flat_Pool";
 

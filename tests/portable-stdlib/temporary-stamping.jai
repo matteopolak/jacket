@@ -1,5 +1,5 @@
 B :: #import "Basic";
-Stamped :: #import "Basic"(TEMP_ALLOCATOR_OVERWRITE_MEMORY = true);
+Stamped :: #import "Basic"()(TEMP_ALLOCATOR_OVERWRITE_MEMORY = true);
 
 main :: () {
     initial: [256] u8;

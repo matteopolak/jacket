@@ -1,4 +1,4 @@
-#import "Basic"(ENABLE_ASSERT = false);
+#import "Basic"()(ENABLE_ASSERT = false);
 #import "File";
 #import "Sound_Player";
 

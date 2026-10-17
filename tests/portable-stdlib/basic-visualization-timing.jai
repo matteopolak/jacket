@@ -1,5 +1,5 @@
 B :: #import "Basic";
-D :: #import "Basic"(MEMORY_DEBUGGER = true);
+D :: #import "Basic"()(MEMORY_DEBUGGER = true);
 CH :: #import "Shared_Memory_Channel";
 P :: #import "Protocol_For_Memory_Visualization";
 Native :: #import "POSIX";

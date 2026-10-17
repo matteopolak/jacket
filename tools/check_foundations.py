@@ -406,7 +406,7 @@ def main():
     print("passed general public alias overload/default execution regression", flush=True)
 
     for name, diagnostic in (("format-int-kind", "FormatInt requires an integer value"),
-                             ("format-float-kind", "FormatFloat requires an IEEE float32 or float64 value"),
+                             ("format-float-kind", "FormatFloat requires a float value"),
                              ("format-int-base", "assertion failed"),
                              ("format-int-minimum", "assertion failed"),
                              ("builder-ensured-range", "assertion failed"),

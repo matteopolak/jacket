@@ -1,5 +1,5 @@
 // Default-import ADB assertions vary; verification is a separate enabled instance.
-#import "Basic"(ENABLE_ASSERT = true);
+#import "Basic"()(ENABLE_ASSERT = true);
 A :: #import "Android/Toolchain";
 S :: #import "String";
 

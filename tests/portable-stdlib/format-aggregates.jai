@@ -27,12 +27,12 @@ main :: () {
     value := Payload.{ 7, "a\nb" };
 
     assert(sprint("%", value) == "{7, \"a\\nb\"}");
-    assert(sprint("%", formatStruct(value, use_long_form_if_more_than_this_many_members = 1)) == "{number =  = 7; text =  = \"a\\nb\"; }");
+    assert(sprint("%", formatStruct(value, use_long_form_if_more_than_this_many_members = 1)) == "{number = 7; text = \"a\\nb\"; }");
     assert(sprint("%", formatStruct(*value)) == "{7, \"a\\nb\"}");
     multiline := formatStruct(value, use_long_form_if_more_than_this_many_members = -1, use_newlines_if_long_form = true);
     multiline.draw_type_name = true;
     multiline.indentation_width = 2;
-    assert(sprint("%", multiline) == "Payload{\n  number =  = 7; \n  text =  = \"a\\nb\"; \n}");
+    assert(sprint("%", multiline) == "Payload{\n  number = 7; \n  text = \"a\\nb\"; \n}");
     assert(context.print_style.indentation_depth == 0 && context.print_style.state_flags == 0);
     values: [4] int = .[1, 2, 3, 4];
 

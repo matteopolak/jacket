@@ -1,5 +1,5 @@
 #import "Basic";
-Configured :: #import "Basic"(ENABLE_ASSERT = false);
+Configured :: #import "Basic"()(ENABLE_ASSERT = false);
 
 main :: () {
     assert(type_info(Configured.Apollo_Time).name == "Apollo_Time");

@@ -14,8 +14,24 @@ owned_windows: [..] Owned_Window;
 
 owned_native_window :: (width: int, height: int, title: string) -> W.Window_Type {
     window := W.create_window(width, height, title);
-    if window != null array_add(*owned_windows, .{ window, false });
+    if window != null {
+        array_add(*owned_windows, .{ window, false });
+        activate_application();
+    }
+
     return window;
+}
+
+// A process started from a script or a CI session is not the active application, and AppKit
+// posts no key-window notification for an inactive one.
+activate_application :: () {
+    Object :: #type (receiver: *void, selector: O.Selector) -> *void #c_call;
+    object := cast(Object) O.objc_msgSend;
+    application := object(O.objc_getClass("NSApplication"), O.selector("sharedApplication"));
+    Activate :: #type (receiver: *void, selector: O.Selector, flag: O.BOOL) #c_call;
+    activate := cast(Activate) O.objc_msgSend;
+
+    activate(application, O.selector("activateIgnoringOtherApps:"), O.YES);
 }
 
 dispose_native_windows :: () {

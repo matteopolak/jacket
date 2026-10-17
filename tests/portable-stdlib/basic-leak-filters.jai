@@ -1,5 +1,5 @@
 B :: #import "Basic";
-D :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
+D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 
 main :: () {
     infos: [7] Stack_Trace_Procedure_Info;

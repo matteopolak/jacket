@@ -1,5 +1,5 @@
 // Independent dependency regression; never treated as a passing audio gate.
-#import "Basic"(ENABLE_ASSERT = false);
+#import "Basic"()(ENABLE_ASSERT = false);
 #import "Thread";
 
 main :: () {

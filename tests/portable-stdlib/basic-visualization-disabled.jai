@@ -1,5 +1,5 @@
 B :: #import "Basic";
-Quiet :: #import "Basic"(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
+Quiet :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 
 calls: int;
 

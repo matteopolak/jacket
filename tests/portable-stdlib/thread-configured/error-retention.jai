@@ -1,6 +1,6 @@
 // Independent real SDK failures; verification runs with the fatal handler.
 // Reviewed thread.md lifecycle plus SDK ownership: failed destruction retains it.
-#import "Basic"(ENABLE_ASSERT = true);
+#import "Basic"()(ENABLE_ASSERT = true);
 T :: #import "Thread";
 
 errors: s64;

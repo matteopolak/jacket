@@ -1,6 +1,6 @@
 B :: #import "Basic";
-Off :: #import "Basic"(ENABLE_ASSERT = false);
-Other :: #import "Basic"(VISUALIZE_MEMORY_DEBUGGER = false);
+Off :: #import "Basic"()(ENABLE_ASSERT = false);
+Other :: #import "Basic"()(VISUALIZE_MEMORY_DEBUGGER = false);
 
 Record :: struct {
     number: int;

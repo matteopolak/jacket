@@ -1,5 +1,5 @@
 B :: #import "Basic";
-Off :: #import "Basic"(ENABLE_ASSERT = false);
+Off :: #import "Basic"()(ENABLE_ASSERT = false);
 P :: #import "POSIX";
 
 main :: () {
