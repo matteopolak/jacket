@@ -1,6 +1,11 @@
 set_custom_cursor_handling :: (is_custom: bool) {
-    // X11 retains the caller-selected window cursor; this pump never overrides it.
+    custom_cursor = is_custom;
 }
+
+// A program that handles the cursor itself keeps whatever cursor it set on a window. Otherwise
+// the window's cursor goes back to the default as the pointer moves over it, as on the other
+// platforms.
+custom_cursor := false;
 
 update_window_events :: () {
     input_per_frame_event_and_flag_update();
@@ -77,6 +82,8 @@ update_window_events :: () {
                 if code != .UNKNOWN x11_button(window, code, native.type == ButtonPress, false, flags);
             }
         } else if native.type == MotionNotify {
+            if !custom_cursor XUndefineCursor(display, window);
+
             dx, dy := Connection.pointer_motion(window, native.xmotion.x, native.xmotion.y);
             mouse_delta_x += dx;
             mouse_delta_y += dy;
