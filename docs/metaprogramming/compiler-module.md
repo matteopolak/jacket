@@ -17,7 +17,7 @@
 
 ### Options
 
-`set_build_options(options, w, loc)` forwards each field with `__jaic_workspace_set_option(ws, key, value)` (values are text; unknown keys are errors in `Workspaces::set_option`), anchors relative `import_path` entries at `loc`'s directory, and snapshots the full struct for other compilers (`snapshot_options`, `crates/jaic/src/build/option_snapshot.rs`). `get_build_options` returns that stored copy, so every workspace starts from the struct defaults, which reflect the target (`os_target := OS`, `cpu_target := CPU`). `set_build_options_dc` forwards `do_output`, the output name and path, and linker arguments. Features the compiler does not have fail with a `require` error naming them ([build options](build-options.md)).
+`set_build_options(options, w, loc)` forwards each field with a typed builtin (`__jaic_workspace_set_text/flag/number/list`, keyed by a `Workspace_*` enum; see [compiler builtins](../compiler/compiler-builtins.md)), anchors relative `import_path` entries at `loc`'s directory, and snapshots the full struct for other compilers (`snapshot_options`, `crates/jaic/src/build/option_snapshot.rs`). `get_build_options` returns that stored copy, so every workspace starts from the struct defaults, which reflect the target (`os_target := OS`, `cpu_target := CPU`). `set_build_options_dc` forwards `do_output`, the output name and path, and linker arguments. Features the compiler does not have fail with a `require` error naming them ([build options](build-options.md)).
 
 ### Messages
 
@@ -62,7 +62,7 @@ Building is native (`crates/jaic/src/record_build.rs`): `describe_members` in `i
 
 ## How to change it
 
-- New forwarded option: add the field to `Build_Options` in `contract-records.jai` (keep member order and defaults), forward it in `set_build_options` (`workspaces.jai`), handle the key in `Workspaces::set_option` (unknown keys are errors), update [build options](build-options.md).
+- New forwarded option: add the field to `Build_Options` in `contract-records.jai` (keep member order and defaults), forward it in `set_build_options` (`workspaces.jai`), add the member to the `Workspace_*` enum and `crates/jaic/src/builtin_keys.rs`, and handle it in `Workspaces` (`build.rs`), update [build options](build-options.md).
 - New event kind: an `EVENT_*` constant in `build.rs` and a case in `compiler_wait_for_message` (`messages.jai`); prefer a record payload.
 - New primitive: a `MetaOp` in `build.rs` plus a `#compiler` declaration in `primitives.jai`; keep public signatures, and for something jaic cannot do either do nothing with a comment or report through `__jaic_report`.
 - New node kind: a case in `Exporter::expr`/`stmt` building a record with the `Code_*` member names (and a `RECORD_TYPES` entry if reached through a base pointer). Never hold the registry borrow while exporting.
@@ -76,7 +76,7 @@ Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 
 - Jai owns `Build_Options` storage: `option_store` is indexed by workspace id and filled lazily by `ensure_option_slot`. Every workspace starts from the struct defaults {#compiler.3}, which already reflect the target (`os_target := OS`, `cpu_target := CPU`) {#compiler.1}; the metaprogram's own also gets `compile_time_command_line` from `__jaic_command_line_*` {#compiler.2}.
 - `get_build_options(w)` returns the stored copy {#compiler.4}.
-- `set_build_options(options, w, loc)` stores it, reports what jaic does not act on (`check_build_options`, see [build options](build-options.md)) and forwards settings with `__jaic_workspace_set_option(ws, key, value)`. Changed relative `import_path` entries are anchored at `loc`'s directory {#compiler.5}.
+- `set_build_options(options, w, loc)` stores it, reports what jaic does not act on (`check_build_options`, see [build options](build-options.md)) and forwards settings with the typed `__jaic_workspace_set_*` builtins. Changed relative `import_path` entries are anchored at `loc`'s directory {#compiler.5}.
 - `set_build_options_dc(dc, w, loc)` updates the stored copy and forwards `do_output`, `append_executable_filename_extension`, the output name and path, and one `additional_linker_argument` per `append_linker_arguments` entry {#compiler.6}.
 - `compiler_destroy_workspace` sends `destroy` (empty value). Only changed or non-empty values are forwarded for settings the Rust side defaults itself (output name, import paths, optimization, dead code elimination), so empty Jai defaults never clobber them. That is why the default `import_path` is empty {#compiler.7}. `write_added_strings` is not forwarded; [build options](build-options.md) says why.
 - Once every intercepted workspace has finished, later calls keep returning a `COMPLETE` for the last one, with its error code, so the usual `if m.kind == .COMPLETE break;` loop terminates {#compiler.8}.

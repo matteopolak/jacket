@@ -45,7 +45,7 @@ pub fn execute(
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: wasm.then(|| "wasm64-unknown-unknown".into()),
+                    target: wasm.then(|| jaic::target::Target::wasm_module()),
                     opt_level: if optimized {
                         OptLevel::O2
                     } else {

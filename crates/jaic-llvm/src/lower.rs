@@ -91,6 +91,7 @@ pub fn lower_program<'ctx>(
     module: &Module<'ctx>,
     program: &Program,
     arch: Arch,
+    target: jaic::target::Target,
     shard: Option<Shard>,
     debug: Option<(DebugFormat, bool)>,
     unoptimized: bool,
@@ -105,6 +106,7 @@ pub fn lower_program<'ctx>(
         builder: context.create_builder(),
         program,
         arch,
+        target,
         shard,
         imported: shard.map_or_else(Vec::new, |s| {
             let mut flags = vec![false; program.funcs.len()];
@@ -207,6 +209,7 @@ struct Backend<'ctx, 'p> {
     builder: Builder<'ctx>,
     program: &'p Program,
     arch: Arch,
+    target: jaic::target::Target,
     shard: Option<Shard<'p>>,
     /// Functions of other modules this one holds a copy of (empty without a shard).
     imported: Vec<bool>,
@@ -3012,11 +3015,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         if let Some(f) = self.module.get_function(name) {
             return Ok(f);
         }
-        let triple = self.module.get_triple();
-        let triple = triple.as_str().to_string_lossy();
-        let macho = triple.contains("apple") || triple.contains("darwin");
-        let text =
-            jaic::fiber::module_asm(self.arch, macho).ok_or("fibers need a native target")?;
+        let text = jaic::fiber::module_asm(self.arch, self.target.is_apple())
+            .ok_or("fibers need a native target")?;
         self.module.set_inline_assembly(&text);
         Ok(self.module.add_function(name, ty, Some(Linkage::External)))
     }

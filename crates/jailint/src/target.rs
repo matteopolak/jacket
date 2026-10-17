@@ -25,7 +25,7 @@ impl Selection {
     /// Match jaic's checking target defaults and triple precedence, preserving other options.
     pub fn apply(&self, options: &mut Options) -> Result<(), String> {
         match &self.triple {
-            Some(triple) => jaic::target::Triple::parse(triple)?.apply(options),
+            Some(triple) => jaic::target::Target::parse(triple)?.apply(options),
             None => jaic::target::select_os_cpu(options, self.os, self.cpu),
         }
         Ok(())

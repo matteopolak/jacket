@@ -6,7 +6,7 @@ compiler_create_workspace :: (name := "") -> Workspace #compiler {
 }
 
 compiler_destroy_workspace :: (w: Workspace) #compiler {
-    __jaic_workspace_set_option(resolve_workspace(w), "destroy", "");
+    __jaic_workspace_destroy(resolve_workspace(w));
 }
 
 compiler_set_memory_breakpoint :: (pointer: *void) #compiler {
@@ -41,57 +41,60 @@ set_build_options :: (options: C.Build_Options, w: Workspace = -1, loc := #calle
     require(!options.llvm_options.function_sections && !options.llvm_options.disable_mem2reg, "these LLVM pass switches are not implemented by the current backend");
     ws := resolve_workspace(w);
 
-    __jaic_workspace_set_option(ws, "output_type", enum_text(options.output_type));
-    __jaic_workspace_set_option(ws, "output_executable_name", options.output_executable_name);
-    __jaic_workspace_set_option(ws, "output_path", options.output_path);
-    __jaic_workspace_set_option(ws, "intermediate_path", options.intermediate_path);
-    __jaic_workspace_set_option(ws, "entry_point_name", options.entry_point_name);
-    __jaic_workspace_set_option(ws, "os_target", enum_text(options.os_target));
-    __jaic_workspace_set_option(ws, "cpu_target", enum_text(options.cpu_target));
-    __jaic_workspace_set_option(ws, "temporary_storage_size", Basic.sprint("%", options.temporary_storage_size));
-    __jaic_workspace_set_option(ws, "array_bounds_check", enum_text(options.array_bounds_check));
-    __jaic_workspace_set_option(ws, "cast_bounds_check", enum_text(options.cast_bounds_check));
-    __jaic_workspace_set_option(ws, "null_pointer_check", enum_text(options.null_pointer_check));
-    __jaic_workspace_set_option(ws, "arithmetic_overflow_check", enum_text(options.arithmetic_overflow_check));
-    __jaic_workspace_set_option(ws, "dead_code_elimination", enum_text(options.dead_code_elimination));
-    __jaic_workspace_set_option(ws, "runtime_support_definitions", enum_text(options.runtime_support_definitions));
-    __jaic_workspace_set_option(ws, "backtrace_on_crash", enum_text(options.backtrace_on_crash));
-    __jaic_workspace_set_option(ws, "emit_debug_info", enum_text(options.emit_debug_info));
-    forward_bool(ws, "stack_trace", options.stack_trace);
-    forward_bool(ws, "disable_redzone", options.disable_redzone);
-    forward_bool(ws, "enable_frame_pointers", options.enable_frame_pointers);
-    forward_bool(ws, "append_executable_filename_extension", options.append_executable_filename_extension);
-    forward_bool(ws, "use_custom_link_command", options.use_custom_link_command);
+    require(options.os_target == .WINDOWS || options.os_target == .LINUX || options.os_target == .MACOS || options.os_target == .WASM, "jaic cannot build for `os_target = .%`", enum_text(options.os_target));
+    require(options.cpu_target == .X64 || options.cpu_target == .ARM64 || options.cpu_target == .CUSTOM, "jaic cannot build for `cpu_target = .%`", enum_text(options.cpu_target));
+
+    set_number(ws, .OUTPUT_TYPE, options.output_type);
+    __jaic_workspace_set_text(ws, .OUTPUT_EXECUTABLE_NAME, options.output_executable_name);
+    __jaic_workspace_set_text(ws, .OUTPUT_PATH, options.output_path);
+    __jaic_workspace_set_text(ws, .INTERMEDIATE_PATH, options.intermediate_path);
+    __jaic_workspace_set_text(ws, .ENTRY_POINT_NAME, options.entry_point_name);
+    set_number(ws, .OS_TARGET, options.os_target);
+    set_number(ws, .CPU_TARGET, options.cpu_target);
+    __jaic_workspace_set_number(ws, .TEMPORARY_STORAGE_SIZE, options.temporary_storage_size);
+    set_number(ws, .ARRAY_BOUNDS_CHECK, options.array_bounds_check);
+    set_number(ws, .CAST_BOUNDS_CHECK, options.cast_bounds_check);
+    set_number(ws, .NULL_POINTER_CHECK, options.null_pointer_check);
+    set_number(ws, .ARITHMETIC_OVERFLOW_CHECK, options.arithmetic_overflow_check);
+    set_number(ws, .DEAD_CODE_ELIMINATION, options.dead_code_elimination);
+    set_number(ws, .RUNTIME_SUPPORT_DEFINITIONS, options.runtime_support_definitions);
+    set_number(ws, .BACKTRACE_ON_CRASH, options.backtrace_on_crash);
+    set_number(ws, .EMIT_DEBUG_INFO, options.emit_debug_info);
+    __jaic_workspace_set_flag(ws, .STACK_TRACE, options.stack_trace);
+    __jaic_workspace_set_flag(ws, .DISABLE_REDZONE, options.disable_redzone);
+    __jaic_workspace_set_flag(ws, .ENABLE_FRAME_POINTERS, options.enable_frame_pointers);
+    __jaic_workspace_set_flag(ws, .APPEND_EXECUTABLE_FILENAME_EXTENSION, options.append_executable_filename_extension);
+    __jaic_workspace_set_flag(ws, .USE_CUSTOM_LINK_COMMAND, options.use_custom_link_command);
 
     if options.minimum_os_version.major || options.minimum_os_version.minor {
-        __jaic_workspace_set_option(ws, "minimum_os_version", Basic.sprint("%.%", options.minimum_os_version.major, options.minimum_os_version.minor));
-    } else __jaic_workspace_set_option(ws, "minimum_os_version", "");
+        __jaic_workspace_set_text(ws, .MINIMUM_OS_VERSION, Basic.sprint("%.%", options.minimum_os_version.major, options.minimum_os_version.minor));
+    } else __jaic_workspace_set_text(ws, .MINIMUM_OS_VERSION, "");
 
-    __jaic_workspace_set_option(ws, "optimization", enum_text(options.llvm_options.bitcode_optimization_setting));
-    __jaic_workspace_set_option(ws, "machine_code_optimization", enum_text(options.llvm_options.machine_code_optimization_setting));
+    set_number(ws, .BITCODE_OPTIMIZATION, options.llvm_options.bitcode_optimization_setting);
+    set_number(ws, .MACHINE_CODE_OPTIMIZATION, options.llvm_options.machine_code_optimization_setting);
 
-    __jaic_workspace_set_option(ws, "llvm_target_system_triple", options.llvm_options.target_system_triple);
-    __jaic_workspace_set_option(ws, "llvm_target_system_cpu", options.llvm_options.target_system_cpu);
-    __jaic_workspace_set_option(ws, "llvm_target_system_features", options.llvm_options.target_system_features);
-    forward_bool(ws, "llvm_enable_tail_calls", options.llvm_options.enable_tail_calls);
-    forward_bool(ws, "llvm_enable_loop_unrolling", options.llvm_options.enable_loop_unrolling);
-    forward_bool(ws, "llvm_enable_slp_vectorization", options.llvm_options.enable_slp_vectorization);
-    forward_bool(ws, "llvm_enable_loop_vectorization", options.llvm_options.enable_loop_vectorization);
-    forward_bool(ws, "llvm_preserve_debug_info", options.llvm_options.preserve_debug_info);
-    forward_bool(ws, "llvm_merge_functions", options.llvm_options.merge_functions);
-    forward_bool(ws, "llvm_disable_inlining", options.llvm_options.disable_inlining);
-    forward_bool(ws, "llvm_disable_mem2reg", options.llvm_options.disable_mem2reg);
-    forward_bool(ws, "llvm_enable_split_modules", options.llvm_options.enable_split_modules);
-    forward_bool(ws, "llvm_function_sections", options.llvm_options.function_sections);
-    forward_bool(ws, "output_bitcode", options.llvm_options.output_bitcode);
-    forward_bool(ws, "output_llvm_ir", options.llvm_options.output_llvm_ir);
-    forward_bool(ws, "output_bitcode_before_optimizations", options.llvm_options.output_bitcode_before_optimizations);
-    forward_bool(ws, "output_llvm_ir_before_optimizations", options.llvm_options.output_llvm_ir_before_optimizations);
-    __jaic_workspace_set_option(ws, "import_path_clear", "");
-    for path: options.import_path __jaic_workspace_set_option(ws, "import_path", source_relative_path(path, loc));
+    __jaic_workspace_set_text(ws, .LLVM_TARGET_SYSTEM_TRIPLE, options.llvm_options.target_system_triple);
+    __jaic_workspace_set_text(ws, .LLVM_TARGET_SYSTEM_CPU, options.llvm_options.target_system_cpu);
+    __jaic_workspace_set_text(ws, .LLVM_TARGET_SYSTEM_FEATURES, options.llvm_options.target_system_features);
+    __jaic_workspace_set_flag(ws, .LLVM_ENABLE_TAIL_CALLS, options.llvm_options.enable_tail_calls);
+    __jaic_workspace_set_flag(ws, .LLVM_ENABLE_LOOP_UNROLLING, options.llvm_options.enable_loop_unrolling);
+    __jaic_workspace_set_flag(ws, .LLVM_ENABLE_SLP_VECTORIZATION, options.llvm_options.enable_slp_vectorization);
+    __jaic_workspace_set_flag(ws, .LLVM_ENABLE_LOOP_VECTORIZATION, options.llvm_options.enable_loop_vectorization);
+    __jaic_workspace_set_flag(ws, .LLVM_PRESERVE_DEBUG_INFO, options.llvm_options.preserve_debug_info);
+    __jaic_workspace_set_flag(ws, .LLVM_MERGE_FUNCTIONS, options.llvm_options.merge_functions);
+    __jaic_workspace_set_flag(ws, .LLVM_DISABLE_INLINING, options.llvm_options.disable_inlining);
+    __jaic_workspace_set_flag(ws, .LLVM_DISABLE_MEM2REG, options.llvm_options.disable_mem2reg);
+    __jaic_workspace_set_flag(ws, .LLVM_ENABLE_SPLIT_MODULES, options.llvm_options.enable_split_modules);
+    __jaic_workspace_set_flag(ws, .LLVM_FUNCTION_SECTIONS, options.llvm_options.function_sections);
+    __jaic_workspace_set_flag(ws, .OUTPUT_BITCODE, options.llvm_options.output_bitcode);
+    __jaic_workspace_set_flag(ws, .OUTPUT_LLVM_IR, options.llvm_options.output_llvm_ir);
+    __jaic_workspace_set_flag(ws, .OUTPUT_BITCODE_BEFORE_OPTIMIZATIONS, options.llvm_options.output_bitcode_before_optimizations);
+    __jaic_workspace_set_flag(ws, .OUTPUT_LLVM_IR_BEFORE_OPTIMIZATIONS, options.llvm_options.output_llvm_ir_before_optimizations);
+    __jaic_workspace_clear_list(ws, .IMPORT_PATH);
+    for path: options.import_path __jaic_workspace_append_list(ws, .IMPORT_PATH, source_relative_path(path, loc));
 
-    __jaic_workspace_set_option(ws, "additional_linker_arguments_clear", "");
-    for arg: options.additional_linker_arguments __jaic_workspace_set_option(ws, "additional_linker_argument", arg);
+    __jaic_workspace_clear_list(ws, .ADDITIONAL_LINKER_ARGUMENT);
+    for arg: options.additional_linker_arguments __jaic_workspace_append_list(ws, .ADDITIONAL_LINKER_ARGUMENT, arg);
 
     snapshot_options(ws, *options, true);
 }
@@ -115,16 +118,16 @@ set_build_options_dc :: (options: C.Build_Options_During_Compile, w: Workspace =
 
         for arg: options.append_linker_arguments {
             Basic.array_add(*arguments, arg);
-            __jaic_workspace_set_option(ws, "additional_linker_argument", arg);
+            __jaic_workspace_append_list(ws, .ADDITIONAL_LINKER_ARGUMENT, arg);
         }
 
         stored.additional_linker_arguments = arguments;
     }
 
-    forward_bool(ws, "do_output", options.do_output);
-    forward_bool(ws, "append_executable_filename_extension", options.append_executable_filename_extension);
-    __jaic_workspace_set_option(ws, "output_executable_name", stored.output_executable_name);
-    __jaic_workspace_set_option(ws, "output_path", stored.output_path);
+    __jaic_workspace_set_flag(ws, .DO_OUTPUT, options.do_output);
+    __jaic_workspace_set_flag(ws, .APPEND_EXECUTABLE_FILENAME_EXTENSION, options.append_executable_filename_extension);
+    __jaic_workspace_set_text(ws, .OUTPUT_EXECUTABLE_NAME, stored.output_executable_name);
+    __jaic_workspace_set_text(ws, .OUTPUT_PATH, stored.output_path);
     snapshot_options(ws, *stored, true);
 }
 
@@ -295,9 +298,12 @@ enum_text :: (value: $T) -> string {
     return "";
 }
 
-forward_bool :: (w: Workspace, key: string, value: bool) {
-    if value __jaic_workspace_set_option(w, key, "true");
-    else __jaic_workspace_set_option(w, key, "false");
+append_linker_argument :: (w: Workspace, argument: string) {
+    __jaic_workspace_append_list(w, .ADDITIONAL_LINKER_ARGUMENT, argument);
+}
+
+set_number :: (w: Workspace, option: Workspace_Number, value: $T) {
+    __jaic_workspace_set_number(w, option, cast(s64) value);
 }
 
 source_relative_path :: (path: string, loc: Source_Code_Location) -> string {

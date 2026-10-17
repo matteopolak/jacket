@@ -37,12 +37,12 @@ using_prefix :: (builder: *Basic.String_Builder, node: *C.Code_Using, bodies: bo
             if !expression(builder, node.filter_expression, true, bodies, depth + 1) return false;
         } else {
             // Owned static name syntax is separate from the editable public kind.
-            original_filter := syntax_int(node, "__syntax_static_filter");
+            original_filter := syntax_int(node, .STATIC_FILTER);
             if !original_filter return false;
             // A name list and a mapping have different argument grammars.
             if (original_filter == 3) != (node.filter_type == .MAP) return false;
 
-            Basic.append(builder, syntax_string(node, "__syntax_filter_arguments"));
+            Basic.append(builder, syntax_string(node, .FILTER_ARGUMENTS));
         }
 
         Basic.append(builder, ")");
@@ -84,7 +84,7 @@ literal_target :: (builder: *Basic.String_Builder, node: *C.Code_Node, bodies: b
 expression :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: bool, bodies: bool, depth: s64) -> bool {
     if !expression_inner(builder, node, skip, bodies, depth) return false;
 
-    notes := syntax_child(node, "__syntax_statement_notes");
+    notes := syntax_child(node, .STATEMENT_NOTES);
     if notes {
         if notes.kind != .COMMA_SEPARATED_ARGUMENTS return false;
 
@@ -100,9 +100,9 @@ expression :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: bool, b
 
 expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: bool, bodies: bool, depth: s64) -> bool {
     if !node || depth > 512 return false;
-    if syntax_int(node, "__syntax_incomplete") return false;
+    if syntax_int(node, .INCOMPLETE) return false;
 
-    original_kind := syntax_int(node, "__syntax_original_kind");
+    original_kind := syntax_int(node, .ORIGINAL_KIND);
     if original_kind && original_kind != cast(int) node.kind return false;
 
     next := depth + 1;
@@ -114,14 +114,14 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
 
             if n.flags & .DEFINES_POLYMORPH_VARIABLE {
                 Basic.append(builder, "$");
-                if syntax_int(node, "__syntax_poly_baked") Basic.append(builder, "$");
+                if syntax_int(node, .POLY_BAKED) Basic.append(builder, "$");
             }
 
             Basic.append(builder, n.name);
-            restriction := syntax_child(node, "__syntax_restriction");
+            restriction := syntax_child(node, .RESTRICTION);
             if restriction {
                 Basic.append(builder, "/");
-                if syntax_int(node, "__syntax_interface") Basic.append(builder, "interface ");
+                if syntax_int(node, .INTERFACE) Basic.append(builder, "interface ");
                 if !expression(builder, restriction, false, bodies, next) return false;
             }
 
@@ -267,7 +267,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             return true;
         case .PROCEDURE_CALL;
             n := cast(*C.Code_Procedure_Call) node;
-            hint := syntax_int(node, "__syntax_call_hint");
+            hint := syntax_int(node, .CALL_HINT);
 
             if hint == 1 Basic.append(builder, "inline ");
             if hint == 2 Basic.append(builder, "no_inline ");
@@ -339,14 +339,14 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             return procedure(builder, n, block, bodies, next);
         case .DIRECTIVE_RUN;
             n := cast(*C.Code_Directive_Run) node;
-            body := syntax_child(node, "__syntax_run_body");
+            body := syntax_child(node, .RUN_BODY);
 
             if !body && !n.procedure return false;
 
             if n.flags & .ASSERTION Basic.append(builder, "#assert(");
             else {
                 Basic.append(builder, "#run");
-                Basic.append(builder, syntax_string(node, "__syntax_flags"));
+                Basic.append(builder, syntax_string(node, .FLAGS));
                 Basic.append(builder, " ");
             }
 
@@ -357,8 +357,8 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             } else if !expression(builder, body, true, bodies, next) return false;
 
             if n.flags & .ASSERTION {
-                message := syntax_child(node, "__syntax_assert_message");
-                args := syntax_child(node, "__syntax_assert_args");
+                message := syntax_child(node, .ASSERT_MESSAGE);
+                args := syntax_child(node, .ASSERT_ARGS);
 
                 if message {
                     Basic.append(builder, ", ");
@@ -402,7 +402,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             else Basic.append(builder, "struct ");
 
             if n.textual_flags & .UNION_IS_TAGGED {
-                tag := syntax_child(node, "__syntax_union_tag");
+                tag := syntax_child(node, .UNION_TAG);
                 if !tag || !expression(builder, tag, true, bodies, next) return false;
                 Basic.append(builder, " ");
             }
@@ -423,7 +423,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             if n.textual_flags & .TYPE_INFO_NO_SIZE_COMPLAINT Basic.append(builder, "#type_info_no_size_complaint ");
             if n.textual_flags & .TYPE_INFO_PROCEDURES_ARE_VOID_POINTERS Basic.append(builder, "#type_info_procedures_are_void_pointers ");
 
-            alignment := syntax_child(node, "__syntax_alignment");
+            alignment := syntax_child(node, .ALIGNMENT);
             if n.alignment > 0 Basic.print_to_builder(builder, "#align % ", n.alignment);
             else if alignment {
                 Basic.append(builder, "#align ");
@@ -580,8 +580,8 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             if n.macro_expansion_procedure_call || n.want_replacement_for_expansion return false;
 
             Basic.append(builder, "for ");
-            Basic.append(builder, syntax_string(node, "__syntax_flags"));
-            iterator := syntax_string(node, "__syntax_iterator");
+            Basic.append(builder, syntax_string(node, .FLAGS));
+            iterator := syntax_string(node, .ITERATOR);
             if iterator.count {
                 Basic.append(builder, ":");
                 Basic.append(builder, iterator);
@@ -625,13 +625,13 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             n := cast(*C.Code_While) node;
 
             Basic.append(builder, "while ");
-            label := syntax_string(node, "__syntax_label");
+            label := syntax_string(node, .LABEL);
             if label.count {
-                if !syntax_int(node, "__syntax_bind_label") Basic.append(builder, ":");
-                if syntax_int(node, "__syntax_backtick_label") Basic.append(builder, "`");
+                if !syntax_int(node, .BIND_LABEL) Basic.append(builder, ":");
+                if syntax_int(node, .BACKTICK_LABEL) Basic.append(builder, "`");
 
                 Basic.append(builder, label);
-                if syntax_int(node, "__syntax_bind_label") Basic.append(builder, " :=");
+                if syntax_int(node, .BIND_LABEL) Basic.append(builder, " :=");
 
                 Basic.append(builder, " ");
             }
@@ -662,7 +662,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             return true;
         case .DIRECTIVE_LOCATION;
             n := cast(*C.Code_Directive_Location) node;
-            if syntax_int(node, "__syntax_caller_code") Basic.append(builder, "#caller_code");
+            if syntax_int(node, .CALLER_CODE) Basic.append(builder, "#caller_code");
             else if n.is_caller_location Basic.append(builder, "#caller_location");
             else {
                 Basic.append(builder, "#location");
@@ -692,7 +692,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             return expression(builder, (cast(*C.Code_Directive_Add_Context) node).expression, true, bodies, next);
         case .DIRECTIVE_PLACE;
             Basic.append(builder, "#place ");
-            return expression(builder, syntax_child(node, "__syntax_operand"), true, bodies, next);
+            return expression(builder, syntax_child(node, .OPERAND), true, bodies, next);
         case .DIRECTIVE_OVERLAY;
             n := cast(*C.Code_Directive_Overlay) node;
 
@@ -732,13 +732,13 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
 
             return true;
         case .PLACEHOLDER;
-            name := syntax_string(node, "__syntax_directive_name");
+            name := syntax_string(node, .DIRECTIVE_NAME);
             if name.count == 0 return false;
 
             Basic.append(builder, "#");
             Basic.append(builder, name);
-            Basic.append(builder, syntax_string(node, "__syntax_flags"));
-            args := syntax_child(node, "__syntax_directive_args");
+            Basic.append(builder, syntax_string(node, .FLAGS));
+            args := syntax_child(node, .DIRECTIVE_ARGS);
             if args {
                 Basic.append(builder, " ");
                 return expression(builder, args, true, bodies, next);
@@ -751,7 +751,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             n := cast(*C.Code_Directive_Insert) node;
 
             Basic.append(builder, "#insert");
-            Basic.append(builder, syntax_string(node, "__syntax_flags"));
+            Basic.append(builder, syntax_string(node, .FLAGS));
 
             if n.scope_redirection {
                 Basic.append(builder, ",scope(");
@@ -796,7 +796,7 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             if n.push_context_flags & .DEFER_POP Basic.append(builder, ",defer_pop");
 
             Basic.append(builder, " ");
-            bare := syntax_int(node, "__syntax_context_bare") && n.to_push == syntax_child(node, "__syntax_original_context");
+            bare := syntax_int(node, .CONTEXT_BARE) && n.to_push == syntax_child(node, .ORIGINAL_CONTEXT);
             if n.to_push && !bare && !expression(builder, n.to_push, false, bodies, next) return false;
 
             if n.block {
@@ -812,23 +812,23 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
         case .DIRECTIVE_IMPORT;
             n := cast(*C.Code_Directive_Import) node;
 
-            if syntax_int(node, "__syntax_using") {
+            if syntax_int(node, .USING) {
                 if !private_using(builder, node, bodies, next) return false;
             }
 
-            alias := syntax_string(node, "__syntax_alias");
+            alias := syntax_string(node, .ALIAS);
             if alias.count {
                 Basic.append(builder, alias);
                 Basic.append(builder, " :: ");
             }
 
             Basic.append(builder, "#import");
-            kind := syntax_int(node, "__syntax_import_kind");
+            kind := syntax_int(node, .IMPORT_KIND);
             if kind == 1 Basic.append(builder, ",file");
             if kind == 2 Basic.append(builder, ",dir");
             if kind == 3 Basic.append(builder, ",string");
 
-            Basic.append(builder, syntax_string(node, "__syntax_flags"));
+            Basic.append(builder, syntax_string(node, .FLAGS));
             Basic.append(builder, " ");
             quoted(builder, n.name);
 
@@ -891,9 +891,9 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
 
 declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print_using: bool, compound: *C.Code_Compound_Declaration, print_type: bool, bodies: bool, depth: s64, parameter := false) -> bool {
     if !decl || depth > 512 return false;
-    if syntax_int(decl, "__syntax_incomplete") return false;
+    if syntax_int(decl, .INCOMPLETE) return false;
 
-    tag := syntax_child(decl, "__syntax_union_tag");
+    tag := syntax_child(decl, .UNION_TAG);
     if tag {
         if !expression(builder, tag, true, bodies, depth + 1) return false;
         Basic.append(builder, " ,, ");
@@ -901,7 +901,7 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
 
     if decl.flags & .IS_MARKED_AS_AS Basic.append(builder, "#as ");
 
-    if print_using && syntax_int(decl, "__syntax_using") {
+    if print_using && syntax_int(decl, .USING) {
         if !private_using(builder, decl, bodies, depth + 1) return false;
     }
 
@@ -948,9 +948,9 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
     }
 
     value := decl.expression;
-    alias := syntax_child(decl, "__syntax_alias_expression");
+    alias := syntax_child(decl, .ALIAS_EXPRESSION);
 
-    if alias && value == syntax_child(decl, "__syntax_initial_expression") value = alias;
+    if alias && value == syntax_child(decl, .INITIAL_EXPRESSION) value = alias;
 
     if value {
         if !parameter && decl.flags & .IS_CONSTANT Basic.append(builder, ": ");
@@ -965,19 +965,19 @@ declaration :: (builder: *Basic.String_Builder, decl: *C.Code_Declaration, print
         if !expression(builder, decl.alignment_expression, false, bodies, depth + 1) return false;
     }
 
-    Basic.append(builder, syntax_string(decl, "__syntax_flags"));
+    Basic.append(builder, syntax_string(decl, .FLAGS));
 
-    if syntax_int(decl, "__syntax_foreign") {
+    if syntax_int(decl, .FOREIGN) {
         Basic.append(builder, " #foreign");
-        library := syntax_child(decl, "__syntax_foreign_library");
+        library := syntax_child(decl, .FOREIGN_LIBRARY);
         if library {
             Basic.append(builder, " ");
             if !expression(builder, library, true, bodies, depth + 1) return false;
         }
 
-        if syntax_int(decl, "__syntax_foreign_named") {
+        if syntax_int(decl, .FOREIGN_NAMED) {
             Basic.append(builder, " ");
-            quoted(builder, syntax_string(decl, "__syntax_foreign_symbol"));
+            quoted(builder, syntax_string(decl, .FOREIGN_SYMBOL));
         }
     }
 
@@ -1061,9 +1061,9 @@ files: [..] File_Group;
 
 private_using :: (builder: *Basic.String_Builder, node: *C.Code_Node, bodies: bool, depth: int) -> bool {
     Basic.append(builder, "using");
-    filter := syntax_child(node, "__syntax_filter_expression");
+    filter := syntax_child(node, .FILTER_EXPRESSION);
     if filter {
-        kind := syntax_int(node, "__syntax_filter_kind");
+        kind := syntax_int(node, .FILTER_KIND);
         if kind == 1 Basic.append(builder, ",only(");
         else if kind == 2 Basic.append(builder, ",except(");
         else if kind == 3 Basic.append(builder, ",map(");
@@ -1071,7 +1071,7 @@ private_using :: (builder: *Basic.String_Builder, node: *C.Code_Node, bodies: bo
         if !expression(builder, filter, true, bodies, depth + 1) return false;
 
         Basic.append(builder, ")");
-    } else Basic.append(builder, syntax_string(node, "__syntax_filter"));
+    } else Basic.append(builder, syntax_string(node, .FILTER));
 
     Basic.append(builder, " ");
 
@@ -1140,7 +1140,7 @@ procedure :: (builder: *Basic.String_Builder, n: *C.Code_Procedure_Header, block
 
     node: *C.Code_Node = n;
     next := depth + 1;
-    lambda := syntax_child(node, "__syntax_lambda_body");
+    lambda := syntax_child(node, .LAMBDA_BODY);
 
     Basic.append(builder, "(");
 
@@ -1175,7 +1175,7 @@ procedure :: (builder: *Basic.String_Builder, n: *C.Code_Procedure_Header, block
         for arg, i: n.returns {
             if i > 0 Basic.append(builder, ", ");
             if !declaration(builder, arg, false, null, true, bodies, next) return false;
-            if syntax_int(arg, "__syntax_return_must") Basic.append(builder, " #must");
+            if syntax_int(arg, .RETURN_MUST) Basic.append(builder, " #must");
         }
 
         Basic.append(builder, ")");
@@ -1195,7 +1195,7 @@ procedure :: (builder: *Basic.String_Builder, n: *C.Code_Procedure_Header, block
         if n.procedure_flags & .INTRINSIC Basic.append(builder, " #intrinsic");
         else Basic.append(builder, " #compiler");
 
-        builtin := syntax_string(node, "__syntax_builtin_name");
+        builtin := syntax_string(node, .BUILTIN_NAME);
         if builtin.count {
             Basic.append(builder, " ");
             quoted(builder, builtin);
@@ -1205,13 +1205,13 @@ procedure :: (builder: *Basic.String_Builder, n: *C.Code_Procedure_Header, block
     if n.procedure_flags & .DEPRECATED {
         Basic.append(builder, " #deprecated");
 
-        if n.deprecation_string.count || syntax_int(node, "__syntax_deprecation_named") {
+        if n.deprecation_string.count || syntax_int(node, .DEPRECATION_NAMED) {
             Basic.append(builder, " ");
             quoted(builder, n.deprecation_string);
         }
     }
 
-    if syntax_int(node, "__syntax_foreign") || n.procedure_flags & .ELSEWHERE {
+    if syntax_int(node, .FOREIGN) || n.procedure_flags & .ELSEWHERE {
         if n.procedure_flags & .ELSEWHERE Basic.append(builder, " #elsewhere");
         else Basic.append(builder, " #foreign");
 
@@ -1220,20 +1220,20 @@ procedure :: (builder: *Basic.String_Builder, n: *C.Code_Procedure_Header, block
             if !expression(builder, n.library_identifier, true, bodies, next) return false;
         }
 
-        if n.foreign_function_name.count || syntax_int(node, "__syntax_foreign_named") {
+        if n.foreign_function_name.count || syntax_int(node, .FOREIGN_NAMED) {
             Basic.append(builder, " ");
             quoted(builder, n.foreign_function_name);
         }
     }
 
-    Basic.append(builder, syntax_string(node, "__syntax_flags"));
+    Basic.append(builder, syntax_string(node, .FLAGS));
 
-    if syntax_int(node, "__syntax_program_export") {
+    if syntax_int(node, .PROGRAM_EXPORT) {
         Basic.append(builder, " #program_export");
 
-        if syntax_int(node, "__syntax_export_named") {
+        if syntax_int(node, .EXPORT_NAMED) {
             Basic.append(builder, " ");
-            quoted(builder, syntax_string(node, "__syntax_export_name"));
+            quoted(builder, syntax_string(node, .EXPORT_NAME));
         }
     }
 

@@ -11,6 +11,7 @@
 //! `compiler_modify_procedure` can map a modified statement list back.
 use super::scope::{EntityKind, Resolved, ScopeKind};
 use super::*;
+use crate::builtin_keys::SyntaxKey;
 use crate::records::{Field, FieldRef, Item, Record, Records};
 use crate::types::{ArrayKind, TypeKind};
 
@@ -1057,7 +1058,7 @@ impl Exporter<'_> {
         // The common fields (kind, location, serial, type) and a node's own few: growing
         // from empty reallocated most records two or three times.
         let mut rec = Record::with_capacity(tag, 12);
-        rec.int("kind", kind).int("__syntax_original_kind", kind);
+        rec.int("kind", kind).int(SyntaxKey::OriginalKind, kind);
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
         };
@@ -1544,7 +1545,7 @@ impl Exporter<'_> {
         rec.ptr("expression", value)
             .ptr("scope_redirection", scope)
             .str(
-                "__syntax_flags",
+                SyntaxKey::Flags,
                 flags
                     .iter()
                     .map(|flag| format!(",{}", flag.name))
@@ -1553,7 +1554,7 @@ impl Exporter<'_> {
             );
         for replacement in replacements {
             let Some(name) = replacement.name else {
-                rec.int("__syntax_incomplete", 1);
+                rec.int(SyntaxKey::Incomplete, 1);
                 continue;
             };
             let field = match name.name.as_str() {
@@ -1561,7 +1562,7 @@ impl Exporter<'_> {
                 "continue" => "continue_replacement",
                 "remove" => "remove_replacement",
                 _ => {
-                    rec.int("__syntax_incomplete", 1);
+                    rec.int(SyntaxKey::Incomplete, 1);
                     continue;
                 }
             };
@@ -1806,7 +1807,7 @@ impl Exporter<'_> {
                 let mut rec = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
                 rec.ptr("procedure_expression", callee)
                     .int(
-                        "__syntax_call_hint",
+                        SyntaxKey::CallHint,
                         match hint {
                             ast::CallHint::None => 0,
                             ast::CallHint::Inline => 1,
@@ -1939,10 +1940,7 @@ impl Exporter<'_> {
                 };
                 let id = self.proc(&lit, &[], None, span);
                 let body = self.expr(body);
-                self.r
-                    .get_mut(id)
-                    .unwrap()
-                    .ptr("__syntax_lambda_body", body);
+                self.r.get_mut(id).unwrap().ptr(SyntaxKey::LambdaBody, body);
                 return id;
             }
             E::Block(block) => return self.syntax_block(block),
@@ -1957,8 +1955,8 @@ impl Exporter<'_> {
                     ast::RunBody::Block(block) => self.syntax_block(block),
                 };
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
-                rec.ptr("__syntax_run_body", body).str(
-                    "__syntax_flags",
+                rec.ptr(SyntaxKey::RunBody, body).str(
+                    SyntaxKey::Flags,
                     flags
                         .iter()
                         .map(|flag| format!(",{}", flag.name))
@@ -2036,11 +2034,11 @@ impl Exporter<'_> {
                 let operand = self.opt_expr(directive.operand.as_ref());
                 let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
                 rec.str(
-                    "__syntax_directive_name",
+                    SyntaxKey::DirectiveName,
                     directive.name.name.as_str().as_bytes(),
                 )
                 .str(
-                    "__syntax_flags",
+                    SyntaxKey::Flags,
                     directive
                         .flags
                         .iter()
@@ -2048,14 +2046,14 @@ impl Exporter<'_> {
                         .collect::<String>()
                         .as_bytes(),
                 )
-                .ptr("__syntax_directive_args", operand);
+                .ptr(SyntaxKey::DirectiveArgs, operand);
                 rec
             }
             E::ProcedureOfCall(call) => {
                 let call = self.expr(call);
                 let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
-                rec.str("__syntax_directive_name", b"procedure_of_call")
-                    .ptr("__syntax_directive_args", call);
+                rec.str(SyntaxKey::DirectiveName, b"procedure_of_call")
+                    .ptr(SyntaxKey::DirectiveArgs, call);
                 rec
             }
             E::ProcedureName(arg) => {
@@ -2104,7 +2102,7 @@ impl Exporter<'_> {
                         0
                     },
                 );
-                rec.int("__syntax_poly_baked", i64::from(*baked));
+                rec.int(SyntaxKey::PolyBaked, i64::from(*baked));
                 rec
             }
             E::PolyRestricted {
@@ -2124,13 +2122,13 @@ impl Exporter<'_> {
                         },
                     )
                     .ptr("polymorph_restriction", restriction)
-                    .ptr("__syntax_restriction", restriction)
-                    .int("__syntax_interface", i64::from(*interface));
+                    .ptr(SyntaxKey::Restriction, restriction)
+                    .int(SyntaxKey::Interface, i64::from(*interface));
                 rec
             }
             E::CallerCode => {
                 let mut rec = self.node("Code_Directive_Location", node::DIRECTIVE_LOCATION, span);
-                rec.int("is_caller_code", 1).int("__syntax_caller_code", 1);
+                rec.int("is_caller_code", 1).int(SyntaxKey::CallerCode, 1);
                 rec
             }
             // The location directives are constants of the file they sit in: exported as the
@@ -2199,16 +2197,16 @@ impl Exporter<'_> {
             ast::AsmPin::Index(index) => index.to_string(),
         });
         let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
-        rec.str("__syntax_asm_kind", b"declaration")
-            .str("__syntax_name", decl.name.name.as_str().as_bytes())
+        rec.str(SyntaxKey::AsmKind, b"declaration")
+            .str(SyntaxKey::Name, decl.name.name.as_str().as_bytes())
             .str(
-                "__syntax_class",
+                SyntaxKey::Class,
                 decl.class
                     .map_or(String::new(), |class| class.name.to_string())
                     .as_bytes(),
             )
-            .str("__syntax_pin", pin.as_bytes())
-            .int("__syntax_colon", i64::from(decl.colon));
+            .str(SyntaxKey::Pin, pin.as_bytes())
+            .int(SyntaxKey::Colon, i64::from(decl.colon));
         self.add(rec)
     }
 
@@ -2224,17 +2222,17 @@ impl Exporter<'_> {
                         let value = self.expr(&term.value);
                         let scale = self.opt_expr(term.scale.as_ref());
                         let mut rec = self.node("Code_Node", node::PLACEHOLDER, memory.span);
-                        rec.ptr("__syntax_value", value)
-                            .ptr("__syntax_scale", scale)
-                            .int("__syntax_negate", i64::from(term.negate));
+                        rec.ptr(SyntaxKey::Value, value)
+                            .ptr(SyntaxKey::Scale, scale)
+                            .int(SyntaxKey::Negate, i64::from(term.negate));
                         self.add(rec)
                     })
                     .collect();
                 let terms = self.node_list(&terms, memory.span);
                 let mut rec = self.node("Code_Node", node::PLACEHOLDER, memory.span);
-                rec.str("__syntax_asm_kind", b"memory")
-                    .ptr("__syntax_terms", terms)
-                    .int("__syntax_broadcast", i64::from(memory.broadcast));
+                rec.str(SyntaxKey::AsmKind, b"memory")
+                    .ptr(SyntaxKey::Terms, terms)
+                    .int(SyntaxKey::Broadcast, i64::from(memory.broadcast));
                 self.add(rec)
             }
         }
@@ -2267,27 +2265,27 @@ impl Exporter<'_> {
                         format!("!{}", mode.map_or(String::new(), |mode| mode.to_string()))
                     });
                     let mut rec = self.node("Code_Node", node::PLACEHOLDER, inst.span);
-                    rec.str("__syntax_asm_kind", b"instruction")
-                        .str("__syntax_mnemonic", inst.mnemonic.name.as_str().as_bytes())
-                        .ptr("__syntax_operands", operands)
-                        .str("__syntax_suffix", suffix.as_bytes())
-                        .ptr("__syntax_size", size)
-                        .ptr("__syntax_mask", mask)
+                    rec.str(SyntaxKey::AsmKind, b"instruction")
+                        .str(SyntaxKey::Mnemonic, inst.mnemonic.name.as_str().as_bytes())
+                        .ptr(SyntaxKey::Operands, operands)
+                        .str(SyntaxKey::Suffix, suffix.as_bytes())
+                        .ptr(SyntaxKey::Size, size)
+                        .ptr(SyntaxKey::Mask, mask)
                         .int(
-                            "__syntax_zeroing",
+                            SyntaxKey::Zeroing,
                             i64::from(inst.evex.mask.as_ref().is_some_and(|(_, zeroing)| *zeroing)),
                         )
-                        .str("__syntax_round", round.as_bytes());
+                        .str(SyntaxKey::Round, round.as_bytes());
                     self.add(rec)
                 }
             })
             .collect();
         let items = self.node_list(&items, span);
         let mut rec = self.node("Code_Asm", node::ASM, span);
-        rec.ptr("__syntax_asm_items", items)
-            .int("__syntax_asm_present", 1)
+        rec.ptr(SyntaxKey::AsmItems, items)
+            .int(SyntaxKey::AsmPresent, 1)
             .str(
-                "__syntax_features",
+                SyntaxKey::Features,
                 block
                     .features
                     .iter()
@@ -2500,9 +2498,9 @@ impl Exporter<'_> {
                 let mut rec = self.node("Code_While", node::WHILE, span);
                 rec.ptr("condition", cond).ptr("block", block);
                 if let Some(label) = label {
-                    rec.str("__syntax_label", label.name.as_str().as_bytes())
-                        .int("__syntax_bind_label", i64::from(*bind_label))
-                        .int("__syntax_backtick_label", i64::from(*backtick_label));
+                    rec.str(SyntaxKey::Label, label.name.as_str().as_bytes())
+                        .int(SyntaxKey::BindLabel, i64::from(*bind_label))
+                        .int(SyntaxKey::BacktickLabel, i64::from(*backtick_label));
                 }
                 self.add(rec)
             }
@@ -2540,10 +2538,10 @@ impl Exporter<'_> {
                     .ptr("block", block)
                     .int("for_flags", flags);
                 if let Some(iterator) = f.iterator {
-                    rec.str("__syntax_iterator", iterator.name.as_str().as_bytes());
+                    rec.str(SyntaxKey::Iterator, iterator.name.as_str().as_bytes());
                 }
                 rec.str(
-                    "__syntax_flags",
+                    SyntaxKey::Flags,
                     f.flags
                         .iter()
                         .map(|flag| format!("#{} ", flag.name))
@@ -2596,9 +2594,9 @@ impl Exporter<'_> {
                 rec.ptr("expression", value)
                     .int("filter_type", filter_type)
                     .ptr("filter_expression", filter_expression)
-                    .str("__syntax_filter", Self::filter_syntax(filter).as_bytes())
+                    .str(SyntaxKey::Filter, Self::filter_syntax(filter).as_bytes())
                     .int(
-                        "__syntax_static_filter",
+                        SyntaxKey::StaticFilter,
                         if filter_expression == 0 {
                             filter_type
                         } else {
@@ -2606,7 +2604,7 @@ impl Exporter<'_> {
                         },
                     )
                     .str(
-                        "__syntax_filter_arguments",
+                        SyntaxKey::FilterArguments,
                         Self::filter_arguments(filter).as_bytes(),
                     );
                 self.add(rec)
@@ -2615,8 +2613,8 @@ impl Exporter<'_> {
                 let context = self.expr(&defer.context);
                 let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context)
-                    .ptr("__syntax_original_context", context)
-                    .int("__syntax_context_bare", i64::from(defer.bare))
+                    .ptr(SyntaxKey::OriginalContext, context)
+                    .int(SyntaxKey::ContextBare, i64::from(defer.bare))
                     .int("push_context_flags", 2 | i64::from(defer.backtick));
                 self.add(rec)
             }
@@ -2631,8 +2629,8 @@ impl Exporter<'_> {
                 let block = self.stmt_block(body);
                 let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context)
-                    .ptr("__syntax_original_context", context)
-                    .int("__syntax_context_bare", i64::from(*bare))
+                    .ptr(SyntaxKey::OriginalContext, context)
+                    .int(SyntaxKey::ContextBare, i64::from(*bare))
                     .ptr("block", block)
                     .int("push_context_flags", i64::from(*backtick));
                 self.add(rec)
@@ -2650,7 +2648,7 @@ impl Exporter<'_> {
             S::Run(e) => {
                 let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
                 let e = self.expr(e);
-                rec.ptr("expression", e).ptr("__syntax_run_body", e);
+                rec.ptr("expression", e).ptr(SyntaxKey::RunBody, e);
                 self.add(rec)
             }
             S::Case(case) => self.case(case),
@@ -2672,9 +2670,9 @@ impl Exporter<'_> {
                     .str("assertion_string", text.as_bytes())
                     .ptr("expression", cond)
                     .ptr("message", message)
-                    .ptr("__syntax_run_body", cond)
-                    .ptr("__syntax_assert_message", message)
-                    .ptr("__syntax_assert_args", args);
+                    .ptr(SyntaxKey::RunBody, cond)
+                    .ptr(SyntaxKey::AssertMessage, message)
+                    .ptr(SyntaxKey::AssertArgs, args);
                 self.add(rec)
             }
             S::Import(import) => {
@@ -2686,9 +2684,9 @@ impl Exporter<'_> {
                     ast::ImportSource::String(name) => (name, 3),
                 };
                 rec.str("name", name.as_bytes())
-                    .int("__syntax_import_kind", kind)
+                    .int(SyntaxKey::ImportKind, kind)
                     .str(
-                        "__syntax_flags",
+                        SyntaxKey::Flags,
                         import
                             .flags
                             .iter()
@@ -2697,18 +2695,18 @@ impl Exporter<'_> {
                             .as_bytes(),
                     )
                     .str(
-                        "__syntax_alias",
+                        SyntaxKey::Alias,
                         import
                             .name
                             .map_or(String::new(), |name| name.name.to_string())
                             .as_bytes(),
                     )
-                    .int("__syntax_using", i64::from(import.using.is_some()));
+                    .int(SyntaxKey::Using, i64::from(import.using.is_some()));
                 if let Some(filter) = &import.using {
-                    rec.str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+                    rec.str(SyntaxKey::Filter, Self::filter_syntax(filter).as_bytes());
                     let (kind, expression) = self.using_filter(filter);
-                    rec.int("__syntax_filter_kind", kind)
-                        .ptr("__syntax_filter_expression", expression);
+                    rec.int(SyntaxKey::FilterKind, kind)
+                        .ptr(SyntaxKey::FilterExpression, expression);
                 }
                 let split = import.program_params_start.unwrap_or(import.params.len());
                 for (field, args, present) in [
@@ -2767,7 +2765,7 @@ impl Exporter<'_> {
             S::Place(e) => {
                 let ident = self.expr(e);
                 let mut rec = self.node("Code_Directive_Place", node::DIRECTIVE_PLACE, span);
-                rec.ptr("ident", ident).ptr("__syntax_operand", ident);
+                rec.ptr("ident", ident).ptr(SyntaxKey::Operand, ident);
                 self.add(rec)
             }
             S::Overlay(e) => {
@@ -2816,19 +2814,19 @@ impl Exporter<'_> {
                     .collect::<Vec<_>>();
                 let args = self.node_list(&values, span);
                 let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
-                rec.str("__syntax_directive_name", b"placeholder")
-                    .ptr("__syntax_directive_args", args);
+                rec.str(SyntaxKey::DirectiveName, b"placeholder")
+                    .ptr(SyntaxKey::DirectiveArgs, args);
                 self.add(rec)
             }
             S::Directive(directive) => {
                 let args = self.comma_values(&directive.args, span);
                 let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
                 rec.str(
-                    "__syntax_directive_name",
+                    SyntaxKey::DirectiveName,
                     directive.name.name.as_str().as_bytes(),
                 )
                 .str(
-                    "__syntax_flags",
+                    SyntaxKey::Flags,
                     directive
                         .flags
                         .iter()
@@ -2836,7 +2834,7 @@ impl Exporter<'_> {
                         .collect::<String>()
                         .as_bytes(),
                 )
-                .ptr("__syntax_directive_args", args);
+                .ptr(SyntaxKey::DirectiveArgs, args);
                 self.add(rec)
             }
         };
@@ -2846,7 +2844,7 @@ impl Exporter<'_> {
             self.r
                 .get_mut(id)
                 .unwrap()
-                .ptr("__syntax_statement_notes", notes);
+                .ptr(SyntaxKey::StatementNotes, notes);
         }
         if let Some(c) = self.c.as_deref_mut() {
             c.export.stmts.insert(id, Rc::new(s.clone()));
@@ -3079,9 +3077,9 @@ impl Exporter<'_> {
             .int("flags", flags)
             .refs("notes", notes);
         rec.ptr("alignment_expression", alignment)
-            .int("__syntax_using", i64::from(d.using))
+            .int(SyntaxKey::Using, i64::from(d.using))
             .str(
-                "__syntax_flags",
+                SyntaxKey::Flags,
                 d.flags()
                     .iter()
                     .map(|flag| format!(" #{}", flag.name))
@@ -3089,24 +3087,24 @@ impl Exporter<'_> {
                     .as_bytes(),
             );
         if let Some(filter) = d.using_filter() {
-            rec.str("__syntax_filter", Self::filter_syntax(filter).as_bytes());
+            rec.str(SyntaxKey::Filter, Self::filter_syntax(filter).as_bytes());
             let (kind, expression) = self.using_filter(filter);
-            rec.int("__syntax_filter_kind", kind)
-                .ptr("__syntax_filter_expression", expression);
+            rec.int(SyntaxKey::FilterKind, kind)
+                .ptr(SyntaxKey::FilterExpression, expression);
         }
         if let Some(tag) = d.union_tag() {
             let tag = self.expr(tag);
-            rec.ptr("__syntax_union_tag", tag);
+            rec.ptr(SyntaxKey::UnionTag, tag);
         }
         if let Some(foreign) = d.foreign() {
             let library = foreign
                 .library
                 .map_or(0, |name| self.name_ident(name.name, name.span));
-            rec.int("__syntax_foreign", 1)
-                .ptr("__syntax_foreign_library", library);
+            rec.int(SyntaxKey::Foreign, 1)
+                .ptr(SyntaxKey::ForeignLibrary, library);
             if let ast::ForeignName::Named(symbol) = &foreign.name {
-                rec.str("__syntax_foreign_symbol", symbol.as_bytes())
-                    .int("__syntax_foreign_named", 1);
+                rec.str(SyntaxKey::ForeignSymbol, symbol.as_bytes())
+                    .int(SyntaxKey::ForeignNamed, 1);
             }
         }
         if statement {
@@ -3190,8 +3188,8 @@ impl Exporter<'_> {
             self.r
                 .get_mut(declaration)
                 .unwrap()
-                .ptr("__syntax_initial_expression", initial)
-                .ptr("__syntax_alias_expression", alias);
+                .ptr(SyntaxKey::InitialExpression, initial)
+                .ptr(SyntaxKey::AliasExpression, alias);
         }
         declaration
     }
@@ -3324,8 +3322,8 @@ impl Exporter<'_> {
         let mut rec = self.node("Code_Struct", node::STRUCT, lit.span);
         rec.ptr("block", block)
             .ptr("arguments_block", arguments)
-            .ptr("__syntax_alignment", alignment)
-            .ptr("__syntax_union_tag", tag)
+            .ptr(SyntaxKey::Alignment, alignment)
+            .ptr(SyntaxKey::UnionTag, tag)
             .refs("modify_directives", modify)
             .refs("notes", notes)
             .ptr("defined_type", defined)
@@ -3439,9 +3437,9 @@ impl Exporter<'_> {
                     .ptr("filter_expression", filter_expression);
                 if let Some(filter) = &param.using_filter {
                     using
-                        .str("__syntax_filter", Self::filter_syntax(filter).as_bytes())
+                        .str(SyntaxKey::Filter, Self::filter_syntax(filter).as_bytes())
                         .int(
-                            "__syntax_static_filter",
+                            SyntaxKey::StaticFilter,
                             if filter_expression == 0 {
                                 filter_type
                             } else {
@@ -3449,7 +3447,7 @@ impl Exporter<'_> {
                             },
                         )
                         .str(
-                            "__syntax_filter_arguments",
+                            SyntaxKey::FilterArguments,
                             Self::filter_arguments(filter).as_bytes(),
                         );
                 }
@@ -3477,7 +3475,7 @@ impl Exporter<'_> {
             self.r
                 .get_mut(declaration)
                 .unwrap()
-                .int("__syntax_return_must", i64::from(ret.must));
+                .int(SyntaxKey::ReturnMust, i64::from(ret.must));
             returns.push(declaration);
         }
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
@@ -3571,29 +3569,29 @@ impl Exporter<'_> {
             .str("foreign_function_name", &foreign_name)
             .ptr("library_identifier", library)
             .refs("modify_directives", modify)
-            .int("__syntax_foreign", i64::from(h.foreign.is_some()))
+            .int(SyntaxKey::Foreign, i64::from(h.foreign.is_some()))
             .int(
-                "__syntax_foreign_named",
+                SyntaxKey::ForeignNamed,
                 i64::from(matches!(
                     h.foreign.as_ref().map(|f| &f.name),
                     Some(ast::ForeignName::Named(_))
                 )),
             )
             .str(
-                "__syntax_builtin_name",
+                SyntaxKey::BuiltinName,
                 h.flags.builtin_name.as_deref().unwrap_or("").as_bytes(),
             )
-            .str("__syntax_flags", extra_flags.as_bytes())
+            .str(SyntaxKey::Flags, extra_flags.as_bytes())
             .int(
-                "__syntax_program_export",
+                SyntaxKey::ProgramExport,
                 i64::from(h.flags.program_export.is_some()),
             )
             .int(
-                "__syntax_export_named",
+                SyntaxKey::ExportNamed,
                 i64::from(matches!(h.flags.program_export, Some(Some(_)))),
             )
             .str(
-                "__syntax_export_name",
+                SyntaxKey::ExportName,
                 h.flags
                     .program_export
                     .as_ref()
@@ -3601,7 +3599,7 @@ impl Exporter<'_> {
                     .unwrap_or(&[]),
             )
             .int(
-                "__syntax_deprecation_named",
+                SyntaxKey::DeprecationNamed,
                 i64::from(matches!(h.flags.deprecated, Some(Some(_)))),
             )
             .str(

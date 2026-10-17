@@ -29,7 +29,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: wasm.then(|| "wasm64-unknown-unknown".into()),
+                    target: wasm.then(|| jaic::target::Target::wasm_module()),
                     opt_level: level,
                     emit_ir: Some(ir.clone()),
                     ..Default::default()
@@ -103,23 +103,25 @@ fn unsupported_32_bit_targets_do_not_masquerade_as_supported_pointer_models() {
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     c.compile_sources(&[ProgramSource::String("main :: () {}".into())])
         .unwrap();
-    for target in [
-        "i686-pc-windows-msvc",
-        "i686-unknown-linux-gnu",
-        "wasm32-unknown-unknown",
-    ] {
-        let error = emit_object(
-            &c.program,
-            &jaic_llvm::Options {
-                target: Some(target.into()),
-                ..Default::default()
-            },
-            &PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("raw-pointer-constants/unsupported.o"),
-        )
-        .unwrap_err();
+    // A 32-bit x86 triple is not a target at all; wasm32 is one the backend refuses.
+    for target in ["i686-pc-windows-msvc", "i686-unknown-linux-gnu"] {
+        let error = jaic::target::Target::parse(target).unwrap_err();
         assert!(
             error.contains("unsupported target architecture"),
             "{target}: {error}"
         );
     }
+    let error = emit_object(
+        &c.program,
+        &jaic_llvm::Options {
+            target: Some(jaic::target::Target::parse("wasm32-unknown-unknown").unwrap()),
+            ..Default::default()
+        },
+        &PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("raw-pointer-constants/unsupported.o"),
+    )
+    .unwrap_err();
+    assert!(
+        error.contains("unsupported target architecture"),
+        "wasm32: {error}"
+    );
 }

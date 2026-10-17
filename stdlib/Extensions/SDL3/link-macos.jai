@@ -16,12 +16,11 @@
 #library,system,link_always "objc";
 
 #scope_file
-// Source-built jaic workspace primitives; append without replacing caller linker options.
-__jaic_current_workspace :: () -> s64 #compiler;
-__jaic_workspace_set_option :: (w: s64, key: string, value: string) #compiler;
+Workspaces :: #import "internal/compiler-api";
 
+// Append without replacing caller linker options.
 #run {
-    w := __jaic_current_workspace();
-    __jaic_workspace_set_option(w, "additional_linker_argument", "-Wl,-weak_framework,CoreHaptics");
-    __jaic_workspace_set_option(w, "additional_linker_argument", "-Wl,-weak_framework,UniformTypeIdentifiers");
+    w := Workspaces.__jaic_current_workspace();
+    Workspaces.append_linker_argument(w, "-Wl,-weak_framework,CoreHaptics");
+    Workspaces.append_linker_argument(w, "-Wl,-weak_framework,UniformTypeIdentifiers");
 }

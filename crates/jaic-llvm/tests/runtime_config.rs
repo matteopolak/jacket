@@ -53,7 +53,7 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: wasm.then(|| "wasm64-unknown-unknown".into()),
+                    target: wasm.then(|| jaic::target::Target::wasm_module()),
                     opt_level,
                     ..Default::default()
                 },

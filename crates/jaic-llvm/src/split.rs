@@ -52,13 +52,12 @@ pub(crate) fn emit(
     module: &Module,
     units: usize,
     path: &Path,
+    coff: bool,
     machine: &(dyn Fn() -> Result<TargetMachine, String> + Sync),
 ) -> Result<Vec<PathBuf>, String> {
     let m = module.as_mut_ptr();
     // COFF has no hidden visibility; on MinGW, LLVM turns it into `-exclude-symbols:` linker
     // directives with the names unquoted, which breaks on names with spaces or commas.
-    let triple = module.get_triple();
-    let coff = triple.as_str().to_string_lossy().contains("windows");
     expose_locals(m, !coff);
     // Largest functions first, each to the lightest unit. Unit 0 also holds the data.
     let mut defs: Vec<(String, usize)> = functions(m)

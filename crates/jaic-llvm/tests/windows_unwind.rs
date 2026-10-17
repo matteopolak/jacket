@@ -26,7 +26,7 @@ fn emit(triple: &str, cpu: TargetCpu, level: OptLevel, dir: &Path) -> PathBuf {
     emit_object(
         &compiler.program,
         &jaic_llvm::Options {
-            target: Some(triple.into()),
+            target: Some(jaic::target::Target::parse(triple).unwrap()),
             opt_level: level,
             codegen: Codegen {
                 frame_pointers: Some(false),

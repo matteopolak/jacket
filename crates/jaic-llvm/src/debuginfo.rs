@@ -37,10 +37,10 @@ pub enum DebugFormat {
 }
 
 impl DebugFormat {
-    pub fn for_triple(triple: &str) -> Self {
-        if triple.contains("windows-msvc") {
+    pub fn for_target(target: &jaic::target::Target) -> Self {
+        if target.is_windows() && target.abi == jaic::target::TargetAbi::Msvc {
             DebugFormat::CodeView
-        } else if triple.contains("apple") {
+        } else if target.is_apple() {
             DebugFormat::Dwarf(4)
         } else {
             DebugFormat::Dwarf(5)

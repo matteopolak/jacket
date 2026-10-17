@@ -360,11 +360,12 @@ fn real_child_workspace_inherits_target_and_records_its_body_check() {
         root.join("app/build.jai"),
         r#"
         __jaic_workspace_create :: (name:string) -> int #compiler;
-        __jaic_workspace_set_option :: (w:int,key:string,value:string) #compiler;
+        Option :: enum u16 { DO_OUTPUT :: 0; }
+        __jaic_workspace_set_flag :: (w:int,option:Option,value:bool) #compiler;
         __jaic_workspace_add_file :: (w:int,filename:string) #compiler;
         #run {
             w := __jaic_workspace_create("lint target child");
-            __jaic_workspace_set_option(w,"do_output","false");
+            __jaic_workspace_set_flag(w,.DO_OUTPUT,false);
             __jaic_workspace_add_file(w,"child.jai");
         }
         main :: () {}

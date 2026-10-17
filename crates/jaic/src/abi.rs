@@ -40,19 +40,6 @@ impl Arch {
         }
     }
 
-    pub fn from_triple(triple: &str) -> Option<Arch> {
-        let cpu = triple.split('-').next()?;
-        let windows = triple.contains("windows") || triple.contains("mingw");
-        match cpu {
-            "aarch64" | "arm64" if windows => Some(Arch::Win64Arm),
-            "aarch64" | "arm64" => Some(Arch::Aarch64),
-            "x86_64" | "amd64" if windows => Some(Arch::Win64),
-            "x86_64" | "amd64" => Some(Arch::X86_64),
-            "wasm64" => Some(Arch::Wasm64),
-            _ => None,
-        }
-    }
-
     /// Whether the CPU is x86-64 (either calling convention).
     pub fn is_x86_64(self) -> bool {
         matches!(self, Arch::X86_64 | Arch::Win64)
@@ -367,6 +354,10 @@ fn hfa(layout: &AggLayout) -> Option<PieceTy> {
 mod tests {
     use super::*;
 
+    fn target_arch(triple: &str) -> Option<Arch> {
+        crate::target::Target::parse(triple).ok()?.arch()
+    }
+
     fn layout(size: u64, fields: &[(u64, Ty)]) -> AggLayout {
         AggLayout {
             size,
@@ -510,19 +501,10 @@ mod tests {
 
     #[test]
     fn windows_triples_select_win64() {
-        assert_eq!(
-            Arch::from_triple("x86_64-pc-windows-msvc"),
-            Some(Arch::Win64)
-        );
-        assert_eq!(
-            Arch::from_triple("x86_64-w64-windows-gnu"),
-            Some(Arch::Win64)
-        );
-        assert_eq!(Arch::from_triple("x86_64-w64-mingw32"), Some(Arch::Win64));
-        assert_eq!(
-            Arch::from_triple("x86_64-unknown-linux-gnu"),
-            Some(Arch::X86_64)
-        );
+        assert_eq!(target_arch("x86_64-pc-windows-msvc"), Some(Arch::Win64));
+        assert_eq!(target_arch("x86_64-w64-windows-gnu"), Some(Arch::Win64));
+        assert_eq!(target_arch("x86_64-w64-mingw32"), Some(Arch::Win64));
+        assert_eq!(target_arch("x86_64-unknown-linux-gnu"), Some(Arch::X86_64));
     }
 
     /// Piece types of a register classification, for comparing with Clang's IR.
@@ -597,10 +579,10 @@ mod tests {
             "aarch64-w64-mingw32",
             "arm64-pc-windows-msvc",
         ] {
-            assert_eq!(Arch::from_triple(triple), Some(Arch::Win64Arm), "{triple}");
+            assert_eq!(target_arch(triple), Some(Arch::Win64Arm), "{triple}");
         }
         assert_eq!(
-            Arch::from_triple("aarch64-unknown-linux-gnu"),
+            target_arch("aarch64-unknown-linux-gnu"),
             Some(Arch::Aarch64)
         );
         assert!(Arch::Win64Arm.is_aarch64() && Arch::Win64Arm.is_windows());
@@ -661,10 +643,7 @@ mod tests {
 
     #[test]
     fn wasm64_passes_single_scalars_directly_and_the_rest_by_pointer() {
-        assert_eq!(
-            Arch::from_triple("wasm64-unknown-unknown"),
-            Some(Arch::Wasm64)
-        );
+        assert_eq!(target_arch("wasm64-unknown-unknown"), Some(Arch::Wasm64));
         let one = layout(8, &[(0, Ty::F64)]);
         assert_eq!(
             classify_arg(Arch::Wasm64, &one),

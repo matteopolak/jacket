@@ -87,7 +87,7 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
     }
     let object = dir.join("atomics.o");
     let options = jaic_llvm::Options {
-        target: wasm.then(|| "wasm64-unknown-unknown".into()),
+        target: wasm.then(|| jaic::target::Target::wasm_module()),
         opt_level: if optimized {
             OptLevel::O2
         } else {
@@ -232,7 +232,7 @@ fn wasm_cannot_silently_disable_required_atomics() {
         .compile_sources(&[ProgramSource::String(SOURCE.into())])
         .unwrap();
     let options = jaic_llvm::Options {
-        target: Some("wasm64-unknown-unknown".into()),
+        target: Some(jaic::target::Target::wasm_module()),
         features: Some("-atomics".into()),
         ..Default::default()
     };

@@ -38,7 +38,7 @@ mod cpuid {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: Some(target.into()),
+                    target: Some(target.parse().unwrap()),
                     opt_level: level,
                     ..Default::default()
                 },
@@ -90,7 +90,7 @@ mod cpuid {
                 emit_object(
                     &c.program,
                     &jaic_llvm::Options {
-                        target: Some(target.into()),
+                        target: Some(target.parse().unwrap()),
                         opt_level: level,
                         ..Default::default()
                     },
@@ -121,7 +121,7 @@ mod cpuid {
             let error = emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: Some(target.into()),
+                    target: Some(target.parse().unwrap()),
                     ..Default::default()
                 },
                 &dir.join("rejected.o"),
@@ -167,7 +167,7 @@ mod cpuid_leaf_zero {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: Some(target.into()),
+                    target: Some(target.parse().unwrap()),
                     opt_level: level,
                     emit_ir: Some(ir.clone()),
                     ..Default::default()
@@ -254,7 +254,7 @@ mod xgetbv {
                 emit_object(
                     &c.program,
                     &jaic_llvm::Options {
-                        target: Some(target.into()),
+                        target: Some(target.parse().unwrap()),
                         opt_level: level,
                         ..Default::default()
                     },
@@ -281,7 +281,7 @@ mod xgetbv {
             let error = emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: Some(target.into()),
+                    target: Some(target.parse().unwrap()),
                     ..Default::default()
                 },
                 &dir.join("rejected.o"),
@@ -314,7 +314,7 @@ mod xgetbv {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: Some(target.into()),
+                    target: Some(target.parse().unwrap()),
                     opt_level: level,
                     ..Default::default()
                 },
@@ -382,7 +382,7 @@ mod registers {
                 emit_object(
                     &c.program,
                     &jaic_llvm::Options {
-                        target: wasm.then(|| "wasm64-unknown-unknown".into()),
+                        target: wasm.then(|| jaic::target::Target::wasm_module()),
                         opt_level: if optimized {
                             OptLevel::O2
                         } else {
@@ -467,7 +467,7 @@ mod x86_machine {
         emit_object(
             &c.program,
             &jaic_llvm::Options {
-                target: Some("x86_64-unknown-linux-gnu".into()),
+                target: Some("x86_64-unknown-linux-gnu".parse().unwrap()),
                 opt_level: OptLevel::O2,
                 emit_ir: Some(ir.clone()),
                 ..Default::default()
@@ -532,7 +532,7 @@ mod x86_machine {
                 emit_object(
                     &c.program,
                     &jaic_llvm::Options {
-                        target: Some(target.into()),
+                        target: Some(target.parse().unwrap()),
                         opt_level: level,
                         emit_ir: Some(ir.clone()),
                         ..Default::default()
@@ -614,7 +614,7 @@ mod x86_machine {
             let error = emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: Some(target.into()),
+                    target: Some(target.parse().unwrap()),
                     ..Default::default()
                 },
                 &root.join("target/x86-machine/rejected.o"),

@@ -8,14 +8,6 @@ use jaic::ir::Library;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The triple `jaic -os wasm` and an `os_target = .WASM` workspace use by default.
-pub const WASM_TRIPLE: &str = "wasm64-unknown-unknown";
-
-/// Whether `triple` names a WebAssembly target.
-pub fn is_wasm_target(triple: &str) -> bool {
-    triple.starts_with("wasm")
-}
-
 /// Stack reserved below the data (`--stack-first`): the 8 MiB native programs get. An overflow
 /// then runs off the bottom of memory and traps instead of overwriting globals.
 const STACK_SIZE: u64 = 8 << 20;
@@ -138,16 +130,4 @@ pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
         }
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn wasm_triples_are_recognized() {
-        assert!(is_wasm_target(WASM_TRIPLE));
-        assert!(is_wasm_target("wasm64-unknown-wasi"));
-        assert!(!is_wasm_target("x86_64-unknown-linux-gnu"));
-    }
 }

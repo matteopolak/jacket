@@ -6,7 +6,7 @@ What jaic does with each `Build_Options` / `Build_Options_During_Compile` field 
 
 ## How it works
 
-`set_build_options` (`stdlib/internal/compiler-api/workspaces.jai`) forwards each field as a key and text value to `Workspaces::set_option` (`crates/jaic/src/build.rs`), which rejects keys it does not know, so a field cannot be forwarded and then dropped.
+`set_build_options` (`stdlib/internal/compiler-api/workspaces.jai`) forwards each field through a typed builtin (`__jaic_workspace_set_text/flag/number/list`) keyed by an enum, so a field cannot be forwarded and then dropped; see [compiler builtins](../compiler/compiler-builtins.md).
 
 ```jai
 options := get_build_options(w);
@@ -32,7 +32,7 @@ The program's own workspace reports real outputs from `get_build_options()`: the
 
 ## How to change it
 
-- New option jaic acts on: add the field to `Build_Options` (`stdlib/Compiler/contract-records.jai`), forward it in `set_build_options`, add the key to `Workspaces::set_option`, and read it in `new_compiler` (sema) or `LlvmBackend::prepare` (codegen).
+- New option jaic acts on: add the field to `Build_Options` (`stdlib/Compiler/contract-records.jai`), forward it in `set_build_options`, add a member to the matching `Workspace_*` enum (both sides) and handle it in `Workspaces::set_text/set_flag/set_number/append_list`, and read it in `new_compiler` (sema) or `LlvmBackend::prepare` (codegen).
 - An option jaic cannot honour: add a `require(...)` with a clear message in `set_build_options`.
 - Another backend implements `OutputBackend::write_objects` for custom links.
 
@@ -43,7 +43,7 @@ Configuration: `MACOSX_DEPLOYMENT_TARGET` when no `minimum_os_version` was forwa
 Claims that tests cite by ID (`tools/check_rule_coverage.py`).
 
 - `set_build_options` (`stdlib/Compiler/options.jai`) stores the options. `check_build_options` then compares them with the workspace's previous options and reports each field that this call changed to a value jaic does not act on. The report goes to the caller's location (`loc`) and appears once, not on every call {#bo.1}:
-- Options left at their defaults, or set to values jaic acts on, say nothing {#bo.4}. Examples are `text_output_flags = 0`, `enable_bytecode_inliner = true` and `set_optimization(*options, .OPTIMIZED_SMALL)`. `forward_options` then sends every field jaic acts on to `Workspaces::set_option` (`crates/jaic/src/build.rs`) as a key and a text value. `set_option` rejects keys it does not know, so a field cannot be forwarded and then dropped.
+- Options left at their defaults, or set to values jaic acts on, say nothing {#bo.4}. Examples are `text_output_flags = 0`, `enable_bytecode_inliner = true` and `set_optimization(*options, .OPTIMIZED_SMALL)`. `set_build_options` then sends every field jaic acts on through the typed workspace-option builtins ([compiler builtins](../compiler/compiler-builtins.md)); an option that is not an enum member cannot be named, so a field cannot be forwarded and then dropped.
 - `ERROR_CONTINUABLE` prints `error:`, lets the metaprogram go on and fails the build with exit code 1 {#bo.3}.
 - `compiler_begin_intercept`'s `SKIP_DECLARATIONS`, `SKIP_PROCEDURE_HEADERS`, `SKIP_PROCEDURE_BODIES`, `SKIP_STRUCTS` and `SKIP_OTHERS` remove those kinds from `TYPECHECKED` messages, including `all`. A message left with nothing in it is not sent {#bo.2}.
 - `DO_PERFORMANCE_REPORT_RUNS` and `DO_PERFORMANCE_REPORT_POLYMORPHS` ask for a `PERFORMANCE_REPORT` message. It is sent once per workspace that compiled, after every other message (the write phases included) and right before `COMPLETE`, and not at all when neither flag was given or the workspace failed {#bo.14}. The flag decides which sections are filled: `run_directive_report` (and its `reported` field) for `_RUNS`, `polymorph_report.records` (and `reported`) for `_POLYMORPHS`; the section that was not asked for is empty with `reported = false`. `time_report`, `bytecode_report` and the two solve counts are always there. What jaic can fill in, and what it cannot:

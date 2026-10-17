@@ -139,18 +139,6 @@ pub enum DeadCode {
     ModulesOnly,
 }
 
-impl DeadCode {
-    /// The mode named by a `dead_code_elimination` enum member.
-    pub fn from_name(name: &str) -> Option<Self> {
-        Some(match name {
-            "NONE" => Self::None,
-            "ALL" => Self::All,
-            "MODULES_ONLY" => Self::ModulesOnly,
-            _ => return None,
-        })
-    }
-}
-
 pub const DEFAULT_TEMPORARY_STORAGE_SIZE: i64 = 32768;
 
 #[derive(Clone)]

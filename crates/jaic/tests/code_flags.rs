@@ -1,6 +1,7 @@
 //! Syntax export flags are the documented public numbers, not private AST discriminants.
 use jaic::{
     ast::{CodeBody, ExprKind, StmtKind},
+    builtin_keys::SyntaxKey,
     parser,
     records::{FieldRef, Item, Records},
     sema::code_export::export_code,
@@ -95,7 +96,7 @@ fn static_using_arguments_are_independent_of_the_public_filter_kind() {
             None | Some(FieldRef::Ref(0))
         ));
         assert!(
-            matches!(records.field(id,"__syntax_filter_arguments"),Some(FieldRef::Str(s)) if &**s==arguments.as_bytes())
+            matches!(records.syntax_field(id, SyntaxKey::FilterArguments),Some(FieldRef::Str(s)) if &**s==arguments.as_bytes())
         );
     }
 }
@@ -123,10 +124,10 @@ fn exported_while_syntax_retains_caller_binding_and_label_modes() {
             .zip([(1, 1), (1, 0), (0, 0)])
     {
         assert!(
-            matches!(records.field(id, "__syntax_bind_label"), Some(FieldRef::Int(n)) if n==bind)
+            matches!(records.syntax_field(id, SyntaxKey::BindLabel), Some(FieldRef::Int(n)) if n==bind)
         );
         assert!(
-            matches!(records.field(id, "__syntax_backtick_label"), Some(FieldRef::Int(n)) if n==tick)
+            matches!(records.syntax_field(id, SyntaxKey::BacktickLabel), Some(FieldRef::Int(n)) if n==tick)
         );
     }
 }

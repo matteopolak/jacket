@@ -799,11 +799,6 @@ fn unsupported_compiler_requests_are_errors() {
     std::fs::create_dir_all(&dir).unwrap();
     let cases = [
         (
-            "backend",
-            "options := get_build_options(w); options.backend = .X64; set_build_options(options, w);",
-            "this compiler has no alternate X64 backend",
-        ),
-        (
             "raw-llvm-options",
             "options := get_build_options(w); options.llvm_options.command_line = .[\"-x\"]; set_build_options(options, w);",
             "raw LLVM command-line options are unavailable",

@@ -15,6 +15,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use crate::builtin_keys::SyntaxKey;
 use crate::fxhash::HashMap;
 
 #[derive(Clone, Debug)]
@@ -101,6 +102,7 @@ struct Names {
 
 thread_local! {
     static NAMES: RefCell<Names> = RefCell::default();
+    static SYNTAX_NAMES: std::cell::OnceCell<Vec<Name>> = const { std::cell::OnceCell::new() };
 }
 
 impl Name {
@@ -133,6 +135,45 @@ impl Name {
 
     pub fn as_str(self) -> &'static str {
         NAMES.with_borrow(|names| names.list[self.0 as usize])
+    }
+
+    /// The field a syntax attribute is stored in (`__syntax_` and the key's name).
+    pub fn syntax(key: SyntaxKey) -> Name {
+        SYNTAX_NAMES.with(|cache| {
+            cache.get_or_init(|| {
+                SyntaxKey::ALL
+                    .iter()
+                    .map(|key| {
+                        let member = format!("{key:?}");
+                        let mut field = String::from("__syntax_");
+                        for (at, c) in member.chars().enumerate() {
+                            if c.is_ascii_uppercase() && at > 0 {
+                                field.push('_');
+                            }
+                            field.push(c.to_ascii_lowercase());
+                        }
+                        Name::intern(&field)
+                    })
+                    .collect()
+            })[key as usize]
+        })
+    }
+}
+
+/// What names a record field: a literal, or a typed syntax attribute.
+pub trait FieldKey: Copy {
+    fn name(self) -> Name;
+}
+
+impl FieldKey for &'static str {
+    fn name(self) -> Name {
+        Name::of(self)
+    }
+}
+
+impl FieldKey for SyntaxKey {
+    fn name(self) -> Name {
+        Name::syntax(self)
     }
 }
 
@@ -190,9 +231,9 @@ impl Record {
         }
     }
 
-    fn push(&mut self, name: &'static str, kind: i64, value: i64) {
+    fn push(&mut self, name: Name, kind: i64, value: i64) {
         self.slots.push(Slot {
-            name: Name::of(name),
+            name,
             kind: kind as u8,
             value,
         });
@@ -203,34 +244,34 @@ impl Record {
         self.extra.len() as i64 - 1
     }
 
-    pub fn int(&mut self, name: &'static str, v: i64) -> &mut Self {
-        self.push(name, KIND_INT, v);
+    pub fn int(&mut self, name: impl FieldKey, v: i64) -> &mut Self {
+        self.push(name.name(), KIND_INT, v);
         self
     }
 
-    pub fn str(&mut self, name: &'static str, s: &[u8]) -> &mut Self {
+    pub fn str(&mut self, name: impl FieldKey, s: &[u8]) -> &mut Self {
         let at = self.push_extra(Extra::Str(s.into()));
-        self.push(name, KIND_STRING, at);
+        self.push(name.name(), KIND_STRING, at);
         self
     }
 
     /// A pointer field; `0` (null) is left out.
-    pub fn ptr(&mut self, name: &'static str, id: i64) -> &mut Self {
+    pub fn ptr(&mut self, name: impl FieldKey, id: i64) -> &mut Self {
         if id != 0 {
-            self.push(name, KIND_REF, id);
+            self.push(name.name(), KIND_REF, id);
         }
         self
     }
 
-    pub fn list(&mut self, name: &'static str, items: Vec<Item>) -> &mut Self {
+    pub fn list(&mut self, name: impl FieldKey, items: Vec<Item>) -> &mut Self {
         let at = self.push_extra(Extra::List(items));
-        self.push(name, KIND_LIST, at);
+        self.push(name.name(), KIND_LIST, at);
         self
     }
 
-    pub fn refs(&mut self, name: &'static str, ids: impl IntoIterator<Item = i64>) -> &mut Self {
+    pub fn refs(&mut self, name: impl FieldKey, ids: impl IntoIterator<Item = i64>) -> &mut Self {
         let at = self.push_extra(Extra::Refs(ids.into_iter().collect()));
-        self.push(name, KIND_LIST, at);
+        self.push(name.name(), KIND_LIST, at);
         self
     }
 
@@ -253,20 +294,20 @@ impl Record {
         Some(self.value(slot))
     }
 
-    pub fn set(&mut self, name: &'static str, field: Field) {
+    pub fn set(&mut self, name: impl FieldKey, field: Field) {
         let (kind, value) = match field {
             Field::Item(Item::Int(v)) => (KIND_INT, v),
             Field::Item(Item::Ref(v)) => (KIND_REF, v),
             Field::Item(Item::Str(s)) => (KIND_STRING, self.push_extra(Extra::Str(s))),
             Field::List(items) => (KIND_LIST, self.push_extra(Extra::List(items))),
         };
-        let id = Name::of(name);
+        let id = name.name();
         match self.slots.iter_mut().find(|s| s.name == id) {
             Some(slot) => {
                 slot.kind = kind as u8;
                 slot.value = value;
             }
-            None => self.push(name, kind, value),
+            None => self.push(id, kind, value),
         }
     }
 }
@@ -364,6 +405,11 @@ impl Records {
 
     pub fn field(&self, id: i64, name: &str) -> Option<FieldRef<'_>> {
         self.get(id)?.field(name)
+    }
+
+    /// The syntax attribute `key` of record `id`.
+    pub fn syntax_field(&self, id: i64, key: SyntaxKey) -> Option<FieldRef<'_>> {
+        self.get(id)?.field_named(key.field())
     }
 
     pub fn kind(&self, id: i64, name: &str) -> i64 {

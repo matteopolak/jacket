@@ -29,7 +29,7 @@ fn default_generic_pointers_execute_native_and_wasm_at_o0_and_o2() {
             emit_object(
                 &c.program,
                 &jaic_llvm::Options {
-                    target: wasm.then(|| "wasm64-unknown-unknown".into()),
+                    target: wasm.then(|| jaic::target::Target::wasm_module()),
                     opt_level: level,
                     ..Default::default()
                 },

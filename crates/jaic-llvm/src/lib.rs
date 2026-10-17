@@ -13,7 +13,7 @@ mod simd;
 mod split;
 mod wasm;
 
-pub use wasm::{WASM_TRIPLE, WasmLink, find_wasm_ld, is_wasm_target, link_wasm};
+pub use wasm::{WasmLink, find_wasm_ld, link_wasm};
 
 use lower::Shard;
 
@@ -25,6 +25,7 @@ use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
 use jaic::ir::{self, Library, Program};
+use jaic::target::{Target as BuildTarget, TargetAbi};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -68,8 +69,8 @@ impl OptLevel {
 #[derive(Clone, Debug, Default)]
 pub struct Options {
     pub opt_level: OptLevel,
-    /// Target triple; `None` selects the host.
-    pub target: Option<String>,
+    /// What to build for; `None` selects the host.
+    pub target: Option<BuildTarget>,
     /// Also write the textual LLVM IR (before optimization) to this path.
     pub emit_ir: Option<PathBuf>,
     /// Emit native debug information (DWARF; see `docs/native/debug-info.md`).
@@ -201,14 +202,18 @@ fn host_triple(macos_version: Option<&str>) -> TargetTriple {
     }
 }
 
-/// The LLVM CPU name and feature string for a build for `triple`, from
+/// The LLVM CPU name and feature string for a build for `target`, from
 /// `llvm_options.target_system_cpu` / `target_system_features`.
 ///
 /// Without a CPU a build targets the oldest CPU its triple runs on, never the build machine's:
 /// a program built on a runner with AVX-512 must still run on one without it (release jaifmt
 /// is built on one CI machine and run on others). `"native"` opts into the build machine's CPU
 /// and features.
-fn cpu_and_features(cpu: Option<&str>, features: Option<&str>, triple: &str) -> (String, String) {
+fn cpu_and_features(
+    cpu: Option<&str>,
+    features: Option<&str>,
+    target: BuildTarget,
+) -> (String, String) {
     let mut features = features.unwrap_or_default().to_string();
     let cpu = match cpu.filter(|c| !c.is_empty()) {
         Some("native") => {
@@ -221,12 +226,12 @@ fn cpu_and_features(cpu: Option<&str>, features: Option<&str>, triple: &str) -> 
             TargetMachine::get_host_cpu_name().to_string()
         }
         Some(cpu) => cpu.to_string(),
-        None => baseline_cpu(triple).to_string(),
+        None => baseline_cpu(target).to_string(),
     };
     // wasm: `memory.copy`/`memory.fill` for memcpy and memset. Without them LLVM calls
     // `memmove`, which Wasi_Runtime implements with that same intrinsic. Only an explicit
     // `-bulk-memory` turns them off.
-    if triple.starts_with("wasm") && !features.contains("bulk-memory") {
+    if target.is_wasm() && !features.contains("bulk-memory") {
         if !features.is_empty() {
             features.push(',');
         }
@@ -235,31 +240,28 @@ fn cpu_and_features(cpu: Option<&str>, features: Option<&str>, triple: &str) -> 
     (cpu, features)
 }
 
-/// The oldest CPU every machine running `triple` has: x86-64 (SSE2) on x86-64, the M1 on arm64
+/// The oldest CPU every machine running `target` has: x86-64 (SSE2) on x86-64, the M1 on arm64
 /// macOS (macOS 11, the deployment target, runs only on Apple silicon there), and LLVM's
 /// `generic` (armv8-a, the wasm MVP) elsewhere.
-fn baseline_cpu(triple: &str) -> &'static str {
-    let arm64 = triple.starts_with("arm64") || triple.starts_with("aarch64");
-    if triple.starts_with("x86_64") && triple.contains("-apple-") {
+fn baseline_cpu(target: BuildTarget) -> &'static str {
+    use jaic::sema::TargetCpu;
+    match (target.cpu, target.is_apple()) {
         // Every Intel Mac (and Rosetta) has SSSE3.
-        "core2"
-    } else if triple.starts_with("x86_64") {
-        "x86-64"
-    } else if arm64 && triple.contains("-apple-") {
-        "apple-m1"
-    } else {
-        "generic"
+        (TargetCpu::X64, true) => "core2",
+        (TargetCpu::X64, false) => "x86-64",
+        (TargetCpu::Arm64, true) => "apple-m1",
+        _ => "generic",
     }
 }
 
-/// The target machine for `options`, and the architecture it targets.
+/// The target machine for `options`, and what it targets.
 fn target_machine(
     options: &Options,
-) -> Result<(TargetMachine, TargetTriple, jaic::abi::Arch), String> {
+) -> Result<(TargetMachine, TargetTriple, BuildTarget, jaic::abi::Arch), String> {
     // Target registration writes process-wide tables: once, not from every codegen thread.
     static TARGETS: std::sync::Once = std::sync::Once::new();
     TARGETS.call_once(|| {
-        // Only the backends `Arch::from_triple` accepts: initialising all of them would make
+        // Only the backends `BuildTarget::arch` accepts: initialising all of them would make
         // the static link keep every LLVM backend (see docs/tools/llvm-setup.md). No
         // disassembler: nothing reads machine code back. The asm parser is needed for inline asm.
         let config = InitializationConfig {
@@ -270,18 +272,21 @@ fn target_machine(
         Target::initialize_aarch64(&config);
         Target::initialize_webassembly(&config);
     });
-    let triple = match &options.target {
-        Some(t) => TargetTriple::create(t),
-        None => host_triple(options.codegen.macos_version.as_deref()),
+    let (triple, build_target) = match options.target {
+        Some(t) => (TargetTriple::create(&t.to_string()), t),
+        None => (
+            host_triple(options.codegen.macos_version.as_deref()),
+            BuildTarget::host(),
+        ),
     };
-    let triple_str = triple.as_str().to_string_lossy().into_owned();
-    let arch = jaic::abi::Arch::from_triple(&triple_str)
-        .ok_or_else(|| format!("unsupported target architecture in '{triple_str}'"))?;
+    let arch = build_target
+        .arch()
+        .ok_or_else(|| format!("unsupported target architecture in '{build_target}'"))?;
     let target = Target::from_triple(&triple).map_err(|e| e.to_string())?;
     let (cpu, features) = cpu_and_features(
         options.cpu.as_deref(),
         options.features.as_deref(),
-        &triple_str,
+        build_target,
     );
     // A wasm module is linked statically; PIC would ask for Emscripten-style dynamic linking.
     let reloc = if arch.is_wasm() {
@@ -306,7 +311,7 @@ fn target_machine(
     if options.codegen.machine_level.unwrap_or(options.opt_level) == OptLevel::O0 {
         use_fast_isel(&machine);
     }
-    Ok((machine, triple, arch))
+    Ok((machine, triple, build_target, arch))
 }
 
 /// Select instructions at -O0 with FastISel instead of GlobalISel.
@@ -351,7 +356,7 @@ fn emit_module(
     // Select the required target feature from the program, not a module name or
     // fixture. An explicit contradictory feature is a configuration error.
     let atomic_options;
-    let options = if options.target.as_deref().is_some_and(|t| t.starts_with("wasm"))
+    let options = if options.target.is_some_and(|t| t.is_wasm())
         && program.funcs.iter().flatten().flat_map(|f| &f.blocks).flat_map(|b| &b.insts).any(|i| {
             matches!(i, ir::Inst::Intrinsic(call) if matches!(call.op,
                 ir::Intrinsic::CompareAndSwap | ir::Intrinsic::AtomicLoad(_) |
@@ -369,9 +374,9 @@ fn emit_module(
         &atomic_options
     } else { options };
     if options.sanitize.any() {
-        check_sanitizer_target(options.target.as_deref())?;
+        check_sanitizer_target(options.target)?;
     }
-    let (machine, triple, arch) = target_machine(options)?;
+    let (machine, triple, build_target, arch) = target_machine(options)?;
     let context = Context::create();
     if !wants_ir_text(options) {
         discard_value_names(&context);
@@ -380,9 +385,8 @@ fn emit_module(
     module.set_triple(&triple);
     module.set_data_layout(&machine.get_target_data().get_data_layout());
     let debug = options.debug_info.then(|| {
-        let triple = triple.as_str().to_string_lossy();
         (
-            debuginfo::DebugFormat::for_triple(&triple),
+            debuginfo::DebugFormat::for_target(&build_target),
             options.opt_level != OptLevel::O0,
         )
     });
@@ -391,6 +395,7 @@ fn emit_module(
         &module,
         program,
         arch,
+        build_target,
         shard,
         debug,
         options.opt_level == OptLevel::O0,
@@ -413,7 +418,7 @@ fn emit_module(
             .verify()
             .map_err(|e| format!("invalid LLVM IR: {e}"))?;
     }
-    apply_codegen_attributes(&context, &module, &options.codegen, &triple);
+    apply_codegen_attributes(&context, &module, &options.codegen, build_target);
     if let Some(path) = &options.codegen.bitcode_before
         && !module.write_bitcode_to_path(unit_path(path, unit))
     {
@@ -477,7 +482,7 @@ fn emit_module(
         let units = split::units_for(&module);
         if units > 1 {
             let make = || target_machine(options).map(|(machine, ..)| machine);
-            return split::emit(&module, units, path, &make);
+            return split::emit(&module, units, path, build_target.is_windows(), &make);
         }
     }
     machine
@@ -574,10 +579,9 @@ fn apply_codegen_attributes(
     context: &Context,
     module: &inkwell::module::Module,
     codegen: &Codegen,
-    triple: &TargetTriple,
+    target: BuildTarget,
 ) {
-    let target_text = triple.as_str().to_string_lossy();
-    let apple = target_text.contains("apple");
+    let apple = target.is_apple();
     let frame_pointer = match codegen.frame_pointers {
         Some(true) => Some("all"),
         // Apple's ABIs require frame records (`docs/metaprogramming/build-options.md`).
@@ -675,10 +679,7 @@ fn codegen_units(program: &Program, options: &Options) -> usize {
     }
     // Optimized builds split before the optimizer only when it is worth the code it loses
     // (`partition.rs`); wasm modules stay whole.
-    let wasm = options
-        .target
-        .as_deref()
-        .is_some_and(|t| t.starts_with("wasm"));
+    let wasm = options.target.is_some_and(|t| t.is_wasm());
     if wasm {
         return 1;
     }
@@ -791,21 +792,13 @@ pub enum LinkFlavor {
 }
 
 impl LinkFlavor {
-    /// The flavor for a target triple (`None`: the host).
-    pub fn for_target(target: Option<&str>) -> LinkFlavor {
-        let triple = match target {
-            Some(t) => t.to_string(),
-            None => TargetMachine::get_default_triple()
-                .as_str()
-                .to_string_lossy()
-                .into_owned(),
-        };
-        if triple.contains("windows-gnu") || triple.contains("mingw") {
-            LinkFlavor::MinGw
-        } else if triple.contains("windows") || triple.contains("win32") {
-            LinkFlavor::Msvc
-        } else {
-            LinkFlavor::Unix
+    /// The flavor for a target (`None`: the host).
+    pub fn for_target(target: Option<BuildTarget>) -> LinkFlavor {
+        let target = target.unwrap_or_else(BuildTarget::host);
+        match (target.os, target.abi) {
+            (jaic::sema::TargetOs::Windows, TargetAbi::Gnu) => LinkFlavor::MinGw,
+            (jaic::sema::TargetOs::Windows, _) => LinkFlavor::Msvc,
+            _ => LinkFlavor::Unix,
         }
     }
 
@@ -813,10 +806,6 @@ impl LinkFlavor {
         self != LinkFlavor::Unix
     }
 }
-
-/// The triple `jaic -os windows` targets from a non-Windows host: the MinGW-w64
-/// environment, whose cross toolchains are packaged for macOS and Linux.
-pub const WINDOWS_CROSS_TRIPLE: &str = "x86_64-pc-windows-gnu";
 
 /// One linker input, rendered per linker style.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -852,7 +841,7 @@ pub fn link(
     output: &Path,
     dynamic_library: bool,
     extra_args: &[String],
-    target: Option<&str>,
+    target: Option<BuildTarget>,
     sanitize: Sanitize,
     debug_info: bool,
 ) -> Result<(), String> {
@@ -987,7 +976,10 @@ const MSVC_RUNTIME_LIBRARIES: &[&str] = &[
 
 /// [`LinkInputs`] for `libraries` on `target` (`None`: the host), rendered as [`link`] would
 /// pass them: `cc`-style arguments, or `name.lib` for an MSVC target.
-pub fn link_inputs(libraries: &[Library], target: Option<&str>) -> Result<LinkInputs, String> {
+pub fn link_inputs(
+    libraries: &[Library],
+    target: Option<BuildTarget>,
+) -> Result<LinkInputs, String> {
     let flavor = LinkFlavor::for_target(target);
     let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
@@ -1116,19 +1108,19 @@ pub fn write_dsym(output: &Path) -> Result<(), String> {
 
 /// Archive object files into a static library for `target`: the system `ar` on macOS and
 /// Linux; for Windows a MinGW `ar`, `llvm-ar` or `lib.exe` (`JAIC_AR` overrides the choice).
-pub fn archive(objects: &[PathBuf], output: &Path, target: Option<&str>) -> Result<(), String> {
+pub fn archive(
+    objects: &[PathBuf],
+    output: &Path,
+    target: Option<BuildTarget>,
+) -> Result<(), String> {
     let program = match std::env::var("JAIC_AR") {
         Ok(program) => program,
         // The system `ar` on macOS writes no symbol index for wasm objects.
-        Err(_) if target.is_some_and(is_wasm_target) => wasm::find_llvm_tool("llvm-ar")
+        Err(_) if target.is_some_and(|t| t.is_wasm()) => wasm::find_llvm_tool("llvm-ar")
             .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?,
         Err(_) if LinkFlavor::for_target(target).is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
-            let arch = msvc::arch_dir(target.unwrap_or(if cfg!(target_arch = "aarch64") {
-                "aarch64"
-            } else {
-                "x86_64"
-            }));
+            let arch = msvc::arch_dir(target.unwrap_or_else(BuildTarget::host).cpu);
             find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
                 // Visual Studio's lib.exe when no developer prompt put it on PATH.
                 .or_else(|| {
@@ -1184,7 +1176,7 @@ fn is_msvc_linker(program: &str) -> bool {
 
 /// Sanitized builds run only on the host, and only on macOS and Linux: the runtimes come from
 /// the host's LLVM install, and jaic does not drive Clang's Windows or wasm sanitizer setups.
-pub fn check_sanitizer_target(target: Option<&str>) -> Result<(), String> {
+pub fn check_sanitizer_target(target: Option<BuildTarget>) -> Result<(), String> {
     if target.is_some() {
         return Err("-sanitize supports only native builds for the host, not cross builds".into());
     }
@@ -1239,21 +1231,19 @@ fn find_program(names: &[&str]) -> Option<String> {
 
 /// The linker program and its base command. `JAIC_LINKER` overrides the choice: a program
 /// named `link` or `lld-link` gets MSVC-style arguments, anything else C-driver arguments.
-fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, Command), String> {
-    let msvc_triple = match target {
-        Some(t) => t.to_string(),
-        None => TargetMachine::get_default_triple()
-            .as_str()
-            .to_string_lossy()
-            .into_owned(),
-    };
+fn linker_command(
+    flavor: LinkFlavor,
+    target: Option<BuildTarget>,
+) -> Result<(String, Command), String> {
+    let resolved = target.unwrap_or_else(BuildTarget::host);
+    let msvc_triple = resolved.to_string();
     if let Some(program) = std::env::var_os("JAIC_LINKER") {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
         if flavor == LinkFlavor::Msvc {
             if !is_msvc_linker(&program) {
                 cmd.arg(format!("--target={msvc_triple}"));
-            } else if let Some(lib) = msvc::lib_env(msvc::arch_dir(&msvc_triple)) {
+            } else if let Some(lib) = msvc::lib_env(msvc::arch_dir(resolved.cpu)) {
                 // As for a `link.exe` jaic finds itself: without a developer prompt nothing
                 // else tells it where `user32.lib` and the C runtime are.
                 cmd.env("LIB", lib);
@@ -1268,11 +1258,11 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
             let mut cmd = Command::new("cc");
             // The other architecture of a Mac (`x86_64-apple-darwin` on arm64, run through
             // Rosetta, and the reverse): Apple's `cc` is clang and links either.
-            if let Some(triple) = target
+            if let Some(target) = target
                 && cfg!(target_os = "macos")
-                && (triple.contains("apple") || triple.contains("darwin"))
+                && target.is_apple()
             {
-                cmd.arg(format!("--target={triple}"));
+                cmd.arg(format!("--target={target}"));
             }
             Ok(("cc".into(), cmd))
         }
@@ -1298,14 +1288,11 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
             })?;
             let mut cmd = Command::new(&program);
             if program.ends_with("clang") {
-                cmd.arg(format!(
-                    "--target={}",
-                    target.unwrap_or(WINDOWS_CROSS_TRIPLE)
-                ));
+                cmd.arg(format!("--target={resolved}"));
             }
             Ok((program, cmd))
         }
-        LinkFlavor::Msvc => msvc_linker_command(&msvc_triple),
+        LinkFlavor::Msvc => msvc_linker_command(resolved),
     }
 }
 
@@ -1315,8 +1302,9 @@ fn linker_command(flavor: LinkFlavor, target: Option<&str>) -> Result<(String, C
 /// with `LIB` filled in when no developer prompt set it. A `link` on `PATH` that is not
 /// Microsoft's (the coreutils `link` of Git for Windows and MSYS2, which stops with `extra
 /// operand`) is skipped. See `msvc.rs` and `docs/native/windows.md`.
-fn msvc_linker_command(triple: &str) -> Result<(String, Command), String> {
-    let arch = msvc::arch_dir(triple);
+fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String> {
+    let arch = msvc::arch_dir(target.cpu);
+    let triple = target.to_string();
     let clang = |program: String| {
         let mut cmd = Command::new(&program);
         cmd.arg(format!("--target={triple}"));
@@ -1361,15 +1349,10 @@ fn msvc_linker_command(triple: &str) -> Result<(String, Command), String> {
 }
 
 /// The CPU prefix of the MinGW-w64 tool names for `target` (`None`: the host).
-fn mingw_cpu(target: Option<&str>) -> &'static str {
-    let arm = match target {
-        Some(t) => t.starts_with("aarch64") || t.starts_with("arm64"),
-        None => cfg!(target_arch = "aarch64"),
-    };
-    if arm {
-        "aarch64"
-    } else {
-        "x86_64"
+fn mingw_cpu(target: Option<BuildTarget>) -> &'static str {
+    match target.unwrap_or_else(BuildTarget::host).cpu {
+        jaic::sema::TargetCpu::Arm64 => "aarch64",
+        _ => "x86_64",
     }
 }
 
@@ -1383,8 +1366,8 @@ pub enum OutputKind {
 
 /// The file name extension an output gets on `target` when its name has none, where the
 /// platform expects one: `exe`, `dll` and `lib` on Windows, `wasm` (or `a`) for WebAssembly.
-pub fn output_extension(target: Option<&str>, kind: OutputKind) -> Option<&'static str> {
-    if target.is_some_and(is_wasm_target) {
+pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option<&'static str> {
+    if target.is_some_and(|t| t.is_wasm()) {
         return Some(match kind {
             OutputKind::StaticLibrary => "a",
             _ => "wasm",
@@ -1580,16 +1563,18 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jaic::sema::TargetCpu;
 
     #[test]
     fn windows_frame_functions_keep_async_unwind_tables_even_when_nounwind() {
-        for target in [
+        for triple in [
             "x86_64-pc-windows-msvc",
             "x86_64-pc-windows-gnu",
             "aarch64-pc-windows-msvc",
             "aarch64-unknown-linux-gnu",
             "arm64-apple-macosx11.0",
         ] {
+            let target = BuildTarget::parse(triple).unwrap();
             let context = Context::create();
             let module = context.create_module("native_unwind_contract");
             let function = module.add_function(
@@ -1610,24 +1595,13 @@ mod tests {
                 AttributeLoc::Function,
                 context.create_enum_attribute(Attribute::get_named_enum_kind_id("nounwind"), 0),
             );
-            apply_abi_unwind_attributes(
-                &context,
-                &module,
-                jaic::abi::Arch::from_triple(target).unwrap(),
-            )
-            .unwrap();
-            apply_codegen_attributes(
-                &context,
-                &module,
-                &Codegen::default(),
-                &TargetTriple::create(target),
-            );
+            apply_abi_unwind_attributes(&context, &module, target.arch().unwrap()).unwrap();
+            apply_codegen_attributes(&context, &module, &Codegen::default(), target);
             let kind = Attribute::get_named_enum_kind_id("uwtable");
             let actual = function
                 .get_enum_attribute(AttributeLoc::Function, kind)
                 .map(|attribute| attribute.get_enum_value());
-            let windows = jaic::abi::Arch::from_triple(target).unwrap().is_windows();
-            assert_eq!(actual, windows.then_some(2), "target {target}");
+            assert_eq!(actual, target.is_windows().then_some(2), "target {target}");
             assert!(
                 declaration
                     .get_enum_attribute(AttributeLoc::Function, kind)
@@ -1650,18 +1624,19 @@ mod tests {
 
     #[test]
     fn builds_target_the_baseline_cpu_not_the_build_machine() {
-        let linux = "x86_64-unknown-linux-gnu";
+        let target = |triple: &str| BuildTarget::parse(triple).unwrap();
+        let linux = target("x86_64-unknown-linux-gnu");
         assert_eq!(
             cpu_and_features(None, None, linux),
             ("x86-64".into(), "".into())
         );
         assert_eq!(cpu_and_features(Some(""), None, linux).0, "x86-64");
         assert_eq!(
-            cpu_and_features(None, None, "arm64-apple-macosx11.0").0,
+            cpu_and_features(None, None, target("arm64-apple-macosx11.0")).0,
             "apple-m1"
         );
         assert_eq!(
-            cpu_and_features(None, None, "aarch64-unknown-linux-gnu").0,
+            cpu_and_features(None, None, target("aarch64-unknown-linux-gnu")).0,
             "generic"
         );
         assert_eq!(
@@ -1669,16 +1644,15 @@ mod tests {
             ("skylake".into(), "+avx2".into())
         );
         assert_eq!(
-            cpu_and_features(None, Some("+simd128"), "wasm64-unknown-wasi"),
+            cpu_and_features(None, Some("+simd128"), target("wasm64-unknown-wasi")),
             ("generic".into(), "+simd128,+bulk-memory".into())
         );
         let (native, features) = cpu_and_features(Some("native"), None, linux);
         assert_eq!(native, TargetMachine::get_host_cpu_name().to_string());
         assert_eq!(features, TargetMachine::get_host_cpu_features().to_string());
         // A host build (no `-target`) gets the baseline too.
-        let (machine, triple, _) = target_machine(&Options::default()).unwrap();
-        let triple = triple.as_str().to_string_lossy().into_owned();
-        assert_eq!(machine.get_cpu().to_string_lossy(), baseline_cpu(&triple));
+        let (machine, _, target, _) = target_machine(&Options::default()).unwrap();
+        assert_eq!(machine.get_cpu().to_string_lossy(), baseline_cpu(target));
     }
 
     #[test]
@@ -1700,47 +1674,50 @@ mod tests {
             "-fsanitize=address"
         );
         assert!(Sanitize::parse("thread").is_err());
-        assert!(check_sanitizer_target(Some(WINDOWS_CROSS_TRIPLE)).is_err());
-        assert!(check_sanitizer_target(Some("wasm32-unknown-unknown")).is_err());
+        assert!(check_sanitizer_target(Some(BuildTarget::windows(TargetCpu::X64, false))).is_err());
+        assert!(check_sanitizer_target(Some(BuildTarget::wasm_module())).is_err());
     }
 
     #[test]
-    fn windows_triples_pick_windows_linkers() {
+    fn windows_targets_pick_windows_linkers() {
+        let target = |triple: &str| Some(BuildTarget::parse(triple).unwrap());
         assert_eq!(
-            LinkFlavor::for_target(Some("x86_64-pc-windows-gnu")),
+            LinkFlavor::for_target(target("x86_64-pc-windows-gnu")),
             LinkFlavor::MinGw
         );
         assert_eq!(
-            LinkFlavor::for_target(Some("x86_64-pc-windows-msvc")),
+            LinkFlavor::for_target(target("x86_64-pc-windows-msvc")),
             LinkFlavor::Msvc
         );
         assert_eq!(
-            LinkFlavor::for_target(Some("x86_64-unknown-linux-gnu")),
+            LinkFlavor::for_target(target("x86_64-unknown-linux-gnu")),
             LinkFlavor::Unix
         );
+        let cross = Some(BuildTarget::windows(TargetCpu::X64, false));
+        assert_eq!(output_extension(cross, OutputKind::Executable), Some("exe"));
         assert_eq!(
-            output_extension(Some(WINDOWS_CROSS_TRIPLE), OutputKind::Executable),
-            Some("exe")
-        );
-        assert_eq!(
-            output_extension(Some(WINDOWS_CROSS_TRIPLE), OutputKind::DynamicLibrary),
+            output_extension(cross, OutputKind::DynamicLibrary),
             Some("dll")
         );
     }
 
     #[test]
-    fn windows_arm64_triples_pick_windows_linkers() {
+    fn windows_arm64_targets_pick_windows_linkers() {
+        let target = |triple: &str| Some(BuildTarget::parse(triple).unwrap());
         assert_eq!(
-            LinkFlavor::for_target(Some("aarch64-pc-windows-msvc")),
+            LinkFlavor::for_target(target("aarch64-pc-windows-msvc")),
             LinkFlavor::Msvc
         );
         for mingw in ["aarch64-pc-windows-gnu", "aarch64-w64-mingw32"] {
-            assert_eq!(LinkFlavor::for_target(Some(mingw)), LinkFlavor::MinGw);
-            assert_eq!(mingw_cpu(Some(mingw)), "aarch64");
+            assert_eq!(LinkFlavor::for_target(target(mingw)), LinkFlavor::MinGw);
+            assert_eq!(mingw_cpu(target(mingw)), "aarch64");
         }
-        assert_eq!(mingw_cpu(Some(WINDOWS_CROSS_TRIPLE)), "x86_64");
         assert_eq!(
-            output_extension(Some("aarch64-pc-windows-gnu"), OutputKind::Executable),
+            mingw_cpu(Some(BuildTarget::windows(TargetCpu::X64, false))),
+            "x86_64"
+        );
+        assert_eq!(
+            output_extension(target("aarch64-pc-windows-gnu"), OutputKind::Executable),
             Some("exe")
         );
     }

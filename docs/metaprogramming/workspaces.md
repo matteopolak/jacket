@@ -14,7 +14,7 @@ Bodiless `#compiler` procedures named `__jaic_*` bind to `Hook::Meta(MetaOp, has
 |---|---|
 | `__jaic_workspace_create(name)`, `__jaic_current_workspace()` | new id; workspace whose code is running |
 | `__jaic_workspace_add_file/add_string(ws, s)` | queue a source |
-| `__jaic_workspace_set_option(ws, key, value)` | set a build option by name |
+| `__jaic_workspace_set_text/flag/number(ws, option, value)`, `_clear_list/_append_list`, `_destroy` | set a build option; `option` is a `Workspace_*` enum member |
 | `__jaic_workspace_begin_intercept(ws, flags)`, `__jaic_workspace_next_event(ws)` | intercept; advance and pop the next event kind |
 | `__jaic_report(msg, file, line, col, mode)` | mode 0 `ERROR` fails the compile; 2, 3 go to the report sink; 1 `ERROR_CONTINUABLE` reports and marks the workspace failed |
 | `__jaic_custom_link_complete(ws, code)` | linker exit code after `READY_FOR_CUSTOM_LINK_COMMAND` |

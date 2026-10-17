@@ -81,10 +81,11 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
             .map(Library::Module)
             .map_err(|error| error.to_string());
     }
-    let (arch, machine) = if cfg!(target_arch = "aarch64") {
-        ("arm64", 0xaa64)
-    } else {
-        ("x64", 0x8664)
+    let (arch, machine) = match crate::sema::Options::host().cpu {
+        crate::sema::TargetCpu::Arm64 => {
+            (crate::msvc::arch_dir(crate::sema::TargetCpu::Arm64), 0xaa64)
+        }
+        cpu => (crate::msvc::arch_dir(cpu), 0x8664),
     };
     let mut dirs = super::library_dirs();
     for dir in crate::msvc::library_dirs(arch) {

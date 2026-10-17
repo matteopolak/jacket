@@ -12,12 +12,11 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The CPU folder name of `triple` in the MSVC and Windows SDK layouts.
-pub fn arch_dir(triple: &str) -> &'static str {
-    if triple.starts_with("aarch64") || triple.starts_with("arm64") {
-        "arm64"
-    } else {
-        "x64"
+/// The CPU folder name of `cpu` in the MSVC and Windows SDK layouts.
+pub fn arch_dir(cpu: crate::sema::TargetCpu) -> &'static str {
+    match cpu {
+        crate::sema::TargetCpu::Arm64 => "arm64",
+        _ => "x64",
     }
 }
 
@@ -225,10 +224,9 @@ pub fn find_clang() -> Option<PathBuf> {
         .into_iter()
         .map(|base| base.join(r"LLVM\bin\clang.exe"))
         .collect();
-    let host = if cfg!(target_arch = "aarch64") {
-        "ARM64"
-    } else {
-        "x64"
+    let host = match crate::sema::Options::host().cpu {
+        crate::sema::TargetCpu::Arm64 => "ARM64",
+        _ => "x64",
     };
     for root in visual_studio_roots() {
         candidates.push(
@@ -325,7 +323,7 @@ mod tests {
         assert!(is_microsoft_linker_banner(
             "Microsoft (R) Incremental Linker Version 14.44.35215.0\nCopyright (C) Microsoft Corporation.  All rights reserved.\n"
         ));
-        assert_eq!(arch_dir("aarch64-pc-windows-msvc"), "arm64");
-        assert_eq!(arch_dir("x86_64-pc-windows-msvc"), "x64");
+        assert_eq!(arch_dir(crate::sema::TargetCpu::Arm64), "arm64");
+        assert_eq!(arch_dir(crate::sema::TargetCpu::X64), "x64");
     }
 }

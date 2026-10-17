@@ -9,7 +9,12 @@ __jaic_workspace_add_file :: (w: Workspace, filename: string) #compiler;
 __jaic_workspace_add_string :: (w: Workspace, source: string) #compiler;
 __jaic_workspace_add_string_to_module :: (w: Workspace, source: string, message_record: s64) #compiler;
 __jaic_workspace_add_string_to_code :: (w: Workspace, source: string, code: Code) #compiler;
-__jaic_workspace_set_option :: (w: Workspace, key: string, value: string) #compiler;
+__jaic_workspace_destroy :: (w: Workspace) #compiler;
+__jaic_workspace_set_text :: (w: Workspace, option: Workspace_Text, value: string) #compiler;
+__jaic_workspace_set_flag :: (w: Workspace, option: Workspace_Flag, value: bool) #compiler;
+__jaic_workspace_set_number :: (w: Workspace, option: Workspace_Number, value: s64) #compiler;
+__jaic_workspace_clear_list :: (w: Workspace, option: Workspace_List) #compiler;
+__jaic_workspace_append_list :: (w: Workspace, option: Workspace_List, value: string) #compiler;
 __jaic_workspace_options_snapshot :: (w: Workspace, options: *void, size: s64, strings: [] s64, arrays: [] s64, save: bool) -> bool #compiler;
 __jaic_workspace_begin_intercept :: (w: Workspace, flags: u32) #compiler;
 __jaic_workspace_end_intercept :: (w: Workspace) #compiler;
@@ -44,6 +49,65 @@ __jaic_rec_ref :: (record: s64, field: string) -> s64 #compiler;
 __jaic_rec_int :: (record: s64, field: string) -> s64 #compiler;
 __jaic_rec_count :: (record: s64, field: string) -> s64 #compiler;
 __jaic_rec_item_ref :: (record: s64, field: string, index: s64) -> s64 #compiler;
+
+// Options a workspace's build settings hold, by the kind of value they take. The Rust compiler
+// declares the same members in `crates/jaic/src/builtin_keys.rs`; keep both in step.
+Workspace_Text :: enum u16 {
+    OUTPUT_EXECUTABLE_NAME :: 0;
+    OUTPUT_PATH :: 1;
+    INTERMEDIATE_PATH :: 2;
+    ENTRY_POINT_NAME :: 3;
+    LLVM_TARGET_SYSTEM_TRIPLE :: 4;
+    LLVM_TARGET_SYSTEM_CPU :: 5;
+    LLVM_TARGET_SYSTEM_FEATURES :: 6;
+    MINIMUM_OS_VERSION :: 7;
+}
+
+Workspace_Flag :: enum u16 {
+    DO_OUTPUT :: 0;
+    STACK_TRACE :: 1;
+    DISABLE_REDZONE :: 2;
+    ENABLE_FRAME_POINTERS :: 3;
+    APPEND_EXECUTABLE_FILENAME_EXTENSION :: 4;
+    USE_CUSTOM_LINK_COMMAND :: 5;
+    OUTPUT_BITCODE :: 6;
+    OUTPUT_LLVM_IR :: 7;
+    OUTPUT_BITCODE_BEFORE_OPTIMIZATIONS :: 8;
+    OUTPUT_LLVM_IR_BEFORE_OPTIMIZATIONS :: 9;
+    LLVM_ENABLE_TAIL_CALLS :: 10;
+    LLVM_ENABLE_LOOP_UNROLLING :: 11;
+    LLVM_ENABLE_SLP_VECTORIZATION :: 12;
+    LLVM_ENABLE_LOOP_VECTORIZATION :: 13;
+    LLVM_PRESERVE_DEBUG_INFO :: 14;
+    LLVM_MERGE_FUNCTIONS :: 15;
+    LLVM_DISABLE_INLINING :: 16;
+    LLVM_DISABLE_MEM2REG :: 17;
+    LLVM_ENABLE_SPLIT_MODULES :: 18;
+    LLVM_FUNCTION_SECTIONS :: 19;
+}
+
+Workspace_Number :: enum u16 {
+    OUTPUT_TYPE :: 0;
+    OS_TARGET :: 1;
+    CPU_TARGET :: 2;
+    TEMPORARY_STORAGE_SIZE :: 3;
+    ARRAY_BOUNDS_CHECK :: 4;
+    CAST_BOUNDS_CHECK :: 5;
+    NULL_POINTER_CHECK :: 6;
+    ARITHMETIC_OVERFLOW_CHECK :: 7;
+    DEAD_CODE_ELIMINATION :: 8;
+    RUNTIME_SUPPORT_DEFINITIONS :: 9;
+    BACKTRACE_ON_CRASH :: 10;
+    EMIT_DEBUG_INFO :: 11;
+    BITCODE_OPTIMIZATION :: 12;
+    MACHINE_CODE_OPTIMIZATION :: 13;
+}
+
+Workspace_List :: enum u16 {
+    IMPORT_PATH :: 0;
+    ADDITIONAL_LINKER_ARGUMENT :: 1;
+}
+
 
 #scope_module
 require :: (condition: bool, format: string, args: ..Any, loc := #caller_location) {

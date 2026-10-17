@@ -10,6 +10,11 @@
 //! (`__jaic_*`, see [`MetaOp`]) with a scalar/string ABI; the public
 //! `Compiler` module API (Build_Options, Message structs...) is written in Jai
 //! on top of them in `stdlib/Compiler/module.jai`.
+use crate::builtin_keys::{
+    ArrayBoundsCheck, BitcodeOptimization, CheckLevel, CpuTag, DeadCodeSetting, DebugInfoSetting,
+    MachineCodeOptimization, OsTag, RuntimeSupport, SyntaxKey, Toggle, WorkspaceFlag,
+    WorkspaceList, WorkspaceNumber, WorkspaceText,
+};
 use crate::fxhash::HashMap;
 use crate::interp::{Host, Interp, Rets, Trap};
 use crate::ir;
@@ -25,28 +30,7 @@ use std::rc::Rc;
 
 mod option_snapshot;
 
-/// What a workspace produces.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OutputType {
-    Executable,
-    DynamicLibrary,
-    StaticLibrary,
-    ObjectFile,
-    NoOutput,
-}
-
-impl OutputType {
-    fn parse(s: &str) -> Option<Self> {
-        Some(match s {
-            "EXECUTABLE" => Self::Executable,
-            "DYNAMIC_LIBRARY" => Self::DynamicLibrary,
-            "STATIC_LIBRARY" => Self::StaticLibrary,
-            "OBJECT_FILE" => Self::ObjectFile,
-            "NO_OUTPUT" => Self::NoOutput,
-            _ => return None,
-        })
-    }
-}
+pub use crate::builtin_keys::OutputType;
 
 /// Build settings of one workspace, as far as jaic uses them.
 #[derive(Clone, Debug)]
@@ -60,8 +44,8 @@ pub struct BuildSettings {
     pub import_paths: Option<Vec<PathBuf>>,
     pub os: Option<TargetOs>,
     pub cpu: Option<TargetCpu>,
-    /// `O0`..`O3`, `OS`, `OZ` (`bitcode_optimization_setting` names).
-    pub optimization: String,
+    /// `llvm_options.bitcode_optimization_setting`.
+    pub optimization: BitcodeOptimization,
     pub additional_linker_arguments: Vec<String>,
     pub temporary_storage_size: Option<i64>,
     pub array_bounds_check: Option<bool>,
@@ -78,7 +62,7 @@ pub struct BuildSettings {
     pub dead_code_elimination: Option<DeadCode>,
     /// `llvm_options.target_system_triple`, `_cpu` and `_features` (empty: the default for
     /// `os`/`cpu`).
-    pub llvm_triple: String,
+    pub llvm_target: Option<crate::target::Target>,
     pub llvm_cpu: String,
     pub llvm_features: String,
     /// `intermediate_path`: where object files (and LLVM IR or bitcode) go; empty: next to
@@ -88,7 +72,7 @@ pub struct BuildSettings {
     pub entry_point_name: String,
     /// `runtime_support_definitions` (`AUTO`...) and `backtrace_on_crash`, once a metaprogram
     /// changes them.
-    pub runtime_support_definitions: Option<String>,
+    pub runtime_support_definitions: Option<RuntimeSupport>,
     pub backtrace_on_crash: Option<bool>,
     /// `append_executable_filename_extension` (`.exe`, `.dll` on Windows...).
     pub append_extension: bool,
@@ -101,8 +85,8 @@ pub struct BuildSettings {
     /// `None` until a metaprogram changes it (`docs/metaprogramming/build-options.md`).
     pub frame_pointers: Option<bool>,
     pub disable_redzone: bool,
-    pub machine_code_optimization: String,
-    pub llvm_switches: Vec<(String, bool)>,
+    pub machine_code_optimization: MachineCodeOptimization,
+    pub llvm_switches: Vec<(WorkspaceFlag, bool)>,
     /// `output_llvm_ir`, `output_bitcode` and their `_before_optimizations` variants.
     pub output_llvm_ir: bool,
     pub output_bitcode: bool,
@@ -111,12 +95,12 @@ pub struct BuildSettings {
 }
 
 impl BuildSettings {
-    /// The value a metaprogram gave `llvm_options.<name>` (`enable_loop_unrolling`...).
-    pub fn llvm_switch(&self, name: &str) -> Option<bool> {
+    /// The value a metaprogram gave the `llvm_options` switch `flag` (`LlvmEnableLoopUnrolling`...).
+    pub fn llvm_switch(&self, flag: WorkspaceFlag) -> Option<bool> {
         self.llvm_switches
             .iter()
             .rev()
-            .find(|(n, _)| n == name)
+            .find(|(n, _)| *n == flag)
             .map(|(_, on)| *on)
     }
 }
@@ -131,7 +115,7 @@ impl Default for BuildSettings {
             import_paths: None,
             os: None,
             cpu: None,
-            optimization: String::new(),
+            optimization: BitcodeOptimization::Unset,
             additional_linker_arguments: Vec::new(),
             temporary_storage_size: None,
             array_bounds_check: None,
@@ -141,7 +125,7 @@ impl Default for BuildSettings {
             stack_trace: None,
             emit_debug_info: None,
             dead_code_elimination: None,
-            llvm_triple: String::new(),
+            llvm_target: None,
             llvm_cpu: String::new(),
             llvm_features: String::new(),
             intermediate_path: String::new(),
@@ -153,7 +137,7 @@ impl Default for BuildSettings {
             minimum_os_version: String::new(),
             frame_pointers: None,
             disable_redzone: false,
-            machine_code_optimization: String::new(),
+            machine_code_optimization: MachineCodeOptimization::Unset,
             llvm_switches: Vec::new(),
             output_llvm_ir: false,
             output_bitcode: false,
@@ -436,7 +420,12 @@ pub enum MetaOp {
     RuntimeData,
     AddFile,
     AddString,
-    SetOption,
+    DestroyWorkspace,
+    SetText,
+    SetFlag,
+    SetNumber,
+    ClearList,
+    AppendList,
     OptionsSnapshot,
     BeginIntercept,
     EndIntercept,
@@ -499,7 +488,12 @@ impl MetaOp {
             "__jaic_runtime_data" => Self::RuntimeData,
             "__jaic_workspace_add_file" => Self::AddFile,
             "__jaic_workspace_add_string" => Self::AddString,
-            "__jaic_workspace_set_option" => Self::SetOption,
+            "__jaic_workspace_destroy" => Self::DestroyWorkspace,
+            "__jaic_workspace_set_text" => Self::SetText,
+            "__jaic_workspace_set_flag" => Self::SetFlag,
+            "__jaic_workspace_set_number" => Self::SetNumber,
+            "__jaic_workspace_clear_list" => Self::ClearList,
+            "__jaic_workspace_append_list" => Self::AppendList,
             "__jaic_workspace_options_snapshot" => Self::OptionsSnapshot,
             "__jaic_workspace_begin_intercept" => Self::BeginIntercept,
             "__jaic_workspace_end_intercept" => Self::EndIntercept,
@@ -629,84 +623,170 @@ impl Workspaces {
         *self.current.last().unwrap_or(&TOP_LEVEL_WORKSPACE)
     }
 
-    fn set_option(&mut self, id: i64, key: &str, value: &str) -> Result<(), String> {
+    fn workspace_settings(&mut self, id: i64) -> Result<&mut BuildSettings, String> {
+        Ok(&mut self.ws(id)?.settings)
+    }
+
+    /// `compiler_destroy_workspace`: what was added is never compiled.
+    fn destroy_workspace(&mut self, id: i64) -> Result<(), String> {
         let actual = if id == 0 {
             self.current_id()
         } else {
             id
         };
-        if key == "destroy" && self.current.contains(&actual) {
+        if self.current.contains(&actual) {
             return Err("cannot destroy an active compiler workspace".into());
         }
-        let s = &mut self.ws(id)?.settings;
-        let flag = || value == "true";
-        match key {
-            "output_executable_name" => s.output_executable_name = value.into(),
-            "output_path" => s.output_path = value.into(),
-            "output_type" => {
-                s.output_type = OutputType::parse(value)
-                    .ok_or_else(|| format!("unknown output_type `{value}`"))?
+        let ws = self.ws(id)?;
+        ws.pending.clear();
+        if ws.stage == Stage::Open {
+            ws.stage = Stage::Done;
+        }
+        Ok(())
+    }
+
+    fn set_text(&mut self, id: i64, option: WorkspaceText, value: &str) -> Result<(), String> {
+        let s = self.workspace_settings(id)?;
+        match option {
+            WorkspaceText::OutputExecutableName => s.output_executable_name = value.into(),
+            WorkspaceText::OutputPath => s.output_path = value.into(),
+            WorkspaceText::IntermediatePath => s.intermediate_path = value.into(),
+            WorkspaceText::EntryPointName => s.entry_point_name = value.into(),
+            WorkspaceText::LlvmTargetSystemTriple => {
+                s.llvm_target = if value.is_empty() {
+                    None
+                } else {
+                    Some(crate::target::Target::parse(value)?)
+                }
             }
-            "do_output" => s.do_output = flag(),
-            "import_path_clear" => s.import_paths = Some(Vec::new()),
-            "import_path" => s
+            WorkspaceText::LlvmTargetSystemCpu => s.llvm_cpu = value.into(),
+            WorkspaceText::LlvmTargetSystemFeatures => s.llvm_features = value.into(),
+            WorkspaceText::MinimumOsVersion => s.minimum_os_version = value.into(),
+        }
+        Ok(())
+    }
+
+    fn set_flag(&mut self, id: i64, option: WorkspaceFlag, on: bool) -> Result<(), String> {
+        let s = self.workspace_settings(id)?;
+        match option {
+            WorkspaceFlag::DoOutput => s.do_output = on,
+            WorkspaceFlag::StackTrace => s.stack_trace = Some(on),
+            WorkspaceFlag::DisableRedzone => s.disable_redzone = on,
+            WorkspaceFlag::EnableFramePointers => s.frame_pointers = Some(on),
+            WorkspaceFlag::AppendExecutableFilenameExtension => s.append_extension = on,
+            WorkspaceFlag::UseCustomLinkCommand => s.use_custom_link_command = on,
+            WorkspaceFlag::OutputBitcode => s.output_bitcode = on,
+            WorkspaceFlag::OutputLlvmIr => s.output_llvm_ir = on,
+            WorkspaceFlag::OutputBitcodeBeforeOptimizations => {
+                s.output_bitcode_before_optimizations = on
+            }
+            WorkspaceFlag::OutputLlvmIrBeforeOptimizations => {
+                s.output_llvm_ir_before_optimizations = on
+            }
+            WorkspaceFlag::LlvmEnableTailCalls
+            | WorkspaceFlag::LlvmEnableLoopUnrolling
+            | WorkspaceFlag::LlvmEnableSlpVectorization
+            | WorkspaceFlag::LlvmEnableLoopVectorization
+            | WorkspaceFlag::LlvmPreserveDebugInfo
+            | WorkspaceFlag::LlvmMergeFunctions
+            | WorkspaceFlag::LlvmDisableInlining
+            | WorkspaceFlag::LlvmDisableMem2reg
+            | WorkspaceFlag::LlvmEnableSplitModules
+            | WorkspaceFlag::LlvmFunctionSections => s.llvm_switches.push((option, on)),
+        }
+        Ok(())
+    }
+
+    fn set_number(&mut self, id: i64, option: WorkspaceNumber, raw: u64) -> Result<(), String> {
+        fn member<T>(
+            option: WorkspaceNumber,
+            raw: u64,
+            decode: fn(u64) -> Option<T>,
+        ) -> Result<T, String> {
+            decode(raw).ok_or_else(|| format!("internal: {option:?} has no value {raw}"))
+        }
+        let s = self.workspace_settings(id)?;
+        match option {
+            WorkspaceNumber::OutputType => {
+                s.output_type = member(option, raw, OutputType::from_raw)?
+            }
+            WorkspaceNumber::OsTarget => {
+                s.os = Some(match member(option, raw, OsTag::from_raw)? {
+                    OsTag::Windows => TargetOs::Windows,
+                    OsTag::Linux => TargetOs::Linux,
+                    OsTag::MacOS => TargetOs::MacOS,
+                    OsTag::Wasm => TargetOs::Wasm,
+                })
+            }
+            WorkspaceNumber::CpuTarget => {
+                s.cpu = Some(match member(option, raw, CpuTag::from_raw)? {
+                    CpuTag::X64 => TargetCpu::X64,
+                    CpuTag::Arm64 => TargetCpu::Arm64,
+                    CpuTag::Custom => TargetCpu::Wasm,
+                })
+            }
+            WorkspaceNumber::TemporaryStorageSize => s.temporary_storage_size = Some(raw as i64),
+            WorkspaceNumber::ArrayBoundsCheck => {
+                s.array_bounds_check =
+                    Some(member(option, raw, ArrayBoundsCheck::from_raw)? != ArrayBoundsCheck::Off)
+            }
+            WorkspaceNumber::NullPointerCheck => {
+                s.null_pointer_check = Some(member(option, raw, Toggle::from_raw)? != Toggle::Off)
+            }
+            WorkspaceNumber::ArithmeticOverflowCheck => {
+                s.arithmetic_overflow_check = Some(member(option, raw, CheckLevel::from_raw)? as u8)
+            }
+            WorkspaceNumber::CastBoundsCheck => {
+                s.cast_bounds_check = Some(member(option, raw, CheckLevel::from_raw)? as u8)
+            }
+            WorkspaceNumber::EmitDebugInfo => {
+                s.emit_debug_info =
+                    Some(member(option, raw, DebugInfoSetting::from_raw)? != DebugInfoSetting::None)
+            }
+            WorkspaceNumber::DeadCodeElimination => {
+                s.dead_code_elimination =
+                    Some(match member(option, raw, DeadCodeSetting::from_raw)? {
+                        DeadCodeSetting::None => DeadCode::None,
+                        DeadCodeSetting::All => DeadCode::All,
+                        DeadCodeSetting::ModulesOnly => DeadCode::ModulesOnly,
+                    })
+            }
+            WorkspaceNumber::RuntimeSupportDefinitions => {
+                s.runtime_support_definitions = Some(member(option, raw, RuntimeSupport::from_raw)?)
+            }
+            WorkspaceNumber::BacktraceOnCrash => {
+                s.backtrace_on_crash = Some(member(option, raw, Toggle::from_raw)? == Toggle::On)
+            }
+            WorkspaceNumber::BitcodeOptimization => {
+                s.optimization = member(option, raw, BitcodeOptimization::from_raw)?
+            }
+            WorkspaceNumber::MachineCodeOptimization => {
+                s.machine_code_optimization =
+                    member(option, raw, MachineCodeOptimization::from_raw)?
+            }
+        }
+        Ok(())
+    }
+
+    fn clear_list(&mut self, id: i64, option: WorkspaceList) -> Result<(), String> {
+        let s = self.workspace_settings(id)?;
+        match option {
+            WorkspaceList::ImportPath => s.import_paths = Some(Vec::new()),
+            WorkspaceList::AdditionalLinkerArgument => s.additional_linker_arguments.clear(),
+        }
+        Ok(())
+    }
+
+    fn append_list(&mut self, id: i64, option: WorkspaceList, value: &str) -> Result<(), String> {
+        let s = self.workspace_settings(id)?;
+        match option {
+            WorkspaceList::ImportPath => s
                 .import_paths
                 .get_or_insert_with(Vec::new)
                 .push(PathBuf::from(value)),
-            "os_target" => {
-                s.os = Some(
-                    crate::target::parse_os_member(value)
-                        .ok_or_else(|| format!("jaic cannot build for `os_target = .{value}`"))?,
-                )
+            WorkspaceList::AdditionalLinkerArgument => {
+                s.additional_linker_arguments.push(value.into())
             }
-            "cpu_target" => {
-                s.cpu = Some(
-                    crate::target::parse_cpu_member(value)
-                        .ok_or_else(|| format!("jaic cannot build for `cpu_target = .{value}`"))?,
-                )
-            }
-            "optimization" => s.optimization = value.into(),
-            "additional_linker_arguments_clear" => s.additional_linker_arguments.clear(),
-            "additional_linker_argument" => s.additional_linker_arguments.push(value.into()),
-            "temporary_storage_size" => s.temporary_storage_size = value.parse().ok(),
-            "array_bounds_check" => s.array_bounds_check = Some(value != "OFF"),
-            "null_pointer_check" => s.null_pointer_check = Some(value != "OFF"),
-            "arithmetic_overflow_check" => s.arithmetic_overflow_check = Some(check_level(value)),
-            "cast_bounds_check" => s.cast_bounds_check = Some(check_level(value)),
-            "stack_trace" => s.stack_trace = Some(value == "true"),
-            "emit_debug_info" => s.emit_debug_info = Some(value != "NONE"),
-            "dead_code_elimination" => s.dead_code_elimination = DeadCode::from_name(value),
-            "llvm_target_system_triple" => s.llvm_triple = value.into(),
-            "llvm_target_system_cpu" => s.llvm_cpu = value.into(),
-            "llvm_target_system_features" => s.llvm_features = value.into(),
-            "intermediate_path" => s.intermediate_path = value.into(),
-            "entry_point_name" => s.entry_point_name = value.into(),
-            "runtime_support_definitions" => s.runtime_support_definitions = Some(value.into()),
-            "backtrace_on_crash" => s.backtrace_on_crash = Some(value == "ON"),
-            "append_executable_filename_extension" => s.append_extension = flag(),
-            "use_custom_link_command" => s.use_custom_link_command = flag(),
-            "minimum_os_version" => s.minimum_os_version = value.into(),
-            "enable_frame_pointers" => s.frame_pointers = Some(flag()),
-            "disable_redzone" => s.disable_redzone = flag(),
-            "machine_code_optimization" => s.machine_code_optimization = value.into(),
-            "output_llvm_ir" => s.output_llvm_ir = flag(),
-            "output_bitcode" => s.output_bitcode = flag(),
-            "output_llvm_ir_before_optimizations" => s.output_llvm_ir_before_optimizations = flag(),
-            "output_bitcode_before_optimizations" => s.output_bitcode_before_optimizations = flag(),
-            "destroy" => {
-                // `compiler_destroy_workspace`: what was added is never compiled.
-                let ws = self.ws(id)?;
-                ws.pending.clear();
-                if ws.stage == Stage::Open {
-                    ws.stage = Stage::Done;
-                }
-            }
-            _ => match key.strip_prefix("llvm_") {
-                Some(name) => s.llvm_switches.push((name.into(), flag())),
-                // The Compiler module sends only keys listed here: anything else is a bug there,
-                // not a setting to drop.
-                None => return Err(format!("internal: unknown build option `{key}`")),
-            },
         }
         Ok(())
     }
@@ -721,15 +801,6 @@ impl Workspaces {
         let ptr = boxed.as_ptr() as u64;
         self.strings.push(boxed);
         (bytes.len() as u64, ptr)
-    }
-}
-
-/// A runtime check's level from its `Build_Options` enum name: 0 `OFF`, 1 `NONFATAL`, 2 `FATAL`.
-fn check_level(value: &str) -> u8 {
-    match value {
-        "NONFATAL" => 1,
-        "FATAL" => 2,
-        _ => 0,
     }
 }
 
@@ -762,10 +833,10 @@ pub(crate) fn isolated_host_environment(
     (shared, host)
 }
 
-/// Whether a build for `os` with LLVM triple `triple` is a WASI program, which gets
-/// [`WASI_RUNTIME_IMPORT`] added to its sources. Other wasm builds supply their own runtime.
-pub fn wants_wasi_runtime(os: TargetOs, triple: &str) -> bool {
-    os == TargetOs::Wasm && triple.split('-').any(|part| part.starts_with("wasi"))
+/// Whether a build for `target` is a WASI program, which gets [`WASI_RUNTIME_IMPORT`] added to
+/// its sources. Other wasm builds supply their own runtime.
+pub fn wants_wasi_runtime(target: Option<crate::target::Target>) -> bool {
+    target.is_some_and(|t| t.is_wasm() && t.abi == crate::target::TargetAbi::Wasi)
 }
 
 /// `dead_code_elimination` as compile-time code last set it for workspace `id`, which may be
@@ -882,8 +953,9 @@ fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Compiler>, Str
     }
     if let Some(which) = &settings.runtime_support_definitions {
         // AUTO and ENTRY_POINT_AND_INIT: both; ONLY_INIT: the program has its own entry point.
-        options.runtime_entry_point = !matches!(which.as_str(), "ONLY_INIT" | "OMIT");
-        options.runtime_initialization = which != "OMIT";
+        options.runtime_entry_point =
+            !matches!(which, RuntimeSupport::OnlyInit | RuntimeSupport::Omit);
+        options.runtime_initialization = *which != RuntimeSupport::Omit;
     }
     if let Some(on) = settings.backtrace_on_crash {
         // WebAssembly has no signals to catch (`docs/metaprogramming/build-options.md`).
@@ -972,7 +1044,7 @@ fn step(shared: &SharedWorkspaces, id: i64, budget: &mut Option<u64>) -> Result<
     if stage == Stage::Open {
         let reg = shared.borrow();
         let settings = &reg.list[id as usize].settings;
-        if wants_wasi_runtime(compiler.options.os, &settings.llvm_triple) {
+        if wants_wasi_runtime(settings.llvm_target) {
             pending.push(ProgramSource::String(WASI_RUNTIME_IMPORT.into()));
         }
     }
@@ -1813,11 +1885,57 @@ pub fn call(
             .map_err(trap)?;
             Ok(Rets::default())
         }
-        MetaOp::SetOption => {
-            let (key, mut value) = (text(interp, 1)?, text(interp, 2)?);
+        MetaOp::DestroyWorkspace => {
+            shared
+                .borrow_mut()
+                .destroy_workspace(arg(0) as i64)
+                .map_err(trap)?;
+            Ok(Rets::default())
+        }
+        MetaOp::SetText => {
+            let option = WorkspaceText::from_raw(arg(1))
+                .ok_or_else(|| trap("internal: unknown text option".into()))?;
+            let value = text(interp, 2)?;
+            shared
+                .borrow_mut()
+                .set_text(arg(0) as i64, option, &value)
+                .map_err(trap)?;
+            Ok(Rets::default())
+        }
+        MetaOp::SetFlag => {
+            let option = WorkspaceFlag::from_raw(arg(1))
+                .ok_or_else(|| trap("internal: unknown flag option".into()))?;
+            shared
+                .borrow_mut()
+                .set_flag(arg(0) as i64, option, arg(2) & 1 != 0)
+                .map_err(trap)?;
+            Ok(Rets::default())
+        }
+        MetaOp::SetNumber => {
+            let option = WorkspaceNumber::from_raw(arg(1))
+                .ok_or_else(|| trap("internal: unknown number option".into()))?;
+            shared
+                .borrow_mut()
+                .set_number(arg(0) as i64, option, arg(2))
+                .map_err(trap)?;
+            Ok(Rets::default())
+        }
+        MetaOp::ClearList => {
+            let option = WorkspaceList::from_raw(arg(1))
+                .ok_or_else(|| trap("internal: unknown list option".into()))?;
+            shared
+                .borrow_mut()
+                .clear_list(arg(0) as i64, option)
+                .map_err(trap)?;
+            Ok(Rets::default())
+        }
+        MetaOp::AppendList => {
+            let option = WorkspaceList::from_raw(arg(1))
+                .ok_or_else(|| trap("internal: unknown list option".into()))?;
+            let mut value = text(interp, 2)?;
             // A module folder relative to a sandbox's own working directory: the process's is
             // somewhere else.
-            if key == "import_path"
+            if option == WorkspaceList::ImportPath
                 && Path::new(&value).is_relative()
                 && let Some(cwd) = interp.host.working_directory()
             {
@@ -1825,7 +1943,7 @@ pub fn call(
             }
             shared
                 .borrow_mut()
-                .set_option(arg(0) as i64, &key, &value)
+                .append_list(arg(0) as i64, option, &value)
                 .map_err(trap)?;
             Ok(Rets::default())
         }
@@ -2131,12 +2249,8 @@ pub fn call(
             Ok(Rets::default())
         }
         MetaOp::SyntaxInt | MetaOp::SyntaxString | MetaOp::SyntaxChild => {
-            let key = text(interp, 1)?;
-            if !key.starts_with("__syntax_") {
-                return Err(trap(
-                    "syntax attributes require a private syntax key".into(),
-                ));
-            }
+            let key = SyntaxKey::from_raw(arg(1))
+                .ok_or_else(|| trap("internal: unknown syntax key".into()))?;
             let mut reg = shared.borrow_mut();
             // Association lookup only: never dereference arbitrary program pointers.
             let found = reg
@@ -2150,7 +2264,7 @@ pub fn call(
             match op {
                 MetaOp::SyntaxInt => Ok(Rets::one(
                     found
-                        .and_then(|(_, id)| match reg.records.field(id, &key) {
+                        .and_then(|(_, id)| match reg.records.syntax_field(id, key) {
                             Some(crate::records::FieldRef::Int(value)) => Some(value as u64),
                             _ => None,
                         })
@@ -2158,7 +2272,7 @@ pub fn call(
                 )),
                 MetaOp::SyntaxString => {
                     let value = found
-                        .and_then(|(_, id)| match reg.records.field(id, &key) {
+                        .and_then(|(_, id)| match reg.records.syntax_field(id, key) {
                             Some(crate::records::FieldRef::Str(value)) => Some(value.clone()),
                             _ => None,
                         })
@@ -2171,7 +2285,7 @@ pub fn call(
                     let Some((index, id)) = found else {
                         return Ok(Rets::one(0));
                     };
-                    let child = match reg.records.field(id, &key) {
+                    let child = match reg.records.syntax_field(id, key) {
                         Some(crate::records::FieldRef::Ref(child)) => child,
                         _ => 0,
                     };
