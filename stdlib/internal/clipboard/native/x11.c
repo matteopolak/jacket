@@ -315,7 +315,8 @@ static int receive(Service *service, Command *command) {
   XSelectInput(service->display, window,
                PropertyChangeMask | StructureNotifyMask);
   int status = -1;
-  // The owner refused both text targets: it holds something else (an image), and the text is empty.
+  // The owner refused both text targets: it holds something else (an image),
+  // and the text is empty.
   int no_text = 0;
   Atom target = service->utf8;
   for (int attempt = 0; attempt < 2; ++attempt) {

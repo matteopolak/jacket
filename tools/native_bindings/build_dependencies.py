@@ -13,6 +13,7 @@ import subprocess
 import shutil
 import tarfile
 import tempfile
+import time
 import urllib.request
 from sdl_sdk_headers import prepare_runtime_headers
 from config import RPMALLOC_SDK_BUILD_OPTIONS
@@ -65,6 +66,17 @@ def run(command):
     subprocess.run([str(x) for x in command], check=True)
 
 
+def download(url, attempts=4):
+    """Fetch a pinned archive; hosted runners drop connections now and then, so retry with backoff."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return urllib.request.urlopen(url, timeout=60).read()
+        except OSError:
+            if attempt == attempts:
+                raise
+            time.sleep(5 * attempt)
+
+
 def prepare_source(name, source, vendor):
     """Validate a pinned release before using its files; otherwise use pinned raw inputs."""
     archive_root = None
@@ -73,7 +85,7 @@ def prepare_source(name, source, vendor):
         archive = vendor / (name + '.tar.gz')
         if not archive.exists():
             archive.parent.mkdir(parents=True, exist_ok=True)
-            archive.write_bytes(urllib.request.urlopen(pin['url'], timeout=60).read())
+            archive.write_bytes(download(pin['url']))
         if hashlib.sha256(archive.read_bytes()).hexdigest() != pin['sha256']:
             raise RuntimeError('Archive hash mismatch: ' + name)
         archive_root = vendor / pin['root']
