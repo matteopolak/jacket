@@ -51,8 +51,8 @@ toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window
     dpy := Connection.get_display();
     if !dpy return false, 0, 0;
 
-    fullscreen := XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", 1);
-    state := XInternAtom(dpy, "_NET_WM_STATE", 1);
+    fullscreen := XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", 0);
+    state := XInternAtom(dpy, "_NET_WM_STATE", 0);
 
     if fullscreen == None || state == None return false, 0, 0;
 
