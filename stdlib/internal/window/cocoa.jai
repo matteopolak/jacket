@@ -32,6 +32,10 @@ initialize_application :: () -> bool {
     }
 
     void_message(candidate, "finishLaunching");
+    // Hardening, not a confirmed fix: AppKit may ignore requests such as toggleFullScreen: for an
+    // app that is not active, and a program started from a shell is not active by itself. This
+    // is not confirmed to fix the intermittent fullscreen-toggle timeout seen on CI under interp.
+    argument_result_message(candidate, "activateIgnoringOtherApps:", cast(s8) 1, s8);
     application = candidate;
 
     return true;

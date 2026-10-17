@@ -24,7 +24,8 @@
     ],
     "required_capabilities": [
       "compiled code and globals must be real PE sections, which only a native executable has"
-    ]
+    ],
+    "required_cpu": "x64"
   },
   {
     "name": "windows-records",

@@ -4,3 +4,4 @@
 /compiler-path.txt
 /*.dylib
 /runtime-sdk.json
+/notices/

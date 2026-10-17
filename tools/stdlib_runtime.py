@@ -286,9 +286,18 @@ def run_program(command, cwd, timeout, env, case):
     return run_unleased(command, cwd, timeout, env, case)
 
 
+def uses_clipboard(case):
+    """Clipboard tests share the one system clipboard (on Linux, the Xvfb display's selection),
+    so two running at once, such as a test's interp and native runs, overwrite each other."""
+    return bool(case.get("clipboard_guard")) or case.get("id", "").startswith("Clipboard/")
+
+
 def run_unleased(command, cwd, timeout, env, case):
     prefix = runtime_prefix(case, env)
     if not prefix:
+        if uses_clipboard(case):
+            with CLIPBOARD_LOCK:
+                return run_command(command, cwd, timeout, env)
         return run_command(command, cwd, timeout, env)
     guarded_env = dict(
         env, JAIC_TEST_CHILD_TIMEOUT_MS=str(max(1, round(timeout * 1000)))

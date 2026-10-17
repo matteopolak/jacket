@@ -23,7 +23,15 @@ main :: () {
     window := create_window(320, 200, "jaic fullscreen test");
 
     assert(cast(u64) window != 0, "create_window failed");
-    pump(20);
+
+    #if OS == .MACOS {
+        // Hardening, not a confirmed fix: AppKit may ignore toggleFullScreen: for a window that is
+        // not key yet. This is not confirmed to fix the intermittent timeout seen on CI under interp.
+        wait_key_window(window);
+    } else {
+        pump(20);
+    }
+
     _, _, width, height, measured := get_dimensions(window, false);
 
     assert(measured && width > 0 && height > 0, "window size % x % (%)", width, height, measured);
@@ -125,6 +133,22 @@ main :: () {
 
         if name == "NSWindowDidEnterFullScreenNotification" entered = window;
         else if name == "NSWindowDidExitFullScreenNotification" exited = window;
+    }
+
+    // Pumps until the window is key, for at most two seconds; a window that never becomes key
+    // (no active session) is left to the transition's own wait to report.
+    wait_key_window :: (window: Window_Type) {
+        Bool :: #type (receiver: *void, selector: O.Selector) -> s8 #c_call;
+        is_key := cast(Bool) O.objc_msgSend;
+
+        for 1..400 {
+            update_window_events();
+            if is_key(window, O.selector("isKeyWindow")) != 0 break;
+
+            sleep_milliseconds(5);
+        }
+
+        pump(5);
     }
 
     wait_fullscreen :: (window: Window_Type, desired: bool) {

@@ -12,12 +12,18 @@ F :: #import "File";
     plugin := P.get_plugin();
     plugin.workspace = w;
     C.compiler_begin_intercept(w);
+    // The plugin writes pp_<file>.txt for every loaded file, so the test removes each of them.
+    loaded: [..] string;
 
     while true {
         message := C.compiler_wait_for_message();
 
         assert(message != null);
         plugin.message(plugin, message);
+
+        if message.kind == .FILE {
+            array_add(*loaded, copy_string((cast(*C.Message_File) message).fully_pathed_filename));
+        }
 
         if message.kind == .COMPLETE {
             assert((cast(*C.Message_Complete) message).error_code == .NONE);
@@ -38,7 +44,15 @@ F :: #import "File";
     }
 
     assert(found);
-    assert(F.file_delete("pp_inspected.jai.txt"));
+
+    for loaded {
+        output := sprint("pp_%.txt", C.get_basename_and_path(it));
+        F.file_delete(output);
+        free(output);
+        free(it);
+    }
+
+    array_free(loaded);
     C.compiler_end_intercept(w);
 }
 

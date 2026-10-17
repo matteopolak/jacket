@@ -1,1 +1,4 @@
 generated/
+# Repo-root-relative paths in these tests resolve under the test directory, where the runner starts them.
+/stdlib/
+/target/

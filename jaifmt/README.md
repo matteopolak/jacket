@@ -3,75 +3,74 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
-A code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), written in Jai. It is part of the [Jacket](../README.md) toolchain.
-
-`jaifmt` produces canonical output: one statement per line, block bodies on their own lines, braces joined to their headers, computed indentation and zero or one space between tokens, whatever the input looked like. Formatting twice changes nothing. Comments, blank lines (up to a limit) and the line breaks inside expressions are kept; long lines are not re-wrapped.
-
-Before it writes anything it lexes its own output and compares it with the input. If the tokens or comments differ, it refuses, so it cannot change what a program means.
+The code formatter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../README.md) toolchain. It is written in Jai.
 
 ```sh
-jaifmt src tests                 # rewrite files in place (directories are searched for *.jai)
-jaifmt --check src tests         # list the files that would change; exit status 1 (for CI)
-jaifmt --stdin < in.jai > out.jai   # editor integration
+jaifmt src/                    # format every .jai file under src/, in place
+jaifmt --check src/            # only list the files that would change (exit 1 if any)
+jaifmt --stdin < in.jai        # format standard input, for editors
 ```
+
+## What it does
+
+jaifmt gives the same output however the input was spaced. It puts one statement on each line and each block body on its own lines, joins `{` to the line it opens, fixes indentation, and leaves either no space or one space between tokens. Running it twice changes nothing.
+
+It keeps what you chose on purpose: your comments, your blank lines (up to a limit) and where you broke a long expression. It never re-wraps long lines.
+
+It can't change what your program means. Before writing a file, jaifmt lexes its own output and compares it with the input. If any token or comment differs, it leaves the file alone and reports an error. A file that doesn't lex or has unbalanced brackets is also left alone.
+
+To keep a region exactly as written, put it between `// jaifmt: off` and `// jaifmt: on`. Strings, here-strings and `#asm` blocks are always kept byte for byte.
 
 ## Install
 
-`jaifmt` ships in every toolchain install, next to `jaic`, `jailsp` and `jailint`:
+jaifmt comes with every Jacket install, next to `jaic`, `jailsp` and `jailint`:
 
 ```sh
-brew install matteopolak/tap/jacket        # macOS and Linux
-nix profile install github:matteopolak/jacket
+brew install matteopolak/tap/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../README.md#install) and [package managers](../docs/tools/releases.md).
+The [main README](../README.md#install) lists the other ways to install.
 
-The [VS Code extension](../docs/tools/vscode-extension.md) uses `jaifmt` as the document formatter. Other editors can run `jaifmt --stdin` as an external formatter.
+**Editors:** the [VS Code extension](../docs/tools/vscode-extension.md) and [jacket.nvim](../editors/nvim/README.md) format with jaifmt. In any other editor, set `jaifmt --stdin` as the external formatter.
 
-To build it from a checkout (it needs `jaic` with LLVM; see the [LLVM setup](../docs/tools/llvm-setup.md)):
+## Options
 
-```sh
-jaic jaifmt/build.jai             # target/jaifmt (native, optimised)
-jaic jaifmt/build.jai - wasm      # target/jaifmt.wasm (WASI)
-```
+| Option | Effect |
+| --- | --- |
+| `--check` | write nothing; list files that would change and exit with 1 |
+| `--stdin` | format standard input to standard output |
+| `--config <file>` | use this file instead of the nearest `jaifmt.toml` |
+| `-v`, `--verbose` | report every file, a summary, and lines longer than `max_width` |
+| `--color auto\|always\|never` | colour in error messages (`NO_COLOR` is respected) |
 
-## Features
+Every flag also has a `--no-` form. Directories are searched for `*.jai` files.
 
-- Runs natively, under `jaic -interp` and in the browser (the playground formats with the same code, compiled to a `jaifmt.wasm` of about 283 KB).
-- Token-equivalence check on every file; a file whose brackets do not balance or that does not lex is left unchanged, with an error.
-- Blank lines between file-level items, spaced as the dominant style of public Jai code.
-- `// jaifmt: off` and `// jaifmt: on` fence a region that must stay as written; string literals, here-strings and `#asm` blocks are always kept byte for byte.
-- Exit status: 0 success, 1 `--check` found files to change, 2 errors.
-- Command line parsed by `Extensions/Args`: every flag has a `--no-` form, a mistyped option gets a suggestion, `--help` is generated from the declarations in `main.jai`.
+The exit status is 0 on success, 1 when `--check` found files to change, and 2 on an error.
 
 ## Configuration
 
-Settings are read from the nearest `jaifmt.toml` above each file, or from `--config <file>`:
+jaifmt reads the nearest `jaifmt.toml` above each file:
 
 ```toml
 indent_width = 4
 max_blank_lines = 2
-max_width = 100            # only reported by --verbose
-brace_style = "same_line"  # or "preserve"
+brace_style = "same_line"   # or "preserve"
 ignore = ["generated/**"]
 ```
 
-Options: `--check`, `--stdin`, `--config <file>`, `-v`/`--verbose`, `--color auto|always|never`, `-h`/`--help`.
+A few more options add blank lines in specific places (between `case`s, before a `return`, ...). They are all off by default. The [full reference](../docs/tools/jaifmt.md#configuration) lists them. An unknown key is an error, so a typo can't go unnoticed.
 
-## Layout of this folder
+## Building from source
 
-| File | What it is |
-| --- | --- |
-| `main.jai` | the command-line program: arguments, directory walk, config lookup, `--check` |
-| `build.jai` | a metaprogram that builds the optimised native binary or the wasm module |
-| `playground.jai`, `wasm.jai` | the drivers for the browser engine and the WASI build |
+Building jaifmt needs `jaic` with LLVM; see the [LLVM setup](../docs/tools/llvm-setup.md):
 
-The formatter itself is the library `stdlib/Extensions/Jai_Format`, which the program here wraps.
+```sh
+jaic jaifmt/build.jai           # writes target/jaifmt
+jaic jaifmt/build.jai - wasm    # writes target/jaifmt.wasm, used by the playground
+```
 
-## Documentation
+The formatting itself lives in the `Extensions/Jai_Format` module, which works on strings and has no file access. This folder only holds the command-line program (`main.jai`), the build script (`build.jai`) and the two browser drivers (`playground.jai`, `wasm.jai`).
 
-The docs are the source of truth for rules, options and internals:
+## More
 
-- [jaifmt (Jai formatter)](../docs/tools/jaifmt.md): spacing and line-structure rules, configuration, the module API, tests and how to change a rule
-- [Code formatting](../docs/tools/development.md): how this repository checks formatting
-- [Package managers](../docs/tools/releases.md) and the [VS Code extension](../docs/tools/vscode-extension.md)
+- [jaifmt reference](../docs/tools/jaifmt.md): every rule, the module API, the browser build, and how to change a rule

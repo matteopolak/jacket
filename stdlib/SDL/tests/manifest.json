@@ -6,7 +6,11 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "native SDK, OS or graphics services"
+      "native SDK, OS or graphics services",
+      "the SDL2 runtime, which has no Windows arm64 build"
+    ],
+    "unsupported_platforms": [
+      "windows-arm64"
     ]
   },
   {

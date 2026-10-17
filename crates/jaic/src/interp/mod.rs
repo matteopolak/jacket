@@ -2490,9 +2490,10 @@ impl Interp {
                     let Ok(len) = usize::try_from(a[2]) else {
                         return self.trap("memcpy length exceeds the host address space");
                     };
-                    if !self.probe.copy(a[0], a[1], len) {
-                        return self.trap("memcpy through inaccessible memory");
-                    }
+                    // Like a load or store, a copy goes through the program's pointers directly,
+                    // so a bad one faults as it would natively.
+                    // SAFETY: the program's own memmove.
+                    unsafe { std::ptr::copy(a[1] as *const u8, a[0] as *mut u8, len) };
                 }
                 Rets::default()
             }
@@ -2504,9 +2505,8 @@ impl Interp {
                     let Ok(len) = usize::try_from(a[2]) else {
                         return self.trap("memset length exceeds the host address space");
                     };
-                    if !self.probe.fill(a[0], a[1] as u8, len) {
-                        return self.trap("memset through unwritable memory");
-                    }
+                    // SAFETY: the program's own memset, as for memcpy.
+                    unsafe { std::ptr::write_bytes(a[0] as *mut u8, a[1] as u8, len) };
                 }
                 Rets::default()
             }
@@ -2514,16 +2514,26 @@ impl Interp {
                 let Ok(n) = usize::try_from(a[2]) else {
                     return self.trap("memcmp length exceeds the host address space");
                 };
-                if n > 0 && (a[0] < 4096 || a[1] < 4096) {
-                    return self.null_trap("memcmp through a null pointer");
-                }
-                let Some(ordering) = self.probe.compare(a[0], a[1], n) else {
-                    return self.trap("memcmp through unreadable memory");
-                };
-                let r: i16 = match ordering {
-                    std::cmp::Ordering::Less => -1,
-                    std::cmp::Ordering::Equal => 0,
-                    std::cmp::Ordering::Greater => 1,
+                // An empty comparison may pass null pointers, which a slice must not hold.
+                let r: i16 = if n == 0 {
+                    0
+                } else {
+                    if a[0] < 4096 || a[1] < 4096 {
+                        return self.null_trap("memcmp through a null pointer");
+                    }
+                    if n > isize::MAX as usize {
+                        return self.trap("memcmp length exceeds the host address space");
+                    }
+                    // SAFETY: the program's own memcmp, as for memcpy.
+                    let ordering = unsafe {
+                        std::slice::from_raw_parts(a[0] as *const u8, n)
+                            .cmp(std::slice::from_raw_parts(a[1] as *const u8, n))
+                    };
+                    match ordering {
+                        std::cmp::Ordering::Less => -1,
+                        std::cmp::Ordering::Equal => 0,
+                        std::cmp::Ordering::Greater => 1,
+                    }
                 };
                 Rets::one(r as u16 as u64)
             }

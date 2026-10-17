@@ -2,44 +2,135 @@
 
 ## What it is
 
-One command, no subcommands:
-
-```
-jaic [options] file.jai [options] [+Plugin [plugin options...]]... [- metaprogram args...] [-- program args...]
-```
-
-By default it builds a native executable. `-check` compiles and writes nothing; `-interp` runs `main` in the interpreter (the two together are an error). The file is the one argument starting with neither `-` nor `+`; load others with `#load`/`#import`. `jaic -help` prints the binary's own option list.
+`jaic` is the compiler. It has one command and no subcommands. You give it a `.jai` file, and by default it builds a native executable next to that file.
 
 ```sh
-jaic main.jai                    # build next to the source
-jaic main.jai -check             # compile only
-jaic main.jai -interp -- a b     # run with program arguments
-jaic main.jai -O2 -exe build/app # optimized, placed below the current directory
-jaic build.jai +Check - release  # plugin, then metaprogram arguments
+jaic main.jai                  # build ./main (main.exe on Windows)
+jaic main.jai -check           # only type-check; write nothing
+jaic main.jai -interp          # run main in the interpreter, no executable
+jaic main.jai -interp -- a b   # ...passing arguments to the program
 ```
 
-## Grammar
+Options can go before or after the file. `jaic -help` prints the full list for the binary you have.
 
-- `+Name` starts a [plugin](../metaprogramming/workspaces.md); everything after it up to the next `+Name`, a lone `-` or `--` belongs to that plugin. Module parameters are part of the name (`'+Check(CHECK_BINDINGS=false)'`, quoted). Plugins do not combine with `-interp`.
-- A lone `-`: the rest (up to `--` with `-interp`) is for the metaprogram, read with `compiler_get_command_line`.
-- `--`: the program's own arguments (`argv[0]` is the source file). Only `-interp` runs the program, so `--` otherwise is an error.
+The file you name is the only source file on the command line. Other files come in through `#load` and `#import`, as usual.
 
-## Options
+## How it works
 
-Common: `-check`, `-interp`, `-add "code"` and `-run "code"` (repeatable), `-import_dir dir`/`-I dir`, `-os`/`-cpu`/`-target`, `-no_dce` (type-check unreferenced module code too), `-no_check_bindings` (`CHECK_BINDINGS=false` for `+Check`), `-no_backtrace_on_crash`, `-no_color` (`NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` also apply), `-msvc_format` (`path(line,col): error: message`), `-quiet`, `-verbose`, `-timings` (`jaic-timing: <phase> <seconds> <calls>` on stderr), `-help`, `-version`.
+### Choosing what jaic does
 
-Build only (an error with `-check`/`-interp`): `-exe name`, `-output_path dir`, `-o`/`-optimized` (LLVM O2, no stack trace or runtime checks), `-od`/`-optimized_debug` (O1, checks kept), `-very_debug`, `-O0`..`-O3` (not combined with the flavors), `-no_inline`, `-no_split` (one codegen unit, like `JAIC_CODEGEN_UNITS=1`), `-emit_ir file.ll`, `-no_debug_info`, `-sanitize address,undefined`. `-interp` only: `-no_workspace_output`. The optimization flags replace what the metaprogram chose; `-no_inline` and `-no_split` hold for every workspace jaic writes.
+| You want to | Run |
+| --- | --- |
+| build an executable | `jaic main.jai` |
+| check that it compiles | `jaic main.jai -check` |
+| run it without building | `jaic main.jai -interp` |
+| build optimized | `jaic main.jai -o` |
+| build for another platform | `jaic main.jai -os windows -cpu arm64` |
+| name the output | `jaic main.jai -exe build/app` |
 
-**Where the executable goes.** By default it is named after the source and written next to it unless build options say otherwise. `-exe name` keeps that place; with a directory part the path is relative to where jaic started. `-output_path dir` holds the executable and a relative `-exe` goes below it. A name without an extension gets the platform's. These do not reach other workspaces a metaprogram creates.
+`-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are an error with either of them.
 
-## Errors
+### Build flavors
 
-Exit status 2 is a command-line mistake (other statuses: [diagnostics](../compiler/diagnostics.md#exit-status)). An unknown option suggests the nearest known one. Pre-0.17 forms (`jaic run x.jai`, `check`, `build`, `--emit-ir`, `--no-debug-info`, `--timings`, `--color`, `--sanitize`, `--target`, `-plug`, `-plugin`, and `-o` with a value) are errors that name the new spelling; after a `+Plugin` they are the plugin's own arguments. Build-only options with `-check`/`-interp`, `-no_workspace_output` without `-interp`, and `-quiet` with `-verbose` are errors.
+| Option | What you get |
+| --- | --- |
+| *(none)* | unoptimized, with stack traces and runtime checks |
+| `-od`, `-optimized_debug` | lightly optimized (LLVM O1), checks kept |
+| `-o`, `-optimized` | fully optimized (LLVM O2), no stack traces or runtime checks |
+| `-very_debug` | unoptimized, with every runtime check on |
+| `-O0` to `-O3` | pick the LLVM level yourself. Don't combine these with the flavors above |
+
+A few switches turn off one thing each: `-no_inline`, `-no_split` (generate one code module instead of several), `-no_debug_info` and `-no_backtrace_on_crash`. `-sanitize address,undefined` builds with the sanitizers, and `-emit_ir out.ll` also writes the LLVM IR.
+
+If your build metaprogram sets an optimization level, these options override it. `-no_inline` and `-no_split` apply to every workspace jaic writes.
+
+### Where the executable goes
+
+By default the executable is named after the source file and written next to it, unless your build options say otherwise. On Windows it gets `.exe`.
+
+- `-exe app` keeps that location and changes the name.
+- `-exe build/app` is relative to the directory you ran jaic from.
+- `-output_path out/` sets the directory, and a relative `-exe` goes inside it.
+
+These only affect the main workspace, not other workspaces a metaprogram creates.
+
+### Adding code from the command line
+
+`-add "code"` adds code to the program, and `-run "code"` runs code at compile time, like a `#run`. Both can be repeated. `-I dir` (or `-import_dir dir`) adds a folder to search for modules.
+
+Less common options:
+
+- `-target <triple>` builds for an LLVM target triple, for targets that `-os` and `-cpu` don't cover.
+- `-no_dce` also type-checks module code nothing references.
+- `-no_check_bindings` sets `CHECK_BINDINGS=false` on a `+Check` plugin.
+- `-no_workspace_output` (with `-interp`) doesn't write the files a metaprogram's workspaces ask for.
+
+### Arguments for plugins, metaprograms and programs
+
+A command line can carry arguments for three other parties. jaic splits them like this:
+
+```sh
+jaic build.jai +Check - release -- arg1 arg2
+#              ^^^^^^ ^^^^^^^^^ ^^^^^^^^^^^^
+#              plugin   meta-     program
+#                      program   (with -interp)
+```
+
+- `+Name` loads the metaprogram plugin `Name`. Everything after it, up to the next `+Name`, `-` or `--`, is that plugin's own options. Module parameters go in the name: `'+Check(CHECK_BINDINGS=false)'`, quoted for the shell. Plugins can't be combined with `-interp`.
+- A lone `-` starts the metaprogram's arguments. The metaprogram reads them with `compiler_get_command_line`.
+- `--` starts the program's arguments. Only `-interp` runs the program, so `--` with a build or `-check` is an error. The program's `argv[0]` is the source file.
+
+### Output and diagnostics
+
+| Option | Effect |
+| --- | --- |
+| `-quiet` | print nothing but errors |
+| `-verbose` | say what is being done |
+| `-no_color` | plain diagnostics. `NO_COLOR` does the same; `FORCE_COLOR` and `CLICOLOR_FORCE` force colour on |
+| `-msvc_format` | one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format |
+| `-timings` | print each phase's time on stderr as `jaic-timing: <phase> <seconds> <calls>` |
+
+### Exit status
+
+| Status | Meaning |
+| --- | --- |
+| 0 | success |
+| 1 | the program didn't compile, a file couldn't be read, or a runtime error stopped it |
+| 2 | a mistake on the command line |
+| 3 | a build found no `main` to make an executable from |
+| 101 | an internal compiler error (please report it) |
+| 120 | the `JAIC_MEMORY_LIMIT` was reached |
+| 121 | native code crashed under the interpreter |
+
+With `-interp`, a program that runs to the end exits with its own status. [Diagnostics](../compiler/diagnostics.md#exit-status) has more on how errors are reported.
+
+### Mistakes
+
+An unknown option suggests the closest known one. The spellings from before 0.17 (`jaic run x.jai`, `check`, `build`, `--emit-ir`, `--no-debug-info`, `--timings`, `--color`, `--sanitize`, `--target`, `-plug`, `-plugin`, and `-o <path>`) are errors that tell you the new spelling. After a `+Plugin` they are passed to the plugin instead.
+
+## Configuration
+
+| Variable | Effect |
+| --- | --- |
+| `JAIC_MEMORY_LIMIT` | stop with status 120 once this much memory is allocated (`512M`, `2G`, ...) |
+| `JAIC_DIAGNOSTICS` | diagnostic layout: `plain`, `ascii` or `unicode` (default: chosen by terminal) |
+| `JAIC_CODEGEN_UNITS` | how many code modules to generate in parallel. `-no_split` is the same as `1` |
+| `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` | turn colour off or on |
 
 ## How to change it
 
-The parser is `parse` in `crates/jaic-cli/src/main.rs`; `KNOWN_OPTIONS`, `VALUE_OPTIONS`, `BUILD_ONLY` and `RENAMED` drive suggestions and mode errors, and `usage_text` is the help. A new option goes in the `match` of `parse`, those lists and the help. The `-msvc_format` layout is `Layout::Msvc` in `crates/jaic/src/render.rs`. Tests: `crates/jaic-cli/tests/diagnostics.rs`, `cli.rs`, `native.rs`.
+The parser is `parse` in `crates/jaic-cli/src/main.rs`. To add an option:
+
+1. Handle it in the `match` inside `parse`.
+2. Add it to `KNOWN_OPTIONS` so typos of it get suggestions, to `VALUE_OPTIONS` if it takes a value, and to `BUILD_ONLY` if it makes no sense with `-check` or `-interp`.
+3. Add it to `usage_text`, the `-help` output.
+
+Renamed options go in `RENAMED`, which produces the "use X instead" errors. The `-msvc_format` layout is `Layout::Msvc` in `crates/jaic/src/render.rs`.
+
+Tests live in `crates/jaic-cli/tests/`: `cli.rs` for parsing, `diagnostics.rs` for output and exit codes, and `native.rs` for builds.
 
 ## Dependencies
 
-[Metaprogram plugins](../metaprogramming/workspaces.md), [build options](../metaprogramming/build-options.md), [diagnostics](../compiler/diagnostics.md).
+- [Metaprogram plugins](../metaprogramming/workspaces.md): what `+Name` loads.
+- [Build options](../metaprogramming/build-options.md): what the flavor and output options set.
+- [Diagnostics](../compiler/diagnostics.md): the renderer behind `-no_color`, `-msvc_format` and `JAIC_DIAGNOSTICS`.

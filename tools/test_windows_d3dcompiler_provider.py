@@ -33,8 +33,8 @@ def coff(payload):
 
 
 class ImportMetadata(unittest.TestCase):
-    def test_short_import_x64_and_arm64(self):
-        for machine in (0x8664, 0xAA64):
+    def test_short_import_every_windows_machine(self):
+        for machine in (0x14C, 0x8664, 0x1C4, 0xAA64, 0xA641, 0xA64E):
             self.assertEqual(
                 object_dlls(short(machine=machine)), {"independent_12.dll"}
             )

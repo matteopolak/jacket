@@ -19,7 +19,11 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules",
+      "the SDL2 runtime, which has no Windows arm64 build"
+    ],
+    "unsupported_platforms": [
+      "windows-arm64"
     ]
   },
   {
@@ -29,7 +33,11 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
+      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules",
+      "the SDL2 runtime, which has no Windows arm64 build"
+    ],
+    "unsupported_platforms": [
+      "windows-arm64"
     ]
   }
 ]

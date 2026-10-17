@@ -47,6 +47,17 @@ type Entry = Cell<(u64, u64)>;
 /// A range found accessible: `(start, end, epoch)`. An empty one has `end == 0`.
 type Region = Cell<(u64, u64, u64)>;
 
+/// Whether `sys::copy` itself refuses every address the program cannot read or write, so
+/// `read` and `write` need not ask about the pages first. On Linux it goes through a pipe, which
+/// reports EFAULT, while asking means reading all of `/proc/self/maps` after each `invalidate`:
+/// for a program with many mappings (fiber stacks) that was most of its run time. Elsewhere the
+/// copy can write to pages the program could not (`WriteProcessMemory`), so the check stays.
+const CHECKED_COPY: bool = cfg!(target_os = "linux");
+
+/// `read_vec` still asks before allocating for more than this, so a garbage length is refused
+/// without reserving it.
+const CHECKED_VEC_LIMIT: usize = 1 << 20;
+
 /// Forget every page found accessible: memory may have been released.
 pub fn invalidate() {
     EPOCH.fetch_add(1, Ordering::Relaxed);
@@ -77,7 +88,7 @@ impl Probe {
     /// The `len` bytes of program memory at `addr`, or `None` when any of them cannot be
     /// read. Nothing is allocated for a range that is not there (a garbage length).
     pub fn read_vec(&self, addr: u64, len: usize) -> Option<Vec<u8>> {
-        if !self.accessible(addr, len, false) {
+        if (!CHECKED_COPY || len > CHECKED_VEC_LIMIT) && !self.accessible(addr, len, false) {
             return None;
         }
         let mut out = Vec::new();
@@ -89,87 +100,15 @@ impl Probe {
     /// Copy `out.len()` bytes of program memory at `addr` into `out`. False when any of them
     /// cannot be read.
     pub fn read(&self, addr: u64, out: &mut [u8]) -> bool {
-        if !self.accessible(addr, out.len(), false) {
+        if !CHECKED_COPY && !self.accessible(addr, out.len(), false) {
             return false;
         }
         out.is_empty() || sys::copy(addr, out.as_mut_ptr() as u64, out.len(), false)
     }
 
-    /// Compare readable byte ranges with bounded scratch storage. Invalid ranges are errors,
-    /// never ordered as if they contained data. Empty ranges may start anywhere.
-    pub fn compare(&self, a: u64, b: u64, len: usize) -> Option<std::cmp::Ordering> {
-        a.checked_add(len as u64)?;
-        b.checked_add(len as u64)?;
-        if !self.accessible(a, len, false) || !self.accessible(b, len, false) {
-            return None;
-        }
-        let mut left = [0; PAGE as usize];
-        let mut right = [0; PAGE as usize];
-        let mut offset = 0;
-        while offset < len {
-            let count = left.len().min(len - offset);
-            if !self.read(a + offset as u64, &mut left[..count])
-                || !self.read(b + offset as u64, &mut right[..count])
-            {
-                return None;
-            }
-            let ordering = left[..count].cmp(&right[..count]);
-            if !ordering.is_eq() {
-                return Some(ordering);
-            }
-            offset += count;
-        }
-        Some(std::cmp::Ordering::Equal)
-    }
-
-    /// Fault-safe memmove, including overlapping source/destination ranges.
-    pub fn copy(&self, destination: u64, source: u64, len: usize) -> bool {
-        let Some(source_end) = source.checked_add(len as u64) else {
-            return false;
-        };
-        if destination.checked_add(len as u64).is_none() {
-            return false;
-        }
-        let backward = destination > source && destination < source_end;
-        let mut bytes = [0; PAGE as usize];
-        let mut remaining = len;
-        while remaining > 0 {
-            let count = bytes.len().min(remaining);
-            let offset = if backward {
-                remaining - count
-            } else {
-                len - remaining
-            };
-            if !self.read(source + offset as u64, &mut bytes[..count])
-                || !self.write(destination + offset as u64, &bytes[..count])
-            {
-                return false;
-            }
-            remaining -= count;
-        }
-        true
-    }
-
-    /// Fault-safe repeated-byte fill, without allocating storage proportional to `len`.
-    pub fn fill(&self, destination: u64, value: u8, len: usize) -> bool {
-        if destination.checked_add(len as u64).is_none() {
-            return false;
-        }
-        let bytes = [value; PAGE as usize];
-        let mut offset = 0;
-        while offset < len {
-            let count = bytes.len().min(len - offset);
-            if !self.write(destination + offset as u64, &bytes[..count]) {
-                return false;
-            }
-            offset += count;
-        }
-        true
-    }
-
     /// Copy `bytes` into program memory at `addr`. False when any of it cannot be written.
     pub fn write(&self, addr: u64, bytes: &[u8]) -> bool {
-        if !self.accessible(addr, bytes.len(), true) {
+        if !CHECKED_COPY && !self.accessible(addr, bytes.len(), true) {
             return false;
         }
         bytes.is_empty() || sys::copy(bytes.as_ptr() as u64, addr, bytes.len(), true)
@@ -661,114 +600,6 @@ mod tests {
         drop(block);
     }
 
-    #[cfg(any(unix, windows))]
-    #[test]
-    fn memory_intrinsics_reject_protected_ranges() {
-        const CHILD: &str = "JAIC_MEMORY_INTRINSIC_CHILD";
-        let Ok(operation) = std::env::var(CHILD) else {
-            let results: Vec<_> = ["compare", "copy", "fill"]
-                .into_iter()
-                .map(|operation| {
-                    let status = std::process::Command::new(std::env::current_exe().unwrap())
-                        .args([
-                            "--exact",
-                            "interp::probe::tests::memory_intrinsics_reject_protected_ranges",
-                            "--nocapture",
-                        ])
-                        .env(CHILD, operation)
-                        .status()
-                        .unwrap();
-                    (operation, status)
-                })
-                .collect();
-            assert!(
-                results.iter().all(|(_, status)| status.success()),
-                "{results:?}"
-            );
-            return;
-        };
-        #[cfg(unix)]
-        use std::ffi::c_int;
-        use std::ffi::c_void;
-        #[cfg(unix)]
-        unsafe extern "C" {
-            fn mmap(
-                addr: *mut c_void,
-                len: usize,
-                prot: c_int,
-                flags: c_int,
-                fd: c_int,
-                off: i64,
-            ) -> *mut c_void;
-            fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
-            fn munmap(addr: *mut c_void, len: usize) -> c_int;
-        }
-        #[cfg(windows)]
-        #[link(name = "kernel32")]
-        unsafe extern "system" {
-            fn VirtualAlloc(
-                addr: *mut c_void,
-                len: usize,
-                allocation: u32,
-                protection: u32,
-            ) -> *mut c_void;
-            fn VirtualProtect(addr: *mut c_void, len: usize, protection: u32, old: *mut u32)
-            -> i32;
-            fn VirtualFree(addr: *mut c_void, len: usize, operation: u32) -> i32;
-        }
-        #[cfg(target_os = "linux")]
-        const ANON: c_int = 0x20;
-        #[cfg(all(unix, not(target_os = "linux")))]
-        const ANON: c_int = 0x1000;
-        const SIZE: usize = 64 << 10;
-        // SAFETY: an owned anonymous mapping, protected only after warming the cache.
-        #[cfg(unix)]
-        let base = unsafe { mmap(std::ptr::null_mut(), SIZE, 3, 2 | ANON, -1, 0) };
-        #[cfg(windows)]
-        let base = unsafe { VirtualAlloc(std::ptr::null_mut(), SIZE, 0x3000, 4) };
-        assert_ne!(base as usize, usize::MAX);
-        assert!(!base.is_null());
-        let addr = base as u64;
-        let mut interp = super::super::Interp::default();
-        let mut bytes = [0u8; 8];
-        assert!(interp.probe.read(addr, &mut bytes));
-        assert!(interp.probe.write(addr, &bytes));
-        // SAFETY: no other thread accesses the mapping during this protection change.
-        #[cfg(unix)]
-        assert_eq!(unsafe { mprotect(base, SIZE, 0) }, 0);
-        #[cfg(windows)]
-        {
-            let mut previous = 0;
-            assert_ne!(unsafe { VirtualProtect(base, SIZE, 1, &mut previous) }, 0);
-        }
-        let (intrinsic, arguments, diagnostic) = match operation.as_str() {
-            "compare" => (
-                crate::ir::Intrinsic::Memcmp,
-                [addr, bytes.as_ptr() as u64, 8],
-                "memcmp through unreadable memory",
-            ),
-            "copy" => (
-                crate::ir::Intrinsic::Memcpy,
-                [bytes.as_mut_ptr() as u64, addr, 8],
-                "memcpy through inaccessible memory",
-            ),
-            "fill" => (
-                crate::ir::Intrinsic::Memset,
-                [addr, 42, 8],
-                "memset through unwritable memory",
-            ),
-            _ => panic!("unknown child operation"),
-        };
-        let result = interp.intrinsic(intrinsic, &arguments, None);
-        // SAFETY: the mapping has no remaining users.
-        #[cfg(unix)]
-        assert_eq!(unsafe { munmap(base, SIZE) }, 0);
-        #[cfg(windows)]
-        assert_ne!(unsafe { VirtualFree(base, 0, 0x8000) }, 0);
-        let error = result.expect_err("an inaccessible range must produce an interpreter error");
-        assert!(error.message.contains(diagnostic), "{error:?}");
-    }
-
     #[test]
     fn memory_intrinsics_preserve_overlap_and_empty_ranges() {
         let mut interp = super::super::Interp::default();
@@ -814,9 +645,6 @@ mod tests {
         ] {
             assert!(interp.intrinsic(operation, &[0, 0, 0], None).is_ok());
         }
-        assert!(!interp.probe.copy(u64::MAX, 0, 2));
-        assert!(!interp.probe.fill(u64::MAX, 0, 2));
-        assert!(interp.probe.compare(u64::MAX, 0, 2).is_none());
     }
 
     #[cfg(unix)]
@@ -869,7 +697,6 @@ mod tests {
         assert!(!probe.read(addr, &mut bytes));
         assert!(!probe.write(addr, &bytes));
         assert!(probe.read_vec(addr, 8).is_none());
-        assert_eq!(probe.compare(addr, bytes.as_ptr() as u64, 8), None);
         // SAFETY: the mapping is no longer accessed by any native thread.
         assert_eq!(unsafe { munmap(base, SIZE) }, 0);
         assert!(!probe.read(addr, &mut bytes));
@@ -918,10 +745,6 @@ mod tests {
             PROBE
                 .with(|p| p.read_vec(start + SIZE as u64, byte.len()))
                 .is_none()
-        );
-        assert_eq!(
-            PROBE.with(|p| p.compare(start + SIZE as u64, start, byte.len())),
-            None
         );
         assert!(
             !read(start + SIZE as u64 - 4, &mut byte),

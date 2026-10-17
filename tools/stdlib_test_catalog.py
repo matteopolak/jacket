@@ -55,6 +55,8 @@ ROW_KEYS = frozenset(
         # Where the case can run.
         "required_os",
         "required_cpu",
+        # `<os>-<cpu>` platforms where a required native SDK has no build (`required_capabilities` says which).
+        "unsupported_platforms",
         "unsupported_modes",
         "required_capabilities",
         "required_browser_host_capabilities",
@@ -198,6 +200,9 @@ def unavailable_reason(case, mode, actual_platform=None):
     if mode in case.get("unsupported_modes", []):
         required = ", ".join(case["required_capabilities"])
         return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"
+    if "-".join((actual_platform or "").split("-")[:2]) in case.get("unsupported_platforms", []):
+        required = ", ".join(case["required_capabilities"])
+        return f"{actual_platform} platform unavailable: requires {required}; actual execution remains required, not passed"
     target_os = (
         "wasm" if mode.startswith("wasm") else (actual_platform or "").split("-")[0]
     )

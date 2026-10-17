@@ -1,20 +1,37 @@
 # Changelog
 
-## [Unreleased]
+## [0.18.0] - 2026-10-18
 
-The project is now called Jacket ("Jai kit") and lives at [matteopolak/jacket](https://github.com/matteopolak/jacket). The binaries (`jaic`, `jailsp`, `jaifmt`, `jailint`) and crates keep their names. The Neovim plugin mirror is now [matteopolak/jacket.nvim](https://github.com/matteopolak/jacket.nvim) (the Lua module `jai` and the `:Jai` command are unchanged), and `vim.pack` and lazy.nvim installs should use that repository.
+The project has a new name: **Jacket** ("Jai kit"). This release also lets editors open code you don't trust safely, and makes `jailint` faster and easier to extend.
 
-The VS Code extension is now `matteopolak.jacket` (it was `matteopolak.jai-toolchain`, and `matteopolak.jai` before that). If either old ID is installed, the new extension offers to uninstall it and stays inactive until it is gone; `jai.*` settings are unchanged. The Homebrew formula is now `matteopolak/tap/jacket`, and `brew upgrade` moves existing `jai` installs to it.
+### Highlights
 
-Release archives are now named `jacket-<platform>.tar.gz` / `.zip` and unpack to `jacket-<platform>/` (they were `jai-<platform>`); `install.sh`, `install.ps1`, Homebrew and the editor extensions use the new names, and all earlier releases are removed.
+- **New name, same tools.** The repository is now [matteopolak/jacket](https://github.com/matteopolak/jacket). `jaic`, `jailsp`, `jaifmt` and `jailint` keep their names, and so do the crates.
+- **Workspace trust.** In an untrusted folder, `jailsp` checks your code without running any of its compile-time code (`#run`, `#insert`, build metaprograms). VS Code follows its own workspace trust setting; in Neovim, pass `trusted = false` to `setup()`. See [workspace trust](https://github.com/matteopolak/jacket/blob/main/docs/tools/workspace-trust.md).
+- **`jailint` is several times faster on large trees.** It lints each file once and compiles programs in parallel (`-j`). `--allow-incomplete` lets you lint a tree where some modules only build on another OS.
+- **Better switch completion.** The "add missing cases" action now works on every kind of `if x == { case ...; }`, and its error covers the switch's header instead of the whole block.
+- **Native console colours on Windows.** `Print_Color` sets console colours through the Windows API, so they also work in consoles that don't understand ANSI escapes.
 
 ### Breaking changes
 
-`jailint` rules that treated some procedures specially now read a note on the declaration instead of matching names: `@UseResult` (`unused_result`), `@Minimum` and `@Maximum` (`min_max`), `@RemovesElements` (`remove_in_for`) and `@Releases` (`defer_in_loop`). The standard library carries them, so its behaviour is unchanged; a procedure of your own that a rule used to recognise by name needs the note. See [jailint](https://github.com/matteopolak/jai/blob/main/docs/tools/jailint.md).
+| What | Was | Now |
+| --- | --- | --- |
+| VS Code extension | `matteopolak.jai-toolchain` (and `matteopolak.jai` before that) | `matteopolak.jacket`. It offers to uninstall the old one, and your `jai.*` settings carry over. |
+| Neovim plugin | `matteopolak/jai.nvim` | [`matteopolak/jacket.nvim`](https://github.com/matteopolak/jacket.nvim). The `jai` Lua module and the `:Jai` command are unchanged. |
+| Homebrew | `matteopolak/tap/jai` | `matteopolak/tap/jacket`. `brew upgrade` moves you over. |
+| Release archives | `jai-<platform>.tar.gz` | `jacket-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jacket-<platform>/`. |
+| How `jailint` recognises procedures | by name (`trim`, `min`, `free`, ...) | by a note on the declaration: `@UseResult`, `@Minimum`, `@Maximum`, `@RemovesElements`, `@Releases`. The standard library already has them; add them to your own procedures if you want the rules to apply. See [declaration notes](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#declaration-notes). |
 
-### Performance
+Earlier releases have been removed. Install 0.18.0 or later.
 
-`jailint` is several times faster on large trees: each file is linted once, not once per program that compiles it, it compiles programs in parallel by default (`-j`), and compiler lookups that scanned every scope or expansion are indexed.
+### Fixes
+
+- A `*void` converts to a procedure type without a cast, as it should.
+- `#no_reset` is accepted alongside other declaration modifiers.
+- A variable is never treated as a constant, even when its initializer is one.
+- The interpreter runs `memcpy`, `memset` and `memcmp` without extra system calls, so memory-heavy programs under `-interp` run faster, especially on Linux.
+- On Linux, a shared library marked `link_always` is no longer dropped by `--as-needed`.
+- On X11, an empty clipboard reads as empty text instead of failing, and fullscreen works without a window manager.
 
 ## [0.17.0] - 2026-10-13
 

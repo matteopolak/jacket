@@ -147,83 +147,140 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    CONTEXT :: struct #type_info_none #align 16 {
-        P1Home: u64;
-        P2Home: u64;
-        P3Home: u64;
-        P4Home: u64;
-        P5Home: u64;
-        P6Home: u64;
+    #if CPU == .ARM64 {
+        // The arm64 thread context (ARM64_NT_CONTEXT): 912 bytes.
+        CONTEXT :: struct #type_info_none #align 16 {
+            ContextFlags: u32;
+            Cpsr: u32;
 
-        ContextFlags: u32;
-        MxCsr: u32;
-
-        SegCs: u16;
-        SegDs: u16;
-        SegEs: u16;
-        SegFs: u16;
-        SegGs: u16;
-        SegSs: u16;
-        EFlags: u32;
-
-        Dr0: u64;
-        Dr1: u64;
-        Dr2: u64;
-        Dr3: u64;
-        Dr6: u64;
-        Dr7: u64;
-
-        Rax: u64;
-        Rcx: u64;
-        Rdx: u64;
-        Rbx: u64;
-        Rsp: u64;
-        Rbp: u64;
-        Rsi: u64;
-        Rdi: u64;
-        R8: u64;
-        R9: u64;
-        R10: u64;
-        R11: u64;
-        R12: u64;
-        R13: u64;
-        R14: u64;
-        R15: u64;
-
-        Rip: u64;
-
-        union {
-            FltSave: XSAVE_FORMAT;
-            struct {
-                Header: [2] M128A;
-                Legacy: [8] M128A;
-                Xmm0: M128A;
-                Xmm1: M128A;
-                Xmm2: M128A;
-                Xmm3: M128A;
-                Xmm4: M128A;
-                Xmm5: M128A;
-                Xmm6: M128A;
-                Xmm7: M128A;
-                Xmm8: M128A;
-                Xmm9: M128A;
-                Xmm10: M128A;
-                Xmm11: M128A;
-                Xmm12: M128A;
-                Xmm13: M128A;
-                Xmm14: M128A;
-                Xmm15: M128A;
+            union {
+                X: [31] u64;
+                struct {
+                    X0: u64;
+                    X1: u64;
+                    X2: u64;
+                    X3: u64;
+                    X4: u64;
+                    X5: u64;
+                    X6: u64;
+                    X7: u64;
+                    X8: u64;
+                    X9: u64;
+                    X10: u64;
+                    X11: u64;
+                    X12: u64;
+                    X13: u64;
+                    X14: u64;
+                    X15: u64;
+                    X16: u64;
+                    X17: u64;
+                    X18: u64;
+                    X19: u64;
+                    X20: u64;
+                    X21: u64;
+                    X22: u64;
+                    X23: u64;
+                    X24: u64;
+                    X25: u64;
+                    X26: u64;
+                    X27: u64;
+                    X28: u64;
+                    Fp: u64;
+                    Lr: u64;
+                }
             }
+
+            Sp: u64;
+            Pc: u64;
+
+            V: [32] M128A;
+            Fpcr: u32;
+            Fpsr: u32;
+
+            Bcr: [8] u32;
+            Bvr: [8] u64;
+            Wcr: [2] u32;
+            Wvr: [2] u64;
         }
+    } else {
+        CONTEXT :: struct #type_info_none #align 16 {
+            P1Home: u64;
+            P2Home: u64;
+            P3Home: u64;
+            P4Home: u64;
+            P5Home: u64;
+            P6Home: u64;
 
-        VectorRegister: [26] M128A;
-        VectorControl: u64;
+            ContextFlags: u32;
+            MxCsr: u32;
 
-        DebugControl: u64;
-        LastBranchToRip: u64;
-        LastBranchFromRip: u64;
-        LastExceptionToRip: u64;
-        LastExceptionFromRip: u64;
+            SegCs: u16;
+            SegDs: u16;
+            SegEs: u16;
+            SegFs: u16;
+            SegGs: u16;
+            SegSs: u16;
+            EFlags: u32;
+
+            Dr0: u64;
+            Dr1: u64;
+            Dr2: u64;
+            Dr3: u64;
+            Dr6: u64;
+            Dr7: u64;
+
+            Rax: u64;
+            Rcx: u64;
+            Rdx: u64;
+            Rbx: u64;
+            Rsp: u64;
+            Rbp: u64;
+            Rsi: u64;
+            Rdi: u64;
+            R8: u64;
+            R9: u64;
+            R10: u64;
+            R11: u64;
+            R12: u64;
+            R13: u64;
+            R14: u64;
+            R15: u64;
+
+            Rip: u64;
+
+            union {
+                FltSave: XSAVE_FORMAT;
+                struct {
+                    Header: [2] M128A;
+                    Legacy: [8] M128A;
+                    Xmm0: M128A;
+                    Xmm1: M128A;
+                    Xmm2: M128A;
+                    Xmm3: M128A;
+                    Xmm4: M128A;
+                    Xmm5: M128A;
+                    Xmm6: M128A;
+                    Xmm7: M128A;
+                    Xmm8: M128A;
+                    Xmm9: M128A;
+                    Xmm10: M128A;
+                    Xmm11: M128A;
+                    Xmm12: M128A;
+                    Xmm13: M128A;
+                    Xmm14: M128A;
+                    Xmm15: M128A;
+                }
+            }
+
+            VectorRegister: [26] M128A;
+            VectorControl: u64;
+
+            DebugControl: u64;
+            LastBranchToRip: u64;
+            LastBranchFromRip: u64;
+            LastExceptionToRip: u64;
+            LastExceptionFromRip: u64;
+        }
     }
 
 }
@@ -2193,15 +2250,19 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    CONTEXT_CONTROL :: (CONTEXT_AMD64 | 0x00000001);
+    CONTEXT_ARM64 :: 0x00400000;
 }
 
 #if OS == .WINDOWS {
-    CONTEXT_DEBUG_REGISTERS :: (CONTEXT_AMD64 | 0x00000010);
+    CONTEXT_CONTROL :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000001) else (CONTEXT_AMD64 | 0x00000001);
 }
 
 #if OS == .WINDOWS {
-    CONTEXT_FLOATING_POINT :: (CONTEXT_AMD64 | 0x00000008);
+    CONTEXT_DEBUG_REGISTERS :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000008) else (CONTEXT_AMD64 | 0x00000010);
+}
+
+#if OS == .WINDOWS {
+    CONTEXT_FLOATING_POINT :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000004) else (CONTEXT_AMD64 | 0x00000008);
 }
 
 #if OS == .WINDOWS {
@@ -2213,7 +2274,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    CONTEXT_INTEGER :: (CONTEXT_AMD64 | 0x00000002);
+    CONTEXT_INTEGER :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000002) else (CONTEXT_AMD64 | 0x00000002);
 }
 
 #if OS == .WINDOWS {

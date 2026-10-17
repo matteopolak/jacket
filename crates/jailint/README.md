@@ -3,82 +3,92 @@
 > [!NOTE]
 > This project is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
 
-A linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)), part of the [Jacket](../../README.md) toolchain. It reports common mistakes and unidiomatic code, and fixes the ones it safely can.
-
-The rules run on the program after `jaic` has type-checked it, so they know each expression's type and what every name refers to. The same findings appear in editors through [`jailsp`](../jai-language-server/README.md), as diagnostics with quick fixes.
+The linter for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) in the [Jacket](../../README.md) toolchain. It finds likely mistakes and unidiomatic code, and fixes what it safely can.
 
 ```sh
 jailint src/                  # lint every .jai file under src/
-jailint main.jai --fix        # apply the fixes that are safe to apply
-jailint -D warnings stdlib    # fail on any finding (CI)
-jailint --list                # the rules and their default levels
-jailint -os windows -cpu arm64 -D warnings src/
-jailint -target wasm64-unknown-wasi --manifest target/wasi-lint.json src/
+jailint src/ --fix            # apply the safe fixes
+jailint -D warnings src/      # treat every warning as an error, for CI
 ```
 
-Target flags select source-checking contexts; they do not run native target code.
-[Target checking and coverage manifests](../../docs/tools/jailint.md) describe
-ABI defaults, private/library roots, required bindings and incomplete-check failures.
-
-Each finding gives its level and rule, the location, and the source line with the span marked:
+jailint runs after the compiler has type-checked your program, so its rules know the type of every expression and what every name refers to. That keeps false positives rare: a rule about unsigned values only fires on values that really are unsigned.
 
 ```text
-warning[index_only_loop]: `i` counts through `names` to index it
-  --> list.jai:21:5
+warning[index_only_loop]: `i` is only used to index `names`
+  --> main.jai:4:5
    |
-21 |     for i: 0..names.count - 1 {
+ 4 |     for i: 0..names.count - 1 print("%\n", names[i]);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-help: loop over the elements: `for names`, with `it` and `it_index`
-   = note: `index_only_loop` is `warn` by default
+help: loop over the elements: `for names` and `it`
+   |
+ 4 ~     for names print("%\n", it);
+   |
 ```
+
+## What it catches
+
+There are 33 rules; `jailint --list` prints them. They fall into a few groups:
+
+- **Likely bugs:** a comparison that is always true (`u >= 0` on an unsigned value), shift precedence that differs from C (`1 << n - 1`), identical `if` branches, a `while` whose condition never changes, a `defer` inside a loop that frees something from outside it, removing from an array while a `for` walks it, a range that runs one past the end.
+- **Things left unused:** variables, parameters, imports, and the result of a call that only computes a value (`trim(line);`).
+- **Simpler ways to say it:** `for i: 0..xs.count-1` that only indexes `xs`, `x = x + 1`, `x == true`, a cast to the type a value already has.
+
+Two rules are off by default because the code they flag is often deliberate: exact float comparison (`float_equality`) and narrowing with `xx` (`lossy_xx`).
 
 ## Install
 
-`jailint` ships in every toolchain install, next to `jaic`, `jailsp` and `jaifmt`:
+jailint comes with every Jacket install, next to `jaic`, `jailsp` and `jaifmt`:
 
 ```sh
-brew install matteopolak/tap/jacket        # macOS and Linux
-nix profile install github:matteopolak/jacket
+brew install matteopolak/tap/jacket
 ```
 
-There are also the `install.sh` and `install.ps1` scripts and prebuilt archives on the [releases page](https://github.com/matteopolak/jacket/releases); see the [main README](../../README.md#install) and [package managers](../../docs/tools/releases.md). The [VS Code extension](../../docs/tools/vscode-extension.md) shows jailint's findings and fixes through `jailsp`.
+The [main README](../../README.md#install) lists the other ways to install. In VS Code and Neovim, jailint's findings show up as you type, through [`jailsp`](../jai-language-server/README.md), and each fixable finding is a quick fix.
 
-From a checkout: `cargo build -p jailint --release --locked` (the binary is `target/release/jailint`).
-
-## Features
-
-- 34 rules (`jailint --list`): unused variables, parameters and imports; loops that only index; hand-kept counters; redundant casts and aliases; `x == true`; a shadowed `it`; a `defer` in a loop; doc comment links that name nothing; likely bugs such as `u >= 0` on an unsigned value, `1 << n - 1`, identical branches or operands, and a `while` whose condition nothing changes; unidiomatic code such as `x = x + 1`; constants that silently wrap to a narrower type; and opt-in checks for exact float comparison and narrowing `xx`.
-- `--fix` applies the machine-applicable fixes; in an editor each fixable finding is a quick fix, and there is a fix-all action.
-- Diagnostics in the compilers' layout, with colour following `--color`, `NO_COLOR` and `JAIC_DIAGNOSTICS`.
-- Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a usage or configuration error.
-- Options: `--fix`, `--config <file>`, `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all` names every rule, `-D warnings` denies every warning), `-I <dir>`, `-j <n>`, `--list`, `--color`, `-v`.
+To build it from a checkout, run `cargo build -p jailint --release`.
 
 ## Configuration
 
-`jailint.toml`, found by walking up from the first path (or `--config`):
+Put a `jailint.toml` at your project root to change rule levels or skip files:
 
 ```toml
-exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to the file
+exclude = ["generated/**"]
 
 [rules]
 float_equality = "warn"
 unused_parameter = "allow"
 ```
 
-An unknown key, rule or level is an error. Command-line `-A`/`-W`/`-D` override the file. To silence a finding in source:
+The levels are `allow`, `warn` and `deny`. On the command line, `-A`, `-W` and `-D <rule>` override the file, and `all` names every rule.
+
+To silence one finding, write a comment:
 
 ```jai
-// jailint: allow(unused_variable)        covers the next line with code
-// jailint: allow-file(float_equality)     covers the whole file
+// jailint: allow(unused_variable)       the next line
+// jailint: allow-file(float_equality)    the whole file
 ```
 
-A variable or parameter whose name starts with `_` is "unused on purpose".
+A variable or parameter whose name starts with `_` is unused on purpose and is never reported.
 
-## Documentation
+## Your own procedures
 
-The docs are the source of truth for the rules and internals:
+Some rules need to know what a procedure does: `unused_result` needs to know a call only computes its result, and `defer_in_loop` needs to know a call frees something. jailint learns this from a note on the declaration, never from the procedure's name:
 
-- [jailint (Jai linter)](../../docs/tools/jailint.md): every rule with an example, suppression, configuration, how it runs and how to add a rule
-- [Language server](../../docs/compiler/language-server.md#lints-and-quick-fixes): lints and quick fixes in editors
-- [Diagnostics](../../docs/compiler/diagnostics.md): the shared renderer
+```jai
+shout :: (s: string) -> string {
+    return to_upper_copy(s);
+} @UseResult
+```
+
+The standard library's procedures already carry these notes. Add one to your own procedures to get the same checks. The [reference](../../docs/tools/jailint.md#declaration-notes) lists all five.
+
+## Other platforms
+
+Platform-specific code can be checked from any machine: `jailint -os windows -cpu arm64 src/` type-checks `src/` as it would compile on Windows on arm64. If some modules only build on their own OS, `--allow-incomplete` reports them without failing the run.
+
+The exit status is 0 when nothing at level `deny` was found, 1 when something was, and 2 on a usage or configuration error. `jailint --help` lists every option.
+
+## More
+
+- [jailint reference](../../docs/tools/jailint.md): every rule in detail, target checking, and how to add a rule

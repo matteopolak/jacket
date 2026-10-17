@@ -23,6 +23,10 @@ def dll_name(data):
     return name
 
 
+# x86, x64, ARMNT, ARM64, and the ARM64EC and ARM64X records in the Windows on Arm SDK libraries.
+MACHINES = (0x14C, 0x8664, 0x1C4, 0xAA64, 0xA641, 0xA64E)
+
+
 def object_dlls(data):
     """Microsoft short import records or GNU COFF .idata$7 DLL-name sections."""
     if len(data) < 20:
@@ -37,11 +41,11 @@ def object_dlls(data):
         parts = data[20 : 20 + size].split(b"\0")
         if len(parts) < 3 or not parts[0] or not parts[1]:
             raise ValueError("missing short import symbol/DLL terminator")
-        if machine not in (0x14C, 0x8664, 0xAA64):
+        if machine not in MACHINES:
             raise ValueError("unsupported short import machine")
         return {dll_name(parts[1])}
     machine, sections = first, second
-    if machine not in (0x14C, 0x8664, 0xAA64):
+    if machine not in MACHINES:
         return set()
     optional = struct.unpack_from("<H", data, 16)[0]
     start = 20 + optional

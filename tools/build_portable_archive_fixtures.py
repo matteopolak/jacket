@@ -79,7 +79,8 @@ def main():
     source = OUT / "original.c"
     source.write_text("int portable_archive_answer(void) { return 42; }\n")
     compiler = shutil.which("clang") or shutil.which("cc")
-    archive_tool = shutil.which("ar")
+    # GNU ar does not index objects of a foreign architecture (such as ARM64 COFF); llvm-ar does.
+    archive_tool = shutil.which("llvm-ar") or shutil.which("ar")
     if not compiler or not archive_tool:
         raise RuntimeError("source-built archive fixture requires a C compiler and ar")
     subprocess.run([compiler, "-c", str(source), "-o", str(OUT / "original.o")], check=True)

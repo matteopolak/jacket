@@ -203,7 +203,7 @@ def main():
     check_developer_eh_frames.main()
     check_developer_dwarf_types.main()
     check_developer_codeview_strings.main()
-    check_developer_profiler_windows.main()
+    host_evidence("Mac-hosted MinGW Windows profiler clock cross-build", check_developer_profiler_windows.main, ["Darwin"])
     prefix = build_developer_bindings.llvm_prefix()
     framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
     (framework / "Modules").mkdir(parents=True, exist_ok=True)

@@ -641,7 +641,11 @@ impl Host for SandboxHost {
             }
             "wasm_write_string" => {
                 let (len, ptr, to_stderr) = (arg(0) as usize, arg(1), arg(2) & 1 != 0);
-                let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }.to_vec();
+                let bytes = if len == 0 {
+                    Vec::new()
+                } else {
+                    unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }.to_vec()
+                };
                 self.write(&bytes, to_stderr);
                 0
             }
@@ -681,11 +685,16 @@ impl Host for SandboxHost {
                 arg(0)
             }
             "memcmp" => {
-                let (a, b) = unsafe {
-                    (
-                        std::slice::from_raw_parts(arg(0) as *const u8, arg(2) as usize),
-                        std::slice::from_raw_parts(arg(1) as *const u8, arg(2) as usize),
-                    )
+                // An empty comparison may pass null pointers, which a slice must not hold.
+                let (a, b): (&[u8], &[u8]) = if arg(2) == 0 {
+                    (&[], &[])
+                } else {
+                    unsafe {
+                        (
+                            std::slice::from_raw_parts(arg(0) as *const u8, arg(2) as usize),
+                            std::slice::from_raw_parts(arg(1) as *const u8, arg(2) as usize),
+                        )
+                    }
                 };
                 match a.cmp(b) {
                     std::cmp::Ordering::Less => -1i64 as u64,

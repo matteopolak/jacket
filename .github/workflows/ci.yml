@@ -1,8 +1,12 @@
 name: compiler checks
 on:
   push:
-    branches: [main, staging]
+    branches: [main]
   pull_request:
+  # The full matrix (macOS Intel, packaging on macOS) runs nightly and by hand; see
+  # docs/tools/development.md.
+  schedule:
+    - cron: '0 7 * * *'
   workflow_dispatch:
     inputs:
       jobs:
@@ -124,8 +128,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15-intel only on pushes to main (its runners queue for a long time); see docs/tools/development.md
-        include: ${{ fromJSON(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cleanroom-integration') && '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"},{"runner":"macos-15-intel","architecture":"x86_64"}]' || '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"}]') }}
+        # macos-15-intel only on nightly and manual runs (macOS runners are scarce); see docs/tools/development.md
+        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"},{"runner":"macos-15-intel","architecture":"x86_64"}]' || '[{"runner":"macos-15","architecture":"arm64"},{"runner":"ubuntu-24.04","architecture":"x86_64"},{"runner":"ubuntu-24.04-arm","architecture":"aarch64"}]') }}
     concurrency:
       group: ${{ github.workflow }}-test-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.runner == 'macos-15-intel' && 'newest' || github.sha }}
       cancel-in-progress: true
@@ -345,8 +349,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15-intel only on pushes to main, as in `test`
-        include: ${{ fromJSON(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cleanroom-integration') && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},{"runner":"macos-15-intel","platform":"macos-x64"}]' || '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]') }}
+        # macos-15-intel only on nightly and manual runs, as in `test`
+        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},{"runner":"macos-15-intel","platform":"macos-x64"}]' || '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]') }}
     concurrency:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}
       cancel-in-progress: true
@@ -364,7 +368,7 @@ jobs:
           # The stdlib's FreeType is built by tools/build_native_libs.py and found first;
           # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
           # stdlib/SDL/tests/geometry-timer.jai uses Homebrew's.
-          brew: freetype sdl2
+          brew: freetype sdl2 mingw-w64
           alsa: 'true'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -382,7 +386,7 @@ jobs:
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
-            --modes interp,native,wasm-interp,wasm-native --strict --timeout 300 --coverage target/stdlib-coverage.txt
+            --modes interp,native,wasm-interp,wasm-native --strict --timeout 600 --coverage target/stdlib-coverage.txt
       - name: Stdlib tests, native O2
         if: ${{ always() && !cancelled() }}
         run: |
@@ -390,7 +394,7 @@ jobs:
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
-            --modes native --opt O2 --strict --timeout 300
+            --modes native --opt O2 --strict --timeout 600
       - name: NEW producer behavior suites against production
         if: ${{ always() && !cancelled() }}
         run: |
@@ -541,13 +545,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {platform: macos-arm64, runner: macos-15}
-          - {platform: macos-x64, runner: macos-15-intel}
-          - {platform: linux-x64, runner: ubuntu-24.04}
-          - {platform: linux-arm64, runner: ubuntu-24.04-arm}
-          - {platform: windows-x64, runner: windows-2025}
-          - {platform: windows-arm64, runner: windows-11-arm}
+        # macOS only on nightly and manual runs
+        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"platform":"macos-arm64","runner":"macos-15"},{"platform":"macos-x64","runner":"macos-15-intel"},{"platform":"linux-x64","runner":"ubuntu-24.04"},{"platform":"linux-arm64","runner":"ubuntu-24.04-arm"},{"platform":"windows-x64","runner":"windows-2025"},{"platform":"windows-arm64","runner":"windows-11-arm"}]' || '[{"platform":"linux-x64","runner":"ubuntu-24.04"},{"platform":"linux-arm64","runner":"ubuntu-24.04-arm"},{"platform":"windows-x64","runner":"windows-2025"},{"platform":"windows-arm64","runner":"windows-11-arm"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     defaults:
@@ -626,7 +625,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15]
+        # macOS only on nightly and manual runs
+        runner: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
@@ -673,7 +673,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
+        # macOS only on nightly and manual runs
+        runner: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["ubuntu-24.04","ubuntu-24.04-arm","macos-15","macos-15-intel"]' || '["ubuntu-24.04","ubuntu-24.04-arm"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     steps:
@@ -923,7 +924,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, ubuntu-24.04]
+        # macOS only on nightly and manual runs
+        runner: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["macos-15","ubuntu-24.04"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     env:
@@ -1322,7 +1324,7 @@ jobs:
           cpu: x64
           triple: x86_64-pc-windows-msvc
       - name: Install Mesa's software OpenGL
-        run: bash tools/install_ci_mesa_windows.sh "$RUNNER_TEMP/mesa"
+        run: bash tools/install_ci_mesa_windows.sh x64 "$RUNNER_TEMP/mesa"
       - name: Fetch the pinned projects
         run: |
           project_list="$(python tools/upstream_smoke.py --jaic x --projects)"

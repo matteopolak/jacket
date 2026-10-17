@@ -5,7 +5,7 @@ name: http conformance
 # the stdlib runtime tests, so this adds the focused report and the optional external suites.
 on:
   push:
-    branches: [main, staging]
+    branches: [main]
     paths:
       - stdlib/Extensions/Http/**
       - tools/http_conformance.py
@@ -33,7 +33,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15]
+        # macOS only by hand (every push already runs these tests on macOS among the stdlib runtime tests)
+        runner: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
     env:
