@@ -7,7 +7,7 @@ so the Json tests need no file system (they also run under wasm).
 
 import os
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stdlib", "Extensions", "Json", "tests", "data")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "stdlib", "Extensions", "Json", "tests", "fixtures")
 SOURCE = os.path.join(ROOT, "JSONTestSuite", "test_parsing")
 OUTPUT = os.path.join(ROOT, "suite_cases.jai")
 

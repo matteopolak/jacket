@@ -41,7 +41,7 @@ while true {
 - **New scan:** write the vector loop in `scan.jai` with a scalar twin; `tests/codec.jai` compares both at every 16-byte boundary.
 - **Chunk framing** is a byte-at-a-time state machine in `chunked.jai`; only body data is bulk.
 - Gotchas: `parse` must be called again after `HEAD` even with no input left. Head slices die at the next message's first byte.
-- **llhttp deviations:** after changing `tools/http_deviations.json` or the vendored fixtures run `python3 tools/gen_http_corpus.py` and commit `tests/data/llhttp_cases.jai`. Each deviation needs a reason; a listed deviation that no longer differs fails the test. Deliberate deviations: any method token, no HTTP/0.9, `CONNECT`/`Upgrade` handling (codec keeps parsing, reports `SWITCHED` after 101), codings other than `chunked` refused with 501, `chunked` not last refused.
+- **llhttp deviations:** after changing `tools/http_deviations.json` or the vendored fixtures run `python3 tools/gen_http_corpus.py` and commit `tests/fixtures/llhttp_cases.jai`. Each deviation needs a reason; a listed deviation that no longer differs fails the test. Deliberate deviations: any method token, no HTTP/0.9, `CONNECT`/`Upgrade` handling (codec keeps parsing, reports `SWITCHED` after 101), codings other than `chunked` refused with 501, `chunked` not last refused.
 
 ## Configuration
 
@@ -49,4 +49,4 @@ while true {
 
 ## Dependencies and tests
 
-`Basic`, `String`, `Extensions/SIMD`; nothing from `Io`, so it is pure. Tests in `stdlib/Extensions/Http/tests/`: `llhttp.jai` (229 vendored llhttp fixtures, MIT, `tests/data/llhttp/`), `smuggling.jai`, `chunking.jai` (fixtures fed whole, byte by byte and cut at random, vector vs scalar), `codec.jai`. `python3 tools/http_conformance.py` regenerates and runs them; the `http-conformance.yml` workflow runs it when `stdlib/Extensions/Http/**` or its harness changes. `bench/bench.jai` measures parse throughput.
+`Basic`, `String`, `Extensions/SIMD`; nothing from `Io`, so it is pure. Tests in `stdlib/Extensions/Http/tests/`: `llhttp.jai` (229 vendored llhttp fixtures, MIT, `tests/fixtures/llhttp/`), `smuggling.jai`, `chunking.jai` (fixtures fed whole, byte by byte and cut at random, vector vs scalar), `codec.jai`. `python3 tools/http_conformance.py` regenerates and runs them; the `http-conformance.yml` workflow runs it when `stdlib/Extensions/Http/**` or its harness changes. `bench/bench.jai` measures parse throughput.

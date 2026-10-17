@@ -61,7 +61,7 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 - `query.jai` field kinds need a `Pair_Kind` and a case in `generate_pair_kinds`. Runtime helpers are in `reader.jai`/`writer.jai`; stage 1 in `index.jai`.
 - Writer pieces (`put`, `builder_reserve`, `copy_bytes`): a reserved window is valid only until the next append; write at most what you reserved, then `builder_commit`. `tests/encode.jai` pins output text exactly.
 - Vector paths stay behind `simd_enabled()` and must match scalar results (`tests/differential.jai`). Tables in `pow5.jai`/`pow10.jai` are generated; headers say how. `tests/numbers.jai` sweeps are small by default: set `FULL_SWEEP` for the large run.
-- JSONTestSuite (`tests/data/JSONTestSuite/`, MIT) must stay byte-exact; `tools/gen_json_corpus.py` regenerates `tests/data/suite_cases.jai`; per-case choices for `i_` cases are in `tests/suite.jai`.
+- JSONTestSuite (`tests/fixtures/JSONTestSuite/`, MIT) must stay byte-exact; `tools/gen_json_corpus.py` regenerates `tests/fixtures/suite_cases.jai`; per-case choices for `i_` cases are in `tests/suite.jai`.
 
 ## Configuration
 

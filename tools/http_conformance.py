@@ -87,7 +87,7 @@ def find_jaic(explicit):
 
 def check_corpus():
     print("== llhttp corpus is current")
-    out = ROOT / "stdlib" / "Extensions" / "Http" / "tests" / "data" / "llhttp_cases.jai"
+    out = ROOT / "stdlib" / "Extensions" / "Http" / "tests" / "fixtures" / "llhttp_cases.jai"
     before = out.read_bytes() if out.exists() else b""
     result = subprocess.run([sys.executable, str(ROOT / "tools" / "gen_http_corpus.py")], capture_output=True, text=True)
 
