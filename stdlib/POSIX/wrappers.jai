@@ -55,13 +55,13 @@
         converted: stat_t;
         converted.st_dev = native.st_dev;
         converted.st_ino = native.st_ino;
-        converted.st_nlink = cast(u64) native.st_nlink;
+        converted.st_nlink = native.st_nlink;
         converted.st_mode = native.st_mode;
         converted.st_uid = native.st_uid;
         converted.st_gid = native.st_gid;
         converted.st_rdev = native.st_rdev;
         converted.st_size = native.st_size;
-        converted.st_blksize = cast(s64) native.st_blksize;
+        converted.st_blksize = native.st_blksize;
         converted.st_blocks = native.st_blocks;
         converted.st_atime.tv_sec = native.st_atime;
         converted.st_atime.tv_nsec = cast(s64) native.st_atime_nsec;
