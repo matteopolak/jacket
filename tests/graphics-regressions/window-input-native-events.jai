@@ -427,6 +427,7 @@ main :: () {
     XFixesGetCursorImage :: (display: *Display) -> *XFixesCursorImage #foreign xfixes;
     hand_cursor: Cursor;
     hand_serial: u64;
+    hand_serial_shown: u64;
 
     shown_serial :: () -> u64 {
         XSync(x_global_display, False);
@@ -445,6 +446,9 @@ main :: () {
 
         if !hand_cursor hand_cursor = XCreateFontCursor(x_global_display, 60); // hand2
 
+        // Without a window manager the later window sits on top: the pointer has to be over this
+        // one for the server to show its cursor.
+        XRaiseWindow(x_global_display, window);
         XDefineCursor(x_global_display, window, hand_cursor);
         XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 20, 20);
         // The server may show the new cursor a moment later; wait for it to change.
@@ -455,6 +459,10 @@ main :: () {
             sleep_milliseconds(5);
             hand_serial = shown_serial();
         }
+
+        // Showing it again, with the hand already there, changes nothing.
+        assert(hand_serial != before || before == hand_serial_shown, "the server never showed the hand cursor");
+        hand_serial_shown = hand_serial;
     }
 
     // Where the pointer went last: every call moves it somewhere else, since a warp to where the
