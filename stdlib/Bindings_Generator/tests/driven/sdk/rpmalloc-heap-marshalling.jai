@@ -5,6 +5,7 @@ RPM :: #import "rpmalloc";
 Small :: #import "rpmalloc"(ENABLE_STATISTICS = false);
 Bridge :: #import "internal/bindings/rpmalloc-heaps";
 NoStatsBridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = false);
+Domain :: #import "internal/bindings/rpmalloc-domain"(Owner = RPM.rpmalloc_config_t, STATISTICS = true, RAW = false, PUBLIC_HEAPS = true, GLOBAL_CACHE = true, THREAD_CACHE = true, ASSERTS = true, VALIDATE_ARGS = true, ADAPTIVE = false);
 Native :: #import "internal/bindings/rpmalloc-sdk"(STATISTICS = true, RAW = false, PUBLIC_HEAPS = true, GLOBAL_CACHE = true, THREAD_CACHE = true, ASSERTS = true, VALIDATE_ARGS = true, ADAPTIVE = false);
 
 probe :: #library,system "rpmalloc_storage_probe";
@@ -57,7 +58,13 @@ main :: () {
     second := RPM.heap_alloc(heap, 32768);
 
     assert(memory != null && second != null);
+    // The allocator keeps its heap table in its own native domain.
+    domain_scope: Domain.Scope;
+
+    Domain.enter(*domain_scope);
     native := Bridge.native_heap(cast(*void) heap);
+
+    Domain.leave(*domain_scope);
 
     #assert type_of(native) == *Native.rpmalloc_heap_t;
     assert(native != null && cast(*void) native != cast(*void) heap);
