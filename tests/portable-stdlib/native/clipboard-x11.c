@@ -241,7 +241,10 @@ int main(void) {
   command(to_peer[1], from_peer[0], 'N');
   unsigned char *text;
   size_t size;
-  assert(portable_clipboard_read(0, &text, &size) != 0 && !text && !size);
+  // The owner holds something that is not text: the text is empty, not an
+  // error.
+  assert(!portable_clipboard_read(0, &text, &size) && size == 0);
+  portable_clipboard_free(text);
   command(to_peer[1], from_peer[0], 'J');
   assert(!portable_clipboard_read(0, &text, &size) && size == 300000);
   for (size_t i = 0; i < size; ++i)
