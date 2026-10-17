@@ -204,20 +204,39 @@ random_round_trips :: (count: int) {
 // decimal conversion, bit for bit, on every shape of token: random digits and exponents over the
 // whole range (including subnormals and the edge of overflow), exact halfway cases between
 // neighbouring floats, and neighbours of those.
+//
+// Windows C runtimes do not round `strtod` correctly (halfway cases and long inputs can be off by one
+// unit in the last place), so there the reference is Basic's exact conversion instead.
 libc :: #system_library "libc";
 c_strtod :: (text: *u8, end: **u8) -> float64 #foreign libc "strtod";
 c_strtof :: (text: *u8, end: **u8) -> float32 #foreign libc "strtof";
 
+native_float64 :: (text: string) -> float64 {
+    #if OS == .WINDOWS {
+        value, _, _ := string_to_float64(text);
+        return value;
+    } else {
+        return c_strtod(temp_c_string(text), null);
+    }
+}
+
+native_float32 :: (text: string) -> float32 {
+    #if OS == .WINDOWS {
+        value, _, _ := string_to_float(text);
+        return value;
+    } else {
+        return c_strtof(temp_c_string(text), null);
+    }
+}
+
 reference64 :: (text: string) -> u64, bool {
-    value := c_strtod(temp_c_string(text), null);
-    bits := bits64(value);
+    bits := bits64(native_float64(text));
 
     return bits, ((bits >> 52) & 0x7ff) == 0x7ff;
 }
 
 reference32 :: (text: string) -> u32, bool {
-    value := c_strtof(temp_c_string(text), null);
-    bits := bits32(value);
+    bits := bits32(native_float32(text));
 
     return bits, ((bits >> 23) & 0xff) == 0xff;
 }

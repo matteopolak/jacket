@@ -77,7 +77,7 @@ main :: () {
     windows: [2] Window_Type = .[cast(Window_Type) first, cast(Window_Type) second];
     seen: [2] Seen;
 
-    #if OS == .MACOS || OS == .LINUX {
+    #if OS == .MACOS || OS == .LINUX || OS == .WINDOWS {
         // Install observers before producing actual native resize notifications.
         // The public contract does not synthesize initial creation notifications.
         update_window_events();
@@ -313,6 +313,13 @@ main :: () {
         // WM_LBUTTONDOWN / WM_LBUTTONUP at client (40, 40).
         ok := PostMessageW(window, ifx down then 0x201 else 0x202, ifx down then 1 else 0, (40 << 16) | 40);
         assert(ok != 0, "PostMessageW click");
+    }
+
+    resize_native :: (window: HWND, width: float64, height: float64) {
+        // Queued, so the WM_SIZE arrives through the pump rather than inside this call, where
+        // the next frame's update would discard its record.
+        ok := SetWindowPos(window, null, 0, 0, cast(s32) width, cast(s32) height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+        assert(ok != 0, "SetWindowPos resize");
     }
 
     close_like_the_user :: (window: HWND) {

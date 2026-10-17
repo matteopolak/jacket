@@ -80,6 +80,8 @@ HTTP_NATIVE_IO_CASE_IDS = frozenset(
 PROGRAM_INPUTS = {
     "extensions/io-dependency-workers": "scratch-file",
     "tests/portable-data-resource": "scratch-directory",
+    # Driven by tests/portable-data/run.py; standalone it only needs a directory for its report.
+    "tests/portable-data-discovery-windows": "scratch-directory",
     "tests/portable-data-resource-windows": "windows-resource-directory",
     "SDL/tests/sdl-rwops": "scratch-file",
     "Simp/tests/glyph-atlas": "font",

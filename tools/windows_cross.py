@@ -148,7 +148,7 @@ def cases(stdlib, platform=None):
             yield (
                 "stdlib-" + case["id"].replace("/", "-"),
                 case["path"],
-                0,
+                case.get("exit_code", 0),
                 case.get("stdout"),
                 True,
             )
@@ -723,8 +723,21 @@ def build(args):
     return 1 if failures else 0
 
 
+def run_environment():
+    """The environment fixtures see: a Windows runner always has Arial, so fixtures that need a
+    caller-owned font (Simp/tests/glyph-atlas) get it unless the caller named another."""
+    env = dict(os.environ)
+    if not env.get("JAIC_TEST_FONT_PATH"):
+        windir = pathlib.Path(env.get("WINDIR") or env.get("SystemRoot") or r"C:\Windows")
+        font = windir / "Fonts" / "arial.ttf"
+        if font.is_file():
+            env["JAIC_TEST_FONT_PATH"] = str(font)
+    return env
+
+
 def run(args):
     directory = pathlib.Path(args.dir).resolve()
+    environment = run_environment()
     expected = json.loads((directory / "expected.json").read_text())
     failures = []
     for case_id, want in sorted(expected.items()):
@@ -735,7 +748,7 @@ def run(args):
                 prefix="windows-fixture-", dir=directory
             ) as scratch:
                 arguments = stdlib_runtime.program_arguments(
-                    want.get("fixture", {}), scratch, os.environ
+                    want.get("fixture", {}), scratch, environment
                 )
                 result = subprocess.run(
                     [str(exe), *arguments],
