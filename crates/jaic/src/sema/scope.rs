@@ -710,6 +710,22 @@ impl Compiler {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
+                // A condition that reaches a constant still being resolved (the lookup that
+                // brought us here is part of resolving it) fails only because of that
+                // outer resolution; the item is retried once the constant is done.
+                if let Err(e) = &result
+                    && !spent
+                    && self.ct_executions == executions
+                    && self.in_progress_misses != in_progress
+                    && e.message.starts_with("circular dependency while resolving")
+                    && self
+                        .entities
+                        .iter()
+                        .any(|e| matches!(e.state, EntityState::Resolving))
+                {
+                    self.scope_mut(scope).pending[i].state = PendingState::Waiting;
+                    return Ok(());
+                }
                 if reentrant
                     && !spent
                     && self.ct_executions == executions

@@ -108,6 +108,8 @@ impl Compiler {
             }
             (TypeKind::Pointer(_), TypeKind::Pointer(t)) if *t == TypeId::VOID => Some(POINTER),
             (TypeKind::Pointer(f), TypeKind::Pointer(_)) if *f == TypeId::VOID => Some(POINTER),
+            // A `*void` holding an address (a looked-up `WNDPROC`) is a procedure pointer too.
+            (TypeKind::Pointer(f), TypeKind::Proc(_)) if *f == TypeId::VOID => Some(POINTER),
             (TypeKind::Pointer(f), TypeKind::Pointer(t)) => {
                 // `*[..] T` → `*[] T`: a resizable array starts with its view.
                 if let (
