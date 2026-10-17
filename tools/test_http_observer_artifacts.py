@@ -33,16 +33,14 @@ class ObserverArtifacts(unittest.TestCase):
         self.assertIn("always() && !cancelled() && runner.os == 'Linux'", self.upload())
         self.assertNotIn("continue-on-error", text)
         self.assertNotIn("outcome", self.upload())
-        self.assertIn("--copies 12 --observe-copy backends:o2:1:0", text)
+        self.assertIn("--copies 12 --observe-failures-report", text)
         self.assertIn('--rounds 3 "${observe[@]}"', text)
 
-    def test_only_three_explicit_artifacts_no_recursive_or_source_upload(self):
+    def test_only_numeric_receipt_no_recursive_or_source_upload(self):
         self.assertEqual(
             self.paths(),
             [
                 "${{ runner.temp }}/io-observed-copy/receipt.json",
-                "${{ runner.temp }}/io-observed-copy/program.stdout",
-                "${{ runner.temp }}/io-observed-copy/program.stderr",
             ],
         )
         self.assertTrue(all("*" not in path for path in self.paths()))

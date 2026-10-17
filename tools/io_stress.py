@@ -38,6 +38,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
+from io_failure_observer import FailureGroup, source_identity
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TESTS = [
@@ -136,11 +137,15 @@ def observed_run(program, directory, timeout, report):
         )
 
 
-def run_copy(program, directory, timeout, observation=None):
+def run_copy(
+    program, directory, timeout, observation=None, failure_group=None, copy_index=None
+):
     """Runs one copy in `directory`. None if it passed, else a description of the failure."""
     directory.mkdir(parents=True)
     try:
-        if observation is not None:
+        if failure_group is not None:
+            result = failure_group.run(copy_index, program, directory, timeout)
+        elif observation is not None:
             result = observed_run(program, directory, timeout, observation)
         else:
             result = subprocess.run(
@@ -223,6 +228,11 @@ def main():
     parser.add_argument(
         "--observe-report", type=Path, help="fresh private metadata output directory"
     )
+    parser.add_argument(
+        "--observe-failures-report",
+        type=Path,
+        help="Linux only: bounded numeric evidence for actual failed backends/tcp copies",
+    )
     args = parser.parse_args()
 
     jaic = Path(args.jaic).resolve()
@@ -240,6 +250,17 @@ def main():
         if not test.is_file():
             parser.error(f"no such test: {test}")
     observed = None
+    if args.observe_failures_report:
+        if (
+            not sys.platform.startswith("linux")
+            or args.observe_copy
+            or args.observe_report
+        ):
+            parser.error(
+                "failure observation requires Linux and cannot combine with --observe-copy/report"
+            )
+        if args.observe_failures_report.exists():
+            parser.error("--observe-failures-report must be a fresh directory")
     if args.observe_copy or args.observe_report:
         if (
             not sys.platform.startswith("linux")
@@ -270,6 +291,9 @@ def main():
         variants.remove("asan")
 
     ensure_native_libraries()
+    failure_source = (
+        source_identity(ROOT, jaic) if args.observe_failures_report else None
+    )
     work = Path(tempfile.mkdtemp(prefix="io-stress-"))
     failures = []
     runs = 0
@@ -304,20 +328,52 @@ def main():
                         continue
                     started = time.time()
                     base = work / "run" / f"{variant}-{test.stem}-{number}"
-                    with ThreadPoolExecutor(max_workers=args.copies) as pool:
-                        results = list(
-                            pool.map(
-                                lambda copy: run_copy(
-                                    program,
-                                    base / str(copy),
-                                    args.timeout,
-                                    args.observe_report
-                                    if observed == (test.stem, variant, number, copy)
-                                    else None,
-                                ),
-                                range(args.copies),
-                            )
+                    group = None
+                    if failure_source is not None and test.stem in {"backends", "tcp"}:
+                        group = FailureGroup(
+                            args.observe_failures_report,
+                            {
+                                **failure_source,
+                                "test": test.stem,
+                                "variant": variant,
+                                "round": number,
+                                "copies": args.copies,
+                                "test_source_sha256": hashlib.sha256(
+                                    test.read_bytes()
+                                ).hexdigest(),
+                                "program_sha256": hashlib.sha256(
+                                    program.read_bytes()
+                                ).hexdigest(),
+                            },
                         )
+                    try:
+                        with ThreadPoolExecutor(max_workers=args.copies) as pool:
+                            results = list(
+                                pool.map(
+                                    lambda copy: run_copy(
+                                        program,
+                                        base / str(copy),
+                                        args.timeout,
+                                        args.observe_report
+                                        if observed
+                                        == (test.stem, variant, number, copy)
+                                        else None,
+                                        group,
+                                        copy,
+                                    ),
+                                    range(args.copies),
+                                )
+                            )
+                    finally:
+                        if group is not None:
+                            group.finish(
+                                sorted(
+                                    i
+                                    for i, row in group.records.items()
+                                    if row.get("exit_phase") != "running"
+                                    and row.get("exit") != 0
+                                )
+                            )
                     bad = [(copy, r) for copy, r in enumerate(results) if r is not None]
                     runs += len(results)
                     for copy, problem in bad:
@@ -331,6 +387,29 @@ def main():
                         flush=True,
                     )
     finally:
+        if failure_source is not None:
+            after = source_identity(ROOT, jaic)
+            directory = args.observe_failures_report
+            directory.mkdir(parents=True, exist_ok=True)
+            path = directory / "receipt.json"
+            data = (
+                json.loads(path.read_text())
+                if path.exists()
+                else {"version": 1, "groups": []}
+            )
+            data["source_guard"] = {
+                "before": failure_source,
+                "after": after,
+                "matches": failure_source == after,
+            }
+            path.write_text(json.dumps(data, indent=2) + "\n")
+            if failure_source != after:
+                failures.append(
+                    (
+                        "observer source guard",
+                        "compiler/library source inputs changed during original workload",
+                    )
+                )
         if args.keep:
             print(f"kept {work}")
         else:

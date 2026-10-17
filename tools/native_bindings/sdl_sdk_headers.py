@@ -14,6 +14,7 @@ def prepare_runtime_headers(source, output):
     """Return generated-first include roots for the complete SDL2 runtime oracle.
 
     CMake script mode performs upstream configure_file on its real template.
+    Generated headers use explicit LF bytes on every host; input bytes stay intact.
     Reject new configuration inputs rather than silently guessing their values.
     The caller must first validate/extract the complete hash-pinned archive.
     """
@@ -51,7 +52,7 @@ def prepare_runtime_headers(source, output):
         + quote(template)
         + " "
         + quote(generated)
-        + ")\n",
+        + " NEWLINE_STYLE LF)\n",
         encoding="utf-8",
     )
     # Never accept a stale generated header after a failed configuration.

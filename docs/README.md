@@ -983,3 +983,12 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Module default forwarding](compiler/module-default-forwarding-boundary.md): written-list identity and preserved canonical storage/type checks; root official verdict confirms distinction.
 
 - [Basic wide-float presentation](basic-wide-float-presentation.md): reviewed float64 conversion with canonical metadata; original Linux native replay required.
+
+- [Windows SDL Python contract repair](status/sdl-windows-policy-ae6.md): native-path ledger checks and explicit generated LF policy; actual Windows replay pending.
+
+- [Linux failed-copy observer](extensions/io-failed-copy-observer.md): bounded numeric capture from original children; workload and failure gates retained, Linux correctness unresolved.
+
+- [Intel Mac SDK development dependencies](tools/mac-intel-sdk-closure.md): matching clang-c/libclang provisioning; actual Intel CI remains required.
+
+- [Linux clipboard consumer closure](tools/linux-clipboard-consumer-closure.md): real helper build/search paths across all general Linux native consumers; runtime replay required.
+- [Current matching CI candidate](status/shared-candidate-d9f32f30.json): committed source, tools, ABI8 identities and explicit open gates.

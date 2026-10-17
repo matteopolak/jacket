@@ -95,6 +95,53 @@ class SdlSdkHeaders(unittest.TestCase):
         self.helper.prepare_runtime_headers(self.source, self.output)
         self.assertEqual((self.output / "SDL_config_unix.h").read_bytes(), actual)
 
+    def test_generated_lf_contract_overrides_windows_default_newlines(self):
+        template = self.source / "include/SDL2/SDL_config_unix.h.cmake"
+        before = template.read_bytes()
+        self.assertNotIn(b"\r", before)
+        real_run = self.helper.subprocess.run
+
+        def windows_default(command, **kwargs):
+            # Real CMake's CRLF output option models Windows's default. An
+            # explicit producer policy wins; no output bytes are rewritten.
+            script = Path(command[-1])
+            text = script.read_text()
+            if "NEWLINE_STYLE" not in text:
+                head, tail = text.rsplit(")", 1)
+                script.write_text(head + " NEWLINE_STYLE CRLF)" + tail)
+            return real_run(command, **kwargs)
+
+        with patch.object(self.helper.subprocess, "run", side_effect=windows_default):
+            self.helper.prepare_runtime_headers(self.source, self.output)
+        self.assertEqual(
+            (self.output / "SDL_config_unix.h").read_bytes(),
+            before.replace(
+                b"#cmakedefine SDL2COMPAT_DISABLE_X11",
+                b"/* #undef SDL2COMPAT_DISABLE_X11 */",
+            ),
+        )
+        self.assertEqual(template.read_bytes(), before)
+
+    def test_crlf_template_variant_stays_unchanged_and_generates_explicit_lf(self):
+        import shutil
+
+        copied = Path(self.temp.name) / "crlf-source"
+        shutil.copytree(self.source, copied)
+        template = copied / "include/SDL2/SDL_config_unix.h.cmake"
+        lf = (self.source / "include/SDL2/SDL_config_unix.h.cmake").read_bytes()
+        self.assertNotIn(b"\r", lf)
+        crlf = lf.replace(b"\n", b"\r\n")
+        template.write_bytes(crlf)
+        self.helper.prepare_runtime_headers(copied, self.output)
+        self.assertEqual(template.read_bytes(), crlf)
+        self.assertEqual(
+            (self.output / "SDL_config_unix.h").read_bytes(),
+            lf.replace(
+                b"#cmakedefine SDL2COMPAT_DISABLE_X11",
+                b"/* #undef SDL2COMPAT_DISABLE_X11 */",
+            ),
+        )
+
     def test_failed_cmake_removes_stale_config_and_propagates_failure(self):
         self.output.mkdir()
         generated = self.output / "SDL_config_unix.h"

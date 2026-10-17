@@ -36,9 +36,10 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     tar -xjf "$tools/$micromamba_package" -C "$tools" bin/micromamba
     # llvmdev: llvm-config, headers and the shared libLLVM that llvm-sys links; llvm-tools:
     # llvm-dwarfdump and llvm-symbolizer; clang and compiler-rt: the driver and runtimes for
-    # `jaic -sanitize`.
+    # `jaic -sanitize`. clangdev supplies the public clang-c headers and matching
+    # libclang development/runtime dependencies used by the production generator.
     packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "llvm-tools=$llvm_version"
-              "clang=$llvm_version" "compiler-rt=$llvm_version")
+              "clang=$llvm_version" "clangdev=$llvm_version" "compiler-rt=$llvm_version")
     $lld && packages+=("lld=$llvm_version")
     # zstd-static: libzstd.a, which LLVM's support library needs; libcxx carries libc++.a.
     $static && packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "zstd-static" "libcxx")
@@ -86,5 +87,7 @@ fi
 
 version="$("$prefix/bin/llvm-config" --version)"
 [[ "$version" == 23.* ]] || { echo "expected LLVM 23, got $version" >&2; exit 1; }
+[[ -f "$prefix/include/clang-c/Index.h" ]] || { echo "LLVM SDK lacks clang-c/Index.h: $prefix" >&2; exit 1; }
+[[ -f "$prefix/lib/libclang.dylib" ]] || { echo "LLVM SDK lacks libclang.dylib: $prefix" >&2; exit 1; }
 echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
 echo "$path_dir" >> "$GITHUB_PATH"

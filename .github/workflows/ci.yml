@@ -117,6 +117,13 @@ jobs:
           llvm-config --version
           clang --version
           node --version
+      - name: Build the real Linux clipboard provider
+        if: runner.os == 'Linux'
+        run: |
+          python3 tools/build_native_libs.py
+          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
+          python3 tools/build_portable_clipboard.py --output target/clipboard-native
+          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
       - name: Build source-relative native workspace providers
         run: |
           python3 tools/build_portable_runtime.py
@@ -371,6 +378,12 @@ jobs:
             clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
             echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
           fi
+      - name: Build the real Linux clipboard provider
+        if: runner.os == 'Linux'
+        run: |
+          native="$JAIC_NATIVE_LIBS"
+          python3 tools/build_portable_clipboard.py --output target/clipboard-native
+          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
       - name: Run reviewed contracts and retained regressions
         run: |
           ulimit -c 0
@@ -486,6 +499,13 @@ jobs:
           echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
+      - name: Build the real Linux clipboard provider
+        if: runner.os == 'Linux'
+        run: |
+          python3 tools/build_native_libs.py
+          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
+          python3 tools/build_portable_clipboard.py --output target/clipboard-native
+          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
       - name: Build actual compiler and Debug host helpers
         run: |
           python3 tools/build_developer_bindings.py
@@ -579,6 +599,12 @@ jobs:
             clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
             echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$GITHUB_ENV"
           fi
+      - name: Build the real Linux clipboard provider
+        if: runner.os == 'Linux'
+        run: |
+          native="$JAIC_NATIVE_LIBS"
+          python3 tools/build_portable_clipboard.py --output target/clipboard-native
+          echo "JAIC_NATIVE_LIBS=$native:$PWD/target/clipboard-native" >> "$GITHUB_ENV"
       - name: Build jaic
         id: build-jaic
         run: cargo build --locked -p jaic-cli

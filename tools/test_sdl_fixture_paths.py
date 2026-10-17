@@ -2,13 +2,19 @@
 
 import hashlib
 import ast
+from contextlib import ExitStack
 import importlib.util
 from sdl_test_support import source_path
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import sys
 from sdl_test_support import temporary_directory
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+
+def private_hash_key(relative, path_type=Path):
+    """The verifier ledger records str(relative Path), not portable POSIX IDs."""
+    return str(path_type(relative))
 
 
 class SdlFixturePaths(unittest.TestCase):
@@ -42,6 +48,8 @@ class SdlFixturePaths(unittest.TestCase):
         self.temporary = temporary_directory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        self.cleanup = ExitStack()
+        self.addCleanup(self.cleanup.close)
 
     def test_all_three_sdl_fixtures_resolve_only_to_canonical_module_tests(self):
         for name in ["sdl-layout.jai", "sdl-rwops.jai", "sdl-wm.jai"]:
@@ -106,6 +114,31 @@ class SdlFixturePaths(unittest.TestCase):
         ]:
             self.assertIn(assertion, source)
 
+    def test_private_ledger_key_matches_posix_and_windows_path_contract(self):
+        relative = self.verify.PRIVATE_UNITS["sdl-layout"]
+        for path_type in (PurePosixPath, PureWindowsPath):
+            with self.subTest(path_type=path_type):
+                # Metadata-only filesystem doubles exercise the real verifier's
+                # path-key insertion. The existing staging test checks real bytes.
+                staged = MagicMock()
+                placed = staged.__truediv__.return_value
+                placed.relative_to.return_value = path_type(relative)
+                placed.read_bytes.return_value = b"independent ledger policy input"
+                hashes = {}
+                with patch.object(self.verify, "copy_private_fixture"):
+                    self.verify.place_private_unit(
+                        "sdl-layout",
+                        self.root / "input.jai",
+                        staged,
+                        hashes,
+                        self.cleanup,
+                    )
+                self.assertEqual(set(hashes), {str(path_type(relative))})
+                self.assertEqual(
+                    hashes[private_hash_key(relative, path_type)],
+                    hashlib.sha256(placed.read_bytes()).hexdigest(),
+                )
+
     def test_module_local_sources_stage_unchanged_inside_real_private_boundary(self):
         staged = self.root / "private-stdlib"
         hashes = {}
@@ -116,11 +149,13 @@ class SdlFixturePaths(unittest.TestCase):
                 self.assertEqual(
                     self.verify.PRIVATE_UNITS[name], "SDL/tests/" + filename
                 )
-                placed = self.verify.place_private_unit(name, source, staged, hashes)
+                placed = self.verify.place_private_unit(
+                    name, source, staged, hashes, self.cleanup
+                )
                 self.assertEqual(placed, staged / "SDL/tests" / filename)
                 self.assertEqual(placed.read_bytes(), source.read_bytes())
                 self.assertEqual(
-                    hashes["SDL/tests/" + filename],
+                    hashes[private_hash_key("SDL/tests/" + filename)],
                     hashlib.sha256(source.read_bytes()).hexdigest(),
                 )
 

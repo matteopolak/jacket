@@ -16,6 +16,9 @@ on:
       - tools/http_native.py
       - tools/test_http_native.py
       - tools/check_io_burst_diagnostics.py
+      - tools/io_failure_observer.py
+      - tools/test_io_failure_wiring.py
+      - tests/tools/test_io_failure_observer.py
       - tools/io_stress.py
       - tools/test_io_stress_diagnostics.py
       - tools/test_io_stress_observation.py
@@ -42,6 +45,9 @@ on:
       - tools/http_native.py
       - tools/test_http_native.py
       - tools/check_io_burst_diagnostics.py
+      - tools/io_failure_observer.py
+      - tools/test_io_failure_wiring.py
+      - tests/tools/test_io_failure_observer.py
       - tools/io_stress.py
       - tools/test_io_stress_diagnostics.py
       - tools/test_io_stress_observation.py
@@ -112,9 +118,11 @@ jobs:
           python3 -m unittest discover -s tools -p test_http_observer_artifacts.py -v
           python3 -m unittest discover -s tools -p test_io_stress_observation.py -v
           python3 -m unittest discover -s tests/tools -p test_io_burst_diagnostics.py -v
+          python3 -m unittest discover -s tests/tools -p test_io_failure_observer.py -v
+          python3 -m unittest discover -s tools -p test_io_failure_wiring.py -v
           observe=()
           if [ "$RUNNER_OS" = Linux ]; then
-            observe=(--copies 12 --observe-copy backends:o2:1:0 --observe-report "$RUNNER_TEMP/io-observed-copy")
+            observe=(--copies 12 --observe-failures-report "$RUNNER_TEMP/io-observed-copy")
           fi
           python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3 "${observe[@]}"
       - name: Retain the selected Linux observer capture
@@ -124,7 +132,5 @@ jobs:
           name: io-observed-copy-linux
           path: |
             ${{ runner.temp }}/io-observed-copy/receipt.json
-            ${{ runner.temp }}/io-observed-copy/program.stdout
-            ${{ runner.temp }}/io-observed-copy/program.stderr
           retention-days: 7
           if-no-files-found: warn
