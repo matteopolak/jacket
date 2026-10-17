@@ -668,7 +668,16 @@ jobs:
         run: |
           if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
             echo "Latest release: $tag"
-            echo "published=true" >> "$GITHUB_OUTPUT"
+            # Releases cut before the archives were named jacket-<platform> cannot be installed by
+            # the current installers either.
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
+              echo "published=true" >> "$GITHUB_OUTPUT"
+            else
+              msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
+              echo "::notice title=No installable release::$msg"
+              echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+              echo "published=false" >> "$GITHUB_OUTPUT"
+            fi
           elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
             msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
             echo "::notice title=No published release::$msg"
@@ -809,7 +818,16 @@ jobs:
         run: |
           if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
             echo "Latest release: $tag"
-            echo "published=true" >> "$GITHUB_OUTPUT"
+            # Releases cut before the archives were named jacket-<platform> cannot be installed by
+            # the current installers either.
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
+              echo "published=true" >> "$GITHUB_OUTPUT"
+            else
+              msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
+              echo "::notice title=No installable release::$msg"
+              echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+              echo "published=false" >> "$GITHUB_OUTPUT"
+            fi
           elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
             msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
             echo "::notice title=No published release::$msg"
@@ -907,7 +925,16 @@ jobs:
         run: |
           if tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2> "$RUNNER_TEMP/gh-err.txt")"; then
             echo "Latest release: $tag"
-            echo "published=true" >> "$GITHUB_OUTPUT"
+            # Releases cut before the archives were named jacket-<platform> cannot be installed by
+            # the current installers either.
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -q '^jacket-'; then
+              echo "published=true" >> "$GITHUB_OUTPUT"
+            else
+              msg="$GITHUB_REPOSITORY release $tag predates the jacket-<platform> archives, so the steps that install a published release are skipped; the locally built archive steps still run."
+              echo "::notice title=No installable release::$msg"
+              echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+              echo "published=false" >> "$GITHUB_OUTPUT"
+            fi
           elif grep -qi 'release not found' "$RUNNER_TEMP/gh-err.txt"; then
             msg="$GITHUB_REPOSITORY has no published release yet, so the steps that install a published release are skipped; the locally built archive steps still run."
             echo "::notice title=No published release::$msg"
