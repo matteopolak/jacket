@@ -82,9 +82,9 @@ temporary_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size
         return allocator_call(allocator, mode, requested_size, old_size, old_memory);
     }
 
-    alignment := scratch_alignment(requested_size);
+    alignment: s64 = TEMPORARY_ALIGNMENT;
     if requested_size > 0x7fffffffffffffff - alignment - 16 return null;
-    if mode == .RESIZE && old_memory && requested_size <= align_forward(old_size, 16) && cast(u64) old_memory % cast(u64) alignment == 0 return old_memory;
+    if mode == .RESIZE && old_memory && requested_size <= align_forward(old_size, alignment) && cast(u64) old_memory % cast(u64) alignment == 0 return old_memory;
 
     if !ts.original_data && !ts.overflow_pages {
         ts.original_data = ts.data;
@@ -92,7 +92,18 @@ temporary_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size
     }
 
     occupied := align_forward(cast(s64) ts.data + ts.current_page_bytes_occupied, alignment) - cast(s64) ts.data;
-    padded := align_forward(requested_size, 16);
+    padded := align_forward(requested_size, alignment);
+
+    // The newest allocation on the current page grows where it is.
+    if mode == .RESIZE && old_memory && cast(*u8) old_memory >= ts.data && cast(*u8) old_memory + align_forward(old_size, alignment) == ts.data + ts.current_page_bytes_occupied {
+        start := cast(*u8) old_memory - ts.data;
+        if start + padded <= ts.size {
+            ts.total_bytes_occupied += start + padded - ts.current_page_bytes_occupied;
+            ts.current_page_bytes_occupied = start + padded;
+            ts.high_water_mark = max(ts.high_water_mark, ts.total_bytes_occupied);
+            return old_memory;
+        }
+    }
 
     if occupied + padded > ts.size {
         if !add_new_page(ts, max(padded + alignment - 1, cast(s64) 4096)) return null;
@@ -217,8 +228,4 @@ reset_temporary_storage :: () {
 }
 
 #scope_file
-scratch_alignment :: (size: s64) -> s64 #no_aoc {
-    value := cast(u64) size;
-    alignment := value & (0 - value);
-    return max(cast(s64) 16, cast(s64) alignment);
-}
+TEMPORARY_ALIGNMENT :: 8;

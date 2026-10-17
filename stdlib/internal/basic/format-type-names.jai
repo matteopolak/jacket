@@ -26,7 +26,8 @@ render_type :: (builder: *String_Builder, info: *Type_Info, print_defaults: bool
     } else if info.type == .STRUCT {
         record := cast(*Type_Info_Struct) info;
 
-        append(builder, record.name);
+        if record.name.count > 0 append(builder, record.name);
+        else append(builder, "(anonymous struct)");
 
         // Explicit parameter descriptors preserve type/value identity, not source text.
         if record.specified_parameters.count > 0 {
@@ -53,7 +54,7 @@ render_type :: (builder: *String_Builder, info: *Type_Info, print_defaults: bool
                 if printed > 0 append(builder, ", ");
 
                 append(builder, parameter.name);
-                append(builder, " = ");
+                append(builder, cast(u8) 61);
                 render_item(builder, item, true, false, style);
                 printed += 1;
             }
@@ -83,6 +84,7 @@ render_type :: (builder: *String_Builder, info: *Type_Info, print_defaults: bool
     } else if info.type == .PROCEDURE {
         procedure := cast(*Type_Info_Procedure) info;
 
+        append(builder, "procedure ");
         append(builder, cast(u8) 40);
 
         for argument, index: procedure.argument_types {

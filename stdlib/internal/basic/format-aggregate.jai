@@ -60,7 +60,7 @@ render_struct :: (builder: *String_Builder, info: *Type_Info_Struct, base: *void
 
     // A union's members share storage, so none of them can be read without knowing which is live.
     if (info.textual_flags & .UNION) != 0 {
-        append(builder, "(union)");
+        append(builder, "(untagged union)");
         return;
     }
 

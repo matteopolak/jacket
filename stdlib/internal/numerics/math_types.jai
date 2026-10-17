@@ -5,9 +5,9 @@ Vector2 :: struct {
 
 Vector3 :: struct {
     x, y, z: float;
-    #overlay(x) component: [3] float;
     #overlay(x) xy: Vector2;
     #overlay(y) yz: Vector2;
+    #overlay(x) component: [3] float;
 }
 
 Vector4 :: struct {

@@ -152,6 +152,7 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
             if target && target.type == .STRUCT && formatter_struct_callback(builder, item, style) return;
         }
 
+        if info.type == .PROCEDURE append(builder, "procedure 0x");
         print_u64_base_n(builder, cast(u64) pointer, style.default_format_absolute_pointer);
 
         return;
@@ -175,7 +176,9 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
     }
 
     if info.type == .TYPE {
-        render_type(builder, (cast(**Type_Info) item.value_pointer).*, false, style);
+        named := (cast(**Type_Info) item.value_pointer).*;
+        if !named append(builder, "void");
+        else render_type(builder, named, false, style);
         return;
     }
 

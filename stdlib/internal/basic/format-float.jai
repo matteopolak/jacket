@@ -68,40 +68,14 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     else if format.mode == .SHORTEST conversion = 103;
 
     raw: string;
+    integer_limit: float64 = 9007199254740992.0;
+
+    power_of_two := fraction == 0 && exponent > 1;
 
     if format.mode == .SHORTEST {
-        limit := ifx wide then 17 else 9;
-        low := 1;
-        high := limit;
-        matched_digits := 0;
-
-        // A digit count that round-trips keeps doing so with more digits, so the smallest one is
-        // found by bisection instead of trying every count from one.
-        while low < high {
-            middle := (low + high) / 2;
-            candidate, matches := shortest_candidate(value, middle, wide, fraction == 0 && exponent > 1);
-
-            if matches {
-                free(raw);
-                raw = candidate;
-                matched_digits = middle;
-                high = middle;
-            } else {
-                free(candidate);
-                low = middle + 1;
-            }
-        }
-
-        if matched_digits != low {
-            free(raw);
-
-            candidate, matches := shortest_candidate(value, low, wide, fraction == 0 && exponent > 1);
-
-            if matches raw = candidate;
-            else free(candidate);
-        }
-
-        assert(raw.data != null, "shortest float conversion failed to round-trip");
+        raw = shortest_text(value, wide, power_of_two);
+    } else if format.mode == .DECIMAL && format.trailing_width < 0 && value >= integer_limit {
+        raw = padded_integer(value);
     } else raw = portable_float(value, conversion, precision);
 
     defer free(raw);
@@ -159,6 +133,76 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     }
 
     formatter_repeat(builder, 32, trailing_spaces);
+}
+
+// The fewest significant digits that read back as `value`, as printed by the `g` conversion.
+shortest_text :: (value: float64, wide: bool, power_of_two: bool) -> string {
+    raw: string;
+    limit := ifx wide then 17 else 9;
+    low := 1;
+    high := limit;
+    matched_digits := 0;
+
+    // A digit count that round-trips keeps doing so with more digits, so the smallest one is
+    // found by bisection instead of trying every count from one.
+    while low < high {
+        middle := (low + high) / 2;
+        candidate, matches := shortest_candidate(value, middle, wide, power_of_two);
+
+        if matches {
+            free(raw);
+            raw = candidate;
+            matched_digits = middle;
+            high = middle;
+        } else {
+            free(candidate);
+            low = middle + 1;
+        }
+    }
+
+    if matched_digits != low {
+        free(raw);
+
+        candidate, matches := shortest_candidate(value, low, wide, power_of_two);
+
+        if matches raw = candidate;
+        else free(candidate);
+    }
+
+    assert(raw.data != null, "shortest float conversion failed to round-trip");
+    return raw;
+}
+
+// A value too large to hold fractional digits keeps its first 18 significant digits and the rest
+// are zeros, so the digits past that precision are not the exact integer the bits encode.
+padded_integer :: (value: float64) -> string {
+    scientific := portable_float(value, 101, 17);
+    defer free(scientific);
+
+    builder: String_Builder;
+    defer free_buffers(*builder);
+
+    digits: s64;
+    exponent_value: s64;
+    seen_exponent := false;
+    negative_exponent := false;
+
+    for byte: scientific {
+        if seen_exponent {
+            if byte == 45 negative_exponent = true;
+            else if byte >= 48 && byte <= 57 exponent_value = exponent_value * 10 + cast(s64) (byte - 48);
+        } else if byte == 101 || byte == 69 {
+            seen_exponent = true;
+        } else if byte >= 48 && byte <= 57 {
+            append(*builder, byte);
+            digits += 1;
+        }
+    }
+
+    if negative_exponent exponent_value = -exponent_value;
+
+    formatter_repeat(*builder, 48, max(cast(s64) 0, exponent_value + 1 - digits));
+    return builder_to_string(*builder);
 }
 
 // The text of `value` with `digits` significant digits, and whether it reads back as `value`.
