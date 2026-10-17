@@ -829,75 +829,75 @@ libc :: #library,system "c";
 // Native storage
 
 #if OS == .LINUX {
-    EPOLLIN : u32 : 0x1;
+    EPOLLIN: u32 : 0x1;
 }
 
 #if OS == .LINUX {
-    EPOLLPRI : u32 : 0x2;
+    EPOLLPRI: u32 : 0x2;
 }
 
 #if OS == .LINUX {
-    EPOLLOUT : u32 : 0x4;
+    EPOLLOUT: u32 : 0x4;
 }
 
 #if OS == .LINUX {
-    EPOLLERR : u32 : 0x8;
+    EPOLLERR: u32 : 0x8;
 }
 
 #if OS == .LINUX {
-    EPOLLHUP : u32 : 0x10;
+    EPOLLHUP: u32 : 0x10;
 }
 
 #if OS == .LINUX {
-    EPOLLNVAL : u32 : 0x20;
+    EPOLLNVAL: u32 : 0x20;
 }
 
 #if OS == .LINUX {
-    EPOLLRDNORM : u32 : 0x40;
+    EPOLLRDNORM: u32 : 0x40;
 }
 
 #if OS == .LINUX {
-    EPOLLRDBAND : u32 : 0x80;
+    EPOLLRDBAND: u32 : 0x80;
 }
 
 #if OS == .LINUX {
-    EPOLLWRNORM : u32 : 0x100;
+    EPOLLWRNORM: u32 : 0x100;
 }
 
 #if OS == .LINUX {
-    EPOLLWRBAND : u32 : 0x200;
+    EPOLLWRBAND: u32 : 0x200;
 }
 
 #if OS == .LINUX {
-    EPOLLMSG : u32 : 0x400;
+    EPOLLMSG: u32 : 0x400;
 }
 
 #if OS == .LINUX {
-    EPOLLRDHUP : u32 : 0x2000;
+    EPOLLRDHUP: u32 : 0x2000;
 }
 
 #if OS == .LINUX {
-    EPOLL_URING_WAKE : u32 : 0x8000000;
+    EPOLL_URING_WAKE: u32 : 0x8000000;
 }
 
 #if OS == .LINUX {
-    EPOLLEXCLUSIVE : u32 : 0x10000000;
+    EPOLLEXCLUSIVE: u32 : 0x10000000;
 }
 
 #if OS == .LINUX {
-    EPOLLWAKEUP : u32 : 0x20000000;
+    EPOLLWAKEUP: u32 : 0x20000000;
 }
 
 #if OS == .LINUX {
-    EPOLLONESHOT : u32 : 0x40000000;
+    EPOLLONESHOT: u32 : 0x40000000;
 }
 
 #if OS == .LINUX {
-    EPOLLET : u32 : 0x80000000;
+    EPOLLET: u32 : 0x80000000;
 }
 
 #if OS == .LINUX {
-    EPOLL_CLOEXEC : s32 : 0x80000;
+    EPOLL_CLOEXEC: s32 : 0x80000;
 }
 
 #if OS == .LINUX {

@@ -140,7 +140,9 @@ def cmd_lint(args) -> int:
     failed = False
     if wants(args.lang, "jai") and (whole or jai):
         jailint = ensure_jailint(args.jobs, args.release)
-        failed |= bool(run([str(jailint), "-D", "warnings", "-j", "2",
+        # A platform's modules (Windows, X11, Android) cannot compile on another host: each CI
+        # host lints what it can, and a finding in what does compile still fails the run.
+        failed |= bool(run([str(jailint), "-D", "warnings", "-j", "2", "--allow-incomplete",
                             *(["--fix"] if args.fix else []), *(jai or JAI_LINT_DIRS)]))
     if wants(args.lang, "rust") and (whole or rust):
         # Clippy works on whole crates; the file list only decides whether it runs at all.

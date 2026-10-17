@@ -18,11 +18,23 @@ use_lock :: () -> s32 #compiler {
 
 #if OS == .WASM {
     lock: s32;
-    acquire :: (l: *s32) -> s32 { l.* += 1; return l.*; }
+
+    acquire :: (l: *s32) -> s32 {
+        l.* += 1;
+        return l.*;
+    }
 } else #if IS_DESKTOP {
     lock: s32;
-    acquire :: (l: *s32) -> s32 { l.* += 1; return l.*; }
+
+    acquire :: (l: *s32) -> s32 {
+        l.* += 1;
+        return l.*;
+    }
 } else {
     lock: s32;
-    acquire :: (l: *s32) -> s32 { l.* += 1; return l.*; }
+
+    acquire :: (l: *s32) -> s32 {
+        l.* += 1;
+        return l.*;
+    }
 }

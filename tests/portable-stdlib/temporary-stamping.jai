@@ -1,4 +1,5 @@
 B :: #import "Basic"()(TEMP_ALLOCATOR_OVERWRITE_MEMORY = true);
+
 Stamped :: B;
 
 main :: () {

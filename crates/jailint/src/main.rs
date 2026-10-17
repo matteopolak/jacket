@@ -24,6 +24,7 @@ options:
   --manifest <file> write JSON source-check coverage and actual target contexts
   --context <file>  check an enclosing program; report only the requested paths
   --checked-files <file> write the actual checked paths, one per line
+  --allow-incomplete  report programs that do not compile on this target without failing the run
   --add <source>     add source in the program scope (also -add)
   -j <n>              compile n programs at once (default: one per CPU, at most 8)
   --list              list the rules and their default levels
@@ -58,6 +59,7 @@ struct Args {
     context: Option<PathBuf>,
     manifest: Option<PathBuf>,
     checked_files: Option<PathBuf>,
+    allow_incomplete: bool,
     add_sources: Vec<String>,
     target: jailint::target::Selection,
     paths: Vec<PathBuf>,
@@ -75,6 +77,7 @@ fn parse_args() -> Result<Option<Args>, String> {
         context: None,
         manifest: None,
         checked_files: None,
+        allow_incomplete: false,
         add_sources: Vec::new(),
         target: Default::default(),
         paths: Vec::new(),
@@ -101,6 +104,7 @@ fn parse_args() -> Result<Option<Args>, String> {
                 return Ok(None);
             }
             "--fix" => args.fix = true,
+            "--allow-incomplete" => args.allow_incomplete = true,
             "-v" | "--verbose" => args.verbose = true,
             "--config" => args.config = Some(PathBuf::from(value("--config")?)),
             "--manifest" => args.manifest = Some(PathBuf::from(value(&a)?)),
@@ -134,6 +138,7 @@ fn parse_args() -> Result<Option<Args>, String> {
             flag if flag.starts_with('-') && flag.len() > 1 => {
                 let known = [
                     "--fix",
+                    "--allow-incomplete",
                     "--config",
                     "--manifest",
                     "--checked-files",
@@ -354,11 +359,13 @@ fn run() -> Result<ExitCode, String> {
             count(outcome.roots, "program"),
         );
     }
-    Ok(if errors > 0 || !outcome.incomplete.is_empty() {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    })
+    Ok(
+        if errors > 0 || (!args.allow_incomplete && !outcome.incomplete.is_empty()) {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        },
+    )
 }
 
 fn write_manifest(

@@ -30,6 +30,7 @@ main :: () {
     leaves: [1] D.Procedure_To_Elide = .[.{ "site", "/app/" }];
     roots: [1] D.Procedure_To_Elide = .[.{ "skip", "" }];
     group_path := B.copy_string("/app/");
+
     D.this_allocation_is_not_a_leak(group_path.data);
     groups: [3] D.Procedure_To_Elide = .[.{ "sit", "/app/" }, .{ "site", "/APP/" }, .{ "site", group_path }];
     options := D.Leak_Report_Options.{ known_allocation_leaves = leaves, roots_to_skip = roots, group_by_these_calls = groups, scan_global_memory_to_remove_leaks = false, scan_leaks_to_combine = false };

@@ -208,3 +208,22 @@ main :: () {
     assert!(!text.contains("fixed"), "{text}");
     assert_eq!(std::fs::read_to_string(&file).unwrap(), after);
 }
+
+#[test]
+fn a_program_that_does_not_compile_fails_the_run_unless_incomplete_is_allowed() {
+    let dir = scratch("incomplete");
+    std::fs::write(
+        dir.join("broken.jai"),
+        "main :: () { missing_procedure(); }\n",
+    )
+    .unwrap();
+    let (err, code) = jailint(&dir, &["-D", "warnings", "broken.jai"]);
+    assert!(err.contains("did not compile completely"), "{err}");
+    assert_eq!(code, Some(1), "{err}");
+    let (err, code) = jailint(
+        &dir,
+        &["-D", "warnings", "--allow-incomplete", "broken.jai"],
+    );
+    assert!(err.contains("did not compile completely"), "{err}");
+    assert_eq!(code, Some(0), "{err}");
+}
