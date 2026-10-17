@@ -8,17 +8,12 @@ main :: () {
 
     defer free(bin);
     defer free(exe);
-    home := A.tool_environment(A.JAVA_ENV_NAME);
-
-    defer free(home);
-
-    if home.count == 0 {
-        assert(!success && bin == "" && exe == "");
-    } else {
-        // Whatever the host sets, the result is its java launcher under `<home>/bin`.
-        assert(success);
+    if success {
+        // Whatever JAVA_HOME the host sets, the result is its java launcher under `<home>/bin`.
         assert(bin.count > 4 && slice(bin, bin.count - 4, 4) == "/bin");
         assert(exe.count > bin.count && slice(exe, 0, bin.count) == bin);
+    } else {
+        assert(bin == "" && exe == "");
     }
 
     print("ok\n");

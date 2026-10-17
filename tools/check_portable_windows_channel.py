@@ -32,7 +32,7 @@ def main():
         checked([compiler, "-check", "-os", "windows", "-cpu", cpu, source])
         for role in ["reader", "writer"]:
             checked([compiler, "-check", "-os", "windows", "-cpu", cpu,
-                     ROOT / f"stdlib/Shared_Memory_Channel/tests/basics/{role}.jai", "-add", 'CHANNEL_NAME :: "portable-source-check";'])
+                     ROOT / f"stdlib/Shared_Memory_Channel/tests/driven/basics/{role}.jai", "-add", 'CHANNEL_NAME :: "portable-source-check";'])
         print(f"Windows/{cpu} channel lifecycle/packet/IPC bodies check", flush=True)
     if not args.native:
         print("Windows mapping execution remains unverified; no native pass claimed")

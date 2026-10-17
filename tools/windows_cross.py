@@ -49,6 +49,10 @@ WINDOWS_BUILD_HOST_CASES = frozenset(
         "Program_Print/tests/plugin-file-output",
         "compiler/rules-compile-time-execution",
         "Minimal_Metaprogram/tests/minimal-build",
+        "Basic/tests/checked-narrow-cast",
+        "BuildCpp/tests/negative/compile",
+        "BuildCpp/tests/negative/target",
+        "BuildCpp/tests/negative/tool",
     }
 )
 
@@ -75,6 +79,10 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Extensions/WebGPU/tests/window",
         "Runtime_Support_Crash_Handler/tests/windows-native-sections",
         "Runtime_Support_Crash_Handler/tests/windows-records",
+        "Flat_Pool/tests/release-main",
+        "SDL/tests/geometry-timer",
+        "Gamepad/tests/shared-sdk",
+        "Gamepad/tests/virtual",
         "Sound_Player/tests/assertion-independent",
         "Sound_Player/tests/compressed-stream",
         "Sound_Player/tests/concurrent-factories",

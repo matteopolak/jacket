@@ -32,7 +32,7 @@ main :: () {
 #scope_file
 #import "Basic";
 
-sdk :: #library "../../../target/platform-io-tests/platform_io_fault_sdk";
+sdk :: #library "../../../../target/platform-io-tests/platform_io_fault_sdk";
 native_fault :: () -> u32 #foreign sdk "platform_io_native_fault";
 
 kernel32 :: #system_library "kernel32";

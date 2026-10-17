@@ -137,8 +137,6 @@ def lint_profile_sources(target_os, target_cpu):
         "stdlib/internal/files/filesystem.jai",
         "stdlib/internal/basic/filesystem.jai",
         "stdlib/File/tests/visitation.jai",
-        "stdlib/Basic/tests/visualization-channel.jai",
-        "stdlib/Basic/tests/visualization-timing.jai",
     }
     x64_only = {
         "stdlib/Basic/tests/division-exercise.jai",

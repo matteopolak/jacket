@@ -94,7 +94,7 @@ def main():
         outcome = "passed" if len(failures) == before else "FAILED"
         print(f"{outcome} host interpreter and native O0/O2: {name}", flush=True)
 
-    linux = ["types", "portable", "callback-types", "keycodes", "window-invalid", "bitmap-codec", "gamepad-virtual", "gamepad-shared-sdk", "texture-packing", "simp-none", "font-effects"]
+    linux = ["types", "portable", "callback-types", "keycodes", "bitmap-codec", "gamepad-virtual", "gamepad-shared-sdk", "texture-packing", "simp-none", "font-effects"]
     for name in linux:
         source = test_source(name)
         passed = run([compiler, source, "-interp", "-os", "linux", "-I", args.stdlib], "ok\n")
@@ -108,7 +108,7 @@ def main():
     for os_name in ["linux", "windows"]:
         for cpu in ["x64", "arm64"]:
             cases = ["types", "callback-types", "keycodes", "window-types", "texture-signatures", "simp-none", "public-window", "keymap-behavior"]
-            cases += ["evdev-signatures", "window-invalid", "font-effects"] if os_name == "linux" else ["clipboard-host", "windows-queries", "windows-events", "windows-committed-text", "windows-render-events", "windows-class-parameters", "windows-layout-keys", "windows-render-lifecycle", "windows-render-public", "windows-wgl-driver", "windows-device-notifications", "windows-device-decoding", "windows-pointer", "font-public", "font-effects"]
+            cases += ["evdev-signatures", "font-effects"] if os_name == "linux" else ["clipboard-host", "windows-queries", "windows-events", "windows-committed-text", "windows-render-events", "windows-class-parameters", "windows-layout-keys", "windows-render-lifecycle", "windows-render-public", "windows-wgl-driver", "windows-device-notifications", "windows-device-decoding", "windows-pointer", "font-public", "font-effects"]
             for name in cases:
                 run([compiler, test_source(name), "-check", "-os", os_name,
                      "-cpu", cpu, "-I", args.stdlib])

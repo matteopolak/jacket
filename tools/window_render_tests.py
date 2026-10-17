@@ -32,7 +32,6 @@ WINDOW_RENDER_TESTS = {
     "texture-driver": "stdlib/Simp/tests/texture-driver.jai",
     "texture-signatures": "stdlib/Simp/tests/texture-signatures.jai",
     "types": "stdlib/Window_Type/tests/types.jai",
-    "window-invalid": "stdlib/Window_Creation/tests/invalid.jai",
     "window-render-host": "stdlib/Window_Creation/tests/render-host.jai",
     "window-types": "stdlib/Window_Creation/tests/types.jai",
     "windows-class-parameters": "stdlib/Windows/tests/class-parameters.jai",

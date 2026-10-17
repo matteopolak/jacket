@@ -3,5 +3,5 @@
 /stdlib/Extensions/SDL3/* text eol=lf
 /tools/native/sdl3/inline-*.c text eol=lf
 /tools/native/sdl3/macros.c text eol=lf
-/stdlib/Extensions/SDL3/tests/layout-*.jai text eol=lf
+/stdlib/Extensions/SDL3/tests/driven/layout-*.jai text eol=lf
 /stdlib/Extensions/SDL3/tests/c-layout-*.h text eol=lf

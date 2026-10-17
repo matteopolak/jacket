@@ -23,8 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Fatal-signal programs: the process must die by the signal after printing both texts.
 CRASH_FAULTS = {
-    "stdlib/Runtime_Support_Crash_Handler/tests/faults/basics.jai": ("crash signal 11", "native stack:"),
-    "stdlib/Runtime_Support_Crash_Handler/tests/faults/memory-fault.jai": ("crash signal ", "native stack:"),
+    "stdlib/Runtime_Support_Crash_Handler/tests/driven/faults/basics.jai": ("crash signal 11", "native stack:"),
+    "stdlib/Runtime_Support_Crash_Handler/tests/driven/faults/memory-fault.jai": ("crash signal ", "native stack:"),
 }
 
 

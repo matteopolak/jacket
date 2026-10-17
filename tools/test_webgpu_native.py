@@ -27,7 +27,7 @@ from build_native_libs import host_dir, output_dir  # noqa: E402
 from fetch_wgpu_native import fetch  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-TESTS = {name: ROOT / 'tests' / 'webgpu' / f'{name}.jai' for name in ('headless', 'window')}
+TESTS = {name: ROOT / 'stdlib/Extensions/WebGPU/tests' / f'{name}.jai' for name in ('headless', 'window')}
 NO_ADAPTER = 77
 # A run that hangs (a present that never returns) fails instead of using up the job.
 TIMEOUT = 600
