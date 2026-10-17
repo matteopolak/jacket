@@ -10,5 +10,5 @@ operator == :: (a: Parcel, b: Parcel) -> bool {
 
 main :: () {
     items := Parcel.[.{ 12 }];
-    found, index := B.array_find(items, Parcel.{ 2 });
+    found, index := B.array_find(items, Parcel.{ 2 }); // jailint: allow(unused_variable) the call itself is what is tested
 }

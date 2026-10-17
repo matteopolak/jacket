@@ -5,5 +5,5 @@ using #import "Deferred_Module";
 #assert answer() == 42;
 
 main :: () {
-    value := answer();
+    value := answer(); // jailint: allow(unused_variable) the scheduled call is what is tested
 }

@@ -23,7 +23,7 @@ main :: () {
         // Nothing is stored, so every read is empty, whatever was set.
         os_clipboard_set_text("unreachable");
         assert(os_clipboard_get_text() == "", "a clipboard without a helper program returned text");
-        os_clipboard_empty();
+        empty_clipboard();
         pixels: [4] u8 = .[1, 2, 3, 4];
 
         os_clipboard_set_bitmap(1, 1, pixels.data, 4);
@@ -41,7 +41,7 @@ main :: () {
     }
 
     os_clipboard_set_text("about to be emptied");
-    os_clipboard_empty();
+    empty_clipboard();
     after_empty := os_clipboard_get_text();
 
     assert(after_empty == "", "the emptied clipboard still holds text");
@@ -73,6 +73,12 @@ main :: () {
 }
 
 #scope_file
+// The Linux clipboard has no separate empty operation: storing empty text clears it.
+empty_clipboard :: () {
+    #if OS == .LINUX os_clipboard_set_text("");
+    else os_clipboard_empty();
+}
+
 #if OS == .MACOS {
     O :: #import "Objective_C";
 

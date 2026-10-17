@@ -30,6 +30,9 @@ ROOT = Path(__file__).resolve().parent.parent
 MODES = ["interp", "native", "wasm-interp", "wasm-native"]
 COVERAGE_LOCK = threading.Lock()
 CLIPBOARD_LOCK = threading.Lock()
+# Only one application at a time is active on a Mac, and a program's windows are key (and its
+# focus events arrive) only while it is: GUI programs would otherwise take focus from each other.
+WINDOW_LEASE = threading.Lock()
 
 
 def host_platform():
@@ -195,6 +198,14 @@ def runtime_prefix(case, env, host=sys.platform):
 
 
 def run_program(command, cwd, timeout, env, case):
+    """Run one test program; macOS GUI programs one at a time (see WINDOW_LEASE)."""
+    if case.get("window_lease") and sys.platform == "darwin":
+        with WINDOW_LEASE:
+            return run_unleased(command, cwd, timeout, env, case)
+    return run_unleased(command, cwd, timeout, env, case)
+
+
+def run_unleased(command, cwd, timeout, env, case):
     prefix = runtime_prefix(case, env)
     if not prefix:
         return run_command(command, cwd, timeout, env)

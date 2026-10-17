@@ -153,6 +153,17 @@ NATIVE_SERVICE_CASES.update(
 )
 NATIVE_SERVICE_CASES.update(
     (
+        "Bindings_Generator/tests/" + name,
+        "native Process import through the generator's child-process facade",
+    )
+    for name in (
+        "generator-macro-shared-state",
+        "generator-run-macro-print",
+        "generator-run-toplevel",
+    )
+)
+NATIVE_SERVICE_CASES.update(
+    (
         "Simp/tests/" + name,
         "default Simp OPENGL surface and native GL/image/font providers",
     )

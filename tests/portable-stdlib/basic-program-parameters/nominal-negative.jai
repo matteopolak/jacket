@@ -1,4 +1,4 @@
-Basic :: #import "Basic";
+Basic :: #import "Basic"; // jailint: allow(unused_import) the declaration is part of what the test compiles
 Files :: #import "File_Utilities";
 
 Unrelated :: struct {

@@ -34,10 +34,11 @@ fmt check="false" staged="false" lang="all" jobs=default_jobs *paths:
 [group('check')]
 [arg("fix", long, value="true")]
 [arg("staged", long, value="true")]
+[arg("release", long, value="true")]
 [arg("lang", long, pattern="jai|rust|all")]
 [arg("jobs", long, short="j")]
-lint fix="false" staged="false" lang="all" jobs=default_jobs *paths:
-    {{ py }} tools/dev.py lint -j {{ jobs }} --lang {{ lang }} {{ if fix == "true" { "--fix" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
+lint fix="false" staged="false" release="false" lang="all" jobs=default_jobs *paths:
+    {{ py }} tools/dev.py lint -j {{ jobs }} --lang {{ lang }} {{ if release == "true" { "--release" } else { "" } }} {{ if fix == "true" { "--fix" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
 
 # Check that the VS Code extension's generated grammar and schemas are current (skipped without node 24).
 [group('check')]

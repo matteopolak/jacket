@@ -67,7 +67,8 @@ def fixture_reference_rejected_reason(case):
 
 
 def fixture_unavailable_reason(case, platform, build_host):
-    reason = stdlib_runtime.unavailable_reason(case, "native", platform)
+    # The catalogue knows `windows-arm64`; the `-mingw` suffix only names the cross toolchain.
+    reason = stdlib_runtime.unavailable_reason(case, "native", "-".join(platform.split("-")[:2]))
     if reason:
         return reason
     if (

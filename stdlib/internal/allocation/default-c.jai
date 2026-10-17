@@ -1,16 +1,15 @@
 allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .ALLOCATE {
-        if size < 0 return null;
-        return c_malloc(cast(u64) size);
+        return obtain_contents(size, PREFIX);
     }
 
     if mode == .RESIZE {
-        if size < 0 return null;
-        return c_realloc(old_memory, cast(u64) size);
+        if !old_memory return obtain_contents(size, PREFIX);
+        return regrow_contents(old_memory, size, PREFIX);
     }
 
     if mode == .FREE {
-        c_free(old_memory);
+        release_contents(old_memory);
         return null;
     }
 
@@ -35,4 +34,5 @@ unsafe_reset :: inline () {}
 #scope_file
 #import "Basic";
 
-#import "internal/libc";
+// Room for the word aligned-blocks.jai keeps before the contents, kept 16 so they stay malloc-aligned.
+PREFIX :: 16;

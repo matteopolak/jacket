@@ -107,7 +107,9 @@ class Selection(unittest.TestCase):
     def test_exact_stale_cpuid_oracle_is_separate_and_hash_bound(self):
         cases = cross.stdlib_runtime.validated_entries()
         invalid = {c["id"] for c in cases if cross.fixture_stale_contract_reason(c)}
-        self.assertEqual(invalid, {"compiler/lang-asm"})
+        # The CPUID fixture has been corrected against real hardware, so no case is the pinned
+        # legacy source any more and every one is required.
+        self.assertEqual(invalid, set())
         with tempfile.TemporaryDirectory() as directory:
             corrected = Path(directory) / "corrected.jai"
             corrected.write_text("// independently corrected oracle\nmain :: () {}\n")

@@ -1,5 +1,5 @@
 // Independent language/compiler reduction; no plugin names or library workaround.
-#import "Basic";
+#import "Basic"; // jailint: allow(unused_import) the fixture only schedules deferred bodies
 C :: #import "Compiler";
 
 #placeholder Supplied_Body;

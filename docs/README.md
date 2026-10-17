@@ -30,4 +30,4 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Specifications
 
-[specs/jai/](specs/jai/) and [specs/stdlib/](specs/stdlib/) are what the compiler and standard library are implemented from. Unresolved points go in [specs/questions/](specs/questions/).
+[specs/jai/](specs/jai/) and [specs/stdlib/](specs/stdlib/) are what the compiler and standard library are implemented from.

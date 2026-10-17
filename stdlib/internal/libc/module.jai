@@ -7,4 +7,5 @@ libc :: #system_library "libc";
 c_malloc :: (size: u64) -> *void #foreign libc "malloc";
 c_realloc :: (memory: *void, size: u64) -> *void #foreign libc "realloc";
 c_free :: (memory: *void) #foreign libc "free";
+c_memmove :: (destination: *void, source: *void, count: u64) -> *void #foreign libc "memmove";
 c_abort :: () #foreign libc "abort";

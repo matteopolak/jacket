@@ -1,4 +1,4 @@
-C :: #import "Compiler";
+C :: #import "Compiler"; // jailint: allow(unused_import) the declaration is part of what the test compiles
 
 #placeholder Body;
 Callback :: #type () -> int;

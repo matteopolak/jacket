@@ -1349,7 +1349,7 @@ crowd_client :: (crowd: *Crowd) {
     reply: [1500] u8;
     count, read_error := Io.read_full(Tls.reader_of(stream), reply);
 
-    if read_error != .NONE || count != 1500 || reply != message crowd.failures += 1;
+    if read_error != .NONE || count != 1500 || string.{ reply.count, reply.data } != string.{ message.count, message.data } crowd.failures += 1;
 
     Tls.close(stream);
 

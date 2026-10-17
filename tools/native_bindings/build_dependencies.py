@@ -194,17 +194,25 @@ def main():
         if name == 'rpmalloc_callback_probe':
             # Shared adapters must use the same SDK instance as allocations.
             # Statically embedding a second allocator would split ownership.
-            extra = ['-L', args.output, '-lbinding_rpmalloc_sdk'+('_nostats' if name.endswith('_nostats') else '')]
+            # The SDK sits next to the probe: the interpreter dlopens the probe on its own, so the
+            # loader needs the probe's directory in its search path to find the SDK.
+            extra = ['-L', args.output, '-lbinding_rpmalloc_sdk'+('_nostats' if name.endswith('_nostats') else ''),
+                     '-Wl,-rpath,@loader_path' if suffix == '.dylib' else '-Wl,-rpath,$ORIGIN']
         run(['c++' if name in ('meshoptimizer','imgui') else 'cc', '-dynamiclib' if suffix == '.dylib' else '-shared', *compiled,
              '-lm', *extra, '-o', args.output / ('lib' + name + suffix)])
         print('Built ' + name)
     if 'mojoshader' not in selected:
         return
     mojo = vendor/manifest['mojoshader']['archive']['root']
+    # MojoShader's CMake asks the version control tool for the changeset, and the pinned archive is
+    # unpacked inside this repository, so it would report this checkout's history (or "???" for a
+    # shallow clone). Name the pinned revision instead.
+    changeset = 'git-' + manifest['mojoshader']['revision'][:8]
+    identity = f'-DMOJOSHADER_NO_VERSION_INCLUDE -DMOJOSHADER_CHANGESET=\\"{changeset}\\"'
     for shared in (False, True):
         build = args.output/('mojoshader-shared' if shared else 'mojoshader-static')
         run(['cmake','-S',mojo,'-B',build,'-DCMAKE_BUILD_TYPE=Release',
-             '-DCMAKE_POLICY_VERSION_MINIMUM=3.5','-DCOMPILER_SUPPORT=ON','-DEFFECT_SUPPORT=ON',
+             '-DCMAKE_POLICY_VERSION_MINIMUM=3.5','-DCMAKE_C_FLAGS='+identity,'-DCOMPILER_SUPPORT=ON','-DEFFECT_SUPPORT=ON',
              '-DBUILD_SHARED_LIBS='+('ON' if shared else 'OFF')])
         run(['cmake','--build',build,'--target','mojoshader','--parallel','4'])
         suffix = ('.dylib' if platform.system()=='Darwin' else '.so') if shared else '.a'

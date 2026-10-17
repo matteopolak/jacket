@@ -151,22 +151,26 @@ allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old
 
         if mode == .FREE {
             unlink_block_locked(state, block);
-            c_free(block);
+            release_contents(old_memory);
             return null;
         }
 
         before := block.previous;
         after := block.next;
-        resized := cast(*Allocation_Header) c_realloc(block, cast(u64) requested_size + size_of(Allocation_Header));
+        contents := regrow_contents(old_memory, requested_size, size_of(Allocation_Header));
 
-        if !resized return null;
+        if !contents return null;
 
+        // The block's bookkeeping stays where it was; rebuild it around the moved contents.
+        resized := cast(*Allocation_Header) (cast(*u8) contents - size_of(Allocation_Header));
+        resized.previous = before;
+        resized.next = after;
         resized.size = requested_size;
         if before before.next = resized;
         else state.first = resized;
         if after after.previous = resized;
 
-        return cast(*u8) resized + size_of(Allocation_Header);
+        return contents;
     }
 
     argument_error("unsupported Default_Allocator mode");
@@ -183,10 +187,12 @@ Heap_State :: struct {
     next: *Heap_State;
 }
 
+// Sits right before the block's contents; `region` must stay last (see aligned-blocks.jai).
 Allocation_Header :: struct #align 16 {
     previous: *Allocation_Header;
     next: *Allocation_Header;
     size: s64;
+    region: *void;
 }
 
 heaps: *Heap_State;
@@ -267,9 +273,10 @@ find_block_locked :: (state: *Heap_State, memory: *void) -> *Allocation_Header {
 }
 
 allocate_locked :: (state: *Heap_State, size: s64) -> *void {
-    block := cast(*Allocation_Header) c_malloc(cast(u64) size + size_of(Allocation_Header));
-    if !block return null;
+    contents := obtain_contents(size, size_of(Allocation_Header));
+    if !contents return null;
 
+    block := cast(*Allocation_Header) (cast(*u8) contents - size_of(Allocation_Header));
     block.previous = null;
     block.next = state.first;
     block.size = size;
@@ -277,7 +284,7 @@ allocate_locked :: (state: *Heap_State, size: s64) -> *void {
 
     state.first = block;
 
-    return cast(*u8) block + size_of(Allocation_Header);
+    return contents;
 }
 
 unlink_block_locked :: (state: *Heap_State, block: *Allocation_Header) {
@@ -290,7 +297,7 @@ clear_locked :: (state: *Heap_State) {
     while state.first {
         block := state.first;
         state.first = block.next;
-        c_free(block);
+        release_contents(cast(*u8) block + size_of(Allocation_Header));
     }
 }
 

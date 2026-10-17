@@ -97,6 +97,9 @@ PLATFORM_REQUIREMENTS = {
     "native/objc-window-levels": "macos",
     "native/posix-stat-and-mutex": ("linux", "macos"),
     "graphics/macos-window-context-reopen": "macos",
+    "graphics/input-multi-window-focus": "macos",
+    "graphics/input-published-events": "macos",
+    "graphics/input-temporary-allocator": "macos",
     "compiler/socket-select-canonical-timeval": ("linux", "macos"),
     "extensions/io-uring-dependency-repro": "linux",
     "Input/tests/windows-device-decoding": "windows",
@@ -169,6 +172,8 @@ def validated_entries(root=ROOT):
         }.get(case["id"])
         if termination:
             case.update(exit_code=termination[0], stdout=termination[1], stderr="")
+        if case["family"] == "graphics" or case["id"] in PLATFORM_REQUIREMENTS and "macos" in PLATFORM_REQUIREMENTS[case["id"]]:
+            case["window_lease"] = True
         if case["id"] in PROGRAM_INPUTS:
             case["input"] = PROGRAM_INPUTS[case["id"]]
         if case["id"] in PROGRAM_ARGUMENTS:
@@ -177,6 +182,9 @@ def validated_entries(root=ROOT):
             case["required_os"] = PLATFORM_REQUIREMENTS[case["id"]]
         if case["id"] == "Simp/tests/context-default-assertions":
             case["fixture_libraries"] = {"GL_PROBE": "window_gl_probe"}
+            case["requires_display"] = True
+        if case["id"] == "SDL/tests/sdl-wm":
+            # Creates a real (hidden) SDL window, which needs a display server.
             case["requires_display"] = True
         if case["id"] in names:
             raise ValueError("duplicate test ID: " + case["id"])

@@ -203,11 +203,12 @@ jobs:
         id: jai-format
         continue-on-error: true  # recorded, then enforced by the last step like the other checks
         run: just fmt --check --lang jai
-      # The repository's Jai code must be lint-free (settings: jailint.toml).
+      # The repository's Jai code must be lint-free (settings: jailint.toml). An optimized
+      # jailint: the debug build needs longer than the job's whole timeout to lint the tree.
       - name: Jai lint
         id: jai-lint
         continue-on-error: true
-        run: just lint --lang jai
+        run: just lint --lang jai --release
       - name: Backend agreement
         id: backends
         continue-on-error: true

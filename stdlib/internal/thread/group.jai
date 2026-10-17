@@ -51,7 +51,9 @@ init :: (using group: *Thread_Group, num_threads: s32, group_proc: Thread_Group_
 }
 
 start :: (group: *Thread_Group) {
-    assert(group.initted && !group.started);
+    // Callers may start a group every round of work, or one that was never initialized (no workers).
+    if !group.initted || group.started return;
+
     group.started = true;
     for *worker: group.worker_info thread_start(*worker.thread);
 }

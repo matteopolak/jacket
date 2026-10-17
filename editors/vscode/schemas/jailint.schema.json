@@ -326,7 +326,7 @@
             "deny"
           ],
           "default": "warn",
-          "markdownDescription": "a call to a library procedure that only computes a value, as a statement (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_result)"
+          "markdownDescription": "a call to a `@UseResult` procedure, as a statement (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_result)"
         },
         "unused_variable": {
           "type": "string",

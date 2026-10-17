@@ -87,10 +87,10 @@ def newest(paths: list[str]) -> float:
     return latest
 
 
-def ensure_jailint(jobs: str) -> Path:
-    if cargo_build(["-p", "jailint"], jobs):
+def ensure_jailint(jobs: str, release: bool = False) -> Path:
+    if cargo_build([*(["--release"] if release else []), "-p", "jailint"], jobs):
         sys.exit("could not build jailint")
-    return TARGET / "debug" / ("jailint" + EXE)
+    return TARGET / ("release" if release else "debug") / ("jailint" + EXE)
 
 
 def ensure_jaifmt(jobs: str) -> Path:
@@ -139,7 +139,7 @@ def cmd_lint(args) -> int:
     jai, rust, whole = pick(args.paths, args.staged)
     failed = False
     if wants(args.lang, "jai") and (whole or jai):
-        jailint = ensure_jailint(args.jobs)
+        jailint = ensure_jailint(args.jobs, args.release)
         failed |= bool(run([str(jailint), "-D", "warnings", "-j", "2",
                             *(["--fix"] if args.fix else []), *(jai or JAI_LINT_DIRS)]))
     if wants(args.lang, "rust") and (whole or rust):
@@ -219,7 +219,7 @@ def main() -> int:
         p = sub.add_parser(name)
         p.set_defaults(fn=fn)
         p.add_argument("-j", "--jobs", default="3")
-        if name == "build":
+        if name in ("build", "lint"):
             p.add_argument("--release", action="store_true")
         if name in ("fmt", "lint"):
             p.add_argument("--lang", choices=["jai", "rust", "all"], default="all")

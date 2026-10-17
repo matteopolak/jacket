@@ -66,6 +66,8 @@ Syntax_Key :: enum u16 {
     USING :: 61;
     VALUE :: 62;
     ZEROING :: 63;
+    CONTEXT_ARGUMENTS :: 64;
+    CONTEXT_NAMES :: 65;
 }
 
 syntax_int :: (node: *C.Code_Node, key: Syntax_Key) -> int {

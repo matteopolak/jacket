@@ -167,8 +167,17 @@ free_buffers :: (using builder: *String_Builder) {
 } @Releases
 
 reset :: (using builder: *String_Builder) {
+    #if ENABLE_ASSERT {
+        // Space ensured in the inline buffer survives a reset, so code that ensures space, takes
+        // the string and then advances over what it wrote is not rejected.
+        ensured: s64;
+        if initialized ensured = get_base_buffer(builder).ensured_count;
+    }
+
     free_buffers(builder);
     init_string_builder(builder, subsequent_buffer_size);
+
+    #if ENABLE_ASSERT get_base_buffer(builder).ensured_count = ensured;
 }
 
 builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_reset := true) -> string {

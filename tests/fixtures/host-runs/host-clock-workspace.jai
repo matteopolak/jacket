@@ -1,5 +1,5 @@
 // Exact reviewed Compiler-API configuration, avoiding reference CLI assumptions.
-B :: #import "Basic";
+B :: #import "Basic"; // jailint: allow(unused_import) the fixture only needs the module loaded
 C :: #import "Compiler";
 
 TARGET_SOURCE :: #string END

@@ -282,6 +282,8 @@ raw_enum! {
         Using = 61,
         Value = 62,
         Zeroing = 63,
+        ContextArguments = 64,
+        ContextNames = 65,
     }
 }
 

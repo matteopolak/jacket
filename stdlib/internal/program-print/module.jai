@@ -288,9 +288,9 @@ expression_inner :: (builder: *Basic.String_Builder, node: *C.Code_Node, skip: b
             }
 
             // What follows `,,` changes the context for this call; it is not an argument.
-            changes := syntax_child(node, "__syntax_context_arguments");
+            changes := syntax_child(node, .CONTEXT_ARGUMENTS);
             if changes {
-                names := syntax_string(node, "__syntax_context_names");
+                names := syntax_string(node, .CONTEXT_NAMES);
                 if !context_changes(builder, changes, names, bodies, next) return false;
             }
 

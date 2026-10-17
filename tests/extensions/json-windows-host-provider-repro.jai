@@ -1,5 +1,5 @@
 Json :: #import "Extensions/Json";
-Tls :: #import "Extensions/Tls";
+Tls :: #import "Extensions/Tls"; // jailint: allow(unused_import) the import pulls in the provider under test
 
 Value :: struct {
     label: string;

@@ -53,12 +53,10 @@ toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window
 
     fullscreen := XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", 1);
     state := XInternAtom(dpy, "_NET_WM_STATE", 1);
-    supported := XInternAtom(dpy, "_NET_SUPPORTED", 1);
 
-    if fullscreen == None || state == None || supported == None return false, 0, 0;
+    if fullscreen == None || state == None return false, 0, 0;
 
     root := XDefaultRootWindow(dpy);
-    if !property_contains_atom(dpy, root, supported, fullscreen) return false, 0, 0;
 
     event: XEvent;
     event.xclient.type = ClientMessage;
@@ -77,33 +75,3 @@ toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window
     return ok, width, height;
 }
 
-#scope_module
-property_contains_atom :: (dpy: *Display, window: Window, property: Atom, wanted: Atom) -> bool {
-    offset: s64 = 0;
-    remaining: u64 = 1;
-
-    while remaining != 0 {
-        actual_type: Atom;
-        format: s32;
-        count: u64;
-        data: *u8;
-        status := XGetWindowProperty(dpy, window, property, offset, 4096, 0, XA_ATOM, *actual_type, *format, *count, *remaining, *data);
-
-        if status != Success || actual_type != XA_ATOM || format != 32 || (!data && count != 0) {
-            if data XFree(data);
-            return false;
-        }
-
-        found := false;
-        atoms := cast(*Atom) data;
-
-        for i: 0..cast(int) count - 1 if atoms[i] == wanted found = true;
-        if data XFree(data);
-        if found return true;
-        if count == 0 return false;
-
-        offset += cast(s64) count;
-    }
-
-    return false;
-}

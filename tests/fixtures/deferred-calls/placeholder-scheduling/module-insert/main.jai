@@ -8,5 +8,5 @@ M :: #import "Deferred_Module";
 #assert M.answer() == 42;
 
 main :: () {
-    value := M.answer();
+    value := M.answer(); // jailint: allow(unused_variable) the scheduled call is what is tested
 }

@@ -26,7 +26,7 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
 
     if item.type.runtime_size != 4 && item.type.runtime_size != 8 {
         assert(item.type == type_info(Formatter_Extended_Float), "unsupported reflected float representation");
-        converted = cast(float64) (cast(*Formatter_Extended_Float) item.value_pointer).*;
+        converted = extended_to_float64(item.value_pointer);
         item = Any.{ type_info(float64), *converted };
     }
 
@@ -71,24 +71,34 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
 
     if format.mode == .SHORTEST {
         limit := ifx wide then 17 else 9;
-        for digits: 1..limit {
-            candidate := portable_float(value, 103, digits);
-            matches := candidate_matches(candidate, value, wide);
+        low := 1;
+        high := limit;
+        matched_digits := 0;
 
-            // Normal powers of two have a smaller interval below than above.
-            // The nearest decimal can miss below while its ceiling still fits.
-            if !matches && fraction == 0 && exponent > 1 {
-                free(candidate);
-                candidate = portable_float(value, 103, digits, round_up = true);
-                matches = candidate_matches(candidate, value, wide);
-            }
+        // A digit count that round-trips keeps doing so with more digits, so the smallest one is
+        // found by bisection instead of trying every count from one.
+        while low < high {
+            middle := (low + high) / 2;
+            candidate, matches := shortest_candidate(value, middle, wide, fraction == 0 && exponent > 1);
 
             if matches {
+                free(raw);
                 raw = candidate;
-                break;
+                matched_digits = middle;
+                high = middle;
+            } else {
+                free(candidate);
+                low = middle + 1;
             }
+        }
 
-            free(candidate);
+        if matched_digits != low {
+            free(raw);
+
+            candidate, matches := shortest_candidate(value, low, wide, fraction == 0 && exponent > 1);
+
+            if matches raw = candidate;
+            else free(candidate);
         }
 
         assert(raw.data != null, "shortest float conversion failed to round-trip");
@@ -151,6 +161,22 @@ emit_float :: (builder: *String_Builder, format: FormatFloat) {
     formatter_repeat(builder, 32, trailing_spaces);
 }
 
+// The text of `value` with `digits` significant digits, and whether it reads back as `value`.
+// Normal powers of two have a smaller interval below than above: the nearest decimal can miss
+// below while its ceiling still fits.
+shortest_candidate :: (value: float64, digits: s64, wide: bool, power_of_two: bool) -> string, bool {
+    candidate := portable_float(value, 103, digits);
+    matches := candidate_matches(candidate, value, wide);
+
+    if !matches && power_of_two {
+        free(candidate);
+        candidate = portable_float(value, 103, digits, round_up = true);
+        matches = candidate_matches(candidate, value, wide);
+    }
+
+    return candidate, matches;
+}
+
 candidate_matches :: (text: string, value: float64, wide: bool) -> bool {
     if wide {
         parsed, ok, rest := string_to_float64(text);
@@ -160,4 +186,73 @@ candidate_matches :: (text: string, value: float64, wide: bool) -> bool {
     parsed, ok, rest := string_to_float(text);
 
     return ok && rest.count == 0 && parsed == cast(float32) value;
+}
+
+// Reads a long_double in memory without the target's runtime library: a wasm module that has no
+// support for 128-bit floats must still be able to format values. x87 extended precision is used
+// on x86-64 and IEEE binary128 elsewhere; both reduce to a sign, a 15-bit exponent and a 64-bit
+// significand, and the single u64 to float64 conversion rounds it.
+extended_to_float64 :: (pointer: *void) -> float64 {
+    words := cast(*u64) pointer;
+    low := words[0];
+    high := words[1];
+
+    negative: bool;
+    exponent: s64;
+    significand: u64;
+    has_payload: bool;
+
+    #if CPU == .X64 {
+        negative = (high & 0x8000) != 0;
+        exponent = cast(s64) (high & 0x7fff);
+        significand = low;
+        has_payload = (low << 1) != 0;
+    } else {
+        fraction_high := high & 0xffff_ffff_ffff;
+
+        negative = (high >> 63) != 0;
+        exponent = cast(s64) ((high >> 48) & 0x7fff);
+        significand = (fraction_high << 15) | (low >> 49);
+        // Bits below the 64-bit significand only decide ties, so they collapse into its last bit.
+        if (low & ((cast(u64) 1 << 49) - 1)) != 0 significand |= 1;
+        if exponent != 0 significand |= cast(u64) 1 << 63;
+
+        has_payload = fraction_high != 0 || low != 0;
+    }
+
+    sign_bit: u64 = ifx negative then (cast(u64) 1 << 63) else 0;
+
+    if exponent == 0x7fff {
+        bits := sign_bit | 0x7ff0_0000_0000_0000;
+        if has_payload bits |= 0x0008_0000_0000_0000;
+
+        return (cast(*float64) *bits).*;
+    }
+
+    if significand == 0 return (cast(*float64) *sign_bit).*;
+
+    if exponent == 0 exponent = 1;
+
+    scale := exponent - 16383 - 63;
+
+    // Outside float64's range after the 64-bit significand: overflow or underflow to zero.
+    if scale > 1023 + 64 {
+        bits := sign_bit | 0x7ff0_0000_0000_0000;
+
+        return (cast(*float64) *bits).*;
+    }
+
+    if scale < -1074 - 64 return (cast(*float64) *sign_bit).*;
+
+    result := cast(float64) significand;
+
+    while scale != 0 {
+        step := max(-1000, min(1000, scale));
+        factor_bits := cast(u64) (step + 1023) << 52;
+
+        result *= (cast(*float64) *factor_bits).*;
+        scale -= step;
+    }
+
+    return ifx negative then -result else result;
 }

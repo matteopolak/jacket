@@ -1,5 +1,5 @@
 #import "Basic";
-#import "Sound_Player";
+#import "Sound_Player"; // jailint: allow(unused_import) only the Windows branch uses it
 
 main :: () {
     #if OS == .WINDOWS {

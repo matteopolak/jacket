@@ -1,6 +1,6 @@
 #import "Basic";
 #import "Compiler";
-#import "String";
+#import "String"; // jailint: allow(unused_import) the import is part of the rejected program
 #load "file-private-import.jai";
 
 #run {

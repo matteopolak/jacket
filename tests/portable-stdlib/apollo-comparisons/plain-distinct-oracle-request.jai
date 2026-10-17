@@ -12,5 +12,5 @@ operator < :: (a: Base, b: Base) -> bool {
 main :: () {
     a := Plain.{ 1 };
     b := Plain.{ 2 };
-    result := a < b;
+    result := a < b; // jailint: allow(unused_variable) the call itself is what is tested
 }

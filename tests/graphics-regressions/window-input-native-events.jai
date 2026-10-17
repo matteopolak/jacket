@@ -77,7 +77,7 @@ main :: () {
     windows: [2] Window_Type = .[cast(Window_Type) first, cast(Window_Type) second];
     seen: [2] Seen;
 
-    #if OS == .MACOS {
+    #if OS == .MACOS || OS == .LINUX {
         // Install observers before producing actual native resize notifications.
         // The public contract does not synthesize initial creation notifications.
         update_window_events();
@@ -369,6 +369,11 @@ main :: () {
         sent := XSendEvent(x_global_display, window, True, ifx down then ButtonPressMask else ButtonReleaseMask, *event);
 
         assert(sent != 0, "XSendEvent click");
+        XFlush(x_global_display);
+    }
+
+    resize_native :: (window: Window, width: float64, height: float64) {
+        XResizeWindow(x_global_display, window, cast(u32) width, cast(u32) height);
         XFlush(x_global_display);
     }
 

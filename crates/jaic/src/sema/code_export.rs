@@ -1831,8 +1831,8 @@ impl Exporter<'_> {
                     .refs("arguments_unsorted", unsorted)
                     .refs("arguments_sorted", sorted);
                 if !change_values.is_empty() {
-                    rec.ptr("__syntax_context_arguments", change_list)
-                        .str("__syntax_context_names", change_names.as_bytes());
+                    rec.ptr(SyntaxKey::ContextArguments, change_list)
+                        .str(SyntaxKey::ContextNames, change_names.as_bytes());
                 }
                 if let Some(p) = resolved {
                     let header = self.resolved_header(p);
