@@ -7,7 +7,6 @@ visits: s64;
 arguments: s64;
 printed_arguments: s64;
 errors: s64;
-replacement_types: [..] *B.CType;
 
 capture_error :: (_text: string, _data: *void, info: Log_Info) {
     if info.common_flags & .ERROR errors += 1;
@@ -18,7 +17,7 @@ invalidate :: (decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration_V
     return .STOP;
 }
 
-invalidate_variadic :: (decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration_Visit_Result {
+add_variadic_tail :: (decl: *B.Declaration, _parent: *B.Declaration) -> B.Declaration_Visit_Result {
     if decl.kind == .FUNCTION decl.type.type_of_function.flags |= .VARIADIC;
     return .STOP;
 }
@@ -45,7 +44,6 @@ customize :: (decl: *B.Declaration, parent: *B.Declaration) -> B.Declaration_Vis
         if decl.name == "value" {
             decl.output_name = "number";
             assert(B.change_type_to_enum(decl, "Mode"));
-            array_add(*replacement_types, decl.type);
         }
     }
 
@@ -58,11 +56,6 @@ customize :: (decl: *B.Declaration, parent: *B.Declaration) -> B.Declaration_Vis
 }
 
 main :: () {
-    defer {
-        for type: replacement_types free(type);
-        array_free(replacement_types);
-    }
-
     options: B.Generate_Bindings_Options;
 
     array_add(*options.source_files, tprint("%bindings-input.h", #filepath));
@@ -102,13 +95,26 @@ main :: () {
     push_context {
         context.logger = capture_error;
         assert(!B.generate_bindings(options, path, log_results = false));
-        options.visitor = invalidate_variadic;
-        assert(!B.generate_bindings(options, path, log_results = false));
     }
 
     preserved, preserved_ok := read_entire_file(path);
 
     defer free(preserved);
     assert(errors == 2 && preserved_ok && preserved == "existing output");
+    // Represented VARIADIC alone is accepted; never call this mutated native ABI.
+    variadic_path := tprint("%../../target/developer-tools-custom-variadic-generated.jai", #filepath);
+
+    options.visitor = add_variadic_tail;
+
+    push_context {
+        context.logger = capture_error;
+        assert(B.generate_bindings(options, variadic_path, log_results = false));
+    }
+
+    variadic, variadic_ok := read_entire_file(variadic_path);
+
+    defer free(variadic);
+    assert(errors == 2 && variadic_ok && contains(variadic, "..Any"));
+    assert(contains(variadic, "sample_apply ::") && contains(variadic, "callback_apply ::"));
     print("ok\n");
 }

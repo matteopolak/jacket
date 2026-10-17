@@ -144,7 +144,61 @@ def opaque_decoder(out):
     return cache / "stb_vorbis.c"
 
 
-def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False):
+def windows_shared_options(out, name, mingw, definitions=None):
+    """Keep DLL import thunks separate from the executable's real static code."""
+    import_library = out / (("lib" if mingw else "") + name + "-import" + (".a" if mingw else ".lib"))
+    flags = ["-Wl,--out-implib," + str(import_library)] if mingw else ["-Wl,/IMPLIB:" + str(import_library)]
+    if definitions:
+        flags += [str(definitions)] if mingw else ["-Wl,/DEF:" + str(definitions)]
+    return flags
+
+
+def verify_archive_member(ar, archive, obj):
+    result = subprocess.run([*ar, "p", str(archive), obj.name], cwd=ROOT,
+                            env=native_environment(), capture_output=True)
+    if result.returncode or result.stderr or result.stdout != obj.read_bytes():
+        raise RuntimeError(f"Static archive does not retain its source-built object: {archive.name}/{obj.name}")
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
+def verify_vorbis_provider(ar, archive, obj, shared, entry, definitions):
+    expected = set(definitions.read_text().splitlines()[2:])
+    expected = {name.strip() for name in expected}
+    nm = shutil.which("llvm-nm") or shutil.which("nm")
+    if not nm:
+        raise RuntimeError("Vorbis provider verification requires llvm-nm (or native nm)")
+    result = subprocess.run([nm, "-g", str(archive)], cwd=ROOT, env=native_environment(),
+                            capture_output=True, text=True)
+    if result.returncode or result.stderr:
+        raise RuntimeError("Vorbis static symbol inspection failed")
+    symbols = {parts[-1] for line in result.stdout.splitlines()
+               if len(parts := line.split()) >= 3 and parts[-2] == "T"}
+    if entry["os"] == "macos":
+        symbols = {name.removeprefix("_") for name in symbols}
+    missing = expected - symbols
+    if missing:
+        raise RuntimeError("Vorbis static provider missing definitions: " + ", ".join(sorted(missing)))
+    record = {"library": "stb_vorbis", "archive": archive.name,
+              "object": obj.name, "object_sha256": verify_archive_member(ar, archive, obj),
+              "static_definitions": sorted(expected), "symbol_tool": nm,
+              "os": entry["os"], "cpu": entry["cpu"], "source_object_retained": True}
+    if entry["os"] == "windows":
+        inspector = shutil.which("llvm-readobj")
+        if not inspector:
+            raise RuntimeError("Windows provider verification requires llvm-readobj for PE exports/machine")
+        result = subprocess.run([inspector, "--file-headers", "--coff-exports", str(shared)],
+                                cwd=ROOT, env=native_environment(), capture_output=True, text=True)
+        machine = "IMAGE_FILE_MACHINE_AMD64" if entry["cpu"] == "x64" else "IMAGE_FILE_MACHINE_ARM64"
+        if result.returncode or result.stderr or f"Machine: {machine} " not in result.stdout:
+            raise RuntimeError("Vorbis DLL inspection failed or PE architecture mismatched")
+        exports = set(re.findall(r"^\s+Name: (stb_vorbis_\w+)\s*$", result.stdout, re.MULTILINE))
+        if expected - exports:
+            raise RuntimeError("Vorbis DLL missing exports: " + ", ".join(sorted(expected - exports)))
+        record.update(dll_exports=sorted(exports), dll_machine=machine, dll_inspector=inspector)
+    return record
+
+
+def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False, vorbis_runtime=False):
     entry = PLAN["platforms"][target]
     osname = entry["os"]
     windows = osname == "windows"
@@ -172,8 +226,15 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False)
     archive = out / (prefix + "jai_audio_output" + libext)
     archive.unlink(missing_ok=True)
     command([*ar, *ar_flags, "rcs", archive, *objects])
+    static_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     extra = ["-Wl,-install_name,@rpath/" + shared_name] if osname == "macos" else []
+    if windows:
+        extra += windows_shared_options(out, "jai_audio_output", mingw)
     command([*cc, *flags, *shared_flags, *objects, "-o", out / shared_name, *extra, *libraries])
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != static_digest:
+        raise RuntimeError("Audio DLL link changed the static archive")
+    for obj in objects:
+        verify_archive_member(ar, archive, obj)
     decoder = opaque_decoder(out)
     decoder_obj = out / ("stb_vorbis" + objext)
     command([*cc, *flags, "-c", decoder, "-o", decoder_obj], owned=False)
@@ -181,17 +242,40 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False)
     decoder_archive = out / (prefix + "stb_vorbis" + libext)
     decoder_archive.unlink(missing_ok=True)
     command([*ar, *ar_flags, "rcs", decoder_archive, decoder_obj])
+    decoder_static_digest = hashlib.sha256(decoder_archive.read_bytes()).hexdigest()
     decoder_shared = "stb_vorbis.dll" if windows else "libstb_vorbis." + ("dylib" if osname == "macos" else "so")
     extra = ["-Wl,-install_name,@rpath/" + decoder_shared] if osname == "macos" else []
+    definitions = ROOT / "stdlib/internal/audio/native/vorbis.def"
+    if windows:
+        extra += windows_shared_options(out, "stb_vorbis", mingw, definitions)
     command([*cc, *flags, *shared_flags, decoder_obj, "-o", out / decoder_shared, *extra,
              *([] if windows and not mingw else ["-lm"])], owned=False)
+    if hashlib.sha256(decoder_archive.read_bytes()).hexdigest() != decoder_static_digest:
+        raise RuntimeError("Vorbis DLL link changed the static archive")
+    provider = verify_vorbis_provider(ar, decoder_archive, decoder_obj, out / decoder_shared, entry, definitions)
+    provider.update(source_sha256=hashlib.sha256(decoder.read_bytes()).hexdigest(),
+                    definitions_sha256=hashlib.sha256(definitions.read_bytes()).hexdigest(),
+                    static_archive_preserved_across_DLL_link=True)
+    vorbis_test = out / ("native-vorbis-test.exe" if windows else "native-vorbis-test")
+    command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG", "-I", decoder.parent,
+             ROOT / "tests/audio/native-vorbis.c", decoder_archive, "-o", vorbis_test,
+             *([] if windows and not mingw else ["-lm"])])
+    provider.update(consumer_linked=True, consumer=vorbis_test.name,
+                    consumer_sha256=hashlib.sha256(vorbis_test.read_bytes()).hexdigest(),
+                    consumer_source_sha256=hashlib.sha256((ROOT / "tests/audio/native-vorbis.c").read_bytes()).hexdigest())
     artifacts = [archive, out / shared_name, decoder_archive, out / decoder_shared]
     metadata = {"platform": target, "native_execution": False,
                 "linkage": "static native executable; shared interpreter",
                 "compiler": cc, "libraries": entry["libraries"],
+                "vorbis_provider": provider,
                 "temporary_directory": native_environment()["TMPDIR"],
                 "artifacts": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in artifacts}}
     (out / "audio-build.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    if runtime or vorbis_runtime:
+        result = subprocess.run([str(vorbis_test), str(ROOT / "tests/audio/fixtures/tone.ogg")],
+                                cwd=out, env=native_environment(), capture_output=True, text=True, timeout=30)
+        write_runtime_receipt(out, "audio-vorbis-runtime.json", controlled_runtime_receipt(
+            result, target, "real static Vorbis decode/seek/close; no device"))
     print(f"{target}: owned static/shared SDK builds passed warnings denied; opaque decoder built; execution not implied.", flush=True)
     executable = out / ("native-output-test.exe" if windows else "native-output-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-I", ROOT / "stdlib/internal/audio/native",
@@ -253,9 +337,10 @@ def main():
     parser.add_argument("--check-windows", action="store_true", help="also cross-build Windows x64 using installed MinGW-w64")
     parser.add_argument("--test-runtime", action="store_true", help="execute the silent SDK harness on this exact host target")
     parser.add_argument("--require-device", action="store_true", help="fail runtime tests when no native device opens")
+    parser.add_argument("--test-vorbis", action="store_true", help="execute only the real decoder consumer; no audio device")
     args = parser.parse_args()
     target = args.platform or host_platform()
-    if args.test_runtime and target != host_platform():
+    if (args.test_runtime or args.test_vorbis) and target != host_platform():
         parser.error("runtime tests require the exact host platform; cross builds are not runtime evidence")
     apple_cross = target.startswith("macos-") and host_platform().startswith("macos-")
     if target != host_platform() and not args.cc and not apple_cross:
@@ -267,7 +352,7 @@ def main():
         parser.error("--out must remain inside the configured build root (or this worktree when unset)")
     cc = shlex.split(args.cc) if args.cc else ["clang"]
     ar = shlex.split(args.ar) if args.ar else [shutil.which("llvm-ar") or "ar"]
-    build(target, out, cc, ar, args.mingw, args.test_runtime, args.require_device)
+    build(target, out, cc, ar, args.mingw, args.test_runtime, args.require_device, args.test_vorbis)
     if args.check_windows:
         compiler = shutil.which("x86_64-w64-mingw32-gcc")
         archiver = shutil.which("x86_64-w64-mingw32-ar")
