@@ -33,7 +33,8 @@ get_build_options :: (w: Workspace = -1) -> C.Build_Options #compiler {
 }
 
 set_build_options :: (options: C.Build_Options, w: Workspace = -1, loc := #caller_location) #compiler {
-    require(options.backend == .LLVM, "this compiler has no alternate X64 backend");
+    // `.X64` asks for the quick-to-compile debug code generator. This compiler has a single code
+    // generator, so the request is built with it; the program behaves the same either way.
     require(!options.use_natvis_compatible_types, "Natvis-compatible type emission is unavailable");
     require(!options.interactive_bytecode_debugger, "interactive bytecode debugging is unavailable");
     require(options.llvm_options.command_line.count == 0, "raw LLVM command-line options are unavailable; use explicit build settings");

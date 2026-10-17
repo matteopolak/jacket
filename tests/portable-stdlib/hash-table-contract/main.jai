@@ -27,6 +27,22 @@ count_allocations :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, 
     return result;
 }
 
+Defaulted :: struct {
+    count := 7;
+    link: *Defaulted;
+    inner: H.Table(s64, s64);
+}
+
+new_slot_holds_default_value :: () {
+    table: H.Table(s64, Defaulted);
+    for key: 0..99 {
+        slot, added := H.find_or_add(*table, key);
+
+        assert(added && slot.count == 7 && slot.link == null && slot.inner.count == 0);
+        slot.count = 8;
+    }
+}
+
 allocation_ownership :: () {
     saved := context.allocator;
 
@@ -190,6 +206,7 @@ main :: () {
         assert(power >= n && (power & (power - 1)) == 0 && (power == 1 || power / 2 < n));
     }
 
+    new_slot_holds_default_value();
     exercise(H.Table(s64, s64));
     exercise(H.Table(s64, s64, collision, equal, LOAD_FACTOR_PERCENT = 30, REFILL_REMOVED = true));
     exercise(H.Table(s64, s64, collision, equal, LOAD_FACTOR_PERCENT = 90, REFILL_REMOVED = false));

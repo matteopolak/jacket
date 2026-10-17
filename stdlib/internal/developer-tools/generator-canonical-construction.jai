@@ -316,7 +316,7 @@ gm_build_type :: (native: CXType, cur: CXCursor, accurate: bool, depth: int, sup
                 if result.size == 2 result.number_flags |= ._16BIT;
                 if result.size == 4 result.number_flags |= ._32BIT;
                 if result.size == 8 result.number_flags |= ._64BIT;
-                if native.kind == .WChar || native.kind == .Char_S || native.kind == .SChar || native.kind == .Short || native.kind == .Int || native.kind == .Long || native.kind == .LongLong || native.kind == .Int128 result.number_flags |= .SIGNED;
+                if native.kind == .WChar || native.kind == .SChar || native.kind == .Short || native.kind == .Int || native.kind == .Long || native.kind == .LongLong || native.kind == .Int128 result.number_flags |= .SIGNED;
                 if native.kind == .Float || native.kind == .Double || native.kind == .LongDouble result.number_flags |= .FLOAT;
                 if native.kind == .Char_S || native.kind == .Char_U result.number_flags |= .CHAR;
             }

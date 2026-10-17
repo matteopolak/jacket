@@ -110,7 +110,7 @@ table_contains :: (table: *Table, key: table.Key_Type) -> bool {
 table_find :: (table: *Table, key: table.Key_Type) -> (success: bool, table.Value_Type) {
     pointer := table_find_pointer(table, key);
     if pointer return true, pointer.*;
-    value: table.Value_Type = ---;
+    value: table.Value_Type;
     return false, value;
 }
 
@@ -139,7 +139,7 @@ table_find_multiple :: (table: *Table, key: table.Key_Type) -> [] table.Value_Ty
 table_remove :: (table: *Table, key: table.Key_Type) -> (success: bool, value: table.Value_Type) {
     entry := find_entry(table, key);
     if !entry {
-        value: table.Value_Type = ---;
+        value: table.Value_Type;
         return false, value;
     }
 
@@ -169,7 +169,7 @@ table_remove_multiple :: (table: *Table, key: table.Key_Type) -> (num_removed: s
 find_or_add :: (table: *Table, key: table.Key_Type) -> (entry: *table.Value_Type, newly_added: bool) {
     pointer := table_find_pointer(table, key);
     if pointer return pointer, false;
-    value: table.Value_Type = ---;
+    value: table.Value_Type;
     return table_add(table, key, value), true;
 }
 

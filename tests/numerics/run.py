@@ -93,6 +93,10 @@ tests = {
     "ui-smoke": ("tests/numerics/ui_smoke.jai", "ui smoke ok"),
     "ui-interaction": ("tests/numerics/ui_interaction.jai", "ui interaction ok"),
     "render-callbacks": ("tests/numerics/render_callbacks.jai", "render callbacks ok"),
+    "default-draw-procs": (
+        "tests/numerics/default_draw_procs.jai",
+        "default draw procs ok",
+    ),
     "precision-rounding": (
         "tests/numerics/precision_rounding.jai",
         "explicit precision rounding ok",

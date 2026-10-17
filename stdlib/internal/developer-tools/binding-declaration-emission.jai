@@ -520,6 +520,16 @@ binding_native_incomplete_record :: (record: *Struct, explicit_alignment: int) -
     return found;
 }
 
+binding_anonymous_member :: (builder: *String_Builder, record: *Struct, existing: *[..] *Declaration, index: int) -> bool {
+    append_indentation(builder);
+    print_to_builder(builder, "using anonymous_%: ", index);
+    if !binding_struct_body(builder, record, existing, 0) return false;
+
+    append(builder, ";\n");
+
+    return !builder.failed;
+}
+
 binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[..] *Declaration, explicit_alignment: int) -> bool {
     generator := gp_current_generator();
     if !generator || !record || !record.type return false;
@@ -584,6 +594,8 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     generator.tab_depth += 1;
     defer generator.tab_depth -= 1;
 
+    anonymous_members := 0;
+
     for field: fields {
         if !field return false;
         if field.decl_flags & .OMIT_FROM_OUTPUT continue;
@@ -594,6 +606,15 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
             represented := false;
             for member: fields if member && member.kind == .DECLARATION && try_find_struct_in_type(member.type) == cast(*Struct) field represented = true;
             if represented continue;
+
+            // A C11 anonymous member (`union { ... };` inside a record) has no field of its
+            // own. It becomes a `using` member so that its fields stay reachable directly.
+            if !field.output_name {
+                if !binding_anonymous_member(builder, cast(*Struct) field, existing, anonymous_members) return false;
+
+                anonymous_members += 1;
+                continue;
+            }
         }
 
         print_declaration_to_builder(builder, field, cast(*Declaration) record, existing_declarations = existing);

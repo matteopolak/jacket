@@ -60,7 +60,8 @@ def build(prefix=None):
     if not library.is_file():
         raise RuntimeError(f"Official SDK is missing {library_name}")
     if platform.system() == "Darwin":
-        developer_native_runtime.stage_macos_sdk(prefix, directory, [library_name])
+        names = [library_name, *developer_native_runtime.runtime_names(output)]
+        developer_native_runtime.stage_macos_sdk(prefix, directory, list(dict.fromkeys(names)))
         developer_native_runtime.relocate_macos_helper(output, directory)
     else:
         link = directory / library_name

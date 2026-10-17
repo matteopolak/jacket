@@ -28,7 +28,7 @@ class TargetContracts(unittest.TestCase):
             if isinstance(node, ast.Assign)
             and any(isinstance(t, ast.Name) and t.id == "tests" for t in node.targets)
         )
-        self.assertEqual(len(cases), 21)
+        self.assertEqual(len(cases), 22)
         for source, _ in cases.values():
             for target in ["linux", "windows", "macos", "wasm"]:
                 with self.subTest(source=source, target=target):

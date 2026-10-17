@@ -43,6 +43,13 @@ check_options :: () -> bool {
     assert(back.output_type == .NO_OUTPUT && back.output_executable_name == "never_written", "compiler.4: stored copy");
     assert(back.temporary_storage_size == 12345, "compiler.4: stored size");
 
+    // A request for the X64 code generator is accepted: programs ask for it for quick debug builds.
+    x64 := back;
+    x64.backend = .X64;
+    set_build_options(x64, w);
+    assert(get_build_options(w).output_type == .NO_OUTPUT, "compiler.4: X64 backend request accepted");
+    set_build_options(back, w);
+
     // Import paths configure real module lookup. The API inventory does not
     // promise relative/absolute spelling on readback; exercise the lookup below.
     paths: [..] string;
@@ -90,6 +97,7 @@ check_options :: () -> bool {
     }
 
     assert(info.major == numbers[0] && info.minor == numbers[1] && info.micro == numbers[2], "compiler.14: parsed numbers");
+    assert(info.major == 0 && info.minor == 2 && info.micro == 30, "compiler.14: the Jai language version, not the jaic version");
 
     compiler_begin_intercept(w);
     add_build_string("M :: #import \"Configured_Import\"; #assert M.value == 42; main :: () {}", w);

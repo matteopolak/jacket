@@ -21,6 +21,7 @@ GETRECT_CASES = frozenset(
         "tests/numerics/ui_smoke.jai",
         "tests/numerics/ui_interaction.jai",
         "tests/numerics/render_callbacks.jai",
+        "tests/numerics/default_draw_procs.jai",
         "tests/numerics/canonical_rendering.jai",
         "tests/numerics/type_indicator.jai",
         "tests/numerics/decimal_precision.jai",

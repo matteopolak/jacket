@@ -171,8 +171,8 @@ model_type :: (model: *Native_Model, native: CXType, depth := 0) -> *CType {
         return result;
     }
 
-    signed := native.kind == .Char_S || native.kind == .SChar || native.kind == .Short || native.kind == .Int || native.kind == .Long || native.kind == .LongLong;
-    unsigned := native.kind == .Char_U || native.kind == .UChar || native.kind == .UShort || native.kind == .UInt || native.kind == .ULong || native.kind == .ULongLong;
+    signed := native.kind == .SChar || native.kind == .Short || native.kind == .Int || native.kind == .Long || native.kind == .LongLong;
+    unsigned := native.kind == .Char_S || native.kind == .Char_U || native.kind == .UChar || native.kind == .UShort || native.kind == .UInt || native.kind == .ULong || native.kind == .ULongLong;
     floating := native.kind == .Float || native.kind == .Double;
 
     if signed || unsigned || floating {

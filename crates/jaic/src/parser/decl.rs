@@ -100,7 +100,7 @@ impl Parser<'_> {
         loop {
             if self.kw_at(i) == Some("using") {
                 i = self.using_filter_end(i + 1);
-            } else if self.directive_at(i) == Some("as") {
+            } else if matches!(self.directive_at(i), Some("as" | "no_reset")) {
                 i += 1;
             } else {
                 break;
@@ -151,6 +151,7 @@ impl Parser<'_> {
     /// `using,except(x) #as name: T`: consumes the modifiers, then the declaration.
     pub(super) fn parse_modified_decl(&mut self) -> PResult<Stmt> {
         let (mut using, mut as_, mut filter) = (false, false, UsingFilter::None);
+        let mut flags = Vec::new();
         loop {
             if self.at_kw("using") {
                 self.bump();
@@ -159,11 +160,23 @@ impl Parser<'_> {
             } else if self.at_directive("as") {
                 self.bump();
                 as_ = true;
+            } else if self.at_directive("no_reset") {
+                flags.push(Ident {
+                    name: Sym::intern("no_reset"),
+                    span: self.bump(),
+                });
             } else {
                 break;
             }
         }
         let mut declaration = self.parse_decl(using, as_)?;
+        if let StmtKind::Decl(decl) = &mut declaration.kind
+            && let Some(decl) = Rc::get_mut(decl)
+        {
+            for flag in flags {
+                decl.rare_mut().flags.push(flag);
+            }
+        }
         match &mut declaration.kind {
             StmtKind::Decl(decl) if !matches!(filter, UsingFilter::None) => {
                 if let Some(decl) = Rc::get_mut(decl) {

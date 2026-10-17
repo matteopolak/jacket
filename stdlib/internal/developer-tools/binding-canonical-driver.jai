@@ -21,7 +21,10 @@ binding_canonical_output :: (input: Generate_Bindings_Options, report: bool, bri
 
     init_generator(*generator, state.options);
     defer deinit_generator(*generator);
-    if !run_generator(*generator, state.options) return result, false;
+
+    // Options without sources describe an empty header set (a build script may fill them in only
+    // on some targets): the output has no declarations, which is not an error.
+    if state.options.source_files.count > 0 && !run_generator(*generator, state.options) return result, false;
     if bridge binding_emit_canonical_bridge(*result, *generator, *state.options);
     else binding_emit_canonical_jai(*result, *generator, *state.options);
 

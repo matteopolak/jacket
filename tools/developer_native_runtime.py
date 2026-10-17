@@ -32,6 +32,21 @@ def system_library(name):
     return name.startswith(("/usr/lib/", "/System/Library/"))
 
 
+def runtime_names(image):
+    """Basenames of the non-system libraries an image links, in link order.
+
+    SDKs differ in which spelling the linker records (`libclang.dylib` on
+    arm64 builds, the versioned `libclang.13.dylib` from conda), so staging
+    follows what the image actually asks for rather than a fixed name.
+    """
+    names = []
+    for dependency in dependencies(image):
+        name = Path(dependency).name
+        if not system_library(dependency) and name not in names:
+            names.append(name)
+    return names
+
+
 def sign(image):
     subprocess.run(
         ["codesign", "--force", "--sign", "-", str(image)],

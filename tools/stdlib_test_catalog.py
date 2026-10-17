@@ -57,19 +57,23 @@ HTTP_CONFORMANCE_CASE_IDS = tuple(
     )
 ) + ("extensions/http-codec-roundtrip",)
 
-# These seven individual programs actually use native Io/fiber services.
-# Pure codec programs in the same folder deliberately have no such restriction.
+# These individual programs actually use native Io/fiber services: the Http app, router and
+# groups are not part of the WebAssembly module. Pure codec programs deliberately have no
+# such restriction.
 HTTP_NATIVE_IO_CASE_IDS = frozenset(
-    "Extensions/Http/tests/" + name
-    for name in (
-        "client",
-        "https",
-        "server_connections",
-        "server_extractors",
-        "server_responses",
-        "server_routing",
-        "testing",
-    )
+    ["extensions/http-router-ownership"]
+    + [
+        "Extensions/Http/tests/" + name
+        for name in (
+            "client",
+            "https",
+            "server_connections",
+            "server_extractors",
+            "server_responses",
+            "server_routing",
+            "testing",
+        )
+    ]
 )
 
 # Inputs required by the unchanged independently authored fixture programs.

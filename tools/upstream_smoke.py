@@ -516,7 +516,11 @@ def run_check(check, args, plat, shots):
             kind = step.get("kind", "run")
             if "only" in step and plat not in step["only"]:
                 record_step(
-                    index, step, "skip", "step restricted to " + ", ".join(step["only"])
+                    index,
+                    step,
+                    "skip",
+                    step.get("only_reason")
+                    or "step restricted to " + ", ".join(step["only"]),
                 )
                 continue
             deferred = user_deferred_reason(step, plat.split("-")[0])

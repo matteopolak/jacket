@@ -65,9 +65,18 @@ class NativePreparation(unittest.TestCase):
                         platform, native, root / "stdlib", root
                     )
                     self.assertEqual(
-                        len(plan["commands"]), 3 if system == "linux" else 2
+                        len(plan["commands"]), 3 if system in ("linux", "macos") else 2
                     )
                     crash, audio = plan["commands"][:2]
+                    if system == "macos":
+                        self.assertIn(
+                            str(root / "tools/build_portable_watcher.py"),
+                            plan["commands"][2],
+                        )
+                        self.assertIn(
+                            root / "stdlib/internal/watching/native/libportable_watch.dylib",
+                            plan["required"],
+                        )
                     if system == "linux":
                         clipboard = plan["commands"][2]
                         self.assertIn(

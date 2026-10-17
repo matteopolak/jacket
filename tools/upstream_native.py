@@ -99,6 +99,9 @@ def native_plan(target, native, stdlib, root=ROOT):
             native / name
             for name in ["libportable_clipboard.a", "libportable_clipboard.so"]
         ]
+    if system == "macos":
+        commands.append([sys.executable, str(root / "tools/build_portable_watcher.py")])
+        required.append(stdlib / "internal/watching/native/libportable_watch.dylib")
     return {"commands": commands, "required": required, "runtime": runtime}
 
 

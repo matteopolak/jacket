@@ -996,6 +996,14 @@ fn declaration_flags_and_notes() {
 }
 
 #[test]
+fn no_reset_may_follow_using() {
+    let stmts = parse("using #no_reset m: int #align 64;\n#no_reset using n: int;");
+    assert_eq!(decl(&stmts[0]).flags()[0].name.as_str(), "no_reset");
+    assert!(decl(&stmts[0]).align().is_some());
+    assert_eq!(decl(&stmts[1]).flags()[0].name.as_str(), "no_reset");
+}
+
+#[test]
 fn procedures_and_structs_need_no_semicolon() {
     let stmts = parse("A :: () {}\nB :: struct { x: int; }\nC :: enum { X; }\nD :: 1;");
     assert_eq!(stmts.len(), 4);

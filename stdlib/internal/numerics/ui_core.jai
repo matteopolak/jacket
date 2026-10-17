@@ -41,6 +41,9 @@ set_default_theme :: (theme: Overall_Theme) {
 
 ui_init :: (default_font := "", procs: *Draw_Procs = null) {
     if procs != null draw_procs = procs.*;
+    else {
+        #if Type_Indicator == void draw_procs = simp_draw_procs();
+    }
 
     if default_font.count > 0 {
         assert(draw_procs.get_font_at_size != null, "font callback required");
@@ -508,4 +511,51 @@ theme_contrast :: () -> Overall_Theme {
     t.button_theme.text_color = .{ 1, 1, 0, 1 };
 
     return t;
+}
+
+#if Type_Indicator == void {
+    // The drawing callbacks used when the program registers none: the renderer behind the
+    // default font and texture types. The native pointer image is chosen by the library itself.
+    simp_draw_procs :: () -> Draw_Procs {
+        procs: Draw_Procs;
+
+        procs.texture_load_from_memory = (texture: *Texture, memory: [] u8, srgb: bool, build_mipmaps: bool) -> bool {
+            return Simp.texture_load_from_memory(texture, memory, srgb, build_mipmaps);
+        };
+        procs.set_scissor = (x0: s32, y0: s32, x1: s32, y1: s32) {
+            Simp.set_scissor(x0, y0, x1, y1);
+        };
+        procs.clear_scissor = () {
+            Simp.clear_scissor();
+        };
+        procs.set_shader_for_color = (enable_blend := false) {
+            Simp.set_shader_for_color(enable_blend);
+        };
+        procs.set_shader_for_images = (texture: *Texture) {
+            Simp.set_shader_for_images(texture);
+        };
+        procs.prepare_text = (font: *Font, text: string, effects: Font_Effects = 0) -> s64 {
+            return Simp.prepare_text(font, text, effects);
+        };
+        procs.draw_prepared_text = (font: *Font, x: s64, y: s64, text_color: Vector4, effects: Font_Effects = 0) {
+            Simp.draw_prepared_text(font, x, y, text_color, effects);
+        };
+        procs.get_mouse_pointer_position = (window: Window_Type, right_handed: bool) -> (x: int, y: int, success: bool) {
+            return Windows_Context.get_mouse_pointer_position(window, right_handed);
+        };
+        procs.get_font_at_size = (memory: [] u8, pixel_height: int) -> *Font {
+            return Simp.get_font_at_size(memory, pixel_height);
+        };
+        procs.immediate_triangle = (p0: Vector3, p1: Vector3, p2: Vector3, c0 := Vector4.{ 1, 1, 1, 1 }, c1 := Vector4.{ 1, 1, 1, 1 }, c2 := Vector4.{ 1, 1, 1, 1 }, uv0 := Vector2.{}, uv1 := Vector2.{}, uv2 := Vector2.{}, normal := Vector3.{ z = 1 }) {
+            Simp.immediate_triangle(p0, p1, p2, c0, c1, c2, uv0, uv1, uv2, normal);
+        };
+        procs.immediate_quad = (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color := Vector4.{ 1, 1, 1, 1 }, uv0 := Vector2.{ 0, 0 }, uv1 := Vector2.{ 1, 0 }, uv2 := Vector2.{ 1, 1 }, uv3 := Vector2.{ 0, 1 }) {
+            Simp.immediate_quad(p0, p1, p2, p3, color, uv0, uv1, uv2, uv3);
+        };
+        procs.immediate_flush = () {
+            Simp.immediate_flush();
+        };
+
+        return procs;
+    }
 }
