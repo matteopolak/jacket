@@ -2,7 +2,7 @@
 // errors, how a response holds and releases its connection, the pool (reuse, eviction, stale
 // connections), redirects, timeouts, refused connections, https URLs and URL errors, chunked and
 // until-close responses.
-#load "lib/server_support.jai";
+#load "support/server_support.jai";
 
 api: Client;
 

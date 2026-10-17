@@ -79,7 +79,7 @@ Assertions: `context.assertion_failed` is invoked; the selected runtime can mark
 ## How to change it
 
 - **New error**: build the `Diagnostic` at the narrowest span the user wrote; add `with_help` when the fix is clear and `with_note(span, ..)` for a related place. Add a case to `crates/jaic-cli/tests/diagnostics.rs`.
-- **Rewording a message** breaks substring checks in `tests/corpus/manifest.json` (`python3 tools/jaic-sweep.py negative`), `tests/stdlib-targets.txt`, `parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, language server tests and docs. Code never matches message text: sema reacts to `Diagnostic::kind`.
+- **Rewording a message** breaks substring checks in `tests/corpus/manifest.json` (`python3 tools/jaic-sweep.py negative`), `tests/compiler/stdlib-targets.txt`, `parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, language server tests and docs. Code never matches message text: sema reacts to `Diagnostic::kind`.
 - **Errors other code reacts to** get a `DiagnosticKind` (`source.rs`, `with_kind`); `kind.code()` is the stable name the playground carries as `code`.
 - **New runtime check**: add an `ir::TRAP_*` reason with wording in `ir::check_message` (and the same in `runtime_support_check_failed` for executables), raise it with `Interp::check_trap`, and add a help in `help_for` if common. Notes and helps key off `Trap::kind`, never message text.
 - **Layout/colour**: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.expected` depend on it).

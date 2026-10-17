@@ -31,13 +31,13 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         let library = dir.join("stdlib");
         checked(
             Command::new("python3")
-                .arg(root.join("tests/compiler-semantics/runtime-configuration/stage-candidate.py"))
+                .arg(root.join("tests/compiler/semantics/runtime-configuration/stage-candidate.py"))
                 .arg("--destination")
                 .arg(&library),
         );
         library
     };
-    let source = root.join("tests/compiler-semantics/runtime-configuration/allocation.jai");
+    let source = root.join("tests/compiler/semantics/runtime-configuration/allocation.jai");
     let interpreted = checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", &library)
@@ -108,7 +108,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
     // Unintercepted child compilation runs after the root's front end. Its
     // explicitly selected root setting must still reach root execution/output.
     let original =
-        include_str!("../../../tests/compiler-semantics/runtime-configuration/allocation.jai");
+        include_str!("../../../tests/compiler/semantics/runtime-configuration/allocation.jai");
     let (setup, body) = original.split_once("main ::").unwrap();
     let root_id = jaic::build::TOP_LEVEL_WORKSPACE;
     let change = format!(
@@ -154,7 +154,7 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
     let library = std::env::var_os("JAIC_STDLIB")
         .map(PathBuf::from)
         .unwrap_or_else(|| root.join("stdlib"));
-    let source = root.join("tests/compiler-semantics/runtime-configuration/one-megabyte.jai");
+    let source = root.join("tests/compiler/semantics/runtime-configuration/one-megabyte.jai");
     for mode in ["-check", "-interp"] {
         let out = checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -185,7 +185,7 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
         assert_eq!(checked(&mut Command::new(executable)).stdout, b"ok\n");
     }
     let (_, body) =
-        include_str!("../../../tests/compiler-semantics/runtime-configuration/one-megabyte.jai")
+        include_str!("../../../tests/compiler/semantics/runtime-configuration/one-megabyte.jai")
             .split_once("main ::")
             .unwrap();
     let child = format!(r#"#import "Basic"; main ::{body}"#);

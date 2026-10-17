@@ -1,0 +1,22 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "basics/main",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "boolean-prefix",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "generic-default-reflection",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "integer-boundaries",
+    "stdout": "ok\n"
+  }
+]

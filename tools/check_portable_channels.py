@@ -80,7 +80,7 @@ def main():
         definition = "CHANNEL_NAME :: " + json.dumps(name) + ";"
         commands = []
         for role, native in [("reader", reader_native), ("writer", writer_native)]:
-            source = ROOT / f"tests/portable-stdlib/ipc/{role}.jai"
+            source = ROOT / f"stdlib/Shared_Memory_Channel/tests/basics/{role}.jai"
             if native:
                 executable = OUTPUT / f"ipc-{role}-{index}"
                 if os.name == "nt":

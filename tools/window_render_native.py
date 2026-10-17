@@ -41,14 +41,14 @@ def main():
         subprocess.run(["ar", "rcs", str(output / f"lib{name}.a"), str(obj)], check=True)
         subprocess.run(["cc", shared_flag, str(obj), "-o", str(output / f"lib{name}.{extension}"), "-lm"], check=True)
     if platform.system() == "Darwin":
-        probe = ROOT / "tests/window-render/clipboard-inspect.m"
+        probe = ROOT / "stdlib/Clipboard/tests/native/inspect.m"
         obj = output / "window_clipboard_probe.o"
         subprocess.run(["cc", "-O2", "-fobjc-arc", "-I", str(source), "-c", str(probe), "-o", str(obj)], check=True)
         decoder = output / "stb_image.o"
         subprocess.run(["ar", "rcs", str(output / "libwindow_clipboard_probe.a"), str(obj), str(decoder)], check=True)
         subprocess.run(["cc", "-dynamiclib", str(obj), str(decoder), "-framework", "AppKit", "-o",
                         str(output / "libwindow_clipboard_probe.dylib")], check=True)
-        gl_probe = ROOT / "tests/window-render/gl-context.m"
+        gl_probe = ROOT / "stdlib/GL/tests/native/context.m"
         gl_obj = output / "window_gl_probe.o"
         subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", "-c", str(gl_probe), "-o", str(gl_obj)], check=True)
         subprocess.run(["ar", "rcs", str(output / "libwindow_gl_probe.a"), str(gl_obj)], check=True)

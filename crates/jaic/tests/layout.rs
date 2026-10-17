@@ -95,7 +95,7 @@ fn overlay_cannot_target_storage_behind_using_pointer() {
 #[test]
 fn forward_overlay_offsets_types_and_reflection_order_are_independent() {
     let (c, result) = compile(include_str!(
-        "../../../tests/compiler-semantics/forward-overlay.jai"
+        "../../../tests/compiler/semantics/forward-overlay.jai"
     ));
     if let Err(e) = result {
         panic!("{}", e.render(&c.sources));

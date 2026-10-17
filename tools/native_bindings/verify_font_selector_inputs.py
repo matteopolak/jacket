@@ -50,7 +50,7 @@ def main():
     if not args.font.is_file():
         parser.error("the caller font must exist; no default font or skip")
     extras = [
-        "tests/native-bindings/freetype.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/freetype.jai",
         "crates/jaic-cli/tests/objc_selectors.rs",
         "tools/native_bindings",
         "jaifmt.toml",

@@ -18,12 +18,12 @@ class FoundationsLintTests(unittest.TestCase):
             all(path.is_relative_to(foundations.ROOT / "stdlib") for path in library)
         )
         self.assertFalse(
-            any(path.is_relative_to(foundations.ROOT / "stdlib") for path in fixtures)
+            any("tests" not in path.parts for path in fixtures)
         )
 
     def test_x64_diagnostics_retain_an_actual_supported_lint_profile(self):
         division = (
-            foundations.ROOT / "tests/portable-stdlib/basic-division-exercise.jai"
+            foundations.ROOT / "stdlib/Basic/tests/division-exercise.jai"
         )
         self.assertNotIn(
             division, foundations.lint_profile_sources("macos", "arm64")[1]
@@ -45,17 +45,15 @@ class FoundationsLintTests(unittest.TestCase):
         for target_os, cpu in foundations.LINT_PROFILES:
             fixtures = foundations.lint_profile_sources(target_os, cpu)[1]
             for name in (
-                "basic-configuration",
-                "memory-debugger-interface",
-                "format-grammar",
-                "format-aggregates",
-                "basic-configuration-disabled",
-                "basic-configuration-isolated-combined",
-                "memory-debugger-interface-disabled",
+                "Basic/tests/configuration",
+                "Memory/tests/debugger-interface",
+                "Basic/tests/format-grammar",
+                "Basic/tests/format-aggregates",
+                "Basic/tests/configuration-disabled",
+                "Basic/tests/configuration-isolated-combined",
+                "Memory/tests/debugger-interface-disabled",
             ):
-                self.assertIn(
-                    foundations.ROOT / f"tests/portable-stdlib/{name}.jai", fixtures
-                )
+                self.assertIn(foundations.ROOT / f"stdlib/{name}.jai", fixtures)
 
 
 if __name__ == "__main__":

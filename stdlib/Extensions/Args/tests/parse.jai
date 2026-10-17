@@ -6,7 +6,7 @@
 #import "Basic";
 #import "String";
 
-#load "data/fixtures.jai";
+#load "fixtures/fixtures.jai";
 
 failures := 0;
 

@@ -18,12 +18,11 @@ AREAS = {
     "sdl3": [
         "stdlib/Extensions/SDL3/**", "tools/sdl3*.py", "tools/sdl_test_support.py",
         "tools/prepare_sdl_python_tests.py", "tools/test_sdl*.py", "tools/native/sdl3/**",
-        "tools/native-libs.json", "tools/build_native_libs.py", "tools/repo_output.py", "tests/sdl3/**", ".gitattributes",
+        "tools/native-libs.json", "tools/build_native_libs.py", "tools/repo_output.py", ".gitattributes",
     ],
     "clipboard": [
         "stdlib/Clipboard/**", "stdlib/internal/clipboard/**", "stdlib/internal/window/connection.jai",
         "stdlib/Basic/**", "stdlib/internal/basic/**", "crates/**", "Cargo.*", "rust-toolchain.toml",
-        "tests/portable-stdlib/clipboard-*.jai", "tests/portable-stdlib/native/clipboard-*.c",
         "tools/*portable_clipboard.py", "tools/check_clipboard_linux_package.py",
         "tools/*clipboard_linux_*.py", "tools/ci_test_scratch.py", "tools/test_ci_test_scratch.py",
     ],
@@ -41,7 +40,7 @@ AREAS = {
         "tools/build_portable_runtime.py", "tools/audio_build_native.py", "tools/build_native_libs.py",
         "tools/stdlib_runtime.py", "tools/test_windows_dynamic_package.py", "tools/windows_cross.py",
         "crates/jaic-llvm/**", "crates/jaic/src/interp/**", "crates/jaic-cli/src/**",
-        "crates/jaic-cli/tests/native.rs", "tests/native/**",
+        "crates/jaic-cli/tests/native.rs", "tests/compiler/native/**",
     ],
 }
 

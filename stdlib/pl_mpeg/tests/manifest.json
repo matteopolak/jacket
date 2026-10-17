@@ -1,0 +1,150 @@
+[
+  {
+    "name": "audio",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "audio-stereo",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "block-set",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "buffer",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "buffer-boundaries",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "decode",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  },
+  {
+    "name": "default-assertions",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/audio-crc",
+    "mode": "fault",
+    "error_contains": "MPEG audio checksum mismatch",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/audio-quantizer",
+    "mode": "fault",
+    "error_contains": "invalid MPEG grouped quantizer value",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/motion-bounds",
+    "mode": "fault",
+    "error_contains": "MPEG motion region out of bounds",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/no-delay-b",
+    "mode": "fault",
+    "error_contains": "MPEG B picture violates no-delay assumption",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/picture-hole",
+    "mode": "fault",
+    "error_contains": "incomplete MPEG picture coverage",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/program-pts",
+    "mode": "fault",
+    "error_contains": "invalid MPEG timestamp marker",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/program-truncated",
+    "mode": "fault",
+    "error_contains": "truncated MPEG PES packet",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/sequence-change",
+    "mode": "fault",
+    "error_contains": "MPEG sequence dimension/rate changes are unsupported",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/vlc-truncated",
+    "mode": "fault",
+    "error_contains": "truncated MPEG VLC code",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "idct",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "motion",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/quantizer-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `M.QUANT_TAB`"
+  },
+  {
+    "name": "negative/scalar-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign to constant"
+  },
+  {
+    "name": "negative/window-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `M.SYNTHESIS_WINDOW`"
+  },
+  {
+    "name": "no-start-code",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "pixels",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "program",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "put-pixel",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "sequence",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "video",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "video-synthetic",
+    "stdout": "ok\n"
+  }
+]

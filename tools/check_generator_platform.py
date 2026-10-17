@@ -38,7 +38,7 @@ def check_copy_behavior():
     source.parent.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     destination = work / source.name
-    fixture = ROOT / "tests/developer-tools/generator-platform-copy.jai"
+    fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-copy.jai"
     modes = [[ROOT / "target/debug/jaic", fixture, "-interp"]]
     for optimization in [0, 2]:
         executable = ROOT / f"target/generator-platform-copy-o{optimization}"
@@ -82,7 +82,7 @@ def main():
         raise RuntimeError("This execution evidence requires a real macOS host")
     (ROOT / "target").mkdir(exist_ok=True)
     build_generator_platform.main()
-    source = ROOT / "tests/developer-tools/generator-platform.c"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform.c"
     evidence = {"scope": "original objects; official SDK symbol tables; host interpreter/native O0/O2",
                 "objects": {}, "sdk": run([PREFIX / "bin/clang", "--version"]).splitlines()[0]}
     variants = [("macho.o", None, 0), ("macho-o2.o", None, 2),
@@ -104,26 +104,26 @@ def main():
     archive.unlink(missing_ok=True)
     run([PREFIX / "bin/llvm-ar", "rcs", archive, ROOT / "target/generator-platform-macho.o",
          ROOT / "target/generator-platform-macho-o2.o"])
-    fixture = ROOT / "tests/developer-tools/generator-platform.jai"
+    fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform.jai"
     diagnostic_file = ROOT / "target/diagnostic-only.o"
     diagnostic_file.write_text("preserve diagnostic path content")
-    owned = [fixture, ROOT / "tests/developer-tools/generator-platform-target.jai",
+    owned = [fixture, ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-target.jai",
              ROOT / "stdlib/Bindings_Generator/platform-helpers.jai",
              ROOT / "stdlib/internal/developer-tools/generator-platform.jai",
              ROOT / "stdlib/Bindings_Generator/generator-state.jai",
              ROOT / "stdlib/internal/developer-tools/generator-active-state.jai",
              ROOT / "stdlib/internal/developer-tools/generator-session/module.jai",
-             ROOT / "tests/developer-tools/generator-platform-apple-names.jai",
-             ROOT / "tests/developer-tools/generator-platform-configured-paths.jai",
-             ROOT / "tests/developer-tools/generator-platform-reviewed.jai",
-             ROOT / "tests/developer-tools/generator-platform-copy.jai",
-             ROOT / "tests/developer-tools/generator-platform-session-probe.jai",
-             ROOT / "tests/developer-tools/generator-platform-canonical.jai"]
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-apple-names.jai",
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-configured-paths.jai",
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-reviewed.jai",
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-copy.jai",
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-session-probe.jai",
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-canonical.jai"]
     for path in owned:
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", path])
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", path])
     checked = ROOT / "target/generator-platform-linted.txt"
-    programs = [path for path in owned if path.parent == ROOT / "tests/developer-tools"]
+    programs = [path for path in owned if path.parent.name == "driven"]
     run([ROOT / "target/debug/jailint", "-D", "warnings", "--checked-files", checked,
          *programs])
     linted = checked.read_text().splitlines()
@@ -131,7 +131,7 @@ def main():
         raise RuntimeError("Strict contextual fixture lint omitted an owned program")
     for optimization in [0, 2]:
         run([PREFIX / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", "-dynamiclib",
-             ROOT / "tests/developer-tools/generator-platform-shared.c",
+             ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-shared.c",
              "-o", ROOT / "target/libgenerator_platform_fixture.dylib"])
         run([ROOT / "target/debug/jaic", fixture, "-interp"], "ok\n")
         executable = ROOT / f"target/generator-platform-o{optimization}"

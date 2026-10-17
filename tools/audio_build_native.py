@@ -258,11 +258,11 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
                     static_archive_preserved_across_DLL_link=True)
     vorbis_test = out / ("native-vorbis-test.exe" if windows else "native-vorbis-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG", "-I", decoder.parent,
-             ROOT / "tests/audio/native-vorbis.c", decoder_archive, "-o", vorbis_test,
+             ROOT / "stdlib/Sound_Player/tests/native/vorbis.c", decoder_archive, "-o", vorbis_test,
              *([] if windows and not mingw else ["-lm"])])
     provider.update(consumer_linked=True, consumer=vorbis_test.name,
                     consumer_sha256=hashlib.sha256(vorbis_test.read_bytes()).hexdigest(),
-                    consumer_source_sha256=hashlib.sha256((ROOT / "tests/audio/native-vorbis.c").read_bytes()).hexdigest())
+                    consumer_source_sha256=hashlib.sha256((ROOT / "stdlib/Sound_Player/tests/native/vorbis.c").read_bytes()).hexdigest())
     artifacts = [archive, out / shared_name, decoder_archive, out / decoder_shared]
     metadata = {"platform": target, "native_execution": False,
                 "linkage": "static native executable; shared interpreter",
@@ -272,18 +272,18 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
                 "artifacts": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in artifacts}}
     (out / "audio-build.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if runtime or vorbis_runtime:
-        result = subprocess.run([str(vorbis_test), str(ROOT / "tests/audio/fixtures/tone.ogg")],
+        result = subprocess.run([str(vorbis_test), str(ROOT / "stdlib/Sound_Player/tests/fixtures/tone.ogg")],
                                 cwd=out, env=native_environment(), capture_output=True, text=True, timeout=30)
         write_runtime_receipt(out, "audio-vorbis-runtime.json", controlled_runtime_receipt(
             result, target, "real static Vorbis decode/seek/close; no device"))
     print(f"{target}: owned static/shared SDK builds passed warnings denied; opaque decoder built; execution not implied.", flush=True)
     executable = out / ("native-output-test.exe" if windows else "native-output-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-I", ROOT / "stdlib/internal/audio/native",
-             ROOT / "tests/audio/native-output.c", archive, "-o", executable, *libraries])
+             ROOT / "stdlib/Sound_Player/tests/native/output.c", archive, "-o", executable, *libraries])
     print(f"{target}: native SDK harness linked (execution not implied).", flush=True)
     if windows:
         command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-c",
-                 ROOT / "tests/audio/native-windows-abi.c", "-o", out / ("windows-abi" + objext)])
+                 ROOT / "stdlib/Sound_Player/tests/native/windows-abi.c", "-o", out / ("windows-abi" + objext)])
         verify_object(out / ("windows-abi" + objext), entry)
         (out / "audio-sdk-abi.json").write_text(json.dumps({"platform": target,
             "kind": "official SDK header layout/interface-prefix assertions",
@@ -292,17 +292,17 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
         print(f"{target}: public SDK ABI prefix/layout assertions compiled; no runtime implied.", flush=True)
     failure_test = out / ("native-close-test.exe" if windows else "native-close-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG",
-             ROOT / "tests/audio/failure-injection/sdk-close.c",
+             ROOT / "stdlib/Sound_Player/tests/failure-injection/sdk-close.c",
              *([out / ("focus" + objext)] if osname == "macos" else []),
              "-o", failure_test, *libraries])
     print(f"{target}: real-device SDK close fault-injection harness linked; execution not implied.", flush=True)
     routing_test = out / ("native-routing-test.exe" if windows else "native-routing-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG", "-I",
-             ROOT / "stdlib/internal/audio/native", ROOT / "tests/audio/native-routing.c",
+             ROOT / "stdlib/internal/audio/native", ROOT / "stdlib/Sound_Player/tests/native/routing.c",
              "-o", routing_test])
     environment_test = out / ("native-environment-test.exe" if windows else "native-environment-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG",
-             ROOT / "tests/audio/native-environment.c",
+             ROOT / "stdlib/Sound_Player/tests/native/environment.c",
              *([out / ("focus" + objext)] if osname == "macos" else []),
              "-o", environment_test, *libraries])
     if runtime:

@@ -50,7 +50,7 @@ Limits: a wide value can be passed to C variadics (`printf("%Lf", x)`). Under `j
 - Another target's format: `long_double_for` plus `abi.rs`; compare with `clang -target <triple> -S -emit-llvm`.
 - New operation: add a `WideOp`, implement it in `wide_float.rs`, `interp/mod.rs` and `jaic-llvm`, emit it from `sema/wide.rs`. `ir_ty` returns `None` for the wide type (memory class); `materialize` and `convert_const` encode constants with `wide_const`.
 
-Configuration: `-target` / `-os`; `Generate_Bindings_Options.use_jaic_long_double` (default `true`, see [Bindings_Generator](../specs/stdlib/modules/bindings-generator.md)). Tests: `tests/stdlib/extensions-long-double.jai` (run with four `-target`s by `long_double_extension_on_wide_targets` in `crates/jaic-cli/tests/cli.rs`), `tests/native/c-long-double/`.
+Configuration: `-target` / `-os`; `Generate_Bindings_Options.use_jaic_long_double` (default `true`, see [Bindings_Generator](../specs/stdlib/modules/bindings-generator.md)). Tests: `stdlib/Extensions/Long_Double/tests/libm-calls.jai` (run with four `-target`s by `long_double_extension_on_wide_targets` in `crates/jaic-cli/tests/cli.rs`), `tests/compiler/native/c-long-double/`.
 
 ## Rules
 

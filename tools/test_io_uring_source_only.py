@@ -11,29 +11,22 @@ import unittest
 from unittest.mock import patch
 
 from ci_test_scratch import assigned_scratch
-import foundations_case_capabilities as foundation
 import stdlib_runtime as runtime
+from stdlib_test_catalog import validated_entries
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class IoUringSourceOnly(unittest.TestCase):
     def test_only_authored_source_reducer_gets_source_only_metadata(self):
-        case = {"id": "extensions/io-uring-dependency-repro"}
-        foundation.apply_foundations_capabilities(case)
-        self.assertIs(case.get("source_check_only"), True)
-        for name in (
-            "extensions/io-uring-raw",
-            "extensions/io-uring-protocol",
-            "extensions/new-uring-consumer",
-        ):
-            case = {"id": name}
-            foundation.apply_foundations_capabilities(case)
-            self.assertNotIn("source_check_only", case)
+        cases = {c["id"]: c for c in validated_entries(ROOT)}
+        self.assertIs(cases["Extensions/Io_Uring/tests/dependency"].get("source_check_only"), True)
+        for name in ("raw", "protocol", "initialized-nop"):
+            self.assertNotIn("source_check_only", cases["Extensions/Io_Uring/tests/" + name])
 
     def test_source_only_never_builds_or_executes_main(self):
-        args = argparse.Namespace(jaic="metadata-only", timeout=12, coverage=None)
-        path = ROOT / "tests/extensions/io-uring-dependency-repro.jai"
+        args = argparse.Namespace(jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64")
+        path = ROOT / "stdlib/Extensions/Io_Uring/tests/dependency.jai"
         for mode in runtime.MODES:
             with (
                 self.subTest(mode=mode),
@@ -60,7 +53,7 @@ class IoUringSourceOnly(unittest.TestCase):
                 self.assertNotIn("-exe", command)
 
     def test_source_error_or_timeout_remains_a_failure(self):
-        args = argparse.Namespace(jaic="metadata-only", timeout=12, coverage=None)
+        args = argparse.Namespace(jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64")
         for status in (1, None):
             with (
                 self.subTest(status=status),
@@ -94,8 +87,8 @@ class IoUringSourceOnly(unittest.TestCase):
                 compiler.write_text("not executed; all compiler calls mocked")
                 report = directory / "report.json"
                 case = {
-                    "id": "extensions/io-uring-dependency-repro",
-                    "path": ROOT / "tests/extensions/io-uring-dependency-repro.jai",
+                    "id": "Extensions/Io_Uring/tests/dependency",
+                    "path": ROOT / "stdlib/Extensions/Io_Uring/tests/dependency.jai",
                     "source_check_only": True,
                 }
                 with (

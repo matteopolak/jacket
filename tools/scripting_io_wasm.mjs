@@ -6,7 +6,7 @@ export async function checkScriptingIo(engine, createLiveEngine) {
   // Arguments and standard input: fixed (`stdin` option) and, with JSPI, supplied by the page as the
   // program reads (`jai_stdin_read` waits for a line, answers 0 at the end of input).
   const echo = {
-    "main.jai": await readFile(new URL("../tests/cleanroom-language/browser-io/stdin.jai", import.meta.url), "utf8"),
+    "main.jai": await readFile(new URL("../tests/compiler/language/browser-io/stdin.jai", import.meta.url), "utf8"),
   };
   const fixed = engine.play(echo, "main.jai", { args: ["main", "a b"], stdin: "hello\n" });
   assert.deepEqual(fixed.diagnostics, [], fixed.rendered);
@@ -37,7 +37,7 @@ export async function checkScriptingIo(engine, createLiveEngine) {
   console.log("PASS: arguments and standard input");
 
   // The supported C exit bridge retains output and returns its supplied status.
-  const exited = engine.play({ "main.jai": await readFile(new URL("../tests/cleanroom-language/browser-io/exit.jai", import.meta.url), "utf8") }, "main.jai");
+  const exited = engine.play({ "main.jai": await readFile(new URL("../tests/compiler/language/browser-io/exit.jai", import.meta.url), "utf8") }, "main.jai");
   assert.equal(exited.exitCode, 7, exited.rendered);
   assert.equal(exited.stdout, "before\n");
   assert.deepEqual(exited.diagnostics, []);

@@ -15,10 +15,11 @@ from pathlib import Path
 FUZZ = Path(__file__).resolve().parent
 ROOT = FUZZ.parent
 
-# Programs: self-contained tests and examples (each has its own `main`), and fuzz/seeds: small
+# Programs: self-contained tests and examples (each has its own `main`; a tree may be a glob, as
+# `stdlib/**/tests` names every module's tests), and fuzz/seeds: small
 # hand-written edge cases (overflowing constants, recursive types, metaprogram misuse, ...) that
 # found bugs or sit next to ones that did.
-PROGRAMS = ["tests/stdlib", "tests/corpus/positive", "tests/corpus/negative", "examples", "fuzz/seeds"]
+PROGRAMS = ["tests/compiler/regressions", "stdlib/**/tests", "tests/corpus/positive", "tests/corpus/negative", "examples", "fuzz/seeds"]
 # Source text only: modules are parsed, never compiled as a main file.
 SOURCES = PROGRAMS + ["stdlib"]
 
@@ -40,11 +41,12 @@ TARGETS = {
 
 def jai_files(trees, limit):
     for tree in trees:
-        if not (ROOT / tree).is_dir():
-            continue
-        for path in sorted((ROOT / tree).rglob("*.jai")):
-            if path.is_file() and path.stat().st_size <= limit:
-                yield path
+        for directory in sorted(ROOT.glob(tree)):
+            if not directory.is_dir():
+                continue
+            for path in sorted(directory.rglob("*.jai")):
+                if path.is_file() and path.stat().st_size <= limit:
+                    yield path
 
 
 def lsp_session(text):

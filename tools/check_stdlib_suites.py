@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run producer behavior suites against the combined production library.
+"""Run the suites that need special flags, fixtures or hosts against the production library.
 
 No staging or overlays. Every requested suite is required; independent suites
 continue after failures and the aggregate exit stays nonzero. Native dependencies
@@ -47,12 +47,11 @@ def main():
                      "--native", "--keep-going"],
         "platform": ["tools/check_platform_io.py", "--jaic", compiler, "--stdlib", library,
                      "--native", "--cross-check", "--wasm"],
-        "audio": ["tools/audio_verify.py", "--jaic", compiler, "--stdlib", library,
-                  "--jaifmt", fmt, "--jailint", lint],
+        "audio": ["tools/check_audio_output.py", "--jaic", compiler, "--native-libs", native],
         "window": ["tools/check_window_render.py", "--jaic", compiler, "--stdlib", library,
                    "--native-libs", native, "--font", args.font],
-        "numerics": ["tests/numerics/run.py", "--compiler", compiler, "--stdlib", library],
-        "numerics-native": ["tests/numerics/corrective.py", "--compiler", compiler, "--stdlib", library],
+        "numerics": ["tools/numerics/run.py", "--compiler", compiler, "--stdlib", library],
+        "numerics-native": ["tools/numerics/corrective.py", "--compiler", compiler, "--stdlib", library],
         "bindings": ["tools/native_bindings/verify.py", "--compiler", compiler, "--stdlib", library,
                      "--native-libs", binding_native, "--runtime", "--work-dir", ROOT / "target/production-bindings/checks", "--report", ROOT / "target/production-bindings/results.json"],
         "tooling": ["tools/check_developer_tools.py"],
@@ -61,12 +60,12 @@ def main():
         commands["numerics-native"].append("--private-x11-display")
     failures = []
     for suite in selected:
-        print("RUN production suite:", suite, flush=True)
+        print("RUN suite:", suite, flush=True)
         result = subprocess.run([sys.executable, *map(str, commands[suite])], cwd=ROOT, env=env)
-        print("RESULT production suite:", suite, "exit", result.returncode, flush=True)
+        print("RESULT suite:", suite, "exit", result.returncode, flush=True)
         if result.returncode:
             failures.append(suite)
-    print("Producer suites:", len(selected) - len(failures), "passed; failed:", ", ".join(failures) or "none", flush=True)
+    print("Suites:", len(selected) - len(failures), "passed; failed:", ", ".join(failures) or "none", flush=True)
     return bool(failures)
 
 

@@ -454,7 +454,7 @@ fn production_basic_temp_and_exit_remain_typed_and_navigate() {
 #[test]
 fn open_project_modules_do_not_erase_root_type_facts() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/ide-audit/values")
+        .join("../../tests/lsp/audit/values")
         .canonicalize()
         .unwrap();
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -522,7 +522,7 @@ fn open_project_modules_do_not_erase_root_type_facts() {
 #[test]
 fn an_open_unloaded_source_file_has_semantic_facts_in_its_own_file_context() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/ide-audit/orphans")
+        .join("../../tests/lsp/audit/orphans")
         .canonicalize()
         .unwrap();
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 
 from build_developer_bindings import llvm_prefix
+from driven_sources import driven, driven_matching
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,9 +32,8 @@ def main():
         [str(clang), "-print-resource-dir"], text=True
     ).strip()
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
-    tests = ROOT / "tests/developer-tools"
     fixtures = [
-        tests / ("bindings-" + name + ".jai")
+        driven("bindings-" + name + ".jai")
         for name in [
             "macro-value-printing",
             "public-type-shapes",
@@ -50,8 +50,8 @@ def main():
     sources = list((ROOT / "stdlib/Bindings_Generator").rglob("*.jai"))
     sources += list((ROOT / "stdlib/internal/developer-tools").rglob("*.jai"))
     sources += fixtures + [Path(__file__)]
-    sources += list(tests.glob("bindings-public-cpp-bridge*"))
-    sources += list(tests.glob("bindings-macro-value-printing*"))
+    sources += driven_matching("bindings-public-cpp-bridge*")
+    sources += driven_matching("bindings-macro-value-printing*")
 
     def snapshot():
         return {
@@ -99,7 +99,7 @@ def main():
             )
 
     def execute_fixture(name, mode, arguments=()):
-        source = tests / ("bindings-" + name + ".jai")
+        source = driven("bindings-" + name + ".jai")
         if mode == "interp":
             run([compiler, source, "-interp", "--", *arguments], "ok\n")
         else:
@@ -141,7 +141,7 @@ def main():
                         *flags,
                         "-I",
                         scratch,
-                        tests / "bindings-public-cpp-bridge-consumer.cpp",
+                        driven("bindings-public-cpp-bridge-consumer.cpp"),
                         "-o",
                         executable,
                     ]
@@ -182,7 +182,7 @@ def main():
                             scratch / ("lib" + library + suffix),
                         ]
                     )
-                    source = tests / ("bindings-" + consumer + ".jai")
+                    source = driven("bindings-" + consumer + ".jai")
                     run([compiler, source, "-interp", "-I", scratch], "ok\n")
                     executable = scratch / (
                         consumer + "-" + mode + "-o" + str(optimization)

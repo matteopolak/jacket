@@ -17,7 +17,7 @@ fn raw_pointer_constants_defaults_globals_and_run_results_are_values() {
         let (c, result) = compile(
             &format!(
                 "{} #assert check()==0; #assert size_of(HKEY)==8;",
-                include_str!("../../../tests/compiler-semantics/raw-pointer-constants.jai")
+                include_str!("../../../tests/compiler/semantics/raw-pointer-constants.jai")
             ),
             cpu,
         );

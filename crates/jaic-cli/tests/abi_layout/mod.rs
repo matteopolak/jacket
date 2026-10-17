@@ -1,4 +1,4 @@
-//! C ABI check for the stdlib's hand-written bindings (`tests/abi/manifest.txt`).
+//! C ABI check for the stdlib's hand-written bindings (`tests/compiler/abi/manifest.txt`).
 //!
 //! For one target, the manifest's entries become a C program (values from the real headers:
 //! `sizeof`, `_Alignof`, `offsetof`, signedness, constants) and a Jai program (the same values

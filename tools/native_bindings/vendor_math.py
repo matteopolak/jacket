@@ -57,7 +57,7 @@ int32_t binding_is_comparison(int32_t filter) { return D3D12_DECODE_IS_COMPARISO
 int32_t binding_is_anisotropic(int32_t filter) { return D3D12_DECODE_IS_ANISOTROPIC_FILTER(filter); }
 '''
     code = '\n'.join(line.rstrip() for line in code.splitlines())+'\n'
-    path = ROOT/'tests/native-bindings/generated/d3d12_macro_probe.c'
+    path = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/d3d12_macro_probe.c'
     if args.check:
         if path.read_text() != code:
             raise SystemExit('Stale SDK arithmetic probe')

@@ -1,0 +1,16 @@
+[
+  {
+    "name": "stat-and-mutex",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native POSIX stat and Thread mutex"
+    ],
+    "required_os": [
+      "linux",
+      "macos"
+    ]
+  }
+]

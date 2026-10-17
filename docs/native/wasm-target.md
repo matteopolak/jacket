@@ -22,7 +22,7 @@ options.llvm_options.target_system_features = "+bulk-memory,+sign-ext";
 options.additional_linker_arguments = .["-z", "stack-size=1048576"];  // passed to wasm-ld
 ```
 
-`tests/native/wasm/build_wasi.jai` is a complete example.
+`tests/compiler/native/wasm/build_wasi.jai` is a complete example.
 
 ## How it works
 
@@ -37,7 +37,7 @@ options.additional_linker_arguments = .["-z", "stack-size=1048576"];  // passed 
 
 **ABI** (`crates/jaic/src/abi.rs`, `Arch::Wasm64`): a struct whose single scalar field is an `s64`, pointer, `float64` or `float32` is passed directly; every other aggregate goes by pointer. Clang passes single small-integer structs as `i32`, so a Clang-built C library taking such a struct by value would disagree.
 
-**Wasi_Runtime** (`stdlib/Extensions/Wasi_Runtime/`, written in Jai) implements what the stdlib's `OS == .WASM` code calls on top of WASI preview 1: `_start` (args, `main`, `proc_exit`), `write`/`read`/`getenv`/`clock_gettime`/`exit`, a size-class heap for `malloc` and friends, `memcpy`/`memset`/`strlen` loops, file and directory calls (`files.jai`), process stubs failing with `ENOSYS`/`ECHILD` (`module.jai`), green threads (`threads.jai`), libm (`math.jai`, `elementary.jai`), and binary128 helpers for `Long_Double` (`quad.jai`). jaic adds `#import "Extensions/Wasi_Runtime"` when the triple has a component starting with `wasi` (`jaic::build::wants_wasi_runtime`). With bare `wasm64-unknown-unknown` nothing is added; Runtime_Support's needs are `env` imports the host provides (`tests/native/wasm/exports.mjs`).
+**Wasi_Runtime** (`stdlib/Extensions/Wasi_Runtime/`, written in Jai) implements what the stdlib's `OS == .WASM` code calls on top of WASI preview 1: `_start` (args, `main`, `proc_exit`), `write`/`read`/`getenv`/`clock_gettime`/`exit`, a size-class heap for `malloc` and friends, `memcpy`/`memset`/`strlen` loops, file and directory calls (`files.jai`), process stubs failing with `ENOSYS`/`ECHILD` (`module.jai`), green threads (`threads.jai`), libm (`math.jai`, `elementary.jai`), and binary128 helpers for `Long_Double` (`quad.jai`). jaic adds `#import "Extensions/Wasi_Runtime"` when the triple has a component starting with `wasi` (`jaic::build::wants_wasi_runtime`). With bare `wasm64-unknown-unknown` nothing is added; Runtime_Support's needs are `env` imports the host provides (`tests/compiler/native/wasm/exports.mjs`).
 
 - WASI preview 1 is defined for 32-bit memories, so pointers are `u32` offsets; that works while the stack and heap stay under 4 GiB.
 - **Files**: WASI has no global file system; the host pre-opens directories. `files.jai` makes each C path absolute against its working directory (`$PWD` when a pre-open covers it, else `/`), normalizes `.`/`..` lexically and hands it to the pre-open whose name is its longest prefix; otherwise `ENOENT`. Results use Linux x86-64 `stat`/`dirent` layouts. There are no modes or owners.
@@ -68,7 +68,7 @@ Debug info keeps lines and scopes for rewritten procedures but drops their varia
 - **New blocking call in Wasi_Runtime**: block with `block_running(object, deadline)` and wake with `wake_one`/`wake_all`; the analysis finds it. Keep a path for `!green.enabled`. The scheduler and `_start` are not rewritten, so never block below an unrewritten frame; `Program::check_failed` must not block.
 - `Green_Control`'s layout is shared: offsets are constants in `green.rs` (`TOP`, `LIMIT`, `ENABLED`, state at 0) and the struct in `threads.jai`. Frame stack sizes: `MAIN_FRAME_BYTES` (8 MiB) and `THREAD_FRAME_BYTES` (about 1 MiB).
 - Gotchas: nothing preempts, so a busy wait never lets another thread run. A `#c_call` procedure that may block and takes a struct by value gets a pointer into the wasm stack that is gone after a resume. Rewritten procedures keep locals in memory, so they are slower. Under a runtime that pre-opens nothing (wasmtime without `--dir`) every path call fails with `ENOENT`. Sockets and processes are unavailable.
-- **Tests**: `crates/jaic-cli/tests/wasm_target/` builds hello, `tests/native/wasm/program.jai` at `-O0` and `-O2`, the metaprogram build, jaifmt.wasm and every corpus case and runs them under node; `threads-*`, `atomics-contention` and `file-async` stdlib tests run in `wasm-native` mode. `python3 tools/jaic-diff.py --backends interp,wasm-native corpus gen:1:200` compares the interpreter with WASI builds ([testing](../tools/testing.md)).
+- **Tests**: `crates/jaic-cli/tests/wasm_target/` builds hello, `tests/compiler/native/wasm/program.jai` at `-O0` and `-O2`, the metaprogram build, jaifmt.wasm and every corpus case and runs them under node; `threads-*`, `atomics-contention` and `file-async` stdlib tests run in `wasm-native` mode. `python3 tools/jaic-diff.py --backends interp,wasm-native corpus gen:1:200` compares the interpreter with WASI builds ([testing](../tools/testing.md)).
 
 ## Configuration
 

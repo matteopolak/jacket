@@ -20,7 +20,7 @@ fn raw_pointers_execute_native_and_wasm_at_o0_and_o2() {
             }
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
             if let Err(e) = c.compile_sources(&[ProgramSource::String(
-                include_str!("../../../tests/compiler-semantics/raw-pointer-constants.jai").into(),
+                include_str!("../../../tests/compiler/semantics/raw-pointer-constants.jai").into(),
             )]) {
                 panic!("{}", e.render(&c.sources));
             }

@@ -41,7 +41,7 @@ def main():
     tools['native_compiler'] = native_compiler
     output = args.output_root.resolve()
     snapshot, identity = capture(output, (
-        'tools/native_bindings', 'tests/native-bindings/rpmalloc-diagnostic-options.jai',
+        'tools/native_bindings', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-diagnostic-options.jai',
         'docs/specs/stdlib/modules/rpmalloc.md', 'jaifmt.toml', 'jailint.toml'))
     work = Path(tempfile.mkdtemp(prefix='rpmalloc-diagnostics-', dir=output))
     pin = json.loads((snapshot/'tools/native_bindings/dependencies.json').read_text())['rpmalloc']
@@ -72,7 +72,7 @@ def main():
                   scope='Required assertion/validation options; no optional profile/performance matrix')
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work),
                PYTHONDONTWRITEBYTECODE='1')
-    fixture = snapshot/'tests/native-bindings/rpmalloc-diagnostic-options.jai'
+    fixture = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-diagnostic-options.jai'
 
     def invoke(label, command, **details):
         result = subprocess.run([str(x) for x in command], cwd=snapshot, env=env,

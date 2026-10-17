@@ -16,7 +16,7 @@
 Io :: #import "Extensions/Io";
 Tls :: #import "Extensions/Tls";
 
-#load "../tests/data/certs.jai";
+#load "../tests/fixtures/certs.jai";
 
 load :: (name: string) -> string {
     for DATA if it.name == name return it.text;

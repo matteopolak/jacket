@@ -30,14 +30,14 @@ def main():
         sys.stdout.write(result.stdout);sys.stderr.write(result.stderr)
         if result.returncode or 'did not compile completely' in result.stderr+result.stdout:
             raise RuntimeError('SDL3 lint requires a completely compiled program, not a syntax-only fallback')
-    lint([str(OUT),str(ROOT/'tests/sdl3')])
+    lint([str(OUT),str(ROOT/'stdlib/Extensions/SDL3/tests')])
     roots=[]
     for profile in TARGETS:
         directory=output_dir('sdl3','lint',profile)
         directory.mkdir(parents=True,exist_ok=True)
         pairs=[(OUT/f'{profile}.jai','declarations.jai'),(OUT/'macros.jai','macros.jai'),
                (OUT/f'link-{profile.split("-")[0]}.jai','link.jai'),
-               (ROOT/f'tests/sdl3/layout-{profile}.jai','abi.jai')]
+               (ROOT/f'stdlib/Extensions/SDL3/tests/layout-{profile}.jai','abi.jai')]
         for source,name in pairs:
             dest=directory/name
             shutil.copyfile(source,dest)

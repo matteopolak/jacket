@@ -21,7 +21,7 @@ class PortableDataContexts(unittest.TestCase):
 
     def test_every_owned_source_has_an_applicable_target_context(self):
         roots = []
-        tree = ast.parse((lint.ROOT / "tests/portable-data/run.py").read_text())
+        tree = ast.parse((lint.ROOT / "tools/portable_data/run.py").read_text())
         for node in tree.body:
             if isinstance(node, ast.Assign) and any(
                 isinstance(target, ast.Name)
@@ -44,7 +44,7 @@ class PortableDataContexts(unittest.TestCase):
         ):
             self.assertIn(lint.ROOT / "stdlib/internal" / name, library)
         self.assertIn(
-            lint.ROOT / "stdlib/tests/portable-data-discovery-windows.jai", fixtures
+            lint.ROOT / "stdlib/Windows_Resources/tests/discovery-windows.jai", fixtures
         )
 
     def test_failed_or_unreported_bodies_do_not_establish_coverage(self):

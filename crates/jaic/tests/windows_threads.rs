@@ -142,7 +142,7 @@ mod thread_aliases {
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
         let source = format!(
             "{}\n#assert check()==0;",
-            include_str!("../../../tests/compiler-semantics/windows-thread-alias-lifecycle.jai")
+            include_str!("../../../tests/compiler/semantics/windows-thread-alias-lifecycle.jai")
         );
         if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
             panic!("{}", error.render(&compiler.sources));
@@ -164,7 +164,7 @@ mod thread_description {
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
         let source = format!(
             "{}\n#assert check() == 0;",
-            include_str!("../../../tests/compiler-semantics/windows-thread-description.jai")
+            include_str!("../../../tests/compiler/semantics/windows-thread-description.jai")
         );
         if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
             panic!("{}", error.render(&compiler.sources));

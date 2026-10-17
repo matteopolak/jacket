@@ -1,0 +1,60 @@
+[
+  {
+    "name": "configuration",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "default-heap-owned",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "default-heap-query"
+  },
+  {
+    "name": "instrumentation",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "instrumentation-no-entry",
+    "stdout": ""
+  },
+  {
+    "name": "negative/configuration-conflict",
+    "mode": "check-fail",
+    "diagnostic_contains": "conflicts with the configured runtime instance"
+  },
+  {
+    "name": "negative/private-check-handler",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Runtime_Support` has no exported member `__jaic_check_failed`"
+  },
+  {
+    "name": "negative/windows-configuration-conflict",
+    "mode": "check-fail",
+    "diagnostic_contains": "argument `DEFINE_SYSTEM_ENTRY_POINT` conflicts with the configured runtime instance"
+  },
+  {
+    "name": "number",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "once",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "once-threads",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "primitives",
+    "stdout": "runtime -9223372036854775808 ff\n"
+  },
+  {
+    "name": "records-and-primitives",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "temp-default",
+    "stdout": "ok\n"
+  }
+]

@@ -1,7 +1,7 @@
 //! `+Plugin` arguments drive the Compiler hooks of a child workspace.
 use std::{path::PathBuf, process::Command};
 
-const PLUGIN: &str = include_str!("../../../tests/compiler-semantics/plugin-lifecycle.jai");
+const PLUGIN: &str = include_str!("../../../tests/compiler/semantics/plugin-lifecycle.jai");
 
 #[test]
 fn plugin_hooks_build_and_execute_a_real_native_child_workspace() {

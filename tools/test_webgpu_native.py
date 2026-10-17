@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run tests/webgpu/headless.jai (or, with --test window, tests/webgpu/window.jai) natively:
+"""Run stdlib/Extensions/WebGPU/tests/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/window.jai) natively:
 interpreted (`jaic -interp`, which loads the shared wgpu-native) and built (`jaic`, which links
 the static one), on this host's GPU or a software adapter (Mesa's lavapipe on Linux, WARP on
 Windows).

@@ -3,7 +3,7 @@
 // futures and callback records with their modes, mapping, and pointer checks. With a built
 // browser bundle (JAI_WASM_DIR=<dir with jai_wasm.wasm>) and JSPI (Node 24 needs the V8 flag
 // --experimental-wasm-jspi, which reaches the tests only without process isolation), it also runs
-// tests/webgpu/bridge.jai in the real engine, where every request suspends the module until the
+// stdlib/Extensions/WebGPU/tests/bridge.jai in the real engine, where every request suspends the module until the
 // mock's promise settles.
 //
 //   node --test tools/test_webgpu_host.mjs
@@ -395,7 +395,7 @@ test("a program waits for the page and other threads keep running", { skip: !bun
   const host = createWebGPUHost({ gpu, output: text => streamed.push(text) });
   const engine = await createEngine(bytes, { host });
   assert.equal(engine.jspi, true);
-  const source = await readFile(path.join(ROOT, "tests/webgpu/bridge.jai"), "utf8");
+  const source = await readFile(path.join(ROOT, "stdlib/Extensions/WebGPU/tests/bridge.jai"), "utf8");
   const result = await engine.playAsync({ "main.jai": source }, "main.jai", { budget: 50_000_000 });
   assert.equal(result.exitCode, 0, result.stderr + JSON.stringify(result.diagnostics ?? []));
   assert.equal(result.stdout, [

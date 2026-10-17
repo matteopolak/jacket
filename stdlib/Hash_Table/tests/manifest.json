@@ -1,0 +1,69 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "basics/main",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "duplicate-keys",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "duplicates",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "hash-free",
+    "stdout": ""
+  },
+  {
+    "name": "iteration",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "module-identity",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/table-scope-constant-private",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `private_number`"
+  },
+  {
+    "name": "negative/table-scope-named-private",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `File`"
+  },
+  {
+    "name": "negative/table-scope-other-named-private",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `Hidden_File`"
+  },
+  {
+    "name": "public-gaps",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "table-scope/anonymous-compile-time",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "table-scope/anonymous-load",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "table-scope/table-callbacks",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "table-scope/table-order",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "walk",
+    "stdout": "ok\n"
+  }
+]

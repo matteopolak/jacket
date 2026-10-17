@@ -1,4 +1,7 @@
 //! Generates the table of bundled `stdlib/` files embedded into the wasm module.
+//!
+//! `tests/` directories hold the stdlib's own tests and fixtures; they are not part of a
+//! module and are never bundled.
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -14,6 +17,9 @@ fn collect(dir: &Path, root: &Path, out: &mut Vec<PathBuf>) {
             continue;
         }
         if path.is_dir() {
+            if entry.file_name() == "tests" {
+                continue;
+            }
             collect(&path, root, out);
         } else if path.is_file() {
             out.push(path.strip_prefix(root).unwrap().to_path_buf());

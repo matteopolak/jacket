@@ -19,7 +19,7 @@ parser.add_argument("--verify-native", action="store_true")
 args = parser.parse_args()
 header = ROOT / "third_party/meow_hash/meow_hash_x64_aesni.h"
 assert hashlib.sha256(header.read_bytes()).hexdigest() == "2328557212adc48ee3e8e8c9d25820a43b2fc0c48cf4296ab9b0b1ba52d376e2"
-fixture = ROOT / "tests/portable-stdlib/fixtures/meow-vectors.bin"
+fixture = ROOT / "stdlib/meow_hash/tests/fixtures/vectors.bin"
 data = fixture.read_bytes()
 assert hashlib.sha256(data).hexdigest() == "b4b8af0a8629e1cdc1a9853486158126e7e5756e72a062682e4eb354765ff639"
 count, = struct.unpack_from("<I", data, 4)
@@ -33,7 +33,7 @@ if args.verify_native:
     elif platform.machine().lower() not in {"x86_64", "amd64"}:
         parser.error("native AES-NI comparison needs x64 or macOS x64 execution support")
     executable = output / "native-c-vectors"
-    command += ["-maes", "-msse4.1", "-mssse3", str(ROOT / "tests/portable-stdlib/native/meow-c-check.cpp"), "-o", str(executable)]
+    command += ["-maes", "-msse4.1", "-mssse3", str(ROOT / "stdlib/meow_hash/tests/native/c-check.cpp"), "-o", str(executable)]
     subprocess.run(command, check=True)
     actual = subprocess.check_output([str(executable)], timeout=45)
     assert actual == data, "native C comparison differs from the reviewed fixture"

@@ -182,7 +182,7 @@ shown :: (path: string) -> string {
 trim_trailing_slashes :: (path: string) -> string {
     result := path;
     while result.count > 1 && result[result.count - 1] == #char "/" result.count -= 1;
-    while begins_with(result, "./") result = slice(result, 2, result.count - 2);
+    while begins_with(result, ".") result = slice(result, 2, result.count - 2);
     return result;
 }
 

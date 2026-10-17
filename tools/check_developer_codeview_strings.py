@@ -20,8 +20,8 @@ def run(command):
 
 def main():
     prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
-    source = ROOT / "tests/developer-tools/codeview-strings-native.c"
-    header = ROOT / "tests/developer-tools/codeview-strings-native.h"
+    source = ROOT / "stdlib/Debug_Info/tests/driven/codeview-strings-native.c"
+    header = ROOT / "stdlib/Debug_Info/tests/driven/codeview-strings-native.h"
     allowed_paths = {str(source), str(header)}
     generated = ["check_native_codeview_strings :: () {"]
     evidence = {"scope": "original C Windows x64/arm64 O0/O2 C13 sections and SDK filename/file-ID/checksum oracles; host queries, no target execution or Jai symbol-parser claim", "fixtures": []}

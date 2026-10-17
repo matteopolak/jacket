@@ -1,0 +1,18 @@
+[
+  {
+    "name": "basics/constant-store",
+    "required_os": "windows"
+  },
+  {
+    "name": "basics/constants",
+    "required_os": "windows"
+  },
+  {
+    "name": "basics/main",
+    "required_os": "windows"
+  },
+  {
+    "name": "surface",
+    "stdout": "ok\n"
+  }
+]

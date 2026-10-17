@@ -6,7 +6,7 @@
 #import "Basic";
 Regex :: #import "Extensions/Regex";
 
-#load "data/differential_cases.jai";
+#load "fixtures/differential_cases.jai";
 
 Case :: struct {
     pattern: string;

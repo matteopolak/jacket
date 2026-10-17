@@ -1,0 +1,10 @@
+[
+  {
+    "name": "minimal-build",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "minimal-path",
+    "stdout": "ok\n"
+  }
+]

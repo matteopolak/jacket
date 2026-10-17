@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turns the vendored JSONTestSuite cases into stdlib/Extensions/Json/tests/data/suite_cases.jai,
+"""Turns the vendored JSONTestSuite cases into stdlib/Extensions/Json/tests/fixtures/suite_cases.jai,
 so the Json tests need no file system (they also run under wasm).
 
     python3 tools/gen_json_corpus.py

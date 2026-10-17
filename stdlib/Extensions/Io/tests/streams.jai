@@ -2,7 +2,7 @@
 // `write_some`, `close`) over a file, a TCP connection and a pipe, directly and through
 // `Io.Reader` / `Io.Writer`; a source made of a pointer and procedures; `read_all`; and the deadline
 // primitive (`with_deadline`) on a reader.
-#load "lib/suite.jai";
+#load "support/suite.jai";
 #import "Extensions/Json";
 
 // ---------------------------------------------------------------------------------------------

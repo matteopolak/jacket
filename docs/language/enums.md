@@ -25,7 +25,7 @@ print("%\n", Flags.READ | Flags.EXEC);                              // READ | EX
 
 ## How to change it
 
-`sema/enums.rs`; reflection in `build_type_info` (`sema/typeinfo.rs`); member values via `sema/consteval.rs`. Regression: `crates/jaic/tests/enum_dependencies.rs` with `tests/compiler-semantics/enum-dependencies.jai`.
+`sema/enums.rs`; reflection in `build_type_info` (`sema/typeinfo.rs`); member values via `sema/consteval.rs`. Regression: `crates/jaic/tests/enum_dependencies.rs` with `tests/compiler/semantics/enum-dependencies.jai`.
 
 ## Rules
 

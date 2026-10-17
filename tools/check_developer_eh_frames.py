@@ -26,7 +26,7 @@ def main():
         for optimization in [0, 2]:
             obj = ROOT / f"target/developer-tools-eh-{arch}-o{optimization}.o"
             run([prefix / "bin/clang", "-target", triple, "-gdwarf-4", "-g", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
-                 "-c", ROOT / "tests/developer-tools/dwarf-line-native.c", "-o", obj])
+                 "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-line-native.c", "-o", obj])
             for placement in ["default", "negative"]:
                 base = ROOT / f"target/developer-tools-eh-{arch}-o{optimization}-{placement}"
                 args = [linker, "--entry=original_line_query", "-o", base.with_suffix('.elf'), obj]
@@ -56,7 +56,7 @@ def main():
     for optimization in [0, 2]:
         base = ROOT / f"target/developer-tools-eh-absolute-o{optimization}"
         run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-std=c11", f"-O{optimization}", "-fno-asynchronous-unwind-tables",
-             "-fno-unwind-tables", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "tests/developer-tools/eh-absolute-native.c", "-o", base.with_suffix('.o')])
+             "-fno-unwind-tables", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/eh-absolute-native.c", "-o", base.with_suffix('.o')])
         run([linker, "--entry=original_absolute_frame", "-o", base.with_suffix('.elf'), base.with_suffix('.o')])
         sections = json.loads(run([prefix / "bin/llvm-readobj", "--sections", "--elf-output-style=JSON", base.with_suffix('.elf')]))[0]["Sections"]
         section_address = next(entry["Section"]["Address"] for entry in sections if entry["Section"]["Name"]["Name"] == ".eh_frame")

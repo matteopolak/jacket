@@ -30,7 +30,7 @@ def main():
     for architecture, target in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
         base = ROOT / f"target/developer-tools-msf-{architecture}"
         run([llvm / "clang", "-target", target, "-g", "-gcodeview", "-O0", "-std=c11",
-             "-Wall", "-Wextra", "-Werror", "-c", "tests/developer-tools/msf-native.c",
+             "-Wall", "-Wextra", "-Werror", "-c", "stdlib/Debug_Info/tests/driven/msf-native.c",
              "-o", base.with_suffix(".obj")])
         run([linker, "/nodefaultlib", "/entry:original_debug_entry", "/subsystem:console",
              "/debug", "/Brepro", f"/pdb:{base.with_suffix('.pdb')}",

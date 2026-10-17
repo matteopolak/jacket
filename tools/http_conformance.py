@@ -9,9 +9,9 @@
 
 What it does:
 
-1. Checks that stdlib/Extensions/Http/tests/data/llhttp_cases.jai is what tools/gen_http_corpus.py
+1. Checks that stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai is what tools/gen_http_corpus.py
    writes from the vendored llhttp fixtures (so a changed fixture or deviation file is not forgotten).
-2. Runs every Http test (stdlib/Extensions/Http/tests/*.jai and tests/extensions/http-codec-*.jai)
+2. Runs every Http test (stdlib/Extensions/Http/tests/*.jai)
    through tools/stdlib_runtime.py in the requested modes: the llhttp fixtures, the smuggling
    table, the case-by-case codec tests and the chunking tests.
 3. Prints how many llhttp fixtures matched, deviate on purpose or need a lenient mode.
@@ -39,10 +39,30 @@ import tempfile
 import time
 from pathlib import Path
 from http_native import ensure_native_libraries
-from stdlib_test_catalog import HTTP_CONFORMANCE_CASE_IDS, validated_entries
+from stdlib_test_catalog import validated_entries
 
 ROOT = Path(__file__).resolve().parent.parent
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
+
+# Reviewed Http test inventory. Exact IDs make a missing standalone test fail dispatch rather than
+# disappear behind a successful substring filter.
+HTTP_CONFORMANCE_CASE_IDS = tuple(
+    "Extensions/Http/tests/" + name
+    for name in (
+        "chunking",
+        "client",
+        "codec",
+        "codec-roundtrip",
+        "https",
+        "llhttp",
+        "server-connections",
+        "server-extractors",
+        "server-responses",
+        "server-routing",
+        "smuggling",
+        "testing",
+    )
+)
 
 
 def find_jaic(explicit):

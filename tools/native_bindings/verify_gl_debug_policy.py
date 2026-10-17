@@ -18,9 +18,9 @@ def main():
     parser.add_argument("--native", action="store_true", help="Bounded lease required")
     args = parser.parse_args()
     extras = [
-        "tests/native-bindings/gl-debug-policy.jai",
-        "tests/native-bindings/gl-context.jai",
-        "tests/native-bindings/gl-debug-output.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/gl-debug-policy.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/gl-context.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/gl-debug-output.jai",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/gl.md",
         "jaifmt.toml",

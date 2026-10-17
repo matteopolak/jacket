@@ -20,15 +20,15 @@ def main():
         parser.add_argument("--" + name.replace("_", "-"), type=Path, required=True)
     args = parser.parse_args()
     reductions = [
-        "tests/native-bindings/objc-appkit-public-classes.jai",
-        "tests/native-bindings/objc-appkit-opengl-class.jai",
-        "tests/native-bindings/appkit-window-inheritance.jai",
-        "tests/native-bindings/appkit.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/objc-appkit-public-classes.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/objc-appkit-opengl-class.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-window-inheritance.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit.jai",
     ]
     extra = [
-        "tests/native-bindings/appkit-public.jai",
-        "tests/native-bindings/appkit_probe.m",
-        "tests/native-bindings/appkit-gl-identity.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-public.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-gl-identity.jai",
         "docs/specs/stdlib/modules/appkit.md",
         "tools/native_bindings/generate_appkit.py",
         "tools/native_bindings/verify_appkit.py",
@@ -36,8 +36,8 @@ def main():
         "jailint.toml",
         "jaifmt.toml",
         "docs/specs/stdlib/modules/objective-c.md",
-        "tests/native-bindings/appkit-ui.jai",
-        "tests/native-bindings/appkit_ui_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-ui.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit_ui_probe.m",
     ] + reductions
     snapshot, identity = capture(args.output_root, extra)
     work = Path(tempfile.mkdtemp(prefix="appkit-", dir=args.output_root))
@@ -89,7 +89,7 @@ def main():
             "-Werror",
             "-framework",
             "AppKit",
-            snapshot / "tests/native-bindings/appkit_ui_probe.m",
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/appkit_ui_probe.m",
             "-o",
             work / "libappkit_ui_probe.dylib",
         ],
@@ -168,7 +168,7 @@ def main():
         for name in headers
     }
     for cpu in ("arm64", "x64"):
-        ui = snapshot / "tests/native-bindings/appkit-ui.jai"
+        ui = snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/appkit-ui.jai"
         run(
             "UI source only " + cpu,
             [args.compiler, ui, "-check", "-no_dce", "-os", "macos", "-cpu", cpu],
@@ -310,7 +310,7 @@ def main():
         exe = work / mode
         if run("build " + mode, [args.compiler, fixture, "-" + mode, "-exe", exe]):
             run("execute " + mode, [exe])
-    existing = snapshot / "tests/native-bindings/appkit.jai"
+    existing = snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/appkit.jai"
     run("retained ABI interpreter", [args.compiler, existing, "-interp"])
     for mode in ("O0", "O2"):
         exe = work / ("retained-abi-" + mode)
@@ -383,7 +383,7 @@ def main():
             snapshot / "stdlib/internal/bindings/nsgl",
             fixture,
             snapshot / extra[2],
-            snapshot / "tests/native-bindings/appkit-ui.jai",
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/appkit-ui.jai",
             *[snapshot / name for name in reductions],
         ],
     )

@@ -10,7 +10,7 @@
 //!   table entry (`_sel.setTitle_ = sel_registerName("setTitle:")`) must be named after its
 //!   selector, on every host;
 //! - on macOS, every class or protocol a binding calls a selector on must have that method in the
-//!   Objective-C runtime, except the gaps listed in `tests/objc-selectors.txt`.
+//!   Objective-C runtime, except the gaps listed in `tests/compiler/objc-selectors.txt`.
 use std::collections::BTreeSet;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -682,7 +682,8 @@ fn selectors_exist_in_the_objective_c_runtime() {
         "{stdout}{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let listed_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/objc-selectors.txt");
+    let listed_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/objc-selectors.txt");
     let listed: BTreeSet<String> = std::fs::read_to_string(&listed_path)
         .unwrap()
         .lines()
@@ -697,12 +698,12 @@ fn selectors_exist_in_the_objective_c_runtime() {
     }
     for line in listed.difference(&found) {
         problems.push(format!(
-            "found now, remove from tests/objc-selectors.txt: {line}"
+            "found now, remove from tests/compiler/objc-selectors.txt: {line}"
         ));
     }
     assert!(
         problems.is_empty(),
-        "{} of {} selector uses differ from tests/objc-selectors.txt:\n{}",
+        "{} of {} selector uses differ from tests/compiler/objc-selectors.txt:\n{}",
         problems.len(),
         uses.receivers.len(),
         problems.join("\n")

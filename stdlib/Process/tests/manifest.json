@@ -1,0 +1,35 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "io",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "lifecycle",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Process launch and pipes"
+    ]
+  },
+  {
+    "name": "quoting",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Process module"
+    ]
+  },
+  {
+    "name": "windows-process",
+    "required_os": "windows"
+  }
+]

@@ -84,7 +84,7 @@ class RunnerContracts(unittest.TestCase):
             self.assertIsNone(unavailable_reason(cases[name], "native", "macos-arm64"))
         self.assertIsNotNone(
             unavailable_reason(
-                cases["tests/portable-data-resource-windows"], "native", "macos-arm64"
+                cases["Windows_Resources/tests/resource-windows"], "native", "macos-arm64"
             )
         )
 
@@ -132,7 +132,7 @@ class RunnerContracts(unittest.TestCase):
             {"GL_PROBE": "window_gl_probe"},
         )
         self.assertEqual(
-            sweep.CASE_METADATA["tests/portable-data-resource-windows"]["required_os"],
+            sweep.CASE_METADATA["Windows_Resources/tests/resource-windows"]["required_os"],
             "windows",
         )
         self.assertNotEqual(sweep.PLATFORM_UNAVAILABLE, sweep.HEADLESS_BUILD)

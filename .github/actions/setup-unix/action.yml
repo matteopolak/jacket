@@ -57,5 +57,5 @@ runs:
       shell: bash
       run: |
         test -r /usr/share/alsa/alsa.conf
-        echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/tests/audio/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
+        echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/stdlib/Sound_Player/tests/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
         echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"

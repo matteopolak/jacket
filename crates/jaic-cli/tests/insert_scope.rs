@@ -12,7 +12,7 @@ fn source(name: &str) -> PathBuf {
         root().join("tests/fixtures/insert-scope/main.jai")
     } else {
         root().join(format!(
-            "tests/cleanroom-language/insert-declaration-scope/{name}.jai"
+            "tests/compiler/language/insert-declaration-scope/{name}.jai"
         ))
     }
 }

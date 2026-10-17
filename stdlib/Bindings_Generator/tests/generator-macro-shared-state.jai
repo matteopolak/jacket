@@ -55,7 +55,7 @@ verify :: (with_receipt: bool) {
     index := B.clang_createIndex(0, 0);
 
     assert(index != null);
-    filename := to_c_string(tprint("%../../../tests/developer-tools/generator-macro-shared-state.h", #filepath));
+    filename := to_c_string(tprint("%../../../stdlib/Bindings_Generator/tests/driven/generator-macro-shared-state.h", #filepath));
 
     defer free(filename);
     source := "const int outside = 7;\nenum Other { NATIVE_VALUE = 11 };\n#define OWN_ARITH (7+35)\n#define OWN_UNSIGNED 0xffffffffffffffffULL\n#define OWN_FLOAT 1.5F\n#define OWN_UTF8 \"héllo\"\n#define OWN_CAST ((int)-3)\n#define OWN_ALIAS OWN_ARITH\n#define OWN_ENUM NATIVE_VALUE\n#define OWN_GAPPED (7  +35)\n#define OWN_DOUBLE ((7+35))\n#define OWN_BITAND (7 & 3)\n#define OWN_PREFIX (1 && &outside)\n#define OWN_CAST_ADDRESS ((bool)&outside)\n#define OWN_UNKNOWN unknown_identifier\n#define OWN_SELF OWN_SELF\n#define OWN_BRACES {1}\n#define OWN_COMMA (1,2)\n#define OWN_ADDRESS (&outside)\n#define OWN_MEMBER object.member\n#define OWN_EMPTY ordinary()\n#define OWN_CONCAT \"a\" \"b\"\n#define OWN_NUL \"A\\0B\"\n#define OWN_WIDE L\"wide\"\n";

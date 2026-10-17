@@ -36,10 +36,10 @@ def main():
         ).strip()
     ).resolve(strict=True)
     extras = [
-        "tests/native-bindings/appkit-receiver-forwarding.jai",
-        "tests/native-bindings/appkit_receiver_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-receiver-forwarding.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit_receiver_probe.m",
         "crates/jaic-cli/tests/objc_selectors.rs",
-        "tests/objc-selectors.txt",
+        "tests/compiler/objc-selectors.txt",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/appkit.md",
         "jaifmt.toml",

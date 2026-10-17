@@ -43,4 +43,4 @@ $ lldb --batch -o 'b helper.jai:23' -o run -o bt -o 'frame variable' ./prog
 
 ## Dependencies
 
-LLVM's DIBuilder (through `inkwell::llvm_sys`); `dsymutil` on macOS. Tests: `crates/jaic-cli/tests/debug_info.rs` builds `tests/native/debug-info/`, checks `llvm-dwarfdump --verify` and drives `lldb --batch` (with `--no-lldbinit`, so user startup files cannot change launch or expression display); each test skips when its tool is missing. Related: [LLVM backend](llvm-backend.md), [IR](../compiler/ir.md), [stack traces](../compiler/stack-traces.md).
+LLVM's DIBuilder (through `inkwell::llvm_sys`); `dsymutil` on macOS. Tests: `crates/jaic-cli/tests/debug_info.rs` builds `tests/compiler/native/debug-info/`, checks `llvm-dwarfdump --verify` and drives `lldb --batch` (with `--no-lldbinit`, so user startup files cannot change launch or expression display); each test skips when its tool is missing. Related: [LLVM backend](llvm-backend.md), [IR](../compiler/ir.md), [stack traces](../compiler/stack-traces.md).

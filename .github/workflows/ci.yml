@@ -186,7 +186,7 @@ jobs:
         id: stdlib-targets
         continue-on-error: true
         # Every stdlib module with -no_dce for linux, macos, windows and wasm, against
-        # tests/stdlib-targets.txt (docs/tools/testing.md); every Objective-C selector
+        # tests/compiler/stdlib-targets.txt (docs/tools/testing.md); every Objective-C selector
         # against its arguments and, on macOS, the runtime (docs/tools/testing.md).
         run: cargo test -p jaic-cli --locked --test stdlib_targets --test objc_selectors
       - name: Prepare hash-pinned SDL Python test inputs
@@ -351,7 +351,7 @@ jobs:
           lld: 'true'
           # The stdlib's FreeType is built by tools/build_native_libs.py and found first;
           # Homebrew's stays for projects that link it themselves. SDL2 is not built there:
-          # tests/native-regressions/sdl2-geometry-timer.jai uses Homebrew's.
+          # stdlib/SDL/tests/geometry-timer.jai uses Homebrew's.
           brew: freetype sdl2
           alsa: 'true'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -371,9 +371,14 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
             --modes interp,native,wasm-interp,wasm-native --strict --coverage target/stdlib-coverage.txt
-      - name: Reviewed contract native O2
+      - name: Stdlib tests, native O2
         if: ${{ always() && !cancelled() }}
-        run: python3 tests/stdlib-contract/run.py --jaic "$PWD/target/release/jaic" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+        run: |
+          ulimit -c 0
+          run=()
+          [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
+          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
+            --modes native --opt O2 --strict
       - name: NEW producer behavior suites against production
         if: ${{ always() && !cancelled() }}
         run: |
@@ -391,7 +396,7 @@ jobs:
             --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}"
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
-        # an error scope (tests/webgpu/headless.jai). Linux has Mesa's lavapipe; the macOS
+        # an error scope (stdlib/Extensions/WebGPU/tests/headless.jai). Linux has Mesa's lavapipe; the macOS
         # runners are VMs whose Metal device may be missing, so there no adapter is a skip.
         if: ${{ always() && !cancelled() }}
         run: |
@@ -399,7 +404,7 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
           python3 -u tools/test_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
       - name: WebGPU in a window (surface, configure, present, read back)
-        # tests/webgpu/window.jai opens a Window_Creation window and presents frames to its
+        # stdlib/Extensions/WebGPU/tests/window.jai opens a Window_Creation window and presents frames to its
         # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
         if: ${{ always() && !cancelled() }}
         run: |
@@ -497,7 +502,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-unix
         with:
-          # tests/native-regressions/sdl2-geometry-timer.jai links the installed SDL2.
+          # stdlib/SDL/tests/geometry-timer.jai links the installed SDL2.
           brew: sdl2 freetype
           alsa: 'true'
       - name: Build the native helper libraries
@@ -1151,7 +1156,7 @@ jobs:
           python -u tools/windows_cross.py run --dir native-exes
       - name: Interpreter variadic foreign calls
         if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
-        run: test "$("$JAIC" tests/native/windows/variadic.jai -interp | tr -d '\r')" = ok
+        run: test "$("$JAIC" tests/compiler/native/windows/variadic.jai -interp | tr -d '\r')" = ok
       - name: Install Mesa's software OpenGL
         if: ${{ !cancelled() && matrix.cpu == 'x64' }}
         run: bash tools/install_ci_mesa_windows.sh "$MESA_DIR"
@@ -1209,9 +1214,9 @@ jobs:
           if [ "$CPU" = x64 ]; then cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"; fi
           python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
           python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-${{ matrix.cpu }}
-      - name: Stdlib contract tests, native O2
+      - name: Stdlib tests, native O2
         if: ${{ !cancelled() }}
-        run: python -u tests/stdlib-contract/run.py --jaic "$PWD/$JAIC" --stdlib-root "$PWD/stdlib" --mode native --opt O2
+        run: python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
       - name: Data resource discovery and Icon effects
         if: ${{ !cancelled() }}
         shell: pwsh
@@ -1223,12 +1228,12 @@ jobs:
           $env:JAIC_STDLIB = (Resolve-Path stdlib).Path
           & $env:JAIC jaifmt/main.jai -O2 -exe target/jaifmt.exe
           if ($LASTEXITCODE -ne 0) { throw 'jaifmt build failed' }
-          python tests/portable-data/build_windows_images.py --cpu $env:CPU
+          python tools/portable_data/build_windows_images.py --cpu $env:CPU
           if ($LASTEXITCODE -ne 0) { throw 'Native image SDK build failed' }
-          python -u tests/portable-data/run.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe
+          python -u tools/portable_data/run.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe
           if ($LASTEXITCODE -ne 0) { throw 'Native data/resource suite failed' }
       - name: A Simp game's metaprogram build without Clang on PATH
-        # tests/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
+        # tests/compiler/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
         # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
         # `link` in /usr/bin, jaic must skip that `link` and use Visual Studio's link.exe with
         # the LIB it works out. The stb libraries come from the stdlib runtime step.
@@ -1236,7 +1241,7 @@ jobs:
         run: |
           jaic="$PWD/$JAIC"
           game="$RUNNER_TEMP/simp-game"
-          cp -R tests/native/simp-game "$game"
+          cp -R tests/compiler/native/simp-game "$game"
           mkdir -p "$game/build"
           cp "$MESA_DIR"/*.dll "$game/build/"
           cd "$game"
@@ -1277,11 +1282,11 @@ jobs:
           python -u tools/check_windows_d3dcompiler_provider.py --jaic $env:JAIC --stdlib stdlib --import-library "$importLibrary" --report "target/d3dcompiler-$env:CPU/provider.json"
           if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler provider interpreter/native check failed' }
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
-        # tests/webgpu/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
+        # stdlib/Extensions/WebGPU/tests/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
         if: ${{ !cancelled() }}
         run: python -u tools/test_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)
-        # tests/webgpu/window.jai: a Window_Creation window in the runner's interactive desktop
+        # stdlib/Extensions/WebGPU/tests/window.jai: a Window_Creation window in the runner's interactive desktop
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.
         if: ${{ !cancelled() }}
         run: python -u tools/test_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter --test window --frames 120
@@ -1293,12 +1298,12 @@ jobs:
       - name: Signed mouse wheel events reach the program (interpreter, O0, O2)
         if: ${{ !cancelled() }}
         run: |
-          "$JAIC" tests/window-render/signed-wheel-windows.jai -interp
-          "$JAIC" tests/window-render/signed-wheel-windows.jai -exe native-exes/signed-wheel
+          "$JAIC" stdlib/Input/tests/signed-wheel-windows.jai -interp
+          "$JAIC" stdlib/Input/tests/signed-wheel-windows.jai -exe native-exes/signed-wheel
           native-exes/signed-wheel.exe
-          "$JAIC" tests/window-render/windows-render-events.jai -interp
+          "$JAIC" stdlib/Windows/tests/render-events.jai -interp
           for opt in O0 O2; do
-            "$JAIC" tests/window-render/windows-render-events.jai -$opt -exe native-exes/render-wheel-$opt
+            "$JAIC" stdlib/Windows/tests/render-events.jai -$opt -exe native-exes/render-wheel-$opt
             native-exes/render-wheel-$opt.exe
           done
       - name: Native backend tests

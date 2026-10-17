@@ -7,8 +7,8 @@
 //
 //     jaic stdlib/Extensions/Http/tests/llhttp.jai -interp
 
-#load "lib/support.jai";
-#load "data/llhttp_cases.jai";
+#load "support/support.jai";
+#load "fixtures/llhttp_cases.jai";
 
 // The expected log in the form `observe` writes: body runs merged, error reasons dropped, and
 // for the llhttp_finish cases the outcome of ending the input.

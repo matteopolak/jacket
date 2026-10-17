@@ -1,0 +1,15 @@
+[
+  {
+    "name": "lookahead-precision-and-here-strings",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "malformed-prefix-and-overflow",
+    "stdout": "ok\n",
+    "stderr": "1:1: \\x escape requires two hexadecimal digits\n1:21: integer literal overflow\n1:5: invalid binary digit\n1:5: number has a second decimal point\n1:4: exponent requires decimal digits\n1:14: unterminated block comment\n1:6: 0h float bit patterns require 4, 8 or 16 digits\n"
+  },
+  {
+    "name": "token-and-eof",
+    "stdout": "ok\n"
+  }
+]

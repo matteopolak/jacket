@@ -4,7 +4,7 @@
 //
 //     jaic stdlib/Extensions/Http/tests/smuggling.jai -interp
 
-#load "lib/support.jai";
+#load "support/support.jai";
 
 Smuggle :: struct {
     name: string;

@@ -28,7 +28,7 @@ Tightest first; every binary level is left associative (`8 / 2 / 2` is 2).
 
 ## How to change it
 
-The table is `binary_op` in `parser/expr.rs` (`BITWISE_PREC`, `CAST_PREC`; also `parse_binary`, `parse_cast_value`, `parse_unary`). Changing a level silently changes existing code, so parse the stdlib, tests and examples with both tables, list every expression whose tree differs, and parenthesize those sites. Update the parser tests (`binary_precedence*`, `prefix_operators_bind_tighter_than_binary_ones`) and `tests/stdlib/operator-precedence.jai`, `cast-operand-precedence.jai`.
+The table is `binary_op` in `parser/expr.rs` (`BITWISE_PREC`, `CAST_PREC`; also `parse_binary`, `parse_cast_value`, `parse_unary`). Changing a level silently changes existing code, so parse the stdlib, tests and examples with both tables, list every expression whose tree differs, and parenthesize those sites. Update the parser tests (`binary_precedence*`, `prefix_operators_bind_tighter_than_binary_ones`) and `tests/compiler/regressions/operator-precedence.jai`, `cast-operand-precedence.jai`.
 
 Two stdlib modules keep their own copy of the table: `stdlib/internal/program-print` (where printed code needs parentheses) and `Bindings_Generator` (which parenthesizes C macro bodies). jaifmt needs no change.
 

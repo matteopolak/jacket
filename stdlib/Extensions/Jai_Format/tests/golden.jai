@@ -1,4 +1,4 @@
-// Jai_Format golden tests: every cases/<name>.in.jai formats to <name>.out.jai (with
+// Jai_Format golden tests: every fixtures/<name>.in.jai formats to <name>.out.jai (with
 // <name>.toml as its config when present), formatting is idempotent and keeps the token stream,
 // malformed input is refused, and the formatter's own sources are already formatted.
 //
@@ -13,7 +13,7 @@
 
 #import "Extensions/Jai_Format";
 
-CASES :: "cases";
+CASES :: "fixtures";
 SOURCES :: string.["../module.jai", "../lexer.jai", "../config.jai", "../format.jai", "golden.jai", "../../../../jaifmt/main.jai"];
 
 failures := 0;

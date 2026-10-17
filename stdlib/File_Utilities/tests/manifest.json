@@ -1,0 +1,22 @@
+[
+  {
+    "name": "file-and-path-storage",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "invalid-paths",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "operations",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "shape",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "tree-operations",
+    "stdout": "ok\n"
+  }
+]

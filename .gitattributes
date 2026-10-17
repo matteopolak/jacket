@@ -3,9 +3,5 @@
 /stdlib/Extensions/SDL3/* text eol=lf
 /tools/native/sdl3/inline-*.c text eol=lf
 /tools/native/sdl3/macros.c text eol=lf
-/tests/sdl3/layout-*.jai text eol=lf
-/tests/sdl3/c-layout-*.h text eol=lf
-
-# Jai_Format golden cases are byte-exact: the mixed-newline case depends on its precise CR/LF counts,
-# so a Windows checkout must not rewrite line endings.
-/stdlib/Extensions/Jai_Format/tests/cases/* text eol=lf
+/stdlib/Extensions/SDL3/tests/layout-*.jai text eol=lf
+/stdlib/Extensions/SDL3/tests/c-layout-*.h text eol=lf

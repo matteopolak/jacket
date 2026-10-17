@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import build_developer_bindings
+from driven_sources import driven
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -28,23 +29,23 @@ def main():
     tool = build_developer_bindings.build(prefix)
     source = ROOT / "stdlib/internal/developer-tools/clang-bindings/main.c"
     output = ROOT / "target/developer-tools-generated.jai"
-    header = ROOT / "tests/developer-tools/bindings-input.h"
+    header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-input.h"
     run([tool, header, output, "developer_tools_bindings"])
     before = output.read_bytes()
     run([tool, header, output, "developer_tools_bindings"])
     if output.read_bytes() != before:
         raise RuntimeError("Binding generation is not deterministic")
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(),
-         ROOT / "tests/developer-tools/bindings-input.c", "-o", build_developer_bindings.shared_library("developer_tools_bindings")])
+         ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-input.c", "-o", build_developer_bindings.shared_library("developer_tools_bindings")])
     jaic = ROOT / "target/debug/jaic"
-    fixture = ROOT / "tests/developer-tools/bindings-roundtrip.jai"
+    fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-roundtrip.jai"
     run([jaic, fixture, "-interp", "-I", ROOT / "target"], "ok\n")
     for optimization in [0, 2]:
         exe = ROOT / f"target/developer-tools-bindings-o{optimization}"
         run([jaic, fixture, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
         run([exe], "ok\n")
     rejected = ROOT / "target/developer-tools-rejected.jai"
-    run([tool, ROOT / "tests/developer-tools/bindings-macro.h", output, "native"])
+    run([tool, ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macro.h", output, "native"])
     if "NUMERIC_MACRO :: cast(s32) 17;" not in output.read_text():
         raise RuntimeError("Original numeric macro must now generate an actual typed constant")
     for case, reason in [("bitfield", "bitfield member"), ("malformed", "error:"),
@@ -53,11 +54,11 @@ def main():
                          ("macro-nul-string", "not a supported byte string constant"),
                          ("macro-nonfinite", "nonfinite floating macro")]:
         rejected.write_text("existing output must survive")
-        run([tool, ROOT / f"tests/developer-tools/bindings-{case}.h", rejected, "native"],
+        run([tool, driven(f"bindings-{case}.h"), rejected, "native"],
             returncode=1, diagnostic=reason)
         if rejected.read_text() != "existing output must survive":
             raise RuntimeError(f"{case} replaced output despite generation failure")
-    cpp_header = ROOT / "tests/developer-tools/bindings-cpp-input.h"
+    cpp_header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-input.h"
     run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", cpp_header])
     for triple in ["aarch64-apple-macos", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]:
         rejected.write_text("existing output must survive")
@@ -75,9 +76,9 @@ def main():
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", output, fixture])
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", output, fixture])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", output, fixture])
-    macro_header = ROOT / "tests/developer-tools/bindings-macro-values.h"
+    macro_header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macro-values.h"
     macro_output = ROOT / "target/developer-tools-macros-generated.jai"
-    macro_fixture = ROOT / "tests/developer-tools/bindings-macros-roundtrip.jai"
+    macro_fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macros-roundtrip.jai"
     for triple, os_name, width in [("x86_64-unknown-linux-gnu", "linux", 8),
                                     ("x86_64-pc-windows-msvc", "windows", 4)]:
         run([tool, macro_header, macro_output, "developer_tools_macros", f"--target={triple}"])

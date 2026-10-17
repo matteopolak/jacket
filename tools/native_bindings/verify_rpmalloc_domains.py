@@ -39,13 +39,13 @@ def main():
         args.output_root,
         (
             "tools/native_bindings",
-            "tests/native-bindings/generated",
-            *(f"tests/native-bindings/{n}.jai" for n in names),
-            *(f"tests/native-bindings/{n}.jai" for n in native_names),
-            "tests/native-bindings/rpmalloc_metadata_fault.c",
-            "tests/native-bindings/rpmalloc_domains_probe.c",
-            "tests/native-bindings/rpmalloc_live_config_probe.c",
-            "tests/native-bindings/rpmalloc_metadata_probe.c",
+            "stdlib/Bindings_Generator/tests/driven/sdk/generated",
+            *(f"stdlib/Bindings_Generator/tests/driven/sdk/{n}.jai" for n in names),
+            *(f"stdlib/Bindings_Generator/tests/driven/sdk/{n}.jai" for n in native_names),
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_fault.c",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_domains_probe.c",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_probe.c",
             "docs/specs/stdlib/modules/rpmalloc.md",
             "jaifmt.toml",
             "jailint.toml",
@@ -176,10 +176,10 @@ def main():
                 )
             ),
             snapshot / "stdlib/internal/bindings/rpmalloc-callbacks/bridge.c",
-            snapshot / "tests/native-bindings/rpmalloc_domains_probe.c",
-            snapshot / "tests/native-bindings/rpmalloc_live_config_probe.c",
-            snapshot / "tests/native-bindings/rpmalloc_metadata_probe.c",
-            snapshot / "tests/native-bindings/rpmalloc_metadata_fault.c",
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_domains_probe.c",
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c",
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_probe.c",
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_fault.c",
         ],
     )
     selected_profiles = [
@@ -197,7 +197,7 @@ def main():
     host_profile = next(p for p in selected_profiles if not p["raw"])
     for source in (
         "stdlib/internal/bindings/rpmalloc-heaps/bridge.c",
-        "tests/native-bindings/rpmalloc_metadata_probe.c",
+        "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_probe.c",
     ):
         invoke(
             "Mac x64 C source/ABI " + source,
@@ -257,7 +257,7 @@ def main():
                     "-Wall",
                     "-Wextra",
                     "-Werror",
-                    snapshot / "tests/native-bindings/rpmalloc_metadata_fault.c",
+                    snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_fault.c",
                     "-o",
                     folder / "librpmalloc_metadata_fault.dylib",
                 ],
@@ -269,7 +269,7 @@ def main():
                         "public OOM build " + exe.name,
                         [
                             args.compiler,
-                            snapshot / f"tests/native-bindings/{name}.jai",
+                            snapshot / f"stdlib/Bindings_Generator/tests/driven/sdk/{name}.jai",
                             "-" + mode,
                             "-exe",
                             exe,
@@ -307,7 +307,7 @@ def main():
                     *aliases,
                     *flags,
                     "-c",
-                    snapshot / "tests/native-bindings/rpmalloc_live_config_probe.c",
+                    snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c",
                     "-o",
                     obj,
                 ],
@@ -351,7 +351,7 @@ def main():
                 snapshot / "stdlib/internal/bindings/rpmalloc-heaps",
                 *profiles.c_definitions(profile, api["functions"]),
                 *flags,
-                snapshot / "tests/native-bindings/rpmalloc_domains_probe.c",
+                snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_domains_probe.c",
                 "-o",
                 probe,
             ],
@@ -378,7 +378,7 @@ def main():
                 snapshot / "stdlib/internal/bindings/rpmalloc-heaps",
                 *profiles.c_definitions(profile, api["functions"]),
                 *flags,
-                snapshot / "tests/native-bindings/rpmalloc_metadata_probe.c",
+                snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_probe.c",
                 "-o",
                 metadata_probe,
             ],
@@ -389,7 +389,7 @@ def main():
                 [metadata_probe],
             )
         for name in names:
-            fixture = snapshot / f"tests/native-bindings/{name}.jai"
+            fixture = snapshot / f"stdlib/Bindings_Generator/tests/driven/sdk/{name}.jai"
             if not instrumented:
                 invoke(
                     "public interpreter " + name, [args.compiler, fixture, "-interp"]
@@ -422,7 +422,7 @@ def main():
                         finally:
                             del env["RPMALLOC_TEST_CLEAR_ERROR"]
     for name in (*names, *native_names):
-        fixture = snapshot / f"tests/native-bindings/{name}.jai"
+        fixture = snapshot / f"stdlib/Bindings_Generator/tests/driven/sdk/{name}.jai"
         for os_name in ("macos", "linux", "windows"):
             for cpu in ("x64", "arm64"):
                 invoke(

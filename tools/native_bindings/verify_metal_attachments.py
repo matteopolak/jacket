@@ -21,9 +21,9 @@ def main():
     )
     args = parser.parse_args()
     extras = [
-        "tests/native-bindings/metal-render-pass-attachments.jai",
-        "tests/native-bindings/metal_attachment_probe.m",
-        "tests/native-bindings/metal.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal-render-pass-attachments.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal_attachment_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal.jai",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/metal.md",
         "jaifmt.toml",

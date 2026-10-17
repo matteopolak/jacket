@@ -8,7 +8,7 @@ mod cpuid {
     use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
     use std::rc::Rc;
 
-    const SOURCE: &str = include_str!("../../../tests/compiler-semantics/cpuid.jai");
+    const SOURCE: &str = include_str!("../../../tests/compiler/semantics/cpuid.jai");
 
     #[test]
     fn cpuid_executes_real_host_query_or_diagnoses_unsupported_host() {
@@ -110,7 +110,7 @@ mod cpuid_leaf_zero {
             options.runtime_support = false;
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
             let result = c.compile_sources(&[ProgramSource::String(
-                include_str!("../../../tests/compiler-semantics/cpuid-leaf-zero.jai").into(),
+                include_str!("../../../tests/compiler/semantics/cpuid-leaf-zero.jai").into(),
             )]);
             if cpu == TargetCpu::X64 {
                 result.unwrap();
@@ -129,7 +129,7 @@ mod cpuid_leaf_zero {
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         c.compile_sources(&[ProgramSource::String(
-            include_str!("../../../tests/compiler-semantics/cpuid-leaf-zero.jai").into(),
+            include_str!("../../../tests/compiler/semantics/cpuid-leaf-zero.jai").into(),
         )])
         .unwrap();
         let function = jaic::ir::FuncId(
@@ -251,7 +251,7 @@ mod xgetbv {
         use std::arch::x86_64::{__cpuid_count, _xgetbv};
         let (mut c, result) = compile(
             TargetCpu::X64,
-            include_str!("../../../tests/compiler-semantics/xgetbv.jai"),
+            include_str!("../../../tests/compiler/semantics/xgetbv.jai"),
         );
         result.unwrap();
         let function = |c: &jaic::sema::Compiler, name: &str| {
@@ -517,7 +517,7 @@ mod x86_machine {
         use std::arch::x86_64::{__cpuid_count, __rdtscp, _mm_lfence, _rdtsc};
         let (mut c, result) = compile(
             TargetCpu::X64,
-            include_str!("../../../tests/compiler-semantics/x86-machine.jai"),
+            include_str!("../../../tests/compiler/semantics/x86-machine.jai"),
         );
         result.unwrap();
         let function = |c: &jaic::sema::Compiler, name: &str| {

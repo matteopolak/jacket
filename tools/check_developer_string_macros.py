@@ -23,16 +23,19 @@ def main():
     build_developer_bindings.build(prefix)
     oracle = ROOT / "target/developer-tools-string-evaluation"
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
-         ROOT / "tests/developer-tools/bindings-string-evaluation.c", "-L", prefix / "lib",
+         ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-string-evaluation.c", "-L", prefix / "lib",
          "-Wl,-rpath," + str(prefix / "lib"), "-lclang", "-o", oracle])
     run([oracle])
     jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
-    source = ROOT / "tests/developer-tools/bindings-string-macros.jai"
-    consumer = ROOT / "tests/developer-tools/bindings-string-macros-roundtrip.jai"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-string-macros.jai"
+    consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-string-macros-roundtrip.jai"
     generated = [ROOT / f"target/developer-tools-string-macros-{name}.jai" for name in ["generated", "custom"]]
     generated.append(ROOT / "target/developer-tools-original-string-generated.jai")
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
+    # The generator loads the configured library, so it must exist before the first generation.
+    run([prefix / "bin/clang", "-std=c11", "-O0", *flags, ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-string-macros-native.c",
+         "-o", ROOT / f"target/libdeveloper_tools_string_macros.{suffix}"])
     for mode in ["interp", "0", "2"]:
         if mode == "interp":
             run([jaic, source, "-interp"], "ok\n")
@@ -43,13 +46,13 @@ def main():
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", *generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
-                 ROOT / "tests/developer-tools/bindings-string-macros-native.c",
+                 ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-string-macros-native.c",
                  "-o", ROOT / f"target/libdeveloper_tools_string_macros.{suffix}"])
             run([jaic, consumer, "-interp", "-I", ROOT / "target"], "ok\n")
             executable = ROOT / f"target/developer-tools-string-macros-consumer-{mode}-o{optimization}"
             run([jaic, consumer, f"-O{optimization}", "-exe", executable, "-I", ROOT / "target"])
             run([executable], "ok\n")
-    paths = [source, consumer, *generated, ROOT / "tests/developer-tools/bindings-macros.jai",
+    paths = [source, consumer, *generated, ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macros.jai",
              ROOT / "stdlib/Bindings_Generator/module.jai", ROOT / "stdlib/internal/developer-tools/binding-native-model.jai"]
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])

@@ -22,13 +22,16 @@ class PrivateLayout(unittest.TestCase):
         library = Path("/owned/private-units/stdlib")
         for relative in re.findall(r'#load "([^"]+)"', body):
             source = (
-                "tests/native-bindings/" + relative.split("tests/native-bindings/")[1]
+                "stdlib/Bindings_Generator/tests/driven/sdk/"
+                + relative.split("tests/driven/sdk/")[1]
             )
             actual = (library / "rpmalloc/tests" / relative).resolve()
             staged = (library / dependencies[source]).resolve()
             self.assertEqual(staged, actual)
 
     def test_actual_dxc_loads_resolve_inside_private_library(self):
+        from verify import relocate_private_loads
+
         root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as directory:
             library = private_library_root(Path(directory))
@@ -36,11 +39,13 @@ class PrivateLayout(unittest.TestCase):
                 ("dxc-wide", "dxc-wide"),
                 ("dxc-compile-unit", "dxc-compile"),
             ):
-                data = (root / "tests/native-bindings" / (name + ".jai")).read_bytes()
+                data = relocate_private_loads(
+                    (root / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")).read_bytes()
+                )
                 relative = re.search(rb'#load "([^"]+)"', data)[1].decode()
                 placed = library / "dxc_compiler" / (name + ".jai")
                 resolved = (placed.parent / relative).resolve()
-                expected = library / "internal/bindings" / component / "module.jai"
+                expected = (library / "internal/bindings" / component / "module.jai").resolve()
                 self.assertEqual(resolved, expected)
 
 

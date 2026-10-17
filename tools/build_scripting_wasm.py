@@ -26,8 +26,8 @@ def storage_directory(path):
 
 
 def bundled_examples(root):
-    """(bundle directory, source directory, main file) of each example the bundle ships (tests/examples.json)."""
-    cases = json.loads((root / "tests/examples.json").read_text())["cases"]
+    """(bundle directory, source directory, main file) of each example the bundle ships (tests/corpus/examples.json)."""
+    cases = json.loads((root / "tests/corpus/examples.json").read_text())["cases"]
     return [(case["bundle"], root / case["directory"], case["main"]) for case in cases if "bundle" in case]
 
 

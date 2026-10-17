@@ -57,7 +57,7 @@ Colour: `Color_Mode` `AUTO` follows `NO_COLOR` (off), `FORCE_COLOR`/`CLICOLOR_FO
 
 - **New note:** read it in `read_field`, validate in `analyze` (`generate.jai`), emit in `generate_command`, show in `generate_description` and `render.jai`; add a negative fixture `tests/corpus/negative/args-*.jai` (with its `tests/corpus/manifest.json` entry) and a case in `tests/parse.jai`.
 - **New field type:** `classify_scalar`, then `store_value` in `runtime.jai`.
-- **Help layout:** `render_help`; completions: `completions.jai`. After an intended change regenerate goldens: `jaic stdlib/Extensions/Args/tests/data/bless.jai -interp > stdlib/Extensions/Args/tests/data/golden.jai`.
+- **Help layout:** `render_help`; completions: `completions.jai`. After an intended change regenerate goldens: `jaic stdlib/Extensions/Args/tests/fixtures/bless.jai -interp > stdlib/Extensions/Args/tests/fixtures/golden.jai`.
 - Gotchas: generated code cannot use `%` inside a `print` format; unquoted generator names become Jai identifiers; compile errors point at the Args source, so messages name the field.
 
 ## Configuration

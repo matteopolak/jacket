@@ -20,7 +20,7 @@ class ReferenceAccounting(unittest.TestCase):
                 "id": "compiler/proc-type-defaults-ifx",
                 "family": "compiler",
                 "path": runtime.ROOT
-                / "tests/compiler-regressions/proc-type-defaults-ifx.jai",
+                / "tests/compiler/regressions/proc-type-defaults-ifx.jai",
             }
             argv = [
                 "stdlib_runtime",

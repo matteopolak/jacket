@@ -20,8 +20,8 @@ def run(command, expected=""):
 def main():
     prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
     jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
-    source = ROOT / "tests/developer-tools/bindings-integer-range.jai"
-    native = ROOT / "tests/developer-tools/bindings-integer-range-native.c"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-integer-range.jai"
+    native = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-integer-range-native.c"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     for optimization in [0, 2]:

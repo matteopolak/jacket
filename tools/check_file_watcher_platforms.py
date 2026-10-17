@@ -20,7 +20,7 @@ OWN = [
     "stdlib/internal/watching/event-records/module.jai",
     "stdlib/File_Watcher/tests/event-records.jai",
     *[
-        "tests/portable-stdlib/file-watcher/" + name + ".jai"
+        "stdlib/File_Watcher/tests/basics/" + name + ".jai"
         for name in ["platform-contracts", "platform-effects", "platform-edges"]
     ],
 ]
@@ -144,7 +144,7 @@ def main():
                     fixtures += ["platform-effects", "platform-edges"]
                 for fixture in fixtures:
                     source = (
-                        ROOT / "tests/portable-stdlib/file-watcher" / (fixture + ".jai")
+                        ROOT / "stdlib/File_Watcher/tests/basics" / (fixture + ".jai")
                     )
                     run(
                         f"source:{system}:{cpu}:{fixture}",
@@ -167,7 +167,7 @@ def main():
                 ]
                 for fixture in fixtures:
                     context = (
-                        ROOT / "tests/portable-stdlib/file-watcher" / (fixture + ".jai")
+                        ROOT / "stdlib/File_Watcher/tests/basics" / (fixture + ".jai")
                     )
                     run(
                         f"strict-lint:{system}:{cpu}:{fixture}",
@@ -204,7 +204,7 @@ def main():
         if args.native_runtime:
             for fixture in ["platform-effects", "platform-edges"]:
                 source = (
-                    ROOT / "tests/portable-stdlib/file-watcher" / (fixture + ".jai")
+                    ROOT / "stdlib/File_Watcher/tests/basics" / (fixture + ".jai")
                 )
                 directory = work / (fixture + "-interp-data")
                 directory.mkdir()

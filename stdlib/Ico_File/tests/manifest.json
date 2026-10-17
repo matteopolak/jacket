@@ -1,0 +1,13 @@
+[
+  {
+    "name": "resource",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native stb_image_resize image provider and real caller scratch-directory input"
+    ],
+    "input": "scratch-directory"
+  }
+]

@@ -36,7 +36,7 @@ Per-library notes:
 
 ## How to change it
 
-- **New library:** add the source under `sources` (`shasum -a 256`, licence files) and an entry under `libraries` whose `code` or `units` compile the implementation. The name must match the Jai `#system_library` name without `lib`. Add a runtime test (`tests/stdlib/<name>-....jai`). A C++ library must build without the C++ runtime or document its link requirement here.
+- **New library:** add the source under `sources` (`shasum -a 256`, licence files) and an entry under `libraries` whose `code` or `units` compile the implementation. The name must match the Jai `#system_library` name without `lib`. Add a runtime test (`tests/compiler/regressions/<name>-....jai`). A C++ library must build without the C++ runtime or document its link requirement here.
 - Libraries a project builds itself are not listed here; `tools/fetch_upstreams.py` fetches C-family sources for that, never prebuilt binaries.
 
 ## Configuration
@@ -45,4 +45,4 @@ Per-library notes:
 
 ## Dependencies
 
-`cc`, `c++`, `ar` on macOS and Linux; `clang`, `llvm-lib`, `llvm-nm` and the MSVC libraries on Windows; network access to GitHub on first build. The release smoke test runs `tests/native-libs/simp-image.jai` and the FreeType, ImGui and MojoShader runtime tests from the unpacked archive.
+`cc`, `c++`, `ar` on macOS and Linux; `clang`, `llvm-lib`, `llvm-nm` and the MSVC libraries on Windows; network access to GitHub on first build. The release smoke test runs `stdlib/Simp/tests/image.jai` and the FreeType, ImGui and MojoShader runtime tests from the unpacked archive.

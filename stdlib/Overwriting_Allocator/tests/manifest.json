@@ -1,0 +1,24 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/overwriting-double-free",
+    "mode": "fault",
+    "error_contains": "invalid overwriting-allocator pointer",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "fill-and-teardown",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "reviewed Overwriting_Allocator public Mutex and native Thread dependency"
+    ]
+  }
+]

@@ -19,14 +19,20 @@ def run(command, expected=""):
 
 def main():
     prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
-    source = ROOT / "tests/developer-tools/bindings-multi.jai"
-    consumer = ROOT / "tests/developer-tools/bindings-multi-roundtrip.jai"
-    native = ROOT / "tests/developer-tools/bindings-multi-native.c"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-multi.jai"
+    consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-multi-roundtrip.jai"
+    native = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-multi-native.c"
     jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     generated = [ROOT / f"target/developer-tools-multi-{name}.jai"
                  for name in ["generated", "custom", "cpp-generated"]]
+    # The generator loads every configured library, so both must exist before the
+    # first generation; the C++ one is rebuilt with the generated bridge below.
+    run([prefix / "bin/clang", "-std=c11", "-O0", *flags, native,
+         "-o", ROOT / f"target/libdeveloper_tools_multi.{suffix}"])
+    run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", "-O0", *flags, native,
+         "-o", ROOT / f"target/libdeveloper_tools_multi_cpp.{suffix}"])
     for mode in ["interp", "0", "2"]:
         if mode == "interp":
             run([jaic, source, "-interp"], "ok\n")

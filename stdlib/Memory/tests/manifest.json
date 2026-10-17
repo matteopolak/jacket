@@ -1,0 +1,30 @@
+[
+  {
+    "name": "debugger-default",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "debugger-interface",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "debugger-interface-disabled",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "options",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "overlap",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "protocol",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "protocol-compare",
+    "stdout": "ok\n"
+  }
+]

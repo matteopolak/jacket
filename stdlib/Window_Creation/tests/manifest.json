@@ -1,0 +1,52 @@
+[
+  {
+    "name": "appkit-enum-callers",
+    "stdout": ""
+  },
+  {
+    "name": "default-assertions",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "fullscreen-toggle",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  },
+  {
+    "name": "input-native-events",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  },
+  {
+    "name": "macos-context-reopen",
+    "required_os": "macos",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  },
+  {
+    "name": "macos-events",
+    "required_os": "macos"
+  },
+  {
+    "name": "macos-window",
+    "required_os": "macos"
+  }
+]

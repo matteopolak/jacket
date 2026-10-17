@@ -1,0 +1,14 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "lifecycle",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "windows-channel/main",
+    "required_os": "windows"
+  }
+]

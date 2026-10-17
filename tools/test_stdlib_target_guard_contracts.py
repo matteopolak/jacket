@@ -36,7 +36,7 @@ def owned_expectations(text):
 
 class ReviewedTargetGuards(unittest.TestCase):
     def test_exact_required_negatives_leave_all_reviewed_positives_required(self):
-        actual = owned_expectations((ROOT / "tests/stdlib-targets.txt").read_text())
+        actual = owned_expectations((ROOT / "tests/compiler/stdlib-targets.txt").read_text())
         expected = {
             f"{module} {target}": f"{module}/module.jai: #assert failed: {module} requires its documented native platform"
             for module, supported in SUPPORTED_OS.items()
@@ -66,7 +66,7 @@ class ReviewedTargetGuards(unittest.TestCase):
         self.assertNotIn("macos", names)
 
     def test_required_guard_is_not_satisfied_by_arbitrary_binding_errors(self):
-        actual = owned_expectations((ROOT / "tests/stdlib-targets.txt").read_text())
+        actual = owned_expectations((ROOT / "tests/compiler/stdlib-targets.txt").read_text())
         for diagnostic in actual.values():
             self.assertIn("/module.jai: #assert failed:", diagnostic)
             self.assertNotIn("unknown", diagnostic)

@@ -8,7 +8,7 @@ fn explicit_cast_shift_widths_execute_native_and_wasm() {
     backend_execution::execute(
         "cast-shift-widths",
         "cast_shift_check",
-        include_str!("../../../tests/compiler-semantics/cast-shift-widths.jai"),
+        include_str!("../../../tests/compiler/semantics/cast-shift-widths.jai"),
         &[],
         None,
     );

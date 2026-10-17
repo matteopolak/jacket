@@ -20,9 +20,9 @@ def main():
     parser.add_argument('--adaptive', action='store_true', help='Verify required adaptive statistics-off native storage')
     args = parser.parse_args()
     snapshot, identity = capture(args.output_root, ('tools/native_bindings',
-        'tests/native-bindings/generated', 'tests/native-bindings/rpmalloc-no-thread-cache.jai',
-        'tests/native-bindings/rpmalloc-cache-exercise.jai', 'tests/native-bindings/rpmalloc_callback_probe.c',
-        'tests/native-bindings/rpmalloc-adaptive-cache.jai', 'tests/native-bindings/rpmalloc_adaptive_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/generated', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-no-thread-cache.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-adaptive-cache.jai', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c',
         'docs/specs/stdlib/modules/rpmalloc.md', 'jailint.toml', 'jaifmt.toml'))
     work = Path(tempfile.mkdtemp(prefix='no-thread-', dir=args.output_root))
     sys.path.insert(0, str(snapshot/'tools/native_bindings'))
@@ -43,8 +43,8 @@ def main():
                   tools={str(p.resolve()): hashlib.sha256(p.resolve().read_bytes()).hexdigest() for p in
                          (args.compiler, args.native_compiler, args.jailint, args.formatter)})
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work), PYTHONDONTWRITEBYTECODE='1')
-    fixture = snapshot/('tests/native-bindings/rpmalloc-adaptive-cache.jai' if args.adaptive else
-                        'tests/native-bindings/rpmalloc-no-thread-cache.jai')
+    fixture = snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-adaptive-cache.jai' if args.adaptive else
+                        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-no-thread-cache.jai')
 
     def invoke(label, command):
         result = subprocess.run([str(x) for x in command], cwd=snapshot, env=env,
@@ -59,7 +59,7 @@ def main():
         build(folder, selected=selected, source=prepared, sanitize=sanitize, cc=args.native_compiler)
         env.update(JAIC_NATIVE_LIBS=str(folder), LIBRARY_PATH=str(folder))
         for source, name in ((snapshot/'stdlib/internal/bindings/callback-context/bridge.c', 'binding_callback_context'),
-                             (snapshot/'tests/native-bindings/rpmalloc_callback_probe.c', 'rpmalloc_callback_probe')):
+                             (snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c', 'rpmalloc_callback_probe')):
             invoke('real native dependency '+name, [args.native_compiler, '-dynamiclib', '-pthread',
                 '-Wall', '-Wextra', '-Werror', *(['-fsanitize='+','.join(sanitize)] if sanitize else []),
                 source, '-o', folder/('lib'+name+'.dylib')])
@@ -73,7 +73,7 @@ def main():
             obj = folder/'adaptive-probe.o'
             invoke('independent adaptive SDK types', [args.native_compiler, '-std=c11', '-O2', '-fPIC',
                 '-Wall', '-Wextra', '-Werror', '-isystem', prepared, *flags, '-c',
-                snapshot/'tests/native-bindings/rpmalloc_adaptive_probe.c', '-o', obj])
+                snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c', '-o', obj])
             invoke('native adaptive SDK introspection archive', ['ar', 'rcs', folder/'librpmalloc_adaptive_probe.a', obj])
             invoke('interpreter adaptive SDK introspection library', [args.native_compiler, '-dynamiclib',
                 *(['-fsanitize='+','.join(sanitize)] if sanitize else []), obj, '-o', folder/'librpmalloc_adaptive_probe.dylib'])

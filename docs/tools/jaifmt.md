@@ -51,7 +51,7 @@ blank_line_after_declarations = false   # plus the five other opt-in options abo
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file; `**` crosses directories
 ```
 
-The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`. Format-only commits go in `.git-blame-ignore-revs` (see [development](development.md)).
+The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/compiler/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`. Format-only commits go in `.git-blame-ignore-revs` (see [development](development.md)).
 
 ## Module API
 
@@ -75,7 +75,7 @@ Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.
 - **Line structure:** `plan_lines`; any break it adds or removes must be accepted by `break_change_allowed`, which must accept only breaks the parser ignores.
 - **Indentation:** `line_indent`, `track`, `starts_statement`.
 - **Lexer:** mirror `crates/jaic/src/lexer.rs`. If the parser starts depending on whitespace somewhere new (look for `newline_before` in `crates/jaic/src/parser/`), teach `check_equivalent` and keep that spacing.
-- **Golden tests:** `stdlib/Extensions/Jai_Format/tests/cases/<name>.in.jai` must format to `<name>.out.jai` (optional `<name>.toml`). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff. `tests/stdlib/jai-format-api.jai` covers the API in memory so it also runs in the browser engine. `crates/jaic-cli/tests/native.rs` covers the CLI and checks idempotence over the repository's Jai files.
+- **Golden tests:** `stdlib/Extensions/Jai_Format/tests/fixtures/<name>.in.jai` must format to `<name>.out.jai` (optional `<name>.toml`). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff. `stdlib/Extensions/Jai_Format/tests/api.jai` covers the API in memory so it also runs in the browser engine. `crates/jaic-cli/tests/native.rs` covers the CLI and checks idempotence over the repository's Jai files.
 - The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and the upstream corpus and run the sweep.
 - Layout-sensitive files: add to `ignore` or wrap in `// jaifmt: off`/`on`. Tests comparing `#location` lines must not rely on two statements sharing a line.
 - Moving `jaifmt/`: CI, `nix/jaifmt.nix`, `tools/build_scripting_wasm.py`, `tools/build_pgo.py`, the two wasm check scripts, the jaic-cli tests and `SOURCES` in `tests/golden.jai` name its files.

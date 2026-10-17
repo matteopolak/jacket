@@ -87,7 +87,7 @@ def main():
     content = b"\x00portable\xffattachment\r\n"
     attachment.write_bytes(content)
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
-    source = ROOT / "tests/portable-stdlib/integration/mail.jai"
+    source = ROOT / "stdlib/Mail/tests/integration/mail.jai"
     executable = output / "mail-test"
     if args.native:
         subprocess.run([str(compiler), str(source), "-exe", str(executable)], env=env, cwd=ROOT, check=True)

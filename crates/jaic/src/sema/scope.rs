@@ -1121,7 +1121,7 @@ impl Compiler {
     /// Every path that resolves a name through a module must use this (or
     /// `merge_module_lookup`), never `module_declarations` alone: separate copies of these
     /// rules drifted apart once (`GL.glViewport` failed while `glViewport` worked).
-    /// `tests/compiler-regressions/module-member-resolution.jai` checks that all paths agree.
+    /// `tests/compiler/regressions/module-member-resolution.jai` checks that all paths agree.
     pub fn module_lookup(&mut self, module: ModuleId, name: Sym) -> Result<Found> {
         let ids = self.module_declarations(module, name)?;
         if !ids.is_empty() {

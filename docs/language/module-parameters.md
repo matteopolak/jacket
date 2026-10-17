@@ -22,7 +22,7 @@ G :: #import "Greeter"(LOUD = true, Count = 2)(TRACE = true);
 
 ## How to change it
 
-All in `sema/modules.rs`: `declare_module_parameter`, `resolve_import` (untyped scalars are stored with type `VOID`; see `eval_const_literal`), `note_program_params`, `apply_program_params`, `program_instance`. State is `Module::params`, `param_entities`, `program_params` in `sema/mod.rs`. A program-parameter setting patches the declaration only when the parameter has no written type. Tests: `tests/stdlib/program-module-parameters.jai`, `typed-module-parameters.jai`, `untyped-module-parameters.jai`.
+All in `sema/modules.rs`: `declare_module_parameter`, `resolve_import` (untyped scalars are stored with type `VOID`; see `eval_const_literal`), `note_program_params`, `apply_program_params`, `program_instance`. State is `Module::params`, `param_entities`, `program_params` in `sema/mod.rs`. A program-parameter setting patches the declaration only when the parameter has no written type. Tests: `tests/compiler/regressions/program-module-parameters.jai`, `typed-module-parameters.jai`, `untyped-module-parameters.jai`.
 
 ## Rules
 

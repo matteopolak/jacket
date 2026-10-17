@@ -2,7 +2,7 @@
 // data both ways, close_notify and truncation, deadlines and cancellation, certificate checks,
 // client certificates, a custom verifier, waiting for input, and many connections at once. Run once
 // per backend the system offers (JAI_IO_BACKEND), from this directory.
-#load "lib/suite.jai";
+#load "support/suite.jai";
 
 #if OS == .WINDOWS {
     kernel32 :: #system_library "kernel32";

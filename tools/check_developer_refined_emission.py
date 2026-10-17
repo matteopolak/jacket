@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 
 from build_developer_bindings import llvm_prefix
+from driven_sources import driven, driven_matching
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +25,7 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"), TMPDIR=str(scratch))
     clang = llvm_prefix() / "bin/clang++"
     tests = [
-        ROOT / "tests/developer-tools" / ("bindings-" + name + ".jai")
+        driven("bindings-" + name + ".jai")
         for name in [
             "cursor-source",
             "type-queries",
@@ -51,12 +52,12 @@ def main():
     production.append(ROOT / "stdlib/internal/developer-tools/cpp-fragments.jai")
     sources = list((ROOT / "stdlib/Bindings_Generator").rglob("*.jai"))
     sources += list((ROOT / "stdlib/internal/developer-tools").rglob("*.jai"))
-    negative = ROOT / "tests/developer-tools/bindings-hex128-negative.jai"
+    negative = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-hex128-negative.jai"
     sources += tests + [negative, Path(__file__)]
-    sources += list((ROOT / "tests/developer-tools").glob("bindings-wide-layout.*"))
+    sources += driven_matching("bindings-wide-layout.*")
     sources += [
-        ROOT / "tests/developer-tools/bindings-generic-record.hpp",
-        ROOT / "tests/developer-tools/bindings-generic-native.cpp",
+        ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-generic-record.hpp",
+        ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-generic-native.cpp",
     ]
 
     def snapshot():
@@ -142,7 +143,7 @@ def main():
                         "-Werror",
                         "-O2",
                         "-dynamiclib",
-                        ROOT / "tests/developer-tools/bindings-generic-native.cpp",
+                        ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-generic-native.cpp",
                         "-o",
                         scratch / "libgeneric_fixture.dylib",
                     ]
@@ -157,7 +158,7 @@ def main():
                         "-Werror",
                         "-O2",
                         "-dynamiclib",
-                        ROOT / "tests/developer-tools/bindings-wide-layout.c",
+                        ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-wide-layout.c",
                         "-o",
                         scratch / "libwide_fixture.dylib",
                     ]

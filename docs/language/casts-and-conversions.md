@@ -48,12 +48,12 @@ help: `u8` holds 0 to 255; write `cast,trunc(u8)` (or `xx,trunc`) to keep the lo
 
 ## How to change it
 
-- Cast reach: `parse_cast_value` in `parser/expr.rs` calls `parse_binary_after(first, CAST_PREC)`; move `CAST_PREC` or `binary_op` entries, and update `tests/stdlib/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`.
+- Cast reach: `parse_cast_value` in `parser/expr.rs` calls `parse_binary_after(first, CAST_PREC)`; move `CAST_PREC` or `binary_op` entries, and update `tests/compiler/regressions/cast-operand-precedence.jai` and the parser test `prefix_cast_takes_bitwise_and_shift_operators`.
 - Scalar conversions: `scalar_convert`; implicit ones are priced by `implicit_cost`, which also decides overload winners. Constants fold at the top of `explicit_cast`; change that and the runtime path together.
 - Operand typing: the `E::Cast` arm of `check_expr` (`sema/expr.rs`) passes the target down only when `cast_operand_needs_target` says so; widening it brings back top-down typing.
 - Bounds check: `emit_cast_check` (`sema/convert.rs`) branches to `Intrinsic::CheckFailed` (`ir::TRAP_CAST_OVERFLOW`); native code calls `runtime_support_check_failed`; messages are `ir::check_message` and `cast_help` (`sema/trap_report.rs`).
 
-Tests: `tests/stdlib/lang-conversions.jai`, `cast-operand-typed-bottom-up.jai`, `cast-bounds-check.jai`, `int-to-float32-rounding.jai`, `tests/corpus/negative/cast-check-*.jai`.
+Tests: `tests/compiler/regressions/lang-conversions.jai`, `cast-operand-typed-bottom-up.jai`, `cast-bounds-check.jai`, `int-to-float32-rounding.jai`, `tests/corpus/negative/cast-check-*.jai`.
 
 ## Rules
 

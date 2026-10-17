@@ -30,7 +30,7 @@ pa, pb := a.data, b.data;
 
 ## How to change it
 
-Add a mnemonic in `sema/asm.rs` or `asm/scalar.rs`, `asm/mask.rs`, or `lookup_simd` in `asm/simd.rs`, plus a test case. Vectors are 64-byte locals processed through a scratch buffer so aliased operands behave as on hardware; never write the destination before every source is read. Tests: `tests/stdlib/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-avx512-masks.jai` (expected values recorded on x86-64 hardware). AST types: `AsmBlock`, `AsmInst`, `AsmOperand` in `ast.rs`.
+Add a mnemonic in `sema/asm.rs` or `asm/scalar.rs`, `asm/mask.rs`, or `lookup_simd` in `asm/simd.rs`, plus a test case. Vectors are 64-byte locals processed through a scratch buffer so aliased operands behave as on hardware; never write the destination before every source is read. Tests: `tests/compiler/regressions/lang-asm.jai`, `asm-vector-instructions.jai`, `asm-avx512-masks.jai` (expected values recorded on x86-64 hardware). AST types: `AsmBlock`, `AsmInst`, `AsmOperand` in `ast.rs`.
 
 ## Rules
 

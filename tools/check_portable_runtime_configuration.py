@@ -28,7 +28,7 @@ def run(arguments, expected=None):
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    source = ROOT / "tests/portable-stdlib/runtime-configuration.jai"
+    source = ROOT / "stdlib/Runtime_Support/tests/configuration.jai"
     for size in [0, 65536, 131072]:
         options = ["-add", f"REQUESTED_SIZE :: {size};"]
         run([str(COMPILER), "-interp", str(source), *options], "ok\n")

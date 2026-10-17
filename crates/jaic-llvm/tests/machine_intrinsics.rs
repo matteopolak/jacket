@@ -20,7 +20,7 @@ mod cpuid {
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
-            include_str!("../../../tests/compiler-semantics/cpuid.jai").into(),
+            include_str!("../../../tests/compiler/semantics/cpuid.jai").into(),
         )]) {
             panic!("{}", e.render(&c.sources));
         }
@@ -57,7 +57,7 @@ mod cpuid {
                 } else {
                     "-O2"
                 })
-                .arg(root.join("tests/compiler-semantics/cpuid-driver.c"))
+                .arg(root.join("tests/compiler/semantics/cpuid-driver.c"))
                 .arg(object)
                 .arg("-o")
                 .arg(&exe);
@@ -74,7 +74,7 @@ mod cpuid {
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         c.compile_sources(&[ProgramSource::String(
-            include_str!("../../../tests/compiler-semantics/cpuid.jai").into(),
+            include_str!("../../../tests/compiler/semantics/cpuid.jai").into(),
         )])
         .unwrap();
         let dir = root.join("target/cpuid/metadata");
@@ -153,7 +153,7 @@ mod cpuid_leaf_zero {
         options.stack_trace = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         c.compile_sources(&[ProgramSource::String(
-            include_str!("../../../tests/compiler-semantics/cpuid-leaf-zero.jai").into(),
+            include_str!("../../../tests/compiler/semantics/cpuid-leaf-zero.jai").into(),
         )])
         .unwrap();
         let target = if cfg!(target_os = "macos") {
@@ -207,7 +207,7 @@ mod cpuid_leaf_zero {
                 checked(
                     clang
                         .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
-                        .arg(root.join("tests/compiler-semantics/cpuid-leaf-zero-driver.c"))
+                        .arg(root.join("tests/compiler/semantics/cpuid-leaf-zero-driver.c"))
                         .arg(&object)
                         .arg("-o")
                         .arg(&exe),
@@ -235,7 +235,7 @@ mod xgetbv {
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
-            include_str!("../../../tests/compiler-semantics/xgetbv.jai").into(),
+            include_str!("../../../tests/compiler/semantics/xgetbv.jai").into(),
         )]) {
             panic!("{}", e.render(&c.sources));
         }
@@ -335,7 +335,7 @@ mod xgetbv {
                 } else {
                     "-O2"
                 })
-                .arg(root.join("tests/compiler-semantics/xgetbv-driver.c"))
+                .arg(root.join("tests/compiler/semantics/xgetbv-driver.c"))
                 .arg(&object)
                 .arg("-o")
                 .arg(&exe);
@@ -518,7 +518,7 @@ mod x86_machine {
         options.stack_trace = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
-            include_str!("../../../tests/compiler-semantics/x86-machine.jai").into(),
+            include_str!("../../../tests/compiler/semantics/x86-machine.jai").into(),
         )]) {
             panic!("{}", e.render(&c.sources));
         }
@@ -598,7 +598,7 @@ mod x86_machine {
                         checked(
                             clang
                                 .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
-                                .arg(root.join("tests/compiler-semantics/x86-machine-driver.c"))
+                                .arg(root.join("tests/compiler/semantics/x86-machine-driver.c"))
                                 .arg(&object)
                                 .arg("-o")
                                 .arg(&exe),

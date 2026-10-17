@@ -1,0 +1,12 @@
+[
+  {
+    "name": "indices",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  }
+]

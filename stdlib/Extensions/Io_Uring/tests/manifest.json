@@ -1,0 +1,25 @@
+[
+  {
+    "name": "dependency",
+    "source_check_only": true,
+    "required_os": "linux"
+  },
+  {
+    "name": "initialized-nop",
+    "required_os": "linux"
+  },
+  {
+    "name": "protocol",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread import; caller-memory queue, not a Linux kernel request"
+    ]
+  },
+  {
+    "name": "raw",
+    "required_os": "linux"
+  }
+]

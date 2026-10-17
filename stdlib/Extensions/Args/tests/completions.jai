@@ -8,8 +8,8 @@
 #import "Basic";
 #import "String";
 
-#load "data/outputs.jai";
-#load "data/golden.jai";
+#load "fixtures/outputs.jai";
+#load "fixtures/golden.jai";
 
 failures := 0;
 

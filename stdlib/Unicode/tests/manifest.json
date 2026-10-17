@@ -1,0 +1,20 @@
+[
+  {
+    "name": "audio-bits",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "incomplete-tail",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/first-byte-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `U.firstByteMark`"
+  },
+  {
+    "name": "negative/offsets-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `U.offsetsFromUTF8`"
+  }
+]

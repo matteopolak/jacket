@@ -37,7 +37,7 @@ if c == {
 
 ## How to change it
 
-Add syntax in `parser/stmt.rs` with a test in `parser/tests.rs`, then handle the new `StmtKind` in `sema/stmt.rs`. Loop bodies that macros rewrite go through `ForBody` in `sema/lower.rs`. Regression programs that exit 0 go in `tests/stdlib/` (`insert-replacements.jai`, `push-context-defer-pop.jai`); programs that must be rejected go in `tests/corpus/negative/` (`complete-switch-missing-case.jai`).
+Add syntax in `parser/stmt.rs` with a test in `parser/tests.rs`, then handle the new `StmtKind` in `sema/stmt.rs`. Loop bodies that macros rewrite go through `ForBody` in `sema/lower.rs`. Regression programs that exit 0 go in `tests/compiler/regressions/` (`insert-replacements.jai`, `push-context-defer-pop.jai`); programs that must be rejected go in `tests/corpus/negative/` (`complete-switch-missing-case.jai`).
 
 ## Rules
 

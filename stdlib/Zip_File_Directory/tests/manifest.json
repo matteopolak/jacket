@@ -1,0 +1,20 @@
+[
+  {
+    "name": "faults/zip-descriptor",
+    "mode": "fault",
+    "error_contains": "ZIP data descriptors are unsupported",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/zip-signature",
+    "mode": "fault",
+    "error_contains": "unexpected ZIP directory signature",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "zip-directory",
+    "stdout": "ok\n"
+  }
+]

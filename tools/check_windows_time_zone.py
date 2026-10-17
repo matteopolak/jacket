@@ -11,8 +11,8 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE = ROOT / "tests/native-bindings/windows-time-zone-layout.jai"
-C_FIXTURE = ROOT / "tests/native-bindings/windows_time_zone_sdk.c"
+FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows-time-zone-layout.jai"
+C_FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows_time_zone_sdk.c"
 
 
 def sha(path):

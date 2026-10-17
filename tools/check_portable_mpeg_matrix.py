@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 output = ROOT / "target/portable-tests/mpeg-matrix-check"
 output.parent.mkdir(parents=True, exist_ok=True)
 subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror",
-                str(ROOT / "tests/portable-stdlib/native/mpeg-matrix-check.c"),
+                str(ROOT / "stdlib/pl_mpeg/tests/native/matrix-check.c"),
                 "-lm", "-o", str(output)], check=True)
 raw = subprocess.check_output([str(output)], timeout=30)
 assert len(raw) == 32 * 64 * 4

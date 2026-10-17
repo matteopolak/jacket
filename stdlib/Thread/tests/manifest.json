@@ -1,0 +1,69 @@
+[
+  {
+    "name": "condition",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "configured/error-retention",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "configured/optional-assert",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "groups",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "lifetime",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "mutex-and-semaphore",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread synchronization and workers"
+    ]
+  },
+  {
+    "name": "native-identity",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "pthread-layout",
+    "stdout": ""
+  },
+  {
+    "name": "sdk-storage",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "shutdown",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "synchronization",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread synchronization and workers"
+    ]
+  },
+  {
+    "name": "thread-group",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread_Group workers"
+    ]
+  }
+]

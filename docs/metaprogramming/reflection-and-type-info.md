@@ -34,7 +34,7 @@ type_info(*int).type    // POINTER
 - New type kind: extend `TypeKind` and `size_of`/`align_of`/`name` in `types.rs`, then emit its info.
 - Descriptors are lazy, so `type_info` of a type forces its layout.
 
-Tests: `tests/stdlib/compiler-reflection-pure.jai`, `type-field-constant.jai`, `poly-struct-type-names.jai`. Related: `intern.rs`, `sema/structs.rs`.
+Tests: `tests/compiler/regressions/compiler-reflection-pure.jai`, `type-field-constant.jai`, `poly-struct-type-names.jai`. Related: `intern.rs`, `sema/structs.rs`.
 
 ## Rules
 

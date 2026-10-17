@@ -31,13 +31,13 @@ import stdlib_runtime  # noqa: E402
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [
-    "tests/native/windows/runtime.jai",
-    "tests/native/windows/variadic.jai",
-    "tests/compiler-regressions/struct-literal-overrides-default-string.jai",
-    "tests/compiler-regressions/array-literal-view-lifetime.jai",
-    "tests/compiler-regressions/c-variadic-foreign-calls.jai",
-    "tests/compiler-regressions/member-align-lowers-alignment.jai",
-    "tests/compiler-regressions/over-aligned-allocation.jai",
+    "tests/compiler/native/windows/runtime.jai",
+    "tests/compiler/native/windows/variadic.jai",
+    "tests/compiler/regressions/struct-literal-overrides-default-string.jai",
+    "tests/compiler/regressions/array-literal-view-lifetime.jai",
+    "tests/compiler/regressions/c-variadic-foreign-calls.jai",
+    "tests/compiler/regressions/member-align-lowers-alignment.jai",
+    "tests/compiler/regressions/over-aligned-allocation.jai",
 ]
 
 # These exact fixtures execute target File/Process operations during ordinary
@@ -45,7 +45,7 @@ WINDOWS_PROGRAMS = [
 # calls to the build host. They remain required in native Windows build jobs.
 WINDOWS_BUILD_HOST_CASES = frozenset(
     {
-        "contracts/program-print-plugin-file-output",
+        "Program_Print/tests/plugin-file-output",
         "compiler/rules-compile-time-execution",
     }
 )
@@ -102,7 +102,7 @@ def fixture_unavailable_reason(case, platform, build_host):
         return "links native fixture libraries that only the Windows host jobs build; native Windows coverage remains required"
     if case["id"] == "compiler/lang-asm" and platform.split("-")[1] != "x64":
         return "fixture contains architectural x86 CPUID/PAUSE/fences; requires x64, not an ARM64 instruction-emulation claim"
-    if case["id"] == "native/imgui-headless-frames":
+    if case["id"] == "ImGui/tests/headless-frames":
         profile = json.loads((ROOT / "tools/native-libs.json").read_text())[
             "libraries"
         ]["imgui"]
@@ -154,7 +154,7 @@ def cases(stdlib, platform=None):
             )
 
 
-# tests/native/c-structs-by-value: C structs by value both ways across the C ABI, against C
+# tests/compiler/native/c-structs-by-value: C structs by value both ways across the C ABI, against C
 # compiled by a Windows toolchain (same expectations as crates/jaic-cli/tests/native.rs).
 C_STRUCTS = {
     "foreign_calls": "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33} {11, 22}\n832\n8940414\n",
@@ -204,7 +204,7 @@ def build_socket_sdk_probe(args, output):
         "-Wextra",
         "-Werror",
         "-std=c11",
-        str(ROOT / "tests/native/windows/inet-pton-sdk.c"),
+        str(ROOT / "tests/compiler/native/windows/inet-pton-sdk.c"),
         "-lws2_32",
         "-o",
         str(output),
@@ -394,7 +394,7 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
                 or name.startswith(
                     (
                         "tools/native_bindings/",
-                        "tests/native-bindings/",
+                        "stdlib/Bindings_Generator/tests/driven/sdk/",
                         "stdlib/internal/bindings/",
                     )
                 )
@@ -591,7 +591,7 @@ def build(args):
             supported.append(item)
     all_cases = supported
     if any(
-        metadata.get(item[1], {}).get("id") == "extensions/tls-windows-target"
+        metadata.get(item[1], {}).get("id") == "Extensions/Tls/tests/windows-target"
         for item in all_cases
     ):
         probe_id = "socket-inet-pton-sdk"
@@ -647,7 +647,7 @@ def build(args):
             }
         records.append({"id": case_id, "status": "built", "passed": None})
     work = out / "c-structs-src"
-    shutil.copytree(ROOT / "tests/native/c-structs-by-value", work, dirs_exist_ok=True)
+    shutil.copytree(ROOT / "tests/compiler/native/c-structs-by-value", work, dirs_exist_ok=True)
     error = c_structs_library(args, work)
     if error:
         failures.append(f"c-structs library: {error}")

@@ -8,7 +8,7 @@ use std::{path::PathBuf, process::Command, rc::Rc};
 #[test]
 fn filtered_reexports_share_actual_c_memory_native_and_wasm_o0_o2() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let fixture = root.join("tests/compiler-semantics/storage-aliases");
+    let fixture = root.join("tests/compiler/semantics/storage-aliases");
     for wasm in [false, true] {
         for level in [OptLevel::O0, OptLevel::O2] {
             let dir = root.join(format!("target/storage-aliases-backend/{wasm}-{level:?}"));

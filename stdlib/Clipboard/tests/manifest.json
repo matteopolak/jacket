@@ -1,0 +1,58 @@
+[
+  {
+    "name": "cocoa-operations",
+    "arguments": [
+      "enabled"
+    ],
+    "required_os": "macos",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "linux-api",
+    "stdout": "ok\n",
+    "required_os": "linux"
+  },
+  {
+    "name": "linux-no-empty",
+    "stdout": ""
+  },
+  {
+    "name": "linux-private",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "linux-roundtrip",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "linux-window-source",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "macos-utf8",
+    "clipboard_guard": true,
+    "required_os": "macos",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  },
+  {
+    "name": "platform-api",
+    "stdout": ""
+  },
+  {
+    "name": "round-trip",
+    "clipboard_guard": true,
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  }
+]

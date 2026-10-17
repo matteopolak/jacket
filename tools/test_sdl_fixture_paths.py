@@ -61,7 +61,7 @@ class SdlFixturePaths(unittest.TestCase):
             )
 
     def test_missing_canonical_fixture_is_fatal_even_if_old_path_exists(self):
-        old = self.root / "tests/native-bindings/sdl-layout.jai"
+        old = self.root / "stdlib/Bindings_Generator/tests/driven/sdk/sdl-layout.jai"
         old.parent.mkdir(parents=True)
         old.write_text("stale path fixture, never an ABI oracle\n")
         with self.assertRaises(FileNotFoundError):
@@ -70,11 +70,11 @@ class SdlFixturePaths(unittest.TestCase):
     def test_unmoved_fixtures_keep_their_existing_location(self):
         self.assertEqual(
             self.paths.fixture_source(self.root, "sdl.jai"),
-            self.root / "tests/native-bindings/sdl.jai",
+            self.root / "stdlib/Bindings_Generator/tests/driven/sdk/sdl.jai",
         )
         self.assertEqual(
             self.paths.fixture_source(self.root, "posix-abi.jai"),
-            self.root / "tests/native-bindings/posix-abi.jai",
+            self.root / "stdlib/Bindings_Generator/tests/driven/sdk/posix-abi.jai",
         )
 
     def test_source_and_runtime_loops_both_use_the_migration_inventory(self):

@@ -1,0 +1,24 @@
+{
+  "scope": "independent_clean_subset",
+  "source_snapshot_id": "independent-ide-audit-fixtures-v1",
+  "stdlib_id": "git-tree:176a2f139e61083b1364d9ec8deb00f5084fa266",
+  "cases": [
+    {
+      "id": "strict-clean",
+      "root": "tests/lsp/audit/strict-clean",
+      "expected_files": 1
+    },
+    {
+      "id": "values",
+      "root": "tests/lsp/audit/values",
+      "expected_files": 2,
+      "inputs": "tests/lsp/audit/values/inputs.json",
+      "review": "tests/lsp/audit/values/review.json"
+    },
+    {
+      "id": "deliberate-invalid-member",
+      "root": "tests/lsp/audit/failures",
+      "expected_files": 1
+    }
+  ]
+}

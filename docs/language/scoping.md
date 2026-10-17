@@ -24,7 +24,7 @@ secret :: 1;         // this file only
 
 ## How to change it
 
-Entities and visibility: `declare_stmt` in `sema/modules.rs` (`file_private`, `target_scope`). Lookup: `sema/scope.rs` (`Found::Using`, `module_lookup`). Conditional expansion: `expand_pending`, `expand_plain_ifs`; keep `plain_condition` free of calls so the early pass cannot run code too soon. `consteval.rs` evaluates conditions. Tests: `tests/stdlib/module-using-import-reexport.jai`, `module-using-global.jai`.
+Entities and visibility: `declare_stmt` in `sema/modules.rs` (`file_private`, `target_scope`). Lookup: `sema/scope.rs` (`Found::Using`, `module_lookup`). Conditional expansion: `expand_pending`, `expand_plain_ifs`; keep `plain_condition` free of calls so the early pass cannot run code too soon. `consteval.rs` evaluates conditions. Tests: `tests/compiler/regressions/module-using-import-reexport.jai`, `module-using-global.jai`.
 
 Configuration: `OS` and `CPU` come from `Options::os` / `cpu`; `jaic -check -os linux|windows|macos` overrides the OS. See [modules and imports](modules-and-imports.md).
 

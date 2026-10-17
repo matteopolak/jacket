@@ -6,7 +6,7 @@ fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler-semantics/insert-same-scope-declarations.jai"))
+        .arg(root.join("tests/compiler/semantics/insert-same-scope-declarations.jai"))
         .arg("-interp")
         .output()
         .unwrap();
@@ -18,7 +18,7 @@ fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler-semantics/insert-same-scope-duplicate-rejected.jai"))
+        .arg(root.join("tests/compiler/semantics/insert-same-scope-duplicate-rejected.jai"))
         .arg("-check")
         .output()
         .unwrap();
@@ -35,7 +35,7 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
     for name in ["custom-for-array-remove", "operator-name-values"] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
-            .arg(root.join(format!("tests/compiler-semantics/{name}.jai")))
+            .arg(root.join(format!("tests/compiler/semantics/{name}.jai")))
             .arg("-interp")
             .output()
             .unwrap();
@@ -48,7 +48,7 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
     }
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler-semantics/custom-for-range-remove-rejected.jai"))
+        .arg(root.join("tests/compiler/semantics/custom-for-range-remove-rejected.jai"))
         .arg("-check")
         .output()
         .unwrap();
@@ -75,7 +75,7 @@ fn a_qualified_namespace_does_not_implicitly_import_operators() {
         .arg(source)
         .arg("-check")
         .arg("-I")
-        .arg(root.join("tests/compiler-semantics/modules"))
+        .arg(root.join("tests/compiler/semantics/modules"))
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -88,7 +88,7 @@ fn called_library_body_interception_and_filters_complete_successfully() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for path in [
         "tests/fixtures/profiler-context/profiler-stdlib-bodies.jai",
-        "tests/compiler-semantics/interception-canonical-bodies.jai",
+        "tests/compiler/semantics/interception-canonical-bodies.jai",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
@@ -115,7 +115,7 @@ fn decimal_required_precision_rejects_implicit_narrowing() {
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
-            .arg(root.join(format!("tests/compiler-semantics/{name}.jai")))
+            .arg(root.join(format!("tests/compiler/semantics/{name}.jai")))
             .arg("-check")
             .output()
             .unwrap();
@@ -142,7 +142,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
             .arg(root.join(format!(
-                "tests/compiler-semantics/code-roundtrip-{name}.jai"
+                "tests/compiler/semantics/code-roundtrip-{name}.jai"
             )))
             .arg("-interp")
             .output()
@@ -156,7 +156,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
     }
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler-semantics/code-roundtrip-module-map-rejected.jai"))
+        .arg(root.join("tests/compiler/semantics/code-roundtrip-module-map-rejected.jai"))
         .arg("-check")
         .output()
         .unwrap();
@@ -167,7 +167,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
     );
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler-semantics/code-modify-control.jai"))
+        .arg(root.join("tests/compiler/semantics/code-modify-control.jai"))
         .arg("-check")
         .output()
         .unwrap();
@@ -182,10 +182,10 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
 fn retained_member_and_real_library_bodies_are_modifiable() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for path in [
-        "tests/compiler-semantics/code-modify-members.jai",
-        "tests/developer-tools/metaprograms/profiler-member-modify.jai",
-        "tests/developer-tools/metaprograms/profiler-stdlib-modify.jai",
-        "tests/developer-tools/metaprograms/profiler-array-local-modify.jai",
+        "tests/compiler/semantics/code-modify-members.jai",
+        "tests/compiler/metaprograms/profiler-member-modify.jai",
+        "tests/compiler/metaprograms/profiler-stdlib-modify.jai",
+        "tests/compiler/metaprograms/profiler-array-local-modify.jai",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
@@ -207,7 +207,7 @@ fn unavailable_debugger_is_a_required_diagnostic() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler-semantics/compiler-debugger-unavailable.jai"))
+        .arg(root.join("tests/compiler/semantics/compiler-debugger-unavailable.jai"))
         .arg("-check")
         .output()
         .unwrap();

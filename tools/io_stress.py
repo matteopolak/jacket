@@ -19,7 +19,7 @@ if it exits non-zero or runs longer than `--timeout`. The first lines of each fa
 printed, and the exit status is 1 if anything failed (a build that fails counts).
 
 Without test files it runs stdlib/Extensions/Io/tests/{backends,tcp,timeouts,files,pipe,streams}.jai,
-stdlib/Extensions/Http/tests/{client,server_connections,testing,https}.jai and
+stdlib/Extensions/Http/tests/{client,server-connections,testing,https}.jai and
 stdlib/Extensions/Tls/tests/tls.jai (it carries its certificates, so it runs from the scratch
 directories). interop.jai starts openssl processes on ports and is not part of it.
 """
@@ -49,7 +49,7 @@ DEFAULT_TESTS = [
     "stdlib/Extensions/Io/tests/pipe.jai",
     "stdlib/Extensions/Io/tests/streams.jai",
     "stdlib/Extensions/Http/tests/client.jai",
-    "stdlib/Extensions/Http/tests/server_connections.jai",
+    "stdlib/Extensions/Http/tests/server-connections.jai",
     "stdlib/Extensions/Http/tests/testing.jai",
     "stdlib/Extensions/Http/tests/https.jai",
     "stdlib/Extensions/Tls/tests/tls.jai",

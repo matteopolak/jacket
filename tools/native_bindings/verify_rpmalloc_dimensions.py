@@ -24,17 +24,17 @@ def main():
     parser.add_argument('--retention', action='store_true', help='Also verify required retention/page policies and retained callback controls')
     args = parser.parse_args()
     snapshot, identity = capture(args.output_root, ('tools/native_bindings',
-        'tests/native-bindings/rpmalloc-runtime-dimensions.jai',
-        'tests/native-bindings/rpmalloc_runtime_dimensions_probe.c',
-        'tests/native-bindings/rpmalloc-retained-advice.jai',
-        'tests/native-bindings/rpmalloc_advice_probe.c',
-        'tests/native-bindings/rpmalloc-retention-options.jai',
-        'tests/native-bindings/rpmalloc-effective-config.jai',
-        'tests/native-bindings/rpmalloc_retention_probe.c',
-        'tests/native-bindings/rpmalloc-public-configurable.jai',
-        'tests/native-bindings/rpmalloc-public-callbacks.jai',
-        'tests/native-bindings/rpmalloc_callback_probe.c',
-        'tests/native-bindings/rpmalloc_sdk_config_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-runtime-dimensions.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_runtime_dimensions_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retained-advice.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_advice_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retention-options.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-effective-config.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_retention_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-configurable.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-callbacks.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_config_probe.c',
         'docs/specs/stdlib/modules/rpmalloc.md', 'jaifmt.toml', 'jailint.toml'))
     work = Path(tempfile.mkdtemp(prefix='dimensions-', dir=args.output_root))
     sys.path.insert(0, str(snapshot/'tools/native_bindings'))
@@ -53,7 +53,7 @@ def main():
         status='passed' if prepared_hashes == {p.name: digest(p) for p in reproduced.iterdir() if p.is_file()} else 'failed'))
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work),
                PYTHONDONTWRITEBYTECODE='1', ASAN_OPTIONS='allocator_may_return_null=1')
-    fixture = snapshot/'tests/native-bindings/rpmalloc-runtime-dimensions.jai'
+    fixture = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-runtime-dimensions.jai'
     api = json.loads((snapshot/'stdlib/internal/bindings/rpmalloc-sdk/provenance.json').read_text())
     selected_profiles = [p for p in profiles.PROFILES if not p['raw'] and p['statistics'] and not p['adaptive'] and
                          p['thread_cache'] and p['assertions'] and p['validation']]
@@ -75,7 +75,7 @@ def main():
         flags = ['-fsanitize='+','.join(sanitize)] if sanitize else []
         env.update(JAIC_NATIVE_LIBS=str(folder), LIBRARY_PATH=str(folder))
         for source, name in ((snapshot/'stdlib/internal/bindings/callback-context/bridge.c', 'binding_callback_context'),
-                             (snapshot/'tests/native-bindings/rpmalloc_advice_probe.c', 'rpmalloc_advice_probe')):
+                             (snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_advice_probe.c', 'rpmalloc_advice_probe')):
             invoke('native dependency '+name, [args.native_compiler, '-dynamiclib', '-Wall', '-Wextra', '-Werror',
                 *flags, source, '-o', folder/('lib'+name+'.dylib')])
         if args.retention:
@@ -85,14 +85,14 @@ def main():
                 objects.append(obj)
                 invoke('native SDK introspection object '+name, [args.native_compiler, '-std=c11', '-fPIC', '-pthread',
                     '-Wall', '-Wextra', '-Werror', '-isystem', prepared, *flags,
-                    '-c', snapshot/('tests/native-bindings/'+name+'.c'), '-o', obj])
+                    '-c', snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.c'), '-o', obj])
             # Native programs link one SDK and its introspection object into
             # the same image; a helper dylib must not introduce a second SDK.
             invoke('native SDK introspection archive', ['ar', 'rcs', folder/'librpmalloc_callback_probe.a', *objects])
             invoke('real paired callback SDK probe', [args.native_compiler, '-dynamiclib', '-pthread',
                 '-Wall', '-Wextra', '-Werror', '-isystem', prepared, *flags,
-                snapshot/'tests/native-bindings/rpmalloc_callback_probe.c',
-                snapshot/'tests/native-bindings/rpmalloc_sdk_config_probe.c', '-L', folder,
+                snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c',
+                snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_config_probe.c', '-L', folder,
                 '-lbinding_rpmalloc_sdk', '-Wl,-rpath,@loader_path', '-o', folder/'librpmalloc_callback_probe.dylib'])
         for profile in selected_profiles:
             probe = folder/('sdk-storage-'+profile['sdk'])
@@ -102,11 +102,11 @@ def main():
             command = [args.native_compiler, '-std=c11', '-O2', '-fno-builtin-calloc', '-Wall', '-Wextra', '-Werror',
                 '-isystem', prepared, '-I', snapshot/'stdlib/internal/bindings/rpmalloc-heaps',
                 *profiles.c_definitions(profile, api['functions']), *flags,
-                snapshot/'tests/native-bindings/rpmalloc_runtime_dimensions_probe.c', '-o', probe]
+                snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_runtime_dimensions_probe.c', '-o', probe]
             if invoke('independent SDK storage build '+profile['sdk'], command):
                 invoke('independent SDK storage and failure rollback '+profile['sdk'], [probe])
             if args.retention and profile['global_cache']:
-                command[-3] = snapshot/'tests/native-bindings/rpmalloc_retention_probe.c'
+                command[-3] = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_retention_probe.c'
                 command[-1] = folder/'sdk-retention'
                 if invoke('SDK actual OS release probe build', command):
                     invoke('SDK actual OS release and retention', [command[-1]])
@@ -121,7 +121,7 @@ def main():
         for mode in ('O0', 'O2'):
             exe = work/(name+'-'+mode)
             if invoke('public native build '+name+' '+mode,
-                [args.compiler, snapshot/('tests/native-bindings/'+name+'.jai'), '-'+mode, '-exe', exe]):
+                [args.compiler, snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai'), '-'+mode, '-exe', exe]):
                 invoke('public native behavior '+name+' '+mode, [exe])
     dependencies(work/'native-sanitized', ('address', 'undefined'))
     exe = work/'public-sanitized'
@@ -130,7 +130,7 @@ def main():
     if args.retention:
         exe = work/'retention-sanitized'
         if invoke('instrumented retention build', [args.compiler,
-            snapshot/'tests/native-bindings/rpmalloc-retention-options.jai', '-O0', '-sanitize', 'address,undefined', '-exe', exe]):
+            snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retention-options.jai', '-O0', '-sanitize', 'address,undefined', '-exe', exe]):
             invoke('instrumented retention behavior', [exe])
     for os_name in ('macos', 'linux', 'windows'):
         for cpu in ('x64', 'arm64'):
@@ -138,17 +138,17 @@ def main():
                 [args.compiler, fixture, '-check', '-no_dce', '-os', os_name, '-cpu', cpu])
             if args.retention:
                 invoke('required retention source '+os_name+'-'+cpu,
-                    [args.compiler, snapshot/'tests/native-bindings/rpmalloc-retention-options.jai',
+                    [args.compiler, snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retention-options.jai',
                      '-check', '-no_dce', '-os', os_name, '-cpu', cpu])
     invoke('strict complete context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
         '--context', fixture, snapshot/'stdlib/rpmalloc', fixture])
     invoke('production formatting', [args.formatter, '--check', snapshot/'stdlib/rpmalloc', fixture])
     if args.retention:
-        retention = snapshot/'tests/native-bindings/rpmalloc-retention-options.jai'
+        retention = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retention-options.jai'
         invoke('strict retention context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
             '--context', retention, snapshot/'stdlib/rpmalloc', retention])
         invoke('production retention formatting', [args.formatter, '--check', retention,
-            snapshot/'tests/native-bindings/rpmalloc-effective-config.jai'])
+            snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-effective-config.jai'])
     report['checks'].append(dict(label='immutable source and SDK inputs', status='passed' if
         unchanged(snapshot, identity) and prepared_hashes == {p.name: digest(p) for p in prepared.iterdir() if p.is_file()}
         else 'failed'))

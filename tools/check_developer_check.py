@@ -57,7 +57,7 @@ def prepare():
     for target in ["arm64-apple-macos13", "x86_64-pc-windows-msvc"]:
         native = ROOT / f"target/developer-tools-check-{target}.o"
         run([prefix / "bin/clang++", "-std=c++17", "-target", target, "-O0", "-c",
-             ROOT / "tests/developer-tools/check-binding-native.cpp", "-o", native])
+             ROOT / "stdlib/Bindings_Generator/tests/driven/check-binding-native.cpp", "-o", native])
         symbols = run([prefix / "bin/llvm-nm", "--defined-only", "--just-symbol-name", native]).stdout.splitlines()
         selected = {}
         for field in fields:
@@ -79,18 +79,18 @@ def main():
     build_developer_check.main()
     staged, oracle = prepare()
     jaic = ROOT / "target/debug/jaic"
-    source = ROOT / "tests/developer-tools/check-bindings.jai"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/check-bindings.jai"
     run([jaic, source, "-interp", "-I", ROOT / "target"], expected="ok\n")
     for optimization in [0, 2]:
         executable = ROOT / f"target/developer-tools-check-bindings-o{optimization}"
         run([jaic, source, f"-O{optimization}", "-exe", executable, "-I", ROOT / "target"], expected="")
         run([executable], expected="ok\n")
-    rejected = run([jaic, ROOT / "tests/developer-tools/rejections/check-binding-types.jai",
+    rejected = run([jaic, ROOT / "tests/compiler/rejections/check-binding-types.jai",
                     "-check", "-I", ROOT / "target"], code=1)
     if (rejected.stderr.count("error: Check:") != 12 or "assertion failed" in rejected.stderr
             or "encoded foreign return type" not in rejected.stderr):
         raise RuntimeError("Expected twelve genuine continuable binding diagnostics and false results")
-    stats_source = ROOT / "tests/developer-tools/check-binding-stats.jai"
+    stats_source = ROOT / "stdlib/Bindings_Generator/tests/driven/check-binding-stats.jai"
     stats_measurements = []
     for mode in ["interp", "0", "2"]:
         command = [jaic, stats_source, "-interp", "-I", ROOT / "target"]
@@ -106,7 +106,7 @@ def main():
             raise RuntimeError("Real parsing-pool peak/cumulative accounting or debug-only finish report is incorrect")
         stats_measurements.append({"mode": mode, "peak_bytes": int(measurements[0][0]),
                                    "cumulative_bytes": int(measurements[0][1])})
-    skip_source = ROOT / "tests/developer-tools/check-binding-skip.jai"
+    skip_source = ROOT / "stdlib/Bindings_Generator/tests/driven/check-binding-skip.jai"
     for mode in ["interp", "0", "2"]:
         command = [jaic, skip_source, "-interp", "-I", ROOT / "target"]
         if mode != "interp":

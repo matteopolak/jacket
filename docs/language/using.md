@@ -24,7 +24,7 @@ get_x(*d);                                // get_x :: (b: *Base) -> int
 
 ## How to change it
 
-Inline `#overlay` and `#place` targets use the same promoted-field resolver as member lookup, limited to fields already laid out; pointer-backed promoted storage has no inline offset and is rejected there. Tests: `tests/stdlib/using-pointer-member.jai`, `using-member-default-override.jai`, `module-using-import-reexport.jai`, `using-global-of-own-struct.jai`. Related: `parser/decl.rs`.
+Inline `#overlay` and `#place` targets use the same promoted-field resolver as member lookup, limited to fields already laid out; pointer-backed promoted storage has no inline offset and is rejected there. Tests: `tests/compiler/regressions/using-pointer-member.jai`, `using-member-default-override.jai`, `module-using-import-reexport.jai`, `using-global-of-own-struct.jai`. Related: `parser/decl.rs`.
 
 ## Rules
 

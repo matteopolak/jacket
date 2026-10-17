@@ -239,7 +239,7 @@ jobs:
           "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"
           # SDL3's generated source must satisfy the real repository formatter and linter.
           # No missing dependency or syntax-only lint fallback is accepted by these checks.
-          "$dir/jaifmt$exe" --check stdlib/Extensions/SDL3 tests/sdl3
+          "$dir/jaifmt$exe" --check stdlib/Extensions/SDL3 stdlib/Extensions/SDL3/tests
           python3 tools/sdl3_gen.py --source target/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
           python3 tools/sdl3_lint.py --jailint "$PWD/$dir/jailint$exe" --stdlib "$PWD/$dir/stdlib"
           ls "$dir"
@@ -297,7 +297,7 @@ jobs:
           # WebGPU programs need nothing beyond the archive: the triangle example links the
           # packaged static wgpu-native, and `jaic -interp` loads the packaged shared one (exit 77:
           # the runner has no GPU adapter, which still proves the library loaded).
-          cp "$GITHUB_WORKSPACE/examples/webgpu/triangle.jai" "$GITHUB_WORKSPACE/tests/webgpu/headless.jai" .
+          cp "$GITHUB_WORKSPACE/examples/webgpu/triangle.jai" "$GITHUB_WORKSPACE/stdlib/Extensions/WebGPU/tests/headless.jai" .
           if [ -n "${{ matrix.llvm }}" ]; then
             "$jaic" triangle.jai -exe triangle
             ls -l triangle$exe
@@ -315,7 +315,7 @@ jobs:
             --platform "${{ matrix.name }}" --work "$work/sdl3"
           # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
           # the packaged shared libraries, and the built executable links the static ones.
-          cp "$GITHUB_WORKSPACE/tests/native-libs/simp-image.jai" .
+          cp "$GITHUB_WORKSPACE/stdlib/Simp/tests/image.jai" .
           "$jaic" simp-image.jai -interp
           if [ -n "${{ matrix.llvm }}" ]; then
             "$jaic" simp-image.jai -exe simp-image
@@ -324,10 +324,11 @@ jobs:
           # The other shipped libraries, with the stdlib's own runtime tests: FreeType (a BDF font
           # in memory), Dear ImGui (frames with no window), MojoShader (bytecode to GLSL), and on
           # Windows x64 SDL2 (its import library and DLL from the official release).
-          libs=(freetype-bdf-glyph imgui-headless-frames mojoshader-translate)
-          if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(sdl2-geometry-timer); fi
-          for lib_test in "${libs[@]}"; do
-            cp "$GITHUB_WORKSPACE/tests/native-regressions/$lib_test.jai" .
+          libs=(stdlib/freetype/tests/bdf-glyph.jai stdlib/ImGui/tests/headless-frames.jai stdlib/MojoShader/tests/translate.jai)
+          if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(stdlib/SDL/tests/geometry-timer.jai); fi
+          for lib_path in "${libs[@]}"; do
+            lib_test=$(basename "$lib_path" .jai)
+            cp "$GITHUB_WORKSPACE/$lib_path" .
             "$jaic" "$lib_test.jai" -interp
             if [ -n "${{ matrix.llvm }}" ]; then
               "$jaic" "$lib_test.jai" -exe "$lib_test"

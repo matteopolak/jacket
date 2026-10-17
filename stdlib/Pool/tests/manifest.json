@@ -1,0 +1,22 @@
+[
+  {
+    "name": "allocator-caps",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "default-public-shape",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "lifetime",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "size-limits",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "value-lifetime",
+    "stdout": "ok\n"
+  }
+]

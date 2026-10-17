@@ -20,8 +20,8 @@ def main():
         parser.add_argument('--'+name.replace('_', '-'), type=Path, required=True)
     args = parser.parse_args()
     snapshot, identity = capture(args.output_root, ('tools/native_bindings',
-        'tests/native-bindings/rpmalloc-retained-advice.jai',
-        'tests/native-bindings/rpmalloc_advice_probe.c', 'docs/specs/stdlib/modules/rpmalloc.md',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retained-advice.jai',
+        'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_advice_probe.c', 'docs/specs/stdlib/modules/rpmalloc.md',
         'jaifmt.toml', 'jailint.toml'))
     work = Path(tempfile.mkdtemp(prefix='advice-', dir=args.output_root))
     sys.path.insert(0, str(snapshot/'tools/native_bindings'))
@@ -46,15 +46,15 @@ def main():
         return result.returncode == 0
 
     for helper_source, name in ((snapshot/'stdlib/internal/bindings/callback-context/bridge.c', 'binding_callback_context'),
-                         (snapshot/'tests/native-bindings/rpmalloc_advice_probe.c', 'rpmalloc_advice_probe')):
+                         (snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_advice_probe.c', 'rpmalloc_advice_probe')):
         invoke('independent native helper '+name, [args.native_compiler, '-dynamiclib', '-Wall', '-Wextra', '-Werror',
                                                   helper_source, '-o', work/('native/lib'+name+'.dylib')])
     for mode in ('O0', 'O2'):
         exe = work/('advice-'+mode)
-        if invoke('native build '+mode, [args.compiler, snapshot/'tests/native-bindings/rpmalloc-retained-advice.jai',
+        if invoke('native build '+mode, [args.compiler, snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retained-advice.jai',
                                         '-'+mode, '-exe', exe]):
             invoke('actual kernel advice '+mode, [exe])
-    fixture = snapshot/'tests/native-bindings/rpmalloc-retained-advice.jai'
+    fixture = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retained-advice.jai'
     for os_name in ('macos', 'linux', 'windows'):
         for cpu in ('x64', 'arm64'):
             invoke('public advice source '+os_name+'-'+cpu,

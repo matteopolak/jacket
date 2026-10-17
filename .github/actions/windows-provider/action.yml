@@ -26,5 +26,5 @@ runs:
       run: |
         entry=platform_io_windows_crash_prepare; [ "$CPU" = arm64 ] && entry=platform_io_arm64_crash_init
         mkdir -p target/provider-load
-        clang --target="$TRIPLE" -std=c11 -Wall -Wextra -Werror tests/native-provider/windows-provider-load.c -o target/provider-load/provider-load.exe
+        clang --target="$TRIPLE" -std=c11 -Wall -Wextra -Werror stdlib/Runtime_Support_Crash_Handler/tests/native/provider-load.c -o target/provider-load/provider-load.exe
         target/provider-load/provider-load.exe "$(cygpath -m "$PWD/stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")" "$entry"

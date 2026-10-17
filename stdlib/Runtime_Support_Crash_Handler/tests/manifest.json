@@ -1,0 +1,10 @@
+[
+  {
+    "name": "init",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "windows-native-sections",
+    "required_os": "windows"
+  }
+]

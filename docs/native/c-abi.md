@@ -49,7 +49,7 @@ Vtable :: struct { add: #type (this: *Obj, x: s32) -> s32 #cpp_method; }
 - Compare against clang: `clang --target=<triple> -S -emit-llvm structs.c` next to `jaic ... -target <same triple> -emit_ir out.ll`. Clang emits IR for any target without its libraries.
 - Pieces become separate LLVM parameters (`f32, f32`, not `[2 x float]`); assignment matches except when an aggregate needs two registers and one is left.
 - Small signed integers are not sign- or zero-extended per the C ABI, because the IR carries no signedness.
-- Tests (in `crates/jaic-cli/tests/native.rs`, fixtures in `tests/native/`): `c-structs-by-value/`, `c-aggregate-abi/`, `c-variadic-aggregates/`, `c-struct-returns/` (58 shapes), `c-long-double/`, plus `tests/stdlib/c-variadic-foreign-calls.jai` and `cpp-method-and-array-decay.jai`. They need `cc` (on Windows `clang` and `llvm-ar`).
+- Tests (in `crates/jaic-cli/tests/native.rs`, fixtures in `tests/native/`): `c-structs-by-value/`, `c-aggregate-abi/`, `c-variadic-aggregates/`, `c-struct-returns/` (58 shapes), `c-long-double/`, plus `tests/compiler/regressions/c-variadic-foreign-calls.jai` and `cpp-method-and-array-decay.jai`. They need `cc` (on Windows `clang` and `llvm-ar`).
 
 ## Dependencies
 

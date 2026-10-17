@@ -1,0 +1,38 @@
+[
+  {
+    "name": "floats",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/private-seed-is-not-exported",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Hash` has no exported member `HASH_INIT`",
+    "positive_baseline": "public-import-baseline"
+  },
+  {
+    "name": "negative/seed-visibility",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Hash` has no exported member `HASH_INIT`"
+  },
+  {
+    "name": "negative/unsupported",
+    "mode": "check-fail",
+    "diagnostic_contains": "no overload of `get_hash` matches these arguments"
+  },
+  {
+    "name": "public-import-baseline",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "scalar-fnv",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "scalar-mixing",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "scalars",
+    "stdout": "ok\n"
+  }
+]

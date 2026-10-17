@@ -2,12 +2,12 @@
 // (../../Tls/tests/data): a round trip, keep-alive across requests, certificate failures, client
 // certificates, ALPN, handshakes that never finish, idle connections holding no read buffer, large
 // bodies and graceful shutdown. Run from this directory, once per backend (JAI_IO_BACKEND).
-#load "lib/server_support.jai";
+#load "support/server_support.jai";
 
 Tls :: #import "Extensions/Tls";
 
 // The certificates of the Tls tests, as string constants (see ../../Tls/tests/data/make_certs.sh).
-#load "../../Tls/tests/data/certs.jai";
+#load "../../Tls/tests/fixtures/certs.jai";
 
 load :: (name: string) -> string {
     for DATA if it.name == name return it.text;

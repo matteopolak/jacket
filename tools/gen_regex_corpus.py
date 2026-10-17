@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes stdlib/Extensions/Regex/tests/data/differential_cases.jai: random patterns and texts,
+"""Writes stdlib/Extensions/Regex/tests/fixtures/differential_cases.jai: random patterns and texts,
 with what Rust's regex crate matches for each (via tools/regex_oracle). The Jai test checks that
 Extensions/Regex finds the same matches and capture spans. See docs/extensions/regex.md.
 
@@ -13,7 +13,7 @@ import random
 import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-OUTPUT = ROOT / "stdlib/Extensions/Regex/tests/data/differential_cases.jai"
+OUTPUT = ROOT / "stdlib/Extensions/Regex/tests/fixtures/differential_cases.jai"
 
 ATOMS = [
     "a", "b", "c", "ab", "\\d", "\\w", "\\s", "\\W", ".", "[a-c]", "[^ab]", "\\b", "\\B", "^", "$",

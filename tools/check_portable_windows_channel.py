@@ -20,7 +20,7 @@ def main():
     library = args.stdlib.resolve(strict=True)
     compiler = args.jaic.resolve(strict=True)
     env = dict(os.environ, JAIC_STDLIB=str(library))
-    source = ROOT / "tests/portable-stdlib/windows-channel/main.jai"
+    source = ROOT / "stdlib/Shared_Memory_Channel/tests/windows-channel/main.jai"
 
     def checked(command, expected=None):
         result = subprocess.run([str(p) for p in command], cwd=ROOT, env=env,
@@ -32,7 +32,7 @@ def main():
         checked([compiler, "-check", "-os", "windows", "-cpu", cpu, source])
         for role in ["reader", "writer"]:
             checked([compiler, "-check", "-os", "windows", "-cpu", cpu,
-                     ROOT / f"tests/portable-stdlib/ipc/{role}.jai", "-add", 'CHANNEL_NAME :: "portable-source-check";'])
+                     ROOT / f"stdlib/Shared_Memory_Channel/tests/basics/{role}.jai", "-add", 'CHANNEL_NAME :: "portable-source-check";'])
         print(f"Windows/{cpu} channel lifecycle/packet/IPC bodies check", flush=True)
     if not args.native:
         print("Windows mapping execution remains unverified; no native pass claimed")

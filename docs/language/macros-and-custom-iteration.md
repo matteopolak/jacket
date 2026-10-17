@@ -35,7 +35,7 @@ for b { s += it * 10 + it_index; }
 
 ## How to change it
 
-Loop-body plumbing is `ForBody` in `sema/lower.rs`. Tests in `tests/stdlib/`: `backtick-defer-names.jai`, `macro-code-variable-arg.jai`, `for-expansion-*.jai`. `Code` and `For_Flags` come from the preload.
+Loop-body plumbing is `ForBody` in `sema/lower.rs`. Tests in `tests/compiler/regressions/`: `backtick-defer-names.jai`, `macro-code-variable-arg.jai`, `for-expansion-*.jai`. `Code` and `For_Flags` come from the preload.
 
 ## Rules
 

@@ -1,0 +1,15 @@
+[
+  {
+    "name": "negative/radix-signed-input",
+    "mode": "check-fail",
+    "diagnostic_contains": "no overload of `sort` matches these arguments"
+  },
+  {
+    "name": "radix",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "radix-relative",
+    "stdout": "ok\n"
+  }
+]

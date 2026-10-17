@@ -11,7 +11,7 @@ from pathlib import Path
 import struct
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "tests/window-render/assets/feature-font.ttf"
+OUTPUT = ROOT / "stdlib/Simp/tests/fixtures/feature-font.ttf"
 
 
 def unsigned16(*values):

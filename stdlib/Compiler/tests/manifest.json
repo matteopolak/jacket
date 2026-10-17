@@ -1,0 +1,87 @@
+[
+  {
+    "name": "code-and-file-scoped-source",
+    "source": "code-and-file-scoped-source/main.jai",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "code-and-file-scoped-source/scoped-piece"
+  },
+  {
+    "name": "code-records-and-copy",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "context-cleanup-and-flags",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "invalid-segment-alignment",
+    "stdout": "",
+    "exit_code": 1,
+    "error_contains": "alignment must be a positive power of two"
+  },
+  {
+    "name": "invalid-segment-handle",
+    "stdout": "",
+    "exit_code": 1,
+    "error_contains": "invalid user segment handle"
+  },
+  {
+    "name": "invalid-workspace-diagnostic",
+    "stdout": "",
+    "exit_code": 1,
+    "error_contains": "invalid workspace 999"
+  },
+  {
+    "name": "managed-global-data",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "measured-performance-reports",
+    "stdout": "ok\n",
+    "required_browser_host_capabilities": [
+      "compiler-monotonic-clock"
+    ]
+  },
+  {
+    "name": "memory-breakpoint-limit",
+    "stdout": "",
+    "exit_code": 1,
+    "error_contains": "compiler memory breakpoints are unavailable"
+  },
+  {
+    "name": "message-records-and-completion",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "optimization-options",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "proc-sentinel-constant",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  },
+  {
+    "name": "procedure-modification",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "records-and-helpers",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "using-records-preserve-filters",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "workspace-options-and-source",
+    "stdout": "ok\n"
+  }
+]

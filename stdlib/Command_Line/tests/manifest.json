@@ -1,0 +1,14 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "command-help",
+    "stdout": "configuration comment\n  --alpha \n  --zeta  last option \n  help: --help\nok\n"
+  },
+  {
+    "name": "explicitness-and-free-arguments",
+    "stdout": "ok\n"
+  }
+]

@@ -1,0 +1,36 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "dump",
+    "stdout": "state\n0: 1 2\n1: 3 4\n2: 5 6\n3: 7 8\n4: 9 10\n5: 11 12\n6: 13 14\n7: 15 16\nok\n"
+  },
+  {
+    "name": "faults/null",
+    "mode": "fault",
+    "error_contains": "MeowHash invalid source/length",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "hash",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  },
+  {
+    "name": "negative/lane",
+    "mode": "check-fail",
+    "diagnostic_contains": "INDEX >= 0 && INDEX < 2"
+  },
+  {
+    "name": "vectors",
+    "stdout": "ok\n"
+  }
+]

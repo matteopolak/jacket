@@ -12,8 +12,8 @@
 /rustc-ice-*.txt
 /result
 /result-*
-/tests/stdlib/.scratch/
-/stdlib/Extensions/Io/tests/.scratch/
+# Scratch files the stdlib tests write next to themselves.
+/stdlib/**/tests/.scratch/
 /stdlib/internal/watching/native/libportable_watch.dylib
 /stdlib/internal/android-toolchain/android-crypto/
 

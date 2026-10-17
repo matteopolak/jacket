@@ -1,0 +1,145 @@
+[
+  {
+    "name": "client",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "client-overload-lint",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only Http App/Client public surface"
+    ]
+  },
+  {
+    "name": "date-now-wasm",
+    "mode_contracts": {
+      "wasm-interp": {
+        "mode": "check-fail",
+        "diagnostic_contains": "module `Extensions/Http` has no exported member `http_date_now`"
+      },
+      "wasm-native": {
+        "mode": "check-fail",
+        "diagnostic_contains": "module `Extensions/Http` has no exported member `http_date_now`"
+      }
+    }
+  },
+  {
+    "name": "dependency-consumer",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only Http App/Client public surface"
+    ]
+  },
+  {
+    "name": "https",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "native-date-target",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native-only Http.http_date_now wall-clock adapter"
+    ]
+  },
+  {
+    "name": "router-ownership",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "server-connections",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "server-extractors",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "server-responses",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "server-routing",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "testing",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
+    "name": "wasm-termination-failure",
+    "exit_code": 1,
+    "stdout": "FAIL: independent WASM termination control\n1 failure(s)\n",
+    "stderr": ""
+  },
+  {
+    "name": "wasm-termination-status",
+    "exit_code": 37,
+    "stdout": "before exit 37\n",
+    "stderr": ""
+  }
+]

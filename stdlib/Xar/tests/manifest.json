@@ -1,0 +1,22 @@
+[
+  {
+    "name": "allocation-counts",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "allocator-ownership",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/capacity",
+    "mode": "fault",
+    "error_contains": "Xar configured capacity exceeded",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "negative/reverse",
+    "mode": "check-fail",
+    "diagnostic_contains": "reverse Xar iteration is unsupported"
+  }
+]

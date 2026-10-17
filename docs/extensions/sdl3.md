@@ -29,4 +29,4 @@ Source: SDL 3.4.18 (`SDL3-3.4.18.tar.gz` from the libsdl-org release, SHA256 `9c
 
 ## Dependencies and tests
 
-Clang (generation only), CMake and a platform C toolchain (native builds). Tests: `tests/sdl3/` (`layout*.jai`, `headless.jai`, `callbacks.jai`, `entry.jai`, C layout headers) run with `python3 tools/test_sdl3.py` and `python3 -m unittest discover -s tools -p 'test_sdl3*.py'`; the `sdl3` job in `.github/workflows/ci.yml` builds the native libraries per platform, audits them and runs the generator `--check` (passing `--jaifmt`); `release.yml` builds SDL3 for all six targets and tests the packaged libraries.
+Clang (generation only), CMake and a platform C toolchain (native builds). Tests: `stdlib/Extensions/SDL3/tests/` (`layout*.jai`, `headless.jai`, `callbacks.jai`, `entry.jai`, C layout headers) run with `python3 tools/test_sdl3.py` and `python3 -m unittest discover -s tools -p 'test_sdl3*.py'`; the `sdl3` job in `.github/workflows/ci.yml` builds the native libraries per platform, audits them and runs the generator `--check` (passing `--jaifmt`); `release.yml` builds SDL3 for all six targets and tests the packaged libraries.

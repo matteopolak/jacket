@@ -16,4 +16,4 @@ MODULE_LOCAL_FIXTURES = {
 def fixture_source(root, filename):
     if filename in MODULE_LOCAL_FIXTURES:
         return (root / MODULE_LOCAL_FIXTURES[filename]).resolve(strict=True)
-    return root / "tests/native-bindings" / filename
+    return root / "stdlib/Bindings_Generator/tests/driven/sdk" / filename

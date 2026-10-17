@@ -1,0 +1,111 @@
+[
+  {
+    "name": "compressed-stream",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "concurrent-factories",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "concurrent-render-stop",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "controlled-output",
+    "stdout_one_of": [
+      "native-2-channel-output-opened\nok\n",
+      "native-6-channel-output-opened\nok\n",
+      "native-8-channel-output-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "device-lifecycle",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "entity-lifecycle",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "entity-phase",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "faults/channels",
+    "mode": "fault",
+    "error_contains": "audio sample input/channel range invalid",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/magic",
+    "mode": "fault",
+    "error_contains": "audio magic read outside input",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "negative/private",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `lock_producer`"
+  },
+  {
+    "name": "negative/private-mutex",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `sound_mutex`"
+  },
+  {
+    "name": "negative/private-player-helper",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `lock_player`"
+  },
+  {
+    "name": "pure-public",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "reviewed Sound_Player public Mutex/Thread globals and native platform backends; no device initialization requested"
+    ]
+  },
+  {
+    "name": "region-lifetime",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  },
+  {
+    "name": "samples",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "streams",
+    "stdout_one_of": [
+      "native-device-opened\nok\n",
+      "native-device-unavailable\nok\n"
+    ]
+  }
+]

@@ -1,0 +1,19 @@
+[
+  {
+    "name": "base64-and-crc",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "codec",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "codecs",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/decoder-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `B.BASE64_DECODER_TABLE`"
+  }
+]

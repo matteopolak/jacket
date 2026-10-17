@@ -22,7 +22,7 @@ operator [] :: (v: Vec, i: int) -> float { if i == 0 return v.x; return v.y; }
 
 ## How to change it
 
-For a new operator token, make the parser accept `operator <tok>`, then add dispatch next to the `try_*_operator_overload` functions in `sema/calls.rs`. Tests: `tests/stdlib/operator-ne-from-eq.jai`, `index-operator-fallback.jai`.
+For a new operator token, make the parser accept `operator <tok>`, then add dispatch next to the `try_*_operator_overload` functions in `sema/calls.rs`. Tests: `tests/compiler/regressions/operator-ne-from-eq.jai`, `index-operator-fallback.jai`.
 
 ## Rules
 

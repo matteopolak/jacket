@@ -1,0 +1,21 @@
+[
+  {
+    "name": "negative/field-visibility",
+    "mode": "check-fail",
+    "diagnostic_contains": "no exported member `nChannels`"
+  },
+  {
+    "name": "negative/index-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `A.index_table`"
+  },
+  {
+    "name": "negative/step-store",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot assign into the constant `A.step_table`"
+  },
+  {
+    "name": "public-constants-and-saturation",
+    "stdout": "ok\n"
+  }
+]

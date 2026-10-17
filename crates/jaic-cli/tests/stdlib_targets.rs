@@ -3,7 +3,7 @@
 //! `jaic -check -no_dce -os <os> -cpu <cpu>` on a program that only imports the module checks every
 //! procedure body and declaration in it, so code for other platforms and procedures no test
 //! calls cannot hide type errors. Modules that refuse a target on purpose (`#assert(OS == ...)`)
-//! are listed in `tests/stdlib-targets.txt` with the first error they stop at; the test fails when
+//! are listed in `tests/compiler/stdlib-targets.txt` with the first error they stop at; the test fails when
 //! a module fails that is not listed, fails differently, or passes although it is listed.
 //! The plugin loader's declared generated body needs its real empty compile-time initialization
 //! before unused-code checking, including when imported by Default_Metaprogram.
@@ -175,7 +175,7 @@ fn every_stdlib_module_checks_for_every_target() {
     let root = root().canonicalize().unwrap();
     let stdlib = root.join("stdlib");
     let stdlib_prefix = format!("{}/", stdlib.display());
-    let listed = root.join("tests/stdlib-targets.txt");
+    let listed = root.join("tests/compiler/stdlib-targets.txt");
     let (skip, expected) = expectations(&std::fs::read_to_string(&listed).unwrap());
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(format!("stdlib-targets-{}", std::process::id()));
@@ -201,7 +201,9 @@ fn every_stdlib_module_checks_for_every_target() {
                         module.as_str(),
                         "Metaprogram_Plugins" | "Default_Metaprogram"
                     ) {
-                        include_str!("../../../tests/stdlib-contexts/plugin-initialization.jai")
+                        include_str!(
+                            "../../../stdlib/Metaprogram_Plugins/tests/plugin-initialization.jai"
+                        )
                     } else {
                         ""
                     };
@@ -254,13 +256,13 @@ fn every_stdlib_module_checks_for_every_target() {
         let listed_for_another_host = error.contains("is not available here");
         if !actual.contains_key(key) && !listed_for_another_host {
             problems.push(format!(
-                "{key} passes now: remove it from tests/stdlib-targets.txt"
+                "{key} passes now: remove it from tests/compiler/stdlib-targets.txt"
             ));
         }
     }
     assert!(
         problems.is_empty(),
-        "{} of the stdlib/target checks differ from tests/stdlib-targets.txt:\n{}",
+        "{} of the stdlib/target checks differ from tests/compiler/stdlib-targets.txt:\n{}",
         problems.len(),
         problems.join("\n")
     );

@@ -23,8 +23,8 @@ def main():
     )
     args = parser.parse_args()
     extras = [
-        "tests/native-bindings/appkit-window-backing-scale.jai",
-        "tests/native-bindings/appkit_backing_scale_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-window-backing-scale.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit_backing_scale_probe.m",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/appkit.md",
         "jaifmt.toml",

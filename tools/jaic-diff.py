@@ -3,7 +3,7 @@
 
 Usage: tools/jaic-diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
 Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (reviewed positive contracts), regressions (independent compiler/Extensions/ABI/graphics),
-modules (stdlib/*/tests and stdlib/tests), gen:SEED:COUNT (COUNT programs from tools/jaigen.py starting at
+modules (every stdlib/**/tests directory), gen:SEED:COUNT (COUNT programs from tools/jaigen.py starting at
 SEED; reproduce one with `tools/jaigen.py SEED`), or file paths.
 
 Backends:
@@ -80,26 +80,22 @@ def cases(name, gen_dir, gen_size=1.0):
         for c in m["cases"]:
             if "runtime" in c:
                 yield Case(c["id"], ROOT / "tests/corpus" / c["source"])
-    elif name in ("stdlib", "regressions"):
-        from stdlib_test_catalog import validated_entries, REGRESSION_FAMILIES
+    elif name in ("regressions", "modules"):
+        from stdlib_test_catalog import validated_entries
+
+        wanted = "compiler" if name == "regressions" else "modules"
         for c in validated_entries():
-            if (c["family"] == "contracts") != (name == "stdlib") or (name == "regressions" and c["family"] == "modules"):
+            if c["family"] != wanted:
                 continue
-            # Expected compiler rejections have precise diagnostic oracles in the contract runner.
+            # Expected compiler rejections have precise diagnostic oracles in the runtime runner.
             # Differential execution compares successful/runtime-fault programs only.
             if c.get("mode") == "check-fail" or "error_contains" in c:
                 continue
-            base = ROOT / "tests" / ("stdlib-contract" if name == "stdlib" else REGRESSION_FAMILIES[c["family"]])
-            cid = c["path"].stem if c["family"] == "extensions" else c["id"]
-            yield Case(cid, c["path"], base)
-    elif name == "modules":
-        found = (list((ROOT / "stdlib").glob("*/tests/*.jai")) + list((ROOT / "stdlib").glob("Extensions/*/tests/*.jai"))
-                 + list((ROOT / "stdlib/tests").glob("**/*.jai")))
-        for p in sorted(set(found)):
-            rel = p.relative_to(ROOT / "stdlib")
-            if "modules" not in rel.parts:
+            if wanted == "compiler":
+                yield Case(c["id"], c["path"], ROOT / "tests/compiler/regressions")
+            else:
                 # The whole stdlib is the workspace: tests `#load` their module's files by relative path.
-                yield Case(str(rel.with_suffix("")), p, ROOT / "stdlib")
+                yield Case(c["id"], c["path"], ROOT / "stdlib")
     elif name.startswith("gen:"):
         _, seed, count = (name.split(":") + ["1"])[:3]
         sys.path.insert(0, str(ROOT / "tools"))

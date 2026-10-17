@@ -26,10 +26,10 @@ def main():
         "appkit",
         "metal",
     ]
-    extras = ["tests/native-bindings/" + n + ".jai" for n in names]
+    extras = ["stdlib/Bindings_Generator/tests/driven/sdk/" + n + ".jai" for n in names]
     extras += [
-        "tests/native-bindings/appkit-metal-contract-probe.m",
-        "tests/native-bindings/apple_abi_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/appkit-metal-contract-probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/apple_abi_probe.m",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/metal.md",
         "docs/specs/stdlib/modules/appkit.md",
@@ -90,7 +90,7 @@ def main():
 
     for cpu in ("arm64", "x64"):
         for name in names:
-            source = snapshot / ("tests/native-bindings/" + name + ".jai")
+            source = snapshot / ("stdlib/Bindings_Generator/tests/driven/sdk/" + name + ".jai")
             run(
                 "source " + cpu + " " + name,
                 [
@@ -105,7 +105,7 @@ def main():
                 ],
             )
         fixture = (
-            snapshot / "tests/native-bindings/metal-command-encoder-inheritance.jai"
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/metal-command-encoder-inheritance.jai"
         )
         run(
             "complete Metal strictlint " + cpu,
@@ -126,7 +126,7 @@ def main():
             ],
         )
         fixture = (
-            snapshot / "tests/native-bindings/appkit-collection-behavior-names.jai"
+            snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/appkit-collection-behavior-names.jai"
         )
         run(
             "complete AppKit strictlint " + cpu,
@@ -229,7 +229,7 @@ def main():
                 "has no constant member `" + method + "`",
             )
 
-    probe = snapshot / "tests/native-bindings/appkit-metal-contract-probe.m"
+    probe = snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/appkit-metal-contract-probe.m"
     for cpu in ("arm64", "x86_64"):
         run(
             "SDK source " + cpu,
@@ -275,7 +275,7 @@ def main():
                 "Metal",
                 "-framework",
                 "OpenGL",
-                snapshot / "tests/native-bindings/apple_abi_probe.m",
+                snapshot / "stdlib/Bindings_Generator/tests/driven/sdk/apple_abi_probe.m",
                 "-o",
                 work / "libapple_abi_probe.dylib",
             ],
@@ -284,7 +284,7 @@ def main():
     )
     if helpers:
         for name in names:
-            source = snapshot / ("tests/native-bindings/" + name + ".jai")
+            source = snapshot / ("stdlib/Bindings_Generator/tests/driven/sdk/" + name + ".jai")
             modes = ("O0", "O2", "sanitized") if name in names[:2] else ("O0", "O2")
             for mode in modes:
                 flags = (
@@ -335,7 +335,7 @@ def main():
         snapshot / "stdlib/Objective_C/AppKit/module.jai",
         snapshot / "stdlib/Metal/declarations.jai",
     ]
-    paths += [snapshot / ("tests/native-bindings/" + n + ".jai") for n in names[:3]]
+    paths += [snapshot / ("stdlib/Bindings_Generator/tests/driven/sdk/" + n + ".jai") for n in names[:3]]
     run(
         "owned Jai formatting",
         [args.formatter, "--check", "--config", snapshot / "jaifmt.toml", *paths],

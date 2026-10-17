@@ -13,10 +13,8 @@ class CatalogueTests(unittest.TestCase):
     def test_appledouble_metadata_is_not_an_independent_program(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "tests/stdlib-contract").mkdir(parents=True)
-            (root / "tests/stdlib-contract/manifest.json").write_text("[]")
-            regression = root / "tests/compiler-regressions"
-            regression.mkdir()
+            regression = root / "tests/compiler/regressions"
+            regression.mkdir(parents=True)
             (regression / "actual.jai").write_text("main :: () {}")
             (regression / "._actual.jai").write_bytes(b"\x00\x05\x16\x07")
             module = root / "stdlib/Real/tests"
@@ -61,8 +59,8 @@ class CatalogueTests(unittest.TestCase):
 
     def test_reviewed_and_independent_families_are_discovered(self):
         cases = validated_entries()
-        self.assertEqual({c["family"] for c in cases}, {"contracts", "compiler", "extensions", "native", "graphics", "modules"})
-        self.assertTrue(any(c["id"] == "contracts/hash-private-seed-is-not-exported" for c in cases))
+        self.assertEqual({c["family"] for c in cases}, {"compiler", "modules"})
+        self.assertTrue(any(c["id"].startswith("Hash/tests/") for c in cases))
         self.assertTrue(any(c["id"] == "compiler/array-bounds-check-opt-out" for c in cases))
         self.assertFalse(any("tests/stdlib/" in str(c["path"]) for c in cases))
 
@@ -73,7 +71,6 @@ class CatalogueTests(unittest.TestCase):
         self.assertTrue(contract_result(case, 1, "error: " + case["diagnostic_contains"]))
         self.assertFalse(contract_result({"stdout": "ok\n"}, 0, "wrong\n"))
         self.assertIsNone(unavailable_reason({"family": "native"}, "native"))
-        self.assertIsNotNone(unavailable_reason({"family": "native"}, "wasm-native"))
 
     def test_expected_diagnostics_are_separate_from_program_stdout(self):
         case = {"stdout": "ok\n", "stderr": "expected diagnostic\n"}

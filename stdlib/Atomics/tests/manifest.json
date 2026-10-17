@@ -1,0 +1,30 @@
+[
+  {
+    "name": "atomic-cas",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "atomic-cas-threads",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "atomic-intrinsics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bootstrap-atomic-scalar-intrinsics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/atomic-bit-index",
+    "mode": "fault",
+    "error_contains": "atomic bit index out of range",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "negative/atomic-byte-bit",
+    "mode": "check-fail",
+    "diagnostic_contains": "atomic bit test requires a 2-, 4-, or 8-byte target"
+  }
+]

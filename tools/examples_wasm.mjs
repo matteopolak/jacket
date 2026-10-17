@@ -1,4 +1,4 @@
-// Runs the example programs listed in tests/examples.json (examples/tour, ...) in a wasm engine, the
+// Runs the example programs listed in tests/corpus/examples.json (examples/tour, ...) in a wasm engine, the
 // way the hosted playground does: every file of the example's directory as the workspace, its main
 // file as the entry point, and the case's `budget` (the playground's basic-block limit).
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export async function exampleCases() {
-  return JSON.parse(await readFile(path.join(root, "tests/examples.json"), "utf8")).cases;
+  return JSON.parse(await readFile(path.join(root, "tests/corpus/examples.json"), "utf8")).cases;
 }
 
 /** Every regular file under `directory`, keyed by its relative POSIX path. */

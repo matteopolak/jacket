@@ -44,7 +44,7 @@ run_case :: (exempt_path: bool, exempt_namespace := false) -> u32 {
     S.activate(*generator, *options, context._bindings_generator_session);
     generator.clang_index = B.clang_createIndex(0, 0);
     assert(generator.clang_index != null);
-    filename := to_c_string(tprint("%../../../tests/developer-tools/generator-run-main.hpp", #filepath));
+    filename := to_c_string(tprint("%../../../stdlib/Bindings_Generator/tests/driven/generator-run-main.hpp", #filepath));
     argument := to_c_string("-DRUN_ARGUMENT=40");
 
     defer free(filename);

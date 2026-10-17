@@ -1,0 +1,14 @@
+[
+  {
+    "name": "algorithms",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "sort-and-math",
+    "stdout": "ok\n"
+  }
+]

@@ -26,4 +26,4 @@ While a program runs, under `jaic -interp` or as a `jaic` executable, `context.s
 
 ## Dependencies
 
-`ir::Func::trace`, `ir::Program::{file_paths, stack_trace}`, `interp::Interp::trace_enter`. Tests: `tests/stdlib/stack-trace-nodes.jai`, `stack-trace-line-through-inline.jai`, `compile-time-stack-trace.jai`, and `stack_traces` in `crates/jaic-cli/tests/native.rs`.
+`ir::Func::trace`, `ir::Program::{file_paths, stack_trace}`, `interp::Interp::trace_enter`. Tests: `tests/compiler/regressions/stack-trace-nodes.jai`, `stack-trace-line-through-inline.jai`, `compile-time-stack-trace.jai`, and `stack_traces` in `crates/jaic-cli/tests/native.rs`.

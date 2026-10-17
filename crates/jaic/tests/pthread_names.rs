@@ -11,7 +11,7 @@ fn current_and_managed_worker_names_round_trip_through_the_sdk() {
     let source = format!(
         "DARWIN :: {};\n{}\n#program_export \"probe\" probe::()->s64 #c_call {{return check();}}",
         cfg!(target_os = "macos"),
-        include_str!("../../../tests/compiler-semantics/pthread-names.jai")
+        include_str!("../../../tests/compiler/semantics/pthread-names.jai")
     );
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", error.render(&compiler.sources));

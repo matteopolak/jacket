@@ -24,7 +24,7 @@ END
 
 ## How to change it
 
-Escapes and here strings are in `lexer.rs`. The literal-to-`*u8` rule is in `convert` (`sema/convert.rs`), which treats a `Value::String` constant specially. A one-character string is a byte only where the target is `u8`: `x: u8 = "a"`, `b[0] = "z"`, and `+`, `-`, `==` next to a `u8` operand. With `u16`, `int` and the other integers it is a type mismatch, and a longer string never converts to `u8`. It does not pass through `ifx` either (`c: u8 = ifx t then "b" else "a"` is an error). Tests: `tests/stdlib/one-char-string-as-byte.jai`, `crates/jaic/tests/sema_version_drift.rs`, `string-scan.jai`.
+Escapes and here strings are in `lexer.rs`. The literal-to-`*u8` rule is in `convert` (`sema/convert.rs`), which treats a `Value::String` constant specially. A one-character string is a byte only where the target is `u8`: `x: u8 = "a"`, `b[0] = "z"`, and `+`, `-`, `==` next to a `u8` operand. With `u16`, `int` and the other integers it is a type mismatch, and a longer string never converts to `u8`. It does not pass through `ifx` either (`c: u8 = ifx t then "b" else "a"` is an error). Tests: `tests/compiler/regressions/one-char-string-as-byte.jai`, `crates/jaic/tests/sema_version_drift.rs`, `string-scan.jai`.
 
 ## Rules
 

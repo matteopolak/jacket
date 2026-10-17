@@ -16,7 +16,7 @@ def main():
     base = Path(os.environ["CARGO_TARGET_DIR"]).resolve()
     work = Path(tempfile.mkdtemp(prefix="clipboard-clock-", dir=base))
     names = {
-        "tests/portable-stdlib/native/clipboard-clock-failure.c",
+        "stdlib/Clipboard/tests/native/clock-failure.c",
         "tools/check_portable_clipboard_clock.py",
     }
 
@@ -55,7 +55,7 @@ def main():
         return passed
 
     native = ROOT / "stdlib/internal/clipboard/native"
-    test = ROOT / "tests/portable-stdlib/native/clipboard-clock-failure.c"
+    test = ROOT / "stdlib/Clipboard/tests/native/clock-failure.c"
     sdk = (
         ["-I/opt/homebrew/include", "-L/opt/homebrew/lib"]
         if platform.system() == "Darwin"

@@ -1,0 +1,21 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "default-public-shape",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/capacity",
+    "mode": "fault",
+    "error_contains": "flat-pool reservation exhausted",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "release/main",
+    "stdout": "ok\n"
+  }
+]

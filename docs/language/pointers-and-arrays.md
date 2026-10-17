@@ -30,7 +30,7 @@ Boxing a place reached through a pointer into an `Any` reads nothing: `p.*` of a
 
 ## How to change it
 
-Index lowering is around `BoundsCheck` in `sema/expr.rs`; the opt-out is `FnCtx::no_abc` (`sema/lower.rs`, set in `procs.rs` and `stmt.rs`), which any new indexing construct must consult. The checks live in the IR so the interpreter and LLVM agree; do not add one to a single backend. `box_any` (`sema/convert.rs`) must not check or read the place. Tests: `tests/stdlib/reverse-for-remove.jai`, `array-bounds-check-opt-out.jai`; corpus cases `null-deref-print-any`, `null-deref-any-member`.
+Index lowering is around `BoundsCheck` in `sema/expr.rs`; the opt-out is `FnCtx::no_abc` (`sema/lower.rs`, set in `procs.rs` and `stmt.rs`), which any new indexing construct must consult. The checks live in the IR so the interpreter and LLVM agree; do not add one to a single backend. `box_any` (`sema/convert.rs`) must not check or read the place. Tests: `tests/compiler/regressions/reverse-for-remove.jai`, `array-bounds-check-opt-out.jai`; corpus cases `null-deref-print-any`, `null-deref-any-member`.
 
 ## Rules
 

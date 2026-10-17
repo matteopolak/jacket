@@ -7,15 +7,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
-from check_platform_io import main, run_wasm_contract
-from platform_io_capabilities import (
-    PLATFORM_CONTRACT_CAPABILITIES,
-    RUNTIME_CONTRACT_CAPABILITIES,
-    wasm_contract_reason,
-)
+from check_platform_io import CONTRACTS, main, run_wasm_contract, wasm_contract_reason
 from stdlib_test_catalog import unavailable_reason, validated_entries
 
 ROOT = Path(__file__).resolve().parents[1]
+CASES = {c["id"]: c for c in validated_entries()}
+SOURCES = {name: CASES[name]["path"] for name in CONTRACTS}
+NATIVE_ONLY = [n for n in CONTRACTS if wasm_contract_reason(SOURCES[n])]
+SUPPORTED = [n for n in CONTRACTS if n not in NATIVE_ONLY]
 
 
 class PlatformCapabilityTests(unittest.TestCase):
@@ -35,9 +34,9 @@ class PlatformCapabilityTests(unittest.TestCase):
                 "--cross-check",
                 "--wasm",
                 "--case",
-                "process-contract",
+                "Process/tests/lifecycle",
                 "--case",
-                "thread-contract",
+                "Thread/tests/synchronization",
             ]
             rejection = subprocess.CompletedProcess(
                 [], 1, b"", b"conflicts with the configured runtime instance"
@@ -50,7 +49,7 @@ class PlatformCapabilityTests(unittest.TestCase):
             ):
                 main()
             commands = [list(map(str, call.args[0])) for call in run.call_args_list]
-            for stem in ("process-contract", "thread-contract"):
+            for stem in ("lifecycle", "synchronization"):
                 selected = [
                     command
                     for command in commands
@@ -68,25 +67,18 @@ class PlatformCapabilityTests(unittest.TestCase):
             self.assertEqual(len(rows), 8)
             self.assertTrue(all(row["passed"] is None for row in rows))
 
-    def test_every_dedicated_fixture_has_an_explicit_contract(self):
-        self.assertEqual(
-            {p.stem for p in (ROOT / "tests/platform-io").glob("*-contract.jai")},
-            set(PLATFORM_CONTRACT_CAPABILITIES),
-        )
-        with self.assertRaises(KeyError):
-            wasm_contract_reason("unreviewed-contract")
+    def test_every_contract_is_a_catalogue_case(self):
+        for name, path in SOURCES.items():
+            self.assertTrue(path.is_file(), name)
+        self.assertTrue(NATIVE_ONLY)
+        self.assertTrue(SUPPORTED)
 
     def test_native_only_contracts_do_not_invoke_wasm_or_count_passed(self):
-        for stem in (
-            "process-contract",
-            "system-contract",
-            "thread-contract",
-            "thread-group-contract",
-        ):
-            with self.subTest(stem=stem):
+        for name in NATIVE_ONLY:
+            with self.subTest(name=name):
                 attempt = Mock()
                 rows = run_wasm_contract(
-                    "jaic", Path(stem + ".jai"), Path("out"), {}, attempt
+                    "jaic", SOURCES[name], Path("out"), {}, attempt
                 )
                 attempt.assert_not_called()
                 self.assertEqual(
@@ -103,12 +95,10 @@ class PlatformCapabilityTests(unittest.TestCase):
                 )
 
     def test_supported_wasm_fixtures_retain_all_modes(self):
-        for stem, capabilities in PLATFORM_CONTRACT_CAPABILITIES.items():
-            if capabilities:
-                continue
+        for name in SUPPORTED:
             attempt = Mock(return_value=True)
             rows = run_wasm_contract(
-                "jaic", Path(stem + ".jai"), Path("out"), {}, attempt
+                "jaic", SOURCES[name], Path("out"), {}, attempt
             )
             self.assertEqual(attempt.call_count, 6)
             self.assertTrue(
@@ -123,16 +113,15 @@ class PlatformCapabilityTests(unittest.TestCase):
     def test_real_build_or_execution_failure_remains_failure(self):
         attempt = Mock(side_effect=[True, False, False, True, False])
         rows = run_wasm_contract(
-            "jaic", Path("file-contract.jai"), Path("out"), {}, attempt
+            "jaic", SOURCES[SUPPORTED[0]], Path("out"), {}, attempt
         )
         self.assertEqual([r["passed"] for r in rows], [True, False, False, False])
         self.assertEqual(attempt.call_count, 5)
         self.assertTrue(all(r["status"] == "failed" for r in rows[1:]))
 
     def test_exact_catalogue_cases_remain_required_on_native_hosts(self):
-        cases = {c["id"]: c for c in validated_entries()}
-        for name in RUNTIME_CONTRACT_CAPABILITIES:
-            case = cases[name]
+        for name in NATIVE_ONLY:
+            case = CASES[name]
             for mode in ("wasm-interp", "wasm-native"):
                 self.assertIsNotNone(unavailable_reason(case, mode, "linux-arm64"))
             for host in (
@@ -146,11 +135,7 @@ class PlatformCapabilityTests(unittest.TestCase):
                     self.assertIsNone(unavailable_reason(case, mode, host))
         # The metadata must not become a blanket native-family/module skip.
         self.assertIsNone(
-            unavailable_reason(
-                cases["contracts/base64-and-crc-contracts"],
-                "wasm-native",
-                "linux-arm64",
-            )
+            unavailable_reason(CASES[SUPPORTED[0]], "wasm-native", "linux-arm64")
         )
 
 

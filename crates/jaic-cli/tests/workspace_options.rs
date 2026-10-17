@@ -24,7 +24,7 @@ fn checked(command: &mut Command) -> std::process::Output {
 fn selected_workspace_options_survive_child_and_grandchild_compilation() {
     let dir = directory("projection");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let source = root.join("tests/compiler-semantics/workspace-options/projection.jai");
+    let source = root.join("tests/compiler/semantics/workspace-options/projection.jai");
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -349,7 +349,7 @@ fn build_file_paths_preserve_caller_location_and_explicit_absolute_controls() {
 #[test]
 fn exact_independent_portable_projection_and_relative_controls() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let pending = root.join("tests/portable-stdlib/pending");
+    let pending = root.join("stdlib/Basic/tests/probes");
     for mode in ["-check", "-O0", "-O2"] {
         checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))

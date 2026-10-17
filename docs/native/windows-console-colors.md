@@ -42,7 +42,7 @@ Limits: a process that dies abnormally inside a block (assert, abort, crash, kil
 
 - `stdlib/Print_Color/tests/native-console.jai` runs on every host against a fake backend: attribute mapping, nesting, both restore policies, independent streams, early return, redirected stream (zero attribute calls), unbalanced pop and deep nesting.
 - `stdlib/Print_Color/tests/windows-console.jai` needs a Windows host. It redirects stdout to a file and checks that the bytes are untouched, then attaches a real console screen buffer (`AllocConsole` plus `CONOUT$`) and reads the attributes back through the Windows API. The real-console half needs a console; a headless runner that cannot allocate one fails with "no console screen buffer is available" rather than skipping.
-- `tests/portable-stdlib/print-color.jai` checks the ANSI byte stream.
+- `stdlib/Print_Color/tests/basics.jai` checks the ANSI byte stream.
 
 ## Dependencies
 

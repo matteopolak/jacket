@@ -1,0 +1,20 @@
+[
+  {
+    "name": "generator-macro-shared-state",
+    "required_browser_host_capabilities": [
+      "native-libclang-sdk"
+    ]
+  },
+  {
+    "name": "generator-run-macro-print",
+    "required_browser_host_capabilities": [
+      "native-libclang-sdk"
+    ]
+  },
+  {
+    "name": "generator-run-toplevel",
+    "required_browser_host_capabilities": [
+      "native-libclang-sdk"
+    ]
+  }
+]

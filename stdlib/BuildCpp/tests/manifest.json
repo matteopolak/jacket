@@ -1,0 +1,21 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/compile",
+    "mode": "check-fail",
+    "diagnostic_contains": "BuildCpp tool failed"
+  },
+  {
+    "name": "negative/target",
+    "mode": "check-fail",
+    "diagnostic_contains": "BuildCpp object target validation failed"
+  },
+  {
+    "name": "negative/tool",
+    "mode": "check-fail",
+    "diagnostic_contains": "BuildCpp tool failed"
+  }
+]

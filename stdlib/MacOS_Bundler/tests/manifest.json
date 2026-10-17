@@ -1,0 +1,6 @@
+[
+  {
+    "name": "bundle-plist",
+    "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>a&lt;&amp;&quot;&apos;</key>\n  <string>value&lt;&amp;&quot;&apos;&#13;\n\u00e9</string>\n  <key>true</key>\n  <true/>\n  <key>false</key>\n  <false/>\n  <key>negative</key>\n  <integer>-9223372036854775808</integer>\n  <key>unsigned</key>\n  <integer>18446744073709551615</integer>\n  <key>real</key>\n  <real>0.125</real>\n  <key>large-real</key>\n  <real>1.25e+100</real>\n</dict>\n</plist>\n"
+  }
+]

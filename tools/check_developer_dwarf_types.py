@@ -26,7 +26,7 @@ def main():
         for optimization in [0, 2]:
             base = ROOT / f"target/developer-tools-dwarf-types-{architecture}-o{optimization}"
             run([prefix / "bin/clang", "-target", target, "-std=c11", "-gdwarf-4", "-g", f"-O{optimization}",
-                 "-Wall", "-Wextra", "-Werror", "-c", ROOT / "tests/developer-tools/dwarf-types-native.c", "-o", base.with_suffix(".o")])
+                 "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-types-native.c", "-o", base.with_suffix(".o")])
             run([prefix / "bin/llvm-objcopy", "--dump-section", f".debug_info={base.with_suffix('.bin')}", base.with_suffix(".o")])
             text = run([prefix / "bin/llvm-dwarfdump", "--debug-info", base.with_suffix(".o")])
             records = []

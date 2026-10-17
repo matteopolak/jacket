@@ -28,8 +28,8 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             (example / 'main.jai').write_text('#load "part/one.jai";\n')
             (example / 'part/one.jai').write_text('// own nested example fixture\n')
             (example / '.hidden').write_text('editor state, not shipped\n')
-            (root / 'tests').mkdir()
-            (root / 'tests/examples.json').write_text(json.dumps({'cases': [
+            (root / 'tests/corpus').mkdir(parents=True)
+            (root / 'tests/corpus/examples.json').write_text(json.dumps({'cases': [
                 {'id': 'walk', 'bundle': 'walk', 'directory': 'examples/walk', 'main': 'main.jai'},
                 {'id': 'native-only', 'directory': 'examples/walk', 'main': 'main.jai'}]}))
             prefix = ['/own/rustup', 'run', 'nightly-2026-08-29', 'cargo']

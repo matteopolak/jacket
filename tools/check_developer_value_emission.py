@@ -18,9 +18,9 @@ def run(command, output=""):
 
 
 def main():
-    emitter = ROOT / "tests/developer-tools/bindings-value-emission.jai"
-    errors = ROOT / "tests/developer-tools/bindings-value-emission-errors.jai"
-    consumer = ROOT / "tests/developer-tools/bindings-value-emission-roundtrip.jai"
+    emitter = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-value-emission.jai"
+    errors = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-value-emission-errors.jai"
+    consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-value-emission-roundtrip.jai"
     generated = ROOT / "target/developer-tools-value-emission-generated.jai"
     for mode in ["interp", "0", "2"]:
         for source in [emitter, errors]:

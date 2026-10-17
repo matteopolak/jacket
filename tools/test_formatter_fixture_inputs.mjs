@@ -36,7 +36,7 @@ test("only named complete in-bounds AppleDouble metadata is excluded", () => {
 });
 
 test("transport sidecars do not change repository golden case coverage", () => {
-  const cases = fileURLToPath(new URL("../stdlib/Extensions/Jai_Format/tests/cases/", import.meta.url));
+  const cases = fileURLToPath(new URL("../stdlib/Extensions/Jai_Format/tests/fixtures/", import.meta.url));
   const names = goldenCaseNames(cases);
   assert.ok(names.length > 0);
   const root = mkdtempSync(path.join(tmpdir(), "formatter-goldens-"));

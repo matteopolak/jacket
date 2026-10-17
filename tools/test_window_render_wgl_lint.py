@@ -24,7 +24,7 @@ class WglLintContexts(unittest.TestCase):
             command = private["command"]
             context = command[command.index("--context") + 1]
             self.assertEqual(
-                context, runner.ROOT / "tests/window-render/windows-render-events.jai"
+                context, runner.ROOT / "stdlib/Windows/tests/render-events.jai"
             )
             self.assertEqual(
                 {

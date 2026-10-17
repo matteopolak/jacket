@@ -96,9 +96,9 @@ def provider_plan():
         dict(
             name="rpmalloc_callback_probe",
             units=[
-                (ROOT / "tests/native-bindings/rpmalloc_callback_probe.c", []),
+                (ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c", []),
                 (
-                    ROOT / "tests/native-bindings/rpmalloc_sdk_config_probe.c",
+                    ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_config_probe.c",
                     c_definitions(base, api["functions"]),
                 ),
             ],
@@ -114,7 +114,7 @@ def provider_plan():
                 name=name,
                 units=[
                     (
-                        ROOT / "tests/native-bindings/generated" / (name + ".c"),
+                        ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/generated" / (name + ".c"),
                         probe_flags,
                     )
                 ],
@@ -128,7 +128,7 @@ def provider_plan():
         "-Dnative_size=raw_native_size",
         "-DLIVE_NAME_COPY=" + raw["facade_prefix"] + "name_copy",
     ]
-    live = ROOT / "tests/native-bindings/rpmalloc_live_config_probe.c"
+    live = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c"
     result.append(
         dict(
             name="rpmalloc_live_config_probe",
@@ -149,7 +149,7 @@ def provider_plan():
     result.append(
         dict(
             name="rpmalloc_adaptive_probe",
-            units=[(ROOT / "tests/native-bindings/rpmalloc_adaptive_probe.c", flags)],
+            units=[(ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c", flags)],
         )
     )
     return result

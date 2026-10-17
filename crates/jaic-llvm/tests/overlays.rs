@@ -10,7 +10,7 @@ fn forward_overlays_execute_native_and_wasm_at_o0_and_o2() {
     backend::execute(
         "forward-overlay",
         "overlay_check",
-        include_str!("../../../tests/compiler-semantics/forward-overlay.jai"),
+        include_str!("../../../tests/compiler/semantics/forward-overlay.jai"),
         &[],
         None,
     );

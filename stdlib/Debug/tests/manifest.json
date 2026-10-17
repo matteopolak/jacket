@@ -1,0 +1,17 @@
+[
+  {
+    "name": "ignore-ownership",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Debug diagnostic output and retained assertion state"
+    ],
+    "required_os": [
+      "macos",
+      "linux",
+      "windows"
+    ]
+  }
+]

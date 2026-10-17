@@ -1,0 +1,33 @@
+[
+  {
+    "name": "interop",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Tls/Io fibers and TLS SDK; interop also needs Process/OpenSSL"
+    ]
+  },
+  {
+    "name": "tls",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Tls/Io fibers and TLS SDK; interop also needs Process/OpenSSL"
+    ]
+  },
+  {
+    "name": "windows-target",
+    "required_os": "windows",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Tls/Io Windows provider reproduction"
+    ]
+  }
+]

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+from driven_sources import driven
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -20,13 +21,12 @@ def run(command, expected=""):
 
 def main():
     prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
-    tests = ROOT / "tests/developer-tools"
     native = ROOT / "stdlib/internal/developer-tools/clang-bindings"
     oracle = ROOT / "target/developer-tools-anonymous-oracle"
     run([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
-         "-I", prefix / "include", tests / "bindings-anonymous-oracle.c", "-L", native,
+         "-I", prefix / "include", driven("bindings-anonymous-oracle.c"), "-L", native,
          "-Wl,-rpath," + str(native), "-lclang", "-o", oracle])
-    observations = [line.split("|") for line in run([oracle, tests / "bindings-anonymous.h"], None).splitlines()]
+    observations = [line.split("|") for line in run([oracle, driven("bindings-anonymous.h")], None).splitlines()]
     # SDK inferred tag spelling/anonymous-query values are observations, not
     # compatibility oracles. Source location and canonical identity are tested.
     if [(row[0], row[2], row[5]) for row in observations] != [
@@ -37,10 +37,13 @@ def main():
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     jaic = ROOT / "target/debug/jaic"
-    emitter = tests / "bindings-anonymous.jai"
-    consumer = tests / "bindings-anonymous-roundtrip.jai"
+    emitter = driven("bindings-anonymous.jai")
+    consumer = driven("bindings-anonymous-roundtrip.jai")
     generated = ROOT / "target/developer-tools-anonymous-generated.jai"
     default_generated = ROOT / "target/developer-tools-anonymous-default.jai"
+    # The generator loads the configured library, so it must exist before the first generation.
+    run([prefix / "bin/clang", "-std=c11", "-O0", *flags, tests / "bindings-anonymous-native.c",
+         "-o", ROOT / f"target/libdeveloper_tools_anonymous.{suffix}"])
     for mode in ["interp", "0", "2"]:
         if mode == "interp":
             run([jaic, emitter, "-interp"], "ok\n")
@@ -51,7 +54,7 @@ def main():
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated, default_generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
-                 *flags, tests / "bindings-anonymous-native.c", "-o", ROOT / f"target/libdeveloper_tools_anonymous.{suffix}"])
+                 *flags, driven("bindings-anonymous-native.c"), "-o", ROOT / f"target/libdeveloper_tools_anonymous.{suffix}"])
             run([jaic, consumer, "-interp", "-I", ROOT / "target"], "ok\n")
             executable = ROOT / f"target/developer-tools-anonymous-consumer-{mode}-o{optimization}"
             run([jaic, consumer, f"-O{optimization}", "-exe", executable, "-I", ROOT / "target"])
@@ -63,7 +66,7 @@ def main():
     for triple, os_tag, cpu in [("x86_64-pc-windows-msvc", "windows", "x64"),
                                 ("aarch64-unknown-linux-gnu", "linux", "arm64")]:
         run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-target", triple,
-             "-c", tests / "bindings-anonymous-native.c", "-o", ROOT / f"target/developer-tools-anonymous-{triple}.o"])
+             "-c", driven("bindings-anonymous-native.c"), "-o", ROOT / f"target/developer-tools-anonymous-{triple}.o"])
         run([jaic, consumer, "-check", "-os", os_tag, "-cpu", cpu, "-I", ROOT / "target"])
     print("Anonymous record/union/enum naming, omitted naming aliases, retained secondary aliases and forward identity passed interpreter/native Mac O0/O2, C O0/O2, format and strict lint; Windows/Linux target object/source checks only")
 

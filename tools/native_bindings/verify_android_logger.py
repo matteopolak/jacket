@@ -24,8 +24,8 @@ def digest(path):
 
 def source_identity():
     paths = [p for p in (ROOT / 'stdlib').rglob('*.jai') if 'Extensions' not in p.parts]
-    paths += [ROOT / 'tests/native-bindings/android-logger-output.jai',
-              ROOT / 'tests/native-bindings/android-helpers.jai', Path(__file__).resolve()]
+    paths += [ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai',
+              ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-helpers.jai', Path(__file__).resolve()]
     return {str(p.relative_to(ROOT)): digest(p) for p in sorted(paths)}
 
 
@@ -75,7 +75,7 @@ def main():
             invoke('host-core-source', [compiler, source, '-check', '-no_dce',
                                        '-os', target_os, '-cpu', cpu], target=target_os + '-' + cpu)
 
-    fixtures = [('logger-helpers', ROOT / 'tests/native-bindings/android-helpers.jai')]
+    fixtures = [('logger-helpers', ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-helpers.jai')]
     for module in ('Android/AAudio', 'Android/EGL', 'POSIX'):
         fixture = work / (module.replace('/', '-') + '.jai')
         fixture.write_text('M :: #import "' + module + '"; main :: () {}\n')
@@ -109,13 +109,13 @@ def main():
             row['status'] = 'failed'
 
     invoke('strict-context-lint', [lint, '-D', 'warnings', '--config', ROOT / 'jailint.toml',
-                                  '--context', ROOT / 'tests/native-bindings/android-logger-output.jai',
+                                  '--context', ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai',
                                   ROOT / 'stdlib/internal/bindings/android-log',
-                                  source, ROOT / 'tests/native-bindings/android-logger-output.jai'])
+                                  source, ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai'])
     invoke('format-check', [formatter, '--check', source,
                            ROOT / 'stdlib/Android/wrappers.jai',
                            ROOT / 'stdlib/internal/bindings/android-log/module.jai',
-                           ROOT / 'tests/native-bindings/android-logger-output.jai'])
+                           ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai'])
     after = source_identity()
     changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
     report['checks'].append(dict(phase='shared-source-immutability', changed=changed,

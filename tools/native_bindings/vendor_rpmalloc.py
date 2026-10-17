@@ -159,7 +159,7 @@ def storage_outputs(vendor, functions, work, formatter):
     temporary = work/'storage.jai'
     temporary.write_text(code)
     run([formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
-    outputs = {ROOT/'tests/native-bindings/generated/rpmalloc-storage-records.jai':temporary.read_text()}
+    outputs = {ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-records.jai':temporary.read_text()}
     # Include unmodified pinned C source so probes measure its actual private
     # declarations. Prefix all SDK exports; this probe never initializes or
     # allocates from its separately compiled SDK instance.
@@ -188,11 +188,11 @@ def storage_outputs(vendor, functions, work, formatter):
         probe += 'unsigned long long binding_rpmalloc_storage_'+suffix+'(unsigned index) {\n    switch(index) {\n'
         probe += ''.join('        case '+str(i)+': return '+expression+';\n' for i,expression in enumerate(expressions))
         probe += '        default: __builtin_trap();\n    }\n}\n'
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'] = probe
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'] += (
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc_storage_probe.c'] = probe
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc_storage_probe.c'] += (
         'long long binding_rpmalloc_native_heap_id(const void *heap) { return ((const heap_t*)heap)->id; }\n'
         'unsigned long long binding_rpmalloc_native_heap_owner(const void *heap) { return ((const heap_t*)heap)->owner_thread; }\n')
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'] += (
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc_storage_probe.c'] += (
         'long long binding_rpmalloc_public_atomic32(void *value) { return atomic_load32((atomic32_t*)value); }\n')
     jai = 'storage_layout_checks :: () {\n'
     for i,name in enumerate(STORAGE_RECORDS):
@@ -216,7 +216,7 @@ def storage_outputs(vendor, functions, work, formatter):
     jai += '    assert(type_info(Heap).name == "Heap");\n    assert(type_info(Span).name == "Span");\n}\n'
     temporary.write_text(jai)
     run([formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-storage-layout.jai'] = temporary.read_text()
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-layout.jai'] = temporary.read_text()
     metadata = {'scope':'Native SDK storage ABI only; not public heap implementation or atomic operations',
                 'source':'rpmalloc/rpmalloc.c',
                 'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
@@ -315,8 +315,8 @@ def main():
                       configurations={str(k):[n['name'] for n in v] for k,v in profiles.items()},
                       C_header_targets=targets, fields=[dict(record=o,path=p) for o,p,_ in checks])
     outputs = {OUT/'module.jai':code,
-               ROOT/'tests/native-bindings/generated/rpmalloc_sdk_probe.c':probe,
-               ROOT/'tests/native-bindings/generated/rpmalloc-sdk-layout.jai':temporary.read_text(),
+               ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc_sdk_probe.c':probe,
+               ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-sdk-layout.jai':temporary.read_text(),
                OUT/'provenance.json':json.dumps(provenance,indent=2,sort_keys=True)+'\n'}
     storage, storage_metadata, source_exports = storage_outputs(vendor,functions,work,args.formatter)
     outputs.update(storage)
@@ -362,18 +362,18 @@ def main():
     outputs[ROOT/'stdlib/internal/bindings/rpmalloc-heaps/layout-probes.inc'] = '#if BINDING_RPMALLOC_RAW\n'+raw_probe+'#else\n'+probe+'#endif\n'
     temporary.write_text(jai_checks)
     run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-heap-facade-layout.jai'] = temporary.read_text()
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-heap-facade-layout.jai'] = temporary.read_text()
     temporary.write_text(raw_checks)
     run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-raw-heap-facade-layout.jai'] = temporary.read_text()
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-heap-facade-layout.jai'] = temporary.read_text()
     temporary.write_text(raw_base_checks)
     run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
-    outputs[ROOT/'tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai'] = temporary.read_text()
+    outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-base-heap-facade-layout.jai'] = temporary.read_text()
     for raw, public_heaps, label in ((False, True, "rewrite"), (True, False, "raw-base"), (True, True, "raw")):
         _, assertions = layout_probes(reviewed, raw=raw, public_heaps=public_heaps, thread_cache=False)
         temporary.write_text(assertions)
         run([args.formatter.resolve(), "--config", ROOT/"jaifmt.toml", temporary])
-        outputs[ROOT/"tests/native-bindings/generated"/("rpmalloc-no-thread-cache-"+label+"-layout.jai")] = temporary.read_text()
+        outputs[ROOT/"stdlib/Bindings_Generator/tests/driven/sdk/generated"/("rpmalloc-no-thread-cache-"+label+"-layout.jai")] = temporary.read_text()
     for path, data in outputs.items():
         if args.check:
             if not path.exists() or path.read_text() != data:

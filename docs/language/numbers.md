@@ -36,7 +36,7 @@ file.jai:12: arithmetic overflow computing 250 + 10 as u8: the result does not f
 
 ## How to change it
 
-Folding is `wrap_int` in `sema/expr.rs`; conversions are `implicit_cost` and `scalar_convert` in `sema/convert.rs`; widths are in `crates/jaic/src/types.rs`. Untyped constants carry `untyped: true` on `Operand::Const` until `settle_untyped`; keep that flag in new folding paths or a literal silently becomes `s64`. A new path that lowers `+ - *` must call `emit_overflow_check` and honour `no_aoc`. Stdlib code that overflows on purpose needs `#no_aoc` (`Hash`, `PCG`, `Crc`, `xxHash`, `Random`, `Runtime_Support` have it). Tests: `tests/stdlib/float-literal-precision.jai`, `literal-matches-other-operand.jai`, `arithmetic-overflow-check.jai`, `tests/corpus/negative/aoc-fatal-*.jai`.
+Folding is `wrap_int` in `sema/expr.rs`; conversions are `implicit_cost` and `scalar_convert` in `sema/convert.rs`; widths are in `crates/jaic/src/types.rs`. Untyped constants carry `untyped: true` on `Operand::Const` until `settle_untyped`; keep that flag in new folding paths or a literal silently becomes `s64`. A new path that lowers `+ - *` must call `emit_overflow_check` and honour `no_aoc`. Stdlib code that overflows on purpose needs `#no_aoc` (`Hash`, `PCG`, `Crc`, `xxHash`, `Random`, `Runtime_Support` have it). Tests: `tests/compiler/regressions/float-literal-precision.jai`, `literal-matches-other-operand.jai`, `arithmetic-overflow-check.jai`, `tests/corpus/negative/aoc-fatal-*.jai`.
 
 ## Rules
 

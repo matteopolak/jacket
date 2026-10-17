@@ -6,8 +6,8 @@
 //
 //     jaic stdlib/Extensions/Http/tests/chunking.jai -interp
 
-#load "lib/support.jai";
-#load "data/llhttp_cases.jai";
+#load "support/support.jai";
+#load "fixtures/llhttp_cases.jai";
 
 MUTATIONS :: 24;
 

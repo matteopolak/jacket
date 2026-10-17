@@ -1,0 +1,15 @@
+[
+  {
+    "name": "nodes-and-unsupported-status",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "plugin-file-output",
+    "source": "plugin-file-output/main.jai",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "string-escaping",
+    "stdout": "ok\n"
+  }
+]

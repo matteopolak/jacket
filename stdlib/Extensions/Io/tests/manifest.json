@@ -1,0 +1,167 @@
+[
+  {
+    "name": "accept-burst-diagnostics",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "allocator-ownership",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "allocator-zero",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "backends",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io provider and fiber stack switching"
+    ]
+  },
+  {
+    "name": "configuration-protocol/main",
+    "stdout": "child configuration accepted\nparent protocol complete\n"
+  },
+  {
+    "name": "configured-production",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "configured-workers",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "dependency-workers",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ],
+    "input": "scratch-file"
+  },
+  {
+    "name": "fibers-channels",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "fibers-context",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "fibers-many",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "fibers-sleep-cancel",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "files",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io provider and fiber stack switching"
+    ]
+  },
+  {
+    "name": "pipe",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers and fiber stack switching"
+    ]
+  },
+  {
+    "name": "streams",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io provider and fiber stack switching"
+    ]
+  },
+  {
+    "name": "tcp",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io provider and fiber stack switching"
+    ]
+  },
+  {
+    "name": "timeouts",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io provider and fiber stack switching"
+    ]
+  }
+]

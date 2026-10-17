@@ -12,7 +12,7 @@ import sys
 
 @lru_cache(maxsize=1)
 def _contracts():
-    path = Path(__file__).resolve().parents[1] / "tests/numerics/target_contracts.py"
+    path = Path(__file__).resolve().parents[1] / "tools/numerics/target_contracts.py"
     spec = importlib.util.spec_from_file_location("_jaic_numerics_contracts", path)
     module = importlib.util.module_from_spec(spec)
     # dataclasses resolves its defining module through sys.modules.

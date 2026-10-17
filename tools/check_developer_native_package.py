@@ -44,7 +44,7 @@ def main():
     header.write_text("typedef struct Original { int value; } Original;\nint original(int value);\n")
     for optimization in [0, 2]:
         run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
-             "-I", prefix / "include", ROOT / "tests/developer-tools/native-package-probe.c",
+             "-I", prefix / "include", ROOT / "stdlib/Debug_Info/tests/driven/native-package-probe.c",
              "-o", original / f"probe-o{optimization}"])
     original.rename(relocated)
     private = relocated / "stdlib/internal/developer-tools"

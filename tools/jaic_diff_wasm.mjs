@@ -3,7 +3,7 @@
 // (crates/jai-wasm) and answers one JSON line per request line on stdin.
 //   request:  {"root": "/abs/dir", "main": "rel/path.jai", "budget": 0}
 //   reply:    {"exitCode": n|null, "stdout": "...", "stderr": "...", "diagnostics": [...], "crash": "..."?}
-// Every text file under `root` becomes a workspace file, as check_playground_stdlib.mjs does for tests/stdlib.
+// Every text file under `root` becomes a workspace file, as check_playground_stdlib.mjs does for the stdlib tests.
 // A compiler panic traps the instance, so the engine is rebuilt after one; it is also rebuilt every
 // RECYCLE runs because wasm memory only grows.
 import { readFile, readdir, stat } from "node:fs/promises";

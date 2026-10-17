@@ -4,7 +4,10 @@ use common::success_with_stdout as success;
 use std::{path::PathBuf, process::Command};
 
 const CASES: &[(&str, &str)] = &[
-    ("stdlib-contract/compiler-using-records/main.jai", "ok\n"),
+    (
+        "../stdlib/Compiler/tests/using-records-preserve-filters.jai",
+        "ok\n",
+    ),
     (
         "fixtures/code-roundtrip/using-parameter-roundtrip.jai",
         "using parameters ok\n",

@@ -2,7 +2,7 @@
 // Private test boundary uses actual independently generated C mirror offsets;
 // public heap pointers are never passed as native SDK heap pointers.
 #import "Basic";
-#load "../../../tests/native-bindings/rpmalloc-cache-exercise.jai";
+#load "../../Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai";
 Settings :: #import "internal/bindings/rpmalloc-build";
 RPM :: #import "rpmalloc"(ENABLE_THREAD_CACHE = false, ENABLE_GLOBAL_CACHE = false);
 Small :: #import "rpmalloc"(ENABLE_THREAD_CACHE = false, ENABLE_GLOBAL_CACHE = false, ENABLE_STATISTICS = false);
@@ -21,12 +21,12 @@ RawNoStatsBridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = fals
 RawBaseBridge :: RawBridge;
 RawBaseNoStatsBridge :: RawNoStatsBridge;
 
-#load "../../../tests/native-bindings/generated/rpmalloc-no-thread-cache-rewrite-layout.jai";
+#load "../../Bindings_Generator/tests/driven/sdk/generated/rpmalloc-no-thread-cache-rewrite-layout.jai";
 
 #if Settings.FIRST_CLASS_HEAPS {
-    #load "../../../tests/native-bindings/generated/rpmalloc-no-thread-cache-raw-layout.jai";
+    #load "../../Bindings_Generator/tests/driven/sdk/generated/rpmalloc-no-thread-cache-raw-layout.jai";
 } else {
-    #load "../../../tests/native-bindings/generated/rpmalloc-no-thread-cache-raw-base-layout.jai";
+    #load "../../Bindings_Generator/tests/driven/sdk/generated/rpmalloc-no-thread-cache-raw-base-layout.jai";
 }
 
 main :: () {

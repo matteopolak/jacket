@@ -1,0 +1,530 @@
+[
+  {
+    "name": "arithmetic-overflow-check",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "array-bounds-check-opt-out",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "array-literal-view-lifetime",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "as-member-through-pointer",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-avx512-masks",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-evex-decorations",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-f16c-sha-gfni",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-gpr-destination",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-mpsadbw-ifma",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-scalar-extended",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-simd-extended",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-string-compare",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "asm-vector-instructions",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "baked-enum-default",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "System.get_number_of_processors / native System guard"
+    ]
+  },
+  {
+    "name": "baked-overload-runtime-field",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "baked-struct-restriction",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "body-waits-for-inserted-declaration",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "compile-time-stack-trace",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "compiler-performance-and-dump-messages",
+    "required_browser_host_capabilities": [
+      "compiler-monotonic-clock"
+    ]
+  },
+  {
+    "name": "const-string-cast-to-array",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "decl-type-proc-parens",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "declare-and-assign-places",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "discard-parameters",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "enum-insert-members",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "for-expansion-forwarded-body",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "for-expansion-renamed-index",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "intrinsic-byte-lookup",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "lang-asm",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "literal-prefers-float32",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "must-return-values",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "operator-ne-from-eq",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "over-aligned-allocation",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "param-type-from-param",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "push-context-defer-pop",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "rules-compile-time-execution",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Process import and compile-time child process"
+    ]
+  },
+  {
+    "name": "rules-must-and-discard",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "rules-simd-asm",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "socket-select-canonical-timeval",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Socket/POSIX select ABI"
+    ],
+    "required_os": [
+      "linux",
+      "macos"
+    ]
+  },
+  {
+    "name": "stack-trace-line-through-inline",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "struct-level-notes",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "struct-literal-overrides-default-string",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "struct-literal-without-dot",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "system-machine-alias",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native System guard; M64 only on CPU.X64"
+    ]
+  },
+  {
+    "name": "threads-allocators",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "threads-cooperative",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "threads-group-and-condition",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "threads-group-work",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "threads-switch-while-locked",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "threads-synchronization",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "threads-worker-requests",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Thread public module guard and synchronization"
+    ]
+  },
+  {
+    "name": "type-field-constant",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "type-info-flags",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "using-discard-struct-constants",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "using-only-import",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  }
+]

@@ -43,7 +43,7 @@ Declarations are visited in creation order, so the reported error does not depen
 - A new IR instruction referring to a function, global or foreign symbol must be taught to `drop_unreferenced_code`.
 - A new sweep failure after a change here is usually a latent sema bug in never-checked code.
 
-Configuration: `set_build_options` in `stdlib/internal/compiler-api/workspaces.jai`; `sema::Options::dead_code`; `build::BuildSettings::dead_code_elimination`. Tests: `tests/stdlib/dead-code-elimination.jai`, `tests/corpus/negative/dce-*.jai`, `dead_code_elimination_flag` in `crates/jaic-cli/tests/cli.rs`.
+Configuration: `set_build_options` in `stdlib/internal/compiler-api/workspaces.jai`; `sema::Options::dead_code`; `build::BuildSettings::dead_code_elimination`. Tests: `tests/compiler/regressions/dead-code-elimination.jai`, `tests/corpus/negative/dce-*.jai`, `dead_code_elimination_flag` in `crates/jaic-cli/tests/cli.rs`.
 
 ## Rules
 

@@ -12,7 +12,7 @@ fn public_getrect_text_actions_reach_canonical_linux_clipboard_calls() {
         options.preload = Some(root.join("stdlib/prelude/module.jai"));
         options.import_paths = vec![root.join("stdlib")];
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-        let input = root.join("tests/numerics/clipboard_text_actions_linux.jai");
+        let input = root.join("stdlib/GetRect/tests/clipboard-text-actions-linux.jai");
         if let Err(error) = compiler.compile_program(&input) {
             panic!("{}", error.render(&compiler.sources));
         }

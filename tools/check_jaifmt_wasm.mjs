@@ -46,7 +46,7 @@ function native(source, config) {
     execFileSync(path.resolve(nativePath), args, { input: source, cwd: scratch }));
 }
 
-const cases = path.join(root, "stdlib/Extensions/Jai_Format/tests/cases");
+const cases = path.join(root, "stdlib/Extensions/Jai_Format/tests/fixtures");
 const names = goldenCaseNames(cases);
 assert.ok(names.length > 0, "no formatter golden cases found");
 const times = [];

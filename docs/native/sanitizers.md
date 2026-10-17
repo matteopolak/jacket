@@ -31,7 +31,7 @@ Link side (`link`): a Clang driver from the LLVM install jaic was built against 
 ## How to change it
 
 - **Another IR-level sanitizer pass** (e.g. `tysan`): add a field to `Sanitize`, its name to `Sanitize::parse` and `driver_flag`, its pass to `Sanitize::passes`, and a function attribute in `emit_module` if the pass needs one.
-- A report from the sweep is a jaic codegen/ABI bug, a stdlib bug or a test bug: fix the cause and add a regression test (`tests/stdlib/*.jai`, or `crates/jaic-cli/tests/native.rs` for code that only misbehaves compiled). Do not silence a report unless it is a proven false positive, and then document why here.
+- A report from the sweep is a jaic codegen/ABI bug, a stdlib bug or a test bug: fix the cause and add a regression test (`tests/compiler/regressions/*.jai`, or `crates/jaic-cli/tests/native.rs` for code that only misbehaves compiled). Do not silence a report unless it is a proven false positive, and then document why here.
 - An executable cannot call into the compiler (libclang, `compiler_*`): such a test does that work in `#run` and checks the result there. Programs without `main` are listed as not run natively.
 - Unsupported targets fail in `check_sanitizer_target`: cross builds, wasm (no ASan runtime) and Windows hosts (would need `clang-cl /fsanitize=address` and its runtime DLLs). Static libraries and object files come out instrumented but unlinked; whoever links them must pass `-fsanitize=...` to a Clang of the same version.
 

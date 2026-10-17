@@ -20,23 +20,22 @@ class HttpCoverageTests(unittest.TestCase):
         return {
             case["id"]: case
             for case in entries
-            if case["id"].startswith("Extensions/Http/tests/")
-            or case["id"] == "extensions/http-codec-roundtrip"
+            if case["id"] in http_conformance.HTTP_CONFORMANCE_CASE_IDS
         }
 
     def test_exact_discovery_and_single_roundtrip(self):
         cases = self.http_cases()
-        self.assertEqual(set(cases), set(catalog.HTTP_CONFORMANCE_CASE_IDS))
+        self.assertEqual(set(cases), set(http_conformance.HTTP_CONFORMANCE_CASE_IDS))
         self.assertEqual(len(cases), 12)
-        self.assertEqual(len(catalog.HTTP_CONFORMANCE_CASE_IDS), 12)
+        self.assertEqual(len(http_conformance.HTTP_CONFORMANCE_CASE_IDS), 12)
         entries = catalog.validated_entries()
         roundtrip = [
-            case for case in entries if case["id"] == "extensions/http-codec-roundtrip"
+            case for case in entries if case["id"] == "Extensions/Http/tests/codec-roundtrip"
         ]
         self.assertEqual(len(roundtrip), 1)
         self.assertEqual(
             roundtrip[0]["path"],
-            catalog.ROOT / "tests/extensions/http-codec-roundtrip.jai",
+            catalog.ROOT / "stdlib/Extensions/Http/tests/codec-roundtrip.jai",
         )
 
     def test_only_reviewed_io_cases_are_unavailable_on_wasm(self):
@@ -44,10 +43,10 @@ class HttpCoverageTests(unittest.TestCase):
         native = {
             "client",
             "https",
-            "server_connections",
-            "server_extractors",
-            "server_responses",
-            "server_routing",
+            "server-connections",
+            "server-extractors",
+            "server-responses",
+            "server-routing",
             "testing",
         }
         for name, case in cases.items():
@@ -71,14 +70,14 @@ class HttpCoverageTests(unittest.TestCase):
                 http_conformance.run_harness(
                     Path("own-jaic"),
                     "interp,native,wasm-interp,wasm-native",
-                    catalog.HTTP_CONFORMANCE_CASE_IDS,
+                    http_conformance.HTTP_CONFORMANCE_CASE_IDS,
                     1,
                 )
             )
         self.assertEqual(run.call_count, 1)
         command = run.call_args.args[0]
         selected = [command[i + 1] for i, arg in enumerate(command) if arg == "--case"]
-        self.assertEqual(selected, list(catalog.HTTP_CONFORMANCE_CASE_IDS))
+        self.assertEqual(selected, list(http_conformance.HTTP_CONFORMANCE_CASE_IDS))
         self.assertNotIn("--filter", command)
         self.assertEqual(
             command[command.index("--modes") + 1],
@@ -88,19 +87,19 @@ class HttpCoverageTests(unittest.TestCase):
     def test_missing_http_case_fails_before_any_child_runs(self):
         entries = list(self.http_cases().values())
         entries = [
-            case for case in entries if case["id"] != "extensions/http-codec-roundtrip"
+            case for case in entries if case["id"] != "Extensions/Http/tests/codec-roundtrip"
         ]
         with (
             patch.object(http_conformance, "validated_entries", return_value=entries),
             patch.object(http_conformance.subprocess, "run") as run,
         ):
             with self.assertRaisesRegex(
-                RuntimeError, "extensions/http-codec-roundtrip"
+                RuntimeError, "Extensions/Http/tests/codec-roundtrip"
             ):
                 http_conformance.run_harness(
                     Path("own-jaic"),
                     "wasm-native",
-                    catalog.HTTP_CONFORMANCE_CASE_IDS,
+                    http_conformance.HTTP_CONFORMANCE_CASE_IDS,
                     1,
                 )
         run.assert_not_called()

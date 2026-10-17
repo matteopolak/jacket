@@ -1,25 +1,74 @@
-"""Source catalogue for reviewed contracts and independent regression families.
+"""Discovery and per-case metadata for every runnable stdlib and compiler regression test.
 
-This contains no expected-failure baseline. Every selected supported case runs;
-compiler/API errors remain failures. Native-only families are reported separately
-from WASM execution and must be exercised by native CI.
+A test directory is `stdlib/**/tests/` (module tests) or `tests/compiler/regressions/`.
+Every top-level `*.jai` file of a test directory is a case that must build and exit 0 in each
+mode; sub-directories hold helpers and fixtures and are never discovered.
+
+A test directory may carry a `manifest.json`: a list of rows `{"name": ..., ...}` that refine
+a case with the keys in ROW_KEYS (expected output, required platform, native-only services,
+...). A row for a name that is not a top-level file adds a case from a sub-directory:
+`"name": "negative/private-name"` runs `negative/private-name.jai`, and `"source"` names a
+different entry file (`"name": "scoped", "source": "scoped/main.jai"`). The same rows drive
+`stdlib_runtime.py`, `jaic-sweep.py`, `windows_cross.py` and the browser runner.
+
+This holds no expected-failure baseline. Every selected supported case runs; compiler/API
+errors remain failures.
 """
 
 import hashlib
 import json
-import platform
+import os
 from pathlib import Path
 
 from case_capabilities import user_deferred_reason
-from platform_io_capabilities import RUNTIME_CONTRACT_CAPABILITIES
-from foundations_case_capabilities import apply_foundations_capabilities
-from debug_case_capabilities import apply_debug_capabilities
 from numerics_case_capabilities import (
     apply_numerics_capabilities,
     numerics_unavailable_reason,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+COMPILER_REGRESSIONS = "tests/compiler/regressions"
+
+ROW_KEYS = frozenset(
+    {
+        "name",
+        "source",
+        # What the program must print and how it must end.
+        "stdout",
+        # For output that depends on the host (a sound device that is or is not present): the
+        # exact stdout must be one of these, with the same empty stderr and exit code as `stdout`.
+        "stdout_one_of",
+        "stderr",
+        "exit_code",
+        "error_contains",
+        # `mode` "check-fail": a compile-time rejection (`-check` must fail with
+        # `diagnostic_contains`); `positive_baseline` names the case in the same test directory
+        # that must still check clean. `mode` "fault": the program builds and ends with
+        # `exit_code` after printing `error_contains` (a checked runtime failure); a native
+        # executable aborts instead, so for it any nonzero end counts.
+        # Any other `error_contains` row is a compile-time error met while interpreting.
+        "mode",
+        "diagnostic_contains",
+        "positive_baseline",
+        "mode_contracts",
+        # Where the case can run.
+        "required_os",
+        "required_cpu",
+        "unsupported_modes",
+        "required_capabilities",
+        "required_browser_host_capabilities",
+        # How the runner starts it.
+        "arguments",
+        "input",
+        "fixture_libraries",
+        "requires_display",
+        # macOS GUI programs run one at a time (stdlib_runtime.py WINDOW_LEASE).
+        "window_lease",
+        "clipboard_guard",
+        "source_check_only",
+        "numerics_target_source",
+    }
+)
 
 
 def reference_rejected_reason(case):
@@ -32,197 +81,94 @@ def reference_rejected_reason(case):
     return None
 
 
-REGRESSION_FAMILIES = {
-    "compiler": "compiler-regressions",
-    "extensions": "extensions",
-    "native": "native-regressions",
-    "graphics": "graphics-regressions",
-}
+def visible(path):
+    return not any(part.startswith("._") for part in path.parts)
 
-# Reviewed HTTP test inventory. Exact IDs make missing standalone regressions
-# fail dispatch rather than disappear behind a successful substring filter.
-HTTP_CONFORMANCE_CASE_IDS = tuple(
-    "Extensions/Http/tests/" + name
-    for name in (
-        "chunking",
-        "client",
-        "codec",
-        "https",
-        "llhttp",
-        "server_connections",
-        "server_extractors",
-        "server_responses",
-        "server_routing",
-        "smuggling",
-        "testing",
-    )
-) + ("extensions/http-codec-roundtrip",)
 
-# These individual programs actually use native Io/fiber services: the Http app, router and
-# groups are not part of the WebAssembly module. Pure codec programs deliberately have no
-# such restriction.
-HTTP_NATIVE_IO_CASE_IDS = frozenset(
-    ["extensions/http-router-ownership"]
-    + [
-        "Extensions/Http/tests/" + name
-        for name in (
-            "client",
-            "https",
-            "server_connections",
-            "server_extractors",
-            "server_responses",
-            "server_routing",
-            "testing",
-        )
-    ]
-)
+def test_directories(root=ROOT):
+    """Every `tests` directory below stdlib/, outermost only, then the compiler regressions."""
+    stdlib = root / "stdlib"
+    for directory, children, _ in os.walk(stdlib):
+        children.sort()
+        if "tests" in children:
+            children.remove("tests")
+            yield Path(directory) / "tests"
+    yield root / COMPILER_REGRESSIONS
 
-# Inputs required by the unchanged independently authored fixture programs.
-PROGRAM_INPUTS = {
-    "extensions/io-dependency-workers": "scratch-file",
-    "tests/portable-data-resource": "scratch-directory",
-    # Driven by tests/portable-data/run.py; standalone it only needs a directory for its report.
-    "tests/portable-data-discovery-windows": "scratch-directory",
-    "tests/portable-data-resource-windows": "windows-resource-directory",
-    "SDL/tests/sdl-rwops": "scratch-file",
-    "Simp/tests/glyph-atlas": "font",
-}
-PROGRAM_ARGUMENTS = {
-    "Clipboard/tests/cocoa-operations": ["enabled"],
-    "Simp/tests/context-default-assertions": ["enabled"],
-}
-# Programs linked against fixture and provider libraries (rpmalloc probes, the SDL ABI probes,
-# libclang for the generator, the Debug helpers) that tools/ci_native_deps.sh builds on macOS and
-# Linux with `cc`. No Windows host job builds them, so a Windows host cannot run these; a Windows
-# target built on another host still can (tools/windows_cross.py).
-WINDOWS_HOST_FIXTURE_CASES = frozenset(
-    [
-        "SDL/tests/sdl-layout",
-        "SDL/tests/sdl-rwops",
-        "SDL/tests/sdl-wm",
-        "native/sdl2-geometry-timer",
-        "Debug/tests/ignore-ownership",
-        "Bindings_Generator/tests/generator-macro-shared-state",
-        "Bindings_Generator/tests/generator-run-macro-print",
-        "Bindings_Generator/tests/generator-run-toplevel",
-        "rpmalloc/tests/adaptive-cache",
-        "rpmalloc/tests/live-config",
-        "rpmalloc/tests/live-config-raw",
-        "rpmalloc/tests/no-thread-cache",
-        "rpmalloc/tests/public-callbacks",
-        "rpmalloc/tests/public-configurable",
-    ]
-)
-PLATFORM_REQUIREMENTS = {
-    "Clipboard/tests/cocoa-operations": "macos",
-    "Simp/tests/context-default-assertions": "macos",
-    "Window_Creation/tests/macos-window": "macos",
-    "Window_Creation/tests/macos-events": "macos",
-    "native/macos-clipboard-utf8": "macos",
-    "native/objc-window-levels": "macos",
-    "native/posix-stat-and-mutex": ("linux", "macos"),
-    # Writes through libc `write`, which the Windows C runtime only exports as `_write`: the
-    # interpreter cannot bind it there.
-    "Android/tests/logger-output": ("linux", "macos"),
-    "native/proc-sentinel-constant": ("linux", "macos"),
-    # ImGui formats through the libffi varargs bridge, which no Windows job builds.
-    "native/imgui-headless-frames": ("linux", "macos"),
-    "graphics/macos-window-context-reopen": "macos",
-    "graphics/input-multi-window-focus": "macos",
-    "graphics/input-published-events": "macos",
-    "graphics/input-temporary-allocator": "macos",
-    "compiler/socket-select-canonical-timeval": ("linux", "macos"),
-    "extensions/io-uring-dependency-repro": "linux",
-    "Input/tests/windows-device-decoding": "windows",
-    "Print_Color/tests/windows-console": "windows",
-    "tests/portable-data-console-windows": "windows",
-    "tests/portable-data-discovery-windows": "windows",
-    "tests/portable-data-manifest-windows": "windows",
-    "tests/portable-data-resource-windows": "windows",
-}
+
+def load_rows(directory):
+    manifest = directory / "manifest.json"
+    if not manifest.is_file():
+        return []
+    rows = json.loads(manifest.read_text())
+    names = set()
+    for row in rows:
+        unknown = set(row) - ROW_KEYS
+        if unknown:
+            raise ValueError(f"{manifest}: unknown keys {sorted(unknown)} in {row.get('name')!r}")
+        if "name" not in row or row["name"] in names:
+            raise ValueError(f"{manifest}: missing or duplicate name {row.get('name')!r}")
+        names.add(row["name"])
+    return rows
+
+
+def case_id(root, directory, name):
+    if directory == root / COMPILER_REGRESSIONS:
+        return "compiler/" + name
+    return (directory.relative_to(root / "stdlib") / name).as_posix()
 
 
 def entries(root=ROOT):
-    manifest = root / "tests/stdlib-contract/manifest.json"
-    for case in json.loads(manifest.read_text()):
-        yield {
-            **case,
-            "id": "contracts/" + case["name"],
-            "path": root / "tests/stdlib-contract" / case["source"],
-            "family": "contracts",
-        }
-    for family, directory in REGRESSION_FAMILIES.items():
-        for path in sorted((root / "tests" / directory).glob("*.jai")):
-            if not any(part.startswith("._") for part in path.relative_to(root).parts):
-                yield {"id": family + "/" + path.stem, "path": path, "family": family}
-    stdlib = root / "stdlib"
-    found = (
-        set(stdlib.glob("*/tests/*.jai"))
-        | set(stdlib.glob("Extensions/*/tests/*.jai"))
-        | set((stdlib / "tests").glob("**/*.jai"))
-    )
-    for path in sorted(found):
-        relative = path.relative_to(stdlib)
-        if "modules" not in relative.parts and not any(
-            part.startswith("._") for part in relative.parts
-        ):
-            yield {
-                "id": relative.with_suffix("").as_posix(),
-                "path": path,
-                "family": "modules",
+    for directory in test_directories(root):
+        if not directory.is_dir():
+            continue
+        rows = {row["name"]: row for row in load_rows(directory)}
+        names = {
+            path.stem
+            for path in directory.glob("*.jai")
+            if visible(path.relative_to(root))
+        } | set(rows)
+        family = "compiler" if directory == root / COMPILER_REGRESSIONS else "modules"
+        for name in sorted(names):
+            row = rows.get(name, {})
+            source = row.get("source", name + ".jai")
+            case = {
+                **{k: v for k, v in row.items() if k not in ("name", "source")},
+                "id": case_id(root, directory, name),
+                "path": directory / source,
+                "family": family,
             }
+            case["suite"] = directory.relative_to(root).as_posix()
+            case["row_name"] = name
+            yield case
 
 
 def validated_entries(root=ROOT):
     result = list(entries(root))
-    names = set()
+    by_id = {}
     for case in result:
-        if case["id"] in RUNTIME_CONTRACT_CAPABILITIES:
-            case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
-            case["required_capabilities"] = list(
-                RUNTIME_CONTRACT_CAPABILITIES[case["id"]]
-            )
-        if case["id"] in HTTP_NATIVE_IO_CASE_IDS:
-            case["unsupported_modes"] = ["wasm-interp", "wasm-native"]
-            case["required_capabilities"] = [
-                "native Io providers",
-                "fiber context switching",
-            ]
-        apply_foundations_capabilities(case)
-        apply_debug_capabilities(case)
-        apply_numerics_capabilities(case)
-        if case["id"] in {
-            "native/clipboard-round-trip",
-            "native/macos-clipboard-utf8",
-        }:
-            case["clipboard_guard"] = True
-        termination = {
-            "extensions/http-wasm-termination-status": (37, "before exit 37\n"),
-            "extensions/http-wasm-termination-failure": (1, "FAIL: independent WASM termination control\n1 failure(s)\n"),
-        }.get(case["id"])
-        if termination:
-            case.update(exit_code=termination[0], stdout=termination[1], stderr="")
-        if case["family"] == "graphics" or case["id"] in PLATFORM_REQUIREMENTS and "macos" in PLATFORM_REQUIREMENTS[case["id"]]:
-            case["window_lease"] = True
-        if case["id"] in PROGRAM_INPUTS:
-            case["input"] = PROGRAM_INPUTS[case["id"]]
-        if case["id"] in PROGRAM_ARGUMENTS:
-            case["arguments"] = PROGRAM_ARGUMENTS[case["id"]].copy()
-        if case["id"] in PLATFORM_REQUIREMENTS:
-            case["required_os"] = PLATFORM_REQUIREMENTS[case["id"]]
-        if case["id"] == "Simp/tests/context-default-assertions":
-            case["fixture_libraries"] = {"GL_PROBE": "window_gl_probe"}
-            case["requires_display"] = True
-        if case["id"] == "SDL/tests/sdl-wm":
-            # Creates a real (hidden) SDL window, which needs a display server.
-            case["requires_display"] = True
-        if case["id"] in names:
+        if case["id"] in by_id:
             raise ValueError("duplicate test ID: " + case["id"])
-        names.add(case["id"])
+        by_id[case["id"]] = case
+        apply_numerics_capabilities(case)
+        if "macos" in (case.get("required_os") or ()):
+            case["window_lease"] = True
         if not case["path"].is_file():
             raise ValueError("missing test source: " + str(case["path"]))
         if not case["path"].resolve().is_relative_to(root.resolve()):
             raise ValueError("test source leaves repository: " + str(case["path"]))
+    for case in result:
+        baseline = case.get("positive_baseline")
+        if baseline:
+            target = case_id(root, root / case["suite"], baseline)
+            other = by_id.get(target)
+            if (
+                other is None
+                or other.get("mode") == "check-fail"
+                or "error_contains" in other
+            ):
+                raise ValueError("positive_baseline must name a positive case: " + baseline)
+            case["positive_baseline_id"] = target
     if not result:
         raise ValueError("empty test catalogue")
     return result
@@ -262,12 +208,6 @@ def unavailable_reason(case, mode, actual_platform=None):
     deferred = user_deferred_reason(case, target_os)
     if deferred:
         return deferred
-    if (
-        case.get("id") in WINDOWS_HOST_FIXTURE_CASES
-        and target_os == "windows"
-        and platform.system() == "Windows"
-    ):
-        return "links fixture libraries that no Windows host job builds; native execution remains required, not passed on windows"
     required = case.get("required_os")
     required = [required] if isinstance(required, str) else required
     if required and target_os and target_os not in required:
@@ -280,8 +220,6 @@ def unavailable_reason(case, mode, actual_platform=None):
     required_cpu = case.get("required_cpu")
     if required_cpu and target_cpu and target_cpu != required_cpu:
         return f"requires actual {required_cpu} CPU; execution remains required, not passed on {target_cpu}"
-    if mode.startswith("wasm") and case["family"] in {"native", "graphics"}:
-        return "native SDK/OS/graphics regression requires native CI; no WASM runtime claim"
     return None
 
 
@@ -304,7 +242,7 @@ if __name__ == "__main__":
              "selected_unavailable_reason": unavailable_reason(case, arguments.mode, arguments.platform)}
             for case in entries
         ]
-    # The browser runner consumes the same reviewed manifest and source discovery.
+    # The browser runner consumes the same manifests and source discovery.
     print(
         json.dumps(
             [

@@ -17,7 +17,7 @@ def run(command, expected=""):
 
 
 def main():
-    source = ROOT / "tests/developer-tools/bindings-omission-visitor.jai"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-omission-visitor.jai"
     jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
     run([jaic, source, "-interp"], "ok\n")
     for optimization in [0, 2]:

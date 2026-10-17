@@ -1,0 +1,77 @@
+[
+  {
+    "name": "context-default-assertions",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "default Simp OPENGL surface and native GL/image/font providers"
+    ],
+    "arguments": [
+      "enabled"
+    ],
+    "required_os": "macos",
+    "fixture_libraries": {
+      "GL_PROBE": "window_gl_probe"
+    },
+    "requires_display": true
+  },
+  {
+    "name": "font-default-assertions",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "gl-render-readback",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  },
+  {
+    "name": "glyph-atlas",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "default Simp OPENGL surface and native GL/image/font providers"
+    ],
+    "input": "font"
+  },
+  {
+    "name": "negative/private-atlas",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Simp` has no exported member `atlas_create_page`"
+  },
+  {
+    "name": "negative/private-helper",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Simp` has no exported member `pack_bitmap`"
+  },
+  {
+    "name": "texture-packing",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "default Simp OPENGL surface and native GL/image/font providers"
+    ]
+  },
+  {
+    "name": "window-program",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  }
+]

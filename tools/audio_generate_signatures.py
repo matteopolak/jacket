@@ -37,7 +37,7 @@ def main():
               "#scope_file", "#if OS == .WINDOWS {", '    W :: #import "Windows";',
               '    Wave :: #import "Wav_File";', "    GUID :: W.GUID;",
               "    Waveformatex :: Wave.Waveformatex;", "}"]
-    (ROOT / "tests/audio/signatures.jai").write_text("\n".join(lines) + "\n")
+    (ROOT / "stdlib/Sound_Player/tests/signatures.jai").write_text("\n".join(lines) + "\n")
     print(f"Generated {len(checks)} signature/link probes; omitted generic ring helper.")
 
 

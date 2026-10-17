@@ -42,7 +42,7 @@ full() {
   local libs="$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$(native_dir)"
   echo "JAIC_NATIVE_LIBS=$libs" >> "$env_file"
   if [[ "$os" == macOS || "$os" == Darwin ]]; then
-    clang -Wall -Wextra -Werror tests/window-render/clipboard-guard.m -framework AppKit -o target/clipboard-guard
+    clang -Wall -Wextra -Werror stdlib/Clipboard/tests/native/guard.m -framework AppKit -o target/clipboard-guard
     echo "JAIC_CLIPBOARD_GUARD=$PWD/target/clipboard-guard" >> "$env_file"
   fi
   if [[ "$os" == Linux ]]; then

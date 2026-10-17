@@ -30,8 +30,8 @@ def main():
     )
     args = parser.parse_args()
     extra = [
-        "tests/native-bindings/posix-stream-globals.jai",
-        "tests/native-bindings/posix_stream_probe.c",
+        "stdlib/Bindings_Generator/tests/driven/sdk/posix-stream-globals.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/posix_stream_probe.c",
         "tools/native_bindings/verify_posix_streams.py",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/posix.md",

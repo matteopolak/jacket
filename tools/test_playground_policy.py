@@ -9,19 +9,17 @@ import playground_policy as browser
 class BrowserPolicy(unittest.TestCase):
     def test_compiler_host_clock_is_declared_before_dispatch_without_target_deferral(self):
         cases = {case["id"]: case for case in browser.browser_cases()}
-        for name, required in browser.BROWSER_HOST_REQUIREMENTS.items():
-            self.assertEqual(
-                cases[name]["required_browser_host_capabilities"], list(required)
-            )
-            # Declared unavailable before dispatch, by the host capability or an earlier catalogue rule.
-            self.assertIn("unavailable", cases[name]["browser_unavailable_reason"])
-        # Needs native Io providers, not a compiler host capability.
-        self.assertNotIn(
-            "compiler host",
-            cases["extensions/http-router-ownership"]["browser_unavailable_reason"] or "",
+        declared = [c for c in cases.values() if c["required_browser_host_capabilities"]]
+        self.assertTrue(declared)
+        for case in declared:
+            self.assertIn("compiler host unavailable", case["browser_unavailable_reason"])
+        self.assertIn(
+            "compiler-monotonic-clock",
+            cases["Compiler/tests/measured-performance-reports"]["required_browser_host_capabilities"],
         )
-        self.assertIsNone(cases["extensions/http-date-now-wasm-negative"]["browser_unavailable_reason"])
-        self.assertEqual(cases["extensions/http-date-now-wasm-negative"]["mode"], "check-fail")
+        negative = cases["Extensions/Http/tests/date-now-wasm"]
+        self.assertIsNone(negative["browser_unavailable_reason"])
+        self.assertEqual(negative["mode"], "check-fail")
 
     def test_native_sdk_policy_is_exact_not_a_module_wide_deferral(self):
         root = Path("/own/workspace")
@@ -65,7 +63,6 @@ class BrowserPolicy(unittest.TestCase):
             },
             {"required_os": "windows"},
             {"required_cpu": "x64"},
-            {"family": "native"},
         ):
             case = {
                 "id": "example",
@@ -83,19 +80,17 @@ class BrowserPolicy(unittest.TestCase):
 
     def test_actual_admitted_catalogue_preserves_controls_and_required_negatives(self):
         cases = {case["id"]: case for case in browser.browser_cases()}
-        negative = cases["extensions/http-date-now-wasm-negative"]
+        negative = cases["Extensions/Http/tests/date-now-wasm"]
         self.assertEqual(negative["mode"], "check-fail")
         self.assertIsNone(negative["browser_unavailable_reason"])
         self.assertIn("http_date_now", negative["diagnostic_contains"])
         for name in (
-            "extensions/http-date-target",
-            "tests/portable-data-resource-wire",
+            "Extensions/Http/tests/date-target",
+            "Ico_File/tests/resource-wire",
             "compiler/foundations-portable-compile-time",
         ):
             self.assertIsNone(cases[name]["browser_unavailable_reason"], name)
-        self.assertTrue(
-            cases["tests/portable-data-resource"]["browser_unavailable_reason"]
-        )
+        self.assertTrue(cases["Ico_File/tests/resource"]["browser_unavailable_reason"])
 
     def test_invalid_mode_contracts_are_errors_not_unavailable(self):
         case = {

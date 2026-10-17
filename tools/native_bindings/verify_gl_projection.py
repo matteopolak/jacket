@@ -16,7 +16,7 @@ def main():
     for name in ('compiler', 'jailint', 'formatter', 'output_root'):
         parser.add_argument('--'+name.replace('_', '-'), type=Path, required=True)
     args = parser.parse_args()
-    snapshot, identity = capture(args.output_root, ('tests/native-bindings/gl-live-projection.jai',
+    snapshot, identity = capture(args.output_root, ('stdlib/Bindings_Generator/tests/driven/sdk/gl-live-projection.jai',
         'tools/native_bindings', 'docs/specs/stdlib/modules/gl.md',
         'jaifmt.toml', 'jailint.toml'))
     work = Path(tempfile.mkdtemp(prefix='gl-projection-', dir=args.output_root))
@@ -35,7 +35,7 @@ def main():
         print(label, result.returncode, result.stderr[-1000:], flush=True)
         return result.returncode == 0
 
-    fixture = snapshot/'tests/native-bindings/gl-live-projection.jai'
+    fixture = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/gl-live-projection.jai'
     expanded = work/'all-extensions.jai'
     expanded.write_text(fixture.read_text().replace('#import "GL";', '#import "GL"(ENABLE_ALL_EXTENSIONS = true);'))
     expanded.chmod(0o444)

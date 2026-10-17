@@ -18,7 +18,7 @@ def main():
         parser.error("native calendar verification requires an actual Windows host")
     library = args.stdlib.resolve(strict=True)
     compiler = args.jaic.resolve(strict=True)
-    source = ROOT / "tests/portable-stdlib/windows-calendar/main.jai"
+    source = ROOT / "stdlib/Basic/tests/windows-calendar/main.jai"
     env = dict(os.environ, JAIC_STDLIB=str(library))
 
     def checked(command, expected=None):

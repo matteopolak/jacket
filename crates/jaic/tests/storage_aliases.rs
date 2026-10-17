@@ -120,7 +120,7 @@ fn unavailable_foreign_value_expressions_still_require_runtime_storage() {
 fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
     use std::{path::PathBuf, process::Command};
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let fixture = root.join("tests/compiler-semantics/storage-aliases");
+    let fixture = root.join("tests/compiler/semantics/storage-aliases");
     let dir = root.join("target/storage-aliases-interpreter");
     std::fs::create_dir_all(&dir).unwrap();
     let library = dir.join(format!(
@@ -153,17 +153,17 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
     let mut fs = VirtualFs::default();
     fs.insert(
         "/lib/Backing/module.jai",
-        include_bytes!("../../../tests/compiler-semantics/storage-aliases/Backing/module.jai")
+        include_bytes!("../../../tests/compiler/semantics/storage-aliases/Backing/module.jai")
             .as_slice(),
     );
     fs.insert(
         "/lib/Facade/module.jai",
-        include_bytes!("../../../tests/compiler-semantics/storage-aliases/Facade/module.jai")
+        include_bytes!("../../../tests/compiler/semantics/storage-aliases/Facade/module.jai")
             .as_slice(),
     );
     fs.insert(
         "/lib/Forward/module.jai",
-        include_bytes!("../../../tests/compiler-semantics/storage-aliases/Forward/module.jai")
+        include_bytes!("../../../tests/compiler/semantics/storage-aliases/Forward/module.jai")
             .as_slice(),
     );
     let mut options = Options::host();
@@ -172,7 +172,7 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
     let mut c = Compiler::new(options, Rc::new(fs));
     let source = format!(
         "F :: #import \"Forward\"; R :: #import \"Backing\"; {} #assert storage_alias_check()==0;",
-        include_str!("../../../tests/compiler-semantics/storage-aliases/behavior.jai")
+        include_str!("../../../tests/compiler/semantics/storage-aliases/behavior.jai")
     );
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", e.render(&c.sources));

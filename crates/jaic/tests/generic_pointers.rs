@@ -103,7 +103,7 @@ fn explicit_specializations_do_not_accept_different_type_arguments() {
 fn defaults_dependent_arguments_and_nondefault_instances_execute_through_constraints() {
     let (c, result) = compile(&format!(
         "{} #assert check()==0;",
-        include_str!("../../../tests/compiler-semantics/default-generic-pointers.jai")
+        include_str!("../../../tests/compiler/semantics/default-generic-pointers.jai")
     ));
     if let Err(e) = result {
         panic!("{}", e.render(&c.sources));

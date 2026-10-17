@@ -1,0 +1,19 @@
+[
+  {
+    "name": "console-windows",
+    "required_os": "windows"
+  },
+  {
+    "name": "discovery-windows",
+    "required_os": "windows"
+  },
+  {
+    "name": "manifest-windows",
+    "required_os": "windows"
+  },
+  {
+    "name": "resource-windows",
+    "input": "windows-resource-directory",
+    "required_os": "windows"
+  }
+]

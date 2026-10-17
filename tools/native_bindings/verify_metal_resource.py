@@ -19,10 +19,10 @@ def main():
     parser.add_argument("--native", action="store_true", help="Fresh lease required")
     args = parser.parse_args()
     extras = [
-        "tests/native-bindings/metal-texture-resource.jai",
-        "tests/native-bindings/metal_resource_probe.m",
-        "tests/native-bindings/metal-resource-source-controls.jai",
-        "tests/native-bindings/metal.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal-texture-resource.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal_resource_probe.m",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal-resource-source-controls.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/metal.jai",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/metal.md",
         "jaifmt.toml",

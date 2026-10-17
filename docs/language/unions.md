@@ -25,7 +25,7 @@ Reflection: `type_info` has `.UNION` and `.UNION_IS_TAGGED` in `textual_flags`; 
 
 ## How to change it
 
-Layout is the `is_union` branch of `layout_struct_inner` in `sema/structs.rs`; `parser/aggregate.rs` parses the tag into `lit.tag` (a tagged union is not `is_union`). Tests: `tests/stdlib/tagged-union-layout.jai`.
+Layout is the `is_union` branch of `layout_struct_inner` in `sema/structs.rs`; `parser/aggregate.rs` parses the tag into `lit.tag` (a tagged union is not `is_union`). Tests: `tests/compiler/regressions/tagged-union-layout.jai`.
 
 ## Rules
 

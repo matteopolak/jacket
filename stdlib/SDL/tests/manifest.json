@@ -1,0 +1,44 @@
+[
+  {
+    "name": "geometry-timer",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ]
+  },
+  {
+    "name": "sdl-layout",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDL SDK and platform services"
+    ]
+  },
+  {
+    "name": "sdl-rwops",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDL SDK and platform services"
+    ],
+    "input": "scratch-file"
+  },
+  {
+    "name": "sdl-wm",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDL SDK and platform services"
+    ],
+    "requires_display": true
+  }
+]

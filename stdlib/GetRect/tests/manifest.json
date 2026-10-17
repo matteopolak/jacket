@@ -1,0 +1,33 @@
+[
+  {
+    "name": "clipboard-text-actions-linux",
+    "required_os": "linux"
+  },
+  {
+    "name": "retained-default-assertions",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "simp-gl-frame",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  },
+  {
+    "name": "widgets-driven",
+    "clipboard_guard": true,
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true
+  }
+]

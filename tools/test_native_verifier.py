@@ -24,13 +24,15 @@ class NativeVerifierInputs(unittest.TestCase):
             owned = root / "stdlib/SDL/tests/sdl-layout.jai"
             owned.parent.mkdir(parents=True)
             owned.write_text("original owned fixture")
-            stale = root / "tests/native-bindings/sdl-layout.jai"
+            stale = root / "stdlib/Bindings_Generator/tests/driven/sdk/sdl-layout.jai"
             stale.parent.mkdir(parents=True)
             stale.write_text("stale external copy")
-            self.assertEqual(verifier.fixture_source(root, "sdl-layout.jai"), owned)
+            self.assertEqual(
+                verifier.fixture_source(root, "sdl-layout.jai"), owned.resolve()
+            )
             self.assertEqual(
                 verifier.fixture_source(root, "abi.jai"),
-                root / "tests/native-bindings/abi.jai",
+                root / "stdlib/Bindings_Generator/tests/driven/sdk/abi.jai",
             )
             owned.unlink()
             with self.assertRaises(FileNotFoundError):

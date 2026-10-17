@@ -60,7 +60,7 @@ endif()
 foreach(mode static shared)
   add_executable(jai-sdl3-smoke-${mode} smoke.c)
   target_compile_definitions(jai-sdl3-smoke-${mode} PRIVATE ${JAI_SDL3_CPU}
-    JAI_SDL3_LAYOUT_HEADER="${CMAKE_CURRENT_LIST_DIR}/../../../tests/sdl3/c-layout-${SDL_JAI_PLATFORM}.h")
+    JAI_SDL3_LAYOUT_HEADER="${CMAKE_CURRENT_LIST_DIR}/../../../stdlib/Extensions/SDL3/tests/c-layout-${SDL_JAI_PLATFORM}.h")
   set_target_properties(jai-sdl3-smoke-${mode} PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES)
   target_link_libraries(jai-sdl3-smoke-${mode} PRIVATE SDL3-${mode})
 endforeach()

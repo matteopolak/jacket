@@ -58,28 +58,28 @@ def verify(cleanup):
     facade_sources = sorted((stdlib/'rpmalloc').glob('*.jai'))
 
     unit = place_private_unit('rpmalloc-heap-marshalling',
-                              ROOT/'tests/native-bindings/rpmalloc-heap-marshalling.jai', stdlib, {}, cleanup)
+                              ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-heap-marshalling.jai', stdlib, {}, cleanup)
     cache_unit = place_private_unit('rpmalloc-no-thread-cache',
-        ROOT/'tests/native-bindings/rpmalloc-no-thread-cache.jai', stdlib, {}, cleanup)
+        ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-no-thread-cache.jai', stdlib, {}, cleanup)
     prepared = prepare(ROOT/'.work/vendor/rpmalloc', work/'rpmalloc-source')
     (ROOT/'.work/tmp').mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, TMPDIR=str(ROOT/'.work/tmp'), JAIC_STDLIB=str(stdlib),
                JAIC_NATIVE_LIBS=str(libraries),
                JAIC_TEST_RPMALLOC_FIRST_CLASS_HEAPS='true' if args.rpmalloc_first_class_heaps else 'false')
-    programs = [ROOT/'tests/native-bindings'/name for name in
+    programs = [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk'/name for name in
                 ('rpmalloc-public-heaps.jai', 'rpmalloc-public-heap-lifecycle.jai',
                  'rpmalloc-public-configurable.jai', 'rpmalloc-public-global-cache.jai', 'rpmalloc-public-allocator-proc.jai',
                  'rpmalloc-public-builder-dump.jai', 'rpmalloc-public-dump-failure.jai')]+[unit,
                      place_private_unit('rpmalloc-native-error-callback',
-                                        ROOT/'tests/native-bindings/rpmalloc-native-error-callback.jai', stdlib, {}, cleanup)]
+                                        ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-native-error-callback.jai', stdlib, {}, cleanup)]
     if args.rpmalloc_first_class_heaps:
-        programs += [ROOT/'tests/native-bindings/rpmalloc-public-raw-heaps.jai',
-                     ROOT/'tests/native-bindings/rpmalloc-public-raw-heap-lifecycle.jai',
+        programs += [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-raw-heaps.jai',
+                     ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-raw-heap-lifecycle.jai',
                      place_private_unit('rpmalloc-raw-heap-marshalling',
-                                        ROOT/'tests/native-bindings/rpmalloc-raw-heap-marshalling.jai', stdlib, {}, cleanup)]
+                                        ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-heap-marshalling.jai', stdlib, {}, cleanup)]
     else:
         programs += [place_private_unit('rpmalloc-raw-base-marshalling',
-                                        ROOT/'tests/native-bindings/rpmalloc-raw-base-marshalling.jai', stdlib, {}, cleanup)]
+                                        ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-base-marshalling.jai', stdlib, {}, cleanup)]
     programs += [cache_unit]
     commands = []
     for program in programs:
@@ -99,7 +99,7 @@ def verify(cleanup):
             commands.append(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror', '-O1', '-g',
                              '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-isystem', prepared,
                              *['-D'+k+'='+str(v) for k, v in options.items()],
-                             ROOT/'tests/native-bindings'/(name+'.c'), '-o', exe])
+                             ROOT/'stdlib/Bindings_Generator/tests/driven/sdk'/(name+'.c'), '-o', exe])
             commands.append([exe])
     resource = subprocess.run(['clang', '-print-resource-dir'], check=True, capture_output=True,
                               text=True).stdout.strip()
@@ -117,21 +117,21 @@ def verify(cleanup):
                              "-isystem", resource+"/include", "-fsyntax-only",
                              *["-D"+key+"="+str(value) for key, value in definitions.items()],
                              ROOT/"stdlib/internal/bindings/rpmalloc-heaps/public-layout.h"])
-    scopes = ['tests/native-bindings/rpmalloc-cache-exercise.jai',
-              'tests/native-bindings/rpmalloc-no-thread-cache.jai',
-              'tests/native-bindings/generated', 'stdlib/rpmalloc', 'stdlib/internal/bindings/rpmalloc-heaps',
+    scopes = ['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai',
+              'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-no-thread-cache.jai',
+              'stdlib/Bindings_Generator/tests/driven/sdk/generated', 'stdlib/rpmalloc', 'stdlib/internal/bindings/rpmalloc-heaps',
               *[str(p.relative_to(ROOT)) for p in programs],
-              'tests/native-bindings/rpmalloc-heap-marshalling.jai',
-              'tests/native-bindings/generated/rpmalloc-heap-facade-layout.jai',
+              'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-heap-marshalling.jai',
+              'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-heap-facade-layout.jai',
               'stdlib/internal/bindings/rpmalloc-build',
               'stdlib/internal/bindings/rpmalloc-sdk', 'stdlib/internal/bindings/rpmalloc-callbacks',
               'stdlib/internal/bindings/rpmalloc-checked']
     if args.rpmalloc_first_class_heaps:
-        scopes += ['tests/native-bindings/rpmalloc-raw-heap-marshalling.jai',
-                   'tests/native-bindings/generated/rpmalloc-raw-heap-facade-layout.jai']
+        scopes += ['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-heap-marshalling.jai',
+                   'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-heap-facade-layout.jai']
     else:
-        scopes += ['tests/native-bindings/rpmalloc-raw-base-marshalling.jai',
-                   'tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai']
+        scopes += ['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-base-marshalling.jai',
+                   'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-base-heap-facade-layout.jai']
     commands += [[formatter, '--check', '--config', 'jaifmt.toml', *scopes],
                  [compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jailint.toml',
                   *facade_sources,
@@ -140,19 +140,19 @@ def verify(cleanup):
                  ['clang-format', '--style=LLVM', '--dry-run', '--Werror',
                   'stdlib/internal/bindings/rpmalloc-heaps/bridge.c',
                   'stdlib/internal/bindings/rpmalloc-heaps/heap-snapshot.inc',
-                  'tests/native-bindings/rpmalloc_heap_safety.c',
-                  'tests/native-bindings/rpmalloc_sdk_page_granularity.c',
-                  'tests/native-bindings/rpmalloc_snapshot_safety.c'],
+                  'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_heap_safety.c',
+                  'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_page_granularity.c',
+                  'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_snapshot_safety.c'],
                  ['python3', 'tools/native_bindings/generate.py', '--check', '--formatter', formatter],
                  ['python3', 'tools/native_bindings/vendor_rpmalloc.py', '--check', '--formatter', formatter],
-                 ['python3', '-m', 'unittest', 'discover', '-s', 'tests/native-bindings', '-p', 'test_*.py']]
+                 ['python3', '-m', 'unittest', 'discover', '-s', 'tools/native_bindings', '-p', 'test_*.py']]
     # Staged private units are standalone programs, not newly imported modules.
     # Explicit roots preserve their context additions and check every body.
     commands += [[compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jailint.toml',
                   '--context', program, program] for program in programs]
     for target_os in ('macos', 'linux', 'windows'):
         for cpu in ('x64', 'arm64'):
-            commands.append(dict(argv=[compiler, ROOT/'tests/native-bindings/negative/rpmalloc-dump-wrong-builder.jai',
+            commands.append(dict(argv=[compiler, ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/negative/rpmalloc-dump-wrong-builder.jai',
                                        '-check', '-no_dce', '-os', target_os, '-cpu', cpu],
                                  expect_failure='dump_statistics requires Basic.String_Builder',
                                  scope='expected_public_type_rejection'))
@@ -160,7 +160,7 @@ def verify(cleanup):
                              ('rpmalloc-destroy-default', 'the default rpmalloc heap cannot be destroyed')]:
         for index, target in enumerate(native_targets):
             exe = work/(name+'-'+str(index))
-            commands.append([compiler, ROOT/'tests/native-bindings/negative'/(name+'.jai'),
+            commands.append([compiler, ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/negative'/(name+'.jai'),
                              *(['-target', target] if target else []), '-exe', exe])
             commands.append(dict(argv=[exe], expect_failure=diagnostic, scope='expected_public_assertion'))
     report = dict(scope='Public heap behavior/configurations; separate private ABI/native counters and host C sanitizers',
@@ -176,10 +176,10 @@ def verify(cleanup):
                            for p in [*programs,
                                      *sorted((ROOT/'stdlib/rpmalloc').glob('*.jai')),
                                      *sorted((ROOT/'stdlib/internal/bindings/rpmalloc-heaps').iterdir()),
-                                     ROOT/'tests/native-bindings/rpmalloc_heap_safety.c',
-                                     ROOT/'tests/native-bindings/rpmalloc_sdk_page_granularity.c',
-                                     ROOT/'tests/native-bindings/rpmalloc_snapshot_safety.c',
-                                     ROOT/'tests/native-bindings/rpmalloc-cache-exercise.jai',
+                                     ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_heap_safety.c',
+                                     ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_page_granularity.c',
+                                     ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_snapshot_safety.c',
+                                     ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai',
                                      Path(__file__).resolve(), ROOT/'tools/native_bindings/prepare_rpmalloc.py']
                            if p.is_file()},
                   checks=[])

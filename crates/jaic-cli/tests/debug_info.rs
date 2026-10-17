@@ -7,7 +7,7 @@ use std::process::Command;
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
 fn fixture() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/native/debug-info/main.jai")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/native/debug-info/main.jai")
 }
 
 /// Build the fixture into `dir/name` with extra arguments; returns the executable.

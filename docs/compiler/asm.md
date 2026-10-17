@@ -37,7 +37,7 @@ Supported: general-purpose, BMI/ADX, string, division, SSE through AVX2, FMA, AE
 - **Vector instruction**: a `VOp`/`Lane` in `vec.rs` for lane-wise forms; otherwise an `SOp` in `simd.rs` (mnemonic in `lookup_simd`, `elem_size`, `dst_class` if it writes a mask or gpr, an arm in `asm_simd`).
 - **Condition code**: `Cond` + `lookup_cond` + `eval_cond`.
 - **Editor catalog** (`sema/asm/catalog.rs`): each new variant needs an arm in its feature, forms and description matches (exhaustive, the build says where). Catalog tests fail if a spelling the lookups accept is not listed. Register classes live in `REG_CLASSES`.
-- **Tests**: add a case to the matching `tests/stdlib/asm-*.jai`. Record expected values on real hardware (an x86-64 C program, or under Rosetta with `ROSETTA_ADVERTISE_AVX=1`) rather than deriving them from the implementation. AVX-512 has no hardware here, so `asm-avx512-masks.jai` computes expectations in plain Jai.
+- **Tests**: add a case to the matching `tests/compiler/regressions/asm-*.jai`. Record expected values on real hardware (an x86-64 C program, or under Rosetta with `ROSETTA_ADVERTISE_AVX=1`) rather than deriving them from the implementation. AVX-512 has no hardware here, so `asm-avx512-masks.jai` computes expectations in plain Jai.
 - **Gotchas**:
   - A `Val` defined inside a loop or CAS retry is valid only after the loop exit dominates it; keep loop-carried values in stack slots.
   - IR `select` evaluates both arms, so clamp before a float-to-int conversion (out-of-range `FToS` is poison in LLVM).
@@ -49,4 +49,4 @@ None. Feature modifiers after `#asm` are validated against `FEATURES` in `sema/a
 
 ## Dependencies
 
-`ir` (`Intrinsic::{CompareAndSwap, Popcount, Ctlz, Cttz, Bswap, Fma, SignMask, ByteLookup, ...}`), `sema::calls` (macros, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests: `tests/stdlib/lang-asm.jai` and `asm-*.jai` (swept by `tools/jaic-sweep.py stdlib`; some also run natively in `crates/jaic-cli/tests/native.rs`) and the `asm_*` parser tests.
+`ir` (`Intrinsic::{CompareAndSwap, Popcount, Ctlz, Cttz, Bswap, Fma, SignMask, ByteLookup, ...}`), `sema::calls` (macros, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests: `tests/compiler/regressions/lang-asm.jai` and `asm-*.jai` (swept by `tools/jaic-sweep.py stdlib`; some also run natively in `crates/jaic-cli/tests/native.rs`) and the `asm_*` parser tests.

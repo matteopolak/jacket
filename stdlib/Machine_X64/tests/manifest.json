@@ -1,0 +1,51 @@
+[
+  {
+    "name": "basics/compile-time",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/cpuid-vendor",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/instructions",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/main",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/options",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/pause",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/pause-baseline",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/pause-compile-time",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/rdrand",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "basics/rdseed",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "negative/register-scalar",
+    "mode": "check-fail",
+    "diagnostic_contains": "expected a SIMD register operand"
+  },
+  {
+    "name": "register-operands",
+    "stdout": "ok\n"
+  }
+]

@@ -8,8 +8,8 @@ from stdlib_test_catalog import case_for_mode, unavailable_reason, validated_ent
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "extensions/http-wasm-termination-status": (37, "before exit 37\n"),
-    "extensions/http-wasm-termination-failure": (
+    "Extensions/Http/tests/wasm-termination-status": (37, "before exit 37\n"),
+    "Extensions/Http/tests/wasm-termination-failure": (
         1,
         "FAIL: independent WASM termination control\n1 failure(s)\n",
     ),
@@ -64,13 +64,13 @@ class HttpTerminationContracts(unittest.TestCase):
 
     def test_app_boundary_codec_and_unknown_cases_are_unchanged(self):
         for name in (
-            "extensions/http-client-overload-lint-repro",
-            "extensions/http-dependency-consumer",
+            "Extensions/Http/tests/client-overload-lint",
+            "Extensions/Http/tests/dependency-consumer",
         ):
             case = self.cases[name]
             self.assertIsNone(unavailable_reason(case, "native", "macos-arm64"))
             self.assertIsNotNone(unavailable_reason(case, "wasm-native", "macos-arm64"))
-        case = self.cases["extensions/http-codec-roundtrip"]
+        case = self.cases["Extensions/Http/tests/codec-roundtrip"]
         self.assertIsNone(unavailable_reason(case, "wasm-native", "macos-arm64"))
         self.assertNotIn("exit_code", case)
 

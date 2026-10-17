@@ -1,0 +1,32 @@
+[
+  {
+    "name": "debug",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/any",
+    "mode": "fault",
+    "error_contains": "Deep_Copy does not support this reflected value kind",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/fixed",
+    "mode": "fault",
+    "error_contains": "Deep_Copy does not support fixed arrays",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "graph",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "scalars",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "timing/main",
+    "stdout": "ok\n"
+  }
+]

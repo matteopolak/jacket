@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+from driven_sources import driven
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -28,10 +29,10 @@ def main():
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     invoke([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", *flags,
-            ROOT / "tests/developer-tools/debug-lifecycle-native.c", "-o",
+            ROOT / "stdlib/Debug/tests/driven/debug-lifecycle-native.c", "-o",
             ROOT / f"target/libdeveloper_tools_debug_lifecycle.{suffix}"])
     for name in ["debug-lifecycle", "debug-native", "debug-default-assert", "debug-ignored-locations", "debug-abort"]:
-        source = ROOT / f"tests/developer-tools/{name}.jai"
+        source = driven(f"{name}.jai")
         for mode in ["interp", "0", "2"]:
             command = [JAIC, source, "-interp"]
             if mode != "interp":
@@ -54,7 +55,7 @@ def main():
     for name, diagnostic in [("debug-crash-callback", "original crash callback"),
                              ("debug-owned-context", "original owned context callback"),
                              ("debug-lifecycle-concurrent", "original concurrent context callback")]:
-        source = ROOT / f"tests/developer-tools/{name}.jai"
+        source = driven(f"{name}.jai")
         for mode in [0, 2]:
             executable = ROOT / f"target/developer-tools-{name}-o{mode}"
             invoke([JAIC, source, f"-O{mode}", "-exe", executable], output="")
@@ -63,7 +64,7 @@ def main():
                 raise RuntimeError("Unexpected crash callback output")
     paths = [ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-lifecycle.jai",
              ROOT / "stdlib/internal/developer-tools/debug-assert-storage.jai",
-             *[ROOT / f"tests/developer-tools/{name}.jai" for name in
+             *[driven(f"{name}.jai") for name in
                ["debug-lifecycle", "debug-crash-callback", "debug-default-assert",
                 "debug-owned-context", "debug-lifecycle-concurrent", "debug-ignored-locations", "debug-abort"]]]
     invoke([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths], output="")

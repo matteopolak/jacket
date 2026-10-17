@@ -7,6 +7,7 @@ import platform
 import subprocess
 import build_developer_bindings
 import build_generator_platform
+from driven_sources import driven
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
@@ -91,8 +92,8 @@ def check_cpp_custom():
     # The public generator executes this real host provider on every native OS.
     # Its preparation must not depend on the Darwin-only object oracle suite.
     build_generator_platform.build(prefix)
-    emitter = ROOT / "tests/developer-tools/bindings-cpp-custom.jai"
-    consumer = ROOT / "tests/developer-tools/bindings-cpp-custom-roundtrip.jai"
+    emitter = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom.jai"
+    consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-roundtrip.jai"
     generated_schemas = [
         ROOT / "target" / f"developer-tools-cpp-{name}.jai"
         for name in ["custom-generated", "custom-bridge", "callback-generated"]
@@ -112,7 +113,7 @@ def check_cpp_custom():
             "-Wextra",
             "-Werror",
             *flags,
-            ROOT / "tests/developer-tools/bindings-cpp-custom-native.cpp",
+            ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-native.cpp",
             "-o",
             ROOT / f"target/libdeveloper_tools_cpp_custom.{suffix}",
         ]
@@ -132,7 +133,7 @@ def check_cpp_custom():
                 "-Wextra",
                 "-Werror",
                 *flags,
-                ROOT / f"tests/developer-tools/bindings-{source}.c",
+                driven(f"bindings-{source}.c"),
                 "-o",
                 ROOT / f"target/libdeveloper_tools_{name}.{suffix}",
             ]
@@ -168,7 +169,7 @@ def check_cpp_custom():
                     "-Werror",
                     *flags,
                     ROOT / "target/developer-tools-cpp-custom.cpp",
-                    ROOT / "tests/developer-tools/bindings-cpp-custom-native.cpp",
+                    ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-native.cpp",
                     "-o",
                     ROOT / f"target/libdeveloper_tools_cpp_custom.{suffix}",
                 ]
@@ -205,7 +206,7 @@ def check_c_model_regressions():
         "bindings-macro-enums",
         "bindings-macro-merge",
     ]:
-        source = ROOT / f"tests/developer-tools/{name}.jai"
+        source = driven(f"{name}.jai")
         if not source.exists():
             raise RuntimeError(
                 f"Required existing model regression fixture is absent: {source}"

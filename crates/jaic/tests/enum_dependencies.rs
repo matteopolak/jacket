@@ -32,7 +32,7 @@ const ENUM_RECORD: &str = "Type_Info_Enum :: struct {using #as info:Type_Info; n
 fn enum_values_execute_in_the_interpreter() {
     check(&format!(
         "{} #assert enum_dependency_check()==0;",
-        include_str!("../../../tests/compiler-semantics/enum-dependencies.jai")
+        include_str!("../../../tests/compiler/semantics/enum-dependencies.jai")
     ));
 }
 

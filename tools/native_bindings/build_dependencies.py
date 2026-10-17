@@ -139,10 +139,10 @@ def main():
         build_rpmalloc(args.output, selected=selected, source=rpmalloc_source)
     if platform.system() == 'Darwin':
         apple_object = args.output/'apple_abi_probe.o'
-        run(['cc','-Wall','-Wextra','-Werror','-c',ROOT/'tests/native-bindings/apple_abi_probe.m',
+        run(['cc','-Wall','-Wextra','-Werror','-c',ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/apple_abi_probe.m',
              '-o',apple_object])
         run(['ar','rcs',args.output/'libapple_abi_probe.a',apple_object])
-        run(['cc','-dynamiclib',ROOT/'tests/native-bindings/apple_abi_probe.m',
+        run(['cc','-dynamiclib',ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/apple_abi_probe.m',
              '-framework','Foundation','-framework','Metal',
              '-o',args.output/'libapple_abi_probe.dylib'])
     runtime_sdl_headers = (prepare_runtime_headers(
@@ -157,21 +157,21 @@ def main():
         'meshoptimizer': sorted((vendor/'meshoptimizer/src').glob('*.cpp')),
         'binding_ffi': [ROOT/'stdlib/internal/bindings/varargs/bridge.c'],
         'binding_callback_context': [ROOT/'stdlib/internal/bindings/callback-context/bridge.c'],
-        'graphics_macro_probe': [ROOT/'tests/native-bindings/generated/d3d12_macro_probe.c'],
-        'sdl_abi_probe': [ROOT/'tests/native-bindings/sdl_abi_probe.c'],
-        'sdl_runtime_abi_probe': [ROOT/'tests/native-bindings/sdl_runtime_abi_probe.c'],
-        'posix_abi_probe': [ROOT/'tests/native-bindings/posix_abi_probe.c'],
-        'rpmalloc_sdk_probe': [ROOT/'tests/native-bindings/generated/rpmalloc_sdk_probe.c'],
-        'rpmalloc_callback_probe': [ROOT/'tests/native-bindings/rpmalloc_callback_probe.c',
-                                   ROOT/'tests/native-bindings/rpmalloc_sdk_config_probe.c'],
-        'rpmalloc_storage_probe': [ROOT/'tests/native-bindings/generated/rpmalloc_storage_probe.c'],
-        'imgui_abi_probe': [ROOT/'tests/native-bindings/imgui_abi_probe.cpp'],
+        'graphics_macro_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/d3d12_macro_probe.c'],
+        'sdl_abi_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/sdl_abi_probe.c'],
+        'sdl_runtime_abi_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/sdl_runtime_abi_probe.c'],
+        'posix_abi_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/posix_abi_probe.c'],
+        'rpmalloc_sdk_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc_sdk_probe.c'],
+        'rpmalloc_callback_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c',
+                                   ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_config_probe.c'],
+        'rpmalloc_storage_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc_storage_probe.c'],
+        'imgui_abi_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/imgui_abi_probe.cpp'],
         'imgui': [vendor/manifest['imgui']['archive']['root']/name for name in
                   ('imgui.cpp','imgui_draw.cpp','imgui_tables.cpp','imgui_widgets.cpp','imgui_demo.cpp')],
     }
     if platform.system() == 'Darwin':
-        units['fsevents_context_probe'] = [ROOT/'tests/native-bindings/fsevents_context_probe.c']
-        units['objc_runtime_probe'] = [ROOT/'tests/native-bindings/objc_runtime_probe.m']
+        units['fsevents_context_probe'] = [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/fsevents_context_probe.c']
+        units['objc_runtime_probe'] = [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/objc_runtime_probe.m']
     macros = {'stb_image': 'STB_IMAGE_IMPLEMENTATION',
               'stb_image_resize': 'STB_IMAGE_RESIZE_IMPLEMENTATION',
               'stb_image_write': 'STB_IMAGE_WRITE_IMPLEMENTATION'}

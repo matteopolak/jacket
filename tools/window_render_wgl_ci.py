@@ -14,6 +14,8 @@ import re
 import shutil
 import struct
 import subprocess
+from cleanroom_lint_contexts import checked_coverage
+from window_render_tests import WINDOW_RENDER_TESTS
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = (
@@ -51,7 +53,7 @@ def lint_jobs(linter, library, output):
             "Simp/tests/texture-packing.jai",
         ]
     ]
-    programs = [ROOT / f"tests/window-render/{case}.jai" for case in CASES]
+    programs = [ROOT / WINDOW_RENDER_TESTS[case] for case in CASES]
     private = [
         library / "internal/rendering/window-contexts.jai",
         library / "internal/window/lifecycle.jai",
@@ -78,43 +80,13 @@ def lint_jobs(linter, library, output):
     return jobs
 
 
-def canonical(path):
-    """One spelling of a file for comparing paths: Windows reports them with a verbatim prefix,
-    either slash and any case."""
-    text = str(path)
-    for prefix in ("\\\\?\\", "//?/"):
-        text = text.removeprefix(prefix)
-    return str(Path(os.path.normcase(os.path.realpath(text))))
-
-
-def checked_coverage(document, exit_code):
-    """A visited file in an incomplete or denied run never establishes clean lint."""
-    if document.get("version") != 1 or document.get("kind") != "source-check":
-        raise ValueError("invalid jailint coverage manifest")
-    clean = exit_code == 0 and not document["incomplete"]
-    visited = set()
-    partial = set()
-    for context in document["contexts"]:
-        paths = {canonical(path) for path in context["visited_files"]}
-        if clean and context["complete"]:
-            visited.update(paths)
-        else:
-            partial.update(paths)
-    return {
-        "clean": clean and all(c["complete"] for c in document["contexts"]),
-        "visited_complete": sorted(visited),
-        "visited_partial": sorted(partial),
-        "unvisited": document["unvisited_files"],
-    }
-
-
 def lint_coverage(manifest, status, required):
     try:
         coverage = checked_coverage(json.loads(manifest.read_text()), status)
         coverage["missing_required"] = sorted(
-            canonical(path)
+            str(path.resolve())
             for path in required
-            if canonical(path) not in coverage["visited_complete"]
+            if str(path.resolve()) not in coverage["visited_complete"]
         )
         coverage["clean"] = coverage["clean"] and not coverage["missing_required"]
         return coverage
@@ -198,7 +170,7 @@ def wgl_lint_paths(library, cases):
     paths += [library / name for name in
               ["Input/tests/windows-device-decoding.jai", "Input/tests/signed-native-fields.jai",
                "Simp/tests/glyph-atlas.jai", "Simp/tests/texture-packing.jai"]]
-    return paths + [ROOT / f"tests/window-render/{case}.jai" for case in cases]
+    return paths + [ROOT / WINDOW_RENDER_TESTS[case] for case in cases]
 
 
 def main():
@@ -291,7 +263,7 @@ def main():
         return ok
 
     for case in cases:
-        source = ROOT / f"tests/window-render/{case}.jai"
+        source = ROOT / WINDOW_RENDER_TESTS[case]
         run(case, "interp", [compiler, source, "-interp"])
         for optimization in ["O0", "O2"]:
             binary = output / f"{case}-{optimization}.exe"

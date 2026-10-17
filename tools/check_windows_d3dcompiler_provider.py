@@ -202,7 +202,7 @@ def main():
         return row["passed"]
 
     for name in ("windows-import-library-required", "windows-d3dcompiler-provider"):
-        source = root / "tests/native-bindings" / (name + ".jai")
+        source = root / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")
         report.setdefault("sources", {})[str(source)] = hashlib.sha256(
             source.read_bytes()
         ).hexdigest()

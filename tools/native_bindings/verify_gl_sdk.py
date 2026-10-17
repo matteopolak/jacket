@@ -65,7 +65,7 @@ def main():
         if actual != pins[relative]:
             raise SystemExit('Native SDK header differs from reviewed pin: '+relative)
         report['sdk_headers'][relative] = actual
-    probe_source = ROOT/'tests/native-bindings/apple_abi_probe.m'
+    probe_source = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/apple_abi_probe.m'
     probe = native/'libapple_abi_probe.a'
     obj = native/'apple_abi_probe.o'
     report['test_sources'][str(probe_source.relative_to(ROOT))] = digest(probe_source)
@@ -79,7 +79,7 @@ def main():
     if result['exit'] == 0:
         report['native_oracle_sha256'] = digest(probe)
         for name in ('reflection-procedure-flags','gl-context'):
-            source = ROOT/'tests/native-bindings'/(name+'.jai')
+            source = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk'/(name+'.jai')
             report['test_sources'][str(source.relative_to(ROOT))] = digest(source)
             exe = work/name
             build = invoke([compiler,source,'-exe',exe],env)

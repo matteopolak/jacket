@@ -64,7 +64,7 @@ def main():
     wrapper = sdk / "bin/clang"
     if wrapper.is_symlink():
         raise RuntimeError("Configured compiler wrapper must be an owned file")
-    shutil.copyfile(ROOT / "tests/developer-tools/configured-clang.py", wrapper)
+    shutil.copyfile(ROOT / "stdlib/Bindings_Generator/tests/driven/configured-clang.py", wrapper)
     wrapper.chmod(0o755)
     marker = sdk / "include-probe.txt"
     (sdk / "compiler.json").write_text(json.dumps({"compiler": str(primary / "bin/clang"), "include_probe_marker": str(marker)}) + "\n")
@@ -98,13 +98,13 @@ def main():
         extension = "dylib" if host == "Darwin" else "so"
         flags = ["-dynamiclib"] if host == "Darwin" else ["-shared", "-fPIC"]
         run([sdk / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *flags,
-             ROOT / "tests/developer-tools/bindings-configured-sdk.c", "-o", ROOT / f"target/libdeveloper_tools_configured.{extension}"])
+             ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk.c", "-o", ROOT / f"target/libdeveloper_tools_configured.{extension}"])
         jaic = ROOT / "target/debug/jaic"
         for mode in ["interp", "o0", "o2"]:
             if marker.exists():
                 marker.unlink()
             emitter = ROOT / f"target/developer-tools-configured-emitter-{mode}"
-            fixture = ROOT / "tests/developer-tools/bindings-configured-sdk.jai"
+            fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk.jai"
             if mode == "interp":
                 run([jaic, fixture, "-interp"], output="ok\n")
             else:
@@ -113,7 +113,7 @@ def main():
                 evidence["consumers"].append({"mode": mode, "libclang": dependencies(emitter, sdk_library)})
             if not marker.is_file():
                 raise RuntimeError("Production include discovery did not invoke the configured SDK compiler")
-            roundtrip = ROOT / "tests/developer-tools/bindings-configured-sdk-roundtrip.jai"
+            roundtrip = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk-roundtrip.jai"
             consumer = ROOT / f"target/developer-tools-configured-roundtrip-{mode}"
             if mode == "interp":
                 run([jaic, roundtrip, "-interp", "-I", ROOT / "target"], output="ok\n")

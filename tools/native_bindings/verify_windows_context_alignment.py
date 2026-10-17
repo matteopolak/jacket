@@ -41,8 +41,8 @@ def main():
         if annotation not in header:
             raise SystemExit("pinned SDK header lacks required explicit alignment")
     extras = [
-        "tests/native-bindings/windows-context-alignment.jai",
-        "tests/native-bindings/windows_context_alignment_sdk.c",
+        "stdlib/Bindings_Generator/tests/driven/sdk/windows-context-alignment.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/windows_context_alignment_sdk.c",
         "tools/native_bindings/verify_windows_context_alignment.py",
         "docs/specs/stdlib/modules/windows.md",
         "jaifmt.toml",

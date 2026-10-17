@@ -1,0 +1,13 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/dirty",
+    "mode": "fault",
+    "error_contains": "Treemap display requires clean weights",
+    "exit_code": 1,
+    "stdout": ""
+  }
+]

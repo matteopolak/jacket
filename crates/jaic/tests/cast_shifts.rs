@@ -3,7 +3,7 @@ mod common;
 use common::bare_compiler as compiler;
 use jaic::sema::ProgramSource;
 
-const SOURCE: &str = include_str!("../../../tests/compiler-semantics/cast-shift-widths.jai");
+const SOURCE: &str = include_str!("../../../tests/compiler/semantics/cast-shift-widths.jai");
 
 
 #[test]

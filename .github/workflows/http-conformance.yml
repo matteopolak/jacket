@@ -8,7 +8,6 @@ on:
     branches: [main, staging]
     paths:
       - stdlib/Extensions/Http/**
-      - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
       - tools/http_native.py
       - tools/gen_http_corpus.py
@@ -17,7 +16,6 @@ on:
   pull_request:
     paths:
       - stdlib/Extensions/Http/**
-      - tests/extensions/http-codec-*.jai
       - tools/http_conformance.py
       - tools/http_native.py
       - tools/gen_http_corpus.py
@@ -78,8 +76,8 @@ jobs:
           python3 -m unittest discover -s tools -p test_ci_test_scratch.py -v
           python3 -m unittest discover -s tools -p test_http_observer_artifacts.py -v
           python3 -m unittest discover -s tools -p test_io_stress_observation.py -v
-          python3 -m unittest discover -s tests/tools -p test_io_burst_diagnostics.py -v
-          python3 -m unittest discover -s tests/tools -p test_io_failure_observer.py -v
+          python3 -m unittest discover -s tools -p test_io_burst_diagnostics.py -v
+          python3 -m unittest discover -s tools -p test_io_failure_observer.py -v
           python3 -m unittest discover -s tools -p test_io_failure_wiring.py -v
           observe=()
           if [ "$RUNNER_OS" = Linux ]; then

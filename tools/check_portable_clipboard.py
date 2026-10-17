@@ -18,20 +18,20 @@ JAI = [
     "stdlib/Clipboard/module.jai",
     "stdlib/internal/clipboard/linux.jai",
     "stdlib/internal/window/connection.jai",
-    "tests/portable-stdlib/clipboard-linux-api.jai",
-    "tests/portable-stdlib/clipboard-linux-roundtrip.jai",
-    "tests/portable-stdlib/clipboard-linux-no-empty.jai",
-    "tests/portable-stdlib/clipboard-linux-private.jai",
-    "tests/portable-stdlib/clipboard-platform-api.jai",
-    "tests/portable-stdlib/clipboard-linux-window-source.jai",
+    "stdlib/Clipboard/tests/linux-api.jai",
+    "stdlib/Clipboard/tests/linux-roundtrip.jai",
+    "stdlib/Clipboard/tests/linux-no-empty.jai",
+    "stdlib/Clipboard/tests/linux-private.jai",
+    "stdlib/Clipboard/tests/platform-api.jai",
+    "stdlib/Clipboard/tests/linux-window-source.jai",
 ]
 C = [
     "stdlib/internal/clipboard/native/" + name for name in ["x11.c", "data.c", "data.h"]
 ]
 TEST_C = [
-    "tests/portable-stdlib/native/clipboard-data.c",
-    "tests/portable-stdlib/native/clipboard-x11.c",
-    "tests/portable-stdlib/native/clipboard-clock-failure.c",
+    "stdlib/Clipboard/tests/native/data.c",
+    "stdlib/Clipboard/tests/native/x11.c",
+    "stdlib/Clipboard/tests/native/clock-failure.c",
 ]
 
 
@@ -147,15 +147,15 @@ def main():
             run("jai-format", [formatter, "--check", *[ROOT / p for p in JAI]])
         for cpu in ["x64", "arm64"]:
             for fixture in [
-                "clipboard-linux-api.jai",
-                "clipboard-linux-roundtrip.jai",
-                "clipboard-linux-window-source.jai",
+                "linux-api.jai",
+                "linux-roundtrip.jai",
+                "linux-window-source.jai",
             ]:
                 run(
                     "linux-source:" + cpu + ":" + fixture,
                     [
                         compiler,
-                        ROOT / "tests/portable-stdlib" / fixture,
+                        ROOT / "stdlib/Clipboard/tests" / fixture,
                         "-check",
                         "-no_dce",
                         "-os",
@@ -165,14 +165,14 @@ def main():
                     ],
                 )
             for fixture, name in [
-                ("clipboard-linux-no-empty.jai", "os_clipboard_empty"),
-                ("clipboard-linux-private.jai", "native_read"),
+                ("linux-no-empty.jai", "os_clipboard_empty"),
+                ("linux-private.jai", "native_read"),
             ]:
                 run(
                     "linux-negative:" + cpu + ":" + fixture,
                     [
                         compiler,
-                        ROOT / "tests/portable-stdlib" / fixture,
+                        ROOT / "stdlib/Clipboard/tests" / fixture,
                         "-check",
                         "-os",
                         "linux",
@@ -183,7 +183,7 @@ def main():
                     diagnostic=name,
                 )
             for system in ["linux", "macos", "windows"]:
-                fixture = ROOT / "tests/portable-stdlib/clipboard-platform-api.jai"
+                fixture = ROOT / "stdlib/Clipboard/tests/platform-api.jai"
                 run(
                     "platform-source:" + system + ":" + cpu,
                     [
@@ -229,7 +229,7 @@ def main():
                     "-cpu",
                     cpu,
                     "--context",
-                    ROOT / "tests/portable-stdlib/clipboard-linux-window-source.jai",
+                    ROOT / "stdlib/Clipboard/tests/linux-window-source.jai",
                     "--manifest",
                     work / ("lint-connection-" + cpu + ".json"),
                     ROOT / JAI[2],
@@ -321,7 +321,7 @@ def main():
                 "linux-interpreter",
                 [
                     compiler,
-                    ROOT / "tests/portable-stdlib/clipboard-linux-roundtrip.jai",
+                    ROOT / "stdlib/Clipboard/tests/linux-roundtrip.jai",
                     "-interp",
                 ],
             )
@@ -331,7 +331,7 @@ def main():
                     "linux-jai-build:" + optimization,
                     [
                         compiler,
-                        ROOT / "tests/portable-stdlib/clipboard-linux-roundtrip.jai",
+                        ROOT / "stdlib/Clipboard/tests/linux-roundtrip.jai",
                         optimization,
                         "-exe",
                         program,

@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import re
 import subprocess
+from driven_sources import driven
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
@@ -39,15 +40,15 @@ def main():
     names = set(re.findall(r"^\s*Name: (\S+)", exports, re.MULTILINE))
     if names != EXPECTED:
         raise RuntimeError("Private Windows Debug export set does not match the Jai native signatures")
-    fixture = ROOT / "tests/developer-tools/debug-windows-native.c"
+    fixture = ROOT / "stdlib/Debug/tests/driven/debug-windows-native.c"
     for optimization in [0, 2]:
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", fixture,
              import_library, "-o", ROOT / f"target/developer-tools-debug-windows-o{optimization}.exe"])
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
-             ROOT / "tests/developer-tools/debug-windows-final.c", import_library,
+             ROOT / "stdlib/Debug/tests/driven/debug-windows-final.c", import_library,
              "-o", ROOT / f"target/developer-tools-debug-windows-final-o{optimization}.exe"])
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
-             ROOT / "tests/developer-tools/debug-windows-dialog.c", import_library, "-luser32",
+             ROOT / "stdlib/Debug/tests/driven/debug-windows-dialog.c", import_library, "-luser32",
              "-o", ROOT / f"target/developer-tools-debug-windows-dialog-o{optimization}.exe"])
     run([llvm / "bin/clang", "--target=aarch64-w64-windows-gnu",
          f"--sysroot={sdk / 'x86_64-w64-mingw32'}", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
@@ -57,15 +58,15 @@ def main():
     # are deliberately not counted as Windows runtime evidence.
     for cpu in ["x64", "arm64"]:
         for name in ["debug-windows-contract", "debug-windows-lifecycle", "debug-windows-dumps"]:
-            run([build / "debug/jaic", ROOT / f"tests/developer-tools/{name}.jai",
+            run([build / "debug/jaic", driven(f"{name}.jai"),
                  "-check", "-os", "windows", "-cpu", cpu])
         run([build / "debug/jailint", "--os", "windows", "--cpu", cpu, "-D", "warnings",
-             ROOT / "stdlib/Debug/module.jai", ROOT / "tests/developer-tools/debug-windows-contract.jai",
-             ROOT / "tests/developer-tools/debug-windows-lifecycle.jai", ROOT / "tests/developer-tools/debug-windows-dumps.jai"])
+             ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai",
+             ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check",
          ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-lifecycle.jai",
-         ROOT / "tests/developer-tools/debug-windows-contract.jai",
-         ROOT / "tests/developer-tools/debug-windows-lifecycle.jai", ROOT / "tests/developer-tools/debug-windows-dumps.jai"])
+         ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai",
+         ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])
     headers = [sdk / "x86_64-w64-mingw32/include" / name for name in ["windows.h", "dbghelp.h"]]
     metadata = {"coverage": "Windows x64 SDK DLL/executable cross-build/link/export inspection and arm64 object compilation; no Windows execution",
                 "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),

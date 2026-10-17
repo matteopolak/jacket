@@ -1,0 +1,32 @@
+[
+  {
+    "name": "completions",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "help",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "parse",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  }
+]

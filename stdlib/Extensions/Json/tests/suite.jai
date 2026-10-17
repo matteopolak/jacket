@@ -9,7 +9,7 @@
 #import "String";
 #import "Extensions/Json";
 
-#load "data/suite_cases.jai";
+#load "fixtures/suite_cases.jai";
 
 failures := 0;
 

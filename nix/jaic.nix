@@ -92,6 +92,8 @@ rustPlatform.buildRustPackage {
     mkdir -p $dir
     mv $out/bin/jaic $out/bin/jailsp $out/bin/jailint $dir/
     cp -R stdlib $dir/
+    # The stdlib's own tests and fixtures (stdlib/**/tests) are not part of a module.
+    find $dir/stdlib -type d -name tests -prune -exec rm -rf {} +
     makeWrapper $dir/jaic $out/bin/jaic \
       --set-default JAI_LIBCLANG ${libclang} \
       --suffix PATH : ${toolPath}

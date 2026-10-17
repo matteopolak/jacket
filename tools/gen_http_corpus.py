@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turns the vendored llhttp fixtures (MIT) into stdlib/Extensions/Http/tests/data/llhttp_cases.jai,
+"""Turns the vendored llhttp fixtures (MIT) into stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai,
 so the Http tests need no file system (they also run under wasm).
 
     python3 tools/gen_http_corpus.py

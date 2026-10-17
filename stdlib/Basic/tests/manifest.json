@@ -1,0 +1,614 @@
+[
+  {
+    "name": "aggregate-defaults-and-type-identity",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "aligned-allocation",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "apollo",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "apollo-caller-return",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "apollo-comparisons/negative-except-lt",
+    "mode": "check-fail",
+    "diagnostic_contains": "operator Lt is not defined for Apollo_Time"
+  },
+  {
+    "name": "apollo-comparisons/negative-no-using",
+    "mode": "check-fail",
+    "diagnostic_contains": "operator Lt is not defined for Apollo_Time"
+  },
+  {
+    "name": "apollo-comparisons/negative-only-equality",
+    "mode": "check-fail",
+    "diagnostic_contains": "operator Lt is not defined for Apollo_Time"
+  },
+  {
+    "name": "apollo-comparisons/public"
+  },
+  {
+    "name": "apollo-comparisons/word-boundary-oracle"
+  },
+  {
+    "name": "array",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "array-aliasing",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "array-context/basic-array-find"
+  },
+  {
+    "name": "array-context/basic-explicit-comparator"
+  },
+  {
+    "name": "array-context/basic-primitive-enum"
+  },
+  {
+    "name": "array-context/configuration"
+  },
+  {
+    "name": "array-context/debugger-default"
+  },
+  {
+    "name": "array-context/family"
+  },
+  {
+    "name": "array-context/loaded-poke"
+  },
+  {
+    "name": "array-context/negative-private-helper",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Basic` has no exported member `copy_array_elements`"
+  },
+  {
+    "name": "array-context/poke"
+  },
+  {
+    "name": "array-context/provider-poke"
+  },
+  {
+    "name": "assert-message",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "basics",
+    "stdout": "-42 true text 55\n"
+  },
+  {
+    "name": "builder-allocation",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "builder-format",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "calendar-native",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "calendar-text",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "capabilities",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "checked-narrow-cast",
+    "error_contains": "cast of 65416 to `s16` overflows",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "config-negative/competing-main",
+    "mode": "check-fail",
+    "diagnostic_contains": "module parameter `ENABLE_ASSERT` is set here after the module already used another value"
+  },
+  {
+    "name": "config-negative/non-main",
+    "mode": "check-fail",
+    "diagnostic_contains": "PROGRAM parameters may only be supplied by the main program of this workspace"
+  },
+  {
+    "name": "configuration",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "configuration-disabled",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "configuration-isolated-combined",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "context-style",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "corpus-api/file-compile-time-qualified",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "corpus-api/file-no-import-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "unknown identifier `get_absolute_path`"
+  },
+  {
+    "name": "corpus-api/file-private-load-negative",
+    "stdout": ""
+  },
+  {
+    "name": "corpus-api/file-public-load",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "corpus-api/file-qualified",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "corpus-api/hash-call-context",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "corpus-api/hash-struct-variant-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "get_hash requires an integer, boolean, enum, pointer, or float"
+  },
+  {
+    "name": "corpus-api/hash-variants",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "corpus-api/math-poke",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "counter-kernel",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "division-exercise",
+    "stdout": "ok\n",
+    "required_cpu": "x64"
+  },
+  {
+    "name": "elapsed-time",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "filesystem",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "filetime-kernel",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "float-parsing",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "float-roundtrip",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "format-aggregates",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "format-any-missing-type",
+    "stdout": "",
+    "mode": "fault",
+    "error_contains": "cannot format an Any without type metadata",
+    "exit_code": 1
+  },
+  {
+    "name": "format-any-missing-value",
+    "stdout": "",
+    "mode": "fault",
+    "error_contains": "cannot format an Any without payload storage",
+    "exit_code": 1
+  },
+  {
+    "name": "format-any-missing-value-no-assert",
+    "stdout": "",
+    "mode": "fault",
+    "error_contains": "cannot format an Any without payload storage",
+    "exit_code": 1
+  },
+  {
+    "name": "format-default-type-identity",
+    "stdout": "true true true true true true\n"
+  },
+  {
+    "name": "format-floats",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "format-grammar",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "format-null-any",
+    "stdout": "continued\n"
+  },
+  {
+    "name": "format-null-descriptor-probe",
+    "stdout": "",
+    "mode": "fault",
+    "error_contains": "a null type descriptor has no type name",
+    "exit_code": 1
+  },
+  {
+    "name": "format-null-lvalue-any-probe",
+    "stdout": "7\ntrue\n",
+    "mode": "fault",
+    "error_contains": "cannot format an Any without payload storage",
+    "exit_code": 1
+  },
+  {
+    "name": "format-null-type-probe",
+    "stdout": "void\n{void, 0}\n"
+  },
+  {
+    "name": "format-selection-and-builder",
+    "stdout": "4 ab \nok\n"
+  },
+  {
+    "name": "format-types",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "formatter-parameter-defaults",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "formatter-records",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "gregorian-dates",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "helpers",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "integer-format",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "integer-time",
+    "stdout": ""
+  },
+  {
+    "name": "leak-filters",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "leak-graphs",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "leak-reports",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "logging",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "logging-output",
+    "stdout": "out 7",
+    "stderr": "err true",
+    "exit_code": 0
+  },
+  {
+    "name": "macro-push-context",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "mixed-varargs-spread",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "negative/builder-buffer-visibility",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Basic` has no exported member `Buffer`"
+  },
+  {
+    "name": "negative/file-compile-time-private",
+    "stdout": ""
+  },
+  {
+    "name": "negative/interface-import-visibility",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Basic` has no exported member `Interface_Definition`"
+  },
+  {
+    "name": "negative/parameter-interface-visibility",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `Basic` has no exported member `Memory_Debugger_Interface`"
+  },
+  {
+    "name": "negative/plain-distinct-comparison"
+  },
+  {
+    "name": "negative/private-formatter",
+    "mode": "check-fail",
+    "diagnostic_contains": "module `internal/basic` has no exported member `portable_float`"
+  },
+  {
+    "name": "negative/program-parameter-nominal",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `consume`: argument of type `Apollo_Time` does not match parameter type `Unrelated`"
+  },
+  {
+    "name": "negative/replacement-interface",
+    "mode": "check-fail",
+    "diagnostic_contains": "Broken does not satisfy interface Memory_Debugger_Interface: missing member `check_alloc`"
+  },
+  {
+    "name": "negative/scalar-bool",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `clamp`: #modify rejected the arguments to `clamp`: clamp requires a scalar type"
+  },
+  {
+    "name": "negative/unknown-parameter",
+    "mode": "check-fail",
+    "diagnostic_contains": "argument `FOUNDATIONS_UNDECLARED_PARAMETER` is not a parameter of this module"
+  },
+  {
+    "name": "negative/wide-to-s128-bool",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type"
+  },
+  {
+    "name": "negative/wide-to-s128-distinct",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type"
+  },
+  {
+    "name": "negative/wide-to-s128-enum",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type"
+  },
+  {
+    "name": "negative/wide-to-s128-float",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type"
+  },
+  {
+    "name": "negative/wide-to-s128-s128",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type"
+  },
+  {
+    "name": "negative/wide-to-s128-u128",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-bool",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-distinct",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-enum",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-float",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-negative-byte",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-s128",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-signed",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "negative/wide-to-u128-u128",
+    "mode": "check-fail",
+    "diagnostic_contains": "in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type"
+  },
+  {
+    "name": "numeric-parsing",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "output",
+    "stdout": "out 7++",
+    "stderr": "err true",
+    "exit_code": 17
+  },
+  {
+    "name": "preamble",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "print-bytes",
+    "stdout": "0 1 7f ff \n[0][1]\n\n",
+    "stderr": "",
+    "exit_code": 0
+  },
+  {
+    "name": "program-parameters/assertions-disabled"
+  },
+  {
+    "name": "program-parameters/assertions-enabled"
+  },
+  {
+    "name": "program-parameters/default-assignment"
+  },
+  {
+    "name": "program-parameters/default-conversion"
+  },
+  {
+    "name": "program-parameters/runtime-conversion"
+  },
+  {
+    "name": "public-filter-facades/basic",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "public-filter-facades/bit-array",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "public-filter-facades/internal-name-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "operator Sub is not defined for Apollo_Time"
+  },
+  {
+    "name": "public-filter-facades/math",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "public-filter-facades/radixsort",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "public-filter-facades/soa",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "public-filter-facades/symbol-positive",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "public-filter-facades/xar",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "reflection",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "scalars-ownership",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "sleep",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "slice-resize",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "slice-resize-and-monotonic-time",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic monotonic/elapsed clock"
+    ]
+  },
+  {
+    "name": "stack-output",
+    "stdout": "OUT 'walk' at tree.jai:3\n",
+    "stderr": "ERR 'walk' at tree.jai:3\n",
+    "exit_code": 0
+  },
+  {
+    "name": "stack-traces",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "temp-storage",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "temporary-stamping",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "time-assert-disabled",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "time-conversion",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "time-errors",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "time-float",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "type-info-alignment",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "type-parameter-format",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "visualization-channel",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "visualization-disabled",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "visualization-timing",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "wasi-file-boundary",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "wasm-basic-minimal",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "wide-arithmetic-vectors",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "wide-conversions",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "windows",
+    "stdout": "ok\n",
+    "required_os": "windows"
+  }
+]

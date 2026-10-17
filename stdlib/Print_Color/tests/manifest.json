@@ -1,0 +1,11 @@
+[
+  {
+    "name": "basics",
+    "stdout": "\u001b[1;31mcolor 42\u001b[0m\u001b[4;32mscope\u001b[0mok\n",
+    "stderr": "\u001b[0;44merror\u001b[0m"
+  },
+  {
+    "name": "windows-console",
+    "required_os": "windows"
+  }
+]

@@ -35,7 +35,7 @@ The folder is part of `stdlib/`, so release archives, the browser engine's bundl
 - New module: add `stdlib/Extensions/<Name>/module.jai` (one feature per module, first comment says it is a jaic extension), a row above, and a doc. Nothing in the compiler lists modules; help, quick fix and completion list the folder.
 - Compiler-backed type (like `Long_Double`): add a name to `jaic_type` in `sema/expr.rs` and export `Name :: #jaic_type name;`.
 - Never put a module here whose name official Jai code uses; those belong in `stdlib/` under the official name.
-- Test lists that enumerate modules include the folder as `Extensions/<Name>` (`tests/stdlib-targets.txt`, `tools/stdlib_runtime.py`, `tools/jaic-sweep.py`, `tools/jaic-diff.py` run `stdlib/Extensions/*/tests/*.jai`).
+- Test lists that enumerate modules include the folder as `Extensions/<Name>` (`tests/compiler/stdlib-targets.txt`, `tools/stdlib_runtime.py`, `tools/jaic-sweep.py`, `tools/jaic-diff.py` run `stdlib/Extensions/*/tests/*.jai`).
 
 Constants: `jaic::STDLIB_EXTENSIONS_DIR` (`Extensions`), `jaic::build::WASI_RUNTIME_IMPORT`.
 

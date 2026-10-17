@@ -1,0 +1,20 @@
+[
+  {
+    "name": "generic-operations",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "lane-arithmetic",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "vectors",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  }
+]

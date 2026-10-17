@@ -13,10 +13,10 @@ from stdlib_test_catalog import unavailable_reason, validated_entries
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "GetRect/tests/native_clipboard": {"macos"},
-    "GetRect/tests/native_cursors": {"macos", "windows"},
-    "GetRect/tests/clipboard_unavailable": {"linux", "windows", "wasm"},
-    "GetRect/tests/cursors_unavailable": {"linux", "wasm"},
+    "GetRect/tests/native-clipboard": {"macos"},
+    "GetRect/tests/native-cursors": {"macos", "windows"},
+    "GetRect/tests/clipboard-unavailable": {"linux", "windows", "wasm"},
+    "GetRect/tests/cursors-unavailable": {"linux", "wasm"},
 }
 
 
@@ -35,7 +35,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
 
     def test_complete_module_inventory_and_all_execution_modes(self):
         self.assertEqual(
-            {name for name in self.cases if name.startswith("GetRect/tests/")},
+            {name for name, case in self.cases.items() if "numerics_target_source" in case},
             set(EXPECTED),
         )
         for name, targets in EXPECTED.items():
@@ -58,7 +58,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
                     )
 
     def test_malformed_target_or_mode_is_configuration_failure(self):
-        case = self.cases["GetRect/tests/native_clipboard"]
+        case = self.cases["GetRect/tests/native-clipboard"]
         for platform in (
             None,
             "",
@@ -76,7 +76,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
 
     def test_unknown_contract_marker_fails_instead_of_defaulting_to_unavailable(self):
         case = {
-            **self.cases["GetRect/tests/native_clipboard"],
+            **self.cases["GetRect/tests/native-clipboard"],
             "numerics_target_source": "stdlib/GetRect/tests/unreviewed.jai",
         }
         with self.assertRaisesRegex(ValueError, "uninventoried numerics"):
@@ -84,7 +84,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
 
     def test_unrelated_cases_and_missing_providers_remain_required(self):
         for name in (
-            "contracts/math-vector-float16-edge-vectors",
+            "Math/tests/float16-edge-vectors",
             "Extensions/Byte_Search/tests/search",
         ):
             self.assertIsNone(
@@ -93,7 +93,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
         for name in EXPECTED:
             self.assertNotIn("unsupported_modes", self.cases[name])
 
-    def sweep(self, platform, opt, dispatch_result):
+    def sweep(self, platform, opt, dispatch_result, name):
         sweep = load_sweep()
         output = io.StringIO()
         with (
@@ -112,7 +112,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
                     opt,
                     "--headless",
                     "--filter",
-                    "GetRect/tests/",
+                    name,
                     "modules",
                 ],
             ),
@@ -132,37 +132,34 @@ class NumericsCaseCapabilities(unittest.TestCase):
         for platform in ("macos-arm64", "linux-x64", "linux-arm64", "windows-x64"):
             target = platform.split("-")[0]
             for opt in ("O0", "O2"):
-                with self.subTest(platform=platform, opt=opt):
-                    status, output, calls = self.sweep(platform, opt, ("", "", 0))
-                    self.assertEqual(status, 0)
-                    selected = {"GetRect/tests/" + call.args[1].stem for call in calls}
-                    self.assertEqual(
-                        selected,
-                        {
-                            name
-                            for name, targets in EXPECTED.items()
-                            if target in targets
-                        },
-                    )
-                    for call in calls:
-                        self.assertEqual(
-                            call.args[3], ["-sanitize", "address,undefined", "-" + opt]
-                        )
-                    self.assertIn("2 passed, 0 failed, 2 platform unavailable", output)
-                    for name in set(EXPECTED) - selected:
-                        self.assertIn("UNAVAILABLE " + name + ":", output)
+                for name, targets in EXPECTED.items():
+                    with self.subTest(platform=platform, opt=opt, name=name):
+                        status, output, calls = self.sweep(platform, opt, ("", "", 0), name)
+                        self.assertEqual(status, 0)
+                        if target in targets:
+                            self.assertEqual(len(calls), 1)
+                            self.assertEqual(
+                                calls[0].args[3], ["-sanitize", "address,undefined", "-" + opt]
+                            )
+                            self.assertIn("1 passed, 0 failed, 0 platform unavailable", output)
+                        else:
+                            self.assertEqual(calls, [])
+                            self.assertIn("0 passed, 0 failed, 1 platform unavailable", output)
+                            self.assertIn("UNAVAILABLE " + name + ":", output)
 
     def test_real_provider_failures_are_not_availability_decisions(self):
+        name = "GetRect/tests/native-clipboard"
         for provider in ("clang", "developer_tools_debug"):
             status, output, calls = self.sweep(
                 "macos-arm64",
                 "O0",
                 ("", "error: required native library " + provider + " unavailable", 1),
+                name,
             )
             self.assertEqual(status, 1)
-            self.assertEqual(len(calls), 2)
-            self.assertIn("0 passed, 2 failed, 2 platform unavailable", output)
-            self.assertIn("FAIL GetRect/tests/native_clipboard:", output)
+            self.assertEqual(len(calls), 1)
+            self.assertIn("0 passed, 1 failed, 0 platform unavailable", output)
+            self.assertIn("FAIL " + name + ":", output)
             self.assertIn(provider, output)
 
 

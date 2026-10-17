@@ -1,0 +1,46 @@
+[
+  {
+    "name": "multi-window-focus",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true,
+    "required_os": "macos"
+  },
+  {
+    "name": "published-events",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true,
+    "required_os": "macos"
+  },
+  {
+    "name": "signed-wheel-windows",
+    "required_os": "windows"
+  },
+  {
+    "name": "temporary-allocator",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native SDK, OS or graphics services"
+    ],
+    "window_lease": true,
+    "required_os": "macos"
+  },
+  {
+    "name": "windows-device-decoding",
+    "required_os": "windows"
+  }
+]

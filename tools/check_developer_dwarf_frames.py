@@ -21,7 +21,7 @@ def main():
         for optimization in [0, 2]:
             base = ROOT / f"target/developer-tools-debug-frame-{arch}-o{optimization}"
             run([prefix / "bin/clang", "-target", target, "-gdwarf-4", "-g", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables",
-                 f"-O{optimization}", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "tests/developer-tools/dwarf-line-native.c", "-o", base.with_suffix('.o')])
+                 f"-O{optimization}", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-line-native.c", "-o", base.with_suffix('.o')])
             run([prefix / "bin/llvm-objcopy", "--dump-section", f".debug_frame={base.with_suffix('.bin')}", base.with_suffix('.o')])
             decoded = run([prefix / "bin/llvm-dwarfdump", "--debug-frame", base.with_suffix('.o')])
             matches = re.findall(r"^([0-9a-f]+) ([0-9a-f]+) [0-9a-f]+ FDE cie=([0-9a-f]+) pc=([0-9a-f]+)\.\.\.([0-9a-f]+)$", decoded, re.MULTILINE)

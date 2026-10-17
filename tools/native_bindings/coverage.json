@@ -175581,8 +175581,8 @@
             "stdlib/internal/bindings/callback-context/module.jai": "f7fa635fa781b43732b63a49cf7ca4882b3978511ea1ed6dadb7fd270895cb1a"
           },
           "tests": [
-            "tests/native-bindings/rpmalloc-public-callbacks.jai",
-            "tests/native-bindings/rpmalloc-public-configurable.jai"
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-callbacks.jai",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-configurable.jai"
           ]
         },
         {
@@ -175599,12 +175599,12 @@
           "scope": "Separate canonical reviewed raw/rewrite records, actual atomic members, private typed native ownership, real SDK counters, span graph and unmap-driven retirement; both statistics and all thread/global-cache selections",
           "limitations": "Raw heaps require explicit private build selection; only live/quiescent observations; other native options remain incomplete; acquired heap handle reservation OOM returns null before SDK mutation, but graph/default-thread association OOM remains fail-fast",
           "tests": [
-            "tests/native-bindings/rpmalloc-public-heaps.jai",
-            "tests/native-bindings/rpmalloc-public-heap-lifecycle.jai",
-            "tests/native-bindings/rpmalloc-heap-marshalling.jai",
-            "tests/native-bindings/rpmalloc-public-raw-heaps.jai",
-            "tests/native-bindings/rpmalloc-public-raw-heap-lifecycle.jai",
-            "tests/native-bindings/rpmalloc-raw-heap-marshalling.jai"
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-heaps.jai",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-heap-lifecycle.jai",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-heap-marshalling.jai",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-raw-heaps.jai",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-raw-heap-lifecycle.jai",
+            "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-heap-marshalling.jai"
           ]
         }
       ]

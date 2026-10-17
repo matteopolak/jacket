@@ -11,7 +11,7 @@
 // epoll also runs a test that makes the kernel refuse to watch a descriptor (Linux only).
 //
 // The default backend and the forced ones must pass the same tests.
-#load "lib/suite.jai";
+#load "support/suite.jai";
 
 #if OS == .LINUX {
     libc :: #system_library "libc";

@@ -591,8 +591,8 @@ def main():
                         'limitations':'Adaptive-cache/unmap/unlimited/page-advice/numeric options and exact native-error Jai location provenance remain incomplete',
                         'caller_context_artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                                                     for p in sorted((ROOT/'stdlib/internal/bindings/callback-context').iterdir()) if p.is_file()},
-                        'tests':['tests/native-bindings/rpmalloc-public-callbacks.jai',
-                                 'tests/native-bindings/rpmalloc-public-configurable.jai']})
+                        'tests':['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-callbacks.jai',
+                                 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-configurable.jai']})
                 heap_backend = ROOT/'stdlib/internal/bindings/rpmalloc-heaps'
                 if heap_backend.exists():
                     all_ledger[module]['supplemental_backends'].append({
@@ -602,12 +602,12 @@ def main():
                                      for p in sorted(heap_backend.iterdir()) if p.is_file()},
                         'scope':'Separate canonical reviewed raw/rewrite records, actual atomic members, private typed native ownership, real SDK counters, span graph and unmap-driven retirement; both statistics and all thread/global-cache selections',
                         'limitations':'Raw heaps require explicit private build selection; only live/quiescent observations; other native options remain incomplete; acquired heap handle reservation OOM returns null before SDK mutation, but graph/default-thread association OOM remains fail-fast',
-                        'tests':['tests/native-bindings/rpmalloc-public-heaps.jai',
-                                 'tests/native-bindings/rpmalloc-public-heap-lifecycle.jai',
-                                 'tests/native-bindings/rpmalloc-heap-marshalling.jai',
-                                 'tests/native-bindings/rpmalloc-public-raw-heaps.jai',
-                                 'tests/native-bindings/rpmalloc-public-raw-heap-lifecycle.jai',
-                                 'tests/native-bindings/rpmalloc-raw-heap-marshalling.jai']})
+                        'tests':['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-heaps.jai',
+                                 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-heap-lifecycle.jai',
+                                 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-heap-marshalling.jai',
+                                 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-raw-heaps.jai',
+                                 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-raw-heap-lifecycle.jai',
+                                 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-heap-marshalling.jai']})
         if module == 'Objective_C':
             appkit = ROOT/'stdlib/Objective_C/AppKit/module.jai'
             if appkit.exists():

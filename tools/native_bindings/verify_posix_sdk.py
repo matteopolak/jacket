@@ -47,7 +47,7 @@ def main():
     report['sdk_version'] = invoke(['xcrun','--show-sdk-version'], env)
     report['sdk_build'] = invoke(['xcrun','--show-sdk-build-version'], env)
     report['os_version'] = invoke(['sw_vers'], env)
-    probe = ROOT/'tests/native-bindings/posix_abi_probe.c'
+    probe = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/posix_abi_probe.c'
     report['test_sources'][str(probe.relative_to(ROOT))] = digest(probe)
     for cpu, arch, triple in [('x64','x86_64','x86_64-apple-darwin'),
                                ('arm64','arm64','aarch64-apple-darwin')]:
@@ -68,7 +68,7 @@ def main():
             continue
         report.setdefault('native_oracles',{})[cpu] = {'path':str(archive),'sha256':digest(archive)}
         for name in ('posix-abi','posix','posix-stat'):
-            source = ROOT/'tests/native-bindings'/(name+'.jai')
+            source = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk'/(name+'.jai')
             report['test_sources'][str(source.relative_to(ROOT))] = digest(source)
             exe = native/name
             result = invoke([compiler,source,'-target',triple,'-exe',exe], target_env)

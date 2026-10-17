@@ -82,30 +82,30 @@ def private_unit_module(name):
 PRIVATE_UNIT_DEPENDENCIES = {
     "rpmalloc-no-thread-cache": {
         **{
-            "tests/native-bindings/generated/rpmalloc-no-thread-cache-"
+            "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-no-thread-cache-"
             + label
-            + "-layout.jai": "../tests/native-bindings/generated/rpmalloc-no-thread-cache-"
+            + "-layout.jai": "../stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-no-thread-cache-"
             + label
             + "-layout.jai"
             for label in ("rewrite", "raw-base", "raw")
         },
-        "tests/native-bindings/rpmalloc-cache-exercise.jai": "../tests/native-bindings/rpmalloc-cache-exercise.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai": "../stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai",
     },
     "rpmalloc-raw-base-marshalling": {
-        "tests/native-bindings/generated/rpmalloc-raw-base-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-raw-base-heap-facade-layout.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-base-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-raw-base-heap-facade-layout.jai",
     },
     "rpmalloc-raw-heap-marshalling": {
-        "tests/native-bindings/generated/rpmalloc-raw-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-raw-heap-facade-layout.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-raw-heap-facade-layout.jai",
     },
     "rpmalloc-heap-marshalling": {
-        "tests/native-bindings/generated/rpmalloc-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-heap-facade-layout.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-heap-facade-layout.jai": "rpmalloc/generated/rpmalloc-heap-facade-layout.jai",
     },
     "rpmalloc-native-sdk": {
-        "tests/native-bindings/generated/rpmalloc-sdk-layout.jai": "rpmalloc/generated/rpmalloc-sdk-layout.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-sdk-layout.jai": "rpmalloc/generated/rpmalloc-sdk-layout.jai",
     },
     "rpmalloc-native-storage": {
-        "tests/native-bindings/generated/rpmalloc-storage-layout.jai": "rpmalloc/generated/rpmalloc-storage-layout.jai",
-        "tests/native-bindings/generated/rpmalloc-storage-records.jai": "rpmalloc/generated/rpmalloc-storage-records.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-layout.jai": "rpmalloc/generated/rpmalloc-storage-layout.jai",
+        "stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-records.jai": "rpmalloc/generated/rpmalloc-storage-records.jai",
     },
 }
 
@@ -140,9 +140,16 @@ def copy_private_fixture(source, target, boundary, cleanup):
     shutil.copy2(source, target)
 
 
+def relocate_private_loads(data):
+    # Fixtures load internal bindings relative to their home under
+    # stdlib/<Module>/tests/...; placed units sit one level below the library.
+    return data.replace(b'#load "../../../../internal/', b'#load "../internal/')
+
+
 def place_private_unit(name, source, stdlib, hashes, cleanup):
     placed = stdlib / PRIVATE_UNITS[name]
     copy_private_fixture(source, placed, stdlib.parent, cleanup)
+    placed.write_bytes(relocate_private_loads(placed.read_bytes()))
     hashes[str(placed.relative_to(stdlib))] = hashlib.sha256(
         placed.read_bytes()
     ).hexdigest()
@@ -344,6 +351,16 @@ def stage_for_checks(destination, existing_stdlib=None, foundation=None):
     shutil.copytree(
         ROOT / "stdlib/internal/bindings", destination / "internal/bindings"
     )
+
+
+def select_stdlib(work, foundation=None, production=None):
+    if production is not None:
+        if foundation is not None:
+            raise ValueError("A production library cannot be combined with an overlay")
+        return Path(production).resolve(strict=True)
+    destination = Path(work) / "stdlib"
+    stage(destination, foundation)
+    return destination
 
 
 def fixture_arguments(name, env):
@@ -1074,7 +1091,7 @@ def run_verification(cleanup):
                 (ROOT / "tools/native_bindings/dependencies.json").read_text()
             )["imgui"]
             exe = work / "imgui-ffi-test"
-            source = ROOT / "tests/native-bindings/imgui_ffi.cpp"
+            source = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/imgui_ffi.cpp"
             report["test_sources"][str(source.relative_to(ROOT))] = hashlib.sha256(
                 source.read_bytes()
             ).hexdigest()
@@ -1086,7 +1103,7 @@ def run_verification(cleanup):
                 "-Werror",
                 "-isystem",
                 ROOT / ".work/vendor" / pin["archive"]["root"],
-                ROOT / "tests/native-bindings/imgui_ffi.cpp",
+                ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/imgui_ffi.cpp",
                 native / "libimgui.a",
                 native / "libbinding_ffi.a",
                 "-lffi",

@@ -59,7 +59,7 @@ def main():
         ROOT / "tools/native_bindings/prepare_rpmalloc.py",
         ROOT / "tools/native_bindings/dependencies.json",
         ROOT / "stdlib/internal/bindings/rpmalloc-sdk/provenance.json",
-        ROOT / "tests/native-bindings/linux-feature-headers.c",
+        ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/linux-feature-headers.c",
         Path(__file__).resolve(),
     ]
 
@@ -147,7 +147,7 @@ def main():
         [
             *common,
             "-c",
-            ROOT / "tests/native-bindings/linux-feature-headers.c",
+            ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/linux-feature-headers.c",
             "-o",
             probe,
         ],

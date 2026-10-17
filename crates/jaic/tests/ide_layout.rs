@@ -61,7 +61,7 @@ fn production_layout_fixture_finishes_strict_ide_checking() {
         .canonicalize()
         .unwrap();
     let library = root.join("stdlib");
-    let source = root.join("tests/platform-io/layout-contract.jai");
+    let source = root.join("tests/compiler/semantics/record-layout.jai");
     let mut options = Options::host();
     options.preload = Some(library.join(jaic::PRELOAD_ENTRY));
     options.import_paths = vec![library];

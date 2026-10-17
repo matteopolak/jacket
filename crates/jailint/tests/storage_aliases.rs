@@ -20,11 +20,11 @@ fn foreign_storage_facades_lint_all_bodies_for_each_target_without_loading_data(
     std::fs::write(root.join("stdlib/Runtime_Support/module.jai"),"#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);").unwrap();
     std::fs::write(
         root.join("Backing/module.jai"),
-        include_bytes!("../../../tests/compiler-semantics/storage-aliases/Backing/module.jai"),
+        include_bytes!("../../../tests/compiler/semantics/storage-aliases/Backing/module.jai"),
     )
     .unwrap();
     let facade =
-        include_str!("../../../tests/compiler-semantics/storage-aliases/Facade/module.jai");
+        include_str!("../../../tests/compiler/semantics/storage-aliases/Facade/module.jai");
     std::fs::write(root.join("Facade/module.jai"), facade).unwrap();
     for target in [
         "aarch64-apple-darwin",

@@ -1,0 +1,78 @@
+[
+  {
+    "name": "bucket-pointer/addresses",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bucket-pointer/facade-private-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "has no exported member"
+  },
+  {
+    "name": "bucket-pointer/fault-control",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bucket-pointer/fault-empty",
+    "mode": "check-fail",
+    "diagnostic_contains": "bucket_index < all_buckets.count"
+  },
+  {
+    "name": "bucket-pointer/fault-hole",
+    "mode": "check-fail",
+    "diagnostic_contains": "bucket.occupied[slot_index]"
+  },
+  {
+    "name": "bucket-pointer/fault-huge",
+    "mode": "check-fail",
+    "diagnostic_contains": "bucket_index < all_buckets.count"
+  },
+  {
+    "name": "bucket-pointer/fault-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "index >= 0"
+  },
+  {
+    "name": "bucket-pointer/fault-past-bucket",
+    "mode": "check-fail",
+    "diagnostic_contains": "bucket_index < all_buckets.count"
+  },
+  {
+    "name": "bucket-pointer/heap-workflow",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bucket-pointer/helper-control",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bucket-pointer/holes-removal",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bucket-pointer/private-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot index a value of type Bucket_Array"
+  },
+  {
+    "name": "bucket-pointer/reexport",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "bucket-pointer/type-only-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "cannot index a value of type Bucket_Array"
+  },
+  {
+    "name": "bucket-pointer/type-privacy",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "locator-and-pointer-iteration",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "remove",
+    "stdout": "ok\n"
+  }
+]

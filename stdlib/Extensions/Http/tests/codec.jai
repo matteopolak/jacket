@@ -4,7 +4,7 @@
 //
 //     jaic stdlib/Extensions/Http/tests/codec.jai -interp
 
-#load "lib/support.jai";
+#load "support/support.jai";
 
 request_run :: () -> Run {
     return default_run(.REQUEST);

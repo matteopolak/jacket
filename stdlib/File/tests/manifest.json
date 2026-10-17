@@ -1,0 +1,10 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "visitation",
+    "stdout": "ok\n"
+  }
+]

@@ -33,9 +33,9 @@ def main():
     args = parser.parse_args()
     tools = {name: getattr(args, name).resolve(strict=True) for name in ('compiler', 'jailint', 'formatter')}
     extras = ['tools/native_bindings', 'docs/specs/stdlib/modules/objective-c.md',
-              'tests/native-bindings/objc_runtime_probe.m', 'jailint.toml', 'jaifmt.toml']
-    extras += ['tests/native-bindings/'+name+'.jai' for name in POSITIVE]
-    extras += ['tests/native-bindings/negative/'+name+'.jai' for name in NEGATIVE]
+              'stdlib/Bindings_Generator/tests/driven/sdk/objc_runtime_probe.m', 'jailint.toml', 'jaifmt.toml']
+    extras += ['stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai' for name in POSITIVE]
+    extras += ['stdlib/Bindings_Generator/tests/driven/sdk/negative/'+name+'.jai' for name in NEGATIVE]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix='objc-contracts-', dir=args.output_root))
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), JAIC_NATIVE_LIBS=str(work),
@@ -64,10 +64,10 @@ def main():
                                   headers=sdk_hashes)
     invoke('independent SDK probe build', ['cc', '-dynamiclib', '-Wall', '-Wextra', '-Werror',
                                          '-framework', 'Foundation',
-                                         snapshot/'tests/native-bindings/objc_runtime_probe.m',
+                                         snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/objc_runtime_probe.m',
                                          '-o', work/'libobjc_runtime_probe.dylib'])
     for name in POSITIVE:
-        fixture = snapshot/('tests/native-bindings/'+name+'.jai')
+        fixture = snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai')
         invoke('public interpreter', [tools['compiler'], fixture, '-interp'], fixture=name)
         for mode in ('O0', 'O2'):
             exe = work/(name+'-'+mode)
@@ -79,7 +79,7 @@ def main():
             invoke('public source', [tools['compiler'], fixture, '-check', '-no_dce', '-os', 'macos', '-cpu', cpu],
                    fixture=name, target='macos-'+cpu)
     for name, expected in NEGATIVE.items():
-        fixture = snapshot/('tests/native-bindings/negative/'+name+'.jai')
+        fixture = snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/negative/'+name+'.jai')
         exe = work/(name+'-negative')
         row = invoke('negative native build', [tools['compiler'], fixture, '-O0', '-exe', exe], fixture=name)
         if row['status'] == 'passed':
@@ -94,12 +94,12 @@ def main():
     roots = [snapshot/'stdlib/Objective_C/wrappers.jai', snapshot/'stdlib/internal/bindings/objc-encoding',
              snapshot/'stdlib/internal/bindings/objc-registration', snapshot/'stdlib/internal/bindings/objc-stub']
     for name in POSITIVE:
-        fixture = snapshot/('tests/native-bindings/'+name+'.jai')
+        fixture = snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai')
         invoke('strict complete-context lint', [tools['jailint'], '-D', 'warnings', '--config', snapshot/'jailint.toml',
                                                '--context', fixture, *roots, fixture], fixture=name)
     invoke('production formatter', [tools['formatter'], '--check', *roots,
-                                    *[snapshot/('tests/native-bindings/'+name+'.jai') for name in POSITIVE],
-                                    *[snapshot/('tests/native-bindings/negative/'+name+'.jai') for name in NEGATIVE]])
+                                    *[snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai') for name in POSITIVE],
+                                    *[snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/negative/'+name+'.jai') for name in NEGATIVE]])
     stable = unchanged(snapshot, identity) and all(digest(Path(name)) == value for name, value in sdk_hashes.items())
     report['checks'].append(dict(label='immutable inputs and official SDK', status='passed' if stable else 'failed'))
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')

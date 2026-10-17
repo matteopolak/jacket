@@ -59,7 +59,7 @@ Scope: in statement position inserted code resolves in the `Code`'s defining sco
 - A new value kind crossing the `#run` boundary: extend `read_value` and `freeze` together. New user global storage: push it to `reset_globals` where the `Global` is created. Runtime info layout: change `runtime_info.rs` and `contract-records.jai` together.
 - A new insertion context (enum bodies use `eval_insert_enum_items`): evaluate with `eval_insert_operand`, convert with `insert_stmts_from`, check in the right scope. Changing a `Code` argument's scope changes macro hygiene everywhere.
 
-Tests: `tests/stdlib/compile-time-globals-reset.jai`, `no-reset-globals-baked.jai`, `lang-insert-block.jai`, `insert-scope-named-code.jai`, `insert-replacements.jai`. Depends on the interpreter, `parser::parse_file`, `sema/scope.rs`.
+Tests: `tests/compiler/regressions/compile-time-globals-reset.jai`, `no-reset-globals-baked.jai`, `lang-insert-block.jai`, `insert-scope-named-code.jai`, `insert-replacements.jai`. Depends on the interpreter, `parser::parse_file`, `sema/scope.rs`.
 
 ## Rules
 

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Run reviewed stdlib contracts, NEW module tests and independent regressions.
+"""Run every stdlib module test and compiler regression through one catalogue.
 
 No inherited compatibility skip/coverage baseline is consulted. Native-only SDK
 and graphics cases are reported unavailable in WASM modes, not counted passed.
-Producer-owned specialized suites remain required separate integration gates.
+Tool-driven integration suites (native SDK probes, generator workflows) are separate gates.
+
+`--modes check --platform windows-arm64` type-checks every case that applies to that target
+(`-check -no_dce -os windows -cpu arm64`; `--platform wasm-wasm64` for WASI) without running
+anything: the cross-target source check. The other modes run on this host only.
 """
 
 import argparse
@@ -27,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MODES = ["interp", "native", "wasm-interp", "wasm-native"]
+MODES = ["interp", "native", "wasm-interp", "wasm-native", "check"]
 COVERAGE_LOCK = threading.Lock()
 CLIPBOARD_LOCK = threading.Lock()
 # Only one application at a time is active on a Mac, and a program's windows are key (and its
@@ -47,21 +51,31 @@ def cases():
         yield case["id"], case["path"]
 
 
-def contract_result(case, code, output, error=""):
+def contract_result(case, code, output, error="", native=False):
     if case.get("mode") == "check-fail":
         diagnostic = case.get("diagnostic_contains")
         if not isinstance(diagnostic, str) or not diagnostic.strip():
             raise ValueError("check-fail requires a precise diagnostic")
         return code is not None and code != 0 and diagnostic in output + error
     if "error_contains" in case:
+        # A native executable that fails a check aborts the process, so its status is a signal
+        # status rather than the interpreter's `exit_code`; any nonzero end counts.
+        if native and case.get("mode") == "fault":
+            exit_ok = code is not None and code != 0
+        else:
+            exit_ok = code == case["exit_code"]
         return (
-            code == case["exit_code"]
+            exit_ok
             and case["error_contains"] in output + error
             and output == case.get("stdout", "")
         )
     if "stdout" in case:
         return (
             code == case.get("exit_code", 0) and output == case["stdout"] and error == case.get("stderr", "")
+        )
+    if "stdout_one_of" in case:
+        return (
+            code == case.get("exit_code", 0) and output in case["stdout_one_of"] and error == case.get("stderr", "")
         )
     return code == 0
 
@@ -249,6 +263,14 @@ def deploy_windows_dlls(directories, destination):
             shutil.copy2(source, target)
 
 
+def target_flags(platform_name):
+    """`jaic` flags that select the `os-cpu` target of a cross-target check."""
+    target_os, _, cpu = platform_name.removesuffix("-mingw").partition("-")
+    if target_os == "wasm":
+        return ["-target", "wasm64-unknown-wasi"]
+    return ["-os", target_os, "-cpu", cpu]
+
+
 def run_mode(args, test, path, mode, scratch, metadata=None):
     """(passed, detail) of one test in one mode; passed is None when the build wrote nothing to
     run (the program did its work at compile time)."""
@@ -267,6 +289,23 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
         runtime_prefix(metadata or {}, env)
     except ValueError as error:
         return False, str(error)
+    if mode == "check":
+        code, stdout, stderr = run_command(
+            [args.jaic, str(path), "-check", "-no_dce", *target_flags(args.platform)],
+            path.parent,
+            args.timeout,
+            env,
+        )
+        detail = stdout + stderr
+        if code is None:
+            detail = f"timed out after {args.timeout:.0f}s\n{detail}"
+        if metadata and metadata.get("mode") == "check-fail":
+            return contract_result(metadata, code, stdout, stderr), detail
+        if metadata and "error_contains" in metadata and metadata.get("mode") != "fault":
+            return None, "expects an error while interpreting; nothing to check statically"
+        if metadata and metadata.get("source_check_only") is True:
+            return (None if code == 0 else False), detail
+        return code == 0, detail
     wasm = mode.startswith("wasm")
     target = ["-os", "wasm"] if wasm else []
     if metadata and metadata.get("source_check_only") is True:
@@ -379,10 +418,15 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
         )
         out = stdout + stderr
         return contract_result(
-            metadata or {}, code, stdout, stderr
+            metadata or {}, code, stdout, stderr, native=not wasm
         ), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     finally:
         shutil.rmtree(exe.parent)
+
+
+def modes_given_cross(args):
+    """Whether this run executes programs, which only the host can do."""
+    return any(m.strip() not in ("check", "") for m in args.modes.split(","))
 
 
 def main():
@@ -440,9 +484,9 @@ def main():
         help="print the output of every failure in full",
     )
     args = ap.parse_args()
-    if args.platform.removesuffix("-mingw") != host_platform():
+    if modes_given_cross(args) and args.platform.removesuffix("-mingw") != host_platform():
         ap.error(
-            f"runtime platform must match actual host {host_platform()}; use target source checks for cross-target coverage"
+            f"runtime platform must match actual host {host_platform()}; use --modes check for cross-target coverage"
         )
     args.jaic = str(Path(args.jaic).resolve())
     if not Path(args.jaic).is_file() and not Path(args.jaic + ".exe").is_file():
@@ -476,13 +520,25 @@ def main():
         for mode in modes:
             case = case_for_mode(source_case, mode)
             rejected = reference_rejected_reason(case)
-            reason = unavailable_reason(case, mode, args.platform)
+            # A cross-target check applies to the cases that could run on that target.
+            reason = unavailable_reason(
+                case,
+                (
+                    ("wasm-native" if args.platform.startswith("wasm") else "native")
+                    if mode == "check"
+                    else mode
+                ),
+                args.platform,
+            )
             started = time.monotonic()
             if rejected:
                 passed, detail, reason = None, rejected, None
             elif reason:
                 passed, detail = None, reason
-            elif case.get("mode") == "check-fail" or "error_contains" in case:
+            elif mode != "check" and (
+                case.get("mode") == "check-fail"
+                or ("error_contains" in case and case.get("mode") != "fault")
+            ):
                 target = ["-os", "wasm"] if mode.startswith("wasm") else []
                 check = (
                     ["-check"]
@@ -503,7 +559,7 @@ def main():
                     baseline = next(
                         c
                         for c in catalogue
-                        if c["id"] == "contracts/" + case["positive_baseline"]
+                        if c["id"] == case["positive_baseline_id"]
                     )
                     baseline_code, baseline_out, baseline_error = run_command(
                         [args.jaic, str(baseline["path"]), *target, "-check"],

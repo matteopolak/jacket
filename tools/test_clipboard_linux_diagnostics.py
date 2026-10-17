@@ -19,7 +19,7 @@ class ClipboardDiagnostics(unittest.TestCase):
             name="linux-jai-build:-O0",
             exit=1,
             stderr=(
-                "tests/portable-stdlib/clipboard-linux-roundtrip.jai:18:2: error: missing symbol `example`\n"
+                "stdlib/Clipboard/tests/linux-roundtrip.jai:18:2: error: missing symbol `example`\n"
                 "    source_body_marker = private_material;\n"
                 "    ^^^^^^^^^^^^^^^^^^^\n"
                 "stdlib/internal/clipboard/linux.jai:4:1: note: declared here\n"

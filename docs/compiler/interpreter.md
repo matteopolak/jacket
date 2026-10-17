@@ -95,4 +95,4 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 
 ## Dependencies
 
-`ir`, `build.rs`, the platform's dynamic loader, `stdlib/Thread/`, `stdlib/Atomics.jai`. Tests: `tests/stdlib/threads-*.jai`, `tests/native/fibers/`, `tests/native/c-callback-threads`, and `crates/jaic-cli/tests/{cli,native}.rs`.
+`ir`, `build.rs`, the platform's dynamic loader, `stdlib/Thread/`, `stdlib/Atomics.jai`. Tests: `tests/compiler/regressions/threads-*.jai`, `tests/compiler/native/fibers/`, `tests/compiler/native/c-callback-threads`, and `crates/jaic-cli/tests/{cli,native}.rs`.

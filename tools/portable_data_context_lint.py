@@ -21,7 +21,7 @@ PUBLIC_MODULES = (
     "Windows_Resources",
 )
 WINDOWS_FIXTURES = frozenset(
-    ROOT / "stdlib/tests" / f"portable-data-{name}-windows.jai"
+    ROOT / "stdlib/Windows_Resources/tests" / f"{name}-windows.jai"
     for name in ("resource", "manifest", "console", "discovery")
 )
 # These private providers are reached through Windows_Resources on Windows.
@@ -63,9 +63,7 @@ def profile_sources(owned, target_os):
             or path.is_relative_to(ROOT / "stdlib/internal/windows-resources")
         ):
             continue
-        is_library = path.is_relative_to(ROOT / "stdlib") and not path.is_relative_to(
-            ROOT / "stdlib/tests"
-        )
+        is_library = path.is_relative_to(ROOT / "stdlib") and "tests" not in path.parts
         (library if is_library else fixtures).append(path)
     return library, fixtures
 

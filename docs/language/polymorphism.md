@@ -34,7 +34,7 @@ IntPair :: #bake_arguments Pair(T = int);        // Pair :: struct ($T: Type, $N
 
 ## How to change it
 
-New inference rules go in `calls.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order. Tests: `tests/stdlib/modify-polymorph-forms.jai`, `struct-modify.jai`, `baked-struct-restriction.jai`, `variadic-struct-parameter.jai`, `poly-infer-from-ifx.jai`, `lang-poly-misc.jai`.
+New inference rules go in `calls.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order. Tests: `tests/compiler/regressions/modify-polymorph-forms.jai`, `struct-modify.jai`, `baked-struct-restriction.jai`, `variadic-struct-parameter.jai`, `poly-infer-from-ifx.jai`, `lang-poly-misc.jai`.
 
 ## Rules
 

@@ -52,7 +52,7 @@ def main():
     package = output / "before-move"
     package.mkdir()
     shutil.copy2(compiler, package / "jaic")
-    shutil.copytree(ROOT / "stdlib", package / "stdlib")
+    shutil.copytree(ROOT / "stdlib", package / "stdlib", ignore=shutil.ignore_patterns("tests"))
     cpu = {"x86_64": "x64", "aarch64": "arm64"}[platform.machine()]
     native_relative = Path("native-libs") / ("linux-" + cpu)
     subprocess.run(
@@ -79,7 +79,7 @@ def main():
             raise RuntimeError(f"native artifact changed: {name}")
     shutil.copy2(ROOT / "LICENSE", package / "LICENSE")
     shutil.copy2(
-        ROOT / "tests/portable-stdlib/clipboard-linux-roundtrip.jai",
+        ROOT / "stdlib/Clipboard/tests/linux-roundtrip.jai",
         output / "consumer.jai",
     )
     relocated = output / "relocated"

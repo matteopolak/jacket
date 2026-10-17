@@ -1,0 +1,23 @@
+[
+  {
+    "name": "query",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "windows-host-provider",
+    "required_os": "windows",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Tls Windows host-provider reproduction, not pure JSON"
+    ]
+  }
+]

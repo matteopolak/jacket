@@ -62,7 +62,7 @@ def main():
     directory = ROOT / "target/foundations-tests"
     directory.mkdir(exist_ok=True, parents=True)
     if args.interp or args.interp_only:
-        result = subprocess.run([compiler, ROOT / "tests/portable-stdlib/float-power-sweep.jai", "-interp"],
+        result = subprocess.run([compiler, ROOT / "stdlib/Basic/tests/float-power-sweep.jai", "-interp"],
                                 cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
         if result.returncode or result.stderr:
             raise RuntimeError(f"interpreter execution failed: {result}")
@@ -75,7 +75,7 @@ def main():
             suffix = ".wasm" if target == "wasm" else ""
             binary = directory / f"float-power-sweep-{target}-{level}{suffix}"
             extra = ["-os", "wasm"] if target == "wasm" else []
-            command = [compiler, ROOT / "tests/portable-stdlib/float-power-sweep.jai", f"-{level}", *extra, "-exe", binary]
+            command = [compiler, ROOT / "stdlib/Basic/tests/float-power-sweep.jai", f"-{level}", *extra, "-exe", binary]
             compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
             if compiled.returncode or compiled.stdout or compiled.stderr:
                 raise RuntimeError(f"compile failed: {compiled}")

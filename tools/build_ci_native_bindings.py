@@ -88,7 +88,7 @@ def build_counter_probes(output, profiles):
                 *c_definitions(profile, api["functions"]),
                 *aliases,
                 "-c",
-                str(ROOT / "tests/native-bindings/rpmalloc_live_config_probe.c"),
+                str(ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c"),
                 "-o",
                 str(obj),
             ],
@@ -120,7 +120,7 @@ def build_counter_probes(output, profiles):
             "-O2",
             *flags,
             "-c",
-            str(ROOT / "tests/native-bindings/rpmalloc_adaptive_probe.c"),
+            str(ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c"),
             "-o",
             str(obj),
         ],
@@ -188,9 +188,9 @@ def main():
         ROOT / "tools/native_bindings/prepare_rpmalloc.py",
         ROOT / "tools/native_bindings/rpmalloc_profiles.py",
         ROOT / "tools/native_bindings/config.py",
-        ROOT / "tests/native-bindings/abi_probe.c",
-        ROOT / "tests/native-bindings/rpmalloc_live_config_probe.c",
-        ROOT / "tests/native-bindings/rpmalloc_adaptive_probe.c",
+        ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/abi_probe.c",
+        ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c",
+        ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c",
     ]
     # Guard the independent native producer closure, not only its Python recipe.
     # Official SDK implementation identity remains checked by the preparer/pins.
@@ -237,7 +237,7 @@ def main():
     for include in includes:
         compile_command += ["-isystem", str(include)]
     compile_command += [
-        str(ROOT / "tests/native-bindings/abi_probe.c"),
+        str(ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/abi_probe.c"),
         "-o",
         str(probe),
     ]

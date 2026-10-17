@@ -1,0 +1,10 @@
+[
+  {
+    "name": "default-assertions",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "projection",
+    "stdout": "ok\n"
+  }
+]

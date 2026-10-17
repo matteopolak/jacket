@@ -3,9 +3,8 @@
 
 Usage: tools/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
-`jaic -check` must fail and report the recorded text), stdlib (reviewed stdlib contract manifest), regressions (independent compiler,
-Extensions, C ABI and graphics regression families), modules (the stdlib's own tests: stdlib/tests and stdlib/<Module>/tests,
-run must succeed; a test directory's `modules/` folder holds its mock modules), examples (tests/examples.json:
+`jaic -check` must fail and report the recorded text), regressions (tests/compiler/regressions), modules (the stdlib's own
+tests: every stdlib/**/tests directory, described by its manifest.json rows; run must succeed), examples (tests/corpus/examples.json:
 example programs such as examples/tour, whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass, with the output the
 project documents where a case has an `expect` record), or file paths.
@@ -103,16 +102,15 @@ def cases(name):
                     {"negative": next(iter(c["negative"].values()))},
                     [],
                 )
-    elif name in ("stdlib", "regressions"):
+    elif name in ("regressions", "modules"):
         from stdlib_test_catalog import validated_entries
 
+        wanted = "compiler" if name == "regressions" else "modules"
         for c in validated_entries():
-            if (c["family"] == "contracts") != (name == "stdlib") or (
-                name == "regressions" and c["family"] == "modules"
-            ):
+            if c["family"] != wanted:
                 continue
             CASE_METADATA[c["id"]] = c
-            expect = c if c["family"] == "contracts" else None
+            expect = c if ("stdout" in c or "error_contains" in c) else None
             yield (
                 c["id"],
                 c["path"],
@@ -120,15 +118,8 @@ def cases(name):
                 expect,
                 [],
             )
-    elif name == "modules":
-        from stdlib_test_catalog import validated_entries
-
-        for c in validated_entries():
-            if c["family"] == "modules":
-                CASE_METADATA[c["id"]] = c
-                yield c["id"], c["path"], "run", None, []
     elif name == "examples":
-        for c in json.loads((ROOT / "tests/examples.json").read_text())["cases"]:
+        for c in json.loads((ROOT / "tests/corpus/examples.json").read_text())["cases"]:
             expect = {
                 "contains": c["stdout_contains"],
                 "excludes": c.get("stdout_excludes", []),

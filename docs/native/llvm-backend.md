@@ -83,4 +83,4 @@ To add an instruction set: add `Feature` variants in `features.rs` (`ALL`, `name
 
 ## Dependencies
 
-`inkwell` (LLVM 23), the system `cc` for linking ([native linking](native-linking.md)), `jaic` for the IR and `jaic::abi::Arch`. SIMD tests: `cargo test -p jaic-llvm simd` and `tests/stdlib/intrinsic-byte-lookup.jai`.
+`inkwell` (LLVM 23), the system `cc` for linking ([native linking](native-linking.md)), `jaic` for the IR and `jaic::abi::Arch`. SIMD tests: `cargo test -p jaic-llvm simd` and `tests/compiler/regressions/intrinsic-byte-lookup.jai`.

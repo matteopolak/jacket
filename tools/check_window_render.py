@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import subprocess
 from stdlib_runtime import runtime_prefix
+from window_render_tests import WINDOW_RENDER_TESTS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,7 +36,9 @@ def main():
         module = {"signed-native-fields": "Input", "texture-packing": "Simp",
                   "glyph-atlas": "Simp", "macos-events": "Window_Creation",
                   "macos-window": "Window_Creation", "windows-device-decoding": "Input"}.get(name)
-        return ROOT / (f"stdlib/{module}/tests/{name}.jai" if module else f"tests/window-render/{name}.jai")
+        if module:
+            return ROOT / f"stdlib/{module}/tests/{name}.jai"
+        return ROOT / WINDOW_RENDER_TESTS[name]
 
     def run(command, expected=None, restore_clipboard=False):
         nonlocal count
@@ -98,7 +101,7 @@ def main():
         print(f"{'passed' if passed else 'FAILED'} Linux-target interpreter: {name}", flush=True)
 
     if args.font:
-        passed = run([compiler, ROOT / "tests/window-render/font-public.jai", "-interp", "-os", "linux",
+        passed = run([compiler, ROOT / "stdlib/Simp/tests/font-public.jai", "-interp", "-os", "linux",
                       "-I", args.stdlib, "--", args.font.resolve()], "ok\n")
         print(f"{'passed' if passed else 'FAILED'} public font facade with native FreeType (Linux-target interpreter)", flush=True)
 
@@ -110,7 +113,7 @@ def main():
                 run([compiler, test_source(name), "-check", "-os", os_name,
                      "-cpu", cpu, "-I", args.stdlib])
             if os_name == "windows":
-                run([compiler, ROOT / "tests/window-render/font-public.jai", "-check", "-no_dce",
+                run([compiler, ROOT / "stdlib/Simp/tests/font-public.jai", "-check", "-no_dce",
                      "-os", os_name, "-cpu", cpu, "-I", args.stdlib])
     for cpu in ["x64", "arm64"]:
         # Execute pure packet assertions with the target's layouts at compile
@@ -118,21 +121,21 @@ def main():
         run([compiler, test_source("windows-device-decoding"), "-check", "-add", "#run main();",
              "-os", "windows", "-cpu", cpu, "-I", args.stdlib], "ok\n")
     for case, member in [("private-helper-negative", "pack_bitmap"), ("private-atlas-negative", "atlas_create_page")]:
-        visibility = subprocess.run([str(compiler), str(ROOT / f"tests/window-render/{case}.jai"),
+        visibility = subprocess.run([str(compiler), str(ROOT / WINDOW_RENDER_TESTS[case]),
                                      "-check", "-os", "linux", "-I", str(args.stdlib)],
                                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
         if visibility.returncode != 1 or visibility.stdout or f"has no exported member `{member}`" not in visibility.stderr:
             failures.append(f"private-helper visibility regression: {visibility.stdout}{visibility.stderr}")
         else:
             count += 1
-    checked_cast = subprocess.run([str(compiler), str(ROOT / "tests/window-render/checked-narrow-negative.jai"),
+    checked_cast = subprocess.run([str(compiler), str(ROOT / "stdlib/Basic/tests/checked-narrow-cast.jai"),
                                    "-interp", "-I", str(args.stdlib)],
                                   cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
     if checked_cast.returncode != 1 or checked_cast.stdout or "cast of 65416 to `s16` overflows" not in checked_cast.stderr:
         failures.append(f"checked narrowing regression: {checked_cast.stdout}{checked_cast.stderr}")
     else:
         count += 1
-    unsupported = subprocess.run([str(compiler), str(ROOT / "tests/window-render/keymap-meta-persistence-negative.jai"),
+    unsupported = subprocess.run([str(compiler), str(ROOT / "stdlib/Keymap/tests/negative/meta-persistence.jai"),
                                   "-interp", "-I", str(args.stdlib)], cwd=ROOT, env=env,
                                  capture_output=True, text=True, timeout=60)
     if unsupported.returncode == 0 or unsupported.stdout or "keymap persistence grammar has no Meta modifier prefix" not in unsupported.stderr:

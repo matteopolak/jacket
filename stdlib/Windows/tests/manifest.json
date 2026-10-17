@@ -1,0 +1,42 @@
+[
+  {
+    "name": "class-parameters",
+    "required_os": "windows"
+  },
+  {
+    "name": "committed-text",
+    "required_os": "windows"
+  },
+  {
+    "name": "device-notifications",
+    "required_os": "windows"
+  },
+  {
+    "name": "events",
+    "required_os": "windows"
+  },
+  {
+    "name": "layout-keys",
+    "required_os": "windows"
+  },
+  {
+    "name": "pointer",
+    "required_os": "windows"
+  },
+  {
+    "name": "render-events",
+    "required_os": "windows"
+  },
+  {
+    "name": "render-lifecycle",
+    "required_os": "windows"
+  },
+  {
+    "name": "render-public",
+    "required_os": "windows"
+  },
+  {
+    "name": "wgl-driver",
+    "required_os": "windows"
+  }
+]

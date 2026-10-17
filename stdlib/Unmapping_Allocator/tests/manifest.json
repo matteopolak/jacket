@@ -1,0 +1,18 @@
+[
+  {
+    "name": "basics",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "pool-unmapping",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "unmapping-lifecycle",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "unmapping-protection-retention",
+    "stdout": "ok\n"
+  }
+]

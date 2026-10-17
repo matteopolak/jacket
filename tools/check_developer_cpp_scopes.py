@@ -21,15 +21,19 @@ def main():
     prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
     oracle = ROOT / "target/developer-tools-cpp-function-types"
     run([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
-         ROOT / "tests/developer-tools/bindings-cpp-function-types.c", "-L", prefix / "lib",
+         ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-function-types.c", "-L", prefix / "lib",
          "-Wl,-rpath," + str(prefix / "lib"), "-lclang", "-o", oracle])
     run([oracle])
     jaic = ROOT / "target/debug/jaic"
-    source = ROOT / "tests/developer-tools/bindings-cpp-scopes.jai"
-    consumer = ROOT / "tests/developer-tools/bindings-cpp-scopes-roundtrip.jai"
+    source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-scopes.jai"
+    consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-scopes-roundtrip.jai"
     generated = ROOT / "target/developer-tools-cpp-scopes-generated.jai"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
+    # The generator loads the configured library, so it must exist before the first
+    # generation; it is rebuilt with the generated bridge below.
+    run([prefix / "bin/clang++", "-std=c++17", "-O0", *flags, ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-scopes-native.cpp",
+         "-o", ROOT / f"target/libdeveloper_tools_cpp_scopes.{suffix}"])
     for mode in ["interp", "0", "2"]:
         if mode == "interp":
             run([jaic, source, "-interp"], "ok\n")
@@ -40,7 +44,7 @@ def main():
         run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang++", "-std=c++17", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
-                 ROOT / "tests/developer-tools/bindings-cpp-scopes-native.cpp",
+                 ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-scopes-native.cpp",
                  ROOT / "target/developer-tools-cpp-scopes-bridge.cpp",
                  "-o", ROOT / f"target/libdeveloper_tools_cpp_scopes.{suffix}"])
             run([jaic, consumer, "-interp", "-I", ROOT / "target"], "ok\n")

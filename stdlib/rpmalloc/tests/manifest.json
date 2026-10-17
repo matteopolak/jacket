@@ -1,0 +1,62 @@
+[
+  {
+    "name": "adaptive-cache",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native rpmalloc SDK ABI, live allocator and callback-context/thread providers"
+    ]
+  },
+  {
+    "name": "live-config",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native rpmalloc SDK ABI, live allocator and callback-context/thread providers"
+    ]
+  },
+  {
+    "name": "live-config-raw",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native rpmalloc SDK ABI, live allocator and callback-context/thread providers"
+    ]
+  },
+  {
+    "name": "no-thread-cache",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native rpmalloc SDK ABI, live allocator and callback-context/thread providers"
+    ]
+  },
+  {
+    "name": "public-callbacks",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native rpmalloc SDK ABI, live allocator and callback-context/thread providers"
+    ]
+  },
+  {
+    "name": "public-configurable",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native rpmalloc SDK ABI, live allocator and callback-context/thread providers"
+    ]
+  }
+]

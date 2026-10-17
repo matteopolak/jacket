@@ -98,7 +98,7 @@ fn run_passes_program_arguments() {
 #[test]
 fn long_double_extension_on_wide_targets() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/extensions/extensions-long-double.jai");
+        .join("../../stdlib/Extensions/Long_Double/tests/libm-calls.jai");
     for target in [
         "x86_64-linux-gnu",
         "x86_64-apple-darwin",
@@ -153,7 +153,7 @@ fn long_double_extension_on_wide_targets() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(stderr.contains(message), "{name}: {stderr}");
     }
-    // A wide long double through C varargs is passed like a fixed one (tests/native/c-long-double
+    // A wide long double through C varargs is passed like a fixed one (tests/compiler/native/c-long-double
     // runs it); here only that it compiles for each wide target.
     let source = dir.join("varargs.jai");
     std::fs::write(
@@ -366,7 +366,7 @@ fn memory_limit_stops_unbounded_allocation() {
 #[test]
 fn sandbox_threads_wake_waiters_and_report_deadlocks() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/compiler-semantics/sandbox-threads");
+        .join("../../tests/compiler/semantics/sandbox-threads");
     for name in ["returned.jai", "blocked.jai", "timed.jai"] {
         let path = dir.join(name);
         let output = Command::new(JAIC)

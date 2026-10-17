@@ -1,0 +1,36 @@
+[
+  {
+    "name": "float16-edge-vectors",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "matrix-operators/existing-overloads",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "matrix-operators/family",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "matrix-operators/matrix-vector-multiply-control",
+    "stdout": ""
+  },
+  {
+    "name": "matrix-operators/matrix-vector-operator-oracle",
+    "stdout": ""
+  },
+  {
+    "name": "matrix-operators/matrix2-vector2",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "matrix-operators/mixed-add-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "no overload of"
+  },
+  {
+    "name": "matrix-operators/reverse-vector-negative",
+    "mode": "check-fail",
+    "diagnostic_contains": "no overload of"
+  }
+]

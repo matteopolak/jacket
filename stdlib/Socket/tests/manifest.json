@@ -1,0 +1,78 @@
+[
+  {
+    "name": "cmsg-layout",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "cmsg/compile-time"
+  },
+  {
+    "name": "databases/main",
+    "stdout": "hostent 32 0 8 16 20 24\nnetent 24 0 8 16 20\nprotoent 24 0 8 16\nservent 32 0 8 16 24\nrpcent 24 0 8 16\n"
+  },
+  {
+    "name": "descriptor-domain",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "faults/cmsg-negative",
+    "mode": "fault",
+    "error_contains": "ancillary size cannot be aligned",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "faults/cmsg-overflow",
+    "mode": "fault",
+    "error_contains": "ancillary length exceeds u32",
+    "exit_code": 1,
+    "stdout": ""
+  },
+  {
+    "name": "fd-set",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "linux-socket/fields",
+    "required_os": "linux"
+  },
+  {
+    "name": "loopback",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "numeric-address-format",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Socket public module guard"
+    ]
+  },
+  {
+    "name": "resolver/main",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "scope-word",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "select",
+    "stdout": "ok\n"
+  },
+  {
+    "name": "windows-socket/main",
+    "required_os": "windows"
+  },
+  {
+    "name": "windows-socket/scope-compile-time",
+    "required_os": "windows"
+  },
+  {
+    "name": "winsock-control",
+    "stdout": "ok\n"
+  }
+]

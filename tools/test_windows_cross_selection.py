@@ -41,7 +41,7 @@ class Selection(unittest.TestCase):
             )
 
     def test_original_overloaded_ifx_is_only_exact_reference_rejection(self):
-        source = cross.ROOT / "tests/compiler-regressions/proc-type-defaults-ifx.jai"
+        source = cross.ROOT / "tests/compiler/regressions/proc-type-defaults-ifx.jai"
         case = {"id": "compiler/proc-type-defaults-ifx", "path": source}
         self.assertIsNotNone(cross.fixture_reference_rejected_reason(case))
         independent = dict(case, id="producer/ifx-official-selection")
@@ -125,13 +125,13 @@ class Selection(unittest.TestCase):
             target = "windows-" + cpu + "-mingw"
             for name in (
                 "compiler/socket-select-canonical-timeval",
-                "extensions/io-uring-dependency-repro",
+                "Extensions/Io_Uring/tests/dependency",
             ):
                 self.assertIsNotNone(
                     cross.fixture_unavailable_reason(cases[name], target, "linux-x64")
                 )
             for name in (
-                "contracts/program-print-plugin-file-output",
+                "Program_Print/tests/plugin-file-output",
                 "compiler/rules-compile-time-execution",
             ):
                 self.assertIn(
@@ -143,27 +143,28 @@ class Selection(unittest.TestCase):
                         cases[name], "windows-" + cpu, "windows-" + cpu
                     )
                 )
-            # Windows has no libffi varargs bridge, which ImGui formatting needs: neither the
-            # cross target nor a native Windows host runs the frame test.
-            for build_target, build_host in (
-                (target, "linux-x64"),
-                ("windows-" + cpu, "windows-" + cpu),
-            ):
-                self.assertIn(
-                    "linux/macos host",
-                    cross.fixture_unavailable_reason(
-                        cases["native/imgui-headless-frames"], build_target, build_host
-                    ),
+            self.assertIn(
+                "imgui",
+                cross.fixture_unavailable_reason(
+                    cases["ImGui/tests/headless-frames"], target, "linux-x64"
+                ),
+            )
+            self.assertIsNone(
+                cross.fixture_unavailable_reason(
+                    cases["ImGui/tests/headless-frames"],
+                    "windows-" + cpu,
+                    "windows-" + cpu,
                 )
+            )
 
     def test_real_compiler_and_provider_failures_stay_required(self):
         cases = {c["id"]: c for c in cross.stdlib_runtime.validated_entries()}
         required = (
             "compiler/proc-type-defaults-ifx",
             "compiler/static-switch-add-context",
-            "extensions/io-configured-production",
-            "extensions/json-windows-host-provider-repro",
-            "extensions/tls-windows-target",
+            "Extensions/Io/tests/configured-production",
+            "Extensions/Json/tests/windows-host-provider",
+            "Extensions/Tls/tests/windows-target",
         )
         for cpu in ("x64", "arm64"):
             for name in required:

@@ -16,9 +16,28 @@ import subprocess
 import sys
 import time
 
-from platform_io_capabilities import wasm_contract_reason
+from stdlib_test_catalog import unavailable_reason, validated_entries
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The platform programs this driver builds for Windows and runs through the Wasm checks, as ids
+# of the stdlib test catalogue.
+CONTRACTS = (
+    "File/tests/unicode-paths",
+    "Process/tests/lifecycle",
+    "Runtime_Support/tests/binary-output",
+    "Runtime_Support/tests/startup-arguments",
+    "Runtime_Support_Crash_Handler/tests/windows-records",
+    "System/tests/queries",
+    "Thread/tests/synchronization",
+    "Thread/tests/thread-group",
+)
+
+
+def wasm_contract_reason(source):
+    """Why `source` cannot run under Wasm, from its manifest row, or None."""
+    case = next(c for c in validated_entries() if c["path"] == source)
+    return unavailable_reason(case, "wasm-interp")
 
 
 def fault_failures(result, enabled, symbols=()):
@@ -95,7 +114,7 @@ def expect_diagnostic(command, env, message):
 
 def run_wasm_contract(compiler, source, output, env, attempt):
     """Return explicit per-mode results; unavailable is never a successful run."""
-    reason = wasm_contract_reason(source.stem)
+    reason = wasm_contract_reason(source)
     modes = ["wasm-check", "wasm-interp", "wasm-native-O0", "wasm-native-O2"]
     if reason:
         return [{"case": source.stem, "mode": mode, "status": "platform_unavailable",
@@ -121,7 +140,7 @@ def main():
     parser.add_argument("--native", action="store_true")
     parser.add_argument("--cross-check", action="store_true")
     parser.add_argument("--wasm", action="store_true", help="execute Wasm interpreter and real WASI O0/O2")
-    parser.add_argument("--case", action="append", choices=sorted(p.stem for p in (ROOT / "tests/platform-io").glob("*-contract.jai")),
+    parser.add_argument("--case", action="append", choices=CONTRACTS,
                         help="select contract cases; omitted means all cases, argument bridge always runs")
     parser.add_argument("--windows-build", choices=["x64", "arm64"],
                         help="cross-build Windows fixtures; requires the selected native toolchain")
@@ -159,7 +178,7 @@ def main():
     if not compiler.is_relative_to(args.compiler_build_root.resolve(strict=True)):
         parser.error("use the compiler source-built under --compiler-build-root")
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
-    conflict = ROOT / "tests/platform-io/negative/windows-runtime-configuration-conflict.jai"
+    conflict = ROOT / "stdlib/Runtime_Support/tests/negative/windows-configuration-conflict.jai"
     for cpu in ["x64", "arm64"]:
         rejected = subprocess.run([str(compiler), str(conflict), "-os", "windows", "-cpu", cpu, "-check"],
                                   cwd=ROOT, env=env, capture_output=True, timeout=60)
@@ -169,7 +188,7 @@ def main():
     if args.windows_crash:
         iterator_exe = output / ("stack-iteration" + (".exe" if os.name == "nt" else ""))
         if attempt(["clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
-                    ROOT / "tests/platform-io/stack-iteration.c", "-o", iterator_exe], env):
+                    ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/native/stack-iteration.c", "-o", iterator_exe], env):
             attempt([iterator_exe], env, "")
     cpu = args.windows_build or ("arm64" if platform.machine().lower() in {"arm64", "aarch64"} and os.name == "nt" else "x64")
     fault_sdk_dll = output / "platform_io_fault_sdk.dll"
@@ -189,7 +208,7 @@ def main():
             fault_target = []
             fault_linker = [f"-Wl,--out-implib,{fault_sdk_library}"]
         attempt([fault_compiler, *fault_target, "-std=c11", "-shared", "-O2", "-g", "-Wall", "-Wextra", "-Werror",
-                 ROOT / "tests/platform-io/windows-fault-sdk.c", "-o", fault_sdk_dll, *fault_linker], env)
+                 ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/native/windows-fault-sdk.c", "-o", fault_sdk_dll, *fault_linker], env)
     if os.name == "nt" or args.windows_build or (args.windows_crash and cpu == "x64"):
         subprocess.run([sys.executable, str(ROOT / "tools/build_platform_io_runtime.py"),
                         "--stdlib", str(args.stdlib.resolve()), "--cpu", cpu], cwd=ROOT, check=True)
@@ -211,21 +230,19 @@ def main():
             c_target = []
             c_linker = [f"-Wl,--out-implib,{sdk_library}"]
         attempt([c_compiler, *c_target, "-std=c11", "-shared", "-O2", "-Wall", "-Wextra", "-Werror",
-                 ROOT / "tests/platform-io/windows-section-sdk.c", "-o", sdk_dll, *c_linker, "-ldbghelp"], env)
+                 ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/native/windows-section-sdk.c", "-o", sdk_dll, *c_linker, "-ldbghelp"], env)
     helper = output / "process-helper.exe"
     if os.name == "nt":
         helper.unlink(missing_ok=True)
-        attempt([compiler, ROOT / "tests/platform-io/windows-process-child.jai", "-O2", "-exe", helper], env)
-    fixtures = sorted((ROOT / "tests/platform-io").glob("*-contract.jai"))
-    if args.case:
-        fixtures = [source for source in fixtures if source.stem in args.case]
+        attempt([compiler, ROOT / "stdlib/Process/tests/windows-process-child.jai", "-O2", "-exe", helper], env)
+    fixtures = [ROOT / "stdlib" / f"{case}.jai" for case in CONTRACTS if not args.case or case in args.case]
     for source in fixtures:
         before = len(failures)
         if args.cross_check:
             for system, target_cpu in [("windows", "x64"), ("windows", "arm64"),
                                 ("macos", "arm64"), ("linux", "x64")]:
                 attempt([compiler, source, "-check", "-no_dce", "-os", system, "-cpu", target_cpu], env)
-        fixture_args = [helper] if os.name == "nt" and source.stem == "process-contract" else []
+        fixture_args = [helper] if os.name == "nt" and source.stem == "lifecycle" else []
         if not fixture_args:
             # Exercise ordinary CLI startup as well as the explicit argv form.
             # Always supplying -- hid the Windows zero-vector SDK hook failure.
@@ -242,7 +259,7 @@ def main():
             for row in rows:
                 print(row["status"], source.stem, row["mode"], row["reason"] or "", flush=True)
         report(before, "required checks", source.relative_to(ROOT))
-    source = ROOT / "tests/platform-io/windows-thread-noassert.jai"
+    source = ROOT / "stdlib/Thread/tests/windows-noassert.jai"
     before = len(failures)
     if args.cross_check or os.name == "nt" or args.windows_build:
         for target_cpu in ["x64", "arm64"]:
@@ -260,7 +277,7 @@ def main():
             attempt([compiler, source, "-os", "windows", "-cpu", args.windows_build,
                      optimization, "-exe", output / (source.stem + optimization + ".exe")], env)
     report(before, "Windows Thread lifecycle, caller assertions disabled", source.relative_to(ROOT))
-    source = ROOT / "tests/platform-io/arguments.jai"
+    source = ROOT / "stdlib/Runtime_Support/tests/command-line-arguments.jai"
     arguments = ["雪😀", "", 'quote" and slash\\']
     before = len(failures)
     attempt([compiler, source, "-interp", "--", *arguments], env, "ok\n")
@@ -271,7 +288,7 @@ def main():
                 attempt([executable, *arguments], env, "ok\n")
     report(before, source.relative_to(ROOT))
     if args.windows_build:
-        for source in [*fixtures, ROOT / "tests/platform-io/arguments.jai"]:
+        for source in [*fixtures, ROOT / "stdlib/Runtime_Support/tests/command-line-arguments.jai"]:
             before = len(failures)
             for optimization in ["-O0", "-O2"]:
                 executable = output / (source.stem + "-windows-" + args.windows_build + optimization + ".exe")
@@ -280,8 +297,8 @@ def main():
             report(before, "cross-build", source.relative_to(ROOT), args.windows_build)
     if args.windows_process:
         before = len(failures)
-        source = ROOT / "tests/platform-io/windows-process.jai"
-        helper = ROOT / "tests/platform-io/windows-process-child.jai"
+        source = ROOT / "stdlib/Process/tests/windows-process.jai"
+        helper = ROOT / "stdlib/Process/tests/windows-process-child.jai"
         for target_cpu in ["x64", "arm64"]:
             attempt([compiler, source, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
             attempt([compiler, helper, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
@@ -308,7 +325,7 @@ def main():
                         finally:
                             marker.unlink(missing_ok=True)
         report(before, "public Windows Process", "native execution" if os.name == "nt" else "source/cross-build only")
-    native_sections = ROOT / "tests/platform-io/windows-crash-native-sections.jai"
+    native_sections = ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/windows-native-sections.jai"
     if args.cross_check:
         attempt([compiler, native_sections, "-os", "windows", "-cpu", "x64", "-check", "-no_dce"], env)
     if cpu == "x64" and ((os.name == "nt" and (args.native or args.windows_crash)) or args.windows_build == "x64"):
@@ -326,7 +343,7 @@ def main():
             for optimization in ["-O0", "-O2"]:
                 executable = output / (cpu + "-crash-lifecycle" + optimization + ".exe")
                 triple = "aarch64" if cpu == "arm64" else "x86_64"
-                c_source = ROOT / f"tests/platform-io/windows-{cpu}-crash-lifecycle.c"
+                c_source = ROOT / f"stdlib/Runtime_Support_Crash_Handler/tests/native/windows-{cpu}-crash-lifecycle.c"
                 before = len(failures)
                 if attempt(["clang", f"--target={triple}-pc-windows-msvc", "-std=c11",
                             "-Wall", "-Wextra", "-Werror", optimization,
@@ -336,7 +353,7 @@ def main():
                 if cpu == "x64":
                     sdk_exe = output / ("x64-stackwalk-sdk" + optimization + ".exe")
                     if attempt(["clang", "--target=x86_64-pc-windows-msvc", "-std=c11", "-Wall", "-Wextra",
-                                "-Werror", optimization, ROOT / "tests/platform-io/windows-x64-stackwalk-sdk.c",
+                                "-Werror", optimization, ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/native/windows-x64-stackwalk-sdk.c",
                                 "-ldbghelp", "-o", sdk_exe], env):
                         try:
                             result = subprocess.run([str(sdk_exe)], cwd=ROOT, env=env, capture_output=True, timeout=60)
@@ -351,24 +368,25 @@ def main():
         bootstrap = ROOT / "stdlib/Runtime_Support/tests/windows-crash-bootstrap.jai"
         for target_cpu in ["x64", "arm64"]:
             attempt([compiler, bootstrap, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
-        diagnostic([compiler, ROOT / "tests/platform-io/pending/windows-arm64-crash-handler.jai",
+        diagnostic([compiler, ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/probes/windows-arm64-crash-handler.jai",
                            "-os", "windows", "-cpu", "arm64", "-check", "-no_dce"], env,
                           "the Windows crash handler supports x64 only")
         for optimized in [False, True]:
             for policy in ["off", "on", "default"]:
-                children = ["startup-arguments-contract", "windows-fault", "windows-symbol-fault"]
+                children = ["Runtime_Support/tests/startup-arguments", "Runtime_Support_Crash_Handler/tests/windows-fault",
+                            "Runtime_Support_Crash_Handler/tests/windows-symbol-fault"]
                 if not optimized:
-                    children.append("windows-nullguard")
+                    children.append("Runtime_Support_Crash_Handler/tests/windows-nullguard")
                 for child_name in children:
                     enabled = policy != "off"
-                    builder = ROOT / "tests/platform-io" / (
+                    builder = ROOT / "stdlib/Runtime_Support/tests" / (
                         "windows-default-startup-build.jai" if policy == "default" else "windows-startup-build.jai")
-                    label = f"{cpu}-O{2 if optimized else 0}-{policy}-{child_name}"
+                    label = f"{cpu}-O{2 if optimized else 0}-{policy}-{child_name.rsplit('/', 1)[1]}"
                     crash_output = output / "windows-crash" / label
                     crash_output.mkdir(parents=True, exist_ok=True)
                     definitions = (f'OPTIMIZED :: {str(optimized).lower()}; BACKTRACE_ENABLED :: {str(enabled).lower()}; '
                                    f'OUTPUT_PATH :: "{crash_output.as_posix()}"; '
-                                   f'CHILD_SOURCE :: "{(ROOT / "tests/platform-io" / (child_name + ".jai")).as_posix()}";')
+                                   f'CHILD_SOURCE :: "{(ROOT / "stdlib" / (child_name + ".jai")).as_posix()}";')
                     command = [compiler, builder, "-os", "windows", "-cpu", cpu, "-add", definitions,
                                "-exe", crash_output / "builder.exe"]
                     if args.cross_check:
@@ -388,10 +406,10 @@ def main():
                     if enabled:
                         shutil.copy2(args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.dll",
                                      crash_output / "platform_io_windows_crash.dll")
-                    if child_name in {"windows-fault", "windows-symbol-fault"}:
+                    if child_name.endswith(("windows-fault", "windows-symbol-fault")):
                         shutil.copy2(fault_sdk_dll, crash_output / fault_sdk_dll.name)
                     if os.name == "nt":
-                        if child_name == "startup-arguments-contract":
+                        if child_name.endswith("startup-arguments"):
                             before = len(failures)
                             attempt([crash_output / "startup-crash.exe"], env, "ok\n")
                             report(before, "native Windows startup option", label)
@@ -403,8 +421,8 @@ def main():
                             failures.append(f"Windows fault execution failed ({label}): {error}")
                             print("FAILED", failures[-1], file=sys.stderr, flush=True)
                             continue
-                        symbols = ("fault_leaf", "fault_middle") if child_name == "windows-symbol-fault" else ()
-                        failed = (nullguard_failures(result) if child_name == "windows-nullguard"
+                        symbols = ("fault_leaf", "fault_middle") if child_name.endswith("windows-symbol-fault") else ()
+                        failed = (nullguard_failures(result) if child_name.endswith("windows-nullguard")
                                   else fault_failures(result, enabled, symbols))
                         save_result(crash_output / "actual-result", result, failed)
                         if failed:

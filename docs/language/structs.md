@@ -26,7 +26,7 @@ Rgba  :: struct { union { using c: struct { r, g, b, a: u8; }; packed: u32; } }
 
 ## How to change it
 
-New struct flags: parse them in `parser/aggregate.rs` next to `#no_padding` and `#align` and apply them in `layout_struct_inner`. See [sema: polymorphism and declarations](../compiler/sema.md). Tests: `tests/stdlib/poly-struct-type-names.jai`, `struct-member-overlay-flag.jai`, `struct-literal-null-over-union-default.jai`. Depends on `types.rs`, `sema/value.rs`, `parser/aggregate.rs`.
+New struct flags: parse them in `parser/aggregate.rs` next to `#no_padding` and `#align` and apply them in `layout_struct_inner`. See [sema: polymorphism and declarations](../compiler/sema.md). Tests: `tests/compiler/regressions/poly-struct-type-names.jai`, `struct-member-overlay-flag.jai`, `struct-literal-null-over-union-default.jai`. Depends on `types.rs`, `sema/value.rs`, `parser/aggregate.rs`.
 
 ## Rules
 
