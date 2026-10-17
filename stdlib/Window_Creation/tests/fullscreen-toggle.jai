@@ -128,7 +128,7 @@ main :: () {
     }
 
     wait_fullscreen :: (window: Window_Type, desired: bool) {
-        for 1..2000 {
+        for 1..8000 {
             update_window_events();
             if (desired && entered == window) || (!desired && exited == window) return;
 

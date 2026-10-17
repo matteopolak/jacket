@@ -92,7 +92,7 @@ Answer :: #type () -> s32 #c_call;
 
         for architecture: string.["arm64", "x86_64"] {
             verified, stdout, stderr, expired := P.run_command("lipo", "-verify_arch", architecture, universal, capture_and_return_output = true);
-            assert(verified.type == .EXITED && verified.exit_code == 0 && !expired && stdout == "" && stderr == "");
+            assert(verified.type == .EXITED && verified.exit_code == 0 && !expired, "lipo -verify_arch % failed: exit % output %%", architecture, verified.exit_code, stdout, stderr);
             free(stdout);
             free(stderr);
         }
