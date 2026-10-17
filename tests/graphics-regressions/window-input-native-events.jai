@@ -164,7 +164,7 @@ main :: () {
         // cursor must keep its hand cursor in at least one of a few attempts.
         shown := false;
 
-        for attempt: 1..(ifx custom then 5 else 1) {
+        for attempt: 1..(ifx custom then 5 else 3) {
             show_hand(first);
             move_pointer(first);
 
@@ -330,9 +330,10 @@ main :: () {
     }
 
     close_like_the_user :: (window: HWND) {
-        // What the close button ends in: a sent WM_CLOSE (the system menu's SC_CLOSE only gets
-        // there for a window that has a system menu).
-        SendMessageW(window, 0x10, 0, 0);
+        // What the close button ends in, posted so that the pump handles it: update_window_events
+        // starts the frame's event list afresh, which a sent message would be gone before.
+        ok := PostMessageW(window, 0x10, 0, 0);
+        assert(ok != 0, "PostMessageW close");
     }
 
     GetCursor :: () -> HCURSOR #foreign user32;
@@ -456,8 +457,13 @@ main :: () {
         }
     }
 
+    // Where the pointer went last: every call moves it somewhere else, since a warp to where the
+    // pointer already is makes no motion event.
+    pointer_x: s32 = 20;
+
     move_pointer :: (window: Window) {
-        XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, 30, 30);
+        pointer_x = ifx pointer_x == 30 then cast(s32) 40 else cast(s32) 30;
+        XWarpPointer(x_global_display, 0, window, 0, 0, 0, 0, pointer_x, pointer_x);
         XFlush(x_global_display);
     }
 

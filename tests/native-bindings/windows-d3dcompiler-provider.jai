@@ -26,8 +26,10 @@ main :: () {
     native := module("d3dcompiler_47.dll");
 
     check(native != null);
-    // The SDK import-library name and the physical DLL must share one image.
-    check(cast(*void) D.D3DCreateBlob == symbol(native, "D3DCreateBlob"));
+    // The SDK import-library name is served by that physical DLL: it is the one loaded, and it
+    // exports what the declarations call. (A compiled program's address of an imported procedure
+    // is the import library's jump stub, not the export itself, so the addresses are not compared.)
+    check(symbol(native, "D3DCreateBlob") != null);
     blob: *D.ID3DBlob;
 
     check(D.D3DCreateBlob(32, *blob) >= 0 && blob != null);
