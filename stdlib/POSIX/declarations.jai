@@ -4719,7 +4719,16 @@ librt :: #library,system "librt";
 }
 
 #if OS == .LINUX && CPU == .ARM64 {
-    mcontext_t :: sigcontext;
+    // The C header makes it another name for `struct sigcontext`; the declaration is its own
+    // type with the same fields, so the public name stays `mcontext_t`.
+    mcontext_t :: struct {
+        fault_address: u64;
+        regs: [31] u64;
+        sp: u64;
+        pc: u64;
+        pstate: u64;
+        __reserved: [4096] u8 #align 16;
+    }
 
 }
 

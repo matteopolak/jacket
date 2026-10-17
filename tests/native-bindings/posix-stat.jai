@@ -10,11 +10,14 @@ check :: (value: bool) {
 }
 
 main :: () {
-    #if OS == .LINUX {
-        // API preservation is separate from the private ARM64 native ABI.
+    #if OS == .LINUX && CPU == .X64 {
         #assert size_of(P.stat_t) == 144;
         #assert offset_of(P.stat_t, "st_mode") == 24;
         #assert P.SYS_stat == 4 && P.SYS_fstat == 5 && P.SYS_lstat == 6;
+    } else #if OS == .LINUX {
+        // The generic kernel layout arm64 uses.
+        #assert size_of(P.stat_t) == 128;
+        #assert offset_of(P.stat_t, "st_mode") == 16;
     }
 
     pid := process_id();

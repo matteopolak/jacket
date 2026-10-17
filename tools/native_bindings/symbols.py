@@ -1,6 +1,7 @@
 """Check native symbol availability without executing vendor functions."""
 import ctypes
 import ctypes.util
+import os
 from pathlib import Path
 import platform
 import re
@@ -25,9 +26,12 @@ def check_symbols(module, spec, enabled, native_root):
         record = {'module': module, 'declaration': d.name, 'library': name, 'symbol': symbol}
         if name not in libraries:
             suffix = '.dylib' if os_name == 'macos' else '.dll' if os_name == 'windows' else '.so'
-            path = native_root / ('lib' + name.removeprefix('lib') + suffix)
+            file = 'lib' + name.removeprefix('lib') + suffix
+            # The suite's own build first, then the other native library directories it searches.
+            roots = [native_root, *map(Path, filter(None, os.environ.get('JAIC_NATIVE_LIBS', '').split(os.pathsep)))]
+            path = next((root / file for root in roots if (root / file).exists()), None)
             try:
-                libraries[name] = ctypes.CDLL(str(path) if path.exists() else ctypes.util.find_library(name.removeprefix('lib')) or name)
+                libraries[name] = ctypes.CDLL(str(path) if path else ctypes.util.find_library(name.removeprefix('lib')) or name)
             except OSError as e:
                 libraries[name] = str(e)
         library = libraries[name]
