@@ -192,6 +192,11 @@ fn wasm_allocation_heavy_program() {
 /// no page, so the GPU stop is skipped without calling them.
 #[test]
 fn wasm_tour_runs_as_a_wasi_command() {
+    // The tour reads its own folder through `#filepath`, which on a Windows host is a drive
+    // path (`D:/...`); a WASI module has no drive letters, so it cannot open it there.
+    if cfg!(windows) {
+        return;
+    }
     let examples: serde_json::Value =
         serde_json::from_slice(&std::fs::read(repo_root().join("tests/examples.json")).unwrap())
             .unwrap();
