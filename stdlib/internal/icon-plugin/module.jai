@@ -55,19 +55,17 @@ message :: (p: *C.Metaprogram_Plugin, message: *C.Message) {
         return;
     }
 
-    options := C.get_build_options(message.workspace);
-    filename := B.sprint("%/%", options.output_path, phase.executable_name);
-
-    defer B.free(filename);
+    // The phase message names the file as written: output_path and name already joined.
+    filename := phase.executable_name;
 
     #if OS == .WINDOWS && BUILD_OS == .WINDOWS {
-        if options.os_target == .WINDOWS {
+        if C.get_build_options(message.workspace).os_target == .WINDOWS {
             if !Resources.set_icon_by_filename(filename, state.filename) B.log_error("Icon: failed to set ICO on '%'", filename);
             return;
         }
     }
 
-    B.log("Icon: setting executable icons requires a Windows compiler host and target (%)", options.os_target);
+    B.log("Icon: setting executable icons requires a Windows compiler host and target (%)", C.get_build_options(message.workspace).os_target);
 }
 
 #scope_file
