@@ -2,7 +2,8 @@
 #import "Basic";
 
 // #asm lowers x64 instructions to plain operations on Jai variables, so these
-// run unchanged in the interpreter, in the browser and in native builds.
+// arithmetic runs in the interpreter and native builds. Architectural operations
+// below require an actual x86-64 host/target with their instruction prerequisites.
 
 test_mov_arith :: () {
     x: s64 = 10;
@@ -611,16 +612,26 @@ test_misc :: () {
     #asm { rdtsc hi2:, lo2:; }
     assert(hi == hi2 || hi2 > hi, "rdtsc is monotonic");
 
-    #asm {
-        mov a:, 1;
-        mov c:, 0;
-        cpuid a, b:, c, d:;
+    // CPUID reports real processor data. Leaf zero has stable vendor fields;
+    // leaf one's EBX contains topology data and is not a fixed-value oracle.
+    {
+        maximum: u32 = 0;
+        vendor_b: u32;
+        vendor_c: u32 = 0;
+        vendor_d: u32;
+        #asm { cpuid maximum, vendor_b, vendor_c, vendor_d; }
+        assert(maximum >= 1, "CPUID supports the baseline feature leaf");
+        assert((vendor_b | vendor_c | vendor_d) != 0, "CPUID returns a real vendor");
+
+        repeated_maximum: u32 = 0;
+        repeated_b: u32;
+        repeated_c: u32 = 0;
+        repeated_d: u32;
+        #asm { cpuid repeated_maximum, repeated_b, repeated_c, repeated_d; }
+        assert(maximum == repeated_maximum && vendor_b == repeated_b &&
+               vendor_c == repeated_c && vendor_d == repeated_d,
+               "CPUID leaf zero is stable");
     }
-
-    r: u32 = ---;
-
-    #asm { mov r, b; }
-    assert(r == 0, "cpuid reports no features");
 
     flagged: bool = ---;
 

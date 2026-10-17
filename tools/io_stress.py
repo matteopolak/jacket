@@ -231,7 +231,7 @@ def main():
     parser.add_argument(
         "--observe-failures-report",
         type=Path,
-        help="Linux only: bounded numeric evidence for actual failed backends/tcp copies",
+        help="Linux only: bounded numeric evidence for actual failed backends/tcp/https copies",
     )
     args = parser.parse_args()
 
@@ -329,7 +329,11 @@ def main():
                     started = time.time()
                     base = work / "run" / f"{variant}-{test.stem}-{number}"
                     group = None
-                    if failure_source is not None and test.stem in {"backends", "tcp"}:
+                    if failure_source is not None and test.stem in {
+                        "backends",
+                        "tcp",
+                        "https",
+                    }:
                         group = FailureGroup(
                             args.observe_failures_report,
                             {

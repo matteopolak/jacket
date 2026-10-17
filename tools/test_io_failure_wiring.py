@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+from itertools import product
 import json
 from pathlib import Path
 import subprocess
@@ -16,13 +17,13 @@ from ci_test_scratch import assigned_scratch
 
 class FailureWiring(unittest.TestCase):
     def test_twelve_original_copies_and_original_failure_gate(self):
-        for failed_copy in (None, 6):
+        for test_stem, failed_copy in product(("backends", "tcp", "https"), (None, 6)):
             with (
-                self.subTest(failed_copy=failed_copy),
+                self.subTest(test_stem=test_stem, failed_copy=failed_copy),
                 tempfile.TemporaryDirectory(dir=assigned_scratch()) as scratch,
             ):
                 root = Path(scratch)
-                test = root / "backends.jai"
+                test = root / f"{test_stem}.jai"
                 test.write_text(
                     "// metadata-only input; mocked build, never compiled\n"
                 )

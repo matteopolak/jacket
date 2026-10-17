@@ -1002,3 +1002,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 - [Conda SDK package notices](tools/conda-sdk-notices.md): real owner-provenanced nested license files; actual Intel native replay required.
 
 - [Windows CRT provider identity](native/windows-crt-provider.md): genuine SDK UCRT import metadata, preserved signatures; native Windows replay still required.
+
+## Integrated implementation controls
+
+[CPUID catalogue migrations and oracle controls](compiler/x86-catalogue-controls.md) record stable leaf-zero assertions, complete strict lint, real x64 interpreter/native O0/O2 comparisons, and the separate pending GPR/XGETBV gates.

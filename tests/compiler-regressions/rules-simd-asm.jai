@@ -1,4 +1,5 @@
-// Checks the rules of docs/language/simd-asm.md. #asm is lowered to IR, so this runs on any host.
+// Checks the rules of docs/language/simd-asm.md. Arithmetic lowers to portable IR;
+// real CPUID/XGETBV operations require an actual x86-64 host/target.
 // rules: asm.1 asm.2 asm.3 asm.4 asm.5 asm.6 asm.7 asm.8 asm.9 asm.10 asm.11 asm.12 asm.13 asm.15 asm.16 asm.17 asm.18 asm.19 asm.20 asm.21 asm.24 asm.25
 #import "Basic";
 
@@ -350,23 +351,45 @@ main :: () {
         assert(rs[1] == 0.5 && rs[2] == 0.25, "asm.24 rsqrt");
     }
 
-    // asm.25: cpuid and xgetbv report no features.
+    // CPUID reports real processor data. Leaf zero has stable vendor fields;
+    // leaf one's EBX contains topology data and is not a fixed-value oracle.
     {
-        fb, fc, fd, xa: u32;
+        maximum: u32 = 0;
+        vendor_b: u32;
+        vendor_c: u32 = 0;
+        vendor_d: u32;
+        #asm { cpuid maximum, vendor_b, vendor_c, vendor_d; }
+        assert(maximum >= 1, "CPUID supports the baseline feature leaf");
+        assert((vendor_b | vendor_c | vendor_d) != 0, "CPUID returns a real vendor");
 
-        #asm {
-            mov a:, 1;
-            mov c:, 0;
-            cpuid a, b:, c, d:;
-            mov fb, b;
-            mov fc, c;
-            mov fd, d;
-            mov xc:, 0;
-            xgetbv xd:, xa2:, xc;
-            mov xa, xa2;
+        repeated_maximum: u32 = 0;
+        repeated_b: u32;
+        repeated_c: u32 = 0;
+        repeated_d: u32;
+        #asm { cpuid repeated_maximum, repeated_b, repeated_c, repeated_d; }
+        assert(maximum == repeated_maximum && vendor_b == repeated_b &&
+               vendor_c == repeated_c && vendor_d == repeated_d,
+               "CPUID leaf zero is stable");
+    }
+
+    // asm.25: real feature data guards optional XGETBV execution. OSXSAVE
+    // indicates that the OS enabled XGETBV; XSAVE identifies hardware support.
+    {
+        feature_a: u32 = 1;
+        feature_b: u32;
+        feature_c: u32 = 0;
+        feature_d: u32;
+        #asm { cpuid feature_a, feature_b, feature_c, feature_d; }
+        assert((feature_d & (1 << 26)) != 0, "asm.25 x64 baseline SSE2");
+        xsave_prerequisites: u32 = (1 << 26) | (1 << 27);
+        if (feature_c & xsave_prerequisites) == xsave_prerequisites {
+            xcr_index: u32 = 0;
+            xcr_hi: u32;
+            xcr_lo: u32;
+            #asm { xgetbv xcr_hi, xcr_lo, xcr_index; }
+            xcr0 := ((cast(u64) xcr_hi) << 32) | xcr_lo;
+            assert((xcr0 & 1) != 0, "asm.25 XCR0 keeps x87 enabled");
         }
-
-        assert(fb == 0 && fc == 0 && fd == 0 && xa == 0, "asm.25");
     }
 
     print("ok\n");

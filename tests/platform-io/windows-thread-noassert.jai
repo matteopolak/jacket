@@ -1,5 +1,5 @@
 // Reviewed Thread lifecycle/synchronization contract with optional asserts off.
-#import "Basic"(ENABLE_ASSERT = false);
+#import "Basic"()(ENABLE_ASSERT = false);
 T :: #import "Thread";
 
 Shared :: struct {
