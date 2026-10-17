@@ -14,7 +14,7 @@ import re
 import shutil
 import struct
 import subprocess
-from cleanroom_lint_contexts import checked_coverage
+from cleanroom_lint_contexts import canonical, checked_coverage
 from window_render_tests import WINDOW_RENDER_TESTS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,9 +84,9 @@ def lint_coverage(manifest, status, required):
     try:
         coverage = checked_coverage(json.loads(manifest.read_text()), status)
         coverage["missing_required"] = sorted(
-            str(path.resolve())
+            canonical(path)
             for path in required
-            if str(path.resolve()) not in coverage["visited_complete"]
+            if canonical(path) not in coverage["visited_complete"]
         )
         coverage["clean"] = coverage["clean"] and not coverage["missing_required"]
         return coverage
