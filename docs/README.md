@@ -1006,3 +1006,7 @@ Current ready [30901830 candidate](status/shared-candidate-30901830.json) combin
 ## Integrated implementation controls
 
 [CPUID catalogue migrations and oracle controls](compiler/x86-catalogue-controls.md) record stable leaf-zero assertions, complete strict lint, real x64 interpreter/native O0/O2 comparisons, and the separate pending GPR/XGETBV gates.
+
+## Integrated implementation controls
+
+- [Architectural XGETBV](compiler/xgetbv.md): real index/result lowering, guarded interpreter dispatch, ISA-derived controls and outstanding Intel execution proof.

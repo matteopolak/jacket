@@ -55,6 +55,29 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                     Rets::one(timestamp)
                 })
             }
+            Intrinsic::X86Xgetbv => {
+                let [index] = arguments else {
+                    return Err(Trap::new("invalid XGETBV operands"));
+                };
+                // ECX selects the index; high RCX bits are ignored architecturally.
+                let index = *index as u32;
+                let features = if maximum >= 0xd {
+                    __cpuid_count(0xd, 1).eax
+                } else {
+                    0
+                };
+                xgetbv_prerequisites(index, leaf1.map_or(0, |l| l.ecx), features)
+                    .map_err(Trap::new)?;
+                let hi: u32;
+                let lo: u32;
+                // SAFETY: real CPUID above establishes XSAVE, OSXSAVE, and index-1
+                // support when required. Invalid indices never reach the instruction.
+                unsafe {
+                    asm!("xgetbv", in("ecx") index, out("edx") hi, out("eax") lo,
+                        options(nomem, nostack, preserves_flags));
+                }
+                Ok(Rets::collect([u64::from(hi), u64::from(lo)].into_iter()))
+            }
             Intrinsic::X86Random {
                 seed,
                 width,
@@ -167,5 +190,71 @@ pub(super) fn cycle_counter() -> Res<u64> {
         Err(Trap::new(
             "no architectural cycle counter is available on this interpreter host",
         ))
+    }
+}
+
+
+// Intel SDM Vol.2D XGETBV and Vol.3A 15.5. The pure decision is testable
+// without executing an unsupported optional processor instruction.
+#[cfg(any(target_arch = "x86_64", test))]
+fn xgetbv_prerequisites(index: u32, leaf1_ecx: u32, leafd1_eax: u32) -> Result<(), &'static str> {
+    if index > 1 {
+        return Err("XGETBV index must be 0 or 1");
+    }
+    if leaf1_ecx & (1 << 26) == 0 {
+        return Err("XGETBV requires XSAVE support on the executing processor (CPUID)");
+    }
+    if leaf1_ecx & (1 << 27) == 0 {
+        return Err("XGETBV requires OSXSAVE enabled by the executing operating system (CPUID)");
+    }
+    if index == 1 && leafd1_eax & (1 << 2) == 0 {
+        return Err("XGETBV index 1 is unavailable on the executing processor (CPUID)");
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod xgetbv_tests {
+    use super::xgetbv_prerequisites;
+
+    #[test]
+    fn capabilities_guard_both_indices_without_executing_xgetbv() {
+        let xsave = 1 << 26;
+        let osxsave = 1 << 27;
+        let xgetbv1 = 1 << 2;
+        for index in [0, 1] {
+            for features in [0, xgetbv1] {
+                assert!(
+                    xgetbv_prerequisites(index, 0, features)
+                        .unwrap_err()
+                        .contains("XSAVE")
+                );
+                assert!(
+                    xgetbv_prerequisites(index, osxsave, features)
+                        .unwrap_err()
+                        .contains("XSAVE")
+                );
+                assert!(
+                    xgetbv_prerequisites(index, xsave, features)
+                        .unwrap_err()
+                        .contains("OSXSAVE")
+                );
+            }
+        }
+        assert!(xgetbv_prerequisites(0, xsave | osxsave, 0).is_ok());
+        assert!(xgetbv_prerequisites(0, xsave | osxsave, xgetbv1).is_ok());
+        assert!(
+            xgetbv_prerequisites(1, xsave | osxsave, 0)
+                .unwrap_err()
+                .contains("index 1")
+        );
+        assert!(xgetbv_prerequisites(1, xsave | osxsave, xgetbv1).is_ok());
+        for index in [2, 3, u32::MAX] {
+            assert!(
+                xgetbv_prerequisites(index, xsave | osxsave, xgetbv1)
+                    .unwrap_err()
+                    .contains("index")
+            );
+        }
     }
 }

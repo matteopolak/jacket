@@ -354,6 +354,9 @@ pub enum Intrinsic {
     X86Prefetch(X86Prefetch),
     /// `(leaf: I32, subleaf: I32) -> (eax, ebx, ecx, edx): I32`, real x86-64 CPUID.
     CpuId,
+    /// `(index: I32) -> (edx, eax): I32`, real XGETBV; preserves flags.
+    /// Interpreter execution validates XSAVE/OSXSAVE and optional index-1 support.
+    X86Xgetbv,
     Pause,
     /// `(number, a1..a6) -> raw result`, all `I64`: a Linux x86-64 system call (`#asm` `syscall`).
     /// The result is the kernel's raw return value, `-errno` on failure. Native code issues the

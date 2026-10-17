@@ -2577,6 +2577,7 @@ impl Interp {
             | I::X86Random {
                 ..
             }
+            | I::X86Xgetbv
             | I::X86Fence(_)
             | I::X86Pause
             | I::X86Prefetch(_) => {

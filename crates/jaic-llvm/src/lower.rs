@@ -2759,6 +2759,26 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     self.builder.build_extract_value(value, i, "").map_err(Into::into)
                 }).collect()
             }
+            Intrinsic::X86Xgetbv => {
+                if !self.arch.is_x86_64() {
+                    return Err("XGETBV requires an x86-64 target".into());
+                }
+                let i32t = self.ctx.i32_type();
+                let outputs = self.ctx.struct_type(&[i32t.into(); 2], false);
+                let ty = self.fn_type(Some(outputs.into()), &[i32t.into()], false);
+                // Keep the architectural read even when its outputs are unused.
+                // XGETBV preserves EFLAGS and does not access process memory.
+                let asm = self.ctx.create_inline_asm(
+                    ty, "xgetbv".into(), "={dx},={ax},{cx}".into(),
+                    true, false, None, false,
+                );
+                let index = self.as_int(args[0])?;
+                let result = basic(self.builder.build_indirect_call(ty, asm, &[index.into()], "")?)
+                    .ok_or("XGETBV produced no value")?.into_struct_value();
+                (0..2).map(|i| {
+                    self.builder.build_extract_value(result, i, "").map_err(Into::into)
+                }).collect()
+            }
             Intrinsic::X86Timestamp { aux } => {
                 if !self.arch.is_x86_64() {
                     return Err("x86 timestamp instruction requires an x86-64 target".into());

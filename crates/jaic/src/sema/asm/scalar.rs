@@ -66,7 +66,7 @@ pub(super) enum XOp {
     Str(StrOp, Rep),
     /// `int imm8`: only `int 3` (a breakpoint) is meaningful in user code.
     Int,
-    /// `xgetbv d, a, c`: no extended state is reported (both halves 0).
+    /// `xgetbv d, a, c`: read the selected XCR into high/low 32-bit halves.
     Xgetbv,
     /// `stmxcsr [mem]`: the default MXCSR (0x1f80); `ldmxcsr` is accepted and ignored.
     Stmxcsr,
@@ -633,9 +633,23 @@ impl Compiler {
             }
             XOp::Xgetbv => {
                 want(3, 3)?;
-                let z = konst(f, Ty::I32, 0);
-                self.asm_write(f, opds[0], Ty::I32, z, span)?;
-                self.asm_write(f, opds[1], Ty::I32, z, span)?;
+                if self.options.cpu != TargetCpu::X64 {
+                    return err(span, "xgetbv requires an x86-64 target");
+                }
+                if opds
+                    .iter()
+                    .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage, Ty::I32 | Ty::I64)))
+                {
+                    return err(
+                        span,
+                        "xgetbv operands must be 32- or 64-bit integer registers",
+                    );
+                }
+                let index = self.asm_read(f, opds[2], Ty::I32, span)?;
+                let pair =
+                    f.b.intrinsic(Intrinsic::X86Xgetbv, vec![index], &[Ty::I32; 2]);
+                self.asm_write(f, opds[0], Ty::I32, pair[0], span)?;
+                self.asm_write(f, opds[1], Ty::I32, pair[1], span)?;
             }
             XOp::Stmxcsr | XOp::Ldmxcsr => {
                 want(1, 1)?;
