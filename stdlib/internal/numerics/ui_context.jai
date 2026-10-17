@@ -47,8 +47,10 @@ NUM_POINTERS :: 8;
 // fields or allocation are inferred for this otherwise unspecified type.
 NSCursor :: Native_Cursors.NSCursor;
 
-Occlusion_Record :: struct {
-    serial: s32;
-    rect: Rect;
-    widget: *Active_Widget;
+#if LEFT_HANDED {
+    Occlusion_Record :: struct {
+        serial: s32;
+        rect: Rect;
+        widget: *Active_Widget;
+    }
 }

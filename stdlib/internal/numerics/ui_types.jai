@@ -3,6 +3,14 @@ Rect :: struct {
     w, h: float;
 }
 
+#if !LEFT_HANDED {
+    Occlusion_Record :: struct {
+        serial: s32;
+        rect: Rect;
+        widget: *Active_Widget;
+    }
+}
+
 VBase3 :: struct {
     x, y, z: float;
 }
