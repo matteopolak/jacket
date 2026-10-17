@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import tarfile
 import urllib.request
+from fetch_url import fetch
 from sdl_test_support import repository_root
 
 
@@ -34,7 +35,7 @@ def prepare(scratch, cache, offline=False):
             raise FileNotFoundError(
                 "offline: missing pinned SDL2 header archive: " + str(archive)
             )
-        data = urllib.request.urlopen(pin["url"], timeout=60).read()
+        data = fetch(pin["url"])
         if hashlib.sha256(data).hexdigest() != pin["sha256"]:
             raise ValueError("SDL2 header download checksum mismatch")
         archive.write_bytes(data)

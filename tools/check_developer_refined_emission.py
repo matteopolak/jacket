@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 from build_developer_bindings import llvm_prefix
@@ -108,6 +109,10 @@ def main():
         if not passed:
             raise RuntimeError("Refined emission check failed; see " + str(scratch))
 
+    macos = sys.platform == "darwin"
+    shared_flags = ["-dynamiclib"] if macos else ["-shared", "-fPIC"]
+    library_suffix = ".dylib" if macos else ".so"
+
     try:
         generated_sources = []
         for source in tests:
@@ -142,10 +147,10 @@ def main():
                         "-Wextra",
                         "-Werror",
                         "-O2",
-                        "-dynamiclib",
+                        *shared_flags,
                         ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-generic-native.cpp",
                         "-o",
-                        scratch / "libgeneric_fixture.dylib",
+                        scratch / ("libgeneric_fixture" + library_suffix),
                     ]
                 )
             if generated.stem == "bindings-wide-layout-generated":
@@ -157,10 +162,10 @@ def main():
                         "-Wextra",
                         "-Werror",
                         "-O2",
-                        "-dynamiclib",
+                        *shared_flags,
                         ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-wide-layout.c",
                         "-o",
-                        scratch / "libwide_fixture.dylib",
+                        scratch / ("libwide_fixture" + library_suffix),
                     ]
                 )
             run([formatter, "--config", ROOT / "jaifmt.toml", generated])

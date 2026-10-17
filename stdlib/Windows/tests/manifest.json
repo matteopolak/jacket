@@ -1,7 +1,13 @@
 [
   {
     "name": "class-parameters",
-    "required_os": "windows"
+    "required_os": "windows",
+    "unsupported_modes": [
+      "interp"
+    ],
+    "required_capabilities": [
+      "a native Win32 window procedure delivering posted messages, which the interpreter does not run"
+    ]
   },
   {
     "name": "committed-text",
@@ -13,15 +19,33 @@
   },
   {
     "name": "events",
-    "required_os": "windows"
+    "required_os": "windows",
+    "unsupported_modes": [
+      "interp"
+    ],
+    "required_capabilities": [
+      "a native Win32 window procedure delivering posted messages, which the interpreter does not run"
+    ]
   },
   {
     "name": "layout-keys",
-    "required_os": "windows"
+    "required_os": "windows",
+    "unsupported_modes": [
+      "interp"
+    ],
+    "required_capabilities": [
+      "a native Win32 window procedure delivering posted messages, which the interpreter does not run"
+    ]
   },
   {
     "name": "pointer",
-    "required_os": "windows"
+    "required_os": "windows",
+    "unsupported_modes": [
+      "interp"
+    ],
+    "required_capabilities": [
+      "a native Win32 window procedure delivering posted messages, which the interpreter does not run"
+    ]
   },
   {
     "name": "queries",

@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tarfile
 import urllib.request
+from fetch_url import fetch
 from pathlib import Path
 
 from repo_output import output_dir
@@ -28,7 +29,7 @@ def checked_archive(cache, offline=False):
     packed=cache/'SDL3-3.4.18.tar.gz'
     if not packed.exists():
         if offline: raise RuntimeError(f'offline: missing {packed}')
-        data=urllib.request.urlopen(spec['url'],timeout=120).read()
+        data=fetch(spec['url'])
         if hashlib.sha256(data).hexdigest()!=spec['sha256']: raise RuntimeError('download hash mismatch')
         packed.write_bytes(data)
     if hashlib.sha256(packed.read_bytes()).hexdigest()!=spec['sha256']: raise RuntimeError(f'cache hash mismatch: {packed}')

@@ -29,6 +29,9 @@ def check_symbols(module, spec, enabled, native_root):
             file = 'lib' + name.removeprefix('lib') + suffix
             # The suite's own build first, then the other native library directories it searches.
             roots = [native_root, *map(Path, filter(None, os.environ.get('JAIC_NATIVE_LIBS', '').split(os.pathsep)))]
+            if os_name == 'macos':
+                # Homebrew's libraries (SDL2, FreeType) are outside what `find_library` searches.
+                roots += [Path('/opt/homebrew/lib'), Path('/usr/local/lib')]
             path = next((root / file for root in roots if (root / file).exists()), None)
             try:
                 libraries[name] = ctypes.CDLL(str(path) if path else ctypes.util.find_library(name.removeprefix('lib')) or name)

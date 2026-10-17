@@ -18,6 +18,8 @@ runs:
         python -u tools/build_platform_io_runtime.py --stdlib stdlib --cpu "$CPU"
         python -u tools/build_developer_debug.py
         cygpath -w "$PWD/stdlib/internal/runtime/crash-native" >> "$GITHUB_PATH"
+        # Native programs load the Debug helper by name: Windows must find its DLL.
+        cygpath -w "$PWD/stdlib/internal/developer-tools/debug-native" >> "$GITHUB_PATH"
     - name: Load the provider from a C program
       shell: bash
       env:

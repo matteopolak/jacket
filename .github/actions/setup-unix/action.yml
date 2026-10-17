@@ -47,6 +47,7 @@ runs:
       run: |
         bash tools/install_ci_llvm_linux.sh
         echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
+        echo "DEVELOPER_TOOLS_LLVM_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
         echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
         # X11, GL (Mesa's software renderer), FreeType, Xvfb, ALSA and Mesa's lavapipe (the
         # Vulkan adapter of the WebGPU tests).

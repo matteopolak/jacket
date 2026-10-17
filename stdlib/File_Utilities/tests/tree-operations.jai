@@ -2,6 +2,12 @@
 F :: #import "File";
 U :: #import "File_Utilities";
 
+// Windows' copy_file logs a failure unless told otherwise; these calls are meant to fail.
+copy_must_fail :: (source: string, dest: string) -> bool {
+    #if OS == .WINDOWS return U.copy_file(source, dest, silent = true);
+    else return U.copy_file(source, dest);
+}
+
 main :: () {
     root := "foundation-filesystem-test";
 
@@ -18,7 +24,7 @@ main :: () {
     assert(F.write_entire_file("foundation-filesystem-test/source/content", "bytes\0inside"));
     assert(F.file_link("foundation-filesystem-test/hardlink", "foundation-filesystem-test/source/content"));
     defer assert(F.file_delete("foundation-filesystem-test/hardlink"));
-    assert(!U.copy_file("foundation-filesystem-test/source/content", "foundation-filesystem-test/hardlink"));
+    assert(!copy_must_fail("foundation-filesystem-test/source/content", "foundation-filesystem-test/hardlink"));
     original, read_ok := F.read_entire_file("foundation-filesystem-test/hardlink");
 
     assert(read_ok && original == "bytes\0inside");
@@ -39,7 +45,7 @@ main :: () {
     free(copied);
     assert(U.file_exists("foundation-filesystem-test/dest/empty"));
     assert(F.write_entire_file("foundation-filesystem-test/dest/content", "longer destination contents to truncate"));
-    assert(!U.copy_file("foundation-filesystem-test/source", "foundation-filesystem-test/dest/content"));
+    assert(!copy_must_fail("foundation-filesystem-test/source", "foundation-filesystem-test/dest/content"));
     preserved, preserved_ok := F.read_entire_file("foundation-filesystem-test/dest/content");
 
     assert(preserved_ok && preserved == "longer destination contents to truncate");

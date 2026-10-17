@@ -10,6 +10,7 @@ from pathlib import Path
 import platform
 import subprocess
 import urllib.request
+from fetch_url import fetch
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +29,7 @@ def main():
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             url = f'https://raw.githubusercontent.com/{spec["repository"]}/{spec["revision"]}/{name}'
-            path.write_bytes(urllib.request.urlopen(url, timeout=30).read())
+            path.write_bytes(fetch(url))
         if hashlib.sha256(path.read_bytes()).hexdigest() != spec["files"][name]:
             raise RuntimeError(f"native source digest mismatch: {name}")
     extension = "dylib" if platform.system() == "Darwin" else "so"

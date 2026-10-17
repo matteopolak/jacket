@@ -8,6 +8,7 @@ packages=(
   libasound2-dev
   libc++-dev
   libc++abi-dev
+  libcurl4-openssl-dev
   libdecor-0-dev
   libdrm-dev
   libevdev-dev

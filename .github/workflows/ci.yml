@@ -382,7 +382,7 @@ jobs:
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
-            --modes interp,native,wasm-interp,wasm-native --strict --coverage target/stdlib-coverage.txt
+            --modes interp,native,wasm-interp,wasm-native --strict --timeout 300 --coverage target/stdlib-coverage.txt
       - name: Stdlib tests, native O2
         if: ${{ always() && !cancelled() }}
         run: |
@@ -390,7 +390,7 @@ jobs:
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
-            --modes native --opt O2 --strict
+            --modes native --opt O2 --strict --timeout 300
       - name: NEW producer behavior suites against production
         if: ${{ always() && !cancelled() }}
         run: |

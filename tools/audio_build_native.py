@@ -16,6 +16,7 @@ import shlex
 import shutil
 import subprocess
 import urllib.request
+from fetch_url import fetch
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = json.loads((ROOT / "tools/audio_native_plan.json").read_text())
@@ -133,8 +134,8 @@ def opaque_decoder(out):
     for filename, destination in [("stb_vorbis.c", cache / "stb_vorbis.c"),
                                   ("LICENSE", out / "licenses/stb-LICENSE.txt")]:
         if not destination.exists():
-            data = urllib.request.urlopen(
-                f"https://raw.githubusercontent.com/{source['repository']}/{source['revision']}/{filename}", timeout=30).read()
+            data = fetch(
+                f"https://raw.githubusercontent.com/{source['repository']}/{source['revision']}/{filename}")
             if hashlib.sha256(data).hexdigest() != source["files"][filename]:
                 raise RuntimeError("official decoder checksum mismatch")
             destination.parent.mkdir(parents=True, exist_ok=True)

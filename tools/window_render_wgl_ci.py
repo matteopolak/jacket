@@ -124,15 +124,15 @@ def probe_loaded_expected_driver(stdout, expected, alternatives=()):
 def deploy_driver(driver, machine, directories):
     """Deploy the same curated driver closure beside every actual consumer.
 
-    The x64 installer supplies the checksum-verified frontend/backend pair;
-    the native Mesa builder supplies its SDK-validated transitive closure.
-    Only DLLs in that driver output are selected, never arbitrary package files.
+    The installer (tools/install_ci_mesa_windows.sh) supplies the checksum-verified,
+    self-contained opengl32.dll. Only DLLs in that driver output are selected, never
+    arbitrary package files.
     Validate the whole closure before changing any destination.
     """
     libraries = sorted(path for path in driver.iterdir() if path.suffix.casefold() == ".dll")
     names = [path.name.casefold() for path in libraries]
-    if not {"opengl32.dll", "libgallium_wgl.dll"}.issubset(names):
-        raise ValueError("required Mesa frontend/backend DLL missing from curated driver output")
+    if "opengl32.dll" not in names:
+        raise ValueError("required Mesa opengl32.dll missing from curated driver output")
     if len(set(names)) != len(names):
         raise ValueError("ambiguous case-insensitive driver DLL names")
     records = []

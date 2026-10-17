@@ -20,6 +20,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -102,6 +103,34 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
 )
 
 
+# Posted wheel messages carry modifier flags that Input reads back from the session's keyboard state.
+WINDOWS_SESSION_INPUT_CASES = frozenset({"Windows/tests/events"})
+
+
+def locates_files_by_source_path(case):
+    """Whether the program (or a file it loads or imports next to it) builds a path from `#file` or
+    `#filepath`: a cross-built executable then holds the build machine's path."""
+    path = case.get("path")
+    if not path:
+        return False
+    pending, seen = [pathlib.Path(path)], set()
+    while pending:
+        source = pending.pop()
+        if source in seen or not source.is_file():
+            continue
+        seen.add(source)
+        text = source.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"#file(path)?\b", text) and re.search(
+            r"read_entire_file|write_entire_file|set_input_from_file|bitmap_load|bitmap_save|target/|fixtures", text
+        ):
+            return True
+        for name in re.findall(r'#(?:load|import)\s+"([^"]+)"', text):
+            for candidate in (source.parent / name, source.parent / (name + ".jai")):
+                if candidate.is_file():
+                    pending.append(candidate)
+    return False
+
+
 def expects_rejection(case):
     """A compile-time rejection (`-check`, or an error met while interpreting). A `fault` case
     builds and ends with a checked runtime failure, so it is an executable like the others."""
@@ -142,6 +171,13 @@ def fixture_unavailable_reason(case, platform, build_host):
         and not build_host.startswith("windows-")
     ):
         return "links native fixture libraries that only the Windows host jobs build; native Windows coverage remains required"
+    if platform.startswith("windows-") and not build_host.startswith("windows-"):
+        if case.get("source_check_only") is True:
+            return "compile-only fixture: its source check runs in the stdlib runtime jobs, and it is never executed"
+        if case["id"] in WINDOWS_SESSION_INPUT_CASES:
+            return "depends on the keyboard state of an interactive Windows session; native Windows coverage remains required"
+        if locates_files_by_source_path(case):
+            return "finds its fixture files through its build-time source path, which does not exist on the Windows runner; native Windows coverage remains required"
     if case["id"] == "compiler/lang-asm" and platform.split("-")[1] != "x64":
         return "fixture contains architectural x86 CPUID/PAUSE/fences; requires x64, not an ARM64 instruction-emulation claim"
     if case["id"] == "ImGui/tests/headless-frames":

@@ -91,7 +91,7 @@ Answer :: #type () -> s32 #c_call;
         assert(B.build_universal_macos_binary(universal, source, type = .DYNAMIC_LIBRARY, extra = flags));
 
         for architecture: string.["arm64", "x86_64"] {
-            verified, stdout, stderr, expired := P.run_command("lipo", "-verify_arch", architecture, universal, capture_and_return_output = true);
+            verified, stdout, stderr, expired := P.run_command("lipo", universal, "-verify_arch", architecture, capture_and_return_output = true);
             assert(verified.type == .EXITED && verified.exit_code == 0 && !expired, "lipo -verify_arch % failed: exit % output %%", architecture, verified.exit_code, stdout, stderr);
             free(stdout);
             free(stderr);

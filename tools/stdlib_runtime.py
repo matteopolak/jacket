@@ -120,9 +120,12 @@ def run_command(command, cwd, timeout, env):
         try:
             code = proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
+            note = describe_stuck_process(proc.pid)
             proc.kill()
             proc.wait()
             code = None
+            error.seek(0, 2)
+            error.write(note.encode())
         out.seek(0)
         error.seek(0)
         return (
@@ -130,6 +133,23 @@ def run_command(command, cwd, timeout, env):
             out.read().decode("utf-8", "replace").replace("\r\n", "\n"),
             error.read().decode("utf-8", "replace").replace("\r\n", "\n"),
         )
+
+
+def describe_stuck_process(pid):
+    """What a timed-out program was doing when it was killed (Linux): whether it burned CPU or
+    waited, and where, so a hang and a slow run can be told apart from the log."""
+    lines = []
+    try:
+        for name in ("status", "wchan", "stat"):
+            text = Path(f"/proc/{pid}/{name}").read_text(errors="replace")
+            if name == "status":
+                text = "".join(l for l in text.splitlines(True) if l.split(":")[0] in ("State", "Threads", "VmRSS"))
+            lines.append(f"{name}: {text.strip()[:400]}")
+        for task in sorted(Path(f"/proc/{pid}/task").iterdir())[:8]:
+            lines.append(f"task {task.name}: wchan {(task / 'wchan').read_text().strip()} stat {(task / 'stat').read_text().split(')')[-1].split()[0]}")
+    except OSError:
+        return ""
+    return "\n[timed out] " + "\n[timed out] ".join(lines) + "\n"
 
 
 def write_ico_fixtures(directory, env):

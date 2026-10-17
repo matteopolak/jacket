@@ -20,6 +20,7 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
+from fetch_url import fetch as fetch_pinned
 import zipfile
 from pathlib import Path
 
@@ -74,7 +75,7 @@ def host_dir() -> str:
 
 
 def download(url: str, digest: str) -> bytes:
-    data = urllib.request.urlopen(url, timeout=120).read()
+    data = fetch_pinned(url)
     actual = hashlib.sha256(data).hexdigest()
     if actual != digest:
         sys.exit(f'{url}: sha256 {actual}, expected {digest}')

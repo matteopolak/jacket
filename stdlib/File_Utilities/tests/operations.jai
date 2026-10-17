@@ -2,11 +2,17 @@
 F :: #import "File";
 U :: #import "File_Utilities";
 
+// Windows' copy_file logs a failure unless told otherwise; these calls are meant to fail.
+copy_must_fail :: (source: string, dest: string) -> bool {
+    #if OS == .WINDOWS return U.copy_file(source, dest, silent = true);
+    else return U.copy_file(source, dest);
+}
+
 main :: () {
     assert(F.make_directory_if_it_does_not_exist("portable-tree/sub", true));
     assert(F.write_entire_file("portable-tree/sub/leaf", "copper"));
     assert(U.file_exists("portable-tree/sub/leaf"));
-    assert(!U.copy_file("portable-tree/sub/leaf", "portable-tree/sub/leaf"));
+    assert(!copy_must_fail("portable-tree/sub/leaf", "portable-tree/sub/leaf"));
     assert(!U.copy_directory("portable-tree", "portable-tree/copy"));
     stamp, size, ok := U.file_modtime_and_size("portable-tree/sub/leaf");
 

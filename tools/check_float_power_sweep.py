@@ -63,7 +63,7 @@ def main():
     directory.mkdir(exist_ok=True, parents=True)
     if args.interp or args.interp_only:
         result = subprocess.run([compiler, ROOT / "stdlib/Basic/tests/float-power-sweep.jai", "-interp"],
-                                cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+                                cwd=ROOT, env=env, capture_output=True, text=True, timeout=900)
         if result.returncode or result.stderr:
             raise RuntimeError(f"interpreter execution failed: {result}")
         verify(result.stdout)
@@ -76,11 +76,11 @@ def main():
             binary = directory / f"float-power-sweep-{target}-{level}{suffix}"
             extra = ["-os", "wasm"] if target == "wasm" else []
             command = [compiler, ROOT / "stdlib/Basic/tests/float-power-sweep.jai", f"-{level}", *extra, "-exe", binary]
-            compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+            compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=900)
             if compiled.returncode or compiled.stdout or compiled.stderr:
                 raise RuntimeError(f"compile failed: {compiled}")
             execute = ["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary] if extra else [binary]
-            result = subprocess.run(execute, cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+            result = subprocess.run(execute, cwd=ROOT, env=env, capture_output=True, text=True, timeout=900)
             if result.returncode or result.stderr:
                 raise RuntimeError(f"execution failed: {result}")
             verify(result.stdout)

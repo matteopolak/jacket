@@ -161,8 +161,14 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
             }
             _ => unreachable!("validated import name type"),
         };
-        if !rest.is_empty() {
-            return Err("unexpected short import payload after names".into());
+        // The ARM64EC members of the Windows SDK's import libraries append the export name to
+        // a `#`-prefixed symbol; those members are for another CPU and only their provider
+        // matters. Elsewhere only NUL padding may follow the names.
+        if actual != 0xa641 && rest.iter().any(|&byte| byte != 0) {
+            return Err(format!(
+                "unexpected short import payload after names: machine 0x{actual:04x} flags 0x{flags:04x} symbol `{public}` trailing {:02x?}",
+                &rest[..rest.len().min(32)]
+            ));
         }
         return Ok(vec![Record {
             machine: actual,

@@ -1,7 +1,11 @@
 // Reviewed Machine_X64 records/feature masks, plus official native C CPUID oracle.
 #import "Basic";
 M :: #import "Machine_X64";
-#if OS_IS_UNIX F :: #import "File";
+
+#if OS_IS_UNIX {
+    F :: #import "File";
+    S :: #import "String";
+}
 
 main :: () {
     #assert CPU == .X64;
@@ -44,7 +48,7 @@ main :: () {
     cpu := M.get_cpu_info();
 
     #if OS_IS_UNIX {
-        bytes, loaded := F.read_entire_file("target/portable-machine/cpuid.bin");
+        bytes, loaded := F.read_entire_file(sprint("%/../../../../target/portable-machine/cpuid.bin", S.path_strip_filename(#file)));
 
         assert(loaded && bytes.count == 48);
         defer free(bytes);

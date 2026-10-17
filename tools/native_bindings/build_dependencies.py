@@ -15,6 +15,9 @@ import tarfile
 import tempfile
 import time
 import urllib.request
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from fetch_url import fetch  # noqa: E402
 from sdl_sdk_headers import prepare_runtime_headers
 from config import RPMALLOC_SDK_BUILD_OPTIONS
 from prepare_rpmalloc import prepare as prepare_rpmalloc
@@ -68,13 +71,7 @@ def run(command):
 
 def download(url, attempts=4):
     """Fetch a pinned archive; hosted runners drop connections now and then, so retry with backoff."""
-    for attempt in range(1, attempts + 1):
-        try:
-            return urllib.request.urlopen(url, timeout=60).read()
-        except OSError:
-            if attempt == attempts:
-                raise
-            time.sleep(5 * attempt)
+    return fetch(url, timeout=60, attempts=max(attempts, 6))
 
 
 def prepare_source(name, source, vendor):
@@ -109,7 +106,7 @@ def prepare_source(name, source, vendor):
                 data = (archive_root / filename).read_bytes()
             else:
                 url = 'https://raw.githubusercontent.com/' + source['repository'] + '/' + source['revision'] + '/' + filename
-                data = urllib.request.urlopen(url, timeout=60).read()
+                data = download(url)
             if hashlib.sha256(data).hexdigest() != expected:
                 raise RuntimeError('Native source hash mismatch: ' + name + '/' + filename)
             path.parent.mkdir(parents=True, exist_ok=True)

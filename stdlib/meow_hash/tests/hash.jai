@@ -63,9 +63,22 @@ main :: () {
         for vectors check_vector(it);
 
         // Equal input hashes equal; one differing byte or length changes the result.
-        a := u8.[1, 2, 3, 4, 5];
-        b := u8.[1, 2, 3, 4, 6];
-        c := u8.[1, 2, 3, 4, 5, 0];
+        // Padded like `check_vector`'s buffers: the hash reads a whole lane past a partial tail.
+        a := NewArray(5 + 16, u8);
+        b := NewArray(5 + 16, u8);
+        c := NewArray(6 + 16, u8);
+
+        defer free(a.data);
+        defer free(b.data);
+        defer free(c.data);
+
+        for 0..4 {
+            a[it] = cast(u8) (it + 1);
+            b[it] = cast(u8) (it + 1);
+            c[it] = cast(u8) (it + 1);
+        }
+
+        b[4] = 6;
 
         #asm { ha: vec; }
         MeowHash(MeowDefaultSeed, 5, a.data, ha);

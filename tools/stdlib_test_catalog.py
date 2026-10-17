@@ -96,7 +96,7 @@ def load_rows(directory):
     manifest = directory / "manifest.json"
     if not manifest.is_file():
         return []
-    rows = json.loads(manifest.read_text())
+    rows = json.loads(manifest.read_text(encoding="utf-8"))
     names = set()
     for row in rows:
         unknown = set(row) - ROW_KEYS

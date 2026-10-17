@@ -160,7 +160,18 @@ open_clipboard :: () {
         assert(owner != null, "native clipboard owner creation failed");
     }
 
-    assert(OpenClipboard(owner) != .FALSE, "native clipboard is unavailable or busy");
+    // Another process (a clipboard history, a remote-session sync) can hold the clipboard for a
+    // moment; Windows documents retrying as the way to wait for it.
+    opened := OpenClipboard(owner) != .FALSE;
+
+    for 1..100 {
+        if opened break;
+
+        Sleep(10);
+        opened = OpenClipboard(owner) != .FALSE;
+    }
+
+    assert(opened, "native clipboard is unavailable or busy");
 }
 
 close_clipboard :: () {

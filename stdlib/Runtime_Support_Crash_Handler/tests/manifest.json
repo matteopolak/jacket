@@ -16,7 +16,15 @@
   },
   {
     "name": "windows-native-sections",
-    "required_os": "windows"
+    "required_os": "windows",
+    "unsupported_modes": [
+      "interp",
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "compiled code and globals must be real PE sections, which only a native executable has"
+    ]
   },
   {
     "name": "windows-records",

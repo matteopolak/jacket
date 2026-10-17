@@ -398,9 +398,10 @@ main :: () {
         event: XEvent;
         event.xclient.type = ClientMessage;
         event.xclient.window = window;
-        event.xclient.message_type = x_global_wm_protocols;
+        // The window system's own connection does not fill the shared atom globals, so ask for them.
+        event.xclient.message_type = XInternAtom(x_global_display, "WM_PROTOCOLS", 0);
         event.xclient.format = 32;
-        event.xclient.data.l[0] = cast(s64) x_global_wm_delete_window;
+        event.xclient.data.l[0] = cast(s64) XInternAtom(x_global_display, "WM_DELETE_WINDOW", 0);
         event.xclient.data.l[1] = CurrentTime;
         sent := XSendEvent(x_global_display, window, False, NoEventMask, *event);
 

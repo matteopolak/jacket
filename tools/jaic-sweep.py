@@ -539,7 +539,7 @@ def main():
             metadata.get("source_check_only") is True
             or (
                 a.headless
-                and (metadata.get("requires_display") or opens_windows(path))
+                and (metadata.get("requires_display") or metadata.get("window_lease") or opens_windows(path))
             )
         )
         if windowed and expect is not None:

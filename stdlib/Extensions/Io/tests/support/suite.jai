@@ -1672,7 +1672,7 @@ test_file_modes_and_offsets :: () {
 
     content, read_error := Io.read_file(path);
 
-    assert(read_error == .NONE && content.count == 15);
+    assert(read_error == .NONE && content.count == 15, "appended file: % with % bytes", read_error, content.count);
     assert(string.{ 2, content.data + 13 } == "++", "appended: '%'", string.{ content.count, content.data });
     free(content.data);
 
