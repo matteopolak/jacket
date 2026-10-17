@@ -118,10 +118,13 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                 let archive = archive(&data, machine)
                     .map_err(|error| format!("{}: {error}", path.display()))?;
                 if archive.providers.is_empty() {
-                    return Err(format!(
+                    // A static archive sits beside its DLL in a built library directory; the
+                    // candidates after it name that DLL.
+                    failure = format!(
                         "{} contains no supported DLL import provider (static archives cannot be dynamically loaded)",
                         path.display()
-                    ));
+                    );
+                    continue;
                 }
                 // Long COFF descriptors alone carry no per-symbol mapping.
                 // Retain the existing single-provider behavior for those;
