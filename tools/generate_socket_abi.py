@@ -65,7 +65,7 @@ def main():
                         help="write generated stdlib/docs under this owned checkout root (default: checkout)")
     args = parser.parse_args()
     formatter = args.formatter.resolve(strict=True)
-    if not formatter.is_relative_to(ROOT / "target"):
+    if not formatter.is_relative_to((ROOT / "target").resolve()):
         parser.error("formatter must be a source build under this checkout's target directory")
     output_root = args.output_root.resolve()
     if not output_root.is_relative_to(ROOT):

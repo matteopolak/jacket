@@ -23,6 +23,16 @@ CASES = ("Basic/tests/builder-format", "Basic/tests/integer-format", "String/tes
          "Basic/tests/capabilities", "Basic/tests/preamble", "Basic/tests/array-aliasing", "String/tests/basics", "Basic/tests/wide-conversions", "Hash/tests/scalar-fnv")
 
 
+def manifest_rejections(modules):
+    """(case id, diagnostic) for every check-fail row of the modules' test manifests."""
+    found = []
+    for module in modules:
+        for row in json.loads((ROOT / "stdlib" / module / "tests/manifest.json").read_text()):
+            if row.get("mode") == "check-fail" and row.get("diagnostic_contains"):
+                found.append((f"{module}/tests/{row['name']}", row["diagnostic_contains"]))
+    return found
+
+
 def check_division_output(output):
     lines = output.splitlines()
     if len(lines) != 19 or lines[-1] != "ok":
@@ -44,12 +54,11 @@ def check_division_output(output):
 
 
 def expected_output(name):
-    return {
-        "Basic/tests/output": ("out 7++", "err true", 17),
-        "Basic/tests/logging-output": ("out 7", "err true", 0),
-        "Basic/tests/print-bytes": ("0 1 7f ff \n[0][1]\n\n", "", 0),
-        "Basic/tests/stack-output": ("OUT 'walk' at tree.jai:3\n", "ERR 'walk' at tree.jai:3\n", 0),
-    }.get(name, ("ok\n", "", 0))
+    """(stdout, stderr, exit code) of a case, from its row in the module's test manifest."""
+    module, _, case = name.partition("/tests/")
+    rows = json.loads((ROOT / "stdlib" / module / "tests/manifest.json").read_text())
+    row = next(row for row in rows if row["name"] == case)
+    return row.get("stdout", ""), row.get("stderr", ""), row.get("exit_code", 0)
 
 
 def owned_sources():
@@ -70,24 +79,9 @@ def owned_sources():
     paths.append(ROOT / "stdlib/internal/hash/module.jai")
     paths.extend(path for path in (ROOT / "stdlib/internal/files").glob("*.jai") if path.name != "file.jai")
     paths.extend(ROOT / "stdlib" / f"{name}.jai" for name in CASES)
-    paths.extend((ROOT / "stdlib/Basic/tests/negative").glob("format-*.jai"))
     paths.extend((ROOT / "stdlib/Basic/tests/negative").glob("wide-to-*.jai"))
     paths.append(ROOT / "stdlib/Basic/tests/division-exercise.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/negative/builder-ensured-range.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/negative/stack-trace-cycle.jai")
     paths.append(ROOT / "stdlib/Basic/tests/negative/scalar-bool.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/negative/leak-unknown-allocation.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/context-overload-probe.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/unused-platform-dependency.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/host-target-predicate.jai")
-    paths.append(ROOT / "stdlib/Pool/tests/probes/capabilities-name.jai")
-    paths.append(ROOT / "stdlib/Hash/tests/probes/scalar-fnv.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/division-exercise.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/alias-signature-probe.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/alias-signature-facade/module.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/alias-signature-helper/module.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/interface-parameter-module/module.jai")
-    paths.append(ROOT / "stdlib/Basic/tests/probes/no-parameter-module/module.jai")
     paths.append(ROOT / "stdlib/Basic/tests/support/test-heap.jai")
     paths.append(ROOT / "stdlib/Basic/tests/float-power-sweep.jai")
     paths.append(ROOT / "stdlib/Basic/tests/windows.jai")
@@ -163,6 +157,10 @@ def lint_profile_sources(target_os, target_cpu):
     return library, fixtures
 
 
+def supplies_module_parameters(path):
+    return re.search(r'#import "[A-Za-z_]+" *\(', path.read_text()) is not None
+
+
 def lint_owned(linter, env, output):
     """Lint real public imports and fixtures, recording complete contexts only."""
     directory = output / "lint"
@@ -227,11 +225,19 @@ def lint_owned(linter, env, output):
                     f"required negative lint rejection failed on {label}: {source}\n{rejected.stderr}"
                 )
         library, fixtures = lint_profile_sources(target_os, target_cpu)
-        for kind, paths, enclosing in (
-            ("library", library, ["--context", str(context)]),
-            ("fixtures", fixtures, []),
-        ):
-            manifest = directory / f"{label}-{kind}.json"
+        # A program that supplies module parameters must be the main program of its workspace.
+        programs = [path for path in fixtures if supplies_module_parameters(path)]
+        fixtures = [path for path in fixtures if path not in programs]
+        batches = [
+            ("library", library, ["--context", str(context)], "library"),
+            ("fixtures", fixtures, [], "fixtures"),
+            *(
+                ("fixtures", [path], ["--context", str(path)], f"program-{path.stem}")
+                for path in programs
+            ),
+        ]
+        for kind, paths, enclosing, name in batches:
+            manifest = directory / f"{label}-{name}.json"
             command = [
                 *prefix,
                 *enclosing,
@@ -369,14 +375,8 @@ def main():
             parser.error("use jailint from the explicit source build root")
         failures.extend(lint_owned(linter, env, output))
 
-    for name, diagnostic in (("Hash/tests/negative/unsupported", "get_hash requires an integer, boolean, enum, pointer, or float"),
-                             ("Hash/tests/negative/seed-visibility", "no exported member `HASH_INIT`"),
-                             ("Basic/tests/negative/builder-buffer-visibility", "no exported member `Buffer`"),
-                             ("Basic/tests/negative/replacement-interface", "check_"),
-                             ("Basic/tests/negative/interface-import-visibility", "no exported member `Interface_Definition`"),
-                             ("Basic/tests/negative/parameter-interface-visibility", "no exported member `Memory_Debugger_Interface`"),
-                             ("Basic/tests/negative/private-formatter", "standard-library internal sources are private"),
-                             ("Basic/tests/negative/scalar-bool", "clamp requires a scalar type")):
+    # The rejected-by-design programs are the manifest rows that name a diagnostic.
+    for name, diagnostic in manifest_rejections(("Hash", "Basic")):
         source = ROOT / "stdlib" / f"{name}.jai"
         if args.jaifmt:
             run([formatter,"--check",source], "")

@@ -4,6 +4,9 @@
     "stdout": "ok\n",
     "unsupported_modes": [
       "wasm-native"
+    ],
+    "required_capabilities": [
+      "the vector table inlines into one function that exceeds the wasm local limit"
     ]
   },
   {

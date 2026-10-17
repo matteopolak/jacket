@@ -19,6 +19,6 @@ def default_compiler():
 
 def checked_compiler(candidate, parser):
     compiler = candidate.resolve(strict=True)
-    if not (compiler.is_relative_to(ROOT / "target") or compiler.is_relative_to(assigned_target())):
+    if not (compiler.is_relative_to((ROOT / "target").resolve()) or compiler.is_relative_to(assigned_target())):
         parser.error("compiler must be an own source build under this checkout's target or its assigned CARGO_TARGET_DIR")
     return compiler

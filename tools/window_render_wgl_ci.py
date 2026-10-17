@@ -190,7 +190,7 @@ def main():
     linter = args.jailint.resolve(strict=True)
     output = args.out.resolve()
     for path in [compiler, linter, output]:
-        if not path.is_relative_to(ROOT / "target"):
+        if not path.is_relative_to((ROOT / "target").resolve()):
             parser.error(f"source-built compiler/output must stay under this checkout's target: {path}")
     consumers = [path.resolve() for path in args.consumer_dir]
     if consumers and not args.driver_dir:

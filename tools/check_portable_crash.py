@@ -19,7 +19,7 @@ def main():
     args = parser.parse_args()
     compiler = checked_compiler(args.jaic, parser)
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve()))
-    fixtures = ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/startup-crash"
+    fixtures = ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/driven/startup-crash"
     for enabled in [False, True]:
         output = ROOT / "target/portable-tests" / ("startup-on" if enabled else "startup-off")
         output.mkdir(parents=True, exist_ok=True)

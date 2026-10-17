@@ -56,7 +56,7 @@ def main():
     if args.interp_only and args.wasm:
         parser.error("--interp-only cannot select --wasm")
     compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to(ROOT / "target"):
+    if not compiler.is_relative_to((ROOT / "target").resolve()):
         parser.error("use a source-built independent compiler under target")
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
     directory = ROOT / "target/foundations-tests"
