@@ -31,15 +31,15 @@ main :: () {
     all := describe(type_info(Box(int, 3)), true);
 
     defer free(all);
-    assert(all == "Box(T = s64, amount = 3)");
+    assert(all == "Box(T=s64, amount=3)");
     required := describe(type_info(Required(int, 3)));
 
     defer free(required);
-    assert(required == "Required(T = s64)");
+    assert(required == "Required(T=s64)");
     changed := describe(type_info(Box(string, 7)));
 
     defer free(changed);
-    assert(changed == "Box(T = string, amount = 7)");
+    assert(changed == "Box(T=string, amount=7)");
     label := describe(type_info(Label("same")));
 
     defer free(label);
@@ -47,6 +47,6 @@ main :: () {
     dependent := describe(type_info(Dependent(7, 8)));
 
     defer free(dependent);
-    assert(dependent == "Dependent(first = 7)");
+    assert(dependent == "Dependent(first=7)");
     print("ok\n");
 }

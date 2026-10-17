@@ -15,37 +15,7 @@
     ]
   },
   {
-    "name": "windows-fault",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
     "name": "windows-native-sections",
     "required_os": "windows"
-  },
-  {
-    "name": "windows-nullguard",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
-    "name": "windows-symbol-fault",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
   }
 ]

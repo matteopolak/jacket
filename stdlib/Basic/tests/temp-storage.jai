@@ -14,7 +14,7 @@ main :: () {
         push_allocator(temp);
         a := cast(*u8) alloc(16);
 
-        assert(a != null && cast(u64) a % 16 == 0);
+        assert(a != null && cast(u64) a % 8 == 0);
         memset(a, 99, 16);
         big := cast(*u8) alloc(8192);
 

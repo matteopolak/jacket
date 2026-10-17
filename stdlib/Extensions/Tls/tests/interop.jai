@@ -4,6 +4,7 @@
 #load "support/suite.jai";
 
 Process :: #import "Process";
+FileOps :: #import "File";
 
 #if OS == .WINDOWS {
     main :: () {
@@ -342,7 +343,7 @@ Process :: #import "Process";
     }
 
     remove_files :: () {
-        for FILES file_delete(tprint("interop-%", it));
+        for FILES FileOps.file_delete(tprint("interop-%", it));
     }
 
     run_interop :: () {

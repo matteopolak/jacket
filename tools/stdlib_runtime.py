@@ -132,6 +132,51 @@ def run_command(command, cwd, timeout, env):
         )
 
 
+def write_ico_fixtures(directory, env):
+    """The bitmaps the Ico_File filename test reads, and the 16x16 gradient resized by the real
+    stb_image_resize library (the reference its encoder output is compared against)."""
+    import ctypes
+    import struct
+
+    # Public BMP file format: BITMAPFILEHEADER + BITMAPINFOHEADER, 16x16 BGR.
+    pixels = bytes((30, 20, 10)) * (16 * 16)
+    header = struct.pack("<2sIHHI", b"BM", 54 + len(pixels), 0, 0, 54)
+    dib = struct.pack("<IiiHHIIiiII", 40, 16, 16, 1, 24, 0, len(pixels), 0, 0, 0, 0)
+    (directory / "bitmap-\u00fc.bmp").write_bytes(header + dib + pixels)
+    gradient = bytes(
+        value
+        for row in range(16)
+        for column in range(16)
+        for value in (row * 10, column * 10, 60 + row)
+    )
+    (directory / "gradient.bmp").write_bytes(header + dib + gradient)
+    suffix = ".dll" if os.name == "nt" else (".dylib" if sys.platform == "darwin" else ".so")
+    library = next(
+        (
+            Path(folder) / ("libstb_image_resize" + suffix)
+            for folder in env.get("JAIC_NATIVE_LIBS", "").split(os.pathsep)
+            if folder and (Path(folder) / ("libstb_image_resize" + suffix)).is_file()
+        ),
+        None,
+    )
+    if library is None:
+        raise ValueError("the stb_image_resize library is missing from JAIC_NATIVE_LIBS")
+    resize = ctypes.CDLL(str(library)).stbir_resize_uint8_srgb
+    resize.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int] * 2 + [ctypes.c_int] * 3
+    resize.restype = ctypes.c_int
+    bgra = bytes(
+        value
+        for row in range(16)
+        for column in range(16)
+        for value in (row * 10, column * 10, 60 + row, 255)
+    )
+    source = ctypes.create_string_buffer(bgra)
+    destination = ctypes.create_string_buffer(16 * 16 * 4)
+    if resize(source, 16, 16, 64, destination, 16, 16, 64, 4, 3, 0) != 1:
+        raise ValueError("stb_image_resize failed to build the gradient fixture")
+    (directory / "gradient-resized.bgra").write_bytes(destination.raw)
+
+
 def program_arguments(case, scratch, env):
     if "arguments" in case:
         arguments = case["arguments"]
@@ -164,10 +209,12 @@ def program_arguments(case, scratch, env):
                 "Windows resource fixture requires JAIC_TEST_WINDOWS_RESOURCE_DIR with the real source-built resource-only.dll and resource.ico"
             )
         return [str(Path(directory).resolve())]
-    if kind not in {"scratch-file", "scratch-directory"}:
+    if kind not in {"scratch-file", "scratch-directory", "ico-fixtures"}:
         raise ValueError("unknown fixture input: " + kind)
     directory = Path(scratch) / "inputs" / case["id"].replace("/", "-")
     directory.mkdir(parents=True, exist_ok=True)
+    if kind == "ico-fixtures":
+        write_ico_fixtures(directory, env)
     return [str(directory / "data" if kind == "scratch-file" else directory)]
 
 
@@ -418,7 +465,7 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
         )
         out = stdout + stderr
         return contract_result(
-            metadata or {}, code, stdout, stderr, native=not wasm
+            metadata or {}, code, stdout, stderr, native=True
         ), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     finally:
         shutil.rmtree(exe.parent)
@@ -427,6 +474,21 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
 def modes_given_cross(args):
     """Whether this run executes programs, which only the host can do."""
     return any(m.strip() not in ("check", "") for m in args.modes.split(","))
+
+
+DATA_FIXTURE_BUILDERS = (
+    "tools/build_portable_zip_fixtures.py",
+    "tools/build_portable_archive_fixtures.py",
+    "tools/build_portable_mpeg_fixtures.py",
+    "tools/build_portable_meow_fixtures.py",
+)
+
+
+def build_data_fixtures():
+    """Write the generated inputs (ZIP, archive, MPEG and Meow data) the tests read from
+    target/portable-tests; each builder is deterministic and takes no compiler."""
+    for builder in DATA_FIXTURE_BUILDERS:
+        subprocess.run([sys.executable, "-B", str(ROOT / builder)], cwd=ROOT, check=True)
 
 
 def main():
@@ -499,6 +561,8 @@ def main():
         initialize_coverage(args.coverage)
     if "native" in modes:
         use_native_libs(args.platform)
+    if modes_given_cross(args):
+        build_data_fixtures()
     catalogue = validated_entries()
     unknown = set(args.case) - {case["id"] for case in catalogue}
     if unknown:

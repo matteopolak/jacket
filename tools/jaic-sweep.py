@@ -482,6 +482,10 @@ def main():
                         capture_output=True,
                         stdin=subprocess.DEVNULL,
                     )
+    if "modules" in a.sets:
+        from stdlib_runtime import build_data_fixtures
+
+        build_data_fixtures()
     todo = [c for s in a.sets for c in cases(s) if a.filter in c[0]]
     if not todo:
         ap.error("test selection is empty")

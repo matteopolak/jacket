@@ -42,7 +42,7 @@
   {
     "name": "negative/register-scalar",
     "mode": "check-fail",
-    "diagnostic_contains": "expected a SIMD register operand",
+    "diagnostic_contains": "expected an #asm register operand",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"

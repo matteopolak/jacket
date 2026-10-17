@@ -17,7 +17,7 @@
   },
   {
     "name": "hash-free",
-    "stdout": "",
+    "stdout": "ok\n",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"

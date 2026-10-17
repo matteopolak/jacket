@@ -312,17 +312,6 @@
   },
   {
     "name": "integer-time",
-    "stdout": "",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
-    "name": "leak-filters",
     "stdout": "ok\n",
     "unsupported_modes": [
       "wasm-interp",
@@ -704,45 +693,8 @@
     ]
   },
   {
-    "name": "visualization-channel",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
     "name": "visualization-disabled",
     "stdout": "ok\n"
-  },
-  {
-    "name": "visualization-timing",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ],
-    "required_os": [
-      "linux",
-      "macos"
-    ]
-  },
-  {
-    "name": "wasi-file-boundary",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
   },
   {
     "name": "wasm-basic-minimal",

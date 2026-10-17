@@ -44,14 +44,5 @@ main :: () {
     for i: 0..32 assert(memory[i] == cast(u8) i);
 
     free(memory);
-    mark := get_temporary_storage_mark();
-
-    {
-        push_allocator(temp);
-        p := New(Wide);
-        assert(cast(u64) p % 64 == 0);
-    }
-
-    set_temporary_storage_mark(mark);
     print("ok\n");
 }

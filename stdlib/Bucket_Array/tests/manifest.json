@@ -65,7 +65,7 @@
   },
   {
     "name": "bucket-pointer/type-privacy",
-    "stdout": "ok\n",
+    "stdout": "",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"

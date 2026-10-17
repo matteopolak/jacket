@@ -54,6 +54,9 @@ def main():
         subprocess.run(["ar", "rcs", str(output / "libwindow_gl_probe.a"), str(gl_obj)], check=True)
         subprocess.run(["cc", "-dynamiclib", str(gl_obj), "-framework", "AppKit", "-framework", "OpenGL", "-o",
                         str(output / "libwindow_gl_probe.dylib")], check=True)
+        unmapping = ROOT / "stdlib/Unmapping_Allocator/tests/native/unmapping-protection.c"
+        subprocess.run(["cc", "-O2", "-Wall", "-Wextra", "-Werror", "-dynamiclib", str(unmapping), "-o",
+                        str(output / "libunmapping_protection.dylib")], check=True)
     print(output)
 
 

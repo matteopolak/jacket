@@ -20,24 +20,6 @@
     ]
   },
   {
-    "name": "context-default-assertions",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "default Simp OPENGL surface and native GL/image/font providers"
-    ],
-    "arguments": [
-      "enabled"
-    ],
-    "required_os": "macos",
-    "fixture_libraries": {
-      "GL_PROBE": "window_gl_probe"
-    },
-    "requires_display": true
-  },
-  {
     "name": "depth-driver",
     "unsupported_modes": [
       "wasm-interp",
@@ -58,18 +40,8 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
-    "name": "font-default-assertions",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
     ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
+    "input": "font"
   },
   {
     "name": "font-effects",
@@ -89,7 +61,8 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
+    ],
+    "input": "font"
   },
   {
     "name": "gl-render-readback",
@@ -178,7 +151,8 @@
     ],
     "required_os": [
       "macos"
-    ]
+    ],
+    "input": "font"
   },
   {
     "name": "shader-driver",

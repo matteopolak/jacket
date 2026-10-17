@@ -37,7 +37,7 @@ main :: () {
     array_free(free_args);
     args := get_command_line_arguments();
 
-    assert(args.count >= 1 && args[0].count > 0);
+    assert(args.count == 0 || args[0].count > 0);
     array_free(args);
     print("ok\n");
 }

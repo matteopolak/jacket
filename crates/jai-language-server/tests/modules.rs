@@ -1,6 +1,8 @@
 //! Module folders found without a `jai.toml`: `modules/` in the folders above the root file up to
 //! the workspace folder, `jai.toml`'s `import_path`, and the paths a build metaprogram adds.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, Limits, Session};
+use jai_language_server::{
+    DiagnosticCode, DocumentUri, Environment, Limits, SemanticTokenKind, Session,
+};
 use std::path::{Path, PathBuf};
 
 fn environment() -> Environment {
@@ -151,4 +153,49 @@ fn import_path_added_by_a_build_metaprogram_is_searched() {
     );
     assert_eq!(errors(&dir, "src/main.jai"), Vec::<String>::new());
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn constant_struct_literals_navigate_and_highlight_like_variables() {
+    let module = "StencilFaceState :: struct { compare: CompareFunction; failOp: StencilOperation; }\nCompareFunction :: enum u32 #specified { Never :: 1; Always :: 8; }\nStencilOperation :: enum u32 #specified { Keep :: 1; Zero :: 2; }\n";
+    let text = "Wgpu :: #import \"Wgpu_Like\";\nGLOBAL :: Wgpu.StencilFaceState.{\n    compare = Wgpu.CompareFunction.Always,\n    failOp = Wgpu.StencilOperation.Keep,\n};\nmain :: () {\n    LOCAL :: Wgpu.StencilFaceState.{\n        compare = Wgpu.CompareFunction.Always,\n    };\n    variable := Wgpu.StencilFaceState.{\n        compare = Wgpu.CompareFunction.Always,\n    };\n}\n";
+    let dir = project(
+        "constant-literals",
+        &[("main.jai", text), ("modules/Wgpu_Like/module.jai", module)],
+    );
+    let mut s = Session::with_environment(Limits::default(), environment());
+    s.set_workspace_folders(vec![dir.clone()]);
+    let uri = uri_of(&dir.join("main.jai"));
+    s.open(uri.clone(), 1, text.into()).unwrap();
+    let tokens = s.semantic_tokens(&uri).unwrap();
+    // Every declaration form, none of them used: the global constant, the local constant and the
+    // local variable.
+    for n in 0..3 {
+        for (name, target, kind) in [
+            ("StencilFaceState.{", 0, SemanticTokenKind::Type),
+            ("CompareFunction.Always", 1, SemanticTokenKind::Type),
+            ("Always,", 1, SemanticTokenKind::EnumMember),
+        ] {
+            let offset = text.match_indices(name).nth(n).unwrap().0;
+            let at = |offset: usize| {
+                let prefix = &text[..offset];
+                jai_language_server::Position {
+                    line: prefix.matches('\n').count() as u32,
+                    character: prefix.rsplit('\n').next().unwrap().len() as u32,
+                }
+            };
+            let position = at(offset);
+            // Inside the name, not only on its first character.
+            let found = s.definition(&uri, at(offset + 3)).unwrap();
+            assert_eq!(found.len(), 1, "{name} #{n}: {found:?}");
+            assert!(
+                found[0].uri.ends_with("/modules/Wgpu_Like/module.jai"),
+                "{found:?}"
+            );
+            assert_eq!(found[0].range.start.line, target, "{name} #{n}: {found:?}");
+            let token = tokens.iter().find(|t| t.position == position);
+            assert_eq!(token.map(|t| t.kind), Some(kind), "{name} #{n}");
+        }
+    }
+    std::fs::remove_dir_all(dir).unwrap();
 }

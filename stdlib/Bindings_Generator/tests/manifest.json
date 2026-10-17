@@ -3,18 +3,39 @@
     "name": "generator-macro-shared-state",
     "required_browser_host_capabilities": [
       "native-libclang-sdk"
+    ],
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native libclang"
     ]
   },
   {
     "name": "generator-run-macro-print",
     "required_browser_host_capabilities": [
       "native-libclang-sdk"
+    ],
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native libclang"
     ]
   },
   {
     "name": "generator-run-toplevel",
     "required_browser_host_capabilities": [
       "native-libclang-sdk"
+    ],
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native libclang"
     ]
   },
   {

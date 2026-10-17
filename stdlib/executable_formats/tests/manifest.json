@@ -23,30 +23,8 @@
     "stdout": "lexer:1:1: error: unterminated string\nlexer:1:1: error: unknown string escape\nlexer:1:1: error: invalid Unicode scalar\nlexer:1:1: error: malformed number\nlexer:1:1: error: malformed number\nlexer:1:1: error: malformed number\nlexer:1:16: error: unterminated block comment\nlexer:1:16: error: token lookahead capacity exceeded\nlexer:1:16: error: token lookahead index out of range\nlexer:1:16: error: token lookahead index out of range\nlexer:1:1: error: value 7\nlexer:1:1: detail: detail 8\nlexer:3:4: error: position\nlexer:5:6: error: token\nlexer:7:8: detail: tail\nlexer:1:1: error: invalid identifier length\nok\n"
   },
   {
-    "name": "objects",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
     "name": "relocations",
     "stdout": "COFF relocation rejected: invalid, unsupported or unresolved relocation\nok\n"
-  },
-  {
-    "name": "tbd",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
   },
   {
     "name": "tbd-errors",

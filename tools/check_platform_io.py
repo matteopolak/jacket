@@ -234,7 +234,7 @@ def main():
     helper = output / "process-helper.exe"
     if os.name == "nt":
         helper.unlink(missing_ok=True)
-        attempt([compiler, ROOT / "stdlib/Process/tests/windows-process-child.jai", "-O2", "-exe", helper], env)
+        attempt([compiler, ROOT / "stdlib/Process/tests/driven/windows-process-child.jai", "-O2", "-exe", helper], env)
     fixtures = [ROOT / "stdlib" / f"{case}.jai" for case in CONTRACTS if not args.case or case in args.case]
     for source in fixtures:
         before = len(failures)
@@ -259,7 +259,7 @@ def main():
             for row in rows:
                 print(row["status"], source.stem, row["mode"], row["reason"] or "", flush=True)
         report(before, "required checks", source.relative_to(ROOT))
-    source = ROOT / "stdlib/Thread/tests/windows-noassert.jai"
+    source = ROOT / "stdlib/Thread/tests/driven/windows-noassert.jai"
     before = len(failures)
     if args.cross_check or os.name == "nt" or args.windows_build:
         for target_cpu in ["x64", "arm64"]:
@@ -298,7 +298,7 @@ def main():
     if args.windows_process:
         before = len(failures)
         source = ROOT / "stdlib/Process/tests/windows-process.jai"
-        helper = ROOT / "stdlib/Process/tests/windows-process-child.jai"
+        helper = ROOT / "stdlib/Process/tests/driven/windows-process-child.jai"
         for target_cpu in ["x64", "arm64"]:
             attempt([compiler, source, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
             attempt([compiler, helper, "-os", "windows", "-cpu", target_cpu, "-check", "-no_dce"], env)
@@ -373,10 +373,10 @@ def main():
                           "the Windows crash handler supports x64 only")
         for optimized in [False, True]:
             for policy in ["off", "on", "default"]:
-                children = ["Runtime_Support/tests/startup-arguments", "Runtime_Support_Crash_Handler/tests/windows-fault",
-                            "Runtime_Support_Crash_Handler/tests/windows-symbol-fault"]
+                children = ["Runtime_Support/tests/startup-arguments", "Runtime_Support_Crash_Handler/tests/driven/windows-fault",
+                            "Runtime_Support_Crash_Handler/tests/driven/windows-symbol-fault"]
                 if not optimized:
-                    children.append("Runtime_Support_Crash_Handler/tests/windows-nullguard")
+                    children.append("Runtime_Support_Crash_Handler/tests/driven/windows-nullguard")
                 for child_name in children:
                     enabled = policy != "off"
                     builder = ROOT / "stdlib/Runtime_Support/tests/driven" / (

@@ -48,7 +48,6 @@ WINDOWS_BUILD_HOST_CASES = frozenset(
         "Basic/tests/corpus-api/file-compile-time-qualified",
         "Program_Print/tests/plugin-file-output",
         "compiler/rules-compile-time-execution",
-        "Android/Toolchain/tests/helper",
         "Minimal_Metaprogram/tests/minimal-build",
     }
 )
@@ -74,11 +73,8 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Extensions/SDL3/tests/headless",
         "Extensions/WebGPU/tests/headless",
         "Extensions/WebGPU/tests/window",
-        "GL/tests/default-assertions",
-        "Runtime_Support_Crash_Handler/tests/windows-fault",
         "Runtime_Support_Crash_Handler/tests/windows-native-sections",
         "Runtime_Support_Crash_Handler/tests/windows-records",
-        "Runtime_Support_Crash_Handler/tests/windows-symbol-fault",
         "Sound_Player/tests/assertion-independent",
         "Sound_Player/tests/compressed-stream",
         "Sound_Player/tests/concurrent-factories",
@@ -95,7 +91,6 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Sound_Player/tests/streams",
         "Sound_Player/tests/verbose-config",
         "Unmapping_Allocator/tests/unmapping-protection-retention",
-        "Window_Creation/tests/default-assertions",
     }
 )
 

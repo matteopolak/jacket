@@ -1,16 +1,5 @@
 [
   {
-    "name": "debugger-default",
-    "stdout": "ok\n",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
     "name": "debugger-interface",
     "stdout": "ok\n",
     "unsupported_modes": [

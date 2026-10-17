@@ -7,6 +7,11 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
+    ],
+    "arguments": [
+      "雪😀",
+      "",
+      "quote\" and slash\\"
     ]
   },
   {
@@ -45,14 +50,15 @@
   },
   {
     "name": "number",
-    "stdout": "ok\n",
+    "stdout": "0|18446744073709551615|ff|1010|ff|-37|9223372036854775807|done\nunsynchronized\nordinary\n",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
+    ],
+    "stderr": "-25|111\nerror\n"
   },
   {
     "name": "once",

@@ -1,7 +1,10 @@
 [
   {
     "name": "clipboard-text-actions-linux",
-    "required_os": "linux"
+    "required_os": "linux",
+    "arguments": [
+      "--private-x11-display"
+    ]
   },
   {
     "name": "color-policy-hash",
@@ -61,7 +64,11 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
+    ],
+    "mode": "fault",
+    "error_contains": "em requires a font",
+    "exit_code": 1,
+    "stdout": ""
   },
   {
     "name": "keyboard-shortcuts",
@@ -81,21 +88,14 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
+    ],
+    "required_os": [
+      "windows",
+      "macos"
     ]
   },
   {
     "name": "render-callbacks",
-    "unsupported_modes": [
-      "wasm-interp",
-      "wasm-native"
-    ],
-    "required_capabilities": [
-      "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
-  },
-  {
-    "name": "retained-default-assertions",
-    "stdout": "ok\n",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"
@@ -122,7 +122,11 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
+    ],
+    "mode": "fault",
+    "error_contains": "text input capacity exceeded",
+    "exit_code": 1,
+    "stdout": ""
   },
   {
     "name": "texture-loader-required",
@@ -132,7 +136,11 @@
     ],
     "required_capabilities": [
       "needs files, process arguments or native services; the browser engine never ran it before the tests moved next to their modules"
-    ]
+    ],
+    "mode": "fault",
+    "error_contains": "texture loader callback required",
+    "exit_code": 1,
+    "stdout": ""
   },
   {
     "name": "type-indicator",
