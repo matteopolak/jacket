@@ -103,7 +103,9 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
         }
     }
     let mut failure = String::from("no matching DLL or import archive found");
-    for candidate in candidates(name, system, base_dir, &dirs, cfg!(target_env = "gnu"))? {
+    'candidates: for candidate in
+        candidates(name, system, base_dir, &dirs, cfg!(target_env = "gnu"))?
+    {
         match candidate {
             Candidate::Dll(path) => match load_checked(&path.to_string_lossy()) {
                 Ok(handle) => return Ok(Library::Module(handle)),
@@ -155,12 +157,15 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                             Err(error) => failure = format!("{}: {error}", location.display()),
                         }
                     }
-                    let handle = loaded.ok_or_else(|| {
-                        format!(
+                    // A static archive of a DLL's own dependencies (wgpu_native.lib) names DLLs
+                    // that are not shipped beside it; the DLL candidate after it is the library.
+                    let Some(handle) = loaded else {
+                        failure = format!(
                             "{} selects {provider}, which could not be loaded: {failure}",
                             path.display()
-                        )
-                    })?;
+                        );
+                        continue 'candidates;
+                    };
                     modules.push((provider.clone(), handle));
                 }
                 // Loading all named providers retains required-library startup

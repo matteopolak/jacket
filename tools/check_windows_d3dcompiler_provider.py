@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+import sys
 
 
 def dll_name(data):
@@ -195,6 +196,8 @@ def main():
         except (subprocess.TimeoutExpired, OSError) as error:
             row = dict(case=name, mode=mode, passed=False, failure=str(error))
         report["commands"].append(row)
+        if not row["passed"]:
+            print(f"{name} {mode} failed: {json.dumps(row, indent=2)}", file=sys.stderr)
         args.report.write_text(json.dumps(report, indent=2) + "\n")
         return row["passed"]
 
