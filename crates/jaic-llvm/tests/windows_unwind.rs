@@ -143,6 +143,16 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
 
 #[test]
 fn sdk_backtrace_driver_links_and_executes_on_native_windows() {
+    // Off Windows the driver is linked with MinGW-w64 (and run, where the host can).
+    if !cfg!(windows)
+        && Command::new("x86_64-w64-mingw32-gcc")
+            .arg("--version")
+            .output()
+            .is_err()
+    {
+        eprintln!("skipped: x86_64-w64-mingw32-gcc is not installed");
+        return;
+    }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let native_arm = cfg!(all(windows, target_arch = "aarch64"));
     let (triple, cpu) = if native_arm {

@@ -134,9 +134,13 @@ mod cpuid {
 
 mod cpuid_leaf_zero {
     //! O0/O2 CPUID codegen and native comparison against the public C intrinsic.
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use crate::common::run as checked;
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic_llvm::{OptLevel, emit_object};
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use std::{path::PathBuf, process::Command, rc::Rc};
 
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]

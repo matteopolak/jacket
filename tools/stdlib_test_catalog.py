@@ -97,6 +97,8 @@ PLATFORM_REQUIREMENTS = {
     "native/objc-window-levels": "macos",
     "native/posix-stat-and-mutex": ("linux", "macos"),
     "native/proc-sentinel-constant": ("linux", "macos"),
+    # ImGui formats through the libffi varargs bridge, which no Windows job builds.
+    "native/imgui-headless-frames": ("linux", "macos"),
     "graphics/macos-window-context-reopen": "macos",
     "graphics/input-multi-window-focus": "macos",
     "graphics/input-published-events": "macos",
