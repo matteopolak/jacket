@@ -1,5 +1,7 @@
 //! Entering, running and leaving procedures, trace hooks and runtime hooks.
-use super::frames::{ExecState, Frame, ValueStack, poison_registers};
+#[cfg(debug_assertions)]
+use super::frames::poison_registers;
+use super::frames::{ExecState, Frame, ValueStack};
 use super::host::Hook;
 use super::rets::Rets;
 use super::trap::TrapKind;
