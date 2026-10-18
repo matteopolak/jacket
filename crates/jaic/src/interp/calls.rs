@@ -1,7 +1,9 @@
 //! Entering, running and leaving procedures, trace hooks and runtime hooks.
+#[cfg(not(target_arch = "wasm32"))]
+use super::frames::ExecState;
 #[cfg(debug_assertions)]
 use super::frames::poison_registers;
-use super::frames::{ExecState, Frame, ValueStack};
+use super::frames::{Frame, ValueStack};
 use super::host::Hook;
 use super::rets::Rets;
 use super::trap::TrapKind;
@@ -199,18 +201,24 @@ impl Interp {
             let argv: Vec<u64>;
             let argv = if nargs <= small.len() {
                 for (slot, &a) in small.iter_mut().zip(args) {
+                    // SAFETY: `code::build` checked every register named in `pool`, so each is a
+                    // register of the caller's frame, which `regs` points at.
                     *slot = unsafe { *regs.add(a as usize) };
                 }
                 &small[..nargs]
             } else {
                 argv = args
                     .iter()
+                    // SAFETY: `code::build` checked every register named in `pool`, so each is a
+                    // register of the caller's frame, which `regs` points at.
                     .map(|&a| unsafe { *regs.add(a as usize) })
                     .collect();
                 &argv
             };
             let out = self.exec(program, id, argv)?;
             for (&r, &v) in rets[..nrets].iter().zip(out.iter()) {
+                // SAFETY: `code::build` checked every register named in `pool`, so each is a
+                // register of the caller's frame, which `regs` points at.
                 unsafe { *regs.add(r as usize) = v };
             }
             return Ok(());
@@ -219,10 +227,14 @@ impl Interp {
         let frame = self.frame(program, id, func);
         let entered = self.enter(program, id, func, frame)?;
         for (i, &a) in args.iter().enumerate().take(func.sig.params.len()) {
+            // SAFETY: `i` is below the callee's parameter count, which `enter` gave registers for;
+            // the argument register is one `code::build` checked in the caller's frame.
             unsafe { *entered.regs.add(i) = *regs.add(a as usize) };
         }
         let n = self.run_entered(program, id, func, frame, &entered)? as usize;
         for (i, &r) in rets[..nrets].iter().enumerate().take(n) {
+            // SAFETY: `i` is below the results the callee returned, which sit at the start of its
+            // registers; the result register is one `code::build` checked in the caller's frame.
             unsafe { *regs.add(r as usize) = *entered.regs.add(i) };
         }
         Ok(())
@@ -264,7 +276,7 @@ impl Interp {
             poison_registers(std::slice::from_raw_parts_mut(
                 frame.regs(stack_base),
                 frame.code.regs,
-            ))
+            ));
         };
         Ok(Entered {
             base,
@@ -355,6 +367,8 @@ impl Interp {
             (self.frame_blocks, self.frame_insts) = exit.outer;
         }
         if let Some((slot, previous)) = exit.pushed {
+            // SAFETY: `slot` is the stack-trace context word `trace_enter` wrote through, in the
+            // program's live context memory, and `previous` is the node it held before.
             unsafe { std::ptr::write_unaligned(slot as *mut u64, previous) };
         }
         self.loc = exit.saved_loc;
@@ -392,6 +406,9 @@ impl Interp {
             .trace_loc
             .unwrap_or(self.loc)
             .map_or(0, |(_, line, _)| line);
+        // SAFETY: `context` is the program's live context pointer, so `slot` is its stack-trace
+        // word; `previous` and `node` point at stack-trace nodes laid out as `layout.node`
+        // describes, `node` inside the frame being entered.
         unsafe {
             let previous = std::ptr::read_unaligned(slot as *const u64);
             let (mut depth, mut hash) = (1u32, 0xcbf2_9ce4_8422_2325u64);
@@ -450,6 +467,8 @@ impl Interp {
             (at.column, info.col as u64),
             (at.procedure_address, FUNC_TAG | id.0 as u64),
         ] {
+            // SAFETY: `addr` is a freshly leaked block of `at.size` bytes and every offset written
+            // lies within the `Stack_Trace_Procedure_Info` layout.
             unsafe { std::ptr::write_unaligned((addr + offset) as *mut u64, value) };
         }
         if self.trace_infos.len() <= id.0 as usize {

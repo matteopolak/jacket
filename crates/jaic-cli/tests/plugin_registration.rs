@@ -1,7 +1,6 @@
 //! Registration primitives; pending servicing stays separate.
 mod common;
 use common::plugin_registration_fixture as fixture;
-use std::path::PathBuf;
 use std::process::{Command, Output};
 
 fn jaic(name: &str, args: &[&str]) -> Output {
@@ -21,7 +20,7 @@ fn expect_success(output: Output, expected: &str) {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, [] as [u8; 0]);
 }
 
 #[test]
@@ -54,7 +53,7 @@ fn source_addition_does_not_allow_an_undeclared_continuation() {
 #[cfg(feature = "llvm")]
 #[test]
 fn staged_factories_and_registrar_execute_with_native_o0_and_o2() {
-    let compiler = PathBuf::from(env!("CARGO_BIN_EXE_jaic"));
+    let compiler = std::path::PathBuf::from(env!("CARGO_BIN_EXE_jaic"));
     let target = compiler.parent().unwrap();
     let scratch = target.join(format!("plugin-registration-{}", std::process::id()));
     std::fs::create_dir_all(&scratch).unwrap();

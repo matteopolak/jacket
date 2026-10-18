@@ -40,6 +40,7 @@ fn main() -> std::process::ExitCode {
                 }
             }
         });
+        #[cfg(unix)]
         let mut compiles = 0;
         // How long the last publication took, which sets how long to wait for more edits.
         let mut last_publication = std::time::Duration::from_millis(40);
@@ -131,7 +132,7 @@ fn main() -> std::process::ExitCode {
         .name("jailsp".into())
         .stack_size(1 << 30)
         .spawn(move || serve(untrusted).map_err(|error| error.to_string()));
-    match worker.map(|handle| handle.join()) {
+    match worker.map(std::thread::JoinHandle::join) {
         Ok(Ok(Ok(code))) => std::process::ExitCode::from(code),
         Ok(Ok(Err(error))) => {
             eprintln!("error: jailsp stopped: {error}");
