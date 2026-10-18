@@ -31,6 +31,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from toolkit.repo import ROOT
+from corpus import upstream_sandbox as usb
+import threading
 
 UPSTREAM = ROOT / "corpus/upstream"
 # Upstream cases with `copy` run in a scratch copy of those project directories (`link` names
@@ -40,6 +42,14 @@ WORKDIRS = {}
 CASE_METADATA = {}
 # Upstream cases that name the platforms they can run on (`only`, with `only_reason`), by id.
 UPSTREAM_PLATFORMS = {}
+
+# Upstream cases are confined (docs/tools/upstream-corpus.md, "Sandbox"): UPSTREAM_IDS are their
+# ids, SANDBOX the run's settings (None when unconfined), and `_case.box` the (sandbox, scratch)
+# of the case the current thread is running, which run_limited wraps every command in.
+UPSTREAM_IDS = set()
+SANDBOX = None
+CASE_SCRATCH = []
+_case = threading.local()
 
 # Upstream cases switched off in tools/upstream-cases.json (`disabled`, with the reason), by id.
 UPSTREAM_DISABLED = {}
@@ -51,15 +61,31 @@ def upstream_root(c):
 
 def make_workdir(c):
     root = Path(tempfile.mkdtemp(prefix=f"jaic-sweep-{c['id']}-"))
-    for name in c.get("copy", []):
+    copy, link = c.get("copy", []), c.get("link", [])
+    if "copy" not in c and (c["mode"] == "build" or c.get("run_after")):
+        # A confined build writes only inside a scratch copy of its project; its siblings are links.
+        copy = [c["path"].split("/")[0]]
+        link = [p.name for p in UPSTREAM.iterdir() if p.name != copy[0]]
+    for name in copy:
         shutil.copytree(UPSTREAM / name, root / name, symlinks=True)
-    for name in c.get("link", []):
+    for name in link:
         (root / name).symlink_to(UPSTREAM / name, target_is_directory=True)
     # Files of this repository placed into the copy (a driver for a project whose own build
     # script cannot run here); destination relative to the scratch root -> repository path.
     for dest, source in c.get("files", {}).items():
         shutil.copyfile(ROOT / source, root / dest)
     return root
+
+
+def case_box(cid):
+    """(sandbox, scratch) confining the commands of upstream case `cid`, or None."""
+    if not SANDBOX or cid not in UPSTREAM_IDS:
+        return None
+    scratch = usb.scratch_dir(cid)
+    CASE_SCRATCH.append(scratch)
+    root = WORKDIRS.get(cid)
+    writes = [scratch, *([root] if root else [])]
+    return usb.make_sandbox([*SANDBOX["reads"], *writes], writes), scratch
 
 
 def upstream_expect(c):
@@ -154,6 +180,7 @@ def cases(name):
             )
     elif name == "upstream":
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
+            UPSTREAM_IDS.add(c["id"])
             if "only" in c:
                 UPSTREAM_PLATFORMS[c["id"]] = c
             if "disabled" in c:
@@ -232,6 +259,9 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
     env = dict(os.environ, JAIC_MEMORY_LIMIT=str(limit_bytes))
     if environment:
         env.update(environment)
+    box = getattr(_case, "box", None)
+    if box:
+        command, env = usb.confine(box[0], box[1], command, env)
     # Output goes to files rather than pipes: a program the case launched may outlive a killed
     # jaic and would keep a pipe open.
     with tempfile.TemporaryFile() as out_file, tempfile.TemporaryFile() as err_file:
@@ -430,6 +460,16 @@ def main():
     target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
     ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
     ap.add_argument("--filter", default="")
+    ap.add_argument(
+        "--only-platform",
+        metavar="PLATFORM",
+        help="upstream: only the enabled cases restricted to PLATFORM (`only` in tools/upstream-cases.json)",
+    )
+    ap.add_argument(
+        "--no-sandbox",
+        action="store_true",
+        help="run upstream cases without the sandbox (otherwise refused where none exists, except on CI)",
+    )
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument("--timeout", type=float, default=60)
     ap.add_argument(
@@ -529,17 +569,44 @@ def main():
                 f"jaic-sweep: {a.jaic} is older than {stale}; rebuild it (or pass --allow-stale)"
             )
     use_native_libs()
+    chosen = None
+    if a.only_platform:
+        sys.path.insert(0, str(ROOT / "tools/corpus"))
+        import select_upstream_cases
+
+        chosen = {c["id"] for c in select_upstream_cases.select(select_upstream_cases.load(), a.only_platform)}
+
+    def wanted(cid):
+        return chosen is None or cid in chosen
+
+    global SANDBOX
+    if "upstream" in a.sets:
+        try:
+            confined = usb.policy(a.no_sandbox)
+        except usb.Unsandboxed as error:
+            sys.exit(f"jaic-sweep: {error}")
+        if not confined:
+            print("jaic-sweep: upstream cases run WITHOUT a sandbox", file=sys.stderr)
+        else:
+            SANDBOX = {"reads": usb.jaic_reads(a.jaic, ROOT / "stdlib", UPSTREAM) + [Path(tempfile.gettempdir())]}
+        for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
+            UPSTREAM_IDS.add(c["id"])
     # Upstream cases may name setup commands (building a C library the program loads); they run
     # once, serially, in the case's directory before any case starts.
     if "upstream" in a.sets:
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
-            if a.filter in c["id"]:
-                if "copy" in c:
+            if a.filter in c["id"] and wanted(c["id"]):
+                if "copy" in c or (SANDBOX and (c["mode"] == "build" or c.get("run_after"))):
                     WORKDIRS[c["id"]] = make_workdir(c)
                 for command in c.get("setup", []):
+                    box = case_box(c["id"])
+                    env = None
+                    if box:
+                        command, env = usb.confine(box[0], box[1], command, dict(os.environ))
                     subprocess.run(
                         command,
                         cwd=(upstream_root(c) / c["path"]).parent,
+                        env=env,
                         capture_output=True,
                         stdin=subprocess.DEVNULL,
                     )
@@ -548,12 +615,20 @@ def main():
 
         build_data_fixtures()
     todo = take_shard(
-        [c for s in a.sets for c in cases(s) if a.filter in c[0]], a.shard
+        [c for s in a.sets for c in cases(s) if a.filter in c[0] and wanted(c[0])],
+        a.shard
     )
     if not todo:
         ap.error("test selection is empty")
 
     def run(case):
+        _case.box = case_box(case[0])
+        try:
+            return run_case(case)
+        finally:
+            _case.box = None
+
+    def run_case(case):
         cid, path, mode, expect, extra = case
         if cid in UPSTREAM_DISABLED:
             return cid, None, "", UPSTREAM_DISABLED[cid], DISABLED
@@ -740,7 +815,7 @@ def main():
             failed.append((cid, first))
             if a.verbose:
                 print(f"--- {cid}\n{err[:1500]}{out[:500]}")
-    for root in WORKDIRS.values():
+    for root in [*WORKDIRS.values(), *CASE_SCRATCH]:
         shutil.rmtree(root, ignore_errors=True)
     if scratch:
         shutil.rmtree(scratch, ignore_errors=True)

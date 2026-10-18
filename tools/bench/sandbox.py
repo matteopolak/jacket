@@ -36,6 +36,9 @@ LINUX_SYSTEM_READS = ['/usr', '/bin', '/sbin', '/lib', '/lib64', '/etc']
 class Sandbox:
     reads: list[Path] = field(default_factory=list)
     writes: list[Path] = field(default_factory=list)
+    # A server under test and its client share the loopback interface: on macOS only loopback
+    # traffic is allowed; Linux shares the host network namespace, since the client runs outside.
+    loopback: bool = False
 
     def wrap(self, command: list[str]) -> list[str]:
         if sys.platform == 'darwin':
@@ -62,6 +65,7 @@ class Sandbox:
             '(version 1)',
             '(allow default)',
             '(deny network*)',
+            *(['(allow network* (local ip "localhost:*") (remote ip "localhost:*"))'] if self.loopback else []),
             '(deny file-read-data)',
             f'(allow file-read-data (literal "/") {xcrun_cache} {subpaths(reads)})',
             '(deny file-write*)',
@@ -69,8 +73,8 @@ class Sandbox:
         ])
 
     def bwrap_arguments(self) -> list[str]:
-        arguments = ['bwrap', '--unshare-net', '--die-with-parent', '--dev', '/dev', '--proc', '/proc',
-                     '--tmpfs', '/tmp']
+        arguments = ['bwrap', *([] if self.loopback else ['--unshare-net']), '--die-with-parent',
+                     '--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp']
         for path in LINUX_SYSTEM_READS:
             if Path(path).exists():
                 arguments += ['--ro-bind', path, path]
