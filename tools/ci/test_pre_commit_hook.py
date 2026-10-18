@@ -128,6 +128,30 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("cargo fmt --all", result.stderr)
 
+    def test_repo_checks_run_for_any_staged_file(self):
+        self.write("tools/ci/check_source_style.py", "import sys\nprint('a.rs: too long')\nsys.exit(1)\n")
+        self.write("notes.txt", "x\n")
+        sh(["git", "add", "notes.txt"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("a.rs: too long", result.stderr)
+        self.assertIn("python3 tools/ci/check_source_style.py", result.stderr)
+        env = dict(self.env, JAI_HOOK_SKIP="rustfmt repo")
+        result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_stale_lock_file_fails(self):
+        if shutil.which("cargo") is None:
+            self.skipTest("cargo is not installed")
+        self.write("Cargo.toml", '[package]\nname = "x"\nversion = "0.1.0"\nedition = "2024"\n')
+        self.write("src/lib.rs", "")
+        sh(["cargo", "generate-lockfile", "--offline"], self.repo)
+        self.write("Cargo.toml", '[package]\nname = "x"\nversion = "0.2.0"\nedition = "2024"\n')
+        sh(["git", "add", "Cargo.toml", "Cargo.lock", "src"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("./Cargo.lock is out of date", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
