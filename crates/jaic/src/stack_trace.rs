@@ -36,26 +36,71 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
 /// pointer only to pass it on, and call only other quiet procedures (directly). A procedure that
 /// calls nothing is quiet; so, in turn, is one that calls only those. Runtime check failures
 /// report their own location, so they don't need a node either.
-fn quiet_funcs(funcs: &[Option<Func>]) -> Vec<bool> {
-    let mut quiet = vec![false; funcs.len()];
-    loop {
-        let mut changed = false;
-        for (i, func) in funcs.iter().enumerate() {
-            if !quiet[i]
-                && let Some(func) = func
-                && is_quiet(func, &quiet)
-            {
-                quiet[i] = true;
-                changed = true;
-            }
-        }
-        if !changed {
-            return quiet;
-        }
-    }
+/// [`quiet_but_for_callees`] of every function, scanned on as many threads as the machine has.
+fn scan_bodies(funcs: &[Option<Func>]) -> Vec<Option<Vec<u32>>> {
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let chunk = funcs.len().div_ceil(threads).max(256);
+    std::thread::scope(|scope| {
+        let parts: Vec<_> = funcs
+            .chunks(chunk)
+            .map(|part| {
+                scope.spawn(move || {
+                    part.iter()
+                        .map(|f| f.as_ref().and_then(quiet_but_for_callees))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        parts
+            .into_iter()
+            .flat_map(|h| h.join().expect("stack trace scan thread panicked"))
+            .collect()
+    })
 }
 
-fn is_quiet(func: &Func, quiet: &[bool]) -> bool {
+fn quiet_funcs(funcs: &[Option<Func>]) -> Vec<bool> {
+    // Each body is scanned once for what it needs of its callees; quietness then spreads from
+    // the procedures that call nothing to their callers by counting unresolved calls.
+    let mut quiet = vec![false; funcs.len()];
+    let mut pending = vec![0u32; funcs.len()];
+    let mut callers: Vec<Vec<u32>> = vec![Vec::new(); funcs.len()];
+    let mut ready = Vec::new();
+    for (i, callees) in scan_bodies(funcs).into_iter().enumerate() {
+        let Some(callees) = callees else {
+            continue;
+        };
+        pending[i] = callees.len() as u32;
+        for callee in callees {
+            if let Some(list) = callers.get_mut(callee as usize) {
+                list.push(i as u32);
+            } else {
+                // A callee that does not exist is never quiet.
+                pending[i] = u32::MAX;
+            }
+        }
+        if pending[i] == 0 {
+            ready.push(i as u32);
+        }
+    }
+    while let Some(i) = ready.pop() {
+        if quiet[i as usize] {
+            continue;
+        }
+        quiet[i as usize] = true;
+        for &caller in &callers[i as usize] {
+            let left = &mut pending[caller as usize];
+            *left -= 1;
+            if *left == 0 {
+                ready.push(caller);
+            }
+        }
+    }
+    quiet
+}
+
+/// The procedures `func` calls directly, when nothing else in it makes it loud: it calls
+/// only through `Callee::Func` and never lets its context escape except to those callees.
+fn quiet_but_for_callees(func: &Func) -> Option<Vec<u32>> {
     // A procedure with a context keeps it in a slot (`FnCtx::set_context` stores the parameter
     // there at entry, and calls pass on what they load back), so mentioning the parameter is
     // not a use by itself. The context counts as used when anything but a quiet callee gets
@@ -79,16 +124,15 @@ fn is_quiet(func: &Func, quiet: &[bool]) -> bool {
     }
     let is_context = |v: Val| v == Val(0) || Some(v) == slot_addr || loaded.contains(&v);
     let mut uses_context = false;
+    let mut callees = Vec::new();
     for block in &func.blocks {
         for inst in &block.insts {
             match inst {
                 Inst::Call(call) => {
                     let Callee::Func(callee) = call.callee else {
-                        return false;
+                        return None;
                     };
-                    if !quiet.get(callee.0 as usize).copied().unwrap_or(false) {
-                        return false;
-                    }
+                    callees.push(callee.0);
                     // Passing the context on to a quiet callee is fine, but not the slot itself.
                     uses_context |= call.args.iter().any(|&a| Some(a) == slot_addr);
                     continue;
@@ -109,7 +153,7 @@ fn is_quiet(func: &Func, quiet: &[bool]) -> bool {
         }
         term_uses(&block.term, &mut |v| uses_context |= is_context(v));
     }
-    !uses_context
+    (!uses_context).then_some(callees)
 }
 
 /// The address of the slot the context parameter is stored in, when there is exactly one.
