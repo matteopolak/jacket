@@ -1,0 +1,17 @@
+# Update pull requests for the SHA-pinned actions in .github/workflows and .github/actions.
+# Only github-actions: cargo and npm dependencies have their own age policies
+# (tools/ci/check_dependency_age.py), so Dependabot is not enabled for them.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci
