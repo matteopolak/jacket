@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from host import host_platform
+from repo_output import host_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 

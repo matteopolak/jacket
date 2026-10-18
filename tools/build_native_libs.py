@@ -23,8 +23,7 @@ from fetch_url import fetch as fetch_pinned
 import zipfile
 from pathlib import Path
 
-from host import host_platform
-from repo_output import output_dir as repo_output_dir, shared_output_dir
+from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'native-libs.json'

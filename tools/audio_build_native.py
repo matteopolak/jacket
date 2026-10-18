@@ -16,7 +16,7 @@ import shutil
 import subprocess
 import urllib.request
 from fetch_url import fetch
-from host import host_platform
+from repo_output import host_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = json.loads((ROOT / "tools/audio_native_plan.json").read_text())

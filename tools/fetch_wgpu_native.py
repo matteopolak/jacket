@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_native_libs import output_dir  # noqa: E402
-from host import host_platform  # noqa: E402
+from repo_output import host_platform  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / 'tools' / 'webgpu.json'

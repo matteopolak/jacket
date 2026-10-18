@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 
 from case_capabilities import user_deferred_reason
-from host import host_platform
+from repo_output import host_platform
 
 ROOT = Path(__file__).resolve().parent.parent
 UPSTREAM = ROOT / "corpus/upstream"

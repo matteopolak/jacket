@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 import build_native_libs as native
-from host import host_platform
+from repo_output import host_platform
 
 
 def native_profile():

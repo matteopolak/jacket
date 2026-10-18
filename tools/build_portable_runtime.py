@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-from host import host_platform
+from repo_output import host_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 

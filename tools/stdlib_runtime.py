@@ -27,7 +27,7 @@ from stdlib_test_catalog import (
     case_for_mode,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from host import host_platform
+from repo_output import host_platform
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
