@@ -202,6 +202,60 @@ fn unreferenced_code_is_not_compiled() {
 }
 
 /// A struct or union passed by value arrives as a pointer the callee copies from. The debug
+/// A procedure that only does arithmetic, or calls only such procedures, pushes no stack trace node
+/// even though it keeps its context in a slot; one that reads the context, asserts or calls through a
+/// procedure value still does.
+#[test]
+fn quiet_procedures_push_no_stack_trace_node() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-quiet-procedures");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("quiet.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         leaf_qz :: (a: int, b: int) -> int { return a - b; }\n\
+         chain_qz :: (a: int) -> int { return leaf_qz(a, 1) + leaf_qz(a, 2); }\n\
+         reads_qz :: () -> bool { return context.stack_trace != null; }\n\
+         through_qz :: (f: (int, int) -> int) -> int { return f(3, 4); }\n\
+         main :: () { print(\"% % %\\n\", chain_qz(5), reads_qz(), through_qz(leaf_qz)); }\n",
+    )
+    .unwrap();
+    let ir = dir.join("quiet.ll");
+    let exe = exe_path(&dir, "quiet");
+    let build = Command::new(JAIC)
+        .arg(&source)
+        .arg("-exe")
+        .arg(&exe)
+        .arg("-emit_ir")
+        .arg(&ir)
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        build.status.success(),
+        "{}",
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let ir = read_ir_parts(&ir);
+    let pushes_node = |name: &str| {
+        ir.split("\ndefine ")
+            .skip(1)
+            .find(|f| {
+                f.lines()
+                    .next()
+                    .is_some_and(|l| l.contains(&format!("@{name}.")))
+            })
+            .unwrap_or_else(|| panic!("{name} is compiled"))
+            .contains("@trace_info.")
+    };
+    assert!(!pushes_node("leaf_qz"));
+    assert!(!pushes_node("chain_qz"));
+    assert!(pushes_node("reads_qz"));
+    assert!(pushes_node("through_qz"));
+    let run = Command::new(&exe).output().unwrap();
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "7 true -1\n");
+}
+
 /// info's prologue spill of parameters must store only scalars: storing that pointer into the
 /// parameter's slot wrote 8 bytes into a smaller slot, which corrupted neighbouring locals
 /// (crashes at -O0 on Linux) and tripped the sanitizers' bounds checks.

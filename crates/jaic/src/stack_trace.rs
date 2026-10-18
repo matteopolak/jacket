@@ -56,24 +56,82 @@ fn quiet_funcs(funcs: &[Option<Func>]) -> Vec<bool> {
 }
 
 fn is_quiet(func: &Func, quiet: &[bool]) -> bool {
+    // A procedure with a context keeps it in a slot (`FnCtx::set_context` stores the parameter
+    // there at entry, and calls pass on what they load back), so mentioning the parameter is
+    // not a use by itself. The context counts as used when anything but a quiet callee gets
+    // hold of it: the parameter, the slot's address or a value loaded from the slot.
+    let slot_addr = context_slot_addr(func);
+    let mut loaded = std::collections::HashSet::new();
+    if let Some(slot_addr) = slot_addr {
+        for block in &func.blocks {
+            for inst in &block.insts {
+                if let Inst::Load {
+                    dst,
+                    addr,
+                    ..
+                } = inst
+                    && *addr == slot_addr
+                {
+                    loaded.insert(*dst);
+                }
+            }
+        }
+    }
+    let is_context = |v: Val| v == Val(0) || Some(v) == slot_addr || loaded.contains(&v);
     let mut uses_context = false;
     for block in &func.blocks {
         for inst in &block.insts {
-            if let Inst::Call(call) = inst {
-                let Callee::Func(callee) = call.callee else {
-                    return false;
-                };
-                if !quiet.get(callee.0 as usize).copied().unwrap_or(false) {
-                    return false;
+            match inst {
+                Inst::Call(call) => {
+                    let Callee::Func(callee) = call.callee else {
+                        return false;
+                    };
+                    if !quiet.get(callee.0 as usize).copied().unwrap_or(false) {
+                        return false;
+                    }
+                    // Passing the context on to a quiet callee is fine, but not the slot itself.
+                    uses_context |= call.args.iter().any(|&a| Some(a) == slot_addr);
+                    continue;
                 }
-                // Passing the context on to a quiet callee is fine.
-                continue;
+                // Keeping the parameter, or a value read back, in the slot.
+                Inst::Store {
+                    addr,
+                    value,
+                    ..
+                } if Some(*addr) == slot_addr && Some(*value) != slot_addr => continue,
+                // Reading the slot is a use only through what is done with the value.
+                Inst::Load {
+                    addr, ..
+                } if Some(*addr) == slot_addr => continue,
+                _ => {}
             }
-            inst_vals(inst, &mut |_| {}, &mut |v| uses_context |= v == Val(0));
+            inst_vals(inst, &mut |_| {}, &mut |v| uses_context |= is_context(v));
         }
-        term_uses(&block.term, &mut |v| uses_context |= v == Val(0));
+        term_uses(&block.term, &mut |v| uses_context |= is_context(v));
     }
     !uses_context
+}
+
+/// The address of the slot the context parameter is stored in, when there is exactly one.
+fn context_slot_addr(func: &Func) -> Option<Val> {
+    let mut found = None;
+    for block in &func.blocks {
+        for inst in &block.insts {
+            if let Inst::Store {
+                addr,
+                value,
+                ..
+            } = inst
+                && *value == Val(0)
+            {
+                if found.is_some_and(|known| known != *addr) {
+                    return None;
+                }
+                found = Some(*addr);
+            }
+        }
+    }
+    found
 }
 
 fn info_global(
