@@ -1,0 +1,206 @@
+//! Index expressions and pointer-index operators.
+use crate::ir::Ty;
+use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::*;
+use crate::types::{ArrayKind, TypeKind};
+
+impl Compiler {
+    /// The common type of a binary operation.
+    /// `x[i]` through `operator *[]`: the returned pointer is the element's place.
+    pub(super) fn try_pointer_index_operator(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base: &Operand,
+        index: &Operand,
+        span: Span,
+    ) -> Result<Option<Operand>> {
+        if self.operator_candidates(scope, "*[]")?.is_empty() {
+            return Ok(None);
+        }
+        let base = match base.clone().without_callable() {
+            // A pointer stored in a variable denotes the receiver, not the
+            // address of the variable containing that pointer.
+            operand if self.types.pointee(operand.ty()).is_some() => {
+                let (ty, val) = self.rvalue(f, operand, span)?;
+                Operand::Value {
+                    ty,
+                    val,
+                }
+            }
+            Operand::Place {
+                ty,
+                addr,
+            } => Operand::Value {
+                ty: self.types.pointer(ty),
+                val: addr,
+            },
+            // By-value receivers also accept computed aggregate values. The
+            // normal call binder retains their type and conversion rules.
+            operand => operand,
+        };
+        let Some(result) = self.try_index_operator_overload(f, scope, "*[]", &base, index, span)?
+        else {
+            return Ok(None);
+        };
+        let (ty, val) = self.rvalue(f, result, span)?;
+        let Some(elem) = self.types.pointee(ty) else {
+            return err(span, "operator *[] must return a pointer");
+        };
+        Ok(Some(Operand::Place {
+            ty: elem,
+            addr: val,
+        }))
+    }
+
+    pub(super) fn check_index(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base: &ast::Expr,
+        index: &ast::Expr,
+        span: Span,
+    ) -> Result<Operand> {
+        let base_op = self.check_expr(f, scope, base, None)?;
+        let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
+        self.index_operand(f, scope, base_op, index_op, index.span, span)
+    }
+
+    /// `base[index]` on checked operands.
+    pub(in crate::sema) fn index_operand(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base_op: Operand,
+        index_op: Operand,
+        index_span: Span,
+        span: Span,
+    ) -> Result<Operand> {
+        // A field named through its owning type has no instance storage. In
+        // type_of, represent its array as a type-only place so indexing finds
+        // the element type through the ordinary array rules, without a load.
+        let base_op = match base_op {
+            Operand::Type(ty)
+                if f.type_only
+                    && matches!(self.types.kind(self.types.repr(ty)), TypeKind::Array { .. }) =>
+            {
+                Operand::Place {
+                    ty,
+                    addr: f.b.iconst(Ty::Ptr, 0),
+                }
+            }
+            other => other,
+        };
+        // Constant string indexing folds.
+        if let (
+            Operand::Const {
+                value: Value::String(s),
+                ..
+            },
+            Operand::Const {
+                value: Value::Int(i),
+                ..
+            },
+        ) = (&base_op, &index_op)
+            && (*i as usize) < s.len()
+        {
+            return Ok(Operand::int(s[*i as usize] as i128, TypeId::U8));
+        }
+        let bty = base_op.ty();
+        // `operator []` when one matches, else `operator *[]` dereferenced.
+        let getter = self.try_index_operator_overload(f, scope, "[]", &base_op, &index_op, span);
+        match getter {
+            Ok(Some(result)) => return Ok(result),
+            Ok(None) | Err(_) => {
+                if let Some(result) =
+                    self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)?
+                {
+                    return Ok(result);
+                }
+                // A pointer indexes its memory when no operator for the pointee fits.
+                if self.types.pointee(bty).is_none() {
+                    getter?;
+                }
+            }
+        }
+        let index_op = self.settle_untyped(index_op, Some(TypeId::S64));
+        let ity = index_op.ty();
+        if !self.types.is_integer(ity)
+            && !matches!(self.types.kind(self.types.repr(ity)), TypeKind::Enum(_))
+        {
+            return err(
+                index_span,
+                format!(
+                    "array index must be an integer, found {}",
+                    self.types.name(ity)
+                ),
+            );
+        }
+        let index_op = self.explicit_cast(
+            f,
+            index_op,
+            TypeId::S64,
+            ast::CastFlags {
+                no_check: true,
+                ..Default::default()
+            },
+            span,
+        )?;
+        let (_, idx) = self.rvalue(f, index_op, span)?;
+        // Views, dynamic arrays and strings start with their count.
+        let check = !f.no_abc && !f.type_only;
+        if check {
+            self.note_check_handler(span)?;
+        }
+        let (elem, data) = match self.types.kind(self.types.repr(bty)).clone() {
+            TypeKind::Array {
+                elem,
+                kind: ArrayKind::Fixed(n),
+            } => {
+                let (_, addr) = self.address_of(f, base_op, span)?;
+                if check {
+                    let count = f.b.iconst(Ty::I64, n);
+                    f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
+                }
+                (elem, addr)
+            }
+            TypeKind::Array {
+                elem, ..
+            } => {
+                let (_, addr) = self.address_of(f, base_op, span)?;
+                if check {
+                    let count = f.b.load(Ty::I64, addr);
+                    f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
+                }
+                let p = f.b.ptr_offset(addr, 8);
+                (elem, f.b.load(Ty::Ptr, p))
+            }
+            TypeKind::String => {
+                let (_, addr) = self.address_of(f, base_op, span)?;
+                if check {
+                    let count = f.b.load(Ty::I64, addr);
+                    f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
+                }
+                let p = f.b.ptr_offset(addr, 8);
+                (TypeId::U8, f.b.load(Ty::Ptr, p))
+            }
+            TypeKind::Pointer(elem) => {
+                let (_, p) = self.rvalue(f, base_op, span)?;
+                (elem, p)
+            }
+            _ => {
+                return err(
+                    span,
+                    format!("cannot index a value of type {}", self.types.name(bty)),
+                );
+            }
+        };
+        let size = self.size_of(elem, span)?;
+        let s = f.b.iconst(Ty::I64, size);
+        let off = f.b.bin(ir::BinOp::Mul, Ty::I64, idx, s);
+        Ok(Operand::Place {
+            ty: elem,
+            addr: f.b.ptr_add(data, off),
+        })
+    }
+}
