@@ -63,7 +63,7 @@ nix develop     # then cargo build -p jaic-cli --locked
 **Cut a release:**
 
 1. Add `## [x.y.z] - YYYY-MM-DD` at the top of `CHANGELOG.md`. It is the release page, so keep it short and written for users: one or two sentences, optionally one image, `### Highlights` (2 to 6 one-line bullets), `### Breaking changes` (a Was/Now table, only if any), `### Fixes` (one line each). Leave out internal tooling and flag lists; link to docs with absolute `https://github.com/matteopolak/jacket/blob/main/docs/...` URLs. Use `###` or lower, since a `## [` line ends the extracted notes. Images are small self-contained SVGs under `docs/images/releases/<version>-<topic>.svg`, referenced by absolute `raw.githubusercontent.com` URL and committed before tagging.
-2. Bump `version` in the root `Cargo.toml`, commit, then `git tag -s vX.Y.Z -m 'Jacket X.Y.Z'` and `git push origin vX.Y.Z`.
+2. Run `just bump-version X.Y.Z` (`python3 tools/bump_version.py X.Y.Z`). It sets `[workspace.package] version` in the root `Cargo.toml`, the workspace packages in `Cargo.lock` and `fuzz/Cargo.lock`, and `editors/nvim/lua/jai/version.lua`, adds a `## [X.Y.Z] - <today>` header to `CHANGELOG.md` if there is none, then checks both lock files with `cargo metadata --locked --offline` (`--no-verify` skips that). Leave `editors/vscode/package.json` alone: the release workflow stamps its version. `tools/bump_version.py --check`, run by the tools tests, fails when `version.lua` or a lock file disagrees with `Cargo.toml`. Commit, then `git tag -s vX.Y.Z -m 'Jacket X.Y.Z'` and `git push origin vX.Y.Z`.
 
 **Gotchas:**
 

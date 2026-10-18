@@ -15,6 +15,7 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 | `test` | `cargo test` (CI's skips) and the `tools/` unittests (`--suite cargo\|tools\|all`, `--crate NAME`) |
 | `nvim-test`, `editor` | Neovim plugin tests; VS Code generated-file checks (skipped with a note without nvim 0.11 / node 24) |
 | `hooks` | `git config core.hooksPath .githooks` |
+| `bump-version X.Y.Z` | `tools/bump_version.py`, the version step of [releases](releases.md) |
 | `fetch-upstreams`, `wasm`, `vscode` | `tools/fetch_upstreams.py`, `tools/browser/build_scripting_wasm.py --release`, `pnpm run <script>` in `editors/vscode` |
 
 Rust lints: each crate's `[lints.clippy]` enables `all` and the restriction lint `excessive_nesting`, whose depth limit is `excessive-nesting-threshold` in the root `clippy.toml` (7). Flatten with early returns, `let ... else` or a helper rather than `#[allow]`. A new crate must repeat both lines. The Jai counterpart is jailint's [`excessive_nesting`](jailint.md#excessive_nesting) rule (off by default).

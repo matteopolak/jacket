@@ -74,6 +74,11 @@ test suite="all" crate="" jobs=default_jobs *filter:
 hooks:
     git config core.hooksPath .githooks
 
+# Set the compiler version in Cargo.toml, both lock files, the Neovim plugin and the CHANGELOG header (tools/bump_version.py).
+[group('setup')]
+bump-version version:
+    {{ py }} tools/bump_version.py {{ version }}
+
 # Download the pinned upstream Jai projects into corpus/upstream (inert test input).
 [group('setup')]
 fetch-upstreams *args:
