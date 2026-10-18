@@ -52,6 +52,33 @@ fn independent_errors_are_all_reported() {
     assert_eq!(lines, [1, 2, 4], "{found:?}");
 }
 
+const FAILED_INITIALIZER: &str = r#"#import "Basic";
+helper :: () {
+    owner := Nope.make();
+    size := owner.count + 1;
+    print("%\n", size);
+    typed : Missing = 3;
+    print("%\n", typed);
+}
+main :: () { helper(); }
+"#;
+
+#[test]
+fn a_declaration_whose_initializer_fails_still_declares_its_name() {
+    let mut s = session();
+    s.open(uri(), 1, FAILED_INITIALIZER.into()).unwrap();
+    let found = checks(&s);
+    assert!(
+        found.iter().all(|(_, m)| !m.contains("`owner`")
+            && !m.contains("`size`")
+            && !m.contains("`typed`")),
+        "{found:?}"
+    );
+    let mut lines: Vec<u32> = found.iter().map(|(l, _)| *l).collect();
+    lines.dedup();
+    assert_eq!(lines, [2, 5], "{found:?}");
+}
+
 fn messages(json: &mut JsonSession, message: serde_json::Value) -> Vec<serde_json::Value> {
     json.handle_json(&message.to_string())
         .unwrap()

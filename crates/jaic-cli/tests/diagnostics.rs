@@ -1406,3 +1406,18 @@ fn a_switch_on_a_constant_checks_every_case() {
     assert!(!output.status.success(), "{}", stderr(&output));
     assert_in_order(&stderr(&output), &["has no case for .B"]);
 }
+
+#[test]
+fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
+    let dir = scratch("failed_initializer");
+    let source = "#import \"Basic\";\nhelper :: () {\n    owner := Nope.make();\n    size := owner.count + 1;\n    print(\"%\\n\", size);\n}\nmain :: () { helper(); }\n";
+    let output = jaic_on(&dir, "main.jai", source, "-check", &[]);
+    assert!(!output.status.success());
+    let text = stderr(&output);
+    assert_eq!(text.matches("error:").count(), 1, "{text}");
+    assert!(text.contains("unknown identifier `Nope`"), "{text}");
+    assert!(
+        !text.contains("`owner`") && !text.contains("`size`"),
+        "{text}"
+    );
+}

@@ -1882,6 +1882,12 @@ impl Compiler {
         if let Some(ids) = self.struct_constant(target, name)? {
             return self.entities_operand(f, scope, &ids, span);
         }
+        if self.is_stand_in(target) {
+            // The value is unknown because an earlier error already said why: its members
+            // are unknown too, not wrong.
+            let ty = self.ide_stand_in_member(target, name, span);
+            return Ok(self.ide_sketch_value(f, ty, span));
+        }
         Err(Box::new(self.no_member(target, name, span)))
     }
 

@@ -53,6 +53,13 @@ impl Compiler {
             // stand-ins) so the statements after it check without cascading errors.
             if error.kind == DiagnosticKind::Untrusted && !self.sketching() {
                 self.sketch_salvage(f, scope, stmt);
+            } else if !self.sketching()
+                && self.ide.is_some()
+                && let S::Decl(decl) = &stmt.kind
+            {
+                // A declaration whose initializer failed still declares its names (as the
+                // declared type or a stand-in), so later uses do not report them unknown.
+                self.ide_sketch_declare(f, scope, decl);
             }
             self.check_block_error_ide(f, failed, error)?;
         }

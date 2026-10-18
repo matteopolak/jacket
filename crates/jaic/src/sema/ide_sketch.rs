@@ -347,6 +347,14 @@ impl Compiler {
 }
 
 impl Compiler {
+    /// A declaration that failed left a stand-in type behind: expressions over its values are
+    /// unknown, not wrong.
+    pub(super) fn ide_has_stand_ins(&self) -> bool {
+        self.ide
+            .as_ref()
+            .is_some_and(|ide| !ide.stand_ins.is_empty())
+    }
+
     /// A sketch is being checked.
     pub(super) fn sketching(&self) -> bool {
         self.ide.as_ref().is_some_and(|ide| ide.sketching)
@@ -465,20 +473,33 @@ impl Compiler {
             } => elems.iter().collect(),
             _ => return None,
         };
-        let ty_of = |c: &Self, e: &ast::Expr| {
-            c.ide
-                .as_ref()
-                .and_then(|ide| ide.sketch_types.get(&e.span).copied())
-        };
+        // Outside a sketch nothing recorded the operands' types: check them here, once.
+        let mut checked: HashMap<Span, TypeId> = HashMap::default();
+        let sketching = self.sketching();
         for child in &children {
-            let tried = self
-                .ide
-                .as_ref()
-                .is_some_and(|ide| ide.sketch_tried.contains(&child.span));
-            if !tried {
-                let _ = self.check_expr(f, scope, child, None);
+            let tried = sketching
+                && self
+                    .ide
+                    .as_ref()
+                    .is_some_and(|ide| ide.sketch_tried.contains(&child.span));
+            if !tried
+                && let Ok(op) = self.check_expr(f, scope, child, None)
+                && !sketching
+                && !matches!(
+                    op,
+                    Operand::Type(_) | Operand::Procs(_) | Operand::Module(_) | Operand::Void
+                )
+            {
+                checked.insert(child.span, op.ty());
             }
         }
+        let ty_of = |c: &Self, e: &ast::Expr| {
+            checked.get(&e.span).copied().or_else(|| {
+                c.ide
+                    .as_ref()
+                    .and_then(|ide| ide.sketch_types.get(&e.span).copied())
+            })
+        };
         let loose = |c: &Self, e: &ast::Expr| ty_of(c, e).filter(|&t| c.is_stand_in(t));
         let span = expr.span;
         let ty = match &expr.kind {

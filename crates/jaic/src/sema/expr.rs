@@ -38,7 +38,7 @@ impl Compiler {
         }
         let mut result = self.check_expr_kind(f, scope, expr, expected);
         if result.is_err()
-            && self.sketching()
+            && (self.sketching() || self.ide_has_stand_ins())
             && let Some(op) = self.ide_sketch_recover(f, scope, expr)
         {
             result = Ok(op);
