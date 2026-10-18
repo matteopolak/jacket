@@ -84,59 +84,19 @@ impl FrameDecoder {
         self.buffer.extend_from_slice(bytes);
         let mut messages = vec![];
         loop {
-            if self.expected.is_none() {
-                let Some(at) = self.buffer.windows(4).position(|w| w == b"\r\n\r\n") else {
-                    if self.buffer.len() > HEADER_LIMIT {
-                        return Err(FrameError::HeaderLimit);
+            let length = match self.expected {
+                Some(length) => length,
+                None => match self.header()? {
+                    None => break,
+                    Some(length) if length > self.body_limit => {
+                        self.oversized.push(length);
+                        self.discarding = length;
+                        self.discard();
+                        continue;
                     }
-                    break;
-                };
-                if at + 4 > HEADER_LIMIT {
-                    return Err(FrameError::HeaderLimit);
-                }
-                let header = &self.buffer[..at];
-                if !header.is_ascii() {
-                    return Err(FrameError::InvalidHeader);
-                }
-                let text = std::str::from_utf8(header).map_err(|_| FrameError::InvalidHeader)?;
-                let mut length = None;
-                for line in text.split("\r\n") {
-                    let (name, value) = line.split_once(':').ok_or(FrameError::InvalidHeader)?;
-                    let value = value.trim();
-                    if name.eq_ignore_ascii_case("Content-Length") {
-                        if length.is_some()
-                            || value.is_empty()
-                            || !value.bytes().all(|c| c.is_ascii_digit())
-                        {
-                            return Err(FrameError::InvalidLength);
-                        }
-                        let number = value
-                            .parse::<usize>()
-                            .map_err(|_| FrameError::InvalidLength)?;
-                        length = Some(number);
-                    } else if name.eq_ignore_ascii_case("Content-Type") {
-                        for option in value.split(';').skip(1) {
-                            if let Some((key, encoding)) = option.trim().split_once('=')
-                                && key.eq_ignore_ascii_case("charset")
-                                && !encoding.eq_ignore_ascii_case("utf-8")
-                                && !encoding.eq_ignore_ascii_case("utf8")
-                            {
-                                return Err(FrameError::UnsupportedEncoding);
-                            }
-                        }
-                    }
-                }
-                let length = length.ok_or(FrameError::InvalidLength)?;
-                self.buffer.drain(..at + 4);
-                if length > self.body_limit {
-                    self.oversized.push(length);
-                    self.discarding = length;
-                    self.discard();
-                    continue;
-                }
-                self.expected = Some(length);
-            }
-            let length = self.expected.expect("parsed Content-Length");
+                    Some(length) => *self.expected.insert(length),
+                },
+            };
             if self.buffer.len() < length {
                 break;
             }
@@ -150,6 +110,28 @@ impl FrameDecoder {
         Ok(messages)
     }
 
+    /// The `Content-Length` of the header at the start of the buffer, which is consumed; `None`
+    /// while the header is incomplete.
+    fn header(&mut self) -> Result<Option<usize>, FrameError> {
+        let Some(at) = self.buffer.windows(4).position(|w| w == b"\r\n\r\n") else {
+            if self.buffer.len() > HEADER_LIMIT {
+                return Err(FrameError::HeaderLimit);
+            }
+            return Ok(None);
+        };
+        if at + 4 > HEADER_LIMIT {
+            return Err(FrameError::HeaderLimit);
+        }
+        let header = &self.buffer[..at];
+        if !header.is_ascii() {
+            return Err(FrameError::InvalidHeader);
+        }
+        let text = std::str::from_utf8(header).map_err(|_| FrameError::InvalidHeader)?;
+        let length = content_length(text)?;
+        self.buffer.drain(..at + 4);
+        Ok(Some(length))
+    }
+
     pub fn finish(&self) -> Result<(), FrameError> {
         if self.buffer.is_empty() && self.expected.is_none() {
             Ok(())
@@ -157,6 +139,41 @@ impl FrameDecoder {
             Err(FrameError::Incomplete)
         }
     }
+}
+
+/// The body length a header declares, once and as plain digits. A `Content-Type` may only name
+/// UTF-8.
+fn content_length(header: &str) -> Result<usize, FrameError> {
+    let mut length = None;
+    for line in header.split("\r\n") {
+        let (name, value) = line.split_once(':').ok_or(FrameError::InvalidHeader)?;
+        let value = value.trim();
+        if name.eq_ignore_ascii_case("Content-Length") {
+            let digits = !value.is_empty() && value.bytes().all(|c| c.is_ascii_digit());
+            if length.is_some() || !digits {
+                return Err(FrameError::InvalidLength);
+            }
+            length = Some(
+                value
+                    .parse::<usize>()
+                    .map_err(|_| FrameError::InvalidLength)?,
+            );
+        } else if name.eq_ignore_ascii_case("Content-Type") && !utf8_charset(value) {
+            return Err(FrameError::UnsupportedEncoding);
+        }
+    }
+    length.ok_or(FrameError::InvalidLength)
+}
+
+/// The `charset` options of a `Content-Type` value name UTF-8, if any.
+fn utf8_charset(content_type: &str) -> bool {
+    content_type.split(';').skip(1).all(|option| {
+        option.trim().split_once('=').is_none_or(|(key, encoding)| {
+            !key.eq_ignore_ascii_case("charset")
+                || encoding.eq_ignore_ascii_case("utf-8")
+                || encoding.eq_ignore_ascii_case("utf8")
+        })
+    })
 }
 
 pub fn encode(message: &str) -> Vec<u8> {

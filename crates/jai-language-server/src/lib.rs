@@ -126,26 +126,5 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
 }
 
-pub const TOKEN_TYPES: &[&str] = &[
-    "keyword",
-    "string",
-    "number",
-    "variable",
-    "function",
-    "type",
-    "property",
-    "parameter",
-    "macro",
-    "operator",
-    "namespace",
-    "typeParameter",
-    "enumMember",
-    "decorator",
-    "formatSpecifier",
-];
-
 /// `macro` marks a procedure declared `#expand`.
 pub const TOKEN_MODIFIERS: &[&str] = &["declaration", "readonly", "macro"];
-
-/// Commands `workspace/executeCommand` runs.
-pub const COMMANDS: &[&str] = &["jai.showExpansion", "jai.showPolymorphs"];

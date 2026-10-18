@@ -162,6 +162,48 @@ pub enum SemanticTokenKind {
     FormatSpecifier,
 }
 
+impl SemanticTokenKind {
+    /// Every kind, in the order of the legend: a token's wire type is `kind as u32`.
+    pub const ALL: [Self; 15] = [
+        Self::Keyword,
+        Self::String,
+        Self::Number,
+        Self::Variable,
+        Self::Function,
+        Self::Type,
+        Self::Property,
+        Self::Parameter,
+        Self::Macro,
+        Self::Operator,
+        Self::Namespace,
+        Self::TypeParameter,
+        Self::EnumMember,
+        Self::Decorator,
+        Self::FormatSpecifier,
+    ];
+
+    /// The LSP token type name in the legend.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Keyword => "keyword",
+            Self::String => "string",
+            Self::Number => "number",
+            Self::Variable => "variable",
+            Self::Function => "function",
+            Self::Type => "type",
+            Self::Property => "property",
+            Self::Parameter => "parameter",
+            Self::Macro => "macro",
+            Self::Operator => "operator",
+            Self::Namespace => "namespace",
+            Self::TypeParameter => "typeParameter",
+            Self::EnumMember => "enumMember",
+            Self::Decorator => "decorator",
+            Self::FormatSpecifier => "formatSpecifier",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SemanticToken {
     pub position: Position,

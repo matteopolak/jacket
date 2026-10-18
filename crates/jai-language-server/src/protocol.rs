@@ -1,10 +1,10 @@
 //! Standard JSON parsing belongs at this portable boundary, not in source analysis.
 use crate::{
-    COMMANDS, CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionKind,
+    CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionKind,
     CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri,
     Error, Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, MarkupKind,
     Position, Range, SelectionRange, SemanticToken, SemanticTokenKind, Session, SignatureHelp,
-    SymbolInformation, SymbolKind, TOKEN_MODIFIERS, TOKEN_TYPES, TextChange,
+    SymbolInformation, SymbolKind, TOKEN_MODIFIERS, TextChange,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -64,9 +64,6 @@ pub struct JsonSession {
     defer_publications: bool,
     /// An edit since the last flush has diagnostics to publish.
     publications_pending: bool,
-    /// The result of the request just handled when it was written straight to JSON text (a
-    /// large answer built as a `Value` tree costs tens of times its size in memory).
-    raw_result: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -260,6 +257,230 @@ struct Envelope {
     params: Value,
 }
 
+/// JSON-RPC and LSP error codes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ErrorCode {
+    ParseError = -32700,
+    InvalidRequest = -32600,
+    MethodNotFound = -32601,
+    InvalidParams = -32602,
+    InternalError = -32603,
+    ServerNotInitialized = -32002,
+    RequestCancelled = -32800,
+    ContentModified = -32801,
+    RequestFailed = -32803,
+}
+
+type Failure = (ErrorCode, String);
+
+const OUTPUT_LIMIT: &str = "The response is larger than the output limit";
+
+/// The answer to a request: a value, or JSON text already written (a large answer built as a
+/// `Value` tree costs tens of times its size in memory).
+enum Reply {
+    Value(Value),
+    Raw(String),
+}
+
+/// The requests the server answers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Request {
+    Initialize,
+    Shutdown,
+    SemanticTokens,
+    DocumentSymbol,
+    Hover,
+    Completion,
+    CompletionResolve,
+    Definition,
+    TypeDefinition,
+    References,
+    PrepareRename,
+    Rename,
+    DocumentHighlight,
+    WorkspaceSymbol,
+    DocumentLink,
+    FoldingRange,
+    InlayHint,
+    SignatureHelp,
+    CodeAction,
+    PrepareCallHierarchy,
+    IncomingCalls,
+    OutgoingCalls,
+    SelectionRange,
+    CodeLens,
+    ExecuteCommand,
+    DocumentDiagnostic,
+    WorkspaceDiagnostic,
+    /// Non-standard: the generated code of the `#insert`, `#run`, `#if` or macro call at a
+    /// position, as a read-only `jai-expansion:` document.
+    Expansion,
+    /// Non-standard: the text of a file the client has not opened.
+    Source,
+}
+
+impl Request {
+    const METHODS: &[(&str, Self)] = &[
+        ("initialize", Self::Initialize),
+        ("shutdown", Self::Shutdown),
+        ("textDocument/semanticTokens/full", Self::SemanticTokens),
+        ("textDocument/documentSymbol", Self::DocumentSymbol),
+        ("textDocument/hover", Self::Hover),
+        ("textDocument/completion", Self::Completion),
+        ("completionItem/resolve", Self::CompletionResolve),
+        ("textDocument/definition", Self::Definition),
+        ("textDocument/typeDefinition", Self::TypeDefinition),
+        ("textDocument/references", Self::References),
+        ("textDocument/prepareRename", Self::PrepareRename),
+        ("textDocument/rename", Self::Rename),
+        ("textDocument/documentHighlight", Self::DocumentHighlight),
+        ("workspace/symbol", Self::WorkspaceSymbol),
+        ("textDocument/documentLink", Self::DocumentLink),
+        ("textDocument/foldingRange", Self::FoldingRange),
+        ("textDocument/inlayHint", Self::InlayHint),
+        ("textDocument/signatureHelp", Self::SignatureHelp),
+        ("textDocument/codeAction", Self::CodeAction),
+        (
+            "textDocument/prepareCallHierarchy",
+            Self::PrepareCallHierarchy,
+        ),
+        ("callHierarchy/incomingCalls", Self::IncomingCalls),
+        ("callHierarchy/outgoingCalls", Self::OutgoingCalls),
+        ("textDocument/selectionRange", Self::SelectionRange),
+        ("textDocument/codeLens", Self::CodeLens),
+        ("workspace/executeCommand", Self::ExecuteCommand),
+        ("textDocument/diagnostic", Self::DocumentDiagnostic),
+        ("workspace/diagnostic", Self::WorkspaceDiagnostic),
+        ("jai/expansion", Self::Expansion),
+        ("jai/source", Self::Source),
+    ];
+
+    fn parse(method: &str) -> Option<Self> {
+        Self::METHODS
+            .iter()
+            .find(|(name, _)| *name == method)
+            .map(|(_, request)| *request)
+    }
+
+    /// Answered only for a client that pulls diagnostics.
+    fn pulls_diagnostics(self) -> bool {
+        matches!(self, Self::DocumentDiagnostic | Self::WorkspaceDiagnostic)
+    }
+}
+
+/// The notifications the server acts on; any other is ignored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Notification {
+    Initialized,
+    Exit,
+    Cancel,
+    DidOpen,
+    DidChange,
+    DidClose,
+    DidChangeConfiguration,
+    DidChangeWorkspaceFolders,
+    DidChangeWatchedFiles,
+    /// The client's answer to workspace trust: `{ "trusted": true }` allows the workspace's
+    /// compile-time code to run, `false` withholds it.
+    SetTrusted,
+}
+
+impl Notification {
+    const METHODS: &[(&str, Self)] = &[
+        ("initialized", Self::Initialized),
+        ("exit", Self::Exit),
+        ("$/cancelRequest", Self::Cancel),
+        ("textDocument/didOpen", Self::DidOpen),
+        ("textDocument/didChange", Self::DidChange),
+        ("textDocument/didClose", Self::DidClose),
+        (
+            "workspace/didChangeConfiguration",
+            Self::DidChangeConfiguration,
+        ),
+        (
+            "workspace/didChangeWorkspaceFolders",
+            Self::DidChangeWorkspaceFolders,
+        ),
+        (
+            "workspace/didChangeWatchedFiles",
+            Self::DidChangeWatchedFiles,
+        ),
+        ("jai/setTrusted", Self::SetTrusted),
+    ];
+
+    fn parse(method: &str) -> Option<Self> {
+        Self::METHODS
+            .iter()
+            .find(|(name, _)| *name == method)
+            .map(|(_, notification)| *notification)
+    }
+}
+
+/// The commands `workspace/executeCommand` runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ServerCommand {
+    ShowExpansion,
+    ShowPolymorphs,
+}
+
+impl ServerCommand {
+    const NAMES: &[(&str, Self)] = &[
+        ("jai.showExpansion", Self::ShowExpansion),
+        ("jai.showPolymorphs", Self::ShowPolymorphs),
+    ];
+
+    fn parse(name: &str) -> Option<Self> {
+        Self::NAMES
+            .iter()
+            .find(|(known, _)| *known == name)
+            .map(|(_, command)| *command)
+    }
+}
+
+/// A well-formed request (with an id) or notification.
+struct Incoming {
+    id: Option<RequestId>,
+    method: String,
+    params: Value,
+}
+
+/// The message in `input`; `None` for the client's answer to a request of ours, and the error
+/// response for a malformed one.
+fn incoming(input: &str) -> Result<Option<Incoming>, Value> {
+    let invalid = |message| failure(Value::Null, ErrorCode::InvalidRequest, message);
+    let value: Value = serde_json::from_str(input)
+        .map_err(|_| failure(Value::Null, ErrorCode::ParseError, "Parse error"))?;
+    let answer = value.get("result").is_some() || value.get("error").is_some();
+    if value.get("method").is_none() && value.get("id").is_some() && answer {
+        return Ok(None);
+    }
+    let id = match value.get("id") {
+        None => None,
+        Some(id) => match serde_json::from_value::<RequestId>(id.clone()) {
+            Ok(id) if valid_id(&id) => Some(id),
+            _ => return Err(invalid("Invalid request id")),
+        },
+    };
+    match serde_json::from_value::<Envelope>(value) {
+        Ok(e) if e.jsonrpc == "2.0" && !e.method.is_empty() => Ok(Some(Incoming {
+            id,
+            method: e.method,
+            params: e.params,
+        })),
+        _ => Err(invalid("Invalid request")),
+    }
+}
+
+/// Debug builds panic on `jai/debugPanic`, to test that a panic is one message's error.
+fn debug_panic(method: &str) {
+    #[cfg(debug_assertions)]
+    if method == "jai/debugPanic" {
+        panic!("requested by jai/debugPanic");
+    }
+    #[cfg(not(debug_assertions))]
+    let _ = method;
+}
+
 impl JsonSession {
     pub fn new(limits: Limits) -> Self {
         Self::with_session(Session::new(limits))
@@ -283,7 +504,6 @@ impl JsonSession {
             publications_pending: false,
             refresh_diagnostics: false,
             refreshes: 0,
-            raw_result: None,
         }
     }
 
@@ -337,130 +557,138 @@ impl JsonSession {
         if input.len() > self.session.limits().message_bytes {
             return Err(ProtocolError::MessageLimit);
         }
-        let value: Value = match serde_json::from_str(input) {
-            Ok(value) => value,
-            Err(_) => return self.encode(vec![failure(Value::Null, -32700, "Parse error")], None),
-        };
-        // The client's answer to a request of ours (a diagnostics refresh): nothing to do.
-        if value.get("method").is_none()
-            && value.get("id").is_some()
-            && (value.get("result").is_some() || value.get("error").is_some())
-        {
-            return Ok(vec![]);
+        match incoming(input) {
+            Err(error) => self.encode(vec![error], None),
+            // The client's answer to a request of ours (a diagnostics refresh): nothing to do.
+            Ok(None) => Ok(vec![]),
+            Ok(Some(Incoming {
+                id: Some(id),
+                method,
+                params,
+            })) => self.handle_request(id, &method, params),
+            Ok(Some(Incoming {
+                id: None,
+                method,
+                params,
+            })) => self.handle_notification(&method, params),
         }
-        let raw_id = value.get("id");
-        let id = match raw_id {
-            Some(value) => match serde_json::from_value::<RequestId>(value.clone()) {
-                Ok(id) if valid_id(&id) => Some(id),
-                _ => {
-                    return self.encode(
-                        vec![failure(Value::Null, -32600, "Invalid request id")],
-                        None,
-                    );
-                }
-            },
-            None => None,
-        };
-        let envelope: Envelope = match serde_json::from_value::<Envelope>(value) {
-            Ok(e) if e.jsonrpc == "2.0" && !e.method.is_empty() => e,
-            _ => return self.encode(vec![failure(Value::Null, -32600, "Invalid request")], None),
-        };
-        let identifier = id.as_ref().map_or(Value::Null, |id| json!(id));
-        let id_for_output = id.clone();
-        if envelope.method == "$/cancelRequest" && id.is_none() {
-            let result = serde_json::from_value::<CancelParams>(envelope.params)
-                .map_err(|_| Error::InvalidEdit("invalid cancellation parameters"))
-                .and_then(|params| self.cancel_request(params.id));
-            return self.encode(
-                result
-                    .err()
-                    .map(|e| log_error(&e.to_string()))
-                    .into_iter()
-                    .collect(),
-                None,
-            );
+    }
+
+    fn handle_request(
+        &mut self,
+        id: RequestId,
+        method: &str,
+        params: Value,
+    ) -> Result<Vec<String>, ProtocolError> {
+        let identifier = json!(id);
+        if self.cancelled.remove(&id) {
+            self.remember(id);
+            let cancelled = failure(identifier, ErrorCode::RequestCancelled, "Request cancelled");
+            return self.encode(vec![cancelled], None);
         }
-        if envelope.method == "exit" && id.is_none() {
-            self.lifecycle = Lifecycle::Exited(if self.lifecycle == Lifecycle::Shutdown {
-                0
-            } else {
-                1
-            });
-            return Ok(vec![]);
-        }
-        if let Some(id) = &id
-            && self.cancelled.remove(id)
-        {
-            self.remember(id.clone());
-            return self.encode(vec![failure(identifier, -32800, "Request cancelled")], None);
-        }
-        let method = envelope.method.clone();
-        // A panic in one request is that request's error; the server and its documents live on.
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.dispatch(&envelope.method, envelope.params, id.is_some())
-        }))
-        .unwrap_or_else(|payload| {
-            let what = payload
-                .downcast_ref::<&str>()
-                .map(|s| s.to_string())
-                .or_else(|| payload.downcast_ref::<String>().cloned())
-                .unwrap_or_else(|| "unknown panic".into());
-            eprintln!("jailsp: internal error in `{method}`: {what}");
-            self.session.reset_caches();
-            Err((-32603, format!("Internal error in `{method}`: {what}")))
+        let result = self.guarded(method, |this| {
+            debug_panic(method);
+            this.request(method, params)
         });
-        let raw = self.raw_result.take();
-        let mut tail = None;
-        let output = match result {
-            Ok(mut messages) => {
-                if let Some(id) = id {
-                    self.remember(id);
-                    let result = messages.pop().unwrap_or(Value::Null);
-                    match raw {
-                        Some(raw) => {
-                            tail = Some(format!(
-                                "{{\"jsonrpc\":\"2.0\",\"id\":{identifier},\"result\":{raw}}}"
-                            ));
-                        }
-                        None => messages
-                            .push(json!({ "jsonrpc": "2.0", "id": identifier, "result": result })),
-                    }
-                }
-                messages
-            }
-            Err((code, message)) => {
-                if let Some(id) = id {
-                    self.remember(id);
-                    vec![failure(identifier, code, &message)]
-                } else if self.lifecycle == Lifecycle::New {
-                    vec![]
-                } else {
-                    vec![log_error(&message)]
-                }
-            }
+        self.remember(id);
+        let (mut output, tail) = match result {
+            Ok(Reply::Value(result)) => (
+                vec![json!({ "jsonrpc": "2.0", "id": identifier, "result": result })],
+                None,
+            ),
+            Ok(Reply::Raw(raw)) => (
+                vec![],
+                Some(format!(
+                    "{{\"jsonrpc\":\"2.0\",\"id\":{identifier},\"result\":{raw}}}"
+                )),
+            ),
+            Err((code, message)) => (vec![failure(identifier.clone(), code, &message)], None),
         };
-        let mut output = output;
-        output.extend(self.session.take_messages().into_iter().map(|message| {
-            json!({
-                "jsonrpc": "2.0",
-                "method": "window/showMessage",
-                "params": { "type": 2, "message": message },
-            })
-        }));
+        output.extend(self.shown_messages());
         match self.encode(output, tail) {
             // A response over the output cap is that request's error, not the end of the session.
-            Err(ProtocolError::OutputLimit) => {
-                let message = "The response is larger than the output limit";
-                self.encode(
-                    vec![match id_for_output {
-                        Some(id) => failure(json!(id), -32803, message),
-                        None => log_error(message),
-                    }],
-                    None,
-                )
-            }
+            Err(ProtocolError::OutputLimit) => self.encode(
+                vec![failure(identifier, ErrorCode::RequestFailed, OUTPUT_LIMIT)],
+                None,
+            ),
             other => other,
         }
+    }
+
+    fn handle_notification(
+        &mut self,
+        method: &str,
+        params: Value,
+    ) -> Result<Vec<String>, ProtocolError> {
+        let notification = Notification::parse(method);
+        match notification {
+            Some(Notification::Cancel) => {
+                let result = serde_json::from_value::<CancelParams>(params)
+                    .map_err(|_| Error::InvalidEdit("invalid cancellation parameters"))
+                    .and_then(|params| self.cancel_request(params.id));
+                let errors = result.err().map(|e| log_error(&e.to_string()));
+                return self.encode(errors.into_iter().collect(), None);
+            }
+            Some(Notification::Exit) => {
+                let code = u8::from(self.lifecycle != Lifecycle::Shutdown);
+                self.lifecycle = Lifecycle::Exited(code);
+                return Ok(vec![]);
+            }
+            _ => {}
+        }
+        let result = self.guarded(method, |this| {
+            debug_panic(method);
+            this.notification(notification, params)
+        });
+        let mut output = match result {
+            Ok(messages) => messages,
+            // Nothing is logged before `initialize`.
+            Err(_) if self.lifecycle == Lifecycle::New => vec![],
+            Err((_, message)) => vec![log_error(&message)],
+        };
+        output.extend(self.shown_messages());
+        match self.encode(output, None) {
+            Err(ProtocolError::OutputLimit) => self.encode(vec![log_error(OUTPUT_LIMIT)], None),
+            other => other,
+        }
+    }
+
+    /// Run `handler`. A panic in it is that message's error; the server and its documents live on.
+    fn guarded<T>(
+        &mut self,
+        method: &str,
+        handler: impl FnOnce(&mut Self) -> Result<T, Failure>,
+    ) -> Result<T, Failure> {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(self))).unwrap_or_else(
+            |payload| {
+                let what = payload
+                    .downcast_ref::<&str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| payload.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| "unknown panic".into());
+                eprintln!("jailsp: internal error in `{method}`: {what}");
+                self.session.reset_caches();
+                Err(fail(
+                    ErrorCode::InternalError,
+                    format!("Internal error in `{method}`: {what}"),
+                ))
+            },
+        )
+    }
+
+    /// The session's messages for the user, as `window/showMessage` warnings.
+    fn shown_messages(&self) -> Vec<Value> {
+        self.session
+            .take_messages()
+            .into_iter()
+            .map(|message| {
+                json!({
+                    "jsonrpc": "2.0",
+                    "method": "window/showMessage",
+                    "params": { "type": 2, "message": message },
+                })
+            })
+            .collect()
     }
 
     pub fn cancel_request(&mut self, id: RequestId) -> Result<(), Error> {
@@ -516,593 +744,488 @@ impl JsonSession {
         Ok(out)
     }
 
-    fn dispatch(
-        &mut self,
-        method: &str,
-        params: Value,
-        request: bool,
-    ) -> Result<Vec<Value>, (i32, String)> {
-        #[cfg(debug_assertions)]
-        if method == "jai/debugPanic" {
-            panic!("requested by jai/debugPanic");
+    fn ensure_running(&self) -> Result<(), Failure> {
+        match self.lifecycle {
+            Lifecycle::Running => Ok(()),
+            Lifecycle::New => Err(fail(
+                ErrorCode::ServerNotInitialized,
+                "Server is not initialized",
+            )),
+            Lifecycle::Shutdown | Lifecycle::Exited(_) => {
+                Err(fail(ErrorCode::InvalidRequest, "Server has shut down"))
+            }
         }
-        if method == "initialize" && request {
-            if self.lifecycle != Lifecycle::New {
-                return Err((-32600, "Server is already initialized".into()));
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Result<Reply, Failure> {
+        let request = Request::parse(method);
+        if request != Some(Request::Initialize) {
+            self.ensure_running()?;
+        }
+        let request = request
+            .filter(|r| self.pull_diagnostics || !r.pulls_diagnostics())
+            .ok_or_else(|| fail(ErrorCode::MethodNotFound, "Method not supported"))?;
+        let result = match request {
+            Request::Initialize => self.initialize(params)?,
+            Request::Shutdown => {
+                self.lifecycle = Lifecycle::Shutdown;
+                Value::Null
             }
-            if !params.is_object() && !params.is_null() {
-                return Err((-32602, "Initialize parameters must be an object".into()));
+            Request::SemanticTokens => return self.semantic_tokens(params),
+            Request::DocumentSymbol => return self.document_symbols(params),
+            Request::Hover => {
+                let (document, position) = at(params)?;
+                let hover = self.session.hover_as(&document, position, self.hover_kind);
+                hover
+                    .map_err(domain)?
+                    .as_ref()
+                    .map_or(Value::Null, hover_wire)
             }
-            self.lifecycle = Lifecycle::Running;
-            self.hover_kind = hover_kind(&params);
-            self.signature_kind = signature_kind(&params);
-            self.pull_diagnostics = params
-                .pointer("/capabilities/textDocument/diagnostic")
-                .is_some_and(Value::is_object);
-            self.refresh_diagnostics = self.pull_diagnostics
-                && params
-                    .pointer("/capabilities/workspace/diagnostics/refreshSupport")
-                    .and_then(Value::as_bool)
-                    == Some(true);
-            self.configure(&params["initializationOptions"]);
-            // A server started untrusted (`--untrusted`) stays so unless the client grants
-            // trust later; initialization options can only withhold it.
-            if params["initializationOptions"]["trusted"].as_bool() == Some(false) {
-                self.session.set_trusted(false);
+            Request::Completion => {
+                let (document, position) = at(params)?;
+                let list = self.session.completion(&document, position);
+                completion_wire(&list.map_err(domain)?)
             }
-            let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
-                Some(folders) => folders
+            Request::CompletionResolve => self.resolve_completion(params),
+            Request::Definition => {
+                let (document, position) = at(params)?;
+                locations_wire(
+                    &self
+                        .session
+                        .definition(&document, position)
+                        .map_err(domain)?,
+                )
+            }
+            Request::TypeDefinition => {
+                let (document, position) = at(params)?;
+                let found = self.session.type_definition(&document, position);
+                locations_wire(&found.map_err(domain)?)
+            }
+            Request::References => {
+                let p: ReferenceParams = decode(params)?;
+                let declaration = p.context.is_none_or(|c| c.include_declaration);
+                let document = uri(&p.text_document.uri)?;
+                let found = self.session.references(&document, p.position, declaration);
+                locations_wire(&found.map_err(domain)?)
+            }
+            Request::PrepareRename => {
+                let (document, position) = at(params)?;
+                let range = self.session.prepare_rename(&document, position);
+                range
+                    .map_err(domain)?
+                    .map_or(Value::Null, |range| json!(range))
+            }
+            Request::Rename => {
+                let p: RenameParams = decode(params)?;
+                let document = uri(&p.text_document.uri)?;
+                let edits = self.session.rename(&document, p.position, &p.new_name);
+                edits
+                    .map_err(domain)?
+                    .map_or(Value::Null, workspace_edit_wire)
+            }
+            Request::DocumentHighlight => {
+                let (document, position) = at(params)?;
+                let ranges = self.session.document_highlights(&document, position);
+                array(
+                    ranges.map_err(domain)?,
+                    |range| json!({ "range": range, "kind": 1 }),
+                )
+            }
+            Request::WorkspaceSymbol => {
+                let p: WorkspaceSymbolParams = decode(params)?;
+                array(
+                    &self.session.workspace_symbols(&p.query),
+                    symbol_information_wire,
+                )
+            }
+            Request::DocumentLink => {
+                let links = self.session.document_links(&document(params)?);
+                array(
+                    links.map_err(domain)?,
+                    |(range, target)| json!({ "range": range, "target": target }),
+                )
+            }
+            Request::FoldingRange => {
+                let ranges = self.session.folding_ranges(&document(params)?);
+                array(&ranges.map_err(domain)?, folding_wire)
+            }
+            Request::InlayHint => {
+                let p: RangeParams = decode(params)?;
+                let hints = self
+                    .session
+                    .inlay_hints(&uri(&p.text_document.uri)?, p.range);
+                array(&hints.map_err(domain)?, inlay_wire)
+            }
+            Request::SignatureHelp => {
+                let (document, position) = at(params)?;
+                let kind = self.signature_kind;
+                let help = self.session.signature_help_as(&document, position, kind);
+                help.map_err(domain)?
+                    .as_ref()
+                    .map_or(Value::Null, |help| signature_wire(help, kind))
+            }
+            Request::CodeAction => self.code_actions(params)?,
+            Request::PrepareCallHierarchy => {
+                let (document, position) = at(params)?;
+                let items = self.session.prepare_call_hierarchy(&document, position);
+                match items.map_err(domain)? {
+                    items if items.is_empty() => Value::Null,
+                    items => array(&items, hierarchy_item_wire),
+                }
+            }
+            Request::IncomingCalls => {
+                let p: HierarchyParams = decode(params)?;
+                let calls = self.session.incoming_calls(&p.item.into_item());
+                array(&calls.map_err(domain)?, |c| hierarchy_call_wire(c, "from"))
+            }
+            Request::OutgoingCalls => {
+                let p: HierarchyParams = decode(params)?;
+                let calls = self.session.outgoing_calls(&p.item.into_item());
+                array(&calls.map_err(domain)?, |c| hierarchy_call_wire(c, "to"))
+            }
+            Request::SelectionRange => {
+                let p: SelectionParams = decode(params)?;
+                let ranges = self
+                    .session
+                    .selection_ranges(&uri(&p.text_document.uri)?, &p.positions);
+                array(&ranges.map_err(domain)?, selection_wire)
+            }
+            Request::CodeLens => {
+                let lenses = self.session.code_lenses(&document(params)?);
+                array(&lenses.map_err(domain)?, code_lens_wire)
+            }
+            Request::ExecuteCommand => self.execute_command(params)?,
+            Request::Expansion => {
+                let (document, position) = at(params)?;
+                let expansion = self.session.expansion(&document, position);
+                expansion
+                    .map_err(domain)?
+                    .as_ref()
+                    .map_or(Value::Null, expansion_wire)
+            }
+            Request::DocumentDiagnostic => {
+                let p: DiagnosticParams = decode(params)?;
+                let target = uri(&p.text_document.uri)?;
+                let (version, diagnostics) = self.pulled(&target);
+                document_report(None, version, &diagnostics, p.previous_result_id.as_deref())
+            }
+            Request::WorkspaceDiagnostic => self.workspace_diagnostics(params)?,
+            Request::Source => self.source(params)?,
+        };
+        Ok(Reply::Value(result))
+    }
+
+    fn initialize(&mut self, params: Value) -> Result<Value, Failure> {
+        if self.lifecycle != Lifecycle::New {
+            return Err(fail(
+                ErrorCode::InvalidRequest,
+                "Server is already initialized",
+            ));
+        }
+        if !params.is_object() && !params.is_null() {
+            return Err(fail(
+                ErrorCode::InvalidParams,
+                "Initialize parameters must be an object",
+            ));
+        }
+        self.lifecycle = Lifecycle::Running;
+        self.hover_kind = hover_kind(&params);
+        self.signature_kind = signature_kind(&params);
+        self.pull_diagnostics = params
+            .pointer("/capabilities/textDocument/diagnostic")
+            .is_some_and(Value::is_object);
+        self.refresh_diagnostics = self.pull_diagnostics
+            && params
+                .pointer("/capabilities/workspace/diagnostics/refreshSupport")
+                .and_then(Value::as_bool)
+                == Some(true);
+        self.configure(&params["initializationOptions"]);
+        // A server started untrusted (`--untrusted`) stays so unless the client grants
+        // trust later; initialization options can only withhold it.
+        if params["initializationOptions"]["trusted"].as_bool() == Some(false) {
+            self.session.set_trusted(false);
+        }
+        let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
+            Some(folders) => folders
+                .iter()
+                .filter_map(|f| folder_path(&f["uri"]))
+                .collect(),
+            None => folder_path(&params["rootUri"]).into_iter().collect(),
+        };
+        self.session.set_workspace_folders(folders);
+        Ok(json!({
+            "capabilities": capabilities(self.pull_diagnostics),
+            "serverInfo": {
+                "name": "jai-language-server",
+                "version": env!("CARGO_PKG_VERSION"),
+            },
+        }))
+    }
+
+    fn semantic_tokens(&mut self, params: Value) -> Result<Reply, Failure> {
+        let document = document(params)?;
+        let version = self.session.version(&document).map_err(domain)?;
+        let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
+        let data = semantic_tokens_wire(&tokens);
+        drop(tokens);
+        let data = serde_json::to_string(&data).map_err(internal)?;
+        Ok(Reply::Raw(format!(
+            "{{\"resultId\":\"{version}\",\"data\":{data}}}"
+        )))
+    }
+
+    fn document_symbols(&mut self, params: Value) -> Result<Reply, Failure> {
+        let symbols = self
+            .session
+            .document_symbols(&document(params)?)
+            .map_err(domain)?;
+        let text = serde_json::to_string(&SymbolsWire(&symbols)).map_err(internal)?;
+        Ok(Reply::Raw(text))
+    }
+
+    /// The documentation of an item whose list left it out.
+    fn resolve_completion(&self, mut item: Value) -> Value {
+        let data = item.get("data").and_then(|d| {
+            Some(crate::CompletionData {
+                document: d.get("document")?.as_str()?.to_owned(),
+                path: d.get("path")?.as_str()?.to_owned(),
+                offset: d.get("offset")?.as_u64()? as usize,
+            })
+        });
+        if let Some(doc) = data.and_then(|d| self.session.completion_documentation(&d)) {
+            item["documentation"] = json!({ "kind": "markdown", "value": doc });
+        }
+        item
+    }
+
+    fn code_actions(&mut self, params: Value) -> Result<Value, Failure> {
+        let p: CodeActionParams = decode(params)?;
+        let context = p.context.unwrap_or_default();
+        let context = crate::lints::ActionContext {
+            only: context.only,
+            diagnostics: context
+                .diagnostics
+                .into_iter()
+                .filter(|d| matches!(d.source.as_deref(), Some("jailint" | "jaic")))
+                .filter_map(|d| Some((d.code?.as_str()?.to_string(), d.range)))
+                .collect(),
+        };
+        let actions = self
+            .session
+            .code_actions_in(&uri(&p.text_document.uri)?, p.range, &context);
+        Ok(array(&actions.map_err(domain)?, code_action_wire))
+    }
+
+    fn execute_command(&mut self, params: Value) -> Result<Value, Failure> {
+        let p: CommandParams = decode(params)?;
+        let Some(target) = p.arguments.first() else {
+            return Err(fail(
+                ErrorCode::InvalidParams,
+                "The command needs a {uri, position} argument",
+            ));
+        };
+        let document = uri(&target.uri)?;
+        match ServerCommand::parse(&p.command) {
+            Some(ServerCommand::ShowExpansion) => {
+                let expansion = self.session.expansion(&document, target.position);
+                Ok(expansion
+                    .map_err(domain)?
+                    .as_ref()
+                    .map_or(Value::Null, expansion_wire))
+            }
+            Some(ServerCommand::ShowPolymorphs) => {
+                Ok(json!(self.session.polymorphs(&document, target.position)))
+            }
+            None => Err(fail(ErrorCode::InvalidParams, "Unknown command")),
+        }
+    }
+
+    fn workspace_diagnostics(&mut self, params: Value) -> Result<Value, Failure> {
+        let p: WorkspaceDiagnosticParams = decode(params)?;
+        let items: Vec<Value> = self
+            .session
+            .publications()
+            .into_iter()
+            .map(|(target, version, diagnostics)| {
+                let previous = p
+                    .previous_result_ids
                     .iter()
-                    .filter_map(|f| folder_path(&f["uri"]))
-                    .collect(),
-                None => folder_path(&params["rootUri"]).into_iter().collect(),
-            };
-            self.session.set_workspace_folders(folders);
-            let mut capabilities = json!({
-                "positionEncoding": "utf-16",
-                "textDocumentSync": { "openClose": true, "change": 2 },
-                "hoverProvider": true,
-                "completionProvider": {
-                    "resolveProvider": true,
-                    "triggerCharacters": [".", "#", "\"", "/"],
-                },
-                "definitionProvider": true,
-                "typeDefinitionProvider": true,
-                "referencesProvider": true,
-                "renameProvider": { "prepareProvider": true },
-                "documentHighlightProvider": true,
-                "documentSymbolProvider": true,
-                "workspaceSymbolProvider": true,
-                "foldingRangeProvider": true,
-                "documentLinkProvider": { "resolveProvider": false },
-                "inlayHintProvider": true,
-                "signatureHelpProvider": {
-                    "triggerCharacters": ["(", ","],
-                    "retriggerCharacters": [","],
-                },
-                "codeActionProvider": {
-                    "codeActionKinds": [
-                        "quickfix",
-                        "refactor.extract",
-                        "refactor.inline",
-                        "refactor.rewrite",
-                        crate::lints::FIX_ALL_KIND,
-                    ]
-                },
-                "codeLensProvider": { "resolveProvider": false },
-                "callHierarchyProvider": true,
-                "selectionRangeProvider": true,
-                "executeCommandProvider": { "commands": COMMANDS },
-                "semanticTokensProvider": {
-                    "legend": {
-                        "tokenTypes": TOKEN_TYPES,
-                        "tokenModifiers": TOKEN_MODIFIERS,
-                    },
-                    "full": true,
-                },
-                "experimental": {
-                    "jai": {
-                        "analysis": "compiler-source-syntax",
-                        "compileTimeExecution": false,
-                        "typeInference": false,
-                        "filesystemReads": false,
-                        "moduleSearch": false,
-                        // `jai/expansion` and `jai-expansion:` documents.
-                        "expansions": true,
-                    },
-                },
-            });
-            if self.pull_diagnostics {
-                capabilities["diagnosticProvider"] = json!({
-                    "identifier": "jai",
-                    "interFileDependencies": true,
-                    "workspaceDiagnostics": true,
-                });
-            }
-            return Ok(vec![json!({
-                "capabilities": capabilities,
-                "serverInfo": {
-                    "name": "jai-language-server",
-                    "version": env!("CARGO_PKG_VERSION"),
-                },
-            })]);
-        }
-        if self.lifecycle == Lifecycle::New {
-            return Err((-32002, "Server is not initialized".into()));
-        }
-        if self.lifecycle != Lifecycle::Running {
-            return Err((-32600, "Server has shut down".into()));
-        }
-        if method == "shutdown" && request {
-            self.lifecycle = Lifecycle::Shutdown;
-            return Ok(vec![Value::Null]);
-        }
-        if request {
-            let result = match method {
-                "textDocument/semanticTokens/full" => {
-                    let p: DocumentParams = decode(params)?;
-                    let uri = uri(&p.text_document.uri)?;
-                    let version = self.session.version(&uri).map_err(domain)?;
-                    let tokens = self.session.semantic_tokens(&uri).map_err(domain)?;
-                    let data = semantic_tokens_wire(&tokens);
-                    drop(tokens);
-                    let data = serde_json::to_string(&data).map_err(|e| (-32603, e.to_string()))?;
-                    self.raw_result =
-                        Some(format!("{{\"resultId\":\"{version}\",\"data\":{data}}}"));
-                    Value::Null
-                }
-                "textDocument/documentSymbol" => {
-                    let p: DocumentParams = decode(params)?;
-                    let uri = uri(&p.text_document.uri)?;
-                    let symbols = self.session.document_symbols(&uri).map_err(domain)?;
-                    self.raw_result = Some(
-                        serde_json::to_string(&SymbolsWire(&symbols))
-                            .map_err(|e| (-32603, e.to_string()))?,
-                    );
-                    Value::Null
-                }
-                "textDocument/hover" => {
-                    let p: PositionParams = decode(params)?;
-                    self.session
-                        .hover_as(&uri(&p.text_document.uri)?, p.position, self.hover_kind)
-                        .map_err(domain)?
-                        .as_ref()
-                        .map_or(Value::Null, hover_wire)
-                }
-                "completionItem/resolve" => {
-                    // The documentation of an item whose list left it out.
-                    let mut item = params;
-                    let data = item.get("data").and_then(|d| {
-                        Some(crate::CompletionData {
-                            document: d.get("document")?.as_str()?.to_owned(),
-                            path: d.get("path")?.as_str()?.to_owned(),
-                            offset: d.get("offset")?.as_u64()? as usize,
-                        })
-                    });
-                    if let Some(doc) = data.and_then(|d| self.session.completion_documentation(&d))
-                    {
-                        item["documentation"] = json!({ "kind": "markdown", "value": doc });
-                    }
-                    item
-                }
-                "textDocument/completion" => {
-                    let p: PositionParams = decode(params)?;
-                    completion_wire(
-                        &self
-                            .session
-                            .completion(&uri(&p.text_document.uri)?, p.position)
-                            .map_err(domain)?,
-                    )
-                }
-                "textDocument/definition" => {
-                    let p: PositionParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .definition(&uri(&p.text_document.uri)?, p.position)
-                            .map_err(domain)?
-                            .iter()
-                            .map(location_wire)
-                            .collect(),
-                    )
-                }
-                "textDocument/typeDefinition" => {
-                    let p: PositionParams = decode(params)?;
-                    locations_wire(
-                        &self
-                            .session
-                            .type_definition(&uri(&p.text_document.uri)?, p.position)
-                            .map_err(domain)?,
-                    )
-                }
-                "textDocument/references" => {
-                    let p: ReferenceParams = decode(params)?;
-                    let declaration = p.context.is_none_or(|c| c.include_declaration);
-                    locations_wire(
-                        &self
-                            .session
-                            .references(&uri(&p.text_document.uri)?, p.position, declaration)
-                            .map_err(domain)?,
-                    )
-                }
-                "textDocument/prepareRename" => {
-                    let p: PositionParams = decode(params)?;
-                    self.session
-                        .prepare_rename(&uri(&p.text_document.uri)?, p.position)
-                        .map_err(domain)?
-                        .map_or(Value::Null, |range| json!(range))
-                }
-                "textDocument/rename" => {
-                    let p: RenameParams = decode(params)?;
-                    match self
-                        .session
-                        .rename(&uri(&p.text_document.uri)?, p.position, &p.new_name)
-                        .map_err(domain)?
-                    {
-                        None => Value::Null,
-                        Some(documents) => {
-                            let mut changes = serde_json::Map::new();
-                            for (target, edits) in documents {
-                                let edits: Vec<Value> = edits
-                                    .iter()
-                                    .map(|e| json!({ "range": e.range, "newText": e.new_text }))
-                                    .collect();
-                                changes.insert(target, Value::Array(edits));
-                            }
-                            json!({ "changes": changes })
-                        }
-                    }
-                }
-                "textDocument/documentHighlight" => {
-                    let p: PositionParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .document_highlights(&uri(&p.text_document.uri)?, p.position)
-                            .map_err(domain)?
-                            .into_iter()
-                            .map(|range| json!({ "range": range, "kind": 1 }))
-                            .collect(),
-                    )
-                }
-                "workspace/symbol" => {
-                    let p: WorkspaceSymbolParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .workspace_symbols(&p.query)
-                            .iter()
-                            .map(symbol_information_wire)
-                            .collect(),
-                    )
-                }
-                "textDocument/documentLink" => {
-                    let p: DocumentParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .document_links(&uri(&p.text_document.uri)?)
-                            .map_err(domain)?
-                            .into_iter()
-                            .map(|(range, target)| json!({ "range": range, "target": target }))
-                            .collect(),
-                    )
-                }
-                "textDocument/foldingRange" => {
-                    let p: DocumentParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .folding_ranges(&uri(&p.text_document.uri)?)
-                            .map_err(domain)?
-                            .iter()
-                            .map(folding_wire)
-                            .collect(),
-                    )
-                }
-                "textDocument/inlayHint" => {
-                    let p: RangeParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .inlay_hints(&uri(&p.text_document.uri)?, p.range)
-                            .map_err(domain)?
-                            .iter()
-                            .map(inlay_wire)
-                            .collect(),
-                    )
-                }
-                "textDocument/signatureHelp" => {
-                    let p: PositionParams = decode(params)?;
-                    self.session
-                        .signature_help_as(
-                            &uri(&p.text_document.uri)?,
-                            p.position,
-                            self.signature_kind,
-                        )
-                        .map_err(domain)?
-                        .as_ref()
-                        .map_or(Value::Null, |help| {
-                            signature_wire(help, self.signature_kind)
-                        })
-                }
-                "textDocument/codeAction" => {
-                    let p: CodeActionParams = decode(params)?;
-                    let context = p.context.unwrap_or_default();
-                    let context = crate::lints::ActionContext {
-                        only: context.only,
-                        diagnostics: context
-                            .diagnostics
-                            .into_iter()
-                            .filter(|d| matches!(d.source.as_deref(), Some("jailint" | "jaic")))
-                            .filter_map(|d| Some((d.code?.as_str()?.to_string(), d.range)))
-                            .collect(),
-                    };
-                    Value::Array(
-                        self.session
-                            .code_actions_in(&uri(&p.text_document.uri)?, p.range, &context)
-                            .map_err(domain)?
-                            .iter()
-                            .map(code_action_wire)
-                            .collect(),
-                    )
-                }
-                "textDocument/prepareCallHierarchy" => {
-                    let p: PositionParams = decode(params)?;
-                    let items = self
-                        .session
-                        .prepare_call_hierarchy(&uri(&p.text_document.uri)?, p.position)
-                        .map_err(domain)?;
-                    if items.is_empty() {
-                        Value::Null
-                    } else {
-                        Value::Array(items.iter().map(hierarchy_item_wire).collect())
-                    }
-                }
-                "callHierarchy/incomingCalls" => {
-                    let p: HierarchyParams = decode(params)?;
-                    let calls = self
-                        .session
-                        .incoming_calls(&p.item.into_item())
-                        .map_err(domain)?;
-                    Value::Array(
-                        calls
-                            .iter()
-                            .map(|c| hierarchy_call_wire(c, "from"))
-                            .collect(),
-                    )
-                }
-                "callHierarchy/outgoingCalls" => {
-                    let p: HierarchyParams = decode(params)?;
-                    let calls = self
-                        .session
-                        .outgoing_calls(&p.item.into_item())
-                        .map_err(domain)?;
-                    Value::Array(calls.iter().map(|c| hierarchy_call_wire(c, "to")).collect())
-                }
-                "textDocument/selectionRange" => {
-                    let p: SelectionParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .selection_ranges(&uri(&p.text_document.uri)?, &p.positions)
-                            .map_err(domain)?
-                            .iter()
-                            .map(selection_wire)
-                            .collect(),
-                    )
-                }
-                "textDocument/codeLens" => {
-                    let p: DocumentParams = decode(params)?;
-                    Value::Array(
-                        self.session
-                            .code_lenses(&uri(&p.text_document.uri)?)
-                            .map_err(domain)?
-                            .iter()
-                            .map(code_lens_wire)
-                            .collect(),
-                    )
-                }
-                "workspace/executeCommand" => {
-                    let p: CommandParams = decode(params)?;
-                    let Some(target) = p.arguments.first() else {
-                        return Err((
-                            -32602,
-                            "The command needs a {uri, position} argument".into(),
-                        ));
-                    };
-                    let document = uri(&target.uri)?;
-                    match p.command.as_str() {
-                        "jai.showExpansion" => self
-                            .session
-                            .expansion(&document, target.position)
-                            .map_err(domain)?
-                            .as_ref()
-                            .map_or(Value::Null, expansion_wire),
-                        "jai.showPolymorphs" => {
-                            json!(self.session.polymorphs(&document, target.position))
-                        }
-                        _ => return Err((-32602, "Unknown command".into())),
-                    }
-                }
-                // Non-standard: the generated code of the `#insert`, `#run`, `#if` or macro
-                // call at a position, as a read-only `jai-expansion:` document.
-                "jai/expansion" => {
-                    let p: PositionParams = decode(params)?;
-                    self.session
-                        .expansion(&uri(&p.text_document.uri)?, p.position)
-                        .map_err(domain)?
-                        .as_ref()
-                        .map_or(Value::Null, expansion_wire)
-                }
-                "textDocument/diagnostic" if self.pull_diagnostics => {
-                    let p: DiagnosticParams = decode(params)?;
-                    let target = uri(&p.text_document.uri)?;
-                    let (version, diagnostics) = self.pulled(&target);
-                    document_report(None, version, &diagnostics, p.previous_result_id.as_deref())
-                }
-                "workspace/diagnostic" if self.pull_diagnostics => {
-                    let p: WorkspaceDiagnosticParams = decode(params)?;
-                    let items: Vec<Value> = self
-                        .session
-                        .publications()
-                        .into_iter()
-                        .map(|(target, version, diagnostics)| {
-                            let previous = p
-                                .previous_result_ids
-                                .iter()
-                                .find(|r| r.uri == target)
-                                .map(|r| r.value.as_str());
-                            document_report(Some(&target), Some(version), &diagnostics, previous)
-                        })
-                        .collect();
-                    json!({ "items": items })
-                }
-                // Non-standard: the text of a definition's file the client has not opened
-                // (a module or stdlib file), so a browser editor can show it read-only; or of
-                // a `jai-expansion:` document.
-                "jai/source" => {
-                    let p: DocumentIdentifier = decode(params)?;
-                    if p.uri.starts_with(crate::features::EXPANSION_SCHEME) {
-                        self.session
-                            .expansion_source(&p.uri)
-                            .map_or(Value::Null, Value::String)
-                    } else {
-                        self.session
-                            .source(&uri(&p.uri)?)
-                            .map_or(Value::Null, Value::String)
-                    }
-                }
-                _ => return Err((-32601, "Method not supported".into())),
-            };
-            return Ok(vec![result]);
-        }
-        let settings_touched: bool;
-        match method {
-            "initialized" => return Ok(vec![]),
-            "textDocument/didOpen" => {
-                let p: OpenParams = decode(params)?;
-                let settings = p.text_document.uri.ends_with("/jailint.toml")
-                    || p.text_document.uri.ends_with("/jai.toml");
-                if p.text_document.language_id != "jai" && !settings {
-                    return Err((-32602, "Only Jai documents are supported".into()));
-                }
-                settings_touched = settings;
-                let size = p.text_document.text.len();
-                let name = p.text_document.uri.clone();
-                self.session
-                    .open(
-                        uri(&p.text_document.uri)?,
-                        p.text_document.version,
-                        p.text_document.text,
-                    )
-                    .map_err(|error| {
-                        // Never drop a document without telling the user.
-                        if let Error::Limit(what) = &error {
-                            self.session.notify(format!(
-                                "jailsp did not open {name} ({:.1} MiB): {what}. Its diagnostics, hover and completion are off.",
-                                size as f64 / (1024.0 * 1024.0)
-                            ));
-                        }
-                        domain(error)
-                    })?;
-            }
-            "textDocument/didChange" => {
-                let p: ChangeParams = decode(params)?;
-                settings_touched = crate::lints::is_config(&uri(&p.text_document.uri)?);
-                let name = p.text_document.uri.clone();
-                self.session
-                    .change(
-                        &uri(&p.text_document.uri)?,
-                        p.text_document.version,
-                        &p.content_changes,
-                    )
-                    .map_err(|error| {
-                        if let Error::Limit(what) = &error {
-                            self.session
-                                .notify(format!("jailsp did not apply an edit to {name}: {what}."));
-                        }
-                        domain(error)
-                    })?;
-            }
-            "workspace/didChangeConfiguration" => {
-                let trusted = self.session.trusted();
-                self.configure(&params["settings"]["jai"]);
-                if let Some(on) = params["settings"]["jai"]["trusted"].as_bool() {
-                    self.session.set_trusted(on);
-                }
-                if trusted != self.session.trusted() {
-                    let mut messages = self.publications();
-                    messages.extend(self.refresh());
-                    return Ok(messages);
-                }
-                return Ok(self.refresh());
-            }
-            // The client's answer to workspace trust: `{ "trusted": true }` allows the
-            // workspace's compile-time code to run, `false` withholds it.
-            "jai/setTrusted" => {
+                    .find(|r| r.uri == target)
+                    .map(|r| r.value.as_str());
+                document_report(Some(&target), Some(version), &diagnostics, previous)
+            })
+            .collect();
+        Ok(json!({ "items": items }))
+    }
+
+    /// The text of a definition's file the client has not opened (a module or stdlib file), so a
+    /// browser editor can show it read-only; or of a `jai-expansion:` document.
+    fn source(&mut self, params: Value) -> Result<Value, Failure> {
+        let p: DocumentIdentifier = decode(params)?;
+        let text = if p.uri.starts_with(crate::features::EXPANSION_SCHEME) {
+            self.session.expansion_source(&p.uri)
+        } else {
+            self.session.source(&uri(&p.uri)?)
+        };
+        Ok(text.map_or(Value::Null, Value::String))
+    }
+
+    fn notification(
+        &mut self,
+        notification: Option<Notification>,
+        params: Value,
+    ) -> Result<Vec<Value>, Failure> {
+        self.ensure_running()?;
+        // Unknown notifications are ignored as required by JSON-RPC/LSP.
+        let Some(notification) = notification else {
+            return Ok(vec![]);
+        };
+        match notification {
+            // `$/cancelRequest` and `exit` are handled before the lifecycle is checked.
+            Notification::Initialized | Notification::Cancel | Notification::Exit => Ok(vec![]),
+            Notification::DidOpen => self.did_open(params),
+            Notification::DidChange => self.did_change(params),
+            Notification::DidClose => self.did_close(params),
+            Notification::DidChangeConfiguration => Ok(self.did_change_configuration(&params)),
+            Notification::SetTrusted => {
                 let Some(on) = params["trusted"].as_bool() else {
-                    return Err((-32602, "jai/setTrusted needs a boolean `trusted`".into()));
+                    return Err(fail(
+                        ErrorCode::InvalidParams,
+                        "jai/setTrusted needs a boolean `trusted`",
+                    ));
                 };
                 self.session.set_trusted(on);
-                settings_touched = true;
+                Ok(self.edited(true))
             }
-            "workspace/didChangeWorkspaceFolders" => {
-                let event = &params["event"];
-                let removed: Vec<PathBuf> = event["removed"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|f| folder_path(&f["uri"]))
-                    .collect();
-                let mut folders: Vec<PathBuf> = self
-                    .session
-                    .workspace_folders
-                    .iter()
-                    .filter(|f| !removed.contains(f))
-                    .cloned()
-                    .collect();
-                folders.extend(
-                    event["added"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter_map(|f| folder_path(&f["uri"])),
-                );
-                self.session.set_workspace_folders(folders);
-                return Ok(vec![]);
+            Notification::DidChangeWorkspaceFolders => {
+                self.did_change_workspace_folders(&params["event"]);
+                Ok(vec![])
             }
-            // Files changed on disk: 1 created, 2 changed, 3 deleted.
-            "workspace/didChangeWatchedFiles" => {
+            Notification::DidChangeWatchedFiles => {
+                // Files changed on disk: 1 created, 2 changed, 3 deleted.
                 for change in params["changes"].as_array().into_iter().flatten() {
                     if let Some(path) = folder_path(&change["uri"]) {
                         let changed = change["type"].as_u64() == Some(2);
                         self.session.file_changed(&path, !changed);
                     }
                 }
-                return Ok(self.refresh());
+                Ok(self.refresh())
             }
-            "textDocument/didClose" => {
-                let p: DocumentParams = decode(params)?;
-                let closed = uri(&p.text_document.uri)?;
-                self.session.close(&closed).map_err(domain)?;
-                if self.pull_diagnostics {
-                    return Ok(if crate::lints::is_config(&closed) {
-                        self.refresh()
-                    } else {
-                        Vec::new()
-                    });
-                }
-                let mut publications = self.publications();
-                publications.push(json!({
-                    "jsonrpc": "2.0",
-                    "method": "textDocument/publishDiagnostics",
-                    "params": { "uri": closed.as_str(), "diagnostics": [] },
-                }));
-                return Ok(publications);
-            }
-            // Unknown notifications are ignored as required by JSON-RPC/LSP.
-            _ => return Ok(vec![]),
         }
+    }
+
+    /// The publications after an edit, and a pull request when a settings file changed.
+    fn edited(&mut self, settings_touched: bool) -> Vec<Value> {
         let mut messages = self.publications();
         if settings_touched {
             messages.extend(self.refresh());
         }
-        Ok(messages)
+        messages
     }
+
+    fn did_open(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
+        let OpenParams {
+            text_document: item,
+        } = decode(params)?;
+        let settings = item.uri.ends_with("/jailint.toml") || item.uri.ends_with("/jai.toml");
+        if item.language_id != "jai" && !settings {
+            return Err(fail(
+                ErrorCode::InvalidParams,
+                "Only Jai documents are supported",
+            ));
+        }
+        let size = item.text.len();
+        let target = uri(&item.uri)?;
+        if let Err(error) = self.session.open(target, item.version, item.text) {
+            // Never drop a document without telling the user.
+            if let Error::Limit(what) = &error {
+                self.session.notify(format!(
+                    "jailsp did not open {} ({:.1} MiB): {what}. Its diagnostics, hover and completion are off.",
+                    item.uri,
+                    size as f64 / (1024.0 * 1024.0)
+                ));
+            }
+            return Err(domain(error));
+        }
+        Ok(self.edited(settings))
+    }
+
+    fn did_change(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
+        let p: ChangeParams = decode(params)?;
+        let target = uri(&p.text_document.uri)?;
+        let settings = crate::lints::is_config(&target);
+        let changed = self
+            .session
+            .change(&target, p.text_document.version, &p.content_changes);
+        if let Err(error) = changed {
+            if let Error::Limit(what) = &error {
+                self.session.notify(format!(
+                    "jailsp did not apply an edit to {}: {what}.",
+                    p.text_document.uri
+                ));
+            }
+            return Err(domain(error));
+        }
+        Ok(self.edited(settings))
+    }
+
+    fn did_close(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
+        let closed = document(params)?;
+        self.session.close(&closed).map_err(domain)?;
+        if self.pull_diagnostics {
+            return Ok(if crate::lints::is_config(&closed) {
+                self.refresh()
+            } else {
+                Vec::new()
+            });
+        }
+        let mut publications = self.publications();
+        publications.push(json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": { "uri": closed.as_str(), "diagnostics": [] },
+        }));
+        Ok(publications)
+    }
+
+    fn did_change_configuration(&mut self, params: &Value) -> Vec<Value> {
+        let settings = &params["settings"]["jai"];
+        let trusted = self.session.trusted();
+        self.configure(settings);
+        if let Some(on) = settings["trusted"].as_bool() {
+            self.session.set_trusted(on);
+        }
+        // Trust decides what the compile may run, so every document's diagnostics change.
+        let mut messages = if trusted != self.session.trusted() {
+            self.publications()
+        } else {
+            Vec::new()
+        };
+        messages.extend(self.refresh());
+        messages
+    }
+
+    fn did_change_workspace_folders(&mut self, event: &Value) {
+        let folders = |key: &str| -> Vec<PathBuf> {
+            event[key]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|f| folder_path(&f["uri"]))
+                .collect()
+        };
+        let removed = folders("removed");
+        let mut kept: Vec<PathBuf> = self
+            .session
+            .workspace_folders
+            .iter()
+            .filter(|f| !removed.contains(f))
+            .cloned()
+            .collect();
+        kept.extend(folders("added"));
+        self.session.set_workspace_folders(kept);
+    }
+
 
     /// The version and diagnostics of `target` for a pull (none for a document that is not open).
     fn pulled(&self, target: &DocumentUri) -> (Option<i32>, Vec<Diagnostic>) {
@@ -1174,28 +1297,53 @@ fn valid_id(id: &RequestId) -> bool {
     matches!(id, RequestId::Number(_)) || matches!(id, RequestId::String(text) if text.len() <= 128)
 }
 
-fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, (i32, String)> {
-    serde_json::from_value(value).map_err(|_| (-32602, "Invalid method parameters".into()))
+fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Failure> {
+    serde_json::from_value(value)
+        .map_err(|_| fail(ErrorCode::InvalidParams, "Invalid method parameters"))
 }
 
-fn uri(text: &str) -> Result<DocumentUri, (i32, String)> {
+fn uri(text: &str) -> Result<DocumentUri, Failure> {
     DocumentUri::parse(text).map_err(domain)
 }
 
-fn domain(error: Error) -> (i32, String) {
+/// The document of a `{ textDocument }` request.
+fn document(params: Value) -> Result<DocumentUri, Failure> {
+    let p: DocumentParams = decode(params)?;
+    uri(&p.text_document.uri)
+}
+
+/// The document and position of a `{ textDocument, position }` request.
+fn at(params: Value) -> Result<(DocumentUri, Position), Failure> {
+    let p: PositionParams = decode(params)?;
+    Ok((uri(&p.text_document.uri)?, p.position))
+}
+
+fn array<I: IntoIterator>(items: I, wire: impl FnMut(I::Item) -> Value) -> Value {
+    Value::Array(items.into_iter().map(wire).collect())
+}
+
+fn fail(code: ErrorCode, message: impl Into<String>) -> Failure {
+    (code, message.into())
+}
+
+fn internal(error: serde_json::Error) -> Failure {
+    fail(ErrorCode::InternalError, error.to_string())
+}
+
+fn domain(error: Error) -> Failure {
     let code = match error {
-        Error::Limit(_) => -32803,
-        Error::StaleVersion => -32801,
-        _ => -32602,
+        Error::Limit(_) => ErrorCode::RequestFailed,
+        Error::StaleVersion => ErrorCode::ContentModified,
+        _ => ErrorCode::InvalidParams,
     };
     (code, error.to_string())
 }
 
-fn failure(id: Value, code: i32, message: &str) -> Value {
+fn failure(id: Value, code: ErrorCode, message: &str) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "error": { "code": code, "message": message },
+        "error": { "code": code as i32, "message": message },
     })
 }
 
@@ -1496,6 +1644,88 @@ fn signature_kind(params: &Value) -> MarkupKind {
 }
 
 /// The hover format a client asked for in its `initialize` capabilities.
+/// What the server offers; diagnostics are pulled only from a client that asked to.
+fn capabilities(pull_diagnostics: bool) -> Value {
+    let token_types: Vec<&str> = SemanticTokenKind::ALL.iter().map(|k| k.name()).collect();
+    let commands: Vec<&str> = ServerCommand::NAMES.iter().map(|(name, _)| *name).collect();
+    let mut capabilities = json!({
+        "positionEncoding": "utf-16",
+        "textDocumentSync": { "openClose": true, "change": 2 },
+        "hoverProvider": true,
+        "completionProvider": {
+            "resolveProvider": true,
+            "triggerCharacters": [".", "#", "\"", "/"],
+        },
+        "definitionProvider": true,
+        "typeDefinitionProvider": true,
+        "referencesProvider": true,
+        "renameProvider": { "prepareProvider": true },
+        "documentHighlightProvider": true,
+        "documentSymbolProvider": true,
+        "workspaceSymbolProvider": true,
+        "foldingRangeProvider": true,
+        "documentLinkProvider": { "resolveProvider": false },
+        "inlayHintProvider": true,
+        "signatureHelpProvider": {
+            "triggerCharacters": ["(", ","],
+            "retriggerCharacters": [","],
+        },
+        "codeActionProvider": {
+            "codeActionKinds": [
+                "quickfix",
+                "refactor.extract",
+                "refactor.inline",
+                "refactor.rewrite",
+                crate::lints::FIX_ALL_KIND,
+            ]
+        },
+        "codeLensProvider": { "resolveProvider": false },
+        "callHierarchyProvider": true,
+        "selectionRangeProvider": true,
+        "executeCommandProvider": { "commands": commands },
+        "semanticTokensProvider": {
+            "legend": {
+                "tokenTypes": token_types,
+                "tokenModifiers": TOKEN_MODIFIERS,
+            },
+            "full": true,
+        },
+        "experimental": {
+            "jai": {
+                "analysis": "compiler-source-syntax",
+                "compileTimeExecution": false,
+                "typeInference": false,
+                "filesystemReads": false,
+                "moduleSearch": false,
+                // `jai/expansion` and `jai-expansion:` documents.
+                "expansions": true,
+            },
+        },
+    });
+    if pull_diagnostics {
+        capabilities["diagnosticProvider"] = json!({
+            "identifier": "jai",
+            "interFileDependencies": true,
+            "workspaceDiagnostics": true,
+        });
+    }
+    capabilities
+}
+
+fn workspace_edit_wire(documents: crate::features::RenameEdits) -> Value {
+    let changes: serde_json::Map<String, Value> = documents
+        .into_iter()
+        .map(|(target, edits)| {
+            let edits = array(
+                &edits,
+                |e| json!({ "range": e.range, "newText": e.new_text }),
+            );
+            (target, edits)
+        })
+        .collect();
+    json!({ "changes": changes })
+}
+
 fn hover_kind(params: &Value) -> MarkupKind {
     let formats = params
         .pointer("/capabilities/textDocument/hover/contentFormat")
@@ -1517,27 +1747,33 @@ fn hover_wire(hover: &Hover) -> Value {
     })
 }
 
+/// The LSP `CompletionItemKind` of a completion.
+fn completion_kind_wire(kind: CompletionKind) -> u32 {
+    match kind {
+        CompletionKind::Function => 3,
+        CompletionKind::Field => 5,
+        CompletionKind::Variable => 6,
+        CompletionKind::TypeAlias => 7,
+        CompletionKind::Module => 9,
+        CompletionKind::Enum => 13,
+        CompletionKind::Keyword => 14,
+        CompletionKind::Snippet => 15,
+        CompletionKind::File => 17,
+        CompletionKind::Folder => 19,
+        CompletionKind::EnumMember => 20,
+        CompletionKind::Constant => 21,
+        CompletionKind::Struct => 22,
+        // An `#asm` mnemonic is an operation, not a language keyword.
+        CompletionKind::Instruction => 24,
+    }
+}
+
 fn completion_wire(completion: &CompletionList) -> Value {
     let items: Vec<Value> = completion
         .items
         .iter()
         .map(|item| {
-            let kind = match item.kind {
-                CompletionKind::Function => 3,
-                CompletionKind::Variable => 6,
-                CompletionKind::TypeAlias => 7,
-                CompletionKind::Enum => 13,
-                CompletionKind::Keyword => 14,
-                CompletionKind::Constant => 21,
-                CompletionKind::Struct => 22,
-                CompletionKind::Module => 9,
-                CompletionKind::Field => 5,
-                CompletionKind::EnumMember => 20,
-                CompletionKind::File => 17,
-                CompletionKind::Folder => 19,
-                CompletionKind::Instruction => 14,
-                CompletionKind::Snippet => 15,
-            };
+            let kind = completion_kind_wire(item.kind);
             let mut wire = json!({ "label": item.label, "kind": kind, "detail": item.detail });
             if let Some(doc) = &item.documentation {
                 wire["documentation"] = json!({ "kind": "markdown", "value": doc });
@@ -1591,23 +1827,7 @@ fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
         character: 0,
     };
     for token in tokens {
-        let kind = match token.kind {
-            SemanticTokenKind::Keyword => 0,
-            SemanticTokenKind::String => 1,
-            SemanticTokenKind::Number => 2,
-            SemanticTokenKind::Variable => 3,
-            SemanticTokenKind::Function => 4,
-            SemanticTokenKind::Type => 5,
-            SemanticTokenKind::Property => 6,
-            SemanticTokenKind::Parameter => 7,
-            SemanticTokenKind::Macro => 8,
-            SemanticTokenKind::Operator => 9,
-            SemanticTokenKind::Namespace => 10,
-            SemanticTokenKind::TypeParameter => 11,
-            SemanticTokenKind::EnumMember => 12,
-            SemanticTokenKind::Decorator => 13,
-            SemanticTokenKind::FormatSpecifier => 14,
-        };
+        let kind = token.kind as u32;
         let line_delta = token.position.line - previous.line;
         data.extend([
             line_delta,
@@ -1625,4 +1845,38 @@ fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
         previous = token.position;
     }
     data
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_types_are_listed_in_wire_order() {
+        for (index, kind) in SemanticTokenKind::ALL.iter().enumerate() {
+            assert_eq!(*kind as usize, index, "{kind:?} is out of legend order");
+        }
+        let names: BTreeSet<&str> = SemanticTokenKind::ALL.iter().map(|k| k.name()).collect();
+        assert_eq!(names.len(), SemanticTokenKind::ALL.len());
+    }
+
+    #[test]
+    fn instructions_are_not_keywords() {
+        assert_ne!(
+            completion_kind_wire(CompletionKind::Instruction),
+            completion_kind_wire(CompletionKind::Keyword)
+        );
+    }
+
+    #[test]
+    fn method_tables_have_no_duplicates() {
+        let requests: BTreeSet<&str> = Request::METHODS.iter().map(|(name, _)| *name).collect();
+        assert_eq!(requests.len(), Request::METHODS.len());
+        let notifications: BTreeSet<&str> = Notification::METHODS
+            .iter()
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(notifications.len(), Notification::METHODS.len());
+        assert!(requests.is_disjoint(&notifications));
+    }
 }
