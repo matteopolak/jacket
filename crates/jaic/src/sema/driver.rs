@@ -72,6 +72,24 @@ impl Compiler {
         Ok(())
     }
 
+    /// Starts the parse workers on the files this compile loads first.
+    fn start_parse_ahead(&mut self, sources: &[ProgramSource]) {
+        if self.ide.is_some() || self.ahead.is_some() || !self.fs.is_native() {
+            return;
+        }
+        let mut roots: Vec<PathBuf> = Vec::new();
+        roots.extend(self.options.preload.clone());
+        if self.options.runtime_support {
+            roots.extend(self.find_module("Runtime_Support", Path::new("")));
+        }
+        for source in sources {
+            if let ProgramSource::File(path) = source {
+                roots.push(path.clone());
+            }
+        }
+        self.ahead = crate::parse_ahead::ParseAhead::start(&self.options, roots);
+    }
+
     /// Compile a program whose main file is `path`.
     pub fn compile_program(&mut self, path: &Path) -> Result<()> {
         self.compile_sources(&[ProgramSource::File(path.to_path_buf())])
@@ -119,6 +137,7 @@ impl Compiler {
         } else {
             None
         };
+        self.start_parse_ahead(sources);
         self.load_bootstrap()?;
         let m = self.new_module("main", None, Vec::new());
         self.main_module = Some(m);
@@ -195,6 +214,7 @@ impl Compiler {
     /// Lower everything reachable from the program's exports.
     pub fn finish_program(&mut self) -> Result<()> {
         let result = self.finish_program_inner();
+        super::body_probe::report();
         self.with_deferred_errors(result)
     }
 

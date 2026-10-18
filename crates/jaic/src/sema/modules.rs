@@ -23,6 +23,11 @@ pub trait FileSystem {
         Some(self.canonical(path))
     }
 
+    /// Whether this is the real filesystem, which worker threads may read directly.
+    fn is_native(&self) -> bool {
+        false
+    }
+
     /// Names (and whether each is a directory) directly inside `path`; used by the sandbox host.
     fn list_dir(&self, _path: &Path) -> Vec<(String, bool)> {
         Vec::new()
@@ -56,6 +61,10 @@ pub(super) enum FileLoadState {
 }
 
 impl FileSystem for NativeFs {
+    fn is_native(&self) -> bool {
+        true
+    }
+
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         std::fs::read(path).ok()
     }
@@ -506,6 +515,18 @@ impl Compiler {
     }
 
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
+        if self.ide.is_none()
+            && let Some(prepared) = self.ahead.as_ref().and_then(|a| a.claim(path))
+        {
+            let (text, line_starts, tree) = prepared.into_parts();
+            let file = self.sources.add_file(crate::source::SourceFile::with_lines(
+                path.display().to_string(),
+                text,
+                line_starts,
+            ));
+            let ast = tree.finish(file);
+            return self.declare_loaded(path, module, file, &ast);
+        }
         let file = self.read_source(path, span)?;
         let text = self.sources.get(file).text.clone();
         let shared;
@@ -530,8 +551,22 @@ impl Compiler {
                 None => crate::parser::parse_file(file, &text),
             }
             .map_err(Box::new)?;
+            if let Some(ahead) = &self.ahead {
+                ahead.discover(&own, path);
+            }
             &own
         };
+        self.declare_loaded(path, module, file, ast)
+    }
+
+    /// Enter the parsed file `file` (read from `path`) into `module`.
+    fn declare_loaded(
+        &mut self,
+        path: &Path,
+        module: ModuleId,
+        file: FileId,
+        ast: &ast::File,
+    ) -> Result<()> {
         let module_scope = self.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
         self.files.push(FileInfo {

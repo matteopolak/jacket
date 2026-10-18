@@ -15,6 +15,7 @@ pub mod value;
 mod asm;
 mod bake;
 mod binary;
+pub mod body_probe;
 mod callable;
 mod calls;
 pub mod code_export;
@@ -386,6 +387,8 @@ pub struct Compiler {
     pub fs: Rc<dyn FileSystem>,
     /// Real paths already worked out (see [`Compiler::canon`]).
     canon_cache: crate::paths::CanonCache,
+    /// Worker threads lexing and parsing the files this compile will load (`parse_ahead`).
+    ahead: Option<crate::parse_ahead::ParseAhead>,
     pub sources: SourceMap,
     pub types: Types,
     pub program: ir::Program,
@@ -475,6 +478,12 @@ pub struct Compiler {
     /// Names `module_lookup` found nothing for, with the `namespace_generation` that holds
     /// for. Only names whose `module_names` entry is settled are kept.
     module_misses: HashMap<(ModuleId, Sym), u64>,
+    /// Scopes whose `using`s, imports and implicit modules hold nothing under a name, with
+    /// the `namespace_generation` that holds for.
+    scope_misses: HashMap<(ScopeId, Sym), u64>,
+    /// Modules without any exported `using` member (here or re-exported), and the
+    /// `namespace_generation` that holds for.
+    using_member_free: HashMap<ModuleId, u64>,
     /// Debug builds check `namespace_generation` against a full count of scope contents.
     #[cfg(debug_assertions)]
     namespace_check: std::cell::Cell<(usize, u64)>,
@@ -690,6 +699,7 @@ impl Compiler {
             options,
             fs,
             canon_cache: crate::paths::CanonCache::new(),
+            ahead: None,
             sources: SourceMap::default(),
             types: Types::new(),
             program: ir::Program {
@@ -750,6 +760,8 @@ impl Compiler {
             module_names: HashMap::default(),
             module_names_unsettled: false,
             module_misses: HashMap::default(),
+            scope_misses: HashMap::default(),
+            using_member_free: HashMap::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
             interp: crate::interp::Interp::default(),

@@ -286,6 +286,7 @@ impl Compiler {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());
         }
+        super::body_probe::bump(super::body_probe::C::SigResolve);
         // A parameter naming a polymorphic struct bare (`f: *Table`) makes it polymorphic,
         // which must be known before its types are: `*Table` alone is a type too.
         self.refresh_implicit_poly(id)?;
@@ -800,6 +801,7 @@ impl Compiler {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
                 let func = self.program.reserve_func(name.to_string());
                 self.procs[id.0 as usize].body_state = BodyState::Queued;
+                super::body_probe::enqueued(id.0);
                 self.body_queue.push(id);
                 ProcTarget::Func(func)
             } else {
@@ -815,6 +817,7 @@ impl Compiler {
             let display = self.proc_display_name(id);
             let func = self.program.reserve_func_with_sig(display, ir_sig);
             self.procs[id.0 as usize].body_state = BodyState::Queued;
+            super::body_probe::enqueued(id.0);
             self.body_queue.push(id);
             ProcTarget::Func(func)
         };
@@ -999,7 +1002,7 @@ impl Compiler {
             let mut failed = Vec::new();
             let mut progress = false;
             let existing = self.procs.len();
-            while let Some(id) = self.body_queue.pop() {
+            while let Some(id) = super::body_probe::next_body(&mut self.body_queue) {
                 if self.proc(id).body_state != BodyState::Queued {
                     continue;
                 }
@@ -1285,6 +1288,10 @@ impl Compiler {
     }
 
     fn lower_body_uncached(&mut self, id: ProcId) -> Result<()> {
+        let probing = super::body_probe::enabled();
+        if probing {
+            super::body_probe::begin(self, id.0);
+        }
         let error_mark = self.ide.as_ref().map(|ide| ide.errors.len());
         let executions = self.ct_executions;
         self.dependencies.begin_body(id);
@@ -1317,6 +1324,9 @@ impl Compiler {
         } else {
             BodyState::Queued
         };
+        if probing {
+            super::body_probe::end(self);
+        }
         result
     }
 

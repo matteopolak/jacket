@@ -209,6 +209,15 @@ impl SourceFile {
         }
     }
 
+    /// A file whose line index was built elsewhere, from the same `text`.
+    pub fn with_lines(path: String, text: Rc<str>, lines: LineIndex) -> Self {
+        Self {
+            path,
+            text,
+            lines,
+        }
+    }
+
     /// The file's line index, built when it was added.
     pub fn lines(&self) -> &LineIndex {
         &self.lines
@@ -246,6 +255,11 @@ pub struct SourceMap {
 impl SourceMap {
     pub fn add(&mut self, path: String, text: Rc<str>) -> FileId {
         self.files.push(SourceFile::new(path, text));
+        FileId(self.files.len() as u32 - 1)
+    }
+
+    pub fn add_file(&mut self, file: SourceFile) -> FileId {
+        self.files.push(file);
         FileId(self.files.len() as u32 - 1)
     }
 

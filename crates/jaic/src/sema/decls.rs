@@ -61,6 +61,7 @@ impl Compiler {
             EntityState::Failed(e) => return Err(e.clone()),
             EntityState::Unresolved => {}
         }
+        super::body_probe::bump(super::body_probe::C::EntResolve);
         self.entity_mut(id).state = EntityState::Resolving;
         let traps = self.ct_traps;
         self.resolving_depth += 1;

@@ -19,7 +19,7 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> interp | jaic-llvm
 ```
 
-- `source.rs`, `intern.rs`: files, spans, diagnostics, the global symbol interner.
+- `source.rs`, `intern.rs`: files, spans, diagnostics, the symbol interner (one per thread; see [threading](#threading)).
 - `lexer.rs`: keywords are ordinary identifiers the parser interprets by position; directives (`#run`) and notes (`@x`) are their own token kinds.
 - `parser/`: recursive descent to `ast.rs`, stopping at the first error ([parser](parser.md)).
 - `sema/` ([sema](sema.md)) resolves names on demand, so a declaration is checked when something needs it (top-level structs are also laid out at the end, used or not). `scope.rs`/`modules.rs`: imports and scopes; `decls.rs`, `procs.rs`, `structs.rs`: declarations; `expr.rs`, `stmt.rs`, `calls/`, `convert.rs`: checking; `consteval.rs`: constants and `#run`; `typeinfo.rs`, `runtime_info.rs`: reflection; `bake.rs`, `modify.rs`: polymorphism; `code_export.rs`: syntax trees for metaprograms; `lower.rs`: to IR; `driver.rs`: entry points and `Options`.
@@ -27,6 +27,12 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 - `build.rs`, `records.rs`: workspaces and compiler messages for metaprograms ([workspaces](../metaprogramming/workspaces.md)).
 - `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. Raw memory access is confined to `interp::memory`.
 - `stdlib/` (including `stdlib/prelude/`) is plain Jai, loaded through `sema::FileSystem` (real or virtual).
+
+### Threading
+
+The compiler proper is single-threaded. The exceptions: `parse_ahead.rs` runs the lexer and parser for the files a compile will load on a few worker threads, ahead of sema ([compile speed](compile-speed.md#parallel-lex-and-parse)); codegen runs one thread per unit; the interpreter has its own threads for `#run` code. Type checking is not parallel.
+
+Two process-wide numberings depend on the order sema loads files, so a worker cannot assign them: the symbol numbers in `intern.rs` (a thread-local interner) and the `AstId`s in `ast.rs` (a thread-local counter). A worker parses with a job interner and its own ids, and `ast::relocate` rewrites the tree when sema claims it, so results never depend on thread timing. Any new field in the syntax tree that holds a `Span`, `Ident`, `Sym` or `AstId` must also be visited in `ast/relocate.rs`; `parse_ahead`'s test fails otherwise.
 
 ## How to change it
 

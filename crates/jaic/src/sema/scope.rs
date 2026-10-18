@@ -437,7 +437,7 @@ impl Compiler {
     }
 
     pub(super) fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
-        let mut result = Vec::new();
+        let mut result = Vec::with_capacity(entities.len());
         for &entity in entities {
             for &definition in self
                 .dependencies
@@ -914,70 +914,102 @@ impl Compiler {
             if !settled && !self.lookup_without_expansion {
                 self.expand_pending(sid)?;
             }
-            if let Some(ids) = self.scope(sid).names.get(&name).cloned() {
-                let ids = self.bound_entities(&ids);
+            if let Some(ids) = self.scope(sid).names.get(&name) {
+                let mut ids = self.bound_entities(ids);
                 // A `#placeholder` gives way to the real declaration (possibly
                 // added later by a metaprogram).
                 let is_placeholder =
                     |e: &EntityId| matches!(self.entity(*e).kind, EntityKind::Placeholder);
-                let defined = ids.iter().any(|e| !is_placeholder(e));
-                let ids: Vec<EntityId> = ids
-                    .into_iter()
-                    .filter(|e| !is_placeholder(e) || (!defined && found.is_empty()))
-                    .collect();
-                if !ids.is_empty() && self.collect(&mut found, &ids) {
+                if ids.iter().any(is_placeholder) {
+                    let defined = ids.iter().any(|e| !is_placeholder(e));
+                    ids.retain(|e| !is_placeholder(e) || (!defined && found.is_empty()));
+                }
+                if !ids.is_empty() && self.collect(&mut found, ids) {
                     return Ok(Found::Entities(found));
                 }
             }
-            // Entries added while these are searched are not seen by this lookup.
-            for k in 0..self.scope(sid).usings.len() {
-                let Some(entry) = self.scope(sid).usings.get(k).cloned() else {
-                    break;
-                };
-                match &entry {
-                    UsingEntry::Module(m, filter) => {
-                        if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+            // What `sid`'s `using`s, imports and the implicit modules hold under `name` can
+            // only change with the namespace: a miss is remembered for this generation.
+            let generation = self.namespace_generation;
+            let key = (sid, name);
+            // Body scopes gain `using`s and imports without moving the generation.
+            let stable = !matches!(
+                self.scope(sid).kind,
+                ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
+            );
+            let known_miss = stable
+                && self.scope_misses.get(&key) == Some(&generation)
+                && self.reexport_visiting.is_empty();
+            let try_remember =
+                stable && !known_miss && found.is_empty() && self.reexport_visiting.is_empty();
+            let mut cacheable = try_remember;
+            if !known_miss {
+                // Entries added while these are searched are not seen by this lookup.
+                for k in 0..self.scope(sid).usings.len() {
+                    let Some(entry) = self.scope(sid).usings.get(k) else {
+                        break;
+                    };
+                    match entry {
+                        UsingEntry::Module(m, filter) => {
+                            if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+                                continue;
+                            }
+                            let m = *m;
+                            if let Some(result) = self.merge_module_lookup(&mut found, m, name)? {
+                                return Ok(result);
+                            }
+                        }
+                        _ => {
+                            cacheable = false;
+                            let entry = entry.clone();
+                            if found.is_empty()
+                                && let Some((target, member)) =
+                                    self.aggregate_using_member(&entry, name)?
+                            {
+                                return Ok(Found::Using(target, member));
+                            }
+                        }
+                    }
+                }
+                let imports = self.scope(sid).imports.len();
+                for i in 0..imports {
+                    let resolved = match self.scope(sid).imports[i].module {
+                        Some(module) => Some(module),
+                        None => self.lookup_import(sid, i)?,
+                    };
+                    let Some(module) = resolved else {
+                        cacheable = false;
+                        continue;
+                    };
+                    {
+                        if filter_hides(&self.scope(sid).imports[i].filter, name) {
                             continue;
                         }
-                        if let Some(result) = self.merge_module_lookup(&mut found, *m, name)? {
+                        let before = found.len();
+                        let result = self.merge_module_lookup(&mut found, module, name)?;
+                        if result.is_some() || found.len() > before {
+                            self.ide_note_import_use(sid, i);
+                        }
+                        if let Some(result) = result {
                             return Ok(result);
                         }
                     }
-                    _ => {
-                        if found.is_empty()
-                            && let Some((target, member)) =
-                                self.aggregate_using_member(&entry, name)?
+                }
+                // Preload and Runtime_Support are implicitly visible to every module.
+                if self.scope(sid).kind == ScopeKind::Module {
+                    for implicit in [self.preload, self.runtime_support].into_iter().flatten() {
+                        if self.scope(sid).module == implicit {
+                            continue;
+                        }
+                        if let Some(result) =
+                            self.merge_module_lookup(&mut found, implicit, name)?
                         {
-                            return Ok(Found::Using(target, member));
+                            return Ok(result);
                         }
                     }
                 }
-            }
-            let imports = self.scope(sid).imports.len();
-            for i in 0..imports {
-                if let Some(module) = self.lookup_import(sid, i)? {
-                    if filter_hides(&self.scope(sid).imports[i].filter, name) {
-                        continue;
-                    }
-                    let before = found.len();
-                    let result = self.merge_module_lookup(&mut found, module, name)?;
-                    if result.is_some() || found.len() > before {
-                        self.ide_note_import_use(sid, i);
-                    }
-                    if let Some(result) = result {
-                        return Ok(result);
-                    }
-                }
-            }
-            // Preload and Runtime_Support are implicitly visible to every module.
-            if self.scope(sid).kind == ScopeKind::Module {
-                for implicit in [self.preload, self.runtime_support].into_iter().flatten() {
-                    if self.scope(sid).module == implicit {
-                        continue;
-                    }
-                    if let Some(result) = self.merge_module_lookup(&mut found, implicit, name)? {
-                        return Ok(result);
-                    }
+                if cacheable && found.is_empty() && self.namespace_generation == generation {
+                    self.scope_misses.insert(key, generation);
                 }
             }
             current = self.scope(sid).parent;
@@ -1001,14 +1033,14 @@ impl Compiler {
 
     /// Merge `ids` into `found`; returns true when the lookup must stop
     /// (a non-procedure binding shadows everything outside it).
-    fn collect(&mut self, found: &mut Vec<EntityId>, ids: &[EntityId]) -> bool {
+    fn collect(&mut self, found: &mut Vec<EntityId>, ids: Vec<EntityId>) -> bool {
         let overloadable = ids.iter().all(|&e| self.overloadable_or_alias(e));
         if found.is_empty() {
-            found.extend_from_slice(ids);
+            *found = ids;
             return !overloadable;
         }
         if overloadable {
-            for &id in ids {
+            for id in ids {
                 if !found.contains(&id) {
                     found.push(id);
                 }
@@ -1031,8 +1063,7 @@ impl Compiler {
         if let Some((at, ids)) = self.module_names.get(&(module, name))
             && *at == generation
         {
-            let ids = ids.clone();
-            return Ok(self.bound_entities(&ids));
+            return Ok(self.bound_entities(ids));
         }
         let outer = std::mem::replace(&mut self.module_names_unsettled, false);
         let ids = self.module_declarations_unbound(module, name);
@@ -1160,6 +1191,51 @@ impl Compiler {
         self.module_lookup(module, name)
     }
 
+    /// Can `module` or a module it re-exports hold an exported `using` of a value? A
+    /// `false` answer is remembered until the namespace next changes; anything not yet
+    /// settled (a module still loading, an import not resolved) answers `true`.
+    fn module_may_have_using_members(&mut self, module: ModuleId) -> bool {
+        let generation = self.namespace_generation;
+        if self.using_member_free.get(&module) == Some(&generation) {
+            return false;
+        }
+        let mut visiting = Vec::new();
+        let may = self.module_may_have_using_members_inner(module, &mut visiting);
+        if !may && self.namespace_generation == generation {
+            for m in visiting {
+                self.using_member_free.insert(m, generation);
+            }
+        }
+        may
+    }
+
+    fn module_may_have_using_members_inner(
+        &self,
+        module: ModuleId,
+        visiting: &mut Vec<ModuleId>,
+    ) -> bool {
+        if visiting.contains(&module) {
+            return false;
+        }
+        let data = &self.modules[module.0 as usize];
+        if data.loading || !data.exported_usings.is_empty() {
+            return true;
+        }
+        visiting.push(module);
+        let scope = self.scope(data.scope);
+        for &index in &data.exported_using_imports {
+            match scope.imports.get(index).and_then(|import| import.module) {
+                Some(inner) => {
+                    if self.module_may_have_using_members_inner(inner, visiting) {
+                        return true;
+                    }
+                }
+                None => return true,
+            }
+        }
+        false
+    }
+
     /// The exported `using` entry of `module` (or of a module it re-exports) whose type has
     /// a member `name`.
     fn module_using_member(
@@ -1167,14 +1243,27 @@ impl Compiler {
         module: ModuleId,
         name: Sym,
     ) -> Result<Option<(UsingEntry, Sym)>> {
+        if !self.module_may_have_using_members(module) {
+            return Ok(None);
+        }
         for k in 0..self.modules[module.0 as usize].exported_usings.len() {
-            let Some(entry) = self.modules[module.0 as usize]
-                .exported_usings
-                .get(k)
-                .cloned()
-            else {
+            let Some(entry) = self.modules[module.0 as usize].exported_usings.get(k) else {
                 break;
             };
+            if let UsingEntry::Place {
+                ty, ..
+            }
+            | UsingEntry::Type(ty) = entry
+            {
+                // The common case, answered without copying the entry on a miss.
+                let ty = *ty;
+                if self.type_has_member(ty, name)? {
+                    let entry = self.modules[module.0 as usize].exported_usings[k].clone();
+                    return Ok(Some((entry, name)));
+                }
+                continue;
+            }
+            let entry = entry.clone();
             if let Some(found) = self.aggregate_using_member(&entry, name)? {
                 return Ok(Some(found));
             }
@@ -1224,8 +1313,8 @@ impl Compiler {
         name: Sym,
     ) -> Result<Option<Found>> {
         Ok(match self.module_lookup(module, name)? {
-            Found::Entities(ids) => (!ids.is_empty() && self.collect(found, &ids))
-                .then(|| Found::Entities(found.clone())),
+            Found::Entities(ids) => (!ids.is_empty() && self.collect(found, ids))
+                .then(|| Found::Entities(std::mem::take(found))),
             Found::Using(entry, member) => found.is_empty().then_some(Found::Using(entry, member)),
         })
     }

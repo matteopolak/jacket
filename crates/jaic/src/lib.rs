@@ -19,6 +19,7 @@ mod macros;
 pub mod memory_limit;
 #[doc(hidden)]
 pub mod msvc;
+pub mod parse_ahead;
 pub mod parser;
 pub mod paths;
 pub mod project;
