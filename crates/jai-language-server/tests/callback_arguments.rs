@@ -1,28 +1,15 @@
 //! Original callable-provenance fixtures. Structural type equality is never a name oracle.
-use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
+use jai_language_server::DocumentUri;
+mod common;
+use common::{lean_session, position};
 
 fn names(source: &str) -> Vec<String> {
     let byte = source.find('|').unwrap();
     let text = source.replacen('|', "", 1);
-    let mut s = Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(|_| {
-                let mut o = jaic::sema::Options::host();
-                o.runtime_support = false;
-                o.stack_trace = false;
-                o
-            }),
-        },
-    );
+    let mut s = lean_session();
     let uri = DocumentUri::parse("file:///callback-arguments/main.jai").unwrap();
     s.open(uri.clone(), 1, text.clone()).unwrap();
-    let prefix = &text[..byte];
-    let at = Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    };
+    let at = position(&text, byte);
     s.completion(&uri, at)
         .unwrap()
         .items

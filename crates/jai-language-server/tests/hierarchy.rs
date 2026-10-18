@@ -1,41 +1,9 @@
 //! Call hierarchy and selection ranges.
-use jai_language_server::{
-    DocumentUri, Environment, JsonSession, Limits, Position, Range, Session,
-};
+use jai_language_server::{DocumentUri, JsonSession, Limits, Position, Range};
 use serde_json::{Value, json};
 use std::path::PathBuf;
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///lsp-hierarchy-test/main.jai").unwrap()
-}
-
-fn at(text: &str, marker: &str, offset: usize) -> Position {
-    let byte = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}")) + offset;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
-
-fn open(text: &str) -> Session {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.open(uri(), 1, text.into()).unwrap();
-    s
-}
+mod common;
+use common::{at_offset, environment, open, uri};
 
 const PROGRAM: &str = "leaf :: (n: int) -> int {
     return n + 1;
@@ -58,7 +26,7 @@ main :: () {
 fn prepares_the_procedure_at_a_declaration_or_a_use() {
     let s = open(PROGRAM);
     let at_decl = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "middle ::", 2))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "middle ::", 2))
         .unwrap();
     assert_eq!(at_decl.len(), 1);
     assert_eq!(at_decl[0].name, "middle");
@@ -67,12 +35,12 @@ fn prepares_the_procedure_at_a_declaration_or_a_use() {
     assert_eq!(at_decl[0].range.start.line, 3);
     assert_eq!(at_decl[0].range.end.line, 7);
     let at_use = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "middle(x)", 2))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "middle(x)", 2))
         .unwrap();
     assert_eq!(at_use, at_decl);
     // Not on a procedure.
     assert_eq!(
-        s.prepare_call_hierarchy(&uri(), at(PROGRAM, "x := other", 0))
+        s.prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "x := other", 0))
             .unwrap(),
         [] as [jai_language_server::CallHierarchyItem; 0]
     );
@@ -82,7 +50,7 @@ fn prepares_the_procedure_at_a_declaration_or_a_use() {
 fn lists_incoming_calls_with_their_sites() {
     let s = open(PROGRAM);
     let leaf = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "leaf ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
         .unwrap();
     let calls = s.incoming_calls(&leaf[0]).unwrap();
     let summary: Vec<(&str, usize)> = calls
@@ -94,7 +62,7 @@ fn lists_incoming_calls_with_their_sites() {
     assert_eq!(calls[0].from_ranges[1].start.line, 5);
     // `main` is called by no one.
     let main = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "main ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "main ::", 1))
         .unwrap();
     assert_eq!(
         s.incoming_calls(&main[0]).unwrap(),
@@ -106,7 +74,7 @@ fn lists_incoming_calls_with_their_sites() {
 fn lists_outgoing_calls_with_their_sites() {
     let s = open(PROGRAM);
     let other = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "other ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "other ::", 1))
         .unwrap();
     let calls = s.outgoing_calls(&other[0]).unwrap();
     let summary: Vec<(&str, usize)> = calls
@@ -115,7 +83,7 @@ fn lists_outgoing_calls_with_their_sites() {
         .collect();
     assert_eq!(summary, [("leaf", 1), ("middle", 1)]);
     let main = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "main ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "main ::", 1))
         .unwrap();
     let names: Vec<_> = s
         .outgoing_calls(&main[0])
@@ -126,7 +94,7 @@ fn lists_outgoing_calls_with_their_sites() {
     assert_eq!(names, ["other", "middle"]);
     // A leaf calls nothing in this file.
     let leaf = s
-        .prepare_call_hierarchy(&uri(), at(PROGRAM, "leaf ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
         .unwrap();
     assert_eq!(
         s.outgoing_calls(&leaf[0]).unwrap(),
@@ -142,7 +110,7 @@ main :: () { helper(); }
 ";
     let s = open(text);
     let main = s
-        .prepare_call_hierarchy(&uri(), at(text, "main ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(text, "main ::", 1))
         .unwrap();
     let calls = s.outgoing_calls(&main[0]).unwrap();
     assert_eq!(calls.len(), 1);
@@ -186,7 +154,7 @@ outer :: () {
 ";
     let s = open(text);
     let leaf = s
-        .prepare_call_hierarchy(&uri(), at(text, "leaf ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(text, "leaf ::", 1))
         .unwrap();
     let callers: Vec<_> = s
         .incoming_calls(&leaf[0])
@@ -196,7 +164,7 @@ outer :: () {
         .collect();
     assert_eq!(callers, ["inner"]);
     let outer = s
-        .prepare_call_hierarchy(&uri(), at(text, "outer ::", 1))
+        .prepare_call_hierarchy(&uri(), at_offset(text, "outer ::", 1))
         .unwrap();
     let callees: Vec<_> = s
         .outgoing_calls(&outer[0])
@@ -238,7 +206,7 @@ fn the_server_advertises_and_answers_the_requests() {
         &mut json,
         2,
         "textDocument/prepareCallHierarchy",
-        json!({"textDocument": {"uri": uri().as_str()}, "position": at(PROGRAM, "leaf ::", 1)}),
+        json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "leaf ::", 1)}),
     );
     assert_eq!(items[0]["name"], "leaf");
     assert_eq!(items[0]["kind"], 12);
@@ -254,7 +222,7 @@ fn the_server_advertises_and_answers_the_requests() {
         &mut json,
         4,
         "textDocument/prepareCallHierarchy",
-        json!({"textDocument": {"uri": uri().as_str()}, "position": at(PROGRAM, "middle ::", 1)}),
+        json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "middle ::", 1)}),
     );
     let outgoing = request(
         &mut json,
@@ -267,7 +235,7 @@ fn the_server_advertises_and_answers_the_requests() {
         &mut json,
         6,
         "textDocument/prepareCallHierarchy",
-        json!({"textDocument": {"uri": uri().as_str()}, "position": at(PROGRAM, "x := other", 0)}),
+        json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "x := other", 0)}),
     );
     assert!(nothing.is_null());
 }
@@ -308,7 +276,7 @@ fn slice(text: &str, range: Range) -> String {
 
 #[test]
 fn selection_grows_from_the_token_to_the_file() {
-    let chain = chain(NESTED, at(NESTED, "a, 3", 0));
+    let chain = chain(NESTED, at_offset(NESTED, "a, 3", 0));
     assert_eq!(chain[0], "a");
     assert_eq!(chain[1], "scale(a, 3)");
     assert_eq!(chain[2], "total -= scale(a, 3);");
@@ -324,7 +292,7 @@ fn selection_grows_from_the_token_to_the_file() {
 
 #[test]
 fn selection_steps_through_blocks_and_the_declaration() {
-    let chain = chain(NESTED, at(NESTED, "total > 10", 0));
+    let chain = chain(NESTED, at_offset(NESTED, "total > 10", 0));
     assert_eq!(chain[0], "total");
     assert_eq!(chain[1], "total > 10");
     assert!(chain.iter().any(|c| c.starts_with("if total > 10 {")));
@@ -344,12 +312,12 @@ fn selection_steps_through_blocks_and_the_declaration() {
 
 #[test]
 fn selection_includes_parenthesized_operands_and_string_text() {
-    let chain_a = chain(NESTED, at(NESTED, "a + b", 0));
+    let chain_a = chain(NESTED, at_offset(NESTED, "a + b", 0));
     assert_eq!(chain_a[0], "a");
     assert_eq!(chain_a[1], "a + b");
     assert!(chain_a.contains(&"(a + b) * 2".to_string()), "{chain_a:?}");
     let text = "main :: () {\n    s := \"hello world\";\n}\n";
-    let c = chain(text, at(text, "world", 1));
+    let c = chain(text, at_offset(text, "world", 1));
     assert!(c.contains(&"\"hello world\"".to_string()), "{c:?}");
     assert!(c.contains(&"hello world".to_string()), "{c:?}");
 }
@@ -357,7 +325,7 @@ fn selection_includes_parenthesized_operands_and_string_text() {
 #[test]
 fn selection_works_without_a_parse() {
     let text = "main :: () {\n    x := ;\n";
-    let c = chain(text, at(text, "x :=", 0));
+    let c = chain(text, at_offset(text, "x :=", 0));
     assert_eq!(c.first().unwrap(), "x");
     assert_eq!(c.last().unwrap(), text);
 }
@@ -365,7 +333,10 @@ fn selection_works_without_a_parse() {
 #[test]
 fn selection_answers_every_position() {
     let s = open(NESTED);
-    let positions = [at(NESTED, "compute", 0), at(NESTED, "return", 7)];
+    let positions = [
+        at_offset(NESTED, "compute", 0),
+        at_offset(NESTED, "return", 7),
+    ];
     let ranges = s.selection_ranges(&uri(), &positions).unwrap();
     assert_eq!(ranges.len(), 2);
     let mut json = JsonSession::with_environment(Limits::default(), environment());

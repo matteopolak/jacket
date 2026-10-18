@@ -3,6 +3,8 @@
 use jai_language_server::{Environment, JsonSession, Limits};
 use serde_json::{Value, json};
 use std::path::PathBuf;
+mod common;
+use common::utf16_len;
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
     session
@@ -242,7 +244,7 @@ fn completion_items_replace_the_whole_word_in_utf16() {
     let text = "render_all :: () {}\nmain :: () {\n    s := \"😀\"; rend_er_all();\n}\n#imp\n";
     open(&mut s, uri, 1, text);
     let start = text.lines().nth(2).unwrap().find("rend_er_all").unwrap();
-    let units = |bytes: usize| text.lines().nth(2).unwrap()[..bytes].encode_utf16().count() as u32;
+    let units = |bytes: usize| utf16_len(&text.lines().nth(2).unwrap()[..bytes]);
     let items = complete(&mut s, uri, 2, units(start + 4));
     let item = items
         .iter()

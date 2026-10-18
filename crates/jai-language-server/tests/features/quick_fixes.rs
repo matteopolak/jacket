@@ -1,5 +1,5 @@
 //! Code actions, fix-all, import fixes and lint configuration.
-use super::{TWO_LINTS, at, everything, notify, opened, request, session, uri};
+use super::{TWO_LINTS, at_nth, everything, notify, opened, request, session, uri};
 use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, JsonSession, Position, Range,
 };
@@ -64,8 +64,8 @@ fn fix_all_merges_every_safe_fix() {
 fn quick_fixes_follow_the_diagnostics_they_are_asked_for() {
     let mut json = opened(TWO_LINTS);
     let lint = Range {
-        start: at(TWO_LINTS, "b == false", 0, 0),
-        end: at(TWO_LINTS, "b == false", 0, "b == false".len()),
+        start: at_nth(TWO_LINTS, "b == false", 0, 0),
+        end: at_nth(TWO_LINTS, "b == false", 0, "b == false".len()),
     };
     let diagnostic = serde_json::json!({
         "range": lint, "code": "bool_comparison", "source": "jailint", "message": ""});
@@ -104,7 +104,7 @@ fn an_open_jailint_toml_configures_the_lints() {
             })
             .unwrap()
     };
-    let settings = "file:///lsp-features-test/jailint.toml";
+    let settings = "file:///lsp-test/jailint.toml";
     let published = notify(
         &mut json,
         "textDocument/didOpen",
@@ -136,7 +136,7 @@ fn an_open_jailint_toml_configures_the_lints() {
 fn quick_fixes_at(text: &str, marker: &str) -> Vec<jai_language_server::CodeAction> {
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
-    let cursor = at(text, marker, 0, 0);
+    let cursor = at_nth(text, marker, 0, 0);
     s.code_actions(
         &uri(),
         Range {
@@ -171,7 +171,7 @@ fn an_unknown_name_offers_the_import_that_declares_it() {
     // Below the leading comment, with a blank line before the code.
     assert_eq!(
         single_edit(&actions[0]),
-        (at(text, "main", 0, 0), "#import \"Basic\";\n\n")
+        (at_nth(text, "main", 0, 0), "#import \"Basic\";\n\n")
     );
     // Away from the error, nothing.
     assert!(quick_fixes_at(text, "main").is_empty());
@@ -192,10 +192,10 @@ fn an_unknown_extension_name_offers_its_extensions_import() {
 fn an_import_goes_after_the_existing_imports() {
     let text = "#import \"Math\";\n#load \"other.jai\";\n\nmain :: () {\n    print(\"%\\n\", sqrt(2.0));\n}\n";
     let mut s = session();
-    let other = DocumentUri::parse("file:///lsp-features-test/other.jai").unwrap();
+    let other = DocumentUri::parse("file:///lsp-test/other.jai").unwrap();
     s.open(other, 1, "helper :: () {}\n".into()).unwrap();
     s.open(uri(), 1, text.into()).unwrap();
-    let cursor = at(text, "print", 0, 0);
+    let cursor = at_nth(text, "print", 0, 0);
     let actions = s
         .code_actions(
             &uri(),
@@ -208,7 +208,7 @@ fn an_import_goes_after_the_existing_imports() {
     assert_eq!(actions.len(), 1, "{actions:?}");
     assert_eq!(
         single_edit(&actions[0]),
-        (at(text, "#load", 0, 0), "#import \"Basic\";\n")
+        (at_nth(text, "#load", 0, 0), "#import \"Basic\";\n")
     );
 }
 
@@ -262,11 +262,11 @@ fn a_module_used_as_a_namespace_is_imported_under_its_name() {
 fn a_loaded_file_gets_the_import_itself() {
     let main = "#load \"helper.jai\";\nmain :: () { helper(); }\n";
     let helper_text = "// Helpers.\nhelper :: () {\n    print(\"x\\n\");\n}\n";
-    let helper = DocumentUri::parse("file:///lsp-features-test/helper.jai").unwrap();
+    let helper = DocumentUri::parse("file:///lsp-test/helper.jai").unwrap();
     let mut s = session();
     s.open(uri(), 1, main.into()).unwrap();
     s.open(helper.clone(), 1, helper_text.into()).unwrap();
-    let cursor = at(helper_text, "print", 0, 0);
+    let cursor = at_nth(helper_text, "print", 0, 0);
     let actions = s
         .code_actions(
             &helper,
@@ -279,7 +279,7 @@ fn a_loaded_file_gets_the_import_itself() {
     assert_eq!(actions.len(), 1, "{actions:?}");
     let (target, edits) = actions[0].edit.as_ref().unwrap();
     assert_eq!(target, helper.as_str());
-    assert_eq!(edits[0].range.start, at(helper_text, "helper ::", 0, 0));
+    assert_eq!(edits[0].range.start, at_nth(helper_text, "helper ::", 0, 0));
     assert_eq!(edits[0].new_text, "#import \"Basic\";\n\n");
     // The file that loads it has no error of its own to fix.
     let top_actions = s.code_actions(&uri(), everything(main)).unwrap();
@@ -291,8 +291,8 @@ fn an_import_fix_follows_the_check_diagnostic_it_is_asked_for() {
     let text = "main :: () {\n    print(\"hi\\n\");\n}\n";
     let mut json = opened(text);
     let error = Range {
-        start: at(text, "print", 0, 0),
-        end: at(text, "print", 0, "print".len()),
+        start: at_nth(text, "print", 0, 0),
+        end: at_nth(text, "print", 0, "print".len()),
     };
     let diagnostic = serde_json::json!({
         "range": error, "code": "check", "source": "jaic", "message": ""});

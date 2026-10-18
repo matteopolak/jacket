@@ -1,30 +1,11 @@
 //! Code that can never run is reported as an `unreachable` hint, which editors fade.
-use jai_language_server::{
-    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Session,
-};
-
-fn session() -> Session {
-    Session::with_environment(
-        Limits::default(),
-        Environment {
-            fs: std::rc::Rc::new(jaic::sema::NativeFs),
-            options: Box::new(|_| {
-                let mut options = jaic::sema::Options::host();
-                options.runtime_support = false;
-                options.stack_trace = false;
-                options
-            }),
-        },
-    )
-}
-
-fn uri() -> DocumentUri {
-    DocumentUri::parse("file:///unreachable/main.jai").unwrap()
-}
+use jai_language_server::{DiagnosticCode, DiagnosticSeverity};
+mod common;
+use common::{at_offset, lean_session, uri};
 
 /// The text of every faded range of `source`, without its final `;`, in order.
 fn faded(source: &str) -> Vec<String> {
-    let mut s = session();
+    let mut s = lean_session();
     s.open(uri(), 1, source.into()).unwrap();
     let lines: Vec<&str> = source.split('\n').collect();
     let offset = |line: u32, character: u32| -> usize {
@@ -337,15 +318,6 @@ main :: () {
     assert_eq!(faded(source), ["never_negative := 2"]);
 }
 
-fn at(text: &str, needle: &str, delta: usize) -> Position {
-    let byte = text.find(needle).unwrap() + delta;
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().len() as u32,
-    }
-}
-
 #[test]
 fn faded_branches_keep_hover_and_definition() {
     let source = r"main :: (u: u64) {
@@ -359,20 +331,20 @@ fn faded_branches_keep_hover_and_definition() {
     }
 }
 ";
-    let mut s = session();
+    let mut s = lean_session();
     s.open(uri(), 1, source.into()).unwrap();
     for (needle, expected) in [
         ("inside_false", "inside_false: s64"),
         ("inside_else", "inside_else: s64"),
     ] {
         let hover = s
-            .hover(&uri(), at(source, needle, 2))
+            .hover(&uri(), at_offset(source, needle, 2))
             .unwrap()
             .expect(needle);
         assert!(hover.contents.value.contains(expected), "{hover:?}");
     }
     for needle in ["outer + 1", "outer * 2"] {
-        let defs = s.definition(&uri(), at(source, needle, 1)).unwrap();
+        let defs = s.definition(&uri(), at_offset(source, needle, 1)).unwrap();
         assert_eq!(defs.len(), 1, "{needle}");
         assert_eq!(defs[0].range.start.line, 1);
     }
@@ -431,7 +403,7 @@ fn the_editor_does_not_warn_of_a_missing_return_the_walk_rules_out() {
 }
 main :: () { f(1); }
 ";
-    let mut s = session();
+    let mut s = lean_session();
     s.open(uri(), 1, source.into()).unwrap();
     let warned = s
         .diagnostics(&uri())
@@ -444,7 +416,7 @@ main :: () { f(1); }
 #[test]
 fn an_inactive_static_if_branch_still_has_syntax_tokens() {
     let source = "main :: () {\n    #if false {\n        value := 1 + other;\n    }\n}\n";
-    let mut s = session();
+    let mut s = lean_session();
     s.open(uri(), 1, source.into()).unwrap();
     let tokens = s.semantic_tokens(&uri()).unwrap();
     assert!(tokens.iter().any(|t| t.position.line == 2), "{tokens:?}");

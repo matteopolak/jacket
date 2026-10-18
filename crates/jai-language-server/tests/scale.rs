@@ -1,21 +1,10 @@
 //! Large inputs and compile-time code that cannot finish: the server answers instead of stalling,
 //! dropping the document or dying.
-use jai_language_server::{DocumentUri, Environment, JsonSession, Limits, Position, Session};
+use jai_language_server::{DocumentUri, JsonSession, Limits, Position, Session};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
+mod common;
+use common::environment;
 
 /// Focus's `src/main.jai` imports `Basic` with a parameter its build metaprogram defines, so opened
 /// alone the import never resolves and dozens of language files `#insert` code that waits for it.

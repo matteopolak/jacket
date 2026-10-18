@@ -4,21 +4,11 @@ use jai_language_server::{
     Session,
 };
 use serde_json::{Value, json};
-
-fn environment() -> Environment {
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(|_| {
-            let mut o = jaic::sema::Options::host();
-            o.runtime_support = false;
-            o.stack_trace = false;
-            o
-        }),
-    }
-}
+mod common;
+use common::{lean_environment, position};
 
 fn session(snippets: bool, mode: CallSnippets) -> Session {
-    let mut s = Session::with_environment(Limits::default(), environment());
+    let mut s = Session::with_environment(Limits::default(), lean_environment());
     s.set_snippet_support(snippets);
     s.set_call_snippets(mode);
     s
@@ -33,11 +23,7 @@ fn item(s: &mut Session, source: &str, label: &str) -> Option<CompletionItem> {
     let uri = DocumentUri::parse(URI).unwrap();
     let _ = s.close(&uri);
     s.open(uri.clone(), 1, text.clone()).unwrap();
-    let prefix = &text[..byte];
-    let at = Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    };
+    let at = position(&text, byte);
     s.completion(&uri, at)
         .unwrap()
         .items
@@ -270,7 +256,7 @@ fn find<'a>(reply: &'a Value, label: &str) -> &'a Value {
 #[test]
 fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
     let text = "add :: (a: int, b: int) -> int { return a + b; }\nmain :: () {\n    ad\n}\n";
-    let mut s = JsonSession::with_environment(Limits::default(), environment());
+    let mut s = JsonSession::with_environment(Limits::default(), lean_environment());
     request(
         &mut s,
         1,
@@ -312,7 +298,7 @@ fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
 #[test]
 fn a_client_without_snippet_support_gets_plain_text() {
     let text = "add :: (a: int) {}\nmain :: () {\n    ad\n}\n";
-    let mut s = JsonSession::with_environment(Limits::default(), environment());
+    let mut s = JsonSession::with_environment(Limits::default(), lean_environment());
     request(&mut s, 1, "initialize", json!({ "capabilities": {} }));
     notify(&mut s, "initialized", json!({}));
     let reply = complete(&mut s, 2, text, 2, 6);
@@ -348,11 +334,7 @@ fn labels(s: &mut Session, source: &str, prefix: &str) -> Vec<String> {
     let uri = DocumentUri::parse(URI).unwrap();
     let _ = s.close(&uri);
     s.open(uri.clone(), 1, text.clone()).unwrap();
-    let before = &text[..byte];
-    let at = Position {
-        line: before.matches('\n').count() as u32,
-        character: before.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    };
+    let at = position(&text, byte);
     s.completion(&uri, at)
         .unwrap()
         .items
@@ -443,7 +425,7 @@ fn a_long_procedure_names_its_closing_brace() {
 
 #[test]
 fn the_closing_brace_setting_arrives_over_the_protocol() {
-    let mut s = JsonSession::with_environment(Limits::default(), environment());
+    let mut s = JsonSession::with_environment(Limits::default(), lean_environment());
     request(
         &mut s,
         1,

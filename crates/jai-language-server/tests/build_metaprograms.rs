@@ -1,45 +1,8 @@
 //! Files a build metaprogram (`first.jai`) compiles with `compiler_create_workspace` are
 //! checked and answered like any others, with or without a message loop.
-use jai_language_server::{DiagnosticCode, DocumentUri, Environment, Limits, Position, Session};
-use std::path::{Path, PathBuf};
-
-fn environment() -> Environment {
-    let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
-    Environment {
-        fs: std::rc::Rc::new(jaic::sema::NativeFs),
-        options: Box::new(move |_| {
-            let mut options = jaic::sema::Options::host();
-            options.import_paths = vec![stdlib.clone()];
-            options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
-            options
-        }),
-    }
-}
-
-fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-buildmeta-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
-}
-
-fn uri_of(path: &Path) -> DocumentUri {
-    DocumentUri::from_path(path).unwrap()
-}
-
-fn open(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
-    let mut s = Session::with_environment(Limits::default(), environment());
-    s.set_workspace_folders(vec![folder.to_path_buf()]);
-    let path = folder.join(file);
-    let uri = uri_of(&path);
-    let text = std::fs::read_to_string(&path).unwrap();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    (s, uri, text)
-}
+use jai_language_server::{DiagnosticCode, DocumentUri, Position, Session};
+mod common;
+use common::{open_file, project, uri_of};
 
 fn hover_at(s: &Session, uri: &DocumentUri, text: &str, marker: &str) -> String {
     let byte = text.find(marker).unwrap();
@@ -86,7 +49,7 @@ fn metaprogram(template: &str) -> String {
 
 fn assert_real_hover(name: &str, meta: &str) {
     let dir = project(name, &[("first.jai", meta), ("main.jai", MAIN)]);
-    let (s, uri, text) = open(&dir, "main.jai");
+    let (s, uri, text) = open_file(&dir, "main.jai");
     let hover = hover_at(&s, &uri, &text, "answer :=");
     assert!(hover.contains("answer: s64"), "{hover}");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
@@ -111,7 +74,7 @@ fn built_file_without_main_reports_no_missing_entry() {
             name,
             &[("first.jai", &metaprogram(template)), ("main.jai", lib)],
         );
-        let (s, uri, text) = open(&dir, "main.jai");
+        let (s, uri, text) = open_file(&dir, "main.jai");
         let errors = check_errors(&s, &uri);
         assert!(errors.is_empty(), "{name}: {errors:?}");
         let hover = hover_at(&s, &uri, &text, "value :=");
@@ -125,7 +88,7 @@ fn built_file_without_main_reports_no_missing_entry() {
 #[test]
 fn control_without_the_metaprogram_reports_the_missing_name() {
     let dir = project("control", &[("main.jai", MAIN)]);
-    let (s, uri, _) = open(&dir, "main.jai");
+    let (s, uri, _) = open_file(&dir, "main.jai");
     let errors = check_errors(&s, &uri);
     assert!(
         errors.iter().any(|e| e.contains("extra_value")),
@@ -150,7 +113,7 @@ fn file_of_a_project_module_is_checked_through_the_program_importing_it() {
             ("modules/Grid/cells.jai", "cells :: SIZE * 2;\n"),
         ],
     );
-    let (s, uri, text) = open(&folder, "modules/Grid/cells.jai");
+    let (s, uri, text) = open_file(&folder, "modules/Grid/cells.jai");
     assert!(hover_at(&s, &uri, &text, "cells ::").contains('6'));
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
 }
@@ -168,7 +131,7 @@ fn stray_files_do_not_push_out_the_projects_compile() {
             ("scratch/two.jai", "two :: 2;\n"),
         ],
     );
-    let (mut s, main, main_text) = open(&folder, "main.jai");
+    let (mut s, main, main_text) = open_file(&folder, "main.jai");
     let mut strays = Vec::new();
     for name in ["scratch/one.jai", "scratch/two.jai"] {
         let path = folder.join(name);
@@ -200,7 +163,7 @@ fn polymorphs_nothing_calls_keep_their_compile_time_constants_after_the_release(
              main :: () { print(\"%\\n\", VALUE); }\n",
         )],
     );
-    let (s, uri, text) = open(&folder, "main.jai");
+    let (s, uri, text) = open_file(&folder, "main.jai");
     assert!(hover_at(&s, &uri, &text, "VALUE ::").contains('5'));
     // `later` is never called: its sketch ran `helper` before the compile released it.
     assert!(hover_at(&s, &uri, &text, "scaled :=").contains("scaled"));
@@ -217,7 +180,7 @@ fn constants_built_in_freed_compile_time_memory_still_hover() {
              NAME :: #run make();\nmain :: () { print(\"%\\n\", NAME); }\n",
         )],
     );
-    let (s, uri, text) = open(&folder, "main.jai");
+    let (s, uri, text) = open_file(&folder, "main.jai");
     // The string `make` allocated is freed with the compile; the constant keeps its own copy.
     assert!(hover_at(&s, &uri, &text, "NAME ::").contains("hello"));
     assert!(hover_at(&s, &uri, &text, "NAME);").contains("hello"));

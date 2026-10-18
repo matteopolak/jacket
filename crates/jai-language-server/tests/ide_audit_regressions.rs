@@ -4,18 +4,12 @@ use jai_language_server::{
 };
 use jaic::sema::{Options, VirtualFs};
 use std::{path::PathBuf, rc::Rc};
+mod common;
+use common::{at, position};
 
 const VALUES: &str = "amount :: 23;\nstate: int;\nNumber :: int;\n#scope_file\nsecret :: 99;\n";
 const FACADE: &str = "using,only(amount,state,Number) Values :: #import \"Values\";\n";
 const MAIN: &str = "Facade :: #import \"Facade\";\nAlias :: Facade;\n#add_context marker: int;\nmain :: () {\n    note := \"🦊\"; first := Alias.amount;\n    Alias.state = first;\n    number: Alias.Number;\n    context.marker = number;\n    number = context.marker;\n}\n";
-
-fn at(text: &str, needle: &str) -> Position {
-    let prefix = &text[..text.find(needle).unwrap()];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    }
-}
 
 fn session() -> Session {
     let mut fs = VirtualFs::default();
@@ -507,11 +501,7 @@ fn open_project_modules_do_not_erase_root_type_facts() {
             token.tok,
             jaic::lexer::Tok::Ident(_) | jaic::lexer::Tok::Directive(_)
         ) {
-            let prefix = &text[..token.span.start as usize];
-            let p = Position {
-                line: prefix.matches('\n').count() as u32,
-                character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-            };
+            let p = position(&text, token.span.start as usize);
             let hover = session.hover(&uri, p).unwrap();
             if matches!(token.tok,jaic::lexer::Tok::Ident(name) if name.as_str()=="int") {
                 assert!(

@@ -3,6 +3,8 @@
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Session, TextChange};
 use jaic::sema::{Options, VirtualFs};
 use std::{path::PathBuf, rc::Rc};
+mod common;
+use common::at;
 
 const MODULE: &str = "Item :: struct { field: int; }\nseed :: 41;\nscalar :: seed + 1;\naggregate :: Item.{scalar};\nstate: Item;\nNumber :: s32;\ncallback :: (status: s32) {}\n#scope_file\nsecret :: 99;\n";
 const SOURCE: &str = "Data :: #import \"Values\";\nAlias :: Data;\nmain :: () {\n    first := Data.scalar;\n    second := Alias.aggregate;\n    third := Data.state;\n    number: Data.Number;\n    result := second.field;\n    Data.callback(1);\n}\n";
@@ -21,14 +23,6 @@ fn failed_identifier_does_not_become_a_literal_members_definition() {
         s.definition(&uri, at(source, "count;")).unwrap().is_empty(),
         "a builtin string count has no source declaration; a failed entity must not leak"
     );
-}
-
-fn at(text: &str, needle: &str) -> Position {
-    let prefix = &text[..text.find(needle).unwrap()];
-    Position {
-        line: prefix.matches('\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    }
 }
 
 #[test]

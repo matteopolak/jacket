@@ -1,5 +1,5 @@
 //! Completion, signature help and hovers over polymorphs, baked procedures and other targets.
-use super::{at, hover, session, uri};
+use super::{at_nth, hover, session, uri};
 use jai_language_server::{DocumentUri, Position, Session};
 
 /// Complete at the end of `typed` (the text before the cursor) inside `main`, with a
@@ -78,7 +78,7 @@ run :: () {
         let mut s = session();
         s.open(uri(), 1, text.clone()).unwrap();
         let help = s
-            .signature_help(&uri(), at(&text, call, 0, call.len()))
+            .signature_help(&uri(), at_nth(&text, call, 0, call.len()))
             .unwrap()
             .unwrap_or_else(|| panic!("no signature help for {call}"));
         assert_eq!(help.signatures.len(), 1);
@@ -93,12 +93,12 @@ fn hover_of_a_baked_procedure_is_its_remaining_header() {
     let text = "scale_by :: (value: int, factor: int) -> int { return value * factor; }\ndouble_it :: #bake_arguments scale_by(factor = 2);\nmain :: () { x := double_it(4); }\n";
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
-    let decl = hover(&s, at(text, "double_it ::", 0, 2));
-    let used = hover(&s, at(text, "double_it(4", 0, 2));
+    let decl = hover(&s, at_nth(text, "double_it ::", 0, 2));
+    let used = hover(&s, at_nth(text, "double_it(4", 0, 2));
     assert_eq!(decl, "double_it :: (value: int) -> int");
     assert_eq!(used, "double_it :: (value: int) -> int");
     let help = s
-        .signature_help(&uri(), at(text, "double_it(4", 0, 10))
+        .signature_help(&uri(), at_nth(text, "double_it(4", 0, 10))
         .unwrap()
         .expect("signature help");
     assert_eq!(help.signatures[0].label, "double_it :: (value: int) -> int");
@@ -110,20 +110,20 @@ fn names_from_a_using_parameter_hover_and_go_to_it() {
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let name = s
-        .hover(&uri(), at(text, "name, health", 0, 1))
+        .hover(&uri(), at_nth(text, "name, health", 0, 1))
         .unwrap()
         .map(|h| h.contents.value);
     let pos = s
-        .hover(&uri(), at(text, "position.x", 0, 1))
+        .hover(&uri(), at_nth(text, "position.x", 0, 1))
         .unwrap()
         .map(|h| h.contents.value);
     let def = s
-        .definition(&uri(), at(text, "name, health", 0, 1))
+        .definition(&uri(), at_nth(text, "name, health", 0, 1))
         .unwrap();
     assert_eq!(name.as_deref(), Some("name: string"));
     assert_eq!(pos.as_deref(), Some("position: Vec2"));
     assert_eq!(def.len(), 1, "{def:?}");
-    assert_eq!(def[0].range.start, at(text, "name: string", 0, 0));
+    assert_eq!(def[0].range.start, at_nth(text, "name: string", 0, 0));
 }
 
 /// Names that only the type checker can place: each hovers with its type and goes to its
@@ -150,7 +150,7 @@ main :: () {
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
-        s.hover(&uri(), at(text, needle, 0, offset))
+        s.hover(&uri(), at_nth(text, needle, 0, offset))
             .unwrap()
             .map(|h| h.contents.value)
             .unwrap_or_default()
@@ -172,11 +172,11 @@ main :: () {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert_eq!(
-        s.definition(&uri(), at(text, "Target;", 0, 1))
+        s.definition(&uri(), at_nth(text, "Target;", 0, 1))
             .unwrap()
             .first()
             .map(|d| d.range.start),
-        Some(at(text, "Target: Type", 0, 0))
+        Some(at_nth(text, "Target: Type", 0, 0))
     );
     // The sketch's errors (`items[0]` of a stand-in `T` is fine, but nothing else is checked
     // against real types) are not the program's.
@@ -219,7 +219,7 @@ main :: () {}
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
-        s.hover(&uri(), at(text, needle, 0, offset))
+        s.hover(&uri(), at_nth(text, needle, 0, offset))
             .unwrap()
             .map(|h| h.contents.value)
             .unwrap_or_default()
@@ -245,11 +245,11 @@ main :: () {}
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert_eq!(
-        s.definition(&uri(), at(text, "hits += 2", 0, 0))
+        s.definition(&uri(), at_nth(text, "hits += 2", 0, 0))
             .unwrap()
             .first()
             .map(|d| d.range.start),
-        Some(at(text, "hits: int", 0, 0))
+        Some(at_nth(text, "hits: int", 0, 0))
     );
     let diagnostics = s.diagnostics(&uri()).unwrap();
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
@@ -269,7 +269,7 @@ main :: () {}
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
-        s.hover(&uri(), at(text, needle, 0, offset))
+        s.hover(&uri(), at_nth(text, needle, 0, offset))
             .unwrap()
             .map(|h| h.contents.value)
             .unwrap_or_default()
@@ -295,11 +295,11 @@ main :: () {}
         ("T = int", "$T"),
     ] {
         assert_eq!(
-            s.definition(&uri(), at(text, needle, 0, 0))
+            s.definition(&uri(), at_nth(text, needle, 0, 0))
                 .unwrap()
                 .first()
                 .map(|d| d.range.start),
-            Some(at(text, decl, 0, usize::from(decl == "$T"))),
+            Some(at_nth(text, decl, 0, usize::from(decl == "$T"))),
             "{needle}"
         );
     }
@@ -316,7 +316,7 @@ main :: () {}
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str| {
-        s.hover(&uri(), at(text, needle, 0, 0))
+        s.hover(&uri(), at_nth(text, needle, 0, 0))
             .unwrap()
             .map(|h| h.contents.value)
             .unwrap_or_default()
@@ -324,11 +324,11 @@ main :: () {}
     assert!(hover(&mut s, "text:").contains("text: *u8"));
     assert!(hover(&mut s, "libc \"strlen").contains("libc"));
     assert_eq!(
-        s.definition(&uri(), at(text, "libc \"strlen", 0, 0))
+        s.definition(&uri(), at_nth(text, "libc \"strlen", 0, 0))
             .unwrap()
             .first()
             .map(|d| d.range.start),
-        Some(at(text, "libc ::", 0, 0))
+        Some(at_nth(text, "libc ::", 0, 0))
     );
 }
 
@@ -341,20 +341,22 @@ fn code_another_target_compiles_hovers_and_goes_to_definition() {
 main :: () {}
 "#;
     let web_text = "web_factor :: () -> int { return 2; }\n";
-    let web = DocumentUri::parse("file:///lsp-features-test/web.jai").unwrap();
+    let web = DocumentUri::parse("file:///lsp-test/web.jai").unwrap();
     let mut s = session();
     s.open(uri(), 1, main.into()).unwrap();
     s.open(web.clone(), 1, web_text.into()).unwrap();
     let shown = s
-        .hover(&uri(), at(main, "by *", 0, 0))
+        .hover(&uri(), at_nth(main, "by *", 0, 0))
         .unwrap()
         .map(|h| h.contents.value)
         .unwrap_or_default();
     assert!(shown.contains("by: s64"), "{shown}");
-    let found = s.definition(&uri(), at(main, "web_factor", 0, 0)).unwrap();
+    let found = s
+        .definition(&uri(), at_nth(main, "web_factor", 0, 0))
+        .unwrap();
     assert_eq!(found.first().map(|d| d.uri.as_str()), Some(web.as_str()));
     let shown = s
-        .hover(&web, at(web_text, "int", 0, 0))
+        .hover(&web, at_nth(web_text, "int", 0, 0))
         .unwrap()
         .map(|h| h.contents.value)
         .unwrap_or_default();
@@ -406,13 +408,13 @@ main :: () {
     let mut s = session();
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, nth: usize, offset: usize| {
-        s.hover(&uri(), at(text, needle, nth, offset))
+        s.hover(&uri(), at_nth(text, needle, nth, offset))
             .unwrap()
             .map(|h| h.contents.value)
             .unwrap_or_default()
     };
     let definition = |s: &mut Session, needle: &str, nth: usize, offset: usize| {
-        s.definition(&uri(), at(text, needle, nth, offset))
+        s.definition(&uri(), at_nth(text, needle, nth, offset))
             .unwrap()
             .first()
             .map(|d| d.range.start)
@@ -438,18 +440,18 @@ main :: () {
     assert!(hover(&mut s, "#expand", 0, 1).contains("#expand"));
     assert_eq!(
         definition(&mut s, "first = 1", 0, 1),
-        Some(at(text, "first: int", 0, 0))
+        Some(at_nth(text, "first: int", 0, 0))
     );
     assert_eq!(
         definition(&mut s, "by = 3", 0, 1),
-        Some(at(text, "by := 2", 0, 0))
+        Some(at_nth(text, "by := 2", 0, 0))
     );
     assert_eq!(
         definition(&mut s, "T = x", 0, 0),
-        Some(at(text, "T) -> T", 0, 0))
+        Some(at_nth(text, "T) -> T", 0, 0))
     );
     assert_eq!(
         definition(&mut s, "outer;", 0, 1),
-        Some(at(text, "outer: 0", 0, 0))
+        Some(at_nth(text, "outer: 0", 0, 0))
     );
 }

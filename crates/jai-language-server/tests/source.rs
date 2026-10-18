@@ -2,18 +2,11 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, Limits, Position, Range,
     SemanticTokenKind, Session, SymbolKind, TextChange,
 };
+mod common;
+use common::at_last;
 
 fn uri(name: &str) -> DocumentUri {
     DocumentUri::parse(&format!("file:///workspace/{name}")).unwrap()
-}
-
-fn at(text: &str, name: &str) -> Position {
-    let byte = text.rfind(name).unwrap();
-    let prefix = &text[..byte];
-    Position {
-        line: prefix.bytes().filter(|b| *b == b'\n').count() as u32,
-        character: prefix.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
-    }
 }
 
 fn edit(start: Position, end: Position, text: &str) -> TextChange {
@@ -137,7 +130,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
         session.diagnostics(&main).unwrap(),
         [] as [jai_language_server::Diagnostic; 0]
     );
-    let defs = session.definition(&main, at(text, "answer")).unwrap();
+    let defs = session.definition(&main, at_last(text, "answer")).unwrap();
     assert_eq!(defs.len(), 1);
     assert_eq!(defs[0].uri, helper.as_str());
     assert_eq!(
@@ -149,7 +142,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
     );
     assert!(
         session
-            .hover(&main, at(text, "answer"))
+            .hover(&main, at_last(text, "answer"))
             .unwrap()
             .unwrap()
             .contents
@@ -158,7 +151,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
     );
     assert!(
         session
-            .completion(&main, at(text, "answer"))
+            .completion(&main, at_last(text, "answer"))
             .unwrap()
             .items
             .iter()
@@ -166,7 +159,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
     );
     session.close(&helper).unwrap();
     assert_eq!(
-        session.definition(&main, at(text, "answer")).unwrap(),
+        session.definition(&main, at_last(text, "answer")).unwrap(),
         [] as [jai_language_server::Location; 0]
     );
 }
@@ -177,7 +170,7 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
     let main = uri("main.jai");
     let text = "value :: 1; main :: () -> int {value := 2; return value;}";
     session.open(main.clone(), 1, text.into()).unwrap();
-    let defs = session.definition(&main, at(text, "value")).unwrap();
+    let defs = session.definition(&main, at_last(text, "value")).unwrap();
     assert_eq!(defs.len(), 1);
     assert!(defs[0].range.start.character > 10);
     session
@@ -196,7 +189,9 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
         )
         .unwrap();
     assert_eq!(
-        session.definition(&main, at(updated, "other")).unwrap(),
+        session
+            .definition(&main, at_last(updated, "other"))
+            .unwrap(),
         [] as [jai_language_server::Location; 0]
     );
     let member = "value :: 1; main :: () -> int {return object.value;}";
@@ -212,7 +207,7 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
         )
         .unwrap();
     assert_eq!(
-        session.definition(&main, at(member, "value")).unwrap(),
+        session.definition(&main, at_last(member, "value")).unwrap(),
         [] as [jai_language_server::Location; 0]
     );
 }
@@ -332,7 +327,10 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
         symbols.iter().find(|s| s.name == "main").unwrap().kind,
         SymbolKind::Function
     );
-    let items = session.completion(&main, at(text, "shared")).unwrap().items;
+    let items = session
+        .completion(&main, at_last(text, "shared"))
+        .unwrap()
+        .items;
     assert!(items.iter().any(|item| item.label == "shared"));
     let all = session
         .completion(
@@ -357,7 +355,7 @@ fn asm_completion_and_hover_work_without_a_type_checker() {
     let main = uri("main.jai");
     let text = "main :: () {\n    count: s64 = 0;\n    #asm {\n        r: gpr;\n        popcnt r, co\n    }\n}\n";
     session.open(main.clone(), 1, text.into()).unwrap();
-    let mut typed = at(text, ", co");
+    let mut typed = at_last(text, ", co");
     typed.character += 4;
     let labels: Vec<String> = session
         .completion(&main, typed)
@@ -367,7 +365,7 @@ fn asm_completion_and_hover_work_without_a_type_checker() {
         .map(|i| i.label)
         .collect();
     assert_eq!(labels, ["count"]);
-    let mut operand = at(text, ", co");
+    let mut operand = at_last(text, ", co");
     operand.character += 2;
     let labels: Vec<String> = session
         .completion(&main, operand)
@@ -377,7 +375,7 @@ fn asm_completion_and_hover_work_without_a_type_checker() {
         .map(|i| i.label)
         .collect();
     assert!(labels.contains(&"r".to_string()), "{labels:?}");
-    let mut mnemonic = at(text, "popcnt");
+    let mut mnemonic = at_last(text, "popcnt");
     mnemonic.character += 3;
     let hover = session.hover(&main, mnemonic).unwrap().expect("hover");
     assert!(
