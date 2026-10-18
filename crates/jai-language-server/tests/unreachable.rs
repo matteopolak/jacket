@@ -1,6 +1,6 @@
 //! Code that can never run is reported as an `unreachable` hint, which editors fade.
 use jai_language_server::{
-    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Session,
+    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Position, Session,
 };
 
 fn session() -> Session {
@@ -335,4 +335,117 @@ main :: () {
 }
 "#;
     assert_eq!(faded(source), ["never_negative := 2"]);
+}
+
+fn at(text: &str, needle: &str, delta: usize) -> Position {
+    let byte = text.find(needle).unwrap() + delta;
+    let prefix = &text[..byte];
+    Position {
+        line: prefix.matches('\n').count() as u32,
+        character: prefix.rsplit('\n').next().unwrap().len() as u32,
+    }
+}
+
+#[test]
+fn faded_branches_keep_hover_and_definition() {
+    let source = r#"main :: (u: u64) {
+    outer := 5;
+    if false {
+        inside_false := outer + 1;
+        broken_but_dead := missing_name;
+    }
+    if u >= 0 { live := 1; } else {
+        inside_else := outer * 2;
+    }
+}
+"#;
+    let mut s = session();
+    s.open(uri(), 1, source.into()).unwrap();
+    for (needle, expected) in [
+        ("inside_false", "inside_false: s64"),
+        ("inside_else", "inside_else: s64"),
+    ] {
+        let hover = s
+            .hover(&uri(), at(source, needle, 2))
+            .unwrap()
+            .expect(needle);
+        assert!(hover.contents.value.contains(expected), "{hover:?}");
+    }
+    for needle in ["outer + 1", "outer * 2"] {
+        let defs = s.definition(&uri(), at(source, needle, 1)).unwrap();
+        assert_eq!(defs.len(), 1, "{needle}");
+        assert_eq!(defs[0].range.start.line, 1);
+    }
+    let errors: Vec<_> = s
+        .diagnostics(&uri())
+        .unwrap()
+        .into_iter()
+        .filter(|d| d.severity == DiagnosticSeverity::Error)
+        .collect();
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn an_early_exit_narrows_the_rest_of_the_block() {
+    let source = r#"main :: (x: s64, y: s64, z: s64) {
+    if x < 0 { return; }
+    if x < 0 { after_return := 1; }
+    while true {
+        if y > 5 { break; }
+        if y > 5 { after_break := 2; }
+        if y < 3 { y_live := 3; }
+    }
+    if z < 0 { return; }
+    z = -1;
+    if z < 0 { reassigned_live := 4; }
+}
+"#;
+    assert_eq!(faded(source), ["after_return := 1", "after_break := 2"]);
+}
+
+#[test]
+fn an_if_else_where_one_side_exits_narrows_too() {
+    let source = r#"main :: (x: s64) {
+    if x > 3 { } else { return; }
+    if x < 2 { impossible := 1; }
+}
+"#;
+    assert_eq!(faded(source), ["impossible := 1"]);
+}
+
+#[test]
+fn a_for_over_an_empty_range_fades_its_body() {
+    let source = r#"main :: (n: s64) {
+    for 1..0 { empty := 1; }
+    for 0..1 { once := 2; }
+    for 5..n { unknown := 3; }
+}
+"#;
+    assert_eq!(faded(source), ["empty := 1"]);
+}
+
+#[test]
+fn the_editor_does_not_warn_of_a_missing_return_the_walk_rules_out() {
+    let source = r#"f :: (u: u8) -> int {
+    if u >= 0 { return 1; }
+}
+main :: () { f(1); }
+"#;
+    let mut s = session();
+    s.open(uri(), 1, source.into()).unwrap();
+    let warned = s
+        .diagnostics(&uri())
+        .unwrap()
+        .iter()
+        .any(|d| d.message.contains("not all control paths"));
+    assert!(!warned);
+}
+
+#[test]
+fn an_inactive_static_if_branch_still_has_syntax_tokens() {
+    let source = "main :: () {\n    #if false {\n        value := 1 + other;\n    }\n}\n";
+    let mut s = session();
+    s.open(uri(), 1, source.into()).unwrap();
+    let tokens = s.semantic_tokens(&uri()).unwrap();
+    assert!(tokens.iter().any(|t| t.position.line == 2), "{tokens:?}");
 }

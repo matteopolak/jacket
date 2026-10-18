@@ -63,6 +63,9 @@ struct Walk {
     env: Vec<(EntityId, Interval)>,
     /// The dead runs found, by span.
     dead: Vec<Span>,
+    /// For the `if` just walked: whether control can leave its then branch and its else branch
+    /// (a missing else always can).
+    if_exits: (bool, bool),
 }
 
 struct LoopCtx {
@@ -332,11 +335,13 @@ impl Compiler {
 
     /// Walk `body` for code that cannot run: record it for the editor, and warn at the first
     /// statement after a `return`, `break` or `continue` of its block, as Jai does.
-    pub(super) fn warn_unreachable(&mut self, f: &FnCtx, body: &ast::Block) {
+    ///
+    /// Returns whether control can reach the end of the body.
+    pub(super) fn warn_unreachable(&mut self, f: &FnCtx, body: &ast::Block) -> bool {
         let mut walk = Walk::default();
-        self.walk_stmts(f, &mut walk, &body.stmts, true);
+        let completes = self.walk_stmts(f, &mut walk, &body.stmts, true);
         if self.sketching() || !self.ide_wants_pub(body.span.file) {
-            return;
+            return completes;
         }
         walk.dead.sort_by_key(|s| (s.start, s.end));
         walk.dead.dedup();
@@ -346,12 +351,33 @@ impl Compiler {
                 *ide.dead_runs.entry((body.span, run)).or_default() += 1;
             }
         }
+        completes
     }
 
     /// Whether control can leave the end of `stmts`.
     fn walk_stmts(&mut self, f: &FnCtx, walk: &mut Walk, stmts: &[ast::Stmt], warn: bool) -> bool {
+        let mark = walk.env.len();
+        let completes = self.walk_run(f, walk, stmts, warn);
+        walk.env.truncate(mark);
+        completes
+    }
+
+    fn walk_run(&mut self, f: &FnCtx, walk: &mut Walk, stmts: &[ast::Stmt], warn: bool) -> bool {
         for (i, stmt) in stmts.iter().enumerate() {
             if self.walk_stmt(f, walk, stmt, warn) {
+                // `if c { exits }` leaves the rest of the block knowing `c` was false (and
+                // `if c { } else { exits }` that it was true).
+                if let S::If {
+                    cond, ..
+                } = &stmt.kind
+                    && let Some(rest) = stmts_span(&stmts[i + 1..])
+                {
+                    match walk.if_exits {
+                        (false, true) => self.narrow(walk, cond, false, rest),
+                        (true, false) => self.narrow(walk, cond, true, rest),
+                        _ => {}
+                    }
+                }
                 continue;
             }
             let Some(next) = stmts[i + 1..].iter().find(|s| runs_in_order(s)) else {
@@ -421,6 +447,12 @@ impl Compiler {
                 truth != Some(true) || broken
             }
             S::For(for_) => {
+                if let ast::ForOver::Range(from, to) = &for_.over
+                    && self.compare_exprs(walk, BinOp::Gt, from, to) == Some(true)
+                {
+                    walk.dead.push(branch_span(&for_.body));
+                    return true;
+                }
                 walk.loops.push(LoopCtx {
                     label: None,
                     broken: false,
@@ -474,6 +506,7 @@ impl Compiler {
             walk.env.truncate(mark);
         }
         let Some(else_branch) = else_branch else {
+            walk.if_exits = (then_exits_normally, true);
             return then_exits_normally || truth != Some(true);
         };
         let mut else_exits_normally = false;
@@ -484,6 +517,7 @@ impl Compiler {
             else_exits_normally = self.walk_stmt(f, walk, else_branch, warn);
             walk.env.truncate(mark);
         }
+        walk.if_exits = (then_exits_normally, else_exits_normally);
         then_exits_normally || else_exits_normally
     }
 

@@ -1524,11 +1524,15 @@ impl Compiler {
         // statements written after one that leaves the block.
         // Named results are returned at the end (a feature newer than the warning), so a body
         // that names them all is never short of a `return`.
+        let reaches_end = self.warn_unreachable(&f, body);
+        // An editor analysis also drops the warning where the walk shows the end is never
+        // reached (`if x >= 0 { return 1; } else if x < 0 { return 2; }` on an unsigned `x`
+        // cannot, but the reference compiler would warn, so the batch compiler keeps its rule).
         let owes_result = !f.return_types.is_empty()
             && !f.named_results.iter().all(Option::is_some)
             && !f.macro_returned
-            && !self.stmts_return(&f, &body.stmts);
-        self.warn_unreachable(&f, body);
+            && !self.stmts_return(&f, &body.stmts)
+            && (self.ide.is_none() || reaches_end);
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
