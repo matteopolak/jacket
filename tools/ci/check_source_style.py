@@ -52,7 +52,6 @@ ALLOWED_LONG = {
     "crates/jaic/src/sema/procs.rs": 1734,
     "crates/jaic/src/sema/scope.rs": 1331,
     "crates/jaic/src/sema/stmt.rs": 3412,
-    "crates/jaic/src/sema/structs.rs": 2857,
     "crates/jaic/src/sema/typeinfo.rs": 1391,
 }
 
