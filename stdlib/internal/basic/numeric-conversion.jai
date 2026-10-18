@@ -8,6 +8,14 @@ portable_float :: (value: float64, conversion: u8, precision: s64, round_up := f
     if exponent != 0 mantissa |= 0x0010000000000000;
 
     binary_scale := ifx exponent == 0 then -1074 else exponent - 1023 - 52;
+
+    // The value is mantissa * 2^binary_scale; factors of two in the mantissa move into the scale,
+    // which leaves fewer powers of five to multiply in below (2.5 needs one, not fifty-one).
+    while mantissa != 0 && binary_scale < 0 && (mantissa & 1) == 0 {
+        mantissa >>= 1;
+        binary_scale += 1;
+    }
+
     number := nat_from(mantissa);
 
     defer array_free(number.words);
@@ -15,7 +23,15 @@ portable_float :: (value: float64, conversion: u8, precision: s64, round_up := f
 
     if binary_scale < 0 {
         decimal_scale = -binary_scale;
-        for i: 0..decimal_scale - 1 nat_multiply(*number, 5);
+        remaining := decimal_scale;
+
+        // 5^13 is the largest power of five that fits in a word.
+        while remaining >= 13 {
+            nat_multiply(*number, 1220703125);
+            remaining -= 13;
+        }
+
+        for i: 0..remaining - 1 nat_multiply(*number, 5);
     } else nat_shift(*number, binary_scale);
 
     exact := nat_decimal(*number);

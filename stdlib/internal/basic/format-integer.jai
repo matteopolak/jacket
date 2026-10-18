@@ -53,6 +53,19 @@ print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) {
     }
 
     remaining := max(count, min(format.minimum_digits, 64));
+
+    if format.digits_per_comma == 0 {
+        // No separators: lay the padding and the digits out in order and append them at once.
+        text: [64] u8;
+        padding := remaining - count;
+
+        for i: 0..padding - 1 text[i] = format.padding;
+        for i: 0..count - 1 text[padding + i] = digits[count - 1 - i];
+
+        append(builder, text.data, remaining);
+        return;
+    }
+
     while remaining > 0 {
         remaining -= 1;
         if remaining >= count append(builder, format.padding);

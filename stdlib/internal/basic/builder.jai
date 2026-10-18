@@ -112,6 +112,14 @@ advance_through_ensured_space :: (using builder: *String_Builder, bytes: s64) {
 }
 
 append :: (using builder: *String_Builder, s: *u8, length: s64) {
+    // The common case: the text fits in the buffer being filled.
+    if initialized && !failed && length >= 0 && length <= current_buffer.allocated - current_buffer.count {
+        memcpy(get_buffer_data(current_buffer) + current_buffer.count, s, length);
+        current_buffer.count += length;
+        #if ENABLE_ASSERT current_buffer.ensured_count = 0;
+        return;
+    }
+
     memory := ensure_contiguous_space(builder, length);
     if !memory return;
     memcpy(memory, s, length);
@@ -122,8 +130,14 @@ append :: inline (builder: *String_Builder, s: string) {
     append(builder, s.data, s.count);
 }
 
-append :: inline (builder: *String_Builder, byte: u8) {
-    append(builder, *byte, 1);
+append :: inline (using builder: *String_Builder, byte: u8) {
+    if initialized && !failed && current_buffer.allocated > current_buffer.count {
+        get_buffer_data(current_buffer)[current_buffer.count] = byte;
+        current_buffer.count += 1;
+        #if ENABLE_ASSERT current_buffer.ensured_count = 0;
+    } else {
+        append(builder, *byte, 1);
+    }
 }
 
 append_by_pointer :: inline (builder: *String_Builder, pointer: *$T) {

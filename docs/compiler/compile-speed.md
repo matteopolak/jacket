@@ -28,6 +28,10 @@ Choices that matter:
 
 `#run`, metaprograms, `jaic -interp` and the playground run in `interp/` ([interpreter](interpreter.md#the-interpreters-code-form)). It uses one flat op array with a program counter, registers on the interpreter stack (a call is `enter` plus an argument copy), specialized load/store/div/call ops, boxed `Trap` to keep `Res<u64>` at 16 bytes, and a region cache in the memory probe (`interp/probe.rs`) flushed by an epoch that `invalidate()` bumps after any foreign call that can unmap memory. Constant `#run` thunks are profiled like any other call (`LeakOnExit` flushes the profile before leaking). Remaining costs: call overhead (about a quarter of `interp-strings`; `run_ops` recurses per call), dispatch mispredicts, `trace_enter` under `jaic -interp`, second-table dispatch for compare ops, and calls recursing on the Rust stack.
 
+Compile-time code is mostly the standard library's own code, so its cost is measured in interpreted instructions (`JAIC_PROFILE=1`). `benchmarks/interp-strings.jai` fell from 1.50 to 0.54 billion by fixing three stdlib paths, not the interpreter: `String_Builder` `append` (one byte or a string) copies straight into the buffer when it fits instead of ensure, copy, advance with their assertions; `print_u64_base_n` appends a number once, not a digit at a time; and float formatting (`portable_float`) moves factors of two out of the mantissa and multiplies powers of five in word-sized chunks, so `2.5` costs one big-number multiply instead of fifty-one. When a compile-time workload is slow, read the profile's procedure table before touching `run_ops`.
+
+Child processes (`run_command`): the supervisor that watches a command polls for its exit starting at 1 ms and backing off to 10 ms, since a fixed 10 ms poll added up to 10 ms to every short command (a build metaprogram runs `xcrun` twice and the linker once).
+
 ### Rejected experiments
 
 - Skipping LiveDebugValues at `-O0`: loses `frame variable` locations.
