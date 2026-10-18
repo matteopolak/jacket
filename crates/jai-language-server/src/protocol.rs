@@ -1,10 +1,11 @@
 //! Standard JSON parsing belongs at this portable boundary, not in source analysis.
+use crate::completion_wire::completion_wire;
 use crate::{
-    CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionKind,
-    CompletionList, Diagnostic, DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri,
-    Error, Expansion, FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, MarkupKind,
-    Position, Range, SelectionRange, SemanticToken, SemanticTokenKind, Session, SignatureHelp,
-    SymbolInformation, SymbolKind, TOKEN_MODIFIERS, TextChange,
+    CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, Diagnostic,
+    DiagnosticCode, DiagnosticSeverity, DocumentSymbol, DocumentUri, Error, Expansion,
+    FoldingRange, Hover, InlayHint, InlayHintKind, Limits, Location, MarkupKind, Position, Range,
+    SelectionRange, SemanticToken, SemanticTokenKind, Session, SignatureHelp, SymbolInformation,
+    SymbolKind, TOKEN_MODIFIERS, TextChange,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -954,6 +955,12 @@ impl JsonSession {
                 .pointer("/capabilities/workspace/diagnostics/refreshSupport")
                 .and_then(Value::as_bool)
                 == Some(true);
+        self.session.set_snippet_support(
+            params
+                .pointer("/capabilities/textDocument/completion/completionItem/snippetSupport")
+                .and_then(Value::as_bool)
+                == Some(true),
+        );
         self.configure(&params["initializationOptions"]);
         // A server started untrusted (`--untrusted`) stays so unless the client grants
         // trust later; initialization options can only withhold it.
@@ -1295,10 +1302,20 @@ impl JsonSession {
 
 impl JsonSession {
     /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of
-    /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false } }`.
+    /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false,
+    /// "callSnippets": "fillArguments" } }`.
     fn configure(&mut self, settings: &Value) {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {
             self.session.set_auto_import(on);
+        }
+        if let Some(lines) = settings["inlayHints"]["closingBraceMinLines"].as_u64() {
+            self.session.set_closing_brace_min_lines(lines as usize);
+        }
+        if let Some(mode) = settings["completion"]["callSnippets"]
+            .as_str()
+            .and_then(crate::call_snippets::CallSnippets::parse)
+        {
+            self.session.set_call_snippets(mode);
         }
     }
 }
@@ -1770,79 +1787,6 @@ fn hover_wire(hover: &Hover) -> Value {
     })
 }
 
-/// The LSP `CompletionItemKind` of a completion.
-fn completion_kind_wire(kind: CompletionKind) -> u32 {
-    match kind {
-        CompletionKind::Function => 3,
-        CompletionKind::Field => 5,
-        CompletionKind::Variable => 6,
-        CompletionKind::TypeAlias => 7,
-        CompletionKind::Module => 9,
-        CompletionKind::Enum => 13,
-        CompletionKind::Keyword => 14,
-        CompletionKind::Snippet => 15,
-        CompletionKind::File => 17,
-        CompletionKind::Folder => 19,
-        CompletionKind::EnumMember => 20,
-        CompletionKind::Constant => 21,
-        CompletionKind::Struct => 22,
-        // An `#asm` mnemonic is an operation, not a language keyword.
-        CompletionKind::Instruction => 24,
-    }
-}
-
-fn completion_wire(completion: &CompletionList) -> Value {
-    let items: Vec<Value> = completion
-        .items
-        .iter()
-        .map(|item| {
-            let kind = completion_kind_wire(item.kind);
-            let mut wire = json!({ "label": item.label, "kind": kind, "detail": item.detail });
-            if let Some(doc) = &item.documentation {
-                wire["documentation"] = json!({ "kind": "markdown", "value": doc });
-            }
-            if let Some(data) = &item.data {
-                wire["data"] = json!({
-                    "document": data.document,
-                    "path": data.path,
-                    "offset": data.offset,
-                });
-            }
-            if let Some(description) = &item.label_description {
-                wire["labelDetails"] = json!({ "description": description });
-            }
-            if let Some(sort) = &item.sort_text {
-                wire["sortText"] = json!(sort);
-            }
-            if !item.additional_edits.is_empty() {
-                wire["additionalTextEdits"] = item
-                    .additional_edits
-                    .iter()
-                    .map(|e| json!({ "range": e.range, "newText": e.new_text }))
-                    .collect();
-            }
-            // `textEdit` replaces the whole word; `insertText` is for items without a range.
-            let text = item.insert_text.as_deref();
-            if let Some(range) = &item.replace {
-                wire["textEdit"] =
-                    json!({ "range": range, "newText": text.unwrap_or(&item.label) });
-            } else if let Some(text) = text {
-                wire["insertText"] = json!(text);
-            }
-            if text.is_some() {
-                // 2: snippet syntax (`${1:name}`), 1: plain text.
-                wire["insertTextFormat"] = json!(if item.kind == CompletionKind::Snippet {
-                    2
-                } else {
-                    1
-                });
-            }
-            wire
-        })
-        .collect();
-    json!({ "isIncomplete": completion.is_incomplete, "items": items })
-}
-
 fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
     let mut data = Vec::with_capacity(tokens.len().saturating_mul(5));
     let mut previous = Position {
@@ -1881,14 +1825,6 @@ mod tests {
         }
         let names: BTreeSet<&str> = SemanticTokenKind::ALL.iter().map(|k| k.name()).collect();
         assert_eq!(names.len(), SemanticTokenKind::ALL.len());
-    }
-
-    #[test]
-    fn instructions_are_not_keywords() {
-        assert_ne!(
-            completion_kind_wire(CompletionKind::Instruction),
-            completion_kind_wire(CompletionKind::Keyword)
-        );
     }
 
     #[test]

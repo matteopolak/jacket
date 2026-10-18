@@ -22,11 +22,13 @@ use crate::project::{self, ProjectConfig};
 use crate::semantic::Environment;
 use crate::session::Session;
 use jaic::sema::TargetOs;
+use names::{builds_for, module_of, stdlib_rank};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 mod aliases;
+mod names;
 
 /// The most auto-import items one completion offers.
 pub const MAX_ITEMS: usize = 50;
@@ -770,42 +772,6 @@ impl Sources<'_> {
     }
 }
 
-/// Whether a module asserting `only_os` builds for `os`.
-fn builds_for(only_os: &Option<Vec<String>>, os: TargetOs) -> bool {
-    let name = jaic::target::os_member(os);
-    only_os
-        .as_ref()
-        .is_none_or(|targets| targets.iter().any(|t| t == name))
-}
-
-/// The name of the module of `dir` that `file` is part of: its folder (`Basic/x.jai`, and
-/// `Extensions/Name/x.jai` in the stdlib) or the file itself (`Name.jai`).
-fn module_of(file: &Path, dir: &Path) -> Option<String> {
-    let parts: Vec<String> = file
-        .strip_prefix(dir)
-        .ok()?
-        .iter()
-        .map(|c| c.to_string_lossy().into_owned())
-        .collect();
-    match parts.as_slice() {
-        [extensions, name, _, ..] if extensions == jaic::STDLIB_EXTENSIONS_DIR => {
-            Some(format!("{extensions}/{name}"))
-        }
-        [folder, _, ..] => Some(folder.clone()),
-        [file] => file.strip_suffix(".jai").map(str::to_string),
-        [] => None,
-    }
-}
-
-/// Ranks of stdlib modules: common ones (`Basic`, `String`, ...) first, `Extensions/` last.
-fn stdlib_rank(module: &str) -> u32 {
-    match jaic::sema::COMMON_MODULES.iter().position(|m| *m == module) {
-        Some(at) => 10 + at as u32,
-        None if module.contains('/') => 2000,
-        None => 1000,
-    }
-}
-
 impl Session {
     /// Reads the module indexes auto-import completion offers from (the stdlib's and the
     /// project's), which cost a few hundred milliseconds the first time and nothing after, so
@@ -1101,6 +1067,10 @@ impl Session {
                     if decl.kind == CompletionKind::Function {
                         d.kind = decl.kind;
                     }
+                    d.call = match (d.call.take(), decl.call) {
+                        (Some(a), Some(b)) => Some(a.overloaded(&b)),
+                        (a, b) => a.or(b),
+                    };
                 }
                 _ => merged.push((rank, source, decl)),
             }
@@ -1133,6 +1103,7 @@ impl Session {
                                 "From `{shown}`, which the program already loads.\n\n{fence}{doc}"
                             )),
                             label_description: Some(shown),
+                            call: decl.call.clone(),
                             ..CompletionItem::default()
                         });
                     }
@@ -1167,6 +1138,7 @@ impl Session {
                         range,
                         new_text,
                     }],
+                    call: decl.call.clone(),
                     ..CompletionItem::default()
                 })
             })

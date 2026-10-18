@@ -459,6 +459,7 @@ impl Compiler {
                                 .as_ref()
                                 .and_then(|ide| ide.enum_decls.get(&(strict, *n)).copied())
                                 .unwrap_or(Span::NONE),
+                            call: None,
                         });
                     }
                 }
@@ -498,6 +499,7 @@ impl Compiler {
                                     kind: IdeKind::Field,
                                     detail: self.types.name(f.ty),
                                     decl: f.span,
+                                    call: None,
                                 });
                             }
                             if f.using {
@@ -541,6 +543,7 @@ pub(super) fn field(name: &str, detail: &str) -> IdeName {
         kind: IdeKind::Field,
         detail: detail.into(),
         decl: Span::NONE,
+        call: None,
     }
 }
 

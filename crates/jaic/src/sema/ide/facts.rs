@@ -362,6 +362,59 @@ pub struct IdeName {
     pub detail: String,
     /// Where the name is declared (`Span::NONE` for builtins): doc comments are read from there.
     pub decl: Span,
+    /// How a procedure is called, for completion to insert the call.
+    pub call: Option<IdeCall>,
+}
+
+/// The parameters of a procedure (every overload of a name) as far as inserting a call needs.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IdeCall {
+    /// No overload takes a parameter.
+    pub parameterless: bool,
+    /// The names of the leading parameters a call must pass (those before the first one with a
+    /// default value or `..` variadic), for one procedure; `None` when the name is overloaded
+    /// or its parameters are not known.
+    pub required: Option<Vec<String>>,
+}
+
+impl IdeCall {
+    /// A procedure whose parameters are not known (a builtin).
+    pub fn unknown() -> Self {
+        Self {
+            parameterless: false,
+            required: None,
+        }
+    }
+
+    /// The call shape of a name that is both `self` and `other` (overloads).
+    pub fn overloaded(&self, other: &Self) -> Self {
+        Self {
+            parameterless: self.parameterless && other.parameterless,
+            required: None,
+        }
+    }
+
+    pub fn of_headers<'a>(headers: impl IntoIterator<Item = &'a ast::ProcHeader>) -> Self {
+        let headers: Vec<&ast::ProcHeader> = headers.into_iter().collect();
+        let required = match headers.as_slice() {
+            [one] => Some(
+                one.params
+                    .iter()
+                    .take_while(|p| p.default.is_none() && !p.variadic)
+                    .map(|p| {
+                        p.name
+                            .as_ref()
+                            .map_or_else(|| "arg".to_owned(), |n| n.name.as_str().to_owned())
+                    })
+                    .collect(),
+            ),
+            _ => None,
+        };
+        Self {
+            parameterless: headers.iter().all(|h| h.params.is_empty()),
+            required,
+        }
+    }
 }
 
 /// What `a.b.` refers to, for member completion.

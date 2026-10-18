@@ -230,9 +230,18 @@ function isSettingsFile(document: vscode.TextDocument): boolean {
 }
 
 /** The settings jailsp reads, as `initializationOptions` (the shape of the `jai` section). */
-function serverSettings(): { completion: { autoImport: boolean }; trusted: boolean } {
+function serverSettings(): {
+  completion: { autoImport: boolean; callSnippets: string };
+  inlayHints: { closingBraceMinLines: number };
+  trusted: boolean;
+} {
+  const config = vscode.workspace.getConfiguration("jai");
   return {
-    completion: { autoImport: vscode.workspace.getConfiguration("jai").get<boolean>("completion.autoImport", true) },
+    completion: {
+      autoImport: config.get<boolean>("completion.autoImport", true),
+      callSnippets: config.get<string>("completion.callSnippets", "addParentheses"),
+    },
+    inlayHints: { closingBraceMinLines: config.get<number>("inlayHints.closingBraceMinLines", 25) },
     // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
     trusted: vscode.workspace.isTrusted,
   };

@@ -8,7 +8,8 @@ local M = {}
 ---@field formatter { path: string }  Path to `jaifmt`.
 ---@field stdlib { path: string }  Standard library directory, passed as `JAIC_STDLIB`.
 ---@field toolchain { auto_download: 'prompt'|'always'|'never', version: string }
----@field completion { auto_import: boolean }  Offer names the file cannot see yet.
+---@field completion { auto_import: boolean, call_snippets: 'addParentheses'|'fillArguments'|'none' }  Offer names the file cannot see yet; what accepting a procedure inserts.
+---@field inlay_hints { closing_brace_min_lines: integer }  Name the closing brace of procedures, structs and enums this many lines long (0: never).
 ---@field run { arguments: string[] }  Extra `jaic` arguments for Run/Build/Check.
 ---@field trusted boolean  The workspace is trusted: `jailsp` may run its compile-time code (`#run`, build metaprograms, computed `#insert`) and `:Jai run`/`build`/`check` are on.
 ---@field format_on_save boolean  Format Jai buffers with `jaifmt` before writing.
@@ -19,7 +20,8 @@ local defaults = {
   formatter = { path = '' },
   stdlib = { path = '' },
   toolchain = { auto_download = 'prompt', version = '' },
-  completion = { auto_import = true },
+  completion = { auto_import = true, call_snippets = 'addParentheses' },
+  inlay_hints = { closing_brace_min_lines = 25 },
   run = { arguments = {} },
   trusted = true,
   format_on_save = false,
@@ -44,10 +46,14 @@ end
 
 ---What `jailsp` reads as `initializationOptions` and as the `jai` section of
 ---`workspace/didChangeConfiguration`.
----@return { completion: { autoImport: boolean }, trusted: boolean }
+---@return { completion: { autoImport: boolean, callSnippets: string }, inlayHints: { closingBraceMinLines: integer }, trusted: boolean }
 function M.server_settings()
   local cfg = M.get()
-  return { completion = { autoImport = cfg.completion.auto_import }, trusted = cfg.trusted }
+  return {
+    completion = { autoImport = cfg.completion.auto_import, callSnippets = cfg.completion.call_snippets },
+    inlayHints = { closingBraceMinLines = cfg.inlay_hints.closing_brace_min_lines },
+    trusted = cfg.trusted,
+  }
 end
 
 ---Environment for `jailsp` and `jaic`: `JAIC_STDLIB` from `stdlib.path`.

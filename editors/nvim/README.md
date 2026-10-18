@@ -80,6 +80,8 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 | `toolchain.auto_download` | `'prompt'` | `'prompt'`, `'always'` or `'never'` |
 | `toolchain.version` | `''` | Toolchain version to download; empty is the plugin's version |
 | `completion.auto_import` | `true` | Complete names the file cannot see yet and add the `#import` |
+| `completion.call_snippets` | `'addParentheses'` | What accepting a procedure inserts: `'addParentheses'` (`name($0)`, `name()` without parameters), `'fillArguments'` (a placeholder per required parameter) or `'none'` |
+| `inlay_hints.closing_brace_min_lines` | `25` | Show `// name` after the closing brace of a procedure, struct or enum this many lines long; `0` turns it off |
 | `run.arguments` | `{}` | Extra `jaic` arguments, e.g. `{ '-O2' }` |
 | `trusted` | `true` | Set `false` for code you did not write: `jailsp` runs no `#run`, build metaprogram or computed `#insert`, and `:Jai run`, `build` and `check` are off (see [workspace trust](../../docs/tools/workspace-trust.md)) |
 | `format_on_save` | `false` | Format with `jaifmt` before writing |
@@ -87,7 +89,7 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 
 `trusted = false` reaches the server as `initializationOptions.trusted`; changing it with `setup()` later sends `workspace/didChangeConfiguration`, so a running server switches (and re-analyses) at once. Neovim has no workspace-trust prompt of its own for this; set it per project, for example from a trusted `.nvim.lua`, or start with `vim.g.jai = { trusted = false }` and call `require('jai').setup({ trusted = true })` once you have read the code.
 
-`completion.auto_import` reaches the server as its initialization options and `workspace/didChangeConfiguration`, as in the VS Code extension. Change the server's client settings per project with `vim.lsp.config('jailsp', { ... })`; it is merged over `lsp/jailsp.lua`.
+`completion.auto_import` and `completion.call_snippets` reach the server as its initialization options and `workspace/didChangeConfiguration`, as in the VS Code extension. Change the server's client settings per project with `vim.lsp.config('jailsp', { ... })`; it is merged over `lsp/jailsp.lua`.
 
 ## Commands
 

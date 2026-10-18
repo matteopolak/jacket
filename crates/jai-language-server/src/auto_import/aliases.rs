@@ -39,6 +39,7 @@ impl Sources<'_> {
             public.kind = CompletionKind::Function;
             public.signature = format!("{}{header}", decl.name);
             public.alias = None;
+            public.call = target.call;
             if public.doc.is_empty() {
                 public.doc = target.doc;
             }

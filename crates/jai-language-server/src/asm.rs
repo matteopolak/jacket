@@ -375,6 +375,7 @@ impl Session {
                 },
                 detail: Self::source_detail(doc, row).into(),
                 decl: jaic::source::Span::NONE,
+                call: None,
             })
             .collect()
     }

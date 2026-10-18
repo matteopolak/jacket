@@ -2,6 +2,9 @@
 mod analysis;
 mod asm;
 mod auto_import;
+mod call_snippets;
+mod closing_hints;
+mod completion_wire;
 mod config;
 mod doc_view;
 pub(crate) use jaic::docs;
@@ -22,6 +25,7 @@ pub mod lints;
 mod model;
 mod modules;
 mod named_arguments;
+mod path_completion;
 mod position;
 mod project;
 mod protocol;
@@ -30,6 +34,7 @@ mod selection;
 mod semantic;
 mod session;
 
+pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};
 pub use model::{
     CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionData,

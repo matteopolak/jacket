@@ -298,6 +298,23 @@
           "default": true,
           "markdownDescription": "Offer names the file cannot see yet in completion, from standard-library modules, the project's modules and its other files, and add the `#import` or `#load` they need when one is accepted. Project entry files and module folders come from `jai.toml` (or are inferred)."
         },
+        "jai.completion.callSnippets": {
+          "type": "string",
+          "enum": ["addParentheses", "fillArguments", "none"],
+          "enumDescriptions": [
+            "Insert the call's parentheses and leave the cursor inside them (`name($0)`, or `name()` when nothing can be passed).",
+            "Insert the parentheses with a placeholder for each parameter a call must pass.",
+            "Insert the name only."
+          ],
+          "default": "addParentheses",
+          "markdownDescription": "What accepting a procedure in completion inserts. Parentheses are left out where the procedure is used as a value: before an existing `(`, after `*`, in `type_of(...)`, or in a `::` or global `:=` initialiser. Parameter hints open when the cursor lands inside the parentheses."
+        },
+        "jai.inlayHints.closingBraceMinLines": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 25,
+          "markdownDescription": "Show `// name` as an inlay hint after the closing brace of a procedure, struct or enum at least this many lines long. `0` turns it off. Needs `editor.inlayHints.enabled`."
+        },
         "jai.run.arguments": {
           "type": "array",
           "items": {
