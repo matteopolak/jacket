@@ -59,6 +59,13 @@ class PhaseTimingTests(unittest.TestCase):
         self.assertAlmostEqual(stages[Bucket.LINK], 0.090)
         self.assertNotIn(Bucket.COMPILE_TIME, stages)
 
+    def test_a_custom_link_is_timed_by_the_metaprogram_itself(self):
+        stages = PhaseTiming().parse('bench-phase: typechecked 0.05\nbench-phase: built 0.08\n'
+                                     'bench-phase: ready_link 0.12\nbench-phase: link 0.03\n'
+                                     'bench-phase: post_write 0.30\nbench-phase: complete 0.31\n')
+        self.assertAlmostEqual(stages[Bucket.CODEGEN], 0.07)  # to ready_link, so it includes writing objects
+        self.assertAlmostEqual(stages[Bucket.LINK], 0.03)
+
     def test_a_check_has_only_a_front_end(self):
         stages = PhaseTiming().parse('bench-phase: parsed 0.01\nbench-phase: typechecked 0.05\nbench-phase: complete 0.06\n')
         self.assertEqual(stages, {Bucket.FRONT_END: 0.05, Bucket.CODEGEN: 0.0})

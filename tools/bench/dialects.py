@@ -6,6 +6,7 @@ command line of the reference implementation. To support another one, subclass `
 from __future__ import annotations
 
 import re
+import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -67,13 +68,16 @@ class Dialect(ABC):
         return {}
 
     def phase_invocation(self, compiler: Path, request: Request) -> Invocation:
-        """Build the request's program through `phase_timing.jai`, the same metaprogram for every compiler."""
+        """Build the request's program through `phase_timing.jai`, the same metaprogram for every compiler.
+        It links with the system linker (`link_command.jai`), so the executable is the same work to link."""
         where = request.scratch / 'phases'
         where.mkdir(parents=True, exist_ok=True)
         source = phases.program(request.entry.resolve(), where, writes_executable=request.mode.writes_executable,
                                 optimized=request.mode is Mode.OPTIMIZED, run_main=request.mode is Mode.INTERP)
         (where / phases.WRAPPER_NAME).write_text(source)
-        return Invocation(self.source_command(compiler, phases.WRAPPER_NAME), where)
+        shutil.copy(phases.LINK_COMMAND, where / phases.LINK_COMMAND.name)
+        executable = where / 'program' if request.mode.writes_executable else None
+        return Invocation(self.source_command(compiler, phases.WRAPPER_NAME), where, executable)
 
     def instruction_count(self, run: Run) -> int | None:
         """Interpreted instructions, for a compiler that can count them (run with `profiling_env`)."""

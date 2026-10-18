@@ -94,8 +94,8 @@ def timing_tables(groups: dict[tuple[str, str], dict[str, Result]], compilers: l
 STAGE_NOTE = ('Every compiler builds the program through the same metaprogram, which timestamps the compiler\'s '
               'phase messages (see docs/tools/benchmarks.md). The messages cannot tell parsing, type checking and '
               'compile-time execution apart, so all of that is `front end` and `compile-time execution` is `-`; '
-              '`link` is the span from just before the executable is written to just after, so it includes '
-              'writing objects. `total` is the wall time of that run, `other` what no phase accounts for '
+              '`codegen` includes writing the objects, and `link` is the system linker the metaprogram runs itself, '
+              'identical work for every compiler. `total` is the wall time of that run, `other` what no phase accounts for '
               '(start-up, the metaprogram itself, exit).')
 DETAIL_NOTE = ('The compiler\'s own `-timings` report from the direct runs above. Only jaic prints one, so these '
                'numbers are not comparable with another compiler\'s and the table has no ratios.')

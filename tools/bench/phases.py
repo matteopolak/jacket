@@ -2,11 +2,13 @@
 (`phase_timing.jai`) that timestamps the compiler's phase messages, and read those timestamps back.
 
 What the messages can tell apart, in order: the start of the build, `typechecked` (the last
-TYPECHECKED_ALL_WE_CAN), `built` (target code generated), `pre_write` and `post_write` (around writing
-the object files and linking), and `complete`. Parsing, type checking and compile-time execution all
-happen before the last `typechecked` message and nothing in between marks them off from each other, so
-they stay one `front end` bucket and `compile-time execution` is not reported. Writing objects and
-linking sit between `pre_write` and `post_write` and cannot be told apart either; that span is `link`.
+TYPECHECKED_ALL_WE_CAN), `built`, `ready_link` (the objects are written and the compiler waits for the
+link), `link` (a duration: the system linker the metaprogram itself ran, the same command for every
+compiler), and `complete`. Parsing, type checking and compile-time execution all happen before the last
+`typechecked` message and nothing in between marks them off from each other, so they stay one `front end`
+bucket and `compile-time execution` is not reported. `codegen` runs from there to `ready_link` and includes
+writing the objects. A build without a custom link command (Windows) falls back to the span between
+`pre_write` and `post_write`.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from stages import Bucket, Stages
 
 TEMPLATE = Path(__file__).with_name('phase_timing.jai')
 WRAPPER_NAME = 'phase_timing.jai'
+LINK_COMMAND = Path(__file__).with_name('link_command.jai')
 LINE = re.compile(r'^bench-phase: (?P<name>\w+) (?P<seconds>\d+(?:\.\d+)?(?:e[-+]?\d+)?)\s*$', re.MULTILINE)
 
 
@@ -53,9 +56,10 @@ class PhaseTiming:
         if 'complete' not in marks:
             return {}
         front_end_ends = marks.get('typechecked', marks.get('parsed', 0.0))
-        write_starts = marks.get('pre_write')
-        code_ends = write_starts if write_starts is not None else marks.get('built', front_end_ends)
+        code_ends = marks.get('ready_link', marks.get('pre_write', marks.get('built', front_end_ends)))
         stages = {Bucket.FRONT_END: front_end_ends, Bucket.CODEGEN: max(0.0, code_ends - front_end_ends)}
-        if write_starts is not None and 'post_write' in marks:
-            stages[Bucket.LINK] = max(0.0, marks['post_write'] - write_starts)
+        if 'link' in marks:
+            stages[Bucket.LINK] = marks['link']
+        elif 'pre_write' in marks and 'post_write' in marks:
+            stages[Bucket.LINK] = max(0.0, marks['post_write'] - marks['pre_write'])
         return stages

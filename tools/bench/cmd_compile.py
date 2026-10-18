@@ -90,6 +90,15 @@ class JobRunner:
         where.mkdir(parents=True, exist_ok=True)
         return Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where, plan.redirect_output)
 
+    def driver(self, job: Job, compiler: Compiler, request: Request) -> Invocation:
+        """How a compiler is run for the timed runs. Comparing compilers, an executable is built through the
+        phase-timing metaprogram for all of them, so they all link with the same system linker (a reference
+        compiler's bundled linker may not even run on a machine). A job with its own build metaprogram, or
+        a single compiler, uses the compiler's native command line."""
+        if len(self.compilers) > 1 and request.mode.writes_executable and not request.metaprogram_args:
+            return compiler.dialect.phase_invocation(compiler.path, request)
+        return compiler.dialect.invocation(compiler.path, request)
+
     def compile(self, compiler: Compiler, invocation: Invocation) -> Run:
         if invocation.executable:
             invocation.executable.unlink(missing_ok=True)
@@ -141,7 +150,7 @@ class JobRunner:
         facts = facts_of(workload.source.measured(workdir, entry)).to_json()
         info = {'category': workload.category.value, 'source': facts}
         requests = {c.name: self.request(job, c, workdir) for c in self.compilers}
-        invocations = {c.name: c.dialect.invocation(c.path, requests[c.name]) for c in self.compilers}
+        invocations = {c.name: self.driver(job, c, requests[c.name]) for c in self.compilers}
         warm_file_cache(workdir)
         attempts = {c.name: self.attempt(job, c, invocations[c.name]) for c in self.compilers}
         reason = self.gate(job, attempts)
