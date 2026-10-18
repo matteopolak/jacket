@@ -77,6 +77,16 @@ const TAG_MASK: u64 = 0xFFFF_0000_0000_0000;
 const STACK_SIZE: usize = 32 << 20;
 const MAX_DEPTH: usize = 20_000;
 
+/// Word `i` of a call's arguments (or of an incoming stack area), or 0 when the call passed fewer.
+///
+/// A Win32 or syscall declaration can pass fewer words than the callee reads (an optional
+/// out-parameter the caller left off, a trailing flags word), so a missing word reads as 0, the
+/// value of an argument the caller did not set, rather than failing the call.
+#[inline]
+fn word_or_zero(words: &[u64], i: usize) -> u64 {
+    words.get(i).copied().unwrap_or(0)
+}
+
 type Res<T> = std::result::Result<T, Trap>;
 
 /// A running procedure and the location it was called from (`Interp::calls`).

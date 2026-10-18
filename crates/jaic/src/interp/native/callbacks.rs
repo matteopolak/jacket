@@ -10,6 +10,7 @@
 use super::{FF, FFF, FFFF, FI, IF, II, STACK_SLOTS, X86_64, read_bytes, write_bytes};
 use crate::abi::{self, Arch, Passing, Piece, PieceTy};
 use crate::interp::Trap;
+use crate::interp::word_or_zero;
 use crate::ir::{FuncId, Sig};
 use std::cell::Cell;
 use std::sync::{Arc, Mutex};
@@ -248,19 +249,15 @@ trait Ret {
     fn from_words(w: &[u64]) -> Self;
 }
 
-fn word(w: &[u64], i: usize) -> u64 {
-    w.get(i).copied().unwrap_or(0)
-}
-
 fn float(w: &[u64], i: usize) -> f64 {
-    f64::from_bits(word(w, i))
+    f64::from_bits(word_or_zero(w, i))
 }
 
 impl Ret for u64 {
     const SHAPE: usize = INT;
 
     fn from_words(w: &[u64]) -> Self {
-        word(w, 0)
+        word_or_zero(w, 0)
     }
 }
 
@@ -276,7 +273,7 @@ impl Ret for II {
     const SHAPE: usize = 2;
 
     fn from_words(w: &[u64]) -> Self {
-        II(word(w, 0), word(w, 1))
+        II(word_or_zero(w, 0), word_or_zero(w, 1))
     }
 }
 
@@ -284,7 +281,7 @@ impl Ret for IF {
     const SHAPE: usize = 3;
 
     fn from_words(w: &[u64]) -> Self {
-        IF(word(w, 0), float(w, 1))
+        IF(word_or_zero(w, 0), float(w, 1))
     }
 }
 
@@ -292,7 +289,7 @@ impl Ret for FI {
     const SHAPE: usize = 4;
 
     fn from_words(w: &[u64]) -> Self {
-        FI(float(w, 0), word(w, 1))
+        FI(float(w, 0), word_or_zero(w, 1))
     }
 }
 
@@ -441,7 +438,7 @@ fn dispatch(
     let (x8, stack) = if shape == A64_SRET {
         let mut shifted = [0u64; STACK_SLOTS];
         for (i, w) in shifted.iter_mut().enumerate() {
-            *w = stack.get(i + 4).copied().unwrap_or(0);
+            *w = word_or_zero(&stack, i + 4);
         }
         (Some(stack[2]), shifted)
     } else {
@@ -482,7 +479,7 @@ struct Incoming {
 
 impl Incoming {
     fn stack(&mut self) -> u64 {
-        let v = self.stack.get(self.ns).copied().unwrap_or(0);
+        let v = word_or_zero(&self.stack, self.ns);
         self.ns += 1;
         self.tail = 0;
         v
@@ -498,7 +495,7 @@ impl Incoming {
             return v & mask;
         }
         self.tail = at + size;
-        let slot = self.stack.get(self.ns - 1).copied().unwrap_or(0);
+        let slot = word_or_zero(&self.stack, self.ns - 1);
         (slot >> (at * 8)) & mask
     }
 

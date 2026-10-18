@@ -6,6 +6,7 @@
 //! module until the user types) asks `stdin_wants_data` before a call and feeds what it needs;
 //! a read that still finds nothing reports the end of input, as on a terminal after Ctrl+D.
 use super::*;
+use crate::interp::word_or_zero;
 use std::collections::VecDeque;
 
 #[derive(Default)]
@@ -78,7 +79,7 @@ impl SandboxHost {
         let Some(fun) = LibcFn::from_name(symbol) else {
             return false;
         };
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let on = |handle: u64| stdin.stream != 0 && handle == stdin.stream;
         match fun {
             LibcFn::Read if arg(0) as i32 == 0 => arg(2) > 0 && !stdin.holds(1, None),
@@ -120,7 +121,7 @@ impl SandboxHost {
 
     /// The reads of standard input; `None` for any other call.
     pub(super) fn stdin_foreign(&mut self, fun: LibcFn, args: &[u64]) -> Option<u64> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let stream = self.stdin.stream;
         let on = |handle: u64| stream != 0 && handle == stream;
         let copy = write_bytes;

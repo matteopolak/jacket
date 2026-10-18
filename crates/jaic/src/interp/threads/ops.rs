@@ -12,6 +12,7 @@ use super::worker::absolute_deadline;
 #[cfg(not(windows))]
 use super::worker::run_worker;
 use crate::interp::threads_inline::ThreadFn;
+use crate::interp::word_or_zero;
 use crate::interp::*;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -62,7 +63,7 @@ impl Interp {
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
         // A declaration may pass fewer words than the Win32 call has parameters; the rest are 0.
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let Some(fun) = ThreadFn::from_name(symbol) else {
             return self.win32_foreign(program, symbol, args);

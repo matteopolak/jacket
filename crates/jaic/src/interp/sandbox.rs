@@ -10,6 +10,7 @@
 
 use super::*;
 use crate::fxhash::HashSet;
+use crate::interp::word_or_zero;
 use crate::sema::FileSystem;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -525,7 +526,7 @@ impl Host for SandboxHost {
         }
         // Each area answers the procedures it implements and passes on the rest.
         let fun = LibcFn::from_name(symbol)?;
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let served = self
             .stdin_foreign(fun, args)
             .or_else(|| self.memory_call(fun, arg))

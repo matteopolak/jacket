@@ -24,6 +24,7 @@
 
 use super::*;
 use crate::fxhash::HashSet;
+use crate::interp::word_or_zero;
 use crate::macros::raw_enum;
 use std::collections::VecDeque;
 
@@ -301,7 +302,7 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let fun = ThreadFn::from_name(symbol)?;
         let result: Res<u64> = match fun {

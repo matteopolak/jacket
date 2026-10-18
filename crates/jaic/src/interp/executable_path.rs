@@ -10,6 +10,7 @@
 //! `jaic file.jai -interp -- ...`. While `run_executable` is set it gets `Interp::run_arguments`
 //! quoted so that `CommandLineToArgvW` splits them back unchanged.
 use super::{Interp, Res};
+use crate::interp::word_or_zero;
 use crate::ir::Ty;
 
 impl Interp {
@@ -27,7 +28,7 @@ impl Interp {
             return None;
         }
         let path = self.run_executable.clone()?;
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let result = match symbol {
             // int _NSGetExecutablePath(char *buf, uint32_t *size): -1 and the size needed
             // when the buffer is too small.

@@ -9,12 +9,13 @@
 //! (integer or float). Aggregates follow `abi::classify_arg(Arch::Win64)`: 1, 2, 4 or 8 bytes
 //! in one slot, anything else as a pointer to a copy; non-register results come back through
 //! a hidden pointer in the first slot.
-#[cfg(target_arch = "x86_64")]
 use super::{read_bytes, write_bytes};
 #[cfg(target_arch = "x86_64")]
 use crate::abi::{self, Arch, Passing};
 #[cfg(target_arch = "x86_64")]
 use crate::interp::Rets;
+#[cfg(target_arch = "x86_64")]
+use crate::interp::word_or_zero;
 #[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};
 use std::ffi::c_void;
@@ -617,7 +618,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
         .filter(|_| !forced_sret)
         .and_then(|l| abi::classify_ret(Arch::Win64, l));
     let out_index = ret_layout.map(|_| sig.out_index());
-    let out_ptr = out_index.and_then(|i| args.get(i).copied()).unwrap_or(0);
+    let out_ptr = out_index.map_or(0, |i| word_or_zero(args, i));
     let mut slots: Vec<u64> = Vec::new();
     let mut first_float = false;
     // The hidden result pointer is the first argument.

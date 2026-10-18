@@ -18,6 +18,7 @@ use super::sched::NATIVE_STACK;
 #[cfg(windows)]
 use super::worker::run_worker;
 use super::*;
+use crate::interp::word_or_zero;
 #[cfg(windows)]
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -417,7 +418,7 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let result: Res<u64> = match symbol {
             "CreateThread" | "_beginthreadex" => {
@@ -626,7 +627,7 @@ impl Interp {
 
     /// Locks, condition variables, semaphores, events and sleeping.
     fn win32_sync_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<Res<Vec<u64>>> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let result: Res<u64> = match symbol {
             // Critical sections and SRW locks. Initialization also runs the real procedure, so

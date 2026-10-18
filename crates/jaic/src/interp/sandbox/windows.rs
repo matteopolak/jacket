@@ -6,6 +6,7 @@
 //! `INVALID_HANDLE_VALUE`), text is UTF-16 converted from and to UTF-8 whatever the code page,
 //! and failures set the error `GetLastError` returns.
 use super::*;
+use crate::interp::word_or_zero;
 
 const HANDLE_BASE: u64 = 0x1_0000;
 const INVALID_HANDLE_VALUE: u64 = u64::MAX;
@@ -155,7 +156,7 @@ impl SandboxHost {
 
     /// The Windows calls; `None` for any other symbol.
     pub(super) fn windows_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
-        let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+        let arg = |i: usize| word_or_zero(args, i);
         Some(match symbol {
             "GetLastError" => self.last_error,
             "SetLastError" => {

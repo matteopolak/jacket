@@ -108,7 +108,7 @@ pub fn syscall(args: &[u64]) -> Option<i64> {
     unsafe extern "C" {
         fn syscall(number: i64, ...) -> i64;
     }
-    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+    let arg = |i: usize| crate::interp::word_or_zero(args, i);
     // SAFETY: the program asked for this system call; it is as unsafe as the `#asm` it wrote.
     let ret = unsafe {
         syscall(
