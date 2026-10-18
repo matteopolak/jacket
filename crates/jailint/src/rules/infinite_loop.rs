@@ -162,7 +162,7 @@ fn escapes(cx: &Cx, body: &jaic::ast::Stmt) -> bool {
                     let procs = callee_procs(cx, callee);
                     if procs
                         .iter()
-                        .any(|&p| cx.compiler.procs[p.0 as usize].lit.header.flags.expand)
+                        .any(|&p| cx.compiler.procs[p.0 as usize].lit.header.flags.expand())
                     {
                         found = true;
                     }

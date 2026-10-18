@@ -40,7 +40,7 @@ impl Compiler {
             span,
             is_poly,
             poly_checked: is_poly,
-            is_macro: header.flags.expand,
+            is_macro: header.flags.expand(),
             sig: None,
             sig_resolving: false,
             target: None,
@@ -292,7 +292,7 @@ impl Compiler {
                 (None, None) => return err(param.span, "parameter needs a type"),
             };
             let ty = if param.variadic
-                && !(header.flags.c_call || header.flags.cpp_method || header.foreign.is_some())
+                && !(header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some())
             {
                 self.types.array(ty, ArrayKind::View)
             } else {
@@ -378,9 +378,9 @@ impl Compiler {
         for &ty in &returns {
             self.ensure_storage_type(ty, self.proc(id).span)?;
         }
-        let c_call = header.flags.c_call || header.flags.cpp_method || header.foreign.is_some();
+        let c_call = header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some();
         let c_varargs = c_call && params.last().is_some_and(|p| p.variadic);
-        let has_context = !c_call && !header.flags.no_context && !header.flags.intrinsic;
+        let has_context = !c_call && !header.flags.no_context() && !header.flags.intrinsic();
         let proc_type = ProcType {
             params: params
                 .iter()
@@ -392,7 +392,7 @@ impl Compiler {
             c_varargs,
             c_call,
             no_context: !has_context,
-            non_pod_return: header.flags.cpp_return_type_is_non_pod,
+            non_pod_return: header.flags.cpp_return_type_is_non_pod(),
         };
         let ty = self.types.intern(TypeKind::Proc(Rc::new(proc_type)));
         Ok(Signature {

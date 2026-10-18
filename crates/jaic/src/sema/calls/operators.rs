@@ -124,7 +124,7 @@ impl Compiler {
         let symmetric: Vec<ProcId> = procs
             .iter()
             .copied()
-            .filter(|&p| self.proc(p).lit.header.flags.symmetric)
+            .filter(|&p| self.proc(p).lit.header.flags.symmetric())
             .collect();
         if !symmetric.is_empty() {
             let swapped = vec![args[1].clone(), args[0].clone()];

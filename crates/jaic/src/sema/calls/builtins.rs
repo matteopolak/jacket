@@ -436,7 +436,7 @@ impl Compiler {
                 returns,
                 variadic,
                 c_varargs: false,
-                c_call: header.flags.c_call,
+                c_call: header.flags.c_call(),
                 no_context: false,
                 non_pod_return: false,
             })))
@@ -467,7 +467,7 @@ impl Compiler {
                 returns,
                 variadic,
                 c_varargs: false,
-                c_call: header.flags.c_call,
+                c_call: header.flags.c_call(),
                 no_context: false,
                 non_pod_return: false,
             })))

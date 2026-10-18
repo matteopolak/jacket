@@ -58,7 +58,7 @@ impl Compiler {
                 is_data: false,
             }))
         } else if self.proc(id).lit.body.is_none() {
-            if header.flags.intrinsic || header.flags.compiler {
+            if header.flags.intrinsic() || header.flags.compiler() {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
                 let func = self.program.reserve_func(name.to_string());
                 self.procs[id.0 as usize].body_state = BodyState::Queued;
@@ -101,7 +101,7 @@ impl Compiler {
         }
         if let ProcTarget::Func(func) = target {
             self.func_procs.insert(func, id);
-            if header.flags.compiler {
+            if header.flags.compiler() {
                 let hook = match name.as_str() {
                     "write_string" => Some(crate::interp::Hook::WriteString),
                     "write_strings" => Some(crate::interp::Hook::WriteStrings),
@@ -110,7 +110,7 @@ impl Compiler {
                         Some(crate::interp::Hook::HostMonotonicNanos)
                     }
                     other => crate::build::MetaOp::from_name(other)
-                        .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context)),
+                        .map(|op| crate::interp::Hook::Meta(op, !header.flags.no_context())),
                 };
                 if let Some(hook) = hook {
                     if matches!(
@@ -259,5 +259,5 @@ fn lit_is_entry_point(header: &ast::ProcHeader) -> bool {
 /// The LLVM intrinsic an `#intrinsic "llvm.name"` declaration binds to.
 pub(in crate::sema) fn llvm_intrinsic(header: &ast::ProcHeader) -> Option<&str> {
     let name = header.flags.builtin_name.as_deref()?;
-    (header.flags.intrinsic && name.starts_with("llvm.")).then_some(name)
+    (header.flags.intrinsic() && name.starts_with("llvm.")).then_some(name)
 }

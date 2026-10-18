@@ -142,8 +142,8 @@ impl Compiler {
         }
         let header = &self.proc(proc).lit.header;
         if self.proc(proc).lit.body.is_none()
-            || header.flags.compiler
-            || header.flags.intrinsic
+            || header.flags.compiler()
+            || header.flags.intrinsic()
             || self.proc(proc).is_macro
         {
             return err(

@@ -91,7 +91,8 @@ impl Compiler {
             _ => None,
         };
         if let Some(header) = header {
-            let c_call = header.flags.c_call || header.flags.cpp_method || header.foreign.is_some();
+            let c_call =
+                header.flags.c_call() || header.flags.cpp_method() || header.foreign.is_some();
             let parameters: Vec<_> = header
                 .params
                 .iter()

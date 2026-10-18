@@ -221,12 +221,12 @@ impl Exporter<'_> {
         let modify = self.modify_syntax(h.modify.as_ref());
         let mut extra_flags = String::new();
         for (enabled, name) in [
-            (h.flags.no_abc, "no_abc"),
-            (h.flags.no_aoc, "no_aoc"),
-            (h.flags.runtime_support, "runtime_support"),
-            (h.flags.type_info_none, "type_info_none"),
+            (h.flags.no_abc(), "no_abc"),
+            (h.flags.no_aoc(), "no_aoc"),
+            (h.flags.runtime_support(), "runtime_support"),
+            (h.flags.type_info_none(), "type_info_none"),
             (
-                h.flags.cpp_return_type_is_non_pod,
+                h.flags.cpp_return_type_is_non_pod(),
                 "cpp_return_type_is_non_pod",
             ),
         ] {
@@ -325,37 +325,37 @@ pub(super) fn procedure_flags(h: &ast::ProcHeader, polymorphic: bool) -> i64 {
     if polymorphic {
         flags |= 0x4;
     }
-    if f.c_call {
+    if f.c_call() {
         flags |= 0x20;
     }
-    if f.intrinsic {
+    if f.intrinsic() {
         flags |= 0x80;
     }
     if f.deprecated.is_some() {
         flags |= 0x100;
     }
-    if f.no_context {
+    if f.no_context() {
         flags |= 0x200;
     }
     if f.lambda != ast::LambdaKind::None {
         flags |= 0x400;
     }
-    if f.cpp_method {
+    if f.cpp_method() {
         flags |= 0x1000;
     }
-    if f.no_call {
+    if f.no_call() {
         flags |= 0x2000;
     }
-    if f.expand {
+    if f.expand() {
         flags |= 0x4000;
     }
-    if f.no_debug {
+    if f.no_debug() {
         flags |= 0x8000;
     }
-    if f.symmetric {
+    if f.symmetric() {
         flags |= 0x4_0000;
     }
-    if f.compiler {
+    if f.compiler() {
         flags |= 0x40_0000;
     }
     match f.inline {

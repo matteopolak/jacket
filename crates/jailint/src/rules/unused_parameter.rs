@@ -96,14 +96,14 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     let Some(decl) = p.decl else {
         return false;
     };
-    if f.c_call
-        || f.expand
-        || f.compiler
-        || f.intrinsic
+    if f.c_call()
+        || f.expand()
+        || f.compiler()
+        || f.intrinsic()
         || f.elsewhere.is_some()
         || f.program_export.is_some()
-        || f.cpp_method
-        || f.runtime_support
+        || f.cpp_method()
+        || f.runtime_support()
         || h.foreign.is_some()
         || h.operator.is_some()
         || !h.notes.is_empty()

@@ -671,7 +671,7 @@ fn find_procs<'a>(
             E::Proc(lit) => {
                 let header = &*lit.header;
                 let p = poly || header_is_poly(header);
-                let m = is_macro || header.flags.expand;
+                let m = is_macro || header.flags.expand();
                 // The declaration names this procedure only when it is its value.
                 let named = decl.filter(|d| d.value.as_ref().is_some_and(|v| v.span == x.span));
                 if let Some(body) = &lit.body {

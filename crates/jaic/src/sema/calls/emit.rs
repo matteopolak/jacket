@@ -80,7 +80,7 @@ impl Compiler {
         let header = self.proc(proc).lit.header.clone();
         let sig = self.signature(proc, span)?;
         // Intrinsics expand inline.
-        if header.flags.intrinsic
+        if header.flags.intrinsic()
             && self.proc(proc).lit.body.is_none()
             && super::procs::llvm_intrinsic(&header).is_none()
         {

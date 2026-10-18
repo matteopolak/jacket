@@ -35,11 +35,11 @@ impl Cx<'_> {
             return;
         };
         let flags = &header.flags;
-        if flags.c_call
-            || flags.no_context
-            || flags.expand
-            || flags.compiler
-            || flags.intrinsic
+        if flags.c_call()
+            || flags.no_context()
+            || flags.expand()
+            || flags.compiler()
+            || flags.intrinsic()
             || header.foreign.is_some()
             || header_poly(header)
         {

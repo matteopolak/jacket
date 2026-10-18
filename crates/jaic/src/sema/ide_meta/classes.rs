@@ -91,7 +91,7 @@ impl Compiler {
                 _ => {
                     use ast::ExprKind as E;
                     match (decl.kind, decl.value.as_ref().map(|v| &v.kind)) {
-                        (_, Some(E::Proc(lit))) if lit.header.flags.expand => IdeClass::Macro,
+                        (_, Some(E::Proc(lit))) if lit.header.flags.expand() => IdeClass::Macro,
                         (_, Some(E::Proc(_))) => IdeClass::Function,
                         (_, Some(E::Struct(_) | E::Enum(_) | E::ProcType(_))) => IdeClass::Type,
                         (ast::DeclKind::Var, _) => IdeClass::Variable,

@@ -81,7 +81,7 @@ fn named_returns_and_foreign_flags() {
     assert!(lit.body.is_none());
     assert_eq!(lit.header.returns.len(), 2);
     assert_eq!(lit.header.returns[0].name.unwrap().name.as_str(), "a");
-    assert!(lit.header.flags.c_call && lit.header.flags.no_context);
+    assert!(lit.header.flags.c_call() && lit.header.flags.no_context());
     let foreign = lit.header.foreign.as_ref().unwrap();
     assert_eq!(foreign.library.unwrap().name.as_str(), "libc");
     assert!(matches!(&foreign.name, ForeignName::Named(n) if &**n == "fn"));
