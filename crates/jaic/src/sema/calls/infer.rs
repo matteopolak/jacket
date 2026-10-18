@@ -234,7 +234,25 @@ impl Compiler {
                 && procs::has_poly(t)
             {
                 // Aggregate constants (`.[1, 2]`) carry no type of their own.
-                let vt = value_ty;
+                let mut vt = value_ty;
+                // A constant view (`xs :: #run make()`) gives a `[$N] T` pattern its count.
+                if let Value::Bytes(image) = &value
+                    && let TypeKind::Array {
+                        elem,
+                        kind: ArrayKind::View,
+                    } = *self.types.kind(vt)
+                    && matches!(
+                        &t.kind,
+                        E::ArrayType {
+                            size: ast::ArraySize::Fixed(size),
+                            ..
+                        } if matches!(size.kind, E::PolyVar { .. })
+                    )
+                    && let Some(bytes) = image.bytes.get(0..8)
+                {
+                    let count = u64::from_le_bytes(bytes.try_into().unwrap());
+                    vt = self.types.array(elem, ArrayKind::Fixed(count));
+                }
                 let represented = if let Value::Type(t) = &value {
                     Some(*t)
                 } else {
