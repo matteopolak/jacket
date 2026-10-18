@@ -258,13 +258,13 @@ fn plug_hooks_a_plugin_into_check() {
 }
 
 /// `-timings` prints one `jaic-timing: <phase> <seconds> <calls>` line per phase (read by
-/// `tools/compile_bench.py`); without it nothing is printed.
+/// `tools/bench`); without it nothing is printed.
 #[test]
 fn timings_report_phases() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-timings");
     std::fs::create_dir_all(&dir).unwrap();
     let source = dir.join("timed.jai");
-    std::fs::write(&source, "main :: () {}\n").unwrap();
+    std::fs::write(&source, "main :: () {}\nanswer :: #run 6 * 7;\n").unwrap();
     let stderr = |extra: &[&str]| {
         let output = Command::new(JAIC)
             .arg("-check")
@@ -287,6 +287,16 @@ fn timings_report_phases() {
             "{line}"
         );
     }
+    // Compile-time execution is its own phase: the `#run` above is at least one call.
+    let line = report
+        .lines()
+        .find(|l| l.starts_with("jaic-timing: interp "))
+        .unwrap_or_else(|| panic!("no interp line in {report}"));
+    let fields: Vec<&str> = line.rsplitn(3, ' ').collect();
+    assert!(
+        fields[1].parse::<f64>().is_ok() && fields[0].parse::<u64>().is_ok_and(|n| n >= 1),
+        "{line}"
+    );
     assert!(!stderr(&[]).contains("jaic-timing"));
 }
 

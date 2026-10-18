@@ -62,8 +62,8 @@ mod timings {
         result
     }
 
-    /// One `jaic-timing: <phase> <seconds> <calls>` line per phase (tools/compile_bench.py
-    /// parses them).
+    /// One `jaic-timing: <phase> <seconds> <calls>` line per phase (tools/bench parses them),
+    /// then `interp`: the time compile-time code ran, which overlaps `front end`.
     pub fn report() {
         if !ENABLED.load(Ordering::Relaxed) {
             return;
@@ -71,6 +71,8 @@ mod timings {
         for (name, total, count) in PHASES.lock().unwrap().iter() {
             eprintln!("jaic-timing: {name} {:.6} {count}", total.as_secs_f64());
         }
+        let (interp, calls) = jaic::interp::compile_time_spent();
+        eprintln!("jaic-timing: interp {:.6} {calls}", interp.as_secs_f64());
     }
 }
 

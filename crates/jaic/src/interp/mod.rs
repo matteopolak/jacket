@@ -39,6 +39,7 @@ pub use native::{
 pub use sandbox::{SandboxHost, SharedHost};
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 pub use threads::DEADLOCK_GRACE;
 
@@ -520,6 +521,22 @@ impl Drop for ZeroedBlock {
         // Its pages may be unmapped now.
         probe::invalidate();
     }
+}
+
+/// Nanoseconds spent inside outermost compile-time calls (`#run`, metaprograms, macros),
+/// summed over every interpreter; `-timings` reports it as the `interp` phase.
+static COMPILE_TIME_NANOS: AtomicU64 = AtomicU64::new(0);
+
+static COMPILE_TIME_CALLS: AtomicU64 = AtomicU64::new(0);
+
+/// Wall time compile-time code has spent running so far and how many outermost calls that
+/// took. It includes any compilation the code itself triggers (a metaprogram building a
+/// workspace), so it overlaps `front end`.
+pub fn compile_time_spent() -> (std::time::Duration, u64) {
+    (
+        std::time::Duration::from_nanos(COMPILE_TIME_NANOS.load(Ordering::Relaxed)),
+        COMPILE_TIME_CALLS.load(Ordering::Relaxed),
+    )
 }
 
 pub struct Interp {
@@ -1780,6 +1797,7 @@ impl Interp {
             self.sp = 0;
         }
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
+        let started = (self.compile_time && self.call_nesting == 0).then(std::time::Instant::now);
         self.call_nesting += 1;
         let mut result = self.exec(program, func, args);
         if self.call_nesting == 1
@@ -1793,6 +1811,10 @@ impl Interp {
             }
         }
         self.call_nesting -= 1;
+        if let Some(started) = started {
+            COMPILE_TIME_NANOS.fetch_add(started.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            COMPILE_TIME_CALLS.fetch_add(1, Ordering::Relaxed);
+        }
         let result = result.map(Rets::into_vec);
         if self.forked_child {
             // Compile-time code forked and the child came back here (its `exec*` failed
