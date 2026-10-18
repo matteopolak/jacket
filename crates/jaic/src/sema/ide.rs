@@ -14,7 +14,7 @@ mod member_notes;
 mod recording;
 
 pub use self::facts::{
-    IdeCast, IdeExprFact, IdeFacts, IdeFieldSite, IdeHover, IdeKind, IdeLayout, IdeName,
+    IdeCall, IdeCast, IdeExprFact, IdeFacts, IdeFieldSite, IdeHover, IdeKind, IdeLayout, IdeName,
     IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,
 };
 pub(super) use self::member_notes::for_header_types;

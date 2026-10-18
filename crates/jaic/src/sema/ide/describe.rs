@@ -1,6 +1,6 @@
 //! Text that describes procedures, types and entities.
 use super::completion::clip;
-use super::facts::{IdeKind, IdeName};
+use super::facts::{IdeCall, IdeKind, IdeName};
 use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
 use crate::sema::value::ProcId;
 use crate::sema::*;
@@ -180,6 +180,7 @@ impl Compiler {
         if name.is_empty() || name.starts_with(['\0', '`']) || name.contains(' ') {
             return None;
         }
+        let mut call = None;
         let (kind, detail) = match &e.kind {
             EntityKind::EnumMember {
                 ty, ..
@@ -198,7 +199,10 @@ impl Compiler {
             EntityKind::Import(_) => (IdeKind::Module, "module".into()),
             EntityKind::Builtin(b) => match b {
                 scope::Builtin::Type(_) => (IdeKind::Type, "builtin type".into()),
-                scope::Builtin::Proc(_) => (IdeKind::Function, "builtin".into()),
+                scope::Builtin::Proc(_) => {
+                    call = Some(IdeCall::unknown());
+                    (IdeKind::Function, "builtin".into())
+                }
                 scope::Builtin::TargetConstant(_) => (IdeKind::Constant, "builtin constant".into()),
             },
             EntityKind::Decl {
@@ -208,15 +212,23 @@ impl Compiler {
                 | EntityState::Done(Resolved::Const {
                     value: value::Value::Proc(p),
                     ..
-                }) => (IdeKind::Function, clip(&self.ide_header_text(*p))),
-                EntityState::Done(Resolved::ProcSet(procedures)) => (
-                    IdeKind::Function,
-                    procedures
-                        .iter()
-                        .map(|p| clip(&self.ide_header_text(*p)))
-                        .collect::<Vec<_>>()
-                        .join(" | "),
-                ),
+                }) => {
+                    call = Some(IdeCall::of_headers([&*self.proc(*p).lit.header]));
+                    (IdeKind::Function, clip(&self.ide_header_text(*p)))
+                }
+                EntityState::Done(Resolved::ProcSet(procedures)) => {
+                    call = Some(IdeCall::of_headers(
+                        procedures.iter().map(|p| &*self.proc(*p).lit.header),
+                    ));
+                    (
+                        IdeKind::Function,
+                        procedures
+                            .iter()
+                            .map(|p| clip(&self.ide_header_text(*p)))
+                            .collect::<Vec<_>>()
+                            .join(" | "),
+                    )
+                }
                 EntityState::Done(Resolved::Global {
                     ty, ..
                 }) => (IdeKind::Variable, self.types.name(*ty)),
@@ -236,6 +248,9 @@ impl Compiler {
                         (ast::DeclKind::Var, _) => IdeKind::Variable,
                         _ => IdeKind::Constant,
                     };
+                    if let Some(E::Proc(lit)) = decl.value.as_ref().map(|v| &v.kind) {
+                        call = Some(IdeCall::of_headers([&*lit.header]));
+                    }
                     let detail = match decl.value.as_ref().map(|v| &v.kind) {
                         Some(E::Proc(lit)) => clip(self.sources.snippet(lit.header.span)),
                         _ => clip(self.sources.snippet(e.span)),
@@ -244,11 +259,33 @@ impl Compiler {
                 }
             },
         };
+        // Overloads are separate declarations of one name; the call must suit them all.
+        if kind == IdeKind::Function
+            && let Some(ids) = self.scope(e.scope).names.get(&e.name)
+            && ids.len() > 1
+        {
+            let headers: Vec<&ast::ProcHeader> = ids
+                .iter()
+                .filter_map(|&i| match &self.entity(i).kind {
+                    EntityKind::Decl {
+                        decl, ..
+                    } => match decl.value.as_ref().map(|v| &v.kind) {
+                        Some(ast::ExprKind::Proc(lit)) => Some(&*lit.header),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .collect();
+            if headers.len() > 1 {
+                call = Some(IdeCall::of_headers(headers));
+            }
+        }
         Some(IdeName {
             name: name.to_string(),
             kind,
             detail,
             decl: e.span,
+            call,
         })
     }
 }

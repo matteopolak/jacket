@@ -10,6 +10,8 @@
 
 ### Added
 
+- `jailsp` completes a procedure as a call when the client takes snippets: `name($0)` leaves the cursor inside the parentheses and opens parameter hints, `name()$0` for a procedure without parameters. Parentheses are left out where the procedure is a value: before an existing `(`, after `*` or `#procedure_of_call`, inside `type_of(...)`, in a `::` or global `:=` initialiser, and in type positions. Setting `jai.completion.callSnippets` (`completion.callSnippets` in the server's options): `addParentheses` (default), `fillArguments` (a placeholder per required parameter) or `none`. Also in the Neovim plugin as `completion.call_snippets`.
+- `jailsp` completes `if`, `for` and `while` at the start of a statement as a skeleton with the cursor in the body, and `case` inside the braces of `if x == {`.
 - `jailsp` fades code that can never run: statements after an exit, branches and loops a condition rules out (also by integer ranges and narrowing), `case`s a value cannot select, and `#if`/`ifx` arms that were not taken. They arrive as `unreachable` hints tagged `Unnecessary`, with no squiggle.
 
 ### Fixes

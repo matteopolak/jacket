@@ -954,6 +954,12 @@ impl JsonSession {
                 .pointer("/capabilities/workspace/diagnostics/refreshSupport")
                 .and_then(Value::as_bool)
                 == Some(true);
+        self.session.set_snippet_support(
+            params
+                .pointer("/capabilities/textDocument/completion/completionItem/snippetSupport")
+                .and_then(Value::as_bool)
+                == Some(true),
+        );
         self.configure(&params["initializationOptions"]);
         // A server started untrusted (`--untrusted`) stays so unless the client grants
         // trust later; initialization options can only withhold it.
@@ -1295,10 +1301,17 @@ impl JsonSession {
 
 impl JsonSession {
     /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of
-    /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false } }`.
+    /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false,
+    /// "callSnippets": "fillArguments" } }`.
     fn configure(&mut self, settings: &Value) {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {
             self.session.set_auto_import(on);
+        }
+        if let Some(mode) = settings["completion"]["callSnippets"]
+            .as_str()
+            .and_then(crate::call_snippets::CallSnippets::parse)
+        {
+            self.session.set_call_snippets(mode);
         }
     }
 }
@@ -1831,10 +1844,17 @@ fn completion_wire(completion: &CompletionList) -> Value {
             }
             if text.is_some() {
                 // 2: snippet syntax (`${1:name}`), 1: plain text.
-                wire["insertTextFormat"] = json!(if item.kind == CompletionKind::Snippet {
-                    2
-                } else {
-                    1
+                wire["insertTextFormat"] =
+                    json!(if item.kind == CompletionKind::Snippet || item.snippet {
+                        2
+                    } else {
+                        1
+                    });
+            }
+            if item.trigger_signature_help {
+                wire["command"] = json!({
+                    "title": "Trigger Parameter Hints",
+                    "command": "editor.action.triggerParameterHints",
                 });
             }
             wire

@@ -1101,6 +1101,10 @@ impl Session {
                     if decl.kind == CompletionKind::Function {
                         d.kind = decl.kind;
                     }
+                    d.call = match (d.call.take(), decl.call) {
+                        (Some(a), Some(b)) => Some(a.overloaded(&b)),
+                        (a, b) => a.or(b),
+                    };
                 }
                 _ => merged.push((rank, source, decl)),
             }
@@ -1133,6 +1137,7 @@ impl Session {
                                 "From `{shown}`, which the program already loads.\n\n{fence}{doc}"
                             )),
                             label_description: Some(shown),
+                            call: decl.call.clone(),
                             ..CompletionItem::default()
                         });
                     }
@@ -1167,6 +1172,7 @@ impl Session {
                         range,
                         new_text,
                     }],
+                    call: decl.call.clone(),
                     ..CompletionItem::default()
                 })
             })

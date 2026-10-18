@@ -9,6 +9,7 @@ use jaic::parser::ide_facts::{self, DeclClass, TopLevel, TopLevelKind};
 use jaic::source::FileId;
 
 pub use jaic::parser::ide_facts::Visibility;
+use jaic::sema::ide::IdeCall;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Decl {
@@ -23,6 +24,8 @@ pub struct Decl {
     pub doc: String,
     /// A simple constant alias path, without calls or other computed expressions.
     pub alias: Option<Vec<String>>,
+    /// The parameters of a procedure, for inserting a call.
+    pub call: Option<IdeCall>,
 }
 
 /// A top-level `#import "Name"` (bound to `name` for `Name :: #import`), or `#load`.
@@ -130,6 +133,10 @@ impl FileScan {
                 .map(|n| n.as_str().to_owned())
                 .collect::<Vec<_>>()
         });
+        let call = match decl.value.as_ref().map(|v| &v.kind) {
+            Some(jaic::ast::ExprKind::Proc(lit)) => Some(IdeCall::of_headers([&*lit.header])),
+            _ => None,
+        };
         for name in &decl.names {
             let name_text = name.name.as_str();
             self.declares_main |= name_text == "main";
@@ -146,6 +153,7 @@ impl FileScan {
                 signature: signature(text, tokens, start),
                 doc: doc_above(text, start),
                 alias: alias.clone(),
+                call: call.clone(),
             };
             if item.visibility != Visibility::File {
                 self.decls.push(decl.clone());

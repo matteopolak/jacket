@@ -2,6 +2,7 @@
 mod analysis;
 mod asm;
 mod auto_import;
+mod call_snippets;
 mod config;
 mod doc_view;
 pub(crate) use jaic::docs;
@@ -30,6 +31,7 @@ mod selection;
 mod semantic;
 mod session;
 
+pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};
 pub use model::{
     CallHierarchyCall, CallHierarchyItem, CodeAction, CodeLens, Command, CompletionData,

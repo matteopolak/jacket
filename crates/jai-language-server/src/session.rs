@@ -10,7 +10,7 @@ use crate::{
 };
 use jaic::intern::Sym;
 use jaic::parser::ide_facts::{self, CursorContext, PathDirective};
-use jaic::sema::ide::{IdeKind, IdeLayout, IdeName};
+use jaic::sema::ide::{IdeCall, IdeKind, IdeLayout, IdeName};
 use jaic::sema::ide_meta::IdeClass;
 use std::borrow::Cow;
 use std::cell::{OnceCell, RefCell};
@@ -80,6 +80,10 @@ pub struct Session {
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
     /// Auto-import completion is on (`jai.completion.autoImport`).
     pub(crate) auto_import: bool,
+    /// What accepting a procedure completion inserts (`jai.completion.callSnippets`).
+    call_snippets: crate::call_snippets::CallSnippets,
+    /// The client takes snippet completion items (`completionItem.snippetSupport`).
+    snippet_support: bool,
     /// The client's workspace folders: projects without a `jai.toml` are inferred in them.
     pub(crate) workspace_folders: Vec<PathBuf>,
     /// What modules and project files declare, for auto-import completion.
@@ -124,6 +128,8 @@ impl Session {
             synced_builds: std::cell::Cell::new(0),
             lint_configs: BTreeMap::new(),
             auto_import: true,
+            call_snippets: crate::call_snippets::CallSnippets::default(),
+            snippet_support: false,
             workspace_folders: Vec::new(),
             index: RefCell::default(),
             generation: std::cell::Cell::new(0),
@@ -136,6 +142,17 @@ impl Session {
     /// Turn auto-import completion on or off.
     pub fn set_auto_import(&mut self, on: bool) {
         self.auto_import = on;
+    }
+
+    /// Choose what accepting a procedure completion inserts.
+    pub fn set_call_snippets(&mut self, mode: crate::call_snippets::CallSnippets) {
+        self.call_snippets = mode;
+    }
+
+    /// Say whether the client renders snippet completion items; call parentheses and
+    /// statement skeletons are only inserted when it does.
+    pub fn set_snippet_support(&mut self, on: bool) {
+        self.snippet_support = on;
     }
 
     /// The client's workspace folders (absolute paths).
@@ -1476,7 +1493,7 @@ impl Session {
             // A directive's label includes its `#`.
             start -= 1;
         }
-        if let CursorContext::String(string) = context
+        if let CursorContext::String(string) = &context
             && string.directive.is_some()
         {
             // Inside `#load "..."` / `#import "..."`: the entry after the last `/`.
@@ -1493,6 +1510,10 @@ impl Session {
                     item.replace = Some(range);
                 }
             }
+        }
+        if self.snippet_support && matches!(context, CursorContext::Code | CursorContext::Member(_))
+        {
+            crate::call_snippets::apply(&mut list.items, text, start, end, self.call_snippets);
         }
         Ok(list)
     }
@@ -1541,6 +1562,9 @@ impl Session {
                 kind: IdeKind::Constant,
                 detail: "keyword".into(),
                 decl: jaic::source::Span::NONE,
+                call: crate::call_snippets::CALL_KEYWORDS
+                    .contains(k)
+                    .then(IdeCall::unknown),
             });
             let member = {
                 let before = &doc.text.as_bytes()[..byte - prefix.len()];
@@ -1587,6 +1611,7 @@ impl Session {
                     kind,
                     detail: name.detail,
                     data,
+                    call: name.call,
                     ..CompletionItem::default()
                 });
             }

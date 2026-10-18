@@ -125,6 +125,13 @@ pub struct CompletionItem {
     /// Where the item is declared, so its documentation can be read when the client asks
     /// (`completionItem/resolve`) instead of for every item of a long list.
     pub data: Option<CompletionData>,
+    /// How a procedure is called: completion inserts the call (`Session::call_snippets`).
+    pub call: Option<jaic::sema::ide::IdeCall>,
+    /// `insert_text` is a snippet, whatever the kind.
+    pub snippet: bool,
+    /// Accepting the item asks the client to show signature help (the cursor is inside the
+    /// parentheses it inserted).
+    pub trigger_signature_help: bool,
 }
 
 /// The declaration a completion item stands for.
