@@ -112,12 +112,19 @@ class JobRunner:
         where.mkdir(parents=True, exist_ok=True)
         return Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where, plan.redirect_output)
 
+    @staticmethod
+    def has_own_build(request: Request) -> bool:
+        """The project's own metaprogram decides where the output goes (`redirect_output` off) or takes
+        arguments. It builds relative to its own folder with its own options, so the phase-timing wrapper
+        (another folder, default options inherited by the nested workspace) would break it."""
+        return bool(request.metaprogram_args) or not request.redirect_output
+
     def driver(self, job: Job, compiler: Compiler, request: Request) -> Invocation:
         """How a compiler is run for the timed runs. Comparing compilers, an executable is built through the
         phase-timing metaprogram for all of them, so they all link with the same system linker (a reference
         compiler's bundled linker may not even run on a machine). A job with its own build metaprogram, or
         a single compiler, uses the compiler's native command line."""
-        if len(self.compilers) > 1 and request.mode.writes_executable and not request.metaprogram_args:
+        if len(self.compilers) > 1 and request.mode.writes_executable and not self.has_own_build(request):
             return compiler.dialect.phase_invocation(compiler.path, request)
         return compiler.dialect.invocation(compiler.path, request)
 
@@ -193,7 +200,7 @@ class JobRunner:
         """Stage seconds from `--phase-repeat` runs per compiler of the phase-timing metaprogram, the same
         for every compiler. A job with its own build metaprogram is not covered: the wrapper would build
         the entry with the default options instead."""
-        if self.args.phase_repeat < 1 or job.workload.plans[job.mode].metaprogram_args:
+        if self.args.phase_repeat < 1 or self.has_own_build(requests[self.compilers[0].name]):
             return
         invocations = {c.name: c.dialect.phase_invocation(c.path, requests[c.name]) for c in self.compilers}
         rounds: dict[str, list[Stages]] = {c.name: [] for c in self.compilers}

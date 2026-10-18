@@ -52,6 +52,29 @@ class GateTests(unittest.TestCase):
         self.assertEqual(first_difference(['a'], ['a', 'b']), '1 lines vs 2 lines')
 
 
+class DriverTests(unittest.TestCase):
+    def request(self, redirect, args=()):
+        scratch = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__('shutil').rmtree(scratch, ignore_errors=True))
+        return Request(Path('/w/first.jai'), Path('/w'), Mode.BUILD, tuple(args), scratch, redirect)
+
+    def test_a_project_that_chooses_its_own_output_is_not_wrapped_in_the_phase_metaprogram(self):
+        # The wrapper runs in another folder and hands its default options to the project's nested workspace,
+        # so a project like focus (custom link command inherited) or forbear (relative vendor paths) breaks.
+        two = runner('a', 'b')
+        job_ = job()
+        own = self.request(redirect=False)
+        self.assertEqual(two.driver(job_, two.compilers[0], own).command, ['/x/a', 'first.jai', '-timings'])
+        wrapped = two.driver(job_, two.compilers[0], self.request(redirect=True))
+        self.assertEqual(wrapped.command[1], 'phase_timing.jai')
+
+    def test_stage_timing_through_the_wrapper_is_skipped_for_such_a_project(self):
+        two = runner('a', 'b')
+        two.args.phase_repeat = 1
+        two.compile = lambda *a: self.fail('the phase-timing wrapper must not run')
+        two.add_stages(job(), {'a': self.request(False), 'b': self.request(False)}, {})
+
+
 class StageStatTests(unittest.TestCase):
     def test_median_per_bucket_over_rounds(self):
         stats = stage_stats([{Bucket.TOTAL: 1.0, Bucket.LINK: 0.1}, {Bucket.TOTAL: 3.0, Bucket.LINK: 0.3},
