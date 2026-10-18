@@ -12,7 +12,7 @@
 use super::scope::{EntityKind, Resolved, ScopeKind};
 use super::*;
 use crate::builtin_keys::SyntaxKey;
-use crate::records::{Field, FieldRef, Item, Record, Records};
+use crate::records::{Field, FieldRef, Item, Record, RecordTag, Records};
 use crate::types::{ArrayKind, TypeKind};
 
 /// Reviewed Code_Type_Instantiation.inst_flags ABI (independent of AST enum tags).
@@ -230,7 +230,7 @@ impl Compiler {
         std::mem::take(&mut self.failed_imports)
             .into_iter()
             .map(|(host, target)| {
-                let mut rec = Record::new("Message_Failed_Import");
+                let mut rec = Record::new(RecordTag::MessageFailedImport);
                 rec.int("kind", message_kind::FAILED_IMPORT)
                     .int("workspace", self.workspace)
                     .int("status", 2) // NOT_FOUND
@@ -273,7 +273,7 @@ impl Compiler {
                     .map(|&f| self.sources.get(f).path.clone())
             })
             .unwrap_or_default();
-        let mut rec = Record::new("Message_Import");
+        let mut rec = Record::new(RecordTag::MessageImport);
         rec.int("kind", message_kind::IMPORT)
             .int("workspace", self.workspace)
             .int("module_type", module_type)
@@ -304,7 +304,7 @@ impl Compiler {
         let import = self.module_record(r, module);
         let virtual_source = self.sources.get(file).is_virtual();
         let path = self.sources.get(file).path.clone();
-        let mut rec = Record::new("Message_File");
+        let mut rec = Record::new(RecordTag::MessageFile);
         rec.int("kind", message_kind::FILE)
             .int("workspace", self.workspace)
             .str(
@@ -420,12 +420,12 @@ impl Compiler {
                 break;
             }
         }
-        let mut message = Record::new("Message_Typechecked");
+        let mut message = Record::new(RecordTag::MessageTypechecked);
         let group = |r: &mut Records, items: &[(i64, Vec<i64>)]| -> Vec<Item> {
             items
                 .iter()
                 .map(|(expr, sub)| {
-                    let mut t = Record::new("Typechecked");
+                    let mut t = Record::new(RecordTag::Typechecked);
                     t.ptr("expression", *expr)
                         .refs("subexpressions", sub.iter().copied());
                     Item::Ref(r.add(t))
@@ -461,14 +461,14 @@ impl Compiler {
         polymorphs: bool,
     ) -> i64 {
         let seconds = |d: std::time::Duration| d.as_secs_f64().to_bits() as i64;
-        let mut time = Record::new("Time_Report");
+        let mut time = Record::new(RecordTag::TimeReport);
         time.int("run_directives", seconds(self.perf.run_time))
             // jaic has no bytecode pass that inlines calls: the native backend inlines later.
             .int("bytecode_inlining", 0.0f64.to_bits() as i64)
             .int("bytecode_generating", seconds(self.perf.lowering));
         let time = r.add(time);
 
-        let mut run_report = Record::new("Run_Directive_Report");
+        let mut run_report = Record::new(RecordTag::RunDirectiveReport);
         if runs {
             let stats = self.perf.runs.clone();
             let mut records = Vec::new();
@@ -477,7 +477,7 @@ impl Compiler {
                     .callee
                     .and_then(|f| self.procs_of_func(f).next())
                     .map_or(0, |p| self.header_record(r, p));
-                let mut record = Record::new("Record");
+                let mut record = Record::new(RecordTag::Record);
                 record
                     .ptr("callee", callee)
                     .int("num_stalls", run.stalls as i64)
@@ -488,7 +488,7 @@ impl Compiler {
         }
         let run_report = r.add(run_report);
 
-        let mut poly_report = Record::new("Polymorph_Report");
+        let mut poly_report = Record::new(RecordTag::PolymorphReport);
         poly_report
             .int("num_solves_invoked", self.perf.solves_invoked() as i64)
             .int("num_solves_used", self.perf.solves_used as i64);
@@ -500,7 +500,7 @@ impl Compiler {
                 let mut distinct = Vec::new();
                 for (instance, span) in &stat.instances {
                     let polymorphed = self.header_record(r, *instance);
-                    let mut location = Record::new("Source_Code_Location");
+                    let mut location = Record::new(RecordTag::SourceCodeLocation);
                     if let Some(file) = self.sources.try_get(span.file) {
                         let (line, column) = file.line_col(span.start);
                         location
@@ -509,13 +509,13 @@ impl Compiler {
                             .int("character_number", column as i64);
                     }
                     let location = r.add(location);
-                    let mut one = Record::new("Distinct_Polymorph");
+                    let mut one = Record::new(RecordTag::DistinctPolymorph);
                     one.ptr("polymorphed", polymorphed)
                         .ptr("location", location);
                     distinct.push(r.add(one));
                 }
                 let header = self.header_record(r, source);
-                let mut record = Record::new("Record");
+                let mut record = Record::new(RecordTag::Record);
                 record
                     .ptr("source", header)
                     .int("num_call_sites", stat.call_sites as i64)
@@ -530,7 +530,7 @@ impl Compiler {
         let poly_report = r.add(poly_report);
 
         let (calls, instructions) = self.instruction_counts();
-        let mut bytecode = Record::new("Bytecode_Report");
+        let mut bytecode = Record::new(RecordTag::BytecodeReport);
         bytecode
             .int("num_calls_inlined", 0)
             .int("num_calls_total", calls as i64)
@@ -538,7 +538,7 @@ impl Compiler {
             .int("num_instructions_total", instructions as i64);
         let bytecode = r.add(bytecode);
 
-        let mut message = Record::new("Message_Performance_Report");
+        let mut message = Record::new(RecordTag::MessagePerformanceReport);
         message
             .int("kind", message_kind::PERFORMANCE_REPORT)
             .int("workspace", self.workspace)
@@ -832,14 +832,14 @@ impl Compiler {
                 continue;
             }
             let ty = self.type_record(r, ty);
-            let mut m = Record::new("Type_Info_Struct_Member");
+            let mut m = Record::new(RecordTag::TypeInfoStructMember);
             m.str("name", name.as_str().as_bytes())
                 .ptr("type", ty)
                 .int("flags", 0x1)
                 .int("offset_into_constant_storage", offset as i64);
             params.push(r.add(m));
         }
-        let mut generic = Record::new("Type_Info_Struct");
+        let mut generic = Record::new(RecordTag::TypeInfoStruct);
         generic
             .int("type", 7)
             .str("name", self.types.struct_info(s).name.as_str().as_bytes())
@@ -883,30 +883,30 @@ impl Compiler {
         let (tag, info_tag) = match &kind {
             TypeKind::Int {
                 ..
-            } => ("Type_Info_Integer", 0),
+            } => (RecordTag::TypeInfoInteger, 0),
             TypeKind::Float {
                 ..
             }
-            | TypeKind::WideFloat(_) => ("Type_Info_Float", 1),
-            TypeKind::Bool => ("Type_Info", 2),
-            TypeKind::String => ("Type_Info_String", 3),
-            TypeKind::Pointer(_) | TypeKind::Null => ("Type_Info_Pointer", 4),
-            TypeKind::Proc(_) => ("Type_Info_Procedure", 5),
-            TypeKind::Void => ("Type_Info", 6),
-            TypeKind::Struct(_) => ("Type_Info_Struct", 7),
+            | TypeKind::WideFloat(_) => (RecordTag::TypeInfoFloat, 1),
+            TypeKind::Bool => (RecordTag::TypeInfo, 2),
+            TypeKind::String => (RecordTag::TypeInfoString, 3),
+            TypeKind::Pointer(_) | TypeKind::Null => (RecordTag::TypeInfoPointer, 4),
+            TypeKind::Proc(_) => (RecordTag::TypeInfoProcedure, 5),
+            TypeKind::Void => (RecordTag::TypeInfo, 6),
+            TypeKind::Struct(_) => (RecordTag::TypeInfoStruct, 7),
             TypeKind::Array {
                 ..
-            } => ("Type_Info_Array", 8),
-            TypeKind::CompileTimeOnly => ("Type_Info", 9),
-            TypeKind::PolyParam => ("Type_Info", 12),
+            } => (RecordTag::TypeInfoArray, 8),
+            TypeKind::CompileTimeOnly => (RecordTag::TypeInfo, 9),
+            TypeKind::PolyParam => (RecordTag::TypeInfo, 12),
             TypeKind::PolyStruct {
                 ..
-            } => ("Type_Info_Struct", 7),
-            TypeKind::Any => ("Type_Info", 10),
-            TypeKind::Enum(_) => ("Type_Info_Enum", 11),
-            TypeKind::Type => ("Type_Info", 13),
-            TypeKind::Code => ("Type_Info", 14),
-            TypeKind::Distinct(_) => ("Type_Info_Variant", 18),
+            } => (RecordTag::TypeInfoStruct, 7),
+            TypeKind::Any => (RecordTag::TypeInfo, 10),
+            TypeKind::Enum(_) => (RecordTag::TypeInfoEnum, 11),
+            TypeKind::Type => (RecordTag::TypeInfo, 13),
+            TypeKind::Code => (RecordTag::TypeInfo, 14),
+            TypeKind::Distinct(_) => (RecordTag::TypeInfoVariant, 18),
         };
         // Registered before the fields: types may refer to themselves.
         let id = r.reserve(tag);
@@ -988,7 +988,7 @@ impl Compiler {
                 let mut members = Vec::new();
                 for field in info.fields.iter() {
                     let fty = self.type_record(r, field.ty);
-                    let mut m = Record::new("Type_Info_Struct_Member");
+                    let mut m = Record::new(RecordTag::TypeInfoStructMember);
                     m.str("name", field.name.map_or("", |n| n.as_str()).as_bytes())
                         .ptr("type", fty)
                         .int("offset_in_bytes", field.offset as i64)
@@ -1120,7 +1120,7 @@ impl Exporter<'_> {
     }
 
     /// A node record with the `Code_Node` fields filled in.
-    fn node(&mut self, tag: &'static str, kind: i64, span: Span) -> Record {
+    fn node(&mut self, tag: RecordTag, kind: i64, span: Span) -> Record {
         // The common fields (kind, location, serial, type) and a node's own few: growing
         // from empty reallocated most records two or three times.
         let mut rec = Record::with_capacity(tag, 12);
@@ -1176,7 +1176,7 @@ impl Exporter<'_> {
                 .ok()
                 .and_then(|g| c.interp.global_addr(&c.program, g).ok());
             if let Some(addr) = addr {
-                let mut rec = Record::new("Type_Info");
+                let mut rec = Record::new(RecordTag::TypeInfo);
                 rec.int("__address", addr as i64);
                 let id = self.r.add(rec);
                 c.export.own_types.insert(ty, id);
@@ -1190,7 +1190,7 @@ impl Exporter<'_> {
         notes
             .iter()
             .map(|n| {
-                let mut rec = self.node("Code_Note", node::NOTE, n.span);
+                let mut rec = self.node(RecordTag::CodeNote, node::NOTE, n.span);
                 rec.str("text", n.text.as_bytes());
                 self.add(rec)
             })
@@ -1198,7 +1198,7 @@ impl Exporter<'_> {
     }
 
     fn ident(&mut self, name: Sym, span: Span) -> i64 {
-        let mut rec = self.node("Code_Ident", node::IDENT, span);
+        let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
         rec.str("name", name.as_str().as_bytes());
         if let Some(decl) = self.resolve_name(name) {
             rec.ptr("resolved_declaration", decl);
@@ -1213,7 +1213,7 @@ impl Exporter<'_> {
     /// literal's field, a named argument or a loop label. Looking it up in the scope would
     /// miss after the slowest search, or find an unrelated global of the same name.
     fn name_ident(&mut self, name: Sym, span: Span) -> i64 {
-        let mut rec = self.node("Code_Ident", node::IDENT, span);
+        let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
         rec.str("name", name.as_str().as_bytes());
         self.add(rec)
     }
@@ -1291,10 +1291,14 @@ impl Exporter<'_> {
         span: Span,
     ) -> i64 {
         let ty = ty.map_or(0, |t| self.ty(t));
-        let mut inst = self.node("Code_Type_Instantiation", node::TYPE_INSTANTIATION, span);
+        let mut inst = self.node(
+            RecordTag::CodeTypeInstantiation,
+            node::TYPE_INSTANTIATION,
+            span,
+        );
         inst.ptr("result", ty).ptr("type", ty);
         let inst = self.r.add(inst);
-        let mut rec = self.node("Code_Declaration", node::DECLARATION, span);
+        let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, span);
         rec.str("name", name.as_str().as_bytes())
             .ptr("type", ty)
             .ptr(
@@ -1320,7 +1324,11 @@ impl Exporter<'_> {
         let inst = match self.r.get(decl).and_then(|d| d.field("type_inst")) {
             Some(FieldRef::Ref(id)) => id,
             _ => {
-                let rec = self.node("Code_Type_Instantiation", node::TYPE_INSTANTIATION, span);
+                let rec = self.node(
+                    RecordTag::CodeTypeInstantiation,
+                    node::TYPE_INSTANTIATION,
+                    span,
+                );
                 let id = self.r.reserve(rec.tag);
                 let mut rec = rec;
                 rec.int("serial", id);
@@ -1353,7 +1361,7 @@ impl Exporter<'_> {
         if let Some(&h) = c.export.resolved_headers.get(&(p, own)) {
             return h;
         }
-        let id = self.r.reserve("Code_Procedure_Header");
+        let id = self.r.reserve(RecordTag::CodeProcedureHeader);
         c.export.resolved_headers.insert((p, own), id);
         let info = c.proc(p);
         let (name, lit, span, is_poly) = (info.name, info.lit.clone(), info.span, info.is_poly);
@@ -1399,7 +1407,7 @@ impl Exporter<'_> {
             }
         }
         let notes = self.notes(&notes);
-        let mut rec = self.node("Code_Procedure_Header", node::PROCEDURE_HEADER, span);
+        let mut rec = self.node(RecordTag::CodeProcedureHeader, node::PROCEDURE_HEADER, span);
         rec.refs("arguments", arguments)
             .refs("returns", returns)
             .refs("notes", notes)
@@ -1500,7 +1508,7 @@ impl Exporter<'_> {
     /// A `Code_Type_Instantiation` for a type expression, with its resolved type when it has one.
     fn type_inst(&mut self, expr: &ast::Expr) -> i64 {
         let mut rec = self.node(
-            "Code_Type_Instantiation",
+            RecordTag::CodeTypeInstantiation,
             node::TYPE_INSTANTIATION,
             expr.span,
         );
@@ -1581,13 +1589,13 @@ impl Exporter<'_> {
         let arguments: Vec<_> = nodes
             .iter()
             .map(|&node| {
-                let mut arg = Record::new("Code_Comma_Separated_Argument");
+                let mut arg = Record::new(RecordTag::CodeCommaSeparatedArgument);
                 arg.ptr("node", node).int("modifier", 0);
                 self.r.add(arg)
             })
             .collect();
         let mut rec = self.node(
-            "Code_Comma_Separated_Arguments",
+            RecordTag::CodeCommaSeparatedArguments,
             node::COMMA_SEPARATED_ARGUMENTS,
             span,
         );
@@ -1609,7 +1617,11 @@ impl Exporter<'_> {
             return Vec::new();
         };
         let body = self.syntax_block(block);
-        let mut rec = self.node("Code_Directive_Modify", node::DIRECTIVE_MODIFY, block.span);
+        let mut rec = self.node(
+            RecordTag::CodeDirectiveModify,
+            node::DIRECTIVE_MODIFY,
+            block.span,
+        );
         rec.ptr("block", body);
         vec![self.add(rec)]
     }
@@ -1624,7 +1636,7 @@ impl Exporter<'_> {
     ) -> Record {
         let value = self.expr(value);
         let scope = self.opt_expr(scope);
-        let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
+        let mut rec = self.node(RecordTag::CodeDirectiveInsert, node::DIRECTIVE_INSERT, span);
         rec.ptr("expression", value)
             .ptr("scope_redirection", scope)
             .str(
@@ -1660,7 +1672,7 @@ impl Exporter<'_> {
     }
 
     fn literal(&mut self, span: Span, value_type: i64) -> Record {
-        let mut rec = self.node("Code_Literal", node::LITERAL, span);
+        let mut rec = self.node(RecordTag::CodeLiteral, node::LITERAL, span);
         rec.int("value_type", value_type);
         rec
     }
@@ -1804,7 +1816,7 @@ impl Exporter<'_> {
                 rec
             }
             E::Null => {
-                let mut info = Record::new("Code_Pointer_Literal_Info");
+                let mut info = Record::new(RecordTag::CodePointerLiteralInfo);
                 info.int("pointer_literal_type", 2);
                 let info = self.r.add(info);
                 let mut rec = self.literal(span, 8);
@@ -1812,10 +1824,10 @@ impl Exporter<'_> {
                 rec
             }
             E::Uninit => self.literal(span, 0),
-            E::Context => self.node("Code_Context", node::CONTEXT, span),
+            E::Context => self.node(RecordTag::CodeContext, node::CONTEXT, span),
             E::Binary(op, a, b) => {
                 let (a, b) = (self.expr(a), self.expr(b));
-                let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
+                let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
                 rec.int("operator_type", bin_op(*op))
                     .ptr("left", a)
                     .ptr("right", b);
@@ -1852,13 +1864,13 @@ impl Exporter<'_> {
                     ast::UnOp::Star => b'*' as i64,
                     ast::UnOp::Deref => 169,
                 };
-                let mut rec = self.node("Code_Unary_Operator", node::UNARY_OPERATOR, span);
+                let mut rec = self.node(RecordTag::CodeUnaryOperator, node::UNARY_OPERATOR, span);
                 rec.int("operator_type", op).ptr("subexpression", a);
                 rec
             }
             E::Member(a, name) => {
                 let (a, b) = (self.expr(a), self.name_ident(name.name, name.span));
-                let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
+                let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
                 rec.int("operator_type", b'.' as i64)
                     .ptr("left", a)
                     .ptr("right", b);
@@ -1866,13 +1878,13 @@ impl Exporter<'_> {
             }
             E::InferredMember(name) => {
                 let b = self.name_ident(name.name, name.span);
-                let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
+                let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
                 rec.int("operator_type", b'.' as i64).ptr("right", b);
                 rec
             }
             E::Index(a, b) => {
                 let (a, b) = (self.expr(a), self.expr(b));
-                let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
+                let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
                 rec.int("operator_type", 500).ptr("left", a).ptr("right", b);
                 rec
             }
@@ -1900,7 +1912,7 @@ impl Exporter<'_> {
                     .collect::<Vec<_>>()
                     .join(",");
                 let change_list = self.node_list(&change_values, span);
-                let mut rec = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
+                let mut rec = self.node(RecordTag::CodeProcedureCall, node::PROCEDURE_CALL, span);
                 rec.ptr("procedure_expression", callee)
                     .int(
                         SyntaxKey::CallHint,
@@ -1951,7 +1963,7 @@ impl Exporter<'_> {
                 if flags.force {
                     cast_flags |= 0x80;
                 }
-                let mut rec = self.node("Code_Cast", node::CAST, span);
+                let mut rec = self.node(RecordTag::CodeCast, node::CAST, span);
                 rec.ptr("target_type", target)
                     .ptr("expression", value)
                     .int("cast_flags", cast_flags);
@@ -1966,7 +1978,7 @@ impl Exporter<'_> {
                 let cond = self.expr(cond);
                 let then_block = then_value.as_deref().map_or(0, |v| self.expr_block(v));
                 let else_block = else_value.as_deref().map_or(0, |v| self.expr_block(v));
-                let mut rec = self.node("Code_If", node::IF, span);
+                let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
                 rec.ptr("condition", cond)
                     .ptr("then_block", then_block)
                     .ptr("else_block", else_block)
@@ -1991,7 +2003,7 @@ impl Exporter<'_> {
                         }
                     };
                     let mut rec = self.node(
-                        "Code_Binary_Operator",
+                        RecordTag::CodeBinaryOperator,
                         node::BINARY_OPERATOR,
                         field.value.span,
                     );
@@ -2000,7 +2012,7 @@ impl Exporter<'_> {
                         .ptr("right", value);
                     values.push(self.add(rec));
                 }
-                let mut info = Record::new("Code_Struct_Literal_Info");
+                let mut info = Record::new(RecordTag::CodeStructLiteralInfo);
                 info.ptr("type_expression", ty).refs("arguments", values);
                 let info = self.r.add(info);
                 let mut rec = self.literal(span, 7);
@@ -2013,7 +2025,7 @@ impl Exporter<'_> {
             } => {
                 let elem_ty = ty.as_ref().map_or(0, |t| self.type_inst(t));
                 let elems: Vec<i64> = elems.iter().map(|e| self.expr(e)).collect();
-                let mut info = Record::new("Code_Array_Literal_Info");
+                let mut info = Record::new(RecordTag::CodeArrayLiteralInfo);
                 info.ptr("element_type", elem_ty)
                     .refs("array_members", elems)
                     .int("array_literal_flags", ty.is_none() as i64);
@@ -2054,7 +2066,7 @@ impl Exporter<'_> {
                     ast::RunBody::Expr(expr) => self.expr(expr),
                     ast::RunBody::Block(block) => self.syntax_block(block),
                 };
-                let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveRun, node::DIRECTIVE_RUN, span);
                 rec.ptr(SyntaxKey::RunBody, body).str(
                     SyntaxKey::Flags,
                     flags
@@ -2076,7 +2088,7 @@ impl Exporter<'_> {
                     },
                     ast::CodeBody::Block(b) => self.block(&b.stmts, 1, b.span),
                 };
-                let mut rec = self.node("Code_Directive_Code", node::DIRECTIVE_CODE, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveCode, node::DIRECTIVE_CODE, span);
                 rec.ptr("expression", expr).int(
                     "code_flags",
                     if null {
@@ -2098,12 +2110,20 @@ impl Exporter<'_> {
             }
             E::Location(e) => {
                 let e = self.opt_expr(e.as_deref());
-                let mut rec = self.node("Code_Directive_Location", node::DIRECTIVE_LOCATION, span);
+                let mut rec = self.node(
+                    RecordTag::CodeDirectiveLocation,
+                    node::DIRECTIVE_LOCATION,
+                    span,
+                );
                 rec.ptr("expression", e);
                 rec
             }
             E::CallerLocation => {
-                let mut rec = self.node("Code_Directive_Location", node::DIRECTIVE_LOCATION, span);
+                let mut rec = self.node(
+                    RecordTag::CodeDirectiveLocation,
+                    node::DIRECTIVE_LOCATION,
+                    span,
+                );
                 rec.int("is_caller_location", 1);
                 rec
             }
@@ -2118,21 +2138,22 @@ impl Exporter<'_> {
             }
             E::Exists(query) => {
                 let query = self.expr(query);
-                let mut rec = self.node("Code_Directive_Exists", node::DIRECTIVE_EXISTS, span);
+                let mut rec =
+                    self.node(RecordTag::CodeDirectiveExists, node::DIRECTIVE_EXISTS, span);
                 rec.ptr("query_expression", query);
                 rec
             }
-            E::This => self.node("Code_Node", node::DIRECTIVE_THIS, span),
-            E::CompileTime => self.node("Code_Node", node::DIRECTIVE_COMPILE_TIME, span),
+            E::This => self.node(RecordTag::CodeNode, node::DIRECTIVE_THIS, span),
+            E::CompileTime => self.node(RecordTag::CodeNode, node::DIRECTIVE_COMPILE_TIME, span),
             E::Bytes(e) => {
                 let e = self.expr(e);
-                let mut rec = self.node("Code_Directive_Bytes", node::DIRECTIVE_BYTES, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveBytes, node::DIRECTIVE_BYTES, span);
                 rec.ptr("expression", e);
                 rec
             }
             E::UnknownDirective(directive) => {
                 let operand = self.opt_expr(directive.operand.as_ref());
-                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
                 rec.str(
                     SyntaxKey::DirectiveName,
                     directive.name.name.as_str().as_bytes(),
@@ -2151,7 +2172,7 @@ impl Exporter<'_> {
             }
             E::ProcedureOfCall(call) => {
                 let call = self.expr(call);
-                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
                 rec.str(SyntaxKey::DirectiveName, b"procedure_of_call")
                     .ptr(SyntaxKey::DirectiveArgs, call);
                 rec
@@ -2159,7 +2180,7 @@ impl Exporter<'_> {
             E::ProcedureName(arg) => {
                 let arg = self.opt_expr(arg.as_deref());
                 let mut rec = self.node(
-                    "Code_Directive_Procedure_Name",
+                    RecordTag::CodeDirectiveProcedureName,
                     node::DIRECTIVE_PROCEDURE_NAME,
                     span,
                 );
@@ -2180,7 +2201,7 @@ impl Exporter<'_> {
                     span,
                 };
                 let call = self.expr(&call);
-                let mut rec = self.node("Code_Directive_Bake", node::DIRECTIVE_BAKE, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveBake, node::DIRECTIVE_BAKE, span);
                 // CONSTANTS_BAKE or PARAMETER_VALUE_BAKE.
                 rec.ptr("procedure_call", call)
                     .int("bake_type", i64::from(!*constants));
@@ -2193,7 +2214,7 @@ impl Exporter<'_> {
                 name,
                 baked,
             } => {
-                let mut rec = self.node("Code_Ident", node::IDENT, span);
+                let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
                 rec.str("name", name.as_str().as_bytes()).int(
                     "flags",
                     0x1 | if *baked {
@@ -2211,7 +2232,7 @@ impl Exporter<'_> {
                 interface,
             } => {
                 let restriction = self.expr(restriction);
-                let mut rec = self.node("Code_Ident", node::IDENT, span);
+                let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
                 rec.str("name", name.as_str().as_bytes())
                     .int(
                         "flags",
@@ -2227,7 +2248,11 @@ impl Exporter<'_> {
                 rec
             }
             E::CallerCode => {
-                let mut rec = self.node("Code_Directive_Location", node::DIRECTIVE_LOCATION, span);
+                let mut rec = self.node(
+                    RecordTag::CodeDirectiveLocation,
+                    node::DIRECTIVE_LOCATION,
+                    span,
+                );
                 rec.int("is_caller_code", 1).int(SyntaxKey::CallerCode, 1);
                 rec
             }
@@ -2263,7 +2288,7 @@ impl Exporter<'_> {
                     }
                 }
             }
-            _ => self.node("Code_Node", node::PLACEHOLDER, span),
+            _ => self.node(RecordTag::CodeNode, node::PLACEHOLDER, span),
         };
         let mut rec = rec;
         // Typechecked expressions carry their type (Epic_Fail compares operand types).
@@ -2296,7 +2321,7 @@ impl Exporter<'_> {
             ast::AsmPin::Name(name) => name.name.to_string(),
             ast::AsmPin::Index(index) => index.to_string(),
         });
-        let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+        let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
         rec.str(SyntaxKey::AsmKind, b"declaration")
             .str(SyntaxKey::Name, decl.name.name.as_str().as_bytes())
             .str(
@@ -2321,7 +2346,8 @@ impl Exporter<'_> {
                     .map(|term| {
                         let value = self.expr(&term.value);
                         let scale = self.opt_expr(term.scale.as_ref());
-                        let mut rec = self.node("Code_Node", node::PLACEHOLDER, memory.span);
+                        let mut rec =
+                            self.node(RecordTag::CodeNode, node::PLACEHOLDER, memory.span);
                         rec.ptr(SyntaxKey::Value, value)
                             .ptr(SyntaxKey::Scale, scale)
                             .int(SyntaxKey::Negate, i64::from(term.negate));
@@ -2329,7 +2355,7 @@ impl Exporter<'_> {
                     })
                     .collect();
                 let terms = self.node_list(&terms, memory.span);
-                let mut rec = self.node("Code_Node", node::PLACEHOLDER, memory.span);
+                let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, memory.span);
                 rec.str(SyntaxKey::AsmKind, b"memory")
                     .ptr(SyntaxKey::Terms, terms)
                     .int(SyntaxKey::Broadcast, i64::from(memory.broadcast));
@@ -2364,7 +2390,7 @@ impl Exporter<'_> {
                     let round = inst.evex.round.map_or(String::new(), |mode| {
                         format!("!{}", mode.map_or(String::new(), |mode| mode.to_string()))
                     });
-                    let mut rec = self.node("Code_Node", node::PLACEHOLDER, inst.span);
+                    let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, inst.span);
                     rec.str(SyntaxKey::AsmKind, b"instruction")
                         .str(SyntaxKey::Mnemonic, inst.mnemonic.name.as_str().as_bytes())
                         .ptr(SyntaxKey::Operands, operands)
@@ -2381,7 +2407,7 @@ impl Exporter<'_> {
             })
             .collect();
         let items = self.node_list(&items, span);
-        let mut rec = self.node("Code_Asm", node::ASM, span);
+        let mut rec = self.node(RecordTag::CodeAsm, node::ASM, span);
         rec.ptr(SyntaxKey::AsmItems, items)
             .int(SyntaxKey::AsmPresent, 1)
             .str(
@@ -2449,7 +2475,7 @@ impl Exporter<'_> {
                 node.int("node_flags", flags | 1);
             }
             let name = arg.name.map_or(0, |n| self.name_ident(n.name, n.span));
-            let mut rec = Record::new("Code_Argument");
+            let mut rec = Record::new(RecordTag::CodeArgument);
             rec.ptr("expression", value).ptr("name", name);
             unsorted.push(self.r.add(rec));
             values.push(value);
@@ -2460,7 +2486,7 @@ impl Exporter<'_> {
     /// A block holding one expression (branches of `ifx`).
     fn expr_block(&mut self, e: &ast::Expr) -> i64 {
         let value = self.expr(e);
-        let mut rec = self.node("Code_Block", node::BLOCK, e.span);
+        let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, e.span);
         rec.int("block_type", 1).refs("statements", [value]);
         self.add(rec)
     }
@@ -2489,7 +2515,7 @@ impl Exporter<'_> {
             }
             statements.push(id);
         }
-        let mut rec = self.node("Code_Block", node::BLOCK, span);
+        let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, span);
         rec.int("block_type", block_type)
             .refs("members", members)
             .refs("statements", statements);
@@ -2517,7 +2543,7 @@ impl Exporter<'_> {
             } => {
                 let l = self.comma_values(lhs, span);
                 let r = self.comma_values(rhs, span);
-                let mut rec = self.node("Code_Binary_Operator", node::BINARY_OPERATOR, span);
+                let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
                 rec.int("operator_type", assign_op(*op))
                     .ptr("left", l)
                     .ptr("right", r);
@@ -2532,7 +2558,7 @@ impl Exporter<'_> {
                 let cond = self.expr(cond);
                 let then_block = self.stmt_block(then_branch);
                 let else_block = else_branch.as_deref().map_or(0, |b| self.stmt_block(b));
-                let mut rec = self.node("Code_If", node::IF, span);
+                let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
                 rec.ptr("condition", cond)
                     .ptr("then_block", then_block)
                     .ptr("else_block", else_block);
@@ -2576,7 +2602,7 @@ impl Exporter<'_> {
                 let cond = self.expr(cond);
                 let then_block = self.block(then_branch, 1, span);
                 let else_block = self.block(else_branch, 1, span);
-                let mut rec = self.node("Code_If", node::IF, span);
+                let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
                 rec.ptr("condition", cond)
                     .ptr("then_block", then_block)
                     .ptr("else_block", else_block)
@@ -2596,7 +2622,7 @@ impl Exporter<'_> {
                 } = &**boxed;
                 let cond = self.expr(cond);
                 let block = self.stmt_block(body);
-                let mut rec = self.node("Code_While", node::WHILE, span);
+                let mut rec = self.node(RecordTag::CodeWhile, node::WHILE, span);
                 rec.ptr("condition", cond).ptr("block", block);
                 if let Some(label) = label {
                     rec.str(SyntaxKey::Label, label.name.as_str().as_bytes())
@@ -2629,7 +2655,7 @@ impl Exporter<'_> {
                 let block = self.stmt_block(&f.body);
                 self.locals.truncate(locals);
                 let flags = (f.by_pointer as i64) | ((f.reverse as i64) * 0x2);
-                let mut rec = self.node("Code_For", node::FOR, span);
+                let mut rec = self.node(RecordTag::CodeFor, node::FOR, span);
                 rec.ptr("iteration_expression", a)
                     .ptr("iteration_expression_right", b)
                     .ptr("ident_it", it)
@@ -2658,7 +2684,7 @@ impl Exporter<'_> {
                     _ => 2,
                 };
                 let target = label.map_or(0, |l| self.name_ident(l.name, l.span));
-                let mut rec = self.node("Code_Loop_Control", node::LOOP_CONTROL, span);
+                let mut rec = self.node(RecordTag::CodeLoopControl, node::LOOP_CONTROL, span);
                 rec.int("control_type", control).ptr("target_ident", target);
                 self.add(rec)
             }
@@ -2669,7 +2695,7 @@ impl Exporter<'_> {
                 let (unsorted, sorted) = self.args(values);
                 // Jai leaves a return's `arguments_sorted` empty (yield-jai checks).
                 let _ = sorted;
-                let mut rec = self.node("Code_Return", node::RETURN, span);
+                let mut rec = self.node(RecordTag::CodeReturn, node::RETURN, span);
                 rec.refs("arguments_unsorted", unsorted)
                     .int("return_flags", *backtick as i64);
                 self.add(rec)
@@ -2679,7 +2705,7 @@ impl Exporter<'_> {
                 backtick,
             } => {
                 let block = self.stmt_block(body);
-                let mut rec = self.node("Code_Defer", node::DEFER, span);
+                let mut rec = self.node(RecordTag::CodeDefer, node::DEFER, span);
                 rec.ptr("block", block)
                     .int("is_backticked", *backtick as i64);
                 self.add(rec)
@@ -2691,7 +2717,7 @@ impl Exporter<'_> {
                 } = &**boxed;
                 let value = self.expr(value);
                 let (filter_type, filter_expression) = self.using_filter(filter);
-                let mut rec = self.node("Code_Using", node::USING, span);
+                let mut rec = self.node(RecordTag::CodeUsing, node::USING, span);
                 rec.ptr("expression", value)
                     .int("filter_type", filter_type)
                     .ptr("filter_expression", filter_expression)
@@ -2712,7 +2738,7 @@ impl Exporter<'_> {
             }
             S::PushContextDefer(defer) => {
                 let context = self.expr(&defer.context);
-                let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
+                let mut rec = self.node(RecordTag::CodePushContext, node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context)
                     .ptr(SyntaxKey::OriginalContext, context)
                     .int(SyntaxKey::ContextBare, i64::from(defer.bare))
@@ -2728,7 +2754,7 @@ impl Exporter<'_> {
                 } = &**boxed;
                 let context = self.expr(context);
                 let block = self.stmt_block(body);
-                let mut rec = self.node("Code_Push_Context", node::PUSH_CONTEXT, span);
+                let mut rec = self.node(RecordTag::CodePushContext, node::PUSH_CONTEXT, span);
                 rec.ptr("to_push", context)
                     .ptr(SyntaxKey::OriginalContext, context)
                     .int(SyntaxKey::ContextBare, i64::from(*bare))
@@ -2747,7 +2773,7 @@ impl Exporter<'_> {
                 self.add(rec)
             }
             S::Run(e) => {
-                let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveRun, node::DIRECTIVE_RUN, span);
                 let e = self.expr(e);
                 rec.ptr("expression", e).ptr(SyntaxKey::RunBody, e);
                 self.add(rec)
@@ -2759,7 +2785,7 @@ impl Exporter<'_> {
                     message,
                     args,
                 } = &**boxed;
-                let mut rec = self.node("Code_Directive_Run", node::DIRECTIVE_RUN, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveRun, node::DIRECTIVE_RUN, span);
                 let text = self
                     .c
                     .as_deref()
@@ -2777,7 +2803,8 @@ impl Exporter<'_> {
                 self.add(rec)
             }
             S::Import(import) => {
-                let mut rec = self.node("Code_Directive_Import", node::DIRECTIVE_IMPORT, span);
+                let mut rec =
+                    self.node(RecordTag::CodeDirectiveImport, node::DIRECTIVE_IMPORT, span);
                 let (name, kind) = match &import.source {
                     ast::ImportSource::Module(name) => (name, 0),
                     ast::ImportSource::File(name) => (name, 1),
@@ -2824,7 +2851,8 @@ impl Exporter<'_> {
                 ] {
                     if present {
                         let (arguments, _) = self.args(args);
-                        let mut call = self.node("Code_Procedure_Call", node::PROCEDURE_CALL, span);
+                        let mut call =
+                            self.node(RecordTag::CodeProcedureCall, node::PROCEDURE_CALL, span);
                         call.refs("arguments_unsorted", arguments);
                         let call = self.add(call);
                         rec.ptr(field, call);
@@ -2834,7 +2862,7 @@ impl Exporter<'_> {
             }
             S::Empty => return None,
             S::Scope(scope) => {
-                let mut rec = self.node("Code_Directive_Scope", node::DIRECTIVE_SCOPE, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveScope, node::DIRECTIVE_SCOPE, span);
                 rec.int(
                     "scope_type",
                     match scope {
@@ -2846,13 +2874,17 @@ impl Exporter<'_> {
                 self.add(rec)
             }
             S::Through => {
-                let rec = self.node("Code_Directive_Through", node::DIRECTIVE_THROUGH, span);
+                let rec = self.node(
+                    RecordTag::CodeDirectiveThrough,
+                    node::DIRECTIVE_THROUGH,
+                    span,
+                );
                 self.add(rec)
             }
             S::Load {
                 path, ..
             } => {
-                let mut rec = self.node("Code_Directive_Load", node::DIRECTIVE_LOAD, span);
+                let mut rec = self.node(RecordTag::CodeDirectiveLoad, node::DIRECTIVE_LOAD, span);
                 rec.str("short_name", path.as_bytes());
                 if let Some(c) = self.c.as_deref()
                     && (span.file.0 as usize) < c.sources.len()
@@ -2865,13 +2897,17 @@ impl Exporter<'_> {
             }
             S::Place(e) => {
                 let ident = self.expr(e);
-                let mut rec = self.node("Code_Directive_Place", node::DIRECTIVE_PLACE, span);
+                let mut rec = self.node(RecordTag::CodeNode, node::DIRECTIVE_PLACE, span);
                 rec.ptr("ident", ident).ptr(SyntaxKey::Operand, ident);
                 self.add(rec)
             }
             S::Overlay(e) => {
                 let target = self.expr(e);
-                let mut rec = self.node("Code_Directive_Overlay", node::DIRECTIVE_OVERLAY, span);
+                let mut rec = self.node(
+                    RecordTag::CodeDirectiveOverlay,
+                    node::DIRECTIVE_OVERLAY,
+                    span,
+                );
                 rec.ptr("target_expression", target);
                 self.add(rec)
             }
@@ -2879,7 +2915,7 @@ impl Exporter<'_> {
                 let name = d.names.first().map_or(Sym::intern(""), |n| n.name);
                 let decl = self.decl(d, name, None, None, true, 0);
                 let mut rec = self.node(
-                    "Code_Directive_Add_Context",
+                    RecordTag::CodeDirectiveAddContext,
                     node::DIRECTIVE_ADD_CONTEXT,
                     span,
                 );
@@ -2899,7 +2935,7 @@ impl Exporter<'_> {
                     None => 0,
                 };
                 let mut rec = self.node(
-                    "Code_Directive_Module_Parameters",
+                    RecordTag::CodeDirectiveModuleParameters,
                     node::DIRECTIVE_MODULE_PARAMETERS,
                     span,
                 );
@@ -2914,14 +2950,14 @@ impl Exporter<'_> {
                     .map(|name| self.name_ident(name.name, name.span))
                     .collect::<Vec<_>>();
                 let args = self.node_list(&values, span);
-                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
                 rec.str(SyntaxKey::DirectiveName, b"placeholder")
                     .ptr(SyntaxKey::DirectiveArgs, args);
                 self.add(rec)
             }
             S::Directive(directive) => {
                 let args = self.comma_values(&directive.args, span);
-                let mut rec = self.node("Code_Node", node::PLACEHOLDER, span);
+                let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
                 rec.str(
                     SyntaxKey::DirectiveName,
                     directive.name.name.as_str().as_bytes(),
@@ -2977,7 +3013,7 @@ impl Exporter<'_> {
     fn case(&mut self, case: &ast::Case) -> i64 {
         let cond = self.comma_values(&case.values, case.span);
         let then_block = self.block(&case.body, 1, case.span);
-        let mut rec = self.node("Code_Case", node::CASE, case.span);
+        let mut rec = self.node(RecordTag::CodeCase, node::CASE, case.span);
         rec.ptr("condition", cond)
             .ptr("then_block", then_block)
             .int("marked_as_fallthrough", case.through as i64);
@@ -3000,10 +3036,10 @@ impl Exporter<'_> {
         let value = self.expr(value);
         let case_ids = cases.iter().map(|case| self.case(case)).collect::<Vec<_>>();
         let accepted_case = accepted.and_then(|i| case_ids.get(i).copied());
-        let mut block = self.node("Code_Block", node::BLOCK, span);
+        let mut block = self.node(RecordTag::CodeBlock, node::BLOCK, span);
         block.int("block_type", 1).refs("statements", case_ids);
         let block = self.add(block);
-        let mut rec = self.node("Code_If", node::IF, span);
+        let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
         rec.ptr("condition", value)
             .ptr("then_block", block)
             .int("if_flags", flags);
@@ -3052,12 +3088,12 @@ impl Exporter<'_> {
             let mut ids = Vec::new();
             for v in d.value.iter().chain(d.extra_values()) {
                 let node = self.expr(v);
-                let mut a = Record::new("Code_Comma_Separated_Argument");
+                let mut a = Record::new(RecordTag::CodeCommaSeparatedArgument);
                 a.ptr("node", node);
                 ids.push(self.r.add(a));
             }
             let mut rec = self.node(
-                "Code_Comma_Separated_Arguments",
+                RecordTag::CodeCommaSeparatedArguments,
                 node::COMMA_SEPARATED_ARGUMENTS,
                 d.span,
             );
@@ -3080,7 +3116,7 @@ impl Exporter<'_> {
                     .as_deref()
                     .and_then(|c| c.local_decl_types.get(&(d.id, i)).copied())
                     .map_or(0, |t| self.ty(t));
-                let mut rec = self.node("Code_Declaration", node::DECLARATION, n.span);
+                let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, n.span);
                 let backticked = d.backtick || d.backtick_names().get(i).copied().unwrap_or(false);
                 rec.str("name", n.name.as_str().as_bytes())
                     .ptr("type", ty)
@@ -3097,7 +3133,7 @@ impl Exporter<'_> {
                 declared.push((n.name, id));
                 id
             };
-            let mut a = Record::new("Code_Comma_Separated_Argument");
+            let mut a = Record::new(RecordTag::CodeCommaSeparatedArgument);
             a.ptr("node", target).int(
                 "modifier",
                 if assign {
@@ -3111,14 +3147,14 @@ impl Exporter<'_> {
         self.compound_members = declared.iter().map(|&(_, id)| id).collect();
         self.locals.extend(declared);
         let mut names = self.node(
-            "Code_Comma_Separated_Arguments",
+            RecordTag::CodeCommaSeparatedArguments,
             node::COMMA_SEPARATED_ARGUMENTS,
             d.span,
         );
         names.refs("arguments", arguments);
         let names = self.add(names);
         let mut rec = self.node(
-            "Code_Compound_Declaration",
+            RecordTag::CodeCompoundDeclaration,
             node::COMPOUND_DECLARATION,
             d.span,
         );
@@ -3170,7 +3206,7 @@ impl Exporter<'_> {
         }
         let ty = ty.map_or(0, |t| self.ty(t));
         let alignment = self.opt_expr(d.align());
-        let mut rec = self.node("Code_Declaration", node::DECLARATION, d.span);
+        let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, d.span);
         rec.str("name", name.as_str().as_bytes())
             .ptr("type", ty)
             .ptr("type_inst", type_inst)
@@ -3308,7 +3344,7 @@ impl Exporter<'_> {
             .map_or(0, |t| self.ty(t));
         let block = self.enum_block(&lit.items, span);
         let base = lit.base.as_ref().map_or(0, |base| self.type_inst(base));
-        let mut rec = self.node("Code_Enum", node::ENUM, span);
+        let mut rec = self.node(RecordTag::CodeEnum, node::ENUM, span);
         rec.refs("notes", notes)
             .ptr("block", block)
             .ptr("internal_type_inst", base)
@@ -3326,8 +3362,11 @@ impl Exporter<'_> {
                 ast::EnumItem::Member(member) => {
                     let value = self.opt_expr(member.value.as_ref());
                     let notes = self.notes(&member.notes.iter().collect::<Vec<_>>());
-                    let mut rec =
-                        self.node("Code_Declaration", node::DECLARATION, member.name.span);
+                    let mut rec = self.node(
+                        RecordTag::CodeDeclaration,
+                        node::DECLARATION,
+                        member.name.span,
+                    );
                     rec.str("name", member.name.name.as_str().as_bytes())
                         .ptr("expression", value)
                         .refs("notes", notes)
@@ -3336,7 +3375,8 @@ impl Exporter<'_> {
                 }
                 ast::EnumItem::Insert(value) => {
                     let value = self.expr(value);
-                    let mut rec = self.node("Code_Directive_Insert", node::DIRECTIVE_INSERT, span);
+                    let mut rec =
+                        self.node(RecordTag::CodeDirectiveInsert, node::DIRECTIVE_INSERT, span);
                     rec.ptr("expression", value);
                     self.add(rec)
                 }
@@ -3348,7 +3388,7 @@ impl Exporter<'_> {
                     let condition = self.expr(cond);
                     let then_block = self.enum_block(then_items, span);
                     let else_block = self.enum_block(else_items, span);
-                    let mut rec = self.node("Code_If", node::IF, span);
+                    let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
                     rec.ptr("condition", condition)
                         .ptr("then_block", then_block)
                         .ptr("else_block", else_block)
@@ -3357,7 +3397,7 @@ impl Exporter<'_> {
                 }
             })
             .collect();
-        let mut rec = self.node("Code_Block", node::BLOCK, span);
+        let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, span);
         rec.refs("statements", statements).int("block_type", 2);
         self.add(rec)
     }
@@ -3381,7 +3421,7 @@ impl Exporter<'_> {
                     .collect(),
                 _ => Vec::new(),
             };
-            let mut rec = self.node("Code_Block", node::BLOCK, lit.span);
+            let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, lit.span);
             rec.refs("statements", args).int("block_type", 5);
             self.add(rec)
         };
@@ -3395,7 +3435,7 @@ impl Exporter<'_> {
         let tag = lit.tag.as_ref().map_or(0, |tag| {
             let ty = tag.ty.as_deref().map_or(0, |ty| self.type_inst(ty));
             let value = tag.value.as_deref().map_or(0, |value| self.expr(value));
-            let mut rec = self.node("Code_Declaration", node::DECLARATION, tag.name.span);
+            let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, tag.name.span);
             rec.str("name", tag.name.name.as_str().as_bytes())
                 .ptr("type_inst", ty)
                 .ptr("expression", value);
@@ -3413,14 +3453,14 @@ impl Exporter<'_> {
             .map(|t| self.ty(t))
             .filter(|&t| t != 0);
         let defined = defined.unwrap_or_else(|| {
-            let mut generic = Record::new("Type_Info_Struct");
+            let mut generic = Record::new(RecordTag::TypeInfoStruct);
             generic
                 .int("type", 7)
                 .str("name", name.as_str().as_bytes())
                 .int("nontextual_flags", (!lit.params.is_empty()) as i64 * 0x100);
             self.r.add(generic)
         });
-        let mut rec = self.node("Code_Struct", node::STRUCT, lit.span);
+        let mut rec = self.node(RecordTag::CodeStruct, node::STRUCT, lit.span);
         rec.ptr("block", block)
             .ptr("arguments_block", arguments)
             .ptr(SyntaxKey::Alignment, alignment)
@@ -3463,7 +3503,11 @@ impl Exporter<'_> {
         let block = self.block(&body.stmts, 1, body.span);
         self.procedure = previous;
         self.locals.truncate(locals);
-        let mut rec = self.node("Code_Procedure_Body", node::PROCEDURE_BODY, body.span);
+        let mut rec = self.node(
+            RecordTag::CodeProcedureBody,
+            node::PROCEDURE_BODY,
+            body.span,
+        );
         rec.ptr("block", block).ptr("header", header_id);
         let body_id = self.add(rec);
         if let (Some(p), Some(c)) = (proc, self.c.as_deref_mut()) {
@@ -3521,7 +3565,7 @@ impl Exporter<'_> {
             arguments.push(arg);
             // `using p: T` parameters are listed again as `Code_Using` of the parameter.
             if param.using {
-                let mut ident = self.node("Code_Ident", node::IDENT, param.span);
+                let mut ident = self.node(RecordTag::CodeIdent, node::IDENT, param.span);
                 ident
                     .str("name", name.as_str().as_bytes())
                     .ptr("resolved_declaration", arg);
@@ -3531,7 +3575,7 @@ impl Exporter<'_> {
                     .as_ref()
                     .map(|filter| self.using_filter(filter))
                     .unwrap_or((0, 0));
-                let mut using = self.node("Code_Using", node::USING, param.span);
+                let mut using = self.node(RecordTag::CodeUsing, node::USING, param.span);
                 using
                     .ptr("expression", ident)
                     .int("filter_type", filter_type)
@@ -3600,7 +3644,7 @@ impl Exporter<'_> {
             (Some((p, _)), Some(c)) => c.export.resolved_headers.get(&(*p, self.own)).copied(),
             _ => None,
         };
-        let header_id = known.unwrap_or_else(|| self.r.reserve("Code_Procedure_Header"));
+        let header_id = known.unwrap_or_else(|| self.r.reserve(RecordTag::CodeProcedureHeader));
         let own = self.own;
         if let (Some((p, _)), Some(c)) = (&resolved, self.c.as_deref_mut()) {
             c.export.resolved_headers.insert((*p, own), header_id);
@@ -3628,7 +3672,7 @@ impl Exporter<'_> {
                 _ => self.body(body, header_id, resolved.as_ref().map(|(p, _)| *p)),
             };
         }
-        let mut rec = self.node("Code_Procedure_Header", node::PROCEDURE_HEADER, span);
+        let mut rec = self.node(RecordTag::CodeProcedureHeader, node::PROCEDURE_HEADER, span);
         let foreign_name = match h.foreign.as_ref().map(|f| &f.name) {
             Some(ast::ForeignName::Named(n)) => n.as_bytes().to_vec(),
             _ => Vec::new(),

@@ -408,7 +408,10 @@ fn insertion_declarations_do_not_escape_the_receiving_block() {
 #[test]
 fn code_export_and_text_parse_preserve_payload_shape_without_source_heuristics() {
     use jaic::{
-        ast::CodeBody, build::parse_code_text, records::Records, sema::code_export::export_code,
+        ast::CodeBody,
+        build::parse_code_text,
+        records::{RecordTag, Records},
+        sema::code_export::export_code,
         source::FileId,
     };
     for (text, statement) in [
@@ -424,9 +427,9 @@ fn code_export_and_text_parse_preserve_payload_shape_without_source_heuristics()
         assert_eq!(
             records.get(root).unwrap().tag,
             if statement {
-                "Code_Declaration"
+                RecordTag::CodeDeclaration
             } else {
-                "Code_Block"
+                RecordTag::CodeBlock
             }
         );
     }

@@ -121,7 +121,7 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
             if let Some((root, nodes)) = interp.code_exports.get(&code).and_then(|e| e.get(*taken))
             {
                 *taken += 1;
-                let mut result = crate::records::Record::new("Code_Nodes");
+                let mut result = crate::records::Record::new(crate::records::RecordTag::CodeNodes);
                 result
                     .ptr("root", *root)
                     .refs("expressions", nodes.iter().copied());
@@ -135,7 +135,7 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
             }
             let (root, nodes) =
                 crate::sema::code_export::export_code(&mut reg.records, &body, &text);
-            let mut result = crate::records::Record::new("Code_Nodes");
+            let mut result = crate::records::Record::new(crate::records::RecordTag::CodeNodes);
             result.ptr("root", root).refs("expressions", nodes);
             Ok(Rets::one(reg.records.add(result) as u64))
         }

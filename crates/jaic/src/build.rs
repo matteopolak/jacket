@@ -18,7 +18,7 @@ use crate::builtin_keys::{
 use crate::fxhash::HashMap;
 use crate::interp::{Host, Interp, Rets, Trap};
 use crate::ir;
-use crate::records::{FieldRef, Item, Records};
+use crate::records::{FieldRef, Item, RecordTag, Records};
 use crate::sema::{
     Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport, ProvidedKind,
     TargetCpu, TargetOs,
@@ -409,7 +409,7 @@ pub struct Workspaces {
     /// Record strings handed to Jai code without copying (the record may later drop its own).
     kept: Vec<Rc<[u8]>>,
     /// Record tags by `__jaic_rec_tag_id`.
-    tags: HashMap<&'static str, usize>,
+    tags: HashMap<RecordTag, usize>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
     /// The structs each program built from the records (`__jaic_rec_builder` numbers them from 1).
