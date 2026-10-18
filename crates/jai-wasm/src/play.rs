@@ -188,7 +188,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
         let (line, column) = file.lines().line_col(&file.text, d.span.start as usize);
         return PlayDiagnostic {
             severity,
-            file: workspace_name(&file.path),
+            file: workspace_name(&file.path.to_string()),
             line: line as u32,
             column: column as u32,
             message: d.message.clone(),

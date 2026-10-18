@@ -206,9 +206,10 @@ impl Compiler {
                 names.len(),
                 names.len()
             );
-            let file = self
-                .sources
-                .add("<using mapper>".into(), source.clone().into());
+            let file = self.sources.add(
+                SourcePath::virtual_source("using mapper"),
+                source.clone().into(),
+            );
             let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
             let ast::StmtKind::Decl(decl) = &parsed.stmts[0].kind else {
                 unreachable!()

@@ -690,7 +690,7 @@ impl Compiler {
         let code = f.b.iconst(Ty::I16, code);
         let file = self.sources.get(span.file);
         let (line, _) = file.line_col(span.start);
-        let path: Rc<[u8]> = Rc::from(file.path.as_bytes());
+        let path: Rc<[u8]> = Rc::from(file.path.to_string().as_bytes());
         let line = f.b.iconst(Ty::I64, line as u64);
         let global = self.string_global(&path);
         let filename = f.b.global_addr(global);

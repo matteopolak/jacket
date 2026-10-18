@@ -5,7 +5,7 @@ use super::op::{NO_LOC, Op};
 use crate::ir::{self, BinOp, ConvOp, Inst, Ty, Val, inst_vals};
 
 impl Builder<'_> {
-    pub(crate) fn inst(&mut self, bi: usize, ii: usize, inst: &Inst) {
+    pub(super) fn inst(&mut self, bi: usize, ii: usize, inst: &Inst) {
         let slow = Op::Ir {
             block: bi as u32,
             inst: ii as u32,

@@ -1,5 +1,7 @@
 //! Source files, spans and diagnostics.
+use std::borrow::Cow;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -192,15 +194,89 @@ pub fn line_end(text: &str, offset: usize) -> usize {
     }
 }
 
+/// What a source is named: a file on disk, or a label for text with no file (`#import,string`,
+/// `add_build_string`, `#insert` expansions).
+///
+/// A virtual source prints as its label in angle brackets (`<added string 1>`), in
+/// diagnostics, `#file` and `#location` alike; the brackets are not part of the label.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SourcePath {
+    File(PathBuf),
+    Virtual(String),
+}
+
+impl SourcePath {
+    /// A source with no file on disk, named by `label` (written without the angle brackets).
+    pub fn virtual_source(label: impl Into<String>) -> Self {
+        SourcePath::Virtual(label.into())
+    }
+
+    /// The path of a source that is a file, `None` for a virtual one.
+    pub fn as_file(&self) -> Option<&Path> {
+        match self {
+            SourcePath::File(path) => Some(path),
+            SourcePath::Virtual(_) => None,
+        }
+    }
+
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, SourcePath::Virtual(_))
+    }
+
+    /// The name as a path, for splitting it into a directory and a file name. A virtual
+    /// source's path is its printed label.
+    pub fn to_path(&self) -> Cow<'_, Path> {
+        match self {
+            SourcePath::File(path) => Cow::Borrowed(path),
+            SourcePath::Virtual(_) => Cow::Owned(PathBuf::from(self.to_string())),
+        }
+    }
+}
+
+impl fmt::Display for SourcePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SourcePath::File(path) => path.display().fmt(f),
+            SourcePath::Virtual(label) => write!(f, "<{label}>"),
+        }
+    }
+}
+
+/// Text read as a path names a file; a virtual source is always made with
+/// [`SourcePath::virtual_source`].
+impl From<PathBuf> for SourcePath {
+    fn from(path: PathBuf) -> Self {
+        SourcePath::File(path)
+    }
+}
+
+impl From<&Path> for SourcePath {
+    fn from(path: &Path) -> Self {
+        SourcePath::File(path.to_path_buf())
+    }
+}
+
+impl From<String> for SourcePath {
+    fn from(path: String) -> Self {
+        SourcePath::File(path.into())
+    }
+}
+
+impl From<&str> for SourcePath {
+    fn from(path: &str) -> Self {
+        SourcePath::File(path.into())
+    }
+}
+
 #[derive(Clone)]
 pub struct SourceFile {
-    pub path: String,
+    pub path: SourcePath,
     pub text: Rc<str>,
     lines: LineIndex,
 }
 
 impl SourceFile {
-    pub fn new(path: String, text: Rc<str>) -> Self {
+    pub fn new(path: SourcePath, text: Rc<str>) -> Self {
         let lines = LineIndex::new(&text);
         Self {
             path,
@@ -209,14 +285,13 @@ impl SourceFile {
         }
     }
 
-    /// A source with no file on disk: `#import,string`, `add_build_string` or `<input>`, which
-    /// are named `<...>`.
+    /// A source with no file on disk: `#import,string`, `add_build_string` or an expansion.
     pub fn is_virtual(&self) -> bool {
-        self.path.starts_with('<')
+        self.path.is_virtual()
     }
 
     /// A file whose line index was built elsewhere, from the same `text`.
-    pub fn with_lines(path: String, text: Rc<str>, lines: LineIndex) -> Self {
+    pub fn with_lines(path: SourcePath, text: Rc<str>, lines: LineIndex) -> Self {
         Self {
             path,
             text,
@@ -259,8 +334,8 @@ pub struct SourceMap {
 }
 
 impl SourceMap {
-    pub fn add(&mut self, path: String, text: Rc<str>) -> FileId {
-        self.files.push(SourceFile::new(path, text));
+    pub fn add(&mut self, path: impl Into<SourcePath>, text: Rc<str>) -> FileId {
+        self.files.push(SourceFile::new(path.into(), text));
         FileId(self.files.len() as u32 - 1)
     }
 

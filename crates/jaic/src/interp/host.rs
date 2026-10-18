@@ -98,7 +98,7 @@ pub struct NativeHost;
 /// A real allocation registered by a compile-time global-data API call. The
 /// compiler adopts its storage after the active interpreter call returns.
 pub struct PendingDataGlobal {
-    pub(crate) storage: ZeroedBlock,
+    pub(super) storage: ZeroedBlock,
     pub size: u64,
     pub align: u64,
     pub read_only: bool,

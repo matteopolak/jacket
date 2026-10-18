@@ -146,7 +146,7 @@ impl Compiler {
                     self.sources
                         .get(crate::source::FileId(i as u32))
                         .path
-                        .clone()
+                        .to_string()
                 })
                 .collect();
         }

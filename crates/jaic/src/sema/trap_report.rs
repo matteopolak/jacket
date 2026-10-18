@@ -5,7 +5,6 @@ use super::Compiler;
 use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
-use std::path::Path;
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
@@ -215,8 +214,8 @@ impl Compiler {
     fn loc_suffix(&self, loc: Option<(u32, u32, u32)>) -> String {
         match loc {
             Some((file, line, _)) if (file as usize) < self.sources.len() => {
-                let path = Path::new(&self.sources.get(FileId(file)).path);
-                format!(" at {}:{line}", crate::display_path(path))
+                let path = self.sources.get(FileId(file)).path.to_path();
+                format!(" at {}:{line}", crate::display_path(&path))
             }
             _ => String::new(),
         }
@@ -227,7 +226,7 @@ impl Compiler {
         let wanted = std::path::absolute(path).ok();
         (0..self.sources.len() as u32).map(FileId).find(|&id| {
             let have = &self.sources.get(id).path;
-            have == path || wanted.as_deref().is_some_and(|w| Path::new(have) == w)
+            have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
         })
     }
 
@@ -260,7 +259,7 @@ impl Compiler {
             return known;
         }
         let known = self.options.stdlib_root().is_some_and(|stdlib| {
-            let path = self.canon(Path::new(&self.sources.get(file).path));
+            let path = self.canon(&self.sources.get(file).path.to_path());
             path.starts_with(self.canon(stdlib))
         });
         self.library_files.borrow_mut().insert(file.0, known);

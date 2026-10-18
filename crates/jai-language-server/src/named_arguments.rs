@@ -416,7 +416,7 @@ mod tests {
         let file = (0..compiler.sources.len() as u32)
             .map(FileId)
             .find(|&f| {
-                Path::new(&compiler.sources.get(f).path) == Path::new("/named-safety/main.jai")
+                compiler.sources.get(f).path.as_file() == Some(Path::new("/named-safety/main.jai"))
             })
             .unwrap();
         let errors = compiler.ide.as_ref().unwrap().parse_errors.len();

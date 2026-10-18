@@ -57,7 +57,7 @@ use crate::ast;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
-use crate::source::{Diagnostic, DiagnosticKind, FileId, SourceMap, Span};
+use crate::source::{Diagnostic, DiagnosticKind, FileId, SourceMap, SourcePath, Span};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
@@ -901,7 +901,7 @@ impl Compiler {
                 .and_then(|f| self.code_scopes.get(f).copied())
                 .unwrap_or(self.root_scope);
             let file = self.sources.add(
-                format!("<compiler_get_code {id}>"),
+                SourcePath::virtual_source(format!("compiler_get_code {id}")),
                 format!("__jaic_code :: #code {text};\n").into(),
             );
             let body = crate::build::parse_code_text(file, &text)

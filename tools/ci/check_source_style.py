@@ -31,27 +31,17 @@ ALLOWED_LONG = {
     "crates/jaic-cli/tests/diagnostics.rs": 1423,
     "crates/jaic-cli/tests/native.rs": 3184,
     "crates/jaic-llvm/src/lib.rs": 1937,
-    "crates/jaic-llvm/src/lower.rs": 3122,
-    "crates/jaic/src/build.rs": 1807,
     "crates/jaic/src/interp/threads.rs": 1421,
-    "crates/jaic/src/ir.rs": 1617,
     "crates/jaic/src/lexer.rs": 1349,
-    "crates/jaic/src/parser/ide_facts.rs": 1242,
+    "crates/jaic/src/parser/ide_facts.rs": 1230,
     "crates/jaic/src/parser/tests.rs": 1522,
-    "crates/jaic/src/sema/asm.rs": 2101,
     "crates/jaic/src/sema/asm/catalog.rs": 1644,
     "crates/jaic/src/sema/asm/simd.rs": 3025,
     "crates/jaic/src/sema/binary.rs": 1338,
     "crates/jaic/src/sema/calls/mod.rs": 1401,
-    "crates/jaic/src/sema/code_export.rs": 3882,
     "crates/jaic/src/sema/convert.rs": 1329,
-    "crates/jaic/src/sema/expr.rs": 2129,
-    "crates/jaic/src/sema/ide.rs": 3042,
-    "crates/jaic/src/sema/ide_meta.rs": 1453,
-    "crates/jaic/src/sema/modules.rs": 2325,
-    "crates/jaic/src/sema/procs.rs": 1734,
+    "crates/jaic/src/sema/ide_meta.rs": 1449,
     "crates/jaic/src/sema/scope.rs": 1331,
-    "crates/jaic/src/sema/stmt.rs": 3412,
     "crates/jaic/src/sema/typeinfo.rs": 1391,
 }
 
@@ -77,7 +67,7 @@ def check_lengths(counts, allowed=None, limit=MAX_LINES):
             if n > limit:
                 errors.append(f"{path}: {n} lines, over the {limit}-line limit; split it into modules")
         elif n > cap:
-            errors.append(f"{path}: grew to {n} lines, past its allowlisted {cap}; split it instead")
+            errors.append(f"{path}: grew to {n} lines, past its allowlisted {cap}; split it (or move part of it into a module) instead of growing it")
         elif n <= limit:
             errors.append(f"{path}: now {n} lines; remove it from ALLOWED_LONG in check_source_style.py")
         elif n < cap:

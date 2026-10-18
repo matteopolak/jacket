@@ -80,21 +80,21 @@ pub enum PathStep {
 
 pub(super) type MemberResolution = (Vec<PathStep>, TypeId, Option<(StructId, usize)>);
 
-pub(crate) struct FieldDecl {
-    pub(crate) name: Option<Sym>,
-    pub(crate) ty: TypeId,
-    pub(crate) using: bool,
+pub(super) struct FieldDecl {
+    pub(super) name: Option<Sym>,
+    pub(super) ty: TypeId,
+    pub(super) using: bool,
     pub(super) as_: bool,
     pub(super) notes: Vec<Rc<str>>,
-    pub(crate) span: Span,
+    pub(super) span: Span,
     pub(super) init: Option<ast::Expr>,
-    pub(crate) scope: ScopeId,
+    pub(super) scope: ScopeId,
     pub(super) align: Option<u64>,
     /// `using,only(...)` / `using,except(...)` on a `using` member.
-    pub(crate) filter: Option<ast::UsingFilter>,
+    pub(super) filter: Option<ast::UsingFilter>,
 }
 
-pub(crate) enum FieldItem {
+pub(super) enum FieldItem {
     Declaration(ScopeId, Rc<ast::Decl>),
     Field(FieldDecl),
     /// `using,only(a, b) field.inner;`: names reached through a path of members.
@@ -112,7 +112,7 @@ pub(super) struct OffsetNode {
     pub(super) dependency: Option<usize>,
     pub(super) addend: u64,
     pub(super) align: u64,
-    pub(crate) span: Span,
+    pub(super) span: Span,
 }
 
 
@@ -143,7 +143,7 @@ impl UsingFilters {
         self.0.is_empty()
     }
 
-    pub(crate) fn get(&self, index: usize) -> Option<&ast::UsingFilter> {
+    pub(super) fn get(&self, index: usize) -> Option<&ast::UsingFilter> {
         let at = self.0.binary_search_by_key(&index, |(i, _)| *i).ok()?;
         Some(&self.0[at].1)
     }

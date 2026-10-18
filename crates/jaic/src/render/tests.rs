@@ -2,11 +2,15 @@ use super::*;
 
 const SOURCE: &str = "main :: () {\n    counter := 1;\n    print(\"%\\n\", countr);\n}\n";
 
+fn leak_path(path: &str) -> &'static SourcePath {
+    Box::leak(Box::new(SourcePath::from(path)))
+}
+
 fn label(text: &str, needle: &str, message: Option<&str>) -> Label<'static> {
     let text: &'static str = Box::leak(text.to_string().into_boxed_str());
     let start = text.find(needle).unwrap();
     Label {
-        path: "u.jai",
+        path: leak_path("u.jai"),
         text,
         start,
         end: start + needle.len(),
@@ -142,7 +146,7 @@ fn secondary_labels_and_other_files() {
         .secondary
         .push(label(source, "int", Some("`x` is declared as `int` here")));
     let mut other = label("helper :: () {}\n", "helper", Some("also here"));
-    other.path = "other.jai";
+    other.path = leak_path("other.jai");
     report.secondary.push(other);
     let text = report.render_with(ASCII_STYLE);
     assert_eq!(
@@ -178,7 +182,7 @@ fn multi_line_spans_get_a_connector() {
     let start = 0;
     let end = source.find("}\n").unwrap() + 1;
     report.primary = Some(Label {
-        path: "m.jai",
+        path: leak_path("m.jai"),
         text: source,
         start,
         end,
@@ -212,7 +216,7 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
     source += "}\n";
     let mut report = Report::new(Severity::Error, "long");
     report.primary = Some(Label {
-        path: "l.jai",
+        path: leak_path("l.jai"),
         text: Box::leak(source.clone().into_boxed_str()),
         start: 0,
         end: source.len() - 1,

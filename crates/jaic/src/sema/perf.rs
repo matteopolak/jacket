@@ -154,7 +154,7 @@ impl Compiler {
             let path = self
                 .sources
                 .try_get(info.span.file)
-                .map_or("", |f| f.path.as_str());
+                .map_or_else(String::new, |f| f.path.to_string());
             dumps.push(format!(
                 "Dump of {} ({path}:{line}), jaic IR:\n{}",
                 info.name.as_str(),

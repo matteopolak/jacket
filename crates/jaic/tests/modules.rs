@@ -354,7 +354,7 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
     );
     let file = (0..c.sources.len())
         .map(|i| jaic::source::FileId(i as u32))
-        .find(|&f| c.sources.get(f).path == "/app/main.jai")
+        .find(|&f| c.sources.get(f).path.as_file() == Some(std::path::Path::new("/app/main.jai")))
         .unwrap();
     let scope = c.scopes.iter().position(|s| s.file == Some(file)).unwrap();
     let visible = c.ide_visible(ScopeId(scope as u32), file, u32::MAX);

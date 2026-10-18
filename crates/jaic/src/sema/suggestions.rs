@@ -192,7 +192,7 @@ impl Compiler {
         if span.file.0 as usize >= self.sources.len() {
             return None;
         }
-        let file = PathBuf::from(&self.sources.get(span.file).path);
+        let file = self.sources.get(span.file).path.to_path().into_owned();
         let dir = file.parent()?;
         for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
             let mut entries = self.fs.list_dir(candidate_dir);
