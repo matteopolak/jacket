@@ -71,6 +71,7 @@ nix develop     # then cargo build -p jaic-cli --locked
 - Static LLVM needs its system libraries (`llvm-config --link-static --system-libs`, in the job log). Linux installs zlib, zstd, libxml2. macOS arm64 installs Homebrew zstd and deletes its `libzstd*.dylib` links so `ld` picks the archive; the official macOS libraries are LTO bitcode that Xcode's `ld` cannot parse, so the job links with the release's `clang -fuse-ld=lld` against the Xcode SDK and deletes the release's `libc++` so the system one is used. Intel macOS deletes every dylib in the conda environment's `lib/` so conda's `libiconv` is not linked, links its static `libc++.a` and adds `-lc++abi`.
 - Windows builds for an explicit `rust_target` with `+crt-static`, because the LLVM archive uses the static C runtime (mixing crashes `jaic` with `0xC0000005`); `tools/ci/windows-llvm/prepare.sh` fixes the archive ([LLVM setup](llvm-setup.md)). It is also built once with LLVM off `PATH` so the link goes through Visual Studio's `link.exe`.
 - A new platform needs a matrix row with its LLVM tarball name (and `rust_target` on Windows) and updates to every archive-name consumer above.
+- A tag push publishes everything: the GitHub release, the VS Code Marketplace, Open VSX, the Homebrew tap and the Neovim mirror. A manual run publishes to the stores only with `publish_integrations`.
 - The editor can be released independently of the compiler with `editor_version`; stores keep versions immutable, so a repin needs a new editor version.
 
 ## Configuration
