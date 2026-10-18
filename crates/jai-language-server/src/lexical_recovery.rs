@@ -24,6 +24,12 @@ pub(crate) fn update(old: &str, new: &str, previous: &[Span]) -> Vec<Span> {
     if jaic::parser::parse_file(FileId(0), new).is_ok() {
         return Vec::new();
     }
+    // A text whose every literal and comment closes has no lexical damage to omit. Without this a
+    // region that kept growing with the typing (a string closed at its edge) would never match a
+    // lexical region of the new text and would stay masked.
+    if jaic::lexer::lexical_regions(FileId(0), new).is_ok() {
+        return Vec::new();
+    }
     let old_view = mask(old, previous);
     let mut regions: Vec<Span> =
         jaic::lexer::lexical_regions(FileId(0), old_view.as_deref().unwrap_or(old))
@@ -64,7 +70,6 @@ pub(crate) fn update(old: &str, new: &str, previous: &[Span]) -> Vec<Span> {
             new_end
         }
     };
-    let current = jaic::lexer::lexical_regions(FileId(0), new).unwrap_or_default();
     let mut damage = Vec::new();
     for region in regions {
         let touched = region.start <= old_end && start <= region.end;
@@ -73,16 +78,9 @@ pub(crate) fn update(old: &str, new: &str, previous: &[Span]) -> Vec<Span> {
             continue;
         }
         let mapped = Span::new(map_start(region.start), map_end(region.end));
-        if mapped.start >= mapped.end {
-            continue;
+        if mapped.start < mapped.end {
+            damage.push(mapped);
         }
-        if current
-            .iter()
-            .any(|s| s.start as usize == mapped.start && s.end as usize == mapped.end)
-        {
-            continue;
-        }
-        damage.push(mapped);
     }
     damage.sort_by_key(|s| (s.start, s.end));
     damage.dedup();
