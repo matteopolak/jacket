@@ -488,10 +488,15 @@ impl Compiler {
                 };
                 if matches!(t.kind, E::Unary(ast::UnOp::Star, _)) {
                     by_pointer = true;
-                } else if procs::has_poly(&t)
-                    || self.eval_type(self.proc(p).scope, &t).ok() == Some(cty)
-                {
-                    by_value = true;
+                } else {
+                    let home = self.proc(p).scope;
+                    let takes_it = if procs::has_poly(&t) || self.mentions_poly_struct(home, &t).unwrap_or(false) {
+                        // A polymorphic pattern counts only when it matches this very type.
+                        self.match_pattern(&t, cty, &mut Vec::new(), home).is_ok()
+                    } else {
+                        self.eval_type(home, &t).ok() == Some(cty)
+                    };
+                    by_value |= takes_it;
                 }
             }
             let wants_pointer = by_pointer && !by_value;
