@@ -185,6 +185,7 @@ jobs:
         run: |
           python3 tools/ci/check_ci_sources.py
           python3 tools/ci/check_repo_paths.py
+          python3 tools/ci/check_source_style.py
       - name: Verify native host and LLVM
         run: |
           uname -sm
