@@ -4,21 +4,14 @@ import os
 import build_developer_bindings
 import hashlib
 import json
-from pathlib import Path
 import re
 import shutil
-import subprocess
 import struct
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, text=True,
-                            capture_output=True, timeout=60)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"MSF fixture command failed: {command}: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="MSF fixture command", expected=None, env=None, timeout=60).stdout
 
 
 def main():

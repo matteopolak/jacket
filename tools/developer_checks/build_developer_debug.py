@@ -4,8 +4,7 @@ from pathlib import Path
 import os
 import platform
 import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT
 
 
 def main():

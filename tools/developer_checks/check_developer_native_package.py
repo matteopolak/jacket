@@ -6,18 +6,12 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT
 
 
 def run(command):
     environment = {key: value for key, value in os.environ.items() if not key.startswith("DYLD_")}
-    result = subprocess.run([str(item) for item in command], cwd=ROOT, env=environment,
-                            capture_output=True, text=True, timeout=90)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"Native package regression: status={result.returncode}; "
-                           f"diagnostic={result.stderr.splitlines()[:2]}")
-    return result.stdout
+    return run_checked(command, label="Native package regression", expected=None, env=environment).stdout
 
 
 def main():

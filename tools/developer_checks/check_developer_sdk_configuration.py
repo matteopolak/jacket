@@ -6,20 +6,13 @@ from pathlib import Path
 import platform
 import re
 import shutil
-import subprocess
 import build_developer_bindings
 import developer_native_runtime
-
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
+from dev_common import run_checked, ROOT, sha256_file
 
 
 def run(command, output=None):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, env=ENV, capture_output=True,
-                            text=True, timeout=60)
-    if result.returncode or result.stderr or (output is not None and result.stdout != output):
-        raise RuntimeError(f"Configured SDK check failed: {command}: {result.returncode}\n{result.stdout}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Configured SDK check", expected=output, timeout=60).stdout
 
 
 def link(path, target):
@@ -78,7 +71,7 @@ def main():
         library = native_directory / library_name
         if host == "Darwin":
             manifest = json.loads((native_directory / "runtime-sdk.json").read_text())
-            if library.is_symlink() or manifest[library_name]["sdk_sha256"] != developer_native_runtime.sha256(sdk_library):
+            if library.is_symlink() or manifest[library_name]["sdk_sha256"] != sha256_file(sdk_library):
                 raise RuntimeError("Production bundled libclang did not originate from the configured SDK")
             evidence["bundled_runtime"] = manifest
         elif library.readlink() != sdk_library:

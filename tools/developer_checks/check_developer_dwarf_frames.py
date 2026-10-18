@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """Produce original DWARF4 debug_frame bytes and native SDK FDE range oracles."""
-import hashlib
 import json
-import os
 import build_developer_bindings
-from pathlib import Path
 import re
 from check_developer_dwarf_lines import run
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT, sha256_file
 
 
 def main():
@@ -40,7 +36,7 @@ def main():
                                          "address_size": int(address_size[1]),
                                          "cie_offset": cie, "pc_begin": begin, "pc_range": end - begin,
                                          "instruction_types": names,
-                                         "bytes_sha256": hashlib.sha256(base.with_suffix('.bin').read_bytes()).hexdigest()})
+                                         "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     source.append("];")
     path = ROOT / "target/developer-tools-dwarf-frame-oracle.jai"
     path.write_text("\n".join(source) + "\n")

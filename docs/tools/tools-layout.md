@@ -2,7 +2,7 @@
 
 ## What it is
 
-`tools/` holds the repo's build, check, generation and CI scripts (Python and Node, standard library only). Scripts are grouped into one folder per subsystem; the files left at the top (`repo_output.py`, `benchgen.py`, `jaistats.py`, ...) are shared helpers every folder imports by bare name.
+`tools/` holds the repo's build, check, generation and CI scripts (Python and Node, standard library only). Scripts are grouped into one folder per subsystem; the files left at the top (`repo_output.py`, `benchgen.py`, `jaistats.py`, ...) are shared helpers every folder imports by bare name; the newer shared helpers live in `toolkit/`.
 
 ## Folders
 
@@ -23,6 +23,7 @@
 | `numerics/` | Numerics suite runners and capability tables. |
 | `portable/` | Portable stdlib fixtures, crash/clipboard/watcher/mail checks, `portable_data/`. |
 | `stdlib/` | The stdlib test engine and the suite runners layered on it (below), platform I/O and Http conformance, extension runners. |
+| `toolkit/` | Shared helpers (below): repo root, file hashing, checked subprocess runs. |
 | `window_render/` | Window/render suite and its WGL lint. |
 
 Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tests.py`, `benchgen.py`, `jaistats.py`, `corpus-shape.json`, `regex_bench.py`, `profile_report.py`, `fetch_upstreams.py`, `upstream-cases.json`, `wasi_run.mjs`, `test_benchgen.py`.
@@ -31,6 +32,20 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 - **Native dependency stages** (`native/`): `build_native_libs.py` builds the pinned third-party C libraries from `native-libs.json`; `build_ci_native_bindings.py` builds the rpmalloc/SDK probe providers for the bindings checks; `upstream_native.py` prepares the helpers the upstream smoke run needs; `ci_native_deps.sh` is the CI entry that calls them in order. They overlap only in host detection, now shared as `repo_output.host_platform()`.
 - **Stdlib runners** (`stdlib/`, `portable/`): `stdlib_runtime.py` runs the catalogued `stdlib/**/tests` cases; `check_portable_stdlib.py` builds fixtures and runs what a catalogued case cannot; `check_stdlib_suites.py` is the orchestrator that invokes every suite. Orchestrator, suite and engine are separate layers, so they are not merged.
+
+## Shared helpers (`toolkit/`)
+
+`toolkit/` is the one place for helpers that were copied between scripts. Import them folder-qualified (`from toolkit.hashing import sha256_file`), after the `sys.path` lines of "How to add a tool".
+
+| Module | What it gives |
+|---|---|
+| `toolkit.repo` | `ROOT` (the checkout), `cargo_target_dir()` (`$CARGO_TARGET_DIR` or `target/`), `stdlib_env()` (the environment with `JAIC_STDLIB` set). |
+| `toolkit.hashing` | `sha256_file(path)` (chunked), `sha256_bytes(data)`. |
+| `toolkit.process` | `run_expect(command, label=..., expected=..., code=..., stderr=..., env=..., timeout=...)`: run, then raise `RuntimeError` unless stdout, status and stderr match. |
+
+`developer_checks/dev_common.py` is that folder's single entry point: importing it puts `tools/` on `sys.path`, so the checks there carry no path lines of their own. It re-exports `ROOT`, `ENV` (the compiler environment), `JAIC`, `sha256_file` and `run_checked` (`run_expect` with the checks' defaults). The `run` function each check still defines only fixes its failure label and defaults.
+
+Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
 
 ## Generated files
 

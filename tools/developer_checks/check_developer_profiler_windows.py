@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """Verify canonical Windows clock SDK ABI/import links; never claim target execution."""
-import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT, sha256_file
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, text=True, capture_output=True, timeout=60)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"Windows profiling SDK check failed: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Windows profiling SDK check", expected=None, env=None, timeout=60).stdout
 
 
 def main():
@@ -35,8 +29,8 @@ def main():
     run([llvm / "bin/clang", "--target=aarch64-w64-windows-gnu", f"--sysroot={sdk / 'x86_64-w64-mingw32'}",
          "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-c", fixture,
          "-o", ROOT / "target/developer-tools-iprof-windows-clock-arm64.obj"])
-    evidence["fixture_sha256"] = hashlib.sha256(fixture.read_bytes()).hexdigest()
-    evidence["sdk_header_sha256"] = {name: hashlib.sha256((sdk / "x86_64-w64-mingw32/include" / name).read_bytes()).hexdigest()
+    evidence["fixture_sha256"] = sha256_file(fixture)
+    evidence["sdk_header_sha256"] = {name: sha256_file((sdk / "x86_64-w64-mingw32/include" / name))
                                       for name in ["windows.h", "profileapi.h", "winnt.h"]}
     (ROOT / "target/developer-tools-profiler-windows-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     print("Windows profiler SDK ABI/import links passed; native timing execution pending")

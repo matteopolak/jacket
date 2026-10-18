@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Focused developer tooling evidence from this checkout's source-built tools."""
 import os
-import hashlib
 import json
-from pathlib import Path
 import re
 import subprocess
 import shutil
@@ -41,10 +39,8 @@ import check_developer_codeview_strings
 import check_developer_dwarf_line_wire
 import check_developer_profiler_windows
 import check_generator_platform
+from dev_common import run_checked, ROOT, ENV, JAIC, sha256_file
 
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
-JAIC = ROOT / "target/debug/jaic"
 UNAVAILABLE_EVIDENCE = []
 
 
@@ -60,12 +56,7 @@ def host_evidence(name, callback, required_hosts, host=None):
 
 
 def run(command, *, output=None, error=""):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, env=ENV,
-                            text=True, capture_output=True, timeout=60)
-    if result.returncode or (output is not None and result.stdout != output) or result.stderr != error:
-        diagnostic = (result.stderr or result.stdout).splitlines()[:2]
-        raise RuntimeError(f"{command}: exit {result.returncode}; diagnostic={diagnostic}")
-    return result.stdout
+    return run_checked(command, label="Developer tools check", expected=output, stderr=error, timeout=60).stdout
 
 
 def check_framework_consumer(prefix, emitter):
@@ -118,7 +109,7 @@ def prepare_cpp_visitors(prefix):
                         "native_c_results": dict(zip(visitor_names, map(int, visitor_results))),
                         "return_comment_discrepancy": "Installed public Index.h describes nonzero only for early termination; this SDK returns1 for complete and stopped visits. Direct Jai bindings preserve raw native returns.",
                         "sdk_evidence": "developer-tools-clang-evidence.json",
-                        "original_fixture_sha256": {name: hashlib.sha256(driven(name).read_bytes()).hexdigest()
+                        "original_fixture_sha256": {name: sha256_file(driven(name))
                                                    for name in ["bindings-clang-cpp.h", "bindings-cpp-visitors.c", "bindings-clang-cpp.jai"]}}
     (ROOT / "target/developer-tools-cpp-evidence.json").write_text(json.dumps(visitor_evidence, indent=2) + "\n")
     for triple in ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]:

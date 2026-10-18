@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """Cross-build owned Windows Debug code; never claim Windows execution on macOS."""
-import hashlib
 import json
 import os
 import build_developer_bindings
 from pathlib import Path
 import platform
 import re
-import subprocess
 from driven_sources import driven
+from dev_common import run_checked, ROOT, sha256_file
 
-ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
                                                  "free_symbols", "output", "readable", "symbols", "break_once",
                                                  "initialize", "enable_handlers", "disable_handlers",
@@ -18,11 +16,7 @@ EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakp
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, text=True, capture_output=True, timeout=60,
-                            env=dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib")))
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"Windows Debug build/check failed: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Windows Debug build/check", expected=None, timeout=60).stdout
 
 
 def main():
@@ -69,13 +63,13 @@ def main():
          ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])
     headers = [sdk / "x86_64-w64-mingw32/include" / name for name in ["windows.h", "dbghelp.h"]]
     metadata = {"coverage": "Windows x64 SDK DLL/executable cross-build/link/export inspection and arm64 object compilation; no Windows execution",
-                "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-                "once_header_sha256": hashlib.sha256(source.with_name("once.h").read_bytes()).hexdigest(),
-                "crash_state_header_sha256": hashlib.sha256(source.with_name("crash-state.h").read_bytes()).hexdigest(),
-                "final_header_sha256": {name: hashlib.sha256(source.with_name(name).read_bytes()).hexdigest()
+                "source_sha256": sha256_file(source),
+                "once_header_sha256": sha256_file(source.with_name("once.h")),
+                "crash_state_header_sha256": sha256_file(source.with_name("crash-state.h")),
+                "final_header_sha256": {name: sha256_file(source.with_name(name))
                                         for name in ["windows-command.h", "windows-launch.h", "windows-dumps.h"]},
-                "fixture_sha256": hashlib.sha256(fixture.read_bytes()).hexdigest(),
-                "sdk_header_sha256": {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in headers},
+                "fixture_sha256": sha256_file(fixture),
+                "sdk_header_sha256": {str(path): sha256_file(path) for path in headers},
                 "gcc_version": run([gcc, "--version"]).splitlines()[0],
                 "exports": sorted(names), "runtime_status": "pending coordinator Windows native CI"}
     (ROOT / "target/developer-tools-windows-debug-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")

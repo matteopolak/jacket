@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
 """Original native DWARF4 line fixtures and independently decoded SDK row oracles."""
-import hashlib
 import json
-import os
 import build_developer_bindings
-from pathlib import Path
 import re
-import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT, sha256_file
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, text=True,
-                            capture_output=True, timeout=60)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"DWARF fixture command failed: {command}: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="DWARF fixture command", expected=None, env=None, timeout=60).stdout
 
 
 def main():
@@ -70,7 +61,7 @@ def main():
                           "        past, past_ok := D.get_line_mapping_for_address(info, sequence.addresses[sequence.addresses.count - 1]);",
                           "        assert(!past_ok && past.line == 0);", "    }"]
             evidence["fixtures"].append({"target": target, "optimization": optimization, "rows": rows,
-                                         "line_bytes_sha256": hashlib.sha256(base.with_suffix('.bin').read_bytes()).hexdigest()})
+                                         "line_bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     generated.append("}")
     path = ROOT / "target/developer-tools-dwarf-line-oracle.jai"
     path.write_text("\n".join(generated) + "\n")

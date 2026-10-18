@@ -1,12 +1,13 @@
 """Native package metadata/notice controls; never load or execute SDK images."""
 
-import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+
+from dev_common import sha256_file
 
 MODULE = Path(
     os.environ.get(
@@ -63,12 +64,12 @@ class CondaNotices(unittest.TestCase):
             (self.output / entry["staged_path"]).read_bytes(), self.notice.read_bytes()
         )
         self.assertEqual(
-            entry["sha256"], hashlib.sha256(self.notice.read_bytes()).hexdigest()
+            entry["sha256"], sha256_file(self.notice)
         )
         self.assertEqual(entry["conda_package"], self.identity)
         self.assertEqual(
             entry["installed_metadata_sha256"],
-            hashlib.sha256(self.meta.read_bytes()).hexdigest(),
+            sha256_file(self.meta),
         )
         self.assertIn("clang/LICENSE.TXT", entry["staged_path"])
 

@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
 """Original C DWARF type metadata drives public lookup; no Jai byte parser claim."""
-import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT, sha256_file
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, text=True,
-                            capture_output=True, timeout=60)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"Original DWARF type fixture failed: {command}: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Original DWARF type fixture", expected=None, env=None, timeout=60).stdout
 
 
 def main():
@@ -50,7 +43,7 @@ def main():
                           "            expected: *D.Debug_Type;", "            for *type: unit.types if type.offset == offset expected = type;",
                           "            actual := D.get_type(unit, cast(u32) offset);", "            assert(actual == expected);", "        }", "    }"]
             evidence["fixtures"].append({"architecture": architecture, "optimization": optimization, "types": records,
-                                         "debug_info_sha256": hashlib.sha256(base.with_suffix('.bin').read_bytes()).hexdigest()})
+                                         "debug_info_sha256": sha256_file(base.with_suffix('.bin'))})
     generated.append("}")
     destination = ROOT / "target/developer-tools-dwarf-type-oracle.jai"
     destination.write_text("\n".join(generated) + "\n")

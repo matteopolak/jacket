@@ -6,16 +6,11 @@ import os
 from pathlib import Path
 import re
 import struct
-import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, text=True, capture_output=True, timeout=60)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"Original CodeView fixture failed: {command}: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Original CodeView fixture", expected=None, env=None, timeout=60).stdout
 
 
 def main():

@@ -11,12 +11,11 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-from pathlib import Path
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser
+from dev_common import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "docs/specs/stdlib/modules/bindings-generator.md"
 
 

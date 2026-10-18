@@ -5,8 +5,7 @@ from pathlib import Path
 import platform
 import subprocess
 import developer_native_runtime
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT
 
 
 def main():

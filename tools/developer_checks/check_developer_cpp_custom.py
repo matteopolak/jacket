@@ -1,33 +1,17 @@
 #!/usr/bin/env python3
 """Targeted original C++ customization and C-model regression effects on the host."""
 
-import os
-from pathlib import Path
 import platform
 import subprocess
 import build_developer_bindings
 import build_generator_platform
 from driven_sources import driven
+from dev_common import run_checked, ROOT, ENV, JAIC
 
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
-JAIC = ROOT / "target/debug/jaic"
 
 
 def run(command, expected=""):
-    result = subprocess.run(
-        [str(item) for item in command],
-        cwd=ROOT,
-        env=ENV,
-        text=True,
-        capture_output=True,
-        timeout=90,
-    )
-    if result.returncode or result.stderr or result.stdout != expected:
-        diagnostic = (result.stderr or result.stdout).splitlines()[:2]
-        raise RuntimeError(
-            f"Targeted C++ workflow failed: {command}; status={result.returncode}; diagnostic={diagnostic}"
-        )
+    return run_checked(command, label="Targeted C++ workflow", expected=expected)
 
 
 def prepare_callback_input(prefix, flags, suffix):

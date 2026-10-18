@@ -6,20 +6,12 @@ import os
 from pathlib import Path
 import platform
 import re
-import subprocess
 import build_developer_check
-
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
+from dev_common import run_checked, ROOT, sha256_file
 
 
 def run(command, *, code=0, expected=None):
-    result = subprocess.run([str(item) for item in command], cwd=ROOT, env=ENV,
-                            capture_output=True, text=True, timeout=90)
-    if result.returncode != code or (expected is not None and result.stdout != expected):
-        raise RuntimeError(f"Check fixture failed: {command}; status={result.returncode}; "
-                           f"diagnostic={(result.stderr or result.stdout).splitlines()[:2]}")
-    return result
+    return run_checked(command, label="Check fixture", code=code, expected=expected, stderr=None)
 
 
 def prepare():
@@ -139,7 +131,7 @@ def main():
         if manifest[name]["sdk_sha256"] != sdk_hash:
             raise RuntimeError("Bundled Check LLVM runtime must originate from configured SDK")
         evidence = {"host": platform.platform(), "configured_llvm_prefix": str(prefix),
-                    "native_helper_sha256": hashlib.sha256((ROOT / "stdlib/internal/developer-tools/check-native/signatures.cpp").read_bytes()).hexdigest(),
+                    "native_helper_sha256": sha256_file((ROOT / "stdlib/internal/developer-tools/check-native/signatures.cpp")),
                     "llvm_library": sdk_links[0], "configured_sdk_runtime_sha256": sdk_hash, "parsing_pool_effects": stats_measurements,
                     "continuable_diagnostics": 12, "module_availability": "Windows only; NEW code staged on Mac",
                     "windows_native_execution": False, "actual_compiler_header_integration": "pending producer ELSEWHERE metadata fix"}

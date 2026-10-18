@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Reviewed cursor spelling and value/type contracts against shared production."""
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,8 +10,7 @@ import tempfile
 
 from build_developer_bindings import llvm_prefix
 from driven_sources import driven, driven_matching
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT, sha256_file
 
 
 def main():
@@ -63,7 +61,7 @@ def main():
 
     def snapshot():
         return {
-            str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p.relative_to(ROOT)): sha256_file(p)
             for p in sorted(set(sources))
         }
 
@@ -71,7 +69,7 @@ def main():
     receipt = {
         "passed": False,
         "source_sha256": before,
-        "compiler_sha256": hashlib.sha256(compiler.read_bytes()).hexdigest(),
+        "compiler_sha256": sha256_file(compiler),
         "commands": [],
         "native_platform": "Mac host only",
         "retired_oracle": "Cursor concatenation is not compilable C++ reconstruction",

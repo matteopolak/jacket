@@ -7,18 +7,14 @@ from pathlib import Path
 import platform
 import subprocess
 import build_generator_platform
+from dev_common import ROOT, run_checked, stdlib_env, sha256_file
 
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"), TMPDIR=str(ROOT / "target"))
+ENV = stdlib_env(TMPDIR=str(ROOT / "target"))
 PREFIX = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
 
 
 def run(command, expected=None, env=None):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, env=env or ENV,
-                            text=True, capture_output=True, timeout=60)
-    if result.returncode or result.stderr or (expected is not None and result.stdout != expected):
-        raise RuntimeError(f"{command}: status={result.returncode}\n{result.stdout}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Generator platform", expected=expected, env=env or ENV, timeout=60).stdout
 
 
 def configured_paths_environment():
@@ -68,8 +64,8 @@ def check_copy_behavior():
         if result.returncode == 0 or "missing libclang source" not in result.stderr + result.stdout:
             raise RuntimeError("Missing source did not trigger the reviewed assertion")
     bundled = ROOT / "stdlib/internal/developer-tools/clang-bindings/libclang.dylib"
-    copied_hash = hashlib.sha256((work / bundled.name).read_bytes()).hexdigest()
-    bundled_hash = hashlib.sha256(bundled.read_bytes()).hexdigest()
+    copied_hash = sha256_file((work / bundled.name))
+    bundled_hash = sha256_file(bundled)
     if copied_hash != bundled_hash:
         raise RuntimeError("No-argument helper did not copy the real configured SDK library")
     return {"cases": [case[0] for case in cases], "modes": 3,
@@ -98,7 +94,7 @@ def main():
             if symbol not in oracle:
                 raise RuntimeError(f"SDK oracle lacks original symbol {symbol}")
         (ROOT / f"target/generator-platform-{suffix}.symbols.txt").write_text(oracle)
-        evidence["objects"][suffix] = {"sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+        evidence["objects"][suffix] = {"sha256": sha256_file(output),
                                        "oracle_sha256": hashlib.sha256(oracle.encode()).hexdigest()}
     archive = ROOT / "target/generator-platform-a.a"
     archive.unlink(missing_ok=True)

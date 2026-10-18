@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """Link original C objects with official LLD to obtain relocated eh_frame data."""
-import hashlib
 import json
 import os
 import build_developer_bindings
-from pathlib import Path
 import re
 import shutil
 from check_developer_dwarf_lines import run
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT, sha256_file
 
 
 def main():
@@ -52,7 +49,7 @@ def main():
                 evidence["fixtures"].append({"target": triple, "optimization": optimization, "placement": placement,
                                              "section_address": section_address, "fde_offset": offset, "length": length, "cie_offset": cie,
                                              "pc_begin": begin, "pc_range": end - begin, "instruction_types": names,
-                                             "bytes_sha256": hashlib.sha256(base.with_suffix('.bin').read_bytes()).hexdigest()})
+                                             "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     for optimization in [0, 2]:
         base = ROOT / f"target/developer-tools-eh-absolute-o{optimization}"
         run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-std=c11", f"-O{optimization}", "-fno-asynchronous-unwind-tables",
@@ -80,7 +77,7 @@ def main():
             evidence["fixtures"].append({"target": "x86_64-unknown-linux-gnu", "optimization": optimization, "placement": "absolute/default original C inline-assembly standard records",
                                          "section_address": section_address, "fde_offset": offset, "length": length, "cie_offset": cie, "pc_begin": begin,
                                          "pc_range": end - begin, "instruction_types": names, "augmentation": augmentation, "encoding": 0,
-                                         "bytes_sha256": hashlib.sha256(base.with_suffix('.bin').read_bytes()).hexdigest()})
+                                         "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     source.append("];")
     path = ROOT / "target/developer-tools-eh-frame-oracle.jai"
     path.write_text("\n".join(source) + "\n")

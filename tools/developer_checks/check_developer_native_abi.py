@@ -6,24 +6,16 @@ are durable products of this source under our own target directory.
 """
 import json
 import ctypes
-import hashlib
-import os
 import build_developer_bindings
 from pathlib import Path
 import re
-import subprocess
 import sys
 import generate_developer_binding_model as model
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import run_checked, ROOT, sha256_file
 
 
 def run(command):
-    result = subprocess.run([str(x) for x in command], cwd=ROOT, capture_output=True,
-                            text=True, timeout=60)
-    if result.returncode or result.stderr:
-        raise RuntimeError(f"Native ABI probe failed: {command}: {result.returncode}\n{result.stderr}")
-    return result.stdout
+    return run_checked(command, label="Native ABI probe", expected=None, env=None, timeout=60).stdout
 
 
 def main():
@@ -99,9 +91,9 @@ def main():
         raise RuntimeError(f"Reviewed native bindings absent from installed official SDK: {missing}")
     evidence = {"scope": "host official SDK layouts and enum values; opaque pointees and direct procedure invocation excluded",
                 "assertions": len(expressions), "sdk_prefix": str(prefix),
-                "sdk_headers_sha256": {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in header_paths},
+                "sdk_headers_sha256": {str(path): sha256_file(path) for path in header_paths},
                 "compiler_version": run([prefix / "bin/clang", "--version"]),
-                "probe_generator_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "probe_generator_sha256": sha256_file(Path(__file__)),
                 "public_symbol_lookups": len(exports), "missing_public_symbols": missing,
                 "native_expressions": [{"c": c, "jai": j, "value": int(value)} for (c, j), value in zip(expressions, values)]}
     (ROOT / "target/developer-tools-native-abi-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")

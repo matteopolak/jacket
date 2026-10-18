@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Current canonical public bridge/type/macro effects with private source identities."""
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,8 +10,7 @@ import tempfile
 
 from build_developer_bindings import llvm_prefix
 from driven_sources import driven, driven_matching
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT, sha256_file
 
 
 def main():
@@ -55,7 +53,7 @@ def main():
 
     def snapshot():
         return {
-            str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p.relative_to(ROOT)): sha256_file(p)
             for p in sorted(set(sources))
             if p.is_file()
         }

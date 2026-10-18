@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """Stage the owned DWARF line decoder and compare native bytes with existing SDK row oracles."""
-import hashlib
 import json
-from pathlib import Path
 import shutil
 import subprocess
-
-ROOT = Path(__file__).resolve().parents[2]
+from dev_common import ROOT, sha256_file
 
 
 def main():
@@ -17,7 +14,7 @@ def main():
         architecture = "arm64" if fixture["target"].startswith("aarch64") else "x86" if fixture["target"].startswith("i386") else "x64"
         address_size = 4 if architecture == "x86" else 8
         data = ROOT / f"target/developer-tools-dwarf-line-{architecture}-o{fixture['optimization']}.bin"
-        if hashlib.sha256(data.read_bytes()).hexdigest() != fixture["line_bytes_sha256"]:
+        if sha256_file(data) != fixture["line_bytes_sha256"]:
             raise RuntimeError("Native line section changed after official SDK decoding")
         output += ["    {", f"        bytes, bytes_ok := read_entire_file({json.dumps(str(data))});", "        assert(bytes_ok);", "        defer free(bytes);",
                    f"        table, ok := line_wire_decode(cast([] u8) bytes, 0, {address_size});", "        assert(ok && table.next_offset == bytes.count);", "        defer line_wire_release(*table);",

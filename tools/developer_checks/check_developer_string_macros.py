@@ -3,19 +3,12 @@
 import os
 from pathlib import Path
 import platform
-import subprocess
 import build_developer_bindings
-
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
+from dev_common import run_checked, ROOT
 
 
 def run(command, expected=""):
-    result = subprocess.run([str(item) for item in command], cwd=ROOT, env=ENV,
-                            capture_output=True, text=True, timeout=90)
-    if result.returncode or result.stderr or result.stdout != expected:
-        raise RuntimeError(f"String macros failed: status={result.returncode}; "
-                           f"diagnostic={(result.stderr or result.stdout).splitlines()[:2]}")
+    return run_checked(command, label="String macros", expected=expected)
 
 
 def main():

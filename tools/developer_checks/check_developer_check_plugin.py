@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
 """Real persistent Check factory and compiler-message callback effects."""
-import os
-from pathlib import Path
-import subprocess
 import build_developer_check
 from driven_sources import driven
+from dev_common import run_checked, ROOT, JAIC
 
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
-JAIC = ROOT / "target/debug/jaic"
 
 
 def run(command, *, expected="", code=0):
-    result = subprocess.run([str(item) for item in command], cwd=ROOT, env=ENV,
-                            capture_output=True, text=True, timeout=90)
-    if result.returncode != code or (expected is not None and result.stdout != expected) or (code == 0 and result.stderr):
-        raise RuntimeError(f"Check plugin failure: {command}; status={result.returncode}; "
-                           f"diagnostic={(result.stderr or result.stdout).splitlines()[:2]}")
-    return result
+    return run_checked(command, label="Check plugin", code=code, expected=expected, stderr="" if code == 0 else None)
 
 
 def main():

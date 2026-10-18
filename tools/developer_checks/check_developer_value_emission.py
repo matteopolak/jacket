@@ -1,20 +1,11 @@
 #!/usr/bin/env python3
 """Execute public generator value printers and generated typed Jai values."""
-import os
-from pathlib import Path
-import subprocess
+from dev_common import run_checked, ROOT, JAIC
 
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
-JAIC = ROOT / "target/debug/jaic"
 
 
 def run(command, output=""):
-    result = subprocess.run([str(item) for item in command], cwd=ROOT, env=ENV,
-                            capture_output=True, text=True, timeout=90)
-    if result.returncode or result.stderr or result.stdout != output:
-        raise RuntimeError(f"Value emission failure: {command}; status={result.returncode}; "
-                           f"diagnostic={(result.stderr or result.stdout).splitlines()[:2]}")
+    return run_checked(command, label="Value emission", expected=output)
 
 
 def main():

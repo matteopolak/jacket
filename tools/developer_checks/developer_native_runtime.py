@@ -6,12 +6,13 @@ integration is owned by the coordinator.
 """
 
 import os
-import hashlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import re
+
+from dev_common import sha256_file
 
 
 def output(command):
@@ -54,14 +55,6 @@ def sign(image):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
-
-
-def sha256(path):
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def sdk_metadata_sidecar(path):
@@ -123,9 +116,9 @@ def conda_notices(root, source):
     component = "conda-" + "-".join(identity.values())
     provenance = {
         "conda_package": identity,
-        "installed_metadata_sha256": sha256(metadata_path),
-        "package_index_sha256": sha256(index_path),
-        "package_paths_sha256": sha256(paths_path),
+        "installed_metadata_sha256": sha256_file(metadata_path),
+        "package_index_sha256": sha256_file(index_path),
+        "package_paths_sha256": sha256_file(paths_path),
         "package_archive_sha256": metadata.get("sha256"),
     }
     result = []
@@ -188,8 +181,8 @@ def stage_notices(sources, destination):
         result[name] = []
         for source, relative, provenance in notices:
             target = destination / relative
-            digest = sha256(source)
-            if target.exists() and sha256(target) != digest:
+            digest = sha256_file(source)
+            if target.exists() and sha256_file(target) != digest:
                 raise RuntimeError(f"Conflicting staged SDK notice: {target}")
             target.parent.mkdir(parents=True, exist_ok=True)
             if not target.exists():
@@ -259,8 +252,8 @@ def stage_macos_sdk(prefix, destination, names):
         sign(target)
         manifest[name] = {
             "sdk_image": str(sources[name]),
-            "sdk_sha256": sha256(sources[name]),
-            "staged_sha256": sha256(target),
+            "sdk_sha256": sha256_file(sources[name]),
+            "staged_sha256": sha256_file(target),
             "staged_dependencies": dependencies(target),
             "notices": notices[name],
         }

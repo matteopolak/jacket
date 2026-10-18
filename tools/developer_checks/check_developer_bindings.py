@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """Build and validate the private, staged libclang C binding pipeline."""
-import hashlib
 import json
-import os
-from pathlib import Path
 import subprocess
 import build_developer_bindings
 from driven_sources import driven
-
-ROOT = Path(__file__).resolve().parents[2]
-ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
+from dev_common import ROOT, ENV, sha256_file
 
 
 def run(command, expected="", returncode=0, diagnostic=None):
@@ -90,12 +85,12 @@ def main():
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", macro_output])
     run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", macro_output])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", macro_output])
-    inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+    inputs = {str(path): sha256_file(path)
               for path in [prefix / "include/clang-c/Index.h", prefix / "include/clang-c/CXString.h",
                            prefix / "include/clang-c/BuildSystem.h"]}
     metadata = {"scope": "staged libclang backend used by the supported public Bindings_Generator facade; full compatibility remains pending",
                 "sdk_headers_sha256": inputs, "clang_version": run([prefix / "bin/clang", "--version"], expected=None),
-                "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "source_sha256": sha256_file(source),
                 "tests": "interpreter/native O0/O2 call and mutation, callbacks, enum and record layout; rejection preserves output; Linux/Windows target-dependent long"}
     (ROOT / "target/developer-tools-clang-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print("Private libclang pipeline: C/Jai effects and callback round trips, rejection preservation, deterministic output and two target ABI checks passed")
