@@ -45,6 +45,7 @@ jobs:
       nix: ${{ steps.select.outputs.nix }}
       packaging: ${{ steps.select.outputs.packaging }}
       windows: ${{ steps.select.outputs.windows }}
+      code: ${{ steps.select.outputs.code }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,8 +57,21 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SHA: ${{ github.sha }}
         run: python3 tools/ci_changes.py
+  docs:
+    # Runs for every change, docs-only ones too: the rule IDs that tests cite must exist in the
+    # language docs. Also lists the doc rules no test cites (tools/check_rule_coverage.py).
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',docs,'))
+    name: rule coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 tools/check_rule_coverage.py --list-uncovered
   fuzz-regressions:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',fuzz-regressions,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',fuzz-regressions,')) && needs.changes.outputs.code == 'true'
     # Replays the saved crash inputs so fixed crashes stay fixed (nightly fuzzing: fuzz.yml).
     name: replay fuzz regressions
     runs-on: ubuntu-24.04
@@ -73,7 +87,8 @@ jobs:
       - name: Replay fuzz/regressions through the harnesses
         run: cargo test --locked --manifest-path fuzz/harness/Cargo.toml
   scripting-wasm:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',scripting-wasm,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',scripting-wasm,')) && needs.changes.outputs.code == 'true'
     name: scripting interpreter (LLVM-free WebAssembly)
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -91,6 +106,9 @@ jobs:
         run: |
           rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy
           rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Validate dependency ages and public source inputs
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
         env:
@@ -123,7 +141,8 @@ jobs:
           cargo build --locked -j 2 -p jaic-cli --no-default-features
           python3 tools/jaic-diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
   test:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',test,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',test,')) && needs.changes.outputs.code == 'true'
     name: compiler (${{ matrix.runner }})
     strategy:
       fail-fast: false
@@ -168,6 +187,7 @@ jobs:
           llvm-config --version
           clang --version
           node --version
+      - uses: ./.github/actions/native-libs-cache
       - name: Build the native helper libraries
         run: |
           if [ "$RUNNER_OS" = Linux ]; then bash tools/ci_native_deps.sh clipboard; fi
@@ -204,11 +224,6 @@ jobs:
         run: cargo test -p jaic-cli --locked --test stdlib_targets --test objc_selectors
       - name: Prepare hash-pinned SDL Python test inputs
         run: python3 tools/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
-      # Reports doc rules without a test; fails only when a test cites an unknown rule ID.
-      - name: Rule coverage
-        id: rule-coverage
-        continue-on-error: true
-        run: python3 tools/check_rule_coverage.py --list-uncovered
       # The repository's Jai code must be formatted (settings: jaifmt.toml).
       - name: Jai format check
         id: jai-format
@@ -266,12 +281,13 @@ jobs:
           test -x target/jaifmt
           python3 tools/check_file_watcher_platforms.py --compiler target/debug/jaic --linter target/debug/jailint --formatter target/jaifmt --native-runtime
       - name: Enforce all recorded checks
-        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.bindings-check.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.rule-coverage.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure' || steps.file-watcher-native.outcome == 'failure') }}
+        if: ${{ always() && !cancelled() && (steps.format.outcome == 'failure' || steps.jai-format.outcome == 'failure' || steps.jai-lint.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.correctness.outcome == 'failure' || steps.split-native.outcome == 'failure' || steps.policy.outcome == 'failure' || steps.bindings-check.outcome == 'failure' || steps.backends.outcome == 'failure' || steps.wasm-target.outcome == 'failure' || steps.stdlib-targets.outcome == 'failure' || steps.file-watcher-native.outcome == 'failure') }}
         run: |
           echo "One or more checks failed; see their original step diagnostics."
           exit 1
   vscode-extension:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',vscode-extension,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',vscode-extension,')) && needs.changes.outputs.code == 'true'
     # editors/vscode: lint, unit and grammar tests, VS Code integration tests against a debug
     # jailsp, and the .vsix (docs/tools/vscode-extension.md).
     name: VS Code extension
@@ -324,7 +340,8 @@ jobs:
           path: editors/vscode/jacket-vscode.vsix
           if-no-files-found: error
   neovim-plugin:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',neovim-plugin,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',neovim-plugin,')) && needs.changes.outputs.code == 'true'
     # editors/nvim: the headless tests, including an end-to-end run against a debug jailsp
     # (docs/tools/neovim-plugin.md).
     name: Neovim plugin
@@ -353,19 +370,23 @@ jobs:
       - name: Run the plugin tests (builds only jailsp)
         run: just nvim-test -j 2
   stdlib-runtime:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',stdlib-runtime,'))
-    name: stdlib runtime tests (${{ matrix.platform }})
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',stdlib-runtime,')) && needs.changes.outputs.code == 'true'
+    name: stdlib runtime tests (${{ matrix.platform }}, ${{ matrix.shard }})
     strategy:
       fail-fast: false
       matrix:
-        # macos-15-intel only on nightly and manual runs, as in `test`
-        include: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"},{"runner":"macos-15-intel","platform":"macos-x64"}]' || '[{"runner":"macos-15","platform":"macos-arm64"},{"runner":"ubuntu-24.04","platform":"linux-x64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64"}]') }}
+        # macos-x64 only on nightly and manual runs, as in `test`
+        platform: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["macos-arm64","linux-x64","linux-arm64","macos-x64"]' || '["macos-arm64","linux-x64","linux-arm64"]') }}
+        # Each shard runs every other stdlib test (tools/stdlib_runtime.py --shard); the first
+        # also runs the producer suites and the WebGPU checks. Two, not more: with `test`,
+        # `upstream-smoke` and `sanitizers` that is the five macOS jobs GitHub runs at once.
+        shard: ['1/2', '2/2']
     concurrency:
-      group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}
+      group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}
       cancel-in-progress: true
-    runs-on: ${{ matrix.runner }}
-    # the runtime modes, native -O2 and the suite checks run one after another
-    timeout-minutes: 75
+    runs-on: ${{ fromJSON('{"macos-arm64":"macos-15","macos-x64":"macos-15-intel","linux-x64":"ubuntu-24.04","linux-arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
+    timeout-minutes: 45
     env:
       CARGO_INCREMENTAL: '0'
     steps:
@@ -388,6 +409,7 @@ jobs:
           cargo build --locked -p jaic-cli -p jailint
           cargo build --locked --release -p jaic-cli
           target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
+      - uses: ./.github/actions/native-libs-cache
       - name: Build private native dependencies from source
         run: bash tools/ci_native_deps.sh full
       - name: Run reviewed contracts and retained regressions
@@ -395,7 +417,7 @@ jobs:
           ulimit -c 0
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
-          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
+          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
             --modes interp,native,wasm-interp,wasm-native --strict --timeout 600 --coverage target/stdlib-coverage.txt
       - name: Stdlib tests, native O2
         if: ${{ always() && !cancelled() }}
@@ -403,10 +425,18 @@ jobs:
           ulimit -c 0
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
-          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} \
+          "${run[@]}" python3 -u tools/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
             --modes native --opt O2 --strict --timeout 600
-      - name: NEW producer behavior suites against production
+      # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
+        with:
+          name: stdlib-coverage-${{ matrix.platform }}-${{ strategy.job-index }}
+          path: target/stdlib-coverage.txt
+          retention-days: 3
+          if-no-files-found: ignore
+      - name: NEW producer behavior suites against production
+        if: ${{ always() && !cancelled() && matrix.shard == '1/2' }}
         run: |
           run=()
           if [[ "$RUNNER_OS" == Linux ]]; then
@@ -424,7 +454,7 @@ jobs:
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
         # an error scope (stdlib/Extensions/WebGPU/tests/headless.jai). Linux has Mesa's lavapipe; the macOS
         # runners are VMs whose Metal device may be missing, so there no adapter is a skip.
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && matrix.shard == '1/2' }}
         run: |
           require=()
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
@@ -432,16 +462,44 @@ jobs:
       - name: WebGPU in a window (surface, configure, present, read back)
         # stdlib/Extensions/WebGPU/tests/window.jai opens a Window_Creation window and presents frames to its
         # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
-        if: ${{ always() && !cancelled() }}
+        if: ${{ always() && !cancelled() && matrix.shard == '1/2' }}
         run: |
           run=() require=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24") require=(--require-adapter)
           "${run[@]}" python3 -u tools/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
-      - name: Informational interpreter reachability
-        if: ${{ always() && !cancelled() }}
-        run: python3 tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform ${{ matrix.platform }}
+  stdlib-coverage:
+    # Informational: the stdlib procedures the interpreter reached across a platform's shards
+    # (tools/stdlib_coverage.py).
+    name: stdlib interpreter reachability
+    needs: [stdlib-runtime, windows-stdlib]
+    if: ${{ always() && !cancelled() && needs.stdlib-runtime.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: stdlib-coverage-*
+          path: target/coverage
+      - name: Report each platform
+        run: |
+          # One artifact per shard, named stdlib-coverage-<platform>-<job index>.
+          shopt -s nullglob
+          for shard in target/coverage/*/; do
+            platform="$(basename "$shard" | sed -E 's/^stdlib-coverage-(.*)-[0-9]+$/\1/')"
+            cat "$shard/stdlib-coverage.txt" >> "target/$platform.coverage"
+          done
+          for record in target/*.coverage; do
+            python3 tools/stdlib_coverage.py --record "$record" --platform "$(basename "$record" .coverage)"
+          done
   upstream-smoke:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',upstream-smoke,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',upstream-smoke,')) && needs.changes.outputs.code == 'true'
     # Open-source Jai projects built with their own entry points (first.jai, build.jai and the
     # arguments their READMEs document) and run: CLIs and libraries answer a real request or pass
     # their tests, games and editors open a window on a virtual display for a few seconds and must
@@ -475,6 +533,7 @@ jobs:
           alsa: 'true'
       - name: Build jaic
         run: cargo build --release --locked -p jaic-cli
+      - uses: ./.github/actions/native-libs-cache
       - name: Build the native helper libraries
         run: |
           if [ "$RUNNER_OS" = Linux ]; then bash tools/ci_native_deps.sh clipboard; fi
@@ -508,17 +567,22 @@ jobs:
           path: target/smoke-screenshots
           if-no-files-found: ignore
   sanitizers:
-    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',sanitizers,'))
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',sanitizers,')) && needs.changes.outputs.code == 'true'
     # Native builds of the test programs under AddressSanitizer and the IR-level UBSan checks,
     # with the interpreter's expectations; any sanitizer report fails the case
     # (docs/native/sanitizers.md).
-    name: native tests under ASan and UBSan (${{ matrix.runner }})
+    name: native tests under ASan and UBSan (${{ matrix.runner }}, ${{ matrix.shard }})
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04, macos-15]
+        # Linux takes longest, so its cases are split in two (tools/jaic-sweep.py --shard).
+        include:
+          - {runner: ubuntu-24.04, shard: 1/2}
+          - {runner: ubuntu-24.04, shard: 2/2}
+          - {runner: macos-15, shard: 1/1}
     concurrency:
-      group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}
+      group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.shard }}
       cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
@@ -533,6 +597,7 @@ jobs:
           # stdlib/SDL/tests/geometry-timer.jai links the installed SDL2.
           brew: sdl2 freetype
           alsa: 'true'
+      - uses: ./.github/actions/native-libs-cache
       - name: Build the native helper libraries
         run: bash tools/ci_native_deps.sh full
       - name: Build jaic
@@ -542,10 +607,10 @@ jobs:
       # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
       # -O2 is where LLVM acts on undefined behaviour and the bounds checks see the most objects.
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
-        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined corpus modules regressions
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
-        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined corpus modules regressions
+        run: python3 tools/jaic-sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
   sdl3:
     # SDL3 built from the pinned source on every platform, its installed SDK audited and the
     # generated bindings checked (docs/extensions/sdl3.md).
@@ -1064,6 +1129,9 @@ jobs:
           rm llvm-mingw.tar.xz
           echo "$RUNNER_TEMP/llvm-mingw/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/llvm-mingw/bin/aarch64-w64-mingw32-clang" --version
+      - uses: ./.github/actions/native-libs-cache
+        with:
+          variant: mingw-${{ matrix.cpu }}
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Build the resource-only PE fixture
@@ -1122,13 +1190,13 @@ jobs:
             triple: x86_64-pc-windows-msvc
             vs_arch: amd64
             mesa_dir: target/mesa-driver
-            timeout: 60
+            timeout: 30
           - cpu: arm64
             runner: windows-11-arm
             triple: aarch64-pc-windows-msvc
             vs_arch: arm64
             mesa_dir: target/mesa-driver
-            timeout: 120
+            timeout: 60
     concurrency:
       group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}
       cancel-in-progress: true
@@ -1151,6 +1219,7 @@ jobs:
         with:
           cpu: ${{ matrix.cpu }}
           triple: ${{ matrix.triple }}
+      - uses: ./.github/actions/native-libs-cache
       - name: Build jaic with the LLVM backend
         run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
       - name: Windows dynamic package tests
@@ -1184,20 +1253,11 @@ jobs:
       - name: Install Mesa's software OpenGL
         if: ${{ !cancelled() }}
         run: bash tools/install_ci_mesa_windows.sh "$CPU" "$MESA_DIR"
-      - name: Stdlib runtime tests (interpreter and native) and coverage
-        # The third-party libraries (FreeType, stb_*...) are built first (tools/build_native_libs.py).
+      # The stdlib runtime tests run in `windows-stdlib`; the steps below link the third-party
+      # libraries (FreeType, stb_*...) built here.
+      - name: Build the native libraries
         if: ${{ !cancelled() }}
-        env:
-          JAIC_TEST_FONT_PATH: C:\Windows\Fonts\arial.ttf
-        run: |
-          cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"
-          python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
-          python -u tools/stdlib_coverage.py --record target/stdlib-coverage.txt --platform windows-${{ matrix.cpu }}
-      - name: Stdlib tests, native O2
-        if: ${{ !cancelled() }}
-        env:
-          JAIC_TEST_FONT_PATH: C:\Windows\Fonts\arial.ttf
-        run: python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
+        run: python -u tools/build_native_libs.py --platform windows-${{ matrix.cpu }} --missing
       - name: Data resource discovery and Icon effects
         if: ${{ !cancelled() }}
         shell: pwsh
@@ -1217,7 +1277,7 @@ jobs:
         # tests/compiler/native/simp-game: first.jai builds src/main.jai (Simp, GL, Input, stb_image) in a
         # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
         # `link` in /usr/bin, jaic must skip that `link` and use Visual Studio's link.exe with
-        # the LIB it works out. The stb libraries come from the stdlib runtime step.
+        # the LIB it works out. The stb libraries come from the native libraries step.
         if: ${{ !cancelled() && matrix.cpu == 'x64' }}
         run: |
           jaic="$PWD/$JAIC"
@@ -1305,6 +1365,68 @@ jobs:
           python -u tools/check_windows_time_zone.py --compiler $env:JAIC --linter $env:JAILINT --formatter target/jaifmt.exe --sdk-runtime
           $abiExit = $LASTEXITCODE
           if ($watcherExit -ne 0 -or $abiExit -ne 0) { throw 'Native File_Watcher or SDK time-zone ABI suite failed' }
+  windows-stdlib:
+    # The stdlib runtime tests of `stdlib-runtime` on Windows (interpreter, native and native -O2),
+    # in two shards like there.
+    name: stdlib runtime tests (windows-${{ matrix.cpu }}, ${{ matrix.shard }})
+    needs: changes
+    if: (inputs.jobs == '' || contains(format(',{0},', inputs.jobs), ',windows-stdlib,')) && (needs.changes.outputs.windows == 'true')
+    strategy:
+      fail-fast: false
+      matrix:
+        cpu: [x64, arm64]
+        shard: ['1/2', '2/2']
+        include:
+          - {cpu: x64, runner: windows-2025, triple: x86_64-pc-windows-msvc, timeout: 40}
+          - {cpu: arm64, runner: windows-11-arm, triple: aarch64-pc-windows-msvc, timeout: 80}
+    concurrency:
+      group: ${{ github.workflow }}-windows-stdlib-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.shard }}
+      cancel-in-progress: true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      JAIC: target/${{ matrix.triple }}/debug/jaic.exe
+      MESA_DIR: target/mesa-driver
+      JAIC_TEST_FONT_PATH: C:\Windows\Fonts\arial.ttf
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-windows
+        with:
+          cpu: ${{ matrix.cpu }}
+          triple: ${{ matrix.triple }}
+      - uses: ./.github/actions/native-libs-cache
+      - name: Build jaic with the LLVM backend
+        run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+      - uses: ./.github/actions/windows-provider
+        with:
+          cpu: ${{ matrix.cpu }}
+          triple: ${{ matrix.triple }}
+      - name: Build the caller-owned Windows resource fixture
+        run: |
+          python tools/build_windows_resource_fixture.py --cpu ${{ matrix.cpu }} --out "$RUNNER_TEMP/windows-resources"
+          printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$RUNNER_TEMP/windows-resources")" >> "$GITHUB_ENV"
+      - name: Install Mesa's software OpenGL
+        run: |
+          bash tools/install_ci_mesa_windows.sh ${{ matrix.cpu }} "$MESA_DIR"
+          cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"
+      - name: Stdlib runtime tests (interpreter and native)
+        # The third-party libraries (FreeType, stb_*...) are built first (tools/build_native_libs.py).
+        run: python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
+      - name: Stdlib tests, native O2
+        if: ${{ !cancelled() }}
+        run: python -u tools/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() && !cancelled() }}
+        with:
+          name: stdlib-coverage-windows-${{ matrix.cpu }}-${{ strategy.job-index }}
+          path: target/stdlib-coverage.txt
+          retention-days: 3
+          if-no-files-found: ignore
   windows-smoke:
     # The third-party projects of `upstream-smoke`, built and run on Windows with the interactive
     # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
@@ -1327,6 +1449,7 @@ jobs:
         with:
           cpu: x64
           triple: x86_64-pc-windows-msvc
+      - uses: ./.github/actions/native-libs-cache
       - name: Build jaic with the LLVM backend
         run: cargo build --release --locked -p jaic-cli --no-default-features --features static-llvm
       - uses: ./.github/actions/windows-provider

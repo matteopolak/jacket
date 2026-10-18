@@ -1,0 +1,28 @@
+name: Cache the native libraries
+description: >-
+  Restores target/native-libs (tools/build_native_libs.py) for this runner; on main a new key is
+  also saved when the job succeeds. tools/build_native_libs.py builds only the libraries missing there.
+inputs:
+  variant:
+    description: Tells apart jobs that build other platforms' libraries here (the MinGW cross-builds)
+    default: host
+runs:
+  using: composite
+  steps:
+    # The key covers everything that decides the libraries' contents: the manifest (hash-pinned
+    # sources, compile flags), the local sources and the scripts that build them. There are no
+    # restore-keys: the build script only looks for missing libraries, so an older set would be
+    # reused as it is.
+    - id: key
+      shell: bash
+      run: echo "key=native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$LLVM_VERSION-${{ hashFiles('tools/native-libs.json', 'tools/native/**', 'tools/build_native_libs.py', 'tools/sdl3_native.py', 'tools/fetch_url.py', 'tools/repo_output.py') }}" >> "$GITHUB_OUTPUT"
+    - if: github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: target/native-libs
+        key: ${{ steps.key.outputs.key }}
+    - if: github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: target/native-libs
+        key: ${{ steps.key.outputs.key }}

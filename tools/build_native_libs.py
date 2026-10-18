@@ -377,6 +377,9 @@ def main() -> None:
     parser.add_argument('--out', type=Path, default=None,
                         help='directory to write the libraries to (default: the main checkout\'s '
                              'target/native-libs/<platform>); release.yml builds into the package')
+    parser.add_argument('--missing', action='store_true',
+                        help='build only the libraries missing from the default output directory '
+                             '(CI restores it from a cache keyed on this manifest)')
     args = parser.parse_args()
     plat = args.platform or host_dir()
     if plat not in MINGW_PREFIXES and plat.split('-')[0] != host_dir().split('-')[0]:
@@ -386,8 +389,12 @@ def main() -> None:
         sys.exit(f'{plat}: not one of {", ".join([*WINDOWS_TRIPLES, *MINGW_PREFIXES])}')
     manifest = json.loads(MANIFEST.read_text())
     names = args.names or sorted(n for n, lib in manifest['libraries'].items() if wanted(lib, plat))
+    if args.missing:
+        if args.out:
+            sys.exit('--missing looks in the default output directory; it cannot be used with --out')
+        names = [name for name in names if name in missing(plat)]
     # SDL3's clean-room cache and default output stay in this worktree.
-    sdl3_only = names == ['SDL3']
+    sdl3_only = args.names == ['SDL3']
     out = (args.out or (repo_output_dir('native-libs', plat) if sdl3_only else output_dir(plat))).resolve()
     out.mkdir(parents=True, exist_ok=True)
     # Downloaded sources stay in the shared cache, never in --out (which may be a package).

@@ -24,7 +24,7 @@ developer() {
 clipboard() {
   local libs=${1:-}
   if [ -z "$libs" ]; then
-    python3 tools/build_native_libs.py
+    python3 tools/build_native_libs.py --missing
     libs=$(native_dir)
   fi
   python3 tools/build_portable_clipboard.py --output target/clipboard-native
@@ -33,7 +33,7 @@ clipboard() {
 
 full() {
   python3 tools/window_render_native.py
-  python3 tools/build_native_libs.py
+  python3 tools/build_native_libs.py --missing
   developer
   local audio=(--test-runtime)
   [[ "$os" == Linux ]] && audio+=(--require-device)

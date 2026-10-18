@@ -39,6 +39,24 @@ CLIPBOARD_LOCK = threading.Lock()
 WINDOW_LEASE = threading.Lock()
 
 
+def shard(text):
+    """`--shard K/N`: the K-th (from 1) of N parts; argparse type, shared with jaic-sweep.py."""
+    try:
+        index, count = (int(part) for part in text.split("/"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected K/N, got {text!r}")
+    if not 1 <= index <= count:
+        raise argparse.ArgumentTypeError(f"shard {text} is out of range")
+    return index, count
+
+
+def take_shard(items, part):
+    """Every N-th item from the K-th: neighbouring cases (often a module's slow tests) spread
+    across the parts, and the split is the same on every run."""
+    index, count = part
+    return items[index - 1 :: count]
+
+
 def host_platform():
     os_name = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")
     machine = platform.machine().lower()
@@ -561,6 +579,13 @@ def main():
     )
     ap.add_argument("--timeout", type=float, default=180)
     ap.add_argument(
+        "--shard",
+        type=shard,
+        default=(1, 1),
+        metavar="K/N",
+        help="run only the K-th of N equal parts of the selection (CI splits the sweep this way)",
+    )
+    ap.add_argument(
         "--jobs",
         "-j",
         type=int,
@@ -605,6 +630,7 @@ def main():
         for case in catalogue
         if args.filter in case["id"] and (not args.case or case["id"] in args.case)
     ]
+    todo = take_shard(todo, args.shard)
     if not todo:
         ap.error("test selection is empty")
     scratch = tempfile.mkdtemp(prefix="jaic-stdlib-runtime-")

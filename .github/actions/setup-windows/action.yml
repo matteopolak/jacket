@@ -31,18 +31,32 @@ runs:
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: '24'
-    - name: Install the official LLVM release
+    # The same key and path as release.yml's download, so either workflow's copy serves both.
+    - id: llvm
       shell: bash
       env:
         CPU: ${{ inputs.cpu }}
       run: |
         arch=x86_64; [ "$CPU" = arm64 ] && arch=aarch64
-        curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$arch-pc-windows-msvc.tar.xz"
+        echo "archive=clang+llvm-$LLVM_VERSION-$arch-pc-windows-msvc.tar.xz" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/llvm-download
+        key: llvm-${{ steps.llvm.outputs.archive }}
+    - name: Install the official LLVM release
+      shell: bash
+      env:
+        ARCHIVE: ${{ steps.llvm.outputs.archive }}
+      run: |
+        download="$(cygpath -u "$RUNNER_TEMP")/llvm-download"
+        if [ ! -f "$download/$ARCHIVE" ]; then
+          mkdir -p "$download"
+          curl -fsSL -o "$download/$ARCHIVE" "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$ARCHIVE"
+        fi
         # GNU tar reads `D:\...` as a remote host: extract to the POSIX spelling of the path.
         llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
         mkdir -p "$llvm"
-        tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
-        rm llvm.tar.xz
+        tar -xJf "$download/$ARCHIVE" -C "$llvm" --strip-components=1
         echo "LLVM_SYS_231_PREFIX=$(cygpath -m "$llvm")" >> "$GITHUB_ENV"
         cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
         test -x "$llvm/bin/wasm-ld.exe"
@@ -50,3 +64,7 @@ runs:
         # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
         # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
         bash tools/windows-llvm/prepare.sh "$llvm"
+    # The dependencies' build output, restored everywhere and saved from main.
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        save-if: ${{ github.ref == 'refs/heads/main' }}

@@ -60,3 +60,8 @@ runs:
         test -r /usr/share/alsa/alsa.conf
         echo "ALSA_CONFIG_PATH=$GITHUB_WORKSPACE/stdlib/Sound_Player/tests/fixtures/alsa-null.conf" >> "$GITHUB_ENV"
         echo 'JAI_AUDIO_ALSA_DEVICE=jai_audio_test' >> "$GITHUB_ENV"
+    # The dependencies' build output, restored everywhere and saved from main. Last, so that the
+    # key sees the RUSTFLAGS the LLVM steps set.
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        save-if: ${{ github.ref == 'refs/heads/main' }}

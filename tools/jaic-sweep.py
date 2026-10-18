@@ -384,6 +384,8 @@ def run_native(
 
 
 def main():
+    from stdlib_runtime import shard, take_shard
+
     ap = argparse.ArgumentParser()
     ap.add_argument("sets", nargs="+")
     target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
@@ -429,6 +431,13 @@ def main():
         default="",
         choices=["", "O0", "O1", "O2", "O3"],
         help="optimization level of native builds (default: what the program asks for)",
+    )
+    ap.add_argument(
+        "--shard",
+        type=shard,
+        default=(1, 1),
+        metavar="K/N",
+        help="run only the K-th of N equal parts of the selected cases (CI splits sweeps this way)",
     )
     a = ap.parse_args()
     # Cases run in their own directory, so a relative path would not resolve there.
@@ -486,7 +495,9 @@ def main():
         from stdlib_runtime import build_data_fixtures
 
         build_data_fixtures()
-    todo = [c for s in a.sets for c in cases(s) if a.filter in c[0]]
+    todo = take_shard(
+        [c for s in a.sets for c in cases(s) if a.filter in c[0]], a.shard
+    )
     if not todo:
         ap.error("test selection is empty")
 

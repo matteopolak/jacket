@@ -26,6 +26,12 @@ on:
         default: ''
 permissions:
   contents: read
+# One release run per tag at a time: a second run for the same tag (a re-push, or a dispatch while
+# the tag's own run builds) waits instead of publishing alongside it. Never cancelled, since a run
+# may be part-way through publishing.
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 env:
   CARGO_INCREMENTAL: '0'
   LLVM_VERSION: 23.1.2
@@ -115,20 +121,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/check_dependency_age.py
+      # The download is cached by archive name; ci.yml's Windows setup uses the same key and path.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
+        with:
+          path: ${{ runner.temp }}/llvm-download
+          key: llvm-${{ matrix.llvm }}
       - name: Install the official LLVM release (static libraries)
         if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
+        env:
+          ARCHIVE: ${{ matrix.llvm }}
         run: |
-          curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/${{ matrix.llvm }}"
+          download="$RUNNER_TEMP/llvm-download"
           llvm="$RUNNER_TEMP/llvm"
           prefix="$llvm"
           if [ "$RUNNER_OS" = "Windows" ]; then
             # GNU tar reads `D:\...` as a remote host; Cargo and llvm-config want `D:/...`.
+            download="$(cygpath -u "$RUNNER_TEMP")/llvm-download"
             llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
             prefix="$(cygpath -m "$llvm")"
           fi
+          if [ ! -f "$download/$ARCHIVE" ]; then
+            mkdir -p "$download"
+            curl -fsSL -o "$download/$ARCHIVE" "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$ARCHIVE"
+          fi
           mkdir -p "$llvm"
-          tar -xJf llvm.tar.xz -C "$llvm" --strip-components=1
-          rm llvm.tar.xz
+          tar -xJf "$download/$ARCHIVE" -C "$llvm" --strip-components=1
           echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
           "$llvm/bin/llvm-config" --version
           echo "system libraries: $("$llvm/bin/llvm-config" --link-static --system-libs)"

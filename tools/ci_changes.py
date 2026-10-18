@@ -4,6 +4,8 @@
 Pushes diff the pushed range, pull requests diff against their base, anything else (manual
 runs, a new branch, a range that cannot be diffed) runs every area. Areas live in AREAS: to gate
 a job on more paths, add a pattern there. `*` matches within a directory, `**` across them.
+`code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
+docs-only push skips the build and test jobs.
 
     python3 tools/ci_changes.py          # reads GITHUB_EVENT_NAME, GITHUB_REF, EVENT_BEFORE, BASE_SHA, SHA
 """
@@ -44,6 +46,12 @@ AREAS = {
     ],
 }
 
+# Prose no build or test reads. The specs feed generators and checks, jailint's rules test reads
+# its doc, and the rule IDs in docs/language and docs/metaprogramming are checked by the `docs`
+# job, which always runs.
+PROSE = ["docs/**", "*.md", ".github/*.md"]
+READ_BY_TESTS = ["docs/specs/**", "docs/tools/jailint.md"]
+
 
 def regex(pattern):
     out = ""
@@ -61,9 +69,19 @@ def regex(pattern):
     return out
 
 
+def compile_patterns(patterns, extra=None):
+    alternatives = [regex(p) for p in patterns] + ([extra] if extra else [])
+    return re.compile("^(" + "|".join(alternatives) + ")$")
+
+
 def matches(patterns, files):
-    rx = re.compile("^(" + "|".join(regex(p) for p in patterns) + "|" + SELF + ")$")
+    rx = compile_patterns(patterns, SELF)
     return any(rx.match(f) for f in files)
+
+
+def code_changed(files):
+    prose, read = compile_patterns(PROSE), compile_patterns(READ_BY_TESTS)
+    return any(not prose.match(f) or read.match(f) for f in files)
 
 
 def changed_files(env):
@@ -88,6 +106,7 @@ def main():
     results = {}
     for area, patterns in AREAS.items():
         results[area] = files is None or matches(patterns, files)
+    results["code"] = files is None or code_changed(files)
     if event == "pull_request":
         results["windows"] = False
     lines = [f"{area}={str(value).lower()}" for area, value in results.items()]
