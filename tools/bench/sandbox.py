@@ -54,7 +54,7 @@ class Sandbox:
             return ' '.join(f'(subpath {quote(p)})' for p in paths)
 
         # Seatbelt matches real paths: /var/folders is /private/var/folders.
-        reads = [*MACOS_SYSTEM_READS, *real(self.reads), *real(self.writes)]
+        reads = [*MACOS_SYSTEM_READS, *developer_app(), *real(self.reads), *real(self.writes)]
         writes = real(self.writes)
         # xcrun (behind `cc` and `xcrun ld`) caches its tool lookups in the per-user temporary folder,
         # whatever TMPDIR says; refused, every lookup takes a second and the link stage looks slow.
@@ -92,6 +92,20 @@ class Sandbox:
         if sys.platform.startswith('linux'):
             return '' if shutil.which('bwrap') else 'bwrap (bubblewrap) is not installed'
         return f'no sandbox on {sys.platform}'
+
+
+def developer_app() -> list[str]:
+    """The selected Xcode (`/Applications/Xcode_16.4.app` on CI runners, not only `Xcode.app`),
+    which the system linker and xcrun load libraries from."""
+    try:
+        selected = subprocess.run(['xcode-select', '-p'], capture_output=True, text=True).stdout.strip()
+    except OSError:
+        return []
+    parts = Path(selected).parts
+    for index, part in enumerate(parts):
+        if part.endswith('.app'):
+            return [str(Path(*parts[:index + 1]))]
+    return []
 
 
 def real(paths: list[Path]) -> list[str]:

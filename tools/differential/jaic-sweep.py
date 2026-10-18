@@ -588,6 +588,8 @@ def main():
         if not confined:
             print("jaic-sweep: upstream cases run WITHOUT a sandbox", file=sys.stderr)
         else:
+            # Absolute: the default lookup goes through `crates/jaic/..`, which a sandbox does not mount.
+            os.environ.setdefault("JAIC_STDLIB", str(ROOT / "stdlib"))
             SANDBOX = {"reads": usb.jaic_reads(a.jaic, ROOT / "stdlib", UPSTREAM) + [Path(tempfile.gettempdir())]}
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
             UPSTREAM_IDS.add(c["id"])

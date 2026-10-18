@@ -709,6 +709,9 @@ def main():
         raise Failure("normal native library search path is empty")
     stdlib = Path(os.environ.get("JAIC_STDLIB", ROOT / "stdlib")).resolve(strict=True)
     STDLIB = stdlib
+    if args.confine:
+        # Absolute: the default lookup goes through `crates/jaic/..`, which a sandbox does not mount.
+        os.environ["JAIC_STDLIB"] = str(stdlib)
     preparation = prepare_native_dependencies(
         args.platform, native_paths[0], stdlib, ROOT
     )
