@@ -16,13 +16,14 @@ jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 
 [features]
-default = ["dynamic-llvm"]
+default = ["dynamic-llvm", "mimalloc"]
 # Native output (`jaic`); without it jaic only checks and interprets.
 llvm = ["dep:jaic-llvm"]
 # LLVM as a shared library (development) or statically linked (release archives).
 dynamic-llvm = ["llvm", "jaic-llvm/dynamic"]
-static-llvm = ["llvm", "jaic-llvm/static"]
-# mimalloc under the memory-limit counter instead of the system allocator.
+static-llvm = ["llvm", "jaic-llvm/static", "mimalloc"]
+# mimalloc under the memory-limit counter instead of the system allocator (on with either LLVM
+# feature; `--no-default-features` alone keeps the system allocator).
 mimalloc = ["dep:mimalloc"]
 
 [dev-dependencies]

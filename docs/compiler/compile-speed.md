@@ -42,7 +42,7 @@ Child processes (`run_command`): the supervisor that watches a command polls for
 
 ### Allocator
 
-`jaic`'s global allocator is `memory_limit::CountingAllocator<A>`, which counts live bytes for `JAIC_MEMORY_LIMIT` and forwards to `A`. `A` is `System` by default. The opt-in `jaic-cli` feature `mimalloc` swaps in mimalloc. Paired A/B runs on an Apple M5 (system build and mimalloc build alternated per run, 10 pairs each, median of the per-pair ratios):
+`jaic`'s global allocator is `memory_limit::CountingAllocator<A>`, which counts live bytes for `JAIC_MEMORY_LIMIT` and forwards to `A`. `A` is mimalloc through the `jaic-cli` feature `mimalloc`, which `dynamic-llvm` (the default) and `static-llvm` (release archives) both turn on. A `--no-default-features` build without either uses `System`. Paired A/B runs on an Apple M5 (system build and mimalloc build alternated per run, 10 pairs each, median of the per-pair ratios):
 
 | workload | system s | mimalloc s | change | peak RSS MiB (sys / mi) |
 |---|---:|---:|---:|---:|
@@ -55,7 +55,7 @@ Child processes (`run_command`): the supervisor that watches a command polls for
 | gen-240k/build-O0 | 1.082 | 1.026 | -6.4% | 1124 / 1207 |
 | gen-60k/check | 0.177 | 0.156 | -11.3% | 199 / 152 |
 
-The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus projects. That is under the 10% bar for adding a C dependency to every build, so the feature stays off and release builds use the system allocator. Re-measure with `cargo build --release -p jaic-cli --features mimalloc` against a default build if allocation patterns change a lot (for example, a new arena in sema).
+The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus projects. A later run on the same machine measured the 60k-line check at 154 ms with the system allocator and 137 ms with mimalloc (-11%), with malloc at 23% of samples under the system allocator, so mimalloc is now on in every LLVM build. To re-measure, build once with `--no-default-features --features llvm,jaic-llvm/dynamic` (system) and once by default, and alternate the runs.
 
 ## How to change it
 
@@ -68,7 +68,7 @@ The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus proje
 
 - `JAIC_CODEGEN_UNITS=N`, `JAIC_VERIFY_IR`, `JAIC_DSYM`: see [LLVM backend](../native/llvm-backend.md#configuration) and [debug info](../native/debug-info.md).
 - `-timings`: phase table on stderr.
-- `jaic-cli` feature `mimalloc`: mimalloc under the memory-limit counter (off by default, see [Allocator](#allocator)).
+- `jaic-cli` feature `mimalloc`: mimalloc under the memory-limit counter (on with `dynamic-llvm` and `static-llvm`, see [Allocator](#allocator)).
 
 ## Dependencies
 
