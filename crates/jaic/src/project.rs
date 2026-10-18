@@ -922,8 +922,10 @@ mod tests {
     use super::*;
 
     fn fixture(name: &str, files: &[(&str, &str)]) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("jaic-project-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        // Nested so the linter's search two folders up never reaches the shared temporary folder.
+        let base = std::env::temp_dir().join(format!("jaic-project-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let dir = base.join("outer").join("root");
         for (path, text) in files {
             let path = dir.join(path);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
