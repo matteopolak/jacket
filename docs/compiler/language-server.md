@@ -46,7 +46,7 @@ A large program compile is hundreds of MiB, so `semantic::Cache` keeps `CACHED` 
 - Answers that grow with the file (`documentSymbol`, semantic tokens) are written straight to text (`Reply::Raw` in `protocol.rs`), not built as `serde_json::Value`.
 - Per-request work must be cached on `Document` or by position index (`IdeFacts::refs_at`, `member_use_at`), never rescan the file. Drop references with `IdeFacts::truncate_refs`.
 - Compiles share parse trees through `jaic::parser::ParseReuse`. Trees must never be mutated after parsing.
-- Push diagnostics are debounced (200 ms) in `jailsp` so a completion request does not wait behind a compile. Clients advertising `textDocument.diagnostic` get pull diagnostics instead and no pushes.
+- Push diagnostics are debounced in `jailsp`: the wait is a quarter of the last publication's time, between 15 and 200 ms (`DIAGNOSTICS_DEBOUNCE` in `main.rs`); edits that arrive during a compile are read together afterwards, so a short wait is enough for small programs. This way a completion request does not wait behind a compile. Clients advertising `textDocument.diagnostic` get pull diagnostics instead and no pushes.
 - Completion does not compile while a word is typed: it reuses a compile whose text matches up to the cursor expression (`Cache::compiled_before`).
 
 ### Features worth knowing
@@ -111,3 +111,5 @@ node tools/browser/check_scripting_wasm.mjs target/wasm32-unknown-unknown/releas
 ## Dependencies
 
 `jaic` (lexer, parser, sema with `IdeFacts`, `SandboxHost`), `jailint`, `serde`/`serde_json`. In the browser it is reached through `engine.lsp(message)` ([playground](../browser/playground.md)). Protocol: LSP 3.17 over JSON-RPC 2.0.
+
+- When `jailsp` has no input waiting it reads the auto-import module indexes (stdlib and project modules; `Session::warm_auto_import`), which cost a few hundred ms once, so the first completion of a name is not slow.

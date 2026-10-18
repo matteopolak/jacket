@@ -1,9 +1,12 @@
 //! Native transport only. The library and wasm caller never touch stdio.
 /// How long input must be quiet before the diagnostics of the edits so far are computed and
-/// published. A compile of a large program takes up to seconds and cannot be interrupted, so
-/// starting one on every `didChange` made the completion queued behind it wait for it.
+/// published: a quarter of the last publication's time, within these bounds. A compile cannot be
+/// interrupted, so starting one on every `didChange` made the completion queued behind it wait
+/// for it; but edits that arrive while one runs are read together afterwards, so a short wait is
+/// enough for a small program (whose compile is quick) and only a large one needs the long one.
 #[cfg(not(target_arch = "wasm32"))]
-const DIAGNOSTICS_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(200);
+const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
+    std::time::Duration::from_millis(15)..=std::time::Duration::from_millis(200);
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> std::process::ExitCode {
@@ -38,6 +41,9 @@ fn main() -> std::process::ExitCode {
             }
         });
         let mut compiles = 0;
+        // How long the last publication took, which sets how long to wait for more edits.
+        let mut last_publication = std::time::Duration::from_millis(40);
+        let mut warm_needed = false;
         loop {
             // A compile (or the eviction it caused) freed many small blocks: hand their pages
             // back while the editor is idle (see `large_alloc`).
@@ -53,9 +59,14 @@ fn main() -> std::process::ExitCode {
             // requests that are queued (completion, hover) are answered first and a burst of
             // keystrokes costs one compile.
             let received = if session.publications_pending() {
-                match input.recv_timeout(DIAGNOSTICS_DEBOUNCE) {
+                let wait = (last_publication / 4)
+                    .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
+                match input.recv_timeout(wait) {
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                        for response in session.flush_publications()? {
+                        let started = std::time::Instant::now();
+                        let published = session.flush_publications()?;
+                        last_publication = started.elapsed();
+                        for response in published {
                             output.write_all(&jai_language_server::framing::encode(&response))?;
                         }
                         output.flush()?;
@@ -64,9 +75,22 @@ fn main() -> std::process::ExitCode {
                     Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Ok(Vec::new()),
                     Ok(received) => received,
                 }
+            } else if warm_needed {
+                // Idle after a message: read the indexes completion will want, unless input
+                // is already waiting.
+                match input.try_recv() {
+                    Ok(received) => received,
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        warm_needed = false;
+                        session.warm_up();
+                        continue;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Vec::new()),
+                }
             } else {
                 input.recv().unwrap_or(Ok(Vec::new()))
             };
+            warm_needed = true;
             let chunk = received?;
             if chunk.is_empty() {
                 decoder.finish()?;

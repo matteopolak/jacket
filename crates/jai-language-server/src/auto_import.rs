@@ -713,6 +713,29 @@ fn stdlib_rank(module: &str) -> u32 {
 }
 
 impl Session {
+    /// Reads the module indexes auto-import completion offers from (the stdlib's and the
+    /// project's), which cost a few hundred milliseconds the first time and nothing after, so
+    /// the first completion of a name does not pay for them. A transport calls this when it
+    /// has nothing else to do; it does nothing without auto-import or an open document.
+    pub fn warm_auto_import(&self) {
+        let Some(env) = self.environment.as_ref().filter(|_| self.auto_import) else {
+            return;
+        };
+        let Some(uri) = self.documents.keys().next() else {
+            return;
+        };
+        let sources = self.sources(env);
+        let file = sources.key(Path::new(uri.path()));
+        let mut index = self.index.borrow_mut();
+        let program = sources.program(&mut index, &file, &self.workspace_folders);
+        for dir in &program.module_dirs {
+            sources.user_modules(&mut index, dir);
+        }
+        if let Some(stdlib) = &program.stdlib {
+            sources.stdlib(&mut index, stdlib);
+        }
+    }
+
     /// Auto-import items for `prefix` at the cursor of `uri` (whose text is `text`), leaving out
     /// `visible` names; and whether the list is incomplete (more matches, or too short a prefix
     /// yet, so the client asks again as the word grows).

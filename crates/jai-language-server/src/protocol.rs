@@ -538,6 +538,12 @@ impl JsonSession {
         self.session.compile_counts()
     }
 
+    /// Work that makes later requests faster, for a transport to do while it waits for input
+    /// (see `Session::warm_auto_import`).
+    pub fn warm_up(&self) {
+        self.session.warm_auto_import();
+    }
+
     /// An edit is waiting for `flush_publications`.
     pub fn publications_pending(&self) -> bool {
         self.publications_pending
