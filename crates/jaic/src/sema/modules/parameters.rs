@@ -201,7 +201,11 @@ impl Compiler {
             names: vec![name],
             kind: ast::DeclKind::Const,
             // `X: $I/interface T = v` takes its type from the value.
-            ty: param.ty.clone().filter(|t| !procs::has_poly(t)),
+            ty: param
+                .ty
+                .clone()
+                .filter(|t| !procs::has_poly(t))
+                .or_else(|| literal_sized_type(param)),
             value: param.default.clone(),
             using: false,
             as_: false,
@@ -388,6 +392,15 @@ impl Compiler {
             })();
             let contract = &mut self.modules[module.0 as usize].parameter_contracts[index];
             match result {
+                // Resolving the parameter reached an import that forwards this very parameter as
+                // an argument: the import is being resolved, so check the contract again later.
+                Err(error)
+                    if error
+                        .message
+                        .starts_with("circular dependency while resolving") =>
+                {
+                    contract.state = ParameterContractState::Waiting;
+                }
                 Ok(()) => contract.state = ParameterContractState::Checked,
                 Err(error) => {
                     contract.state = ParameterContractState::Failed(error.clone());
@@ -481,4 +494,43 @@ impl Compiler {
         let ty = self.eval_type(scope, ty)?;
         Ok(ValueClass::of_type(self.types.kind(ty)))
     }
+}
+
+/// `NAMES: [$N] string = .[...]`: with no import argument the parameter has the literal's
+/// count, so its type is `[count] string`.
+fn literal_sized_type(param: &ast::Param) -> Option<ast::Expr> {
+    let (
+        Some(ast::Expr {
+            kind:
+                ast::ExprKind::ArrayType {
+                    size: ast::ArraySize::Fixed(size),
+                    elem,
+                },
+            span,
+        }),
+        Some(ast::Expr {
+            kind:
+                ast::ExprKind::ArrayLit {
+                    ty: None,
+                    elems,
+                },
+            ..
+        }),
+    ) = (&param.ty, &param.default)
+    else {
+        return None;
+    };
+    if !matches!(size.kind, ast::ExprKind::PolyVar { .. }) || procs::has_poly(elem) {
+        return None;
+    }
+    Some(ast::Expr {
+        kind: ast::ExprKind::ArrayType {
+            size: ast::ArraySize::Fixed(Box::new(ast::Expr {
+                kind: ast::ExprKind::Int(ast::Int128::new(elems.len() as u128)),
+                span: size.span,
+            })),
+            elem: elem.clone(),
+        },
+        span: *span,
+    })
 }

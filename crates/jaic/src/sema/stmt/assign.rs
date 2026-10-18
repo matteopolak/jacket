@@ -142,6 +142,55 @@ impl Compiler {
         }
     }
 
+    /// Does some `operator op=` take this target (by pointer or by value) and value? Without one,
+    /// `a op= b` is `a = a op b`. The operands are checked in a scratch context, so nothing is
+    /// emitted twice when the answer is no.
+    fn operator_assign_applies(
+        &mut self,
+        f: &FnCtx,
+        scope: ScopeId,
+        candidates: &[ProcId],
+        target: &ast::Expr,
+        rhs: &ast::Expr,
+        span: Span,
+    ) -> bool {
+        let mut scratch = self.scratch_ctx(scope);
+        scratch.backtick_scope = f
+            .backtick_scope
+            .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
+        let Ok(Operand::Place {
+            ty,
+            addr,
+        }) = self.check_expr(&mut scratch, scope, target, None)
+        else {
+            return true;
+        };
+        let Ok(value) = self.check_expr(&mut scratch, scope, rhs, None) else {
+            return true;
+        };
+        let arg = |op: Operand| CallArg {
+            name: None,
+            spread: false,
+            expr: None,
+            op: Some(op),
+            span,
+            scope,
+        };
+        let ptr = Operand::Value {
+            ty: self.types.pointer(ty),
+            val: addr,
+        };
+        let by_ptr = vec![arg(ptr), arg(value.clone())];
+        let by_value = vec![
+            arg(Operand::Place {
+                ty,
+                addr,
+            }),
+            arg(value),
+        ];
+        self.any_accepts(candidates, &by_ptr, span) || self.any_accepts(candidates, &by_value, span)
+    }
+
     /// `a op= b` through a user-defined `operator op=` (called with `*a`, or `a` by value).
     fn try_operator_assign(
         &mut self,
@@ -160,7 +209,9 @@ impl Compiler {
         }
         let text = format!("{}=", calls::binop_text(bin));
         let candidates = self.operator_candidates(scope, &text)?;
-        if candidates.is_empty() {
+        if candidates.is_empty()
+            || !self.operator_assign_applies(f, scope, &candidates, target, rhs, span)
+        {
             return Ok(false);
         }
         let Operand::Place {
@@ -284,7 +335,7 @@ impl Compiler {
                 return Ok(());
             }
             // Evaluate the target once, then `*tmp = *tmp op rhs`.
-            let place = self.check_expr(f, scope, &lhs[0], None)?.without_callable();
+            let place = self.check_target(f, scope, &lhs[0])?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -345,7 +396,7 @@ impl Compiler {
             return Ok(());
         }
         if lhs.len() == 1 && rhs.len() == 1 {
-            let place = self.check_expr(f, scope, &lhs[0], None)?.without_callable();
+            let place = self.check_target(f, scope, &lhs[0])?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -394,7 +445,7 @@ impl Compiler {
                             | Operand::Type(_)
                     ) {
                         for l in lhs {
-                            let place = self.check_expr(f, scope, l, None)?.without_callable();
+                            let place = self.check_target(f, scope, l)?.without_callable();
                             let Operand::Place {
                                 ty,
                                 addr,
@@ -462,7 +513,7 @@ impl Compiler {
             {
                 continue;
             }
-            let place = self.check_expr(f, scope, l, None)?.without_callable();
+            let place = self.check_target(f, scope, l)?.without_callable();
             let Operand::Place {
                 ty,
                 addr,

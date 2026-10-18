@@ -18,6 +18,21 @@ multiply :: (m: Matrix2, v: Vector2) -> Vector2 {
     return .{ dot(m.v[0], v), dot(m.v[1], v) };
 }
 
+operator == :: (a: Matrix2, b: Matrix2) -> bool {
+    for 0..3 if a.floats[it] != b.floats[it] return false;
+    return true;
+}
+
+operator == :: (a: Matrix3, b: Matrix3) -> bool {
+    for 0..8 if a.floats[it] != b.floats[it] return false;
+    return true;
+}
+
+operator == :: (a: Matrix4, b: Matrix4) -> bool {
+    for 0..15 if a.floats[it] != b.floats[it] return false;
+    return true;
+}
+
 operator * :: (a: Matrix2, b: Vector2) -> Vector2 {
     return multiply(a, b);
 }

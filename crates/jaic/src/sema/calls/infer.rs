@@ -55,6 +55,7 @@ impl Compiler {
         self.infer_lambda_params(&mut st)?;
         self.settle_deferred_bindings(&mut st)?;
         self.bind_omitted_defaults(&mut st)?;
+        Self::check_literal_defaults(&st)?;
         if header.modify.is_none() {
             self.require_all_bound(&mut st)?;
         }
@@ -233,7 +234,25 @@ impl Compiler {
                 && procs::has_poly(t)
             {
                 // Aggregate constants (`.[1, 2]`) carry no type of their own.
-                let vt = value_ty;
+                let mut vt = value_ty;
+                // A constant view (`xs :: #run make()`) gives a `[$N] T` pattern its count.
+                if let Value::Bytes(image) = &value
+                    && let TypeKind::Array {
+                        elem,
+                        kind: ArrayKind::View,
+                    } = *self.types.kind(vt)
+                    && matches!(
+                        &t.kind,
+                        E::ArrayType {
+                            size: ast::ArraySize::Fixed(size),
+                            ..
+                        } if matches!(size.kind, E::PolyVar { .. })
+                    )
+                    && let Some(bytes) = image.bytes.get(0..8)
+                {
+                    let count = u64::from_le_bytes(bytes.try_into().unwrap());
+                    vt = self.types.array(elem, ArrayKind::Fixed(count));
+                }
                 let represented = if let Value::Type(t) = &value {
                     Some(*t)
                 } else {
@@ -264,6 +283,14 @@ impl Compiler {
             return Ok(());
         }
         for (k, arg) in arg_ops.iter().enumerate() {
+            // An untyped `.[...]` argument fixes the count of a `[$N] T` parameter.
+            if !param.variadic
+                && arg.op.is_none()
+                && let Some(e) = &arg.expr
+                && Self::bind_literal_count(pattern, e, &mut st.bindings)?
+            {
+                continue;
+            }
             // `ifx` waits for a target type, but its branches can bind `$T` themselves. An
             // argument kept as an expression (the overload set has a macro taking `Code`
             // there) still binds this procedure's type variables.
@@ -471,6 +498,9 @@ impl Compiler {
             {
                 continue;
             }
+            if Self::bind_literal_count(pattern, default, &mut st.bindings)? {
+                continue;
+            }
             let known = self.const_scope(def_scope, st.bindings.clone(), span);
             let ty = match self.eval_const(known, default, None)? {
                 Operand::Const {
@@ -482,6 +512,58 @@ impl Compiler {
                 other => other.ty(),
             };
             self.match_pattern(pattern, ty, &mut st.bindings, def_scope)?;
+        }
+        Ok(())
+    }
+
+    /// `[$N] T` against an untyped `.[a, b, c]`: binds `$N` to the element count, or fails
+    /// when `$N` is already bound to another count. Returns whether the literal was such an
+    /// argument for such a pattern.
+    fn bind_literal_count(
+        pattern: &ast::Expr,
+        literal: &ast::Expr,
+        bindings: &mut Vec<(Sym, Value, TypeId)>,
+    ) -> Result<bool> {
+        let (
+            E::ArrayType {
+                size: ast::ArraySize::Fixed(size),
+                ..
+            },
+            E::ArrayLit {
+                ty: None,
+                elems,
+            },
+        ) = (&pattern.kind, &literal.kind)
+        else {
+            return Ok(false);
+        };
+        let E::PolyVar {
+            name, ..
+        } = &size.kind
+        else {
+            return Ok(false);
+        };
+        let given = elems.len() as i128;
+        match bindings.iter().find(|(bound, _, _)| bound == name) {
+            Some((_, Value::Int(wanted), _)) if *wanted != given => err(
+                literal.span,
+                format!("unequal array lengths (wanted {wanted}, given {given})"),
+            ),
+            Some(_) => Ok(true),
+            None => {
+                bindings.push((*name, Value::Int(given), TypeId::S64));
+                Ok(true)
+            }
+        }
+    }
+
+    /// A default `.[...]` for a `[$N] T` parameter must have `N` elements once `$N` is
+    /// bound, whether or not the call passed that argument.
+    fn check_literal_defaults(st: &Inference<'_>) -> Result<()> {
+        for param in &st.header.params {
+            if let (Some(pattern), Some(default)) = (&param.ty, &param.default) {
+                Self::bind_literal_count(pattern, default, &mut st.bindings.clone())?;
+            }
         }
         Ok(())
     }

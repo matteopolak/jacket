@@ -23,9 +23,14 @@ impl Compiler {
         if matches!(error.kind, DiagnosticKind::UnknownIdentifier { .. }) {
             return error;
         }
-        let inside = error.span.file == span.file
-            && error.span.start >= span.start
-            && error.span.end <= span.end;
+        let header = self.proc(proc).lit.header.span;
+        let within = |outer: Span| {
+            error.span.file == outer.file
+                && error.span.start >= outer.start
+                && error.span.end <= outer.end
+        };
+        // A problem in the call itself, or in a default value of the procedure.
+        let inside = within(span) || (header != Span::NONE && within(header));
         let mut d = Diagnostic {
             span: if inside {
                 error.span
@@ -41,7 +46,6 @@ impl Compiler {
             },
             ..error
         };
-        let header = self.proc(proc).lit.header.span;
         let overlaps =
             header.file == span.file && header.start < span.end && span.start < header.end;
         if header != Span::NONE && !overlaps {

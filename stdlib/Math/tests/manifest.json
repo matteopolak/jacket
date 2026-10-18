@@ -1,5 +1,9 @@
 [
   {
+    "name": "equality-operators",
+    "stdout": "ok\n"
+  },
+  {
     "name": "float16-edge-vectors",
     "stdout": "ok\n"
   },

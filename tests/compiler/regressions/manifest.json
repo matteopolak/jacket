@@ -256,6 +256,16 @@
     ]
   },
   {
+    "name": "index-assign-through-pointer-operator",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
     "name": "intrinsic-byte-lookup",
     "unsupported_modes": [
       "wasm-interp",
@@ -311,6 +321,16 @@
   },
   {
     "name": "param-type-from-param",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Basic.exit assertion/termination path"
+    ]
+  },
+  {
+    "name": "poly-array-count-from-literal",
     "unsupported_modes": [
       "wasm-interp",
       "wasm-native"
