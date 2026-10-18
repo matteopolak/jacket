@@ -37,7 +37,6 @@ ALLOWED_LONG = {
     "crates/jaic/src/lexer.rs": 1349,
     "crates/jaic/src/parser/ide_facts.rs": 1242,
     "crates/jaic/src/parser/tests.rs": 1522,
-    "crates/jaic/src/sema/asm.rs": 2101,
     "crates/jaic/src/sema/asm/catalog.rs": 1644,
     "crates/jaic/src/sema/asm/simd.rs": 3025,
     "crates/jaic/src/sema/binary.rs": 1338,
