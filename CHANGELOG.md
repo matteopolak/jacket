@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Breaking changes
+
+- `split_from_right(s, byte)` returns `(false, s, "")` when the byte is absent, as the `string` overload and `split_from_left` already did. It returned `(false, "", s)`.
+- `scan` consumes the `%` that `%%` matches, as `scan2` does. `scan("%%", "%")` now succeeds; it used to fail on the unconsumed byte.
+- `Sort.quick_sort` is deprecated. The comparator form was a heap sort and the key form an insertion sort. Use `intro_sort` (a real introsort, also in `Sort`; the key form computes each key once and keeps equal keys in order) or `heap_sort`. `quick_sort` forwards to `intro_sort` for one release.
+- Strict `character_utf8_to_utf32` reports at least the lead byte as consumed when a continuation byte is invalid (it could report 0). The consumed count for such input is now 1 or more.
+- `Window_Creation` fails with a clear `#assert` on Android instead of leaving its procedures undefined.
+
+### Fixes
+
+- A decode loop over invalid UTF-8 no longer stalls on a bad first continuation byte.
+- `character_utf32_to_utf8` encodes surrogates (U+D800 to U+DFFF) as U+FFFD.
+- `find_index_from_left(s, substring, start_index)` treats a negative `start_index` as 0 instead of reading before the string.
+- `table_find_multiple` probes from the key's slot instead of scanning every entry, and a `REFILL_REMOVED = false` table no longer doubles under remove/add churn.
+- Substring search skips to the first byte of the substring, about ten times faster on large text.
+
 ## [0.18.0] - 2026-10-17
 
 The project has a new name: **Jacket** ("Jai kit"). This release also lets editors open code you don't trust safely, and makes `jailint` faster and easier to extend.
