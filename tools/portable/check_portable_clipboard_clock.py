@@ -26,10 +26,7 @@ def main():
     }
 
     def hashes():
-        return {
-            name: sha256_file((ROOT / name))
-            for name in sorted(names)
-        }
+        return {name: sha256_file((ROOT / name)) for name in sorted(names)}
 
     before = hashes()
     rows = []
