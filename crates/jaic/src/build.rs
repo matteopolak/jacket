@@ -207,6 +207,9 @@ impl ReportSeverity {
     }
 }
 
+/// Where diagnostics go: each message comes with its severity.
+pub type ReportSink = Box<dyn FnMut(ReportSeverity, &str)>;
+
 /// Everything needed to compile a workspace besides its sources.
 pub struct BuildEnv {
     pub fs: Rc<dyn FileSystem>,
@@ -223,7 +226,7 @@ pub struct BuildEnv {
     /// (`OS == .WASM` code expects the interpreter's sandbox, whatever the compiler runs on).
     pub make_host: Box<dyn Fn(TargetOs) -> Box<dyn Host>>,
     /// Where diagnostics of workspace compilations go.
-    pub report: Box<dyn FnMut(ReportSeverity, &str)>,
+    pub report: ReportSink,
     /// Sees each workspace compiler as it is made and when its workspace is done (tools that
     /// inspect what the metaprogram built, such as a linter).
     pub observer: Option<Box<dyn WorkspaceObserver>>,

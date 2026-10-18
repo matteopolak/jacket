@@ -6,7 +6,7 @@ The Rust side of the `Compiler` module, in `crates/jaic/src/build.rs`. Metaprogr
 
 ## How it works
 
-The embedder creates `Workspaces` (shared as `SharedWorkspaces`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, arguments after `-`, a report sink, and an optional `WorkspaceObserver` ([jailint](../tools/jailint.md) uses it to lint what a metaprogram builds). Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`); workspace 1 is reserved as in Jai, so the first created workspace is 3.
+The embedder creates `Workspaces` (shared as `SharedWorkspaces`) with a `BuildEnv`: file system, base `Options`, an optional `OutputBackend`, arguments after `-`, a report sink (told each message's `ReportSeverity`, which is how `-quiet` drops warnings and notes), and an optional `WorkspaceObserver` ([jailint](../tools/jailint.md) uses it to lint what a metaprogram builds). Workspace 2 is the top-level program (`TOP_LEVEL_WORKSPACE`); workspace 1 is reserved as in Jai, so the first created workspace is 3.
 
 Bodiless `#compiler` procedures named `__jaic_*` bind to `Hook::Meta(MetaOp, has_context)` in `proc_func` (`sema/procs.rs`); `interp::run_hook` forwards them to `build::call`. Key primitives:
 
