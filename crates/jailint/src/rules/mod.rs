@@ -8,6 +8,7 @@ use jaic::source::Span;
 
 mod absurd_comparison;
 mod almost_swapped;
+mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
 pub(crate) mod broken_doc_link;
@@ -62,6 +63,12 @@ pub static RULES: &[RuleInfo] = &[
         default: Level::Warn,
         summary: "`a = b; b = a;`, a swap that sets both to `b`",
         check: almost_swapped::check,
+    },
+    RuleInfo {
+        name: "banner_comment",
+        default: Level::Warn,
+        summary: "a comment that is only a line of `-`, `=` or `*` fencing off a section",
+        check: banner_comment::check,
     },
     RuleInfo {
         name: "bitwise_precedence",
