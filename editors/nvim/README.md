@@ -81,6 +81,7 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 | `toolchain.version` | `''` | Toolchain version to download; empty is the plugin's version |
 | `completion.auto_import` | `true` | Complete names the file cannot see yet and add the `#import` |
 | `completion.call_snippets` | `'addParentheses'` | What accepting a procedure inserts: `'addParentheses'` (`name($0)`, `name()` without parameters), `'fillArguments'` (a placeholder per required parameter) or `'none'` |
+| `inlay_hints.closing_brace_min_lines` | `25` | Show `// name` after the closing brace of a procedure, struct or enum this many lines long; `0` turns it off |
 | `run.arguments` | `{}` | Extra `jaic` arguments, e.g. `{ '-O2' }` |
 | `trusted` | `true` | Set `false` for code you did not write: `jailsp` runs no `#run`, build metaprogram or computed `#insert`, and `:Jai run`, `build` and `check` are off (see [workspace trust](../../docs/tools/workspace-trust.md)) |
 | `format_on_save` | `false` | Format with `jaifmt` before writing |

@@ -684,7 +684,7 @@ impl Session {
     // Inlay hints
 
     /// Inferred types of `x := value`, parameter names of literal arguments, and `#run` values.
-    pub fn inlay_hints(&self, uri: &DocumentUri, range: Range) -> Result<Vec<InlayHint>, Error> {
+    pub fn typed_hints(&self, uri: &DocumentUri, range: Range) -> Result<Vec<InlayHint>, Error> {
         let doc = self.document(uri)?;
         let text = &doc.text;
         let first = doc.index.byte(text, range.start)?;

@@ -62,6 +62,7 @@ Gotchas:
 | `jai.toolchain.autoDownload` | `prompt` | `prompt`, `always`, `never` |
 | `jai.completion.autoImport` | `true` | complete names from unimported modules and add the import |
 | `jai.completion.callSnippets` | `addParentheses` | what accepting a procedure inserts: `addParentheses`, `fillArguments`, `none` |
+| `jai.inlayHints.closingBraceMinLines` | `25` | name the closing brace of procedures, structs and enums this many lines long (`0` is off) |
 | `jai.run.arguments` | `[]` | extra arguments for the commands |
 
 In an untrusted workspace `server.path`, `compiler.path`, `formatter.path`, `stdlib.path`, `toolchain.autoDownload` and `run.arguments` are ignored when set by the workspace (`restrictedConfigurations`), jailsp is started with `trusted: false` (no `#run`, build metaprograms or computed `#insert`), Run/Build/Check File refuse, and granting trust restarts the client. See [workspace trust](workspace-trust.md).

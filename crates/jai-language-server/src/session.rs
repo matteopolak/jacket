@@ -9,7 +9,7 @@ use crate::{
     position::LineIndex,
 };
 use jaic::intern::Sym;
-use jaic::parser::ide_facts::{self, CursorContext, PathDirective};
+use jaic::parser::ide_facts::{self, CursorContext};
 use jaic::sema::ide::{IdeCall, IdeKind, IdeLayout, IdeName};
 use jaic::sema::ide_meta::IdeClass;
 use std::borrow::Cow;
@@ -84,6 +84,8 @@ pub struct Session {
     call_snippets: crate::call_snippets::CallSnippets,
     /// The client takes snippet completion items (`completionItem.snippetSupport`).
     snippet_support: bool,
+    /// Declarations at least this many lines long get a hint at their closing brace.
+    pub(crate) closing_brace_min_lines: usize,
     /// The client's workspace folders: projects without a `jai.toml` are inferred in them.
     pub(crate) workspace_folders: Vec<PathBuf>,
     /// What modules and project files declare, for auto-import completion.
@@ -130,6 +132,7 @@ impl Session {
             auto_import: true,
             call_snippets: crate::call_snippets::CallSnippets::default(),
             snippet_support: false,
+            closing_brace_min_lines: crate::closing_hints::DEFAULT_MIN_LINES,
             workspace_folders: Vec::new(),
             index: RefCell::default(),
             generation: std::cell::Cell::new(0),
@@ -1325,130 +1328,6 @@ impl Session {
         Some((prefix, names, files))
     }
 
-    /// Inside the string of `#load "..."` (files and folders relative to the document) or
-    /// `#import "..."` (modules on the import path): the entries of the folder typed so far.
-    fn path_completion(
-        &self,
-        uri: &DocumentUri,
-        text: &str,
-        context: &CursorContext,
-        byte: usize,
-    ) -> Option<CompletionList> {
-        let CursorContext::String(string) = context else {
-            return None;
-        };
-        let load = match string.directive? {
-            PathDirective::Load => true,
-            PathDirective::Import => false,
-        };
-        let typed = text.get(string.start as usize..byte)?;
-        let (folder, partial) = typed.rsplit_once('/').unwrap_or(("", typed));
-        let here = Path::new(uri.path()).parent().unwrap_or(Path::new("/"));
-        let roots: Vec<PathBuf> = if load {
-            vec![here.join(folder)]
-        } else {
-            let options = self.options_for(&PathBuf::from(self.root(uri).path()));
-            let mut roots: Vec<PathBuf> = options
-                .map(|o| o.import_paths)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|p| p.join(folder))
-                .collect();
-            roots.push(here.join("modules").join(folder));
-            roots
-        };
-        // (name, is_folder): the environment's files and the open documents under each root.
-        let mut entries = BTreeSet::new();
-        for root in &roots {
-            if let Some(environment) = &self.environment {
-                entries.extend(environment.fs.list_dir(root));
-            }
-            for open in self.documents.keys() {
-                let Ok(rest) = Path::new(open.path()).strip_prefix(root) else {
-                    continue;
-                };
-                let mut parts = rest.iter();
-                let Some(first) = parts.next() else {
-                    continue;
-                };
-                entries.insert((first.to_string_lossy().into_owned(), parts.next().is_some()));
-            }
-        }
-        // jaic's own modules, imported as `Extensions/Name` (stdlib/Extensions).
-        let extensions = jaic::STDLIB_EXTENSIONS_DIR;
-        let module_detail = if folder == extensions {
-            "jaic extension module"
-        } else {
-            "module"
-        };
-        let items = entries
-            .into_iter()
-            .filter(|(name, _)| name.starts_with(partial) && !name.starts_with('.'))
-            .filter_map(|(name, is_folder)| {
-                let jai = name.strip_suffix(".jai");
-                match (is_folder, jai) {
-                    (true, _) if !load && folder.is_empty() && name == extensions => {
-                        Some(CompletionItem {
-                            label: name,
-                            kind: CompletionKind::Folder,
-                            detail: "jaic extension modules (not official Jai)".into(),
-                            ..CompletionItem::default()
-                        })
-                    }
-                    (true, _) => Some(CompletionItem {
-                        label: if load {
-                            format!("{name}/")
-                        } else {
-                            name
-                        },
-                        kind: if load {
-                            CompletionKind::Folder
-                        } else {
-                            CompletionKind::Module
-                        },
-                        detail: if load {
-                            "folder"
-                        } else {
-                            module_detail
-                        }
-                        .into(),
-                        ..CompletionItem::default()
-                    }),
-                    (false, Some(stem)) => Some(CompletionItem {
-                        label: if load {
-                            name.clone()
-                        } else {
-                            stem.into()
-                        },
-                        kind: if load {
-                            CompletionKind::File
-                        } else {
-                            CompletionKind::Module
-                        },
-                        detail: if load {
-                            "file"
-                        } else {
-                            module_detail
-                        }
-                        .into(),
-                        ..CompletionItem::default()
-                    }),
-                    _ => None,
-                }
-            })
-            // Loading the file being edited would include it twice.
-            .filter(|item| !load || here.join(folder).join(&item.label) != Path::new(uri.path()))
-            .collect::<Vec<_>>();
-        let mut seen = BTreeSet::new();
-        Some(CompletionList {
-            is_incomplete: false,
-            items: items
-                .into_iter()
-                .filter(|i| seen.insert(i.label.clone()))
-                .collect(),
-        })
-    }
-
     pub fn completion(
         &self,
         uri: &DocumentUri,
@@ -1627,6 +1506,10 @@ impl Session {
             }
             if !member {
                 incomplete |= self.add_auto_imports(uri, &doc.text, &prefix, &mut items);
+            } else if self.snippet_support
+                && let CursorContext::Member(m) = context
+            {
+                items.extend(self.postfix_items(uri, &doc.text, byte, m, &prefix));
             }
             return Ok(CompletionList {
                 is_incomplete: incomplete,

@@ -54,6 +54,7 @@ The extension looks for `jailsp` in `jai.server.path`, then on `PATH`, then next
   "jai.run.arguments": [],          // extra jaic arguments, such as "-O2"
   "jai.completion.autoImport": true, // offer names from modules and files not imported yet
   "jai.completion.callSnippets": "addParentheses", // or "fillArguments" / "none"
+  "jai.inlayHints.closingBraceMinLines": 25, // "// name" after a long procedure's "}"; 0 turns it off
   "[jai]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": { "source.fixAll.jailint": "explicit" }

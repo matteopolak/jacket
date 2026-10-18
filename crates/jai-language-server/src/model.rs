@@ -127,6 +127,9 @@ pub struct CompletionItem {
     pub data: Option<CompletionData>,
     /// How a procedure is called: completion inserts the call (`Session::call_snippets`).
     pub call: Option<jaic::sema::ide::IdeCall>,
+    /// What the client matches the typed text against instead of the label (`filterText`): a
+    /// postfix item replaces the receiver too, so the receiver is part of what was typed.
+    pub filter_text: Option<String>,
     /// `insert_text` is a snippet, whatever the kind.
     pub snippet: bool,
     /// Accepting the item asks the client to show signature help (the cursor is inside the

@@ -1,6 +1,7 @@
 //! Completion that inserts call parentheses and statement skeletons as snippets.
 use jai_language_server::{
-    CallSnippets, CompletionItem, DocumentUri, Environment, JsonSession, Limits, Position, Session,
+    CallSnippets, CompletionItem, DocumentUri, Environment, JsonSession, Limits, Position, Range,
+    Session,
 };
 use serde_json::{Value, json};
 
@@ -339,4 +340,142 @@ fn an_auto_import_is_inserted_as_a_call_too() {
     let print = item(&mut s, "main :: () {\n    prin|\n}\n", "print").unwrap();
     assert!(!print.additional_edits.is_empty(), "{print:?}");
     assert_eq!(print.insert_text.as_deref(), Some("print($0)"));
+}
+
+fn labels(s: &mut Session, source: &str, prefix: &str) -> Vec<String> {
+    let byte = source.find('|').unwrap();
+    let text = source.replacen('|', "", 1);
+    let uri = DocumentUri::parse(URI).unwrap();
+    let _ = s.close(&uri);
+    s.open(uri.clone(), 1, text.clone()).unwrap();
+    let before = &text[..byte];
+    let at = Position {
+        line: before.matches('\n').count() as u32,
+        character: before.rsplit('\n').next().unwrap().encode_utf16().count() as u32,
+    };
+    s.completion(&uri, at)
+        .unwrap()
+        .items
+        .into_iter()
+        .filter(|i| i.label.starts_with(prefix) && i.insert_text.is_some())
+        .map(|i| i.label)
+        .collect()
+}
+
+#[test]
+fn postfix_templates_replace_the_receiver_and_the_word() {
+    let mut s = session(true, CallSnippets::AddParentheses);
+    let source = "main :: () {\n    flag := true;\n    flag.i|\n}\n";
+    let item = item(&mut s, source, "if").unwrap();
+    assert_eq!(item.insert_text.as_deref(), Some("if flag {\n    $0\n}"));
+    assert_eq!(item.filter_text.as_deref(), Some("flag.if"));
+    let range = item.replace.unwrap();
+    assert_eq!(
+        (range.start.line, range.start.character, range.end.character),
+        (2, 4, 10)
+    );
+}
+
+#[test]
+fn statement_postfixes_stay_out_of_expressions() {
+    let mut s = session(true, CallSnippets::AddParentheses);
+    let statement = "main :: () {\n    flag := true;\n    flag.|\n}\n";
+    let all = labels(&mut s, statement, "");
+    for want in ["if", "while", "for", "return", "not", "ref"] {
+        assert!(all.iter().any(|l| l == want), "{want} in {all:?}");
+    }
+    let expression = "main :: () {\n    flag := true;\n    other := flag.|\n}\n";
+    assert_eq!(labels(&mut s, expression, ""), ["not", "ref"]);
+}
+
+#[test]
+fn postfix_templates_need_a_value_receiver_and_a_snippet_client() {
+    let mut s = session(true, CallSnippets::AddParentheses);
+    // A type's members are its constants, not something to wrap.
+    let ty = "Vec :: struct { x: int; }\nmain :: () {\n    Vec.|\n}\n";
+    assert!(labels(&mut s, ty, "").is_empty());
+    // A call's result is a value.
+    let call = "make :: () -> bool { return true; }\nmain :: () {\n    make().|\n}\n";
+    assert!(labels(&mut s, call, "").contains(&"if".to_owned()));
+    let mut plain = session(false, CallSnippets::AddParentheses);
+    let source = "main :: () {\n    flag := true;\n    flag.|\n}\n";
+    assert!(labels(&mut plain, source, "").is_empty());
+}
+
+fn long_procedure() -> String {
+    let body = "    x := 1;\n".repeat(30);
+    format!("big :: () {{\n{body}}}\n\nshort :: () {{\n    y := 2;\n}}\n")
+}
+
+fn closing_labels(s: &Session, uri: &DocumentUri, text: &str) -> Vec<(u32, String)> {
+    let end = Range {
+        start: Position {
+            line: 0,
+            character: 0,
+        },
+        end: Position {
+            line: text.lines().count() as u32,
+            character: 0,
+        },
+    };
+    s.inlay_hints(uri, end)
+        .unwrap()
+        .into_iter()
+        .filter(|h| h.label.starts_with("// "))
+        .map(|h| (h.position.line, h.label))
+        .collect()
+}
+
+#[test]
+fn a_long_procedure_names_its_closing_brace() {
+    let mut s = session(false, CallSnippets::AddParentheses);
+    let uri = DocumentUri::parse(URI).unwrap();
+    let text = long_procedure();
+    s.open(uri.clone(), 1, text.clone()).unwrap();
+    assert_eq!(closing_labels(&s, &uri, &text), [(31, "// big".to_owned())]);
+    // The threshold is a setting, and 0 turns the hints off.
+    s.set_closing_brace_min_lines(3);
+    let labels = closing_labels(&s, &uri, &text);
+    assert_eq!(labels.len(), 2, "{labels:?}");
+    s.set_closing_brace_min_lines(0);
+    assert!(closing_labels(&s, &uri, &text).is_empty());
+}
+
+#[test]
+fn the_closing_brace_setting_arrives_over_the_protocol() {
+    let mut s = JsonSession::with_environment(Limits::default(), environment());
+    request(
+        &mut s,
+        1,
+        "initialize",
+        json!({ "initializationOptions": { "inlayHints": { "closingBraceMinLines": 0 } } }),
+    );
+    notify(&mut s, "initialized", json!({}));
+    let uri = "file:///call-snippets/closing.jai";
+    notify(
+        &mut s,
+        "textDocument/didOpen",
+        json!({ "textDocument": { "uri": uri, "languageId": "jai", "version": 1, "text": long_procedure() } }),
+    );
+    let hints = |s: &mut JsonSession, id| {
+        request(
+            s,
+            id,
+            "textDocument/inlayHint",
+            json!({ "textDocument": { "uri": uri }, "range": {
+                "start": { "line": 0, "character": 0 }, "end": { "line": 36, "character": 0 } } }),
+        )
+    };
+    let off = hints(&mut s, 2);
+    assert!(
+        off["result"].is_array() && !off.to_string().contains("// big"),
+        "{off}"
+    );
+    notify(
+        &mut s,
+        "workspace/didChangeConfiguration",
+        json!({ "settings": { "jai": { "inlayHints": { "closingBraceMinLines": 25 } } } }),
+    );
+    let third = hints(&mut s, 3).to_string();
+    assert!(third.contains("// big"), "{third}");
 }

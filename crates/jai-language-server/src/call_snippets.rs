@@ -1,9 +1,13 @@
 //! Completion that inserts what a procedure or keyword needs around its name: the call
 //! parentheses of a procedure and the skeleton of `if`, `for`, `while` and `case`. Both are
 //! snippets, so they need a client that advertises `snippetSupport`.
-use crate::analysis::KEYWORDS;
+use crate::DocumentUri;
+use crate::analysis::{KEYWORDS, Span};
 use crate::model::{CompletionItem, CompletionKind};
+use crate::semantic::Analysis;
+use crate::session::Session;
 use jaic::lexer::{P, Tok, Token, lex_with_trivia};
+use jaic::parser::ide_facts::MemberAt;
 use jaic::sema::ide::IdeCall;
 use jaic::source::FileId;
 
@@ -203,5 +207,197 @@ pub(crate) fn apply(
             item.insert_text = Some(snippet.into());
             item.snippet = true;
         }
+    }
+}
+
+/// A postfix template: `expr.if` becomes `if expr { ... }`.
+struct Postfix {
+    label: &'static str,
+    detail: &'static str,
+    /// The text that replaces the receiver and the typed word, a snippet in which `{}` stands
+    /// for the (escaped) receiver.
+    template: &'static str,
+    /// Only where a statement can start.
+    statement: bool,
+}
+
+const POSTFIXES: &[Postfix] = &[
+    Postfix {
+        label: "if",
+        detail: "if expr { }",
+        template: "if {} {\n    $0\n}",
+        statement: true,
+    },
+    Postfix {
+        label: "while",
+        detail: "while expr { }",
+        template: "while {} {\n    $0\n}",
+        statement: true,
+    },
+    Postfix {
+        label: "for",
+        detail: "for expr { }",
+        template: "for {} {\n    $0\n}",
+        statement: true,
+    },
+    Postfix {
+        label: "return",
+        detail: "return expr;",
+        template: "return {};",
+        statement: true,
+    },
+    Postfix {
+        label: "not",
+        detail: "!expr",
+        template: "!{}",
+        statement: false,
+    },
+    Postfix {
+        label: "ref",
+        detail: "*expr",
+        template: "*{}",
+        statement: false,
+    },
+];
+
+/// Escape text for a snippet body.
+fn escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '$' | '}' | '\\') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// A postfix completion: label, detail, snippet and the text the client filters by.
+pub(crate) type PostfixItem = (&'static str, &'static str, String, String);
+
+/// The postfix completions whose label starts with `typed` for the receiver at `start..end`.
+pub(crate) fn postfix(text: &str, start: usize, end: usize, typed: &str) -> Vec<PostfixItem> {
+    let Some(receiver) = text
+        .get(start..end)
+        .filter(|r| !r.is_empty() && !r.contains('\n'))
+    else {
+        return Vec::new();
+    };
+    let lower = typed.to_lowercase();
+    let wanted: Vec<&Postfix> = POSTFIXES
+        .iter()
+        .filter(|p| p.label.starts_with(&lower))
+        .collect();
+    if wanted.is_empty() {
+        return Vec::new();
+    }
+    let statement = starts_statement(text, start);
+    wanted
+        .into_iter()
+        .filter(|p| statement || !p.statement)
+        .map(|p| {
+            (
+                p.label,
+                p.detail,
+                p.template.replacen("{}", &escape(receiver), 1),
+                format!("{receiver}.{}", p.label),
+            )
+        })
+        .collect()
+}
+
+/// Whether the expression at `start` is the first thing of a statement.
+fn starts_statement(text: &str, start: usize) -> bool {
+    let mut tokens = lex_with_trivia(FileId(0), text).0;
+    if tokens.last().is_some_and(|t| t.tok == Tok::Eof) {
+        tokens.pop();
+    }
+    let before = tokens.partition_point(|t| (t.span.end as usize) <= start);
+    let line_start = text[..start].rfind('\n').map_or(0, |i| i + 1);
+    text[line_start..start].trim().is_empty()
+        || before
+            .checked_sub(1)
+            .map(|i| &tokens[i])
+            .is_none_or(|t| matches!(t.tok, Tok::Punct(P::Semi | P::LBrace | P::RBrace)))
+}
+
+impl Analysis {
+    /// Whether `chain` names a value (a variable or a field of one), not a module or a type.
+    pub fn receiver_is_value(
+        &mut self,
+        path: &std::path::Path,
+        offset: usize,
+        chain: &[&str],
+    ) -> bool {
+        let Some(file) = self.file(path) else {
+            return false;
+        };
+        let Some(scope) = self.compiler.ide_scope_at(file, offset as u32) else {
+            return false;
+        };
+        let names: Vec<jaic::intern::Sym> =
+            chain.iter().map(|n| jaic::intern::Sym::intern(n)).collect();
+        matches!(
+            self.compiler.ide_receiver(scope, &names),
+            Some(jaic::sema::ide::IdeReceiver::Value(_))
+        )
+    }
+}
+
+impl Session {
+    /// Postfix templates (`expr.if`, `.for`, `.not`, `.ref`, `.return`) for `m`'s receiver,
+    /// when it is a value: they replace the receiver and the word typed after the dot.
+    pub(crate) fn postfix_items(
+        &self,
+        uri: &DocumentUri,
+        text: &str,
+        byte: usize,
+        m: &MemberAt,
+        prefix: &str,
+    ) -> Vec<CompletionItem> {
+        let Some(receiver) = m.receiver else {
+            return Vec::new();
+        };
+        let is_value = if m.chain.is_empty() {
+            // A call, an index, a literal: never a module or a type.
+            true
+        } else {
+            let names: Vec<&str> = m
+                .chain
+                .iter()
+                .map(|s| &text[s.start as usize..s.end as usize])
+                .collect();
+            let at = m.chain[0].start as usize;
+            self.with_compiled_before(uri, text, at, |a, path| {
+                Some(a.receiver_is_value(path, at, &names))
+            })
+            .unwrap_or(false)
+        };
+        if !is_value {
+            return Vec::new();
+        }
+        let word_end = (m.word.end as usize).max(byte);
+        let Ok(doc) = self.document(uri) else {
+            return Vec::new();
+        };
+        let Ok(range) = doc
+            .index
+            .range(text, Span::new(receiver.start as usize, word_end))
+        else {
+            return Vec::new();
+        };
+        crate::call_snippets::postfix(text, receiver.start as usize, receiver.end as usize, prefix)
+            .into_iter()
+            .map(|(label, detail, snippet, filter)| CompletionItem {
+                label: label.into(),
+                kind: CompletionKind::Snippet,
+                detail: detail.into(),
+                insert_text: Some(snippet),
+                replace: Some(range),
+                filter_text: Some(filter),
+                sort_text: Some(format!("~~{label}")),
+                ..CompletionItem::default()
+            })
+            .collect()
     }
 }
