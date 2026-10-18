@@ -513,7 +513,20 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             metadata or {}, code, stdout, stderr, native=True
         ), out if code is not None else f"timed out after {args.timeout:.0f}s\n{out}"
     finally:
-        shutil.rmtree(exe.parent)
+        remove_build(exe.parent)
+
+
+def remove_build(folder):
+    """Delete a build folder, waiting out Windows, which keeps an exe locked for a moment
+    after it exits. One still locked after five seconds stays in the temp folder."""
+    for _ in range(20):
+        try:
+            shutil.rmtree(folder)
+            return
+        except PermissionError:
+            if sys.platform != "win32":
+                raise
+            time.sleep(0.25)
 
 
 def modes_given_cross(args):
@@ -803,7 +816,7 @@ def main():
                     )
                 write_report("running")
     finally:
-        shutil.rmtree(scratch)
+        remove_build(scratch)
     write_report("finished")
     for test, mode, detail in failures:
         lines = detail.strip().splitlines()

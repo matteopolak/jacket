@@ -2,7 +2,7 @@
 """Execute source-built macOS POSIX tests against each CPU's public C SDK ABI.
 
 The x64 executable may use the host's OS translation support. Neither an SDK
-compiler mock nor a changed stdlib/compiler source is used to obtain a pass.
+compiler mock nor a changed stdlib or compiler source is used to obtain a pass.
 """
 import argparse
 import json
