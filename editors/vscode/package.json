@@ -300,7 +300,11 @@
         },
         "jai.completion.callSnippets": {
           "type": "string",
-          "enum": ["addParentheses", "fillArguments", "none"],
+          "enum": [
+            "addParentheses",
+            "fillArguments",
+            "none"
+          ],
           "enumDescriptions": [
             "Insert the call's parentheses and leave the cursor inside them (`name($0)`, or `name()` when nothing can be passed).",
             "Insert the parentheses with a placeholder for each parameter a call must pass.",
