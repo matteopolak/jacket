@@ -404,7 +404,9 @@ mod tests {
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(fs));
-        compiler.ide = Some(Box::new(IdeFacts::new(vec!["/named-safety/".into()])));
+        compiler.ide = Some(Box::new(IdeFacts::new(vec![
+            jaic::sema::ide::IdeRoot::under("/named-safety/"),
+        ])));
         assert!(
             compiler
                 .compile_program(Path::new("/named-safety/main.jai"))

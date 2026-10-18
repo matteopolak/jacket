@@ -34,7 +34,7 @@
 
 ### Why records
 
-A metaprogram runs in its own compiler's interpreter, and the target workspace's types are not the metaprogram's types. So the target's compiler exports neutral records (`crates/jaic/src/records.rs`): a tag naming a Jai struct (`"Code_Ident"`, `"Type_Info_Struct"`) and named fields (`Int`, `Str`, `Ref`, or lists). Ids are global to the compilation and never repeat (the builder keeps one struct per id). A `Record` is compact (16-byte `Slot`s with interned field names) because exported trees dominate a metaprogram compiler's memory.
+A metaprogram runs in its own compiler's interpreter, and the target workspace's types are not the metaprogram's types. So the target's compiler exports neutral records (`crates/jaic/src/records.rs`): a `RecordTag` naming a Jai struct (`Code_Ident`, `Type_Info_Struct`; a test checks every tag against the stdlib structs) and named fields (`Int`, `Str`, `Ref`, or lists). Ids are global to the compilation and never repeat (the builder keeps one struct per id). A `Record` is compact (16-byte `Slot`s with interned field names) because exported trees dominate a metaprogram compiler's memory.
 
 ### Rust exporter
 

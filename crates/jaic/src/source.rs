@@ -209,6 +209,12 @@ impl SourceFile {
         }
     }
 
+    /// A source with no file on disk: `#import,string`, `add_build_string` or `<input>`, which
+    /// are named `<...>`.
+    pub fn is_virtual(&self) -> bool {
+        self.path.starts_with('<')
+    }
+
     /// A file whose line index was built elsewhere, from the same `text`.
     pub fn with_lines(path: String, text: Rc<str>, lines: LineIndex) -> Self {
         Self {

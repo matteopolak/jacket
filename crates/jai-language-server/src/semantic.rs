@@ -4,7 +4,7 @@
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::intern::Sym;
 use jaic::interp::{SandboxHost, SharedHost};
-use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
+use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName, IdeRoot};
 use jaic::sema::{Compiler, FileSystem, Options, TargetOs};
 use jaic::source::{FileId, ImportSuggestion};
 use std::cell::RefCell;
@@ -890,16 +890,16 @@ fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
         })
 }
 
-/// The editor facts a compile records for the files under `prefix`, its compile-time output
+/// The editor facts a compile records for the files under `root`, its compile-time output
 /// going to `host`, with what jailint needs (expression types, casts, uses) when `lint`.
 fn editor_facts(
-    prefix: &str,
+    root: &Path,
     open: &[PathBuf],
     host: &Rc<RefCell<SandboxHost>>,
     lint: bool,
     untrusted: bool,
 ) -> Box<IdeFacts> {
-    let mut facts = IdeFacts::new(vec![prefix.to_string()]).with_files(open.to_vec());
+    let mut facts = IdeFacts::new(vec![IdeRoot::under(root)]).with_files(open.to_vec());
     facts.output = Some(host.clone());
     facts.lint = lint;
     facts.untrusted = untrusted;
@@ -910,7 +910,7 @@ fn editor_facts(
 struct Built {
     /// What `add_build_file` / `add_build_string` added, by workspace.
     added: Rc<RefCell<BTreeMap<i64, Vec<jaic::sema::ProgramSource>>>>,
-    prefix: String,
+    root: PathBuf,
     open: Vec<PathBuf>,
     host: Rc<RefCell<SandboxHost>>,
     lint: bool,
@@ -921,7 +921,7 @@ struct Built {
 impl WorkspaceObserver for Built {
     fn created(&mut self, compiler: &mut Compiler) {
         compiler.ide = Some(editor_facts(
-            &self.prefix,
+            &self.root,
             &self.open,
             &self.host,
             self.lint,
@@ -1020,7 +1020,7 @@ fn compile(
     compiler.interp.host = Box::new(SharedHost(host.clone()));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
     // Spelled like the compiler's source paths, which come through the overlay's keys.
-    let prefix = crate::document::dir_prefix(&*env.fs, &dir);
+    let dir_key = crate::document::file_key(&*env.fs, &dir);
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
     // the same way, with no output and the same host, and their compile-time code draws from
     // this compiler's budget.
@@ -1040,7 +1040,7 @@ fn compile(
         report: Box::new(|_, _| {}),
         observer: Some(Box::new(Built {
             added: added.clone(),
-            prefix: prefix.clone(),
+            root: dir_key.clone(),
             open: open.clone(),
             host: host.clone(),
             lint,
@@ -1049,7 +1049,7 @@ fn compile(
         })),
     });
     compiler.attach_workspaces(workspaces);
-    compiler.ide = Some(editor_facts(&prefix, &open, &host, lint, untrusted));
+    compiler.ide = Some(editor_facts(&dir_key, &open, &host, lint, untrusted));
     let number = parses.borrow_mut().begin();
     compiler.parse_reuse = Some((parses.clone(), number));
     let errors = compiler

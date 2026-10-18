@@ -21,6 +21,7 @@ use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::paths::CanonCache;
 use jaic::project::{self, DiskFs, LoadCache, ProjectFs, Root, RootOptions, resolve_root};
+use jaic::sema::ide::IdeRoot;
 use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -281,13 +282,13 @@ type Finished = Rc<RefCell<Vec<(Box<Compiler>, bool)>>>;
 
 /// Collects the compilers of the workspaces a metaprogram creates, with lint facts on.
 struct Collect {
-    prefixes: Vec<String>,
+    roots: Vec<IdeRoot>,
     done: Finished,
 }
 
 impl WorkspaceObserver for Collect {
     fn created(&mut self, compiler: &mut Compiler) {
-        crate::facts::enable(compiler, self.prefixes.clone());
+        crate::facts::enable(compiler, self.roots.clone());
     }
 
     fn finished(&mut self, compiler: Box<Compiler>, failed: bool) {
@@ -355,10 +356,7 @@ fn lint_root(
         fs.clone(),
         &main_dir.to_string_lossy(),
     )));
-    let prefixes: Vec<String> = report
-        .iter()
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect();
+    let roots: Vec<IdeRoot> = report.iter().map(IdeRoot::under).collect();
     let done = Rc::new(RefCell::new(Vec::new()));
     let reports = Rc::new(RefCell::new(Vec::<String>::new()));
     let workspace_host = host.clone();
@@ -372,7 +370,7 @@ fn lint_root(
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
         report: Box::new(move |_, text| sink.borrow_mut().push(text.to_string())),
         observer: Some(Box::new(Collect {
-            prefixes: prefixes.clone(),
+            roots: roots.clone(),
             done: done.clone(),
         })),
     });
@@ -380,7 +378,7 @@ fn lint_root(
     compiler.interp.host = Box::new(SharedHost(host));
     compiler.interp.block_budget = Some(BLOCK_BUDGET);
     compiler.attach_workspaces(workspaces.clone());
-    crate::facts::enable(&mut compiler, prefixes);
+    crate::facts::enable(&mut compiler, roots);
     let result = match root {
         Root::Program(path) => {
             let sources: Vec<_> = std::iter::once(ProgramSource::File(path.clone()))

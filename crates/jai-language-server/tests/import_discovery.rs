@@ -66,7 +66,9 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
             })
         })
         .unwrap();
-    c.ide = Some(Box::new(IdeFacts::new(vec!["/discovery/".into()])));
+    c.ide = Some(Box::new(IdeFacts::new(vec![
+        jaic::sema::ide::IdeRoot::under("/discovery/"),
+    ])));
     fs.listings.set(0);
     (c, fs, scope, index)
 }

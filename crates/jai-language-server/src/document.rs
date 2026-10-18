@@ -154,18 +154,6 @@ fn file_key_on(fs: &dyn jaic::sema::FileSystem, path: &Path, windows: bool) -> P
     path_key_on(&fs.canonical(path), windows)
 }
 
-/// `dir`'s key as a string prefix of the keys of the files under it.
-pub(crate) fn dir_prefix(fs: &dyn jaic::sema::FileSystem, dir: &Path) -> String {
-    dir_prefix_on(fs, dir, cfg!(windows))
-}
-
-fn dir_prefix_on(fs: &dyn jaic::sema::FileSystem, dir: &Path, windows: bool) -> String {
-    let mut prefix = file_key_on(fs, dir, windows).to_string_lossy().into_owned();
-    if !prefix.ends_with('/') {
-        prefix.push('/');
-    }
-    prefix
-}
 
 fn hex(c: u8) -> Option<u8> {
     match c {
@@ -365,17 +353,19 @@ mod tests {
     }
 
     #[test]
-    fn windows_root_prefix_matches_the_keys_of_its_files() {
+    fn windows_root_key_contains_the_keys_of_its_files_only() {
         for verbatim in [false, true] {
             let fs = WindowsFs {
                 verbatim,
             };
-            let prefix = dir_prefix_on(&fs, Path::new(r"c:\Users\x\proj"), true);
-            assert_eq!(prefix, "C:/Users/x/proj/");
+            let root = file_key_on(&fs, Path::new(r"c:\Users\x\proj"), true);
+            assert_eq!(root, Path::new("C:/Users/x/proj"));
             for file in [r"C:\Users\x\proj\main.jai", "c:/Users/x/proj/src/a.jai"] {
                 let key = file_key_on(&fs, Path::new(file), true);
-                assert!(key.to_str().unwrap().starts_with(&prefix), "{key:?}");
+                assert!(key.starts_with(&root), "{key:?}");
             }
+            let sibling = file_key_on(&fs, Path::new(r"C:\Users\x\project\a.jai"), true);
+            assert!(!sibling.starts_with(&root), "{sibling:?}");
         }
     }
 

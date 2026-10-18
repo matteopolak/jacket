@@ -1,6 +1,6 @@
 //! Checked expressions must retain the actual procedure-instance result type.
 use jaic::{
-    records::{FieldRef, Item, Records},
+    records::{FieldRef, Item, RecordTag, Records},
     sema::{Compiler, Options, ProgramSource, VirtualFs},
 };
 use std::rc::Rc;
@@ -47,7 +47,7 @@ fn binary_result_types(source: &str) -> (Vec<String>, usize) {
                 let Some(Item::Ref(node)) = nodes.get(j) else {
                     panic!("missing node")
                 };
-                if records.get(node).unwrap().tag != "Code_Binary_Operator" {
+                if records.get(node).unwrap().tag != RecordTag::CodeBinaryOperator {
                     continue;
                 }
                 let Some(FieldRef::Ref(ty)) = records.field(node, "type") else {

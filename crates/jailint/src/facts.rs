@@ -14,9 +14,9 @@ use jaic::sema::scope::{EntityKind, EntityState, Resolved};
 use jaic::source::{FileId, Span};
 use jaic::types::TypeId;
 
-/// Record lint facts for files whose path starts with one of `roots` (an existing editor
+/// Record lint facts for the files under `roots` (an existing editor
 /// record is extended).
-pub fn enable(compiler: &mut Compiler, roots: Vec<String>) {
+pub fn enable(compiler: &mut Compiler, roots: Vec<jaic::sema::ide::IdeRoot>) {
     let ide = compiler
         .ide
         .get_or_insert_with(|| Box::new(IdeFacts::new(roots)));

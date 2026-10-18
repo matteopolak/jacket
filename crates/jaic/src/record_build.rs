@@ -371,7 +371,7 @@ impl Builder {
                 return Ok(info);
             }
         }
-        let tagged = record.and_then(|r| self.tags.get(r.tag)).copied();
+        let tagged = record.and_then(|r| self.tags.get(r.tag.name())).copied();
         let Some(info) = tagged.or_else(|| self.plans.contains_key(&expected).then_some(expected))
         else {
             return Err(Trap::new(format!("records: no type plan for record {id}")));
@@ -621,12 +621,12 @@ impl Builder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::records::Record;
+    use crate::records::{Record, RecordTag};
 
     #[test]
     fn late_record_references_update_existing_identity_without_replaying_user_edits() {
         let mut b = Builder::default();
-        b.add_type("Node".into(), 1);
+        b.add_type("Code_Node".into(), 1);
         b.plans.insert(
             1,
             Rc::new(Plan {
@@ -657,7 +657,7 @@ mod tests {
             }),
         );
         let mut records = Records::default();
-        let mut root = Record::new("Node");
+        let mut root = Record::new(RecordTag::CodeNode);
         root.int("value", 1);
         let root = records.add(root);
         let mut kept = Vec::new();
@@ -665,7 +665,7 @@ mod tests {
         let address = b.build(&records, &mut kept, &mut interp, root, 1).unwrap();
         assert_eq!(interp.read_u64(address + 8), Some(0));
         assert!(interp.write(address, &77u64.to_le_bytes()));
-        let mut child = Record::new("Node");
+        let mut child = Record::new(RecordTag::CodeNode);
         child.list("value", Vec::new()).ptr("next", root);
         let child = records.add(child);
         records.get_mut(root).unwrap().ptr("next", child);
@@ -688,7 +688,7 @@ mod tests {
         assert_eq!(interp.read_u64(next), Some(2));
         assert_eq!(interp.read_u64(next + 8), Some(address));
         assert_eq!(interp.read_u64(address), Some(77));
-        let mut user = Record::new("Node");
+        let mut user = Record::new(RecordTag::CodeNode);
         user.int("value", 3);
         let user = records.add(user);
         let user_address = b.build(&records, &mut kept, &mut interp, user, 1).unwrap();
@@ -718,9 +718,9 @@ mod tests {
     #[test]
     fn tagged_type_without_plan_is_an_error_not_a_panic() {
         let mut b = Builder::default();
-        b.add_type("Node".into(), 1);
+        b.add_type("Code_Node".into(), 1);
         let mut records = Records::default();
-        let id = records.add(Record::new("Node"));
+        let id = records.add(Record::new(RecordTag::CodeNode));
         assert!(
             b.build(&records, &mut Vec::new(), &mut Interp::default(), id, 0)
                 .is_err()
@@ -735,7 +735,7 @@ mod tests {
     #[test]
     fn malformed_field_shape_is_an_error() {
         let mut b = Builder::default();
-        b.add_type("Node".into(), 1);
+        b.add_type("Code_Node".into(), 1);
         b.plans.insert(
             1,
             Rc::new(Plan {
@@ -754,7 +754,7 @@ mod tests {
             }),
         );
         let mut records = Records::default();
-        let mut record = Record::new("Node");
+        let mut record = Record::new(RecordTag::CodeNode);
         record.str("value", b"not an integer");
         let id = records.add(record);
         assert!(

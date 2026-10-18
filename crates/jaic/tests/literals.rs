@@ -128,7 +128,7 @@ fn required_float_precision_survives_aliases_and_constant_arithmetic() {
 }
 
 fn literal_record_flags(literal: &str) -> i64 {
-    use jaic::records::{FieldRef, Item, Records};
+    use jaic::records::{FieldRef, Item, RecordTag, Records};
     let mut options = Options::host();
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
@@ -148,7 +148,7 @@ fn literal_record_flags(literal: &str) -> i64 {
     let Some(FieldRef::Ref(value)) = records.field(decl, "expression") else {
         panic!("literal missing");
     };
-    assert_eq!(records.get(value).unwrap().tag, "Code_Literal");
+    assert_eq!(records.get(value).unwrap().tag, RecordTag::CodeLiteral);
     match records.field(value, "value_flags") {
         Some(FieldRef::Int(v)) => v,
         None => 0,

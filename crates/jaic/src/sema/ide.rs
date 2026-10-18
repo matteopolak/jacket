@@ -39,14 +39,28 @@ struct MemberIndex {
 /// Spans up to this many bytes are found by binary search; a lookup walks back at most this far.
 const SHORT_REF: u32 = 64;
 
+/// Which sources an analysis records facts for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IdeRoot {
+    /// A file, or every file in a folder and below it. Compared by path components, both as
+    /// the source was named and canonically, so separators and `.`/`..` spellings agree.
+    Under(PathBuf),
+    /// Every source without a file on disk (`#import,string`, `add_build_string`, `<input>`).
+    Virtual,
+}
+
+impl IdeRoot {
+    pub fn under(path: impl Into<PathBuf>) -> Self {
+        IdeRoot::Under(path.into())
+    }
+}
+
 #[derive(Default)]
 pub struct IdeFacts {
     /// Per-analysis missing filesystem discovery; never a placeholder or failed module body.
     missing_modules: HashMap<(ScopeId, Span), IdeMissingModule>,
-    /// Files whose path starts with one of these are recorded. Roots are spelled with `/`
-    /// separators; on Windows a source path is compared in that same spelling, since the
-    /// filesystem may hand the compiler `\`-separated paths.
-    roots: Vec<String>,
+    /// The sources facts are recorded for.
+    roots: Vec<IdeRoot>,
     /// Files recorded wherever they are: the open documents, as `FileSystem::canonical` keys.
     files: Vec<PathBuf>,
     wanted: HashMap<FileId, bool>,
@@ -293,7 +307,7 @@ impl IdeFacts {
         self
     }
 
-    pub fn new(roots: Vec<String>) -> Self {
+    pub fn new(roots: Vec<IdeRoot>) -> Self {
         Self {
             roots,
             ..Self::default()
@@ -467,12 +481,19 @@ impl Compiler {
         if let Some(&w) = ide.wanted.get(&file) {
             return w;
         }
-        let path = &self.sources.get(file).path;
+        let source = self.sources.get(file);
+        if source.is_virtual() {
+            let w = ide.roots.contains(&IdeRoot::Virtual);
+            ide.wanted.insert(file, w);
+            return w;
+        }
         // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a folder name
-        // one file. Virtual sources (`<input>`) have no path on disk and compare as written.
-        let key = self.fs.canonical(Path::new(path));
-        let w = ide.roots.iter().any(|r| {
-            path.starts_with(r.as_str()) || (key.is_absolute() && key.starts_with(Path::new(r)))
+        // one file.
+        let path = Path::new(&source.path);
+        let key = self.fs.canonical(path);
+        let w = ide.roots.iter().any(|r| match r {
+            IdeRoot::Under(root) => path.starts_with(root) || key.starts_with(root),
+            IdeRoot::Virtual => false,
         }) || ide.files.contains(&key);
         ide.wanted.insert(file, w);
         w
@@ -2849,7 +2870,9 @@ mod body_failure_tests {
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(fs));
-        compiler.ide = Some(Box::new(IdeFacts::new(vec!["/audit/".into()])));
+        compiler.ide = Some(Box::new(IdeFacts::new(vec![
+            crate::sema::ide::IdeRoot::under("/audit/"),
+        ])));
         assert!(
             compiler
                 .compile_program(std::path::Path::new("/audit/main.jai"))

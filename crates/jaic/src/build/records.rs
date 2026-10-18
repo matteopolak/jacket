@@ -71,7 +71,7 @@ pub(super) fn call(cx: &Call, op: MetaOp, interp: &mut Interp) -> Result<Rets, T
                 .borrow()
                 .records
                 .get(arg(0) as i64)
-                .map_or("", |r| r.tag);
+                .map_or("", |r| r.tag.name());
             store_pair(interp, arg(1), tag.len() as u64, tag.as_ptr() as u64)?;
             Ok(Rets::default())
         }

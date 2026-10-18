@@ -4,8 +4,8 @@
 //! the metaprogram runs (the metaprogram's interpreter borrows its own
 //! compiler), and the target workspace's types are not the metaprogram's
 //! types anyway. So syntax trees, type descriptors and messages are exported
-//! as records: a tag naming the Jai struct to build (`"Code_Ident"`,
-//! `"Type_Info_Struct"`, `"Message_Import"`...) and named fields. Jai code in
+//! as records: a tag naming the Jai struct to build (`Code_Ident`,
+//! `Type_Info_Struct`, `Message_Import`...) and named fields. Jai code in
 //! `stdlib/Compiler/records.jai` turns a record into the struct by reflection,
 //! matching fields to members by name.
 //!
@@ -206,15 +206,123 @@ enum Extra {
     Refs(Box<[i64]>),
 }
 
+/// Declares [`RecordTag`] from `Variant = "Jai_Struct_Name"` pairs.
+macro_rules! record_tags {
+    ($($variant:ident = $name:literal,)*) => {
+        /// The Jai struct a [`Record`] becomes, named by the struct's own name.
+        ///
+        /// `stdlib/Compiler/contract-records.jai` (and the prelude's reflection types) define
+        /// the structs; the `every_tag_names_a_stdlib_struct` test keeps the two in step.
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        pub enum RecordTag {
+            $($variant,)*
+        }
+
+        impl RecordTag {
+            pub const ALL: &'static [RecordTag] = &[$(RecordTag::$variant,)*];
+
+            /// The Jai struct's name.
+            pub const fn name(self) -> &'static str {
+                match self {
+                    $(RecordTag::$variant => $name,)*
+                }
+            }
+        }
+    };
+}
+
+record_tags! {
+    BytecodeReport = "Bytecode_Report",
+    CodeArgument = "Code_Argument",
+    CodeArrayLiteralInfo = "Code_Array_Literal_Info",
+    CodeAsm = "Code_Asm",
+    CodeBinaryOperator = "Code_Binary_Operator",
+    CodeBlock = "Code_Block",
+    CodeCase = "Code_Case",
+    CodeCast = "Code_Cast",
+    CodeCommaSeparatedArgument = "Code_Comma_Separated_Argument",
+    CodeCommaSeparatedArguments = "Code_Comma_Separated_Arguments",
+    CodeCompoundDeclaration = "Code_Compound_Declaration",
+    CodeContext = "Code_Context",
+    CodeDeclaration = "Code_Declaration",
+    CodeDefer = "Code_Defer",
+    CodeDirectiveAddContext = "Code_Directive_Add_Context",
+    CodeDirectiveBake = "Code_Directive_Bake",
+    CodeDirectiveBytes = "Code_Directive_Bytes",
+    CodeDirectiveCode = "Code_Directive_Code",
+    CodeDirectiveExists = "Code_Directive_Exists",
+    CodeDirectiveImport = "Code_Directive_Import",
+    CodeDirectiveInsert = "Code_Directive_Insert",
+    CodeDirectiveLoad = "Code_Directive_Load",
+    CodeDirectiveLocation = "Code_Directive_Location",
+    CodeDirectiveModify = "Code_Directive_Modify",
+    CodeDirectiveModuleParameters = "Code_Directive_Module_Parameters",
+    CodeDirectiveOverlay = "Code_Directive_Overlay",
+    CodeDirectiveProcedureName = "Code_Directive_Procedure_Name",
+    CodeDirectiveRun = "Code_Directive_Run",
+    CodeDirectiveScope = "Code_Directive_Scope",
+    CodeDirectiveThrough = "Code_Directive_Through",
+    CodeEnum = "Code_Enum",
+    CodeFor = "Code_For",
+    CodeIdent = "Code_Ident",
+    CodeIf = "Code_If",
+    CodeLiteral = "Code_Literal",
+    CodeLoopControl = "Code_Loop_Control",
+    CodeNode = "Code_Node",
+    CodeNodes = "Code_Nodes",
+    CodeNote = "Code_Note",
+    CodePointerLiteralInfo = "Code_Pointer_Literal_Info",
+    CodeProcedureBody = "Code_Procedure_Body",
+    CodeProcedureCall = "Code_Procedure_Call",
+    CodeProcedureHeader = "Code_Procedure_Header",
+    CodePushContext = "Code_Push_Context",
+    CodeReturn = "Code_Return",
+    CodeStruct = "Code_Struct",
+    CodeStructLiteralInfo = "Code_Struct_Literal_Info",
+    CodeTypeInstantiation = "Code_Type_Instantiation",
+    CodeUnaryOperator = "Code_Unary_Operator",
+    CodeUsing = "Code_Using",
+    CodeWhile = "Code_While",
+    DistinctPolymorph = "Distinct_Polymorph",
+    MessageFailedImport = "Message_Failed_Import",
+    MessageFile = "Message_File",
+    MessageImport = "Message_Import",
+    MessagePerformanceReport = "Message_Performance_Report",
+    MessageTypechecked = "Message_Typechecked",
+    PolymorphReport = "Polymorph_Report",
+    Record = "Record",
+    RunDirectiveReport = "Run_Directive_Report",
+    SourceCodeLocation = "Source_Code_Location",
+    TimeReport = "Time_Report",
+    TypeInfo = "Type_Info",
+    TypeInfoArray = "Type_Info_Array",
+    TypeInfoEnum = "Type_Info_Enum",
+    TypeInfoFloat = "Type_Info_Float",
+    TypeInfoInteger = "Type_Info_Integer",
+    TypeInfoPointer = "Type_Info_Pointer",
+    TypeInfoProcedure = "Type_Info_Procedure",
+    TypeInfoString = "Type_Info_String",
+    TypeInfoStruct = "Type_Info_Struct",
+    TypeInfoStructMember = "Type_Info_Struct_Member",
+    TypeInfoVariant = "Type_Info_Variant",
+    Typechecked = "Typechecked",
+}
+
+impl std::fmt::Display for RecordTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Record {
-    pub tag: &'static str,
+    pub tag: RecordTag,
     slots: Vec<Slot>,
     extra: Vec<Extra>,
 }
 
 impl Record {
-    pub fn new(tag: &'static str) -> Self {
+    pub fn new(tag: RecordTag) -> Self {
         Record {
             tag,
             slots: Vec::new(),
@@ -223,7 +331,7 @@ impl Record {
     }
 
     /// A record with room for `fields` fields, for one whose size is known up front.
-    pub fn with_capacity(tag: &'static str, fields: usize) -> Self {
+    pub fn with_capacity(tag: RecordTag, fields: usize) -> Self {
         Record {
             tag,
             slots: Vec::with_capacity(fields),
@@ -341,7 +449,7 @@ pub struct Records {
 
 impl Records {
     /// Reserve an id now and fill the record later (records may refer to themselves).
-    pub fn reserve(&mut self, tag: &'static str) -> i64 {
+    pub fn reserve(&mut self, tag: RecordTag) -> i64 {
         self.add(Record::new(tag))
     }
 
@@ -442,21 +550,92 @@ mod tests {
         // exported a tree numbered its records from 1 again, and `stdlib/Compiler`, which
         // builds each record's struct once by id, handed it structs of other records.
         let mut registry = Records::default();
-        let before = registry.add(Record::new("A"));
+        let before = registry.add(Record::new(RecordTag::CodeIf));
         let mut lent = Records::lend(&mut registry);
-        let outer = lent.reserve("B");
-        let nested = registry.add(Record::new("C"));
+        let outer = lent.reserve(RecordTag::CodeWhile);
+        let nested = registry.add(Record::new(RecordTag::CodeFor));
         let mut deeper = Records::lend(&mut registry);
-        let deepest = registry.add(Record::new("D"));
-        let after_nested = deeper.add(Record::new("E"));
+        let deepest = registry.add(Record::new(RecordTag::CodeBlock));
+        let after_nested = deeper.add(Record::new(RecordTag::CodeCase));
         Records::give_back(&mut registry, deeper);
-        let last = lent.add(Record::new("F"));
+        let last = lent.add(Record::new(RecordTag::CodeCast));
         Records::give_back(&mut registry, lent);
         let ids = [before, outer, nested, deepest, after_nested, last];
         assert_eq!(ids, [1, 2, 3, 4, 5, 6]);
-        for (id, tag) in ids.into_iter().zip(["A", "B", "C", "D", "E", "F"]) {
+        for (id, tag) in ids.into_iter().zip([
+            RecordTag::CodeIf,
+            RecordTag::CodeWhile,
+            RecordTag::CodeFor,
+            RecordTag::CodeBlock,
+            RecordTag::CodeCase,
+            RecordTag::CodeCast,
+        ]) {
             assert_eq!(registry.get(id).map(|r| r.tag), Some(tag), "record {id}");
         }
         assert!(registry.get(0).is_none() && registry.get(7).is_none());
+    }
+
+    /// Struct names defined in the Jai sources the tags draw from, nested ones included.
+    fn stdlib_struct_names(files: &[&str]) -> std::collections::BTreeSet<String> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let mut names = std::collections::BTreeSet::new();
+        for file in files {
+            let text = std::fs::read_to_string(root.join(file)).unwrap();
+            for line in text.lines() {
+                if let Some((name, rest)) = line.trim_start().split_once("::")
+                    && rest.trim_start().starts_with("struct")
+                {
+                    names.insert(name.trim().to_string());
+                }
+            }
+        }
+        names
+    }
+
+    const TAG_SOURCES: &[&str] = &[
+        "Compiler/contract-records.jai",
+        "prelude/reflection.jai",
+        "prelude/diagnostics.jai",
+        "internal/compiler-api/records.jai",
+    ];
+
+    #[test]
+    fn every_tag_names_a_stdlib_struct() {
+        let structs = stdlib_struct_names(TAG_SOURCES);
+        for tag in RecordTag::ALL {
+            assert!(
+                structs.contains(tag.name()),
+                "{tag} is not a struct in the stdlib"
+            );
+        }
+    }
+
+    /// The syntax-node structs the compiler has no export for yet.
+    const UNEXPORTED_NODES: &[&str] = &[
+        "Code_Directive_Context_Type",
+        "Code_Directive_Library",
+        "Code_Directive_Poke_Name",
+        "Code_Directive_Wildcard",
+        "Code_Expression_Query",
+        "Code_Extract",
+        "Code_Make_Varargs",
+        "Code_Placeholder",
+        "Code_Resolved_Overload",
+        "Code_Scope_Entry",
+        "Code_Type_Definition",
+        "Code_Type_Query",
+    ];
+
+    #[test]
+    fn every_stdlib_syntax_node_has_a_tag_or_is_listed_unexported() {
+        let tags: std::collections::BTreeSet<_> = RecordTag::ALL.iter().map(|t| t.name()).collect();
+        for name in stdlib_struct_names(&["Compiler/contract-records.jai"]) {
+            if name.starts_with("Code_") {
+                assert!(
+                    tags.contains(name.as_str()) ^ UNEXPORTED_NODES.contains(&name.as_str()),
+                    "{name} must be exactly one of a RecordTag and an unexported node"
+                );
+            }
+        }
     }
 }
