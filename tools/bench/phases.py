@@ -31,13 +31,16 @@ def jai_string(text: str) -> str:
 SETTINGS = re.compile(r'// settings:.*?// end settings\n', re.DOTALL)
 
 
-def program(entry: Path, output_dir: Path, *, writes_executable: bool, optimized: bool, run_main: bool) -> str:
+def program(entry: Path, output_dir: Path, *, writes_executable: bool, optimized: bool, run_main: bool,
+            import_dirs: tuple[str, ...] = ()) -> str:
     """The metaprogram's source for building `entry`: no output (check), no output plus `#run main();`
-    (interp), or an executable in `output_dir`."""
+    (interp), or an executable in `output_dir`. `import_dirs` join the nested workspace's module search path."""
+    dirs = ', '.join(f'"{jai_string(directory)}"' for directory in import_dirs)
     settings = (f'// settings: rewritten by phases.py\nENTRY :: "{jai_string(str(entry))}";\n'
                 f'OUTPUT_PATH :: "{jai_string(str(output_dir))}";\n'
                 f'WRITES_EXECUTABLE :: {jai_bool(writes_executable)};\nOPTIMIZED :: {jai_bool(optimized)};\n'
-                f'RUN_MAIN :: {jai_bool(run_main)};\n// end settings\n')
+                f'RUN_MAIN :: {jai_bool(run_main)};\n'
+                f'IMPORT_DIRS :: string.[{dirs}];\n// end settings\n')
     return SETTINGS.sub(lambda _: settings, TEMPLATE.read_text(), count=1)
 
 

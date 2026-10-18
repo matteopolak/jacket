@@ -38,10 +38,17 @@ class Request:
     metaprogram_args: tuple[str, ...]
     scratch: Path
     redirect_output: bool = True
+    # Module folders to search, absolute.
+    import_dirs: tuple[str, ...] = ()
 
     @property
     def executable(self) -> Path:
         return self.scratch / 'program'
+
+    @property
+    def entry_arg(self) -> str:
+        """The entry as named on a command line run from `workdir`."""
+        return self.entry.relative_to(self.workdir).as_posix()
 
 
 @dataclass(frozen=True)
@@ -62,6 +69,10 @@ class Dialect(ABC):
     def source_command(self, compiler: Path, source: str) -> list[str]:
         """Compile the Jai file `source` (in the working directory) as a plain build."""
 
+    @abstractmethod
+    def import_flags(self, import_dirs: tuple[str, ...]) -> list[str]:
+        """The command-line option that adds each of `import_dirs` to the module search path."""
+
     def detail(self, run: Run) -> Stages:
         """Seconds per bucket from a timing report only this compiler prints (empty when it prints none).
         Not comparable between compilers; `phase_invocation` is."""
@@ -73,7 +84,8 @@ class Dialect(ABC):
         where = request.scratch / 'phases'
         where.mkdir(parents=True, exist_ok=True)
         source = phases.program(request.entry.resolve(), where, writes_executable=request.mode.writes_executable,
-                                optimized=request.mode is Mode.OPTIMIZED, run_main=request.mode is Mode.INTERP)
+                                optimized=request.mode is Mode.OPTIMIZED, run_main=request.mode is Mode.INTERP,
+                                import_dirs=request.import_dirs)
         (where / phases.WRAPPER_NAME).write_text(source)
         shutil.copy(phases.LINK_COMMAND, where / phases.LINK_COMMAND.name)
         executable = where / 'program' if request.mode.writes_executable else None
@@ -94,7 +106,8 @@ class JaicDialect(Dialect):
         self.parser: StageParser = JaicTimings()
 
     def invocation(self, compiler: Path, request: Request) -> Invocation:
-        command = [str(compiler), request.entry.name, *self.MODE_FLAGS[request.mode], '-timings']
+        command = [str(compiler), request.entry_arg, *self.MODE_FLAGS[request.mode], '-timings',
+                   *self.import_flags(request.import_dirs)]
         executable = request.executable if request.mode.writes_executable else None
         if executable and request.redirect_output:
             command += ['-exe', str(executable)]
@@ -104,6 +117,9 @@ class JaicDialect(Dialect):
 
     def source_command(self, compiler: Path, source: str) -> list[str]:
         return [str(compiler), source]
+
+    def import_flags(self, import_dirs: tuple[str, ...]) -> list[str]:
+        return [flag for directory in import_dirs for flag in ('-I', directory)]
 
     def detail(self, run: Run) -> Stages:
         return with_total(self.parser.parse(run.stderr), run.wall)
@@ -136,8 +152,9 @@ class ReferenceDialect(Dialect):
             wrapper = request.scratch / 'wrapper.jai'
             wrapper.write_text(WRAPPER.format(entry=request.entry.resolve(),
                                               run='#run main();\n' if request.mode is Mode.INTERP else ''))
-            return Invocation([str(compiler), wrapper.name, '-no_color'], request.scratch)
-        command = [str(compiler), request.entry.name, '-no_color']
+            command = [str(compiler), wrapper.name, '-no_color', *self.import_flags(request.import_dirs)]
+            return Invocation(command, request.scratch)
+        command = [str(compiler), request.entry_arg, '-no_color', *self.import_flags(request.import_dirs)]
         if request.mode is Mode.OPTIMIZED:
             command.append('-o')
         executable = request.executable
@@ -149,6 +166,9 @@ class ReferenceDialect(Dialect):
 
     def source_command(self, compiler: Path, source: str) -> list[str]:
         return [str(compiler), source, '-no_color']
+
+    def import_flags(self, import_dirs: tuple[str, ...]) -> list[str]:
+        return [flag for directory in import_dirs for flag in ('-import_dir', directory)]
 
 
 @dataclass(frozen=True)

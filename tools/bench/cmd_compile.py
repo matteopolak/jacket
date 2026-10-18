@@ -110,7 +110,9 @@ class JobRunner:
         plan = job.workload.plans[job.mode]
         where = self.scratch / 'work' / job.workload.name / job.mode.value / compiler.name
         where.mkdir(parents=True, exist_ok=True)
-        return Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where, plan.redirect_output)
+        import_dirs = tuple(str((workdir / directory).resolve()) for directory in plan.import_dirs)
+        return Request(workdir / plan.entry, workdir, job.mode, plan.metaprogram_args, where, plan.redirect_output,
+                       import_dirs)
 
     @staticmethod
     def has_own_build(request: Request) -> bool:

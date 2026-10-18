@@ -130,10 +130,13 @@ class Generated:
 class Plan:
     """How one mode builds a workload: the file to name on the command line, arguments for the project's
     build metaprogram (after a lone `-`), and whether the harness may redirect the executable. A project
-    whose metaprogram chooses its own output keeps `redirect_output=False`."""
+    whose metaprogram chooses its own output keeps `redirect_output=False`. `import_dirs` are module
+    folders (relative to the project) every compiler is told to search, for a project whose own build
+    metaprogram would otherwise add them."""
     entry: str = 'main.jai'
     metaprogram_args: tuple[str, ...] = ()
     redirect_output: bool = True
+    import_dirs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -157,6 +160,7 @@ def single(entry: str, *modes: Mode) -> dict[Mode, Plan]:
 
 
 CHECK_BUILD = (Mode.CHECK, Mode.BUILD)
+ALL_BUILD_MODES = (Mode.CHECK, Mode.BUILD, Mode.OPTIMIZED)
 
 
 def program(name: str, category: Category, directory: Path, modes: tuple[Mode, ...] = CHECK_BUILD,
@@ -194,9 +198,11 @@ def all_workloads() -> list[Workload]:
         generated(60_000, CHECK_BUILD),
         project('focus', 'focus-editor--focus', {
             Mode.CHECK: Plan('first.jai'), Mode.BUILD: own_output('first.jai'), Mode.OPTIMIZED: own_output('first.jai', 'release')}),
-        project('jails', 'SogoCZE--Jails', {
-            Mode.CHECK: Plan('build.jai'), Mode.BUILD: own_output('build.jai'),
-            Mode.OPTIMIZED: own_output('build.jai', '-release')}),
+        # Jails's build.jai only creates a workspace for server/main.jai and adds ./modules to its import
+        # path, and links with the compiler's own linker. The server itself is built here, with the module
+        # folder on the command line, so every compiler does the same work and links the same way.
+        project('jails', 'SogoCZE--Jails',
+                {mode: Plan('server/main.jai', import_dirs=('modules',)) for mode in ALL_BUILD_MODES}),
         project('sgpu-examples', 'roeyb1--sgpu/examples', {Mode.CHECK: Plan('build.jai')}),
         project('jaison-tests', 'rluba--jaison', single('tests.jai', *CHECK_BUILD, Mode.OPTIMIZED)),
         project('open-jai-drawing-board', 'withlang-dev--open-jai/examples/33',
