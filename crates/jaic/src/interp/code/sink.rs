@@ -290,6 +290,58 @@ pub(super) fn plan(
                 .collect();
             let in_set =
                 |set: &[bool], v: Val| owner[v.0 as usize].is_some_and(|s| set[s as usize]);
+            // Whether the use of a slot's value at `(sb, i)` fits moving the slots in `set`.
+            let site_agrees = |set: &[bool], sb: u32, i: u32, role: Role| -> bool {
+                if sb as usize == x {
+                    return role != Role::Value;
+                }
+                if sb as usize != b || i == TERM || skip[sb as usize][i as usize] {
+                    return sb as usize == b && i != TERM;
+                }
+                match (role, inst_at(sb, i)) {
+                    (Role::Derive, _) => true,
+                    (
+                        Role::Read,
+                        Inst::Copy {
+                            dst, ..
+                        },
+                    ) => in_set(set, *dst),
+                    (
+                        Role::Write,
+                        Inst::Store {
+                            value, ..
+                        },
+                    ) => {
+                        matches!(
+                            def_site[value.0 as usize].map(|(db, di)| inst_at(db, di)),
+                            Some(Inst::IConst { .. } | Inst::FConst { .. })
+                        ) && def_site[value.0 as usize].is_some_and(|(db, _)| db as usize == b)
+                    }
+                    (
+                        Role::Write,
+                        Inst::Zero {
+                            ..
+                        },
+                    ) => true,
+                    (
+                        Role::Write,
+                        Inst::Copy {
+                            src, ..
+                        },
+                    ) => {
+                        in_set(set, *src)
+                            || def_site[src.0 as usize].is_some_and(|(db, di)| {
+                                db as usize == b
+                                    && matches!(
+                                        inst_at(db, di),
+                                        Inst::GlobalAddr { global, .. }
+                                            if read_only(*global)
+                                    )
+                            })
+                    }
+                    _ => false,
+                }
+            };
             // Drop slots that something else reads or sets, until the rest agree.
             loop {
                 let mut changed = false;
@@ -298,58 +350,9 @@ pub(super) fn plan(
                         continue;
                     }
                     let ok = members[s].iter().all(|&v| {
-                        sites[v.0 as usize].iter().all(|&(sb, i, role)| {
-                            if sb as usize == x {
-                                return role != Role::Value;
-                            }
-                            if sb as usize != b || i == TERM || skip[sb as usize][i as usize] {
-                                return sb as usize == b && i != TERM;
-                            }
-                            match (role, inst_at(sb, i)) {
-                                (Role::Derive, _) => true,
-                                (
-                                    Role::Read,
-                                    Inst::Copy {
-                                        dst, ..
-                                    },
-                                ) => in_set(&set, *dst),
-                                (
-                                    Role::Write,
-                                    Inst::Store {
-                                        value, ..
-                                    },
-                                ) => {
-                                    matches!(
-                                        def_site[value.0 as usize].map(|(db, di)| inst_at(db, di)),
-                                        Some(Inst::IConst { .. } | Inst::FConst { .. })
-                                    ) && def_site[value.0 as usize]
-                                        .is_some_and(|(db, _)| db as usize == b)
-                                }
-                                (
-                                    Role::Write,
-                                    Inst::Zero {
-                                        ..
-                                    },
-                                ) => true,
-                                (
-                                    Role::Write,
-                                    Inst::Copy {
-                                        src, ..
-                                    },
-                                ) => {
-                                    in_set(&set, *src)
-                                        || def_site[src.0 as usize].is_some_and(|(db, di)| {
-                                            db as usize == b
-                                                && matches!(
-                                                    inst_at(db, di),
-                                                    Inst::GlobalAddr { global, .. }
-                                                        if read_only(*global)
-                                                )
-                                        })
-                                }
-                                _ => false,
-                            }
-                        })
+                        sites[v.0 as usize]
+                            .iter()
+                            .all(|&(sb, i, role)| site_agrees(&set, sb, i, role))
                     });
                     if !ok {
                         set[s] = false;
