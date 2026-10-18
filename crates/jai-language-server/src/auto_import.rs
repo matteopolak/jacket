@@ -47,8 +47,6 @@ const MAX_DEPTH: usize = 8;
 /// The most files one load graph (a program's or a module's) follows.
 const MAX_LOADED: usize = 4000;
 
-/// How many folders above a document its loader is looked for in.
-
 /// Folders a project walk skips besides hidden ones (module folders are indexed as modules).
 const SKIPPED_FOLDERS: &[&str] = &["modules", "node_modules", "target", "build", "bin"];
 

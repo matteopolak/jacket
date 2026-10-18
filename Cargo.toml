@@ -30,6 +30,7 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"
+excessive_nesting = "warn"
 
 [profile.dev]
 debug = 0

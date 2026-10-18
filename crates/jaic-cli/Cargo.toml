@@ -33,6 +33,7 @@ unsafe_code = "forbid"
 
 [lints.clippy]
 all = "warn"
+excessive_nesting = "warn"
 
 [[test]]
 name = "native"

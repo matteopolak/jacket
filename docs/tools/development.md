@@ -17,6 +17,8 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 | `hooks` | `git config core.hooksPath .githooks` |
 | `fetch-upstreams`, `wasm`, `vscode` | `tools/fetch_upstreams.py`, `tools/browser/build_scripting_wasm.py --release`, `pnpm run <script>` in `editors/vscode` |
 
+Rust lints: each crate's `[lints.clippy]` enables `all` and the restriction lint `excessive_nesting`, whose depth limit is `excessive-nesting-threshold` in the root `clippy.toml` (7). Flatten with early returns, `let ... else` or a helper rather than `#[allow]`. A new crate must repeat both lines. The Jai counterpart is jailint's [`excessive_nesting`](jailint.md#excessive_nesting) rule (off by default).
+
 `--staged` takes files from `tools/dev/staged-files.sh` (also used by the hook); clippy cannot run on single files, so for Rust it only decides whether the workspace is linted.
 
 To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[group(...)]`, keep the body to one command and put logic in `tools/dev/dev.py`. Options use `[arg("name", long)]`; a flag is `[arg("check", long, value="true")]` on a parameter defaulting to `"false"`. Needs just 1.58 (CI pins `just-version`). Variadic `*paths` are joined by spaces, so paths with spaces fail. Windows CI does not call the recipes. `JAI_JOBS` sets the default `--jobs` (3, for a 16 GiB machine).

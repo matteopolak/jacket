@@ -1,0 +1,3 @@
+# `clippy::excessive_nesting` (enabled in each crate's `[lints.clippy]`) fires on blocks nested deeper
+# than this. See docs/tools/development.md.
+excessive-nesting-threshold = 7

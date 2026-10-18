@@ -91,28 +91,9 @@ impl Compiler {
                     for required_proc in required_procs {
                         let target = self.proc_type(required_proc, span)?;
                         let mut matched = false;
-                        for value in &found {
-                            let procedures = match value {
-                                Resolved::Proc(p) => vec![*p],
-                                Resolved::ProcSet(p) => p.clone(),
-                                _ => Vec::new(),
-                            };
-                            for procedure in procedures {
-                                if self.proc(procedure).is_macro
-                                    != self.proc(required_proc).is_macro
-                                {
-                                    continue;
-                                }
-                                let candidate = if self.proc(procedure).is_poly {
-                                    self.instantiate_for_proc_type(procedure, target, span)
-                                } else {
-                                    Some(procedure)
-                                };
-                                if let Some(candidate) = candidate {
-                                    let ty = self.proc_type(candidate, span)?;
-                                    matched |= matches!((self.types.kind(ty),self.types.kind(target)),(crate::types::TypeKind::Proc(a),crate::types::TypeKind::Proc(b)) if a==b);
-                                }
-                            }
+                        for procedure in found.iter().flat_map(procs_of) {
+                            matched |=
+                                self.satisfies_proc(procedure, required_proc, target, span)?;
                         }
                         ok &= matched;
                     }
@@ -135,5 +116,41 @@ impl Compiler {
             }
         }
         Ok(())
+    }
+
+    /// Whether `procedure` (instantiated for `target` when polymorphic) has exactly the type `target`
+    /// and the same macro-ness as `required`.
+    fn satisfies_proc(
+        &mut self,
+        procedure: ProcId,
+        required: ProcId,
+        target: TypeId,
+        span: Span,
+    ) -> Result<bool> {
+        if self.proc(procedure).is_macro != self.proc(required).is_macro {
+            return Ok(false);
+        }
+        let candidate = if self.proc(procedure).is_poly {
+            self.instantiate_for_proc_type(procedure, target, span)
+        } else {
+            Some(procedure)
+        };
+        let Some(candidate) = candidate else {
+            return Ok(false);
+        };
+        let ty = self.proc_type(candidate, span)?;
+        Ok(matches!(
+            (self.types.kind(ty), self.types.kind(target)),
+            (crate::types::TypeKind::Proc(a), crate::types::TypeKind::Proc(b)) if a == b
+        ))
+    }
+}
+
+/// The procedures a resolved member stands for.
+fn procs_of(value: &Resolved) -> Vec<ProcId> {
+    match value {
+        Resolved::Proc(p) => vec![*p],
+        Resolved::ProcSet(p) => p.clone(),
+        _ => Vec::new(),
     }
 }

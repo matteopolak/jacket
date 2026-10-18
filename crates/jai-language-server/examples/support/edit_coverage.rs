@@ -45,6 +45,12 @@ fn progress(phase: &str) {
     }
 }
 
+/// Whether one top-level statement spans both the edit start `a` and the mapped declaration offset.
+fn covers_edit(stmt: &jaic::ast::Stmt, a: usize, mapped: usize) -> bool {
+    let (start, end) = (stmt.span.start as usize, stmt.span.end as usize);
+    start <= a && a <= end && start <= mapped && mapped < end
+}
+
 fn position(text: &str, byte: usize) -> Position {
     let before = &text[..byte];
     Position {
@@ -328,12 +334,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                         // scopes are the oracle; do not pretend the old scope survives.
                         if !names.contains(name.name.as_str())
                             && strict_edit.as_ref().is_some_and(|file| {
-                                file.stmts.iter().any(|s| {
-                                    s.span.start as usize <= a
-                                        && a <= s.span.end as usize
-                                        && s.span.start as usize <= mapped
-                                        && mapped < s.span.end as usize
-                                })
+                                file.stmts.iter().any(|s| covers_edit(s, a, mapped))
                             })
                         {
                             report.scope_changes.push(format!("{context}: {} is inside the edited statement in valid current syntax", name.name));

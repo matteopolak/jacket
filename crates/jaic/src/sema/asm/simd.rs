@@ -2592,19 +2592,16 @@ impl Compiler {
                         _ => {
                             let enc = matches!(aes, AesOp::Enc | AesOp::EncLast);
                             // (Inv)ShiftRows + (Inv)SubBytes: row r rotates by r columns.
+                            // Encryption rotates left by `r`, decryption right: `3 * r` is `-r` mod 4.
+                            let (table, step) = if enc {
+                                (tables, 1)
+                            } else {
+                                (inv_tables, 3)
+                            };
                             let mut sh = [Val(0); 16];
                             for c in 0..4 {
                                 for r in 0..4 {
-                                    let from = if enc {
-                                        (c + r) % 4
-                                    } else {
-                                        (c + 4 - r) % 4
-                                    };
-                                    let table = if enc {
-                                        tables
-                                    } else {
-                                        inv_tables
-                                    };
+                                    let from = (c + step * r) % 4;
                                     sh[4 * c + r] = sub(f, table, st[4 * from + r]);
                                 }
                             }
