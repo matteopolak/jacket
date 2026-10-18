@@ -1,29 +1,35 @@
 name: Cache the Rust dependencies
 description: >-
   Restores cargo's registry and the dependencies' build output (Swatinem/rust-cache), saved from
-  main, then removes everything else the cache brought back under target/.
+  main, without touching the rest of target/.
 runs:
   using: composite
   steps:
-    # What the job already has under target/ (a job may set up after building something there).
+    # rust-cache treats every directory under target/ as cargo's: it saves all of them trimmed to
+    # their cargo parts, and on a partial key match it also trims them before restoring. The tools
+    # keep their own state there (target/cache/upstream, target/sdl3...), which would come back
+    # half-deleted, so move the job's non-cargo entries aside, restore, delete the non-cargo
+    # entries the cache brought back and move the job's own back. Cargo's entries are the
+    # profile directories, which hold .fingerprint directly or under a target triple.
     - shell: bash
       run: |
-        mkdir -p target
-        ls -A target > "$RUNNER_TEMP/target-before-rust-cache"
+        shopt -s nullglob dotglob
+        mkdir -p target "$RUNNER_TEMP/target-aside"
+        for entry in target/*; do
+          case "$entry" in target/CACHEDIR.TAG | target/.rustc_info.json) continue ;; esac
+          nested=("$entry"/*/.fingerprint)
+          [ -d "$entry/.fingerprint" ] || [ ${#nested[@]} -gt 0 ] || mv "$entry" "$RUNNER_TEMP/target-aside/"
+        done
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
-    # rust-cache saves all of target/ and only trims cargo's profile directories, so the tools'
-    # own working directories there (target/cache/upstream, target/clipboard-linux...) come back
-    # half-deleted. Of what the restore added, keep the profile directories (they hold
-    # .fingerprint, directly or under a target triple) and drop the rest.
     - shell: bash
       run: |
         shopt -s nullglob dotglob
         for entry in target/*; do
-          name=${entry#target/}
-          case "$name" in CACHEDIR.TAG | .rustc_info.json) continue ;; esac
-          grep -qxF -- "$name" "$RUNNER_TEMP/target-before-rust-cache" && continue
+          case "$entry" in target/CACHEDIR.TAG | target/.rustc_info.json) continue ;; esac
           nested=("$entry"/*/.fingerprint)
           [ -d "$entry/.fingerprint" ] || [ ${#nested[@]} -gt 0 ] || rm -rf "$entry"
         done
+        mv "$RUNNER_TEMP"/target-aside/* target/
+        rmdir "$RUNNER_TEMP/target-aside"
