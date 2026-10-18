@@ -5,18 +5,25 @@ description: >-
 runs:
   using: composite
   steps:
+    # What the job already has under target/ (a job may set up after building something there).
+    - shell: bash
+      run: |
+        mkdir -p target
+        ls -A target > "$RUNNER_TEMP/target-before-rust-cache"
     - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         save-if: ${{ github.ref == 'refs/heads/main' }}
     # rust-cache saves all of target/ and only trims cargo's profile directories, so the tools'
     # own working directories there (target/cache/upstream, target/clipboard-linux...) come back
-    # half-deleted. Keep the profile directories (they hold .fingerprint, directly or under a
-    # target triple) and drop the rest.
+    # half-deleted. Of what the restore added, keep the profile directories (they hold
+    # .fingerprint, directly or under a target triple) and drop the rest.
     - shell: bash
       run: |
         shopt -s nullglob dotglob
         for entry in target/*; do
-          case "$entry" in target/CACHEDIR.TAG | target/.rustc_info.json) continue ;; esac
+          name=${entry#target/}
+          case "$name" in CACHEDIR.TAG | .rustc_info.json) continue ;; esac
+          grep -qxF -- "$name" "$RUNNER_TEMP/target-before-rust-cache" && continue
           nested=("$entry"/*/.fingerprint)
           [ -d "$entry/.fingerprint" ] || [ ${#nested[@]} -gt 0 ] || rm -rf "$entry"
         done
