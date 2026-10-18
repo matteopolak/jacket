@@ -1,4 +1,4 @@
-// jaifmt.toml parsing and ignore globs. No file access: the caller reads the file.
+// jaifmt.toml and jacket.toml `[format]` parsing, and ignore globs. No file access: the caller reads the file.
 
 #scope_module
 
@@ -12,10 +12,20 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
     return config.case_body_indent;
 }
 
-// Parses `text` into `config`; on failure returns false and a message naming the line.
-parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
+// Parses `text` into `config`; on failure returns false and a message naming the line. With
+// `jacket`, `text` is a jacket.toml: only the keys under `[format]` count and every other table is
+// skipped; otherwise `text` is a jaifmt.toml, whose keys sit at the top.
+parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> bool, string {
     line_number := 0;
     rest := text;
+    in_format := !jacket;
+
+    // An array may continue over several lines: `pending_key` is set from its first line until its
+    // `]`, and `depth` counts the brackets still open.
+    pending_key: string;
+    pending_value: string;
+    pending_line := 0;
+    depth := 0;
 
     while rest.count {
         line: string;
@@ -31,88 +41,135 @@ parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
 
         line_number += 1;
         line = trim(strip_comment(line));
+
+        if pending_key.count {
+            pending_value = tprint("% %", pending_value, line);
+            depth += bracket_delta(line);
+
+            if depth <= 0 {
+                if in_format {
+                    ok, message := apply_key(config, pending_key, trim(pending_value), pending_line);
+                    if !ok return false, message;
+                }
+
+                pending_key = "";
+            }
+
+            continue;
+        }
+
         if !line.count continue;
 
+        if jacket && line[0] == #char "[" && line[line.count - 1] == #char "]" {
+            in_format = trim(slice(line, 1, line.count - 2)) == "format";
+            continue;
+        }
+
         equals := find_index_from_left(line, #char "=");
-        if equals < 0 return false, tprint("line %: expected `key = value`", line_number);
+
+        if equals < 0 {
+            if in_format return false, tprint("line %: expected `key = value`", line_number);
+            continue;
+        }
 
         key := trim(slice(line, 0, equals));
         value := trim(slice(line, equals + 1, line.count - equals - 1));
 
-        if key == {
-            case "indent_width";
-                ok := parse_count(value, *config.indent_width, 1, 16);
-                if !ok return false, tprint("line %: indent_width must be an integer from 1 to 16", line_number);
-            case "case_indent";
-                ok := parse_count(value, *config.case_indent, 0, 16);
-                if !ok return false, tprint("line %: case_indent must be an integer from 0 to 16", line_number);
-            case "case_body_indent";
-                ok := parse_count(value, *config.case_body_indent, 0, 16);
-                if !ok return false, tprint("line %: case_body_indent must be an integer from 0 to 16", line_number);
-            case "max_blank_lines";
-                ok := parse_count(value, *config.max_blank_lines, 0, 100);
-                if !ok return false, tprint("line %: max_blank_lines must be an integer from 0 to 100", line_number);
-            case "max_width";
-                ok := parse_count(value, *config.max_width, 10, 10000);
-                if !ok return false, tprint("line %: max_width must be an integer from 10 to 10000", line_number);
-            case "brace_style";
-                style, ok := parse_quoted(value);
-                if !ok return false, tprint("line %: brace_style must be a quoted string", line_number);
+        depth = bracket_delta(value);
 
-                if style == "same_line" {
-                    config.brace_style = .SAME_LINE;
-                } else if style == "preserve" {
-                    config.brace_style = .PRESERVE;
-                } else {
-                    return false, tprint("line %: brace_style must be \"same_line\" or \"preserve\"", line_number);
-                }
-            case "blank_lines_between_items";
-                if value == "true" {
-                    config.blank_lines_between_items = true;
-                } else if value == "false" {
-                    config.blank_lines_between_items = false;
-                } else {
-                    return false, tprint("line %: blank_lines_between_items must be true or false", line_number);
-                }
-            case "blank_line_after_declarations";
-                ok := parse_flag(value, *config.blank_line_after_declarations);
-                if !ok return false, tprint("line %: blank_line_after_declarations must be true or false", line_number);
-            case "blank_lines_around_blocks";
-                ok := parse_flag(value, *config.blank_lines_around_blocks);
-                if !ok return false, tprint("line %: blank_lines_around_blocks must be true or false", line_number);
-            case "blank_line_between_cases";
-                ok := parse_flag(value, *config.blank_line_between_cases);
-                if !ok return false, tprint("line %: blank_line_between_cases must be true or false", line_number);
-            case "blank_line_before_comments";
-                ok := parse_flag(value, *config.blank_line_before_comments);
-                if !ok return false, tprint("line %: blank_line_before_comments must be true or false", line_number);
-            case "blank_line_after_guards";
-                ok := parse_flag(value, *config.blank_line_after_guards);
-                if !ok return false, tprint("line %: blank_line_after_guards must be true or false", line_number);
-            case "blank_line_before_return";
-                ok := parse_flag(value, *config.blank_line_before_return);
-                if !ok return false, tprint("line %: blank_line_before_return must be true or false", line_number);
-            case "ignore";
-                if !value.count || value[0] != #char "[" || value[value.count - 1] != #char "]" {
-                    return false, tprint("line %: ignore must be an array of quoted globs on one line", line_number);
-                }
-
-                items := slice(value, 1, value.count - 2);
-
-                while true {
-                    items = trim(items);
-                    if !items.count break;
-
-                    glob, ok, after := parse_quoted_prefix(items);
-                    if !ok return false, tprint("line %: ignore entries must be quoted strings", line_number);
-
-                    array_add(*config.ignore, glob);
-                    items = trim(after);
-                    if items.count && items[0] == #char "," items = slice(items, 1, items.count - 1);
-                }
-            case;
-                return false, tprint("line %: unknown key `%`", line_number, key);
+        if depth > 0 {
+            pending_key = key;
+            pending_value = value;
+            pending_line = line_number;
+            continue;
         }
+
+        if in_format {
+            ok, message := apply_key(config, key, value, line_number);
+            if !ok return false, message;
+        }
+    }
+
+    if pending_key.count return false, tprint("line %: this array is never closed", pending_line);
+
+    return true, "";
+}
+
+// Sets one `key = value` pair; on failure returns false and a message naming the line.
+apply_key :: (config: *Format_Config, key: string, value: string, line_number: int) -> bool, string {
+    if key == {
+        case "indent_width";
+            ok := parse_count(value, *config.indent_width, 1, 16);
+            if !ok return false, tprint("line %: indent_width must be an integer from 1 to 16", line_number);
+        case "case_indent";
+            ok := parse_count(value, *config.case_indent, 0, 16);
+            if !ok return false, tprint("line %: case_indent must be an integer from 0 to 16", line_number);
+        case "case_body_indent";
+            ok := parse_count(value, *config.case_body_indent, 0, 16);
+            if !ok return false, tprint("line %: case_body_indent must be an integer from 0 to 16", line_number);
+        case "max_blank_lines";
+            ok := parse_count(value, *config.max_blank_lines, 0, 100);
+            if !ok return false, tprint("line %: max_blank_lines must be an integer from 0 to 100", line_number);
+        case "max_width";
+            ok := parse_count(value, *config.max_width, 10, 10000);
+            if !ok return false, tprint("line %: max_width must be an integer from 10 to 10000", line_number);
+        case "brace_style";
+            style, ok := parse_quoted(value);
+            if !ok return false, tprint("line %: brace_style must be a quoted string", line_number);
+
+            if style == "same_line" {
+                config.brace_style = .SAME_LINE;
+            } else if style == "preserve" {
+                config.brace_style = .PRESERVE;
+            } else {
+                return false, tprint("line %: brace_style must be \"same_line\" or \"preserve\"", line_number);
+            }
+        case "blank_lines_between_items";
+            if value == "true" {
+                config.blank_lines_between_items = true;
+            } else if value == "false" {
+                config.blank_lines_between_items = false;
+            } else {
+                return false, tprint("line %: blank_lines_between_items must be true or false", line_number);
+            }
+        case "blank_line_after_declarations";
+            ok := parse_flag(value, *config.blank_line_after_declarations);
+            if !ok return false, tprint("line %: blank_line_after_declarations must be true or false", line_number);
+        case "blank_lines_around_blocks";
+            ok := parse_flag(value, *config.blank_lines_around_blocks);
+            if !ok return false, tprint("line %: blank_lines_around_blocks must be true or false", line_number);
+        case "blank_line_between_cases";
+            ok := parse_flag(value, *config.blank_line_between_cases);
+            if !ok return false, tprint("line %: blank_line_between_cases must be true or false", line_number);
+        case "blank_line_before_comments";
+            ok := parse_flag(value, *config.blank_line_before_comments);
+            if !ok return false, tprint("line %: blank_line_before_comments must be true or false", line_number);
+        case "blank_line_after_guards";
+            ok := parse_flag(value, *config.blank_line_after_guards);
+            if !ok return false, tprint("line %: blank_line_after_guards must be true or false", line_number);
+        case "blank_line_before_return";
+            ok := parse_flag(value, *config.blank_line_before_return);
+            if !ok return false, tprint("line %: blank_line_before_return must be true or false", line_number);
+        case "ignore";
+            if !value.count || value[0] != #char "[" || value[value.count - 1] != #char "]" {
+                return false, tprint("line %: ignore must be an array of quoted globs", line_number);
+            }
+
+            items := slice(value, 1, value.count - 2);
+
+            while true {
+                items = trim(items);
+                if !items.count break;
+
+                glob, ok, after := parse_quoted_prefix(items);
+                if !ok return false, tprint("line %: ignore entries must be quoted strings", line_number);
+
+                array_add(*config.ignore, glob);
+                items = trim(after);
+                if items.count && items[0] == #char "," items = slice(items, 1, items.count - 1);
+            }
+        case;
+            return false, tprint("line %: unknown key `%`", line_number, key);
     }
 
     return true, "";
@@ -194,6 +251,21 @@ strip_comment :: (line: string) -> string {
     }
 
     return line;
+}
+
+// Brackets opened minus closed in `text`, not counting those inside quotes.
+bracket_delta :: (text: string) -> int {
+    in_string := false;
+    delta := 0;
+
+    for text {
+        if it == #char "\"" in_string = !in_string;
+        if in_string continue;
+        if it == #char "[" delta += 1;
+        if it == #char "]" delta -= 1;
+    }
+
+    return delta;
 }
 
 parse_count :: (text: string, result: *int, low: int, high: int) -> bool {
