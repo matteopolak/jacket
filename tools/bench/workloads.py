@@ -196,9 +196,6 @@ def all_workloads() -> list[Workload]:
         project('jaison-tests', 'rluba--jaison', single('tests.jai', *CHECK_BUILD, Mode.OPTIMIZED)),
         project('open-jai-drawing-board', 'withlang-dev--open-jai/examples/33',
                 single('33.13_drawing_board.jai', *CHECK_BUILD, Mode.OPTIMIZED)),
-        project('chess-jai', 'danieltan1517--chess-jai', {
-            Mode.CHECK: Plan('build.jai'), Mode.BUILD: own_output('build.jai', 'ui', 'ai', 'debug'),
-            Mode.OPTIMIZED: own_output('build.jai', 'ui', 'ai', 'release')}),
         project('forbear', 'gabrielmfern--forbear', {
             Mode.CHECK: Plan('build.jai'), Mode.BUILD: own_output('build.jai')},
             setup=('forbear-build',)),

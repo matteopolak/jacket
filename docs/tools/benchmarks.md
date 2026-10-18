@@ -43,7 +43,7 @@ Result keys are `<workload>/<mode>/<compiler>`. Modes: `check` (`-check`), `buil
 | --- | --- |
 | startup | `hello` |
 | lots of code | `gen-2k`, `gen-10k`, `gen-60k`: `tools/benchgen.py` programs, seed 1 (changing the generator makes old results incomparable) |
-| real projects | focus, Jails, sgpu examples, jaison tests, open-jai GetRect, chess-jai, forbear from the [upstream corpus](upstream-corpus.md) (`python3 tools/fetch_upstreams.py`) |
+| real projects | focus, Jails, sgpu examples, jaison tests, the open-jai drawing board, forbear from the [upstream corpus](upstream-corpus.md) (`python3 tools/fetch_upstreams.py`) |
 | compile-time heavy | `benchmarks/compile/`: `run-loops` (hot `#run` loops), `insert-meta` (`#insert` of generated procedures, structs and enums), `polymorph-explosion`, `constant-tables`; and `benchmarks/compile-time.jai` |
 | stdlib heavy | `stdlib-imports`: sixteen modules imported and used |
 | interpreter | `benchmarks/interp-*.jai` under `-interp` |
