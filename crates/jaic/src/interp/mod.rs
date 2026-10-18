@@ -1812,7 +1812,8 @@ impl Interp {
             self.sp = 0;
         }
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
-        let started = (self.compile_time && self.call_nesting == 0).then(std::time::Instant::now);
+        let started =
+            (self.compile_time && self.call_nesting == 0).then(crate::sema::perf::Stopwatch::start);
         self.call_nesting += 1;
         let mut result = self.exec(program, func, args);
         if self.call_nesting == 1
