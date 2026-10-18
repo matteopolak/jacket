@@ -2,7 +2,11 @@
 
 ## [0.19.1] - 2026-10-18
 
-Restores stdlib compatibility. Five stdlib changes in 0.19.0 made observable behaviour differ from the official standard library; they are reverted, and UTF-8 decoding of malformed input now matches it too.
+Restores stdlib compatibility and makes `jaic` faster. Several stdlib changes in 0.19.0 made observable behaviour differ from the official standard library; they are reverted, and UTF-8 decoding of malformed input now matches it too.
+
+### Performance
+
+- `jaic` uses mimalloc instead of the system allocator, which makes checks and builds about 7–13% faster (a 60k-line check takes 137 ms instead of 154 ms).
 
 ### Fixes
 
