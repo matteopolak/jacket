@@ -486,6 +486,7 @@ impl Renderer {
             let head = self.header(severity, None, message);
             let location = format!("{}:{line}:{col}: ", shown(label.path));
             self.line(&format!("{location}{head}"));
+            // A label past the end of its text (a stale span) still renders, with an empty line.
             let (start, end) = lines.line_range(line - 1).unwrap_or((0, 0));
             let source = &label.text[start..end];
             self.line(&format!("    {source}"));

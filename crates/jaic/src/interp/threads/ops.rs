@@ -61,6 +61,7 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
+        // A declaration may pass fewer words than the Win32 call has parameters; the rest are 0.
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let started = self.multi;
         let Some(fun) = ThreadFn::from_name(symbol) else {
