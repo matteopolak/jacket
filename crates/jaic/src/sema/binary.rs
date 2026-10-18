@@ -57,7 +57,7 @@ impl Compiler {
                 ..
             },
         ) = (&lhs, &rhs)
-            && let Some(folded) = self.fold_binary(op, &lhs, &rhs, expected, span)?
+            && let Some(folded) = self.fold_binary(op, &lhs, &rhs, span)?
         {
             return Ok(folded);
         }

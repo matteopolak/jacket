@@ -576,7 +576,12 @@ impl Compiler {
                 )
             }
             Value::Float(v, _) => {
-                let t = self.ir_ty(ty).filter(|t| t.is_float()).unwrap_or(Ty::F64);
+                let Some(t) = self.ir_ty(ty).filter(|t| t.is_float()) else {
+                    return err(
+                        span,
+                        format!("float constant cannot have type {}", self.types.name(ty)),
+                    );
+                };
                 Ok(f.b.fconst(t, *v))
             }
             Value::Bool(v) => Ok(f.b.iconst(Ty::I8, *v as u64)),

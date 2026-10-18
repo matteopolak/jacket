@@ -137,7 +137,10 @@ impl Compiler {
         if self.types.is_float(r) {
             return (WideOp::FromF64, v);
         }
-        let (bits, signed) = self.types.int_info(r).unwrap_or((64, true));
+        let (bits, signed) = self
+            .types
+            .int_info(r)
+            .expect("invariant: `wide_peer` admits only integer and float types");
         let t = Ty::int(bits as u64 / 8);
         let wide = match (t == Ty::I64, signed) {
             (true, _) => v,
@@ -164,7 +167,10 @@ impl Compiler {
                 .b
                 .intrinsic(Intrinsic::Wide(WideOp::ToF64, fmt), vec![addr], &[Ty::F64])[0];
         }
-        let (bits, signed) = self.types.int_info(r).unwrap_or((64, true));
+        let (bits, signed) = self
+            .types
+            .int_info(r)
+            .expect("invariant: `wide_peer` admits only integer and float types");
         let op = if signed {
             WideOp::ToS64
         } else {

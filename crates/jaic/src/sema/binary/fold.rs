@@ -12,7 +12,6 @@ impl Compiler {
         op: BinOp,
         lhs: &Operand,
         rhs: &Operand,
-        expected: Option<TypeId>,
         span: Span,
     ) -> Result<Option<Operand>> {
         let (
@@ -117,16 +116,12 @@ impl Compiler {
                 // Wrap typed results to their width.
                 match v {
                     Some(Value::Int(x)) if !untyped => {
+                        // A typed integer constant may carry a non-integer type (an enum value, a
+                        // `bool`); those wrap like a 64-bit signed integer.
                         let (bits, signed) = self.types.int_info(ty).unwrap_or((64, true));
                         Some(Value::Int(wrap_int(x, bits, signed)))
                     }
-                    Some(Value::Int(x)) => {
-                        if let Some((bits, signed)) = expected.and_then(|e| self.types.int_info(e))
-                        {
-                            let _ = (bits, signed);
-                        }
-                        Some(Value::Int(x))
-                    }
+                    Some(Value::Int(x)) => Some(Value::Int(x)),
                     other => other,
                 }
             }
