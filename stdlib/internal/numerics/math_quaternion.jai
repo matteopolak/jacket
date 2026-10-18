@@ -1,3 +1,7 @@
+operator == :: (a: Quaternion, b: Quaternion) -> bool {
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+}
+
 dot_product :: (a: Quaternion, b: Quaternion) -> float {
     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 } @UseResult

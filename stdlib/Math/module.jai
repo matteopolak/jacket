@@ -154,7 +154,7 @@ plane_dot :: Impl.plane_dot;
 print_matrix :: Impl.print_matrix;
 math_struct_printer :: Impl.math_struct_printer;
 
-using,only(.["+", "-", "*", "/"]) #import "internal/numerics/math";
+using,only(.["+", "-", "*", "/", "=="]) #import "internal/numerics/math";
 
 #scope_file
 Impl :: #import "internal/numerics/math";

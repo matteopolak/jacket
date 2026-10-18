@@ -30,6 +30,10 @@ max :: inline (v1: Vector2, v2: Vector2) -> Vector2 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y) };
 } @UseResult @Maximum
 
+operator == :: (a: Vector2, b: Vector2) -> bool {
+    return a.x == b.x && a.y == b.y;
+}
+
 operator + :: (a: Vector2, b: Vector2) -> Vector2 {
     return .{ a.x + b.x, a.y + b.y };
 }
@@ -122,6 +126,10 @@ max :: inline (v1: Vector3, v2: Vector3) -> Vector3 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z) };
 } @UseResult @Maximum
 
+operator == :: (a: Vector3, b: Vector3) -> bool {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
 operator + :: (a: Vector3, b: Vector3) -> Vector3 {
     return .{ a.x + b.x, a.y + b.y, a.z + b.z };
 }
@@ -205,6 +213,10 @@ min :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
 max :: inline (v1: Vector4, v2: Vector4) -> Vector4 {
     return .{ max(v1.x, v2.x), max(v1.y, v2.y), max(v1.z, v2.z), max(v1.w, v2.w) };
 } @UseResult @Maximum
+
+operator == :: (a: Vector4, b: Vector4) -> bool {
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+}
 
 operator + :: (a: Vector4, b: Vector4) -> Vector4 {
     return .{ a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };
