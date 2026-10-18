@@ -8,6 +8,8 @@
 //! side tables (polymorphic procedures are checked once per instantiation).
 use crate::intern::Sym;
 use crate::source::Span;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod relocate;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -24,6 +26,25 @@ impl AstId {
             let id = n.get();
             n.set(id + 1);
             AstId(id)
+        })
+    }
+
+    /// The next id `fresh` hands out on this thread.
+    pub fn next() -> u32 {
+        NEXT_AST_ID.with(Cell::get)
+    }
+
+    /// Restarts this thread's numbering (a parse worker numbers each file from zero).
+    pub fn restart() {
+        NEXT_AST_ID.with(|n| n.set(0));
+    }
+
+    /// Sets aside `count` ids and returns the first, for a tree parsed elsewhere.
+    pub fn reserve(count: u32) -> u32 {
+        NEXT_AST_ID.with(|n| {
+            let base = n.get();
+            n.set(base + count);
+            base
         })
     }
 }

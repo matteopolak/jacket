@@ -25,6 +25,22 @@ Choices that matter:
 - **Optimized builds are divided before the optimizer** (`partition.rs`, [LLVM backend](../native/llvm-backend.md)): the call graph is split into up to 8 parts, each optimized and code-generated on its own thread. `JAIC_CODEGEN_UNITS=1` restores whole-program optimization; the division applies whatever `enable_split_modules` says. `partition::inline_cuts` stops any function growing past 4,000 instructions by inlining; without it, a generated driver calling hundreds of procedures once each pulled them all in and loop passes went superlinear (250k lines: 301 s before, 17 s after).
 - **Unoptimized runtime**: small copies and fills (up to 64 bytes) are emitted as loads and stores (`Backend::inline_copy`) because FastISel turns `memcpy` into a library call; constant divisors and shifts skip their guards; `x += y` does not go through a hidden address slot; [stack trace nodes](stack-traces.md) are omitted for leaf procedures (and for any procedure that only passes its context on; a regression here once gave every helper a node, 15% of `runtime-compute`) and line stores only happen when a call can follow. Variables stay in stack slots: `mem2reg` at `-O0` made hot loops slower under the fast register allocator and hides variables from debuggers.
 
+### Parallel lex and parse
+
+`parse_ahead.rs` lexes and parses source files on worker threads while sema runs. At the start of `prepare_sources` (`Compiler::start_parse_ahead`) it queues the files a compile loads first: the preload module, `Runtime_Support` and the program's files. Each worker reads and parses a file (standard library files with `parse_file_for_target`, as `library_platform` decides), then scans its top-level `#load` and `#import` statements, resolves them with the functions sema uses (`find_module_in`, relative `dir.join`) and queues files not yet seen. A `#if` on `OS`/`CPU` (combined with `&&`, `||`, `!`) follows only the branch that holds for the target; other conditions follow both branches.
+
+Sema asks for a file in `load_file_inner` through `ParseAhead::claim(canonical path)`:
+
+- finished: it takes the parse, adds the source file, and `PreparedTree::finish(file_id)` rewrites the tree (`ast/relocate.rs`);
+- still being parsed: it waits;
+- queued but not started, never predicted (a computed `#load` path, a `#run`-generated load), a second instance of an already claimed file, or any failure: it parses inline, exactly as before, and `discover`s that file's imports for the workers. Parse errors always come from this path, so diagnostics are unchanged.
+
+Results match a serial run byte for byte because nothing a worker produces depends on timing. File ids are assigned when sema claims (not when the worker finishes). A worker parses with a placeholder file id, `AstId`s from zero and a per-job symbol table (`intern::begin_job`/`end_job`: the spellings in first-seen order). At claim, on the main thread, those spellings are interned in order (what the serial parse would have interned), `AstId`s are reserved from the compile's counter, and `relocate` rewrites every span, id and symbol. A wrong prediction only wastes a parse. The tree moves between threads through `Handoff`, an `unsafe impl Send` justified by the tree owning all its `Rc`s.
+
+Measured on the 10-core development Mac (sandboxed shell, mimalloc), `-check`, median of 21: hello 33.1 -> 29.2 ms, 60k generated lines 146 -> 120 ms, using up to 4 workers (about 1.3 cores of CPU per check instead of 1). What stays on the main thread is the claim itself (source map entry and relocation, about 5% of a 60k-line check), waiting for the first big file, and the roughly 10 ms of process start and exit that hello world is mostly made of. `-timings` still shows one `front end` phase, now shorter.
+
+The IDE (`Compiler::ide`), non-native filesystems and `wasm32` always parse serially. `JAIC_SERIAL_PARSE=1` turns the workers off (use it to compare outputs); `JAIC_PARSE_THREADS=N` sets their number (default: cores - 1, at most 4).
+
 ### Interpreter speed
 
 `#run`, metaprograms, `jaic -interp` and the playground run in `interp/` ([interpreter](interpreter.md#the-interpreters-code-form)). It uses one flat op array with a program counter, registers on the interpreter stack (a call is `enter` plus an argument copy), specialized load/store/div/call ops, boxed `Trap` to keep `Res<u64>` at 16 bytes, and a region cache in the memory probe (`interp/probe.rs`) flushed by an epoch that `invalidate()` bumps after any foreign call that can unmap memory. Constant `#run` thunks are profiled like any other call (`LeakOnExit` flushes the profile before leaking). Remaining costs: call overhead (about a quarter of `interp-strings`; `run_ops` recurses per call), dispatch mispredicts, `trace_enter` under `jaic -interp`, second-table dispatch for compare ops, and calls recursing on the Rust stack.
@@ -60,6 +76,7 @@ The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus proje
 ## How to change it
 
 - Measure with `jaic x.jai -exe out -timings` on an idle machine, 5 or more warm runs (a busy process moves results 10 to 20%). `python3 tools/bench/main.py compile` ([benchmarks](../tools/benchmarks.md)) runs corpus projects, the compile-time-heavy programs in `benchmarks/compile/` and corpus-shaped programs from `tools/benchgen.py` (`gen-2k`/`gen-10k`/`gen-60k`).
+- To change what the parse crawl follows, edit `Shared::collect` in `parse_ahead.rs`; keep it a guess (never let it change what sema loads). The bit-exactness test is `parse_ahead::tests::relocated_parse_equals_serial_parse`; for end-to-end checks compare `jaic` output with and without `JAIC_SERIAL_PARSE=1`. Parallel type checking could reuse the same parse cache.
 - To compare ISel strategies, run `llc -O0 -global-isel=0` on `-emit_ir` output.
 - Profile with samply ([benchmarks](../tools/benchmarks.md)). `Interp::run_code` is the main item left for metaprogram-heavy code, then `trace_enter`, then `build::call` and `write_item`.
 - Ideas left: LiveDebugValues cost at `-O0`; load CSE for null-check facts; fewer `lookup_full` clones of `using` lists in sema; interpreter speed.
@@ -68,6 +85,7 @@ The geometric mean is about 8% faster. Peak RSS is 4–8% higher on corpus proje
 
 - `JAIC_CODEGEN_UNITS=N`, `JAIC_VERIFY_IR`, `JAIC_DSYM`: see [LLVM backend](../native/llvm-backend.md#configuration) and [debug info](../native/debug-info.md).
 - `-timings`: phase table on stderr.
+- `JAIC_SERIAL_PARSE=1`, `JAIC_PARSE_THREADS=N`: see [parallel lex and parse](#parallel-lex-and-parse).
 - `jaic-cli` feature `mimalloc`: mimalloc under the memory-limit counter (on with `dynamic-llvm` and `static-llvm`, see [Allocator](#allocator)).
 
 ## Dependencies

@@ -387,6 +387,8 @@ pub struct Compiler {
     pub fs: Rc<dyn FileSystem>,
     /// Real paths already worked out (see [`Compiler::canon`]).
     canon_cache: crate::paths::CanonCache,
+    /// Worker threads lexing and parsing the files this compile will load (`parse_ahead`).
+    ahead: Option<crate::parse_ahead::ParseAhead>,
     pub sources: SourceMap,
     pub types: Types,
     pub program: ir::Program,
@@ -691,6 +693,7 @@ impl Compiler {
             options,
             fs,
             canon_cache: crate::paths::CanonCache::new(),
+            ahead: None,
             sources: SourceMap::default(),
             types: Types::new(),
             program: ir::Program {
