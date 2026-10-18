@@ -231,7 +231,7 @@ impl Compiler {
         let entry = module
             .path
             .as_ref()
-            .map(|p| self.fs.canonical(p).display().to_string())
+            .map(|p| self.canon(p).display().to_string())
             .or_else(|| {
                 module
                     .files
@@ -292,10 +292,10 @@ impl Compiler {
             let dir = self
                 .options
                 .stdlib_root()
-                .map(|root| self.fs.canonical(root))
+                .map(|root| self.canon(root))
                 .or_else(|| {
                     self.find_module("Runtime_Support", std::path::Path::new(""))
-                        .and_then(|p| p.parent().map(|d| self.fs.canonical(d)))
+                        .and_then(|p| p.parent().map(|d| self.canon(d)))
                 });
             self.export.system_dir = Some(dir);
         }
@@ -303,7 +303,7 @@ impl Compiler {
             return system;
         }
         let system = match (&self.export.system_dir, &self.modules[m.0 as usize].path) {
-            (Some(Some(dir)), Some(path)) => self.fs.canonical(path).starts_with(dir),
+            (Some(Some(dir)), Some(path)) => self.canon(path).starts_with(dir),
             _ => false,
         };
         self.export.system_modules.insert(m, system);

@@ -106,6 +106,16 @@ impl CanonCache {
         self.0.lock().expect("path cache lock").clear();
     }
 
+    /// The remembered answer for `path`, if there is one.
+    pub fn get(&self, path: &Path) -> Option<PathBuf> {
+        self.lookup(path)
+    }
+
+    /// Remember that `path` is `found`.
+    pub fn remember(&self, path: &Path, found: PathBuf) {
+        self.store(path, found);
+    }
+
     fn lookup(&self, path: &Path) -> Option<PathBuf> {
         self.0.lock().expect("path cache lock").get(path).cloned()
     }

@@ -16,6 +16,13 @@ pub trait FileSystem {
         normalize(path)
     }
 
+    /// The real path of `path` when this file system could work it out, which is the only
+    /// answer worth remembering: a file that does not exist yet may exist later. A file system
+    /// with nothing but lexical answers always has one.
+    fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
+        Some(self.canonical(path))
+    }
+
     /// Names (and whether each is a directory) directly inside `path`; used by the sandbox host.
     fn list_dir(&self, _path: &Path) -> Vec<(String, bool)> {
         Vec::new()
@@ -62,7 +69,12 @@ impl FileSystem for NativeFs {
     }
 
     fn canonical(&self, path: &Path) -> PathBuf {
-        crate::canonicalize(path).unwrap_or_else(|_| normalize(path))
+        self.canonical_exact(path)
+            .unwrap_or_else(|| normalize(path))
+    }
+
+    fn canonical_exact(&self, path: &Path) -> Option<PathBuf> {
+        crate::canonicalize(path).ok()
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
@@ -189,6 +201,21 @@ fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
 const INFERRED_PARAM: &str = "\0inferred.";
 
 impl Compiler {
+    /// `self.fs.canonical(path)`, remembered for the rest of the run: the standard library's
+    /// modules are named over and over, and every uncached answer is a `realpath` walk.
+    pub(super) fn canon(&self, path: &Path) -> PathBuf {
+        if let Some(real) = self.canon_cache.get(path) {
+            return real;
+        }
+        match self.fs.canonical_exact(path) {
+            Some(real) => {
+                self.canon_cache.remember(path, real.clone());
+                real
+            }
+            None => normalize(path),
+        }
+    }
+
     /// For a missing module that is one of jaic's `stdlib/Extensions/` modules imported without
     /// the `Extensions/` path (or the folder itself, or the old `Jaic_Extensions`): `d` with that
     /// help, which replaces the general search help. `Err(d)` unchanged otherwise.
@@ -299,7 +326,7 @@ impl Compiler {
         }
         let searched: Vec<String> = dirs
             .iter()
-            .map(|d| format!("    {}", self.fs.canonical(d).display()))
+            .map(|d| format!("    {}", self.canon(d).display()))
             .collect();
         d = d.with_note(
             Span::NONE,
@@ -335,7 +362,7 @@ impl Compiler {
             self.fs.is_file(&dir.join(format!("{name}.jai")))
                 || self.fs.is_file(&dir.join(name).join("module.jai"))
         };
-        let start = self.fs.canonical(from_dir);
+        let start = self.canon(from_dir);
         for ancestor in start.ancestors().take(4) {
             if holds(ancestor) {
                 return Some(ancestor.to_path_buf());
@@ -429,24 +456,23 @@ impl Compiler {
     fn check_source_access(&self, path: &Path, span: Span) -> Result<()> {
         if span == Span::NONE
             && self.ide.is_some()
-            && self.ide_selected_entry.as_ref() == Some(&self.fs.canonical(path))
+            && self.ide_selected_entry.as_ref() == Some(&self.canon(path))
         {
             return Ok(());
         }
         let Some(stdlib) = self.options.stdlib_root() else {
             return Ok(());
         };
-        let internal = self.fs.canonical(&stdlib.join("internal"));
-        if !self.fs.canonical(path).starts_with(&internal) {
+        let internal = self.canon(&stdlib.join("internal"));
+        if !self.canon(path).starts_with(&internal) {
             return Ok(());
         }
         let from_library = self
             .sources
             .try_get(self.source_origin(span.file))
             .is_some_and(|source| {
-                self.fs
-                    .canonical(Path::new(&source.path))
-                    .starts_with(self.fs.canonical(stdlib))
+                self.canon(Path::new(&source.path))
+                    .starts_with(self.canon(stdlib))
             });
         if from_library {
             return Ok(());
@@ -460,7 +486,7 @@ impl Compiler {
     /// Load a file into `module`, declaring its top-level statements.
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_source_access(path, span)?;
-        let path = self.fs.canonical(path);
+        let path = self.canon(path);
         let key = (path.clone(), module);
         if let Some(state) = self.file_by_path.get(&key) {
             return match state {
@@ -543,7 +569,7 @@ impl Compiler {
         // Jai identifies an instance by the argument list as written. Reordering
         // named arguments creates another instance, even when the effective values match.
         // Keep positional names and explicit/default argument differences in the key too.
-        let key = (self.fs.canonical(entry), params.clone());
+        let key = (self.canon(entry), params.clone());
         if let Some(&id) = self.module_cache.get(&key) {
             if let Some(import) = import {
                 self.validate_or_queue_import_groups(id, import)?;
@@ -685,7 +711,7 @@ impl Compiler {
         let Some(entry) = self.find_module(name, &self.file_dir(file)) else {
             return;
         };
-        let path = self.fs.canonical(&entry);
+        let path = self.canon(&entry);
         for arg in arguments {
             if let Some(n) = arg.name {
                 self.program_param_settings.push((
@@ -712,7 +738,7 @@ impl Compiler {
         let Some(path) = self.modules[module.0 as usize].path.clone() else {
             return;
         };
-        let path = self.fs.canonical(&path);
+        let path = self.canon(&path);
         for (p, name, value, scope) in self.program_param_settings.clone() {
             if p != path
                 || !self.modules[module.0 as usize]
@@ -1863,11 +1889,10 @@ impl Compiler {
         };
         let entry = match provided.kind {
             ProvidedKind::ShortName => self.find_module(&provided.value, dir),
-            ProvidedKind::PathToFile => Some(self.fs.canonical(Path::new(&provided.value))),
-            ProvidedKind::PathToDirectory => Some(
-                self.fs
-                    .canonical(&Path::new(&provided.value).join("module.jai")),
-            ),
+            ProvidedKind::PathToFile => Some(self.canon(Path::new(&provided.value))),
+            ProvidedKind::PathToDirectory => {
+                Some(self.canon(&Path::new(&provided.value).join("module.jai")))
+            }
             ProvidedKind::FullText => {
                 if let Some(&id) = self.provided_texts.get(&provided.value) {
                     self.validate_or_queue_import_groups(id, import)?;

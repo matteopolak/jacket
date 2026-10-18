@@ -113,7 +113,7 @@ impl Compiler {
     pub fn prepare_sources(&mut self, sources: &[ProgramSource]) -> Result<()> {
         self.ide_selected_entry = if self.ide.is_some() {
             sources.iter().find_map(|source| match source {
-                ProgramSource::File(path) => Some(self.fs.canonical(path)),
+                ProgramSource::File(path) => Some(self.canon(path)),
                 _ => None,
             })
         } else {

@@ -384,6 +384,8 @@ pub struct Compiler {
     pub interp: crate::interp::Interp,
     pub options: Options,
     pub fs: Rc<dyn FileSystem>,
+    /// Real paths already worked out (see [`Compiler::canon`]).
+    canon_cache: crate::paths::CanonCache,
     pub sources: SourceMap,
     pub types: Types,
     pub program: ir::Program,
@@ -684,6 +686,7 @@ impl Compiler {
             library_files: Default::default(),
             options,
             fs,
+            canon_cache: crate::paths::CanonCache::new(),
             sources: SourceMap::default(),
             types: Types::new(),
             program: ir::Program {

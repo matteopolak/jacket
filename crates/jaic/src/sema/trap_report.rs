@@ -260,8 +260,8 @@ impl Compiler {
             return known;
         }
         let known = self.options.stdlib_root().is_some_and(|stdlib| {
-            let path = self.fs.canonical(Path::new(&self.sources.get(file).path));
-            path.starts_with(self.fs.canonical(stdlib))
+            let path = self.canon(Path::new(&self.sources.get(file).path));
+            path.starts_with(self.canon(stdlib))
         });
         self.library_files.borrow_mut().insert(file.0, known);
         known
