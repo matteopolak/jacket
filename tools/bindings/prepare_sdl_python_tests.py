@@ -7,6 +7,12 @@ offline mode never downloads. Only exact archive members needed by configuration
 tests are staged, not a replacement SDK or fabricated configuration.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json

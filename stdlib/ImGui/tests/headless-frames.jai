@@ -1,4 +1,4 @@
-// Dear ImGui against the pinned library (tools/build_native_libs.py): a context with no window or
+// Dear ImGui against the pinned library (tools/native/build_native_libs.py): a context with no window or
 // renderer. Builds the font atlas, runs frames that lay out a window with a button, a checkbox and a
 // slider, clicks the button and the checkbox with injected mouse events, and checks the draw data
 // the frame produces. The bindings name C++ symbols (Itanium or MSVC decorated), so a library built

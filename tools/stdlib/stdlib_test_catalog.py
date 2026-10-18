@@ -15,6 +15,12 @@ This holds no expected-failure baseline. Every selected supported case runs; com
 errors remain failures.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "numerics",)]  # modules from other tools/ folders
+
 import json
 import os
 from pathlib import Path
@@ -25,7 +31,7 @@ from numerics_case_capabilities import (
     numerics_unavailable_reason,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 COMPILER_REGRESSIONS = "tests/compiler/regressions"
 
 ROW_KEYS = frozenset(

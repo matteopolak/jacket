@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/native_bindings"))
 from build_dependencies import prepare_source  # noqa: E402
 from prepare_rpmalloc import prepare  # noqa: E402

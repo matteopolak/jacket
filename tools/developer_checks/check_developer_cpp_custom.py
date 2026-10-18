@@ -9,7 +9,7 @@ import build_developer_bindings
 import build_generator_platform
 from driven_sources import driven
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 JAIC = ROOT / "target/debug/jaic"
 

@@ -11,7 +11,7 @@ from pathlib import Path
 import platform
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if platform.system() != "Darwin":
     raise RuntimeError("native watcher backend currently supports macOS only")
 parser = argparse.ArgumentParser(description=__doc__)

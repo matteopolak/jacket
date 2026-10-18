@@ -6,7 +6,7 @@ import unittest
 
 from native_bindings.config import LIBRARIES
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SYMBOLS = {"_beginthreadex", "_endthreadex", "getenv", "_wgetenv"}
 
 

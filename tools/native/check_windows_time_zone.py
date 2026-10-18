@@ -10,7 +10,7 @@ import platform
 import subprocess
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows-time-zone-layout.jai"
 C_FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows_time_zone_sdk.c"
 

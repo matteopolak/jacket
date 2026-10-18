@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build Slang from source and install it where the sgpu corpus project expects it.
 
-    python3 tools/build_slang.py [--jobs N] [--force]
+    python3 tools/native/build_slang.py [--jobs N] [--force]
 
 Clones https://github.com/shader-slang/slang at a pinned tag into
 <repo>/target/thirdparty/slang, builds a Release shared library with CMake, and installs
@@ -9,6 +9,12 @@ Clones https://github.com/shader-slang/slang at a pinned tag into
 (glslang, glsl-module) into <sgpu>/modules/slang/<mac|linux>/. Idempotent: reruns reuse the clone and
 build directory, and skip the install when the files are already present (use --force to redo it).
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import argparse
 import glob
 import os

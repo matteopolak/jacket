@@ -1,7 +1,7 @@
 // SDL2 without a window: the library version and platform name, the rectangle and line geometry
 // helpers, hints, the timer subsystem and its clocks, and the error string. SDL2 is the installed
 // library on macOS and Linux (Homebrew's `sdl2`, the distribution's libsdl2) and the official
-// release's import library and DLL on Windows (tools/native-libs.json), so this checks the module
+// release's import library and DLL on Windows (tools/native/native-libs.json), so this checks the module
 // against whichever copy the toolchain finds.
 #import "Basic";
 #import "SDL";

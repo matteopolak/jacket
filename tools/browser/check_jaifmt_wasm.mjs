@@ -2,11 +2,11 @@
 // every Jai_Format golden case must format to its .out.jai, and a config error, refused input,
 // a file of several hundred lines and idempotence must behave. Prints how long the runs take.
 //
-//   node tools/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]
+//   node tools/browser/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]
 //       the playground's Format button: jaifmt/playground.jai runs in the wasm interpreter on
 //       files in the virtual /workspace. A .wasm path runs with crates/jai-wasm/js/engine.mjs; a
 //       staged directory with its own engine (default target/scripting-runtime).
-//   node --no-warnings tools/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]
+//   node --no-warnings tools/browser/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]
 //       jaifmt.wasm (jaifmt/wasm.jai compiled by `jaic -os wasm`) the way a page uses it: source
 //       on stdin, the jaifmt.toml text in --config, the result on stdout. Given a native jaifmt,
 //       every golden case must also match `jaifmt --stdin --config <file>`. Needs node 24 (Memory64).
@@ -22,8 +22,8 @@ import { WASI } from "node:wasi";
 import { goldenCaseNames, optionalConfig, readUtf8 } from "./formatter_fixture_inputs.mjs";
 import { outputDir, root } from "./repo_output.mjs";
 
-const USAGE = "usage: node tools/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]\n" +
-  "       node tools/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]";
+const USAGE = "usage: node tools/browser/check_jaifmt_wasm.mjs engine [jai_wasm.wasm | staged-dir]\n" +
+  "       node tools/browser/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]";
 
 // A backend runs the formatter once: format(source, { config, name }) resolves to
 // { exitCode, stdout, stderr, ms }. The patterns are what that backend prints for each refusal.

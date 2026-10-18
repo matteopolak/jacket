@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enforce a blank line between Rust items, which rustfmt does not do.
 
-    python3 tools/rust_item_spacing.py [--check] [paths...]
+    python3 tools/dev/rust_item_spacing.py [--check] [paths...]
 
 Items are the declarations at the top of a file and inside `impl`, `trait`, `mod` and `extern`
 blocks. A multi-line item gets a blank line before and after it; runs of one-line items (`use`,
@@ -19,7 +19,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CONTAINER = re.compile(
     r"^(pub(\([^)]*\))?\s+)?(default\s+)?(unsafe\s+)?(impl|trait|mod|extern)\b"
 )

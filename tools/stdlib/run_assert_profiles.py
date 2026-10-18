@@ -1,4 +1,10 @@
 """Execute real Io imports under both assertion profiles without source overlays."""
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json

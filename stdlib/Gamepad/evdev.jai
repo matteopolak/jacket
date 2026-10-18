@@ -1,4 +1,4 @@
-// Regenerate with tools/window_render_evdev.py and the source-built repository formatter.
+// Regenerate with tools/generators/window_render_evdev.py and the source-built repository formatter.
 libevdev :: struct {}
 libevdev_uinput :: struct {}
 

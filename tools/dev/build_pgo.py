@@ -11,7 +11,7 @@ Steps (docs/tools/releases.md):
      workload again, and rewrite them with the collected profile.
 The results are copied to --out (default <target-dir>/pgo/dist).
 
-Usage: tools/build_pgo.py [--llvm dynamic|static|none] [--bolt] [--jobs N] [--out DIR]
+Usage: tools/dev/build_pgo.py [--llvm dynamic|static|none] [--bolt] [--jobs N] [--out DIR]
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 TOOLS = ("jaic", "jailsp", "jailint")
 EXE = ".exe" if os.name == "nt" else ""
 # `jaic-cli` features per --llvm choice; the other two packages always use their defaults.
@@ -212,7 +212,7 @@ def train(bins, args, env, native):
     """Run the training workload with `bins`. Failures are reported but do not stop the build:
     the profile only needs representative work, and the sweep is the correctness gate."""
     py = sys.executable
-    sweep = [py, ROOT / "tools/jaic-sweep.py", "--jaic", bins["jaic"], "--allow-stale", "--headless",
+    sweep = [py, ROOT / "tools/differential/jaic-sweep.py", "--jaic", bins["jaic"], "--allow-stale", "--headless",
              "--jobs", str(args.jobs), "--timeout", "300"]
     steps = [("sweep (check and run)", sweep + ["corpus", "negative", "regressions", "modules", "examples"])]
     if native:

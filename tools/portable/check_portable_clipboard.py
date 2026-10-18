@@ -13,7 +13,7 @@ import tempfile
 
 from clipboard_linux_diagnostics import failure_diagnostic, report_failure
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 JAI = [
     "stdlib/Clipboard/module.jai",
     "stdlib/internal/clipboard/linux.jai",
@@ -56,11 +56,11 @@ def inputs():
         + C
         + TEST_C
         + [
-            "tools/check_portable_clipboard.py",
-            "tools/build_portable_clipboard.py",
-            "tools/check_portable_clipboard_clock.py",
-            "tools/clipboard_linux_diagnostics.py",
-            "tools/test_clipboard_linux_diagnostics.py",
+            "tools/portable/check_portable_clipboard.py",
+            "tools/portable/build_portable_clipboard.py",
+            "tools/portable/check_portable_clipboard_clock.py",
+            "tools/portable/clipboard_linux_diagnostics.py",
+            "tools/portable/test_clipboard_linux_diagnostics.py",
             "docs/specs/stdlib/modules/clipboard.md",
         ]
     )
@@ -276,10 +276,10 @@ def main():
         [
             "ruff",
             "check",
-            ROOT / "tools/check_portable_clipboard.py",
-            ROOT / "tools/build_portable_clipboard.py",
-            ROOT / "tools/clipboard_linux_diagnostics.py",
-            ROOT / "tools/test_clipboard_linux_diagnostics.py",
+            ROOT / "tools/portable/check_portable_clipboard.py",
+            ROOT / "tools/portable/build_portable_clipboard.py",
+            ROOT / "tools/portable/clipboard_linux_diagnostics.py",
+            ROOT / "tools/portable/test_clipboard_linux_diagnostics.py",
         ],
     )
     run(
@@ -288,10 +288,10 @@ def main():
             "ruff",
             "format",
             "--check",
-            ROOT / "tools/check_portable_clipboard.py",
-            ROOT / "tools/build_portable_clipboard.py",
-            ROOT / "tools/clipboard_linux_diagnostics.py",
-            ROOT / "tools/test_clipboard_linux_diagnostics.py",
+            ROOT / "tools/portable/check_portable_clipboard.py",
+            ROOT / "tools/portable/build_portable_clipboard.py",
+            ROOT / "tools/portable/clipboard_linux_diagnostics.py",
+            ROOT / "tools/portable/test_clipboard_linux_diagnostics.py",
         ],
     )
     run(
@@ -300,7 +300,7 @@ def main():
     )
     run(
         "clock-failure-core",
-        [sys.executable, ROOT / "tools/check_portable_clipboard_clock.py"],
+        [sys.executable, ROOT / "tools/portable/check_portable_clipboard_clock.py"],
     )
     if args.linux_runtime and built:
         native = work / "native"
@@ -308,7 +308,7 @@ def main():
             "linux-helper-build",
             [
                 sys.executable,
-                ROOT / "tools/build_portable_clipboard.py",
+                ROOT / "tools/portable/build_portable_clipboard.py",
                 "--output",
                 native,
             ],

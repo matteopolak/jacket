@@ -38,7 +38,7 @@ New inference rules go in `calls/infer.rs`; instance creation is `instantiate` i
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Polymorphic procedures and structs (`$T`, `$N`, `$T/Constraint`) are instantiated once per distinct set of constant arguments {#poly.1}. `#bake_arguments` makes a new procedure or struct with some parameters fixed.
 - These give the commented results: `$T` inferred from an argument {#poly.2}, an explicit `$T: Type` {#poly.3}, `[] $T` from an array {#poly.4}, `$R` from a lambda's result {#poly.5} and a constant `$N` {#poly.6}.

@@ -1,4 +1,4 @@
-// MojoShader against the pinned library (tools/build_native_libs.py): Direct3D shader bytecode in,
+// MojoShader against the pinned library (tools/native/build_native_libs.py): Direct3D shader bytecode in,
 // GLSL and ARB assembly out, no graphics context. Checks the library identifies itself, a
 // hand-written pixel shader token stream translates, the bytecode assembler produces that same
 // stream from text, the HLSL compiler (built with its Lemon-generated parser) accepts a small

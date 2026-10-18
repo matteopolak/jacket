@@ -1,7 +1,7 @@
 // The browser side of stdlib/Extensions/WebGPU: host functions for engine.mjs that run a Jai program's
 // wgpu* calls on the page's WebGPU (navigator.gpu), plus its canvas and input.
 //
-// Most calls need no code here: webgpu_bindings.generated.mjs (tools/webgpu_gen.py, from
+// Most calls need no code here: webgpu_bindings.generated.mjs (tools/bindings/webgpu_gen.py, from
 // webgpu.yml) describes every function's arguments and every struct's layout, and `call` below
 // reads them from the module's memory into the dictionaries the JS API takes, calls the method of
 // the same name (wgpuDeviceCreateBuffer -> device.createBuffer) and converts the result. OVERRIDES

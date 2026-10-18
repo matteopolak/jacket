@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 
-root = Path(__file__).resolve().parents[2]
+root = Path(__file__).resolve().parents[3]
 sources = [
     "stdlib/Ico_File", "stdlib/Simple_Package", "stdlib/Subtitles",
     "stdlib/internal/resource-wire", "stdlib/internal/simple-package",
@@ -41,7 +41,7 @@ if os.name == "nt":
 linter = (args.linter or root / ("target/debug/jailint.exe" if os.name == "nt" else "target/debug/jailint")).resolve(strict=True)
 
 def context_lint():
-    subprocess.run([sys.executable, str(root / "tools/portable_data_context_lint.py"),
+    subprocess.run([sys.executable, str(root / "tools/portable/portable_data_context_lint.py"),
                     "--linter", str(linter), "--stdlib", str(root / "stdlib"),
                     "--output-root", str(output / "lint"), *sources, *windows_sources],
                    cwd=root, env=env, check=True)
@@ -67,10 +67,10 @@ def wasm_test(source, name):
     except subprocess.CalledProcessError:
         failures.append(f"WASI {name}")
 
-run(sys.executable, "tools/portable_data/api_inventory.py")
+run(sys.executable, "tools/portable/portable_data/api_inventory.py")
 run(formatter, "--check", *sources)
 context_lint()
-run(sys.executable, "tools/portable_data/wire_consumer.py", output, "fixtures")
+run(sys.executable, "tools/portable/portable_data/wire_consumer.py", output, "fixtures")
 PROGRAMS = {
     "ico-wire": "stdlib/Ico_File/tests/wire.jai",
     "ico-filename": "stdlib/Ico_File/tests/filename.jai",
@@ -105,8 +105,8 @@ for mode in ("O0", "O2"):
     with (output / f"manifests-{mode}.xml").open("w") as stream:
         subprocess.run([str(binary)], cwd=root, env=env, stdout=stream, check=True)
 wasm_test("stdlib/Windows_Resources/tests/manifest.jai", "manifest")
-run(sys.executable, "tools/portable_data/sdk_resources.py", output)
-run(sys.executable, "tools/portable_data/wire_consumer.py", output)
+run(sys.executable, "tools/portable/portable_data/sdk_resources.py", output)
+run(sys.executable, "tools/portable/portable_data/wire_consumer.py", output)
 run(formatter, "--check", *windows_sources)
 for cpu in ("x64", "arm64"):
     for source in windows_sources[2:]:
@@ -129,11 +129,11 @@ if os.name == "nt":
             binary = output / f"{name}-windows-{mode}.exe"
             run(compiler, f"-{mode}", source, "-exe", binary)
             run(binary, output)
-        run(sys.executable, "tools/portable_data/sdk_discovery.py", output)
+        run(sys.executable, "tools/portable/portable_data/sdk_discovery.py", output)
         plugin_output = output / f"with-icon-{mode}.exe"
         run(compiler, f"-{mode}", "stdlib/Simple_Package/tests/package.jai",
             "-exe", plugin_output, "+Icon", "-icon", output / "resource.ico")
-        run(sys.executable, "tools/portable_data/sdk_icon_output.py",
+        run(sys.executable, "tools/portable/portable_data/sdk_icon_output.py",
             plugin_output, output / "resource.ico")
     print("Scoped tests including native Windows resource/discovery/CLI Icon passed.")
 else:

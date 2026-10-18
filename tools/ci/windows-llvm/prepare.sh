@@ -3,7 +3,7 @@
 # linkable by llvm-sys. Used by .github/workflows/ci.yml and release.yml; see
 # docs/tools/llvm-setup.md ("Windows MSVC builds").
 #
-#   bash tools/windows-llvm/prepare.sh <llvm dir, POSIX spelling>
+#   bash tools/ci/windows-llvm/prepare.sh <llvm dir, POSIX spelling>
 #
 # Runs in Git Bash on a Windows runner (needs cygpath, curl, tar and the Visual Studio libraries
 # that the release's clang finds by itself).

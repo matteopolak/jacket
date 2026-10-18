@@ -4,7 +4,7 @@ Regression sweeps, differential testing, fuzzing and the stdlib checks. Which on
 
 ## jaic sweep
 
-`tools/jaic-sweep.py`.
+`tools/differential/jaic-sweep.py`.
 
 Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <mode> <path>` from the file's directory and compares exit code (and stdout where recorded).
 
@@ -19,7 +19,7 @@ Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <m
 | a path | that file | run |
 
 ```sh
-python3 tools/jaic-sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
+python3 tools/differential/jaic-sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
 ```
 
 Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full sweep), `--jobs` (default CPU count capped so jobs times memory limit fits in RAM), `--memory-limit GIB` (default 3), `--native` (build each run case and run the executable), `--opt O0..O3`, `--sanitize address,undefined` ([sanitizers](../native/sanitizers.md)), `--headless` (programs importing `Window_Creation` are only checked or built), `--allow-stale`.
@@ -36,7 +36,7 @@ Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full swee
 
 ## Differential testing
 
-`tools/jaic-diff.py`.
+`tools/differential/jaic-diff.py`.
 
 jaic has no independent implementation to compare with, so it is compared with itself: every program runs through backends that share the front end and little else, and results must match.
 
@@ -44,27 +44,27 @@ jaic has no independent implementation to compare with, so it is compared with i
 | --- | --- |
 | `interp` | `jaic -interp` |
 | `native` / `native-O2` | `jaic -O0` / `-O2`, then the executable (LLVM) |
-| `wasm` | browser engine (`crates/jai-wasm`) through `tools/jaic_diff_wasm.mjs`: interpreter compiled to wasm32, target OS `.WASM`, `SandboxHost` libc |
+| `wasm` | browser engine (`crates/jai-wasm`) through `tools/differential/jaic_diff_wasm.mjs`: interpreter compiled to wasm32, target OS `.WASM`, `SandboxHost` libc |
 | `wasm-native` | `jaic -os wasm` run by node's WASI (`tools/wasi_run.mjs`); only when named in `--backends`; needs `wasm-ld` and node 24 |
 
 ```sh
 cargo build --release -p jaic-cli
-python3 tools/build_scripting_wasm.py --release --output /tmp/wasm
-python3 tools/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
-python3 tools/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
+python3 tools/browser/build_scripting_wasm.py --release --output /tmp/wasm
+python3 tools/differential/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
+python3 tools/differential/jaic-diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
 ```
 
-Sets are `corpus`, `regressions`, `modules`, a file path, or `gen:SEED:COUNT` (programs from `tools/jaigen.py`). A result is `(status, stdout, stderr)`: status is `exit N` or `runtime error` (only the fact is compared, since backends word failures differently); stdout must match exactly; stderr must match when all exited normally; paths are normalized (`/workspace`, `/stdlib`). Verdicts: `agree`, `DISAGREE` (also when one backend fails to compile what another compiled), `invalid` (no backend compiled it), `skip` (fewer than two ran). Exit 1 on any `DISAGREE` or `invalid`. Run it with one heavy job at a time (two native executables per program) and pick seeds no earlier campaign used.
+Sets are `corpus`, `regressions`, `modules`, a file path, or `gen:SEED:COUNT` (programs from `tools/differential/jaigen.py`). A result is `(status, stdout, stderr)`: status is `exit N` or `runtime error` (only the fact is compared, since backends word failures differently); stdout must match exactly; stderr must match when all exited normally; paths are normalized (`/workspace`, `/stdlib`). Verdicts: `agree`, `DISAGREE` (also when one backend fails to compile what another compiled), `invalid` (no backend compiled it), `skip` (fewer than two ran). Exit 1 on any `DISAGREE` or `invalid`. Run it with one heavy job at a time (two native executables per program) and pick seeds no earlier campaign used.
 
 A backend is declined for a case only for a stated reason taken from existing metadata, not wording: the wasm engine's own diagnostic codes (`unavailable`, `unknown-library`, `static-assert`, `missing-file`), no `main`, no executable written, or a `#compiler` primitive called at run time. A source mentioning `.WASM` may skip work in the browser on purpose, so its `wasm` result compares status only. `OUTPUT_VARIES` lists cases where only status is compared, each with a reason (printed target ABI, measured times, native stack traces).
 
 **Generator.** `jaigen.py SEED [--size S]` prints one deterministic program that keeps an FNV checksum and prints it at the end. It covers integers and floats of every width, casts, structs, `using`, operator overloads, unions, arrays, loops, switches, enums, `defer`, strings, overloads, variadics, `Any`/reflection, polymorphism, `#run` constants and `print` of every type. Programs use only defined behaviour: wrapping integer arithmetic, masked shifts, no divisor of 0 or -1, in-range float to int, canonical NaN, pure procedures inside expressions (evaluation order is unspecified), constant trip counts, no pointer arithmetic or uninitialized reads. `Gen` has `expr_int/float/bool` per type, `stmt` and `program`; check a new form with `--backends interp` first.
 
-**Reducer.** `python3 tools/jaic-reduce.py prog.jai --jaic ... --wasm ...` deletes lines and blocks while the backends still split the same way (default timeout 10 s) and writes `prog.reduced.jai`.
+**Reducer.** `python3 tools/differential/jaic-reduce.py prog.jai --jaic ... --wasm ...` deletes lines and blocks while the backends still split the same way (default timeout 10 s) and writes `prog.reduced.jai`.
 
 **A found case:** reduce it, fix the wrong backend, and keep the reduced program as a `tests/corpus/positive` case (manifest entry with `sha256` and the interpreter's `runtime` output), plus a targeted test if only one backend or optimization level was wrong (e.g. in `crates/jaic-cli/tests/native.rs`). Differential testing cannot find a bug all backends share, because they share a front end: a cast's target type does not reach an untyped literal beside a typed operand (`cast(float32) (0 - w)` with `w: u16` subtracts in `u16`).
 
-**To change it:** a new backend goes in `ALL_BACKENDS` and `Runner.run` (map failures onto the statuses, add printed paths to `Runner.normalize`); a new set in `cases()` (give a `Case` a `root` when it reads sibling files, `skip={backend: reason}` for principled exclusions). Flags: `--jaic`, `--wasm DIR`, `--backends`, `--jobs` (3), `--timeout`/`--memory-limit` (120 s / 3 GiB), `--gen-size`, `--keep DIR`. CI runs `corpus gen:1:40` on `interp,native,native-O2` (every OS), `interp,wasm` (`scripting-wasm` job) and `interp,wasm-native`. Unit tests: `tools/test_jaic_diff.py`.
+**To change it:** a new backend goes in `ALL_BACKENDS` and `Runner.run` (map failures onto the statuses, add printed paths to `Runner.normalize`); a new set in `cases()` (give a `Case` a `root` when it reads sibling files, `skip={backend: reason}` for principled exclusions). Flags: `--jaic`, `--wasm DIR`, `--backends`, `--jobs` (3), `--timeout`/`--memory-limit` (120 s / 3 GiB), `--gen-size`, `--keep DIR`. CI runs `corpus gen:1:40` on `interp,native,native-O2` (every OS), `interp,wasm` (`scripting-wasm` job) and `interp,wasm-native`. Unit tests: `tools/differential/test_jaic_diff.py`.
 
 ## Fuzzing
 
@@ -95,15 +95,15 @@ Limits that exist because fuzzing found them (each has a regression): `MAX_NESTI
 
 ## Stdlib runtime tests
 
-Every top-level `*.jai` file of a `stdlib/**/tests/` directory, and of `tests/compiler/regressions/`, is a case that must build and exit 0 in each mode. A directory's optional `manifest.json` refines cases (expected output, required platform, native-only services) and can add cases that live in sub-directories; `tools/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own.
+Every top-level `*.jai` file of a `stdlib/**/tests/` directory, and of `tests/compiler/regressions/`, is a case that must build and exit 0 in each mode. A directory's optional `manifest.json` refines cases (expected output, required platform, native-only services) and can add cases that live in sub-directories; `tools/stdlib/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own.
 
 ```sh
-python3 tools/build_native_libs.py
-python3 tools/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native --coverage target/stdlib-reachability.txt
-python3 tools/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt
+python3 tools/native/build_native_libs.py
+python3 tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native --coverage target/stdlib-reachability.txt
+python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt
 ```
 
-`check_stdlib_suites.py` runs every module driver with native setup, child processes or target matrices, continues after a failure and exits nonzero if any failed. `stdlib_runtime.py` takes `--filter`, `--modes`, `--opt O0|O2` and `--report FILE`. Native SDK and graphics families are reported as unavailable under WASM, never as passed; missing SDKs, fonts or display servers on an applicable host are failures. Positive cases compare exact stdout (and stderr when a contract is given); check-fail cases need a nonzero status and a `diagnostic_contains`; privacy cases also compile a positive import baseline. Tests can read the mode to avoid what a mode cannot do. Export counts and `tools/stdlib_coverage.py` reachability are not completeness measures.
+`check_stdlib_suites.py` runs every module driver with native setup, child processes or target matrices, continues after a failure and exits nonzero if any failed. `stdlib_runtime.py` takes `--filter`, `--modes`, `--opt O0|O2` and `--report FILE`. Native SDK and graphics families are reported as unavailable under WASM, never as passed; missing SDKs, fonts or display servers on an applicable host are failures. Positive cases compare exact stdout (and stderr when a contract is given); check-fail cases need a nonzero status and a `diagnostic_contains`; privacy cases also compile a positive import baseline. Tests can read the mode to avoid what a mode cannot do. Export counts and `tools/stdlib/stdlib_coverage.py` reachability are not completeness measures.
 
 Put a module's cases in its `tests/` directory (a manifest row for anything beyond "builds and exits 0"), keep compiler and ABI regressions in `tests/compiler/regressions/`, and put specialised cases in their module driver so native preparation and O0/O2 coverage stay required. Linux needs native headers, Xvfb/Mesa, fonts and audio backends; Windows needs MSVC/LLVM and Mesa.
 

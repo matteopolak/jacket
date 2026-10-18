@@ -34,7 +34,7 @@ Two stdlib modules keep their own copy of the table: `stdlib/internal/program-pr
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Tightest first. Every binary level is left associative (`8 / 2 / 2` is 2, `1 << 1 << 2` is 8) {#ops.1}.
 - | postfix | `.x` `[i]` `f()` `.*` `.{}` `.[]` `.(T)` | `-p.x` is `-(p.x)`, `*a.b` is `*(a.b)` {#ops.2} |

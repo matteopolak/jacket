@@ -1,4 +1,4 @@
-// Regenerate with tools/window_render_gl_formats.py.
+// Regenerate with tools/generators/window_render_gl_formats.py.
 #scope_module
 describe_gl_format :: (tf: Texture_Format, srgb: bool) -> GL_Image_Format, bool {
     result: GL_Image_Format;

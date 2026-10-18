@@ -12,7 +12,7 @@ import shlex
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/native_bindings"))
 from build_dependencies import INPUTS  # noqa: E402
 from rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402

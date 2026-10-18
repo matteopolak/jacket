@@ -14,7 +14,7 @@ import platform
 import subprocess
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SUITE = ROOT / "stdlib/Extensions/Io/tests/support/suite.jai"
 ENTRY = ROOT / "stdlib/Extensions/Io/tests/accept-burst-diagnostics.jai"
 KERNEL_FILES = [
@@ -231,7 +231,7 @@ def main():
     sources = list((ROOT / "stdlib").rglob("*.jai")) + [
         ENTRY,
         Path(__file__),
-        ROOT / "tools/test_io_burst_diagnostics.py",
+        ROOT / "tools/stdlib/test_io_burst_diagnostics.py",
     ]
     before = {str(p.relative_to(ROOT)): sha(p) for p in sorted(sources)}
     receipt = {

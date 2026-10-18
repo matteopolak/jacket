@@ -28,7 +28,7 @@ Most operations are plain loops over `lanes` in `inline` procedures that LLVM's 
 - **New operation:** write a loop over `lanes` in an `inline` procedure, then check `-O2` vectorizes it (`-emit_ir`, or `otool -tV`/`objdump -d`). If LLVM keeps a per-lane loop or a branch per lane, reformulate (as `any` was) or add an intrinsic.
 - **New intrinsic:** the work is in the compiler; declare it in this module's `#scope_module` and keep a scalar path for shapes it does not cover.
 - Checks go in `#modify` or `#assert`. Inside `#modify`, `$V: Type` is a variable: use `type_info`/`runtime_size`, not `size_of(V)` or `V.T`.
-- Tests: `tests/vectors.jai`; `python3 tools/stdlib_runtime.py --jaic <jaic> --filter SIMD [--modes wasm-interp,wasm-native]`. Interpreted and native results must agree.
+- Tests: `tests/vectors.jai`; `python3 tools/stdlib/stdlib_runtime.py --jaic <jaic> --filter SIMD [--modes wasm-interp,wasm-native]`. Interpreted and native results must agree.
 - Not done: runtime CPU feature detection and AVX2/AVX-512 paths. Code targets the baseline CPU (SSE2 on x86-64; `core2`, with SSSE3, on macOS).
 
 ## Configuration and dependencies

@@ -9,7 +9,7 @@ from pathlib import Path
 import struct
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 output = ROOT / "target/portable-tests/mpeg-matrix-check"
 output.parent.mkdir(parents=True, exist_ok=True)
 subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror",

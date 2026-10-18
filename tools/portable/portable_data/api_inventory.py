@@ -1,7 +1,7 @@
 """Declaration-name audit only; runtime evidence comes from run.py."""
 from pathlib import Path
 
-root = Path(__file__).resolve().parents[2]
+root = Path(__file__).resolve().parents[3]
 pairs = [
     ("Ico_File", "ico-file"), ("Icon", "icon"),
     ("Windows_Resources", "windows-resources"), ("Subtitles", "subtitles"),

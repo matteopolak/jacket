@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Shrink a program on which jaic's backends disagree, keeping the disagreement.
 
-Usage: tools/jaic-reduce.py PROGRAM.jai [--out SMALL.jai] [backend options as for tools/jaic-diff.py]
+Usage: tools/differential/jaic-reduce.py PROGRAM.jai [--out SMALL.jai] [backend options as for tools/differential/jaic-diff.py]
 
 A candidate is kept when it still compiles and the backends still split into the same groups
-(say interp+wasm against native+native-O2). The reduction is line based, which suits tools/jaigen.py
+(say interp+wasm against native+native-O2). The reduction is line based, which suits tools/differential/jaigen.py
 output (one statement per line, blocks opened with `{` at the end of a line):
   1. delete chunks of lines, halving the chunk size down to one line (ddmin-style);
   2. delete whole blocks: a line ending in `{` through its matching `}`;
@@ -14,8 +14,8 @@ repeated until nothing changes. The result is written next to the input as NAME.
 import argparse, importlib.util, shutil, sys, tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-_spec = importlib.util.spec_from_file_location("jaic_diff", ROOT / "tools/jaic-diff.py")
+ROOT = Path(__file__).resolve().parent.parent.parent
+_spec = importlib.util.spec_from_file_location("jaic_diff", ROOT / "tools/differential/jaic-diff.py")
 diff = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(diff)
 

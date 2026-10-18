@@ -26,7 +26,7 @@ For a new operator token, make the parser accept `operator <tok>`, then add disp
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `operator +`, `==`, `[]`, `*[]`, `[]=` and the rest, declared as procedures on user types. Binary, unary and index operators dispatch through ordinary overload resolution {#opov.1}.
 - `operator_candidates` in `sema/calls/operators.rs` looks up the name `operator<text>` and filters candidates by operand type; `try_binary_operator_overload`, `try_unary_operator_overload` and `try_index_operator_overload` call it. Operators obey ordinary lexical visibility and filtered reexports. A canonical type alias alone does not import its defining scope's overloads {#opov.2}.

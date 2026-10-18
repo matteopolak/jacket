@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 PROFILES = tuple(
     (target_os, cpu)
     for target_os in ("macos", "linux", "windows")

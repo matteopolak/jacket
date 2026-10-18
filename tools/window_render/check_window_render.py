@@ -4,6 +4,12 @@
 This does not claim integrated renderer, physical-device or cross-host conformance.
 The macOS clipboard case writes and empties the actual host clipboard.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "stdlib",)]  # modules from other tools/ folders
+
 import argparse
 import os
 from pathlib import Path
@@ -12,7 +18,7 @@ import subprocess
 from stdlib_runtime import runtime_prefix
 from window_render_tests import WINDOW_RENDER_TESTS
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():

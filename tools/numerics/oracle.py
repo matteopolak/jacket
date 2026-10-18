@@ -1,4 +1,10 @@
 """Independent Python math and IEEE struct oracles; emits durable Jai assertions."""
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 from pathlib import Path
 import math, random, struct
 from fractions import Fraction

@@ -34,7 +34,7 @@ Index lowering is around `BoundsCheck` in `sema/expr.rs`; the opt-out is `FnCtx:
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `remove v` copies the last element into the current slot, shrinks the count, and revisits the slot, so order is not preserved {#ptr.1}. It only works in a `for` over a view or dynamic array {#ptr.2}; otherwise `check_remove` (`sema/stmt.rs`) reports `remove is only valid inside a for loop over an array` {#ptr.3}.
 - `p += 1` and `p - q` scale by element size {#ptr.4}; `p - *buf[0]` is an element count {#ptr.5}.

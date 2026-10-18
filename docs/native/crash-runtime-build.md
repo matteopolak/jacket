@@ -30,15 +30,15 @@ source tree. Windows has its own DLL path ([Windows](windows.md)) and embeds not
 
 `stdlib/internal/watching/native/watch.c` (bound by `watching/mac.jai` as `native/portable_watch`) is built
 the same way by `build_watcher` in `build.rs` (a universal arm64+x86_64 dylib linked with CoreServices,
-macOS only) and unpacked into the same cache directory. `tools/build_portable_watcher.py` is its helper
+macOS only) and unpacked into the same cache directory. `tools/portable/build_portable_watcher.py` is its helper
 twin (`--output-dir`, default `target/native-helpers/macos-watch`).
 
 ## How to change it
 
 Edit `runtime.c` and rebuild. If the compile recipe changes, change `build.rs` and
-`tools/build_portable_runtime.py` together; `tools/test_portable_crash_build.py` fails if their flags
+`tools/portable/build_portable_runtime.py` together; `tools/portable/test_portable_crash_build.py` fails if their flags
 drift. The Python script is an internal helper for tools that need the libraries and a hash receipt
-as files (`tools/upstream_native.py`, `tools/check_portable_crash_init.py`); it takes
+as files (`tools/native/upstream_native.py`, `tools/check_portable_crash_init.py`); it takes
 `--output-dir` (default `target/native-helpers/<platform>/crash-runtime`) and never writes to `stdlib/`.
 
 Gotchas: a stale `libportable_crash.*` left in `stdlib/internal/runtime/crash-native/` by an older

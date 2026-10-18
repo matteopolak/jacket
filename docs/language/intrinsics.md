@@ -36,7 +36,7 @@ An LLVM intrinsic needs none of this; a wrong signature fails in LLVM's verifier
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Procedures declared `#intrinsic` have no Jai body; the compiler lowers each call to a fixed IR operation chosen by the procedure's name {#intrin.1}. The memory and atomic ones are declared in `stdlib/prelude/module.jai`:
 - `emit_intrinsic` in `sema/calls/intrinsics.rs` maps the name to an `ir::Intrinsic`: `memcpy`, `memset`, `memcmp`, `compare_and_swap`, `debug_break`, `sqrt`, `sin`, `cos`, `floor`, `ceil`, `round`, `trunc`, `abs`/`fabs`, `rdtsc`/`get_cpu_cycle_count`, `pause`/`mm_pause`, the `atomic_*_order` family, `byte_lookup` (`ir::Intrinsic::ByteLookup(width)`), `sign_mask` (`SignMask(width)`; the width is read from a constant argument by `const_width_arg`). Any other name is `` error: unknown intrinsic `frob` `` {#intrin.2}.

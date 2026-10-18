@@ -40,7 +40,7 @@ Configuration: `MACOSX_DEPLOYMENT_TARGET` when no `minimum_os_version` was forwa
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `set_build_options` (`stdlib/Compiler/options.jai`) stores the options. `check_build_options` then compares them with the workspace's previous options and reports each field that this call changed to a value jaic does not act on. The report goes to the caller's location (`loc`) and appears once, not on every call {#bo.1}:
 - Options left at their defaults, or set to values jaic acts on, say nothing {#bo.4}. Examples are `text_output_flags = 0`, `enable_bytecode_inliner = true` and `set_optimization(*options, .OPTIMIZED_SMALL)`. `set_build_options` then sends every field jaic acts on through the typed workspace-option builtins ([compiler builtins](../compiler/compiler-builtins.md)); an option that is not an enum member cannot be named, so a field cannot be forwarded and then dropped.

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-NATIVE_TOOLS = Path(__file__).resolve().parent / "native_bindings"
+NATIVE_TOOLS = Path(__file__).resolve().parent.parent / "native_bindings"
 sys.path.insert(0, str(NATIVE_TOOLS))
 SPEC = importlib.util.spec_from_file_location(
     "native_verifier", NATIVE_TOOLS / "verify.py"

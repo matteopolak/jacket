@@ -10,7 +10,7 @@ import re
 import subprocess
 from driven_sources import driven
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
                                                  "free_symbols", "output", "readable", "symbols", "break_once",
                                                  "initialize", "enable_handlers", "disable_handlers",

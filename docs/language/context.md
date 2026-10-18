@@ -31,7 +31,7 @@ Add context fields with `#add_context` in Jai, not in the compiler. The layout m
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Every ordinary procedure receives a hidden pointer to a `Context` record: allocator, logger, temporary storage, thread index, plus whatever `#add_context` declares {#ctx.1}. `push_context` swaps in a modified copy for a lexical scope {#ctx.2}.
 - The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default {#ctx.3}.

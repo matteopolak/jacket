@@ -73,7 +73,7 @@ class RuntimeSetup(unittest.TestCase):
         )
 
     def test_existing_required_cpp_assertions_remain(self):
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         emitter = (root / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom.jai").read_text()
         consumer = (
             root / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-roundtrip.jai"

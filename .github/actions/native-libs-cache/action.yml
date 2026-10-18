@@ -1,7 +1,7 @@
 name: Cache the native libraries
 description: >-
-  Restores target/native-libs (tools/build_native_libs.py) for this runner; on main a new key is
-  also saved when the job succeeds. tools/build_native_libs.py builds only the libraries missing there.
+  Restores target/native-libs (tools/native/build_native_libs.py) for this runner; on main a new key is
+  also saved when the job succeeds. tools/native/build_native_libs.py builds only the libraries missing there.
 inputs:
   variant:
     description: Tells apart jobs that build other platforms' libraries here (the MinGW cross-builds)
@@ -15,7 +15,7 @@ runs:
     # reused as it is.
     - id: key
       shell: bash
-      run: echo "key=native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$LLVM_VERSION-${{ hashFiles('tools/native-libs.json', 'tools/native/**', 'tools/build_native_libs.py', 'tools/sdl3_native.py', 'tools/fetch_url.py', 'tools/repo_output.py') }}" >> "$GITHUB_OUTPUT"
+      run: echo "key=native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$LLVM_VERSION-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/native/fetch_url.py', 'tools/repo_output.py') }}" >> "$GITHUB_OUTPUT"
     - if: github.ref == 'refs/heads/main'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

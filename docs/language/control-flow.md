@@ -41,7 +41,7 @@ Add syntax in `parser/stmt.rs` with a test in `parser/tests.rs`, then handle the
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Parsing is in `parser/stmt.rs`; checking is `check_if`, `check_while`, `check_for` and `check_for_expansion` in `sema/stmt.rs`. Jumps resolve to the innermost or named loop at check time {#flow.10}, so there is no runtime label lookup. A statement `ifx c then x = 1 else x = 2;` whose branches assign is an `if` statement {#flow.26}.
 - Here `for <` visits `3` down to `1` {#flow.1}, `continue outer` leaves the inner loop and continues the outer one {#flow.2}, `for 5..3` runs zero times {#flow.3}, `for v, i` binds the value then the index {#flow.4}, `for *p` writes through `p` into the array {#flow.5}, and `while x := ...` names the loop {#flow.6}.

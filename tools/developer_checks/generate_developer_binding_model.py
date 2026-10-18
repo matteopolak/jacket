@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "docs/specs/stdlib/modules/bindings-generator.md"
 
 

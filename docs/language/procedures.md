@@ -45,7 +45,7 @@ New header directive: add it to the table in `parser/procedure.rs` and the flags
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Procedure literals with a body, `(x) => expr` lambdas, and bare `x => expr` {#lambda.1}. A lambda takes its types from the expected procedure type {#lambda.2}, or becomes polymorphic when bound with `::` {#lambda.3}.
 - `sema/lambda.rs` lowers a lambda to an ordinary procedure literal (`lambda_lit`), checks it against the expected type (`check_lambda`), instantiates it per use (`lambda_instance`) and infers result types, including a callee's `$R` (`lambda_return_type`, `infer_lambda_bindings`) {#lambda.4}.

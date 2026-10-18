@@ -26,7 +26,7 @@ All in `sema/modules.rs`: `declare_module_parameter`, `resolve_import` (untyped 
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - An import passes arguments in the same two-list shape {#modparam.1}:
 - Different first-list values create different instances {#modparam.2}; equal values share one {#modparam.3}.

@@ -7,7 +7,7 @@ a job on more paths, add a pattern there. `*` matches within a directory, `**` a
 `code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
 docs-only push skips the build and test jobs.
 
-    python3 tools/ci_changes.py          # reads GITHUB_EVENT_NAME, GITHUB_REF, EVENT_BEFORE, BASE_SHA, SHA
+    python3 tools/ci/ci_changes.py          # reads GITHUB_EVENT_NAME, GITHUB_REF, EVENT_BEFORE, BASE_SHA, SHA
 """
 import os
 import re
@@ -18,29 +18,29 @@ SELF = r".github/(workflows/ci\.yml|actions/.*)"
 
 AREAS = {
     "sdl3": [
-        "stdlib/Extensions/SDL3/**", "tools/sdl3*.py", "tools/sdl_test_support.py",
-        "tools/prepare_sdl_python_tests.py", "tools/test_sdl*.py", "tools/native/sdl3/**",
-        "tools/native-libs.json", "tools/build_native_libs.py", "tools/repo_output.py", ".gitattributes",
+        "stdlib/Extensions/SDL3/**", "tools/sdl3*.py", "tools/bindings/sdl_test_support.py",
+        "tools/bindings/prepare_sdl_python_tests.py", "tools/test_sdl*.py", "tools/native/sdl3/**",
+        "tools/native/native-libs.json", "tools/native/build_native_libs.py", "tools/repo_output.py", ".gitattributes",
     ],
     "clipboard": [
         "stdlib/Clipboard/**", "stdlib/internal/clipboard/**", "stdlib/internal/window/connection.jai",
         "stdlib/Basic/**", "stdlib/internal/basic/**", "crates/**", "Cargo.*", "rust-toolchain.toml",
-        "tools/*portable_clipboard.py", "tools/check_clipboard_linux_package.py",
-        "tools/*clipboard_linux_*.py", "tools/ci_test_scratch.py", "tools/test_ci_test_scratch.py",
+        "tools/*portable_clipboard.py", "tools/portable/check_clipboard_linux_package.py",
+        "tools/*clipboard_linux_*.py", "tools/ci/ci_test_scratch.py", "tools/ci/test_ci_test_scratch.py",
     ],
     "nix": ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", "rust-toolchain.toml"],
-    "packaging": ["install.sh", "install.ps1", "packaging/**", "tools/render_packages.py"],
+    "packaging": ["install.sh", "install.ps1", "packaging/**", "tools/dev/render_packages.py"],
     # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
     # pull requests, and always on manual runs.
     "windows": [
         "stdlib/Extensions/Io/**", "stdlib/Extensions/Io_Uring/**", "stdlib/Extensions/Http/**",
         "stdlib/Extensions/Json/**", "stdlib/Extensions/Tls/**", "tools/native/mbedtls/**",
         "stdlib/Windows/**", "stdlib/File_Watcher/**", "stdlib/internal/watching/**",
-        "tools/check_file_watcher_platforms.py", "tools/check_windows_time_zone.py",
-        "tools/build_windows_resource_fixture.py", "tools/test_windows_resource_fixture.py",
-        "tools/install_ci_native_linux.sh", "tools/upstream_native.py", "tools/upstream_smoke.py",
-        "tools/build_portable_runtime.py", "tools/audio_build_native.py", "tools/build_native_libs.py",
-        "tools/stdlib_runtime.py", "tools/test_windows_dynamic_package.py", "tools/windows_cross.py",
+        "tools/stdlib/check_file_watcher_platforms.py", "tools/native/check_windows_time_zone.py",
+        "tools/native/build_windows_resource_fixture.py", "tools/native/test_windows_resource_fixture.py",
+        "tools/ci/install_ci_native_linux.sh", "tools/native/upstream_native.py", "tools/corpus/upstream_smoke.py",
+        "tools/portable/build_portable_runtime.py", "tools/native/audio_build_native.py", "tools/native/build_native_libs.py",
+        "tools/stdlib/stdlib_runtime.py", "tools/native/test_windows_dynamic_package.py", "tools/native/windows_cross.py",
         "crates/jaic-llvm/**", "crates/jaic/src/interp/**", "crates/jaic-cli/src/**",
         "crates/jaic-cli/tests/native.rs", "tests/compiler/native/**",
     ],

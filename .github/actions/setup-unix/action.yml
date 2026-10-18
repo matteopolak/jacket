@@ -8,7 +8,7 @@ inputs:
     description: Extra Homebrew packages (macOS)
     default: ''
   native-libs:
-    description: Install the Linux window, audio and display libraries (tools/install_ci_native_linux.sh)
+    description: Install the Linux window, audio and display libraries (tools/ci/install_ci_native_linux.sh)
     default: 'true'
   alsa:
     description: Point ALSA at the headless test configuration (Linux)
@@ -34,7 +34,7 @@ runs:
         FONT: ${{ inputs.font }}
       run: |
         # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
-        tools/install_ci_llvm_macos.sh $([ "$LLD" = true ] && echo --lld)
+        tools/ci/install_ci_llvm_macos.sh $([ "$LLD" = true ] && echo --lld)
         brew install openssl@3 pkg-config
         for package in $BREW; do brew list "$package" > /dev/null 2>&1 || brew install "$package"; done
         if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"; fi
@@ -45,13 +45,13 @@ runs:
         NATIVE: ${{ inputs.native-libs }}
         FONT: ${{ inputs.font }}
       run: |
-        bash tools/install_ci_llvm_linux.sh
+        bash tools/ci/install_ci_llvm_linux.sh
         echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
         echo "DEVELOPER_TOOLS_LLVM_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
         echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
         # X11, GL (Mesa's software renderer), FreeType, Xvfb, ALSA and Mesa's lavapipe (the
         # Vulkan adapter of the WebGPU tests).
-        if [ "$NATIVE" = true ]; then bash tools/install_ci_native_linux.sh; fi
+        if [ "$NATIVE" = true ]; then bash tools/ci/install_ci_native_linux.sh; fi
         if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"; fi
     - name: Configure the headless ALSA provider
       if: runner.os == 'Linux' && inputs.alsa == 'true'

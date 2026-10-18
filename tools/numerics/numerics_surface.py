@@ -5,7 +5,7 @@ top-level helpers. It is not a substitute for the coordinator's semantic audit.
 """
 from pathlib import Path
 import re
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parents[2]
 modules={'Math':'math.md','Sloppy_Math':'sloppy-math.md','Float16':'float16.md',
          'Color_Interpolation':'color-interpolation.md','GetRect':'getrect.md',
          'GetRect_LeftHanded':'getrect-lefthanded.md'}

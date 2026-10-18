@@ -89,7 +89,7 @@ def source_identity(root, compiler):
         if p.is_file()
         and p.suffix in {".jai", ".c", ".h"}
         and not any(part.startswith("._") for part in p.relative_to(root).parts)
-    ) + [root / "tools/io_stress.py", root / "tools/io_failure_observer.py"]
+    ) + [root / "tools/stdlib/io_stress.py", root / "tools/stdlib/io_failure_observer.py"]
     manifest = {
         str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sources

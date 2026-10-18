@@ -24,6 +24,12 @@ stdlib/Extensions/Tls/tests/tls.jai (it carries its certificates, so it runs fro
 directories). interop.jai starts openssl processes on ports and is not part of it.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json
@@ -40,7 +46,7 @@ from http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
 from io_failure_observer import FailureGroup, source_identity
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_TESTS = [
     "stdlib/Extensions/Io/tests/backends.jai",
     "stdlib/Extensions/Io/tests/tcp.jai",

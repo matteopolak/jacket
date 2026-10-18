@@ -80,7 +80,7 @@ fn stdlib_dir() -> PathBuf {
     jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
 }
 
-/// Where `tools/build_native_libs.py` (or a release package) puts third-party libraries for this
+/// Where `tools/native/build_native_libs.py` (or a release package) puts third-party libraries for this
 /// host, or the `JAIC_NATIVE_LIBS` path list.
 fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     let mut dirs = configured_native_lib_dirs(stdlib);

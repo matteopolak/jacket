@@ -1367,7 +1367,7 @@ test_close_with_queued_connections :: () {
 
 test_close_now_releases_the_port :: () {
     // Another process can take the freed port before it is listened on again (the runtime tests
-    // and tools/io_stress.py run many programs at once), so a taken port is tried again with a new
+    // and tools/stdlib/io_stress.py run many programs at once), so a taken port is tried again with a new
     // one. A listener that `close(now = true)` did not release fails every attempt.
     ATTEMPTS :: 10;
 

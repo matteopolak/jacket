@@ -10,7 +10,7 @@ import subprocess
 import build_developer_bindings
 import developer_native_runtime
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 
 

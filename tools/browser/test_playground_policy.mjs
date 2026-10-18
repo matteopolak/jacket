@@ -41,8 +41,8 @@ test("actual worker host keeps diagnostic failures and predeclared availability 
   const { spawnSync } = await import("node:child_process");
   const base = await mkdtemp(path.join(tmpdir(), "jai-browser-policy-"));
   try {
-    const tools = path.join(base, "tools"), stage = path.join(base, "stage");
-    await mkdir(tools); await mkdir(stage); await mkdir(path.join(base, "tests/inert"), { recursive: true });
+    const tools = path.join(base, "tools/browser"), stage = path.join(base, "stage");
+    await mkdir(tools, { recursive: true }); await mkdir(stage); await mkdir(path.join(base, "tests/inert"), { recursive: true });
     const cases = [
       { id: "required", result: { exitCode: 1, diagnostics: [{ severity: "error", code: "unknown-library", message: "required provider missing" }] } },
       { id: "unavailable-diagnostic", result: { exitCode: 1, diagnostics: [{ severity: "error", code: "unavailable", message: "required capability missing" }] } },

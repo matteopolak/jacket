@@ -4,6 +4,12 @@
 Uses repository dependency metadata; output stays inside this worker's target directory.
 Does not inspect worktree metadata, other checkouts, supplied binaries or credentials.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
+
 import hashlib
 import json
 from pathlib import Path
@@ -12,13 +18,13 @@ import subprocess
 import urllib.request
 from fetch_url import fetch
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
     if platform.system() not in {"Darwin", "Linux"}:
         raise RuntimeError("this scoped native test builder supports macOS/Linux; Windows needs the coordinator's source-built native SDK libraries")
-    metadata = json.loads((ROOT / "tools/native-libs.json").read_text())
+    metadata = json.loads((ROOT / "tools/native/native-libs.json").read_text())
     spec = metadata["sources"]["stb"]
     source = ROOT / "target/window-native-source"
     output = ROOT / "target/window-native"

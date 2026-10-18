@@ -1,5 +1,11 @@
 """Native integration and explicit unsupported-contract checks; no reference tools."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 from pathlib import Path
 import argparse
 import json

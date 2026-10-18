@@ -6,7 +6,7 @@
 //!
 //! `JAIC_COVERAGE=<file>` records which procedures ran at all: `write_coverage` appends one
 //! `path:line name` line per procedure (polymorph instances share their declaration's line).
-//! `tools/stdlib_coverage.py` reads it.
+//! `tools/stdlib/stdlib_coverage.py` reads it.
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Mutex, OnceLock};
 

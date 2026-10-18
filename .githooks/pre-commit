@@ -2,7 +2,7 @@
 # Pre-commit hook: format and lint the staged files only. See docs/tools/pre-commit-hook.md.
 #
 #   Jai   jaifmt --check, jailint -D warnings
-#   Rust  rustfmt --check (pinned nightly, rustfmt.toml), tools/rust_item_spacing.py --check
+#   Rust  rustfmt --check (pinned nightly, rustfmt.toml), tools/dev/rust_item_spacing.py --check
 #
 # Enable with `git config core.hooksPath .githooks`. Skip once with `git commit --no-verify`.
 # Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing" skips those checks,
@@ -21,8 +21,8 @@ warn() { echo "pre-commit: warning: $*" >&2; }
 
 # The staged files that still exist after the commit, per language (rustfmt is checked for the
 # workspace only, as CI runs `cargo fmt --all`). The same script backs `just fmt|lint --staged`.
-jai_list=$(sh "$root/tools/staged-files.sh" jai)
-rs_list=$(sh "$root/tools/staged-files.sh" rust)
+jai_list=$(sh "$root/tools/dev/staged-files.sh" jai)
+rs_list=$(sh "$root/tools/dev/staged-files.sh" rust)
 [ -n "$jai_list" ] || [ -n "$rs_list" ] || exit 0
 
 # Check what will be committed, not what is in the working tree: export the staged blobs.
@@ -177,16 +177,16 @@ EOF
     fi
     if skipped spacing; then
         :
-    elif [ ! -f "$root/tools/rust_item_spacing.py" ] || ! command -v python3 >/dev/null 2>&1; then
-        warn "python3 or tools/rust_item_spacing.py not found; skipping the Rust item spacing check"
+    elif [ ! -f "$root/tools/dev/rust_item_spacing.py" ] || ! command -v python3 >/dev/null 2>&1; then
+        warn "python3 or tools/dev/rust_item_spacing.py not found; skipping the Rust item spacing check"
     else
-        if ! out=$(cd "$tmp" && with_list python3 "$root/tools/rust_item_spacing.py" --check <<EOF
+        if ! out=$(cd "$tmp" && with_list python3 "$root/tools/dev/rust_item_spacing.py" --check <<EOF
 $rs_list
 EOF
         ); then
             printf '%s\n' "$out" | sed "s|$tmp/||" >&2
             failed=1
-            add_fix "python3 tools/rust_item_spacing.py <files>"
+            add_fix "python3 tools/dev/rust_item_spacing.py <files>"
         fi
     fi
 fi

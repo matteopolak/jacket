@@ -7,7 +7,7 @@ import tempfile
 
 def repository_root():
     return Path(
-        os.environ.get("SDL_PYTHON_TEST_ROOT", Path(__file__).resolve().parents[1])
+        os.environ.get("SDL_PYTHON_TEST_ROOT", Path(__file__).resolve().parents[2])
     ).resolve(strict=True)
 
 
@@ -15,7 +15,7 @@ def scratch_root():
     value = os.environ.get("SDL_TEST_TMPDIR")
     if not value:
         raise RuntimeError(
-            "SDL_TEST_TMPDIR is required: run tools/prepare_sdl_python_tests.py before discovery"
+            "SDL_TEST_TMPDIR is required: run tools/bindings/prepare_sdl_python_tests.py before discovery"
         )
     root = Path(value)
     if not root.is_absolute():

@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def responsibility(name):
@@ -39,7 +39,7 @@ def main():
     for declaration in declarations:
         name = declaration.split(" ::", 1)[0]
         groups[responsibility(name)].append(declaration + ";")
-    text = "// Regenerate with tools/window_render_evdev.py and the source-built repository formatter.\n"
+    text = "// Regenerate with tools/generators/window_render_evdev.py and the source-built repository formatter.\n"
     text += "libevdev :: struct {}\nlibevdev_uinput :: struct {}\n\n"
     text += "\n\n".join("// " + name + "\n" + "\n".join(sorted(group)) for name, group in groups.items())
     text += '\n\n#load "../internal/gamepad/linux-abi.jai";\n'

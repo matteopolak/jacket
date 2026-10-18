@@ -3,7 +3,7 @@
 
 The version and checksums come from the release itself: its tag and its SHA256SUMS file.
 
-    python3 tools/render_packages.py --version 0.3.0 --sums SHA256SUMS --out packages
+    python3 tools/dev/render_packages.py --version 0.3.0 --sums SHA256SUMS --out packages
 
 writes packages/homebrew/jacket.rb.
 See docs/tools/releases.md.
@@ -14,7 +14,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "packaging"
 REPOSITORY = "matteopolak/jacket"
 

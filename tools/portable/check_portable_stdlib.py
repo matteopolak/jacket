@@ -2,7 +2,7 @@
 """Build the portable stdlib's native fixtures and run its integration checks.
 
 The module tests themselves (including every expected runtime fault and compile-time
-rejection) are catalogued under stdlib/**/tests and run by tools/stdlib_runtime.py; this
+rejection) are catalogued under stdlib/**/tests and run by tools/stdlib/stdlib_runtime.py; this
 driver builds the fixtures they read from target/portable-tests, then runs what a catalogued
 case cannot: the generated-data cross-checks, parent-exit cancellation, the fatal-signal
 crash handlers and the float power audit. `--check-target OS/CPU` type-checks the whole
@@ -18,7 +18,7 @@ import sys
 import time
 from portable_toolchain import default_compiler, checked_compiler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 # Fatal-signal programs: the process must die by the signal after printing both texts.
@@ -58,9 +58,9 @@ def main():
                         help="OS/CPU pair, e.g. linux/x64; type-checks the catalogue for that target")
     args = parser.parse_args()
     compiler = checked_compiler(args.jaic, parser)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_zip_fixtures.py")], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_archive_fixtures.py")], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_mpeg_matrix.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_zip_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_archive_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/check_portable_mpeg_matrix.py")], cwd=ROOT, check=True)
     if args.stdlib:
         root = args.stdlib.resolve(strict=True)
     else:
@@ -77,22 +77,22 @@ def main():
             parser.error("supply the new Curl dependency with --curl-root")
         shutil.copytree(curl_root, root / "Curl", dirs_exist_ok=True)
         shutil.copytree(curl_root.parent / "internal/bindings", root / "internal/bindings", dirs_exist_ok=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_mpeg_fixtures.py")], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "-B", str(ROOT / "tools/build_portable_meow_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_mpeg_fixtures.py")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/build_portable_meow_fixtures.py")], cwd=ROOT, check=True)
     env = dict(os.environ, JAIC_STDLIB=str(root))
     output = ROOT / "target/portable-tests"
     output.mkdir(parents=True, exist_ok=True)
     if args.native:
-        subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_runtime_configuration.py"),
+        subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/check_portable_runtime_configuration.py"),
                         "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
         if sys.platform == "darwin":
-            subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_watcher.py"),
+            subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/check_portable_watcher.py"),
                             "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     run([str(compiler), "-check", str(ROOT / "stdlib/prelude/tests/bootstrap.jai")], env)
     failures = []
     # This fixture emits 2300 numerical rows, not the ordinary "ok" protocol.
     # Its independent rational oracle remains mandatory, including interpreter execution.
-    sweep = [sys.executable, str(ROOT / "tools/check_float_power_sweep.py"),
+    sweep = [sys.executable, str(ROOT / "tools/stdlib/check_float_power_sweep.py"),
              "--jaic", str(compiler), "--stdlib", str(root)]
     sweep += ["--interp", "--wasm"] if args.native else ["--interp-only"]
     try:
@@ -145,7 +145,7 @@ def main():
     leftovers = list(output.rglob("*.build-*")) + list(output.rglob("*.universal-*"))
     if leftovers:
         raise RuntimeError(f"C helper left intermediate directories: {leftovers}")
-    mail = [sys.executable, "-B", str(ROOT / "tools/check_portable_mail.py"),
+    mail = [sys.executable, "-B", str(ROOT / "tools/portable/check_portable_mail.py"),
             "--jaic", str(compiler), "--stdlib", str(root)]
     if args.native:
         mail.append("--native")
@@ -154,7 +154,7 @@ def main():
     except subprocess.CalledProcessError:
         if not args.keep_going: raise
         failures.append("SMTP/MIME integration")
-    channels = [sys.executable, "-B", str(ROOT / "tools/check_portable_channels.py"),
+    channels = [sys.executable, "-B", str(ROOT / "tools/portable/check_portable_channels.py"),
                 "--jaic", str(compiler), "--stdlib", str(root)]
     if args.native:
         channels.append("--native")
@@ -164,11 +164,11 @@ def main():
         if not args.keep_going: raise
         failures.append("Shared-memory interprocess integration")
     if args.native:
-        subprocess.run([sys.executable, "-B", str(ROOT / "tools/check_portable_crash.py"),
+        subprocess.run([sys.executable, "-B", str(ROOT / "tools/portable/check_portable_crash.py"),
                         "--jaic", str(compiler), "--stdlib", str(root)], cwd=ROOT, env=env, check=True)
     for target in args.check_target:
         before = len(failures)
-        checked = subprocess.run([sys.executable, str(ROOT / "tools/stdlib_runtime.py"), "--jaic", str(compiler),
+        checked = subprocess.run([sys.executable, str(ROOT / "tools/stdlib/stdlib_runtime.py"), "--jaic", str(compiler),
                                   "--modes", "check", "--platform", target.replace("/", "-")], cwd=ROOT, env=env)
         if checked.returncode:
             if not args.keep_going:

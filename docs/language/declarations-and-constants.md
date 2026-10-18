@@ -46,7 +46,7 @@ See [scoping](scoping.md) and [structs](structs.md).
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Constants (`::`) are order independent. `check_block_stmts` in `sema/stmt.rs` hoists a block's constants before its statements, and file-level names resolve on demand (`sema/scope.rs`) {#decl.1}. Variables (`:=`, `: T =`) are ordinary left-to-right declarations {#decl.2}.
 - Each form above compiles and has the value it suggests {#decl.3}.

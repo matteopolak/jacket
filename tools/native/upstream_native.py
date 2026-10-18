@@ -4,6 +4,12 @@ No application, fault, GUI or device harness is executed here. Native build
 failures and incomplete/incorrect build receipts are fatal.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import hashlib
 import json
 from pathlib import Path
@@ -11,7 +17,7 @@ import subprocess
 import sys
 from repo_output import host_platform
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def file_sha256(path):
@@ -29,7 +35,7 @@ def native_plan(target, native, stdlib, root=ROOT):
     runtime = stdlib / "internal/runtime/crash-native"
     audio = [
         sys.executable,
-        str(root / "tools/audio_build_native.py"),
+        str(root / "tools/native/audio_build_native.py"),
         "--platform",
         target,
         "--out",
@@ -38,7 +44,7 @@ def native_plan(target, native, stdlib, root=ROOT):
     if system == "windows":
         crash = [
             sys.executable,
-            str(root / "tools/build_platform_io_runtime.py"),
+            str(root / "tools/stdlib/build_platform_io_runtime.py"),
             "--stdlib",
             str(stdlib),
             "--cpu",
@@ -62,7 +68,7 @@ def native_plan(target, native, stdlib, root=ROOT):
     else:
         crash = [
             sys.executable,
-            str(root / "tools/build_portable_runtime.py"),
+            str(root / "tools/portable/build_portable_runtime.py"),
             "--platform",
             target,
             "--output-dir",
@@ -81,7 +87,7 @@ def native_plan(target, native, stdlib, root=ROOT):
         commands.append(
             [
                 sys.executable,
-                str(root / "tools/build_portable_clipboard.py"),
+                str(root / "tools/portable/build_portable_clipboard.py"),
                 "--output",
                 str(native),
             ]
@@ -94,7 +100,7 @@ def native_plan(target, native, stdlib, root=ROOT):
         commands.append(
             [
                 sys.executable,
-                str(root / "tools/build_portable_watcher.py"),
+                str(root / "tools/portable/build_portable_watcher.py"),
                 "--output-dir",
                 str(native),
             ]

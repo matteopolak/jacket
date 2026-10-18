@@ -72,7 +72,7 @@ Tests: `tests/compiler/regressions/type-info-flags.jai`, `compiler-typechecked-m
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Jai owns `Build_Options` storage: `option_store` is indexed by workspace id and filled lazily by `ensure_option_slot`. Every workspace starts from the struct defaults {#compiler.3}, which already reflect the target (`os_target := OS`, `cpu_target := CPU`) {#compiler.1}; the metaprogram's own also gets `compile_time_command_line` from `__jaic_command_line_*` {#compiler.2}.
 - `get_build_options(w)` returns the stored copy {#compiler.4}.

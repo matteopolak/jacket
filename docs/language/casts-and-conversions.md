@@ -57,7 +57,7 @@ Tests: `tests/compiler/regressions/lang-conversions.jai`, `cast-operand-typed-bo
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - The example produces the values in its comments {#cast.1}; the postfix form takes modifiers after the type {#cast.9}.
 - A cast to a narrower integer type checks that the value fits (see [cast bounds checks](#cast-bounds-checks)); `cast,trunc` and `cast,no_check` keep the low bits instead: `cast,trunc(u8) w` with `w := 300` is `44` {#cast.2}. A cast to a type at least as wide is never checked: `cast(u64) n` with `n: s8 = -1` is `18446744073709551615` {#cast.4}.

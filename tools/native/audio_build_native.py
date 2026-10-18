@@ -5,6 +5,12 @@ Outputs honor CARGO_TARGET_DIR when configured, including the opaque decoder
 cache. Six desktop targets are described in audio_native_plan.json; cross SDKs
 must be supplied explicitly. Runtime diagnostics remain strict and are captured.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json
@@ -18,8 +24,8 @@ import urllib.request
 from fetch_url import fetch
 from repo_output import host_platform
 
-ROOT = Path(__file__).resolve().parents[1]
-PLAN = json.loads((ROOT / "tools/audio_native_plan.json").read_text())
+ROOT = Path(__file__).resolve().parents[2]
+PLAN = json.loads((ROOT / "tools/native/audio_native_plan.json").read_text())
 
 
 def build_root():
@@ -122,7 +128,7 @@ def verify_object(path, entry):
 
 
 def opaque_decoder(out):
-    source = json.loads((ROOT / "tools/native-libs.json").read_text())["sources"]["stb"]
+    source = json.loads((ROOT / "tools/native/native-libs.json").read_text())["sources"]["stb"]
     cache = build_root() / "audio-native/official-c-dependencies"
     cache.mkdir(parents=True, exist_ok=True)
     for filename, destination in [("stb_vorbis.c", cache / "stb_vorbis.c"),

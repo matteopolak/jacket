@@ -6,7 +6,7 @@
  * `rustc-link-lib=<name>`, and rustc reads `S:/...` as "rename library S", which fails the build.
  * This shim runs the real llvm-config next to it and, for `--system-libs` only, rewrites each
  * path-qualified `*.lib` entry to its bare file name, which the linker then finds through the
- * LLVM `lib/` search path (tools/windows-llvm/prepare.sh puts a zstd_static.lib there).
+ * LLVM `lib/` search path (tools/ci/windows-llvm/prepare.sh puts a zstd_static.lib there).
  *
  * llvm-sys 231 (LLVM 23.1) tries `llvm-config-23.exe` in `$LLVM_SYS_231_PREFIX/bin` before `llvm-config.exe`,
  * so installing the shim under that name is enough; nothing else changes.

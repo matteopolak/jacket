@@ -20,7 +20,7 @@
 //
 // Three layers, each usable alone:
 //   - bindings.jai: the kernel's constants, enums and structs, GENERATED from linux/io_uring.h by
-//     tools/gen_io_uring.py with the kernel's names and layout (the `io_uring_sqe`, `io_uring_cqe`
+//     tools/generators/gen_io_uring.py with the kernel's names and layout (the `io_uring_sqe`, `io_uring_cqe`
 //     and `io_uring_params` of C), and `#assert`s that jaic lays each one out like C does.
 //   - syscalls.jai: io_uring_setup, io_uring_enter and io_uring_register, which return what the
 //     kernel returns: a result of 0 or more, or a negative errno.

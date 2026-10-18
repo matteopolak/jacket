@@ -46,7 +46,7 @@ fn typed_generic_callbacks_execute_as_wasi() {
             .args(["-os", "wasm", "-exe"])
             .arg(&module),
     );
-    let runner =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/run_foundations_wasm.mjs");
+    let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tools/browser/run_foundations_wasm.mjs");
     success(Command::new("node").arg(runner).arg(module));
 }

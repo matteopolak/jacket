@@ -63,7 +63,7 @@ Tests: `tests/compiler/regressions/compile-time-globals-reset.jai`, `no-reset-gl
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `#code` makes a `Code` value: unevaluated syntax plus the scope it was written in {#code.1}. `#insert` splices a `Code` value or a string back into the program at top level, as statements, or as an expression {#code.2}.
 - `#insert X` evaluates `X` with `eval_insert_operand` (`sema/consteval.rs`). A parameterless `-> string { ... }` or `-> Code { ... }` operand runs at compile time like `#run` {#code.3}. `insert_stmts_from` then turns the result into statements:

@@ -1,8 +1,8 @@
 // An echo server for whole-server HTTP checks: every method on every path answers 200 with the
-// request line, the headers and the body it received, as text. tools/http_conformance.py builds
+// request line, the headers and the body it received, as text. tools/stdlib/http_conformance.py builds
 // it and probes it over TCP; it is also the program to put in a http-garden image.
 //
-//     jaic tools/http_garden/server.jai -exe ./echo_server
+//     jaic tools/stdlib/http_garden/server.jai -exe ./echo_server
 //     ./echo_server 127.0.0.1:8080
 #import "Basic";
 #import "Extensions/Http";

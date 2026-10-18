@@ -29,7 +29,7 @@ Layout is the `is_union` branch of `layout_struct_inner` in `sema/structs.rs`; `
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Plain `union` types, where all members share offset 0 {#union.1} (`StructInfo::is_union`), and tagged unions (`union kind: Enum { ... }`), which are laid out as structs.
 - A plain union has the size of its largest member {#union.2} and the alignment of its most aligned one {#union.3}:

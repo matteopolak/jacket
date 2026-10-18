@@ -30,7 +30,7 @@ New struct flags: parse them in `parser/aggregate.rs` next to `#no_padding` and 
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Member defaults apply to `v: Vec;` {#struct.1} and to members a literal omits {#struct.2}:
 - Positional literals fill members in declaration order {#struct.3} and `Vec.{}` is all defaults {#struct.4}.

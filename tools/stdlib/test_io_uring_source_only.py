@@ -14,7 +14,7 @@ from ci_test_scratch import assigned_scratch
 import stdlib_runtime as runtime
 from stdlib_test_catalog import validated_entries
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class IoUringSourceOnly(unittest.TestCase):

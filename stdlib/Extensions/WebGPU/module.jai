@@ -1,6 +1,6 @@
 // WebGPU through the standard C API (webgpu.h). generated.jai holds every type and procedure,
-// generated from webgpu-headers' webgpu.yml by tools/webgpu_gen.py. Natively the procedures call
-// wgpu-native (tools/fetch_wgpu_native.py); in the browser playground the sandbox forwards them to
+// generated from webgpu-headers' webgpu.yml by tools/bindings/webgpu_gen.py. Natively the procedures call
+// wgpu-native (tools/bindings/fetch_wgpu_native.py); in the browser playground the sandbox forwards them to
 // the page's WebGPU (crates/jai-wasm/js/webgpu_host.mjs). This file adds what webgpu.h leaves to
 // the platform: a surface for a window, waiting for asynchronous requests, and frame pacing.
 

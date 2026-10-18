@@ -2,20 +2,20 @@
 """Runs the HTTP conformance suites: the codec's (docs/extensions/http-codec.md) and the server's
 (docs/extensions/http-server.md).
 
-    python3 tools/http_conformance.py                       # corpus check + all codec tests, interp and native
-    python3 tools/http_conformance.py --modes interp,native,wasm-interp,wasm-native
-    python3 tools/http_conformance.py --jaic path/to/jaic
-    python3 tools/http_conformance.py --garden ~/src/http-garden   # also look at http-garden
+    python3 tools/stdlib/http_conformance.py                       # corpus check + all codec tests, interp and native
+    python3 tools/stdlib/http_conformance.py --modes interp,native,wasm-interp,wasm-native
+    python3 tools/stdlib/http_conformance.py --jaic path/to/jaic
+    python3 tools/stdlib/http_conformance.py --garden ~/src/http-garden   # also look at http-garden
 
 What it does:
 
-1. Checks that stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai is what tools/gen_http_corpus.py
+1. Checks that stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai is what tools/corpus/gen_http_corpus.py
    writes from the vendored llhttp fixtures (so a changed fixture or deviation file is not forgotten).
 2. Runs every Http test (stdlib/Extensions/Http/tests/*.jai)
-   through tools/stdlib_runtime.py in the requested modes: the llhttp fixtures, the smuggling
+   through tools/stdlib/stdlib_runtime.py in the requested modes: the llhttp fixtures, the smuggling
    table, the case-by-case codec tests and the chunking tests.
 3. Prints how many llhttp fixtures matched, deviate on purpose or need a lenient mode.
-4. Builds the echo server (tools/http_garden/server.jai), starts it and probes it over TCP with
+4. Builds the echo server (tools/stdlib/http_garden/server.jai), starts it and probes it over TCP with
    hostile and awkward requests: request smuggling shapes (Content-Length with Transfer-Encoding,
    duplicate lengths, bare LF, obs-fold), oversized heads and bodies, pipelining, HEAD,
    Expect: 100-continue, keep-alive rules, and a Ctrl-C shutdown. Each probe states what a
@@ -26,6 +26,12 @@ What it does:
 
 Exit status: 0 when everything that ran passed, 1 otherwise.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "native",)]  # modules from other tools/ folders
 
 import argparse
 import os
@@ -41,7 +47,7 @@ from pathlib import Path
 from http_native import ensure_native_libraries
 from stdlib_test_catalog import validated_entries
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
 
 # Reviewed Http test inventory. Exact IDs make a missing standalone test fail dispatch rather than
@@ -89,7 +95,7 @@ def check_corpus():
     print("== llhttp corpus is current")
     out = ROOT / "stdlib" / "Extensions" / "Http" / "tests" / "fixtures" / "llhttp_cases.jai"
     before = out.read_bytes() if out.exists() else b""
-    result = subprocess.run([sys.executable, str(ROOT / "tools" / "gen_http_corpus.py")], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(ROOT / "tools" / "corpus" / "gen_http_corpus.py")], capture_output=True, text=True)
 
     if result.returncode != 0:
         print(result.stdout + result.stderr)
@@ -100,7 +106,7 @@ def check_corpus():
 
     if before != after:
         out.write_bytes(before)
-        print("FAIL: llhttp_cases.jai is out of date: run python3 tools/gen_http_corpus.py and commit it")
+        print("FAIL: llhttp_cases.jai is out of date: run python3 tools/corpus/gen_http_corpus.py and commit it")
 
         return False
 
@@ -115,7 +121,7 @@ def run_harness(jaic, modes, case_ids, jobs):
     if missing:
         raise RuntimeError("HTTP conformance cases missing from catalogue: " + ", ".join(sorted(missing)))
     print(f"== {len(case_ids)} exact HTTP conformance cases ({modes})")
-    cmd = [sys.executable, str(ROOT / "tools" / "stdlib_runtime.py"), "--jaic", str(jaic),
+    cmd = [sys.executable, str(ROOT / "tools" / "stdlib" / "stdlib_runtime.py"), "--jaic", str(jaic),
            "--modes", modes, "-j", str(jobs), "--timeout", "900"]
     for name in case_ids:
         cmd.extend(["--case", name])
@@ -157,7 +163,7 @@ def check_server(jaic):
     print("== echo server probes")
     work = Path(tempfile.mkdtemp(prefix="http-conformance-"))
     binary = work / "echo_server"
-    build = subprocess.run([str(jaic), str(ROOT / "tools" / "http_garden" / "server.jai"), "-exe", str(binary)],
+    build = subprocess.run([str(jaic), str(ROOT / "tools" / "stdlib" / "http_garden" / "server.jai"), "-exe", str(binary)],
                            capture_output=True, text=True, cwd=ROOT)
 
     if build.returncode != 0:
@@ -278,7 +284,7 @@ def llhttp_summary(jaic):
     match = re.search(r"(\d+) cases: (\d+) match llhttp, (\d+) deviate on purpose, (\d+) need a lenient mode", result.stdout)
 
     if match:
-        print("== llhttp fixtures: %s run, %s match, %s deviate on purpose (tools/http_deviations.json), %s need a lenient mode llhttp has and the codec does not" % match.groups())
+        print("== llhttp fixtures: %s run, %s match, %s deviate on purpose (tools/corpus/http_deviations.json), %s need a lenient mode llhttp has and the codec does not" % match.groups())
     else:
         print(result.stdout + result.stderr)
 
@@ -307,7 +313,7 @@ def external_suites(garden):
 
         return True
 
-    print("http-garden: Docker and a checkout are present. Build tools/http_garden/server.jai into its image "
+    print("http-garden: Docker and a checkout are present. Build tools/stdlib/http_garden/server.jai into its image "
           "(docs/extensions/http-server.md) and run its differential tests against it; that run needs the "
           "garden's own Docker setup and is not driven from here")
 

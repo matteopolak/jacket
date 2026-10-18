@@ -5,13 +5,13 @@ import re
 import subprocess
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class NativeProvisioning(unittest.TestCase):
     def packages(self):
         result = subprocess.run(
-            ["bash", str(ROOT / "tools/install_ci_native_linux.sh"), "--list"],
+            ["bash", str(ROOT / "tools/ci/install_ci_native_linux.sh"), "--list"],
             capture_output=True,
             text=True,
             check=True,
@@ -59,7 +59,7 @@ class NativeProvisioning(unittest.TestCase):
 
     def test_invalid_arguments_fail_before_provisioning(self):
         result = subprocess.run(
-            ["bash", str(ROOT / "tools/install_ci_native_linux.sh"), "--disable-x11"],
+            ["bash", str(ROOT / "tools/ci/install_ci_native_linux.sh"), "--disable-x11"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -68,7 +68,7 @@ class NativeProvisioning(unittest.TestCase):
         self.assertIn("usage:", result.stderr)
 
     def test_shell_syntax_and_backend_policy(self):
-        path = ROOT / "tools/install_ci_native_linux.sh"
+        path = ROOT / "tools/ci/install_ci_native_linux.sh"
         subprocess.run(["bash", "-n", str(path)], check=True, timeout=5)
         source = path.read_text()
         self.assertIn("set -euo pipefail", source)

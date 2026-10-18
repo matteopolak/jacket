@@ -16,7 +16,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 TESTS = ROOT / "stdlib/Sound_Player/tests"
 DEVICE_CASES = [
     "device-lifecycle", "streams", "compressed-stream", "entity-phase", "entity-lifecycle",

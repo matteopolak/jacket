@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SUITES = ("foundations", "portable", "platform", "audio", "window", "numerics", "numerics-native", "bindings", "tooling")
 
 
@@ -42,20 +42,20 @@ def main():
     if args.font:
         env["JAIC_TEST_FONT_PATH"] = str(args.font.resolve(strict=True))
     commands = {
-        "foundations": ["tools/check_foundations.py", "--jaic", compiler, "--stdlib", library,
+        "foundations": ["tools/stdlib/check_foundations.py", "--jaic", compiler, "--stdlib", library,
                         "--jaifmt", fmt, "--jailint", lint, "--cross", "--wasm"],
-        "portable": ["tools/check_portable_stdlib.py", "--jaic", compiler, "--stdlib", library,
+        "portable": ["tools/portable/check_portable_stdlib.py", "--jaic", compiler, "--stdlib", library,
                      "--native", "--keep-going"],
-        "platform": ["tools/check_platform_io.py", "--jaic", compiler, "--stdlib", library,
+        "platform": ["tools/stdlib/check_platform_io.py", "--jaic", compiler, "--stdlib", library,
                      "--native", "--cross-check", "--wasm"],
-        "audio": ["tools/check_audio_output.py", "--jaic", compiler, "--native-libs", native],
-        "window": ["tools/check_window_render.py", "--jaic", compiler, "--stdlib", library,
+        "audio": ["tools/stdlib/check_audio_output.py", "--jaic", compiler, "--native-libs", native],
+        "window": ["tools/window_render/check_window_render.py", "--jaic", compiler, "--stdlib", library,
                    "--native-libs", native, "--font", args.font],
         "numerics": ["tools/numerics/run.py", "--compiler", compiler, "--stdlib", library],
         "numerics-native": ["tools/numerics/corrective.py", "--compiler", compiler, "--stdlib", library],
         "bindings": ["tools/native_bindings/verify.py", "--compiler", compiler, "--stdlib", library,
                      "--native-libs", binding_native, "--runtime", "--work-dir", ROOT / "target/production-bindings/checks", "--report", ROOT / "target/production-bindings/results.json"],
-        "tooling": ["tools/check_developer_tools.py"],
+        "tooling": ["tools/developer_checks/check_developer_tools.py"],
     }
     if args.private_x11_display:
         commands["numerics-native"].append("--private-x11-display")

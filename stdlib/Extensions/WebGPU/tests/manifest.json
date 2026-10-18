@@ -8,7 +8,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "wgpu-native, run by tools/test_webgpu_native.py"
+      "wgpu-native, run by tools/bindings/test_webgpu_native.py"
     ]
   },
   {
@@ -20,7 +20,7 @@
       "wasm-native"
     ],
     "required_capabilities": [
-      "wgpu-native and a window, run by tools/test_webgpu_native.py"
+      "wgpu-native and a window, run by tools/bindings/test_webgpu_native.py"
     ]
   }
 ]

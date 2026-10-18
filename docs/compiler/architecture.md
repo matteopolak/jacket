@@ -30,7 +30,7 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 
 ## How to change it
 
-Add syntax to `lexer.rs`, `parser/` and `ast.rs` first, with tests in `parser/tests.rs`. Then teach `sema/` to check and lower it, and add a program under `tests/compiler/regressions/` or `tests/corpus/` that exits 0, or a negative case. Run the sweep (`tools/jaic-sweep.py`); everything must pass. Unsupported constructs must produce a diagnostic, never a silent success.
+Add syntax to `lexer.rs`, `parser/` and `ast.rs` first, with tests in `parser/tests.rs`. Then teach `sema/` to check and lower it, and add a program under `tests/compiler/regressions/` or `tests/corpus/` that exits 0, or a negative case. Run the sweep (`tools/differential/jaic-sweep.py`); everything must pass. Unsupported constructs must produce a diagnostic, never a silent success.
 
 A closed set of names the compiler matches on (directives, procedure flags, the sandbox's libc procedures, runtime check reasons, builtin keys) is an enum declared with `raw_enum!` (`macros.rs`), which derives `ALL` and the conversion from and to the name or number. Match on the enum, not on strings: the compiler then lists the cases a new variant needs.
 

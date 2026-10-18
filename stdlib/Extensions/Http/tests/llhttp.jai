@@ -1,7 +1,7 @@
 // llhttp's request and response fixtures (nodejs/llhttp, MIT, data/llhttp/LICENSE) run through
 // the codec: the same messages must give the same heads, bodies and errors, except where the
 // codec is stricter on purpose. Each such case carries its reason (`deviation`, from
-// tools/http_deviations.json); a case that differs without one fails, and so does a listed
+// tools/corpus/http_deviations.json); a case that differs without one fails, and so does a listed
 // deviation that no longer differs. Fixtures that ran with an llhttp leniency flag may differ
 // (the codec has no lenient mode). Every case also has to give one result however its input is cut.
 //

@@ -36,7 +36,7 @@ pub struct Library {
 }
 
 /// Directories searched for libraries by name before the system's, set once by the driver
-/// (the third-party libraries `tools/build_native_libs.py` builds; see docs/tools/native-libs.md).
+/// (the third-party libraries `tools/native/build_native_libs.py` builds; see docs/tools/native-libs.md).
 static LIBRARY_DIRS: std::sync::OnceLock<Vec<std::path::PathBuf>> = std::sync::OnceLock::new();
 
 pub fn set_library_dirs(dirs: Vec<std::path::PathBuf>) {

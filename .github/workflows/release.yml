@@ -1,7 +1,7 @@
 name: release
 # Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
 # Windows (x86-64 and arm64), optimized with PGO (except Windows arm64) and BOLT on Linux x86-64
-# (tools/build_pgo.py, docs/tools/releases.md).
+# (tools/dev/build_pgo.py, docs/tools/releases.md).
 # A `v*` tag push builds and publishes the matching compiler version. Manual runs from the default
 # branch also require a tag matching that workflow revision's Cargo version. Historical releases
 # are rebuilt by dispatching each historical workflow from its own tag, preserving its toolchain
@@ -79,7 +79,7 @@ jobs:
             runner: macos-15
             llvm: LLVM-23.1.2-macOS-ARM64.tar.xz
           # LLVM publishes no Intel macOS build: conda-forge's static libraries instead
-          # (tools/install_ci_llvm_macos.sh --static).
+          # (tools/ci/install_ci_llvm_macos.sh --static).
           - name: macos-x64
             runner: macos-15-intel
             llvm: conda-forge
@@ -120,7 +120,7 @@ jobs:
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 tools/check_dependency_age.py
+        run: python3 tools/ci/check_dependency_age.py
       # The download is cached by archive name; ci.yml's Windows setup uses the same key and path.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
@@ -177,7 +177,7 @@ jobs:
       - name: Install conda-forge's static LLVM (macOS x64)
         if: matrix.llvm == 'conda-forge'
         run: |
-          tools/install_ci_llvm_macos.sh --static
+          tools/ci/install_ci_llvm_macos.sh --static
           echo "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-lc++abi" >> "$GITHUB_ENV"
       # The Windows release's llvm-config names static libraries the archive lacks (libxml2,
       # and zstd by an absolute build-machine path llvm-sys cannot parse); prepare.sh supplies
@@ -188,7 +188,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
-          bash tools/windows-llvm/prepare.sh "$llvm"
+          bash tools/ci/windows-llvm/prepare.sh "$llvm"
           # An explicit target keeps the flag off build scripts and proc macros.
           target="${{ matrix.rust_target }}"
           echo "CARGO_BUILD_TARGET=$target" >> "$GITHUB_ENV"
@@ -211,7 +211,7 @@ jobs:
           if [ -n "${{ matrix.llvm }}" ]; then llvm=static; fi
           bolt=()
           if [ "${{ matrix.bolt }}" = true ]; then bolt=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
-          python3 tools/build_pgo.py --llvm "$llvm" --jobs 4 "${bolt[@]}"
+          python3 tools/dev/build_pgo.py --llvm "$llvm" --jobs 4 "${bolt[@]}"
       - name: Show the failing link
         if: failure() && steps.build.outcome == 'failure' && matrix.llvm != ''
         run: cargo rustc --release --locked -p jaic-cli --bin jaic --no-default-features --features static-llvm -- -C link-args=-v 2>&1 | tail -60
@@ -235,21 +235,21 @@ jobs:
           # Bootstrap definitions are packaged with the standard library.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"
-          # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/webgpu.json),
+          # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/bindings/webgpu.json),
           # where jaic looks for native libraries: <stdlib>/../native-libs/<platform>.
           # The static library is what `jaic` links, the shared one what `jaic -interp` loads.
-          python3 tools/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
+          python3 tools/bindings/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
           # The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
           # stb_vorbis, lz4, meshoptimizer, pl_mpeg, FreeType, Dear ImGui and MojoShader; rpmalloc
           # on macOS and Linux; SDL2 on Windows x64), built from the pinned, checksum-verified
-          # sources in tools/native-libs.json, static and shared like wgpu-native, each with its
+          # sources in tools/native/native-libs.json, static and shared like wgpu-native, each with its
           # licence under licenses/. Simp, GetRect, Sound_Player and the other modules need them.
           # The script stops when a file it should have left is missing. macOS: for the oldest
           # macOS the jaic binary runs on, not the runner's.
           if [ "$RUNNER_OS" = "macOS" ]; then
             export MACOSX_DEPLOYMENT_TARGET="${{ matrix.name == 'macos-x64' && '10.12' || '11.0' }}"
           fi
-          python3 tools/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
+          python3 tools/native/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
           unset MACOSX_DEPLOYMENT_TARGET
           ls -l "$dir/native-libs/${{ matrix.name }}"
           # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
@@ -258,8 +258,8 @@ jobs:
           # SDL3's generated source must satisfy the real repository formatter and linter.
           # No missing dependency or syntax-only lint fallback is accepted by these checks.
           "$dir/jaifmt$exe" --check stdlib/Extensions/SDL3 stdlib/Extensions/SDL3/tests
-          python3 tools/sdl3_gen.py --source target/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
-          python3 tools/sdl3_lint.py --jailint "$PWD/$dir/jailint$exe" --stdlib "$PWD/$dir/stdlib"
+          python3 tools/bindings/sdl3_gen.py --source target/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
+          python3 tools/bindings/sdl3_lint.py --jailint "$PWD/$dir/jailint$exe" --stdlib "$PWD/$dir/stdlib"
           ls "$dir"
           if [ "$RUNNER_OS" = "Windows" ]; then
             7z a -tzip "$dir.zip" "$dir" > /dev/null
@@ -328,7 +328,7 @@ jobs:
           # SDL3 is source-built and packaged on all six current release targets. Audit every
           # declared runtime export and artifact hash, then compile/run ABI + headless tests
           # with the packaged static archive, outside the checkout and without system SDL3.
-          python3 "$GITHUB_WORKSPACE/tools/test_sdl3.py" --jaic "$jaic" \
+          python3 "$GITHUB_WORKSPACE/tools/bindings/test_sdl3.py" --jaic "$jaic" \
             --native "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}" \
             --platform "${{ matrix.name }}" --work "$work/sdl3"
           # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
@@ -612,7 +612,7 @@ jobs:
 
   # Package managers (docs/tools/releases.md). After the GitHub release, the Homebrew
   # formula is rendered from the tag and the release's own SHA256SUMS
-  # by tools/render_packages.py, validated, and published when their secret is set (otherwise the
+  # by tools/dev/render_packages.py, validated, and published when their secret is set (otherwise the
   # job says it skipped). They run after `publish`, so a failure here never holds up the release.
   # A run without a tag renders and validates from this run's archives and publishes nothing.
   homebrew:
@@ -653,7 +653,7 @@ jobs:
             version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)"
             source=(--archives archives)
           fi
-          python3 tools/render_packages.py --version "$version" "${source[@]}" --out "$RUNNER_TEMP/packages"
+          python3 tools/dev/render_packages.py --version "$version" "${source[@]}" --out "$RUNNER_TEMP/packages"
           echo "VERSION=$version" >> "$GITHUB_ENV"
           cat "$RUNNER_TEMP/packages/homebrew/jacket.rb"
       - name: Validate the formula (and, for a release, install and test it)

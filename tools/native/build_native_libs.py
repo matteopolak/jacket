@@ -9,6 +9,12 @@ or llvm-mingw on the build host; the directory goes in JAIC_CROSS_LIBS).
 """
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "bindings",)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json
@@ -25,8 +31,8 @@ from pathlib import Path
 
 from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
 
-ROOT = Path(__file__).resolve().parent.parent
-MANIFEST = ROOT / 'tools' / 'native-libs.json'
+ROOT = Path(__file__).resolve().parent.parent.parent
+MANIFEST = ROOT / 'tools' / 'native' / 'native-libs.json'
 
 # The Clang target of each Windows platform directory.
 WINDOWS_TRIPLES = {'windows-x64': 'x86_64-pc-windows-msvc', 'windows-arm64': 'aarch64-pc-windows-msvc'}
@@ -174,7 +180,7 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
         # Files of this repository that belong to the library (a configuration header, glue code).
         units += [ROOT / lib['local'] / rel for rel in lib.get('local_units', [])]
     if 'support' in lib:
-        # Glue the library's own sources lack (see tools/native-libs.json), as one more unit.
+        # Glue the library's own sources lack (see tools/native/native-libs.json), as one more unit.
         support = tmp / f'jai_{name}_support.{lib.get("support_suffix", "cpp")}'
         support.write_text(lib['support'])
         units.append(support)

@@ -12,7 +12,7 @@ import tempfile
 from build_developer_bindings import llvm_prefix
 from driven_sources import driven, driven_matching
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():

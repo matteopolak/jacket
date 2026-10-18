@@ -10,6 +10,12 @@ Tool-driven integration suites (native SDK probes, generator workflows) are sepa
 anything: the cross-target source check. The other modes run on this host only.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native",)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json
@@ -30,7 +36,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from repo_output import host_platform
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 MODES = ["interp", "native", "wasm-interp", "wasm-native", "check"]
 COVERAGE_LOCK = threading.Lock()
 CLIPBOARD_LOCK = threading.Lock()
@@ -93,7 +99,7 @@ def contract_result(case, code, output, error="", native=False):
 
 def use_native_libs(plat):
     """Point jaic at the third-party C libraries some tests link (stb_vorbis, rpmalloc, FreeType
-    on Windows...), building any that are missing for `plat`, as tools/jaic-sweep.py does."""
+    on Windows...), building any that are missing for `plat`, as tools/differential/jaic-sweep.py does."""
     if os.environ.get("JAIC_NATIVE_LIBS") or sys.platform not in (
         "darwin",
         "linux",
@@ -110,7 +116,7 @@ def use_native_libs(plat):
     if build_native_libs.missing(plat):
         extra = ["--platform", plat] if plat else []
         subprocess.run(
-            [sys.executable, str(ROOT / "tools/build_native_libs.py"), *extra],
+            [sys.executable, str(ROOT / "tools/native/build_native_libs.py"), *extra],
             check=True,
         )
     os.environ["JAIC_NATIVE_LIBS"] = str(build_native_libs.output_dir(plat))
@@ -517,11 +523,11 @@ def modes_given_cross(args):
 
 
 DATA_FIXTURE_BUILDERS = (
-    "tools/build_portable_zip_fixtures.py",
-    "tools/build_portable_archive_fixtures.py",
-    "tools/build_portable_mpeg_fixtures.py",
-    "tools/build_portable_meow_fixtures.py",
-    "tools/build_portable_machine_fixtures.py",
+    "tools/portable/build_portable_zip_fixtures.py",
+    "tools/portable/build_portable_archive_fixtures.py",
+    "tools/portable/build_portable_mpeg_fixtures.py",
+    "tools/portable/build_portable_meow_fixtures.py",
+    "tools/portable/build_portable_machine_fixtures.py",
 )
 
 

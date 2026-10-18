@@ -13,7 +13,7 @@ import sys
 
 from clipboard_linux_diagnostics import report_failure
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def digest(path):
@@ -58,7 +58,7 @@ def main():
     subprocess.run(
         [
             sys.executable,
-            str(ROOT / "tools/build_portable_clipboard.py"),
+            str(ROOT / "tools/portable/build_portable_clipboard.py"),
             "--output",
             str(package / native_relative),
         ],

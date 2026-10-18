@@ -3,7 +3,7 @@
 
     python3 tools/benchgen.py --lines 60000 --seed 1 --out /tmp/gen60k [--files 8] [--shape tools/corpus-shape.json]
 
-Unlike `tools/jaigen.py` (a differential tester that stresses semantics), this generator stresses the
+Unlike `tools/differential/jaigen.py` (a differential tester that stresses semantics), this generator stresses the
 compiler's throughput on code that looks like real programs: procedure bodies, struct and enum
 declarations, control flow, polymorphism and compile-time code are sampled from the distributions that
 `tools/jaistats.py` measured on the upstream corpus (`tools/corpus-shape.json`). The output is

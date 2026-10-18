@@ -1,4 +1,4 @@
-// An `ifx` argument binds a polymorphic parameter through its branches (found by tools/jaigen.py).
+// An `ifx` argument binds a polymorphic parameter through its branches (found by tools/differential/jaigen.py).
 #import "Basic";
 
 combine :: (a: $T, b: T) -> T {

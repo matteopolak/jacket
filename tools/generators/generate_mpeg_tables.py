@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "docs/specs/stdlib/modules"
 groups = [
     ("Video scan and reconstruction", ["PICTURE_RATE", "ZIG_ZAG", "INTRA_QUANT_MATRIX",
@@ -28,7 +28,7 @@ for line in text.splitlines():
         declarations[declaration.split()[0]] = declaration + ";"
 for declaration in re.findall(r"```jai\n(.*?)\n```", (SPEC / "pl-mpeg-public-tables.md").read_text(), re.S):
     declarations[declaration.split()[0]] = declaration.strip()
-output = "// Generated from the public specifications by tools/generate_mpeg_tables.py.\n"
+output = "// Generated from the public specifications by tools/generators/generate_mpeg_tables.py.\n"
 for title, names in groups:
     output += "\n// " + title + ".\n\n"
     output += "\n\n".join(declarations[name] for name in names) + "\n"

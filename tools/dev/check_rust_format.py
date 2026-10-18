@@ -30,7 +30,7 @@ def uncovered_packages(root: Path) -> list[str]:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     try:
         uncovered = uncovered_packages(root)
         if uncovered:
@@ -44,8 +44,8 @@ def main() -> int:
         commands = [["cargo", "fmt", "--all", "--", "--check"]]
         commands.extend(["cargo", "fmt", "--manifest-path", manifest, "--", "--check"]
                         for manifest in standalone_manifests(root))
-        # rustfmt does not put blank lines between items; tools/rust_item_spacing.py does.
-        commands.append([sys.executable, str(root / "tools" / "rust_item_spacing.py"), "--check"])
+        # rustfmt does not put blank lines between items; tools/dev/rust_item_spacing.py does.
+        commands.append([sys.executable, str(root / "tools" / "dev" / "rust_item_spacing.py"), "--check"])
         results = [subprocess.run(command, cwd=root, check=False).returncode
                    for command in commands]
         return int(any(results))

@@ -3,6 +3,12 @@
 
 This is a regression harness, not a benchmark. It never executes supplied binaries.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import argparse
 import concurrent.futures
 import json
@@ -19,7 +25,7 @@ from collections import deque
 
 from repo_output import output_dir
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def sources(paths):

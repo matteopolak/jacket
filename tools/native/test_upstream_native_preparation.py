@@ -70,14 +70,14 @@ class NativePreparation(unittest.TestCase):
                     crash, audio = plan["commands"][:2]
                     if system == "macos":
                         self.assertIn(
-                            str(root / "tools/build_portable_watcher.py"),
+                            str(root / "tools/portable/build_portable_watcher.py"),
                             plan["commands"][2],
                         )
                         self.assertIn(native / "libportable_watch.dylib", plan["required"])
                     if system == "linux":
                         clipboard = plan["commands"][2]
                         self.assertIn(
-                            str(root / "tools/build_portable_clipboard.py"), clipboard
+                            str(root / "tools/portable/build_portable_clipboard.py"), clipboard
                         )
                         self.assertEqual(
                             Path(clipboard[clipboard.index("--output") + 1]), native
@@ -88,14 +88,14 @@ class NativePreparation(unittest.TestCase):
                         self.assertIn(
                             native / "libportable_clipboard.so", plan["required"]
                         )
-                    self.assertIn(str(root / "tools/audio_build_native.py"), audio)
+                    self.assertIn(str(root / "tools/native/audio_build_native.py"), audio)
                     self.assertEqual(audio[audio.index("--platform") + 1], platform)
                     self.assertEqual(Path(audio[audio.index("--out") + 1]), native)
                     self.assertNotIn("--test-runtime", audio)
                     self.assertNotIn("--require-device", audio)
                     if system == "windows":
                         self.assertIn(
-                            str(root / "tools/build_platform_io_runtime.py"), crash
+                            str(root / "tools/stdlib/build_platform_io_runtime.py"), crash
                         )
                         self.assertEqual(crash[crash.index("--cpu") + 1], cpu)
                         triple = "aarch64" if cpu == "arm64" else "x86_64"
@@ -108,7 +108,7 @@ class NativePreparation(unittest.TestCase):
                         )
                     else:
                         self.assertIn(
-                            str(root / "tools/build_portable_runtime.py"), crash
+                            str(root / "tools/portable/build_portable_runtime.py"), crash
                         )
                         self.assertEqual(crash[crash.index("--platform") + 1], platform)
                         self.assertEqual(Path(crash[crash.index("--output-dir") + 1]), native)

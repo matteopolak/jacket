@@ -32,23 +32,23 @@ Expected values must come from the project (docs, tests, golden outputs written 
 
 ## Smoke tests
 
-`tools/upstream_smoke.py` builds each project with its own entry point and runs it unattended. Checks live in `tools/upstream-smoke.json` (validated by `tools/test_upstream_smoke.py`); CI runs them in the `upstream-smoke` job of `ci.yml` on linux-x64, linux-arm64, macos-arm64 and windows-x64.
+`tools/corpus/upstream_smoke.py` builds each project with its own entry point and runs it unattended. Checks live in `tools/corpus/upstream-smoke.json` (validated by `tools/corpus/test_upstream_smoke.py`); CI runs them in the `upstream-smoke` job of `ci.yml` on linux-x64, linux-arm64, macos-arm64 and windows-x64.
 
 ```sh
-python3 tools/fetch_upstreams.py --only $(python3 tools/upstream_smoke.py --jaic x --projects)
-python3 tools/upstream_smoke.py --jaic target/release/jaic              # every check for this machine
-python3 tools/upstream_smoke.py --jaic target/release/jaic --filter focus -v
+python3 tools/fetch_upstreams.py --only $(python3 tools/corpus/upstream_smoke.py --jaic x --projects)
+python3 tools/corpus/upstream_smoke.py --jaic target/release/jaic              # every check for this machine
+python3 tools/corpus/upstream_smoke.py --jaic target/release/jaic --filter focus -v
 ```
 
 Each check copies its project into a scratch directory and runs steps in order. Step `kind`: `jaic` (`outputs` must exist, `contains`/`ordered`/`not_contains` check output), `run` (default; `stdin`, `exit`), `gui` (must still run after `seconds`, and the screen must change between screenshots taken before and after start), `serve` (free port via `{port}`, fetch `get`), `lsp` (`initialize` over stdio). `needs` runs a step only if a program was built, `only`/`skip` limit platforms, and a check with `only`/`skip` or no steps is a documented skip with a reason. Servers, editors and games need `serve` or `gui`, never a bare `run`. GUI programs run under `xvfb-run` on Linux; on Windows Mesa's software `opengl32.dll` is copied beside them.
 
-Known deviations: Focus builds with `first.jai - release` and, on Windows, is built but not run (Mesa reports a GL error its Simp backend turns into a breakpoint); reflector's `build.jai` also builds a Windows-only benchmark, so the check builds `tools/upstream-drivers/reflector-tests.jai` instead, and its case patches uninitialised arrays upstream leaves undefined; jai-tracy compiles libtracy from the pinned client instead of running `generate.jai`; toml-jai's `tests.jai` spawns a `jai` per example, so the check runs each itself.
+Known deviations: Focus builds with `first.jai - release` and, on Windows, is built but not run (Mesa reports a GL error its Simp backend turns into a breakpoint); reflector's `build.jai` also builds a Windows-only benchmark, so the check builds `tools/corpus/upstream-drivers/reflector-tests.jai` instead, and its case patches uninitialised arrays upstream leaves undefined; jai-tracy compiles libtracy from the pinned client instead of running `generate.jai`; toml-jai's `tests.jai` spawns a `jai` per example, so the check runs each itself.
 
 x64-only projects: some cases need an x86-64 host, so a Mac or Arm machine cannot show them passing. They run as `upstream` sweep cases (`tools/upstream-cases.json`) in the `third-party projects` steps of `ci.yml`: the Linux x64 job runs `ttwj-28-28.5-get-cpu-info-feature-flags` (CPUID), `ttwj-28-28.7-asm-and-macros` (`#asm` with `__reg` macro parameters), `ttwj-30-jai-raylib-build`, `chess-jai-ui-check`, `chess-jai-engine-check` and the four `vk-engine-*-check` cases; the Windows x64 job runs the same without Vk-Engine. All pass on both hosts. The Vk-Engine cases pass `-os linux -cpu x64` because the non-x64 `Default_Allocator` has no `initialize_if_needed`, which Vk-Engine calls.
 
 Cross-target compile-time code: `#run` always executes on the machine running `jaic`, so a project built with `-os linux` on a Mac runs Linux-only calls against the Mac libc. Monotonic clocks are covered (`current_time_monotonic` reads the host clock when the target OS differs from the compiler's), but code that forks, pipes or locks files in a plain `#run` (Vk-Engine's `Build.jai` uses `run_command`) fails with a Process error on a foreign host. Use `#run,host` for host-only work (`docs/specs/jai/polymorphism-and-metaprogramming.md`), or check such a project on a host of its own OS. The four `vk-engine-*-check` cases are therefore real checks only on Linux; they still fail on macOS with "process result read failed".
 
-Projects that do not fully work, and why: Vk-Engine (checks for Linux only, no macOS support upstream), jai-postgres and jai-redis (need a database or server), Photon (Windows-only), KodaJai (needs unpinned modules by the same author), no_api (its entry point loads a file missing upstream), ui_builder (link needs an unpinned prebuilt `libslang`), sgpu (examples build on macOS after `tools/build_slang.py`; mesh shaders need a driver MoltenVK lacks), wait_group on Linux (upstream typo: `signal` where `it` was meant), The Way to Jai (examples that check but do not run are Windows-only, written for an older Jai, interactive, or deliberately failing).
+Projects that do not fully work, and why: Vk-Engine (checks for Linux only, no macOS support upstream), jai-postgres and jai-redis (need a database or server), Photon (Windows-only), KodaJai (needs unpinned modules by the same author), no_api (its entry point loads a file missing upstream), ui_builder (link needs an unpinned prebuilt `libslang`), sgpu (examples build on macOS after `tools/native/build_slang.py`; mesh shaders need a driver MoltenVK lacks), wait_group on Linux (upstream typo: `signal` where `it` was meant), The Way to Jai (examples that check but do not run are Windows-only, written for an older Jai, interactive, or deliberately failing).
 
 ## How to change it
 

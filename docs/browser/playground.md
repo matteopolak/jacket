@@ -4,7 +4,7 @@
 
 `crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` (including `stdlib/prelude/`) embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the default language tour and the release packaging, not a UI. The hosted playground at https://matteopolak.com/playground/jacket lives in the portfolio repository (`matteopolak/portfolio`), which has the editor, worker and engine wrapper.
 
-A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
+A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 
 | File | Source | Purpose |
 | --- | --- | --- |
@@ -34,10 +34,10 @@ A bundle (`tools/build_scripting_wasm.py --output <dir>`) holds:
 
 ```sh
 rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
-python3 tools/build_scripting_wasm.py --release --output target/scripting-runtime
-node tools/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
-node tools/check_jaifmt_wasm.mjs engine target/scripting-runtime
-node tools/check_playground_stdlib.mjs target/scripting-runtime
+python3 tools/browser/build_scripting_wasm.py --release --output target/scripting-runtime
+node tools/browser/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
+node tools/browser/check_jaifmt_wasm.mjs engine target/scripting-runtime
+node tools/browser/check_playground_stdlib.mjs target/scripting-runtime
 ```
 
 `build_scripting_wasm.py` runs an offline, locked, non-incremental `cargo build -p jai-wasm --target wasm32-unknown-unknown`, checks the `\0asm` header, stages the bundle (default `target/scripting-runtime`) and refuses to start below 2 GiB free. With `--jaic <native jaic>` it also builds `jaifmt.wasm`. To try a local build in the hosted UI, run the portfolio's sync with `JAI_WEB_LOCAL=<bundle dir>`. Native test: `cargo test -p jai-wasm play`. The release module is about 11 MB, mostly the stdlib.
@@ -48,21 +48,21 @@ node tools/check_playground_stdlib.mjs target/scripting-runtime
 
 `examples/tour/` is a multi-file Jai program, one topic per file (`basics`, `types`, `data`, `memory`, `generics`, `meta`, `safety`, `threads`, `files`, `machine` for `#asm` and `Long_Double`, `finale/raymarch.jai`, and `gpu/raymarch_gpu.jai` as a WebGPU encore), loaded by `main.jai` from a table of `{title, procedure}` stops, with `tour.md` as a plain-text guide. The playground opens it as the default workspace; it ships in the bundle as `tour/` plus `tour.json`:
 
-The tour's case in `tests/corpus/examples.json` has `bundle: "tour"`, which makes `build_scripting_wasm.py` copy the folder and write the index. `tools/jaic-sweep.py examples` runs it natively (`jaic main.jai -interp -os wasm`); `check_scripting_wasm.mjs` and `check_browser_release.mjs` run it in the wasm engine under the case's `budget` via `tools/examples_wasm.mjs`. The portfolio's `starter.ts::loadStarter` fetches `tour.json` and each listed file, falling back to a two-file starter on any failure.
+The tour's case in `tests/corpus/examples.json` has `bundle: "tour"`, which makes `build_scripting_wasm.py` copy the folder and write the index. `tools/differential/jaic-sweep.py examples` runs it natively (`jaic main.jai -interp -os wasm`); `check_scripting_wasm.mjs` and `check_browser_release.mjs` run it in the wasm engine under the case's `budget` via `tools/browser/examples_wasm.mjs`. The portfolio's `starter.ts::loadStarter` fetches `tour.json` and each listed file, falling back to a two-file starter on any failure.
 
 To add a stop: write `examples/tour/<topic>/<file>.jai` with a `tour_<topic> :: ()` procedure, `#load` it in `main.jai`, add `.{ "Title", tour_<topic> }` to `stops`, and mention it in `tour.md`. All files share one global scope, so helpers need distinct names (a helper named `scale` collides with `Math`'s). A stop that shows a failure must sit behind a constant the reader flips (`BREAK_ON_PURPOSE`) so the default run stays green. Keep it browser-safe (no processes, sockets, windows or native libraries), short-running (auto-run reruns on every edit) and short-lined, and run jaifmt on it: `jaic jaifmt/main.jai -interp -- --check "$PWD/examples/tour"`. Update `stdout_contains` in `tests/corpus/examples.json` when output changes. `builder_to_string`, `NewArray` and `String` helpers take no allocator argument; wrap them in `push_allocator(temp)`.
 
 ### Browser releases
 
-`tools/package_browser_release.py` turns one clean compiler commit into a relocatable bundle with a SHA-256 inventory, which the portfolio consumes (its `jai-web.yml` runs the same packager and publishes `jai-web-<sha>` releases). Steps:
+`tools/browser/package_browser_release.py` turns one clean compiler commit into a relocatable bundle with a SHA-256 inventory, which the portfolio consumes (its `jai-web.yml` runs the same packager and publishes `jai-web-<sha>` releases). Steps:
 
-1. The checkout must be clean, the pinned nightly in `rust-toolchain.toml` at least 14 days old, locked dependencies pass `tools/check_dependency_age.py`, and `tools/check_ci_sources.py` checks literal `include_*!` inputs.
+1. The checkout must be clean, the pinned nightly in `rust-toolchain.toml` at least 14 days old, locked dependencies pass `tools/ci/check_dependency_age.py`, and `tools/ci/check_ci_sources.py` checks literal `include_*!` inputs.
 2. It runs `build_scripting_wasm.py --release` into a temporary stage and replaces the build metadata with a relocatable `build-metadata.json` (`commit`, `schema_version`, `toolchain`, `wasm_sha256`).
 3. The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `jaifmt.wasm`, `build-metadata.json`, `README.md`, `tour.json` and `tour/main.jai`. Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` files are accepted; at most 64 files, 64 MiB each, 128 MiB total.
-4. `node tools/check_browser_release.mjs <stage>` runs the **staged** engine: the exact inventory, a `tour/` matching `tour.json`, execution probes (exit codes, phases, nested `#load`, diagnostics, a `#run` workspace message loop, the virtual clock, the budget, a refused `#foreign`), the tour, a format, the language server, and `check_playground_stdlib.mjs`. Any failure means nothing is published.
+4. `node tools/browser/check_browser_release.mjs <stage>` runs the **staged** engine: the exact inventory, a `tour/` matching `tour.json`, execution probes (exit codes, phases, nested `#load`, diagnostics, a `#run` workspace message loop, the virtual clock, the budget, a refused `#foreign`), the tour, a format, the language server, and `check_playground_stdlib.mjs`. Any failure means nothing is published.
 5. The ZIP uses fixed timestamps and modes (identical inputs give identical bytes), is read back against the inventory, and is written with `jai-playground.manifest.json` (`schema_version: 2`, `commit`, `files: [{path, size, sha256}]`, `archive`, `capabilities`) into an absent or empty output directory.
 
-Run it with `python3 tools/package_browser_release.py --output target/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
+Run it with `python3 tools/browser/package_browser_release.py --output target/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
 
 ## How to change it
 
@@ -76,7 +76,7 @@ Run it with `python3 tools/package_browser_release.py --output target/browser-re
 ## Configuration
 
 - `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or the build script to stage the bundle; `--target-dir` and `CARGO_TARGET_DIR` select the build directory.
-- Tests: `python3 -m unittest discover -s tools -p 'test_*.py'`, `node --test tools/test_browser_release.mjs`. CI (`.github/workflows/ci.yml`) runs the Node checks on a debug build.
+- Tests: `python3 tools/run_tests.py -p 'test_*.py'`, `node --test tools/browser/test_browser_release.mjs`. CI (`.github/workflows/ci.yml`) runs the Node checks on a debug build.
 - Portfolio: `MAX_TOUR_FILES` (64) and `MAX_TOUR_BYTES` (1 MiB) in `starter.ts`.
 - `tests/corpus/examples.json` keys: `directory`, `main`, `args`, `budget`, `bundle`, `stdout_contains`, `stdout_excludes`.
 

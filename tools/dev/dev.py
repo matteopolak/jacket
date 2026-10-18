@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Developer commands behind the Justfile: build, format, lint and test the repository.
 
-    python3 tools/dev.py build [--release] [-j N]
-    python3 tools/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
-    python3 tools/dev.py lint [--fix] [--lang jai|rust|all] [--staged] [-j N] [paths...]
-    python3 tools/dev.py editor
-    python3 tools/dev.py nvim [--unit] [-j N]
-    python3 tools/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
+    python3 tools/dev/dev.py build [--release] [-j N]
+    python3 tools/dev/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
+    python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--staged] [-j N] [paths...]
+    python3 tools/dev/dev.py editor
+    python3 tools/dev/dev.py nvim [--unit] [-j N]
+    python3 tools/dev/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
 
 The recipes in the Justfile are thin wrappers; this file holds the logic so that CI and a local
 shell run the same commands. Runs on Python 3.9 (macOS /usr/bin/python3): no tomllib here.
@@ -22,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 EXE = ".exe" if os.name == "nt" else ""
 
 # What CI formats and lints: every Jai tree the repository owns.
@@ -55,7 +55,7 @@ def cargo_build(args: list[str], jobs: str) -> int:
 
 
 def staged(lang: str) -> list[str]:
-    out = subprocess.run(["sh", str(ROOT / "tools" / "staged-files.sh"), lang],
+    out = subprocess.run(["sh", str(ROOT / "tools" / "dev" / "staged-files.sh"), lang],
                          cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return [line for line in out.splitlines() if line]
 
@@ -122,10 +122,10 @@ def cmd_fmt(args) -> int:
         failed |= bool(run([str(jaifmt), *(["--check"] if args.check else []), *(jai or JAI_DIRS)]))
     if wants(args.lang, "rust") and (whole or rust):
         check = ["--check"] if args.check else []
-        spacing = [sys.executable, str(ROOT / "tools" / "rust_item_spacing.py"), *check]
+        spacing = [sys.executable, str(ROOT / "tools" / "dev" / "rust_item_spacing.py"), *check]
         if whole and args.check and sys.version_info >= (3, 11):
             # CI's check: also fails when an authored crate is outside the formatted workspace.
-            failed |= bool(run([sys.executable, str(ROOT / "tools" / "check_rust_format.py")]))
+            failed |= bool(run([sys.executable, str(ROOT / "tools" / "dev" / "check_rust_format.py")]))
         elif whole:
             failed |= bool(run(["cargo", "fmt", "--all", *(["--", "--check"] if args.check else [])]))
             failed |= bool(run(spacing))
@@ -208,8 +208,7 @@ def cmd_test(args) -> int:
         failed |= bool(run(["cargo", "test", "-j", args.jobs, "--locked", "--no-fail-fast",
                             *scope, "--", *args.filter, *skips]))
     if args.suite in ("tools", "all") and not narrowed:
-        failed |= bool(run([sys.executable, "-m", "unittest", "discover", "-s", "tools",
-                            "-p", "test_*.py"]))
+        failed |= bool(run([sys.executable, "tools/run_tests.py"]))
     return int(failed)
 
 

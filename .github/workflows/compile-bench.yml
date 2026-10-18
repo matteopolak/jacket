@@ -35,13 +35,13 @@ jobs:
           python-version: '3.14'
       - name: Install LLVM 23
         run: |
-          tools/install_ci_llvm_macos.sh
+          tools/ci/install_ci_llvm_macos.sh
       - name: Build the release compiler
         run: cargo build --locked --release -p jaic-cli -p jai-language-server -p jailint
       - name: Fetch the upstream corpus and its native libraries
         run: |
           python3 tools/fetch_upstreams.py
-          python3 tools/build_native_libs.py
+          python3 tools/native/build_native_libs.py
       - name: Run the benchmark
         env:
           COMMAND: ${{ inputs.command }}

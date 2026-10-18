@@ -3,7 +3,7 @@
 from pathlib import Path
 import re
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 spec = (ROOT / "docs/specs/stdlib/modules/pl-mpeg.md").read_text()
 appendix = (ROOT / "docs/specs/stdlib/modules/pl-mpeg-public-tables.md").read_text()
 declarations = {}

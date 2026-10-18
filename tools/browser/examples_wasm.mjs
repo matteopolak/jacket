@@ -6,7 +6,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 export async function exampleCases() {
   return JSON.parse(await readFile(path.join(root, "tests/corpus/examples.json"), "utf8")).cases;

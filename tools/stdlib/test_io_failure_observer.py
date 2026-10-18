@@ -10,12 +10,12 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.dont_write_bytecode = True
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 assigned_scratch = importlib.import_module("ci_test_scratch").assigned_scratch
 
 spec = importlib.util.spec_from_file_location(
-    "failure_observer", ROOT / "tools/io_failure_observer.py"
+    "failure_observer", ROOT / "tools/stdlib/io_failure_observer.py"
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -35,11 +35,11 @@ class FailureObserverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=assigned_scratch()) as scratch:
             root = Path(scratch)
             (root / "stdlib").mkdir()
-            (root / "tools").mkdir()
+            (root / "tools/stdlib").mkdir(parents=True)
             source = root / "stdlib/input.jai"
             source.write_text("// digest-only unit input\n")
             for name in ("io_stress.py", "io_failure_observer.py"):
-                (root / "tools" / name).write_text("# digest-only unit input\n")
+                (root / "tools/stdlib" / name).write_text("# digest-only unit input\n")
             compiler = root / "compiler-digest-input"
             compiler.write_text("digest-only bytes; never executed")
             before = module.source_identity(root, compiler)

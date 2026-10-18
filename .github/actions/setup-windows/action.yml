@@ -63,6 +63,6 @@ runs:
         echo "JAIC_WASM_LD=$(cygpath -m "$llvm/bin/wasm-ld.exe")" >> "$GITHUB_ENV"
         # Supply the static libraries llvm-config names but the archive lacks (libxml2, zstd)
         # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
-        bash tools/windows-llvm/prepare.sh "$llvm"
+        bash tools/ci/windows-llvm/prepare.sh "$llvm"
     # The dependencies' build output, restored everywhere and saved from main.
     - uses: ./.github/actions/rust-cache

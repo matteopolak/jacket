@@ -9,6 +9,12 @@ default under target/, never to the source tree. No executable or fault harness
 runs.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json
@@ -18,7 +24,7 @@ import shutil
 import subprocess
 from repo_output import host_platform
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def build_plan(target, output, temporary, cc, ar):

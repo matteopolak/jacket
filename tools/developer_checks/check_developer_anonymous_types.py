@@ -6,7 +6,7 @@ import platform
 import subprocess
 from driven_sources import driven
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 
 

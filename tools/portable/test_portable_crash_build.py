@@ -48,7 +48,7 @@ class PortableCrashBuild(unittest.TestCase):
 
     def test_build_script_uses_the_same_recipe(self):
         # crates/jaic-cli/build.rs is the build's implementation; this helper is its twin.
-        script = (Path(__file__).parent.parent / "crates/jaic-cli/build.rs").read_text()
+        script = (Path(__file__).parent.parent.parent / "crates/jaic-cli/build.rs").read_text()
         plan = self.tool.build_plan(
             "linux-x64", Path("/out"), Path("/target"), "clang", "llvm-ar"
         )

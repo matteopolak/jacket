@@ -1513,7 +1513,7 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
             ));
         }
     }
-    // Built third-party libraries (`tools/build_native_libs.py`: `freetype.lib`...) link
+    // Built third-party libraries (`tools/native/build_native_libs.py`: `freetype.lib`...) link
     // statically, as on macOS and Linux below.
     if flavor == LinkFlavor::Msvc && !cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);
@@ -1525,7 +1525,7 @@ fn library_args(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<Li
         }
     }
     // A MinGW cross build links third-party libraries cross-built for it
-    // (`tools/build_native_libs.py --platform windows-<cpu>-mingw`) from the directories in
+    // (`tools/native/build_native_libs.py --platform windows-<cpu>-mingw`) from the directories in
     // `JAIC_CROSS_LIBS`, not from the host's native-libs directory, whose archives are for the host.
     if flavor == LinkFlavor::MinGw && cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);

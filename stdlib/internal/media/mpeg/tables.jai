@@ -1,4 +1,4 @@
-// Generated from the public specifications by tools/generate_mpeg_tables.py.
+// Generated from the public specifications by tools/generators/generate_mpeg_tables.py.
 
 // Video scan and reconstruction.
 

@@ -39,7 +39,7 @@ Loop-body plumbing is `ForBody` in `sema/lower.rs`. Tests in `tests/compiler/reg
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `#expand` procedures are inlined at the call site {#macro.1}. They reach into the caller with backtick names, `` `return `` and `` `defer `` {#macro.2}, take `Code` arguments to `#insert` {#macro.3}, and implement `for` over user types through `for_expansion` {#macro.4}.
 - A backtick `defer` runs at the end of the caller's block {#macro.5}. A backtick declaration (`` `thing := New(int); ``) is visible to the caller afterward {#macro.6}.

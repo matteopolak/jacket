@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Differential testing: run each program through every jaic backend and require the same result.
 
-Usage: tools/jaic-diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
+Usage: tools/differential/jaic-diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
 Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (reviewed positive contracts), regressions (independent compiler/Extensions/ABI/graphics),
-modules (every stdlib/**/tests directory), gen:SEED:COUNT (COUNT programs from tools/jaigen.py starting at
-SEED; reproduce one with `tools/jaigen.py SEED`), or file paths.
+modules (every stdlib/**/tests directory), gen:SEED:COUNT (COUNT programs from tools/differential/jaigen.py starting at
+SEED; reproduce one with `tools/differential/jaigen.py SEED`), or file paths.
 
 Backends:
   interp     `jaic -interp`: the interpreter on the host OS
   native     `jaic` (LLVM, -O0) and run the executable
   native-O2  the same with -O2
-  wasm       the browser engine (crates/jai-wasm in node, tools/jaic_diff_wasm.mjs): the interpreter compiled
+  wasm       the browser engine (crates/jai-wasm in node, tools/differential/jaic_diff_wasm.mjs): the interpreter compiled
              to wasm32, target OS .WASM, sandboxed host
   wasm-native  `jaic -os wasm` (LLVM, wasm64 with Wasi_Runtime) run by node's WASI
              (tools/wasi_run.mjs); only when asked for, it needs wasm-ld and node 24
@@ -21,12 +21,18 @@ match exactly; stderr must match when every backend exited normally. A backend w
 another's succeeds is a disagreement, except that a backend may decline a program it cannot run
 (see `unsupported` below); those are reported as skips, not passes.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "stdlib",)]  # modules from other tools/ folders
+
 import argparse, importlib.util, json, os, re, select, shutil, subprocess, sys, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-_spec = importlib.util.spec_from_file_location("jaic_sweep", ROOT / "tools/jaic-sweep.py")
+ROOT = Path(__file__).resolve().parent.parent.parent
+_spec = importlib.util.spec_from_file_location("jaic_sweep", ROOT / "tools/differential/jaic-sweep.py")
 sweep = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sweep)
 
@@ -137,7 +143,7 @@ class WasmPool:
     def proc(self):
         p = getattr(self.local, "proc", None)
         if p is None or p.poll() is not None:
-            p = subprocess.Popen(["node", "--stack-size=4000", str(ROOT / "tools/jaic_diff_wasm.mjs"), str(self.bundle)],
+            p = subprocess.Popen(["node", "--stack-size=4000", str(ROOT / "tools/differential/jaic_diff_wasm.mjs"), str(self.bundle)],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
             self.local.proc = p
         return p
@@ -190,7 +196,7 @@ class WasmPool:
 
 
 class Runner:
-    """Runs a case through the chosen backends; shared by main() and tools/jaic-reduce.py."""
+    """Runs a case through the chosen backends; shared by main() and tools/differential/jaic-reduce.py."""
 
     def __init__(self, jaic, backends, work, wasm_bundle=None, timeout=120, memory_gib=3):
         self.jaic, self.backends, self.work = Path(jaic).resolve(), backends, Path(work)
@@ -303,7 +309,7 @@ def verdict(case, results):
 def add_backend_arguments(ap):
     target = os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target")
     ap.add_argument("--jaic", default=os.path.join(target, "debug", "jaic"))
-    ap.add_argument("--wasm", help="browser bundle directory (tools/build_scripting_wasm.py --output)")
+    ap.add_argument("--wasm", help="browser bundle directory (tools/browser/build_scripting_wasm.py --output)")
     ap.add_argument("--backends", default=None,
                     help=f"comma-separated subset of {','.join(ALL_BACKENDS)} (default: all available)")
     ap.add_argument("--timeout", type=float, default=120)
@@ -342,7 +348,7 @@ def main():
     ap.add_argument("--keep", help="directory for generated programs and build outputs (default: a temp dir)")
     ap.add_argument("--verbose", "-v", action="store_true")
     ap.add_argument("--json", help="write per-case results here")
-    ap.add_argument("--gen-size", type=float, default=1.0, help="tools/jaigen.py --size for gen: sets")
+    ap.add_argument("--gen-size", type=float, default=1.0, help="tools/differential/jaigen.py --size for gen: sets")
     a = ap.parse_args()
 
     backends = chosen_backends(a)

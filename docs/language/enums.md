@@ -29,7 +29,7 @@ print("%\n", Flags.READ | Flags.EXEC);                              // READ | EX
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Members count up from zero {#enum.1}; `NAME :: value;` sets a value and numbering continues after it {#enum.2}. The default backing type is 8 bytes {#enum.3}; `enum u8` picks another {#enum.4}.
 - A member prints by name, `cast(int)` gives its value, and an `enum_flags` combination prints as its member names joined by ` | ` {#enum.5}.

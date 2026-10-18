@@ -92,7 +92,7 @@ fn host_values_runs_as_a_real_wasi_command() {
             .args(["-os", "wasm", "-exe"])
             .arg(&module),
     );
-    let runner =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/run_foundations_wasm.mjs");
+    let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tools/browser/run_foundations_wasm.mjs");
     success(Command::new("node").arg(runner).arg(module));
 }

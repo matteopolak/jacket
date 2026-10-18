@@ -40,7 +40,7 @@ Folding is `wrap_int` in `sema/expr.rs`; conversions are `implicit_cost` and `sc
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `Build_Options.arithmetic_overflow_check` (`.OFF` by default, `.NONFATAL`, `.FATAL`) makes integer `+`, `-` and `*` (and `+=`, `-=`, `*=`) report results that do not fit the operand type {#overflow.1}. `#no_aoc` turns the check off for code that overflows on purpose, like hashes and random number generators {#overflow.2}.
 - `__arithmetic_overflow` prints to stderr {#overflow.3}:

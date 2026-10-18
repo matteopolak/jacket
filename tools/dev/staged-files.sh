@@ -1,7 +1,7 @@
 #!/bin/sh
 # Print the staged files that still exist after the commit, one per line, for one language.
 #
-#   tools/staged-files.sh [jai|rust|all]      (default: all)
+#   tools/dev/staged-files.sh [jai|rust|all]      (default: all)
 #
 # Shared by .githooks/pre-commit and `just fmt|lint --staged`. Plain POSIX sh with git only, so the
 # hook needs neither just nor Python. Rust means the workspace (crates/**/*.rs), as in CI.

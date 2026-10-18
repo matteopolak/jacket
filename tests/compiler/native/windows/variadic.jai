@@ -2,7 +2,7 @@
 // msvcrt.dll exports on every Windows CPU (UCRT's `snprintf` is a header inline, so the
 // interpreter cannot find it there). Windows on arm64 passes all of a variadic call's
 // arguments, doubles included, in x0-x7 and then on the stack; Win64 duplicates the first
-// four doubles in integer registers. Run natively by tools/windows_cross.py and with
+// four doubles in integer registers. Run natively by tools/native/windows_cross.py and with
 // `jaic -interp` in .github/workflows/windows-native.yml.
 #import "Basic";
 

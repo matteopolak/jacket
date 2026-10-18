@@ -3,7 +3,7 @@
 the nativejson-benchmark data) into
 a directory, and prints the command to run:
 
-    python3 tools/json_bench_data.py /tmp/json-data
+    python3 tools/dev/json_bench_data.py /tmp/json-data
     jaic stdlib/Extensions/Json/bench/bench.jai -O2 -exe /tmp/json-bench
     /tmp/json-bench /tmp/json-data/twitter.json /tmp/json-data/canada.json /tmp/json-data/citm_catalog.json
 

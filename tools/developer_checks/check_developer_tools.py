@@ -42,7 +42,7 @@ import check_developer_dwarf_line_wire
 import check_developer_profiler_windows
 import check_generator_platform
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 JAIC = ROOT / "target/debug/jaic"
 UNAVAILABLE_EVIDENCE = []

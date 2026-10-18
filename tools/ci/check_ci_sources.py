@@ -44,7 +44,7 @@ def public_files(repository):
 
 
 def main():
-    repository = Path(__file__).resolve().parents[1]
+    repository = Path(__file__).resolve().parents[2]
     count, errors = inspect_includes(repository, public_files(repository))
     if errors:
         raise SystemExit("\n".join(errors))

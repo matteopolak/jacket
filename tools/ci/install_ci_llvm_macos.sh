@@ -16,7 +16,7 @@
 # (searched in the environment's lib first) link the system's libz, libxml2 and libiconv and the
 # zstd and libc++ archives: the binary then needs nothing outside /usr/lib and /System. llvm-config itself
 # still runs, on the system's libc++ (dyld's fallback for its @rpath/libc++.1.dylib).
-# Usage: tools/install_ci_llvm_macos.sh [--lld | --static]
+# Usage: tools/ci/install_ci_llvm_macos.sh [--lld | --static]
 set -euo pipefail
 lld=false
 static=false

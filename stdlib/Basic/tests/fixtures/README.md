@@ -3,7 +3,7 @@
 `meow-vectors.bin` is non-executable test data generated on 2026-10-14 by compiling
 the permitted official Molly Rocket C source with our own
 `native/meow-c-check.cpp`. No supplied reference program or Jai implementation was
-used. Reproduce/verify with `python3 -B tools/build_portable_meow_fixtures.py --verify-native`.
+used. Reproduce/verify with `python3 -B tools/portable/build_portable_meow_fixtures.py --verify-native`.
 The wrapper preserves the unmodified C license and records its actual pre-fold
 state through the C source's debug hook; streaming state is collected by its
 normal finalization API.

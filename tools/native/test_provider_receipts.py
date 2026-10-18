@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("audio_builder", ROOT / "tools/audio_build_native.py")
+spec = importlib.util.spec_from_file_location("audio_builder", ROOT / "tools/native/audio_build_native.py")
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 

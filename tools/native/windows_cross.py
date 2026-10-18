@@ -8,11 +8,17 @@
 
 `build` compiles every corpus case with a runtime expectation (tests/corpus/manifest.json),
 the self-checking programs in WINDOWS_PROGRAMS, the C struct fixture and, with `--stdlib`,
-the reviewed contracts and independent regression catalogue (tools/stdlib_test_catalog.py) to `dir/<id>.exe` and writes
+the reviewed contracts and independent regression catalogue (tools/stdlib/stdlib_test_catalog.py) to `dir/<id>.exe` and writes
 `dir/expected.json`. `run` executes them and compares exit code and stdout (for a case that
 expects a runtime error, a failing status and the error's message on stderr). See
 docs/native/windows.md.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "stdlib",)]  # modules from other tools/ folders
 
 import argparse
 import concurrent.futures
@@ -26,7 +32,7 @@ import subprocess
 import sys
 import tempfile
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import stdlib_runtime  # noqa: E402
 
@@ -59,7 +65,7 @@ WINDOWS_BUILD_HOST_CASES = frozenset(
 
 
 # Programs linked against fixture or developer-tool libraries that only the Windows host jobs build
-# (tools/build_ci_native_bindings.py, tools/build_developer_*.py); the cross jobs build no such
+# (tools/native/build_ci_native_bindings.py, tools/build_developer_*.py); the cross jobs build no such
 # library, so these stay required in the native Windows jobs.
 WINDOWS_HOST_LIBRARY_CASES = frozenset(
     {
@@ -181,7 +187,7 @@ def fixture_unavailable_reason(case, platform, build_host):
     if case["id"] == "compiler/lang-asm" and platform.split("-")[1] != "x64":
         return "fixture contains architectural x86 CPUID/PAUSE/fences; requires x64, not an ARM64 instruction-emulation claim"
     if case["id"] == "ImGui/tests/headless-frames":
-        profile = json.loads((ROOT / "tools/native-libs.json").read_text())[
+        profile = json.loads((ROOT / "tools/native/native-libs.json").read_text())[
             "libraries"
         ]["imgui"]
         if platform in profile.get("except", []):
@@ -389,7 +395,7 @@ def ensure_cross_host_bindings(host):
     subprocess.run(
         [
             sys.executable,
-            str(ROOT / "tools/build_ci_native_bindings.py"),
+            str(ROOT / "tools/native/build_ci_native_bindings.py"),
             "--output",
             str(output),
         ],
@@ -443,7 +449,7 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
         return False
     inputs = receipt.get("source_inputs", {})
     critical = {
-        "tools/build_ci_native_bindings.py",
+        "tools/native/build_ci_native_bindings.py",
         "tools/native_bindings/build_dependencies.py",
         "tools/native_bindings/build_rpmalloc.py",
         "tools/native_bindings/prepare_rpmalloc.py",
@@ -468,7 +474,7 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
             path.is_absolute()
             or ".." in path.parts
             or not (
-                name == "tools/build_ci_native_bindings.py"
+                name == "tools/native/build_ci_native_bindings.py"
                 or name.startswith(
                     (
                         "tools/native_bindings/",
@@ -511,7 +517,7 @@ def use_cross_libs(args):
     subprocess.run(
         [
             sys.executable,
-            str(ROOT / "tools/build_native_libs.py"),
+            str(ROOT / "tools/native/build_native_libs.py"),
             "--missing",
             "--platform",
             platform,
@@ -524,7 +530,7 @@ def use_cross_libs(args):
     subprocess.run(
         [
             sys.executable,
-            str(ROOT / "tools/build_windows_binding_providers.py"),
+            str(ROOT / "tools/native/build_windows_binding_providers.py"),
             "--platform",
             platform,
             "--output",

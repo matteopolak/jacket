@@ -1,4 +1,4 @@
-// FreeType against the pinned library (tools/build_native_libs.py): open a bitmap font held in
+// FreeType against the pinned library (tools/native/build_native_libs.py): open a bitmap font held in
 // memory, look up and render a glyph, and check the pixels. The font is a BDF file written out
 // below (a single 8x8 letter A), so no font file has to ship with the repository, and BDF needs no
 // system font. Also checks the library version and that unreadable data is refused.

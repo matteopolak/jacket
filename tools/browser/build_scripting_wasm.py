@@ -3,6 +3,12 @@
 
 With --jaic (a native jaic with LLVM and wasm-ld), jaifmt compiled to a WASI module (jaifmt.wasm) is staged too.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 from pathlib import Path
 import argparse
 import hashlib
@@ -13,7 +19,7 @@ import subprocess
 from repo_output import output_dir
 from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BUNDLED_GLUE = ("engine.mjs", "webgpu_host.mjs", "webgpu_bindings.generated.mjs", "README.md")
 
 

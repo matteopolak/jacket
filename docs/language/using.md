@@ -28,7 +28,7 @@ Inline `#overlay` and `#place` targets use the same promoted-field resolver as m
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - On a struct member, `using i: Inner` embeds `Inner` and promotes its members {#using.1} and constants {#using.2}:
 - `using #as` also lets the outer type convert implicitly to the embedded one, so a `Derived` passes where `Base` or `*Base` is expected {#using.3}. Without `#as`, passing `Plain` to `(i: Inner)` fails with ``argument of type `Plain` does not match parameter type `Inner` `` {#using.4}.

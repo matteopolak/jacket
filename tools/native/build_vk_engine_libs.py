@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the native C++ libraries of the Vk-Engine corpus project (macOS / Linux).
 
-    python3 tools/build_vk_engine_libs.py [--jobs N] [--force] [--release] [imgui] [vma] [joltc]
+    python3 tools/native/build_vk_engine_libs.py [--jobs N] [--force] [--release] [imgui] [vma] [joltc]
 
 Vk-Engine's `Build.jai` expects, per module, a `Libs/<OS>/` directory next to the module that its
 `generate.jai` normally fills by running a C++ toolchain at metaprogram time. Upstream only implements that
@@ -17,6 +17,12 @@ cloned at the tag JoltC's CMakeLists names (v5.6.0) into target/thirdparty/JoltP
 outputs are kept unless --force. Paths resolve through the git common dir, so it works from a worktree.
 Needs a C++17/20 compiler, CMake and git (`brew install cmake`).
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 import argparse
 import os
 import shutil

@@ -1,5 +1,11 @@
 """Browser dispatch consumes the reviewed catalogue before compiler execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS / "stdlib",)]  # modules from other tools/ folders
+
 import json
 from stdlib_test_catalog import (
     ROOT,

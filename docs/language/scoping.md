@@ -30,7 +30,7 @@ Configuration: `OS` and `CPU` come from `Options::os` / `cpu`; `jaic -check -os 
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Declarations are exported by default {#scope.1}; after `#scope_module` they are visible to every file of the module but unavailable to importers, including qualified `M.name` lookup {#scope.2}; after `#scope_file` only to the declaring file {#scope.3}.
 - Both module-private and file-private names fail importer lookup with a missing-export diagnostic. A `#import` under `#scope_file` is visible only in that file {#scope.4}; sibling files cannot use its names. Each `#load`ed file starts with export visibility independently of its caller's active directive.

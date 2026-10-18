@@ -1,5 +1,5 @@
 # Developer commands. `just --list` shows them; docs/tools/justfile.md explains them.
-# The logic lives in tools/dev.py and tools/*.sh; CI runs these recipes too, so a local run and
+# The logic lives in tools/dev/dev.py and tools/*.sh; CI runs these recipes too, so a local run and
 # CI cannot drift apart. Needs just >= 1.58 (recipe options).
 
 set shell := ["sh", "-cu"]
@@ -19,7 +19,7 @@ default:
 [arg("release", long, value="true")]
 [arg("jobs", long, short="j")]
 build release="false" jobs=default_jobs:
-    {{ py }} tools/dev.py build -j {{ jobs }} {{ if release == "true" { "--release" } else { "" } }}
+    {{ py }} tools/dev/dev.py build -j {{ jobs }} {{ if release == "true" { "--release" } else { "" } }}
 
 # Format Jai (jaifmt) and Rust (rustfmt, item spacing); paths narrow it to files or directories.
 [group('check')]
@@ -28,7 +28,7 @@ build release="false" jobs=default_jobs:
 [arg("lang", long, pattern="jai|rust|all")]
 [arg("jobs", long, short="j")]
 fmt check="false" staged="false" lang="all" jobs=default_jobs *paths:
-    {{ py }} tools/dev.py fmt -j {{ jobs }} --lang {{ lang }} {{ if check == "true" { "--check" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
+    {{ py }} tools/dev/dev.py fmt -j {{ jobs }} --lang {{ lang }} {{ if check == "true" { "--check" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
 
 # Lint Jai (jailint -D warnings) and Rust (clippy -D warnings); --fix applies the safe fixes.
 [group('check')]
@@ -38,19 +38,19 @@ fmt check="false" staged="false" lang="all" jobs=default_jobs *paths:
 [arg("lang", long, pattern="jai|rust|all")]
 [arg("jobs", long, short="j")]
 lint fix="false" staged="false" release="false" lang="all" jobs=default_jobs *paths:
-    {{ py }} tools/dev.py lint -j {{ jobs }} --lang {{ lang }} {{ if release == "true" { "--release" } else { "" } }} {{ if fix == "true" { "--fix" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
+    {{ py }} tools/dev/dev.py lint -j {{ jobs }} --lang {{ lang }} {{ if release == "true" { "--release" } else { "" } }} {{ if fix == "true" { "--fix" } else { "" } }} {{ if staged == "true" { "--staged" } else { "" } }} {{ paths }}
 
 # Check that the VS Code extension's generated grammar and schemas are current (skipped without node 24).
 [group('check')]
 editor:
-    {{ py }} tools/dev.py editor
+    {{ py }} tools/dev/dev.py editor
 
 # Run the Neovim plugin's headless tests (editors/nvim); builds a debug jailsp for the end-to-end ones. Skipped without nvim 0.11.
 [group('test')]
 [arg("unit", long, value="true")]
 [arg("jobs", long, short="j")]
 nvim-test unit="false" jobs=default_jobs:
-    {{ py }} tools/dev.py nvim -j {{ jobs }} {{ if unit == "true" { "--unit" } else { "" } }}
+    {{ py }} tools/dev/dev.py nvim -j {{ jobs }} {{ if unit == "true" { "--unit" } else { "" } }}
 
 # What CI's format and lint steps run: fmt --check, then lint, over everything, plus the editor checks.
 [group('check')]
@@ -67,7 +67,7 @@ check jobs=default_jobs:
 [arg("crate", long)]
 [arg("jobs", long, short="j")]
 test suite="all" crate="" jobs=default_jobs *filter:
-    {{ py }} tools/dev.py test -j {{ jobs }} --suite {{ suite }} {{ if crate != "" { "-p " + crate } else { "" } }} {{ filter }}
+    {{ py }} tools/dev/dev.py test -j {{ jobs }} --suite {{ suite }} {{ if crate != "" { "-p " + crate } else { "" } }} {{ filter }}
 
 # Turn on the pre-commit hook (.githooks/pre-commit) for this clone.
 [group('setup')]
@@ -82,7 +82,7 @@ fetch-upstreams *args:
 # Build the browser compiler bundle (wasm32) into target/wasm.
 [group('web')]
 wasm *args:
-    {{ py }} tools/build_scripting_wasm.py --release --output target/wasm {{ args }}
+    {{ py }} tools/browser/build_scripting_wasm.py --release --output target/wasm {{ args }}
 
 # Run an editors/vscode package script (lint, test, build, package, ...) through pnpm.
 [group('web')]

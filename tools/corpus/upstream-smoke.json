@@ -483,7 +483,7 @@
       "id": "reflector",
       "project": "n00bmind--reflector",
       "files": {
-        "n00bmind--reflector/reflector-tests.jai": "tools/upstream-drivers/reflector-tests.jai"
+        "n00bmind--reflector/reflector-tests.jai": "tools/corpus/upstream-drivers/reflector-tests.jai"
       },
       "steps": [
         {
@@ -654,7 +654,7 @@
       "id": "sgpu",
       "project": "roeyb1--sgpu",
       "skip": {
-        "*": "needs Slang (a CMake build of about an hour: tools/build_slang.py) and a Vulkan driver the runners lack; builds and runs locally on macOS with MoltenVK (docs/tools/upstream-corpus.md)"
+        "*": "needs Slang (a CMake build of about an hour: tools/native/build_slang.py) and a Vulkan driver the runners lack; builds and runs locally on macOS with MoltenVK (docs/tools/upstream-corpus.md)"
       },
       "steps": []
     },

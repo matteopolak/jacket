@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -13,12 +13,12 @@ def main():
     parser.add_argument("--formatter", type=Path, default=ROOT / "target/window-jaifmt")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    metadata = json.loads((ROOT / "tools/window-render-gl-formats.json").read_text())
+    metadata = json.loads((ROOT / "tools/generators/window-render-gl-formats.json").read_text())
     rows = metadata["scalar_formats"] + metadata["block_formats"]
     names = [row["format"] for row in rows]
     if len(set(names)) != len(names) or not set(metadata["srgb"]).issubset(names):
         parser.error("duplicate format or unknown sRGB mapping")
-    lines = ["// Regenerate with tools/window_render_gl_formats.py.", "#scope_module",
+    lines = ["// Regenerate with tools/generators/window_render_gl_formats.py.", "#scope_module",
              "describe_gl_format :: (tf: Texture_Format, srgb: bool) -> GL_Image_Format, bool {",
              "    result: GL_Image_Format;", "    known := false;"]
     for row in metadata["scalar_formats"]:

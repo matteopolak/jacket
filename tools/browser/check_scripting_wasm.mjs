@@ -7,7 +7,7 @@ import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
 import { checkScriptingIo } from "./scripting_io_wasm.mjs";
 import { checkSourceExamples, workspaceFiles } from "./examples_wasm.mjs";
 const path = process.argv[2];
-if (!path) throw new Error("usage: node tools/check_scripting_wasm.mjs <jai_wasm.wasm>");
+if (!path) throw new Error("usage: node tools/browser/check_scripting_wasm.mjs <jai_wasm.wasm>");
 const engine = await createEngine(await readFile(path));
 const fixtures = [
   ["integer entry", { "main.jai": "main :: () -> int { return 42; }" }, 42],
@@ -39,7 +39,7 @@ console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repea
 await checkScriptingIo(engine, async options => createEngine(await readFile(path), options));
 
 // The tour runs every stop with no arguments and no input.
-const tour = await workspaceFiles(fileURLToPath(new URL("../examples/tour", import.meta.url)));
+const tour = await workspaceFiles(fileURLToPath(new URL("../../examples/tour", import.meta.url)));
 const tourRun = engine.play(tour, "main.jai", { args: ["main"], budget: 200000000 });
 assert.equal(tourRun.exitCode, 0, tourRun.rendered);
 assert(tourRun.stdout.includes(" 1. Basics") && tourRun.stdout.includes("That's the tour."), tourRun.stdout);

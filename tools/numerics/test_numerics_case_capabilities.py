@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from stdlib_test_catalog import unavailable_reason, validated_entries
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {
     "GetRect/tests/native-clipboard": {"macos"},
     "GetRect/tests/native-cursors": {"macos", "windows"},
@@ -22,7 +22,7 @@ EXPECTED = {
 
 def load_sweep():
     spec = importlib.util.spec_from_file_location(
-        "numerics_asan_dispatch_test", ROOT / "tools/jaic-sweep.py"
+        "numerics_asan_dispatch_test", ROOT / "tools/differential/jaic-sweep.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

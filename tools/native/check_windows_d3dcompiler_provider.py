@@ -143,7 +143,7 @@ def main():
     parser.add_argument("--stdlib", type=Path)
     parser.add_argument("--metadata-only", action="store_true")
     args = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     args.report.parent.mkdir(parents=True, exist_ok=True)
     report = {"archives": [], "runtime": [], "commands": [], "native_verified": False}
     for path in args.import_library:

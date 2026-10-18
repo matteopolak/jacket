@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 
 # Stand-ins: fail when a file mentions BAD. jaifmt reads the staged copy it is handed (the cwd is
 # an export of the index), jailint reads the working tree.
@@ -35,9 +35,9 @@ class PreCommitHookTests(unittest.TestCase):
             sh(["git", "config", key, value], self.repo)
         (self.repo / ".githooks").mkdir()
         shutil.copy(REPO / ".githooks/pre-commit", self.repo / ".githooks/pre-commit")
-        (self.repo / "tools").mkdir()
+        (self.repo / "tools/dev").mkdir(parents=True)
         for script in ("rust_item_spacing.py", "staged-files.sh"):
-            shutil.copy(REPO / "tools" / script, self.repo / "tools" / script)
+            shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
@@ -116,7 +116,7 @@ class PreCommitHookTests(unittest.TestCase):
         result = self.commit()
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("needs item spacing: crates/x/src/lib.rs", result.stderr)
-        self.assertIn("python3 tools/rust_item_spacing.py", result.stderr)
+        self.assertIn("python3 tools/dev/rust_item_spacing.py", result.stderr)
 
     def test_rustfmt_checks_staged_rust(self):
         if shutil.which("rustfmt") is None:

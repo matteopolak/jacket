@@ -8,7 +8,7 @@ import platform
 import subprocess
 import build_generator_platform
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ENV = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"), TMPDIR=str(ROOT / "target"))
 PREFIX = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
 

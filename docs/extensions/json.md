@@ -53,7 +53,7 @@ page, error2 := from_param(int, "42");
 
 ### Specialization and SIMD
 
-Straight-line code per struct and field, no runtime type switch. Keys match by length test then 8/4/2/1-byte word compares against compile-time constants; compact output appends prebuilt `"key":` constants. Constant documents can be decoded with `#run` and baked in. Float printing uses Schubfach (`number.jai`, table in `pow10.jai`); float parsing uses `pow5.jai`. Vector scans (`Extensions/SIMD`, `u8x16`) accelerate escaping and string scanning; for texts of at least `json_index_min_size` (256) bytes a simdjson-style stage 1 index (`index.jai`) finds string extents, abandoned when entries are too dense or sparse, and any anomaly re-parses with the scalar reader so errors are identical on every path. A full structural index for typed decoding was tried and dropped: the schema-guided single pass is as fast. Benchmarks: `stdlib/Extensions/Json/bench/bench.jai` (`-O2`); `tools/json_bench_data.py` fetches the large documents. The vector scans are worth about 1.0 to 1.1x; the parser is bound by value construction, allocation and number conversion.
+Straight-line code per struct and field, no runtime type switch. Keys match by length test then 8/4/2/1-byte word compares against compile-time constants; compact output appends prebuilt `"key":` constants. Constant documents can be decoded with `#run` and baked in. Float printing uses Schubfach (`number.jai`, table in `pow10.jai`); float parsing uses `pow5.jai`. Vector scans (`Extensions/SIMD`, `u8x16`) accelerate escaping and string scanning; for texts of at least `json_index_min_size` (256) bytes a simdjson-style stage 1 index (`index.jai`) finds string extents, abandoned when entries are too dense or sparse, and any anomaly re-parses with the scalar reader so errors are identical on every path. A full structural index for typed decoding was tried and dropped: the schema-guided single pass is as fast. Benchmarks: `stdlib/Extensions/Json/bench/bench.jai` (`-O2`); `tools/dev/json_bench_data.py` fetches the large documents. The vector scans are worth about 1.0 to 1.1x; the parser is bound by value construction, allocation and number conversion.
 
 ## How to change it
 
@@ -61,7 +61,7 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 - `query.jai` field kinds need a `Pair_Kind` and a case in `generate_pair_kinds`. Runtime helpers are in `reader.jai`/`writer.jai`; stage 1 in `index.jai`.
 - Writer pieces (`put`, `builder_reserve`, `copy_bytes`): a reserved window is valid only until the next append; write at most what you reserved, then `builder_commit`. `tests/encode.jai` pins output text exactly.
 - Vector paths stay behind `simd_enabled()` and must match scalar results (`tests/differential.jai`). Tables in `pow5.jai`/`pow10.jai` are generated; headers say how. `tests/numbers.jai` sweeps are small by default: set `FULL_SWEEP` for the large run.
-- JSONTestSuite (`tests/fixtures/JSONTestSuite/`, MIT) must stay byte-exact; `tools/gen_json_corpus.py` regenerates `tests/fixtures/suite_cases.jai`; per-case choices for `i_` cases are in `tests/suite.jai`.
+- JSONTestSuite (`tests/fixtures/JSONTestSuite/`, MIT) must stay byte-exact; `tools/corpus/gen_json_corpus.py` regenerates `tests/fixtures/suite_cases.jai`; per-case choices for `i_` cases are in `tests/suite.jai`.
 
 ## Configuration
 

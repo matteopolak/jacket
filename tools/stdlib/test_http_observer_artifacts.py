@@ -8,7 +8,7 @@ import unittest
 from ci_test_scratch import assigned_scratch
 
 WORKFLOW = (
-    Path(__file__).resolve().parents[1] / ".github/workflows/http-conformance.yml"
+    Path(__file__).resolve().parents[2] / ".github/workflows/http-conformance.yml"
 )
 STEP = "      - name: Retain the selected Linux observer capture"
 

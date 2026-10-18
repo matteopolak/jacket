@@ -14,7 +14,7 @@ import stdlib_runtime
 import stdlib_coverage
 from stdlib_test_catalog import validated_entries, unavailable_reason
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCRATCH = os.environ.get("RUNNER_TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir()
 
 
@@ -40,7 +40,7 @@ class RunnerContracts(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "tools/build_ci_native_bindings.py"),
+                    str(ROOT / "tools/native/build_ci_native_bindings.py"),
                     "--output",
                     directory,
                 ],
@@ -56,7 +56,7 @@ class RunnerContracts(unittest.TestCase):
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "ci_sweep_guard_policy", ROOT / "tools/jaic-sweep.py"
+            "ci_sweep_guard_policy", ROOT / "tools/differential/jaic-sweep.py"
         )
         sweep = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(sweep)
@@ -119,7 +119,7 @@ class RunnerContracts(unittest.TestCase):
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "ci_sweep_policy", ROOT / "tools/jaic-sweep.py"
+            "ci_sweep_policy", ROOT / "tools/differential/jaic-sweep.py"
         )
         sweep = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(sweep)
@@ -189,7 +189,7 @@ class RunnerContracts(unittest.TestCase):
     def evidence(self):
         namespace = {"UNAVAILABLE_EVIDENCE": [], "json": __import__("json")}
         return load_function(
-            ROOT / "tools/check_developer_tools.py", "host_evidence", namespace
+            ROOT / "tools/developer_checks/check_developer_tools.py", "host_evidence", namespace
         ), namespace
 
     def test_mac_recipe_on_linux_is_unavailable_and_never_called_or_passed(self):

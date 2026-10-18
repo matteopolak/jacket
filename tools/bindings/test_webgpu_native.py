@@ -4,10 +4,10 @@ interpreted (`jaic -interp`, which loads the shared wgpu-native) and built (`jai
 the static one), on this host's GPU or a software adapter (Mesa's lavapipe on Linux, WARP on
 Windows).
 
-    python3 tools/test_webgpu_native.py --jaic target/debug/jaic [--require-adapter] [--platform windows-arm64]
-    xvfb-run -a python3 tools/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120
+    python3 tools/bindings/test_webgpu_native.py --jaic target/debug/jaic [--require-adapter] [--platform windows-arm64]
+    xvfb-run -a python3 tools/bindings/test_webgpu_native.py --jaic target/debug/jaic --test window --frames 120
 
-Fetches the pinned wgpu-native first (tools/fetch_wgpu_native.py). The test exits 77 when the
+Fetches the pinned wgpu-native first (tools/bindings/fetch_wgpu_native.py). The test exits 77 when the
 host has no adapter; each mode then tries again asking for the fallback (software) adapter.
 Without --require-adapter, no adapter at all is a skip (macOS runners are VMs that may have no
 Metal device); with it, a failure. The window test opens a Window_Creation window and presents
@@ -27,7 +27,7 @@ from build_native_libs import output_dir  # noqa: E402
 from repo_output import host_platform  # noqa: E402
 from fetch_wgpu_native import fetch  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 TESTS = {name: ROOT / 'stdlib/Extensions/WebGPU/tests' / f'{name}.jai' for name in ('headless', 'window')}
 NO_ADAPTER = 77
 # A run that hangs (a present that never returns) fails instead of using up the job.

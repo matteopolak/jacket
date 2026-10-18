@@ -30,7 +30,7 @@ Configuration: `-I dir` / `-import_dir dir`, `JAIC_STDLIB`, and `import_path` in
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Forms of `#import` (each verified with `jaic -interp`) {#import.1}:
 - The comments above hold for the plain {#import.2}, named {#import.3}, `using` {#import.4}, `,file` {#import.5}, `,dir` {#import.6} and `,string` {#import.7} forms and for `#load` {#import.8}.

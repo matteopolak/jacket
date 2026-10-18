@@ -36,7 +36,7 @@ A `#discard` argument is only type-checked (`discarded_args`, `precheck_args_def
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)` after a directive (`#run,stallable`, `#insert,scope(x)`). `#run,stallable` behaves like `#run` {#note.1}.
 - `#assert cond "msg";` and `#assert(cond, "msg");` both take an optional message {#note.2}, and a failure is reported at the condition {#note.3}. `#must` after a result makes discarding that result a compile error {#note.6}.

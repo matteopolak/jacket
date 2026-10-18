@@ -47,7 +47,7 @@ Configuration: `set_build_options` in `stdlib/internal/compiler-api/workspaces.j
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - The program's own files are those in the main module: the files given to the compiler (`jaic file.jai`, a workspace's `add_build_file` and `add_build_string`) and every file they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load (the program's `modules/` folder too), and every file such a module `#load`s {#dce.7}. Sema tells them apart by `Scope::module == Compiler::main_module`.
 - Every global variable (its type and initializer) and every constant is checked {#dce.1}.

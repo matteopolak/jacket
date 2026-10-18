@@ -107,8 +107,8 @@ fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_comma
                 .unwrap(),
             "",
         );
-        let runner =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/run_foundations_wasm.mjs");
+        let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tools/browser/run_foundations_wasm.mjs");
         success(
             Command::new("node")
                 .arg(runner)

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Wasm backend for tools/jaic-diff.py: a long-lived process that runs programs through the browser engine
+// Wasm backend for tools/differential/jaic-diff.py: a long-lived process that runs programs through the browser engine
 // (crates/jai-wasm) and answers one JSON line per request line on stdin.
 //   request:  {"root": "/abs/dir", "main": "rel/path.jai", "budget": 0}
 //   reply:    {"exitCode": n|null, "stdout": "...", "stderr": "...", "diagnostics": [...], "crash": "..."?}
@@ -12,7 +12,7 @@ import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
 const bundle = path.resolve(process.argv[2] ?? "");
-if (!process.argv[2]) throw new Error("usage: node tools/jaic_diff_wasm.mjs <bundle-dir>");
+if (!process.argv[2]) throw new Error("usage: node tools/differential/jaic_diff_wasm.mjs <bundle-dir>");
 const { createEngine } = await import(pathToFileURL(path.join(bundle, "engine.mjs")).href);
 const wasmBytes = await readFile(path.join(bundle, "jai_wasm.wasm"));
 const RECYCLE = 20;

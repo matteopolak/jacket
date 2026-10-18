@@ -1,7 +1,7 @@
 # Original native feature fonts
 
 `feature-font.ttf` and `filtered-feature-font.ttf` are generated deterministically by
-`python3 tools/window_render_feature_font.py`; `--check` verifies regeneration.
+`python3 tools/generators/window_render_feature_font.py`; `--check` verifies regeneration.
 All outlines, advances, names and substitutions were independently authored for
 these tests. No reference/library/font asset is copied. The generator is the sole
 design source and the binary is committed as native test data, not executable code.

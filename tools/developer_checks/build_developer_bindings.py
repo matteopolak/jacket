@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import developer_native_runtime
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def llvm_prefix(prefix=None):

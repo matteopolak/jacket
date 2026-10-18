@@ -8,7 +8,7 @@
 //
 // Files given on the command line are measured as untyped documents (`from_json(Json_Value, ...)`, then
 // to_json of the value). The generated document is also decoded into and encoded from a typed
-// struct. Real-world files: tools/json_bench_data.py downloads simdjson's examples.
+// struct. Real-world files: tools/dev/json_bench_data.py downloads simdjson's examples.
 
 #import "Basic";
 #import "String";

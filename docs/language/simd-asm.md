@@ -34,7 +34,7 @@ Add a mnemonic in `sema/asm.rs` or `asm/scalar.rs`, `asm/mask.rs`, or `lookup_si
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, except that `syscall` reads the registers pinned to its arguments (Linux x86-64 hosts and targets only), and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
 - The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160` {#asm.5}.

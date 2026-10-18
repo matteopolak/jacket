@@ -19,7 +19,7 @@ import zipfile
 from cargo_build_paths import checked_directory
 from build_scripting_wasm import storage_directory
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = "jai-playground.zip"
 MANIFEST = "jai-playground.manifest.json"
 MAX_FILES = 64
@@ -243,13 +243,13 @@ def package(root, output, target_dir=None, jaic=None):
             raise ValueError("in-checkout release output must be gitignored")
     require_output_space(output, 2 * MAX_TOTAL_BYTES)
     subprocess.run(
-        [sys.executable, str(root / "tools/check_ci_sources.py")],
+        [sys.executable, str(root / "tools/ci/check_ci_sources.py")],
         cwd=root,
         env=build_environment(),
         check=True,
     )
     subprocess.run(
-        [sys.executable, str(root / "tools/check_dependency_age.py")],
+        [sys.executable, str(root / "tools/ci/check_dependency_age.py")],
         cwd=root,
         env=build_environment(),
         check=True,
@@ -262,7 +262,7 @@ def package(root, output, target_dir=None, jaic=None):
         stage = working / "stage"
         command = [
             sys.executable,
-            str(root / "tools/build_scripting_wasm.py"),
+            str(root / "tools/browser/build_scripting_wasm.py"),
             "--release",
             "--output",
             str(stage),
@@ -297,7 +297,7 @@ def package(root, output, target_dir=None, jaic=None):
         subprocess.run(
             [
                 browser_tool("node", root),
-                str(root / "tools/check_browser_release.mjs"),
+                str(root / "tools/browser/check_browser_release.mjs"),
                 str(stage),
                 "--report",
                 str(proof_path),

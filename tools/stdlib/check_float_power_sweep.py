@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def verify(output):
@@ -79,7 +79,7 @@ def main():
             compiled = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=900)
             if compiled.returncode or compiled.stdout or compiled.stderr:
                 raise RuntimeError(f"compile failed: {compiled}")
-            execute = ["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary] if extra else [binary]
+            execute = ["node", "--no-warnings", ROOT / "tools/browser/run_foundations_wasm.mjs", binary] if extra else [binary]
             result = subprocess.run(execute, cwd=ROOT, env=env, capture_output=True, text=True, timeout=900)
             if result.returncode or result.stderr:
                 raise RuntimeError(f"execution failed: {result}")

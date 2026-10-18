@@ -18,7 +18,7 @@ import time
 
 from stdlib_test_catalog import unavailable_reason, validated_entries
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 # The platform programs this driver builds for Windows and runs through the Wasm checks, as ids
 # of the stdlib test catalogue.
@@ -210,7 +210,7 @@ def main():
         attempt([fault_compiler, *fault_target, "-std=c11", "-shared", "-O2", "-g", "-Wall", "-Wextra", "-Werror",
                  ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/native/windows-fault-sdk.c", "-o", fault_sdk_dll, *fault_linker], env)
     if os.name == "nt" or args.windows_build or (args.windows_crash and cpu == "x64"):
-        subprocess.run([sys.executable, str(ROOT / "tools/build_platform_io_runtime.py"),
+        subprocess.run([sys.executable, str(ROOT / "tools/stdlib/build_platform_io_runtime.py"),
                         "--stdlib", str(args.stdlib.resolve()), "--cpu", cpu], cwd=ROOT, check=True)
         shutil.copy2(args.stdlib.resolve() / "internal/runtime/crash-native/platform_io_windows_crash.dll",
                      output / "platform_io_windows_crash.dll")

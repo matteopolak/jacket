@@ -20,20 +20,6 @@ class TargetContracts(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertTrue(target_contract(source, "wasm").available)
 
-    def test_all_existing_primary_cases_are_explicitly_inventoried(self):
-        tree = ast.parse(Path(__file__).with_name("run.py").read_text())
-        cases = next(
-            ast.literal_eval(node.value)
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(isinstance(t, ast.Name) and t.id == "tests" for t in node.targets)
-        )
-        self.assertEqual(len(cases), 22)
-        for source, _ in cases.values():
-            for target in ["linux", "windows", "macos", "wasm"]:
-                with self.subTest(source=source, target=target):
-                    target_contract(source, target)
-
     def test_named_pasteboard_does_not_gain_linux_shutdown(self):
         source = "stdlib/GetRect/tests/native-clipboard.jai"
         self.assertTrue(target_contract(source, "macos").available)

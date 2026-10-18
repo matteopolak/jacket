@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Build pinned open-source Jai projects with their own entry points and run them headlessly.
 
-Checks live in tools/upstream-smoke.json (docs/tools/upstream-corpus.md). Each runs in a
+Checks live in tools/corpus/upstream-smoke.json (docs/tools/upstream-corpus.md). Each runs in a
 scratch copy of its project under corpus/upstream, so a build that writes into its tree never
 changes the pinned sources. Exits 1 when a check that was not skipped fails.
 """
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native", _TOOLS / "stdlib",)]  # modules from other tools/ folders
 
 import argparse
 from decimal import Decimal
@@ -25,9 +31,9 @@ from pathlib import Path
 from case_capabilities import user_deferred_reason
 from repo_output import host_platform
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 UPSTREAM = ROOT / "corpus/upstream"
-CHECKS = ROOT / "tools/upstream-smoke.json"
+CHECKS = ROOT / "tools/corpus/upstream-smoke.json"
 WINDOWS = sys.platform == "win32"
 
 
@@ -640,7 +646,7 @@ def main():
             subprocess.run(
                 [
                     sys.executable,
-                    str(ROOT / "tools/build_native_libs.py"),
+                    str(ROOT / "tools/native/build_native_libs.py"),
                     *(["--platform", plat] if plat else []),
                 ],
                 check=True,

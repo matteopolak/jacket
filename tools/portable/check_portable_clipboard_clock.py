@@ -9,7 +9,7 @@ import platform
 import subprocess
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
     work = Path(tempfile.mkdtemp(prefix="clipboard-clock-", dir=base))
     names = {
         "stdlib/Clipboard/tests/native/clock-failure.c",
-        "tools/check_portable_clipboard_clock.py",
+        "tools/portable/check_portable_clipboard_clock.py",
     }
 
     def hashes():

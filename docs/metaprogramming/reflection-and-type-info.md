@@ -38,7 +38,7 @@ Tests: `tests/compiler/regressions/compiler-reflection-pure.jai`, `type-field-co
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - Every type is a `TypeId` into the `Types` table, and `==` on types compares ids. `Types::intern` dedupes structural kinds (`Int`, `Float`, `Pointer`, `Array`, `Proc`, ...), so `*Derived` and `type_of(*d)` share an id {#typeval.1}. Nominal kinds (`Struct`, `Enum`, `Distinct`) get a fresh id per declaration {#typeval.2}. Parameterized structs are cached per argument values, so `Gen(int) == Gen(s64)` {#typeval.3}.
 - An alias equals its target {#typeval.4}; a `#type,distinct` type differs from its base but has its size {#typeval.5}; a `#type,isa` value converts implicitly to its base {#typeval.6}.

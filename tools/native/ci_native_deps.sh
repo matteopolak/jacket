@@ -10,35 +10,35 @@ env_file=${GITHUB_ENV:-/dev/null}
 os=${RUNNER_OS:-$(uname -s)}
 
 native_dir() {
-  python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())'
+  python3 -c 'import sys;sys.path.insert(0,"tools/native");import build_native_libs;print(build_native_libs.output_dir())'
 }
 
 developer() {
-  TMPDIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}" PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools -p test_conda_sdk_notices.py -v
-  python3 tools/build_developer_bindings.py
-  python3 tools/build_developer_debug.py
-  python3 tools/build_generator_platform.py --output-dir stdlib/internal/developer-tools
+  TMPDIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}" PYTHONDONTWRITEBYTECODE=1 python3 tools/run_tests.py -p test_conda_sdk_notices.py -v
+  python3 tools/developer_checks/build_developer_bindings.py
+  python3 tools/developer_checks/build_developer_debug.py
+  python3 tools/developer_checks/build_generator_platform.py --output-dir stdlib/internal/developer-tools
 }
 
 # $1: the JAIC_NATIVE_LIBS value to extend; empty builds the stdlib's native libraries first.
 clipboard() {
   local libs=${1:-}
   if [ -z "$libs" ]; then
-    python3 tools/build_native_libs.py --missing
+    python3 tools/native/build_native_libs.py --missing
     libs=$(native_dir)
   fi
-  python3 tools/build_portable_clipboard.py --output target/clipboard-native
+  python3 tools/portable/build_portable_clipboard.py --output target/clipboard-native
   echo "JAIC_NATIVE_LIBS=$libs:$PWD/target/clipboard-native" >> "$env_file"
 }
 
 full() {
-  python3 tools/window_render_native.py
-  python3 tools/build_native_libs.py --missing
+  python3 tools/window_render/window_render_native.py
+  python3 tools/native/build_native_libs.py --missing
   developer
   local audio=(--test-runtime)
   [[ "$os" == Linux ]] && audio+=(--require-device)
-  python3 tools/audio_build_native.py "${audio[@]}"
-  python3 tools/build_ci_native_bindings.py --output target/production-bindings/native
+  python3 tools/native/audio_build_native.py "${audio[@]}"
+  python3 tools/native/build_ci_native_bindings.py --output target/production-bindings/native
   local libs="$PWD/target/audio-native:$PWD/target/production-bindings/native:$PWD/target/window-native:$(native_dir)"
   echo "JAIC_NATIVE_LIBS=$libs" >> "$env_file"
   if [[ "$os" == macOS || "$os" == Darwin ]]; then

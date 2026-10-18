@@ -8,7 +8,7 @@ import argparse
 import os
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--jaic", type=Path, default=ROOT / "target/debug/jaic")
 parser.add_argument("--stdlib", type=Path, default=ROOT / "stdlib")

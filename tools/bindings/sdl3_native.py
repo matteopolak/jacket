@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Pinned SDL3 native build; also called by build_native_libs.py. Never consults another checkout."""
 from __future__ import annotations
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native",)]  # modules from other tools/ folders
+
 import argparse
 import hashlib
 import json
@@ -17,14 +23,14 @@ from pathlib import Path
 
 from repo_output import output_dir
 
-ROOT=Path(__file__).resolve().parent.parent
+ROOT=Path(__file__).resolve().parent.parent.parent
 PLATFORMS=('macos-x64','macos-arm64','linux-x64','linux-arm64','windows-x64','windows-arm64')
 WINDOWS_ARTIFACTS={'SDL3.lib':('lib/SDL3-static.lib','static'),
                    'SDL3-import.lib':('lib/SDL3.lib','import'),
                    'SDL3.dll':('bin/SDL3.dll','shared')}
 
 def checked_archive(cache, offline=False):
-    source=json.loads((ROOT/'tools/native-libs.json').read_text())['sources']['sdl3']
+    source=json.loads((ROOT/'tools/native/native-libs.json').read_text())['sources']['sdl3']
     spec=source['archive']; cache.mkdir(parents=True,exist_ok=True)
     packed=cache/'SDL3-3.4.18.tar.gz'
     if not packed.exists():

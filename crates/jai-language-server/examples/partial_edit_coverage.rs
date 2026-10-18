@@ -1,4 +1,4 @@
-//! One-file worker for tools/lsp_partial_edits.py; stdout is a machine-readable report.
+//! One-file worker for tools/dev/lsp_partial_edits.py; stdout is a machine-readable report.
 #[path = "support/edit_coverage.rs"]
 mod edit_coverage;
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run jaic over test programs and summarize results.
 
-Usage: tools/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
+Usage: tools/differential/jaic-sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
 `jaic -check` must fail and report the recorded text), regressions (tests/compiler/regressions), modules (the stdlib's own
 tests: every stdlib/**/tests directory, described by its manifest.json rows; run must succeed), examples (tests/corpus/examples.json:
@@ -14,6 +14,12 @@ same expectations; --sanitize address,undefined (implies --native) instruments t
 fails a case on any sanitizer report (docs/native/sanitizers.md).
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native", _TOOLS / "stdlib",)]  # modules from other tools/ folders
+
 import argparse
 import json
 import os
@@ -24,7 +30,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 UPSTREAM = ROOT / "corpus/upstream"
 # Upstream cases with `copy` run in a scratch copy of those project directories (`link` names
 # read-only siblings to symlink next to them), so a build that writes generated files never
@@ -173,15 +179,15 @@ def use_native_libs():
 
     if build_native_libs.missing():
         subprocess.run(
-            [sys.executable, str(ROOT / "tools/build_native_libs.py")], check=True
+            [sys.executable, str(ROOT / "tools/native/build_native_libs.py")], check=True
         )
     # The Debug module's native helper is built into the stdlib tree of this checkout.
     suffix = "dylib" if sys.platform == "darwin" else "so"
     helper = ROOT / f"stdlib/internal/developer-tools/debug-native/libdeveloper_tools_debug.{suffix}"
     if not helper.exists():
-        subprocess.run([sys.executable, str(ROOT / "tools/build_developer_debug.py")], check=True)
+        subprocess.run([sys.executable, str(ROOT / "tools/developer_checks/build_developer_debug.py")], check=True)
     libs = [str(build_native_libs.output_dir())]
-    # The source-built SDK providers (tools/build_ci_native_bindings.py): the stdlib's rpmalloc
+    # The source-built SDK providers (tools/native/build_ci_native_bindings.py): the stdlib's rpmalloc
     # allocator and the other bound SDKs load them when they exist.
     from repo_output import shared_output_dir
 

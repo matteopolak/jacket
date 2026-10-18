@@ -46,12 +46,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           test "$(git rev-parse HEAD)" = "$COMPILER_REVISION"
-          python3 tools/check_ci_sources.py
-          python3 tools/check_dependency_age.py
+          python3 tools/ci/check_ci_sources.py
+          python3 tools/ci/check_dependency_age.py
       - name: Validate and install the aged pinned Rust/Wasm toolchain
         id: toolchain
         run: |
-          toolchain=$(python3 tools/package_browser_release.py --toolchain)
+          toolchain=$(python3 tools/browser/package_browser_release.py --toolchain)
           echo "channel=$toolchain" >> "$GITHUB_OUTPUT"
           rustup toolchain install "$toolchain" --profile minimal --component rustfmt --component clippy
           rustup target add wasm32-unknown-unknown --toolchain "$toolchain"
@@ -61,10 +61,10 @@ jobs:
         run: rustup run "$PINNED_TOOLCHAIN" cargo fetch --locked
       - name: Check packaging helpers
         run: |
-          python3 -m unittest discover -s tools -p test_package_browser_release.py -v
-          python3 -m unittest discover -s tools -p test_build_scripting_wasm.py -v
-          python3 -m unittest discover -s tools -p test_cargo_build_paths.py -v
-          node --test tools/test_browser_release.mjs
+          python3 tools/run_tests.py -p test_package_browser_release.py -v
+          python3 tools/run_tests.py -p test_build_scripting_wasm.py -v
+          python3 tools/run_tests.py -p test_cargo_build_paths.py -v
+          node --test tools/browser/test_browser_release.mjs
       - name: Test the Wasm boundary and language server without LLVM
         env:
           PINNED_TOOLCHAIN: ${{ steps.toolchain.outputs.channel }}
@@ -73,7 +73,7 @@ jobs:
       - name: Install LLVM 23 and LLD
         timeout-minutes: 15
         run: |
-          bash tools/install_ci_llvm_linux.sh
+          bash tools/ci/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
       - name: Build the native compiler
         env:
@@ -81,7 +81,7 @@ jobs:
         run: rustup run "$PINNED_TOOLCHAIN" cargo build --offline --locked -p jaic-cli
       - name: Build, execute and package the actual staged compiler
         run: |
-          python3 tools/package_browser_release.py --output "$RUNNER_TEMP/jai-browser-release" --target-dir "$CARGO_TARGET_DIR" \
+          python3 tools/browser/package_browser_release.py --output "$RUNNER_TEMP/jai-browser-release" --target-dir "$CARGO_TARGET_DIR" \
             --jaic "$CARGO_TARGET_DIR/debug/jaic"
       - name: Retain the exact-commit producer assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

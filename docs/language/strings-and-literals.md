@@ -28,7 +28,7 @@ Escapes and here strings are in `lexer.rs`. The literal-to-`*u8` rule is in `con
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - A `string` is 16 bytes: an `s64` count and a `*u8` {#str.1}. Contents are arbitrary bytes, so embedded NULs and invalid UTF-8 are fine {#str.2}. `string_body` in `lexer.rs` decodes quoted strings.
 - The literal has count 9 and exactly those bytes {#str.3}.

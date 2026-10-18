@@ -6,7 +6,7 @@ import platform
 import subprocess
 from driven_sources import driven
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 # No display: with one, a Linux assertion dialog would wait for a click instead of aborting.
 ENV = {name: value for name, value in os.environ.items() if name not in ("DISPLAY", "WAYLAND_DISPLAY")}
 ENV["JAIC_STDLIB"] = str(ROOT / "stdlib")

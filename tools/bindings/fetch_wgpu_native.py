@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """Download the pinned wgpu-native release into target/native-libs/<os>-<arch>/.
 
-    python3 tools/fetch_wgpu_native.py [--platform windows-x64] [--out DIR] [--force]
+    python3 tools/bindings/fetch_wgpu_native.py [--platform windows-x64] [--out DIR] [--force]
 
-tools/webgpu.json pins the release tag and the sha256 of each platform's zip. The zip's
+tools/bindings/webgpu.json pins the release tag and the sha256 of each platform's zip. The zip's
 static library (`libwgpu_native.a`, Windows `wgpu_native.lib`), which `jaic` links, and
 its shared library (`libwgpu_native.dylib`/`.so`, Windows `wgpu_native.dll`), which `jaic -interp`
-loads, land next to the libraries tools/build_native_libs.py builds, where `jaic` finds them
+loads, land next to the libraries tools/native/build_native_libs.py builds, where `jaic` finds them
 for `#library "libwgpu_native"` (stdlib/Extensions/WebGPU). The release also carries the webgpu.yml it was
-built from; it must match the revision tools/webgpu_gen.py generated the bindings from.
+built from; it must match the revision tools/bindings/webgpu_gen.py generated the bindings from.
 
 `--platform` and `--out` fetch another platform's libraries into any directory (the release
 workflow puts them in each archive's native-libs/<platform>/).
 """
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS, _TOOLS / "native",)]  # modules from other tools/ folders
 
 import argparse
 import hashlib
@@ -29,8 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_native_libs import output_dir  # noqa: E402
 from repo_output import host_platform  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
-MANIFEST = ROOT / 'tools' / 'webgpu.json'
+ROOT = Path(__file__).resolve().parent.parent.parent
+MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
 
 # What each platform needs from the zip's lib/ folder: the static library first.
 LIBRARIES = {
@@ -92,8 +98,8 @@ def fetch(plat: str, out: Path, force: bool = False) -> list[Path]:
         # The Windows zips have it with CRLF line endings.
         spec = zf.read('wgpu-native-meta/webgpu.yml').replace(b'\r\n', b'\n')
         if hashlib.sha256(spec).hexdigest() != headers['files']['webgpu.yml']:
-            sys.exit('the release was built from another webgpu.yml than tools/webgpu.json pins; '
-                     'update the pin and rerun tools/webgpu_gen.py')
+            sys.exit('the release was built from another webgpu.yml than tools/bindings/webgpu.json pins; '
+                     'update the pin and rerun tools/bindings/webgpu_gen.py')
         out.mkdir(parents=True, exist_ok=True)
         members = {name.rsplit('/', 1)[-1]: name for name in zf.namelist() if name.startswith('lib/')}
         for name in names:

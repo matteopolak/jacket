@@ -21,7 +21,7 @@ class PortableDataContexts(unittest.TestCase):
 
     def test_every_owned_source_has_an_applicable_target_context(self):
         roots = []
-        tree = ast.parse((lint.ROOT / "tools/portable_data/run.py").read_text())
+        tree = ast.parse((lint.ROOT / "tools/portable/portable_data/run.py").read_text())
         for node in tree.body:
             if isinstance(node, ast.Assign) and any(
                 isinstance(target, ast.Name)

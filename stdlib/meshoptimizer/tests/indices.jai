@@ -1,4 +1,4 @@
-// meshoptimizer against the pinned C++ library (tools/build_native_libs.py): take a shuffled,
+// meshoptimizer against the pinned C++ library (tools/native/build_native_libs.py): take a shuffled,
 // unindexed grid mesh, index it, optimize it for the vertex cache and for vertex fetch, and check
 // the invariants that must survive: the same triangles (as a set), every index in range, a better
 // cache hit rate and fetch overfetch. Also strip and index/vertex buffer codecs round-trip.

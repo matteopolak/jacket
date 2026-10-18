@@ -54,7 +54,7 @@ Configuration: `-target` / `-os`; `Generate_Bindings_Options.use_jaic_long_doubl
 
 ## Rules
 
-Claims that tests cite by ID (`tools/check_rule_coverage.py`).
+Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `stdlib/Extensions/Long_Double/module.jai` gives Jai C's `long double` in the target's format, so jaic programs and `Bindings_Generator` output can call C functions that take or return one {#ext.2}. Like every module under [`stdlib/Extensions/`](../extensions/README.md) it is not official Jai: no other compiler knows it, and it may change between jaic releases. A program sees none of it unless it writes `#import "Extensions/Long_Double";` {#ext.1}, so code that doesn't opt in stays portable.
 - The module names compiler builtins with the `#jaic_type name` directive (`Long_Double :: #jaic_type long_double;`). `parser/directive.rs` parses it like any directive with an identifier operand, and `jaic_type` in `sema/expr.rs` resolves it; unknown names fail with `` unknown jaic extension type `x` `` {#ext.3}. Without the import, `Long_Double` is just an unknown identifier. A new compiler-backed extension follows the same pattern: a builtin named only by a module of its own under `stdlib/Extensions/`, documented like this page.

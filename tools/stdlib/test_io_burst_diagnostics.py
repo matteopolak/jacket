@@ -9,9 +9,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.dont_write_bytecode = True
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
-    "burst_diagnostics", ROOT / "tools/check_io_burst_diagnostics.py"
+    "burst_diagnostics", ROOT / "tools/stdlib/check_io_burst_diagnostics.py"
 )
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)

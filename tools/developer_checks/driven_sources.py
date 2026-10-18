@@ -10,7 +10,7 @@ across the stdlib, so a tool names the file and not the module that owns it.
 from functools import lru_cache
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @lru_cache(maxsize=1)

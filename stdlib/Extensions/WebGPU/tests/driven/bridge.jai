@@ -1,4 +1,4 @@
-// Runs in the browser engine against tools/test_webgpu_host.mjs's mock of the WebGPU JavaScript
+// Runs in the browser engine against tools/bindings/test_webgpu_host.mjs's mock of the WebGPU JavaScript
 // API: requests that settle later (each suspends the module through JSPI), a mapped buffer, an
 // error scope, a few frames, and a thread that must keep running while the program waits.
 

@@ -49,4 +49,4 @@ None. Feature modifiers after `#asm` are validated against `FEATURES` in `sema/a
 
 ## Dependencies
 
-`ir` (`Intrinsic::{CompareAndSwap, Popcount, Ctlz, Cttz, Bswap, Fma, SignMask, ByteLookup, ...}`), `sema::calls` (macros, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests: `tests/compiler/regressions/lang-asm.jai` and `asm-*.jai` (swept by `tools/jaic-sweep.py stdlib`; some also run natively in `crates/jaic-cli/tests/native.rs`) and the `asm_*` parser tests.
+`ir` (`Intrinsic::{CompareAndSwap, Popcount, Ctlz, Cttz, Bswap, Fma, SignMask, ByteLookup, ...}`), `sema::calls` (macros, `Code` parameters), `interp` and `jaic-llvm` for the intrinsics. Tests: `tests/compiler/regressions/lang-asm.jai` and `asm-*.jai` (swept by `tools/differential/jaic-sweep.py stdlib`; some also run natively in `crates/jaic-cli/tests/native.rs`) and the `asm_*` parser tests.

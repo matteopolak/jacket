@@ -9,9 +9,9 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const python = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
-const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root, "tools/playground_policy.py")], { encoding: "utf8" })) : [];
+const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root, "tools/browser/playground_policy.py")], { encoding: "utf8" })) : [];
 
 if (!isMainThread) {
   const { directory, test } = workerData;
@@ -26,7 +26,7 @@ if (!isMainThread) {
   }
 } else {
   const [staged, ...only] = process.argv.slice(2);
-  if (!staged || only.some(a => a.startsWith("--"))) throw new Error("usage: node tools/check_playground_stdlib.mjs <staged-dir> [case-id...]");
+  if (!staged || only.some(a => a.startsWith("--"))) throw new Error("usage: node tools/browser/check_playground_stdlib.mjs <staged-dir> [case-id...]");
   const directory = path.resolve(staged);
   const tests = catalogue.filter(c => !only.length || only.includes(c.id));
   for (const test of [...tests]) {

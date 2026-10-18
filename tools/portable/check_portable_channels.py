@@ -14,7 +14,7 @@ import threading
 
 from portable_toolchain import default_compiler, checked_compiler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "target/portable-tests"
 JOURNAL = OUTPUT / "shared-owned-names.txt"
 

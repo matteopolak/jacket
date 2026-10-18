@@ -89,7 +89,7 @@ Unknown keys make the file invalid (treated as empty, reported once with `window
 - **Lint rules** live in `crates/jailint`; the server picks them up unchanged.
 - **Typed results** live in `model.rs`; extend them and the wire mapping in `protocol.rs` together.
 
-Tests are in `crates/jai-language-server/tests/` (`semantic.rs`, `features.rs`, `auto_import.rs`, `links.rs`, `protocol.rs`, `resilience.rs`, plus refactor and hierarchy tests) and in `crates/jai-wasm/src/language_server.rs`. `node tools/check_scripting_wasm.mjs <jai_wasm.wasm>` runs the same against the real wasm module.
+Tests are in `crates/jai-language-server/tests/` (`semantic.rs`, `features.rs`, `auto_import.rs`, `links.rs`, `protocol.rs`, `resilience.rs`, plus refactor and hierarchy tests) and in `crates/jai-wasm/src/language_server.rs`. `node tools/browser/check_scripting_wasm.mjs <jai_wasm.wasm>` runs the same against the real wasm module.
 
 ## Configuration
 
@@ -97,7 +97,7 @@ Tests are in `crates/jai-language-server/tests/` (`semantic.rs`, `features.rs`, 
 cargo run -p jai-language-server --bin jailsp
 cargo test -p jai-language-server
 cargo build --release -p jai-wasm --target wasm32-unknown-unknown
-node tools/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wasm.wasm
+node tools/browser/check_scripting_wasm.mjs target/wasm32-unknown-unknown/release/jai_wasm.wasm
 ```
 
 - `JAIC_STDLIB` overrides the native stdlib directory.

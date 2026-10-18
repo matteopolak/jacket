@@ -65,8 +65,8 @@ Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.
 
 ## Browser
 
-- `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
-- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai`. Source on stdin, config from `--config` or `JAIFMT_CONFIG`, same exit contract. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
+- `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/browser/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai`. Source on stdin, config from `--config` or `JAIFMT_CONFIG`, same exit contract. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
 
 ## How to change it
 
@@ -78,7 +78,7 @@ Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.
 - **Golden tests:** `stdlib/Extensions/Jai_Format/tests/fixtures/<name>.in.jai` must format to `<name>.out.jai` (optional `<name>.toml`). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff. `stdlib/Extensions/Jai_Format/tests/api.jai` covers the API in memory so it also runs in the browser engine. `crates/jaic-cli/tests/native.rs` covers the CLI and checks idempotence over the repository's Jai files.
 - The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and the upstream corpus and run the sweep.
 - Layout-sensitive files: add to `ignore` or wrap in `// jaifmt: off`/`on`. Tests comparing `#location` lines must not rely on two statements sharing a line.
-- Moving `jaifmt/`: CI, `nix/jaifmt.nix`, `tools/build_scripting_wasm.py`, `tools/build_pgo.py`, the two wasm check scripts, the jaic-cli tests and `SOURCES` in `tests/golden.jai` name its files.
+- Moving `jaifmt/`: CI, `nix/jaifmt.nix`, `tools/browser/build_scripting_wasm.py`, `tools/dev/build_pgo.py`, the two wasm check scripts, the jaic-cli tests and `SOURCES` in `tests/golden.jai` name its files.
 - Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
 
 ## Dependencies

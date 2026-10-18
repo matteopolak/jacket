@@ -1,6 +1,6 @@
 // Shared by the Http tests: a driver that feeds text to a parser in pieces, and the text form of
 // what the parser reported, so two runs can be compared as strings. The form is the one
-// tools/gen_http_corpus.py writes for llhttp's fixtures:
+// tools/corpus/gen_http_corpus.py writes for llhttp's fixtures:
 //
 //     M<SOH>method<SOH>target<SOH>1.1    a request head       S<SOH>status<SOH>reason<SOH>1.1  a response head
 //     H<SOH>name<SOH>value               a header             D   the head is complete

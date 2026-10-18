@@ -64,7 +64,7 @@ RESOURCE_PREFIXES = {
     'focus-editor/focus': ('config/', 'fonts/', 'images/', 'themes/'),
     # sgpu examples compile their Slang shaders at run time and one loads a sample texture.
     'roeyb1/sgpu': ('examples/shaders/', 'examples/sample.png'),
-    # JoltC builds with CMake (tools/build_vk_engine_libs.py); Jolt Physics itself is cloned there.
+    # JoltC builds with CMake (tools/native/build_vk_engine_libs.py); Jolt Physics itself is cloned there.
     'ostef/JoltC': ('CMakeLists.txt', 'Examples/'),
     # chess-jai reads its NNUE network at compile time and its fonts, images and sounds at run time.
     'danieltan1517/chess-jai': ('resources/',),

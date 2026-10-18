@@ -17,7 +17,7 @@ import subprocess
 from cleanroom_lint_contexts import canonical, checked_coverage
 from window_render_tests import WINDOW_RENDER_TESTS
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CASES = (
     "windows-wgl-driver",
     "windows-render-events",
@@ -124,7 +124,7 @@ def probe_loaded_expected_driver(stdout, expected, alternatives=()):
 def deploy_driver(driver, machine, directories):
     """Deploy the same curated driver closure beside every actual consumer.
 
-    The installer (tools/install_ci_mesa_windows.sh) supplies the checksum-verified,
+    The installer (tools/ci/install_ci_mesa_windows.sh) supplies the checksum-verified,
     self-contained opengl32.dll. Only DLLs in that driver output are selected, never
     arbitrary package files.
     Validate the whole closure before changing any destination.

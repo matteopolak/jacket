@@ -11,7 +11,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 STDLIB = ROOT / "stdlib"
 sys.path.insert(0, str(ROOT / "tools"))
 import stdlib_runtime  # noqa: E402
@@ -208,7 +208,7 @@ def measure(record, os_name=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--record", required=True, help="the file tools/stdlib_runtime.py --coverage wrote")
+    ap.add_argument("--record", required=True, help="the file tools/stdlib/stdlib_runtime.py --coverage wrote")
     ap.add_argument("--platform", default=stdlib_runtime.host_platform())
     ap.add_argument("--uncovered", metavar="MODULE", help="list the public procedures of MODULE no test runs")
     ap.add_argument("--all", action="store_true", help="list modules with nothing to cover too")

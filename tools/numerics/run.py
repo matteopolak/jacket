@@ -1,5 +1,11 @@
 """Run clean-room numerics tests against an explicit locally source-built compiler."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_TOOLS = _Path(__file__).resolve().parents[1]
+_sys.path[:0] = [str(d) for d in (_TOOLS,)]  # modules from other tools/ folders
+
 from pathlib import Path
 import argparse
 import json
@@ -79,7 +85,7 @@ def run(label, cmd, sentinel=None, expect_fail=False):
     return passed
 
 
-run("inventory", [sys.executable, "tools/numerics_surface.py"])
+run("inventory", [sys.executable, "tools/numerics/numerics_surface.py"])
 run("generate-oracle", [sys.executable, "tools/numerics/oracle.py"])
 tests = {
     "core": ("stdlib/Float16/tests/core.jai", "numerics core ok"),

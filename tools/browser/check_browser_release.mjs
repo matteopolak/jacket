@@ -12,7 +12,7 @@ import { checkExample, exampleCases } from "./examples_wasm.mjs";
 
 export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "tour.json",
   "webgpu_bindings.generated.mjs", "webgpu_host.mjs"];
-/** Example workspaces shipped as folders, each described by `<name>.json` (tools/build_scripting_wasm.py). */
+/** Example workspaces shipped as folders, each described by `<name>.json` (tools/browser/build_scripting_wasm.py). */
 export const BUNDLE_EXAMPLES = ["tour"];
 
 /** Relative paths of every regular file under `directory`; symlinks and other file types are rejected. */
@@ -186,7 +186,7 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
-  if (!(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === "--report"))) throw new Error("usage: node tools/check_browser_release.mjs <staged-directory> [--report <json-path>]");
+  if (!(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === "--report"))) throw new Error("usage: node tools/browser/check_browser_release.mjs <staged-directory> [--report <json-path>]");
   const result = await checkRelease(path.resolve(process.argv[2]));
   if (process.argv[3] === "--report") await writeFile(process.argv[4], JSON.stringify(result) + "\n");
   console.log(`PASS: staged browser bundle ${result.commit}, runtime=true, lsp=${result.lsp}; ${result.tours.join(", ")}; ${result.stdlibPassSet}`);

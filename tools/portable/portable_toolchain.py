@@ -6,7 +6,7 @@ not search peer/external build trees or fall back to a supplied compiler binary.
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def assigned_target():

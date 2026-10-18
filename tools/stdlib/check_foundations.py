@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CASES = ("Basic/tests/builder-format", "Basic/tests/integer-format", "String/tests/patterns", "Hash/tests/floats", "Basic/tests/filesystem",
          "File_Utilities/tests/shape", "File_Utilities/tests/tree-operations", "Hash/tests/scalars", "File/tests/visitation", "Basic/tests/output", "Basic/tests/formatter-records", "Basic/tests/sleep",
          "Basic/tests/format-grammar", "Basic/tests/format-floats", "Basic/tests/format-aggregates", "Basic/tests/format-types", "Basic/tests/assert-message",
@@ -456,13 +456,13 @@ def main():
                 binary = output / f"{label}-{level}.wasm"
                 run([compiler, source, "-os", "wasm", f"-{level}", "-exe", binary])
                 expected = expected_output(name)
-                run(["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary], *expected)
+                run(["node", "--no-warnings", ROOT / "tools/browser/run_foundations_wasm.mjs", binary], *expected)
             print(f"passed production WASI O0/O2: {name}", flush=True)
         for level in ("O0", "O2"):
             binary = output / f"leak-unknown-allocation-{level}.wasm"
             run([compiler, ROOT / "stdlib/Basic/tests/negative/leak-unknown-allocation.jai",
                  "-os", "wasm", f"-{level}", "-exe", binary])
-            run(["node", "--no-warnings", ROOT / "tools/run_foundations_wasm.mjs", binary],
+            run(["node", "--no-warnings", ROOT / "tools/browser/run_foundations_wasm.mjs", binary],
                 "", "memory debugger: unknown allocation marked as non-leak", 1)
         print("passed production WASI O0/O2 unknown-allocation misuse status 1", flush=True)
     for name, target in (("Hash/tests/probes/scalar-fnv", []), ("Basic/tests/probes/division-exercise", ["-os", "windows", "-cpu", "x64"])):

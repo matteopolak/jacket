@@ -432,7 +432,7 @@ fn wasm_bare_module_imports_and_exports() {
 }
 
 /// jaifmt compiled to WebAssembly formats every golden case exactly as expected
-/// (tools/check_jaifmt_wasm.mjs, which CI also runs against native jaifmt).
+/// (tools/browser/check_jaifmt_wasm.mjs, which CI also runs against native jaifmt).
 #[test]
 fn jaifmt_wasm_formats_the_golden_cases() {
     let dir = scratch("wasm-jaifmt");
@@ -452,7 +452,7 @@ fn jaifmt_wasm_formats_the_golden_cases() {
     }
     let output = node()
         .unwrap()
-        .arg(repo_root().join("tools/check_jaifmt_wasm.mjs"))
+        .arg(repo_root().join("tools/browser/check_jaifmt_wasm.mjs"))
         .arg("wasi")
         .arg(dir.join("jaifmt.wasm"))
         .output()

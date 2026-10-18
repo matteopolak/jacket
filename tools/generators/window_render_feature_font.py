@@ -10,7 +10,7 @@ import argparse
 from pathlib import Path
 import struct
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "stdlib/Simp/tests/fixtures/feature-font.ttf"
 
 

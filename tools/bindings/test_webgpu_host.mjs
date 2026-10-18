@@ -6,8 +6,8 @@
 // stdlib/Extensions/WebGPU/tests/driven/bridge.jai in the real engine, where every request suspends the module until the
 // mock's promise settles.
 //
-//   node --test tools/test_webgpu_host.mjs
-//   JAI_WASM_DIR=target/ci-wasm node --experimental-wasm-jspi tools/test_webgpu_host.mjs
+//   node --test tools/bindings/test_webgpu_host.mjs
+//   JAI_WASM_DIR=target/ci-wasm node --experimental-wasm-jspi tools/bindings/test_webgpu_host.mjs
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -17,7 +17,7 @@ import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
 import { STRUCTS } from "../crates/jai-wasm/js/webgpu_bindings.generated.mjs";
 import { createWebGPUHost } from "../crates/jai-wasm/js/webgpu_host.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MAX64 = 0xFFFF_FFFF_FFFF_FFFFn;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // WGPUCallbackMode, and the `how` of jai_webgpu_poll.

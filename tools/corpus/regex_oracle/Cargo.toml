@@ -1,4 +1,4 @@
-# Rust's regex crate as a reference for Extensions/Regex: tools/gen_regex_corpus.py feeds it
+# Rust's regex crate as a reference for Extensions/Regex: tools/corpus/gen_regex_corpus.py feeds it
 # patterns and records what it matches. Not part of the jaic workspace.
 [package]
 name = "regex-oracle"

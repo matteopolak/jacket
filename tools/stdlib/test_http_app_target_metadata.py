@@ -7,7 +7,7 @@ import unittest
 from stdlib_test_catalog import unavailable_reason, validated_entries
 
 sys.dont_write_bytecode = True
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 WASM = ("wasm-interp", "wasm-native")
 
 

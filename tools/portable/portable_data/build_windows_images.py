@@ -12,7 +12,7 @@ import sys
 
 if os.name != "nt":
     raise SystemExit("Native Windows is required")
-root = Path(__file__).resolve().parents[2]
+root = Path(__file__).resolve().parents[3]
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", choices=("x64", "arm64"), default="x64")
 args = parser.parse_args()

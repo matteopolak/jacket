@@ -1945,7 +1945,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
 /// The Windows runtime test program: natively wherever the tests run, and cross-built with
 /// `-os windows` (x64, and `-cpu arm64`) when a MinGW-w64 toolchain for that CPU is installed
 /// (the result is checked to be a PE executable for it; CI runs them on Windows, see
-/// `tools/windows_cross.py`).
+/// `tools/native/windows_cross.py`).
 #[test]
 fn windows_runtime_program() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-windows-runtime");
@@ -2192,7 +2192,7 @@ fn unnamed_link_always_library_is_linked() {
 
 /// A C++ function marked `#cpp_return_type_is_non_pod` returns even a small class (one `int`)
 /// through the hidden result pointer, as C++ does for types with constructors. Found by
-/// tools/jaic-diff.py: the native build expected it in registers while the callee wrote through x8.
+/// tools/differential/jaic-diff.py: the native build expected it in registers while the callee wrote through x8.
 #[test]
 fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod");
@@ -2269,7 +2269,7 @@ fn compiler_primitive_at_run_time_explains_the_trap() {
 /// `a -= b` in a loop of run-time length survives `-O2`: LLVM 22's runtime unroller recombined
 /// the per-copy accumulators of a `sub` recurrence wrongly (llvm/llvm-project#201065, fixed in
 /// LLVM 23.1.0), which jaic worked around until it moved to LLVM 23. Reduced from a
-/// tools/jaigen.py program.
+/// tools/differential/jaigen.py program.
 #[test]
 fn optimized_sub_recurrence_matches_the_interpreter() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-sub-recurrence");

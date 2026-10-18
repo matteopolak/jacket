@@ -16,7 +16,7 @@ Exit status 1 on unknown or duplicate IDs, else 0.
 import argparse, json, re, sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DOC_DIRS = ("docs/language", "docs/metaprogramming")
 # Where tests live: the sweep's sets (corpus, stdlib, the stdlib's own tests, examples) and the
 # Rust unit and integration tests.

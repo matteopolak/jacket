@@ -1,6 +1,6 @@
 name: http conformance
 # The HTTP codec against llhttp's fixtures, the smuggling table and the chunking tests, in all four
-# stdlib runtime modes (tools/http_conformance.py, docs/extensions/http-codec.md). It runs when the
+# stdlib runtime modes (tools/stdlib/http_conformance.py, docs/extensions/http-codec.md). It runs when the
 # Http module or this harness changes, and by hand; every push already runs the same tests among
 # the stdlib runtime tests, so this adds the focused report and the optional external suites.
 on:
@@ -8,18 +8,18 @@ on:
     branches: [main]
     paths:
       - stdlib/Extensions/Http/**
-      - tools/http_conformance.py
-      - tools/http_native.py
-      - tools/gen_http_corpus.py
-      - tools/http_deviations.json
+      - tools/stdlib/http_conformance.py
+      - tools/native/http_native.py
+      - tools/corpus/gen_http_corpus.py
+      - tools/corpus/http_deviations.json
       - .github/workflows/http-conformance.yml
   pull_request:
     paths:
       - stdlib/Extensions/Http/**
-      - tools/http_conformance.py
-      - tools/http_native.py
-      - tools/gen_http_corpus.py
-      - tools/http_deviations.json
+      - tools/stdlib/http_conformance.py
+      - tools/native/http_native.py
+      - tools/corpus/gen_http_corpus.py
+      - tools/corpus/http_deviations.json
       - .github/workflows/http-conformance.yml
   workflow_dispatch:
 permissions:
@@ -55,36 +55,36 @@ jobs:
           node-version: '24'
       - name: Install LLVM 23 (macOS)
         if: runner.os == 'macOS'
-        run: tools/install_ci_llvm_macos.sh --lld
+        run: tools/ci/install_ci_llvm_macos.sh --lld
       - name: Install LLVM 23 (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 15
         run: |
-          bash tools/install_ci_llvm_linux.sh
+          bash tools/ci/install_ci_llvm_linux.sh
           echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Check HTTP native dependency setup
-        run: python3 -m unittest discover -s tools -p test_http_native.py
+        run: python3 tools/run_tests.py -p test_http_native.py
       - name: Build pinned HTTP TLS SDK (static and shared)
-        run: python3 tools/http_native.py --out "$JAIC_NATIVE_LIBS"
+        run: python3 tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Corpus, llhttp fixtures, smuggling and chunking tests
-        run: python3 -u tools/http_conformance.py --jaic target/debug/jaic --modes interp,native,wasm-interp,wasm-native
+        run: python3 -u tools/stdlib/http_conformance.py --jaic target/debug/jaic --modes interp,native,wasm-interp,wasm-native
       - name: Io and Http tests under load (default, -O2, ASan on Linux)
         run: |
-          python3 -m unittest discover -s tools -p test_io_stress_diagnostics.py -v
-          python3 -m unittest discover -s tools -p test_ci_test_scratch.py -v
-          python3 -m unittest discover -s tools -p test_http_observer_artifacts.py -v
-          python3 -m unittest discover -s tools -p test_io_stress_observation.py -v
-          python3 -m unittest discover -s tools -p test_io_burst_diagnostics.py -v
-          python3 -m unittest discover -s tools -p test_io_failure_observer.py -v
-          python3 -m unittest discover -s tools -p test_io_failure_wiring.py -v
+          python3 tools/run_tests.py -p test_io_stress_diagnostics.py -v
+          python3 tools/run_tests.py -p test_ci_test_scratch.py -v
+          python3 tools/run_tests.py -p test_http_observer_artifacts.py -v
+          python3 tools/run_tests.py -p test_io_stress_observation.py -v
+          python3 tools/run_tests.py -p test_io_burst_diagnostics.py -v
+          python3 tools/run_tests.py -p test_io_failure_observer.py -v
+          python3 tools/run_tests.py -p test_io_failure_wiring.py -v
           observe=()
           if [ "$RUNNER_OS" = Linux ]; then
             observe=(--copies 12 --observe-failures-report "$RUNNER_TEMP/io-observed-copy")
           fi
-          python3 -u tools/io_stress.py --jaic target/debug/jaic --rounds 3 "${observe[@]}"
+          python3 -u tools/stdlib/io_stress.py --jaic target/debug/jaic --rounds 3 "${observe[@]}"
       - name: Retain the selected Linux observer capture
         if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

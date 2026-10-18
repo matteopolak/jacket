@@ -13,7 +13,7 @@ import shutil
 import struct
 import subprocess
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--verify-native", action="store_true")
 args = parser.parse_args()
