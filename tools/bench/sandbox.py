@@ -99,7 +99,10 @@ def quote(path: str) -> str:
 
 
 def environment(scratch: Path) -> dict[str, str]:
-    """The environment for sandboxed runs: the caller's, with temporary files inside the scratch folder."""
+    """The environment for sandboxed runs: the caller's, with temporary files and jaic's cache (the
+    helpers it unpacks before linking) inside the scratch folder, since the home directory is unreadable."""
     tmp = scratch / 'tmp'
+    cache = scratch / 'cache'
     tmp.mkdir(parents=True, exist_ok=True)
-    return {**os.environ, 'TMPDIR': str(tmp)}
+    cache.mkdir(parents=True, exist_ok=True)
+    return {**os.environ, 'TMPDIR': str(tmp), 'JAIC_CACHE_DIR': str(cache)}
