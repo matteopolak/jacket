@@ -16,7 +16,8 @@
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
 //! A caller that renders for someone else (the browser playground, one run per request)
 //! uses `with_style`, which applies to its own thread only.
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -424,18 +425,16 @@ struct Renderer {
 /// One-based line and column (in characters) of a byte offset.
 pub fn line_col(text: &str, offset: usize) -> (usize, usize) {
     let offset = text.floor_char_boundary(offset.min(text.len()));
-    let line_start = text[..offset].rfind('\n').map_or(0, |n| n + 1);
-    let line = text[..offset].matches('\n').count() + 1;
-    (line, text[line_start..offset].chars().count() + 1)
+    let starts = line_starts(text);
+    let line = starts.partition_point(|&start| start <= offset);
+    (line, text[starts[line - 1]..offset].chars().count() + 1)
 }
 
 /// Byte range of one-based `line` (without its newline).
 fn line_range(text: &str, line: usize) -> Option<(usize, usize)> {
-    let mut start = 0;
-    for _ in 1..line {
-        start += text[start..].find('\n')? + 1;
-    }
-    let end = text[start..].find('\n').map_or(text.len(), |n| start + n);
+    let starts = line_starts(text);
+    let start = *starts.get(line.max(1) - 1)?;
+    let end = starts.get(line.max(1)).map_or(text.len(), |&next| next - 1);
     let end = if text[start..end].ends_with('\r') {
         end - 1
     } else {
@@ -444,8 +443,42 @@ fn line_range(text: &str, line: usize) -> Option<(usize, usize)> {
     Some((start, end))
 }
 
+/// Files at least this long keep their line starts between calls.
+const CACHED_LINES_MIN: usize = 16 * 1024;
+
+thread_local! {
+    /// The last large text a report was rendered from, and where its lines start. A linter
+    /// renders thousands of reports from one file; finding a line by counting newlines from
+    /// the top each time made that quadratic.
+    static LINE_STARTS: RefCell<Option<(String, Rc<Vec<usize>>)>> = const { RefCell::new(None) };
+}
+
+/// Byte offsets where each line of `text` starts (the first is 0).
+fn line_starts(text: &str) -> Rc<Vec<usize>> {
+    let scan = || {
+        let mut starts = vec![0];
+        starts.extend(text.match_indices('\n').map(|(i, _)| i + 1));
+        Rc::new(starts)
+    };
+    if text.len() < CACHED_LINES_MIN {
+        return scan();
+    }
+    LINE_STARTS.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        // Compared by contents: another text may since have been allocated at the same address.
+        if let Some((cached, starts)) = cache.as_ref()
+            && cached == text
+        {
+            return starts.clone();
+        }
+        let starts = scan();
+        *cache = Some((text.to_string(), starts.clone()));
+        starts
+    })
+}
+
 fn line_count(text: &str) -> usize {
-    text.matches('\n').count() + usize::from(!text.ends_with('\n') || text.is_empty())
+    line_starts(text).len() - usize::from(text.ends_with('\n'))
 }
 
 impl Renderer {
@@ -941,6 +974,32 @@ fn indent_width(text: &str, colored: bool) -> usize {
 /// lines, the changed lines as fixed (`~`); when it removes whole lines, those (`-`);
 /// otherwise the old lines (`-`) then the new (`+`). At most `MAX_FIX_LINES` of each.
 pub fn changed_lines(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String, char, String)> {
+    // Only the lines the edits touch: copying and splitting the whole file for every fix made
+    // rendering a linter's thousands of fixes quadratic.
+    let first = edits.iter().map(|e| e.0).min().unwrap_or(0).min(text.len());
+    let last = edits
+        .iter()
+        .map(|e| e.1)
+        .max()
+        .unwrap_or(0)
+        .clamp(first, text.len());
+    let start = text[..first].rfind('\n').map_or(0, |n| n + 1);
+    let end = text[last..].find('\n').map_or(text.len(), |n| last + n);
+    let base = line_col(text, start).0 - 1;
+    let window: Vec<_> = edits
+        .iter()
+        .map(|(a, b, new)| (a - start, b - start, new.clone()))
+        .collect();
+    let mut out = changed_lines_in(&text[start..end], &window);
+    for (line, _, _) in &mut out {
+        if let Ok(n) = line.parse::<usize>() {
+            *line = (n + base).to_string();
+        }
+    }
+    out
+}
+
+fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String, char, String)> {
     let mut edits = edits.to_vec();
     edits.sort_by_key(|e| e.0);
     let first = edits.first().map_or(0, |e| e.0);

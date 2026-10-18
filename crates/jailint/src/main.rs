@@ -2,7 +2,7 @@
 use jailint::config::{Config, Level};
 use jailint::render::render;
 use jailint::{Lint, RULES};
-use std::io::IsTerminal;
+use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -292,6 +292,9 @@ fn run() -> Result<ExitCode, String> {
     };
     let mut errors = 0;
     let mut warnings = 0;
+    // One write per report instead of one per line: a file with thousands of findings spent
+    // most of its time in the line-buffered stdout's system calls.
+    let mut out = std::io::BufWriter::new(std::io::stdout().lock());
     for lint in &outcome.lints {
         let Some(text) = outcome.texts.get(&lint.path) else {
             continue;
@@ -300,7 +303,8 @@ fn run() -> Result<ExitCode, String> {
             .iter()
             .find(|r| r.name == lint.rule)
             .map_or(Level::Warn, |r| r.default);
-        println!(
+        let _ = writeln!(
+            out,
             "{}",
             render(lint, text, &shown(&lint.path), default, &style)
         );
@@ -309,6 +313,8 @@ fn run() -> Result<ExitCode, String> {
             _ => warnings += 1,
         }
     }
+    let _ = out.flush();
+    drop(out);
     for (root, error) in &outcome.incomplete {
         eprintln!(
             "jailint: {} did not compile completely ({error}); bodies that failed were not linted",
