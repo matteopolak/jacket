@@ -69,6 +69,53 @@ impl Compiler {
         None
     }
 
+    /// Can the arguments of an untyped `.{...}` fill the members of `param`? Positional values
+    /// are compared with their members only where the value's kind decides it: more values than
+    /// members, or an array literal where the member is not an array.
+    fn struct_lit_args_fit(
+        &mut self,
+        param: TypeId,
+        fields: &[ast::Arg],
+        span: Span,
+    ) -> Result<bool> {
+        if self.size_of(param, span).is_err() {
+            return Ok(true);
+        }
+        let members: Vec<TypeId> = match self.types.as_struct(self.types.repr_struct(param)) {
+            Some(s) => self
+                .types
+                .struct_info(s)
+                .fields
+                .iter()
+                .map(|f| f.ty)
+                .collect(),
+            None => self
+                .builtin_members(self.types.repr(param), span)?
+                .into_iter()
+                .map(|(_, t, _)| t)
+                .collect(),
+        };
+        let mut position = 0;
+        for field in fields
+            .iter()
+            .filter(|a| a.target.is_none() && a.name.is_none())
+        {
+            let Some(&member) = members.get(position) else {
+                return Ok(false);
+            };
+            position += 1;
+            if matches!(field.value.kind, E::ArrayLit { .. })
+                && !matches!(
+                    self.types.kind(self.types.repr(member)),
+                    TypeKind::Array { .. }
+                )
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     /// `macro_call`: a Code parameter of a macro also binds a variable by name.
     pub(super) fn arg_cost(
         &mut self,
@@ -165,12 +212,13 @@ impl Compiler {
             let fits = match arg.expr.as_ref().map(|e| &e.kind) {
                 // `.{...}` and `.[...]` build aggregates, `.NAME` picks an enum member.
                 Some(E::StructLit {
-                    ..
+                    fields: lit_args, ..
                 }) => {
-                    !scalar
+                    (!scalar
                         || !self
                             .builtin_members(self.types.repr(param), arg.span)?
-                            .is_empty()
+                            .is_empty())
+                        && self.struct_lit_args_fit(param, lit_args, arg.span)?
                 }
                 Some(E::ArrayLit {
                     ..
