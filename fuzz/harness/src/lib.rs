@@ -12,9 +12,11 @@
 pub mod generate;
 mod jaifmt;
 mod lsp_edits;
+mod lsp_typing;
 
 pub use jaifmt::jaifmt;
 pub use lsp_edits::lsp_edits;
+pub use lsp_typing::lsp_typing;
 
 use jai_language_server::{DocumentUri, Limits, Position, Session, TextChange};
 use jai_wasm::play::{PlayOptions, run_with};

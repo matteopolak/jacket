@@ -12,18 +12,19 @@ impl Compiler {
         stmts: &[ast::Stmt],
         mut vis: ast::ScopeKind,
     ) -> Result<ast::ScopeKind> {
-        let mut failed = None;
         for stmt in stmts {
             match self.declare_stmt(scope, file_scope, stmt, vis) {
                 Ok(next) => vis = next,
+                // The editor keeps the error and goes on: the directives after one bad
+                // statement (`#assert`, `#run`, `#poke_name`) still check, so the names in
+                // them keep their types and definitions while that statement is being typed.
                 Err(error) if self.ide.is_some() => {
-                    self.ide.as_mut().unwrap().errors.push((*error).clone());
-                    failed.get_or_insert(error);
+                    self.ide.as_mut().unwrap().errors.push(*error);
                 }
                 Err(error) => return Err(error),
             }
         }
-        failed.map_or(Ok(vis), Err)
+        Ok(vis)
     }
 
     fn target_scope(&self, scope: ScopeId, file_scope: ScopeId, vis: ast::ScopeKind) -> ScopeId {

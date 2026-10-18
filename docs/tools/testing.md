@@ -81,6 +81,7 @@ Coverage-guided fuzzing with cargo-fuzz (libFuzzer). Every panic, abort, stack o
 | `interp` | `check`, then `main` in the interpreter |
 | `generated` | a program rendered from a typed grammar (`harness/src/generate.rs`) by `arbitrary`, then as `interp` |
 | `lsp`, `lsp_json`, `lsp_edits` | language server sessions: queries at many offsets; raw JSON-RPC; a script of up to 24 edit/request/close steps over two documents |
+| `lsp_typing` | the [typing-session checker](lsp-fuzzing.md) with the fuzzer's bytes choosing the keystrokes: answers must match a fresh session and the original text after undo |
 | `jaifmt` | `Jai_Format` run twice under the interpreter; panics if its token check fails, the second pass changes text, the lexer's tokens or the parser's syntax tree differ, or the budget runs out |
 
 - **Sandbox.** Compile-time code and `main` run in the playground sandbox (target `wasm`, in-memory stdlib, `SandboxHost`). `BLOCK_BUDGET` (2M blocks) stops loops in `#run`/`main`. Compiling harnesses run on a 256 MiB thread. The interpreter uses real memory, so an input that builds a pointer from an integer (`cast(*T)`, `xx`, `---`) can crash the fuzzer without a compiler bug. The compiler's own reads of program memory (freezing `#run` results, metaprogram strings, `compiler_*` out-parameters) must go through `Interp::read`/`write` (`interp/probe.rs`); a SEGV with one of those on the stack is a compiler bug.

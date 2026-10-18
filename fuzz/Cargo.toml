@@ -86,3 +86,10 @@ path = "fuzz_targets/lsp_edits.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "lsp_typing"
+path = "fuzz_targets/lsp_typing.rs"
+test = false
+doc = false
+bench = false

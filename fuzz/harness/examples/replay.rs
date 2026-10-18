@@ -17,6 +17,7 @@ fn main() {
         "lsp" => jai_fuzz_harness::lsp,
         "lsp_json" => jai_fuzz_harness::lsp_json,
         "lsp_edits" => jai_fuzz_harness::lsp_edits,
+        "lsp_typing" => jai_fuzz_harness::lsp_typing,
         "jaifmt" => jai_fuzz_harness::jaifmt,
         "show" => |data: &[u8]| print!("{}", jai_fuzz_harness::generate::program(data)),
         other => panic!("unknown target {other}"),

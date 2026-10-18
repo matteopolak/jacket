@@ -23,6 +23,15 @@ describe("jacket.toml", () => {
     assert.deepEqual(ignoreGlobs(toml, "/repo/jacket.toml"), ["gen/**"]);
     assert.deepEqual(ignoreGlobs("[lint]\nexclude = []\n", "/repo/jacket.toml"), []);
   });
+
+  it("the repository's own ignores apply", () => {
+    // The root jacket.toml leaves the formatter's golden inputs alone.
+    const config = path.join(__dirname, "..", "..", "..", "..", "..", "jacket.toml");
+    const globs = ignoreGlobs(readFileSync(config, "utf8"), config);
+    const golden = path.join(path.dirname(config), "stdlib", "Extensions", "Jai_Format", "tests", "fixtures", "spacing.in.jai");
+    assert.ok(isIgnored(config, globs, golden));
+    assert.ok(!isIgnored(config, globs, path.join(path.dirname(config), "examples", "tour", "main.jai")));
+  });
 });
 
 describe("jaifmt.toml", () => {
@@ -53,15 +62,6 @@ describe("jaifmt.toml", () => {
     assert.ok(isIgnored(config, ["tests/corpus/**"], repoFile("tests/corpus/ok/a.jai")));
     assert.ok(!isIgnored(config, ["tests/corpus/**"], repoFile("tests/other/a.jai")));
     assert.ok(!isIgnored(config, ["**"], path.join(path.sep, "elsewhere", "a.jai")));
-  });
-
-  it("the repository's own ignores apply", () => {
-    // The root jaifmt.toml leaves the formatter's golden inputs alone.
-    const config = path.join(__dirname, "..", "..", "..", "..", "..", "jaifmt.toml");
-    const globs = ignoreGlobs(readFileSync(config, "utf8"));
-    const golden = path.join(path.dirname(config), "stdlib", "Extensions", "Jai_Format", "tests", "fixtures", "spacing.in.jai");
-    assert.ok(isIgnored(config, globs, golden));
-    assert.ok(!isIgnored(config, globs, path.join(path.dirname(config), "examples", "tour", "main.jai")));
   });
 });
 

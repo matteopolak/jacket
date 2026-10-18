@@ -143,6 +143,20 @@ pub struct IdeCallTarget {
 }
 
 impl Compiler {
+    /// How to color the callee of the call whose `(` is at `open`: a macro if every candidate is
+    /// one, a function otherwise. `None` when the call's target cannot be found.
+    pub fn ide_callee_class(&mut self, file: FileId, open: u32) -> Option<IdeClass> {
+        let procedures = self.ide_call_target_at(file, open)?.procedures;
+        if procedures.is_empty() {
+            return None;
+        }
+        Some(if procedures.iter().all(|&p| self.proc(p).is_macro) {
+            IdeClass::Macro
+        } else {
+            IdeClass::Function
+        })
+    }
+
     /// Resolve only the actual callee at this call's opening parenthesis. The original
     /// program and its failed-body guards stay intact; no argument values are invented.
     pub fn ide_call_target_at(&mut self, file: FileId, open: u32) -> Option<IdeCallTarget> {

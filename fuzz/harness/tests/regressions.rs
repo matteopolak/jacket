@@ -74,6 +74,11 @@ fn lsp_edits() {
 }
 
 #[test]
+fn lsp_typing() {
+    replay("lsp_typing", jai_fuzz_harness::lsp_typing);
+}
+
+#[test]
 fn jaifmt() {
     replay("jaifmt", jai_fuzz_harness::jaifmt);
 }

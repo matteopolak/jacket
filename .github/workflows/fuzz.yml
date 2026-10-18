@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [lexer, parser, check, interp, generated, lsp, lsp_json, lsp_edits, jaifmt]
+        target: [lexer, parser, check, interp, generated, lsp, lsp_json, lsp_edits, lsp_typing, jaifmt]
     env:
       CARGO_INCREMENTAL: '0'
       SECONDS_PER_TARGET: ${{ inputs.seconds || '600' }}

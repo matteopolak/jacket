@@ -33,6 +33,7 @@ TARGETS = {
     "lsp": (PROGRAMS, 4 << 10),
     "lsp_json": (PROGRAMS, 2 << 10),
     "lsp_edits": (PROGRAMS, 4 << 10),
+    "lsp_typing": (PROGRAMS, 2 << 10),
     # Formatter input: any source, and the third-party corpus when it is checked out, since nobody
     # formatted it with jaifmt (the repository's own files are formatted already).
     "jaifmt": (SOURCES + ["corpus/upstream"], 8 << 10),

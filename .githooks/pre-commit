@@ -5,7 +5,9 @@
 #   Rust  rustfmt --check (pinned nightly, rustfmt.toml), tools/dev/rust_item_spacing.py --check
 #
 # Enable with `git config core.hooksPath .githooks`. Skip once with `git commit --no-verify`.
-# Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing" skips those checks,
+#   Repo  CI's style and path checks (tools/ci/check_*.py), Cargo.lock freshness, VS Code generated files
+#
+# Environment: JAI_HOOK_SKIP="jaifmt jailint rustfmt spacing repo locks editor" skips those checks,
 # JAI_HOOK_NO_BUILD=1 never rebuilds a stale tool, JAI_HOOK_VERBOSE=1 prints what runs.
 
 root=$(git rev-parse --show-toplevel) || exit 0
@@ -23,7 +25,9 @@ warn() { echo "pre-commit: warning: $*" >&2; }
 # workspace only, as CI runs `cargo fmt --all`). The same script backs `just fmt|lint --staged`.
 jai_list=$(sh "$root/tools/dev/staged-files.sh" jai)
 rs_list=$(sh "$root/tools/dev/staged-files.sh" rust)
-[ -n "$jai_list" ] || [ -n "$rs_list" ] || exit 0
+all_list=$(git -c core.quotepath=off diff --cached --name-only --diff-filter=ACMR)
+[ -n "$all_list" ] || exit 0
+staged_matches() { printf '%s\n' "$all_list" | grep -q -e "$@"; }
 
 # Check what will be committed, not what is in the working tree: export the staged blobs.
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/jai-pre-commit.XXXXXX") || exit 0
@@ -188,6 +192,55 @@ EOF
             failed=1
             add_fix "python3 tools/dev/rust_item_spacing.py <files>"
         fi
+    fi
+fi
+
+# Repository checks CI runs on every push. They read the working tree, so a partly staged file is
+# checked as it is on disk.
+if ! skipped repo && command -v python3 >/dev/null 2>&1; then
+    for check in check_source_style check_repo_paths check_ci_sources; do
+        script="$root/tools/ci/$check.py"
+        [ -f "$script" ] || continue
+        say "running $check"
+        if ! python3 "$script" >"$tmp/.out" 2>&1; then
+            cat "$tmp/.out" >&2
+            failed=1
+            add_fix "python3 tools/ci/$check.py"
+        fi
+    done
+fi
+
+# A manifest change must come with its lock files (CI builds with --locked).
+if ! skipped locks && command -v cargo >/dev/null 2>&1 && staged_matches 'Cargo\.toml$' -e 'Cargo\.lock$'; then
+    for manifest in Cargo.toml fuzz/Cargo.toml; do
+        [ -f "$root/$manifest" ] || continue
+        say "checking the lock file of $manifest"
+        if cargo metadata --locked --offline --format-version 1 --manifest-path "$root/$manifest" \
+            >/dev/null 2>"$tmp/.out" || ! grep -q "cannot update the lock file" "$tmp/.out"; then
+            continue
+        fi
+        echo "pre-commit: $(dirname "$manifest")/Cargo.lock is out of date" >&2
+        failed=1
+        add_fix "cargo metadata --format-version 1 --manifest-path $manifest >/dev/null"
+    done
+fi
+
+# The VS Code grammar and schemas are generated from the compiler and config sources.
+vscode="$root/editors/vscode"
+if ! skipped editor && [ -d "$vscode/scripts" ] && staged_matches '^crates/' -e '^editors/vscode/'; then
+    major=$(node --version 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')
+    if [ "${major:-0}" -lt 24 ]; then
+        warn "node 24 not found; skipping the VS Code generated-file check"
+    else
+        for gen in build-grammar build-schemas; do
+            [ -f "$vscode/scripts/$gen.ts" ] || continue
+            say "running $gen --check"
+            if ! (cd "$vscode" && node "scripts/$gen.ts" --check) >"$tmp/.out" 2>&1; then
+                cat "$tmp/.out" >&2
+                failed=1
+                add_fix "(cd editors/vscode && node scripts/$gen.ts)"
+            fi
+        done
     fi
 fi
 

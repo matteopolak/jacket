@@ -38,6 +38,16 @@
           "default": "warn",
           "markdownDescription": "`a = b; b = a;`, a swap that sets both to `b` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#almost_swapped)"
         },
+        "banner_comment": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a comment that is only a line of `-`, `=` or `*` fencing off a section (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#banner_comment)"
+        },
         "bitwise_precedence": {
           "type": "string",
           "enum": [

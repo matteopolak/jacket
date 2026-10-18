@@ -98,8 +98,29 @@ impl Compiler {
         })
     }
 
-    /// How to color each recorded identifier of `file`.
-    pub fn ide_classes(&self, file: FileId) -> Vec<(Span, IdeClass)> {
+    /// How to color each recorded identifier of `file`. Declarations the checker has not needed
+    /// yet are resolved first: an alias such as `Mod :: #import "Module";` is a module only once
+    /// it is, so the color would otherwise depend on which requests were made before.
+    pub fn ide_classes(&mut self, file: FileId) -> Vec<(Span, IdeClass)> {
+        let pending: Vec<EntityId> = match self.ide.as_ref() {
+            Some(ide) => ide
+                .refs
+                .iter()
+                .filter(|r| r.span.file == file)
+                .filter_map(|r| match r.what {
+                    IdeWhat::Entity(e)
+                        if matches!(self.entity(e).state, EntityState::Unresolved) =>
+                    {
+                        Some(e)
+                    }
+                    _ => None,
+                })
+                .collect(),
+            None => return Vec::new(),
+        };
+        for id in pending {
+            let _ = self.resolve_entity(id);
+        }
         let Some(ide) = self.ide.as_ref() else {
             return Vec::new();
         };
