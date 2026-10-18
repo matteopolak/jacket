@@ -139,10 +139,18 @@ impl Compiler {
         for &proc in procs {
             match self.match_candidate(proc, args, span) {
                 Ok(c) => {
-                    if best.first().is_none_or(|b| c.cost < b.cost) {
-                        best = vec![c];
-                    } else if best[0].cost == c.cost {
-                        best.push(c);
+                    // A candidate that is not polymorphic beats a polymorphic one when its
+                    // conversions are mild (`f(x: s64)` takes an `s32` before `f(x: $T)`, and a
+                    // `*G` before `f(g: G)` would take `$T`); an integer made a float does not.
+                    let key = |c: &Candidate| {
+                        let mild = self.proc(c.proc).bindings.is_none()
+                            && c.cost < crate::sema::convert::INT_TO_FLOAT;
+                        (u32::from(!mild), c.cost)
+                    };
+                    match best.first() {
+                        Some(b) if key(&c) > key(b) => {}
+                        Some(b) if key(&c) == key(b) => best.push(c),
+                        _ => best = vec![c],
                     }
                 }
                 Err(e) => errors.push(*e),
