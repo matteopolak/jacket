@@ -21,7 +21,6 @@ MAX_LINES = 1200
 # path -> line count it may not grow past. Remove an entry once the file is split.
 ALLOWED_LONG = {
     "crates/jai-language-server/src/auto_import.rs": 1241,
-    "crates/jai-language-server/src/features.rs": 1511,
     "crates/jai-language-server/src/semantic.rs": 1253,
     "crates/jai-language-server/tests/features.rs": 1592,
     "crates/jaic-cli/src/main.rs": 2495,
