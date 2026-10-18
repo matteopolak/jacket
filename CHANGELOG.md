@@ -1,6 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [0.19.0] - 2026-10-18
+
+Faster default builds and compile-time string code, a much faster `jailsp` on large workspaces, stdlib fixes found by fuzzing and review, and a new `excessive_nesting` lint. This release includes the changes planned for 0.18.1, which was not published separately. The breaking changes are small stdlib behaviour fixes, listed below.
+
+### Highlights
+
+- **`jailsp` keeps up with typing.** In this repository a keystroke is re-analysed in about 60 ms (it was about 700 ms when editing a stdlib file), and the first hover or completion answers in under 10 ms instead of about half a second. The server keeps its `#load` graph and per-module indexes across edits instead of rescanning the stdlib, and workspace symbols no longer resolve every file path. On very large single programs the remaining cost is the full type check.
+- **Faster default builds.** Library files skip the `#if OS`/`CPU` branches the target rules out while they are lexed and parsed, which removes most of an empty program's front-end time. Default builds are about 10% faster, and small leaf procedures no longer get a stack-trace node, so debug executables run up to 13% faster.
+- **Faster compile-time string code.** `String_Builder` appends, integer printing and float formatting take far fewer steps, so string-heavy `#run` code runs about twice as fast.
+- **Stdlib and `#load`ed files analyse correctly.** A file inside a standard library tree is checked against that library, so its `internal/...` imports are allowed. A file that another module `#load`s is checked as part of that module.
+- **New lint: `excessive_nesting`.** `jailint` reports blocks nested deeper than `max_nesting` (also `--max-nesting`).
+- **Coverage builds.** `jaic -coverage` builds a program that records which code ran; `tools/coverage/report.py` turns that into line and function coverage. See [coverage](https://github.com/matteopolak/jacket/blob/main/docs/tools/coverage.md).
+- **Fuzzing builds.** `-sanitize fuzzer` (with `address`) instruments a program for libFuzzer and links its engine. See [sanitizers](https://github.com/matteopolak/jacket/blob/main/docs/native/sanitizers.md).
 
 ### Breaking changes
 
@@ -17,6 +29,24 @@
 - `find_index_from_left(s, substring, start_index)` treats a negative `start_index` as 0 instead of reading before the string.
 - `table_find_multiple` probes from the key's slot instead of scanning every entry, and a `REFILL_REMOVED = false` table no longer doubles under remove/add churn.
 - Substring search skips to the first byte of the substring, about ten times faster on large text.
+- A declaration whose initializer has an error still declares its name, so one mistake no longer causes a cascade of "unknown identifier" errors.
+- Completions rank named arguments first, then locals, the file's own names, the rest, internal names and auto-imports.
+- In auto-import, a workspace's own stdlib is offered only through its public modules.
+- `jailint` and `jaic` render diagnostics in linear time, so a file with thousands of findings no longer takes seconds to report. `jailint` also caches neighbouring files between runs.
+- The interpreter runs compile-time code faster: dead local setup is removed, jumps are straightened, and copies, fills and tests use dedicated operations.
+- On Windows, a compile-time call no longer loses the program's last error while the interpreter sets up a frame, and a failed check is reported at its own line.
+- A compile-time call into a foreign library that is missing names the library.
+- Path completion works inside a closed `#import "..."` and with `,file` and `,dir`; a completion after `.` with no expected type is about ten times faster.
+- `Machine_X64` can be imported on every target, with feature checks that report no features and no-op hints off x64.
+- A missing `#import,file` prints only its path in the diagnostic.
+- `#run` with no result as a constant's value now says that it has no result.
+- `Input` keeps its per-frame arrays on the default allocator when a program sets the context allocator to temp.
+- `Simp` resolves its GL procedures once per context instead of on every draw.
+
+### For tool authors
+
+- `jaic` exposes more of what the editor tools need, and `jailsp` and `jailint` now use it instead of their own copies: `jaic::project` (settings, directive scan, load closure, root resolution, loader graph), `jaic::paths` (normalisation, canonical caches, stdlib discovery), `jaic::source::LineIndex`, `jaic::lexer::lex_with_trivia` (comments), `#asm` block lookup, and `ide_facts::cursor_context`.
+- The message callback receives a `ReportSeverity` (`ReportSink`).
 
 ## [0.18.0] - 2026-10-17
 
