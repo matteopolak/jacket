@@ -7,7 +7,7 @@ These pages specify the Jai language that `crates/jaic` implements. The samples 
 - [Polymorphism, compile-time execution and code generation](polymorphism-and-metaprogramming.md)
 - [Modules, workspaces and scopes](modules-workspaces-and-examples.md)
 - [Compiler code records and editing](compiler-code-records.md)
-- [Public-language contract regression fixtures](../../tests/compiler/language/README.md)
+- [Public-language contract regression fixtures](../../../tests/compiler/language/README.md)
 
 ## Unspecified areas
 

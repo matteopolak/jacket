@@ -496,7 +496,7 @@ Programs get checked more thoroughly: `print` format strings, null pointers, not
 - Editor refactorings: extract into variable or procedure, inline variable, add missing cases or fields, convert `ifx`.
 - Call hierarchy, expand selection, pull diagnostics, and rename of struct fields and enum members. See [refactorings](https://github.com/matteopolak/jacket/blob/main/docs/compiler/language-server-refactorings.md).
 - A procedure that can end without returning a value warns. See [diagnostics](https://github.com/matteopolak/jacket/blob/main/docs/compiler/diagnostics.md#compile-warnings-compilerwarnings).
-- New `just` commands for building, formatting, linting and testing the repository. See [Justfile](https://github.com/matteopolak/jacket/blob/main/docs/tools/justfile.md).
+- New `just` commands for building, formatting, linting and testing the repository. See [Justfile](https://github.com/matteopolak/jacket/blob/main/docs/tools/development.md).
 
 ### Breaking changes
 

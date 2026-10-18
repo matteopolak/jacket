@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-commit hook: format and lint the staged files only. See docs/tools/pre-commit-hook.md.
+# Pre-commit hook: format and lint the staged files only. See docs/tools/development.md#pre-commit-hook.
 #
 #   Jai   jaifmt --check, jailint -D warnings
 #   Rust  rustfmt --check (pinned nightly, rustfmt.toml), tools/dev/rust_item_spacing.py --check
@@ -107,7 +107,7 @@ if [ -n "$jai_list" ]; then
     else
         jaifmt=$(find_jaifmt)
         if [ -z "$jaifmt" ]; then
-            warn "jaifmt not found (build target/jaifmt, see docs/tools/pre-commit-hook.md); skipping the Jai format check"
+            warn "jaifmt not found (build target/jaifmt, see docs/tools/development.md#pre-commit-hook); skipping the Jai format check"
         else
             say "jaifmt --check"
             if ! (cd "$tmp" && with_list "$jaifmt" --check) <<EOF
@@ -124,7 +124,7 @@ EOF
     else
         jailint=$(find_jailint)
         if [ -z "$jailint" ]; then
-            warn "jailint not found (cargo build -p jailint, see docs/tools/pre-commit-hook.md); skipping the Jai lint check"
+            warn "jailint not found (cargo build -p jailint, see docs/tools/development.md#pre-commit-hook); skipping the Jai lint check"
         else
             # Linting needs the whole program around a file, so it reads the working tree.
             partial=""

@@ -1,4 +1,4 @@
-# Developer commands. `just --list` shows them; docs/tools/justfile.md explains them.
+# Developer commands. `just --list` shows them; docs/tools/development.md explains them.
 # The logic lives in tools/dev/dev.py and tools/dev/*.sh; CI runs these recipes too, so a local run and
 # CI cannot drift apart. Needs just >= 1.58 (recipe options).
 
