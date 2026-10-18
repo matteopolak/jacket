@@ -64,7 +64,7 @@ Building is native (`crates/jaic/src/record_build.rs`): `describe_members` in `i
 
 - New forwarded option: add the field to `Build_Options` in `contract-records.jai` (keep member order and defaults), forward it in `set_build_options` (`workspaces.jai`), add the member to the `Workspace_*` enum and `crates/jaic/src/builtin_keys.rs`, and handle it in `Workspaces` (`build.rs`), update [build options](build-options.md).
 - New event kind: an `EVENT_*` constant in `build.rs` and a case in `compiler_wait_for_message` (`messages.jai`); prefer a record payload.
-- New primitive: a `MetaOp` in `build.rs` plus a `#compiler` declaration in `primitives.jai`; keep public signatures, and for something jaic cannot do either do nothing with a comment or report through `__jaic_report`.
+- New primitive: a `MetaOp` in `build.rs` (handled in its family module under `build/`) plus a `#compiler` declaration in `primitives.jai`; keep public signatures, and for something jaic cannot do either do nothing with a comment or report through `__jaic_report`.
 - New node kind: a case in `Exporter::expr`/`stmt` building a record with the `Code_*` member names (and a `RECORD_TYPES` entry if reached through a base pointer). Never hold the registry borrow while exporting.
 - Workspace id `-1` means the current workspace. `jaic -check` only checks code reachable from `main`, so probes must call new procedures behind a runtime condition.
 

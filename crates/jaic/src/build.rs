@@ -28,10 +28,17 @@ use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+mod host;
+mod messages;
 mod option_snapshot;
 mod plugin_program;
+mod program_data;
+mod records;
+mod sources;
+mod workspace;
 
 pub use plugin_program::{PluginImport, PluginProgram, plugin_metaprogram};
+pub use sources::parse_code_text;
 
 pub use crate::builtin_keys::OutputType;
 
@@ -1571,26 +1578,139 @@ pub fn finish_all(shared: &SharedWorkspaces, budget: &mut Option<u64>) -> Result
     Ok(())
 }
 
-/// Execute a primitive. `args` follow the IR calling convention: the context
-/// pointer (when `has_context`), the parameters (memory types by address),
-/// then result addresses for memory-typed results.
-pub fn call(
-    shared: &SharedWorkspaces,
-    op: MetaOp,
-    has_context: bool,
-    args: &[u64],
-    program: &ir::Program,
-    interp: &mut Interp,
-) -> Result<Rets, Trap> {
-    let args = if has_context {
-        &args[1..]
-    } else {
-        args
-    };
-    let arg = |i: usize| args.get(i).copied().unwrap_or(0);
-    // Primitives that only read the registry (or make records nobody else sees yet) leave a
-    // compile-time run repeatable; the rest are effects.
-    if !matches!(
+/// The primitives are grouped by what they act on; each family has its own module.
+enum Family {
+    Workspace,
+    Messages,
+    Sources,
+    Host,
+    ProgramData,
+    Records,
+}
+
+impl Family {
+    /// Exhaustive, so a new [`MetaOp`] must be given a family.
+    fn of(op: MetaOp) -> Family {
+        match op {
+            MetaOp::WorkspaceCreate
+            | MetaOp::CurrentWorkspace
+            | MetaOp::ValidateWorkspace
+            | MetaOp::DestroyWorkspace
+            | MetaOp::WorkspaceStatus
+            | MetaOp::MakeLive
+            | MetaOp::AddLibraryDir
+            | MetaOp::RemapImport
+            | MetaOp::ProvideImport
+            | MetaOp::SetText
+            | MetaOp::SetFlag
+            | MetaOp::SetNumber
+            | MetaOp::ClearList
+            | MetaOp::AppendList
+            | MetaOp::OptionsSnapshot
+            | MetaOp::CustomLinkComplete => Family::Workspace,
+            MetaOp::BeginIntercept
+            | MetaOp::EndIntercept
+            | MetaOp::NextEvent
+            | MetaOp::EventInt
+            | MetaOp::EventString
+            | MetaOp::Report => Family::Messages,
+            MetaOp::AddFile
+            | MetaOp::AddString
+            | MetaOp::AddStringToModule
+            | MetaOp::AddStringToCode
+            | MetaOp::CodeIsNull
+            | MetaOp::CodeNodes
+            | MetaOp::ParseCode
+            | MetaOp::ModifyProcedure => Family::Sources,
+            MetaOp::CompilerVersion
+            | MetaOp::BasePath
+            | MetaOp::MainFile
+            | MetaOp::MainOverride
+            | MetaOp::CommandLineCount
+            | MetaOp::CommandLineArg
+            | MetaOp::Clang
+            | MetaOp::ClangText => Family::Host,
+            MetaOp::SetTypeInfoFlags
+            | MetaOp::TypeTable
+            | MetaOp::StructLocation
+            | MetaOp::RuntimeData
+            | MetaOp::DataSegment
+            | MetaOp::GlobalData => Family::ProgramData,
+            MetaOp::SyntaxInt
+            | MetaOp::SyntaxString
+            | MetaOp::SyntaxChild
+            | MetaOp::RecTag
+            | MetaOp::RecTagId
+            | MetaOp::RecBuilder
+            | MetaOp::RecType
+            | MetaOp::RecPlan
+            | MetaOp::RecBuild
+            | MetaOp::RecOf
+            | MetaOp::RecField
+            | MetaOp::RecCount
+            | MetaOp::RecInt
+            | MetaOp::RecString
+            | MetaOp::RecBuiltin
+            | MetaOp::RecRef
+            | MetaOp::RecItemInt
+            | MetaOp::RecItemRef
+            | MetaOp::RecItemString => Family::Records,
+        }
+    }
+}
+
+/// What one primitive call sees besides the interpreter: the registry, the program, and the
+/// arguments (without the context pointer).
+struct Call<'a> {
+    shared: &'a SharedWorkspaces,
+    program: &'a ir::Program,
+    args: &'a [u64],
+}
+
+impl Call<'_> {
+    fn arg(&self, i: usize) -> u64 {
+        self.args.get(i).copied().unwrap_or(0)
+    }
+
+    /// Every pointer here comes from the program: reading or writing through one it made up is
+    /// an error, not a crash.
+    fn load(&self, interp: &Interp, p: u64) -> Result<u64, Trap> {
+        interp.read_u64(p).ok_or_else(|| unreadable(p))
+    }
+
+    fn string(&self, interp: &Interp, i: usize) -> Result<Vec<u8>, Trap> {
+        let p = self.arg(i);
+        if p == 0 {
+            return Ok(Vec::new());
+        }
+        let (count, data) = interp.read_pair(p).ok_or_else(|| unreadable(p))?;
+        let count = count as usize;
+        if count == 0 || data == 0 {
+            Ok(Vec::new())
+        } else {
+            interp.read(data, count).ok_or_else(|| unreadable(data))
+        }
+    }
+
+    fn text(&self, interp: &Interp, i: usize) -> Result<String, Trap> {
+        Ok(String::from_utf8_lossy(&self.string(interp, i)?).into_owned())
+    }
+
+    fn return_string(
+        &self,
+        interp: &mut Interp,
+        bytes: &[u8],
+        out_index: usize,
+    ) -> Result<(), Trap> {
+        let (count, data) = self.shared.borrow_mut().keep_string(bytes);
+        store_pair(interp, self.arg(out_index), count, data)
+    }
+}
+
+/// Primitives that only read the registry (or make records nobody else sees yet) leave a
+/// compile-time run repeatable; the rest are effects.
+fn is_effect(op: MetaOp) -> bool {
+    !matches!(
         op,
         MetaOp::CurrentWorkspace
             | MetaOp::ValidateWorkspace
@@ -1627,877 +1747,41 @@ pub fn call(
             | MetaOp::SyntaxInt
             | MetaOp::SyntaxString
             | MetaOp::SyntaxChild
-    ) {
-        interp.effects += 1;
-    }
-    let trap = Trap::new;
-    // Every pointer here comes from the program: reading or writing through one it made up is
-    // an error, not a crash.
-    let load = |interp: &Interp, p: u64| interp.read_u64(p).ok_or_else(|| unreadable(p));
-    let string = |interp: &Interp, i: usize| -> Result<Vec<u8>, Trap> {
-        let p = arg(i);
-        if p == 0 {
-            return Ok(Vec::new());
-        }
-        let (count, data) = interp.read_pair(p).ok_or_else(|| unreadable(p))?;
-        let count = count as usize;
-        if count == 0 || data == 0 {
-            Ok(Vec::new())
-        } else {
-            interp.read(data, count).ok_or_else(|| unreadable(data))
-        }
-    };
-    let text = |interp: &Interp, i: usize| -> Result<String, Trap> {
-        Ok(String::from_utf8_lossy(&string(interp, i)?).into_owned())
-    };
-    let return_string = |interp: &mut Interp, bytes: &[u8], out_index: usize| {
-        let (count, data) = shared.borrow_mut().keep_string(bytes);
-        store_pair(interp, arg(out_index), count, data)
-    };
-    match op {
-        MetaOp::SetTypeInfoFlags => {
-            // (type: Type, flags): applied by the compiler after the running `#run` returns.
-            let Some((global, 0)) = interp.global_at(arg(0)) else {
-                return Err(trap("compiler_set_type_info_flags: not a type".into()));
-            };
-            interp.pending_type_flags.push((global, arg(1) as u32));
-            Ok(Rets::default())
-        }
-        MetaOp::TypeTable => {
-            // (workspace, out table): the descriptors of every type of the workspace's program
-            // so far. The running workspace's table was made when its compile-time run began;
-            // another workspace's compiler is between steps, so it makes one now.
-            let id = arg(0) as i64;
-            let current = shared.borrow().current_id();
-            let (table, count) = if id < 0 || id == current {
-                interp.ct_type_table
-            } else {
-                let taken = shared.borrow_mut().ws(id).map_err(trap)?.compiler.take();
-                let Some(mut compiler) = taken else {
-                    return Err(trap(
-                        "get_type_table: that workspace has nothing compiled yet".into(),
-                    ));
-                };
-                shared.borrow_mut().current.push(id);
-                compiler.refresh_type_table();
-                shared.borrow_mut().current.pop();
-                let found = compiler.interp.ct_type_table;
-                shared.borrow_mut().ws(id).map_err(trap)?.compiler = Some(compiler);
-                found
-            };
-            store_pair(interp, arg(1), count, table)?;
-            Ok(Rets::default())
-        }
-        MetaOp::StructLocation => {
-            // (info, out path, out line, out column); unknown structs leave them zero.
-            let found = interp
-                .global_at(arg(0))
-                .and_then(|(g, offset)| (offset == 0).then_some(g))
-                .and_then(|g| interp.struct_locations.get(&g).cloned());
-            if let Some((path, line, col)) = found {
-                return_string(interp, path.as_bytes(), 1)?;
-                store(interp, arg(2), &line.to_le_bytes())?;
-                store(interp, arg(3), &col.to_le_bytes())?;
-            }
-            Ok(Rets::default())
-        }
-        MetaOp::BasePath => {
-            // The install root: the directory above the stdlib, which is the last module
-            // directory on the import path.
-            let base = shared
-                .borrow()
-                .env
-                .options
-                .import_paths
-                .last()
-                .and_then(|stdlib| stdlib.parent())
-                .map(|p| {
-                    let mut text = crate::canonicalize(p)
-                        .unwrap_or_else(|_| p.to_path_buf())
-                        .display()
-                        .to_string();
-                    if !text.ends_with('/') && !text.ends_with('\\') {
-                        text.push('/');
-                    }
-                    text
-                })
-                .unwrap_or_default();
-            return_string(interp, base.as_bytes(), 0)?;
-            Ok(Rets::default())
-        }
-        MetaOp::MainFile => {
-            let file = shared.borrow().main_file.clone();
-            return_string(interp, file.as_bytes(), 0)?;
-            Ok(Rets::default())
-        }
-        MetaOp::MainOverride => {
-            // 0: executable name, 1: output path, 2: `OFF` when the crash handler is not wanted.
-            let value = {
-                let reg = shared.borrow();
-                let overrides = &reg.main_overrides;
-                match arg(0) {
-                    0 => overrides.exe.clone(),
-                    1 => overrides.output_path.clone(),
-                    _ if overrides.no_backtrace_on_crash => "OFF".to_string(),
-                    _ => String::new(),
-                }
-            };
-            return_string(interp, value.as_bytes(), 1)?;
-            Ok(Rets::default())
-        }
-        MetaOp::AddLibraryDir => {
-            let dir = text(interp, 0)?;
-            crate::interp::add_library_dir(PathBuf::from(dir));
-            Ok(Rets::default())
-        }
-        MetaOp::RemapImport => {
-            let id = arg(0) as i64;
-            let rule = (text(interp, 1)?, text(interp, 2)?, text(interp, 3)?);
-            shared.borrow_mut().ws(id).map_err(trap)?.remaps.push(rule);
-            Ok(Rets::default())
-        }
-        MetaOp::ProvideImport => {
-            let id = arg(0) as i64;
-            let kind = match arg(3) {
-                0 => ProvidedKind::ShortName,
-                1 => ProvidedKind::PathToFile,
-                2 => ProvidedKind::PathToDirectory,
-                _ => ProvidedKind::FullText,
-            };
-            let offer = ProvidedImport {
-                host: text(interp, 1)?,
-                target: text(interp, 2)?,
-                kind,
-                value: text(interp, 4)?,
-            };
-            // An answer already given adds nothing: the load would fail the same way again, and a
-            // metaprogram that answers every FAILED_IMPORT with it (a file the host cannot
-            // see, say) would loop forever, each retry counting as a new offer.
-            let mut reg = shared.borrow_mut();
-            let provided = &mut reg.ws(id).map_err(trap)?.provided;
-            if !provided.contains(&offer) {
-                provided.push(offer);
-            }
-            Ok(Rets::default())
-        }
-        MetaOp::MakeLive => {
-            let id = arg(0) as i64;
-            shared
-                .borrow_mut()
-                .ws(id)
-                .map_err(trap)?
-                .live
-                .push(arg(1) as i64);
-            Ok(Rets::default())
-        }
-        MetaOp::WorkspaceCreate => {
-            let name = text(interp, 0)?;
-            let mut reg = shared.borrow_mut();
-            let ws = Workspace::new(name);
-            reg.list.push(ws);
-            Ok(Rets::one(reg.list.len() as u64 - 1))
-        }
-        MetaOp::CurrentWorkspace => Ok(Rets::one(shared.borrow().current_id() as u64)),
-        MetaOp::ValidateWorkspace => {
-            shared.borrow_mut().ws(arg(0) as i64).map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::RuntimeData => {
-            let id = arg(0) as i64;
-            let mut reg = shared.borrow_mut();
-            reg.ws(id).map_err(trap)?;
-            if id != reg.current_id() {
-                return Err(trap(
-                    "get_runtime_info: global-data snapshots require the running workspace".into(),
-                ));
-            }
-            Ok(Rets::one(interp.runtime_data_snapshot(program)?))
-        }
-        MetaOp::DataSegment => {
-            let name = string(interp, 0)?;
-            let characteristics = arg(1) as u32;
-            let alignment = arg(2) as i32;
-            let workspace = arg(3) as i64;
-            let mut reg = shared.borrow_mut();
-            reg.ws(workspace).map_err(trap)?;
-            if workspace != reg.current_id() {
-                return Err(trap(
-                    "add_data_segment: registration requires the running workspace".into(),
-                ));
-            }
-            if characteristics & !0xf != 0 || characteristics & 4 != 0 {
-                return Err(trap("add_data_segment: executable or unknown segment characteristics are unavailable".into()));
-            }
-            if alignment <= 0 || !(alignment as u32).is_power_of_two() {
-                return Err(trap(
-                    "add_data_segment: alignment must be a positive power of two".into(),
-                ));
-            }
-            let segment = DataSegment {
-                // Opaque handles must survive #run freezing and relocation without
-                // being copied to an unrelated address. The interpreter adopts this
-                // allocation as a real compiler-owned global after the run.
-                handle: interp.register_data_global(&[0; 16], 16, true, 2)?,
-                _name: name,
-                workspace,
-                characteristics,
-                alignment: alignment as u64,
-            };
-            let address = segment.handle;
-            reg.data_segments.push(segment);
-            Ok(Rets::one(address))
-        }
-        MetaOp::GlobalData => {
-            let workspace = arg(0) as i64;
-            let bytes = string(interp, 1)?;
-            let segment = arg(2) as u16;
-            let mut reg = shared.borrow_mut();
-            reg.ws(workspace).map_err(trap)?;
-            if workspace != reg.current_id() {
-                return Err(trap(
-                    "add_global_data: registration requires the running workspace".into(),
-                ));
-            }
-            let (align, read_only, zeroed, tag) = match segment {
-                0 => (16, false, false, 1),
-                2 => (16, true, false, 2),
-                3 => (16, false, true, 0),
-                0x10 => {
-                    let handle = arg(3);
-                    let descriptor = reg
-                        .data_segments
-                        .iter()
-                        .find(|s| s.handle == handle && s.workspace == workspace)
-                        .ok_or_else(|| {
-                            trap(
-                                "add_global_data: invalid user segment handle for this workspace"
-                                    .into(),
-                            )
-                        })?;
-                    (
-                        descriptor.alignment,
-                        descriptor.characteristics & 2 == 0,
-                        descriptor.characteristics & 8 != 0,
-                        5,
-                    )
-                }
-                1 => {
-                    return Err(trap(
-                        "add_global_data: WRITABLE_NO_RESET reset semantics are unavailable".into(),
-                    ));
-                }
-                _ => return Err(trap("add_global_data: unknown segment index".into())),
-            };
-            if zeroed && bytes.iter().any(|&b| b != 0) {
-                return Err(trap(
-                    "add_global_data: nonzero input for BSS or ZEROED is not supported".into(),
-                ));
-            }
-            let address = interp.register_data_global(&bytes, align, read_only, tag)?;
-            store_pair(interp, arg(4), bytes.len() as u64, address)?;
-            Ok(Rets::default())
-        }
-        MetaOp::AddFile | MetaOp::AddString => {
-            let id = arg(0) as i64;
-            let value = text(interp, 1)?;
-            let mut reg = shared.borrow_mut();
-            let ws = reg.ws(id).map_err(trap)?;
-            if ws.stage == Stage::Done {
-                return Err(trap(format!(
-                    "workspace `{}` has already been compiled; add its sources before it completes",
-                    ws.name
-                )));
-            }
-            let fs = reg.env.fs.clone();
-            // Resolved now: the metaprogram may change directory before it compiles.
-            let cwd = interp
-                .host
-                .working_directory()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-            let path = fs.canonical(&cwd.join(&value));
-            if op == MetaOp::AddFile && !fs.is_file(&path) {
-                return Err(trap(if fs.is_dir(&path) {
-                    format!("add_build_file: `{value}` is a directory, not a .jai file")
-                } else {
-                    format!(
-                        "add_build_file: file `{value}` does not exist (relative paths start from the metaprogram's directory, {})",
-                        cwd.display()
-                    )
-                }));
-            }
-            let source = if op == MetaOp::AddFile {
-                ProgramSource::File(path)
-            } else {
-                ProgramSource::String(value)
-            };
-            let ws = reg.ws(id).map_err(trap)?;
-            ws.queue_source(source.clone()).map_err(trap)?;
-            let observer = reg.env.observer.take();
-            drop(reg);
-            if let Some(mut o) = observer {
-                o.source_added(id, &source);
-                shared.borrow_mut().env.observer = Some(o);
-            }
-            Ok(Rets::default())
-        }
-        MetaOp::DestroyWorkspace => {
-            shared
-                .borrow_mut()
-                .destroy_workspace(arg(0) as i64)
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::SetText => {
-            let option = WorkspaceText::from_raw(arg(1))
-                .ok_or_else(|| trap("internal: unknown text option".into()))?;
-            let value = text(interp, 2)?;
-            shared
-                .borrow_mut()
-                .set_text(arg(0) as i64, option, &value)
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::SetFlag => {
-            let option = WorkspaceFlag::from_raw(arg(1))
-                .ok_or_else(|| trap("internal: unknown flag option".into()))?;
-            shared
-                .borrow_mut()
-                .set_flag(arg(0) as i64, option, arg(2) & 1 != 0)
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::SetNumber => {
-            let option = WorkspaceNumber::from_raw(arg(1))
-                .ok_or_else(|| trap("internal: unknown number option".into()))?;
-            shared
-                .borrow_mut()
-                .set_number(arg(0) as i64, option, arg(2))
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::ClearList => {
-            let option = WorkspaceList::from_raw(arg(1))
-                .ok_or_else(|| trap("internal: unknown list option".into()))?;
-            shared
-                .borrow_mut()
-                .clear_list(arg(0) as i64, option)
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::AppendList => {
-            let option = WorkspaceList::from_raw(arg(1))
-                .ok_or_else(|| trap("internal: unknown list option".into()))?;
-            let mut value = text(interp, 2)?;
-            // A module folder relative to a sandbox's own working directory: the process's is
-            // somewhere else.
-            if option == WorkspaceList::ImportPath
-                && Path::new(&value).is_relative()
-                && let Some(cwd) = interp.host.working_directory()
-            {
-                value = Path::new(&cwd).join(&value).to_string_lossy().into_owned();
-            }
-            shared
-                .borrow_mut()
-                .append_list(arg(0) as i64, option, &value)
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::OptionsSnapshot => {
-            let id = arg(0) as i64;
-            let size = usize::try_from(arg(2)).map_err(|_| trap("invalid option size".into()))?;
-            if arg(5) != 0 {
-                let snapshot =
-                    option_snapshot::Snapshot::capture(interp, arg(1), size, arg(3), arg(4))?;
-                shared.borrow_mut().ws(id).map_err(trap)?.options = Some(snapshot);
-                Ok(Rets::one(1))
-            } else {
-                let snapshot = shared.borrow_mut().ws(id).map_err(trap)?.options.clone();
-                if let Some(snapshot) = snapshot {
-                    snapshot.restore(interp, arg(1), size)?;
-                    Ok(Rets::one(1))
-                } else {
-                    Ok(Rets::one(0))
-                }
-            }
-        }
-        MetaOp::BeginIntercept => {
-            #[cfg(target_arch = "wasm32")]
-            if arg(1) as i64 & (INTERCEPT_REPORT_RUNS | INTERCEPT_REPORT_POLYMORPHS) != 0 {
-                return Err(trap("performance reporting requires a host monotonic clock; this WASM compiler host does not provide one".into()));
-            }
-            let mut reg = shared.borrow_mut();
-            let ws = reg.ws(arg(0) as i64).map_err(trap)?;
-            ws.intercepted = true;
-            ws.intercept_flags = arg(1) as i64;
-            Ok(Rets::default())
-        }
-        MetaOp::EndIntercept => {
-            shared
-                .borrow_mut()
-                .ws(arg(0) as i64)
-                .map_err(trap)?
-                .intercepted = false;
-            Ok(Rets::default())
-        }
-        MetaOp::WorkspaceStatus => {
-            let mut reg = shared.borrow_mut();
-            let ws = reg.ws(arg(0) as i64).map_err(trap)?;
-            match arg(1) {
-                0 if ws.failed => {
-                    return Err(trap("a failed workspace cannot be reset to OK".into()));
-                }
-                0 => {}
-                1 => ws.failed = true,
-                status => return Err(trap(format!("invalid workspace status {status}"))),
-            }
-            Ok(Rets::default())
-        }
-        MetaOp::NextEvent => {
-            let id = arg(0) as i64;
-            if id == shared.borrow().current_id() || id == TOP_LEVEL_WORKSPACE {
-                // A workspace cannot wait on its own compilation.
-                return Ok(Rets::one(0));
-            }
-            loop {
-                let mut reg = shared.borrow_mut();
-                let ws = reg.ws(id).map_err(trap)?;
-                if let Some(event) = ws.events.pop_front() {
-                    let kind = event.kind;
-                    reg.event = event;
-                    return Ok(Rets::one(kind as u64));
-                }
-                if ws.stage == Stage::Done {
-                    return Ok(Rets::one(0));
-                }
-                drop(reg);
-                let mut budget = interp.block_budget;
-                let stepped = step(shared, id, &mut budget);
-                interp.block_budget = budget;
-                stepped.map_err(trap)?;
-            }
-        }
-        MetaOp::EventInt => {
-            let reg = shared.borrow();
-            Ok(Rets::one(
-                reg.event.ints.get(arg(0) as usize).copied().unwrap_or(0) as u64,
-            ))
-        }
-        MetaOp::EventString => {
-            let bytes = shared
-                .borrow()
-                .event
-                .strings
-                .get(arg(0) as usize)
-                .cloned()
-                .unwrap_or_default();
-            return_string(interp, &bytes, 1)?;
-            Ok(Rets::default())
-        }
-        MetaOp::CommandLineCount => Ok(Rets::one(shared.borrow().env.command_line.len() as u64)),
-        MetaOp::CommandLineArg => {
-            let value = shared
-                .borrow()
-                .env
-                .command_line
-                .get(arg(0) as usize)
-                .cloned()
-                .unwrap_or_default();
-            return_string(interp, value.as_bytes(), 1)?;
-            Ok(Rets::default())
-        }
-        MetaOp::Report => {
-            let (message, file) = (text(interp, 0)?, text(interp, 1)?);
-            // `mode`: `Report` in the Compiler module (ERROR, ERROR_CONTINUABLE, WARNING, INFO).
-            let (line, column, mode) = (arg(2), arg(3), arg(4));
-            let location = if file.is_empty() {
-                String::new()
-            } else {
-                format!("{file}:{line}:{column}: ")
-            };
-            if mode == 0 {
-                let mut t = trap(message.trim_end().to_string());
-                t.reported = Some(Box::new((file, line as u32, column as u32)));
-                return Err(t);
-            }
-            let severity = match mode {
-                1 => ReportSeverity::Error,
-                2 => ReportSeverity::Warning,
-                _ => ReportSeverity::Info,
-            };
-            let label = match severity {
-                ReportSeverity::Error => "error",
-                ReportSeverity::Warning => "warning",
-                ReportSeverity::Info => "info",
-            };
-            let rendered = format!("{location}{label}: {}", message.trim_end());
-            let mut reg = shared.borrow_mut();
-            (reg.env.report)(severity, &rendered);
-            if mode == 1 {
-                // A continuable error: the metaprogram goes on, but the build has failed.
-                let current = reg.current_id();
-                reg.ws(current).map_err(trap)?.failed = true;
-            }
-            Ok(Rets::default())
-        }
-        MetaOp::CompilerVersion => {
-            return_string(interp, compiler_version().as_bytes(), 0)?;
-            Ok(Rets::default())
-        }
-        MetaOp::CustomLinkComplete => {
-            let (id, exit_code) = (arg(0) as i64, arg(1) as i64);
-            let mut reg = shared.borrow_mut();
-            match reg.ws(id).map_err(trap)?.link.as_mut() {
-                Some(link) => {
-                    link.exit_code = Some(exit_code);
-                    Ok(Rets::default())
-                }
-                None => Err(trap(format!(
-                    "compiler_custom_link_command_is_complete: workspace {id} is not waiting \
-                     for a custom link (it gets READY_FOR_CUSTOM_LINK_COMMAND first, with \
-                     `use_custom_link_command` set)"
-                ))),
-            }
-        }
-        MetaOp::AddStringToModule => {
-            let (id, value, record) = (arg(0) as i64, text(interp, 1)?, arg(2) as i64);
-            let mut reg = shared.borrow_mut();
-            if let Some(Item::Int(file)) = reg.records.item(record, "__file", None) {
-                reg.ws(id)
-                    .map_err(trap)?
-                    .queue_source(ProgramSource::FileString(
-                        value,
-                        crate::source::FileId(file as u32),
-                    ))
-                    .map_err(trap)?;
-                return Ok(Rets::default());
-            }
-            // A FILE message stands for its module (the enclosing import).
-            let records = &reg.records;
-            let message = match records.item(record, "enclosing_import", None) {
-                Some(Item::Ref(import)) => import,
-                _ => record,
-            };
-            let module = match records.item(message, "__module", None) {
-                Some(Item::Int(m)) => m as u32,
-                _ => return Err(trap("add_build_string: the message names no module".into())),
-            };
-            let ws = reg.ws(id).map_err(trap)?;
-            ws.queue_source(ProgramSource::ModuleString(value, module))
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::AddStringToCode => {
-            let id = arg(0) as i64;
-            let source = text(interp, 1)?;
-            let code = arg(2);
-            let mut reg = shared.borrow_mut();
-            if id != reg.current_id() {
-                return Err(trap(
-                    "add_build_string: Code scope must belong to the running workspace".into(),
-                ));
-            }
-            if code >= interp.codes.len() as u64 {
-                return Err(trap("add_build_string: invalid Code scope".into()));
-            }
-            reg.ws(id)
-                .map_err(trap)?
-                .queue_source(ProgramSource::CodeString(
-                    source,
-                    crate::sema::value::CodeId(code as u32),
-                ))
-                .map_err(trap)?;
-            Ok(Rets::default())
-        }
-        MetaOp::CodeIsNull => {
-            let null = interp.codes.get(arg(0) as usize).is_some_and(|(body, _)| {
-                matches!(&**body, crate::ast::CodeBody::Expr(e) if matches!(e.kind, crate::ast::ExprKind::Null))
-            });
-            Ok(Rets::one(null as u64))
-        }
-        MetaOp::CodeNodes => {
-            let code = arg(0) as usize;
-            let Some((body, text)) = interp.codes.get(code).cloned() else {
-                return Err(trap("compiler_get_nodes: not a Code value".into()));
-            };
-            interp.nodes_codes.retain(|&c| c != code);
-            interp.nodes_codes.push(code);
-            let mut reg = shared.borrow_mut();
-            let taken = interp.code_export_cursor.entry(code).or_default();
-            if let Some((root, nodes)) = interp.code_exports.get(&code).and_then(|e| e.get(*taken))
-            {
-                *taken += 1;
-                let mut result = crate::records::Record::new("Code_Nodes");
-                result
-                    .ptr("root", *root)
-                    .refs("expressions", nodes.iter().copied());
-                return Ok(Rets::one(reg.records.add(result) as u64));
-            }
-            // Names and types need the compiler: while nothing observable happened in this
-            // compile-time run, ask it to export the code and run again (`call_thunk`).
-            if interp.run_effects == Some(interp.effects) {
-                interp.export_request = Some(code);
-                return Err(trap("compiler_get_nodes: typed export requested".into()));
-            }
-            let (root, nodes) =
-                crate::sema::code_export::export_code(&mut reg.records, &body, &text);
-            let mut result = crate::records::Record::new("Code_Nodes");
-            result.ptr("root", root).refs("expressions", nodes);
-            Ok(Rets::one(reg.records.add(result) as u64))
-        }
-        MetaOp::ParseCode => {
-            let (source, scope_from) = (text(interp, 0)?, arg(1) as usize);
-            if scope_from >= interp.codes.len() {
-                return Err(trap(
-                    "compiler_get_code: no code to take the scope from".into(),
-                ));
-            }
-            // A compile-time run that asks for typed nodes is run again from the start
-            // (`export_request`), and does what the earlier attempt did: its n-th code is the
-            // n-th code that attempt made, or it would ask for that new code's nodes again.
-            let (made, replayed) = &mut interp.run_codes;
-            if let Some(&id) = made.get(*replayed)
-                && interp.made_codes.contains(&(id, scope_from))
-                && interp.codes.get(id).is_some_and(|c| *c.1 == *source)
-            {
-                *replayed += 1;
-                return Ok(Rets::one(id as u64));
-            }
-            let body = parse_code_text(crate::source::FileId(u32::MAX), &source)
-                .map_err(|e| trap(format!("compiler_get_code: {e}")))?;
-            let id = interp.codes.len();
-            interp.codes.push((body, source.into()));
-            interp.made_codes.push((id, scope_from));
-            let (made, replayed) = &mut interp.run_codes;
-            made.truncate(*replayed);
-            made.push(id);
-            *replayed = made.len();
-            Ok(Rets::one(id as u64))
-        }
-        MetaOp::ModifyProcedure => {
-            let (id, body, data, sources, count) =
-                (arg(0) as i64, arg(1) as i64, arg(2), arg(3), arg(4));
-            // A statement without a record (new, or edited in place) comes as source text.
-            let stmts = (0..count)
-                .map(|i| {
-                    Ok(match load(interp, data + i * 8)? as i64 {
-                        0 => {
-                            let at = sources + i * 16;
-                            let (len, ptr) = (load(interp, at)?, load(interp, at + 8)?);
-                            let bytes = interp
-                                .read(ptr, len as usize)
-                                .ok_or_else(|| unreadable(ptr))?;
-                            crate::sema::ModifiedStmt::Source(
-                                String::from_utf8_lossy(&bytes).into_owned(),
-                            )
-                        }
-                        r => crate::sema::ModifiedStmt::Record(r),
-                    })
-                })
-                .collect::<Result<_, Trap>>()?;
-            let mut reg = shared.borrow_mut();
-            reg.ws(id).map_err(trap)?.modifications.push((body, stmts));
-            Ok(Rets::default())
-        }
-        MetaOp::Clang => {
-            let (name, bytes) = (text(interp, 0)?, string(interp, 3)?);
-            crate::clang::call(&name, arg(1) as i64, arg(2) as i64, &bytes)
-                .map(|v| Rets::one(v as u64))
-                .map_err(trap)
-        }
-        MetaOp::ClangText => {
-            return_string(interp, &crate::clang::last_text(), 0)?;
-            Ok(Rets::default())
-        }
-        MetaOp::SyntaxInt | MetaOp::SyntaxString | MetaOp::SyntaxChild => {
-            let key = SyntaxKey::from_raw(arg(1))
-                .ok_or_else(|| trap("internal: unknown syntax key".into()))?;
-            let mut reg = shared.borrow_mut();
-            // Association lookup only: never dereference arbitrary program pointers.
-            let found = reg
-                .builders
-                .iter()
-                .enumerate()
-                .find_map(|(index, builder)| {
-                    let id = builder.record_of(arg(0));
-                    (id != 0).then_some((index, id))
-                });
-            match op {
-                MetaOp::SyntaxInt => Ok(Rets::one(
-                    found
-                        .and_then(|(_, id)| match reg.records.syntax_field(id, key) {
-                            Some(crate::records::FieldRef::Int(value)) => Some(value as u64),
-                            _ => None,
-                        })
-                        .unwrap_or(0),
-                )),
-                MetaOp::SyntaxString => {
-                    let value = found
-                        .and_then(|(_, id)| match reg.records.syntax_field(id, key) {
-                            Some(crate::records::FieldRef::Str(value)) => Some(value.clone()),
-                            _ => None,
-                        })
-                        .unwrap_or_default();
-                    store_pair(interp, arg(2), value.len() as u64, value.as_ptr() as u64)?;
-                    reg.kept.push(value);
-                    Ok(Rets::default())
-                }
-                MetaOp::SyntaxChild => {
-                    let Some((index, id)) = found else {
-                        return Ok(Rets::one(0));
-                    };
-                    let child = match reg.records.syntax_field(id, key) {
-                        Some(crate::records::FieldRef::Ref(child)) => child,
-                        _ => 0,
-                    };
-                    let Workspaces {
-                        records,
-                        kept,
-                        builders,
-                        ..
-                    } = &mut *reg;
-                    Ok(Rets::one(builders[index].build(
-                        records,
-                        kept,
-                        interp,
-                        child,
-                        arg(2),
-                    )?))
-                }
-                _ => unreachable!(),
-            }
-        }
-        MetaOp::RecTag => {
-            // Tags are static: hand out the text itself.
-            let tag = shared
-                .borrow()
-                .records
-                .get(arg(0) as i64)
-                .map_or("", |r| r.tag);
-            store_pair(interp, arg(1), tag.len() as u64, tag.as_ptr() as u64)?;
-            Ok(Rets::default())
-        }
-        MetaOp::RecTagId => {
-            // A small number per distinct tag, so Jai can cache tag -> struct type in an array.
-            let mut reg = shared.borrow_mut();
-            let Some(tag) = reg.records.get(arg(0) as i64).map(|r| r.tag) else {
-                return Ok(Rets::one(u64::MAX));
-            };
-            let next = reg.tags.len();
-            let id = *reg.tags.entry(tag).or_insert(next);
-            Ok(Rets::one(id as u64))
-        }
-        MetaOp::RecBuilder => {
-            let mut reg = shared.borrow_mut();
-            reg.builders.push(Default::default());
-            Ok(Rets::one(reg.builders.len() as u64))
-        }
-        MetaOp::RecType | MetaOp::RecBuiltin => {
-            let name = text(interp, 1)?;
-            let mut reg = shared.borrow_mut();
-            let builder = builder(&mut reg, arg(0))?;
-            if op == MetaOp::RecType {
-                builder.add_type(name, arg(2));
-            } else {
-                builder.add_builtin(name, arg(2));
-            }
-            Ok(Rets::default())
-        }
-        MetaOp::RecPlan => {
-            let mut reg = shared.borrow_mut();
-            let builder = builder(&mut reg, arg(0))?;
-            builder.add_plan(interp, arg(1), arg(2), arg(3), arg(4), arg(5) & 1 != 0)?;
-            Ok(Rets::default())
-        }
-        MetaOp::RecBuild => {
-            let mut reg = shared.borrow_mut();
-            let Workspaces {
-                records,
-                kept,
-                builders,
-                ..
-            } = &mut *reg;
-            let builder = (arg(0) as usize)
-                .checked_sub(1)
-                .and_then(|at| builders.get_mut(at))
-                .ok_or_else(|| trap("records: no such builder".into()))?;
-            Ok(Rets::one(builder.build(
-                records,
-                kept,
-                interp,
-                arg(1) as i64,
-                arg(2),
-            )?))
-        }
-        MetaOp::RecOf => {
-            let mut reg = shared.borrow_mut();
-            Ok(Rets::one(
-                builder(&mut reg, arg(0))?.record_of(arg(1)) as u64
-            ))
-        }
-        MetaOp::RecField => Ok(Rets::one(field_name(interp, arg(1), |name| {
-            shared.borrow().records.kind(arg(0) as i64, name) as u64
-        }))),
-        MetaOp::RecCount => {
-            let reg = shared.borrow();
-            Ok(Rets::one(field_name(interp, arg(1), |name| {
-                match reg.records.field(arg(0) as i64, name) {
-                    Some(FieldRef::List(items)) => items.len() as u64,
-                    _ => 0,
-                }
-            })))
-        }
-        MetaOp::RecInt | MetaOp::RecRef | MetaOp::RecItemInt | MetaOp::RecItemRef => {
-            let index =
-                matches!(op, MetaOp::RecItemInt | MetaOp::RecItemRef).then(|| arg(2) as usize);
-            let reg = shared.borrow();
-            Ok(Rets::one(field_name(interp, arg(1), |name| {
-                match reg.records.item(arg(0) as i64, name, index) {
-                    Some(Item::Int(v) | Item::Ref(v)) => v as u64,
-                    _ => 0,
-                }
-            })))
-        }
-        MetaOp::RecString | MetaOp::RecItemString => {
-            let (index, out) = if op == MetaOp::RecItemString {
-                (Some(arg(2) as usize), 3)
-            } else {
-                (None, 2)
-            };
-            let mut reg = shared.borrow_mut();
-            let found = field_name(interp, arg(1), |name| {
-                match reg.records.item(arg(0) as i64, name, index) {
-                    Some(Item::Str(s)) => Some(s),
-                    _ => None,
-                }
-            });
-            let (count, data) = found.map_or((0, 0), |s| reg.keep_rc(&s));
-            store_pair(interp, arg(out), count, data)?;
-            Ok(Rets::default())
-        }
-    }
+    )
 }
 
-/// Run `f` on the Jai `string` at `p` as a field name. Field names are ASCII identifiers, so
-/// anything else (a null string, or one that cannot be read) names no field: `f` gets "".
-fn field_name<R>(interp: &Interp, p: u64, f: impl FnOnce(&str) -> R) -> R {
-    // Names are short: they are read onto the stack, not into an allocation.
-    let mut stack = [0u8; 48];
-    let heap;
-    let bytes = match interp.read_pair(p) {
-        Some((count, data)) if count as usize <= stack.len() => {
-            let out = &mut stack[..count as usize];
-            interp.read_into(data, out).then_some(&*out)
-        }
-        Some((count, data)) => {
-            heap = interp.read(data, count as usize);
-            heap.as_deref()
-        }
-        None => None,
+/// Execute a primitive. `args` follow the IR calling convention: the context
+/// pointer (when `has_context`), the parameters (memory types by address),
+/// then result addresses for memory-typed results.
+pub fn call(
+    shared: &SharedWorkspaces,
+    op: MetaOp,
+    has_context: bool,
+    args: &[u64],
+    program: &ir::Program,
+    interp: &mut Interp,
+) -> Result<Rets, Trap> {
+    let args = if has_context {
+        &args[1..]
+    } else {
+        args
     };
-    f(bytes
-        .and_then(|bytes| std::str::from_utf8(bytes).ok())
-        .unwrap_or(""))
+    if is_effect(op) {
+        interp.effects += 1;
+    }
+    let cx = Call {
+        shared,
+        program,
+        args,
+    };
+    match Family::of(op) {
+        Family::Workspace => workspace::call(&cx, op, interp),
+        Family::Messages => messages::call(&cx, op, interp),
+        Family::Sources => sources::call(&cx, op, interp),
+        Family::Host => host::call(&cx, op, interp),
+        Family::ProgramData => program_data::call(&cx, op, interp),
+        Family::Records => records::call(&cx, op, interp),
+    }
 }
 
 /// The error for a program pointer the compiler could not read.
@@ -2520,32 +1804,4 @@ fn store(interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
 fn store_pair(interp: &mut Interp, p: u64, count: u64, data: u64) -> Result<(), Trap> {
     store(interp, p, &count.to_le_bytes())?;
     store(interp, p + 8, &data.to_le_bytes())
-}
-
-/// The builder `__jaic_rec_builder` numbered `handle`.
-fn builder(reg: &mut Workspaces, handle: u64) -> Result<&mut crate::record_build::Builder, Trap> {
-    (handle as usize)
-        .checked_sub(1)
-        .and_then(|at| reg.builders.get_mut(at))
-        .ok_or_else(|| Trap::new("records: no such builder"))
-}
-
-/// Parse the source text of a `Code` value (an expression, statement or block).
-pub fn parse_code_text(
-    file: crate::source::FileId,
-    text: &str,
-) -> Result<Rc<crate::ast::CodeBody>, String> {
-    let source = format!("__jaic_code :: #code {text};\n");
-    let parsed = crate::parser::parse_file(file, &source).map_err(|d| d.message.clone())?;
-    parsed
-        .stmts
-        .into_iter()
-        .find_map(|s| match s.kind {
-            crate::ast::StmtKind::Decl(d) => match d.value.as_ref().map(|v| &v.kind) {
-                Some(crate::ast::ExprKind::Code(body)) => Some(body.clone()),
-                _ => None,
-            },
-            _ => None,
-        })
-        .ok_or_else(|| "could not parse the printed code".to_string())
 }
