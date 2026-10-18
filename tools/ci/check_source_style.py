@@ -20,7 +20,6 @@ MAX_LINES = 1200
 
 # path -> line count it may not grow past. Remove an entry once the file is split.
 ALLOWED_LONG = {
-    "crates/jaic-cli/tests/diagnostics.rs": 1423,
     "crates/jaic-cli/tests/native.rs": 3184,
     "crates/jaic/src/sema/asm/simd.rs": 3025,
 }
