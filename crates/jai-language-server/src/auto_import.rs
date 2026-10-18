@@ -48,7 +48,6 @@ const MAX_DEPTH: usize = 8;
 const MAX_LOADED: usize = 4000;
 
 /// How many folders above a document its loader is looked for in.
-const LOADER_LEVELS: usize = 3;
 
 /// Folders a project walk skips besides hidden ones (module folders are indexed as modules).
 const SKIPPED_FOLDERS: &[&str] = &["modules", "node_modules", "target", "build", "bin"];
@@ -513,6 +512,56 @@ impl Sources<'_> {
         None
     }
 
+    /// The file a fragment is analysed from: `file`, then whoever `#load`s it, and whoever loads
+    /// that, until a file nothing loads. Loaders are looked for among the files of the library
+    /// tree holding `file` (the standard library, whose `Keymap/module.jai` loads
+    /// `internal/input/keymap-text.jai`) or of the project folder, found through the cached
+    /// scans of those files. Where several files load one, the `module.jai` goes first, then
+    /// the shallowest path, then the first by name, so the same file always gets the same owner.
+    fn loader_chain(&self, index: &mut Index, file: &Path, base: Option<&Path>) -> PathBuf {
+        let stdlib = (self.env.options)(file).stdlib_root().map(|p| self.key(p));
+        let search = match stdlib {
+            Some(s) if file.starts_with(&s) => Some(s),
+            _ => base.map(Path::to_path_buf),
+        };
+        let mut loaders: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+        let mut roots = vec![search.clone()];
+        // A loader next to or above the file also counts when there is no folder to search.
+        if search.is_none() {
+            roots = vec![file.parent().map(Path::to_path_buf)];
+        }
+        for folder in roots.into_iter().flatten() {
+            for f in self.project_files(index, &folder) {
+                let dir = f.parent().unwrap_or(Path::new("/")).to_path_buf();
+                for load in &self.scan(index, &f).loads {
+                    loaders
+                        .entry(self.key(&project::normalize(&dir.join(&load.path))))
+                        .or_default()
+                        .push(f.clone());
+                }
+            }
+        }
+        let mut root = file.to_path_buf();
+        let mut visited = BTreeSet::from([root.clone()]);
+        while let Some(found) = loaders.get(&root).and_then(|candidates| {
+            candidates
+                .iter()
+                .filter(|c| !visited.contains(*c))
+                .min_by_key(|c| {
+                    (
+                        c.file_name().is_none_or(|n| n != "module.jai"),
+                        c.components().count(),
+                        (*c).clone(),
+                    )
+                })
+                .cloned()
+        }) {
+            visited.insert(found.clone());
+            root = found;
+        }
+        root
+    }
+
     fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
         let key = self.key(file);
         let file = key.as_path();
@@ -583,42 +632,9 @@ impl Sources<'_> {
         let (root, closure) = match found {
             Some(found) => found,
             None => {
-                // Up the `#load`s among the files of the document's folder and the folders
-                // above it (a loader lives next to or above what it loads).
-                let mut files = Vec::new();
-                let mut dir = file.parent();
-                for _ in 0..=LOADER_LEVELS {
-                    let Some(d) = dir else {
-                        break;
-                    };
-                    files.extend(
-                        self.list_dir(d)
-                            .into_iter()
-                            .filter(|(name, is_dir)| !is_dir && name.ends_with(".jai"))
-                            .map(|(name, _)| d.join(name)),
-                    );
-                    if base.as_deref() == Some(d) {
-                        break;
-                    }
-                    dir = d.parent();
-                }
-                let mut root = file.to_path_buf();
-                let mut visited = BTreeSet::from([root.clone()]);
-                'up: loop {
-                    for f in &files {
-                        let dir = f.parent().unwrap_or(Path::new("/"));
-                        let loads_root = self
-                            .scan(index, f)
-                            .loads
-                            .iter()
-                            .any(|l| self.key(&dir.join(&l.path)) == root);
-                        if loads_root && visited.insert(f.clone()) {
-                            root = f.clone();
-                            continue 'up;
-                        }
-                    }
-                    break;
-                }
+                // Up the `#load`s: a file another file loads belongs to that file's program, so
+                // it sees the names its loader declares or imports.
+                let root = self.loader_chain(index, file, base.as_deref());
                 let closure = self.closure(index, &root);
                 (root, closure)
             }

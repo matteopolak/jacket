@@ -11,7 +11,8 @@
 //!    first of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist (all of them
 //!    are tried as entries).
 //! 3. A document no entry reaches belongs to the program of the file that `#load`s it, walking
-//!    up the loads among the files of its folder; a file nothing loads is its own entry.
+//!    up the loads among the files under the enclosing stdlib tree or the project folder
+//!    (`auto_import.rs` `loader_chain`); a file nothing loads is its own entry.
 use std::path::{Component, Path, PathBuf};
 
 pub const CONFIG_FILE: &str = "jai.toml";
