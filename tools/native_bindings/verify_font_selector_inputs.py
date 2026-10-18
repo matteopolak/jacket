@@ -59,8 +59,8 @@ def main():
         "stdlib/Bindings_Generator/tests/driven/sdk/freetype.jai",
         "crates/jaic-cli/tests/objc_selectors.rs",
         "tools/native_bindings",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="font-selector-", dir=args.output_root))
@@ -145,7 +145,7 @@ def main():
             str(args.formatter),
             "--check",
             "--config",
-            str(snapshot / "jaifmt.toml"),
+            str(snapshot / "jacket.toml"),
             str(fixture),
         ],
         capture_output=True,

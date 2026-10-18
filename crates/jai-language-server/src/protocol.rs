@@ -682,8 +682,16 @@ impl JsonSession {
         )
     }
 
-    /// The session's messages for the user, as `window/showMessage` warnings.
+    /// The session's messages for the user, as `window/showMessage` warnings, and its log lines
+    /// as `window/logMessage` infos.
     fn shown_messages(&self) -> Vec<Value> {
+        let logs = self.session.take_logs().into_iter().map(|message| {
+            json!({
+                "jsonrpc": "2.0",
+                "method": "window/logMessage",
+                "params": { "type": 3, "message": message },
+            })
+        });
         self.session
             .take_messages()
             .into_iter()
@@ -694,6 +702,7 @@ impl JsonSession {
                     "params": { "type": 2, "message": message },
                 })
             })
+            .chain(logs)
             .collect()
     }
 
@@ -1133,7 +1142,9 @@ impl JsonSession {
         let OpenParams {
             text_document: item,
         } = decode(params)?;
-        let settings = item.uri.ends_with("/jailint.toml") || item.uri.ends_with("/jai.toml");
+        let settings = crate::project::CONFIG_NAMES
+            .iter()
+            .any(|name| item.uri.ends_with(&format!("/{name}")));
         if item.language_id != "jai" && !settings {
             return Err(fail(
                 ErrorCode::InvalidParams,

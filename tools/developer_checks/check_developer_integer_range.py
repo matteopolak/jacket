@@ -29,7 +29,7 @@ def main():
     run([jaic, source, "-check", "-os", "windows", "-cpu", "x64"])
     paths = [source, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", *paths])
     print("Signed8/16/32/64/128 range/default/alias/enum checks passed interpreter/native Mac O0/O2 and configured C O0/O2; Windows source/object checks, formatting and strict lint passed")
 

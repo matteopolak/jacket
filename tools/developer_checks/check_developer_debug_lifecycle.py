@@ -69,7 +69,7 @@ def main():
              *[driven(f"{name}.jai") for name in
                ["debug-lifecycle", "debug-crash-callback", "debug-default-assert",
                 "debug-owned-context", "debug-lifecycle-concurrent", "debug-ignored-locations", "debug-abort"]]]
-    invoke([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths], output="")
+    invoke([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths], output="")
     invoke([BUILD / "debug/jailint", "-D", "warnings", *paths], output="")
     print("Debug assertion ownership/diagnostics and POSIX lifecycle passed interpreter/native Mac O0/O2; fatal callbacks passed native O0/O2")
 

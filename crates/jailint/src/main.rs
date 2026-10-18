@@ -13,11 +13,11 @@ Lints the Jai files under each path (default: the current directory).
 
 options:
   --fix               apply the fixes that are safe to apply automatically
-  --config <file>     settings file (default: the nearest jailint.toml)
+  --config <file>     settings file (default: the nearest jacket.toml)
   -A <rule>           allow a rule (repeatable; `all` for every rule)
   -W <rule>           warn on a rule
   -D <rule>           deny a rule; `-D warnings` makes every warning an error
-  --max-nesting <n>   blocks `excessive_nesting` allows (default: max_nesting in jailint.toml, else 6)
+  --max-nesting <n>   blocks `excessive_nesting` allows (default: [lint] max_nesting in jacket.toml, else 6)
   -I <dir>            add an import directory relative to invocation cwd (also -import_dir)
   -os <os>           check linux, windows, macos or wasm (default: host)
   -cpu <cpu>         check x64/x86_64 or arm64/aarch64 (default: target/host)
@@ -31,6 +31,7 @@ options:
   --list              list the rules and their default levels
   --color <when>      auto, always or never
   -v, --verbose       show each program as it is compiled
+  -V, --version       show the version
   -h, --help          show this help
 
 Exit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a usage
@@ -104,6 +105,10 @@ fn parse_args() -> Result<Option<Args>, String> {
                 for r in RULES {
                     println!("{:<26} {:<5}  {}", r.name, r.default.as_str(), r.summary);
                 }
+                return Ok(None);
+            }
+            "--version" | "-V" => {
+                println!("jailint {}", env!("CARGO_PKG_VERSION"));
                 return Ok(None);
             }
             "--fix" => args.fix = true,
@@ -228,8 +233,8 @@ fn run() -> Result<ExitCode, String> {
             return Err(format!("`{shown}` does not exist\nhelp: {help}"));
         }
     }
-    let config_path = match &args.config {
-        Some(p) => Some(p.clone()),
+    let mut config = match &args.config {
+        Some(path) => Config::load(path)?,
         None => {
             let first = jaic::canonicalize(&args.paths[0]).unwrap_or(cwd.clone());
             let start = if first.is_dir() {
@@ -237,16 +242,15 @@ fn run() -> Result<ExitCode, String> {
             } else {
                 first.parent().map(PathBuf::from).unwrap_or(cwd.clone())
             };
-            Config::find(&start)
+            Config::find_on_disk(&start)?.unwrap_or_else(|| Config {
+                root: cwd.clone(),
+                ..Config::default()
+            })
         }
     };
-    let mut config = match config_path {
-        Some(p) => Config::load(&p)?,
-        None => Config {
-            root: cwd.clone(),
-            ..Config::default()
-        },
-    };
+    for note in &config.notes {
+        eprintln!("jailint: {note}");
+    }
     if args.max_nesting.is_some() {
         config.max_nesting = args.max_nesting;
     }

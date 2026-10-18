@@ -39,8 +39,8 @@ def main():
         "tools/native_bindings",
         "docs/specs/stdlib/modules/metal.md",
         "docs/specs/stdlib/modules/appkit.md",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="appkit-metal-", dir=args.output_root))
@@ -344,7 +344,7 @@ def main():
     paths += [snapshot / ("stdlib/Bindings_Generator/tests/driven/sdk/" + n + ".jai") for n in names[:3]]
     run(
         "owned Jai formatting",
-        [args.formatter, "--check", "--config", snapshot / "jaifmt.toml", *paths],
+        [args.formatter, "--check", "--config", snapshot / "jacket.toml", *paths],
     )
     report["inputs_unchanged"] = unchanged(snapshot, identity)
     report["limitations"] = [

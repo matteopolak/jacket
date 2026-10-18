@@ -110,7 +110,7 @@ def main():
         if row['stdout'] != EXPECTED_OUT or row['stderr'] != EXPECTED_ERR:
             row['status'] = 'failed'
 
-    invoke('strict-context-lint', [lint, '-D', 'warnings', '--config', ROOT / 'jailint.toml',
+    invoke('strict-context-lint', [lint, '-D', 'warnings', '--config', ROOT / 'jacket.toml',
                                   '--context', ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai',
                                   ROOT / 'stdlib/internal/bindings/android-log',
                                   source, ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai'])

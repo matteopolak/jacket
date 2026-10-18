@@ -34,7 +34,7 @@ def main():
             executable = ROOT / f"target/developer-tools-cpp-scopes-emitter-o{mode}"
             run([jaic, source, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang++", "-std=c++17", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
                  ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-scopes-native.cpp",
@@ -47,7 +47,7 @@ def main():
     paths = [source, consumer, generated, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/binding-native-model.jai",
              ROOT / "stdlib/internal/developer-tools/binding-cpp-model.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
     print("Real nested/reopened C++ scopes, same-name record identity, explicit flattened adapter names, POD/scalar calls and diagnosed collision/scope/cycle preservation passed interpreter/native Mac O0/O2, configured C++ O0/O2, formatting and strict lint")
 

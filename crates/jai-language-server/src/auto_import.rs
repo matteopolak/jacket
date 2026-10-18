@@ -18,7 +18,7 @@ use crate::analysis::Span;
 use crate::document::DocumentUri;
 use crate::exports::{self, Decl, FileScan, Visibility};
 use crate::model::{CompletionItem, CompletionKind, TextEdit};
-use crate::project::{self, CONFIG_FILE, ProjectConfig};
+use crate::project::{self, ProjectConfig};
 use crate::semantic::Environment;
 use crate::session::Session;
 use jaic::sema::TargetOs;
@@ -100,6 +100,11 @@ pub(crate) struct Index {
     reported: BTreeMap<PathBuf, String>,
     /// Messages for the client not sent yet.
     pending: Vec<String>,
+    /// Log lines for the client not sent yet, and the ones sent (each goes out once).
+    logs: Vec<String>,
+    /// The settings read for each config directory, with a hash of the text they were read from.
+    pub(crate) configs: BTreeMap<PathBuf, (u64, jacket_config::Loaded)>,
+    logged: BTreeSet<String>,
 }
 
 impl Index {
@@ -119,6 +124,18 @@ impl Index {
     /// The settings file `path` parses (again): a later problem is news.
     pub(crate) fn good_config(&mut self, path: &Path) {
         self.reported.remove(path);
+    }
+
+    /// A log line for the client (`window/logMessage`), sent once however often it is found.
+    pub(crate) fn log_once(&mut self, line: &str) {
+        if self.logged.insert(line.to_string()) {
+            self.logs.push(line.to_string());
+        }
+    }
+
+    /// Log lines for the client, once.
+    pub(crate) fn take_logs(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.logs)
     }
 
     /// A message for the client, sent once.
@@ -246,7 +263,7 @@ fn memo_key(keys: &jaic::paths::CanonCache, env: &Environment, path: &Path) -> P
     keys.get_or_insert_with(path, |path| canonical_key(env, path))
 }
 
-fn hash(text: &str) -> u64 {
+pub(crate) fn hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = crate::fast_hash::FastHasher::default();
     text.hash(&mut h);
@@ -287,7 +304,7 @@ impl Sources<'_> {
         }
     }
 
-    fn is_file(&self, path: &Path) -> bool {
+    pub(crate) fn is_file(&self, path: &Path) -> bool {
         self.open.contains_key(&self.key(path)) || self.env.fs.is_file(path)
     }
 
@@ -599,27 +616,23 @@ impl Sources<'_> {
         all.into_iter().collect()
     }
 
-    /// The nearest `jai.toml` at or above `file`: its folder and settings (the defaults when it
-    /// does not parse).
+    /// The nearest config directory at or above `file` that configures a project (has a
+    /// `[project]` section): its folder and settings (the defaults when the file does not
+    /// parse). A `jacket.toml` that only holds `[lint]` or `[format]` does not make its folder
+    /// a project, so a repository-wide one does not make every file in it part of one program.
     pub(crate) fn config(
         &self,
         index: &mut Index,
         file: &Path,
     ) -> Option<(PathBuf, ProjectConfig)> {
-        let dir = project::find_config_dir(file.parent()?, CONFIG_FILE, |p| self.is_file(p))?;
-        let path = dir.join(CONFIG_FILE);
-        let text = self.read(&path).unwrap_or_default();
-        let config = match ProjectConfig::parse_jai(&text) {
-            Ok(config) => {
-                index.good_config(&path);
-                config
+        let mut dir = file.parent()?.to_path_buf();
+        loop {
+            let loaded = crate::config::load(self, index, &dir)?;
+            if !loaded.config.project.is_empty() {
+                return Some((loaded.location.dir, loaded.config.project));
             }
-            Err(problem) => {
-                index.bad_config(&path, &problem);
-                ProjectConfig::default()
-            }
-        };
-        Some((dir, config))
+            dir = loaded.location.dir.parent()?.to_path_buf();
+        }
     }
 
     /// The file a fragment is analysed from: `file`, then whoever `#load`s it, and whoever loads
@@ -685,7 +698,7 @@ impl Sources<'_> {
         {
             let mut dirs = vec![base.join("modules")];
             if let Some((_, config)) = &config {
-                dirs.extend(config.import_path.iter().map(|p| self.key(&base.join(p))));
+                dirs.extend(config.import_path.0.iter().map(|p| self.key(&base.join(p))));
             }
             dirs.retain(|d| file.starts_with(d) && self.is_dir(d));
             if !dirs.is_empty() {
@@ -703,7 +716,7 @@ impl Sources<'_> {
             }
         }
         let unattributed: Vec<PathBuf> = match (&found, &config) {
-            (None, Some((_, config))) if !config.build_files.is_empty() => entries
+            (None, Some((_, config))) if !config.entry.0.is_empty() => entries
                 .iter()
                 .filter(|e| self.is_file(e))
                 .cloned()
@@ -733,7 +746,7 @@ impl Sources<'_> {
         if let Some(base) = &base {
             module_dirs.push(base.join("modules"));
             if let Some((_, config)) = &config {
-                module_dirs.extend(config.import_path.iter().map(|p| self.key(&base.join(p))));
+                module_dirs.extend(config.import_path.0.iter().map(|p| self.key(&base.join(p))));
             }
         }
         module_dirs.extend(
@@ -837,7 +850,7 @@ impl Session {
             // Everything the run reads: the metaprogram, what it loads, the settings file.
             let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
             if let Some((folder, _)) = sources.config(&mut index, &entry) {
-                files.push(folder.join(CONFIG_FILE));
+                files.extend(project::CONFIG_NAMES.iter().map(|n| folder.join(n)));
             }
             let mut texts = String::new();
             for file in files {

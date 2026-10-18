@@ -49,8 +49,8 @@ def main():
             "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_live_config_probe.c",
             "stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_metadata_probe.c",
             "docs/specs/stdlib/modules/rpmalloc.md",
-            "jaifmt.toml",
-            "jailint.toml",
+            "jacket.toml",
+            "jacket.toml",
         ),
     )
     work = Path(tempfile.mkdtemp(prefix="domains-", dir=args.output_root))
@@ -447,7 +447,7 @@ def main():
                 "-D",
                 "warnings",
                 "--config",
-                snapshot / "jailint.toml",
+                snapshot / "jacket.toml",
                 "--context",
                 fixture,
                 snapshot / "stdlib/rpmalloc",

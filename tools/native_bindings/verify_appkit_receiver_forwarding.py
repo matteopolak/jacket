@@ -48,8 +48,8 @@ def main():
         "tests/compiler/objc-selectors.txt",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/appkit.md",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="receiver-forwarding-", dir=args.output_root))
@@ -170,7 +170,7 @@ def main():
                 args.formatter,
                 "--check",
                 "--config",
-                snapshot / "jaifmt.toml",
+                snapshot / "jacket.toml",
                 fixture,
                 snapshot / "stdlib/Objective_C/AppKit/generated.jai",
             ],
@@ -216,7 +216,7 @@ def main():
         )
         run(
             "format regenerated",
-            [args.formatter, "--config", snapshot / "jaifmt.toml", generated],
+            [args.formatter, "--config", snapshot / "jacket.toml", generated],
         )
         report["checks"].append(
             dict(

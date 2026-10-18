@@ -40,8 +40,8 @@ def main():
         "tools/native_bindings/generate_appkit.py",
         "tools/native_bindings/verify_appkit.py",
         "tools/native_bindings/shared_snapshot.py",
-        "jailint.toml",
-        "jaifmt.toml",
+        "jacket.toml",
+        "jacket.toml",
         "docs/specs/stdlib/modules/objective-c.md",
         "stdlib/Bindings_Generator/tests/driven/sdk/appkit-ui.jai",
         "stdlib/Bindings_Generator/tests/driven/sdk/appkit_ui_probe.m",
@@ -406,7 +406,7 @@ def main():
     )
     run(
         "format regeneration",
-        [args.formatter, "--config", snapshot / "jaifmt.toml", generated],
+        [args.formatter, "--config", snapshot / "jacket.toml", generated],
     )
     condition(
         "deterministic generated facade",

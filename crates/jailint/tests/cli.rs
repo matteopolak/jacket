@@ -71,35 +71,39 @@ fn command_line_mistakes_explain_themselves() {
 fn config_mistakes_name_the_line_and_the_fix() {
     let dir = scratch("config");
     let cases = [
+        ("[lint]\nexclude = [\n", "TOML parse error at line 2"),
         (
-            "exclude = [\n",
-            "line 1: this array is never closed\nhelp: end it with `]`",
+            "[lint.rules]\nfloat_equalty = \"deny\"\n",
+            "unknown rule `float_equalty`\nhelp: did you mean `float_equality`?",
         ),
         (
-            "[rules]\nfloat_equalty = \"deny\"\n",
-            "line 2: unknown rule `float_equalty`\nhelp: did you mean `float_equality`?",
+            "[lint.rules]\nfloat_equality = \"loud\"\n",
+            "unknown level \"loud\" for `float_equality`\nhelp: use \"allow\", \"warn\" or \"deny\"",
         ),
         (
-            "[rules]\nfloat_equality = \"loud\"\n",
-            "line 2: unknown level \"loud\" for `float_equality`\nhelp: use \"allow\", \"warn\" or \"deny\"",
+            "[lint]\nverbose = true\n",
+            "unknown setting `verbose` in [lint]",
         ),
-        (
-            "[lints]\n",
-            "line 1: unknown table `[lints]`\nhelp: the only table is `[rules]`",
-        ),
-        ("verbose = true\n", "line 1: unknown setting `verbose`"),
-        (
-            "max_nesting = deep\n",
-            "line 1: `max_nesting` takes a whole number, such as `max_nesting = 6`",
-        ),
+        ("[lint]\nmax_nesting = \"deep\"\n", "invalid type: string"),
     ];
     for (config, expected) in cases {
-        std::fs::write(dir.join("jailint.toml"), config).unwrap();
+        std::fs::write(dir.join("jacket.toml"), config).unwrap();
         let (text, code) = jailint(&dir, &["game.jai"]);
         assert_eq!(code, Some(2), "{config:?}: {text}");
         assert!(text.starts_with("error: in `"), "{config:?}: {text}");
         assert!(text.contains(expected), "{config:?}: {text}");
     }
+    // The legacy file still works, with a hint to migrate.
+    std::fs::remove_file(dir.join("jacket.toml")).unwrap();
+    std::fs::write(
+        dir.join("jailint.toml"),
+        "[rules]\nfloat_equalty = \"deny\"\n",
+    )
+    .unwrap();
+    let (text, code) = jailint(&dir, &["game.jai"]);
+    assert_eq!(code, Some(2), "{text}");
+    assert!(text.contains("unknown rule `float_equalty`"), "{text}");
+    std::fs::remove_file(dir.join("jailint.toml")).unwrap();
     let (text, code) = jailint(&dir, &["--config", "missing.toml", "game.jai"]);
     assert_eq!(code, Some(2));
     assert!(

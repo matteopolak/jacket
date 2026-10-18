@@ -28,7 +28,7 @@ def main():
     snapshot, identity = capture(args.output_root, ('tools/native_bindings',
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retained-advice.jai',
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_advice_probe.c', 'docs/specs/stdlib/modules/rpmalloc.md',
-        'jaifmt.toml', 'jailint.toml'))
+        'jacket.toml'))
     work = Path(tempfile.mkdtemp(prefix='advice-', dir=args.output_root))
     sys.path.insert(0, str(snapshot / 'tools'))
     prepare = importlib.import_module('native_bindings.prepare_rpmalloc').prepare
@@ -65,7 +65,7 @@ def main():
         for cpu in ('x64', 'arm64'):
             invoke('public advice source '+os_name+'-'+cpu,
                    [args.compiler, fixture, '-check', '-no_dce', '-os', os_name, '-cpu', cpu])
-    invoke('strict context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
+    invoke('strict context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jacket.toml',
                                   '--context', fixture, snapshot/'stdlib/rpmalloc', fixture])
     invoke('production formatter', [args.formatter, '--check', snapshot/'stdlib/rpmalloc', fixture])
     report = dict(snapshot=str(snapshot), input_identity=identity, checks=checks,

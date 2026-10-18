@@ -165,7 +165,7 @@ def storage_outputs(vendor, functions, work, formatter):
     code += '\n\n'.join(STORAGE_RECORDS[name]+' :: struct {\n'+chosen[name][0]+'\n}' for name in STORAGE_RECORDS)+'\n'
     temporary = work/'storage.jai'
     temporary.write_text(code)
-    run([formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+    run([formatter.resolve(),'--config',ROOT/'jacket.toml',temporary])
     outputs = {ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-records.jai':temporary.read_text()}
     # Include unmodified pinned C source so probes measure its actual private
     # declarations. Prefix all SDK exports; this probe never initializes or
@@ -222,7 +222,7 @@ def storage_outputs(vendor, functions, work, formatter):
         jai += '    assert(cast(u64) *'+variable+'.'+member+' - cast(u64) *'+variable+' != storage_offset('+str(index)+'));\n'
     jai += '    assert(type_info(Heap).name == "Heap");\n    assert(type_info(Span).name == "Span");\n}\n'
     temporary.write_text(jai)
-    run([formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+    run([formatter.resolve(),'--config',ROOT/'jacket.toml',temporary])
     outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-layout.jai'] = temporary.read_text()
     metadata = {'scope':'Native SDK storage ABI only; not public heap implementation or atomic operations',
                 'source':'rpmalloc/rpmalloc.c',
@@ -283,7 +283,7 @@ def main():
     code += '\n\n#scope_file\nsdk :: #library,system "binding_rpmalloc_sdk";\n'
     temporary = work/'module.jai'
     temporary.write_text(code)
-    run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+    run([args.formatter.resolve(), '--config', ROOT/'jacket.toml', temporary])
     code = temporary.read_text()
     # Runtime layout probes compare actual C SDK sizes/offsets with compiler
     # layout; no guessed offsets or host sizeof values are baked into Jai.
@@ -313,7 +313,7 @@ def main():
         jai += '    check(size_of(type_of('+variable+'.'+jpath+')) == sdk_field_size('+str(i)+'));\n'
     jai += '}\n'
     temporary.write_text(jai)
-    run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+    run([args.formatter.resolve(), '--config', ROOT/'jacket.toml', temporary])
     provenance = dict(repository=pin['repository'], revision=pin['revision'], files=pin['files'],
                       build_fixes=patch_provenance(),
                       scope='Private native SDK only; reviewed public Jai callbacks/heaps require separate adapters',
@@ -340,7 +340,7 @@ def main():
         functions = sorted(functions+extra_exports,key=responsibility)
         code = prefix+'\n'.join(function(node) for node in functions)+'\n\n#scope_file\nsdk :: #library,system "binding_rpmalloc_sdk";\n'
         temporary.write_text(code)
-        run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+        run([args.formatter.resolve(),'--config',ROOT/'jacket.toml',temporary])
         outputs[OUT/'module.jai'] = temporary.read_text()
         provenance['functions'] = [dict(name=n['name'],signature=function(n),
                                        origin='public_header' if n['name'] in header_names else 'official_c_source_definition') for n in functions]
@@ -352,12 +352,12 @@ def main():
         if p['symbol_prefix'] else function(node) for node in functions))
     code += '#scope_file\n'+select_blocks(lambda p: 'sdk :: #library,system "'+p['sdk']+'";')
     temporary.write_text(code)
-    run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+    run([args.formatter.resolve(),'--config',ROOT/'jacket.toml',temporary])
     outputs[OUT/'module.jai'] = temporary.read_text()
     provenance['native_profiles'] = {p['sdk']: p for p in PROFILES}
     for folder, body in [('rpmalloc-heaps', heap_module()), ('rpmalloc-callbacks', callbacks_module())]:
         temporary.write_text(body)
-        run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+        run([args.formatter.resolve(), '--config', ROOT/'jacket.toml', temporary])
         outputs[ROOT/'stdlib/internal/bindings'/folder/'module.jai'] = temporary.read_text()
     outputs[OUT/'provenance.json'] = json.dumps(provenance,indent=2,sort_keys=True)+'\n'
     outputs[ROOT/'stdlib/internal/bindings/rpmalloc-heaps/public-layout.h'] = public_c_header(
@@ -368,18 +368,18 @@ def main():
     _, raw_base_checks = layout_probes(reviewed, raw=True, public_heaps=False)
     outputs[ROOT/'stdlib/internal/bindings/rpmalloc-heaps/layout-probes.inc'] = '#if BINDING_RPMALLOC_RAW\n'+raw_probe+'#else\n'+probe+'#endif\n'
     temporary.write_text(jai_checks)
-    run([args.formatter.resolve(),'--config',ROOT/'jaifmt.toml',temporary])
+    run([args.formatter.resolve(),'--config',ROOT/'jacket.toml',temporary])
     outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-heap-facade-layout.jai'] = temporary.read_text()
     temporary.write_text(raw_checks)
-    run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+    run([args.formatter.resolve(), '--config', ROOT/'jacket.toml', temporary])
     outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-heap-facade-layout.jai'] = temporary.read_text()
     temporary.write_text(raw_base_checks)
-    run([args.formatter.resolve(), '--config', ROOT/'jaifmt.toml', temporary])
+    run([args.formatter.resolve(), '--config', ROOT/'jacket.toml', temporary])
     outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-base-heap-facade-layout.jai'] = temporary.read_text()
     for raw, public_heaps, label in ((False, True, "rewrite"), (True, False, "raw-base"), (True, True, "raw")):
         _, assertions = layout_probes(reviewed, raw=raw, public_heaps=public_heaps, thread_cache=False)
         temporary.write_text(assertions)
-        run([args.formatter.resolve(), "--config", ROOT/"jaifmt.toml", temporary])
+        run([args.formatter.resolve(), "--config", ROOT/"jacket.toml", temporary])
         outputs[ROOT/"stdlib/Bindings_Generator/tests/driven/sdk/generated"/("rpmalloc-no-thread-cache-"+label+"-layout.jai")] = temporary.read_text()
     for path, data in outputs.items():
         if args.check:

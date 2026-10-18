@@ -29,8 +29,8 @@ def main():
         "stdlib/Bindings_Generator/tests/driven/sdk/gl-debug-output.jai",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/gl.md",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="gl-debug-policy-", dir=args.output_root))
@@ -164,7 +164,7 @@ def main():
                 args.formatter,
                 "--check",
                 "--config",
-                snapshot / "jaifmt.toml",
+                snapshot / "jacket.toml",
                 snapshot / "stdlib/GL/wrappers.jai",
                 fixture,
                 snapshot / extras[1],

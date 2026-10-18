@@ -114,8 +114,8 @@ def main():
                 run([jaic, roundtrip, f"-O{mode[1:]}", "-I", ROOT / "target", "-exe", consumer])
                 run([consumer], output="ok\n")
         generated = ROOT / "target/developer-tools-configured-generated.jai"
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", generated])
         run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", generated])
         (ROOT / "target/developer-tools-configured-sdk-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
     finally:

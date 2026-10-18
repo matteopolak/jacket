@@ -44,7 +44,7 @@ def main():
     output = args.output_root.resolve()
     snapshot, identity = capture(output, (
         'tools/native_bindings', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-diagnostic-options.jai',
-        'docs/specs/stdlib/modules/rpmalloc.md', 'jaifmt.toml', 'jailint.toml'))
+        'docs/specs/stdlib/modules/rpmalloc.md', 'jacket.toml'))
     work = Path(tempfile.mkdtemp(prefix='rpmalloc-diagnostics-', dir=output))
     pin = json.loads((snapshot/'tools/native_bindings/dependencies.json').read_text())['rpmalloc']
     vendor = work/'vendor'
@@ -120,7 +120,7 @@ def main():
         row = report['checks'][-1]
         row['status'] = 'passed' if row['exit'] != 0 and diagnostic in row['stderr'] else 'failed'
     invoke('strict complete-context lint', [tools['jailint'], '-D', 'warnings', '--config',
-                                           snapshot/'jailint.toml', '--context', fixture,
+                                           snapshot/'jacket.toml', '--context', fixture,
                                            snapshot/'stdlib/rpmalloc',
                                            snapshot/'stdlib/internal/bindings/rpmalloc-checked', fixture])
     invoke('production format check', [tools['formatter'], '--check', snapshot/'stdlib/rpmalloc',

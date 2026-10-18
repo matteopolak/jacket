@@ -36,7 +36,7 @@ def write_or_check(path, text, check=False):
 def emit_generated(path, source, formatter=DEFAULT_FORMATTER, check=False):
     """Format `source` and write it to `path`, or with `check` exit if `path` differs."""
     formatter = Path(formatter).resolve(strict=True)
-    command = [str(formatter), "--stdin", "--config", str(ROOT / "jaifmt.toml")]
+    command = [str(formatter), "--stdin", "--config", str(ROOT / "jacket.toml")]
     formatted = subprocess.run(command, input=source, text=True, capture_output=True, check=True).stdout
     repeated = subprocess.run(command, input=formatted, text=True, capture_output=True, check=True).stdout
     if repeated != formatted:

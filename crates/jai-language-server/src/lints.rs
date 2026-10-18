@@ -3,7 +3,7 @@
 //! Lints come from the same type-checked compile that hover, inlay hints and code lenses use
 //! (`semantic::Cache`, keyed by the open texts), so an edit costs one compile however many
 //! features ask. A document is linted only when it parses. Its settings come from the nearest
-//! `jailint.toml` above it: an open one (the client sent it with `didOpen`, which is how the
+//! `jacket.toml` above it (or legacy `jailint.toml`): an open one (the client sent it with `didOpen`, which is how the
 //! browser build gets one), else one on disk.
 //!
 //! Each machine-applicable fix is a preferred `quickfix` on its finding, carrying the finding
@@ -14,7 +14,7 @@ use crate::model::{CodeAction, Diagnostic, DiagnosticCode, DiagnosticSeverity, T
 use crate::position::Range;
 use crate::session::Session;
 use jailint::Lint;
-use jailint::config::{Config, FILE_NAME, Level};
+use jailint::config::{Config, Level};
 use std::path::Path;
 
 /// The kind of the action that applies every safe fix in a document.
@@ -25,11 +25,12 @@ pub fn rule_url(rule: &str) -> String {
     format!("https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#{rule}")
 }
 
-/// A settings file rather than a Jai document: `jailint.toml`, or the project's `jai.toml`.
+/// A settings file rather than a Jai document: `jacket.toml`, or a legacy `jai.toml`,
+/// `jailint.toml` or `jaifmt.toml`.
 pub(crate) fn is_config(uri: &DocumentUri) -> bool {
     Path::new(uri.path())
         .file_name()
-        .is_some_and(|n| n == FILE_NAME || n == crate::project::CONFIG_FILE)
+        .is_some_and(|n| crate::project::CONFIG_NAMES.iter().any(|c| n == *c))
 }
 
 /// What a code action request asks for, from its `context`.
@@ -57,7 +58,7 @@ impl ActionContext {
 }
 
 impl Session {
-    /// Settings for the document at `path`: the nearest `jailint.toml` (open, else on disk), or
+    /// Settings for the document at `path`: the nearest `jacket.toml` (open, else on disk), or
     /// the defaults; `None` when it excludes the document.
     pub(crate) fn lint_config(&self, path: &Path) -> Option<Config> {
         let config = self.find_lint_config(path).unwrap_or_default();
@@ -65,35 +66,14 @@ impl Session {
     }
 
     fn find_lint_config(&self, path: &Path) -> Option<Config> {
-        let mut dir = path.parent();
-        while let Some(d) = dir {
-            let file = d.join(FILE_NAME);
-            let parsed = if let Some(open) = self
-                .open_file_uri(&file)
-                .and_then(|uri| self.lint_configs.get(&uri))
-            {
-                Config::parse(&open.text, d)
-            } else if file.is_file() {
-                Config::load(&file)
-            } else {
-                dir = d.parent();
-                continue;
-            };
-            // A settings file being edited may not parse yet: the defaults meanwhile, and the
-            // client hears of it once.
-            let mut index = self.index.borrow_mut();
-            return Some(match parsed {
-                Ok(config) => {
-                    index.good_config(&file);
-                    config
-                }
-                Err(problem) => {
-                    index.bad_config(&file, &problem);
-                    Config::default()
-                }
-            });
-        }
-        None
+        let mut index = self.index.borrow_mut();
+        let loaded = crate::config::load(
+            &crate::config::SessionFiles(self),
+            &mut index,
+            path.parent()?,
+        )?;
+        // `load` checked `[lint]`: it holds nothing invalid.
+        Config::from_lint(&loaded.config.lint, loaded.dir()).ok()
     }
 
     /// Lints of the open document `uri`, from the cached compile of its program.

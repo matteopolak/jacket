@@ -21,7 +21,7 @@ def main():
                 executable = ROOT / f"target/developer-tools-{source.stem}-o{mode}"
                 run([JAIC, source, f"-O{mode}", "-exe", executable])
                 run([executable], "ok\n")
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
         run([JAIC, consumer, "-interp", "-I", ROOT / "target"], "ok\n")
         for optimization in [0, 2]:
             executable = ROOT / f"target/developer-tools-value-consumer-{mode}-o{optimization}"
@@ -31,7 +31,7 @@ def main():
              ROOT / "stdlib/internal/developer-tools/binding-value-emission.jai",
              ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai",
              ROOT / "stdlib/internal/developer-tools/binding-native-model.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
     print("Seven public generator value/expression helpers and generated integer/float/string/enum/operator effects passed interpreter/native Mac O0/O2, formatting and strict lint")
 

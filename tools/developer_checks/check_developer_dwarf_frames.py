@@ -40,7 +40,7 @@ def main():
     source.append("];")
     path = ROOT / "target/developer-tools-dwarf-frame-oracle.jai"
     path.write_text("\n".join(source) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", path])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", path])
     (ROOT / "target/developer-tools-dwarf-frames-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 

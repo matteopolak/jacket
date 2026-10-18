@@ -57,7 +57,7 @@ def main():
         run([build / "debug/jailint", "--os", "windows", "--cpu", cpu, "-D", "warnings",
              ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai",
              ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check",
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check",
          ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-lifecycle.jai",
          ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai",
          ROOT / "stdlib/Debug/tests/driven/debug-windows-lifecycle.jai", ROOT / "stdlib/Debug/tests/driven/debug-windows-dumps.jai"])

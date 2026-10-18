@@ -35,7 +35,7 @@ def main():
     # SDL3 link files import private helpers, which only that library's own files may do.
     sdl=stdlib/'Extensions/SDL3'
     env=dict(os.environ,JAIC_STDLIB=str(stdlib))
-    common=[binary,'--config',str(ROOT/'jailint.toml'),'-D','warnings','-v','-j','2']
+    common=[binary,'--config',str(ROOT/'jacket.toml'),'-D','warnings','-v','-j','2']
     def lint(paths):
         result=subprocess.run([*common,*paths],env=env,cwd=ROOT,text=True,capture_output=True)
         sys.stdout.write(result.stdout);sys.stderr.write(result.stderr)

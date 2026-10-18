@@ -19,7 +19,7 @@ def main():
         run([executable], "ok\n")
     paths = [source, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/binding-declaration-visitors.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", *paths])
     print("Public omission visitor/closure/callback ordering/STOP effects passed interpreter/native Mac O0/O2, formatting and strict lint")
 

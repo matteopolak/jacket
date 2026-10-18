@@ -74,7 +74,7 @@ def main():
     jai += ['    print("ok\\n");', '}']
     jai_path = ROOT / "target/developer-tools-native-abi.jai"
     jai_path.write_text("\n".join(jai) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", jai_path])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", jai_path])
     library_path = prefix / ("bin/libclang.dll" if sys.platform == "win32" else
                              "lib/libclang.dylib" if sys.platform == "darwin" else "lib/libclang.so")
     library = ctypes.CDLL(str(library_path))

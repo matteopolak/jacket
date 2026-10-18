@@ -166,7 +166,7 @@ def main():
                         scratch / ("libwide_fixture" + library_suffix),
                     ]
                 )
-            run([formatter, "--config", ROOT / "jaifmt.toml", generated])
+            run([formatter, "--config", ROOT / "jacket.toml", generated])
             run([compiler, generated, "-interp"], "ok\n")
             for optimization in [0, 2]:
                 binary = scratch / (generated.stem + "-o" + str(optimization))
@@ -199,7 +199,7 @@ def main():
             [
                 formatter,
                 "--config",
-                ROOT / "jaifmt.toml",
+                ROOT / "jacket.toml",
                 "--check",
                 *tests,
                 *production,

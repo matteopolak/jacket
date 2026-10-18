@@ -41,7 +41,7 @@ def densest_case() -> Path:
 
 
 def scenarios(jailint: Path, scratch: Path) -> list[Scenario]:
-    """Everything runs from the scratch directory: the repository's jailint.toml excludes tests/lint."""
+    """Everything runs from the scratch directory: the repository's jacket.toml excludes tests/lint."""
     exe = str(jailint)
     large = scratch / 'large'
     large.mkdir()
