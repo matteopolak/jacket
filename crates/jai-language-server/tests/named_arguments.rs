@@ -312,6 +312,7 @@ fn named_arguments_rank_before_locals_and_file_names() {
     };
     assert!(sort("to_standard_error") < sort("local"));
     assert!(sort("local") < sort("main"));
+    assert!(sort("local").starts_with('1') && sort("main").starts_with('2'));
     // A `__` name declared in this file is the user's own and ranks with the file's other names.
     assert_eq!(sort("__hidden").chars().next(), sort("main").chars().next());
 }

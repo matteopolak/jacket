@@ -2007,7 +2007,13 @@ fn rank(name: &IdeName, keyword: bool, here: Option<u32>, local: std::ops::Range
     let in_file = here == Some(name.decl.file.0) && name.decl != jaic::source::Span::NONE;
     match () {
         _ if keyword => '3',
-        _ if in_file && local.contains(&(name.decl.start as usize)) => '1',
+        // Strictly after the declaration's start: the declaration itself is a file name.
+        _ if in_file
+            && local.start < name.decl.start as usize
+            && local.contains(&(name.decl.start as usize)) =>
+        {
+            '1'
+        }
         _ if in_file => '2',
         _ if name.name.starts_with("__") => '}',
         _ => '3',
