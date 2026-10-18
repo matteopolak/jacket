@@ -59,13 +59,24 @@ pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdePars
     let stmts = parser
         .parse_file_stmts()
         .expect("IDE statement recovery always progresses");
+    // Recovery can parse the same unfinished construct more than once (a cast or call whose
+    // arguments run into the end of the file); it must not report it twice.
+    let mut diagnostics: Vec<crate::source::Diagnostic> = Vec::new();
+    for d in parser.recovery.unwrap() {
+        if !diagnostics
+            .iter()
+            .any(|seen| seen.span == d.span && seen.message == d.message)
+        {
+            diagnostics.push(d);
+        }
+    }
     IdeParse {
         file: File {
             file,
             stmts,
         },
         tokens: parser.toks,
-        diagnostics: parser.recovery.unwrap(),
+        diagnostics,
     }
 }
 
