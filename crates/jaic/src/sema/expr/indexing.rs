@@ -53,6 +53,29 @@ impl Compiler {
         }))
     }
 
+    /// An assignment target. An indexed target prefers `operator *[]`, so the write goes
+    /// through the returned pointer; reads of the same expression keep using `operator []`.
+    pub(in crate::sema) fn check_target(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        target: &ast::Expr,
+    ) -> Result<Operand> {
+        if let ast::ExprKind::Index(base, index) = &target.kind
+            && !self.operator_candidates(scope, "*[]")?.is_empty()
+        {
+            let base_op = self.check_expr(f, scope, base, None)?;
+            let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
+            if let Some(place) =
+                self.try_pointer_index_operator(f, scope, &base_op, &index_op, target.span)?
+            {
+                return Ok(place);
+            }
+            return self.index_operand(f, scope, base_op, index_op, index.span, target.span);
+        }
+        self.check_expr(f, scope, target, None)
+    }
+
     pub(super) fn check_index(
         &mut self,
         f: &mut FnCtx,

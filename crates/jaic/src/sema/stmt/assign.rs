@@ -284,7 +284,7 @@ impl Compiler {
                 return Ok(());
             }
             // Evaluate the target once, then `*tmp = *tmp op rhs`.
-            let place = self.check_expr(f, scope, &lhs[0], None)?.without_callable();
+            let place = self.check_target(f, scope, &lhs[0])?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -345,7 +345,7 @@ impl Compiler {
             return Ok(());
         }
         if lhs.len() == 1 && rhs.len() == 1 {
-            let place = self.check_expr(f, scope, &lhs[0], None)?.without_callable();
+            let place = self.check_target(f, scope, &lhs[0])?.without_callable();
             let Operand::Place {
                 ty,
                 addr,
@@ -394,7 +394,7 @@ impl Compiler {
                             | Operand::Type(_)
                     ) {
                         for l in lhs {
-                            let place = self.check_expr(f, scope, l, None)?.without_callable();
+                            let place = self.check_target(f, scope, l)?.without_callable();
                             let Operand::Place {
                                 ty,
                                 addr,
@@ -462,7 +462,7 @@ impl Compiler {
             {
                 continue;
             }
-            let place = self.check_expr(f, scope, l, None)?.without_callable();
+            let place = self.check_target(f, scope, l)?.without_callable();
             let Operand::Place {
                 ty,
                 addr,

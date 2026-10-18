@@ -3385,6 +3385,32 @@
       "negative": {
         "check": "expected a Regex.Static(\"...\") type, not s64"
       }
+    },
+    {
+      "id": "poly-array-default-length",
+      "source": "negative/poly-array-default-length.jai",
+      "sha256": "957b2c59e83ad0f1592c725d454da04fef99fe5fa8b1b6b19c902d36ef973f11",
+      "suite": "negative",
+      "feature": "a default `.[...]` is checked against an inferred array count",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "unequal array lengths (wanted 2, given 0)"
+      }
+    },
+    {
+      "id": "poly-array-element-from-literal",
+      "source": "negative/poly-array-element-from-literal.jai",
+      "sha256": "3788500db637c886ac48ac9e6cdc8c4e45cb1e42259d593360999fb6a4d80209",
+      "suite": "negative",
+      "feature": "an untyped array literal cannot give an element type variable",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "could not infer polymorphic type `$T`"
+      }
     }
   ]
 }

@@ -18,6 +18,8 @@
 
 ### Fixes
 
+- Assigning to an indexed expression (`=` and the compound assignments) on a type with `operator *[]` calls it and writes through the returned pointer, where it used to say "cannot assign to a value of type"; reads keep using `operator []`.
+- A `[$N] T` parameter takes `$N` from the element count of an untyped `.[...]` argument or default (`f(.["a", "b"])` makes `N` 2), where it used to say it could not infer `$N`. A default `.[...]` whose length differs from the inferred count is an error at the default; `[$N] $T` still cannot get `$T` from an untyped literal.
 - In `jailsp`, a statement missing only its `;` at the end of a line keeps working: goto-definition, hover and highlighting work on it, and the error is shown on its last token instead of covering the statement's first name.
 
 ### Breaking changes
