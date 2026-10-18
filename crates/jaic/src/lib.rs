@@ -21,6 +21,7 @@ pub mod memory_limit;
 pub mod msvc;
 pub mod parser;
 pub mod paths;
+pub mod project;
 pub mod record_build;
 pub mod records;
 pub mod render;
