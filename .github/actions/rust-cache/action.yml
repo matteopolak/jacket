@@ -31,5 +31,6 @@ runs:
           nested=("$entry"/*/.fingerprint)
           [ -d "$entry/.fingerprint" ] || [ ${#nested[@]} -gt 0 ] || rm -rf "$entry"
         done
-        mv "$RUNNER_TEMP"/target-aside/* target/
+        aside=("$RUNNER_TEMP"/target-aside/*)
+        [ ${#aside[@]} -eq 0 ] || mv "${aside[@]}" target/
         rmdir "$RUNNER_TEMP/target-aside"
