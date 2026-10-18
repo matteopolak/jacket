@@ -18,7 +18,7 @@ use crate::analysis::Span;
 use crate::document::DocumentUri;
 use crate::exports::{self, Decl, FileScan, Visibility};
 use crate::model::{CompletionItem, CompletionKind, TextEdit};
-use crate::project::{self, CONFIG_FILE, INFERRED_ENTRIES, ProjectConfig};
+use crate::project::{self, CONFIG_FILE, ProjectConfig};
 use crate::semantic::Environment;
 use crate::session::Session;
 use jaic::sema::TargetOs;
@@ -37,16 +37,12 @@ const MAX_OVERLOADS: usize = 4;
 /// Characters to type before auto-import items are offered.
 pub const MIN_PREFIX: usize = 2;
 
-/// The most `.jai` files a project folder walk collects, and how deep it goes.
-const MAX_PROJECT_FILES: usize = 4000;
-
-const MAX_DEPTH: usize = 8;
+use jaic::project::{MAX_TREE_DEPTH as MAX_DEPTH, MAX_TREE_FILES as MAX_PROJECT_FILES};
 
 /// The most files one load graph (a program's or a module's) follows.
 const MAX_LOADED: usize = 4000;
 
-/// Folders a project walk skips besides hidden ones (module folders are indexed as modules).
-const SKIPPED_FOLDERS: &[&str] = &["modules", "node_modules", "target", "build", "bin"];
+use jaic::project::TREE_SKIPPED as SKIPPED_FOLDERS;
 
 /// A module and the names it exports.
 pub(crate) struct Module {
@@ -286,33 +282,9 @@ impl Sources<'_> {
         scan
     }
 
-    /// `root` and every file its `#load`s reach.
+    /// `root` and every file its `#load`s reach (and the files a build metaprogram compiles).
     fn closure(&self, index: &mut Index, root: &Path) -> BTreeSet<PathBuf> {
-        let mut seen = BTreeSet::new();
-        let mut pending = vec![self.key(root)];
-        while let Some(file) = pending.pop() {
-            let file = self.key(&file);
-            if seen.len() >= MAX_LOADED || !seen.insert(file.clone()) {
-                continue;
-            }
-            let dir = file.parent().unwrap_or(Path::new("/")).to_path_buf();
-            let scan = self.scan(index, &file);
-            for load in &scan.loads {
-                pending.push(project::normalize(&dir.join(&load.path)));
-            }
-            // What a build metaprogram compiles belongs to its program. After a run, the files
-            // it added; before the first run (or without a compile), the literal paths of its
-            // `add_build_file` calls, relative to the metaprogram's folder, where
-            // `set_working_directory(#filepath)` usually puts it.
-            if let Some(facts) = index.builds.get(&file) {
-                pending.extend(facts.programs.iter().flat_map(|p| p.files.iter().cloned()));
-            } else {
-                for build in &scan.builds {
-                    pending.push(project::normalize(&dir.join(build)));
-                }
-            }
-        }
-        seen
+        project::load_closure(&IndexFs::new(self, index), root, MAX_LOADED)
     }
 
     /// `closure` of `root`, plus every file of the modules in `module_dirs` (the project's own,
@@ -481,26 +453,20 @@ impl Sources<'_> {
         index: &mut Index,
         file: &Path,
     ) -> Option<(PathBuf, ProjectConfig)> {
-        let mut dir = file.parent();
-        while let Some(d) = dir {
-            let path = d.join(CONFIG_FILE);
-            if self.is_file(&path) {
-                let text = self.read(&path).unwrap_or_default();
-                let config = match ProjectConfig::parse(&text) {
-                    Ok(config) => {
-                        index.good_config(&path);
-                        config
-                    }
-                    Err(problem) => {
-                        index.bad_config(&path, &problem);
-                        ProjectConfig::default()
-                    }
-                };
-                return Some((d.to_path_buf(), config));
+        let dir = project::find_config_dir(file.parent()?, CONFIG_FILE, |p| self.is_file(p))?;
+        let path = dir.join(CONFIG_FILE);
+        let text = self.read(&path).unwrap_or_default();
+        let config = match ProjectConfig::parse_jai(&text) {
+            Ok(config) => {
+                index.good_config(&path);
+                config
             }
-            dir = d.parent();
-        }
-        None
+            Err(problem) => {
+                index.bad_config(&path, &problem);
+                ProjectConfig::default()
+            }
+        };
+        Some((dir, config))
     }
 
     /// The file a fragment is analysed from: `file`, then whoever `#load`s it, and whoever loads
@@ -515,42 +481,19 @@ impl Sources<'_> {
             Some(s) if file.starts_with(&s) => Some(s),
             _ => base.map(Path::to_path_buf),
         };
-        let mut loaders: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
-        let mut roots = vec![search.clone()];
         // A loader next to or above the file also counts when there is no folder to search.
-        if search.is_none() {
-            roots = vec![file.parent().map(Path::to_path_buf)];
+        let options = project::RootOptions::language_server(search);
+        let fs = IndexFs::new(self, index);
+        match project::enclosing_program(
+            &fs,
+            file,
+            &options.search,
+            options.tie_break,
+            &mut project::LoadCache::default(),
+        ) {
+            Some(root) => root,
+            None => file.to_path_buf(),
         }
-        for folder in roots.into_iter().flatten() {
-            for f in self.project_files(index, &folder) {
-                let dir = f.parent().unwrap_or(Path::new("/")).to_path_buf();
-                for load in &self.scan(index, &f).loads {
-                    loaders
-                        .entry(self.key(&project::normalize(&dir.join(&load.path))))
-                        .or_default()
-                        .push(f.clone());
-                }
-            }
-        }
-        let mut root = file.to_path_buf();
-        let mut visited = BTreeSet::from([root.clone()]);
-        while let Some(found) = loaders.get(&root).and_then(|candidates| {
-            candidates
-                .iter()
-                .filter(|c| !visited.contains(*c))
-                .min_by_key(|c| {
-                    (
-                        c.file_name().is_none_or(|n| n != "module.jai"),
-                        c.components().count(),
-                        (*c).clone(),
-                    )
-                })
-                .cloned()
-        }) {
-            visited.insert(found.clone());
-            root = found;
-        }
-        root
     }
 
     fn program(&self, index: &mut Index, file: &Path, folders: &[PathBuf]) -> Program {
@@ -559,25 +502,19 @@ impl Sources<'_> {
         let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
         let folders = folder_keys.as_slice();
         let config = self.config(index, file);
-        let base = config.as_ref().map(|(dir, _)| dir.clone()).or_else(|| {
-            folders
-                .iter()
-                .filter(|f| file.starts_with(f))
-                .max_by_key(|f| f.as_os_str().len())
-                .cloned()
-        });
-        let entries: BTreeSet<PathBuf> = match (&base, &config) {
-            (Some(base), Some((_, config))) if !config.build_files.is_empty() => config
-                .build_files
-                .iter()
-                .map(|f| self.key(&base.join(f)))
-                .collect(),
-            (Some(base), _) => INFERRED_ENTRIES
-                .iter()
-                .map(|f| self.key(&base.join(f)))
-                .filter(|f| self.is_file(f))
-                .collect(),
-            (None, _) => BTreeSet::new(),
+        let base =
+            project::project_base(config.as_ref().map(|(dir, _)| dir.as_path()), folders, file);
+        let entries: BTreeSet<PathBuf> = match &base {
+            Some(base) => {
+                let found = project::entry_files(base, config.as_ref().map(|(_, c)| c));
+                found
+                    .paths
+                    .iter()
+                    .map(|f| self.key(f))
+                    .filter(|f| found.declared || self.is_file(f))
+                    .collect()
+            }
+            None => BTreeSet::new(),
         };
         let mut found = None;
         for entry in &entries {
@@ -1067,5 +1004,79 @@ impl Session {
             })
             .collect();
         (items, incomplete)
+    }
+}
+
+/// The sources and index of a request as the project walk's file system: scans are cached
+/// in the index, open documents win over the disk, and a build metaprogram's files count as
+/// loaded by it.
+struct IndexFs<'a, 's> {
+    sources: &'a Sources<'s>,
+    index: std::cell::RefCell<&'a mut Index>,
+}
+
+impl<'a, 's> IndexFs<'a, 's> {
+    fn new(sources: &'a Sources<'s>, index: &'a mut Index) -> Self {
+        IndexFs {
+            sources,
+            index: std::cell::RefCell::new(index),
+        }
+    }
+}
+
+impl project::ProjectFs for IndexFs<'_, '_> {
+    fn key(&self, path: &Path) -> PathBuf {
+        self.sources.key(path)
+    }
+
+    fn read(&self, path: &Path) -> Option<String> {
+        self.sources.read(path)
+    }
+
+    fn is_file(&self, path: &Path) -> bool {
+        self.sources.is_file(path)
+    }
+
+    fn is_dir(&self, path: &Path) -> bool {
+        self.sources.is_dir(path)
+    }
+
+    fn list_dir(&self, dir: &Path) -> Vec<(String, bool)> {
+        self.sources.list_dir(dir)
+    }
+
+    fn loads(&self, file: &Path) -> Vec<PathBuf> {
+        let dir = file.parent().unwrap_or(Path::new("/"));
+        let scan = self.sources.scan(&mut self.index.borrow_mut(), file);
+        scan.loads
+            .iter()
+            .map(|load| self.sources.key(&project::normalize(&dir.join(&load.path))))
+            .collect()
+    }
+
+    /// The loads, plus what a build metaprogram compiles belongs to its program. After a run,
+    /// the files it added; before the first run (or without a compile), the literal paths of
+    /// its `add_build_file` calls, relative to the metaprogram's folder, where
+    /// `set_working_directory(#filepath)` usually puts it.
+    fn edges(&self, file: &Path) -> Vec<PathBuf> {
+        let mut out = self.loads(file);
+        let dir = file.parent().unwrap_or(Path::new("/"));
+        let mut index = self.index.borrow_mut();
+        if let Some(facts) = index.builds.get(file) {
+            out.extend(facts.programs.iter().flat_map(|p| p.files.iter().cloned()));
+        } else {
+            let scan = self.sources.scan(&mut index, file);
+            out.extend(
+                scan.builds
+                    .iter()
+                    .map(|build| project::normalize(&dir.join(build))),
+            );
+        }
+        out
+    }
+
+    fn project_files(&self, folder: &Path) -> Vec<PathBuf> {
+        self.sources
+            .project_files(&mut self.index.borrow_mut(), folder)
     }
 }

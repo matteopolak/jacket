@@ -5,7 +5,6 @@
 use crate::MarkupKind;
 use crate::analysis::{DIRECTIVES, Span, TokenKind};
 use crate::hover::{Block, FormatRow, HoverText, Inline};
-use crate::links::{Link, LinkSource};
 use crate::semantic;
 use crate::session::{Session, contains};
 use crate::{
@@ -14,6 +13,7 @@ use crate::{
     SymbolInformation, TextEdit,
 };
 use jaic::intern::Sym;
+use jaic::project::{DirectiveLink as Link, LinkSource};
 use jaic::sema::FileSystem;
 use jaic::sema::ide_meta::{IdeCallInfo, IdeClass, IdeExpansion, IdeExpansionKind};
 use jaic::source::FileId;
@@ -1106,7 +1106,7 @@ impl Session {
             .filter_map(|link| {
                 let target = self.link_target(uri, link)?;
                 Some((
-                    self.range_of(uri, link.string)?,
+                    self.range_of(uri, Span::new(link.string.start, link.string.end))?,
                     target.as_str().to_string(),
                 ))
             })

@@ -216,7 +216,7 @@ pub(crate) struct Analysis {
     pub syntax_tokens: Rc<[jaic::lexer::Token]>,
     pub lex_errors: Vec<jaic::source::Span>,
     /// `#load` / `#import` strings.
-    pub links: Vec<crate::links::Link>,
+    pub links: Vec<jaic::project::DirectiveLink>,
     pub complete: bool,
     /// Hash and length of the text this was built from, so a session can keep it while a
     /// document is unchanged (`Session::rebuild`).
@@ -305,7 +305,7 @@ impl Analysis {
         }
         result.tokens = converted;
         result.format_calls = crate::format::calls(&tokens, text);
-        result.links = crate::links::links(&tokens);
+        result.links = jaic::project::scan_directives(&tokens);
         if nesting(&tokens) > limits.recursive_tokens {
             result.diagnostic(
                 &index,
@@ -340,7 +340,7 @@ impl Analysis {
         // those current tokens too, or an unaffected name may still look like a string.
         result.tokens = editor_tokens(&parsed.tokens);
         result.format_calls = crate::format::calls(&parsed.tokens, text);
-        result.links = crate::links::links(&parsed.tokens);
+        result.links = jaic::project::scan_directives(&parsed.tokens);
         if result.tokens.len() > limits.tokens {
             let at = result.tokens[limits.tokens].span;
             result.tokens.truncate(limits.tokens);

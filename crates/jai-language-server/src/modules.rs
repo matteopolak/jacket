@@ -15,7 +15,7 @@
 //!    not followed by this scan, but once the metaprogram has run (`semantic::BuildFacts`) its
 //!    recorded `import_path` replaces the scan for that entry, computed paths included.
 use crate::auto_import::{Index, Sources};
-use crate::project::{self, CONFIG_FILE, INFERRED_ENTRIES};
+use crate::project::{self, CONFIG_FILE};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -51,13 +51,8 @@ impl Sources<'_> {
         folders: &[PathBuf],
     ) -> (Vec<PathBuf>, Vec<PathBuf>) {
         let config = self.config(index, root);
-        let base = config.as_ref().map(|(dir, _)| dir.clone()).or_else(|| {
-            folders
-                .iter()
-                .filter(|f| root.starts_with(f))
-                .max_by_key(|f| f.as_os_str().len())
-                .cloned()
-        });
+        let base =
+            project::project_base(config.as_ref().map(|(dir, _)| dir.as_path()), folders, root);
         let mut dirs: Vec<PathBuf> = Vec::new();
         let mut deps: Vec<PathBuf> = Vec::new();
         // 1. `modules/` here and in the folders above, up to the base.
@@ -82,15 +77,7 @@ impl Sources<'_> {
         // 3. What the build metaprogram adds.
         let mut entries: Vec<PathBuf> = Vec::new();
         if let Some(base) = &base {
-            match &config {
-                Some((_, config)) if !config.build_files.is_empty() => entries.extend(
-                    config
-                        .build_files
-                        .iter()
-                        .map(|f| project::normalize(&base.join(f))),
-                ),
-                _ => entries.extend(INFERRED_ENTRIES.iter().map(|f| base.join(f))),
-            }
+            entries.extend(project::entry_files(base, config.as_ref().map(|(_, c)| c)).paths);
         }
         entries.push(root.to_path_buf());
         let mut seen = BTreeSet::new();
