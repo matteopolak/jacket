@@ -928,61 +928,88 @@ impl Compiler {
                     return Ok(Found::Entities(found));
                 }
             }
-            // Entries added while these are searched are not seen by this lookup.
-            for k in 0..self.scope(sid).usings.len() {
-                let Some(entry) = self.scope(sid).usings.get(k) else {
-                    break;
-                };
-                match entry {
-                    UsingEntry::Module(m, filter) => {
-                        if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+            // What `sid`'s `using`s, imports and the implicit modules hold under `name` can
+            // only change with the namespace: a miss is remembered for this generation.
+            let generation = self.namespace_generation;
+            let key = (sid, name);
+            // Body scopes gain `using`s and imports without moving the generation.
+            let stable = !matches!(
+                self.scope(sid).kind,
+                ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
+            );
+            let known_miss = stable
+                && self.scope_misses.get(&key) == Some(&generation)
+                && self.reexport_visiting.is_empty();
+            let try_remember =
+                stable && !known_miss && found.is_empty() && self.reexport_visiting.is_empty();
+            let mut cacheable = try_remember;
+            if !known_miss {
+                // Entries added while these are searched are not seen by this lookup.
+                for k in 0..self.scope(sid).usings.len() {
+                    let Some(entry) = self.scope(sid).usings.get(k) else {
+                        break;
+                    };
+                    match entry {
+                        UsingEntry::Module(m, filter) => {
+                            if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+                                continue;
+                            }
+                            let m = *m;
+                            if let Some(result) = self.merge_module_lookup(&mut found, m, name)? {
+                                return Ok(result);
+                            }
+                        }
+                        _ => {
+                            cacheable = false;
+                            let entry = entry.clone();
+                            if found.is_empty()
+                                && let Some((target, member)) =
+                                    self.aggregate_using_member(&entry, name)?
+                            {
+                                return Ok(Found::Using(target, member));
+                            }
+                        }
+                    }
+                }
+                let imports = self.scope(sid).imports.len();
+                for i in 0..imports {
+                    let resolved = match self.scope(sid).imports[i].module {
+                        Some(module) => Some(module),
+                        None => self.lookup_import(sid, i)?,
+                    };
+                    let Some(module) = resolved else {
+                        cacheable = false;
+                        continue;
+                    };
+                    {
+                        if filter_hides(&self.scope(sid).imports[i].filter, name) {
                             continue;
                         }
-                        let m = *m;
-                        if let Some(result) = self.merge_module_lookup(&mut found, m, name)? {
+                        let before = found.len();
+                        let result = self.merge_module_lookup(&mut found, module, name)?;
+                        if result.is_some() || found.len() > before {
+                            self.ide_note_import_use(sid, i);
+                        }
+                        if let Some(result) = result {
                             return Ok(result);
                         }
                     }
-                    _ => {
-                        let entry = entry.clone();
-                        if found.is_empty()
-                            && let Some((target, member)) =
-                                self.aggregate_using_member(&entry, name)?
+                }
+                // Preload and Runtime_Support are implicitly visible to every module.
+                if self.scope(sid).kind == ScopeKind::Module {
+                    for implicit in [self.preload, self.runtime_support].into_iter().flatten() {
+                        if self.scope(sid).module == implicit {
+                            continue;
+                        }
+                        if let Some(result) =
+                            self.merge_module_lookup(&mut found, implicit, name)?
                         {
-                            return Ok(Found::Using(target, member));
+                            return Ok(result);
                         }
                     }
                 }
-            }
-            let imports = self.scope(sid).imports.len();
-            for i in 0..imports {
-                let resolved = match self.scope(sid).imports[i].module {
-                    Some(module) => Some(module),
-                    None => self.lookup_import(sid, i)?,
-                };
-                if let Some(module) = resolved {
-                    if filter_hides(&self.scope(sid).imports[i].filter, name) {
-                        continue;
-                    }
-                    let before = found.len();
-                    let result = self.merge_module_lookup(&mut found, module, name)?;
-                    if result.is_some() || found.len() > before {
-                        self.ide_note_import_use(sid, i);
-                    }
-                    if let Some(result) = result {
-                        return Ok(result);
-                    }
-                }
-            }
-            // Preload and Runtime_Support are implicitly visible to every module.
-            if self.scope(sid).kind == ScopeKind::Module {
-                for implicit in [self.preload, self.runtime_support].into_iter().flatten() {
-                    if self.scope(sid).module == implicit {
-                        continue;
-                    }
-                    if let Some(result) = self.merge_module_lookup(&mut found, implicit, name)? {
-                        return Ok(result);
-                    }
+                if cacheable && found.is_empty() && self.namespace_generation == generation {
+                    self.scope_misses.insert(key, generation);
                 }
             }
             current = self.scope(sid).parent;

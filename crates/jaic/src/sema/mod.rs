@@ -478,6 +478,9 @@ pub struct Compiler {
     /// Names `module_lookup` found nothing for, with the `namespace_generation` that holds
     /// for. Only names whose `module_names` entry is settled are kept.
     module_misses: HashMap<(ModuleId, Sym), u64>,
+    /// Scopes whose `using`s, imports and implicit modules hold nothing under a name, with
+    /// the `namespace_generation` that holds for.
+    scope_misses: HashMap<(ScopeId, Sym), u64>,
     /// Modules without any exported `using` member (here or re-exported), and the
     /// `namespace_generation` that holds for.
     using_member_free: HashMap<ModuleId, u64>,
@@ -757,6 +760,7 @@ impl Compiler {
             module_names: HashMap::default(),
             module_names_unsettled: false,
             module_misses: HashMap::default(),
+            scope_misses: HashMap::default(),
             using_member_free: HashMap::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0)),
