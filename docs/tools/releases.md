@@ -15,7 +15,7 @@ Each platform job:
 
 The `vscode` job packages the [VS Code extension](vscode-extension.md); `publish` writes `SHA256SUMS`, creates or updates the release (replacing assets only when the release is mutable; per-asset replacement is not atomic, so a failed upload needs a rerun), and the Marketplace, Open VSX, Neovim mirror and Homebrew jobs follow. Historical releases are not rebuilt.
 
-A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (checked both at the started path and behind symlinks), else the build-time repository path. If none has `prelude/module.jai`, `jaic` and `jailint` stop with an error naming the directory.
+A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (checked both at the started path and behind symlinks), else the build-time repository path. If none has `prelude/module.jai`, `jaic` and `jailint` stop with an error naming the directory. `jailsp` is the exception for a file inside a folder that holds `prelude/module.jai` (`jaic::enclosing_stdlib`, for example the checkout's own `stdlib/`): that file is analysed against that library, so its internal imports are allowed.
 
 ### PGO and BOLT
 

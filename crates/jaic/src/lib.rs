@@ -49,6 +49,19 @@ pub fn find_preload(
     fs.is_file(&entry).then_some(entry)
 }
 
+/// The nearest folder at or above `path` that is itself a standard library (it holds the
+/// bootstrap entry). A file inside one is library code and resolves against that library,
+/// whichever library the tool would otherwise use.
+pub fn enclosing_stdlib(
+    fs: &dyn sema::FileSystem,
+    path: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    path.ancestors()
+        .skip(1)
+        .find(|dir| find_preload(fs, dir).is_some())
+        .map(std::path::Path::to_path_buf)
+}
+
 /// Recover the library root from a selected bootstrap entry. Explicit custom preload
 /// files retain the established convention that their parent is the library root.
 pub fn stdlib_root_from_preload(preload: &std::path::Path) -> Option<&std::path::Path> {
@@ -176,7 +189,17 @@ pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::strip_verbatim;
+    use super::{enclosing_stdlib, strip_verbatim};
+
+    #[test]
+    fn a_file_inside_a_stdlib_finds_that_stdlib() {
+        let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        let file = stdlib.join("internal/allocation/unmapping.jai");
+        let found = enclosing_stdlib(&crate::sema::NativeFs, &file).unwrap();
+        assert_eq!(found, stdlib);
+        let outside = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs");
+        assert_eq!(enclosing_stdlib(&crate::sema::NativeFs, &outside), None);
+    }
 
     #[test]
     fn verbatim_paths_lose_their_prefix_when_win32_reads_them_the_same() {

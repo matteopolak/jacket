@@ -197,6 +197,9 @@ fn native_environment() -> jai_language_server::Environment {
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
+            // A file inside a standard library is analysed against that library.
+            let stdlib = jaic::enclosing_stdlib(&jaic::sema::NativeFs, main)
+                .unwrap_or_else(|| stdlib.clone());
             options.import_paths = vec![dir.join("modules"), stdlib.clone()];
             options.preload = Some(
                 jaic::find_preload(&jaic::sema::NativeFs, &stdlib)
