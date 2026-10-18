@@ -341,7 +341,7 @@ fn statement(tokens: &[Token], start: u32, end: u32) -> AsmStmtSyntax {
                     decl,
                     pin: pin_in(&tokens[2..]),
                 }
-            } else if rest.first().is_some() && pin_in(&rest[..rest.len().min(2)]).is_some() {
+            } else if pin_in(&rest[..rest.len().min(2)]).is_some() {
                 AsmStmtKind::Pin
             } else {
                 instruction(first, rest, end)

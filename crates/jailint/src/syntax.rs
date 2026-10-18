@@ -57,7 +57,6 @@ impl<'a> Cx<'a> {
     pub fn new(
         compiler: &'a Compiler,
         facts: &'a Facts,
-        file: FileId,
         text: &'a str,
         ast: &'a File,
         tokens: &'a [Token],
@@ -69,9 +68,9 @@ impl<'a> Cx<'a> {
         Self {
             compiler,
             facts,
-            file,
+            file: ast.file,
             text,
-            lines: compiler.sources.get(file).lines(),
+            lines: compiler.sources.get(ast.file).lines(),
             tokens,
             comments,
             procs,

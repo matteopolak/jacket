@@ -103,9 +103,7 @@ pub fn lint_files(
             Vec::new()
         };
         let suppressions = suppress::Suppressions::new(&text, &tokens, &comments, &ast);
-        let mut cx = syntax::Cx::new(
-            compiler, &facts, file, &text, &ast, &tokens, &comments, imports,
-        );
+        let mut cx = syntax::Cx::new(compiler, &facts, &text, &ast, &tokens, &comments, imports);
         cx.complete = complete;
         cx.max_nesting = config.max_nesting();
         cx.doc_links = doc_links;
