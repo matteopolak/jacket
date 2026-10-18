@@ -397,6 +397,14 @@ impl Compiler {
             Operand::Module(m) => Ok(Resolved::Module(m)),
             Operand::PolyStruct(p) => Ok(Resolved::PolyStruct(p)),
             Operand::Library(l) => Ok(Resolved::Library(l)),
+            Operand::Void if matches!(value.kind, ast::ExprKind::Run { .. }) => err(
+                value.span,
+                "this #run returns no value, so it cannot be a constant's value; to only run it at compile time, write the #run as a statement",
+            ),
+            Operand::Void => err(
+                value.span,
+                "this expression has no value, so it cannot be a constant's value",
+            ),
             _ => err(
                 value.span,
                 "constant declaration requires a compile-time value; use #run to compute it",

@@ -2666,6 +2666,19 @@
       }
     },
     {
+      "id": "run-void-constant",
+      "source": "negative/run-void-constant.jai",
+      "sha256": "a5467ffa829320e4b88d7fc9a6251580a4d8a907ebbb220bc6b7fea01c93812b",
+      "suite": "negative",
+      "feature": "a #run with no result cannot be a constant's value",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "this #run returns no value, so it cannot be a constant's value"
+      }
+    },
+    {
       "id": "address-of-number-constant",
       "source": "negative/address-of-number-constant.jai",
       "sha256": "5a4ab0fbae2ccf63247a8c900e3a57414dfa1026d6c2d8282f81bd27e3f12777",
