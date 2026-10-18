@@ -9,6 +9,7 @@ use crate::{
     position::LineIndex,
 };
 use jaic::intern::Sym;
+use jaic::parser::ide_facts::{self, CursorContext, PathDirective};
 use jaic::sema::ide::{IdeKind, IdeLayout, IdeName};
 use jaic::sema::ide_meta::IdeClass;
 use std::borrow::Cow;
@@ -21,8 +22,6 @@ pub(crate) struct Document {
     pub(crate) version: i32,
     pub(crate) text: String,
     pub(crate) index: LineIndex,
-    /// Whether `text` parses, worked out on first use.
-    pub(crate) parses: OnceCell<bool>,
     /// Whether `text` has an `#asm` block anywhere, worked out on first use.
     pub(crate) asm: OnceCell<bool>,
     /// The links in `text`'s doc comments, found on first use.
@@ -160,15 +159,13 @@ impl Session {
         uri: &DocumentUri,
     ) -> Result<Option<semantic::SemanticCoverage>, Error> {
         let doc = self.document(uri)?;
-        let Some(probe) = self.probe(uri, &doc.text, None) else {
-            return Ok(None);
-        };
-        let base = self.with_semantic(uri, &probe, |analysis, path| Some(analysis.coverage(path)));
+        let probe = &doc.text;
+        let base = self.with_semantic(uri, probe, |analysis, path| Some(analysis.coverage(path)));
         if base.as_ref().is_some_and(|coverage| coverage.source_loaded) {
             return Ok(base);
         }
         Ok(self
-            .with_semantic_at(uri, &probe, 0, |analysis, path| {
+            .with_semantic_at(uri, probe, 0, |analysis, path| {
                 let coverage = analysis.coverage(path);
                 coverage.source_loaded.then_some(coverage)
             })
@@ -307,7 +304,6 @@ impl Session {
                 version,
                 index: LineIndex::new(&text),
                 text,
-                parses: OnceCell::new(),
                 asm: OnceCell::new(),
                 sites: OnceCell::new(),
                 lexical_damage: Vec::new(),
@@ -386,7 +382,6 @@ impl Session {
             version,
             index: LineIndex::new(&text),
             text,
-            parses: OnceCell::new(),
             asm: OnceCell::new(),
             sites: OnceCell::new(),
             lexical_damage,
@@ -670,25 +665,6 @@ impl Session {
         self.document(uri)
             .ok()
             .is_some_and(|d| std::ptr::eq(d.text.as_str(), text))
-    }
-
-    /// `repair` for text of `uri`, which for the document's own text that parses is that text
-    /// itself, known without parsing it again.
-    pub(crate) fn probe<'a>(
-        &self,
-        uri: &DocumentUri,
-        text: &'a str,
-        first: Option<usize>,
-    ) -> Option<Cow<'a, str>> {
-        if let Ok(doc) = self.document(uri)
-            && std::ptr::eq(doc.text.as_str(), text)
-            && *doc
-                .parses
-                .get_or_init(|| semantic::parse_error(text).is_none())
-        {
-            return Some(Cow::Borrowed(text));
-        }
-        repair(text, first).map(Cow::Owned)
     }
 
     fn work_out_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
@@ -1037,9 +1013,9 @@ impl Session {
         if let Some(locations) = self.doc_link_definition(uri, byte) {
             return Ok(locations);
         }
-        if let Some(probe) = self.probe(uri, &doc.text, None) {
+        {
             let found = self
-                .with_semantic_at(uri, &probe, byte, |a, path| {
+                .with_semantic_at(uri, &doc.text, byte, |a, path| {
                     Some(a.definition(path, byte)).filter(|d| !d.is_empty())
                 })
                 .unwrap_or_default();
@@ -1206,16 +1182,14 @@ impl Session {
         found(token.span.start, token.span.end, text)
     }
 
-    /// Hover from the type checker: the text as typed if it parses, else with the cursor's line
-    /// blanked (offsets elsewhere stay the same).
+    /// Hover from the type checker, on the text as typed.
     pub(crate) fn semantic_hover(
         &self,
         uri: &DocumentUri,
         text: &str,
         byte: usize,
     ) -> Option<semantic::HoverFacts> {
-        let probe = self.probe(uri, text, None)?;
-        let facts = self.with_semantic_at(uri, &probe, byte, |a, path| a.hover(path, byte))?;
+        let facts = self.with_semantic_at(uri, text, byte, |a, path| a.hover(path, byte))?;
         (facts.end <= text.len()
             && text.is_char_boundary(facts.start)
             && text.is_char_boundary(facts.end))
@@ -1223,46 +1197,42 @@ impl Session {
     }
 
     /// Completion from the type checker. The word being typed (and `a.b.` before it) is cut
-    /// out, so the probe text is the same while a word is typed and its compile is reused.
+    /// out, so the text asked about is the same while a word is typed and its compile is reused.
     fn semantic_completion(
         &self,
         uri: &DocumentUri,
         text: &str,
         byte: usize,
+        context: &CursorContext,
     ) -> Option<Completions> {
-        let bytes = text.as_bytes();
-        let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80;
-        let mut start = byte;
-        while start > 0 && ident(bytes[start - 1]) {
-            start -= 1;
-        }
+        let (start, member) = match context {
+            CursorContext::Member(m) => (m.word.start as usize, Some(m)),
+            _ => {
+                let ident = |c: char| c.is_alphanumeric() || c == '_';
+                let start = text[..byte]
+                    .char_indices()
+                    .rfind(|&(_, c)| !ident(c))
+                    .map_or(0, |(i, c)| i + c.len_utf8());
+                (start, None)
+            }
+        };
         let prefix = text[start..byte].to_owned();
-        let mut chain = Vec::new();
-        let mut at = start;
-        // A `.` that is the second of `..` is a range, not member access: `0..ta`, `a..b.c`.
-        let member_dot =
-            |at: usize| at > 0 && bytes[at - 1] == b'.' && !(at > 1 && bytes[at - 2] == b'.');
-        while member_dot(at) {
-            let end = at - 1;
-            let mut s = end;
-            while s > 0 && ident(bytes[s - 1]) {
-                s -= 1;
+        let (at, chain) = match member {
+            // `.Member` with an inferred type: the enum its context expects.
+            Some(m) if m.receiver.is_none() => {
+                return self.complete_member_at(uri, text, byte, m.dot as usize, prefix);
             }
-            if s == end
-                && chain.is_empty()
-                && !(end > 0 && matches!(bytes[end - 1], b')' | b']' | b'}' | b'"' | b'\''))
-            {
-                // `.Member` with an inferred type: the enum its context expects.
-                return self.inferred_completion(uri, text, byte, end, prefix);
-            }
-            if s == end || bytes[s].is_ascii_digit() {
-                // `f().x`, a number: nothing to offer.
-                return Some((prefix, Vec::new(), BTreeMap::new()));
-            }
-            chain.push(&text[s..end]);
-            at = s;
-        }
-        chain.reverse();
+            // `f().x`, a number: nothing to offer.
+            Some(m) if m.chain.is_empty() => return Some((prefix, Vec::new(), BTreeMap::new())),
+            Some(m) => (
+                m.chain[0].start as usize,
+                m.chain
+                    .iter()
+                    .map(|s| &text[s.start as usize..s.end as usize])
+                    .collect::<Vec<_>>(),
+            ),
+            None => (start, Vec::new()),
+        };
         // The program as last compiled knows everything before the expression being typed.
         // Declarations below the cursor are where the compiled text had them; their docs are
         // read from the document as it is now.
@@ -1275,15 +1245,15 @@ impl Session {
         if let Some((names, files)) = self.with_compiled_before(uri, text, at, ask) {
             return Some((prefix, names, files));
         }
-        let probe = self.probe(uri, text, None)?;
-        let (names, files) = self.with_semantic(uri, &probe, ask)?;
+        let (names, files) = self.with_semantic(uri, text, ask)?;
         Some((prefix, names, files))
     }
 
-    /// Members for `.NAME` typed with `dot` the offset of the `.`: the probe holds a
-    /// placeholder name in place of the word (so the compiler records the type its context
-    /// expects), and the line is closed with whichever of a few endings makes the file parse.
-    fn inferred_completion(
+    /// Members for `.NAME` typed with `dot` the offset of the `.`: the text asked about holds a
+    /// placeholder name in place of the word, so the compiler records the type its context
+    /// expects. The editor parser recovers from whatever is left open on the line, so the one
+    /// text serves wherever the dot is.
+    fn complete_member_at(
         &self,
         uri: &DocumentUri,
         text: &str,
@@ -1292,39 +1262,20 @@ impl Session {
         prefix: String,
     ) -> Option<Completions> {
         const PLACEHOLDER: &str = "__jailsp_member";
-        const ENDINGS: [&str; 10] = ["", ";", ")", ");", "))", ")));", "]", "];", " {}", ") {}"];
         let ident = |c: char| c.is_alphanumeric() || c == '_';
         let tail = byte
             + text[byte..]
                 .find(|c: char| !ident(c))
                 .unwrap_or(text.len() - byte);
-        let line_end = text[tail..].find('\n').map_or(text.len(), |i| tail + i);
-        for ending in ENDINGS {
-            let candidate = format!(
-                "{}{PLACEHOLDER}{}{ending}{}",
-                &text[..=dot],
-                &text[tail..line_end],
-                &text[line_end..]
-            );
-            let Some(probe) = repair(&candidate, None) else {
-                continue;
-            };
-            if !probe.contains(PLACEHOLDER) {
-                continue;
-            }
-            let found = self.with_semantic(uri, &probe, |a, path| {
-                let mut names = a.complete_inferred(path, dot + 1)?;
-                a.shift_to(path, text, &mut names);
-                let files = a.decl_files(&names);
-                Some((names, files))
-            });
-            let (names, files) = found.unwrap_or_default();
-            if names.is_empty() {
-                continue;
-            }
-            return Some((prefix, names, files));
-        }
-        Some((prefix, Vec::new(), BTreeMap::new()))
+        let candidate = format!("{}{PLACEHOLDER}{}", &text[..=dot], &text[tail..]);
+        let found = self.with_semantic(uri, &candidate, |a, path| {
+            let mut names = a.complete_inferred(path, dot + 1)?;
+            a.shift_to(path, text, &mut names);
+            let files = a.decl_files(&names);
+            Some((names, files))
+        });
+        let (names, files) = found.unwrap_or_default();
+        Some((prefix, names, files))
     }
 
     /// Inside the string of `#load "..."` (files and folders relative to the document) or
@@ -1333,23 +1284,17 @@ impl Session {
         &self,
         uri: &DocumentUri,
         text: &str,
+        context: &CursorContext,
         byte: usize,
     ) -> Option<CompletionList> {
-        let line = &text[jaic::source::line_start(text, byte)..byte];
-        let quote = line.rfind('"')?;
-        let before = line[..quote].trim_end();
-        // The string must be open: an even number of quotes before it on the line.
-        if !line[..quote].matches('"').count().is_multiple_of(2) {
+        let CursorContext::String(string) = context else {
             return None;
-        }
-        let directive = before
-            .rsplit(|c: char| c.is_whitespace() || c == '(')
-            .next()?;
-        let load = directive.starts_with("#load");
-        if !load && !directive.starts_with("#import") {
-            return None;
-        }
-        let typed = &line[quote + 1..];
+        };
+        let load = match string.directive? {
+            PathDirective::Load => true,
+            PathDirective::Import => false,
+        };
+        let typed = text.get(string.start as usize..byte)?;
         let (folder, partial) = typed.rsplit_once('/').unwrap_or(("", typed));
         let here = Path::new(uri.path()).parent().unwrap_or(Path::new("/"));
         let roots: Vec<PathBuf> = if load {
@@ -1467,7 +1412,8 @@ impl Session {
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
         }
-        let mut list = self.completion_items(uri, byte)?;
+        let context = ide_facts::cursor_context(&doc.text, byte as u32);
+        let mut list = self.completion_items(uri, byte, &context)?;
         let mut parameters = self.named_argument_completions(uri, byte);
         // In a call's arguments the callee's parameter names come first (see `rank`).
         for item in &mut parameters {
@@ -1500,9 +1446,12 @@ impl Session {
             // A directive's label includes its `#`.
             start -= 1;
         }
-        if let Some(quote) = self.string_path_start(text, byte) {
+        if let CursorContext::String(string) = context
+            && string.directive.is_some()
+        {
             // Inside `#load "..."` / `#import "..."`: the entry after the last `/`.
-            start = quote;
+            let from = string.start as usize;
+            start = from + text[from..byte].rfind('/').map_or(0, |s| s + 1);
             end = byte
                 + text[byte..]
                     .find(|c: char| c == '"' || c == '/' || c.is_whitespace())
@@ -1518,26 +1467,12 @@ impl Session {
         Ok(list)
     }
 
-    /// Where the partial path being typed in an open `#load` / `#import` string starts.
-    fn string_path_start(&self, text: &str, byte: usize) -> Option<usize> {
-        let line_start = jaic::source::line_start(text, byte);
-        let line = &text[line_start..byte];
-        let quote = line.rfind('"')?;
-        if !line[..quote].matches('"').count().is_multiple_of(2) {
-            return None;
-        }
-        let directive = line[..quote]
-            .trim_end()
-            .rsplit(|c: char| c.is_whitespace() || c == '(')
-            .next()?;
-        if !(directive.starts_with("#load") || directive.starts_with("#import")) {
-            return None;
-        }
-        let typed = &line[quote + 1..];
-        Some(line_start + quote + 1 + typed.rfind('/').map_or(0, |s| s + 1))
-    }
-
-    fn completion_items(&self, uri: &DocumentUri, byte: usize) -> Result<CompletionList, Error> {
+    fn completion_items(
+        &self,
+        uri: &DocumentUri,
+        byte: usize,
+        context: &CursorContext,
+    ) -> Result<CompletionList, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let position = doc.index.position(&doc.text, byte)?;
         // `#` and the start of a directive: offer directives (labels include the `#`).
@@ -1562,10 +1497,12 @@ impl Session {
                     .collect(),
             });
         }
-        if let Some(list) = self.path_completion(uri, &doc.text, byte) {
+        if let Some(list) = self.path_completion(uri, &doc.text, context, byte) {
             return Ok(list);
         }
-        if let Some((prefix, names, files)) = self.semantic_completion(uri, &doc.text, byte) {
+        if let Some((prefix, names, files)) =
+            self.semantic_completion(uri, &doc.text, byte, context)
+        {
             let lower = prefix.to_lowercase();
             let mut items = BTreeMap::new();
             let mut incomplete = false;
@@ -1934,14 +1871,6 @@ impl Session {
         }
         Ok(output)
     }
-}
-
-/// Current-source IDE probe. Statement recovery happens inside the compiler parser;
-/// no lines are deleted and every unaffected byte keeps its original source position.
-pub(crate) fn repair(text: &str, first: Option<usize>) -> Option<String> {
-    let _ = first;
-    // The IDE parser recovers at grammar boundaries, retaining current source spans.
-    Some(text.to_owned())
 }
 
 pub(crate) fn contains(span: Span, byte: usize) -> bool {

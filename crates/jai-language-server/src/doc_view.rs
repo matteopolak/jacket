@@ -7,7 +7,7 @@ use crate::docs::{self, Site};
 use crate::hover::{Block, HoverText};
 use crate::model::{CompletionData, Location};
 use crate::semantic::{self, Decl};
-use crate::session::{Session, repair};
+use crate::session::Session;
 use crate::{DocumentUri, MarkupKind, Range, SemanticTokenKind};
 use jaic::sema::ide_meta::IdeSignature;
 use std::collections::HashMap;
@@ -93,13 +93,8 @@ impl Session {
                     .collect(),
             )
         };
-        // While a call or block is still open the document does not repair; the last compile
-        // still knows the declarations the links name.
-        match repair(&doc.text, None) {
-            Some(probe) => self.with_semantic(uri, &probe, resolve),
-            None => self.with_compiled_before(uri, &doc.text, 0, resolve),
-        }
-        .unwrap_or_default()
+        self.with_semantic(uri, &doc.text, resolve)
+            .unwrap_or_default()
     }
 
     /// Doc comments written for `kind`: Markdown has untagged fences tagged `jai` and the links
@@ -186,10 +181,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return none();
         };
-        let Some(probe) = repair(&doc.text, None) else {
-            return none();
-        };
-        self.with_semantic(uri, &probe, |a, path| {
+        self.with_semantic(uri, &doc.text, |a, path| {
             Some(
                 sites
                     .iter()
@@ -328,12 +320,10 @@ impl Session {
     // Signature help and completion
     // ---------------------------------------------------------------------------------------
 
-    /// The docs of each signature and of each of its parameters, for the call being typed at
-    /// `byte` (its line blanked when the call is still open).
+    /// The docs of each signature and of each of its parameters.
     pub(crate) fn signature_docs(
         &self,
         uri: &DocumentUri,
-        byte: usize,
         signatures: &[IdeSignature],
         kind: MarkupKind,
     ) -> Vec<(Option<String>, Vec<Option<String>>)> {
@@ -346,13 +336,10 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return none();
         };
-        let Some(probe) = repair(&doc.text, Some(byte)) else {
-            return none();
-        };
         // (file, offset of the declaration, the procedure's docs, each parameter's docs)
         type Raw = Option<(String, usize, Option<String>, Vec<Option<String>>)>;
         let raws: Vec<Raw> = self
-            .with_semantic(uri, &probe, |a, _| {
+            .with_semantic(uri, &doc.text, |a, _| {
                 Some(
                     signatures
                         .iter()

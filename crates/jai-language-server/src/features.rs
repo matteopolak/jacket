@@ -13,10 +13,12 @@ use crate::{
     SymbolInformation, TextEdit,
 };
 use jaic::intern::Sym;
+use jaic::parser::ide_facts;
 use jaic::project::{DirectiveLink as Link, LinkSource};
 use jaic::sema::FileSystem;
 use jaic::sema::ide_meta::{IdeCallInfo, IdeClass, IdeExpansion, IdeExpansionKind};
 use jaic::source::FileId;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -62,15 +64,14 @@ fn clip(text: &str, chars: usize) -> String {
 pub type RenameEdits = Vec<(String, Vec<TextEdit>)>;
 
 impl Session {
-    /// Run `query` on the type-checked program, the document's text repaired to parse.
+    /// Run `query` on the type-checked program, the document's text.
     pub(crate) fn checked<T>(
         &self,
         uri: &DocumentUri,
         query: impl FnOnce(&mut semantic::Analysis, FileId) -> T,
     ) -> Option<T> {
         let doc = self.document(uri).ok()?;
-        let probe = self.probe(uri, &doc.text, None)?;
-        self.with_semantic(uri, &probe, |a, path| {
+        self.with_semantic(uri, &doc.text, |a, path| {
             let file = a.file(path)?;
             Some(query(a, file))
         })
@@ -720,9 +721,10 @@ impl Session {
                 ));
             }
         };
+        let inferred = inferred_name_ends(&doc.ide_text());
         for (span, ty) in types {
             let end = span.end as usize;
-            if end > text.len() || !inferred_declaration(text, end) {
+            if end > text.len() || !inferred.contains(&(end as u32)) {
                 continue;
             }
             // `t := Thing.{...}` and `p := cast(*u8) q` already say the type.
@@ -991,12 +993,9 @@ impl Session {
         let (mut signatures, active) = match recorded {
             Some(call) => (call.signatures, call.active),
             None => {
-                // The unfinished call's line is blanked; the callee is looked up in the scope.
-                let Some(probe) = self.probe(uri, text, Some(byte)) else {
-                    return Ok(None);
-                };
+                // The callee is looked up in the scope.
                 let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
-                let found = self.with_semantic(uri, &probe, |a, path| {
+                let found = self.with_semantic(uri, text, |a, path| {
                     let file = a.file(path)?;
                     let scope = a.compiler.ide_scope_at(file, callee_start as u32)?;
                     let procs = a.compiler.ide_callee(scope, &names);
@@ -1040,7 +1039,7 @@ impl Session {
             active_arg.min(last)
         };
         let active_parameter = signatures.get(active).map_or(0, parameter);
-        let documented = self.signature_docs(uri, byte, &signatures, kind);
+        let documented = self.signature_docs(uri, &signatures, kind);
         Ok(Some(SignatureHelp {
             signatures: signatures
                 .into_iter()
@@ -1339,21 +1338,14 @@ impl jaic::sema::FileSystem for OpenFiles<'_> {
     }
 }
 
-/// After a declared name ending at `end`: `:=`, or `, other :=` of a multiple declaration.
-fn inferred_declaration(text: &str, end: usize) -> bool {
-    let rest = text[end..].trim_start_matches([' ', '\t']);
-    if rest.starts_with(":=") {
-        return true;
-    }
-    if let Some(more) = rest.strip_prefix(',') {
-        let line = more.split(['\n', ';']).next().unwrap_or("");
-        if let Some(at) = line.find(":=") {
-            return line[..at]
-                .split(',')
-                .all(|n| n.trim().chars().all(|c| c.is_alphanumeric() || c == '_'));
-        }
-    }
-    false
+/// Where the names end that a declaration without a written type introduces (`x := 1`, both
+/// names of `a, b := f()`), read from the tokens so it holds wherever `text` stopped parsing.
+fn inferred_name_ends(text: &str) -> HashSet<u32> {
+    let tokens = jaic::lexer::lex_ide(FileId(0), text).0;
+    ide_facts::inferred_name_spans(&tokens)
+        .iter()
+        .map(|s| s.end)
+        .collect()
 }
 
 /// A literal argument (a parameter name hint helps there).
@@ -1517,9 +1509,13 @@ mod tests {
 
     #[test]
     fn inferred_declarations() {
-        assert!(inferred_declaration("x := 1", 1));
-        assert!(inferred_declaration("a, b := f()", 1));
-        assert!(!inferred_declaration("x : int = 1", 1));
-        assert!(!inferred_declaration("x = 1", 1));
+        let text = "f :: () {\n    x := 1;\n    a, b := g(\",\");\n    y : int = 1;\n    x = 2;\n}\nS :: struct { z := 3; }\n";
+        let ends = inferred_name_ends(text);
+        let end =
+            |name: &str, n: usize| (text.match_indices(name).nth(n).unwrap().0 + name.len()) as u32;
+        assert!(ends.contains(&end("x", 0)) && ends.contains(&end("a", 0)));
+        assert!(ends.contains(&end("b", 0)) && ends.contains(&end("z", 0)));
+        assert!(!ends.contains(&end("y", 0)));
+        assert_eq!(ends.len(), 4);
     }
 }

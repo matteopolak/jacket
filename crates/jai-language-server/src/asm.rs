@@ -8,10 +8,10 @@
 //! `#asm {` still gets help (its body runs to the brace that closes it, or to the end of the
 //! file).
 use crate::hover::{Block, HoverText, Inline};
-use crate::session::{Session, contains, repair};
+use crate::session::{Session, contains};
 use crate::{
     CompletionItem, CompletionKind, CompletionList, DocumentUri, SignatureHelp,
-    SignatureInformation, SymbolKind, semantic,
+    SignatureInformation, SymbolKind,
 };
 use jaic::lexer::{P, Tok};
 use jaic::parser::asm_ide::{
@@ -339,14 +339,8 @@ impl Session {
                 probe.push('\n');
                 probe.push_str(&"}".repeat(open as usize));
             }
-            let probe = if semantic::parse_error(&probe).is_none() {
-                Some(probe)
-            } else {
-                repair(&probe, None)
-            };
-            if let Some(probe) = probe
-                && let Some(names) =
-                    self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &[]))
+            if let Some(names) =
+                self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &[]))
             {
                 return names
                     .into_iter()

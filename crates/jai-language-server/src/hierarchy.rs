@@ -49,6 +49,7 @@ fn collect(text: &str, stmts: &[Stmt], out: &mut Vec<Site>, seen: &mut HashSet<u
             seen.insert(lit.header.id.0);
             let (a, b) = crate::refactor::stmt_extent(text, s);
             let name = d.names[0];
+            let name_span = jaic::parser::ide_facts::decl_name_span(d).unwrap_or(name.span);
             let body = lit
                 .body
                 .as_ref()
@@ -57,7 +58,7 @@ fn collect(text: &str, stmts: &[Stmt], out: &mut Vec<Site>, seen: &mut HashSet<u
             let to = body.map_or(b, |(x, _)| x);
             out.push(Site {
                 name: name.name.as_str().to_string(),
-                name_span: (name.span.start as usize, name.span.end as usize),
+                name_span: (name_span.start as usize, name_span.end as usize),
                 extent: (a, b),
                 body,
                 header: text.get(from..to).unwrap_or("").trim().to_string(),
