@@ -1603,7 +1603,7 @@ impl Compiler {
                 } else {
                     (else_branch, then_branch)
                 };
-                self.ide_note_skipped(cond, skipped);
+                self.ide_note_branches(cond, branch, skipped);
                 self.declare_stmts(scope, file_scope, branch, vis)?;
             }
             ast::StmtKind::StaticSwitch(boxed) => {

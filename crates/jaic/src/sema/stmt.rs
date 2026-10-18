@@ -333,7 +333,11 @@ impl Compiler {
                 op,
                 lhs,
                 rhs,
-            } => self.check_assign(f, scope, *op, lhs, rhs, span),
+            } => {
+                let result = self.check_assign(f, scope, *op, lhs, rhs, span);
+                self.ide_note_assign(scope, lhs, span);
+                result
+            }
             S::Block(_) => self.check_scoped(f, scope, stmt),
             S::If {
                 cond,
@@ -499,14 +503,11 @@ impl Compiler {
                 }
                 let taken = self.body_static_condition(f, scope, cond)?;
                 f.static_taken.insert(span, taken);
-                self.ide_note_skipped(
-                    cond,
-                    if taken {
-                        else_branch
-                    } else {
-                        then_branch
-                    },
-                );
+                if taken {
+                    self.ide_note_branches(cond, then_branch, else_branch);
+                } else {
+                    self.ide_note_branches(cond, else_branch, then_branch);
+                }
                 self.check_block_stmts(
                     f,
                     scope,

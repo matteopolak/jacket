@@ -1111,14 +1111,11 @@ impl Compiler {
                         else_branch,
                     } = &**boxed;
                     let taken = self.eval_static_condition(scope, cond)?;
-                    self.ide_note_skipped(
-                        cond,
-                        if taken {
-                            else_branch
-                        } else {
-                            then_branch
-                        },
-                    );
+                    if taken {
+                        self.ide_note_branches(cond, then_branch, else_branch);
+                    } else {
+                        self.ide_note_branches(cond, else_branch, then_branch);
+                    }
                     self.collect_fields(
                         scope,
                         if taken {

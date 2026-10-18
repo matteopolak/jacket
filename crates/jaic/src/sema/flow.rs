@@ -1,6 +1,6 @@
 //! What Jai reads from the shape of a procedure body without evaluating it: whether every path
 //! returns (`not all control paths return a value`) and statements that follow a `return`,
-//! `break` or `continue` in the same block.
+//! `break` or `continue` in the same block. The second is `reachability.rs`.
 //!
 //! Both follow the structure of the code, not the values in it: `if true return 1;` can still
 //! fall through, `while true {}` ends the body, and a `while` counts as returning when its body
@@ -61,100 +61,5 @@ impl Compiler {
             S::StaticSwitch(_) | S::Insert(_) => true,
             _ => false,
         }
-    }
-
-    /// Warn at the first statement that follows a `return`, `break` or `continue` of its block.
-    pub(super) fn warn_unreachable(&mut self, f: &FnCtx, stmts: &[ast::Stmt]) {
-        for (i, stmt) in stmts.iter().enumerate() {
-            let leaves = match &stmt.kind {
-                S::Return {
-                    ..
-                } => Some("return"),
-                S::Break(_) => Some("break"),
-                S::Continue(_) => Some("continue"),
-                _ => None,
-            };
-            if let Some(word) = leaves
-                && let Some(next) = stmts[i + 1..].iter().find(|s| runs_in_order(s))
-                && (next.span.file.0 as usize) < self.sources.len()
-            {
-                self.warn(
-                    Diagnostic::warning(
-                        next.span,
-                        format!("statements in block after `{word}` are never reached"),
-                    )
-                    .with_label("this statement can not run")
-                    .with_help(format!("remove it, or the `{word}` before it")),
-                );
-                // The rest of the block is dead too; one warning per block.
-                return;
-            }
-            self.warn_unreachable_inside(f, stmt);
-        }
-    }
-
-    fn warn_unreachable_inside(&mut self, f: &FnCtx, stmt: &ast::Stmt) {
-        match &stmt.kind {
-            S::Block(b) => self.warn_unreachable(f, &b.stmts),
-            S::If {
-                then_branch,
-                else_branch,
-                ..
-            } => {
-                self.warn_unreachable_inside(f, then_branch);
-                if let Some(e) = else_branch {
-                    self.warn_unreachable_inside(f, e);
-                }
-            }
-            S::While(w) => self.warn_unreachable_inside(f, &w.body),
-            S::Defer {
-                body, ..
-            } => self.warn_unreachable_inside(f, body),
-            S::PushContext(p) => self.warn_unreachable_inside(f, &p.body),
-            S::For(for_) => self.warn_unreachable_inside(f, &for_.body),
-            S::Switch(boxed) => {
-                let crate::ast::SwitchStmt {
-                    cases, ..
-                } = &**boxed;
-                // A case body is not a block of its own: what follows a `return` there is
-                // not reported, but the blocks inside it are looked at.
-                for case in cases {
-                    for s in &case.body {
-                        self.warn_unreachable_inside(f, s);
-                    }
-                }
-            }
-            S::StaticIf(boxed) => {
-                let crate::ast::StaticIfStmt {
-                    then_branch,
-                    else_branch,
-                    ..
-                } = &**boxed;
-                match f.static_taken.get(&stmt.span) {
-                    Some(true) => self.warn_unreachable(f, then_branch),
-                    Some(false) => self.warn_unreachable(f, else_branch),
-                    None => {}
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-/// Whether `stmt` is something that would run: constants, and statements that only configure
-/// the program, do not count.
-fn runs_in_order(stmt: &ast::Stmt) -> bool {
-    match &stmt.kind {
-        S::Decl(decl) => decl.kind != ast::DeclKind::Const,
-        S::Empty
-        | S::Scope(_)
-        | S::AddContext(_)
-        | S::ModuleParameters(_)
-        | S::Load {
-            ..
-        }
-        | S::Case(_)
-        | S::Overlay(_) => false,
-        _ => true,
     }
 }

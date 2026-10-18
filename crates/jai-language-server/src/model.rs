@@ -18,6 +18,8 @@ pub enum SymbolKind {
 pub enum DiagnosticSeverity {
     Error,
     Warning,
+    /// Shown without a squiggle (code faded as unreachable).
+    Hint,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -29,6 +31,8 @@ pub enum DiagnosticCode {
     /// A format string disagrees with the arguments of its print-family call.
     /// The type checker's first error in the program.
     Check,
+    /// Code no path reaches: the editor fades it (`DiagnosticTag::Unnecessary`).
+    Unreachable,
     /// A jailint rule, by name.
     Lint(&'static str),
 }

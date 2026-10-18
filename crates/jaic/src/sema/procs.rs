@@ -1528,7 +1528,7 @@ impl Compiler {
             && !f.named_results.iter().all(Option::is_some)
             && !f.macro_returned
             && !self.stmts_return(&f, &body.stmts);
-        self.warn_unreachable(&f, &body.stmts);
+        self.warn_unreachable(&f, body);
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }

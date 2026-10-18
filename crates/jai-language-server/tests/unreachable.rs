@@ -1,0 +1,338 @@
+//! Code that can never run is reported as an `unreachable` hint, which editors fade.
+use jai_language_server::{
+    DiagnosticCode, DiagnosticSeverity, DocumentUri, Environment, Limits, Session,
+};
+
+fn session() -> Session {
+    Session::with_environment(
+        Limits::default(),
+        Environment {
+            fs: std::rc::Rc::new(jaic::sema::NativeFs),
+            options: Box::new(|_| {
+                let mut options = jaic::sema::Options::host();
+                options.runtime_support = false;
+                options.stack_trace = false;
+                options
+            }),
+        },
+    )
+}
+
+fn uri() -> DocumentUri {
+    DocumentUri::parse("file:///unreachable/main.jai").unwrap()
+}
+
+/// The text of every faded range of `source`, without its final `;`, in order.
+fn faded(source: &str) -> Vec<String> {
+    let mut s = session();
+    s.open(uri(), 1, source.into()).unwrap();
+    let lines: Vec<&str> = source.split('\n').collect();
+    let offset = |line: u32, character: u32| -> usize {
+        lines[..line as usize]
+            .iter()
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + character as usize
+    };
+    let mut found = Vec::new();
+    for d in s.diagnostics(&uri()).unwrap() {
+        if d.code != DiagnosticCode::Unreachable {
+            continue;
+        }
+        assert_eq!(d.severity, DiagnosticSeverity::Hint);
+        let start = offset(d.range.start.line, d.range.start.character);
+        let end = offset(d.range.end.line, d.range.end.character);
+        found.push(source[start..end].trim().trim_end_matches(';').to_string());
+    }
+    found
+}
+
+#[test]
+fn statements_after_return_break_and_continue_fade_once_per_block() {
+    let faded = faded(
+        r#"main :: () {
+    n := 0;
+    while n < 3 {
+        n += 1;
+        if n == 2 { continue; first_skipped := 1; second_skipped := 2; }
+        if n == 3 { break; after_break := 1; }
+    }
+    return;
+    after_return := 1;
+    more := 2;
+}
+"#,
+    );
+    assert_eq!(
+        faded,
+        [
+            "first_skipped := 1; second_skipped := 2",
+            "after_break := 1",
+            "after_return := 1;\n    more := 2",
+        ]
+    );
+}
+
+#[test]
+fn a_return_in_one_branch_leaves_the_rest_reachable() {
+    let source = r#"f :: (flag: bool) -> int {
+    if flag { return 1; }
+    live := 2;
+    return live;
+}
+main :: () { f(true); }
+"#;
+    assert_eq!(faded(source), Vec::<String>::new());
+}
+
+#[test]
+fn code_after_an_if_whose_branches_both_exit_fades() {
+    let source = r#"f :: (flag: bool) -> int {
+    if flag { return 1; } else { return 2; }
+    dead := 3;
+}
+main :: () { f(true); }
+"#;
+    assert_eq!(faded(source), ["dead := 3"]);
+}
+
+#[test]
+fn loops_that_nothing_breaks_out_of_end_the_block() {
+    let source = r#"spin :: () {
+    while true { }
+    after_spin := 1;
+}
+spin_int :: () {
+    while 1 { }
+    after_int := 1;
+}
+leaves :: () {
+    while true { break; }
+    reached := 1;
+}
+leaves_deep :: (flag: bool) {
+    while true { if flag { break; } }
+    still_reached := 1;
+}
+inner_break_only :: () {
+    while true { for 0..3 { break; } }
+    after_inner := 1;
+}
+main :: () { spin(); spin_int(); leaves(); leaves_deep(true); inner_break_only(); }
+"#;
+    assert_eq!(
+        faded(source),
+        ["after_spin := 1", "after_int := 1", "after_inner := 1"]
+    );
+}
+
+#[test]
+fn a_labelled_break_counts_for_the_loop_it_names() {
+    let source = r#"main :: (flag: bool) {
+    while :outer true {
+        while true {
+            if flag { break outer; }
+        }
+        never := 1;
+    }
+    after_outer := 2;
+}
+"#;
+    assert_eq!(faded(source), ["never := 1"]);
+}
+
+#[test]
+fn defer_bodies_are_not_after_the_return() {
+    let source = r#"main :: () {
+    count := 0;
+    defer count += 1;
+    return;
+    dead := 1;
+}
+"#;
+    assert_eq!(faded(source), ["dead := 1"]);
+}
+
+#[test]
+fn static_if_fades_the_branch_that_was_not_taken() {
+    let source = r#"main :: () {
+    #if false {
+        off := 1;
+    } else {
+        on := 2;
+    }
+    #if true {
+        shown := 3;
+    }
+    #if 1 == 2 { also_off := 4; } else #if true { chained := 5; } else { last := 6; }
+}
+"#;
+    assert_eq!(faded(source), ["off := 1", "also_off := 4", "last := 6"]);
+}
+
+#[test]
+fn if_on_a_constant_fades_the_branch_it_rules_out() {
+    let source = r#"NEVER :: false;
+ALWAYS :: true;
+main :: (flag: bool) {
+    if false { a := 1; }
+    if NEVER { b := 2; } else { b_else := 2; }
+    if ALWAYS { c := 3; } else { c_else := 3; }
+    if flag { d := 4; } else { d_else := 4; }
+    x := ifx ALWAYS then 1 else 2;
+    while false { never_runs := 5; }
+}
+"#;
+    assert_eq!(
+        faded(source),
+        ["a := 1", "b := 2", "c_else := 3", "2", "never_runs := 5"]
+    );
+}
+
+#[test]
+fn comparisons_a_type_decides_fade_the_branch_they_rule_out() {
+    let source = r#"main :: (u: u64, s: s64, byte: u8, small: s8, other: u64) {
+    if u >= 0 { a := 1; } else { a_else := 1; }
+    if s >= 0 { b := 2; } else { b_else := 2; }
+    if byte > 255 { c := 3; }
+    if small < -128 { d := 4; }
+    if byte == 300 { e := 5; }
+    if u < 0 { f := 6; }
+    if 0 > u { g := 7; }
+    if u >= other { h := 8; } else { h_else := 8; }
+}
+"#;
+    assert_eq!(
+        faded(source),
+        [
+            "a_else := 1",
+            "c := 3",
+            "d := 4",
+            "e := 5",
+            "f := 6",
+            "g := 7"
+        ]
+    );
+}
+
+#[test]
+fn intervals_follow_arithmetic_and_casts() {
+    let source = r#"main :: (x: u64, y: s64, z: u8) {
+    if (x & 0xF) > 20 { masked := 1; }
+    if (x & 0xF) > 14 { masked_live := 1; }
+    if cast(u8) y < 300 { cast_live := 2; } else { cast_dead := 2; }
+    if z + 1 > 255 { sum_wrapped := 3; }
+    if (z >> 4) > 15 { shifted := 4; }
+    if (z % 10) >= 10 { remainder := 5; }
+    if !(z >= 0) { negated := 6; }
+    if z >= 0 && x >= 0 { both := 7; } else { both_else := 7; }
+    if z < 0 || x < 0 { either := 8; }
+}
+"#;
+    assert_eq!(
+        faded(source),
+        [
+            "masked := 1",
+            "cast_dead := 2",
+            "sum_wrapped := 3",
+            "shifted := 4",
+            "remainder := 5",
+            "negated := 6",
+            "both_else := 7",
+            "either := 8",
+        ]
+    );
+}
+
+#[test]
+fn a_branch_narrows_the_locals_its_condition_constrains() {
+    let source = r#"main :: (x: s64) {
+    if x > 10 {
+        if x < 5 { impossible := 1; }
+        if x < 20 { possible := 2; }
+    } else {
+        if x > 10 { also_impossible := 3; }
+    }
+    while x < 3 {
+        if x >= 3 { in_loop := 4; }
+        break;
+    }
+}
+"#;
+    assert_eq!(
+        faded(source),
+        ["impossible := 1", "also_impossible := 3", "in_loop := 4"]
+    );
+}
+
+#[test]
+fn narrowing_stops_where_the_local_may_change() {
+    let source = r#"bump :: (p: *s64) { p.* += 1; }
+main :: (x: s64, y: s64) {
+    if x > 10 {
+        x = 0;
+        if x < 5 { reassigned := 1; }
+    }
+    if y > 10 {
+        bump(*y);
+        if y < 5 { by_pointer := 2; }
+    }
+}
+"#;
+    assert_eq!(faded(source), Vec::<String>::new());
+}
+
+#[test]
+fn a_switch_fades_cases_its_value_cannot_select_and_ends_when_all_exit() {
+    let source = r#"Mode :: enum { A; B; }
+pick :: (m: Mode) -> int {
+    if #complete m == {
+        case .A; return 1;
+        case .B; return 2;
+    }
+    dead_after := 3;
+}
+narrow :: (x: s64) {
+    if x > 10 {
+        if x == {
+            case 3; excluded := 1;
+            case 20; selected := 2;
+        }
+    }
+}
+main :: () { pick(.A); narrow(1); }
+"#;
+    assert_eq!(faded(source), ["dead_after := 3", "excluded := 1"]);
+}
+
+#[test]
+fn a_through_case_flows_into_the_next() {
+    let source = r#"main :: (x: s64) {
+    if x > 10 {
+        if x == {
+            case 20; first := 1; #through;
+            case 3; reached_by_falling := 2;
+        }
+    }
+}
+"#;
+    assert_eq!(faded(source), Vec::<String>::new());
+}
+
+#[test]
+fn a_polymorphic_body_fades_only_what_every_instance_rules_out() {
+    let source = r#"check :: (v: $T) {
+    if v >= 0 { positive := 1; } else { negative := 2; }
+}
+only_unsigned :: (v: $T) {
+    if v >= 0 { positive_only := 1; } else { never_negative := 2; }
+}
+main :: () {
+    check(cast(u8) 1);
+    check(cast(s32) 1);
+    only_unsigned(cast(u8) 1);
+    only_unsigned(cast(u16) 1);
+}
+"#;
+    assert_eq!(faded(source), ["never_negative := 2"]);
+}

@@ -1729,6 +1729,7 @@ impl Compiler {
             cond,
             then_value.map_or(expected, |_| Some(TypeId::BOOL)),
         )?;
+        self.ide_note_ifx(cond, then_value, else_value);
         // Compile-time condition: only check the taken branch.
         if let Operand::Const {
             value, ..

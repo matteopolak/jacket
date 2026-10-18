@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `jailsp` fades code that can never run: statements after an exit, branches and loops a condition rules out (also by integer ranges and narrowing), `case`s a value cannot select, and `#if`/`ifx` arms that were not taken. They arrive as `unreachable` hints tagged `Unnecessary`, with no squiggle.
+
 ## [0.19.1] - 2026-10-18
 
 Restores stdlib compatibility and makes `jaic` faster. Several stdlib changes in 0.19.0 made observable behaviour differ from the official standard library; they are reverted, and UTF-8 decoding of malformed input now matches it too.
