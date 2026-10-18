@@ -18,6 +18,7 @@ use crate::paths::normalize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 /// The project settings file the editor and compiler tools read.
 pub const JAI_TOML: &str = "jai.toml";
@@ -473,6 +474,14 @@ pub trait ProjectFs {
             .collect()
     }
 
+    /// The direct loaders of each file under `folder` (see [`build_loader_graph`]) when this
+    /// file system keeps them between calls and knows they are current. An editor that asks
+    /// for a program after every keystroke answers from a graph it rebuilds only when a
+    /// `#load` changes, instead of reading every `#load` of the tree again.
+    fn loader_graph(&self, _folder: &Path) -> Option<LoaderGraph> {
+        None
+    }
+
     /// The `.jai` files under `folder`, for [`LoaderSearch::Tree`].
     fn project_files(&self, folder: &Path) -> Vec<PathBuf> {
         let mut files = Vec::new();
@@ -498,6 +507,9 @@ pub trait ProjectFs {
         files
     }
 }
+
+/// For each file, the files under a folder that `#load` it.
+pub type LoaderGraph = Rc<BTreeMap<PathBuf, Vec<PathBuf>>>;
 
 /// The most `.jai` files a [`ProjectFs::project_files`] walk collects, and how deep it goes.
 pub const MAX_TREE_FILES: usize = 4000;
@@ -844,12 +856,7 @@ fn outermost(loaders: &[PathBuf], cache: &mut LoadCache) -> Option<PathBuf> {
 }
 
 /// Direct loaders of each file under the search area, the tree's way.
-fn gather_loaders(
-    fs: &dyn ProjectFs,
-    file: &Path,
-    search: &LoaderSearch,
-) -> BTreeMap<PathBuf, Vec<PathBuf>> {
-    let mut loaders: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+fn gather_loaders(fs: &dyn ProjectFs, file: &Path, search: &LoaderSearch) -> LoaderGraph {
     let folder = match search {
         LoaderSearch::Tree {
             folder,
@@ -863,11 +870,22 @@ fn gather_loaders(
             .and_then(|p| p.ancestors().take(*levels).last())
             .map(Path::to_path_buf),
     };
-    if let Some(folder) = folder {
-        for f in fs.project_files(&folder) {
-            for target in fs.loads(&f) {
-                loaders.entry(fs.key(&target)).or_default().push(f.clone());
-            }
+    let Some(folder) = folder else {
+        return LoaderGraph::default();
+    };
+    fs.loader_graph(&folder)
+        .unwrap_or_else(|| Rc::new(build_loader_graph(fs, &fs.project_files(&folder))))
+}
+
+/// The direct loaders of each file that `files` `#load`.
+pub fn build_loader_graph(
+    fs: &dyn ProjectFs,
+    files: &[PathBuf],
+) -> BTreeMap<PathBuf, Vec<PathBuf>> {
+    let mut loaders: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+    for f in files {
+        for target in fs.loads(f) {
+            loaders.entry(fs.key(&target)).or_default().push(f.clone());
         }
     }
     loaders

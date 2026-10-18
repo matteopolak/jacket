@@ -18,6 +18,8 @@ The one place that knows how a Jai project is laid out for tools that do not com
 
 ## How to change it
 
+`ProjectFs::loader_graph` lets a file system that keeps the loaders of a tree between calls (the language server's `IndexFs`) answer the `ModuleFirstShallowest` search without reading every `#load` again; the default returns `None` and `build_loader_graph` is used.
+
 Add a setting by extending `ProjectConfig` and the matching `parse_*` arm. Change root rules by adding a variant to `TieBreak` or `LoaderSearch` rather than editing the existing ones, and extend `linter_and_language_server_agree_on_the_same_tree` and `tie_breaks_differ_when_loaders_disagree`. `jai-language-server` `project.rs` has a test that the real `Session::project_root` equals the linter preset on a fixture tree.
 
 ## Configuration

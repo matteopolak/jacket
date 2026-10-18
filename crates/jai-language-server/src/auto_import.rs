@@ -50,6 +50,23 @@ pub(crate) struct Module {
     name: String,
     only_os: Option<Vec<String>>,
     decls: Vec<Decl>,
+    /// The module file (`dir/Name.jai` or `dir/Name/module.jai`) and the files its `#load`s
+    /// reach, which this was read from: an edit to any of them makes it stale.
+    file: PathBuf,
+    files: BTreeSet<PathBuf>,
+    /// The folder it was found in and the prefix its name has there (`Extensions/`).
+    dir: PathBuf,
+    prefix: String,
+}
+
+/// The modules of a folder. Each is shared, so one that an edit made stale is read again
+/// without reading the rest.
+type Modules = Rc<Vec<Rc<Module>>>;
+
+/// The modules of a folder, and the files that changed since they were read.
+struct ModuleCache {
+    modules: Modules,
+    stale: BTreeSet<PathBuf>,
 }
 
 #[derive(Default)]
@@ -63,8 +80,16 @@ pub(crate) struct Index {
     /// The build files run to see what they build, with a hash of everything they were run
     /// from: a metaprogram is run again only after that changes.
     pub(crate) probed: BTreeMap<PathBuf, u64>,
-    stdlib: Option<(PathBuf, Rc<Vec<Module>>)>,
-    module_dirs: BTreeMap<PathBuf, Rc<Vec<Module>>>,
+    /// Module lists. A file that changes makes stale only the modules read from it, which are
+    /// made again when the list is next asked for.
+    stdlib: Option<(PathBuf, ModuleCache)>,
+    module_dirs: BTreeMap<PathBuf, ModuleCache>,
+    /// Direct loaders of each file under a folder, as of `graph_epoch` and the files given.
+    graphs: BTreeMap<PathBuf, (u64, Vec<PathBuf>, project::LoaderGraph)>,
+    /// Moves on whenever a file's `#load`s are not what the last scan of it saw.
+    graph_epoch: u64,
+    /// The `#load` paths each file had when it was last scanned.
+    loads_seen: BTreeMap<PathBuf, Vec<String>>,
     /// Scans of files read from the environment.
     files: BTreeMap<PathBuf, Rc<FileScan>>,
     /// Scans of open documents, with the hash of the text scanned.
@@ -106,18 +131,36 @@ impl Index {
         std::mem::take(&mut self.pending)
     }
 
+    /// `scan` is the latest of `path`: when its `#load`s differ from the scan before, the loader
+    /// graphs are out of date.
+    fn note_loads(&mut self, path: &Path, scan: &FileScan) {
+        let same = self.loads_seen.get(path).is_some_and(|seen| {
+            seen.len() == scan.loads.len()
+                && seen.iter().zip(&scan.loads).all(|(a, b)| *a == b.path)
+        });
+        if !same {
+            self.loads_seen.insert(
+                path.to_path_buf(),
+                scan.loads.iter().map(|l| l.path.clone()).collect(),
+            );
+            self.graph_epoch += 1;
+        }
+    }
+
     /// `path` changed: its scan and the module index it is part of are stale.
     pub(crate) fn changed(&mut self, path: &Path) {
         self.files.remove(path);
         self.import_dirs
             .retain(|_, (_, deps)| !deps.iter().any(|d| d == path));
-        self.module_dirs.retain(|dir, _| !path.starts_with(dir));
-        if self
-            .stdlib
-            .as_ref()
-            .is_some_and(|(dir, _)| path.starts_with(dir))
+        if let Some((dir, cache)) = &mut self.stdlib
+            && path.starts_with(dir)
         {
-            self.stdlib = None;
+            cache.stale.insert(path.to_path_buf());
+        }
+        for (dir, cache) in &mut self.module_dirs {
+            if path.starts_with(dir) {
+                cache.stale.insert(path.to_path_buf());
+            }
         }
     }
 
@@ -127,6 +170,18 @@ impl Index {
         // A folder of modules may have appeared or gone.
         self.import_dirs.clear();
         self.walked.retain(|dir, _| !path.starts_with(dir));
+        // A module may have appeared or gone in the folders above it; the other files' keys
+        // and the loaders found among the files may be different too.
+        self.module_dirs.retain(|dir, _| !path.starts_with(dir));
+        if self
+            .stdlib
+            .as_ref()
+            .is_some_and(|(dir, _)| path.starts_with(dir))
+        {
+            self.stdlib = None;
+        }
+        self.graphs.clear();
+        self.graph_epoch += 1;
     }
 }
 
@@ -267,6 +322,7 @@ impl Sources<'_> {
                 return scan.clone();
             }
             let scan = Rc::new(exports::scan(text));
+            index.note_loads(path, &scan);
             index.open.insert(path.to_path_buf(), (h, scan.clone()));
             return scan;
         }
@@ -278,6 +334,7 @@ impl Sources<'_> {
                 .map(|text| exports::scan(&text))
                 .unwrap_or_default(),
         );
+        index.note_loads(path, &scan);
         index.files.insert(path.to_path_buf(), scan.clone());
         scan
     }
@@ -324,7 +381,7 @@ impl Sources<'_> {
     }
 
     /// The modules in `dir`: `Name.jai` and `Name/module.jai`, imported as `prefix` + `Name`.
-    fn modules_in(&self, index: &mut Index, dir: &Path, prefix: &str) -> Vec<Module> {
+    fn modules_in(&self, index: &mut Index, dir: &Path, prefix: &str) -> Vec<Rc<Module>> {
         let mut modules = Vec::new();
         for (entry, is_dir) in self.list_dir(dir) {
             if entry.starts_with('.') {
@@ -341,34 +398,102 @@ impl Sources<'_> {
             } else {
                 continue;
             };
-            let only_os = self.scan(index, &file).only_os.clone();
-            let mut decls = Vec::new();
-            for part in self.closure(index, &file) {
-                let scan = self.scan(index, &part);
-                for decl in scan
-                    .decls
-                    .iter()
-                    .filter(|d| d.visibility == Visibility::Export)
-                {
-                    decls.extend(self.alias_documentation(index, &file, &part, decl, dir));
-                }
-            }
-            modules.push(Module {
-                name: format!("{prefix}{name}"),
-                only_os,
-                decls,
-            });
+            modules.push(Rc::new(self.read_module(
+                index,
+                dir,
+                prefix,
+                format!("{prefix}{name}"),
+                file,
+            )));
         }
         modules
     }
 
-    fn stdlib(&self, index: &mut Index, dir: &Path) -> Rc<Vec<Module>> {
-        if let Some((cached, modules)) = &index.stdlib
-            && cached == dir
+    /// The module `name` whose file is `file`, found in `dir`.
+    fn read_module(
+        &self,
+        index: &mut Index,
+        dir: &Path,
+        prefix: &str,
+        name: String,
+        file: PathBuf,
+    ) -> Module {
+        let only_os = self.scan(index, &file).only_os.clone();
+        let mut decls = Vec::new();
+        let files = self.closure(index, &file);
+        for part in &files {
+            let scan = self.scan(index, part);
+            for decl in scan
+                .decls
+                .iter()
+                .filter(|d| d.visibility == Visibility::Export)
+            {
+                decls.extend(self.alias_documentation(index, &file, part, decl, dir));
+            }
+        }
+        Module {
+            name,
+            only_os,
+            decls,
+            file,
+            files,
+            dir: dir.to_path_buf(),
+            prefix: prefix.to_string(),
+        }
+    }
+
+    /// `modules` with the ones read from a file in `stale` read again.
+    fn refreshed(
+        &self,
+        index: &mut Index,
+        modules: &Modules,
+        stale: &BTreeSet<PathBuf>,
+    ) -> Modules {
+        if !modules
+            .iter()
+            .any(|m| m.files.iter().any(|f| stale.contains(f)))
         {
             return modules.clone();
         }
-        let mut modules: Vec<Module> = self
+        Rc::new(
+            modules
+                .iter()
+                .map(|m| {
+                    if m.files.iter().any(|f| stale.contains(f)) {
+                        Rc::new(self.read_module(
+                            index,
+                            &m.dir,
+                            &m.prefix,
+                            m.name.clone(),
+                            m.file.clone(),
+                        ))
+                    } else {
+                        m.clone()
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    fn stdlib(&self, index: &mut Index, dir: &Path) -> Modules {
+        if let Some((cached, cache)) = &index.stdlib
+            && cached == dir
+        {
+            if cache.stale.is_empty() {
+                return cache.modules.clone();
+            }
+            let (modules, stale) = (cache.modules.clone(), cache.stale.clone());
+            let modules = self.refreshed(index, &modules, &stale);
+            index.stdlib = Some((
+                dir.to_path_buf(),
+                ModuleCache {
+                    modules: modules.clone(),
+                    stale: BTreeSet::new(),
+                },
+            ));
+            return modules;
+        }
+        let mut modules: Vec<Rc<Module>> = self
             .modules_in(index, dir, "")
             .into_iter()
             .filter(|m| !jaic::sema::COMPILER_INTERNAL_MODULES.contains(&m.name.as_str()))
@@ -378,16 +503,40 @@ impl Sources<'_> {
         // The stdlib's files are only read through its modules: drop their scans.
         index.files.retain(|path, _| !path.starts_with(dir));
         let modules = Rc::new(modules);
-        index.stdlib = Some((dir.to_path_buf(), modules.clone()));
+        index.stdlib = Some((
+            dir.to_path_buf(),
+            ModuleCache {
+                modules: modules.clone(),
+                stale: BTreeSet::new(),
+            },
+        ));
         modules
     }
 
-    fn user_modules(&self, index: &mut Index, dir: &Path) -> Rc<Vec<Module>> {
-        if let Some(modules) = index.module_dirs.get(dir) {
-            return modules.clone();
+    fn user_modules(&self, index: &mut Index, dir: &Path) -> Modules {
+        if let Some(cache) = index.module_dirs.get(dir) {
+            if cache.stale.is_empty() {
+                return cache.modules.clone();
+            }
+            let (modules, stale) = (cache.modules.clone(), cache.stale.clone());
+            let modules = self.refreshed(index, &modules, &stale);
+            index.module_dirs.insert(
+                dir.to_path_buf(),
+                ModuleCache {
+                    modules: modules.clone(),
+                    stale: BTreeSet::new(),
+                },
+            );
+            return modules;
         }
         let modules = Rc::new(self.modules_in(index, dir, ""));
-        index.module_dirs.insert(dir.to_path_buf(), modules.clone());
+        index.module_dirs.insert(
+            dir.to_path_buf(),
+            ModuleCache {
+                modules: modules.clone(),
+                stale: BTreeSet::new(),
+            },
+        );
         modules
     }
 
@@ -887,7 +1036,7 @@ impl Session {
             .chain(program.stdlib.as_deref().map(|s| sources.key(s)))
             .filter_map(|d| module_of(&file, &d))
             .collect();
-        let mut sets: Vec<(Rc<Vec<Module>>, bool)> = module_dirs
+        let mut sets: Vec<(Modules, bool)> = module_dirs
             .iter()
             .map(|d| (sources.user_modules(&mut index, d), true))
             .collect();
@@ -1078,5 +1227,24 @@ impl project::ProjectFs for IndexFs<'_, '_> {
     fn project_files(&self, folder: &Path) -> Vec<PathBuf> {
         self.sources
             .project_files(&mut self.index.borrow_mut(), folder)
+    }
+
+    /// Kept until a file's `#load`s change (an edit that leaves them alone keeps it), so the
+    /// program of a document is found without reading the whole tree again.
+    fn loader_graph(&self, folder: &Path) -> Option<project::LoaderGraph> {
+        let files = self.project_files(folder);
+        if let Some((epoch, seen, graph)) = self.index.borrow().graphs.get(folder)
+            && *epoch == self.index.borrow().graph_epoch
+            && *seen == files
+        {
+            return Some(graph.clone());
+        }
+        let graph = Rc::new(project::build_loader_graph(self, &files));
+        let mut index = self.index.borrow_mut();
+        let epoch = index.graph_epoch;
+        index
+            .graphs
+            .insert(folder.to_path_buf(), (epoch, files, graph.clone()));
+        Some(graph)
     }
 }

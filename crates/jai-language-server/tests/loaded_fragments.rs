@@ -111,3 +111,30 @@ fn module_root_keeps_being_its_own_program() {
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let _ = std::fs::remove_dir_all(&folder);
 }
+
+#[test]
+fn editing_a_loaders_loads_moves_the_fragments_owner() {
+    let folder = make("edited-loads", &tree(&[]));
+    let (mut s, fragment, _) = open(&folder, "internal/fragment.jai");
+    assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
+    let module_path = folder.join("Shapes/module.jai");
+    let module = DocumentUri::from_path(&module_path).unwrap();
+    let text = std::fs::read_to_string(&module_path).unwrap();
+    s.open(module.clone(), 1, text.clone()).unwrap();
+    let full = |text: &str| jai_language_server::TextChange {
+        range: None,
+        range_length: None,
+        text: text.to_string(),
+    };
+    // Edits that leave the `#load`s alone keep the owner.
+    s.change(&module, 2, &[full(&format!("// edited\n{text}"))])
+        .unwrap();
+    assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
+    // Without its `#load`, `Shapes` no longer owns the fragment, which cannot see `LIMIT`.
+    s.change(&module, 3, &[full(&text.replace("#load", "// #load"))])
+        .unwrap();
+    assert!(!check_errors(&s, &fragment).is_empty());
+    s.change(&module, 4, &[full(&text)]).unwrap();
+    assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
+    let _ = std::fs::remove_dir_all(&folder);
+}
