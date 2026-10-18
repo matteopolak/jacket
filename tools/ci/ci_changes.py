@@ -3,7 +3,8 @@
 
 Pushes diff the pushed range, pull requests diff against their base, anything else (manual
 runs, a new branch, a range that cannot be diffed) runs every area. Areas live in AREAS: to gate
-a job on more paths, add a pattern there. `*` matches within a directory, `**` across them.
+a job on more paths, add a pattern there. A change to ci.yml or .github/actions runs every area
+except those in OWN_PATHS_ONLY. `*` matches within a directory, `**` across them.
 `code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
 docs-only push skips the build and test jobs.
 
@@ -17,11 +18,9 @@ import sys
 SELF = r".github/(workflows/ci\.yml|actions/.*)"
 
 AREAS = {
-    "sdl3": [
-        "stdlib/Extensions/SDL3/**", "tools/sdl3*.py", "tools/bindings/sdl_test_support.py",
-        "tools/bindings/prepare_sdl_python_tests.py", "tools/test_sdl*.py", "tools/native/sdl3/**",
-        "tools/native/native-libs.json", "tools/native/build_native_libs.py", "tools/repo_output.py", ".gitattributes",
-    ],
+    # Only the extension and its own tooling: the release workflow still builds and tests SDL3 with
+    # the shared native-library builders, so a change to those is caught before shipping.
+    "sdl3": ["stdlib/Extensions/SDL3/**", "tools/bindings/*sdl*.py", "tools/native/sdl3/**"],
     "clipboard": [
         "stdlib/Clipboard/**", "stdlib/internal/clipboard/**", "stdlib/internal/window/connection.jai",
         "stdlib/Basic/**", "stdlib/internal/basic/**", "crates/**", "Cargo.*", "rust-toolchain.toml",
@@ -45,6 +44,9 @@ AREAS = {
         "crates/jaic-cli/tests/native.rs", "tests/compiler/native/**",
     ],
 }
+
+# Areas too costly to run whenever the workflow itself changes.
+OWN_PATHS_ONLY = {"sdl3"}
 
 # Prose no build or test reads. The specs feed generators and checks, jailint's rules test reads
 # its doc, and the rule IDs in docs/language and docs/metaprogramming are checked by the `docs`
@@ -74,8 +76,8 @@ def compile_patterns(patterns, extra=None):
     return re.compile("^(" + "|".join(alternatives) + ")$")
 
 
-def matches(patterns, files):
-    rx = compile_patterns(patterns, SELF)
+def matches(patterns, files, workflow=True):
+    rx = compile_patterns(patterns, SELF if workflow else None)
     return any(rx.match(f) for f in files)
 
 
@@ -105,7 +107,7 @@ def main():
     event = env.get("GITHUB_EVENT_NAME", "")
     results = {}
     for area, patterns in AREAS.items():
-        results[area] = files is None or matches(patterns, files)
+        results[area] = files is None or matches(patterns, files, area not in OWN_PATHS_ONLY)
     results["code"] = files is None or code_changed(files)
     if event == "pull_request":
         results["windows"] = False

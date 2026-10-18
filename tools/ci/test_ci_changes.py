@@ -10,6 +10,12 @@ class Matching(unittest.TestCase):
         self.assertTrue(ci_changes.matches(["nix/**"], [".github/workflows/ci.yml"]))
         self.assertFalse(ci_changes.matches(["nix/**"], ["stdlib/Basic/module.jai"]))
 
+    def test_sdl3_runs_only_for_its_own_paths(self):
+        sdl3 = ci_changes.AREAS["sdl3"]
+        self.assertTrue(ci_changes.matches(sdl3, ["tools/bindings/sdl3_gen.py"], False))
+        self.assertFalse(ci_changes.matches(sdl3, [".github/workflows/ci.yml"], False))
+        self.assertFalse(ci_changes.matches(sdl3, ["tools/native/native-libs.json"], False))
+
     def test_docs_only_changes_skip_code(self):
         self.assertFalse(ci_changes.code_changed(["docs/tools/cli.md", "README.md", "docs/images/a.png"]))
         self.assertTrue(ci_changes.code_changed(["docs/tools/cli.md", "tools/ci/ci_changes.py"]))
