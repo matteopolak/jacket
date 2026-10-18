@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.19.1] - 2026-10-18
+
+Restores stdlib compatibility. Five stdlib changes in 0.19.0 made observable behaviour differ from the official standard library; they are reverted, and UTF-8 decoding of malformed input now matches it too.
+
+### Fixes
+
+- `split_from_right(s, byte)` returns `(false, "", s)` again when the byte is absent.
+- `scan` checks the `%` that `%%` matches but leaves it unconsumed again.
+- `Sort.quick_sort` is no longer deprecated, and `Sort` no longer exports `intro_sort` or `heap_sort`. `quick_sort` keeps the faster introsort from 0.19.0, and its key form still computes each key once. `IntroSort.intro_sort` is unchanged.
+- Strict `character_utf8_to_utf32` again reports only the bytes before a bad continuation byte as consumed, which is 0 when the first continuation is bad.
+- `character_utf32_to_utf8` encodes surrogates (U+D800 to U+DFFF) as themselves again.
+- `find_index_from_left(s, substring, start_index)` asserts on a negative `start_index` instead of treating it as 0.
+- `Window_Creation` builds for Android again instead of failing with an `#assert`.
+- `character_utf8_to_utf32` decodes malformed input to the payload bits of its bytes: a continuation byte without its `10` marker contributes its low six bits, and a stray continuation byte decodes as 0 in one byte, also in strict mode.
+
 ## [0.19.0] - 2026-10-18
 
 Faster default builds and compile-time string code, a much faster `jailsp` on large workspaces, stdlib fixes found by fuzzing and review, and a new `excessive_nesting` lint. This release includes the changes planned for 0.18.1, which was not published separately. The breaking changes are small stdlib behaviour fixes, listed below.
