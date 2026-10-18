@@ -63,6 +63,7 @@ print_u64_base_n :: (builder: *String_Builder, v: u64, format: FormatInt) {
         for i: 0..count - 1 text[padding + i] = digits[count - 1 - i];
 
         append(builder, text.data, remaining);
+
         return;
     }
 

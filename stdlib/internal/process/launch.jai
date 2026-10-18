@@ -427,7 +427,8 @@ supervise :: (handles: Launch_Handles, argv: **u8, directory: *u8, change_direct
 
         pollfd: P.pollfd = .{ fd = control, events = cast(s16) (P.POLLIN | P.POLLHUP) };
         ready := P.poll(*pollfd, 1, nap);
-        if nap < 10 nap = nap * 2;
+
+        if nap < 10 nap *= 2;
         if nap > 10 nap = 10;
 
         if ready < 0 {

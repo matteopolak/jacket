@@ -122,6 +122,7 @@ append :: (using builder: *String_Builder, s: *u8, length: s64) {
 
     memory := ensure_contiguous_space(builder, length);
     if !memory return;
+
     memcpy(memory, s, length);
     advance_through_ensured_space(builder, length);
 }
