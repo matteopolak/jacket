@@ -133,6 +133,10 @@ pub struct ExportState {
     /// looked up once. Dropped whenever an entity has been added since, as a new declaration
     /// (from a metaprogram) can change what a name means.
     name_lookups: HashMap<(ScopeId, Sym), Option<EntityId>>,
+    /// The module of the file the last exported node was in.
+    last_file_module: Option<(FileId, ModuleId)>,
+    /// The type a plain identifier names in a scope, by the same rules.
+    type_names: HashMap<(ScopeId, Sym), Option<TypeId>>,
     /// The entity count the cached lookups were made at.
     name_lookups_at: usize,
     /// The polymorph instances made for each call (by the call's span), so a call's
@@ -144,6 +148,15 @@ pub struct ExportState {
 }
 
 impl ExportState {
+    /// Forget cached name lookups when entities were added since they were made.
+    fn refresh_name_caches(&mut self, entities: usize) {
+        if self.name_lookups_at != entities {
+            self.name_lookups.clear();
+            self.type_names.clear();
+            self.name_lookups_at = entities;
+        }
+    }
+
     fn schedule_body(&mut self, p: ProcId, header: i64, scope: ScopeId) {
         if self.scheduled_bodies.insert(p) {
             self.pending_bodies.push((p, header, scope));
@@ -1056,7 +1069,19 @@ fn assign_op(op: ast::AssignOp) -> i64 {
 impl Exporter<'_> {
     fn eval_type(&mut self, expr: &ast::Expr) -> Option<TypeId> {
         let scope = self.scope;
-        self.c.as_deref_mut()?.eval_type(scope, expr).ok()
+        let c = self.c.as_deref_mut()?;
+        let ast::ExprKind::Ident(name) = &expr.kind else {
+            return c.eval_type(scope, expr).ok();
+        };
+        c.export.refresh_name_caches(c.entities.len());
+        if let Some(&cached) = c.export.type_names.get(&(scope, *name)) {
+            return cached;
+        }
+        let found = c.eval_type(scope, expr).ok();
+        // Evaluating may have added entities, which drops the caches; the result is still good.
+        c.export.refresh_name_caches(c.entities.len());
+        c.export.type_names.insert((scope, *name), found);
+        found
     }
 
     /// A node record with the `Code_Node` fields filled in.
@@ -1069,11 +1094,17 @@ impl Exporter<'_> {
             return rec;
         };
         if (span.file.0 as usize) < c.sources.len() {
-            let module = c
-                .files
-                .iter()
-                .find(|f| f.id == span.file)
-                .map_or(c.scope(self.scope).module, |f| f.module);
+            // Nodes come in runs from one file: remember the last file's module.
+            let module = match c.export.last_file_module {
+                Some((file, module)) if file == span.file => module,
+                _ => match c.files.iter().find(|f| f.id == span.file) {
+                    Some(f) => {
+                        c.export.last_file_module = Some((span.file, f.module));
+                        f.module
+                    }
+                    None => c.scope(self.scope).module,
+                },
+            };
             let file = c.file_record_in(self.r, span.file, module);
             let source = c.sources.get(span.file);
             let (l0, c0) = source.line_col(span.start);
@@ -1161,10 +1192,7 @@ impl Exporter<'_> {
         }
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
-        if c.export.name_lookups_at != c.entities.len() {
-            c.export.name_lookups.clear();
-            c.export.name_lookups_at = c.entities.len();
-        }
+        c.export.refresh_name_caches(c.entities.len());
         let id = match c.export.name_lookups.get(&(scope, name)) {
             Some(&cached) => cached?,
             None => {
