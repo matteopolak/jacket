@@ -2,13 +2,33 @@
 use super::stmt::stmt;
 use super::{PResult, Parser};
 use crate::ast::{
-    AssertStmt, Decl, DirectiveStmt, Expr, ExprKind, Ident, Import, ImportSource, InsertStmt,
-    ModuleParametersStmt, ScopeKind, StaticIfStmt, Stmt, StmtKind, SwitchStmt,
+    AssertStmt, BinOp, Decl, DirectiveStmt, Expr, ExprKind, Ident, Import, ImportSource,
+    InsertStmt, ModuleParametersStmt, ScopeKind, StaticIfStmt, Stmt, StmtKind, SwitchStmt, UnOp,
 };
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
 use std::rc::Rc;
+
+/// The `Operating_System_Tag` and `CPU_Tag` members of `stdlib/prelude/platform.jai`: a test
+/// against any other name is left for type checking to reject.
+const OS_TAGS: &[&str] = &[
+    "NONE",
+    "KRAMPOS",
+    "WINDOWS",
+    "LINUX",
+    "ANDROID",
+    "IOS",
+    "MACOS",
+    "NN_SWITCH",
+    "PS4",
+    "PS5",
+    "XBOX",
+    "WASM",
+    "NN_SWITCH2",
+];
+
+const CPU_TAGS: &[&str] = &["UNINITIALIZED", "KRAMPU", "CUSTOM", "X64", "ARM64"];
 
 /// Directive statements that take a plain list of expressions up to the `;`.
 const GENERIC_DIRECTIVES: &[&str] = &[
@@ -107,11 +127,37 @@ impl Parser<'_> {
             ));
         }
         self.eat_kw("then");
-        let then_branch = self.parse_static_branch()?;
-        let else_branch = if self.eat_kw("else") {
+        let file_level = self.platform.is_some() && self.depth == self.file_level_depth;
+        let known = if file_level {
+            self.fold_platform_test(&value)
+        } else {
+            None
+        };
+        let saved_level = self.file_level_depth;
+        if file_level {
+            self.file_level_depth += 1;
+        }
+        let then_branch = if known == Some(false) {
+            self.skip_static_branch()?
+        } else {
             self.parse_static_branch()?
+        };
+        let else_branch = if self.eat_kw("else") {
+            if known == Some(true) {
+                self.skip_static_branch()?
+            } else {
+                self.parse_static_branch()?
+            }
         } else {
             Vec::new()
+        };
+        self.file_level_depth = saved_level;
+        let value = match known {
+            Some(decided) => Expr {
+                kind: ExprKind::Bool(decided),
+                span: value.span,
+            },
+            None => value,
         };
         Ok(stmt(
             StmtKind::StaticIf(Box::new(StaticIfStmt {
@@ -121,6 +167,61 @@ impl Parser<'_> {
             })),
             start.to(self.prev_span()),
         ))
+    }
+
+    /// Whether `expr` is decided by the platform alone: `OS == .X`, `CPU != .X`, joined by `!`,
+    /// `&&` and `||`. `None` for anything else, including a tag the prelude does not name,
+    /// which type checking reports.
+    fn fold_platform_test(&self, expr: &Expr) -> Option<bool> {
+        let platform = self.platform?;
+        match &expr.kind {
+            ExprKind::Bool(value) => Some(*value),
+            ExprKind::Unary(UnOp::Not, inner) => self.fold_platform_test(inner).map(|v| !v),
+            ExprKind::Binary(BinOp::And, lhs, rhs) => {
+                Some(self.fold_platform_test(lhs)? && self.fold_platform_test(rhs)?)
+            }
+            ExprKind::Binary(BinOp::Or, lhs, rhs) => {
+                Some(self.fold_platform_test(lhs)? || self.fold_platform_test(rhs)?)
+            }
+            ExprKind::Binary(op @ (BinOp::Eq | BinOp::Ne), lhs, rhs) => {
+                let (ExprKind::Ident(name), ExprKind::InferredMember(tag)) = (&lhs.kind, &rhs.kind)
+                else {
+                    return None;
+                };
+                let (target, tags): (&str, &[&str]) = match name.as_str() {
+                    "OS" => (platform.os, OS_TAGS),
+                    "CPU" => (platform.cpu, CPU_TAGS),
+                    _ => return None,
+                };
+                let tag = tag.name.as_str();
+                if !tags.contains(&tag) {
+                    return None;
+                }
+                Some((tag == target) == (*op == BinOp::Eq))
+            }
+            _ => None,
+        }
+    }
+
+    /// Steps over a `{ ... }` branch without building statements. A branch that is not a
+    /// brace list is parsed (and kept) like any statement.
+    fn skip_static_branch(&mut self) -> PResult<Vec<Stmt>> {
+        if !self.at(P::LBrace) {
+            return self.parse_static_branch();
+        }
+        let mut open = 0usize;
+        loop {
+            match self.tok() {
+                Tok::Punct(P::LBrace | P::DotBrace) => open += 1,
+                Tok::Punct(P::RBrace) => open -= 1,
+                Tok::Eof => return Err(self.expected("`}`", "to end the `#if` body")),
+                _ => {}
+            }
+            self.bump();
+            if open == 0 {
+                return Ok(Vec::new());
+            }
+        }
     }
 
     /// A `{ ... }` list (no new scope) or a single statement.

@@ -525,7 +525,11 @@ impl Compiler {
             ide.errors.extend(shared.diagnostics.iter().cloned());
             &shared.file
         } else {
-            own = crate::parser::parse_file(file, &text).map_err(Box::new)?;
+            own = match self.library_platform(path) {
+                Some(target) => crate::parser::parse_file_for_target(file, &text, target),
+                None => crate::parser::parse_file(file, &text),
+            }
+            .map_err(Box::new)?;
             &own
         };
         let module_scope = self.modules[module.0 as usize].scope;
@@ -539,6 +543,20 @@ impl Compiler {
         self.modules[module.0 as usize].files.push(file);
         self.declare_stmts(module_scope, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
         Ok(())
+    }
+
+    /// The platform to read `path` for when it belongs to the standard library, whose dead
+    /// file-level `#if` branches are then skipped while parsing. User code is parsed in full, so
+    /// a syntax error in code the target does not build is still reported.
+    fn library_platform(&mut self, path: &Path) -> Option<crate::parser::PlatformTarget> {
+        let stdlib = self.options.stdlib_root()?.to_path_buf();
+        if !path.starts_with(self.canon(&stdlib)) {
+            return None;
+        }
+        Some(crate::parser::PlatformTarget {
+            os: crate::target::os_member(self.options.os),
+            cpu: crate::target::cpu_member(self.options.cpu),
+        })
     }
 
     pub fn file_dir(&self, file: FileId) -> PathBuf {

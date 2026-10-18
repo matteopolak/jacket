@@ -1480,3 +1480,43 @@ fn nested_ifx_statements_are_parsed_once() {
     // `ifx` as a name.
     assert!(matches!(body("ifx := 1;")[0].kind, StmtKind::Decl(_)));
 }
+
+#[test]
+fn dead_platform_branches_are_skipped_for_a_library_target() {
+    let target = super::PlatformTarget {
+        os: "MACOS",
+        cpu: "ARM64",
+    };
+    let src = r#"
+#if OS == .LINUX || (OS == .WINDOWS && CPU == .X64) {
+    // a brace } in a comment, "a } string", @note}
+    gone :: .{ 1, 2 };
+    /* nested /* } */ } */
+    bad syntax here ((
+}
+#if !(OS == .MACOS) { ignored :: 1; } else { kept :: 2; }
+#if OS == .MACOS && CPU == .ARM64 { here :: .{ 3 }; }
+#if OS == .MACOS { #if CPU == .X64 { nested_gone :: 1; } else { nested_kept :: 2; } }
+"#;
+    let file = super::parse_file_for_target(FileId(0), src, target).expect("parses");
+    let mut names = Vec::new();
+    fn collect(stmts: &[Stmt], names: &mut Vec<String>, taken: bool) {
+        for s in stmts {
+            match &s.kind {
+                StmtKind::StaticIf(branch) => {
+                    let ExprKind::Bool(value) = branch.cond.kind else {
+                        panic!("condition was not decided");
+                    };
+                    collect(&branch.then_branch, names, taken && value);
+                    collect(&branch.else_branch, names, taken && !value);
+                }
+                StmtKind::Decl(d) if taken => {
+                    names.extend(d.names.iter().map(|n| n.name.as_str().to_string()))
+                }
+                _ => {}
+            }
+        }
+    }
+    collect(&file.stmts, &mut names, true);
+    assert_eq!(names, ["kept", "here", "nested_kept"]);
+}

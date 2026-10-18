@@ -30,6 +30,7 @@ mod stmt;
 mod tests;
 
 use crate::ast::{File, Ident, Note, Stmt};
+pub use crate::lexer::PlatformTarget;
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 pub(crate) use ide::parse_callee_ide;
@@ -46,6 +47,26 @@ pub const MAX_NESTING: usize = 1000;
 pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
     let tokens = lex(file, text)?;
     let mut parser = Parser::new(text, tokens);
+    let stmts = parser.parse_file_stmts()?;
+    Ok(File {
+        file,
+        stmts,
+    })
+}
+
+/// `parse_file`, for a library file whose dead file-level `#if` branches need be neither
+/// lexed nor parsed (see [`PlatformTarget`]).
+/// Everything a branch could declare is absent from the tree, so a syntax error inside a branch
+/// the target rules out goes unreported: use it only for files the project ships and tests on
+/// every platform.
+pub fn parse_file_for_target(
+    file: FileId,
+    text: &str,
+    target: PlatformTarget,
+) -> Result<File, Diagnostic> {
+    let tokens = crate::lexer::lex_for_target(file, text, target)?;
+    let mut parser = Parser::new(text, tokens);
+    parser.platform = Some(target);
     let stmts = parser.parse_file_stmts()?;
     Ok(File {
         file,
@@ -90,6 +111,12 @@ pub(crate) struct Parser<'a> {
     /// Only an IDE query sets this: capture one real callee before argument parsing fails.
     ide_call_open: Option<u32>,
     ide_call_callee: Option<crate::ast::Expr>,
+    /// Set by `parse_file_for_target`.
+    platform: Option<PlatformTarget>,
+    /// The `depth` at which a statement is still at file level: `#if` branches at file level
+    /// are file level too, anything else (a block, a struct body) is not, since a name such as
+    /// `OS` may be declared there.
+    file_level_depth: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -108,6 +135,8 @@ impl<'a> Parser<'a> {
             ide_closed_braces: crate::fxhash::HashSet::default(),
             ide_call_open: None,
             ide_call_callee: None,
+            platform: None,
+            file_level_depth: 1,
         }
     }
 

@@ -194,6 +194,44 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         regions: None,
         comments: None,
         unclosed: false,
+        platform: None,
+        braces: Vec::new(),
+        opaque_braces: 0,
+    };
+    lx.run()?;
+    Ok(lx.out)
+}
+
+/// The platform a library file is read for. File-level `#if` conditions made only of `OS` and
+/// `CPU` tests against it are decided while lexing, and the body of a branch they rule out is
+/// stepped over byte by byte instead of becoming tokens. The `{` and `}` stay, so the parser
+/// sees an empty branch.
+#[derive(Clone, Copy, Debug)]
+pub struct PlatformTarget {
+    pub os: &'static str,
+    pub cpu: &'static str,
+}
+
+/// `lex`, for a library file (see [`PlatformTarget`]). A dead branch is not checked for lexical
+/// errors, so use it only for files the project ships and tests on every platform.
+pub fn lex_for_target(
+    file: FileId,
+    text: &str,
+    target: PlatformTarget,
+) -> Result<Vec<Token>, Diagnostic> {
+    let mut lx = Lexer {
+        file,
+        text,
+        src: text.as_bytes(),
+        at: 0,
+        out: Vec::with_capacity(text.len() / 4 + 16),
+        newline: true,
+        regions: None,
+        comments: None,
+        unclosed: false,
+        platform: Some(target),
+        braces: Vec::new(),
+        opaque_braces: 0,
     };
     lx.run()?;
     Ok(lx.out)
@@ -212,6 +250,9 @@ pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
         regions: None,
         comments: None,
         unclosed: false,
+        platform: None,
+        braces: Vec::new(),
+        opaque_braces: 0,
     };
     let errors = lx.recover();
     (lx.out, errors)
@@ -259,6 +300,9 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> (Vec<Token>, Vec<Comment>, V
         regions: None,
         comments: Some(Vec::new()),
         unclosed: false,
+        platform: None,
+        braces: Vec::new(),
+        opaque_braces: 0,
     };
     let errors = lx.recover();
     (lx.out, lx.comments.unwrap_or_default(), errors)
@@ -277,6 +321,9 @@ pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic
         regions: Some(Vec::new()),
         comments: None,
         unclosed: false,
+        platform: None,
+        braces: Vec::new(),
+        opaque_braces: 0,
     };
     lx.run()?;
     Ok(lx.regions.unwrap())
@@ -337,6 +384,109 @@ struct Lexer<'a> {
     /// The last error left a block comment or here-string open: nothing after it lexes
     /// reliably.
     unclosed: bool,
+    /// Set by `lex_for_target`.
+    platform: Option<PlatformTarget>,
+    /// For each open brace, whether it belongs to a file-level `#if` the platform decided as
+    /// true (so statements inside are still file level).
+    braces: Vec<bool>,
+    /// How many of `braces` are not such `#if` blocks.
+    opaque_braces: usize,
+}
+
+/// The offset just past the closing quote of a string whose body starts at `at`.
+fn skip_string(src: &[u8], mut at: usize) -> usize {
+    while at < src.len() && src[at] != b'"' {
+        if src[at] == b'\\' {
+            at += 1;
+        }
+        at += 1;
+    }
+    at
+}
+
+fn fold_or(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool> {
+    let mut value = fold_and(t, at, target)?;
+    while matches!(t.get(*at).map(|x| &x.tok), Some(Tok::Punct(P::OrOr))) {
+        *at += 1;
+        value |= fold_and(t, at, target)?;
+    }
+    Some(value)
+}
+
+fn fold_and(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool> {
+    let mut value = fold_test(t, at, target)?;
+    while matches!(t.get(*at).map(|x| &x.tok), Some(Tok::Punct(P::AndAnd))) {
+        *at += 1;
+        value &= fold_test(t, at, target)?;
+    }
+    Some(value)
+}
+
+/// `!(..)`, `(..)` or `OS == .TAG` / `CPU != .TAG`.
+fn fold_test(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool> {
+    const OS_TAGS: &[&str] = &[
+        "NONE",
+        "KRAMPOS",
+        "WINDOWS",
+        "LINUX",
+        "ANDROID",
+        "IOS",
+        "MACOS",
+        "NN_SWITCH",
+        "PS4",
+        "PS5",
+        "XBOX",
+        "WASM",
+        "NN_SWITCH2",
+    ];
+    const CPU_TAGS: &[&str] = &["UNINITIALIZED", "KRAMPU", "CUSTOM", "X64", "ARM64"];
+    let tok = |i: usize| t.get(i).map(|x| &x.tok);
+    match tok(*at)? {
+        Tok::Punct(P::Bang) if matches!(tok(*at + 1), Some(Tok::Punct(P::LParen))) => {
+            *at += 1;
+            fold_test(t, at, target).map(|v| !v)
+        }
+        Tok::Punct(P::LParen) => {
+            *at += 1;
+            let value = fold_or(t, at, target)?;
+            if !matches!(tok(*at), Some(Tok::Punct(P::RParen))) {
+                return None;
+            }
+            *at += 1;
+            Some(value)
+        }
+        Tok::Ident(name) => {
+            let (chosen, tags) = match name.as_str() {
+                "OS" => (target.os, OS_TAGS),
+                "CPU" => (target.cpu, CPU_TAGS),
+                _ => return None,
+            };
+            let equal = match tok(*at + 1)? {
+                Tok::Punct(P::EqEq) => true,
+                Tok::Punct(P::Ne) => false,
+                _ => return None,
+            };
+            if !matches!(tok(*at + 2), Some(Tok::Punct(P::Dot))) {
+                return None;
+            }
+            let Some(Tok::Ident(tag)) = tok(*at + 3) else {
+                return None;
+            };
+            if !tags.contains(&tag.as_str()) {
+                return None;
+            }
+            // A further `.member`, call or index would make this something else.
+            if matches!(
+                tok(*at + 4),
+                Some(Tok::Punct(P::Dot | P::LParen | P::LBracket))
+            ) {
+                return None;
+            }
+            *at += 4;
+            Some((tag.as_str() == chosen) == equal)
+        }
+        _ => None,
+    }
 }
 
 fn is_ident_start(c: u8) -> bool {
@@ -495,8 +645,131 @@ impl<'a> Lexer<'a> {
                 };
                 self.at += text.len();
                 self.push(Tok::Punct(p), start);
+                if self.platform.is_some() {
+                    self.track_brace(p);
+                }
             }
         }
+    }
+
+    /// Follows the nesting of braces so a file-level `#if` can be recognized, and steps over
+    /// the body of one the platform rules out.
+    fn track_brace(&mut self, p: P) {
+        match p {
+            P::DotBrace => {
+                self.braces.push(false);
+                self.opaque_braces += 1;
+            }
+            P::RBrace => {
+                if self.braces.pop() == Some(false) {
+                    self.opaque_braces -= 1;
+                }
+            }
+            P::LBrace => {
+                let decided = if self.opaque_braces == 0 {
+                    self.platform
+                        .and_then(|target| self.condition_before_brace(target))
+                } else {
+                    None
+                };
+                match decided {
+                    Some(false) if self.skip_block() => {}
+                    Some(true) => self.braces.push(true),
+                    _ => {
+                        self.braces.push(false);
+                        self.opaque_braces += 1;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// The value of the `#if` condition that ends at the `{` just pushed, when it is only
+    /// `OS` and `CPU` tests (`==`, `!=`, `!(..)`, `&&`, `||`, parentheses).
+    fn condition_before_brace(&self, target: PlatformTarget) -> Option<bool> {
+        let brace = self.out.len().checked_sub(1)?;
+        let limit = brace.saturating_sub(64);
+        let start = (limit..brace)
+            .rev()
+            .find(|&i| matches!(&self.out[i].tok, Tok::Directive(d) if d.as_str() == "if"))?;
+        let cond = &self.out[start + 1..brace];
+        let mut at = 0;
+        let value = fold_or(cond, &mut at, target)?;
+        (at == cond.len()).then_some(value)
+    }
+
+    /// Steps over the rest of a `{` block just pushed, up to its matching `}`, which is pushed.
+    /// False (with the position unchanged) when the body holds something this does not
+    /// follow exactly as `run` does: a here-string.
+    fn skip_block(&mut self) -> bool {
+        let src = self.src;
+        let mut at = self.at;
+        let mut depth = 1usize;
+        let mut newline = false;
+        while at < src.len() {
+            match src[at] {
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        self.at = at + 1;
+                        self.newline = newline;
+                        self.push(Tok::Punct(P::RBrace), at);
+                        return true;
+                    }
+                }
+                b'\n' => newline = true,
+                b'"' => at = skip_string(src, at + 1),
+                b'@' => {
+                    if src.get(at + 1) == Some(&b'"') {
+                        at = skip_string(src, at + 2);
+                    } else {
+                        // A note runs to the next whitespace, whatever it holds.
+                        while at + 1 < src.len() && !src[at + 1].is_ascii_whitespace() {
+                            at += 1;
+                        }
+                    }
+                }
+                b'/' if src.get(at + 1) == Some(&b'/') => {
+                    while at < src.len() && src[at] != b'\n' {
+                        at += 1;
+                    }
+                    continue;
+                }
+                b'/' if src.get(at + 1) == Some(&b'*') => {
+                    at += 2;
+                    let mut nesting = 1;
+                    while nesting > 0 && at < src.len() {
+                        if src[at] == b'/' && src.get(at + 1) == Some(&b'*') {
+                            nesting += 1;
+                            at += 2;
+                        } else if src[at] == b'*' && src.get(at + 1) == Some(&b'/') {
+                            nesting -= 1;
+                            at += 2;
+                        } else {
+                            if src[at] == b'\n' {
+                                newline = true;
+                            }
+                            at += 1;
+                        }
+                    }
+                    continue;
+                }
+                b'#' => {
+                    let mut name = at + 1;
+                    while matches!(src.get(name), Some(b' ' | b'\t')) {
+                        name += 1;
+                    }
+                    if src[name.min(src.len())..].starts_with(b"string") {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+            at += 1;
+        }
+        false
     }
 
     /// `.5` is a float literal unless the dot continues an expression (`x.5`, `1..5`).
