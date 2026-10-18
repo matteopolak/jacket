@@ -18,7 +18,8 @@ fn file_name(tool: &str) -> String {
 /// The program to start for `tool`: next to this executable if it is there, else the bare name
 /// (looked up on `PATH` when it starts).
 pub fn find(tool: &str) -> PathBuf {
-    if let Ok(me) = std::env::current_exe()
+    // Through symlinks (`~/.local/bin/jacket` -> the installed release) to where the tools are.
+    if let Ok(me) = std::env::current_exe().and_then(|me| me.canonicalize())
         && let Some(dir) = me.parent()
     {
         let beside = dir.join(file_name(tool));

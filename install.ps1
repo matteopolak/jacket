@@ -1,4 +1,4 @@
-# Installs Jacket, the Jai toolchain (jaic, jailsp, jailint, jaifmt) from a GitHub release of
+# Installs Jacket, the Jai toolchain (jacket, jaic, jailsp, jailint, jaifmt) from a GitHub release of
 # https://github.com/matteopolak/jacket, verified against the release's SHA256SUMS:
 #
 #   irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 | iex
@@ -107,7 +107,7 @@
     $entries = @($userPath -split ';' | Where-Object { $_ })
     if ($entries -notcontains $current) {
         [Environment]::SetEnvironmentVariable('Path', (($entries + $current) -join ';'), 'User')
-        Write-Host "Added $current to your user PATH; open a new terminal to use jaic, jailsp, jailint and jaifmt."
+        Write-Host "Added $current to your user PATH; open a new terminal to use jacket, jaic, jailsp, jailint and jaifmt."
     }
     if (($env:Path -split ';') -notcontains $current) { $env:Path = "$env:Path;$current" }
     Write-Host 'Try it: jaic hello.jai -interp'

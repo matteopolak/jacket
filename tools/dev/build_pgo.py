@@ -136,6 +136,15 @@ def cargo_build(args, target_dir, flags):
     return {tool: out / f"{tool}{EXE}" for tool in TOOLS}
 
 
+def build_jacket(args, work, out):
+    """`jacket` only starts the other tools, so it gets a plain release build, not a profile."""
+    env = build_env(args.target, os.environ, work / "plain", [])
+    run(["cargo", "build", "--release", "--locked", "--target", args.target, "-j", str(args.jobs),
+         "-p", "jacket"], env=env)
+    out.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(work / "plain" / args.target / "release" / f"jacket{EXE}", out / f"jacket{EXE}")
+
+
 # --- training workload -------------------------------------------------------------------------
 
 def lsp_session(jailsp, env):
@@ -288,6 +297,7 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         for tool, path in bins.items():
             shutil.copy2(path, out / f"{tool}{EXE}")
+        build_jacket(args, work, out)
         log(f"binaries in {out}")
         return
     if args.profile:
@@ -345,6 +355,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     for tool, path in bins.items():
         shutil.copy2(path, out / f"{tool}{EXE}")
+    build_jacket(args, work, out)
     log(f"optimized binaries in {out}")
     if problems and args.strict:
         sys.exit("build_pgo: training steps failed: " + ", ".join(problems))

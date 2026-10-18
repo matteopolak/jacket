@@ -34,12 +34,13 @@ class Jacket < Formula
   end
 
   def install
+    # jacket starts the other tools from beside the real file behind its bin/ symlink.
     # jaic, jailint and jailsp find stdlib/ (including its prelude) next to the real file
     # behind the bin/ symlinks, and native libraries (wgpu-native, stb_*, rpmalloc) in
     # ../native-libs.
-    libexec.install "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
+    libexec.install "jacket", "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
     libexec.install "native-libs"
-    bin.install_symlink libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
+    bin.install_symlink libexec/"jacket", libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
     doc.install "README.md", "CHANGELOG.md"
   end
 
@@ -54,5 +55,6 @@ class Jacket < Formula
     assert_equal "Hello from Homebrew!\n", shell_output("#{bin}/jaic hello.jai -interp")
     assert_equal "main :: () {\n    x := 1;\n}\n", pipe_output("#{bin}/jaifmt --stdin", "main::(){x:=1;}")
     system bin/"jailint", "hello.jai"
+    assert_match "jacket", shell_output("#{bin}/jacket version")
   end
 end
