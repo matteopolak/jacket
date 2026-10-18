@@ -322,13 +322,17 @@ impl Compiler {
             }
             ast::ExprKind::UnknownDirective(boxed) => {
                 let crate::ast::UnknownDirective {
-                    name: directive,
+                    kind,
                     flags,
                     operand,
+                    ..
                 } = &**boxed;
-                let d = directive.name.as_str();
-                if is_library_directive(d) {
-                    let id = self.declare_library(scope, d, flags, operand.as_ref(), value.span)?;
+                if let crate::ast::DirectiveKind::Library {
+                    system,
+                } = *kind
+                {
+                    let id =
+                        self.declare_library(scope, system, flags, operand.as_ref(), value.span)?;
                     return Ok(Resolved::Library(id));
                 }
             }
@@ -860,19 +864,12 @@ impl Compiler {
 }
 
 /// `#library`, `#system_library` and their foreign variants.
-pub(super) fn is_library_directive(name: &str) -> bool {
-    matches!(
-        name,
-        "system_library" | "library" | "foreign_library" | "foreign_system_library"
-    )
-}
-
 impl Compiler {
     /// Register a library named by a `#library`-family directive, declared in `scope`.
     pub(super) fn declare_library(
         &mut self,
         scope: ScopeId,
-        directive: &str,
+        system_directive: bool,
         flags: &[ast::Ident],
         operand: Option<&ast::Expr>,
         span: Span,
@@ -885,7 +882,7 @@ impl Compiler {
             _ => return err(operand.span, "library name must be a string literal"),
         };
         let flag = |f: &str| flags.iter().any(|x| x.name.as_str() == f);
-        let system = directive.contains("system") || flag("system");
+        let system = system_directive || flag("system");
         let link_always = flag("link_always");
         let base_dir = self.file_dir(self.scope_file(scope)).display().to_string();
         let ir = self.program.libraries.len();

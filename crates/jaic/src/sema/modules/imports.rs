@@ -102,7 +102,8 @@ impl Compiler {
         }
         match &import.source {
             ast::ImportSource::Module(name)
-                if &**name == "Runtime_Support" && self.runtime_support.is_some() =>
+                if BootstrapModule::named(name) == Some(BootstrapModule::RuntimeSupport)
+                    && self.runtime_support.is_some() =>
             {
                 // One runtime per program; explicit arguments must describe that
                 // configured instance rather than silently changing or ignoring it.

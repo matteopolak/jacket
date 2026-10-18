@@ -35,24 +35,24 @@ impl Compiler {
         let name = match self.types.kind(ty) {
             TypeKind::Int {
                 ..
-            } => "Type_Info_Integer",
+            } => PreludeType::TypeInfoInteger,
             TypeKind::Float {
                 ..
             }
-            | TypeKind::WideFloat(_) => "Type_Info_Float",
-            TypeKind::String => "Type_Info_String",
-            TypeKind::Pointer(_) | TypeKind::Null => "Type_Info_Pointer",
-            TypeKind::Proc(_) => "Type_Info_Procedure",
+            | TypeKind::WideFloat(_) => PreludeType::TypeInfoFloat,
+            TypeKind::String => PreludeType::TypeInfoString,
+            TypeKind::Pointer(_) | TypeKind::Null => PreludeType::TypeInfoPointer,
+            TypeKind::Proc(_) => PreludeType::TypeInfoProcedure,
             TypeKind::Struct(_)
             | TypeKind::PolyStruct {
                 ..
-            } => "Type_Info_Struct",
+            } => PreludeType::TypeInfoStruct,
             TypeKind::Array {
                 ..
-            } => "Type_Info_Array",
-            TypeKind::Enum(_) => "Type_Info_Enum",
-            TypeKind::Distinct(_) => "Type_Info_Variant",
-            _ => "Type_Info",
+            } => PreludeType::TypeInfoArray,
+            TypeKind::Enum(_) => PreludeType::TypeInfoEnum,
+            TypeKind::Distinct(_) => PreludeType::TypeInfoVariant,
+            _ => PreludeType::TypeInfo,
         };
         self.preload_type(name, span)
     }
@@ -457,7 +457,7 @@ impl Compiler {
                     Value::String(name.as_bytes().into()),
                     span,
                 )?;
-                let member_ty = self.preload_type("Type_Info_Struct_Member", span)?;
+                let member_ty = self.preload_type(PreludeType::TypeInfoStructMember, span)?;
                 let msize = self.size_of(member_ty, span)?;
                 let malign = self.align_of(member_ty, span)?;
                 // `Type_Info_Flags` from `compiler_set_type_info_flags` plus the directives.
@@ -777,7 +777,7 @@ impl Compiler {
         bindings: &[(Value, usize)],
         span: Span,
     ) -> Result<()> {
-        let binding_ty = self.preload_type("Type_Info_Tagged_Union_Binding", span)?;
+        let binding_ty = self.preload_type(PreludeType::TypeInfoTaggedUnionBinding, span)?;
         let size = self.size_of(binding_ty, span)?;
         let align = self.align_of(binding_ty, span)?;
         let mut items = Aggregate {
@@ -1091,7 +1091,7 @@ impl Compiler {
         }) {
             self.add_const(scope, *name, span, value.clone(), *ty);
         }
-        let member_ty = self.preload_type("Type_Info_Struct_Member", span)?;
+        let member_ty = self.preload_type(PreludeType::TypeInfoStructMember, span)?;
         let msize = self.size_of(member_ty, span)?;
         let malign = self.align_of(member_ty, span)?;
         let mut members = Aggregate {
@@ -1282,7 +1282,7 @@ impl Compiler {
         storage: &mut Aggregate,
         span: Span,
     ) -> Result<()> {
-        let member_ty = self.preload_type("Type_Info_Struct_Member", span)?;
+        let member_ty = self.preload_type(PreludeType::TypeInfoStructMember, span)?;
         let msize = self.size_of(member_ty, span)?;
         let malign = self.align_of(member_ty, span)?;
         let mut members = Aggregate {

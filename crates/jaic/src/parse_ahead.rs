@@ -59,7 +59,9 @@ mod imp {
 mod imp {
     use crate::ast::{self, AstId, StmtKind, relocate};
     use crate::intern;
-    use crate::sema::{FileSystem, NativeFs, Options, TargetCpu, TargetOs, find_module_in};
+    use crate::sema::{
+        BootstrapModule, FileSystem, NativeFs, Options, TargetCpu, TargetOs, find_module_in,
+    };
     use crate::source::{FileId, LineIndex};
     use std::collections::{HashMap, VecDeque};
     use std::path::{Path, PathBuf};
@@ -357,7 +359,9 @@ mod imp {
                     StmtKind::Import(import) => {
                         let entry = match &import.source {
                             ast::ImportSource::Module(name)
-                                if &**name == "Preload" && self.preload.is_some() =>
+                                if BootstrapModule::named(name)
+                                    == Some(BootstrapModule::Preload)
+                                    && self.preload.is_some() =>
                             {
                                 self.preload.clone()
                             }

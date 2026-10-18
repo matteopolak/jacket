@@ -349,10 +349,50 @@ pub struct InsertExpr {
     pub replacements: Vec<Arg>,
 }
 
+/// What the compiler makes of a directive the parser keeps as a generic node, decided once from
+/// its name when it is parsed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DirectiveKind {
+    /// `#Context`: the program's context type.
+    Context,
+    /// `#jaic_type long_double`: a type only jaic has.
+    JaicType,
+    /// `#poke_name module name`.
+    PokeName,
+    /// `#library`, `#system_library`, `#foreign_library`, `#foreign_system_library`.
+    Library {
+        /// The `system` spellings, which link against the system's copy.
+        system: bool,
+    },
+    Other,
+}
+
+impl DirectiveKind {
+    pub fn of(name: &str) -> Self {
+        match name {
+            "Context" => DirectiveKind::Context,
+            "jaic_type" => DirectiveKind::JaicType,
+            "poke_name" => DirectiveKind::PokeName,
+            "library" | "foreign_library" => DirectiveKind::Library {
+                system: false,
+            },
+            "system_library" | "foreign_system_library" => DirectiveKind::Library {
+                system: true,
+            },
+            _ => DirectiveKind::Other,
+        }
+    }
+
+    pub fn is_library(self) -> bool {
+        matches!(self, DirectiveKind::Library { .. })
+    }
+}
+
 /// The payload of `ExprKind::UnknownDirective`, boxed because it is rare and large.
 #[derive(Clone, Debug)]
 pub struct UnknownDirective {
     pub name: Ident,
+    pub kind: DirectiveKind,
     /// `#library,system,link_always "x"`: the comma flags.
     pub flags: Vec<Ident>,
     pub operand: Option<Expr>,
@@ -1053,6 +1093,7 @@ pub struct ModuleParametersStmt {
 #[derive(Clone, Debug)]
 pub struct DirectiveStmt {
     pub name: Ident,
+    pub kind: DirectiveKind,
     pub flags: Vec<Ident>,
     pub args: Vec<Expr>,
 }

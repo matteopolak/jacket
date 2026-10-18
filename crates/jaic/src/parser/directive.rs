@@ -2,8 +2,8 @@
 use super::expr::mk;
 use super::{PResult, Parser};
 use crate::ast::{
-    Block, CodeBody, Expr, ExprKind, Ident, InsertExpr, Notes, RunBody, Stmt, StmtKind,
-    TypeModifier, UnknownDirective,
+    Block, CodeBody, DirectiveKind, Expr, ExprKind, Ident, InsertExpr, Notes, RunBody, Stmt,
+    StmtKind, TypeModifier, UnknownDirective,
 };
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
@@ -477,7 +477,8 @@ impl Parser<'_> {
             }
         }
         // `#jaic_type long_double`: a jaic extension type, named by a bare identifier.
-        let jaic_type = sym.as_str() == "jaic_type" && matches!(self.tok(), Tok::Ident(_));
+        let jaic_type = DirectiveKind::of(sym.as_str()) == DirectiveKind::JaicType
+            && matches!(self.tok(), Tok::Ident(_));
         let operand = if matches!(self.tok(), Tok::Str(_)) || jaic_type {
             Some(self.parse_primary()?)
         } else {
@@ -486,6 +487,7 @@ impl Parser<'_> {
         let end = self.prev_span();
         Ok(mk(
             ExprKind::UnknownDirective(Box::new(UnknownDirective {
+                kind: DirectiveKind::of(sym.as_str()),
                 name,
                 flags,
                 operand,

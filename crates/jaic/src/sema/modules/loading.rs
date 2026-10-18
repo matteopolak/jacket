@@ -313,12 +313,17 @@ impl Compiler {
     pub fn find_module(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
         // The public protocol name denotes the selected bootstrap even when a local
         // module happens to have that name. Otherwise its types and storage diverge.
-        if name == "Preload"
+        if BootstrapModule::named(name) == Some(BootstrapModule::Preload)
             && let Some(preload) = &self.options.preload
         {
             return Some(preload.clone());
         }
         find_module_in(&*self.fs, &self.options.import_paths, name, from_dir)
+    }
+
+    /// Where the runtime's entry file is, on the import path.
+    pub fn runtime_support_entry(&self) -> Option<PathBuf> {
+        self.find_module(BootstrapModule::RuntimeSupport.name(), Path::new(""))
     }
 
     /// A fresh module with no files yet.

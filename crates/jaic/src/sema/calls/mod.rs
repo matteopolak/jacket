@@ -331,24 +331,29 @@ impl Compiler {
 
     /// Arguments that a macro among `procs` takes as a `Code` parameter: they are
     /// code, not values, so they are not checked before the call is resolved.
-    fn macro_code_args(&self, procs: &[ProcId], args: &[ast::Arg]) -> Vec<bool> {
-        let is_code = |p: &ast::Param| matches!(&p.ty, Some(ast::Expr { kind: E::Ident(n), .. }) if n.as_str() == "Code");
-        args.iter()
-            .enumerate()
-            .map(|(i, arg)| {
-                procs.iter().any(|&p| {
-                    let info = self.proc(p);
-                    let params = &info.lit.header.params;
-                    let param = match arg.name {
-                        Some(n) => params
-                            .iter()
-                            .find(|p| p.name.map(|pn| pn.name) == Some(n.name)),
-                        None => params.get(i),
-                    };
-                    param.is_some_and(is_code)
-                })
-            })
-            .collect()
+    fn macro_code_args(&mut self, procs: &[ProcId], args: &[ast::Arg]) -> Vec<bool> {
+        let mut code = Vec::with_capacity(args.len());
+        for (i, arg) in args.iter().enumerate() {
+            let mut takes_code = false;
+            for &p in procs {
+                let lit = self.proc(p).lit.clone();
+                let params = &lit.header.params;
+                let param = match arg.name {
+                    Some(n) => params
+                        .iter()
+                        .find(|p| p.name.map(|pn| pn.name) == Some(n.name)),
+                    None => params.get(i),
+                };
+                if let Some(param) = param
+                    && self.param_is_code(p, param)
+                {
+                    takes_code = true;
+                    break;
+                }
+            }
+            code.push(takes_code);
+        }
+        code
     }
 
     /// `precheck_args`, leaving the arguments marked in `defer` unchecked.

@@ -30,14 +30,6 @@ pub enum DeclClass {
     Constant,
 }
 
-/// The library directives a constant can name.
-const LIBRARY_DIRECTIVES: &[&str] = &[
-    "library",
-    "system_library",
-    "foreign_library",
-    "foreign_system_library",
-];
-
 pub fn decl_class(decl: &Decl) -> DeclClass {
     if decl.kind == DeclKind::Var {
         return DeclClass::Variable;
@@ -64,11 +56,7 @@ pub fn decl_class(decl: &Decl) -> DeclClass {
             ..
         }
         | ExprKind::Unary(UnOp::Star, _) => DeclClass::TypeAlias,
-        ExprKind::UnknownDirective(directive)
-            if LIBRARY_DIRECTIVES.contains(&directive.name.name.as_str()) =>
-        {
-            DeclClass::Library
-        }
+        ExprKind::UnknownDirective(directive) if directive.kind.is_library() => DeclClass::Library,
         _ => DeclClass::Constant,
     }
 }

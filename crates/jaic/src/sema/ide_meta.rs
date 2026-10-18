@@ -427,7 +427,7 @@ impl Compiler {
             let Some(name) = param.name else {
                 continue;
             };
-            let is_code = matches!(&param.ty, Some(ast::Expr { kind: ast::ExprKind::Ident(n), .. }) if n.as_str() == "Code");
+            let is_code = self.param_is_code(proc, param);
             let arg_text = |a: usize| -> String {
                 let arg = &args[a];
                 if let Some(Operand::Const {
@@ -739,13 +739,9 @@ impl Compiler {
             }
         };
         let header = self.proc(call.chosen).lit.header.clone();
-        let format_param = header.params.windows(2).position(|w| {
-            let is_string = matches!(&w[0].ty, Some(ast::Expr { kind: ast::ExprKind::Ident(n), .. }) if n.as_str() == "string");
-            let any_args = w[1].variadic
-                && matches!(&w[1].ty, Some(ast::Expr { kind: ast::ExprKind::Ident(n), .. }) if n.as_str() == "Any");
-            is_string && any_args
-        });
-        let format_param = format_param.filter(|_| self.is_print_like(call.chosen));
+        let format_param = self
+            .format_string_param(call.chosen, chosen_span)
+            .filter(|_| self.is_print_like(call.chosen));
         let args = call
             .args
             .iter()

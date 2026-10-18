@@ -125,7 +125,7 @@ impl Compiler {
             return Ok(());
         };
         let signature = self.signature(proc, span)?;
-        let location = self.preload_type("Source_Code_Location", span)?;
+        let location = self.preload_type(PreludeType::SourceCodeLocation, span)?;
         if !signature.has_context
             || signature.c_call
             || signature.c_varargs

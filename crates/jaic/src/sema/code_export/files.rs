@@ -132,7 +132,7 @@ impl Compiler {
                 .stdlib_root()
                 .map(|root| self.canon(root))
                 .or_else(|| {
-                    self.find_module("Runtime_Support", std::path::Path::new(""))
+                    self.runtime_support_entry()
                         .and_then(|p| p.parent().map(|d| self.canon(d)))
                 });
             self.export.system_dir = Some(dir);

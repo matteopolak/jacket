@@ -416,7 +416,9 @@ impl Compiler {
                     );
                 }
             }
-            ast::StmtKind::Directive(directive) if directive.name.name.as_str() == "poke_name" => {
+            ast::StmtKind::Directive(directive)
+                if directive.kind == ast::DirectiveKind::PokeName =>
+            {
                 let [
                     module,
                     ast::Expr {
@@ -431,24 +433,25 @@ impl Compiler {
             }
             // An unnamed `#library,link_always "c++";` is linked although nothing refers to it.
             ast::StmtKind::Directive(directive)
-                if decls::is_library_directive(directive.name.name.as_str())
+                if directive.kind.is_library()
                     && directive
                         .flags
                         .iter()
                         .any(|f| f.name.as_str() == "link_always") =>
             {
                 let ast::DirectiveStmt {
-                    name,
+                    kind,
                     flags,
                     args,
+                    ..
                 } = &**directive;
-                self.declare_library(
-                    file_scope,
-                    name.name.as_str(),
-                    flags,
-                    args.first(),
-                    stmt.span,
-                )?;
+                let system = matches!(
+                    kind,
+                    ast::DirectiveKind::Library {
+                        system: true
+                    }
+                );
+                self.declare_library(file_scope, system, flags, args.first(), stmt.span)?;
             }
             ast::StmtKind::Directive(_) | ast::StmtKind::Empty => {}
             ast::StmtKind::Using(boxed) => {

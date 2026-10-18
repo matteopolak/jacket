@@ -121,6 +121,33 @@ impl FileSystem for VirtualFs {
     }
 }
 
+/// The modules the compiler loads itself, which `#import` reaches by their protocol names
+/// rather than by searching the import path.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BootstrapModule {
+    /// The selected bootstrap entry (`Options::preload`).
+    Preload,
+    /// The runtime, one instance per program.
+    RuntimeSupport,
+}
+
+impl BootstrapModule {
+    /// The name an `#import` writes.
+    pub const fn name(self) -> &'static str {
+        match self {
+            BootstrapModule::Preload => "Preload",
+            BootstrapModule::RuntimeSupport => "Runtime_Support",
+        }
+    }
+
+    /// The bootstrap module an `#import` of `name` means.
+    pub fn named(name: &str) -> Option<Self> {
+        [BootstrapModule::Preload, BootstrapModule::RuntimeSupport]
+            .into_iter()
+            .find(|module| module.name() == name)
+    }
+}
+
 /// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
 /// The public `Preload` protocol name also aliases the single bootstrap entry.
 pub fn find_module_in(
@@ -141,7 +168,7 @@ pub fn find_module_in(
             return Some(entry);
         }
     }
-    if name == "Preload" {
+    if BootstrapModule::named(name) == Some(BootstrapModule::Preload) {
         dirs.iter().find_map(|dir| crate::find_preload(fs, dir))
     } else {
         None

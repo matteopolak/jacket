@@ -556,7 +556,7 @@ impl Compiler {
 
     /// `#location` / `#caller_location` as a `Source_Code_Location` constant.
     pub fn location_operand(&mut self, f: &mut FnCtx, span: Span) -> Result<Operand> {
-        let ty = self.preload_type("Source_Code_Location", span)?;
+        let ty = self.preload_type(PreludeType::SourceCodeLocation, span)?;
         let file = self.sources.get(span.file);
         let (line, col) = file.line_col(span.start);
         let path = file.path.to_string();
@@ -569,7 +569,8 @@ impl Compiler {
         })
     }
 
-    pub fn preload_type(&mut self, name: &str, span: Span) -> Result<TypeId> {
+    pub fn preload_type(&mut self, ty: PreludeType, span: Span) -> Result<TypeId> {
+        let name = ty.name();
         let Some(preload) = self.preload else {
             return err(span, format!("`{name}` requires Preload"));
         };

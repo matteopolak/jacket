@@ -408,7 +408,9 @@ mod registers {
         ))]) {
             panic!("{}", e.render(&c.sources));
         }
-        let ty = c.preload_type("__reg", jaic::source::Span::NONE).unwrap();
+        let ty = c
+            .preload_type(jaic::sema::PreludeType::Reg, jaic::source::Span::NONE)
+            .unwrap();
         assert_eq!(c.types.name(ty), "__reg");
         for bad in [
             "use :: (v:__reg) #expand {} main :: () { n:u16; use(n); }",
