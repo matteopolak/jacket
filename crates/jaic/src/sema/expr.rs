@@ -54,13 +54,7 @@ impl Compiler {
                 .expression_types
                 .entry(procedure)
                 .or_default()
-                .entry(expr.span)
-                .and_modify(|known| {
-                    if *known != Some(ty) {
-                        *known = None;
-                    }
-                })
-                .or_insert(Some(ty));
+                .record(expr.span, ty);
         }
         if self.ide.is_some()
             && let Ok(op) = &result

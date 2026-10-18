@@ -144,7 +144,41 @@ pub struct ExportState {
     pub call_instances: HashMap<Span, Vec<ProcId>>,
     /// Checked results, scoped to a concrete procedure instance. Repeated source
     /// spans with incompatible expansion types are ambiguous rather than guessed.
-    pub(super) expression_types: HashMap<ProcId, HashMap<Span, Option<TypeId>>>,
+    pub(super) expression_types: HashMap<ProcId, ExpressionTypes>,
+}
+
+/// The types a body's expressions checked to, in checking order. Only a metaprogram reading
+/// the body's code asks for them, so checking just appends; the by-span table behind
+/// `get` is built on a read, and again if more were recorded since.
+#[derive(Default)]
+pub(super) struct ExpressionTypes {
+    log: Vec<(Span, TypeId)>,
+    table: std::cell::RefCell<(usize, HashMap<Span, Option<TypeId>>)>,
+}
+
+impl ExpressionTypes {
+    pub(super) fn record(&mut self, span: Span, ty: TypeId) {
+        self.log.push((span, ty));
+    }
+
+    /// `Some(None)`: the span checked to different types in different expansions.
+    pub(super) fn get(&self, span: Span) -> Option<Option<TypeId>> {
+        let mut table = self.table.borrow_mut();
+        if table.0 != self.log.len() {
+            let (done, map) = &mut *table;
+            for &(span, ty) in &self.log[*done..] {
+                map.entry(span)
+                    .and_modify(|known| {
+                        if *known != Some(ty) {
+                            *known = None;
+                        }
+                    })
+                    .or_insert(Some(ty));
+            }
+            *done = self.log.len();
+        }
+        table.1.get(&span).copied()
+    }
 }
 
 impl ExportState {
@@ -1721,8 +1755,7 @@ impl Exporter<'_> {
             self.c
                 .as_ref()
                 .and_then(|c| c.export.expression_types.get(&procedure))
-                .and_then(|types| types.get(&e.span))
-                .copied()
+                .and_then(|types| types.get(e.span))
         });
         if let Some(checked) = checked {
             // An ambiguous expansion must not inherit a guessed identifier/call type.
