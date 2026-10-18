@@ -312,8 +312,12 @@ impl Sources<'_> {
     }
 
     pub(crate) fn scan(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
-        let key = self.key(path);
-        let path = key.as_path();
+        self.scan_keyed(index, &self.key(path))
+    }
+
+    /// `scan` of a path that is already a key (what `project_files` lists), which costs no
+    /// file system calls to know.
+    fn scan_keyed(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
             if let Some((seen, scan)) = index.open.get(path)
@@ -899,10 +903,11 @@ impl Session {
         }
         let mut out = Vec::new();
         for file in files {
-            if self.open_file_uri(&file).is_some() {
+            // Listed files are keys, as are the open documents'.
+            if sources.open.contains_key(&file) {
                 continue;
             }
-            let scan = sources.scan(&mut index, &file);
+            let scan = sources.scan_keyed(&mut index, &file);
             let hits: Vec<_> = scan
                 .symbols
                 .iter()
@@ -911,9 +916,10 @@ impl Session {
             if hits.is_empty() {
                 continue;
             }
-            let Some(text) = sources.read(&file) else {
+            let Some(bytes) = env.fs.read(&file) else {
                 continue;
             };
+            let text = String::from_utf8_lossy(&bytes);
             let lines = crate::position::LineIndex::new(&text);
             let Ok(uri) = DocumentUri::from_path(&file) else {
                 continue;
