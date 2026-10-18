@@ -315,7 +315,7 @@ jobs:
             --platform "${{ matrix.name }}" --work "$work/sdl3"
           # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
           # the packaged shared libraries, and the built executable links the static ones.
-          cp "$GITHUB_WORKSPACE/stdlib/Simp/tests/image.jai" .
+          cp "$GITHUB_WORKSPACE/stdlib/Simp/tests/image.jai" simp-image.jai
           "$jaic" simp-image.jai -interp
           if [ -n "${{ matrix.llvm }}" ]; then
             "$jaic" simp-image.jai -exe simp-image

@@ -76,7 +76,8 @@ def main():
     if a.audit_only:return
     if not a.jaic:p.error('--jaic is required unless --audit-only')
     out=(a.work or output_dir('sdl3','tests',a.platform)).resolve();out.mkdir(parents=True,exist_ok=True)
-    for fixture in (ROOT/'stdlib/Extensions/SDL3/tests').glob('*.jai'):shutil.copy2(fixture,out/fixture.name)
+    # The whole tests folder: the layout test loads its per-target sources from driven/.
+    shutil.copytree(ROOT/'stdlib/Extensions/SDL3/tests',out,dirs_exist_ok=True)
     env=dict(os.environ,JAIC_NATIVE_LIBS=str(a.native.resolve()))
     stdlib=(a.stdlib or a.jaic.resolve().parent/'stdlib').resolve()
     if not (stdlib/'Extensions/SDL3/module.jai').exists():raise RuntimeError(f'packaged SDL3 module missing: {stdlib}')
