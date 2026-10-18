@@ -13,7 +13,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-from sdl3_gen import ROOT, OUT, TARGETS
+from sdl3_gen import ROOT, TARGETS
 from repo_output import output_dir
 
 
@@ -23,27 +23,33 @@ def main():
     parser.add_argument('--stdlib',type=Path,required=True)
     args=parser.parse_args()
     binary=str(args.jailint.resolve())
-    env=dict(os.environ,JAIC_STDLIB=str(args.stdlib.resolve()))
+    stdlib=args.stdlib.resolve()
+    # Everything is linted from the standard library given, never the checkout's copy: the
+    # SDL3 link files import private helpers, which only that library's own files may do.
+    sdl=stdlib/'Extensions/SDL3'
+    env=dict(os.environ,JAIC_STDLIB=str(stdlib))
     common=[binary,'--config',str(ROOT/'jailint.toml'),'-D','warnings','-v','-j','2']
     def lint(paths):
         result=subprocess.run([*common,*paths],env=env,cwd=ROOT,text=True,capture_output=True)
         sys.stdout.write(result.stdout);sys.stderr.write(result.stderr)
         if result.returncode or 'did not compile completely' in result.stderr+result.stdout:
             raise RuntimeError('SDL3 lint requires a completely compiled program, not a syntax-only fallback')
-    lint([str(OUT),str(ROOT/'stdlib/Extensions/SDL3/tests')])
+    lint([str(sdl),str(sdl/'tests')])
     roots=[]
     for profile in TARGETS:
         directory=output_dir('sdl3','lint',profile)
         directory.mkdir(parents=True,exist_ok=True)
-        pairs=[(OUT/f'{profile}.jai','declarations.jai'),(OUT/'macros.jai','macros.jai'),
-               (OUT/f'link-{profile.split("-")[0]}.jai','link.jai'),
-               (ROOT/f'stdlib/Extensions/SDL3/tests/driven/layout-{profile}.jai','abi.jai')]
+        pairs=[(sdl/f'{profile}.jai','declarations.jai'),(sdl/'macros.jai','macros.jai'),
+               (sdl/f'tests/driven/layout-{profile}.jai','abi.jai')]
+        # The link file is loaded in place, not copied (see `sdl`).
+        link=(sdl/f'link-{profile.split("-")[0]}.jai').as_posix()
         for source,name in pairs:
             dest=directory/name
             shutil.copyfile(source,dest)
             if hashlib.sha256(source.read_bytes()).digest()!=hashlib.sha256(dest.read_bytes()).digest():
                 raise RuntimeError(f'nonidentical lint input: {source}')
-        (directory/'module.jai').write_text('// Isolated source/type lint root, not a runtime portability test.\nSDL3 :: #system_library "SDL3";\n#load "declarations.jai";\n#load "macros.jai";\n#load "link.jai";\n#load "abi.jai";\n')
+        (directory/'module.jai').write_text('// Isolated source/type lint root, not a runtime portability test.\nSDL3 :: #system_library "SDL3";\n#load "declarations.jai";\n#load "macros.jai";\n'
+                                       f'#load "{link}";\n#load "abi.jai";\n')
         roots.append(str(directory))
     lint(roots)
     print('jailint -D warnings passed: owned files and all six source-identical declaration/ABI sets')
