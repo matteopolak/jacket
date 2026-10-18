@@ -62,7 +62,7 @@ class WrapTests(unittest.TestCase):
 
     def test_reads_cover_the_jaic_build_stdlib_and_sources_only(self):
         reads = us.jaic_reads("/b/target/debug/jaic", Path("/r/stdlib"), Path("/r/corpus/upstream"), {"JAIC_NATIVE_LIBS": "/n"})
-        self.assertEqual([str(p) for p in reads][1:], ["/r/stdlib", "/r/corpus/upstream", "/n"])
+        self.assertEqual([str(p) for p in reads][1:5], ["/r/stdlib", "/r/corpus/upstream", "/n", sys.base_prefix])
         self.assertTrue(str(reads[0]).endswith("/b/target") or str(reads[0]).endswith("b/target"))
 
 

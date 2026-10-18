@@ -13,6 +13,7 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -50,7 +51,9 @@ def jaic_reads(jaic: str, stdlib: Path, upstream: Path, env=None) -> list[Path]:
     """What jaic and its programs may read: the build tree around the binary (native libraries,
     runtime helpers), the stdlib, the native libraries and the upstream sources."""
     binary = Path(jaic).resolve()
-    return [binary.parent.parent, stdlib, upstream, *native_library_paths(env)]
+    # The interpreter: setup commands are `python3 -c` patches, and its framework or toolcache
+    # install lies outside the system paths.
+    return [binary.parent.parent, stdlib, upstream, *native_library_paths(env), Path(sys.base_prefix)]
 
 
 def make_sandbox(reads, writes, loopback=False) -> Sandbox:

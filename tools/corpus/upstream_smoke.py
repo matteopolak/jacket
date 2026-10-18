@@ -537,6 +537,8 @@ def run_check(check, args, plat, shots):
             extra = [Path(args.dlls[0]).parent] if args.dlls else []
             if sys.platform.startswith("linux"):
                 extra += [p for p in (Path("/tmp/.X11-unix"),) if p.exists()]
+                if os.environ.get("XAUTHORITY"):
+                    extra.append(Path(os.environ["XAUTHORITY"]))
             ctx["box"] = usb.make_sandbox(
                 [
                     *usb.jaic_reads(ctx["jaic"], STDLIB, UPSTREAM, env),
