@@ -184,7 +184,7 @@ fn is_callee(cx: &Cx, span: jaic::source::Span) -> bool {
 type Signature = Vec<String>;
 
 /// The procedure definitions found in the `.jai` files around a directory, by file.
-type Variants = Vec<(PathBuf, HashMap<String, Vec<Signature>>)>;
+type Variants = Vec<(PathBuf, Defs)>;
 
 /// Most files looked at for one directory.
 const MAX_FILES: usize = 300;
@@ -320,20 +320,60 @@ fn load_variants(dir: &Path) -> Variants {
                 return out;
             }
             budget -= 1;
-            let Ok(text) = std::fs::read_to_string(&f) else {
+            let Some(defs) = file_defs(&f) else {
                 continue;
             };
-            let Ok(ast) = jaic::parser::parse_file(jaic::source::FileId(u32::MAX), &text) else {
-                continue;
-            };
-            let mut defs = HashMap::new();
-            top_level(&ast.stmts, &mut defs);
             if !defs.is_empty() {
                 out.push((f, defs));
             }
         }
     }
     out
+}
+
+/// The procedures a file defines, by name.
+type Defs = Rc<HashMap<String, Vec<Signature>>>;
+
+thread_local! {
+    /// Definitions of the files read lately, with the modification time and size they had. A
+    /// language server lints after every edit, and the files around the edited one do not
+    /// change between edits: parsing them each time was a quarter of a lint of a large program.
+    static DEFS: RefCell<HashMap<PathBuf, (std::time::SystemTime, u64, Defs)>> =
+        RefCell::new(HashMap::new());
+}
+
+/// The most files remembered.
+const DEFS_KEPT: usize = 2000;
+
+/// The definitions in the file at `path`, parsed again only when it changed on disk.
+fn file_defs(path: &Path) -> Option<Defs> {
+    let meta = std::fs::metadata(path).ok()?;
+    let stamp = meta.modified().ok();
+    if let Some(stamp) = stamp
+        && let Some(found) = DEFS.with(|d| {
+            d.borrow()
+                .get(path)
+                .filter(|(t, len, _)| *t == stamp && *len == meta.len())
+                .map(|(_, _, defs)| defs.clone())
+        })
+    {
+        return Some(found);
+    }
+    let text = std::fs::read_to_string(path).ok()?;
+    let ast = jaic::parser::parse_file(jaic::source::FileId(u32::MAX), &text).ok()?;
+    let mut found = HashMap::new();
+    top_level(&ast.stmts, &mut found);
+    let defs = Defs::new(found);
+    if let Some(stamp) = stamp {
+        DEFS.with(|d| {
+            let mut d = d.borrow_mut();
+            if d.len() >= DEFS_KEPT {
+                d.clear();
+            }
+            d.insert(path.to_path_buf(), (stamp, meta.len(), defs.clone()));
+        });
+    }
+    Some(defs)
 }
 
 fn is_hidden(p: &Path) -> bool {

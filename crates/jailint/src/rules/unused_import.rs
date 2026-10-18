@@ -196,42 +196,101 @@ fn module_identifiers(
         }
     }
     if let Some(path) = own {
-        count(tokens, &path, &mut out, &mut seen, &mut queue);
+        apply(
+            &FileFacts::of(tokens),
+            &path,
+            &mut out,
+            &mut seen,
+            &mut queue,
+        );
     }
     while let Some((path, text)) = queue.pop() {
-        let Ok(tokens) = jaic::lexer::lex(FileId(0), &text) else {
+        let Some(facts) = file_facts(&text) else {
             continue;
         };
-        count(&tokens, &path, &mut out, &mut seen, &mut queue);
+        apply(&facts, &path, &mut out, &mut seen, &mut queue);
     }
     let out = Rc::new(out);
     cache.identifiers.insert(module, out.clone());
     out
 }
 
-/// Add the identifiers of a file (at `path`, with `tokens`) to `out`, and queue the files it
-/// `#load`s that are not `seen` yet.
-fn count(
-    tokens: &[Token],
+/// The identifiers a file writes (and how often) and the files it names with `#load`, from its
+/// tokens alone.
+struct FileFacts {
+    identifiers: Vec<(Sym, usize)>,
+    links: Vec<project::DirectiveLink>,
+}
+
+impl FileFacts {
+    fn of(tokens: &[Token]) -> Self {
+        let mut counts: HashMap<Sym, usize> = HashMap::default();
+        for t in tokens {
+            if let Tok::Ident(n) = &t.tok {
+                *counts.entry(*n).or_insert(0) += 1;
+            }
+        }
+        let links = project::scan_directives(tokens)
+            .into_iter()
+            .filter(|l| matches!(l.source, LinkSource::Load(_)))
+            .collect();
+        FileFacts {
+            identifiers: counts.into_iter().collect(),
+            links,
+        }
+    }
+}
+
+thread_local! {
+    /// What the files lexed lately held, by hash of their text. A lint run on every edit looks
+    /// at the other files of the module, which do not change between edits; lexing them was a
+    /// third of a lint of a large program.
+    static FILES: std::cell::RefCell<HashMap<(u64, usize), Rc<FileFacts>>> =
+        std::cell::RefCell::new(HashMap::default());
+}
+
+/// The most files remembered.
+const FILES_KEPT: usize = 256;
+
+/// `FileFacts` of `text`, which must lex.
+fn file_facts(text: &str) -> Option<Rc<FileFacts>> {
+    use std::hash::{Hash, Hasher};
+    let mut h = jaic::fxhash::FxHasher::default();
+    text.hash(&mut h);
+    let key = (h.finish(), text.len());
+    if let Some(found) = FILES.with(|f| f.borrow().get(&key).cloned()) {
+        return Some(found);
+    }
+    let tokens = jaic::lexer::lex(FileId(0), text).ok()?;
+    let facts = Rc::new(FileFacts::of(&tokens));
+    FILES.with(|f| {
+        let mut f = f.borrow_mut();
+        if f.len() >= FILES_KEPT {
+            f.clear();
+        }
+        f.insert(key, facts.clone());
+    });
+    Some(facts)
+}
+
+/// Add the identifiers of a file (at `path`) to `out`, and queue the files it `#load`s that
+/// are not `seen` yet.
+fn apply(
+    facts: &FileFacts,
     path: &std::path::Path,
     out: &mut HashMap<Sym, usize>,
     seen: &mut HashSet<PathBuf>,
     queue: &mut Vec<(PathBuf, String)>,
 ) {
-    for t in tokens {
-        if let Tok::Ident(n) = &t.tok {
-            *out.entry(*n).or_insert(0) += 1;
-        }
+    for (n, count) in &facts.identifiers {
+        *out.entry(*n).or_insert(0) += count;
     }
-    let mut links = project::scan_directives(tokens);
+    let mut links = facts.links.clone();
     project::resolve_targets(
         &mut links,
         path.parent().unwrap_or(std::path::Path::new("")),
     );
     for link in links {
-        if !matches!(link.source, LinkSource::Load(_)) {
-            continue;
-        }
         let Some(target) = link.target else {
             continue;
         };
