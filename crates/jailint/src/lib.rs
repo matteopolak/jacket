@@ -70,6 +70,7 @@ pub fn lint_files(
 ) -> Vec<Lint> {
     let mut out = Vec::new();
     let mut module_facts = rules::unused_import::ModuleFacts::default();
+    let run = rules::RunState::default();
     let Some(facts) = facts::Facts::collect(compiler, files) else {
         return out;
     };
@@ -103,7 +104,9 @@ pub fn lint_files(
             Vec::new()
         };
         let suppressions = suppress::Suppressions::new(&text, &tokens, &comments, &ast);
-        let mut cx = syntax::Cx::new(compiler, &facts, &text, &ast, &tokens, &comments, imports);
+        let mut cx = syntax::Cx::new(
+            compiler, &facts, &text, &ast, &tokens, &comments, imports, &run,
+        );
         cx.complete = complete;
         cx.max_nesting = config.max_nesting();
         cx.doc_links = doc_links;

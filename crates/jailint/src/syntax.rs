@@ -28,6 +28,8 @@ pub(crate) struct Cx<'a> {
     pub complete: bool,
     /// The configured nesting limit (`excessive_nesting`).
     pub max_nesting: usize,
+    /// What rules remember across the files of this run.
+    pub run: &'a crate::rules::RunState,
 }
 
 /// A procedure literal with a body.
@@ -54,6 +56,7 @@ impl ProcSite<'_> {
 }
 
 impl<'a> Cx<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         compiler: &'a Compiler,
         facts: &'a Facts,
@@ -62,6 +65,7 @@ impl<'a> Cx<'a> {
         tokens: &'a [Token],
         comments: &'a [Comment],
         imports: Vec<crate::rules::unused_import::Unused>,
+        run: &'a crate::rules::RunState,
     ) -> Self {
         let mut procs = Vec::new();
         collect_procs(&ast.stmts, None, false, false, facts, &mut procs);
@@ -78,6 +82,7 @@ impl<'a> Cx<'a> {
             doc_links: Vec::new(),
             complete: true,
             max_nesting: crate::config::DEFAULT_MAX_NESTING,
+            run,
         }
     }
 

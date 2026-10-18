@@ -7,7 +7,8 @@
 //! caller is in view: named procedures that are only ever called (never taken as a value,
 //! which could make them callbacks), that something calls, that are not overloaded (an
 //! overload set shares a shape), not exported from a module (its users are elsewhere), and
-//! not `#c_call`, `#program_export`, `#foreign`, `#expand`, operators or `for_expansion`.
+//! not `#c_call`, `#program_export`, `#foreign`, `#expand` (which `for_expansion` must be),
+//! operators or the entry point.
 //! Procedures with notes are skipped too: metaprograms find procedures by their notes and
 //! call them with a fixed signature. Empty bodies (stubs), bodies with `#insert` (inserted
 //! code may use any parameter) and parameters whose type has a `$` (the argument settles a
@@ -25,9 +26,10 @@ use crate::Finding;
 use crate::facts::Recorded;
 use crate::syntax::{Cx, Node, ProcSite};
 use jaic::sema::scope::EntityKind;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::rc::Rc;
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
@@ -111,7 +113,8 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
         return false;
     }
     let name = decl.names.first().map(|n| n.name.as_str()).unwrap_or("");
-    if matches!(name, "main" | "for_expansion") || name.starts_with("operator") {
+    // The program's entry point is called by the runtime, not by anything in view.
+    if name == cx.compiler.options.entry_point {
         return false;
     }
     let Some(ids) = cx.facts.procs_by_header.get(&h.span) else {
@@ -220,7 +223,6 @@ fn has_variant(cx: &Cx, own: &ProcSite, name: &str) -> bool {
 /// above and of its immediate subdirectories (`src/platform/macos.jai` and `windows.jai`, or
 /// `utils/macos_window.jai` and `utils/win32_window.jai`). They are parsed once per directory.
 fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
-    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<Variants>>>> = OnceLock::new();
     let Some(file) = cx.compiler.sources.try_get(cx.file) else {
         return false;
     };
@@ -228,13 +230,13 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
     let Some(dir) = path.parent() else {
         return false;
     };
-    let cache = CACHE.get_or_init(Mutex::default);
-    let cached = cache.lock().ok().and_then(|c| c.get(dir).cloned());
+    let cached = cx.run.variants.borrow().get(dir).cloned();
     let variants = cached.unwrap_or_else(|| {
-        let v = Arc::new(load_variants(dir));
-        if let Ok(mut c) = cache.lock() {
-            c.insert(dir.to_path_buf(), v.clone());
-        }
+        let v = Rc::new(load_variants(dir));
+        cx.run
+            .variants
+            .borrow_mut()
+            .insert(dir.to_path_buf(), v.clone());
         v
     });
     // Most names have no variant elsewhere: look for those (not this file itself, found by
@@ -249,31 +251,37 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
     if candidates.peek().is_none() {
         return false;
     }
-    let own = canonical(path);
+    let own = canonical(cx, path);
     let loaded: Vec<PathBuf> = cx
         .compiler
         .files
         .iter()
-        .map(|f| canonical(&f.path))
+        .map(|f| canonical(cx, &f.path))
         .collect();
     candidates.any(|(p, _)| {
-        let p = canonical(p);
+        let p = canonical(cx, p);
         p != own && !loaded.contains(&p)
     })
 }
 
-/// `path` with symlinks resolved, remembered: a program names hundreds of files and this runs
-/// for each procedure with an unused parameter, so asking the file system each time was most of
-/// a lint. Only paths that resolved are kept.
-fn canonical(path: &Path) -> PathBuf {
-    thread_local! {
-        static KNOWN: jaic::paths::CanonCache = jaic::paths::CanonCache::new();
-    }
-    KNOWN.with(|known| {
-        known
-            .canonicalize(path)
-            .unwrap_or_else(|_| path.to_path_buf())
-    })
+/// `path` with symlinks resolved, remembered for the run: a program names hundreds of files
+/// and this runs for each procedure with an unused parameter, so asking the file system each
+/// time was most of a lint. Only paths that resolved are kept.
+fn canonical(cx: &Cx, path: &Path) -> PathBuf {
+    cx.run
+        .canon
+        .canonicalize(path)
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// What the rules remember across the files of one lint run. A run makes its own, so nothing
+/// a rule learned about the file system outlives it (a file edited between runs is read anew).
+#[derive(Default)]
+pub(crate) struct RunState {
+    /// The definitions of the `.jai` files around a directory, by directory.
+    variants: RefCell<HashMap<PathBuf, Rc<Variants>>>,
+    /// Resolved paths.
+    canon: jaic::paths::CanonCache,
 }
 
 fn load_variants(dir: &Path) -> Variants {

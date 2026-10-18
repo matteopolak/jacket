@@ -37,6 +37,7 @@ mod self_assignment;
 mod shadowed_it;
 pub(crate) mod unused_import;
 mod unused_parameter;
+pub(crate) use unused_parameter::RunState;
 mod unused_result;
 mod unused_variable;
 mod wrapping_constant;

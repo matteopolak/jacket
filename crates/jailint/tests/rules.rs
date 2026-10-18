@@ -221,3 +221,38 @@ fn unused_parameter_variants_one_directory_over() {
         &rendered(&lints, &text, &linux),
     );
 }
+
+#[test]
+fn runs_in_one_process_share_no_state() {
+    // `a/win.jai` has an unused parameter that `b/win.jai` (not loaded) also takes: a variant,
+    // so no lint. Rewriting `b/win.jai` to other parameters and linting `a/win.jai` again
+    // must see the new file, not what the first run read.
+    let root = std::env::temp_dir().join(format!("jailint-runs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("a")).unwrap();
+    std::fs::create_dir_all(root.join("b")).unwrap();
+    let a = root.join("a/win.jai");
+    let b = root.join("b/win.jai");
+    std::fs::write(
+        &a,
+        "set_title :: (w: int, title: string) -> int {\n    return w;\n}\n\nmain :: () {\n    x := set_title(1, \"t\");\n    if x == 99 return;\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        &b,
+        "set_title :: (w: int, title: string) -> int {\n    return title.count + w;\n}\n",
+    )
+    .unwrap();
+    let levels = [("unused_parameter", Level::Warn)];
+    let (first, text) = lint(&a, &levels);
+    assert!(first.is_empty(), "{}", rendered(&first, &text, &a));
+    std::fs::write(
+        &b,
+        "set_title :: (w: int, name: string, extra: int) -> int {\n    return w + extra + name.count;\n}\n",
+    )
+    .unwrap();
+    let (second, _) = lint(&a, &levels);
+    let _ = std::fs::remove_dir_all(&root);
+    assert_eq!(second.len(), 1, "{second:?}");
+    assert!(second[0].message.contains("title"));
+}
