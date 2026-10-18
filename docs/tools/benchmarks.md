@@ -106,6 +106,7 @@ A binary named `jaic*` gets jaic's options; any other is driven with the referen
   - The metaprogram's own start-up (loading `Basic` and `Compiler`, creating the workspace) is before the first timestamp and shows in `other` and `total`; `total` is the wall time of the phase run, not of the direct run, so it is larger than the wall column. jaic interprets the metaprogram, which also adds to its front end; compare the ratios as "this method on both", not as the speed of a plain `jaic file.jai`.
   - Builds with their own build metaprogram (`own_output` workloads) are not covered: the wrapper would build their entry with default options. They get no stage rows.
   - jaic's own `-timings` stays as a second table (`detail` in the JSON), jaic only and without ratios: it is finer (it splits `#run` time out) but is not the same measurement.
+- **Sandboxed.** `compile` runs every compiler and every program it builds through `tools/bench/sandbox.py`: no network, file contents readable only from the system, the developer tools, each compiler's install (the folder above `bin/`, or for jaic its stdlib, `target/native-libs` and the shared libraries it links) and `--sandbox-read` paths, and writes only to the run's scratch folder. Workloads from the repository and the corpus are copied there first. macOS uses `sandbox-exec`, Linux `bwrap`; `--no-sandbox` turns it off (Windows has no sandbox). The sandbox does not get past Gatekeeper: a quarantined reference binary still shows its popup until the quarantine flag is cleared by hand.
 - **Never commit these results.** They are written under `target/bench/`, which is gitignored. Do not copy another compiler's numbers, paths or output into the repository, its docs, commit messages or issues.
 
 ## How to change it
@@ -117,7 +118,7 @@ A binary named `jaic*` gets jaic's options; any other is driven with the referen
 - **Another kind of compiler:** subclass `Dialect` in `dialects.py` (command line per mode, and `source_command` for the phase metaprogram) and choose it in `parse_compiler`. If the compiler's messages differ, change `phase_timing.jai` and `PhaseTiming` in `phases.py`.
 - **The link command:** edit the per-OS `LINKER` table in `link_command.jai`; `test_link_command.py` runs `link_arguments` through jaic and checks the arguments.
 - **Another phase boundary:** add a `mark("name")` in `phase_timing.jai` and read it in `PhaseTiming`.
-- Gotchas: every run happens in its own process group, killed on timeout and again when the command exits, so a stuck linker cannot outlive the benchmark. `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. The reference writes `.build` next to the file it compiles, so the harness compiles check and interpreter runs from a wrapper in a scratch directory. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
+- Gotchas: every run happens in its own process group, killed on timeout and again when the command exits, so a stuck linker cannot outlive the benchmark. `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. The reference writes `.build` next to the file it compiles, so the harness compiles check and interpreter runs from a wrapper in a scratch directory. Seatbelt matches real paths (`/var/folders` is `/private/var/folders`), and `xcrun` caches tool lookups in the per-user temporary folder whatever `TMPDIR` says, so the profile allows its `xcrun_db` files; without them every link is a second slower. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
 
 ## Profiling
 
@@ -129,7 +130,7 @@ Patterns that past profiles found, worth checking first: weak hashes turning a `
 
 ## Configuration
 
-- `CARGO_TARGET_DIR` (or `target/`) locates the default `jaic`, `jailsp` and `jailint`; `--compiler`, `--server`, `--jailint`, `--jaifmt` and `--wasm` override. `JACKET_OUTPUT_DIR` moves `target/bench/`.
+- `CARGO_TARGET_DIR` (or `target/`) locates the default `jaic`, `jailsp` and `jailint`; `--compiler`, `--server`, `--jailint`, `--jaifmt` and `--wasm` override. `JACKET_OUTPUT_DIR` moves `target/bench/`. `--no-sandbox` and `--sandbox-read PATH` (compile).
 - `JAIC_PROFILE=1` (interpreter profile), `JAIC_NATIVE_LIBS` (worktrees without `target/native-libs`), `[profile.profiling]` in the root `Cargo.toml`.
 - The CI workflow `compile-bench.yml` is a manual `workflow_dispatch` job on `macos-15` (inputs `command`, `repeat`, `only`) that uploads `bench.json` and `bench.md`; it never fails a PR.
 

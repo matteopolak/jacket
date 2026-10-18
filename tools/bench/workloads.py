@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from dataclasses import dataclass
 from enum import Enum
@@ -42,13 +43,22 @@ class Source(Protocol):
         """What to count lines in: the part of `directory` that is the workload's own code."""
 
 
+def copy_in(directory: Path, scratch: Path) -> Path:
+    """A copy of `directory` under `scratch`, made once: the sandboxed compilers may write only there
+    (another compiler writes `.build/` next to what it compiles)."""
+    copy = scratch / 'sources' / directory.name
+    if not copy.exists():
+        shutil.copytree(directory, copy, symlinks=True, ignore=shutil.ignore_patterns('.build', '.git'))
+    return copy
+
+
 @dataclass(frozen=True)
 class RepoDirectory:
     """A directory of this repository (benchmarks/compile)."""
     directory: Path
 
     def materialize(self, scratch: Path) -> Path:
-        return self.directory
+        return copy_in(self.directory, scratch)
 
     def available(self) -> str:
         return '' if self.directory.is_dir() else f'{self.directory} is missing'
@@ -75,7 +85,7 @@ class CorpusProject:
                 for command in case.get('setup', []):
                     subprocess.run(command, cwd=(CORPUS / case['path']).parent, capture_output=True,
                                    stdin=subprocess.DEVNULL)
-        return self.directory
+        return copy_in(self.directory, scratch)
 
     def available(self) -> str:
         return '' if self.directory.is_dir() else f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'

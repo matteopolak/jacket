@@ -17,7 +17,7 @@ def run(wall=1.0, returncode=0, stdout='', stderr='', timed_out=False):
 
 
 def runner(*names):
-    args = argparse.Namespace(timeout=10, warmup=1, repeat=2)
+    args = argparse.Namespace(timeout=10, warmup=1, repeat=2, no_sandbox=True)
     compilers = [Compiler(name, Path('/x') / name, JaicDialect()) for name in names]
     return JobRunner(compilers, Path('/tmp'), args)
 

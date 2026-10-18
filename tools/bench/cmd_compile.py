@@ -14,7 +14,8 @@ from common import Defaults
 from compile_report import render
 from dialects import Compiler, Invocation, Mode, Request, parse_compiler
 from measure import Run, run_measured, warm_file_cache
-from results import Report, Result, checkout_info, sh
+from results import ROOT, Report, Result, checkout_info, sh
+from sandbox import Sandbox, environment
 from sizes import facts_of
 from stages import Bucket, Stages, with_total
 from stats import Stat
@@ -33,6 +34,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help='runs per compiler of the phase-timing metaprogram that fills the stage table '
                              '(default 3, 0 for none)')
     parser.add_argument('--categories', default='', help='comma-separated substrings of category names to run')
+    parser.add_argument('--sandbox-read', action='append', metavar='PATH', default=[],
+                        help='another path the sandboxed compilers may read (repeatable)')
+    parser.add_argument('--no-sandbox', action='store_true',
+                        help='run compilers and programs with full network and file access (see sandbox.py)')
     common.add_common_arguments(parser, 'compile', DEFAULTS)
 
 
@@ -83,6 +88,17 @@ class JobRunner:
         self.compilers = compilers
         self.scratch = scratch
         self.args = args
+        self.sandbox = None if args.no_sandbox else Sandbox(
+            reads=[*(r for c in compilers for r in install_reads(c)), *(Path(p).resolve() for p in args.sandbox_read)],
+            writes=[scratch])
+        self.env = environment(scratch) if self.sandbox else None
+
+    def measure(self, command: list[str], cwd: Path | None, env: dict[str, str] | None = None) -> Run:
+        """Run a compiler or a built program, inside the sandbox unless `--no-sandbox`."""
+        if self.sandbox:
+            command = self.sandbox.wrap(command)
+            env = {**self.env, **(env or {})}
+        return run_measured(command, cwd=cwd, env=env, timeout=self.args.timeout)
 
     def request(self, job: Job, compiler: Compiler, workdir: Path) -> Request:
         plan = job.workload.plans[job.mode]
@@ -102,12 +118,12 @@ class JobRunner:
     def compile(self, compiler: Compiler, invocation: Invocation) -> Run:
         if invocation.executable:
             invocation.executable.unlink(missing_ok=True)
-        return run_measured(invocation.command, cwd=invocation.cwd, timeout=self.args.timeout)
+        return self.measure(invocation.command, invocation.cwd)
 
     def execute(self, invocation: Invocation) -> Run | None:
         """Run the executable a build wrote (None when there is none)."""
         if invocation.executable and invocation.executable.exists():
-            return run_measured([str(invocation.executable)], cwd=invocation.cwd, timeout=self.args.timeout)
+            return self.measure([str(invocation.executable)], invocation.cwd)
         return None
 
     def attempt(self, job: Job, compiler: Compiler, invocation: Invocation) -> Attempt:
@@ -192,8 +208,7 @@ class JobRunner:
             if not c.dialect.profiling_env:
                 continue
             invocation = invocations[c.name]
-            run = run_measured(invocation.command, cwd=invocation.cwd, timeout=self.args.timeout,
-                               env={**os.environ, **c.dialect.profiling_env})
+            run = self.measure(invocation.command, invocation.cwd, dict(c.dialect.profiling_env))
             count = c.dialect.instruction_count(run)
             result = results.get(f'{job.key}/{c.name}')
             if count and result:
@@ -257,6 +272,44 @@ def first_difference(a: list[str], b: list[str]) -> str:
     return f'{len(a)} lines vs {len(b)} lines'
 
 
+def install_reads(compiler: Compiler) -> list[Path]:
+    """What a compiler reads besides the workload: its own install. A jaic build reads the stdlib and
+    native libraries of the checkout it was built in (or `JAIC_STDLIB` / `JAIC_NATIVE_LIBS`); another
+    compiler, the folder its `bin/` sits in."""
+    if compiler.dialect.name != 'jaic':
+        folder = compiler.path.parent
+        return [folder.parent if folder.name == 'bin' else folder, *library_folders(compiler.path)]
+    reads = [compiler.path.parent, ROOT / 'stdlib', ROOT / 'target' / 'native-libs', *library_folders(compiler.path)]
+    reads += [Path(os.environ[v]).resolve() for v in ('JAIC_STDLIB', 'JAIC_NATIVE_LIBS') if os.environ.get(v)]
+    return [r for r in reads if r.exists()]
+
+
+def library_folders(binary: Path) -> list[Path]:
+    """The folders of the shared libraries `binary` links outside the system, directly or through
+    another of them (a development jaic links Homebrew's LLVM, which links z3), both as named and with
+    symlinks resolved."""
+    folders: set[Path] = set()
+    pending, seen = [binary], set()
+    while pending:
+        current = pending.pop()
+        for name in linked_libraries(current):
+            library = Path(name)
+            if library in seen or not library.is_absolute() or name.startswith(('/usr/lib', '/System', '/lib')):
+                continue
+            seen.add(library)
+            folders |= {library.parent, library.resolve().parent}
+            pending.append(library)
+    return sorted(folders)
+
+
+def linked_libraries(binary: Path) -> list[str]:
+    if sys.platform == 'darwin':
+        return [line.split(' (')[0].strip() for line in sh('otool', '-L', str(binary)).splitlines()[1:]]
+    if sys.platform.startswith('linux'):
+        return [line.split('=>')[-1].split(' (')[0].strip() for line in sh('ldd', str(binary)).splitlines()]
+    return []
+
+
 # ----------------------------------------------------------------------------------------- command
 
 def compiler_info(compiler: Compiler) -> dict:
@@ -281,6 +334,10 @@ def run(args: argparse.Namespace) -> int:
         for job in jobs:
             print(f'{job.key:40} {job.workload.category.value}')
         return 0
+    if not args.no_sandbox:
+        why = Sandbox.available()
+        if why:
+            sys.exit(f'cannot sandbox the compilers: {why}; install it or pass --no-sandbox')
     for compiler in compilers:
         if not compiler.path.exists():
             sys.exit(f'{compiler.path} (compiler {compiler.name}) not found; build jaic with '
