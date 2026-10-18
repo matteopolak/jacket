@@ -192,6 +192,7 @@ pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
         out: Vec::with_capacity(text.len() / 4 + 16),
         newline: true,
         regions: None,
+        comments: None,
         unclosed: false,
     };
     lx.run()?;
@@ -209,24 +210,58 @@ pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
         out: Vec::with_capacity(text.len() / 4 + 16),
         newline: true,
         regions: None,
+        comments: None,
         unclosed: false,
     };
-    let mut errors = Vec::new();
-    while let Err(mut error) = lx.run() {
-        let start = error.span.start as usize;
-        let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
-        error.span.end = end as u32;
-        // An unclosed comment/here-string has no trustworthy internal token boundaries.
-        let opaque = std::mem::take(&mut lx.unclosed);
-        errors.push(error);
-        lx.at = if opaque {
-            text.len()
-        } else {
-            end
-        };
-        lx.newline = true;
-    }
+    let errors = lx.recover();
     (lx.out, errors)
+}
+
+/// A comment found by `lex_with_trivia`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Comment {
+    /// The whole comment, delimiters included. A line comment stops before its newline.
+    pub span: Span,
+    pub kind: CommentKind,
+    /// False for a block comment the file ends inside (the span then runs to the end).
+    pub terminated: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CommentKind {
+    Line,
+    Block,
+}
+
+impl Comment {
+    /// The comment's text without its delimiters.
+    pub fn body<'t>(&self, text: &'t str) -> &'t str {
+        let (s, e) = (self.span.start as usize, self.span.end as usize);
+        match self.kind {
+            CommentKind::Line => &text[s + 2..e],
+            CommentKind::Block if self.terminated => &text[s + 2..e - 2],
+            CommentKind::Block => &text[s + 2..e],
+        }
+    }
+}
+
+/// Editor lexing (as `lex_ide`) that also returns every comment, in source order. The token
+/// stream is exactly `lex_ide`'s; comments inside strings are never reported, and an
+/// unterminated block comment is returned with `terminated: false` besides its error.
+pub fn lex_with_trivia(file: FileId, text: &str) -> (Vec<Token>, Vec<Comment>, Vec<Diagnostic>) {
+    let mut lx = Lexer {
+        file,
+        text,
+        src: text.as_bytes(),
+        at: 0,
+        out: Vec::with_capacity(text.len() / 4 + 16),
+        newline: true,
+        regions: None,
+        comments: Some(Vec::new()),
+        unclosed: false,
+    };
+    let errors = lx.recover();
+    (lx.out, lx.comments.unwrap_or_default(), errors)
 }
 
 /// Verified literal/comment boundaries for incremental IDE lexical recovery.
@@ -240,6 +275,7 @@ pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic
         out: Vec::new(),
         newline: true,
         regions: Some(Vec::new()),
+        comments: None,
         unclosed: false,
     };
     lx.run()?;
@@ -297,6 +333,7 @@ struct Lexer<'a> {
     out: Vec<Token>,
     newline: bool,
     regions: Option<Vec<Span>>,
+    comments: Option<Vec<Comment>>,
     /// The last error left a block comment or here-string open: nothing after it lexes
     /// reliably.
     unclosed: bool,
@@ -311,6 +348,27 @@ fn is_ident_char(c: u8) -> bool {
 }
 
 impl<'a> Lexer<'a> {
+    /// Run to the end, restarting after each error; the errors in order.
+    fn recover(&mut self) -> Vec<Diagnostic> {
+        let text = self.text;
+        let mut errors = Vec::new();
+        while let Err(mut error) = self.run() {
+            let start = error.span.start as usize;
+            let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
+            error.span.end = end as u32;
+            // An unclosed comment/here-string has no trustworthy internal token boundaries.
+            let opaque = std::mem::take(&mut self.unclosed);
+            errors.push(error);
+            self.at = if opaque {
+                text.len()
+            } else {
+                end
+            };
+            self.newline = true;
+        }
+        errors
+    }
+
     fn unclosed_err(&mut self, start: usize, msg: &str) -> Diagnostic {
         self.unclosed = true;
         self.err(start, msg)
@@ -482,6 +540,17 @@ impl<'a> Lexer<'a> {
         Sym::intern(&name)
     }
 
+    fn note_comment(&mut self, start: usize, kind: CommentKind, terminated: bool) {
+        let span = Span::new(self.file, start, self.at);
+        if let Some(comments) = self.comments.as_mut() {
+            comments.push(Comment {
+                span,
+                kind,
+                terminated,
+            });
+        }
+    }
+
     fn skip_trivia(&mut self) -> Result<(), Diagnostic> {
         loop {
             let c = self.peek(0);
@@ -501,12 +570,14 @@ impl<'a> Lexer<'a> {
                 if let Some(regions) = self.regions.as_mut() {
                     regions.push(Span::new(self.file, start, self.at));
                 }
+                self.note_comment(start, CommentKind::Line, true);
             } else if c == b'/' && self.peek(1) == b'*' {
                 let start = self.at;
                 self.at += 2;
                 let mut depth = 1;
                 while depth > 0 {
                     if self.at >= self.src.len() {
+                        self.note_comment(start, CommentKind::Block, false);
                         return Err(self.unclosed_err(start, "unterminated block comment"));
                     }
                     if self.peek(0) == b'/' && self.peek(1) == b'*' {
@@ -525,6 +596,7 @@ impl<'a> Lexer<'a> {
                 if let Some(regions) = self.regions.as_mut() {
                     regions.push(Span::new(self.file, start, self.at));
                 }
+                self.note_comment(start, CommentKind::Block, true);
             } else {
                 return Ok(());
             }
@@ -949,6 +1021,34 @@ mod tests {
             let e = lex(FileId(0), src).unwrap_err();
             assert!(e.message.contains("here-string"), "{src:?}: {}", e.message);
         }
+    }
+
+    #[test]
+    fn trivia_reports_comments_but_not_slashes_in_strings() {
+        let text = "a // one\n\"http://x\" /* b /* c */ d */ e";
+        let (tokens, comments, errors) = lex_with_trivia(FileId(0), text);
+        assert!(errors.is_empty());
+        assert_eq!(tokens.len(), lex(FileId(0), text).unwrap().len());
+        let bodies: Vec<_> = comments.iter().map(|c| (c.kind, c.body(text))).collect();
+        assert_eq!(
+            bodies,
+            [
+                (CommentKind::Line, " one"),
+                (CommentKind::Block, " b /* c */ d ")
+            ]
+        );
+    }
+
+    #[test]
+    fn trivia_keeps_an_unterminated_block_comment() {
+        let text = "a /* open\n// x";
+        let (tokens, comments, errors) = lex_with_trivia(FileId(0), text);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(tokens.len(), lex_ide(FileId(0), text).0.len());
+        assert_eq!(comments.len(), 1);
+        assert!(!comments[0].terminated);
+        assert_eq!(comments[0].span.end as usize, text.len());
+        assert_eq!(comments[0].body(text), " open\n// x");
     }
 
     #[test]

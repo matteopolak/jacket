@@ -77,9 +77,10 @@ pub fn lint_files(
         let path = compiler.sources.get(file).path.clone();
         let text = compiler.sources.get(file).text.clone();
         // Lex once; the parser hands the tokens back for the rules and suppressions.
-        let Ok(tokens) = jaic::lexer::lex(file, &text) else {
+        let (tokens, comments, lex_errors) = jaic::lexer::lex_with_trivia(file, &text);
+        if !lex_errors.is_empty() {
             continue;
-        };
+        }
         let (ast, tokens) = jaic::parser::parse_tokens(file, &text, tokens);
         let Ok(ast) = ast else {
             continue;
@@ -101,8 +102,10 @@ pub fn lint_files(
         } else {
             Vec::new()
         };
-        let suppressions = suppress::Suppressions::new(&text, &tokens, &ast);
-        let mut cx = syntax::Cx::new(compiler, &facts, file, &text, &ast, &tokens, imports);
+        let suppressions = suppress::Suppressions::new(&text, &tokens, &comments, &ast);
+        let mut cx = syntax::Cx::new(
+            compiler, &facts, file, &text, &ast, &tokens, &comments, imports,
+        );
         cx.complete = complete;
         cx.max_nesting = config.max_nesting();
         cx.doc_links = doc_links;

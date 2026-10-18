@@ -8,7 +8,7 @@
 //!
 //! `all` stands for every rule.
 use jaic::ast::{File, Note, Stmt, StmtKind};
-use jaic::lexer::Token;
+use jaic::lexer::{Comment, CommentKind, Tok, Token};
 
 pub(crate) struct Suppressions {
     file: Vec<String>,
@@ -22,13 +22,13 @@ const MARKER: &str = "jailint:";
 const NOTE: &str = "jailint_allow";
 
 impl Suppressions {
-    pub fn new(text: &str, tokens: &[Token], ast: &File) -> Self {
+    pub fn new(text: &str, tokens: &[Token], comments: &[Comment], ast: &File) -> Self {
         let mut s = Suppressions {
             file: Vec::new(),
             lines: Vec::new(),
             ranges: Vec::new(),
         };
-        s.comments(text, tokens);
+        s.comments(text, tokens, comments);
         s.notes(&ast.stmts);
         s
     }
@@ -46,21 +46,13 @@ impl Suppressions {
                 .any(|(a, b, r)| *a <= offset && offset < *b && names(r))
     }
 
-    fn comments(&mut self, text: &str, tokens: &[Token]) {
-        let mut from = 0;
-        while let Some(at) = text[from..].find("//") {
-            let start = from + at;
-            let line_end = text[start..].find('\n').map_or(text.len(), |n| start + n);
-            from = line_end;
-            // Inside a string or a token (`"http://"`): not a comment.
-            let inside = tokens
-                .iter()
-                .any(|t| (t.span.start as usize) < start && start < t.span.end as usize);
-            if inside {
+    fn comments(&mut self, text: &str, tokens: &[Token], comments: &[Comment]) {
+        for comment in comments {
+            if comment.kind != CommentKind::Line {
                 continue;
             }
-            let comment = text[start + 2..line_end].trim();
-            let Some(rest) = comment.strip_prefix(MARKER) else {
+            let (start, line_end) = (comment.span.start as usize, comment.span.end as usize);
+            let Some(rest) = comment.body(text).trim().strip_prefix(MARKER) else {
                 continue;
             };
             let rest = rest.trim();
@@ -83,18 +75,12 @@ impl Suppressions {
                 self.lines.push((line_start, line_end, rules));
                 continue;
             }
-            // The next line holding code (comment lines in between are skipped).
-            let mut next = line_end + 1;
-            while next < text.len() {
-                let end = text[next..].find('\n').map_or(text.len(), |n| next + n);
-                let line = text[next..end].trim();
-                if !line.is_empty() && !line.starts_with("//") {
-                    // The comment lines in between are covered too: a marker inside a doc
-                    // comment covers the links below it.
-                    self.lines.push((line_end + 1, end, rules));
-                    break;
-                }
-                next = end + 1;
+            // The next line holding code: the comment lines in between are covered too (a
+            // marker inside a doc comment covers the links below it).
+            let next = tokens.partition_point(|t| (t.span.start as usize) < line_end);
+            if let Some(t) = tokens.get(next).filter(|t| t.tok != Tok::Eof) {
+                let end = jaic::source::line_end(text, t.span.start as usize);
+                self.lines.push((line_end + 1, end, rules));
             }
         }
     }
@@ -158,9 +144,12 @@ mod tests {
     use jaic::source::FileId;
 
     fn suppressions(text: &str) -> Suppressions {
-        let tokens = jaic::lexer::lex(FileId(0), text).unwrap();
-        let ast = jaic::parser::parse_file(FileId(0), text).unwrap();
-        Suppressions::new(text, &tokens, &ast)
+        let (tokens, comments, _) = jaic::lexer::lex_with_trivia(FileId(0), text);
+        let ast = jaic::parser::parse_file(FileId(0), text).unwrap_or(File {
+            file: FileId(0),
+            stmts: Vec::new(),
+        });
+        Suppressions::new(text, &tokens, &comments, &ast)
     }
 
     #[test]
@@ -188,5 +177,37 @@ mod tests {
     fn file_wide() {
         let s = suppressions("// jailint: allow-file(all)\nx := 1;\n");
         assert!(s.allows("anything", 30));
+    }
+
+    #[test]
+    fn a_slash_pair_inside_a_string_is_not_a_comment() {
+        let text = "x := \"http://a\"; // jailint: allow(a)\ny := \"http:// jailint: allow(b)\";\n";
+        let s = suppressions(text);
+        assert!(s.allows("a", text.find("x :=").unwrap()));
+        assert!(!s.allows("b", text.find("y :=").unwrap()));
+    }
+
+    #[test]
+    fn a_marker_inside_a_block_comment_does_nothing() {
+        let text =
+            "/* // jailint: allow(a) */\nx := 1;\n/* /* // jailint: allow(b) */ */\ny := 2;\n";
+        let s = suppressions(text);
+        assert!(!s.allows("a", text.find("x :=").unwrap()));
+        assert!(!s.allows("b", text.find("y :=").unwrap()));
+    }
+
+    #[test]
+    fn a_marker_after_a_nested_block_comment_still_counts() {
+        let text = "/* a /* b */ c */\n// jailint: allow(a)\nx := 1;\n";
+        let s = suppressions(text);
+        assert!(s.allows("a", text.find("x :=").unwrap()));
+    }
+
+    #[test]
+    fn an_unterminated_block_comment_swallows_the_rest() {
+        let text = "// jailint: allow(a)\nx := 1;\n/* open\n// jailint: allow(b)\ny := 2;\n";
+        let s = suppressions(text);
+        assert!(s.allows("a", text.find("x :=").unwrap()));
+        assert!(!s.allows("b", text.find("y :=").unwrap()));
     }
 }
