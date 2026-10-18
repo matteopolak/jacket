@@ -15,7 +15,7 @@ import sys
 from sdl_test_support import temporary_directory
 import unittest
 from unittest.mock import MagicMock, patch
-from toolkit.hashing import sha256_file
+from toolkit.hashing import sha256_bytes, sha256_file
 
 
 def private_hash_key(relative, path_type=Path):
@@ -142,7 +142,7 @@ class SdlFixturePaths(unittest.TestCase):
                 self.assertEqual(set(hashes), {str(path_type(relative))})
                 self.assertEqual(
                     hashes[private_hash_key(relative, path_type)],
-                    sha256_file(placed),
+                    sha256_bytes(placed.read_bytes.return_value),
                 )
 
     def test_module_local_sources_stage_unchanged_inside_real_private_boundary(self):
