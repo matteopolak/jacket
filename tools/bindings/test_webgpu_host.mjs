@@ -13,9 +13,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
-import { STRUCTS } from "../crates/jai-wasm/js/webgpu_bindings.generated.mjs";
-import { createWebGPUHost } from "../crates/jai-wasm/js/webgpu_host.mjs";
+import { createEngine } from "../../crates/jai-wasm/js/engine.mjs";
+import { STRUCTS } from "../../crates/jai-wasm/js/webgpu_bindings.generated.mjs";
+import { createWebGPUHost } from "../../crates/jai-wasm/js/webgpu_host.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MAX64 = 0xFFFF_FFFF_FFFF_FFFFn;

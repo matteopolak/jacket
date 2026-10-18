@@ -453,7 +453,7 @@ jobs:
           fi
           display=()
           [[ "$RUNNER_OS" == Linux ]] && display=(--private-x11-display)
-          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");import build_native_libs;print(build_native_libs.output_dir())')"
+          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");from native import build_native_libs;print(build_native_libs.output_dir())')"
           "${run[@]}" python3 -u tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
             --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}"
       - name: WebGPU without a window (wgpu-native, interpreted and built)

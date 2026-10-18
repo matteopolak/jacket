@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { createEngine } from "../crates/jai-wasm/js/engine.mjs";
+import { createEngine } from "../../crates/jai-wasm/js/engine.mjs";
 import { checkScriptingIo } from "./scripting_io_wasm.mjs";
 import { checkSourceExamples, workspaceFiles } from "./examples_wasm.mjs";
 const path = process.argv[2];
