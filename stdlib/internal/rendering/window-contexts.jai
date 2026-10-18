@@ -142,9 +142,15 @@ swap :: (window: WT.Window_Type, vsync: bool) {
         if interval interval(X.x_global_display, window, cast(s32) vsync);
         X.glXSwapBuffers(X.x_global_display, window);
     } else #if OS == .WINDOWS {
-        // The canonical loader rejects WGL's non-null failure sentinels.
-        GL.gl_load(*GL.gl);
+        // The canonical loader rejects WGL's non-null failure sentinels. It runs once per context,
+        // since resolving the whole table every frame costs more than the frame.
+        if swap_loaded_for != found.native {
+            GL.gl_load(*GL.gl);
+            swap_loaded_for = found.native;
+        }
+
         if GL.gl.wglSwapIntervalEXT Basic.assert(GL.gl.wglSwapIntervalEXT(cast(s32) vsync) != 0, "WGL swap interval failed");
+
         Basic.assert(W.SwapBuffers(found.aux) != 0, "native window buffer swap failed");
     }
 }
@@ -331,6 +337,7 @@ Context :: struct {
 
 contexts: [..] Context;
 shared_root: *void;
+#if OS == .WINDOWS swap_loaded_for: *void;
 #if OS == .WINDOWS shared_dc: W.HDC;
 
 owned_native :: (native: *void) -> bool {

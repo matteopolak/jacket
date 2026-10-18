@@ -221,22 +221,32 @@ GL_Texture_State :: struct {
     unpack_buffer, skip_rows, skip_pixels, swap_bytes: s32;
 }
 
+// Every draw, clear and texture call checks the context, so the procedure table is resolved
+// only when the current context changes: resolving it looks up each GL entry point by name.
 require_gl_texture_context :: () {
     assert(GL.gl.glGetString(GL.GL_VERSION) != null, "a current desktop OpenGL context is required");
-    Generate :: #type (n: GL.GLsizei, textures: *GLuint) #c_call;
-    Bind :: #type (target: GL.GLenum, texture: GLuint) #c_call;
-    Delete :: #type (n: GL.GLsizei, textures: *GLuint) #c_call;
-    Bind_Buffer :: #type (target: GL.GLenum, buffer: GLuint) #c_call;
+    native := Contexts.current_native();
 
-    GL.gl_load(*GL.gl);
-    generate: Generate = GL.gl.glGenTextures;
-    bind: Bind = GL.gl.glBindTexture;
-    release: Delete = GL.gl.glDeleteTextures;
-    bind_buffer: Bind_Buffer = GL.gl.glBindBuffer;
+    if native != loaded_gl_context {
+        Generate :: #type (n: GL.GLsizei, textures: *GLuint) #c_call;
+        Bind :: #type (target: GL.GLenum, texture: GLuint) #c_call;
+        Delete :: #type (n: GL.GLsizei, textures: *GLuint) #c_call;
+        Bind_Buffer :: #type (target: GL.GLenum, buffer: GLuint) #c_call;
 
-    assert(generate != null && bind != null && release != null && bind_buffer != null, "OpenGL texture entry points are unavailable");
+        GL.gl_load(*GL.gl);
+        generate: Generate = GL.gl.glGenTextures;
+        bind: Bind = GL.gl.glBindTexture;
+        release: Delete = GL.gl.glDeleteTextures;
+        bind_buffer: Bind_Buffer = GL.gl.glBindBuffer;
+
+        assert(generate != null && bind != null && release != null && bind_buffer != null, "OpenGL texture entry points are unavailable");
+        loaded_gl_context = native;
+    }
+
     assert(GL.gl.glGetError() == GL.GL_NO_ERROR, "pending OpenGL error before texture operation");
 }
+
+loaded_gl_context: *void;
 
 save_texture_state :: () -> GL_Texture_State {
     result: GL_Texture_State;
