@@ -85,9 +85,7 @@ class GenError(Exception):
     pass
 
 
-# ---------------------------------------------------------------------------------------------
 # Reading the header
-# ---------------------------------------------------------------------------------------------
 
 def strip_comments(text: str) -> str:
     text = re.sub(r'/\*.*?\*/', ' ', text, flags=re.S)
@@ -156,9 +154,7 @@ def evaluate(expression: str, env: dict[str, int], what: str) -> int:
         raise GenError(f'{what}: cannot evaluate `{expression}`: {error}') from error
 
 
-# ---------------------------------------------------------------------------------------------
 # The model
-# ---------------------------------------------------------------------------------------------
 
 class Field:
     def __init__(self, name: str, ctype: str, dims: list[int | None]):
@@ -251,9 +247,7 @@ def parse_declaration(text: str) -> tuple[str, str | None, object]:
     return kind, name, members
 
 
-# ---------------------------------------------------------------------------------------------
 # Layout
-# ---------------------------------------------------------------------------------------------
 
 class Layout:
     def __init__(self):
@@ -311,9 +305,7 @@ class Layout:
         return self.of_aggregate(agg, 0)[1]
 
 
-# ---------------------------------------------------------------------------------------------
 # Output
-# ---------------------------------------------------------------------------------------------
 
 def jai_name(name: str) -> str:
     return name + '_' if name in JAI_KEYWORDS else name
@@ -448,9 +440,7 @@ def generate(header_text: str, origin: str) -> str:
     return '\n\n'.join(parts) + '\n'
 
 
-# ---------------------------------------------------------------------------------------------
 # Command line
-# ---------------------------------------------------------------------------------------------
 
 def fetch() -> str:
     data = urllib.request.urlopen(URL, timeout=60).read()

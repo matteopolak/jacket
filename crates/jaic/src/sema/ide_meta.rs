@@ -173,9 +173,7 @@ impl Compiler {
             .map_or_else(Vec::new, |t| t.procedures)
     }
 
-    // -------------------------------------------------------------------------------------
     // Recording
-    // -------------------------------------------------------------------------------------
 
     fn ide_note_expansion(
         &mut self,
@@ -637,9 +635,7 @@ impl Compiler {
         self.ide.is_some() && self.ide_wants_pub(file)
     }
 
-    // -------------------------------------------------------------------------------------
     // Queries
-    // -------------------------------------------------------------------------------------
 
     /// Expansions recorded in `file`.
     pub fn ide_expansions(&self, file: FileId) -> Vec<IdeExpansion> {

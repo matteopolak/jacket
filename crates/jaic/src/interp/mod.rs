@@ -956,9 +956,7 @@ impl Interp {
         )
     }
 
-    // -----------------------------------------------------------------------
     // Memory
-    // -----------------------------------------------------------------------
 
     /// Host address of a global, materializing it (and what it points to) on first use.
     pub fn global_addr(&mut self, program: &Program, g: GlobalId) -> Res<u64> {
@@ -1362,9 +1360,7 @@ impl Interp {
         unsafe { &*ptr }
     }
 
-    // -----------------------------------------------------------------------
     // Foreign symbols
-    // -----------------------------------------------------------------------
 
     fn load_required_libraries(&mut self, program: &Program) -> Res<()> {
         if !self.host.native_linking() || (self.compile_time && program.cross_target) {
@@ -1807,9 +1803,7 @@ impl Interp {
         result.map(Rets::into_vec)
     }
 
-    // -----------------------------------------------------------------------
     // Execution
-    // -----------------------------------------------------------------------
 
     /// Call a function with raw argument values.
     pub fn call(&mut self, program: &Program, func: FuncId, args: &[u64]) -> Res<Vec<u64>> {

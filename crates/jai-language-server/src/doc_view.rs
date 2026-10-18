@@ -168,9 +168,7 @@ impl Session {
         HoverText::new(blocks)
     }
 
-    // ---------------------------------------------------------------------------------------
     // Links inside doc comments
-    // ---------------------------------------------------------------------------------------
 
     /// What each link of `sites` (in the document `uri`) leads to.
     fn resolve_sites(&self, uri: &DocumentUri, sites: &[Site]) -> Vec<Vec<Decl>> {
@@ -316,9 +314,7 @@ impl Session {
         out
     }
 
-    // ---------------------------------------------------------------------------------------
     // Signature help and completion
-    // ---------------------------------------------------------------------------------------
 
     /// The docs of each signature and of each of its parameters.
     pub(crate) fn signature_docs(

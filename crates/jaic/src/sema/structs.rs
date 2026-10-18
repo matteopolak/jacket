@@ -591,9 +591,7 @@ impl Compiler {
         Ok(t)
     }
 
-    // -----------------------------------------------------------------------
     // Layout
-    // -----------------------------------------------------------------------
 
     pub fn layout_struct(&mut self, s: StructId, span: Span) -> Result<()> {
         self.begin_runtime_storage_dependencies();
@@ -1400,9 +1398,7 @@ impl Compiler {
         Ok(ty)
     }
 
-    // -----------------------------------------------------------------------
     // Members
-    // -----------------------------------------------------------------------
 
     /// Built-in aggregate members of non-struct types.
     pub(super) fn builtin_members(
@@ -2167,9 +2163,7 @@ impl Compiler {
         }
     }
 
-    // -----------------------------------------------------------------------
     // Default values
-    // -----------------------------------------------------------------------
 
     /// Offset, type and authored declaration of `name` in a `using` field of `s`.
     fn find_used_member(
@@ -2480,9 +2474,7 @@ impl Compiler {
         Ok((func, proc_ty))
     }
 
-    // -----------------------------------------------------------------------
     // Literals
-    // -----------------------------------------------------------------------
 
     #[allow(clippy::too_many_arguments)]
     pub fn check_struct_literal(
@@ -2751,9 +2743,7 @@ impl Compiler {
         })
     }
 
-    // -----------------------------------------------------------------------
     // Constant images
-    // -----------------------------------------------------------------------
 
     /// Write a constant `value` of type `ty` into `agg` at `offset`.
     pub fn write_value(

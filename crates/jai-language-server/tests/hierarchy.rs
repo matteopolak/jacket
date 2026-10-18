@@ -201,9 +201,7 @@ outer :: () {
     assert_eq!(callees, ["inner"]);
 }
 
-// -------------------------------------------------------------------------------------------
 // The protocol
-// -------------------------------------------------------------------------------------------
 
 fn request(json: &mut JsonSession, id: u32, method: &str, params: Value) -> Value {
     let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
@@ -268,9 +266,7 @@ fn the_server_advertises_and_answers_the_requests() {
     assert!(nothing.is_null());
 }
 
-// -------------------------------------------------------------------------------------------
 // Selection ranges
-// -------------------------------------------------------------------------------------------
 
 const NESTED: &str = "compute :: (a: int, b: int) -> int {
     total := (a + b) * 2;
