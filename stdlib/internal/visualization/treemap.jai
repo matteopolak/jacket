@@ -133,7 +133,7 @@ weigh :: (node: *Treemap_Node) -> float64 {
     if node.children.count > 0 {
         node.size = 0;
         for child: node.children node.size += weigh(child);
-        Sorting.quick_sort(node.children, descending);
+        Sorting.intro_sort(node.children, descending);
     }
 
     assert(node.size >= 0 && Math.is_finite(node.size), "Treemap weights must be finite and nonnegative");

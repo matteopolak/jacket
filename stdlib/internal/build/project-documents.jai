@@ -120,7 +120,7 @@ pg_emit :: () {
         path.* = normalized;
     }
 
-    PG_Sort.quick_sort(Project_Generator.project_files, PG_String.compare);
+    PG_Sort.intro_sort(Project_Generator.project_files, PG_String.compare);
     identifier := pg_identifier(Project_Generator.project_name);
 
     defer free(identifier);
@@ -195,7 +195,7 @@ pg_emit_filters :: () {
         }
     }
 
-    PG_Sort.quick_sort(folders, PG_String.compare);
+    PG_Sort.intro_sort(folders, PG_String.compare);
     b: String_Builder;
 
     defer free_buffers(*b);

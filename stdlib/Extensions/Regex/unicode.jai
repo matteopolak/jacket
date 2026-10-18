@@ -150,7 +150,7 @@ ranges_normalize :: (ranges: *[..] Char_Range) {
         }
     }
 
-    if !sorted quick_sort(list, (a: Char_Range, b: Char_Range) -> s64 {
+    if !sorted intro_sort(list, (a: Char_Range, b: Char_Range) -> s64 {
         return cast(s64) a.lo - cast(s64) b.lo;
     });
 
@@ -397,7 +397,7 @@ load_fold_table :: () {
     }
 
     array_free(members);
-    quick_sort(fold_entries, (a: Fold_Entry, b: Fold_Entry) -> s64 {
+    intro_sort(fold_entries, (a: Fold_Entry, b: Fold_Entry) -> s64 {
         return cast(s64) a.cp - cast(s64) b.cp;
     });
 }

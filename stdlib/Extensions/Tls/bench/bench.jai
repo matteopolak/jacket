@@ -274,7 +274,7 @@ median :: (values: [] float64) -> float64 {
 
     for values sorted[it_index] = it;
 
-    quick_sort(sorted, (a, b) => ifx a < b then -1 else ifx a > b then 1 else 0);
+    intro_sort(sorted, (a, b) => ifx a < b then -1 else ifx a > b then 1 else 0);
 
     return sorted[sorted.count / 2];
 }
