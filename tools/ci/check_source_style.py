@@ -34,7 +34,6 @@ ALLOWED_LONG = {
     "crates/jaic-llvm/src/lower.rs": 3122,
     "crates/jaic/src/build.rs": 1807,
     "crates/jaic/src/interp/code.rs": 2530,
-    "crates/jaic/src/interp/mod.rs": 3293,
     "crates/jaic/src/interp/threads.rs": 1421,
     "crates/jaic/src/ir.rs": 1617,
     "crates/jaic/src/lexer.rs": 1349,
