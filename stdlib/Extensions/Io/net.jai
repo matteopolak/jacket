@@ -188,7 +188,6 @@ last_platform_code :: () -> s32 {
     return fiber.platform_code;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Listening and connecting
 
 // Listens on `address` (a literal such as `":8080"`, port 0 picks a free one; see
@@ -338,7 +337,6 @@ peer_address :: (stream: Tcp_Stream) -> Address, Io_Error {
     return socket_address(stream.handle, true);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Reading and writing
 
 // Waits for data and reads what is there, up to `buffer.count` bytes. 0 means the peer closed its
@@ -437,7 +435,6 @@ close :: (listener: Tcp_Listener, now := false) -> Io_Error {
     return close_handle(listener.handle);
 } @Releases
 
-// ---------------------------------------------------------------------------------------------
 // Names
 
 // Looks `host` up (an address literal, or a name for the system's resolver, which

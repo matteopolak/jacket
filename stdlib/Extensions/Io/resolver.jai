@@ -199,7 +199,6 @@ abandon_job :: (fiber: *Fiber) {
     fiber.scheduler.pending -= 1;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The scheduler's side
 
 wake_ensure :: (scheduler: *Scheduler) -> *Wake_State {
@@ -392,7 +391,6 @@ wake_stop :: (scheduler: *Scheduler) {
     scheduler.waker = null;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The helper threads
 
 helper_main :: (thread: *Thread.Thread) -> s64 {

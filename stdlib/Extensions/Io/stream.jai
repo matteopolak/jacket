@@ -61,7 +61,6 @@ Writer :: struct {
     close_proc: Close_Proc;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Reading
 
 // Waits for bytes and reads what is there, up to `buffer.count`. 0 means the end of the source.
@@ -133,7 +132,6 @@ read_all :: (reader: Reader, size_hint := 0) -> [] u8, Io_Error {
     return .{ used, data }, .NONE;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Writing
 
 // Sends at least one byte of `data` (unless it is empty) and returns how many.
@@ -163,7 +161,6 @@ write :: (writer: Writer, text: string) -> s64, Io_Error {
     return write(writer, .{ text.count, text.data });
 }
 
-// ---------------------------------------------------------------------------------------------
 // Closing
 
 // Closes the source behind a reader. With `now`, nothing waits: use it where the code cannot
@@ -181,7 +178,6 @@ close :: (writer: Writer, now := false) -> Io_Error {
     return writer.close_proc(writer.data, now);
 } @Releases
 
-// ---------------------------------------------------------------------------------------------
 // The built-in sources
 
 reader_of :: (file: *Io_File) -> Reader {

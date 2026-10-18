@@ -399,6 +399,39 @@ impl Analysis {
         })
     }
 
+    /// Byte ranges of `path` no path through the program reaches: code after an exit, in a
+    /// branch or loop its condition rules out, and `#if` or `ifx` arms no evaluation took.
+    /// A procedure analysed once per instance counts only where every instance agrees.
+    pub fn unreachable(&self, path: &Path) -> Vec<(usize, usize)> {
+        let (Some(file), Some(ide)) = (self.file(path), self.compiler.ide.as_ref()) else {
+            return Vec::new();
+        };
+        let dead = ide
+            .dead_runs
+            .iter()
+            .filter(|((body, _), count)| ide.body_evals.get(body) == Some(*count))
+            .map(|((_, run), _)| run);
+        let inactive = ide
+            .static_branches
+            .iter()
+            .filter(|(_, ran)| !**ran)
+            .map(|(s, _)| s);
+        let mut found: Vec<(usize, usize)> = dead
+            .chain(inactive)
+            .filter(|s| s.file == file && s.start < s.end)
+            .map(|s| (s.start as usize, s.end as usize))
+            .collect();
+        found.sort_unstable_by_key(|&(start, end)| (start, std::cmp::Reverse(end)));
+        // A dead run inside another needs no range of its own.
+        let mut kept: Vec<(usize, usize)> = Vec::new();
+        for range in found {
+            if kept.last().is_none_or(|last| range.1 > last.1) {
+                kept.push(range);
+            }
+        }
+        kept
+    }
+
     pub fn file(&self, path: &Path) -> Option<FileId> {
         if let Some(&found) = self.found.borrow().get(path) {
             return found;

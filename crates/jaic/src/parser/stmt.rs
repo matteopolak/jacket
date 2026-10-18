@@ -181,7 +181,17 @@ impl Parser<'_> {
         if self.eat(P::Semi) || self.ends_block() || (self.at_prev(P::Semi) && self.at(P::RBrace)) {
             return Ok(());
         }
-        Err(self.expected("`;`", context))
+        let error = self.expected("`;`", context);
+        // While typing, a line missing only its `;` is still a whole statement: keep it, so
+        // its names stay navigable, and blame the end of that line rather than the next one.
+        let line_end = self.prev_span();
+        if self.newline_before()
+            && let Some(errors) = self.recovery.as_mut()
+        {
+            errors.push(crate::source::Diagnostic::error(line_end, error.message));
+            return Ok(());
+        }
+        Err(error)
     }
 
     /// True if the previous token closed a brace body or a here-string: no `;` is needed.

@@ -516,9 +516,7 @@ impl Compiler {
         Ok(Rc::new(agg))
     }
 
-    // -----------------------------------------------------------------------
     // #insert
-    // -----------------------------------------------------------------------
 
     /// Evaluate the operand of `#insert`. `#insert -> string { ... }` (or `-> Code`) is a
     /// procedure without parameters that runs at compile time; its result is inserted.
@@ -712,9 +710,7 @@ impl Compiler {
         Ok(Value::Bytes(Rc::new(agg)))
     }
 
-    // -----------------------------------------------------------------------
     // Reading interpreter memory back
-    // -----------------------------------------------------------------------
 
     /// Read a value of type `ty` at interpreter address `addr` as a constant.
     pub fn read_value(&mut self, addr: u64, ty: TypeId, span: Span) -> Result<Value> {

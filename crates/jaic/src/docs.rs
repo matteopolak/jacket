@@ -495,9 +495,7 @@ fn list_item(line: &str) -> Option<(String, String)> {
     Some((name.to_owned(), rest.trim().to_owned()))
 }
 
-// -------------------------------------------------------------------------------------------
 // Intra-doc links
-// -------------------------------------------------------------------------------------------
 
 /// A `[name]`, `` [`name`] `` or `[text](name)` in a line of documentation.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -185,9 +185,7 @@ struct Local {
     constant: bool,
 }
 
-// -------------------------------------------------------------------------------------------
 // Text helpers
-// -------------------------------------------------------------------------------------------
 
 pub(crate) fn trim(text: &str, start: usize, end: usize) -> (usize, usize) {
     let end = end.min(text.len());
@@ -496,9 +494,7 @@ impl<'a> Cx<'a> {
         best.map(|(_, t, p)| (t, p))
     }
 
-    // ---------------------------------------------------------------------------------------
     // Extract into variable
-    // ---------------------------------------------------------------------------------------
 
     /// `foo(a + b)` with `a + b` selected becomes `value := a + b;` above and `foo(value)`.
     fn extract_variable(&self, out: &mut Vec<CodeAction>) {
@@ -599,9 +595,7 @@ impl<'a> Cx<'a> {
         out.extend(self.action("Extract into variable".into(), EXTRACT, edits));
     }
 
-    // ---------------------------------------------------------------------------------------
     // Inline variable
-    // ---------------------------------------------------------------------------------------
 
     /// `x := a + b;` with every use of `x` replaced by `a + b`, when `x` is never changed.
     fn inline_variable(&self, out: &mut Vec<CodeAction>) {
@@ -753,9 +747,7 @@ impl<'a> Cx<'a> {
         ));
     }
 
-    // ---------------------------------------------------------------------------------------
     // Fill in missing cases and fields
-    // ---------------------------------------------------------------------------------------
 
     /// Add a `case .NAME;` for each member an `if x == {` on an enum does not mention.
     fn fill_switch(&self, out: &mut Vec<CodeAction>) {
@@ -981,9 +973,7 @@ impl<'a> Cx<'a> {
         out.extend(self.action(title, REWRITE, vec![edit]));
     }
 
-    // ---------------------------------------------------------------------------------------
     // ifx <-> if / else
-    // ---------------------------------------------------------------------------------------
 
     /// `x = ifx c then a else b;` as an `if` that assigns (or returns) `a` or `b`.
     fn ifx_to_if(&self, out: &mut Vec<CodeAction>) {
@@ -1151,9 +1141,7 @@ impl<'a> Cx<'a> {
         ));
     }
 
-    // ---------------------------------------------------------------------------------------
     // Extract into procedure
-    // ---------------------------------------------------------------------------------------
 
     /// Whole statements selected become a procedure; the variables they read are its
     /// parameters, and the ones declared in them and used afterwards are its results.

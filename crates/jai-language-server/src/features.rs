@@ -470,9 +470,7 @@ impl Session {
         Some((call.string.start, call.string.end, HoverText::new(blocks)))
     }
 
-    // ---------------------------------------------------------------------------------------
     // Expansion documents and code actions
-    // ---------------------------------------------------------------------------------------
 
     fn expansion_uri(&self, uri: &DocumentUri, at: Position) -> String {
         format!(
@@ -683,9 +681,7 @@ impl Session {
         Ok(actions)
     }
 
-    // ---------------------------------------------------------------------------------------
     // Inlay hints
-    // ---------------------------------------------------------------------------------------
 
     /// Inferred types of `x := value`, parameter names of literal arguments, and `#run` values.
     pub fn inlay_hints(&self, uri: &DocumentUri, range: Range) -> Result<Vec<InlayHint>, Error> {
@@ -802,9 +798,7 @@ impl Session {
         Ok(hints.into_iter().map(|(_, h)| h).collect())
     }
 
-    // ---------------------------------------------------------------------------------------
     // Navigation
-    // ---------------------------------------------------------------------------------------
 
     /// Every use of what the name at `position` names, in the files the check recorded.
     pub fn references(
@@ -1058,9 +1052,7 @@ impl Session {
         }))
     }
 
-    // ---------------------------------------------------------------------------------------
     // `#load` / `#import` links
-    // ---------------------------------------------------------------------------------------
 
     /// The file a `#load` or `#import` of `uri` brings in, resolved as the compiler does:
     /// `#load` relative to the loading file; a module in `modules/` next to the file, then on
@@ -1128,9 +1120,7 @@ impl Session {
         })
     }
 
-    // ---------------------------------------------------------------------------------------
     // Syntax-only features
-    // ---------------------------------------------------------------------------------------
 
     /// Declarations of every open document, then of the project's other files, whose name
     /// contains `query` (case-insensitive), at most `Limits::symbols` of them.

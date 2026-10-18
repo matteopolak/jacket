@@ -73,7 +73,6 @@ State :: struct(T: Type) {
 
 #scope_module
 
-// ---------------------------------------------------------------------------------------------
 // Run time: one procedure per extractor. The generated thunk of a route calls them.
 
 extract_path :: (request: *Request, position: int, name: string, $T: Type) -> T, Http_Error {
@@ -222,7 +221,6 @@ media_type_of :: (value: string) -> string {
     return media;
 }
 
-// ---------------------------------------------------------------------------------------------
 // The value a handler returned, as a response
 
 respond :: (request: *Request, value: Response) -> Response {
@@ -249,7 +247,6 @@ respond :: (request: *Request, value: $T) -> Response {
     return json(value, ifx request.method == .POST then 201 else 200);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Compile time: what a route registration checks and generates
 
 Param_Kind :: enum u8 {

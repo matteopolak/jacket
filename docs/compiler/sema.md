@@ -49,6 +49,20 @@ Implementation notes for `crates/jaic/src/sema`: module loading, top-level expan
 - `check_for` lowers loops rotated: the bound is tested once before the body and again after each step. A range loop tests `it` against the bound before stepping so a bound at the type's limit cannot wrap; an array loop reloads the count each step so `array_add`/`remove it` work. `tests/compiler/regressions/for-loop-bounds.jai` covers the edges.
 - A struct iterated through `for_expansion` is passed by address unless an overload takes it by value (`wants_pointer` in `stmt.rs`).
 
+### Unreachable code (`reachability.rs`, `interval.rs`)
+
+The editor fades code that can never run. Two parts, both only with `Compiler::ide` set and only for recorded files.
+
+- While a body is checked, `ide_note_ainfo` gives every integer or bool expression an `AInfo` (`IdeFacts::ainfo`): the `Interval` its operands allow, from the type's range, constants (the checker's own evaluation), arithmetic, bit ops, shifts, casts and `!`/`&&`/`||`. Anything that may wrap in the result type, or that mixes a negative with an unsigned type, falls back to the type's range. `interval.rs` holds the domain (`compare`, `binary`, `unary`) with no compiler dependency, so a lint such as "condition always true" or a bounds-check proof can reuse it.
+- `warn_unreachable` (called once per checked body) walks the statements. Dead: code after `return`/`break`/`continue`, after an `if`/`switch` whose paths all exit, after a loop whose condition is always true and that no reached `break` leaves; the branch of an `if` whose condition has one value, a `while` body that never starts, a `case` its value cannot select. Inside a branch the walk narrows the locals the condition constrains, but only locals never address-taken or named by a macro (`addr_taken`) and not assigned in that branch (`assigned`). `defer` bodies are read but are not "after" anything. The first statement after a direct `return`/`break`/`continue` still gets Jai's warning.
+- A polymorphic body is walked once per instance: `body_evals` counts walks and `dead_runs` how many found a run dead; only runs dead in every walk are shown. `#if` branches and `ifx` arms use `static_branches` (`ide_note_ran`), where a branch is faded only if no evaluation ran it. `if`/`while` on a constant are decided by the same walk, not by special cases.
+
+- After `if c { exits }` (or `if c {} else { exits }`) the rest of the block is narrowed by `!c` (`c`), under the same write rules. A `for` over a range with `from > to` is a dead body.
+- The branch a constant `if` rules out is still checked in an editor analysis (`check_dead_for_facts`), lowered into an unreachable block with its errors and warnings dropped, so hover, definition and tokens work there. The batch compiler never checks it. Constant `ifx` arms are already checked by both. Inactive `#if` branches are not checked, only tokenized by the syntax layer.
+- `warn_unreachable` returns whether the end of the body is reachable. With an analysis on, "not all control paths return a value" is also dropped when it is not (batch output is unchanged: `stmts_return` keeps the reference compiler's rules, e.g. a `while` whose body returns counts as returning).
+
+To extend: a new condition form needs an `AInfo` rule in `compute_ainfo` and the same in `eval`; narrowing is `narrow`/`constrain`. Unknown must stay "no information", never a guess. No procedure is known not to return, so calls never end a block.
+
 ### Pending and deferred work
 
 - **Placeholders**: resolving an undefined `#placeholder` bumps `placeholder_misses`. Pending items, `#run`s and `#assert`s whose failure reached one keep waiting (a metaprogram may define the name at `TYPECHECKED_ALL_WE_CAN`) and retry at the next settle. `finish_program` sets `placeholders_final` and settles once more, so a never-defined placeholder is still an error. A failed top-level `#insert` always waits until then.

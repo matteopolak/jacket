@@ -533,9 +533,7 @@ struct Rmw {
     cas: Option<(Val, Val, BlockId, BlockId)>,
 }
 
-// ---------------------------------------------------------------------------
 // Small IR helpers
-// ---------------------------------------------------------------------------
 
 fn bits(ty: Ty) -> u64 {
     ty.size() * 8
@@ -710,9 +708,7 @@ impl Compiler {
         }
     }
 
-    // -----------------------------------------------------------------------
     // Entry point
-    // -----------------------------------------------------------------------
 
     pub(super) fn check_asm(
         &mut self,
@@ -760,9 +756,7 @@ impl Compiler {
         Ok(Operand::Void)
     }
 
-    // -----------------------------------------------------------------------
     // Registers and operands
-    // -----------------------------------------------------------------------
 
     /// `x: gpr;`, `x: gpr === a;` and `x === a;` as statements.
     fn asm_decl_item(&mut self, f: &mut FnCtx, cx: &AsmCtx, decl: &AsmDecl) -> Result<()> {
@@ -1170,9 +1164,7 @@ impl Compiler {
         }
     }
 
-    // -----------------------------------------------------------------------
     // Read-modify-write
-    // -----------------------------------------------------------------------
 
     /// Start updating `dst`. With `lock` on a memory operand this opens a
     /// compare-and-swap loop that `rmw_end` closes; the value computed in
@@ -1230,9 +1222,7 @@ impl Compiler {
         }
     }
 
-    // -----------------------------------------------------------------------
     // Flags
-    // -----------------------------------------------------------------------
 
     fn flag(f: &mut FnCtx, v: Option<Val>) -> Val {
         v.unwrap_or_else(|| konst(f, Ty::I8, 0))
@@ -1291,9 +1281,7 @@ impl Compiler {
         }
     }
 
-    // -----------------------------------------------------------------------
     // Instructions
-    // -----------------------------------------------------------------------
 
     fn asm_inst(&mut self, f: &mut FnCtx, cx: &mut AsmCtx, inst: &AsmInst) -> Result<()> {
         let name = inst.mnemonic.name.as_str();

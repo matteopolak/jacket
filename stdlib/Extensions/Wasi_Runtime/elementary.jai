@@ -99,7 +99,6 @@ pair_square_root :: (a: Pair) -> Pair #no_context {
     return quick_two_sum(root, left.head / (2 * root));
 }
 
-// ---------------------------------------------------------------------------------------------
 // sin, cos and tan. x = n * pi/2 + r with |r| <= pi/4: n comes from x * 2/pi formed exactly enough
 // with the bits of 2/pi around x's exponent, r as a float64 pair (head and tail).
 
@@ -334,7 +333,6 @@ wasi_tanf :: (x: float32) -> float32 #c_call {
     return cast(float32) wasi_tan(x);
 }
 
-// ---------------------------------------------------------------------------------------------
 // exp, log and pow, through float64 pairs: each result is worked out to about 100 bits and
 // rounded once at the end, so it is within an ulp (subnormal results may round twice).
 
@@ -562,7 +560,6 @@ wasi_powf :: (x: float32, y: float32) -> float32 #c_call {
     return cast(float32) wasi_pow(x, y);
 }
 
-// ---------------------------------------------------------------------------------------------
 // atan and the angles made from it. atan(t) for 0 <= t <= 1 halves the angle three times
 // (atan t = 2 atan(t / (1 + sqrt(1 + t^2)))) and sums the series t - t^3/3 + ... on what is
 // left, |t| < 0.1.

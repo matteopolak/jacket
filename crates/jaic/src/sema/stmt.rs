@@ -333,7 +333,11 @@ impl Compiler {
                 op,
                 lhs,
                 rhs,
-            } => self.check_assign(f, scope, *op, lhs, rhs, span),
+            } => {
+                let result = self.check_assign(f, scope, *op, lhs, rhs, span);
+                self.ide_note_assign(scope, lhs, span);
+                result
+            }
             S::Block(_) => self.check_scoped(f, scope, stmt),
             S::If {
                 cond,
@@ -499,14 +503,11 @@ impl Compiler {
                 }
                 let taken = self.body_static_condition(f, scope, cond)?;
                 f.static_taken.insert(span, taken);
-                self.ide_note_skipped(
-                    cond,
-                    if taken {
-                        else_branch
-                    } else {
-                        then_branch
-                    },
-                );
+                if taken {
+                    self.ide_note_branches(cond, then_branch, else_branch);
+                } else {
+                    self.ide_note_branches(cond, else_branch, then_branch);
+                }
                 self.check_block_stmts(
                     f,
                     scope,
@@ -666,9 +667,7 @@ impl Compiler {
         }
     }
 
-    // -----------------------------------------------------------------------
     // Declarations and assignment
-    // -----------------------------------------------------------------------
 
     fn check_local_decl(
         &mut self,
@@ -1659,9 +1658,7 @@ impl Compiler {
         Ok(())
     }
 
-    // -----------------------------------------------------------------------
     // Control flow
-    // -----------------------------------------------------------------------
 
     fn const_truth(op: &Operand) -> Option<bool> {
         match op {
@@ -1681,6 +1678,31 @@ impl Compiler {
         }
     }
 
+    /// An editor analysis checks the branch a constant condition rules out, so hover, definition
+    /// and tokens work in it. It is lowered into a block nothing reaches, and its errors and
+    /// warnings are dropped: the batch compiler never looks at it.
+    fn check_dead_for_facts(&mut self, f: &mut FnCtx, scope: ScopeId, branch: &ast::Stmt) {
+        if self.ide.is_none() || self.sketching() || !self.ide_wants_pub(branch.span.file) {
+            return;
+        }
+        let warned = self.warnings.len();
+        let errors = self.ide.as_ref().map_or(0, |ide| ide.errors.len());
+        let dead = f.b.new_block();
+        let after = f.b.new_block();
+        let never = f.b.iconst(Ty::I8, 0);
+        f.b.branch(never, dead, after);
+        f.b.switch_to(dead);
+        let _ = self.check_scoped(f, scope, branch);
+        if !f.b.is_terminated() {
+            f.b.jump(after);
+        }
+        f.b.switch_to(after);
+        self.warnings.truncate(warned);
+        if let Some(ide) = self.ide.as_mut() {
+            ide.errors.truncate(errors);
+        }
+    }
+
     fn check_if(
         &mut self,
         f: &mut FnCtx,
@@ -1692,8 +1714,12 @@ impl Compiler {
         let c = self.check_expr(f, scope, cond, Some(TypeId::BOOL))?;
         if let Some(t) = Self::const_truth(&c) {
             if t {
+                if let Some(e) = else_branch {
+                    self.check_dead_for_facts(f, scope, e);
+                }
                 return self.check_scoped(f, scope, then_branch);
             }
+            self.check_dead_for_facts(f, scope, then_branch);
             if let Some(e) = else_branch {
                 return self.check_scoped(f, scope, e);
             }

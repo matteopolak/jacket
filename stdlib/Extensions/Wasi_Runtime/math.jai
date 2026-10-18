@@ -49,7 +49,6 @@ wasi_roundf :: (x: float32) -> float32 #c_call {
     return cast(float32) wasi_round(x);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Fused multiply-add: a*b + c is formed exactly as an integer times a power of two, in a
 // 4096-bit accumulator (enough for any two float64 exponents apart), then rounded once to
 // nearest, ties to even, at the precision and exponent range of the result type.
@@ -371,7 +370,6 @@ wasi_fmaf :: (a: float32, b: float32, c: float32) -> float32 #c_call {
     return cast(float32) fused(a, b, c, FLOAT32_FORMAT);
 }
 
-// ---------------------------------------------------------------------------------------------
 // The other exact functions: wasm has instructions for most, and fmod is exact by nature.
 
 floor_instruction :: (x: float64) -> float64 #intrinsic "llvm.floor.f64";

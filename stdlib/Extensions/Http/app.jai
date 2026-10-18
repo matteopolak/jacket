@@ -127,7 +127,6 @@ shutdown :: (app: *App) {
     atomic_store(*app.shutdown_flag, 1);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Groups
 
 // A prefix and middleware shared by the routes registered through it. The prefix is part of the
@@ -172,7 +171,6 @@ use :: (group: *Group($P), middleware: Middleware) {
     array_add(*group.middleware, middleware);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Routes
 
 // `get(*app, "/users/{id}", handler)`. The template and the handler are compile-time arguments:
@@ -288,7 +286,6 @@ register_route :: (app: *App, method: Method, template: string, handler: Handler
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // Handling one request
 
 // Runs `request` through the app's middleware and then the routes.

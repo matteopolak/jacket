@@ -53,7 +53,6 @@ Report :: struct {
     channel: *Io.Channel(int);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Addresses
 
 test_addresses :: () {
@@ -94,7 +93,6 @@ test_addresses :: () {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // TCP
 
 Echo_Job :: struct {
@@ -658,7 +656,6 @@ test_resolver_helpers_bounded :: () {
     assert(helpers >= 1 && helpers <= 8, "% helpers", helpers);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Time: sleeps, deadlines, cancellation
 
 test_sleep_uses_the_engine :: () {
@@ -1027,7 +1024,6 @@ test_run_ends_blocked_fibers :: () {
     while !acceptor_started Io.yield();
 }
 
-// ---------------------------------------------------------------------------------------------
 // Accept: connections that arrive while nobody accepts, several acceptors, closing with some queued
 
 Acceptor_Job :: struct {
@@ -1400,7 +1396,6 @@ test_close_now_releases_the_port :: () {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
 // Threads: one scheduler each, listeners sharing a port
 
 Shared_Port :: struct {
@@ -1533,7 +1528,6 @@ run_threads_here :: () {
     assert(shared.accepted == 20, "accepted % connections", shared.accepted);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Files
 
 // The directory the file tests write in, set by `make_scratch`. Each process has its own: the
@@ -1842,7 +1836,6 @@ test_file_cancel_and_close_under_read :: () {
     free(content.data);
 }
 
-// ---------------------------------------------------------------------------------------------
 // wait_readable
 
 Wait_Job :: struct {
@@ -2216,7 +2209,6 @@ run_wait_readable :: () {
     test_readiness_after_early_reads();
 }
 
-// ---------------------------------------------------------------------------------------------
 // Groups
 
 last_backend: string;

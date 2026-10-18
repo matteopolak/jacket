@@ -414,6 +414,7 @@ impl Session {
                     .diagnostics
                     .clone();
                 diagnostics.extend(self.check_diagnostics(uri));
+                diagnostics.extend(self.unreachable_diagnostics(uri));
                 diagnostics.extend(self.lint_diagnostics(uri));
                 (uri.as_str().into(), doc.version, diagnostics)
             })
@@ -466,6 +467,29 @@ impl Session {
             .collect()
     }
 
+    /// Hints that fade the code of `uri` the compile found can never run.
+    pub(crate) fn unreachable_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
+        let Ok(doc) = self.document(uri) else {
+            return Vec::new();
+        };
+        let found = self
+            .with_semantic(uri, &doc.text, |analysis, path| {
+                Some(analysis.unreachable(path))
+            })
+            .unwrap_or_default();
+        found
+            .into_iter()
+            .filter_map(|(start, end)| {
+                Some(Diagnostic {
+                    range: self.range_of(uri, Span::new(start, end))?,
+                    severity: DiagnosticSeverity::Hint,
+                    code: DiagnosticCode::Unreachable,
+                    message: "unreachable code".into(),
+                })
+            })
+            .collect()
+    }
+
     /// Syntax and source diagnostics of `uri`, then its type error and lints.
     pub fn diagnostics(&self, uri: &DocumentUri) -> Result<Vec<Diagnostic>, Error> {
         self.document(uri)?;
@@ -475,6 +499,7 @@ impl Session {
             .diagnostics
             .clone();
         diagnostics.extend(self.check_diagnostics(uri));
+        diagnostics.extend(self.unreachable_diagnostics(uri));
         diagnostics.extend(self.lint_diagnostics(uri));
         Ok(diagnostics)
     }

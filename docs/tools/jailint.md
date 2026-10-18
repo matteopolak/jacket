@@ -66,6 +66,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | --- | --- | --- | --- |
 | `absurd_comparison` | warn | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or false |
 | `almost_swapped` | warn | no | `a = b; b = a;`, a swap that sets both to `b` |
+| `banner_comment` | warn | no | a comment that is only a line of `-`, `=` or `*` fencing off a section |
 | `bitwise_precedence` | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
 | `bool_comparison` | warn | yes | `x == true`, `x != false`, `false == x` |
 | `broken_doc_link` | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
@@ -103,6 +104,8 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 An unsigned value is never below zero, so counting down an unsigned `i` with `while i >= 0` never stops. Only the bottom of a type is checked: aliases like `c_ulong` change width per platform.
 ### almost_swapped
 Two consecutive statements with side-effect-free sides of the same type. A real swap is `a, b = b, a;`.
+### banner_comment
+A comment of three or more of `-=*#~_` and nothing else, line or block (`// ------`). Name the section in one plain `// Names` line instead, or split the file. Rust and Python files are held to the same rule by `tools/ci/check_source_style.py`. Generated files are skipped.
 ### bitwise_precedence
 Jai gives all bitwise and shift operators one level above `*`, grouped left to right, so `1 << n - 1` is `(1 << n) - 1`. The fix adds the parentheses Jai already implies; move them if the C reading was meant.
 ### bool_comparison

@@ -60,7 +60,6 @@ init :: (config: *Tls.Tls_Config) {
     assert(error.kind == .NONE, "tls_config_init: %", Tls.error_text(error));
 }
 
-// ---------------------------------------------------------------------------------------------
 // A connected pair
 
 Handshake :: struct {
@@ -158,7 +157,6 @@ pass :: (from: *Tls.Tls_Stream, to: *Tls.Tls_Stream, text: string) {
     assert(string.{ count, buffer.data } == text, "got the wrong bytes");
 }
 
-// ---------------------------------------------------------------------------------------------
 // Handshakes
 
 test_handshakes :: () {
@@ -256,7 +254,6 @@ test_alpn :: () {
     Tls.tls_config_free(*none);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Data
 
 Transfer :: struct {
@@ -667,7 +664,6 @@ Cutting :: struct {
     done: bool;
 }
 
-// ---------------------------------------------------------------------------------------------
 // Deadlines and cancellation
 
 // Accepts a connection and says nothing.
@@ -797,7 +793,6 @@ test_handshake_cancel :: () {
     Tls.tls_config_free(*client_config);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Verification
 
 test_verification_failures :: () {
@@ -1006,7 +1001,6 @@ test_verify_proc :: () {
     Tls.tls_config_free(*client_config);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Reading and waiting
 
 test_wait_readable :: () {
@@ -1264,7 +1258,6 @@ test_close_with_a_peer_that_does_not_read :: () {
     Tls.tls_config_free(*client_config);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Many connections
 
 Crowd :: struct {
@@ -1386,7 +1379,6 @@ test_many_connections :: () {
     Tls.tls_config_free(*client_config);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Over a pipe, which cannot say when it is readable
 
 Piped :: struct {
@@ -1434,7 +1426,6 @@ test_over_a_pipe :: () {
     Tls.tls_config_free(*client_config);
 }
 
-// ---------------------------------------------------------------------------------------------
 // Configs
 
 test_config_errors :: () {

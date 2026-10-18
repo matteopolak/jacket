@@ -1412,6 +1412,7 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
     let severity = match diagnostic.severity {
         DiagnosticSeverity::Error => 1,
         DiagnosticSeverity::Warning => 2,
+        DiagnosticSeverity::Hint => 4,
     };
     let (code, source) = match diagnostic.code {
         DiagnosticCode::Lexer => ("lexer", "jaic"),
@@ -1419,6 +1420,7 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         DiagnosticCode::Source => ("source", "jaic"),
         DiagnosticCode::Limit => ("limit", "jaic"),
         DiagnosticCode::Check => ("check", "jaic"),
+        DiagnosticCode::Unreachable => ("unreachable", "jaic"),
         DiagnosticCode::Lint(rule) => (rule, "jailint"),
     };
     let mut value = json!({
@@ -1428,6 +1430,10 @@ fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         "source": source,
         "message": diagnostic.message,
     });
+    if diagnostic.code == DiagnosticCode::Unreachable {
+        // `DiagnosticTag.Unnecessary`
+        value["tags"] = json!([1]);
+    }
     if let DiagnosticCode::Lint(rule) = diagnostic.code {
         value["codeDescription"] = json!({ "href": crate::lints::rule_url(rule) });
     }

@@ -41,10 +41,8 @@ OUT_JAI_WASM = ROOT / 'stdlib' / 'Extensions' / 'WebGPU' / 'generated_wasm.jai'
 OUT_JS = ROOT / 'crates' / 'jai-wasm' / 'js' / 'webgpu_bindings.generated.mjs'
 
 
-# ---------------------------------------------------------------------------
 # A YAML subset: block mappings and sequences, `|` literal blocks, plain and quoted scalars and
 # `[]`. That is all webgpu.yml uses; anything else fails loudly.
-# ---------------------------------------------------------------------------
 
 class Yaml:
     def __init__(self, text: str):
@@ -145,9 +143,7 @@ def parse_yaml(text: str):
     return Yaml(text).block(0)
 
 
-# ---------------------------------------------------------------------------
 # Names
-# ---------------------------------------------------------------------------
 
 def pascal(name: str) -> str:
     out = ''
@@ -206,9 +202,7 @@ def js_enum_string(enum: str, entry: str) -> str:
     return out
 
 
-# ---------------------------------------------------------------------------
 # The model
-# ---------------------------------------------------------------------------
 
 PRIMS = {
     # yml type: (jai type, C type, size, js kind)
@@ -373,9 +367,7 @@ class Spec:
         return {'name': name, 'self': obj, 'method': f['name'], 'params': params, 'ret': ret, 'spec': f}
 
 
-# ---------------------------------------------------------------------------
 # Jai output
-# ---------------------------------------------------------------------------
 
 def constant_value(spec: Spec, value: str) -> tuple[str, str]:
     """(jai type, jai expression) of a constant."""
@@ -544,9 +536,7 @@ def gen_jai_wasm(spec: Spec, rev: str) -> str:
     return '\n'.join(o) + '\n'
 
 
-# ---------------------------------------------------------------------------
 # JavaScript output: layouts and call descriptors for the browser host
-# ---------------------------------------------------------------------------
 
 def js_kind(spec: Spec, t: str, pointer: str | None):
     if t in STRINGS:
@@ -674,9 +664,7 @@ def gen_js(spec: Spec, rev: str, digest: str) -> str:
     return re.sub(r'(?<=[{,])("(?:[A-Za-z0-9]+|wgpu[A-Za-z0-9]+)":\{)', r'\n  \1', text)
 
 
-# ---------------------------------------------------------------------------
 # Header check
-# ---------------------------------------------------------------------------
 
 def check_header(spec: Spec, header: str) -> int:
     text = re.sub(r'/\*.*?\*/', '', header, flags=re.S)
@@ -745,8 +733,6 @@ def check_header(spec: Spec, header: str) -> int:
     print(f'header check: {problems} problem(s)')
     return problems
 
-
-# ---------------------------------------------------------------------------
 
 def load_yml(path: str | None) -> tuple[str, str, str]:
     pin = json.loads(MANIFEST.read_text())['webgpu_headers']

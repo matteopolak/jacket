@@ -175,8 +175,6 @@ after_location :: (text: string) -> string {
     return slice(text, newline + 1, text.count - newline - 1);
 }
 
-// ---------------------------------------------------------------------------------------------
-
 basics :: () {
     world.hits = 0;
 

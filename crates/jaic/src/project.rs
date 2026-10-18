@@ -29,9 +29,7 @@ pub const LINT_TOML: &str = "jailint.toml";
 /// Entry files tried, in order, when no `jai.toml` names them.
 pub const INFERRED_ENTRIES: &[&str] = &["build.jai", "first.jai", "main.jai", "src/main.jai"];
 
-// -------------------------------------------------------------------------------------------
 // The TOML subset
-// -------------------------------------------------------------------------------------------
 
 /// What [`parse_toml`] hands its visitor.
 #[derive(Debug)]
@@ -155,9 +153,7 @@ pub enum TomlArrayError {
     NotAString,
 }
 
-// -------------------------------------------------------------------------------------------
 // Settings
-// -------------------------------------------------------------------------------------------
 
 /// The settings of a `jai.toml` and a `jailint.toml`: the union of what the tools read. Each
 /// file only sets its own fields.
@@ -330,9 +326,7 @@ pub fn entry_files(base: &Path, config: Option<&ProjectConfig>) -> EntryFiles {
     }
 }
 
-// -------------------------------------------------------------------------------------------
 // Directives
-// -------------------------------------------------------------------------------------------
 
 /// What a directive brings in.
 #[derive(Clone, Debug)]
@@ -433,9 +427,7 @@ pub fn resolve_targets(links: &mut [DirectiveLink], dir: &Path) {
     }
 }
 
-// -------------------------------------------------------------------------------------------
 // Files
-// -------------------------------------------------------------------------------------------
 
 /// The files a project walk sees. [`DiskFs`] is the disk; an editor puts its open buffers over
 /// it and may cache what it scanned.
@@ -580,9 +572,7 @@ pub fn load_closure(fs: &dyn ProjectFs, root: &Path, limit: usize) -> BTreeSet<P
     seen
 }
 
-// -------------------------------------------------------------------------------------------
 // Roots
-// -------------------------------------------------------------------------------------------
 
 /// What a source file is compiled as.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -931,9 +921,7 @@ pub fn climb_loaders(fs: &dyn ProjectFs, file: &Path, folder: Option<&Path>) -> 
     climb(&loaders, file)
 }
 
-// -------------------------------------------------------------------------------------------
 // Tests
-// -------------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

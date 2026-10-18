@@ -113,6 +113,20 @@ pub struct IdeFacts {
     pub(super) sketch_tried: HashSet<Span>,
     /// The code an `#if` on `OS` or `CPU` did not take: another target's compile has its facts.
     pub skipped: Vec<Span>,
+    /// The branch of each `#if` and `ifx` of the recorded files, and whether any evaluation
+    /// ran it.
+    pub static_branches: HashMap<Span, bool>,
+    /// What each checked integer or bool expression of the recorded files can evaluate to
+    /// (see `reachability.rs`), for the last evaluation of it.
+    pub(super) ainfo: HashMap<Span, super::reachability::AInfo>,
+    /// Where each local was assigned.
+    pub(super) assigned: HashMap<EntityId, Vec<Span>>,
+    /// Locals whose address was taken, or that a macro may write.
+    pub(super) addr_taken: HashSet<EntityId>,
+    /// How many times each procedure body (by span) was analysed for reachability, and for
+    /// each run of dead code (body, run) how many of those found it dead.
+    pub body_evals: HashMap<Span, u32>,
+    pub dead_runs: HashMap<(Span, Span), u32>,
     /// `refs` by file, sorted by start, for position lookups (`refs_at`). Built on first use
     /// and again whenever `refs` has changed since (its length and buffer are the key).
     by_position: std::cell::RefCell<RefIndex>,
@@ -514,6 +528,9 @@ impl Compiler {
                     });
             }
         }
+        if self.ide.is_some() {
+            self.ide_note_ainfo(expr, op);
+        }
         if let ast::ExprKind::Call {
             callee, ..
         } = &expr.kind
@@ -890,6 +907,35 @@ impl Compiler {
                     decl: false,
                 });
             }
+        }
+    }
+
+    /// An `#if` took `taken` and skipped `skipped`: note whether each branch body ran, for the
+    /// editor to fade the ones no evaluation took, then `ide_note_skipped`.
+    pub(super) fn ide_note_branches(
+        &mut self,
+        cond: &ast::Expr,
+        taken: &[ast::Stmt],
+        skipped: &[ast::Stmt],
+    ) {
+        for (branch, ran) in [(taken, true), (skipped, false)] {
+            if let (Some(first), Some(last)) = (branch.first(), branch.last()) {
+                self.ide_note_ran(first.span.to(last.span), ran);
+            }
+        }
+        self.ide_note_skipped(cond, skipped);
+    }
+
+    /// The code at `span`, a branch of an `#if`, `if`, `ifx` or the body of a `while`, was
+    /// checked as running (`ran`) or as skipped by a constant condition. Evaluations merge: a
+    /// branch is faded only when none of them ran it.
+    pub(super) fn ide_note_ran(&mut self, span: Span, ran: bool) {
+        if self.ide.is_some()
+            && !self.sketching()
+            && self.ide_wants(span.file)
+            && let Some(ide) = self.ide.as_mut()
+        {
+            *ide.static_branches.entry(span).or_insert(false) |= ran;
         }
     }
 

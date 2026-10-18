@@ -840,7 +840,7 @@ impl Compiler {
                 } else {
                     (else_branch, then_branch)
                 };
-                self.ide_note_skipped(cond, skipped);
+                self.ide_note_branches(cond, branch, skipped);
                 Some(branch.clone())
             }
             ast::StmtKind::StaticSwitch(boxed) => {

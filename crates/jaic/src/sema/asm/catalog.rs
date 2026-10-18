@@ -121,9 +121,7 @@ pub fn inline_register_class(mnemonic: &str, width: u64, operand: usize) -> Opti
     })
 }
 
-// ---------------------------------------------------------------------------
 // Decoding: the lowering's own lookups, in the order `asm_inst` tries them.
-// ---------------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
@@ -316,9 +314,7 @@ fn build() -> Vec<AsmInstruction> {
     table.into_values().collect()
 }
 
-// ---------------------------------------------------------------------------
 // Features
-// ---------------------------------------------------------------------------
 
 fn core_feature(name: &str, kind: Kind) -> &'static str {
     let name = name.strip_prefix("lock_").unwrap_or(name);
@@ -615,9 +611,7 @@ fn simd_features(name: &str, op: SOp) -> (Option<&'static str>, Option<&'static 
     }
 }
 
-// ---------------------------------------------------------------------------
 // Operand forms
-// ---------------------------------------------------------------------------
 
 const BIN: &str = "dst: vec, src: vec/mem";
 const BIN3: &str = "dst: vec, a: vec, b: vec/mem";
@@ -881,9 +875,7 @@ fn simd_forms(op: SOp, vex: bool) -> Vec<&'static str> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Descriptions
-// ---------------------------------------------------------------------------
 
 fn lanes(ty: Ty) -> &'static str {
     match ty {

@@ -132,9 +132,7 @@ fn declined(text: &str, range: Range, title: &str) {
     );
 }
 
-// -------------------------------------------------------------------------------------------
 // Extract into variable
-// -------------------------------------------------------------------------------------------
 
 const EXTRACT_VARIABLE: &str = "scale :: (a: int, b: int) -> int { return a * b; }
 main :: () {
@@ -224,9 +222,7 @@ fn declines_to_extract_conditions_that_run_each_time() {
     );
 }
 
-// -------------------------------------------------------------------------------------------
 // Inline variable
-// -------------------------------------------------------------------------------------------
 
 #[test]
 fn inlines_a_variable() {
@@ -294,9 +290,7 @@ main :: () {
     declined(text, cursor(text, "a :=", 0), "Inline variable");
 }
 
-// -------------------------------------------------------------------------------------------
 // Fill in missing cases and fields
-// -------------------------------------------------------------------------------------------
 
 const KINDS: &str = "Kind :: enum { ONE; TWO; THREE; FOUR; }
 describe :: (k: Kind) -> int {
@@ -403,9 +397,7 @@ main :: () {
     declined(text, cursor(text, "Point.{1", 3), "Add missing fields");
 }
 
-// -------------------------------------------------------------------------------------------
 // ifx <-> if / else
-// -------------------------------------------------------------------------------------------
 
 #[test]
 fn converts_ifx_to_if_else() {
@@ -524,9 +516,7 @@ fn declines_to_convert_if_else_that_differs() {
     declined(text, range, "Convert if/else to ifx");
 }
 
-// -------------------------------------------------------------------------------------------
 // Extract into procedure
-// -------------------------------------------------------------------------------------------
 
 const EXTRACT_PROCEDURE: &str = "compute :: (base: int, items: []int) -> int {
     sum := 0;
@@ -632,9 +622,7 @@ fn declines_to_extract_what_cannot_be_a_procedure() {
     declined(text, select(text, "count += 1;"), "Extract into procedure");
 }
 
-// -------------------------------------------------------------------------------------------
 // Whatever is selected, an offered edit leaves a program that parses
-// -------------------------------------------------------------------------------------------
 
 #[test]
 fn offered_refactorings_always_parse() {
