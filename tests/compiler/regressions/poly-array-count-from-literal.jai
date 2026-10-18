@@ -2,8 +2,14 @@
 // from the default when the argument is omitted.
 #import "Basic";
 
-count_of :: (tags: [$N] string) -> int { return N; }
-count_default :: (tags: [$N] string = .["a", "b"]) -> int { return N; }
+count_of :: (tags: [$N] string) -> int {
+    return N;
+}
+
+count_default :: (tags: [$N] string = .["a", "b"]) -> int {
+    return N;
+}
+
 sum_of :: (values: [$N] int) -> int {
     total := 0;
     for values total += it;
