@@ -12,10 +12,11 @@
 //! relative to the file's directory), `max_nesting` (an integer, for `excessive_nesting`) and a
 //! `[rules]` table of `name = "allow" | "warn" |
 //! "deny"`. Anything else is an error, so a typo does not silently keep a rule on.
+use jaic::project::{self, ProjectConfig};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-pub const FILE_NAME: &str = "jailint.toml";
+pub const FILE_NAME: &str = jaic::project::LINT_TOML;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
@@ -80,121 +81,23 @@ impl Config {
 
     /// Settings from the text of a `jailint.toml` in `root`.
     pub fn parse(text: &str, root: &Path) -> Result<Config, String> {
+        let parsed = ProjectConfig::parse_lint(text, check_rule)?;
         let mut config = Config {
             root: root.to_path_buf(),
+            exclude: parsed.exclude,
+            max_nesting: parsed.max_nesting,
             ..Config::default()
         };
-        let mut table = String::new();
-        let mut pending: Option<(usize, String, String)> = None;
-        for (number, raw) in text.lines().enumerate() {
-            let line = strip_comment(raw).trim().to_string();
-            // An array continued over several lines.
-            if let Some((at, key, mut value)) = pending.take() {
-                value.push(' ');
-                value.push_str(&line);
-                if value.trim_end().ends_with(']') {
-                    config.set(&table, &key, &value, at)?;
-                } else {
-                    pending = Some((at, key, value));
-                }
-                continue;
-            }
-            if line.is_empty() {
-                continue;
-            }
-            if let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']')) {
-                table = name.trim().to_string();
-                if table != "rules" {
-                    return Err(format!(
-                        "line {}: unknown table `[{table}]`\nhelp: the only table is `[rules]`",
-                        number + 1
-                    ));
-                }
-                continue;
-            }
-            let Some((key, value)) = line.split_once('=') else {
-                return Err(format!(
-                    "line {}: expected `key = value`, found `{line}`",
-                    number + 1
-                ));
-            };
-            let (key, value) = (key.trim().to_string(), value.trim().to_string());
-            if value.starts_with('[') && !value.ends_with(']') {
-                pending = Some((number + 1, key, value));
-                continue;
-            }
-            config.set(&table, &key, &value, number + 1)?;
-        }
-        if let Some((at, ..)) = pending {
-            return Err(format!(
-                "line {at}: this array is never closed\nhelp: end it with `]`"
-            ));
+        for (rule, level) in parsed.rules {
+            let level = Level::parse(&level).expect("`check_rule` returns a level");
+            config.levels.insert(rule, level);
         }
         Ok(config)
     }
 
-    fn set(&mut self, table: &str, key: &str, value: &str, line: usize) -> Result<(), String> {
-        match (table, key) {
-            ("", "exclude") => {
-                let inner = value
-                    .strip_prefix('[')
-                    .and_then(|v| v.strip_suffix(']'))
-                    .ok_or_else(|| format!("line {line}: `exclude` takes an array of strings"))?;
-                for item in inner.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-                    self.exclude.push(
-                        string(item)
-                            .ok_or_else(|| format!("line {line}: expected a quoted string"))?,
-                    );
-                }
-                Ok(())
-            }
-            ("", "max_nesting") => {
-                self.max_nesting = Some(value.parse().map_err(|_| {
-                    format!(
-                        "line {line}: `max_nesting` takes a whole number, such as `max_nesting = 6`"
-                    )
-                })?);
-                Ok(())
-            }
-            ("", other) => Err(format!(
-                "line {line}: unknown setting `{other}`\nhelp: the top-level settings are `exclude = [\"pattern\", ...]` and `max_nesting = 6`; rule levels go under `[rules]`"
-            )),
-            (_, rule) => {
-                let rule = rule.trim_matches('"');
-                if !crate::RULES.iter().any(|r| r.name == rule) {
-                    let help =
-                        match jaic::suggest::closest(rule, crate::RULES.iter().map(|r| r.name)) {
-                            Some(near) => {
-                                format!("did you mean `{near}`? `jailint --list` lists the rules")
-                            }
-                            None => "`jailint --list` lists the rules".to_string(),
-                        };
-                    return Err(format!("line {line}: unknown rule `{rule}`\nhelp: {help}"));
-                }
-                let level = string(value)
-                    .and_then(|v| Level::parse(&v))
-                    .ok_or_else(|| {
-                        format!(
-                            "line {line}: unknown level {value} for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\""
-                        )
-                    })?;
-                self.levels.insert(rule.to_string(), level);
-                Ok(())
-            }
-        }
-    }
-
     /// The nearest `jailint.toml` in `start` or a directory above it.
     pub fn find(start: &Path) -> Option<PathBuf> {
-        let mut dir = Some(start);
-        while let Some(d) = dir {
-            let candidate = d.join(FILE_NAME);
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-            dir = d.parent();
-        }
-        None
+        project::find_config_dir(start, FILE_NAME, Path::is_file).map(|d| d.join(FILE_NAME))
     }
 
     /// Settings of the file at `path`.
@@ -221,23 +124,24 @@ impl Config {
     }
 }
 
-/// The line without a `#` comment (a `#` inside a string stays).
-fn strip_comment(line: &str) -> &str {
-    let mut quoted = false;
-    for (i, c) in line.char_indices() {
-        match c {
-            '"' => quoted = !quoted,
-            '#' if !quoted => return &line[..i],
-            _ => {}
-        }
+/// Whether `rule` is a rule and `value` a level for it; the level it names.
+fn check_rule(rule: &str, value: &str, line: usize) -> Result<String, String> {
+    if !crate::RULES.iter().any(|r| r.name == rule) {
+        let help = match jaic::suggest::closest(rule, crate::RULES.iter().map(|r| r.name)) {
+            Some(near) => {
+                format!("did you mean `{near}`? `jailint --list` lists the rules")
+            }
+            None => "`jailint --list` lists the rules".to_string(),
+        };
+        return Err(format!("line {line}: unknown rule `{rule}`\nhelp: {help}"));
     }
-    line
-}
-
-/// The contents of a `"string"` (no escapes are needed for paths and levels).
-fn string(text: &str) -> Option<String> {
-    let inner = text.trim().strip_prefix('"')?.strip_suffix('"')?;
-    (!inner.contains('"')).then(|| inner.to_string())
+    project::toml_string(value)
+        .filter(|v| Level::parse(v).is_some())
+        .ok_or_else(|| {
+            format!(
+                "line {line}: unknown level {value} for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\""
+            )
+        })
 }
 
 /// Glob match: `*` is any run of characters but `/`, `**` any run including `/`, `?` one

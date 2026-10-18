@@ -17,6 +17,7 @@ use jaic::ast::{File, Import, ImportSource, StmtKind as S};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::intern::Sym;
 use jaic::lexer::{Tok, Token};
+use jaic::project::{self, LinkSource};
 use jaic::sema::scope::{EntityKind, Found};
 use jaic::sema::{Compiler, ModuleId, ScopeId};
 use jaic::source::{FileId, Span};
@@ -217,22 +218,28 @@ fn count(
     seen: &mut HashSet<PathBuf>,
     queue: &mut Vec<(PathBuf, String)>,
 ) {
-    let dir = path.parent().map(PathBuf::from).unwrap_or_default();
-    for (i, t) in tokens.iter().enumerate() {
-        match &t.tok {
-            Tok::Ident(n) => *out.entry(*n).or_insert(0) += 1,
-            Tok::Directive(d) if d.as_str() == "load" => {
-                if let Some(Tok::Str(s)) = tokens.get(i + 1).map(|t| &t.tok) {
-                    let target = dir.join(String::from_utf8_lossy(s).as_ref());
-                    let key = jaic::canonicalize(&target).unwrap_or(target.clone());
-                    if seen.insert(key)
-                        && let Ok(text) = std::fs::read_to_string(&target)
-                    {
-                        queue.push((target, text));
-                    }
-                }
-            }
-            _ => {}
+    for t in tokens {
+        if let Tok::Ident(n) = &t.tok {
+            *out.entry(*n).or_insert(0) += 1;
+        }
+    }
+    let mut links = project::scan_directives(tokens);
+    project::resolve_targets(
+        &mut links,
+        path.parent().unwrap_or(std::path::Path::new("")),
+    );
+    for link in links {
+        if !matches!(link.source, LinkSource::Load(_)) {
+            continue;
+        }
+        let Some(target) = link.target else {
+            continue;
+        };
+        let key = jaic::canonicalize(&target).unwrap_or(target.clone());
+        if seen.insert(key)
+            && let Ok(text) = std::fs::read_to_string(&target)
+        {
+            queue.push((target, text));
         }
     }
 }
