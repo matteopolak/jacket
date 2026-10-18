@@ -20,11 +20,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Readable on macOS besides the paths a run is given: the OS, the dynamic linker cache, the developer
-# tools the system linker comes from, and the device files a process opens at start-up.
+# tools the system linker comes from, Homebrew (projects link its libraries; its clang reads its own
+# config) and the device files a process opens at start-up.
 MACOS_SYSTEM_READS = [
     '/System', '/usr', '/bin', '/sbin', '/Library/Developer', '/Library/Apple', '/Library/Preferences',
     '/Applications/Xcode.app', '/private/etc', '/private/var/db/dyld', '/private/var/db/timezone',
-    '/private/var/select', '/dev',
+    '/private/var/select', '/dev', '/opt/homebrew', '/usr/local',
 ]
 
 # Mounted read-only on Linux.

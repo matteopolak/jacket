@@ -43,13 +43,16 @@ class Source(Protocol):
         """What to count lines in: the part of `directory` that is the workload's own code."""
 
 
-def copy_in(directory: Path, scratch: Path) -> Path:
-    """A copy of `directory` under `scratch`, made once: the sandboxed compilers may write only there
-    (another compiler writes `.build/` next to what it compiles)."""
-    copy = scratch / 'sources' / directory.name
+def copy_in(directory: Path, scratch: Path, root: Path | None = None) -> Path:
+    """A copy under `scratch` of `root` (default `directory`), made once, and where `directory` landed in
+    it: the sandboxed compilers may write only there (another compiler writes `.build/` next to what it
+    compiles). A project subfolder copies its whole project, which it may import from (`../module.jai`),
+    and links are copied as what they point to (a corpus project links its sibling projects as modules)."""
+    root = root or directory
+    copy = scratch / 'sources' / root.name
     if not copy.exists():
-        shutil.copytree(directory, copy, symlinks=True, ignore=shutil.ignore_patterns('.build', '.git'))
-    return copy
+        shutil.copytree(root, copy, symlinks=False, ignore=shutil.ignore_patterns('.build', '.git'))
+    return copy / directory.relative_to(root)
 
 
 @dataclass(frozen=True)
@@ -85,7 +88,7 @@ class CorpusProject:
                 for command in case.get('setup', []):
                     subprocess.run(command, cwd=(CORPUS / case['path']).parent, capture_output=True,
                                    stdin=subprocess.DEVNULL)
-        return copy_in(self.directory, scratch)
+        return copy_in(self.directory, scratch, CORPUS / Path(self.project).parts[0])
 
     def available(self) -> str:
         return '' if self.directory.is_dir() else f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'

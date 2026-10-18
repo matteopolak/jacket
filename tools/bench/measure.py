@@ -33,8 +33,12 @@ class Run:
         """One line saying why the run failed (the last lines of stderr, or stdout)."""
         if self.timed_out:
             return f'timed out after {self.wall:.0f} s'
-        tail = [line for line in (self.stderr or self.stdout).splitlines() if line.strip()][-2:]
-        return f'exit {self.returncode}: ' + ' | '.join(line.strip()[:160] for line in tail)
+        # The first error says why; jaic's `-timings` lines come last and say nothing.
+        lines = [line.strip() for line in (self.stderr or self.stdout).splitlines()
+                 if line.strip() and not line.startswith('jaic-timing:')]
+        errors = [line for line in lines if 'error' in line.lower()]
+        shown = errors[:2] or lines[-2:]
+        return f'exit {self.returncode}: ' + ' | '.join(line[:160] for line in shown)
 
 
 def kill_group(pid: int) -> None:
