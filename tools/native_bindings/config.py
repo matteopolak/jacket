@@ -67,7 +67,7 @@ PRIVATE = {
     'd3d11': '__MIDL___MIDL_itf_d3d11_0000_0034_0001 :: struct { __bitfield: u32; }',
     'X11': 'wchar_t :: s32;',
     'SDL': '#if OS == .LINUX { #import "X11"; }',
-    'ImGui': '#import "Math";\nNative :: #import "internal/bindings/native";\nVarargs :: #import "internal/bindings/varargs";\n'+CXX_RUNTIME,
+    'ImGui': '#import "Math";\n'+CXX_RUNTIME,
     'macOS': '''Boolean :: u8;
 UTF32Char :: u32;
 UTF16Char :: u16;
@@ -105,9 +105,7 @@ sockaddr :: struct {
     #if OS == .MACOS || OS == .IOS { sa_len: u8; sa_family: u8; }
     else { sa_family: u16; }
     sa_data: [14]u8;
-}
-Native :: #import "internal/bindings/native";
-Varargs :: #import "internal/bindings/varargs";''',
+}''',
     'dxc_compiler': 'IMalloc :: struct {};\nIStream :: struct {};\nBSTR :: *u16;',
     'freetype': 'ptrdiff_t :: s64;',
     'Objective_C': '''ptrdiff_t :: s64;

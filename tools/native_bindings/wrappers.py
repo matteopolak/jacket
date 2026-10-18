@@ -180,39 +180,6 @@ def forwarding_body(module, declaration, declarations, parts, parse):
         return bits
     name, params, args, tail = parts
     prefix = 'return ' if '->' in tail and not re.search(r'->\s*(?:void|\(\))', tail) else ''
-    if module == 'ImGui' and any(p.split(':',1)[0].strip() == 'fmt' and ': string' in p for p in params) and '__args' in args:
-        for native in declarations:
-            if native.name != name+'_CFormat' or native.condition != declaration.condition:
-                continue
-            target = parse(native.code)
-            if not target or len(target[1]) != len(params):
-                continue
-            fixed, compatible = [], True
-            for public, raw, argument in zip(params,target[1],args):
-                public_type = public.split(':',1)[1].split('=',1)[0].strip()
-                raw_type = raw.split(':',1)[1].split('=',1)[0].strip()
-                if argument == '__args':
-                    continue
-                if argument == 'fmt':
-                    fixed.append('.{kind=6,value=cast(u64) cformat}')
-                elif raw_type.startswith('*') and public_type == raw_type[1:]:
-                    fixed.append('.{kind=6,value=cast(u64) *'+argument+'}')
-                elif raw_type == public_type and raw_type.startswith('*'):
-                    fixed.append('.{kind=6,value=cast(u64) '+argument+'}')
-                elif raw_type == public_type and public_type == 'TreeNodeFlags':
-                    fixed.append('.{kind=1,value=cast(u64) '+argument+'}')
-                else:
-                    compatible = False
-                    break
-            if compatible:
-                setup = 'cformat := Native.terminated_copy(fmt); defer Native.release(cformat); '
-                setup += 'fixed: ['+str(len(fixed))+']Varargs.Argument = .['+', '.join(fixed)+']; '
-                # The overloaded string/pointer ID variants need a typed
-                # procedure address to select their exact native signature.
-                signature = native.code.split('::',1)[1].split('#foreign',1)[0].strip()
-                setup += 'Native_Format :: #type '+signature+' #c_call; function: Native_Format = '+native.name+'; '
-                invoke = 'invoke_bool' if prefix else 'invoke_void'
-                return setup+prefix+'Varargs.'+invoke+'(cast(*void) function,fixed,__args);'
     if module == 'Vulkan' and re.search(r'->\s*\[\]', tail):
         element = re.search(r'->\s*\[\]\s*(\w+)', tail)[1]
         has_result = 'VkResult' in tail
@@ -250,19 +217,6 @@ def forwarding_body(module, declaration, declarations, parts, parse):
         signal = 'null' if len(args) == 4 else args[-1]
         size = 'size_of(io_uring_getevents_arg)' if 'io_uring_getevents_arg' in params[-1] else '8'
         return 'return cast(s32) syscall(426, fd, to_submit, min_complete, flags, ' + signal + ', ' + size + ');'
-    if module == 'Curl' and name.startswith('curl_m'):
-        fixed = []
-        for arg in args:
-            if arg == '__args':
-                continue
-            value = 'cformat' if arg == 'format' else arg
-            kind = 4 if arg == 'maxlength' else 6
-            converted = value if arg == 'maxlength' else 'cast(u64) '+value
-            fixed.append('.{kind='+str(kind)+', value='+converted+'}')
-        output = 'cformat := Native.terminated_copy(format); defer Native.release(cformat); '
-        output += 'fixed: ['+str(len(fixed))+']Varargs.Argument = .['+', '.join(fixed)+']; '
-        invoke = 'invoke_pointer' if name=='curl_maprintf' else 'invoke_int'
-        return output + 'return Varargs.'+invoke+'(cast(*void) '+name+'_CFormat, fixed, __args);'
     if module == 'Objective_C':
         if name == 'init_objective_c':
             return 'if !binding_objc_class("NSObject") binding_abort();'

@@ -193,18 +193,12 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `GetID :: (ptr_id: *void) -> ID #foreign imgui "_ZN5ImGui5GetIDEPKv"`
 - `TextUnformatted :: (text: *u8, text_end: *u8 = null) -> void #foreign imgui "_ZN5ImGui15TextUnformattedEPKcS1_"`
 - `TextUnformatted :: (text: string) #no_context`
-- `Text_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui4TextEPKcz"`
-- `Text :: (fmt: string, __args: ..Any)`
-- `TextColored_CFormat :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextColoredERK6ImVec4PKcz"`
-- `TextColored :: (col: ImVec4, fmt: string, __args: ..Any)`
-- `TextDisabled_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui12TextDisabledEPKcz"`
-- `TextDisabled :: (fmt: string, __args: ..Any)`
-- `TextWrapped_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextWrappedEPKcz"`
-- `TextWrapped :: (fmt: string, __args: ..Any)`
-- `LabelText_CFormat :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui9LabelTextEPKcS1_z"`
-- `LabelText :: (label: *u8, fmt: string, __args: ..Any)`
-- `BulletText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10BulletTextEPKcz"`
-- `BulletText :: (fmt: string, __args: ..Any)`
+- `Text :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui4TextEPKcz"`
+- `TextColored :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextColoredERK6ImVec4PKcz"`
+- `TextDisabled :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui12TextDisabledEPKcz"`
+- `TextWrapped :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextWrappedEPKcz"`
+- `LabelText :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui9LabelTextEPKcS1_z"`
+- `BulletText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10BulletTextEPKcz"`
 - `SeparatorText :: (label: *u8) -> void #foreign imgui "_ZN5ImGui13SeparatorTextEPKc"`
 - `Button :: (label: *u8, size: *ImVec2) -> bool #foreign imgui "_ZN5ImGui6ButtonEPKcRK6ImVec2"`
 - `Button :: (label: *u8, size: ImVec2 = ImVec2.{0, 0}) -> bool #no_context`
@@ -281,15 +275,11 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `ColorButton :: (desc_id: *u8, col: ImVec4, flags: ColorEditFlags = .None, size: ImVec2 = ImVec2.{0, 0}) -> bool #no_context`
 - `SetColorEditOptions :: (flags: ColorEditFlags) -> void #foreign imgui "_ZN5ImGui19SetColorEditOptionsEi"`
 - `TreeNode :: (label: *u8) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKc"`
-- `TreeNode_CFormat :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKcS1_z"`
-- `TreeNode :: (str_id: *u8, fmt: string, __args: ..Any) -> bool`
-- `TreeNode_CFormat :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKvPKcz"`
-- `TreeNode :: (ptr_id: *void, fmt: string, __args: ..Any) -> bool`
+- `TreeNode :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKcS1_z"`
+- `TreeNode :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKvPKcz"`
 - `TreeNodeEx :: (label: *u8, flags: TreeNodeFlags = .None) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKci"`
-- `TreeNodeEx_CFormat :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKciS1_z"`
-- `TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool`
-- `TreeNodeEx_CFormat :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKviPKcz"`
-- `TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool`
+- `TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKciS1_z"`
+- `TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKviPKcz"`
 - `TreePush :: (str_id: *u8) -> void #foreign imgui "_ZN5ImGui8TreePushEPKc"`
 - `TreePush :: (ptr_id: *void) -> void #foreign imgui "_ZN5ImGui8TreePushEPKv"`
 - `TreePop :: () -> void #foreign imgui "_ZN5ImGui7TreePopEv"`
@@ -324,8 +314,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `MenuItem :: (label: *u8, shortcut: *u8, p_selected: *bool, enabled := true) -> bool #foreign imgui "_ZN5ImGui8MenuItemEPKcS1_Pbb"`
 - `BeginTooltip :: () -> bool #foreign imgui "_ZN5ImGui12BeginTooltipEv"`
 - `EndTooltip :: () -> void #foreign imgui "_ZN5ImGui10EndTooltipEv"`
-- `SetTooltip_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10SetTooltipEPKcz"`
-- `SetTooltip :: (fmt: string, __args: ..Any)`
+- `SetTooltip :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10SetTooltipEPKcz"`
 - `BeginPopup :: (str_id: *u8, flags: WindowFlags = .None) -> bool #foreign imgui "_ZN5ImGui10BeginPopupEPKci"`
 - `BeginPopupModal :: (name: *u8, p_open: *bool = null, flags: WindowFlags = .None) -> bool #foreign imgui "_ZN5ImGui15BeginPopupModalEPKcPbi"`
 - `EndPopup :: () -> void #foreign imgui "_ZN5ImGui8EndPopupEv"`
@@ -374,8 +363,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `LogToClipboard :: (auto_open_depth: s32 = -1) -> void #foreign imgui "_ZN5ImGui14LogToClipboardEi"`
 - `LogFinish :: () -> void #foreign imgui "_ZN5ImGui9LogFinishEv"`
 - `LogButtons :: () -> void #foreign imgui "_ZN5ImGui10LogButtonsEv"`
-- `LogText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui7LogTextEPKcz"`
-- `LogText :: (fmt: string, __args: ..Any)`
+- `LogText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui7LogTextEPKcz"`
 - `BeginDragDropSource :: (flags: DragDropFlags = .None) -> bool #foreign imgui "_ZN5ImGui19BeginDragDropSourceEi"`
 - `SetDragDropPayload :: (type: *u8, data: *void, sz: u64, cond: Cond = .None) -> bool #foreign imgui "_ZN5ImGui18SetDragDropPayloadEPKcPKvmi"`
 - `EndDragDropSource :: () -> void #foreign imgui "_ZN5ImGui17EndDragDropSourceEv"`
@@ -723,18 +711,12 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `GetID :: (ptr_id: *void) -> ID #foreign imgui "?GetID@ImGui@@YAIPEBX@Z"`
 - `TextUnformatted :: (text: *u8, text_end: *u8 = null) -> void #foreign imgui "?TextUnformatted@ImGui@@YAXPEBD0@Z"`
 - `TextUnformatted :: (text: string) #no_context`
-- `Text_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?Text@ImGui@@YAXPEBDZZ"`
-- `Text :: (fmt: string, __args: ..Any)`
-- `TextColored_CFormat :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextColored@ImGui@@YAXAEBUImVec4@@PEBDZZ"`
-- `TextColored :: (col: ImVec4, fmt: string, __args: ..Any)`
-- `TextDisabled_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextDisabled@ImGui@@YAXPEBDZZ"`
-- `TextDisabled :: (fmt: string, __args: ..Any)`
-- `TextWrapped_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextWrapped@ImGui@@YAXPEBDZZ"`
-- `TextWrapped :: (fmt: string, __args: ..Any)`
-- `LabelText_CFormat :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "?LabelText@ImGui@@YAXPEBD0ZZ"`
-- `LabelText :: (label: *u8, fmt: string, __args: ..Any)`
-- `BulletText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?BulletText@ImGui@@YAXPEBDZZ"`
-- `BulletText :: (fmt: string, __args: ..Any)`
+- `Text :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?Text@ImGui@@YAXPEBDZZ"`
+- `TextColored :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextColored@ImGui@@YAXAEBUImVec4@@PEBDZZ"`
+- `TextDisabled :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextDisabled@ImGui@@YAXPEBDZZ"`
+- `TextWrapped :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextWrapped@ImGui@@YAXPEBDZZ"`
+- `LabelText :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "?LabelText@ImGui@@YAXPEBD0ZZ"`
+- `BulletText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?BulletText@ImGui@@YAXPEBDZZ"`
 - `SeparatorText :: (label: *u8) -> void #foreign imgui "?SeparatorText@ImGui@@YAXPEBD@Z"`
 - `Button :: (label: *u8, size: *ImVec2) -> bool #foreign imgui "?Button@ImGui@@YA_NPEBDAEBUImVec2@@@Z"`
 - `Button :: (label: *u8, size: ImVec2 = ImVec2.{0, 0}) -> bool #no_context`
@@ -811,15 +793,11 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `ColorButton :: (desc_id: *u8, col: ImVec4, flags: ColorEditFlags = .None, size: ImVec2 = ImVec2.{0, 0}) -> bool #no_context`
 - `SetColorEditOptions :: (flags: ColorEditFlags) -> void #foreign imgui "?SetColorEditOptions@ImGui@@YAXH@Z"`
 - `TreeNode :: (label: *u8) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBD@Z"`
-- `TreeNode_CFormat :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBD0ZZ"`
-- `TreeNode :: (str_id: *u8, fmt: string, __args: ..Any) -> bool`
-- `TreeNode_CFormat :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBXPEBDZZ"`
-- `TreeNode :: (ptr_id: *void, fmt: string, __args: ..Any) -> bool`
+- `TreeNode :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBD0ZZ"`
+- `TreeNode :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBXPEBDZZ"`
 - `TreeNodeEx :: (label: *u8, flags: TreeNodeFlags = .None) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBDH@Z"`
-- `TreeNodeEx_CFormat :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBDH0ZZ"`
-- `TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool`
-- `TreeNodeEx_CFormat :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBXHPEBDZZ"`
-- `TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool`
+- `TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBDH0ZZ"`
+- `TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBXHPEBDZZ"`
 - `TreePush :: (str_id: *u8) -> void #foreign imgui "?TreePush@ImGui@@YAXPEBD@Z"`
 - `TreePush :: (ptr_id: *void) -> void #foreign imgui "?TreePush@ImGui@@YAXPEBX@Z"`
 - `TreePop :: () -> void #foreign imgui "?TreePop@ImGui@@YAXXZ"`
@@ -854,8 +832,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `MenuItem :: (label: *u8, shortcut: *u8, p_selected: *bool, enabled := true) -> bool #foreign imgui "?MenuItem@ImGui@@YA_NPEBD0PEA_N_N@Z"`
 - `BeginTooltip :: () -> bool #foreign imgui "?BeginTooltip@ImGui@@YA_NXZ"`
 - `EndTooltip :: () -> void #foreign imgui "?EndTooltip@ImGui@@YAXXZ"`
-- `SetTooltip_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?SetTooltip@ImGui@@YAXPEBDZZ"`
-- `SetTooltip :: (fmt: string, __args: ..Any)`
+- `SetTooltip :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?SetTooltip@ImGui@@YAXPEBDZZ"`
 - `BeginPopup :: (str_id: *u8, flags: WindowFlags = .None) -> bool #foreign imgui "?BeginPopup@ImGui@@YA_NPEBDH@Z"`
 - `BeginPopupModal :: (name: *u8, p_open: *bool = null, flags: WindowFlags = .None) -> bool #foreign imgui "?BeginPopupModal@ImGui@@YA_NPEBDPEA_NH@Z"`
 - `EndPopup :: () -> void #foreign imgui "?EndPopup@ImGui@@YAXXZ"`
@@ -904,8 +881,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `LogToClipboard :: (auto_open_depth: s32 = -1) -> void #foreign imgui "?LogToClipboard@ImGui@@YAXH@Z"`
 - `LogFinish :: () -> void #foreign imgui "?LogFinish@ImGui@@YAXXZ"`
 - `LogButtons :: () -> void #foreign imgui "?LogButtons@ImGui@@YAXXZ"`
-- `LogText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?LogText@ImGui@@YAXPEBDZZ"`
-- `LogText :: (fmt: string, __args: ..Any)`
+- `LogText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?LogText@ImGui@@YAXPEBDZZ"`
 - `BeginDragDropSource :: (flags: DragDropFlags = .None) -> bool #foreign imgui "?BeginDragDropSource@ImGui@@YA_NH@Z"`
 - `SetDragDropPayload :: (type: *u8, data: *void, sz: u64, cond: Cond = .None) -> bool #foreign imgui "?SetDragDropPayload@ImGui@@YA_NPEBDPEBX_KH@Z"`
 - `EndDragDropSource :: () -> void #foreign imgui "?EndDragDropSource@ImGui@@YAXXZ"`

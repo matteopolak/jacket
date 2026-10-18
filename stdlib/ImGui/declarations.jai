@@ -3,8 +3,6 @@
 
 #scope_file
 #import "Math";
-Native :: #import "internal/bindings/native";
-Varargs :: #import "internal/bindings/varargs";
 
 #if OS == .MACOS {
     #library,system,link_always "c++";
@@ -4951,11 +4949,11 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    BulletText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10BulletTextEPKcz";
+    BulletText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10BulletTextEPKcz";
 }
 
 #if OS == .WINDOWS {
-    BulletText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?BulletText@ImGui@@YAXPEBDZZ";
+    BulletText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?BulletText@ImGui@@YAXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
@@ -6343,11 +6341,11 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    LabelText_CFormat :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui9LabelTextEPKcS1_z";
+    LabelText :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui9LabelTextEPKcS1_z";
 }
 
 #if OS == .WINDOWS {
-    LabelText_CFormat :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "?LabelText@ImGui@@YAXPEBD0ZZ";
+    LabelText :: (label: *u8, fmt: *u8, __args: ..Any) -> void #foreign imgui "?LabelText@ImGui@@YAXPEBD0ZZ";
 }
 
 #if OS != .WINDOWS {
@@ -6399,11 +6397,11 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    LogText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui7LogTextEPKcz";
+    LogText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui7LogTextEPKcz";
 }
 
 #if OS == .WINDOWS {
-    LogText_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?LogText@ImGui@@YAXPEBDZZ";
+    LogText :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?LogText@ImGui@@YAXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
@@ -7103,11 +7101,11 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    SetTooltip_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10SetTooltipEPKcz";
+    SetTooltip :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui10SetTooltipEPKcz";
 }
 
 #if OS == .WINDOWS {
-    SetTooltip_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?SetTooltip@ImGui@@YAXPEBDZZ";
+    SetTooltip :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?SetTooltip@ImGui@@YAXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
@@ -7511,27 +7509,27 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    Text_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui4TextEPKcz";
+    Text :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui4TextEPKcz";
 }
 
 #if OS == .WINDOWS {
-    Text_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?Text@ImGui@@YAXPEBDZZ";
+    Text :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?Text@ImGui@@YAXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
-    TextColored_CFormat :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextColoredERK6ImVec4PKcz";
+    TextColored :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextColoredERK6ImVec4PKcz";
 }
 
 #if OS == .WINDOWS {
-    TextColored_CFormat :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextColored@ImGui@@YAXAEBUImVec4@@PEBDZZ";
+    TextColored :: (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextColored@ImGui@@YAXAEBUImVec4@@PEBDZZ";
 }
 
 #if OS != .WINDOWS {
-    TextDisabled_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui12TextDisabledEPKcz";
+    TextDisabled :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui12TextDisabledEPKcz";
 }
 
 #if OS == .WINDOWS {
-    TextDisabled_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextDisabled@ImGui@@YAXPEBDZZ";
+    TextDisabled :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextDisabled@ImGui@@YAXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
@@ -7543,59 +7541,59 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    TextWrapped_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextWrappedEPKcz";
+    TextWrapped :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "_ZN5ImGui11TextWrappedEPKcz";
 }
 
 #if OS == .WINDOWS {
-    TextWrapped_CFormat :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextWrapped@ImGui@@YAXPEBDZZ";
+    TextWrapped :: (fmt: *u8, __args: ..Any) -> void #foreign imgui "?TextWrapped@ImGui@@YAXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
     TreeNode :: (label: *u8) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKc";
 }
 
+#if OS != .WINDOWS {
+    TreeNode :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKcS1_z";
+}
+
+#if OS != .WINDOWS {
+    TreeNode :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKvPKcz";
+}
+
 #if OS == .WINDOWS {
     TreeNode :: (label: *u8) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBD@Z";
 }
 
-#if OS != .WINDOWS {
-    TreeNode_CFormat :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKcS1_z";
-}
-
-#if OS != .WINDOWS {
-    TreeNode_CFormat :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui8TreeNodeEPKvPKcz";
+#if OS == .WINDOWS {
+    TreeNode :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBD0ZZ";
 }
 
 #if OS == .WINDOWS {
-    TreeNode_CFormat :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBD0ZZ";
-}
-
-#if OS == .WINDOWS {
-    TreeNode_CFormat :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBXPEBDZZ";
+    TreeNode :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNode@ImGui@@YA_NPEBXPEBDZZ";
 }
 
 #if OS != .WINDOWS {
     TreeNodeEx :: (label: *u8, flags: TreeNodeFlags = .None) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKci";
 }
 
+#if OS != .WINDOWS {
+    TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKciS1_z";
+}
+
+#if OS != .WINDOWS {
+    TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKviPKcz";
+}
+
 #if OS == .WINDOWS {
     TreeNodeEx :: (label: *u8, flags: TreeNodeFlags = .None) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBDH@Z";
 }
 
-#if OS != .WINDOWS {
-    TreeNodeEx_CFormat :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKciS1_z";
-}
-
-#if OS != .WINDOWS {
-    TreeNodeEx_CFormat :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "_ZN5ImGui10TreeNodeExEPKviPKcz";
+#if OS == .WINDOWS {
+    TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBDH0ZZ";
 }
 
 #if OS == .WINDOWS {
-    TreeNodeEx_CFormat :: (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBDH0ZZ";
-}
-
-#if OS == .WINDOWS {
-    TreeNodeEx_CFormat :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBXHPEBDZZ";
+    TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #foreign imgui "?TreeNodeEx@ImGui@@YA_NPEBXHPEBDZZ";
 }
 
 #if OS != .WINDOWS {
@@ -7749,32 +7747,6 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    BulletText :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = BulletText_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    BulletText :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = BulletText_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
     Button :: (label: *u8, size: ImVec2 = ImVec2.{ 0, 0 }) -> bool #no_context {
         return Button(label, *size);
     }
@@ -7991,58 +7963,6 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    LabelText :: (label: *u8, fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) label }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (label: *u8, fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = LabelText_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    LabelText :: (label: *u8, fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) label }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (label: *u8, fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = LabelText_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    LogText :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = LogText_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    LogText :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = LogText_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
     ProgressBar :: (fraction: float, size_arg: ImVec2 = ImVec2.{ -FLOAT32_MIN, 0 }, overlay: *u8 = null) #no_context {
         ProgressBar(fraction, *size_arg, overlay);
     }
@@ -8247,32 +8167,6 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    SetTooltip :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = SetTooltip_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    SetTooltip :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = SetTooltip_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
     SetWindowPos :: (pos: ImVec2, cond: Cond = .None) #no_context {
         SetWindowPos(*pos, cond);
     }
@@ -8321,84 +8215,6 @@ ImVec4 :: Vector4;
 }
 
 #if OS != .WINDOWS {
-    Text :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = Text_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    Text :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = Text_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    TextColored :: (col: ImVec4, fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) *col }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = TextColored_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TextColored :: (col: ImVec4, fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) *col }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (col: *ImVec4, fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = TextColored_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    TextDisabled :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = TextDisabled_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TextDisabled :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = TextDisabled_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
     TextUnformatted :: (text: string) #no_context {
         TextUnformatted(text.data, text.data + text.count);
     }
@@ -8407,136 +8223,6 @@ ImVec4 :: Vector4;
 #if OS == .WINDOWS {
     TextUnformatted :: (text: string) #no_context {
         TextUnformatted(text.data, text.data + text.count);
-    }
-}
-
-#if OS != .WINDOWS {
-    TextWrapped :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = TextWrapped_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TextWrapped :: (fmt: string, __args: ..Any) {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (fmt: *u8, __args: ..Any) -> void #c_call;
-        function: Native_Format = TextWrapped_CFormat;
-
-        Varargs.invoke_void(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    TreeNode :: (str_id: *u8, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) str_id }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNode_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    TreeNode :: (ptr_id: *void, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) ptr_id }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNode_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TreeNode :: (str_id: *u8, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) str_id }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNode_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TreeNode :: (ptr_id: *void, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) ptr_id }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNode_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [3] Varargs.Argument = .[.{ kind = 6, value = cast(u64) str_id }, .{ kind = 1, value = cast(u64) flags }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNodeEx_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [3] Varargs.Argument = .[.{ kind = 6, value = cast(u64) ptr_id }, .{ kind = 1, value = cast(u64) flags }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNodeEx_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TreeNodeEx :: (str_id: *u8, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [3] Varargs.Argument = .[.{ kind = 6, value = cast(u64) str_id }, .{ kind = 1, value = cast(u64) flags }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (str_id: *u8, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNodeEx_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    TreeNodeEx :: (ptr_id: *void, flags: TreeNodeFlags, fmt: string, __args: ..Any) -> bool {
-        cformat := Native.terminated_copy(fmt);
-
-        defer Native.release(cformat);
-        fixed: [3] Varargs.Argument = .[.{ kind = 6, value = cast(u64) ptr_id }, .{ kind = 1, value = cast(u64) flags }, .{ kind = 6, value = cast(u64) cformat }];
-        Native_Format :: #type (ptr_id: *void, flags: TreeNodeFlags, fmt: *u8, __args: ..Any) -> bool #c_call;
-        function: Native_Format = TreeNodeEx_CFormat;
-
-        return Varargs.invoke_bool(cast(*void) function, fixed, __args);
     }
 }
 

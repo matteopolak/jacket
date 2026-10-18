@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 INPUTS = {
     'lz4': {'lz4'}, 'xxhash070': {'xxhash'}, 'meshoptimizer': {'meshoptimizer'},
-    'binding_ffi': set(), 'graphics_macro_probe': set(),
+    'graphics_macro_probe': set(),
     'sdl_abi_probe': {'sdl2-oracle'}, 'imgui': {'imgui'},
     'sdl_runtime_abi_probe': {'sdl2-runtime-oracle'},
     'stb_image': {'stb'}, 'stb_image_resize': {'stb'},
@@ -152,7 +152,6 @@ def main():
         'lz4': [vendor/'lz4/lib/lz4.c', vendor/'lz4/lib/lz4hc.c'],
         'xxhash070': [vendor/'xxhash/xxhash.c'],
         'meshoptimizer': sorted((vendor/'meshoptimizer/src').glob('*.cpp')),
-        'binding_ffi': [ROOT/'stdlib/internal/bindings/varargs/bridge.c'],
         'binding_callback_context': [ROOT/'stdlib/internal/bindings/callback-context/bridge.c'],
         'graphics_macro_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/d3d12_macro_probe.c'],
         'sdl_abi_probe': [ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/sdl_abi_probe.c'],
@@ -196,7 +195,7 @@ def main():
             compiled.append(obj)
         run(['ar', 'rcs', args.output / ('lib' + name + '.a'), *compiled])
         suffix = '.dylib' if platform.system() == 'Darwin' else '.so'
-        extra = ['-lffi'] if name == 'binding_ffi' else []
+        extra = []
         if name == 'fsevents_context_probe':
             extra = ['-framework', 'CoreServices']
         if name == 'objc_runtime_probe':

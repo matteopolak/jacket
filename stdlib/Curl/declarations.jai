@@ -28,9 +28,6 @@ sockaddr :: struct {
     sa_data: [14] u8;
 }
 
-Native :: #import "internal/bindings/native";
-Varargs :: #import "internal/bindings/varargs";
-
 libcurl :: #library,system "curl";
 #scope_export
 
@@ -5103,19 +5100,19 @@ libcurl :: #library,system "curl";
 }
 
 #if OS != .WINDOWS {
-    curl_maprintf_CFormat :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf";
+    curl_maprintf :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf";
 }
 
 #if OS == .WINDOWS {
-    curl_maprintf_CFormat :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf";
+    curl_maprintf :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf";
 }
 
 #if OS != .WINDOWS {
-    curl_mfprintf_CFormat :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf";
+    curl_mfprintf :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf";
 }
 
 #if OS == .WINDOWS {
-    curl_mfprintf_CFormat :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf";
+    curl_mfprintf :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf";
 }
 
 #if OS != .WINDOWS {
@@ -5215,27 +5212,27 @@ libcurl :: #library,system "curl";
 }
 
 #if OS != .WINDOWS {
-    curl_mprintf_CFormat :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf";
+    curl_mprintf :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf";
 }
 
 #if OS == .WINDOWS {
-    curl_mprintf_CFormat :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf";
+    curl_mprintf :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf";
 }
 
 #if OS != .WINDOWS {
-    curl_msnprintf_CFormat :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf";
+    curl_msnprintf :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf";
 }
 
 #if OS == .WINDOWS {
-    curl_msnprintf_CFormat :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf";
+    curl_msnprintf :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf";
 }
 
 #if OS != .WINDOWS {
-    curl_msprintf_CFormat :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf";
+    curl_msprintf :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf";
 }
 
 #if OS == .WINDOWS {
-    curl_msprintf_CFormat :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf";
+    curl_msprintf :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf";
 }
 
 #if OS != .WINDOWS {
@@ -5548,96 +5545,4 @@ libcurl :: #library,system "curl";
 
 #if OS == .WINDOWS {
     curl_ws_send :: (curl: *CURL, buffer: *void, buflen: u64, sent: *u64, fragsize: curl_off_t, flags: u32) -> CURLcode #foreign libcurl;
-}
-
-// Convenience operations
-
-#if OS != .WINDOWS {
-    curl_maprintf :: (format: string, __args: ..Any) -> *u8 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_pointer(cast(*void) curl_maprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    curl_maprintf :: (format: string, __args: ..Any) -> *u8 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_pointer(cast(*void) curl_maprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    curl_mfprintf :: (fd: *FILE, format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) fd }, .{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_mfprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    curl_mfprintf :: (fd: *FILE, format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) fd }, .{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_mfprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    curl_mprintf :: (format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_mprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    curl_mprintf :: (format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [1] Varargs.Argument = .[.{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_mprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    curl_msnprintf :: (buffer: *u8, maxlength: u64, format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [3] Varargs.Argument = .[.{ kind = 6, value = cast(u64) buffer }, .{ kind = 4, value = maxlength }, .{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_msnprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    curl_msnprintf :: (buffer: *u8, maxlength: u64, format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [3] Varargs.Argument = .[.{ kind = 6, value = cast(u64) buffer }, .{ kind = 4, value = maxlength }, .{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_msnprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS != .WINDOWS {
-    curl_msprintf :: (buffer: *u8, format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) buffer }, .{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_msprintf_CFormat, fixed, __args);
-    }
-}
-
-#if OS == .WINDOWS {
-    curl_msprintf :: (buffer: *u8, format: string, __args: ..Any) -> s32 {
-        cformat := Native.terminated_copy(format);
-        defer Native.release(cformat);
-        fixed: [2] Varargs.Argument = .[.{ kind = 6, value = cast(u64) buffer }, .{ kind = 6, value = cast(u64) cformat }];
-        return Varargs.invoke_int(cast(*void) curl_msprintf_CFormat, fixed, __args);
-    }
 }

@@ -426,16 +426,11 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `curl_ws_recv :: (curl: *CURL, buffer: *void, buflen: u64, recv: *u64, metap: **curl_ws_frame) -> CURLcode #foreign libcurl`
 - `curl_ws_send :: (curl: *CURL, buffer: *void, buflen: u64, sent: *u64, fragsize: curl_off_t, flags: u32) -> CURLcode #foreign libcurl`
 - `curl_ws_meta :: (curl: *CURL) -> *curl_ws_frame #foreign libcurl`
-- `curl_mprintf_CFormat :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf"`
-- `curl_mprintf :: (format: string, __args: ..Any) -> s32`
-- `curl_mfprintf_CFormat :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf"`
-- `curl_mfprintf :: (fd: *FILE, format: string, __args: ..Any) -> s32`
-- `curl_msprintf_CFormat :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf"`
-- `curl_msprintf :: (buffer: *u8, format: string, __args: ..Any) -> s32`
-- `curl_msnprintf_CFormat :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf"`
-- `curl_msnprintf :: (buffer: *u8, maxlength: u64, format: string, __args: ..Any) -> s32`
-- `curl_maprintf_CFormat :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf"`
-- `curl_maprintf :: (format: string, __args: ..Any) -> *u8`
+- `curl_mprintf :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf"`
+- `curl_mfprintf :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf"`
+- `curl_msprintf :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf"`
+- `curl_msnprintf :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf"`
+- `curl_maprintf :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf"`
 
 ### Windows-specific declarations
 
@@ -853,16 +848,11 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `curl_ws_recv :: (curl: *CURL, buffer: *void, buflen: u64, recv: *u64, metap: **curl_ws_frame) -> CURLcode #foreign libcurl`
 - `curl_ws_send :: (curl: *CURL, buffer: *void, buflen: u64, sent: *u64, fragsize: curl_off_t, flags: u32) -> CURLcode #foreign libcurl`
 - `curl_ws_meta :: (curl: *CURL) -> *curl_ws_frame #foreign libcurl`
-- `curl_mprintf_CFormat :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf"`
-- `curl_mprintf :: (format: string, __args: ..Any) -> s32`
-- `curl_mfprintf_CFormat :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf"`
-- `curl_mfprintf :: (fd: *FILE, format: string, __args: ..Any) -> s32`
-- `curl_msprintf_CFormat :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf"`
-- `curl_msprintf :: (buffer: *u8, format: string, __args: ..Any) -> s32`
-- `curl_msnprintf_CFormat :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf"`
-- `curl_msnprintf :: (buffer: *u8, maxlength: u64, format: string, __args: ..Any) -> s32`
-- `curl_maprintf_CFormat :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf"`
-- `curl_maprintf :: (format: string, __args: ..Any) -> *u8`
+- `curl_mprintf :: (format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mprintf"`
+- `curl_mfprintf :: (fd: *FILE, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_mfprintf"`
+- `curl_msprintf :: (buffer: *u8, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msprintf"`
+- `curl_msnprintf :: (buffer: *u8, maxlength: u64, format: *u8, __args: ..Any) -> s32 #foreign libcurl "curl_msnprintf"`
+- `curl_maprintf :: (format: *u8, __args: ..Any) -> *u8 #foreign libcurl "curl_maprintf"`
 
 ## Public type members
 

@@ -690,8 +690,6 @@ def run_verification(cleanup):
         ("lz4", "liblz4"),
         ("xxHash", "binding_XXH32"),
         ("stb_image", "FILE"),
-        ("Curl", "Native"),
-        ("Curl", "Varargs"),
         ("dxc_compiler", "IMalloc"),
         ("MojoShader", "MOJOSHADER_uniformType"),
         ("Objective_C", "binding_objc_class"),
@@ -1087,48 +1085,6 @@ def run_verification(cleanup):
                     name=name,
                     phase="run",
                     scope=scope,
-                    status="passed" if result["exit"] == 0 else "failed",
-                )
-                report["native"].append(result)
-        if not args.module or "ImGui" in args.module:
-            pin = json.loads(
-                (ROOT / "tools/native_bindings/dependencies.json").read_text()
-            )["imgui"]
-            exe = work / "imgui-ffi-test"
-            source = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/imgui_ffi.cpp"
-            report["test_sources"][str(source.relative_to(ROOT))] = hashlib.sha256(
-                source.read_bytes()
-            ).hexdigest()
-            command = [
-                "c++",
-                "-std=c++17",
-                "-Wall",
-                "-Wextra",
-                "-Werror",
-                "-isystem",
-                ROOT / ".work/vendor" / pin["archive"]["root"],
-                ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/imgui_ffi.cpp",
-                native / "libimgui.a",
-                native / "libbinding_ffi.a",
-                "-lffi",
-                "-o",
-                exe,
-            ]
-            result = invoke(command, env)
-            result.update(
-                name="imgui-ffi",
-                language="C++",
-                phase="build",
-                header_sha256=pin["files"]["imgui.h"],
-                status="passed" if result["exit"] == 0 else "failed",
-            )
-            report["native"].append(result)
-            if result["exit"] == 0:
-                result = invoke([exe], env)
-                result.update(
-                    name="imgui-ffi",
-                    language="C++",
-                    phase="run",
                     status="passed" if result["exit"] == 0 else "failed",
                 )
                 report["native"].append(result)

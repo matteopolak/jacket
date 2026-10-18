@@ -211,18 +211,6 @@ run :: (this: *Compressor, options: *Options) -> bool #foreign libnvtt; run :: (
         self.assertIn('return run(this, *options);', code)
         self.assertEqual([m['status'] for m in ledger[0]['members']], ['declared', 'implemented'])
 
-    def test_imgui_format_overloads_select_native_pointer_signature(self):
-        spec = parse_spec('''# ImGui
-## Public declaration inventory
-- `TreeNode_CFormat :: (str_id: *u8, fmt: *u8, __args: ..Any) -> bool #foreign imgui "string_symbol"`
-- `TreeNode_CFormat :: (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #foreign imgui "pointer_symbol"`
-- `TreeNode :: (ptr_id: *void, fmt: string, __args: ..Any) -> bool`
-''')
-        code, ledger = generate_facade('ImGui',spec)
-        self.assertIn('Native_Format :: #type (ptr_id: *void, fmt: *u8, __args: ..Any) -> bool #c_call',code)
-        self.assertIn('Varargs.invoke_bool',code)
-        self.assertEqual(ledger[-1]['status'],'implemented')
-
     def test_authored_coverage_matches_complete_overload_contract(self):
         signatures = authored_signatures('''
 write :: (value: string, suffix := "a b") -> bool { return true; }

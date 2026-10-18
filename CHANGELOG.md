@@ -21,6 +21,7 @@ The project has a new name: **Jacket** ("Jai kit"). This release also lets edito
 | Homebrew | `matteopolak/tap/jai` | `matteopolak/tap/jacket`. `brew upgrade` moves you over. |
 | Release archives | `jai-<platform>.tar.gz` | `jacket-<platform>.tar.gz` (`.zip` on Windows), unpacking to `jacket-<platform>/`. |
 | How `jailint` recognises procedures | by name (`trim`, `min`, `free`, ...) | by a note on the declaration: `@UseResult`, `@Minimum`, `@Maximum`, `@RemovesElements`, `@Releases`. The standard library already has them; add them to your own procedures if you want the rules to apply. See [declaration notes](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#declaration-notes). |
+| ImGui and Curl printf-style procedures (`Text`, `TreeNode`, `curl_msnprintf`, ...) | a Jai `string` format, forwarded through a libffi bridge that releases never shipped | the C functions themselves: the format is a C string and the arguments are C varargs. Pass text arguments as `*u8` (`cast(*u8) "ok"`, `name.data`), and `TextColored` takes `*ImVec4`. The `_CFormat` names are gone. |
 
 Earlier releases have been removed. Install 0.18.0 or later.
 

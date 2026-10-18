@@ -67,7 +67,7 @@ main :: () {
     length := C.curl_msnprintf(output.data, 64, "%d-%s", 17, cast(*u8) "hello");
 
     check(length == 8 && output[0] == #char "1" && output[7] == #char "o");
-    length = C.curl_msnprintf(output.data, 64, "%d:%u:%.2f:%s", cast(s8) -17, cast(u16) 65535, cast(float32) 1.25, "ok");
+    length = C.curl_msnprintf(output.data, 64, "%d:%u:%.2f:%s", cast(s8) -17, cast(u16) 65535, cast(float32) 1.25, cast(*u8) "ok");
     promoted := "-17:65535:1.25:ok";
 
     check(length == promoted.count);
@@ -75,7 +75,7 @@ main :: () {
 
     length = C.curl_msnprintf(output.data, 64, "literal");
     check(length == 7);
-    allocated := C.curl_maprintf("%s", "allocated");
+    allocated := C.curl_maprintf("%s", cast(*u8) "allocated");
 
     check(allocated != null && strlen(allocated) == 9);
     C.curl_free(allocated);
