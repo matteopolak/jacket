@@ -1504,10 +1504,10 @@ impl Compiler {
             return Ok(());
         }
         if let Some((value, _)) = &provided
-            && let Some(wanted) = literal_param_class(param)
-            && let Some(given) = value_class(value)
+            && let Some(wanted) = self.module_param_class(param, eval_scope)?
+            && let Some(given) = ValueClass::of_value(value)
             && wanted != given
-            && !(wanted == "float" && given == "integer")
+            && !(wanted == ValueClass::Float && given == ValueClass::Integer)
         {
             return err(
                 param.span,
@@ -2241,41 +2241,85 @@ fn const_alias(name: ast::Ident, value: ast::Expr) -> Rc<ast::Decl> {
     })
 }
 
-/// What a module parameter holds, from its written type or its literal default: `bool`,
-/// `string`, `integer` or `float`. Other parameters are not checked here.
-fn literal_param_class(param: &ast::Param) -> Option<&'static str> {
-    use ast::ExprKind as E;
-    if let Some(E::Ident(t)) = param.ty.as_ref().map(|t| &t.kind) {
-        return match t.as_str() {
-            "bool" => Some("bool"),
-            "string" => Some("string"),
-            "int" | "s8" | "s16" | "s32" | "s64" | "u8" | "u16" | "u32" | "u64" => Some("integer"),
-            "float" | "float32" | "float64" => Some("float"),
+/// The kind of value a module parameter's literal check compares: the parameter's declared type
+/// (or literal default) against the constant the import gives.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ValueClass {
+    Bool,
+    String,
+    Integer,
+    Float,
+}
+
+impl ValueClass {
+    fn of_type(kind: &crate::types::TypeKind) -> Option<ValueClass> {
+        use crate::types::TypeKind as K;
+        match kind {
+            K::Bool => Some(ValueClass::Bool),
+            K::String => Some(ValueClass::String),
+            K::Int {
+                ..
+            } => Some(ValueClass::Integer),
+            K::Float {
+                ..
+            } => Some(ValueClass::Float),
             _ => None,
-        };
+        }
     }
-    if param.ty.is_some() {
-        return None;
+
+    fn of_literal(expr: &ast::Expr) -> Option<ValueClass> {
+        use ast::ExprKind as E;
+        let mut expr = expr;
+        while let E::Unary(ast::UnOp::Neg | ast::UnOp::Plus, inner) = &expr.kind {
+            expr = inner;
+        }
+        match expr.kind {
+            E::Bool(_) => Some(ValueClass::Bool),
+            E::Str(_) => Some(ValueClass::String),
+            E::Int(_) => Some(ValueClass::Integer),
+            E::Float(_) => Some(ValueClass::Float),
+            _ => None,
+        }
     }
-    let mut default = param.default.as_ref()?;
-    while let E::Unary(ast::UnOp::Neg | ast::UnOp::Plus, inner) = &default.kind {
-        default = inner;
-    }
-    match default.kind {
-        E::Bool(_) => Some("bool"),
-        E::Str(_) => Some("string"),
-        E::Int(_) => Some("integer"),
-        E::Float(_) => Some("float"),
-        _ => None,
+
+    fn of_value(value: &Value) -> Option<ValueClass> {
+        match value {
+            Value::Bool(_) => Some(ValueClass::Bool),
+            Value::String(_) => Some(ValueClass::String),
+            Value::Int(_) => Some(ValueClass::Integer),
+            Value::Float(_, _) => Some(ValueClass::Float),
+            _ => None,
+        }
     }
 }
 
-fn value_class(value: &Value) -> Option<&'static str> {
-    match value {
-        Value::Bool(_) => Some("bool"),
-        Value::String(_) => Some("string"),
-        Value::Int(_) => Some("integer"),
-        Value::Float(_, _) => Some("float"),
-        _ => None,
+impl std::fmt::Display for ValueClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ValueClass::Bool => "bool",
+            ValueClass::String => "string",
+            ValueClass::Integer => "integer",
+            ValueClass::Float => "float",
+        })
+    }
+}
+
+impl Compiler {
+    /// What a module parameter holds: its declared type, resolved in `scope` (so aliases and
+    /// shadowing follow the program), else its literal default. Polymorphic, distinct, enum and
+    /// other parameters are not checked here; the conversion after this reports those.
+    fn module_param_class(
+        &mut self,
+        param: &ast::Param,
+        scope: ScopeId,
+    ) -> Result<Option<ValueClass>> {
+        let Some(ty) = &param.ty else {
+            return Ok(param.default.as_ref().and_then(ValueClass::of_literal));
+        };
+        if procs::has_poly(ty) {
+            return Ok(None);
+        }
+        let ty = self.eval_type(scope, ty)?;
+        Ok(ValueClass::of_type(self.types.kind(ty)))
     }
 }
