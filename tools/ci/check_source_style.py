@@ -23,7 +23,6 @@ ALLOWED_LONG = {
     "crates/jai-language-server/src/auto_import.rs": 1241,
     "crates/jai-language-server/src/semantic.rs": 1253,
     "crates/jai-language-server/tests/features.rs": 1592,
-    "crates/jaic-cli/src/main.rs": 2495,
     "crates/jaic-cli/tests/diagnostics.rs": 1423,
     "crates/jaic-cli/tests/native.rs": 3184,
     "crates/jaic/src/sema/asm/simd.rs": 3025,

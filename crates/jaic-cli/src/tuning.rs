@@ -7,6 +7,7 @@ use super::{
     Action, Cli, CliError, CliOption,
     Section::{Diagnostics, Output},
 };
+use crate::options::store;
 use std::path::PathBuf;
 
 /// What the flags here set, in `Cli::tuning`.
