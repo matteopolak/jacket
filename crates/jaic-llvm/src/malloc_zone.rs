@@ -13,8 +13,10 @@ use std::ffi::{CStr, c_char, c_void};
 /// (enumerator, good_size, check, print, log, force_lock, force_unlock, statistics,
 /// zone_locked, then the four discharge-checking hooks).
 const REINIT_LOCK: usize = 13;
+
 /// Indices among the pointer-sized fields of `malloc_zone_t` (the version follows `introspect`).
 const ZONE_NAME: usize = 9;
+
 const INTROSPECT: usize = 12;
 const VERSION: usize = 13;
 
