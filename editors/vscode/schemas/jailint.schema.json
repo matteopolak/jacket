@@ -98,6 +98,16 @@
           "default": "warn",
           "markdownDescription": "an operation that is always `0` (`x * 0`, `x & 0`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#erasing_op)"
         },
+        "excessive_nesting": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "blocks nested deeper than `max_nesting` (default 6) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_nesting)"
+        },
         "float_equality": {
           "type": "string",
           "enum": [
