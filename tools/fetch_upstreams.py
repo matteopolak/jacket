@@ -14,6 +14,7 @@ import urllib.parse
 import urllib.request
 
 from repo_output import main_checkout, shared_output_dir
+from toolkit.hashing import sha256_file
 
 REPOSITORIES = (
     'focus-editor/focus', 'Ivo-Balbaert/The_Way_to_Jai', 'SogoCZE/Jails',
@@ -161,7 +162,7 @@ def fetch(repo: str, since: datetime, pinned: dict | None = None) -> dict:
     def one(path: str) -> dict:
         expected = next((f for f in pinned['files'] if f['path'] == path), None) if pinned else None
         target = destination.joinpath(*safe_path(path).parts)
-        if expected and target.exists() and hashlib.sha256(target.read_bytes()).hexdigest() == expected['sha256']:
+        if expected and target.exists() and sha256_file(target) == expected['sha256']:
             return expected
         data = download(repo, revision, path)
         if expected and hashlib.sha256(data).hexdigest() != expected['sha256']:

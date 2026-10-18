@@ -24,6 +24,7 @@ import subprocess
 import urllib.request
 from native.fetch_url import fetch
 from repo_output import host_platform
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAN = json.loads((ROOT / "tools/native/audio_native_plan.json").read_text())
@@ -141,7 +142,7 @@ def opaque_decoder(out):
                 raise RuntimeError("official decoder checksum mismatch")
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
-        if hashlib.sha256(destination.read_bytes()).hexdigest() != source["files"][filename]:
+        if sha256_file(destination) != source["files"][filename]:
             raise RuntimeError("cached official decoder checksum mismatch")
     return cache / "stb_vorbis.c"
 
@@ -228,12 +229,12 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
     archive = out / (prefix + "jai_audio_output" + libext)
     archive.unlink(missing_ok=True)
     command([*ar, *ar_flags, "rcs", archive, *objects])
-    static_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    static_digest = sha256_file(archive)
     extra = ["-Wl,-install_name,@rpath/" + shared_name] if osname == "macos" else []
     if windows:
         extra += windows_shared_options(out, "jai_audio_output", mingw)
     command([*cc, *flags, *shared_flags, *objects, "-o", out / shared_name, *extra, *libraries])
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != static_digest:
+    if sha256_file(archive) != static_digest:
         raise RuntimeError("Audio DLL link changed the static archive")
     for obj in objects:
         verify_archive_member(ar, archive, obj)
@@ -244,7 +245,7 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
     decoder_archive = out / (prefix + "stb_vorbis" + libext)
     decoder_archive.unlink(missing_ok=True)
     command([*ar, *ar_flags, "rcs", decoder_archive, decoder_obj])
-    decoder_static_digest = hashlib.sha256(decoder_archive.read_bytes()).hexdigest()
+    decoder_static_digest = sha256_file(decoder_archive)
     decoder_shared = "stb_vorbis.dll" if windows else "libstb_vorbis." + ("dylib" if osname == "macos" else "so")
     extra = ["-Wl,-install_name,@rpath/" + decoder_shared] if osname == "macos" else []
     definitions = ROOT / "stdlib/internal/audio/native/vorbis.def"
@@ -252,26 +253,26 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
         extra += windows_shared_options(out, "stb_vorbis", mingw, definitions)
     command([*cc, *flags, *shared_flags, decoder_obj, "-o", out / decoder_shared, *extra,
              *([] if windows and not mingw else ["-lm"])], owned=False)
-    if hashlib.sha256(decoder_archive.read_bytes()).hexdigest() != decoder_static_digest:
+    if sha256_file(decoder_archive) != decoder_static_digest:
         raise RuntimeError("Vorbis DLL link changed the static archive")
     provider = verify_vorbis_provider(ar, decoder_archive, decoder_obj, out / decoder_shared, entry, definitions)
-    provider.update(source_sha256=hashlib.sha256(decoder.read_bytes()).hexdigest(),
-                    definitions_sha256=hashlib.sha256(definitions.read_bytes()).hexdigest(),
+    provider.update(source_sha256=sha256_file(decoder),
+                    definitions_sha256=sha256_file(definitions),
                     static_archive_preserved_across_DLL_link=True)
     vorbis_test = out / ("native-vorbis-test.exe" if windows else "native-vorbis-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG", "-I", decoder.parent,
              ROOT / "stdlib/Sound_Player/tests/native/vorbis.c", decoder_archive, "-o", vorbis_test,
              *([] if windows and not mingw else ["-lm"])])
     provider.update(consumer_linked=True, consumer=vorbis_test.name,
-                    consumer_sha256=hashlib.sha256(vorbis_test.read_bytes()).hexdigest(),
-                    consumer_source_sha256=hashlib.sha256((ROOT / "stdlib/Sound_Player/tests/native/vorbis.c").read_bytes()).hexdigest())
+                    consumer_sha256=sha256_file(vorbis_test),
+                    consumer_source_sha256=sha256_file((ROOT / "stdlib/Sound_Player/tests/native/vorbis.c")))
     artifacts = [archive, out / shared_name, decoder_archive, out / decoder_shared]
     metadata = {"platform": target, "native_execution": False,
                 "linkage": "static native executable; shared interpreter",
                 "compiler": cc, "libraries": entry["libraries"],
                 "vorbis_provider": provider,
                 "temporary_directory": native_environment()["TMPDIR"],
-                "artifacts": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in artifacts}}
+                "artifacts": {p.name: sha256_file(p) for p in artifacts}}
     (out / "audio-build.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if runtime or vorbis_runtime:
         result = subprocess.run([str(vorbis_test), str(ROOT / "stdlib/Sound_Player/tests/fixtures/tone.ogg")],
@@ -289,8 +290,8 @@ def build(target, out, cc, ar, mingw=False, runtime=False, require_device=False,
         verify_object(out / ("windows-abi" + objext), entry)
         (out / "audio-sdk-abi.json").write_text(json.dumps({"platform": target,
             "kind": "official SDK header layout/interface-prefix assertions",
-            "native_execution": False, "object_sha256": hashlib.sha256(
-                (out / ("windows-abi" + objext)).read_bytes()).hexdigest()}, indent=2) + "\n")
+            "native_execution": False, "object_sha256": sha256_file(
+                (out / ("windows-abi" + objext)))}, indent=2) + "\n")
         print(f"{target}: public SDK ABI prefix/layout assertions compiled; no runtime implied.", flush=True)
     failure_test = out / ("native-close-test.exe" if windows else "native-close-test")
     command([*cc, *flags, "-Wall", "-Wextra", "-Werror", "-DNDEBUG",

@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Build the independent Linux X11 clipboard service; never fetch SDK sources."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import platform
 import subprocess
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -74,11 +80,11 @@ def main():
         static_consumer_dependencies=["X11", "pthread"],
         static_consumer_retention="Required even for a type-only X11 import; the Jai consumer declares private link_always dependencies.",
         inputs={
-            str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p.relative_to(ROOT)): sha256_file(p)
             for p in [source / "data.h", source / "data.c", source / "x11.c"]
         },
-        archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
-        shared_sha256=hashlib.sha256(shared.read_bytes()).hexdigest(),
+        archive_sha256=sha256_file(archive),
+        shared_sha256=sha256_file(shared),
     )
     (output / "portable-clipboard-build.json").write_text(
         json.dumps(manifest, indent=2) + "\n"

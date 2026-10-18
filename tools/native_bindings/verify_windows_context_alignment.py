@@ -1,7 +1,12 @@
 """Windows x64 canonical record alignment checks; no native execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,10 +15,7 @@ import subprocess
 import tempfile
 
 from shared_snapshot import capture, unchanged
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -30,7 +32,7 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--official-header-sha256", required=True)
     args = parser.parse_args()
-    header_hash = digest(args.official_header)
+    header_hash = sha256_file(args.official_header)
     if header_hash != args.official_header_sha256:
         raise SystemExit("official SDK header hash mismatch")
     header = args.official_header.read_text()
@@ -57,7 +59,7 @@ def main():
         work=str(work),
         checks=[],
         tools={
-            str(p): digest(p)
+            str(p): sha256_file(p)
             for p in (args.compiler, args.jailint, args.formatter, args.cc)
         },
         official_header=dict(path=str(args.official_header), sha256=header_hash),
@@ -150,11 +152,11 @@ def main():
         # Record actual compiler-discovered SDK dependencies, not a hand-picked subset.
         names = shlex.split(depfile.read_text().replace("\\\n", " ").split(":", 1)[1])
         report["sdk_dependencies"] = {
-            str(Path(p).resolve()): digest(Path(p)) for p in names
+            str(Path(p).resolve()): sha256_file(Path(p)) for p in names
         }
-        report["object"] = dict(path=str(obj), sha256=digest(obj))
+        report["object"] = dict(path=str(obj), sha256=sha256_file(obj))
     report["inputs_unchanged"] = unchanged(snapshot, identity)
-    report["official_header_unchanged"] = digest(args.official_header) == header_hash
+    report["official_header_unchanged"] = sha256_file(args.official_header) == header_hash
     report["qualification"] = (
         "Windows x64 Jai source/lint and MinGW cross SDK compilation only; "
         "original MSVC940 native ABI gate rerun required. No ARM64 ABI claim."

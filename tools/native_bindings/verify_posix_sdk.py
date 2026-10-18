@@ -5,7 +5,6 @@ The x64 executable may use the host's OS translation support. Neither an SDK
 compiler mock nor a changed stdlib/compiler source is used to obtain a pass.
 """
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,10 +12,7 @@ import platform
 import sys
 
 from verify import ROOT, invoke, stage
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -33,22 +29,22 @@ def main():
     stage(stdlib)
     env = dict(os.environ, JAIC_STDLIB=str(stdlib), TMPDIR=str(ROOT/'.work/tmp'))
     report = {'scope':'Worker native macOS CPU ABI/runtime tests; not coordinator integration',
-              'compiler':str(compiler), 'compiler_sha256':digest(compiler),
+              'compiler':str(compiler), 'compiler_sha256':sha256_file(compiler),
               'host_cpu':platform.machine(), 'staging_root':str(work),
               'staging_adjustments':[], 'checks':[], 'test_sources':{},
-              'staged_sources':{str(p.relative_to(stdlib)):digest(p)
+              'staged_sources':{str(p.relative_to(stdlib)):sha256_file(p)
                                 for p in sorted(stdlib.rglob('*.jai')) if 'Extensions' not in p.parts}}
     sdk = invoke(['xcrun','--show-sdk-path'], env)
     if sdk['exit'] != 0:
         raise SystemExit(sdk['stderr'])
     sdk_path = Path(sdk['stdout'].strip())
-    report['sdk_headers'] = {name:digest(sdk_path/'usr/include'/name) for name in
+    report['sdk_headers'] = {name:sha256_file(sdk_path/'usr/include'/name) for name in
                               ('time.h','sys/time.h','sys/uio.h','sys/ipc.h','poll.h','signal.h')}
     report['sdk_version'] = invoke(['xcrun','--show-sdk-version'], env)
     report['sdk_build'] = invoke(['xcrun','--show-sdk-build-version'], env)
     report['os_version'] = invoke(['sw_vers'], env)
     probe = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/posix_abi_probe.c'
-    report['test_sources'][str(probe.relative_to(ROOT))] = digest(probe)
+    report['test_sources'][str(probe.relative_to(ROOT))] = sha256_file(probe)
     for cpu, arch, triple in [('x64','x86_64','x86_64-apple-darwin'),
                                ('arm64','arm64','aarch64-apple-darwin')]:
         native = work/cpu
@@ -66,10 +62,10 @@ def main():
                 break
         if result['exit'] != 0:
             continue
-        report.setdefault('native_oracles',{})[cpu] = {'path':str(archive),'sha256':digest(archive)}
+        report.setdefault('native_oracles',{})[cpu] = {'path':str(archive),'sha256':sha256_file(archive)}
         for name in ('posix-abi','posix','posix-stat'):
             source = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk'/(name+'.jai')
-            report['test_sources'][str(source.relative_to(ROOT))] = digest(source)
+            report['test_sources'][str(source.relative_to(ROOT))] = sha256_file(source)
             exe = native/name
             result = invoke([compiler,source,'-target',triple,'-exe',exe], target_env)
             result.update(cpu=cpu,name=name,phase='build',status='passed' if result['exit']==0 else 'failed')
@@ -77,7 +73,7 @@ def main():
             if result['exit'] != 0:
                 continue
             result = invoke([exe],target_env)
-            result.update(cpu=cpu,name=name,phase='run',executable_sha256=digest(exe),
+            result.update(cpu=cpu,name=name,phase='run',executable_sha256=sha256_file(exe),
                           status='passed' if result['exit']==0 else 'failed')
             report['checks'].append(result)
     args.report.write_text(json.dumps(report,indent=2)+'\n')

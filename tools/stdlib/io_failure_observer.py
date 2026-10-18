@@ -4,6 +4,12 @@ One sampler serves a copy group. Only a real failed copy and one passed control
 are retained. Namespace metrics remain explicitly separate from owned sockets.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 from collections import Counter, deque
 import hashlib
 import json
@@ -16,6 +22,7 @@ from threading import Event, Lock, Thread
 import time
 
 from check_io_burst_diagnostics import cgroup_observations
+from toolkit.hashing import sha256_file
 
 INTERVAL = 5
 HISTORY = 36
@@ -91,7 +98,7 @@ def source_identity(root, compiler):
         and not any(part.startswith("._") for part in p.relative_to(root).parts)
     ) + [root / "tools/stdlib/io_stress.py", root / "tools/stdlib/io_failure_observer.py"]
     manifest = {
-        str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+        str(p.relative_to(root)): sha256_file(p)
         for p in sources
     }
     return {
@@ -99,7 +106,7 @@ def source_identity(root, compiler):
             json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest(),
         "source_files": len(manifest),
-        "compiler_sha256": hashlib.sha256(compiler.read_bytes()).hexdigest(),
+        "compiler_sha256": sha256_file(compiler),
     }
 
 

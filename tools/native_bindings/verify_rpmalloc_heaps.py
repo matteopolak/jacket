@@ -13,7 +13,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -26,6 +25,7 @@ from native_bindings.rpmalloc_profiles import PROFILES
 from native_bindings.prepare_rpmalloc import prepare
 from verify import select_stdlib, place_private_unit, ROOT
 from configure_rpmalloc import select_for_verification
+from toolkit.hashing import sha256_file
 
 
 def run_check(command, env):
@@ -173,13 +173,13 @@ def verify(cleanup):
     report = dict(scope='Public heap behavior/configurations; separate private ABI/native counters and host C sanitizers',
                   stdlib=str(stdlib), production_library=args.stdlib is not None,
                   first_class_heaps=args.rpmalloc_first_class_heaps,
-                  private_configuration_sha256=hashlib.sha256(
-                      (stdlib/'internal/bindings/rpmalloc-build/module.jai').read_bytes()).hexdigest(),
-                  compiler_sha256=hashlib.sha256(compiler.read_bytes()).hexdigest(),
-                  native_artifacts={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                  private_configuration_sha256=sha256_file(
+                      (stdlib/'internal/bindings/rpmalloc-build/module.jai')),
+                  compiler_sha256=sha256_file(compiler),
+                  native_artifacts={p.name: sha256_file(p)
                                     for p in libraries.glob('lib*rpmalloc*') if p.is_file()},
                   prepared_sdk=json.loads((prepared/'provenance.json').read_text()),
-                  sources={str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  sources={str(p.relative_to(ROOT)): sha256_file(p)
                            for p in [*programs,
                                      *sorted((ROOT/'stdlib/rpmalloc').glob('*.jai')),
                                      *sorted((ROOT/'stdlib/internal/bindings/rpmalloc-heaps').iterdir()),

@@ -12,7 +12,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -21,6 +20,7 @@ from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from rpmalloc_heap_facade import public_c_header, layout_probes
 from native_bindings.rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
 from native_bindings.prepare_rpmalloc import patch_provenance
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'stdlib/internal/bindings/rpmalloc-sdk'
@@ -226,7 +226,7 @@ def storage_outputs(vendor, functions, work, formatter):
     outputs[ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-storage-layout.jai'] = temporary.read_text()
     metadata = {'scope':'Native SDK storage ABI only; not public heap implementation or atomic operations',
                 'source':'rpmalloc/rpmalloc.c',
-                'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+                'source_sha256':sha256_file(source),
                 'native_build_options':RPMALLOC_SDK_BUILD_OPTIONS,
                 'profiles':{str(k):{name:[dict(owner=o,path=p) for o,p,_ in value[1]]
                                     for name,value in v.items()} for k,v in profiles.items()},
@@ -247,7 +247,7 @@ def main():
     pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['rpmalloc']
     vendor = args.vendor.resolve()
     for name, expected in pin['files'].items():
-        if hashlib.sha256((vendor/name).read_bytes()).hexdigest() != expected:
+        if sha256_file((vendor/name)) != expected:
             raise SystemExit('Pinned official rpmalloc input mismatch: '+name)
     header = vendor/'rpmalloc/rpmalloc.h'
     work = args.work.resolve()

@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Immutable shared-source checks for allocator domains and live config."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import importlib
 import json
 import os
@@ -11,10 +16,7 @@ import subprocess
 import sys
 import tempfile
 from shared_snapshot import capture, unchanged
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -58,13 +60,13 @@ def main():
     profiles = importlib.import_module("native_bindings.rpmalloc_profiles")
     prepared = prepare(args.vendor, work / "prepared")
     repeated = prepare(args.vendor, work / "reproduced")
-    hashes = {p.name: digest(p) for p in prepared.iterdir() if p.is_file()}
+    hashes = {p.name: sha256_file(p) for p in prepared.iterdir() if p.is_file()}
     report = dict(
         snapshot=str(snapshot),
         input_identity=identity,
         checks=[],
         tools={
-            str(p.resolve()): digest(p.resolve())
+            str(p.resolve()): sha256_file(p.resolve())
             for p in (args.compiler, args.native_compiler, args.jailint, args.formatter)
         },
         native_sdk_provenance=json.loads((prepared / "provenance.json").read_text()),
@@ -74,7 +76,7 @@ def main():
         dict(
             label="independently reproduced SDK patches",
             status="passed"
-            if hashes == {p.name: digest(p) for p in repeated.iterdir() if p.is_file()}
+            if hashes == {p.name: sha256_file(p) for p in repeated.iterdir() if p.is_file()}
             else "failed",
         )
     )
@@ -154,7 +156,7 @@ def main():
         ],
     )
     native_formatter = args.native_compiler.with_name("clang-format")
-    report["tools"][str(native_formatter.resolve())] = digest(
+    report["tools"][str(native_formatter.resolve())] = sha256_file(
         native_formatter.resolve()
     )
     invoke(
@@ -481,7 +483,7 @@ def main():
         )
         negative.chmod(0o444)
         report["privacy_inputs"].append(
-            dict(path=str(negative), sha256=digest(negative))
+            dict(path=str(negative), sha256=sha256_file(negative))
         )
         invoke(
             "public privacy " + member, [args.compiler, negative, "-check", "-no_dce"]
@@ -496,7 +498,7 @@ def main():
             label="immutable source and SDK inputs",
             status="passed"
             if unchanged(snapshot, identity)
-            and hashes == {p.name: digest(p) for p in prepared.iterdir() if p.is_file()}
+            and hashes == {p.name: sha256_file(p) for p in prepared.iterdir() if p.is_file()}
             else "failed",
         )
     )

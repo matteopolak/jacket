@@ -1,11 +1,17 @@
 """Strict public-context lint of the unchanged portable-data source inventory."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILES = tuple(
@@ -111,11 +117,8 @@ def lint_owned(linter, stdlib, output, roots):
     )
     env = dict(os.environ, JAIC_STDLIB=str(stdlib.resolve()))
 
-    def digest(path):
-        return hashlib.sha256(path.read_bytes()).hexdigest()
-
-    before = {str(path): digest(path) for path in owned}
-    before[str(linter)] = digest(linter)
+    before = {str(path): sha256_file(path) for path in owned}
+    before[str(linter)] = sha256_file(linter)
     commands, covered = [], set()
     for target_os, cpu in PROFILES:
         label = target_os + (f"-{cpu}" if cpu else "")
@@ -204,7 +207,7 @@ def lint_owned(linter, stdlib, output, roots):
         )
         print(label, "private-guard", "PASS" if passed else "FAIL", flush=True)
     missing = sorted({canonical(path) for path in owned} - covered)
-    changed = [path for path, value in before.items() if digest(Path(path)) != value]
+    changed = [path for path, value in before.items() if sha256_file(Path(path)) != value]
     passed = (
         not missing and not changed and all(command["passed"] for command in commands)
     )

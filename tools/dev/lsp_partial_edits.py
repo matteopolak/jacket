@@ -13,7 +13,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 import concurrent.futures
 import json
-import hashlib
 from pathlib import Path
 import subprocess
 import shutil
@@ -25,6 +24,7 @@ import time
 from collections import deque
 
 from repo_output import output_dir
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -155,7 +155,7 @@ def main():
     if not files:
         parser.error("no Jai sources found")
     worker = build_worker()
-    provenance = {"worker_sha256": hashlib.sha256(Path(worker).read_bytes()).hexdigest(),
+    provenance = {"worker_sha256": sha256_file(Path(worker)),
                   "max_lines": args.max_lines, "stdlib": str(args.stdlib.resolve()) if args.stdlib else None,
                   "timeout_seconds": args.timeout}
     reports = []

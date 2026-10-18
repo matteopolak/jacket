@@ -29,6 +29,7 @@ from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from native_bindings.prepare_rpmalloc import prepare as prepare_rpmalloc
 from native_bindings.rpmalloc_profiles import PROFILES
 from native_bindings.build_rpmalloc import build as build_rpmalloc
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -89,7 +90,7 @@ def prepare_source(name, source, vendor):
         if not archive.exists():
             archive.parent.mkdir(parents=True, exist_ok=True)
             archive.write_bytes(download(pin['url']))
-        if hashlib.sha256(archive.read_bytes()).hexdigest() != pin['sha256']:
+        if sha256_file(archive) != pin['sha256']:
             raise RuntimeError('Archive hash mismatch: ' + name)
         archive_root = vendor / pin['root']
         # Recreate the complete tree from the verified archive. Checking only
@@ -117,7 +118,7 @@ def prepare_source(name, source, vendor):
                 raise RuntimeError('Native source hash mismatch: ' + name + '/' + filename)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
-        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        if sha256_file(path) != expected:
             raise RuntimeError('Native source hash mismatch: ' + str(path))
 
 

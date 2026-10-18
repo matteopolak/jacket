@@ -11,13 +11,13 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import hashlib
 import json
 from pathlib import Path
 import platform
 import subprocess
 import urllib.request
 from native.fetch_url import fetch
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -37,7 +37,7 @@ def main():
         if not path.exists():
             url = f'https://raw.githubusercontent.com/{spec["repository"]}/{spec["revision"]}/{name}'
             path.write_bytes(fetch(url))
-        if hashlib.sha256(path.read_bytes()).hexdigest() != spec["files"][name]:
+        if sha256_file(path) != spec["files"][name]:
             raise RuntimeError(f"native source digest mismatch: {name}")
     extension = "dylib" if platform.system() == "Darwin" else "so"
     shared_flag = "-dynamiclib" if platform.system() == "Darwin" else "-shared"

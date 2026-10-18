@@ -1,7 +1,12 @@
 """Host-neutral SDL Python preparation contracts; no native compilation."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import os
-import hashlib
 import tarfile
 import json
 from unittest.mock import patch
@@ -9,6 +14,7 @@ import sdl_test_support as support
 import prepare_sdl_python_tests as prepare
 from pathlib import Path
 import unittest
+from toolkit.hashing import sha256_file
 
 
 class SdlPythonSetup(unittest.TestCase):
@@ -129,7 +135,7 @@ class SdlPythonSetup(unittest.TestCase):
         self.assertEqual(receipt["root"], pin["root"])
         archive = Path(receipt["archive"])
         self.assertEqual(
-            hashlib.sha256(archive.read_bytes()).hexdigest(), pin["sha256"]
+            sha256_file(archive), pin["sha256"]
         )
         with tarfile.open(archive) as stream:
             for member in prepare.MEMBERS:

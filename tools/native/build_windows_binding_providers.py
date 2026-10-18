@@ -21,6 +21,7 @@ from native_bindings.build_dependencies import prepare_source  # noqa: E402
 from native_bindings.prepare_rpmalloc import prepare  # noqa: E402
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
+from toolkit.hashing import sha256_file
 
 TARGETS = {
     "windows-x64-mingw": ("x86_64-w64-mingw32", "IMAGE_FILE_MACHINE_AMD64"),
@@ -216,7 +217,7 @@ def build(target, output, readobj):
     for item in plan:
         inputs.update(unit for unit, _ in item["units"])
     receipt["source_inputs"] = {
-        str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+        str(p.relative_to(ROOT)): sha256_file(p)
         for p in sorted(inputs)
         if p.is_file()
     }
@@ -269,12 +270,12 @@ def build(target, output, readobj):
     run([*compiler, control, *arguments, "-o", executable])
     verify_machine(run([readobj, "--file-headers", executable]), target)
     receipt["whole_archive_link"] = dict(
-        sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+        sha256=sha256_file(executable),
         native_execution=False,
         qualification="link closure only; original runtime fixtures remain required",
     )
     if any(
-        hashlib.sha256((ROOT / p).read_bytes()).hexdigest() != h
+        sha256_file((ROOT / p)) != h
         for p, h in receipt["source_inputs"].items()
     ):
         raise RuntimeError("target provider source changed during build")

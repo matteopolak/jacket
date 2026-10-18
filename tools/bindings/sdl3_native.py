@@ -23,6 +23,7 @@ from native.fetch_url import fetch
 from pathlib import Path
 
 from repo_output import output_dir
+from toolkit.hashing import sha256_file
 
 ROOT=Path(__file__).resolve().parent.parent.parent
 PLATFORMS=('macos-x64','macos-arm64','linux-x64','linux-arm64','windows-x64','windows-arm64')
@@ -39,7 +40,7 @@ def checked_archive(cache, offline=False):
         data=fetch(spec['url'])
         if hashlib.sha256(data).hexdigest()!=spec['sha256']: raise RuntimeError('download hash mismatch')
         packed.write_bytes(data)
-    if hashlib.sha256(packed.read_bytes()).hexdigest()!=spec['sha256']: raise RuntimeError(f'cache hash mismatch: {packed}')
+    if sha256_file(packed)!=spec['sha256']: raise RuntimeError(f'cache hash mismatch: {packed}')
     # Validate every extracted file against the verified archive; preserve mtimes when exact.
     src=cache/spec['root']
     if src.is_symlink(): raise RuntimeError(f'source cache is a symlink: {src}')
@@ -191,7 +192,7 @@ def package_installed_sdk(stage, out, manifest):
     shutil.copytree(stage,sdk,symlinks=False)
     print(f'SDL3 installed CMake package: {relative.as_posix()} -> {sdk/relative}',flush=True)
     return {'prefix':'sdl3/sdk','cmake_dir':relative.as_posix(),
-            'files':{p.relative_to(sdk).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
+            'files':{p.relative_to(sdk).as_posix():sha256_file(p)
                      for p in sorted(sdk.rglob('*')) if p.is_file()}}
 
 def check_relocated_consumers(out, info, plat, cmake_args, jobs):
@@ -258,7 +259,7 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     if set(installed)!=expected_headers:raise RuntimeError('SDL installed header set differs from the comprehensive core coverage ledger')
     header_evidence={}
     for name,path in sorted(installed.items()):
-        installed_hash=hashlib.sha256(path.read_bytes()).hexdigest()
+        installed_hash=sha256_file(path)
         source_hash=classified[name]['sha256']
         if installed_hash!=source_hash and name!='SDL_revision.h':raise RuntimeError(f'installed SDL header differs from verified source: {name}')
         header_evidence[name]={'source_sha256':source_hash,'installed_sha256':installed_hash,
@@ -305,7 +306,7 @@ def build(out,plat,cache=None,offline=False,jobs=2):
     record={'platform':plat,'version':'3.4.18','source':source,'cmake_options':options,
             'sdk':sdk,'relocated_consumers':consumers,
             'native_smoke_executed': plat==host(),
-            'artifacts':{n:hashlib.sha256((out/n).read_bytes()).hexdigest() for n in sorted(names)}}
+            'artifacts':{n:sha256_file((out/n)) for n in sorted(names)}}
     if plat.startswith('windows'):
         record['artifact_roles']={name:role for name,(source,role) in WINDOWS_ARTIFACTS.items()}
     (metadata/'build.json').write_text(json.dumps(record,indent=2)+'\n')

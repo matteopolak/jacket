@@ -1,5 +1,11 @@
 """Build-plan/layout tests only; no native harness or fault execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import importlib.util
 import hashlib
 import json
@@ -8,6 +14,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from toolkit.hashing import sha256_file
 
 
 class NativePreparation(unittest.TestCase):
@@ -31,7 +38,7 @@ class NativePreparation(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("/* hash policy fixture */\n")
-                inputs[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+                inputs[relative] = sha256_file(path)
             receipt = {"inputs": inputs}
             for filename, key in [
                 ("libportable_clipboard.a", "archive_sha256"),
@@ -39,7 +46,7 @@ class NativePreparation(unittest.TestCase):
             ]:
                 path = native / filename
                 path.write_bytes(b"non-executable hash fixture")
-                receipt[key] = hashlib.sha256(path.read_bytes()).hexdigest()
+                receipt[key] = sha256_file(path)
             record = native / "portable-clipboard-build.json"
             record.write_text(json.dumps(receipt))
             self.tool.verify_clipboard_build(native, root)
@@ -187,7 +194,7 @@ class NativePreparation(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"non-executable hash-contract fixture")
             artifacts = {
-                p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                p.name: sha256_file(p)
                 for p in plan["required"]
                 if p.parent == native
                 and p.name.startswith(("libjai_audio_output.", "libstb_vorbis."))
@@ -218,7 +225,7 @@ class NativePreparation(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"non-executable hash-contract fixture")
             audio = {
-                p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                p.name: sha256_file(p)
                 for p in plan["required"]
                 if p.parent == native
                 and p.name.startswith(("libjai_audio_output.", "libstb_vorbis."))
@@ -232,7 +239,7 @@ class NativePreparation(unittest.TestCase):
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("/* source hash fixture */\n")
-                inputs[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+                inputs[relative] = sha256_file(path)
             (native / "portable-clipboard-build.json").write_text(
                 json.dumps(
                     {
@@ -250,13 +257,13 @@ class NativePreparation(unittest.TestCase):
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("/* original hash-contract fixture, never compiled */\n")
             artifacts = {
-                p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                p.name: sha256_file(p)
                 for p in plan["required"]
                 if p.name.startswith("libportable_crash.")
             }
             recipe = {
                 "platform": "linux-x64",
-                "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                "source_sha256": sha256_file(source),
                 "artifacts": artifacts,
             }
             for changed in [

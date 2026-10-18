@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Retain both-cache-off public behavior, concurrency and canonical ABI controls."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import importlib
 import json
 import os
@@ -11,6 +16,7 @@ import sys
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -40,7 +46,7 @@ def main():
     selected = {p[kind] for p in selected_profiles for kind in ('sdk', 'callbacks')}
     report = dict(snapshot=str(snapshot), input_identity=identity, checks=[],
                   native_profiles=selected_profiles, scope='Required cache fixture; Mac ARM64 native only',
-                  tools={str(p.resolve()): hashlib.sha256(p.resolve().read_bytes()).hexdigest() for p in
+                  tools={str(p.resolve()): sha256_file(p.resolve()) for p in
                          (args.compiler, args.native_compiler, args.jailint, args.formatter)})
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work), PYTHONDONTWRITEBYTECODE='1')
     fixture = snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-adaptive-cache.jai' if args.adaptive else
@@ -96,7 +102,7 @@ def main():
         '--context', fixture, snapshot/'stdlib/rpmalloc', fixture])
     invoke('production formatting', [args.formatter, '--check', snapshot/'stdlib/rpmalloc', fixture])
     report['checks'].append(dict(label='complete input immutability', status='passed' if unchanged(snapshot, identity) else 'failed'))
-    report['native_artifacts'] = {str(p.relative_to(work)): hashlib.sha256(p.read_bytes()).hexdigest()
+    report['native_artifacts'] = {str(p.relative_to(work)): sha256_file(p)
         for folder in ('native', 'native-sanitized') for p in (work/folder).iterdir() if p.is_file()}
     report['native_sdk_provenance'] = json.loads((prepared/'provenance.json').read_text())
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')

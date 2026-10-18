@@ -8,7 +8,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,10 +17,7 @@ import subprocess
 from native_bindings.build_rpmalloc import platform_c_flags
 from native_bindings.prepare_rpmalloc import ROOT, prepare
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
-
-
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -70,7 +66,7 @@ def main():
     ]
 
     def source_hashes():
-        return {str(p.relative_to(ROOT)): sha(p) for p in watched}
+        return {str(p.relative_to(ROOT)): sha256_file(p) for p in watched}
 
     evidence = {
         "complete": False,
@@ -81,7 +77,7 @@ def main():
         "source_before": source_hashes(),
         "commands": [],
         "objects": [],
-        "profile_inventory_sha256": sha(inventory),
+        "profile_inventory_sha256": sha256_file(inventory),
     }
     source = prepare(args.sdk_source.resolve(), output / "prepared-rpmalloc")
     api = json.loads(
@@ -143,7 +139,7 @@ def main():
         evidence["objects"].append(
             {
                 "path": str(object_path),
-                "sha256": sha(object_path),
+                "sha256": sha256_file(object_path),
                 "ELF_machine": machine,
             }
         )

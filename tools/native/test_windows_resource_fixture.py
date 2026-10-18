@@ -1,12 +1,18 @@
 """Real SDK cross-build tests: no Windows runtime or host SDK execution proof."""
 
-import hashlib
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 from pathlib import Path
 import struct
 import tempfile
 import unittest
 
 import build_windows_resource_fixture as fixture
+from toolkit.hashing import sha256_file
 
 
 class ResourceFixture(unittest.TestCase):
@@ -58,7 +64,7 @@ class ResourceFixture(unittest.TestCase):
                 self.assertEqual(receipt["pe"]["group_bytes"], 76)
                 for name, identity in receipt["artifacts"].items():
                     self.assertEqual(
-                        hashlib.sha256((output / name).read_bytes()).hexdigest(),
+                        sha256_file((output / name)),
                         identity["sha256"],
                     )
                 icon = (output / "resource.ico").read_bytes()

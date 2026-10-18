@@ -8,7 +8,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,6 +17,7 @@ from itertools import product
 from generate import MODULES
 from native_bindings.spec import parse_spec
 from verify import ROOT, TARGET_CONFIGS, select_stdlib, invoke, public_source
+from toolkit.hashing import sha256_file
 
 # (module, parameter values, import suffix, applicable OS values)
 CONFIGURATIONS = [
@@ -66,10 +66,10 @@ def main():
     temporary.mkdir()
     env = dict(os.environ,JAIC_STDLIB=str(stdlib),JAIC_NATIVE_LIBS=str(ROOT/'.work/native'),TMPDIR=str(temporary))
 
-    report = {'compiler':str(compiler),'compiler_sha256':hashlib.sha256(compiler.read_bytes()).hexdigest(),
+    report = {'compiler':str(compiler),'compiler_sha256':sha256_file(compiler),
               'stdlib_root':str(stdlib),'production':args.stdlib is not None,
               'staging_root':str(work),'staged_sources':{
-                  str(p.relative_to(stdlib)):hashlib.sha256(p.read_bytes()).hexdigest()
+                  str(p.relative_to(stdlib)):sha256_file(p)
                   for p in sorted(stdlib.rglob('*.jai')) if 'Extensions' not in p.parts}, 'checks':[]}
     for module, parameters, suffix, systems in CONFIGURATIONS:
         if args.module and module not in args.module:
@@ -87,7 +87,7 @@ def main():
                     file.write_text(source)
                     result = invoke(command,env)
                     result.update(module=module,parameters=parameters,os=os_name,cpu=cpu,check=check,
-                                  spec_sha256=hashlib.sha256(page.read_bytes()).hexdigest(),
+                                  spec_sha256=sha256_file(page),
                                   status='passed' if result['exit']==0 else 'failed')
                     report['checks'].append(result)
                     # A failed declaration check already accounts for this

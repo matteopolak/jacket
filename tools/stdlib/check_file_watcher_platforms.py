@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """File_Watcher source proof, and opt-in real Linux/Windows CI execution."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import platform
 import subprocess
 import tempfile
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 OWN = [
@@ -26,10 +32,6 @@ OWN = [
 ]
 
 
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def snapshot():
     paths = {ROOT / "Cargo.toml", ROOT / "Cargo.lock"}
     for folder, suffixes in [
@@ -45,7 +47,7 @@ def snapshot():
     paths.update(ROOT / p for p in OWN)
     paths.add(Path(__file__).resolve())
     paths.add(ROOT / "docs/specs/stdlib/modules/file-watcher.md")
-    return {str(p.relative_to(ROOT)): sha(p) for p in sorted(paths)}
+    return {str(p.relative_to(ROOT)): sha256_file(p) for p in sorted(paths)}
 
 
 def main():
@@ -234,7 +236,7 @@ def main():
         commands=rows,
         source_inputs=before,
         source_drift=drift,
-        tools={str(p): sha(p) for p in [compiler, lint, formatter] if p.is_file()},
+        tools={str(p): sha256_file(p) for p in [compiler, lint, formatter] if p.is_file()},
         tool_origin="explicit source-built tools"
         if all(supplied)
         else "fresh CLI/lint build",

@@ -32,6 +32,7 @@ import urllib.request
 from pathlib import Path
 
 from repo_output import shared_output_dir
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
@@ -754,7 +755,7 @@ def load_yml(path: str | None) -> tuple[str, str, str]:
         data = Path(path).read_bytes()
     else:
         cache = shared_output_dir('webgpu', rev, 'webgpu.yml')
-        if cache.exists() and hashlib.sha256(cache.read_bytes()).hexdigest() == digest:
+        if cache.exists() and sha256_file(cache) == digest:
             data = cache.read_bytes()
         else:
             url = f'https://raw.githubusercontent.com/{pin["repository"]}/{rev}/webgpu.yml'

@@ -12,6 +12,7 @@ import subprocess
 from sdl_test_support import temporary_directory, remove_fixture_metadata
 from pathlib import Path
 from bindings import sdl3_gen as gen
+from toolkit.hashing import sha256_file
 
 class Types(unittest.TestCase):
     def test_anonymous_record_paths_normalize_native_and_clang_separators(self):
@@ -54,7 +55,7 @@ class Types(unittest.TestCase):
             for name in paths+['stdlib/Extensions/SDL/module.jai']:(root/name).unlink()
             git('checkout-index','--force','--all')
             for name in paths:
-                self.assertEqual(hashlib.sha256((root/name).read_bytes()).hexdigest(),hashlib.sha256(payload).hexdigest(),name)
+                self.assertEqual(sha256_file((root/name)),hashlib.sha256(payload).hexdigest(),name)
             # The new policy must not change SDL2 or other libraries' defaults.
             self.assertEqual((root/'stdlib/Extensions/SDL/module.jai').read_bytes(),payload.replace(b'\n',b'\r\n'))
 
@@ -136,7 +137,7 @@ class Types(unittest.TestCase):
         for plat in gen.TARGETS:
             report=inventory[plat]
             self.assertEqual(report['header_profile']['feature_flags'],gen.header_profile_flags(plat))
-            self.assertEqual(report['contracts_sha256'],hashlib.sha256((gen.OUT/report['contracts']).read_bytes()).hexdigest())
+            self.assertEqual(report['contracts_sha256'],sha256_file((gen.OUT/report['contracts'])))
 
     def test_all_desktop_gpu_procedures_remain_in_every_profile(self):
         coverage=json.loads((gen.OUT/'coverage.json').read_text())

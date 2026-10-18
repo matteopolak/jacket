@@ -16,13 +16,13 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 from repo_output import host_platform
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -136,11 +136,11 @@ def main():
             verify_object(plan["object"], target)
     artifacts = {}
     for path in [plan["archive"], plan["shared"]]:
-        artifacts[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        artifacts[path.name] = sha256_file(path)
     source = ROOT / "stdlib/internal/runtime/crash-native/runtime.c"
     receipt = {
         "platform": target,
-        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "source_sha256": sha256_file(source),
         "artifacts": artifacts,
         "native_execution": False,
     }

@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """Cross-source Windows time-zone layout checks; actual MSVC ABI is opt-in."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import platform
 import subprocess
 import tempfile
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows-time-zone-layout.jai"
 C_FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows_time_zone_sdk.c"
-
-
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def inputs():
@@ -37,7 +39,7 @@ def inputs():
             if p.is_file() and p.suffix in extensions and not p.name.startswith("._")
         )
     paths.add(ROOT / "docs/specs/stdlib/modules/windows.md")
-    return {str(p.relative_to(ROOT)): sha(p) for p in sorted(paths)}
+    return {str(p.relative_to(ROOT)): sha256_file(p) for p in sorted(paths)}
 
 
 def metrics(text):
@@ -232,7 +234,7 @@ def main():
         commands=rows,
         source_inputs=before,
         source_drift=drift,
-        tools={str(p): sha(p) for p in [compiler, lint, formatter] if p.is_file()},
+        tools={str(p): sha256_file(p) for p in [compiler, lint, formatter] if p.is_file()},
         tool_origin="explicit source-built tools"
         if all(supplied)
         else "fresh CLI/lint build",

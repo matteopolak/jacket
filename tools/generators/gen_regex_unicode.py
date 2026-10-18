@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Generate stdlib/Extensions/Regex/unicode_data.jai from the Unicode Character Database."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import io
 import os
 from pathlib import Path
@@ -9,6 +14,7 @@ import sys
 import unicodedata
 import urllib.request
 import zipfile
+from toolkit.hashing import sha256_file
 
 UCD_VERSION = "17.0.0"
 UCD_URL = f"https://www.unicode.org/Public/{UCD_VERSION}/ucd/UCD.zip"
@@ -49,7 +55,7 @@ def cache_path():
 
 
 def verified_zip(path):
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = sha256_file(path)
     if digest != UCD_SHA256:
         raise SystemExit(f"{path}: SHA-256 {digest} does not match the pinned {UCD_SHA256}")
     return zipfile.ZipFile(io.BytesIO(path.read_bytes()))

@@ -6,9 +6,17 @@ spelling and location, then reconciles each candidate with target AST declaratio
 It does not derive ABI types from C text. Unknown core declarations are generation errors.
 """
 from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import hashlib
 import re
 from pathlib import Path
+from toolkit.hashing import sha256_file
 
 GROUPS = (
     ('foundation', 'stdinc endian bits cpuinfo atomic guid'),
@@ -221,7 +229,7 @@ def reconcile(src,reports,equivalents):
         condition_ids={value:f'c{i}' for i,value in enumerate(condition_values)}
         # Re-read conditions from source items is unnecessary: keep their stable tuple while packing.
         for item in items:item['conditions_ref']=condition_ids[tuple(item.pop('_conditions'))]
-        headers[name]={'condition_groups':{condition_ids[value]:list(value) for value in condition_values},'sha256' :hashlib.sha256(path.read_bytes()).hexdigest(),'category':category,'declarations':items}
+        headers[name]={'condition_groups':{condition_ids[value]:list(value) for value in condition_values},'sha256' :sha256_file(path),'category':category,'declarations':items}
     if unexplained:raise ValueError('Unexplained installed-header declarations:\n'+'\n'.join(unexplained))
     gpu=headers['SDL_gpu.h']['declarations']
     if not gpu or any(i.get('status') in {'excluded','unexplained'} for i in gpu if i['kind'] in {'procedure','typedef','callback','struct','union','enum','enumerator'} and i['name'] not in OTHER_OS):

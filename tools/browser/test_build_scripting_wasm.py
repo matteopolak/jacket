@@ -1,5 +1,10 @@
 """Check configured wasm artifact discovery and staging with authored inert bytes."""
-import hashlib
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import json
 import os
 from pathlib import Path
@@ -8,6 +13,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import build_scripting_wasm as wasm
+from toolkit.hashing import sha256_file
 
 
 class ScriptingWasmBuildTests(unittest.TestCase):
@@ -51,7 +57,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             receipt = json.loads((output / 'build-metadata.json').read_text())
             self.assertEqual(receipt['target_directory']['path'], str(target))
             self.assertEqual(receipt['wasm_build_path'], str(compiled))
-            self.assertEqual(receipt['wasm_sha256'], hashlib.sha256(compiled.read_bytes()).hexdigest())
+            self.assertEqual(receipt['wasm_sha256'], sha256_file(compiled))
             self.assertFalse((root / 'target/wasm32-unknown-unknown').exists())
             self.assertEqual(sorted(path.name for path in output.iterdir()),
                              ['README.md', 'build-metadata.json', 'engine.mjs', 'jai_wasm.wasm', 'jaifmt-playground.jai',

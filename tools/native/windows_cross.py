@@ -22,7 +22,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import concurrent.futures
-import hashlib
 import json
 import os
 import pathlib
@@ -34,6 +33,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 from stdlib import stdlib_runtime  # noqa: E402
+from toolkit.hashing import sha256_file
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [
@@ -148,7 +148,7 @@ def fixture_stale_contract_reason(case):
     # Exact legacy source oracle; a corrected fixture must become required.
     if (
         case["id"] == "compiler/lang-asm"
-        and hashlib.sha256(case["path"].read_bytes()).hexdigest()
+        and sha256_file(case["path"])
         == "e64cb05be3757f5e236b1536dc61a1cf537161d25c183abff42feb61df0d220b"
     ):
         return "pinned legacy fixture asserts CPUID EBX == 0/no features; reviewed architectural CPUID returns real leaf/subleaf data; correct fixture against native SDK, never fabricate zero"
@@ -406,7 +406,7 @@ def ensure_cross_host_bindings(host):
     for name, digest in receipt["assets"].items():
         if (
             pathlib.Path(name).name != name
-            or hashlib.sha256((output / name).read_bytes()).hexdigest() != digest
+            or sha256_file((output / name)) != digest
         ):
             raise ValueError(
                 "cross-host provider artifact differs from its build receipt"
@@ -486,7 +486,7 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
             raise ValueError("invalid cross-host provider source receipt path")
         if (
             not (ROOT / path).is_file()
-            or hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != digest
+            or sha256_file((ROOT / path)) != digest
         ):
             return False
     assets = receipt.get("assets", {})
@@ -497,7 +497,7 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
             raise ValueError("invalid cross-host provider artifact receipt path")
         if (
             not (directory / name).is_file()
-            or hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest
+            or sha256_file((directory / name)) != digest
         ):
             return False
     return True

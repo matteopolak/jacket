@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Verify reviewed live GL using projection without executing graphics calls."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -9,6 +14,7 @@ import subprocess
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -21,7 +27,7 @@ def main():
         'jaifmt.toml', 'jailint.toml'))
     work = Path(tempfile.mkdtemp(prefix='gl-projection-', dir=args.output_root))
     report = dict(snapshot=str(snapshot), input_identity=identity, checks=[],
-        tools={str(p.resolve()): hashlib.sha256(p.resolve().read_bytes()).hexdigest() for p in
+        tools={str(p.resolve()): sha256_file(p.resolve()) for p in
                (args.compiler, args.jailint, args.formatter)},
         scope='Mac ARM64 procedure-table behavior; actual SDK address only, no graphics calls/context')
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work), PYTHONDONTWRITEBYTECODE='1')
@@ -39,7 +45,7 @@ def main():
     expanded = work/'all-extensions.jai'
     expanded.write_text(fixture.read_text().replace('#import "GL";', '#import "GL"(ENABLE_ALL_EXTENSIONS = true);'))
     expanded.chmod(0o444)
-    expanded_hash = hashlib.sha256(expanded.read_bytes()).hexdigest()
+    expanded_hash = sha256_file(expanded)
     report['generated_input'] = dict(path=str(expanded), sha256=expanded_hash,
         derivation='Same independent test body; both imports select reviewed ENABLE_ALL_EXTENSIONS=true')
     for name, source in (('default', fixture), ('all-extensions', expanded)):
@@ -61,13 +67,13 @@ def main():
         negative = work/('private-'+module+'-'+member+'.jai')
         negative.write_text('M :: #import "'+module+'"; main :: () { value := M.'+member+'; }\n')
         negative.chmod(0o444)
-        report['privacy_inputs'].append(dict(path=str(negative), sha256=hashlib.sha256(negative.read_bytes()).hexdigest()))
+        report['privacy_inputs'].append(dict(path=str(negative), sha256=sha256_file(negative)))
         invoke('required public privacy '+module+'.'+member, [args.compiler, negative, '-check', '-no_dce'])
         row = report['checks'][-1]
         exact = 'module `'+module+'` has no exported member `'+member+'`'
         row['status'] = 'passed' if row['exit'] != 0 and exact in row['stderr'] else 'failed'
     report['checks'].append(dict(label='complete immutable inputs', status='passed' if unchanged(snapshot, identity)
-        and hashlib.sha256(expanded.read_bytes()).hexdigest() == expanded_hash else 'failed'))
+        and sha256_file(expanded) == expanded_hash else 'failed'))
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')
     failures = sum(row['status'] != 'passed' for row in report['checks'])
     print(f'{failures} failures; {work / "verification.json"}')

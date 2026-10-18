@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Build and inspect real resource-only Windows PE fixtures; never execute them."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import hashlib
 import json
@@ -11,6 +17,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from toolkit.hashing import sha256_file
 
 MACHINES = {"x64": 0x8664, "arm64": 0xAA64}
 SIZES = (256, 128, 64, 32, 16)
@@ -260,7 +267,7 @@ def build_fixture(output, cpu, rc=None, linker=None, readobj=None):
         receipt["tools"] = {
             name: {
                 "path": path,
-                "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+                "sha256": sha256_file(Path(path)),
             }
             for name, path in (("rc", rc), ("linker", linker), ("readobj", readobj))
         }
@@ -318,7 +325,7 @@ def build_fixture(output, cpu, rc=None, linker=None, readobj=None):
             )
             receipt["artifacts"] = {
                 name: {
-                    "sha256": hashlib.sha256((work / name).read_bytes()).hexdigest(),
+                    "sha256": sha256_file((work / name)),
                     "bytes": (work / name).stat().st_size,
                 }
                 for name in ARTIFACTS

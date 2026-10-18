@@ -4,8 +4,13 @@
 Optional --driver-dir deploys a caller-supplied, source-built real Mesa driver.
 No downloads, credentials, CI dispatch, version overrides, fallback GL or skips.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,6 +21,7 @@ import struct
 import subprocess
 from cleanroom_lint_contexts import canonical, checked_coverage
 from window_render_tests import WINDOW_RENDER_TESTS
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = (
@@ -142,7 +148,7 @@ def deploy_driver(driver, machine, directories):
         if pe_machine(library) != machine:
             raise ValueError(f"driver/host architecture mismatch: {library}")
         records.append({"name": library.name, "machine": machine,
-                        "sha256": hashlib.sha256(library.read_bytes()).hexdigest()})
+                        "sha256": sha256_file(library)})
     for directory in dict.fromkeys(directories):
         directory.mkdir(parents=True, exist_ok=True)
         for library, record in zip(libraries, records):
@@ -151,7 +157,7 @@ def deploy_driver(driver, machine, directories):
                 raise ValueError(f"app-local driver must not be a symbolic link: {destination}")
             if library.resolve() != destination.resolve():
                 shutil.copy2(library, destination)
-            if hashlib.sha256(destination.read_bytes()).hexdigest() != record["sha256"]:
+            if sha256_file(destination) != record["sha256"]:
                 raise ValueError(f"app-local driver copy integrity mismatch: {destination}")
     return records
 

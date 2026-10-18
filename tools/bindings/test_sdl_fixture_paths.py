@@ -1,6 +1,11 @@
 """SDL fixture migration/staging checks; no compiler, SDK or native execution."""
 
-import hashlib
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import ast
 from contextlib import ExitStack
 import importlib.util
@@ -10,6 +15,7 @@ import sys
 from sdl_test_support import temporary_directory
 import unittest
 from unittest.mock import MagicMock, patch
+from toolkit.hashing import sha256_file
 
 
 def private_hash_key(relative, path_type=Path):
@@ -136,7 +142,7 @@ class SdlFixturePaths(unittest.TestCase):
                 self.assertEqual(set(hashes), {str(path_type(relative))})
                 self.assertEqual(
                     hashes[private_hash_key(relative, path_type)],
-                    hashlib.sha256(placed.read_bytes()).hexdigest(),
+                    sha256_file(placed),
                 )
 
     def test_module_local_sources_stage_unchanged_inside_real_private_boundary(self):
@@ -156,7 +162,7 @@ class SdlFixturePaths(unittest.TestCase):
                 self.assertEqual(placed.read_bytes(), source.read_bytes())
                 self.assertEqual(
                     hashes[private_hash_key("SDL/tests/" + filename)],
-                    hashlib.sha256(source.read_bytes()).hexdigest(),
+                    sha256_file(source),
                 )
 
 

@@ -7,7 +7,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,6 +14,7 @@ import platform
 import subprocess
 import sys
 from repo_output import output_dir
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -30,7 +30,7 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / "stdlib"))
 
     def fingerprints():
-        return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+        return {str(p.relative_to(ROOT)): sha256_file(p)
                 for p in (ROOT / "stdlib").rglob("*.jai")}
 
     before = fingerprints()

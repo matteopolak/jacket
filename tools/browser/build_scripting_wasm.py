@@ -12,13 +12,13 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from pathlib import Path
 import argparse
-import hashlib
 import json
 import os
 import shutil
 import subprocess
 from repo_output import output_dir
 from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLED_GLUE = ("engine.mjs", "webgpu_host.mjs", "webgpu_bindings.generated.mjs", "README.md")
@@ -117,14 +117,14 @@ def main():
         subprocess.run(jaifmt_wasm_command(args.jaic.resolve(), root, formatter), cwd=root, env=environment, check=True)
         if formatter.read_bytes()[:8] != b"\x00asm\x01\x00\x00\x00":
             raise SystemExit("jaifmt.wasm is not a WebAssembly module")
-        formatter_sha256 = hashlib.sha256(formatter.read_bytes()).hexdigest()
+        formatter_sha256 = sha256_file(formatter)
     # Example workspaces the playground opens with (examples/tour as tour/).
     for name, source, main in bundled_examples(root):
         stage_example(source, output, name, main)
     staged = output / "jai_wasm.wasm"
     shutil.copy2(wasm, staged)
-    expected = hashlib.sha256(wasm.read_bytes()).hexdigest()
-    if hashlib.sha256(staged.read_bytes()).hexdigest() != expected:
+    expected = sha256_file(wasm)
+    if sha256_file(staged) != expected:
         raise RuntimeError("WebAssembly output changed while staging it")
     receipt = {"build_command": command, "target_directory": target.receipt(),
                "wasm_build_path": str(wasm), "wasm_staged_path": str(staged),

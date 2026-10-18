@@ -4,6 +4,12 @@ No DLL is downloaded, renamed, copied, substituted or silently skipped. Metadata
 inspection is portable; runtime probing requires an actual Windows host.
 """
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import ctypes
 import hashlib
@@ -14,6 +20,7 @@ import re
 import struct
 import subprocess
 import sys
+from toolkit.hashing import sha256_file
 
 
 def dll_name(data):
@@ -121,7 +128,7 @@ def runtime_probe():
             row.update(
                 loaded=True,
                 path=path.value,
-                sha256=hashlib.sha256(Path(path.value).read_bytes()).hexdigest(),
+                sha256=sha256_file(Path(path.value)),
                 exports={
                     symbol: ctypes.cast(getattr(library, symbol), ctypes.c_void_p).value
                     for symbol in ("D3DCompile", "D3DCreateBlob")
@@ -168,7 +175,7 @@ def main():
     report["runtime"] = runtime_probe()
     report["compiler"] = {
         "path": str(args.jaic.resolve()),
-        "sha256": hashlib.sha256(args.jaic.read_bytes()).hexdigest(),
+        "sha256": sha256_file(args.jaic),
     }
     work = args.report.parent / (args.report.stem + "-outputs")
     work.mkdir(parents=True, exist_ok=True)

@@ -16,6 +16,7 @@ from pathlib import Path
 import subprocess
 import sys
 from repo_output import host_platform
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -158,7 +159,7 @@ def prepare_native_dependencies(target, native, stdlib, root=ROOT):
         if (
             portable["platform"] != target
             or portable["source_sha256"]
-            != hashlib.sha256(source.read_bytes()).hexdigest()
+            != sha256_file(source)
         ):
             raise ValueError(
                 "portable crash receipt does not match actual target/source"

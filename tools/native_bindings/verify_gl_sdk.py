@@ -6,7 +6,6 @@ An optional proposal path labels a separately built trial compiler honestly.
 Unavailable debug-driver support remains a failing verification requirement.
 """
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,10 +13,7 @@ import platform
 import sys
 
 from verify import ROOT, invoke
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -44,14 +40,14 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(stdlib),
                JAIC_NATIVE_LIBS=str(native), TMPDIR=str(temporary))
     report = {'scope':'Production SDK verification against explicit integrated sources',
-              'compiler':str(compiler), 'compiler_sha256':digest(compiler),
+              'compiler':str(compiler), 'compiler_sha256':sha256_file(compiler),
               'compiler_proposal':None, 'stdlib':str(stdlib), 'work':str(work), 'staging_adjustments':[],
               'checks':[], 'staged_sources':{}, 'test_sources':{}}
     if args.compiler_proposal:
         proposal = args.compiler_proposal.resolve(strict=True)
-        report['compiler_proposal'] = {'path':str(proposal), 'sha256':digest(proposal)}
+        report['compiler_proposal'] = {'path':str(proposal), 'sha256':sha256_file(proposal)}
         report['scope'] += '; explicitly labeled trial compiler proposal remains unintegrated'
-    report['staged_sources'] = {str(p.relative_to(stdlib)):digest(p)
+    report['staged_sources'] = {str(p.relative_to(stdlib)):sha256_file(p)
                                 for p in sorted(stdlib.rglob('*.jai')) if 'Extensions' not in p.parts}
     sdk_result = invoke(['xcrun','--show-sdk-path'],env)
     if sdk_result['exit'] != 0:
@@ -61,14 +57,14 @@ def main():
     report['sdk_headers'] = {}
     for name in ('OpenGL.h','CGLTypes.h','CGLCurrent.h'):
         relative = 'System/Library/Frameworks/OpenGL.framework/Headers/'+name
-        actual = digest(sdk/relative)
+        actual = sha256_file(sdk/relative)
         if actual != pins[relative]:
             raise SystemExit('Native SDK header differs from reviewed pin: '+relative)
         report['sdk_headers'][relative] = actual
     probe_source = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/apple_abi_probe.m'
     probe = native/'libapple_abi_probe.a'
     obj = native/'apple_abi_probe.o'
-    report['test_sources'][str(probe_source.relative_to(ROOT))] = digest(probe_source)
+    report['test_sources'][str(probe_source.relative_to(ROOT))] = sha256_file(probe_source)
     result = invoke(['cc','-c','-Wall','-Wextra','-Werror',probe_source,'-o',obj],env)
     result.update(name='native-C-oracle',phase='build',status='passed' if result['exit']==0 else 'failed')
     report['checks'].append(result)
@@ -77,10 +73,10 @@ def main():
         result.update(name='native-C-oracle',phase='archive',status='passed' if result['exit']==0 else 'failed')
         report['checks'].append(result)
     if result['exit'] == 0:
-        report['native_oracle_sha256'] = digest(probe)
+        report['native_oracle_sha256'] = sha256_file(probe)
         for name in ('reflection-procedure-flags','gl-context'):
             source = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk'/(name+'.jai')
-            report['test_sources'][str(source.relative_to(ROOT))] = digest(source)
+            report['test_sources'][str(source.relative_to(ROOT))] = sha256_file(source)
             exe = work/name
             build = invoke([compiler,source,'-exe',exe],env)
             build.update(name=name,phase='build',status='passed' if build['exit']==0 else 'failed')

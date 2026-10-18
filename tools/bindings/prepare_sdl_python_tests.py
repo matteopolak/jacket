@@ -21,6 +21,7 @@ import tarfile
 import urllib.request
 from native.fetch_url import fetch
 from sdl_test_support import repository_root
+from toolkit.hashing import sha256_file
 
 
 MEMBERS = ("CMakeLists.txt", "include/SDL2/SDL_config_unix.h.cmake", "LICENSE.txt")
@@ -45,7 +46,7 @@ def prepare(scratch, cache, offline=False):
         if hashlib.sha256(data).hexdigest() != pin["sha256"]:
             raise ValueError("SDL2 header download checksum mismatch")
         archive.write_bytes(data)
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != pin["sha256"]:
+    if sha256_file(archive) != pin["sha256"]:
         raise ValueError("SDL2 header cache checksum mismatch")
     source = scratch / "sdl-sdk-source"
     # Read all required real members before writing; never accept a partial or

@@ -9,7 +9,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import ctypes
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -22,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 from native_bindings.build_dependencies import INPUTS  # noqa: E402
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
 from native_bindings.build_rpmalloc import platform_c_flags  # noqa: E402
+from toolkit.hashing import sha256_file
 
 
 def selected_libraries():
@@ -211,7 +211,7 @@ def main():
             (ROOT / "stdlib/internal/bindings/rpmalloc-heaps").glob(suffix)
         )
     source_hashes = {
-        str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+        str(p.relative_to(ROOT)): sha256_file(p)
         for p in input_files
     }
     command = [
@@ -291,14 +291,14 @@ def main():
             )
         queries.append({"profile": profile["sdk"], "actual_flags": value})
     hashes = {
-        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+        p.name: sha256_file(p)
         for p in output.iterdir()
         if p.is_file()
         and not p.name.startswith("._")
         and p.suffix in {".a", ".so", ".dylib"}
     }
     if source_hashes != {
-        str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+        str(p.relative_to(ROOT)): sha256_file(p)
         for p in input_files
     }:
         raise RuntimeError("native provider source inputs changed during construction")

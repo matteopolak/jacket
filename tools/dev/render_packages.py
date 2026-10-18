@@ -8,11 +8,17 @@ The version and checksums come from the release itself: its tag and its SHA256SU
 writes packages/homebrew/jacket.rb.
 See docs/tools/releases.md.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import re
 import sys
 from pathlib import Path
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "packaging"
@@ -47,7 +53,7 @@ def hash_archives(directory):
     sums = {}
     for path in sorted(Path(directory).iterdir()):
         if path.is_file():
-            sums[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+            sums[path.name] = sha256_file(path)
     return sums
 
 

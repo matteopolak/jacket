@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Observe real retained-span advice on an immutable Mac SDK input capture."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import importlib
 import json
 import os
@@ -12,6 +17,7 @@ import sys
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -64,10 +70,10 @@ def main():
     invoke('production formatter', [args.formatter, '--check', snapshot/'stdlib/rpmalloc', fixture])
     report = dict(snapshot=str(snapshot), input_identity=identity, checks=checks,
                   immutable=unchanged(snapshot, identity), scope='Native Mac ARM64 syscall behavior only')
-    report['tools'] = {str(path.resolve()): hashlib.sha256(path.resolve().read_bytes()).hexdigest()
+    report['tools'] = {str(path.resolve()): sha256_file(path.resolve())
                        for path in (args.compiler, args.native_compiler, args.jailint, args.formatter)}
     report['native_sdk_provenance'] = json.loads((prepared_source/'provenance.json').read_text())
-    report['native_artifacts'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+    report['native_artifacts'] = {p.name: sha256_file(p)
                                  for p in (work/'native').iterdir() if p.is_file()}
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')
     for row in checks:

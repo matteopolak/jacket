@@ -19,6 +19,7 @@ from pathlib import Path
 
 from native import build_native_libs as native
 from repo_output import host_platform
+from toolkit.hashing import sha256_file
 
 
 def native_profile():
@@ -47,14 +48,14 @@ def profile_identity(profile, platform):
             ).hexdigest()
             for path in files
         },
-        "builder": hashlib.sha256(Path(native.__file__).read_bytes()).hexdigest(),
+        "builder": sha256_file(Path(native.__file__)),
     }
     return hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
 
 
 def artifact_hashes(directory, required):
     return {
-        name: hashlib.sha256((directory / name).read_bytes()).hexdigest()
+        name: sha256_file((directory / name))
         for name in required
     }
 

@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Reviewed Objective_C contracts plus independent SDK ABI/failure controls."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,6 +15,7 @@ import subprocess
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 POSITIVE = ('objc-reviewed-encodings', 'objc-reviewed-registration', 'objc-runtime', 'objective-c')
 NEGATIVE = {
@@ -20,10 +26,6 @@ NEGATIVE = {
     'objc-any-encoding': 'reflected type has no supported Objective-C encoding',
     'objc-duplicate-method': 'Objective-C runtime rejected method installation',
 }
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main():
@@ -42,7 +44,7 @@ def main():
                LIBRARY_PATH=str(work), TMPDIR=str(work), PYTHONDONTWRITEBYTECODE='1')
     report = dict(scope='Current reviewed Objective_C; Mac ARM64 native and Mac x64 source only',
                   snapshot=str(snapshot), work=str(work), input_identity=identity,
-                  tools={str(path): digest(path) for path in tools.values()}, checks=[])
+                  tools={str(path): sha256_file(path) for path in tools.values()}, checks=[])
 
     def invoke(label, command, **details):
         result = subprocess.run([str(x) for x in command], cwd=snapshot, env=env,
@@ -58,7 +60,7 @@ def main():
     headers = ('usr/include/objc/objc.h', 'usr/include/objc/runtime.h',
                'System/Library/Frameworks/Foundation.framework/Headers/NSObjCRuntime.h',
                'System/Library/Frameworks/Foundation.framework/Headers/NSMethodSignature.h')
-    sdk_hashes = {str(sdk/name): digest(sdk/name) for name in headers}
+    sdk_hashes = {str(sdk/name): sha256_file(sdk/name) for name in headers}
     report['official_sdk'] = dict(path=str(sdk.resolve()),
                                   version=subprocess.check_output(['xcrun', '--show-sdk-version'], text=True).strip(),
                                   headers=sdk_hashes)
@@ -100,7 +102,7 @@ def main():
     invoke('production formatter', [tools['formatter'], '--check', *roots,
                                     *[snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai') for name in POSITIVE],
                                     *[snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/negative/'+name+'.jai') for name in NEGATIVE]])
-    stable = unchanged(snapshot, identity) and all(digest(Path(name)) == value for name, value in sdk_hashes.items())
+    stable = unchanged(snapshot, identity) and all(sha256_file(Path(name)) == value for name, value in sdk_hashes.items())
     report['checks'].append(dict(label='immutable inputs and official SDK', status='passed' if stable else 'failed'))
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')
     failures = sum(row['status'] != 'passed' for row in report['checks'])

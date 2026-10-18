@@ -34,6 +34,7 @@ from verification_policy import (
     module_target_condition,
     module_result,
 )
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [
@@ -163,7 +164,7 @@ def place_private_unit(name, source, stdlib, hashes, cleanup):
     for relative, destination in PRIVATE_UNIT_DEPENDENCIES.get(name, {}).items():
         target = stdlib / destination
         copy_private_fixture(ROOT / relative, target, stdlib.parent, cleanup)
-        hashes[destination] = hashlib.sha256(target.read_bytes()).hexdigest()
+        hashes[destination] = sha256_file(target)
     return placed
 
 
@@ -477,7 +478,7 @@ def run_verification(cleanup):
         stage_for_checks(stdlib, args.existing_stdlib, args.foundation)
     production_hashes = (
         {
-            str(p.relative_to(stdlib)): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p.relative_to(stdlib)): sha256_file(p)
             for p in stdlib.rglob("*.jai")
         }
         if args.stdlib
@@ -510,14 +511,14 @@ def run_verification(cleanup):
     private_env = dict(env, JAIC_STDLIB=str(private_stdlib))
     report = {
         "compiler": str(compiler),
-        "compiler_sha256": hashlib.sha256(compiler.read_bytes()).hexdigest(),
+        "compiler_sha256": sha256_file(compiler),
         "staging_root": str(work),
         "targets": [],
         "native": [],
         "privacy": [],
     }
     report["staged_sources"] = {
-        str(p.relative_to(stdlib)): hashlib.sha256(p.read_bytes()).hexdigest()
+        str(p.relative_to(stdlib)): sha256_file(p)
         for p in sorted(stdlib.rglob("*.jai"))
         if "Extensions" not in p.parts
     }
@@ -526,7 +527,7 @@ def run_verification(cleanup):
     report["test_sources"] = {}
     report["native_artifacts"] = (
         {
-            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            p.name: sha256_file(p)
             for p in sorted(native.glob("lib*"))
             if p.is_file()
         }
@@ -1099,7 +1100,7 @@ def run_verification(cleanup):
         "Byte-copied production test view with independently authored private fixture placements; not public production runtime proof"
     )
     report["production_sources_unchanged"] = not args.stdlib or production_hashes == {
-        str(p.relative_to(stdlib)): hashlib.sha256(p.read_bytes()).hexdigest()
+        str(p.relative_to(stdlib)): sha256_file(p)
         for p in stdlib.rglob("*.jai")
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)

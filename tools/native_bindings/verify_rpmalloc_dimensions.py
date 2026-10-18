@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Required numeric policies, transactional storage, real SDK and public checks."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import importlib
 import json
 import os
@@ -11,10 +16,7 @@ import sys
 import tempfile
 
 from shared_snapshot import capture, unchanged
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -43,14 +45,14 @@ def main():
     profiles = importlib.import_module('native_bindings.rpmalloc_profiles')
     prepared = prepare(args.vendor, work/'prepared')
     reproduced = prepare(args.vendor, work/'reproduced')
-    prepared_hashes = {p.name: digest(p) for p in prepared.iterdir() if p.is_file()}
+    prepared_hashes = {p.name: sha256_file(p) for p in prepared.iterdir() if p.is_file()}
     report = dict(snapshot=str(snapshot), input_identity=identity, checks=[],
-                  tools={str(p.resolve()): digest(p.resolve()) for p in
+                  tools={str(p.resolve()): sha256_file(p.resolve()) for p in
                          (args.compiler, args.native_compiler, args.jailint, args.formatter)},
                   native_sdk_provenance=json.loads((prepared/'provenance.json').read_text()),
                   scope='Mac ARM64 native; six desktop source targets, no other native claim')
     report['checks'].append(dict(label='independently reproduced SDK preparation',
-        status='passed' if prepared_hashes == {p.name: digest(p) for p in reproduced.iterdir() if p.is_file()} else 'failed'))
+        status='passed' if prepared_hashes == {p.name: sha256_file(p) for p in reproduced.iterdir() if p.is_file()} else 'failed'))
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work),
                PYTHONDONTWRITEBYTECODE='1', ASAN_OPTIONS='allocator_may_return_null=1')
     fixture = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-runtime-dimensions.jai'
@@ -150,9 +152,9 @@ def main():
         invoke('production retention formatting', [args.formatter, '--check', retention,
             snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-effective-config.jai'])
     report['checks'].append(dict(label='immutable source and SDK inputs', status='passed' if
-        unchanged(snapshot, identity) and prepared_hashes == {p.name: digest(p) for p in prepared.iterdir() if p.is_file()}
+        unchanged(snapshot, identity) and prepared_hashes == {p.name: sha256_file(p) for p in prepared.iterdir() if p.is_file()}
         else 'failed'))
-    report['native_artifacts'] = {str(p.relative_to(work)): digest(p)
+    report['native_artifacts'] = {str(p.relative_to(work)): sha256_file(p)
         for folder in ('native', 'native-sanitized') for p in (work/folder).iterdir() if p.is_file()}
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')
     failures = sum(row['status'] != 'passed' for row in report['checks'])

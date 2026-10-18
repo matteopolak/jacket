@@ -1,5 +1,11 @@
 """Capture and verify the reviewed AppKit facade without launching NSApplication."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
 import ctypes
 import hashlib
@@ -12,6 +18,7 @@ import sys
 import tempfile
 
 from shared_snapshot import ROOT, capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -415,7 +422,7 @@ def main():
     condition(
         "owned source stable",
         all(
-            hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+            sha256_file((ROOT / name))
             == identity["files"][name]
             for name in owned
         ),
@@ -427,7 +434,7 @@ def main():
         work=str(work),
         input_identity=identity,
         tools={
-            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p): sha256_file(p)
             for p in (args.compiler, args.jailint, args.formatter)
         },
         checks=checks,

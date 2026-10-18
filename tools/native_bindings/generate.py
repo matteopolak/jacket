@@ -10,7 +10,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse
 from collections import Counter, defaultdict
 from dataclasses import replace
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -24,6 +23,7 @@ from bitfields import body as bitfield_body
 from native_bindings.spec import Declaration, Shape
 from rpmalloc_context import render_context
 from conditions import possible
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 MANUAL_FACADE_SOURCES = {
@@ -361,7 +361,7 @@ def generate_facade(module, spec):
                 shapes[name].append(candidate)
                 native_shape_provenance[(name,condition)] = {
                     'metadata':str(path.relative_to(ROOT)),
-                    'metadata_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+                    'metadata_sha256':sha256_file(path),
                     'archive_sha256':native['archive_sha256'],'revision':native['revision'],
                     'cpu':cpu,'verification':'C header/layout assertions; not Android Jai/runtime execution',
                     'layout':{k:shape[k] for k in ('size','alignment','fields')}}
@@ -570,7 +570,7 @@ def main():
         page = ROOT / 'docs/specs/stdlib/modules' / (slug + '.md')
         spec = parse_spec(page.read_text())
         code, entries = generate_facade(module, spec)
-        digest = hashlib.sha256(page.read_bytes()).hexdigest()
+        digest = sha256_file(page)
         all_ledger[module] = {'spec': str(page.relative_to(ROOT)), 'spec_sha256': digest,
                               'counts': dict(Counter(e['status'] for e in entries)),
                               'member_counts':dict(Counter(m['status'] for e in entries for m in e.get('members',[]))),
@@ -584,7 +584,7 @@ def main():
                 all_ledger[module]['supplemental_backends'] = [{
                     'module':'internal/bindings/rpmalloc-sdk',
                     'artifact':str((backend/'module.jai').relative_to(ROOT)),
-                    'artifact_sha256':hashlib.sha256((backend/'module.jai').read_bytes()).hexdigest(),
+                    'artifact_sha256':sha256_file((backend/'module.jai')),
                     'status':'private_native_backend',
                     'public_support':'Unresolved; this backend does not establish Jai callback/config/heap compatibility',
                     'provenance':native,
@@ -592,7 +592,7 @@ def main():
                 checked = ROOT/'stdlib/internal/bindings/rpmalloc-checked/module.jai'
                 all_ledger[module]['supplemental_backends'][0]['checked_boundary'] = {
                     'artifact':str(checked.relative_to(ROOT)),
-                    'artifact_sha256':hashlib.sha256(checked.read_bytes()).hexdigest(),
+                    'artifact_sha256':sha256_file(checked),
                     'signature':'posix_memalign :: (output: **void, alignment: u64, size: u64) -> s32',
                     'scope':'Private SDK precondition validation and commit-on-success output; not public API completion'}
                 callback_backend = ROOT/'stdlib/internal/bindings/rpmalloc-callbacks'
@@ -600,11 +600,11 @@ def main():
                     all_ledger[module]['supplemental_backends'].append({
                         'module':'internal/bindings/rpmalloc-callbacks',
                         'status':'partial_public_profile_adapter',
-                        'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+                        'artifacts':{str(p.relative_to(ROOT)):sha256_file(p)
                                      for p in sorted(callback_backend.iterdir()) if p.is_file()},
                         'scope':'Owned callback/name lifetime, bounded wide public offset registry, actual init failure; raw/rewrite and both statistics profiles',
                         'limitations':'Adaptive-cache/unmap/unlimited/page-advice/numeric options and exact native-error Jai location provenance remain incomplete',
-                        'caller_context_artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+                        'caller_context_artifacts':{str(p.relative_to(ROOT)):sha256_file(p)
                                                     for p in sorted((ROOT/'stdlib/internal/bindings/callback-context').iterdir()) if p.is_file()},
                         'tests':['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-callbacks.jai',
                                  'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-configurable.jai']})
@@ -613,7 +613,7 @@ def main():
                     all_ledger[module]['supplemental_backends'].append({
                         'module':'internal/bindings/rpmalloc-heaps',
                         'status':'partial_public_canonical_heap_adapter',
-                        'artifacts':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+                        'artifacts':{str(p.relative_to(ROOT)):sha256_file(p)
                                      for p in sorted(heap_backend.iterdir()) if p.is_file()},
                         'scope':'Separate canonical reviewed raw/rewrite records, actual atomic members, private typed native ownership, real SDK counters, span graph and unmap-driven retirement; both statistics and all thread/global-cache selections',
                         'limitations':'Raw heaps require explicit private build selection; only live/quiescent observations; other native options remain incomplete; acquired heap handle reservation OOM returns null before SDK mutation, but graph/default-thread association OOM remains fail-fast',
@@ -635,7 +635,7 @@ def main():
                                     'verification':'Source presence only; native tests are recorded separately.'})
                 all_ledger[module]['supplemental_facades'] = [{
                     'module':'Objective_C/AppKit', 'artifact':str(appkit.relative_to(ROOT)),
-                    'artifact_sha256':hashlib.sha256(appkit.read_bytes()).hexdigest(),
+                    'artifact_sha256':sha256_file(appkit),
                     'public_types':['NSBackingStoreType','NSResponder','NSWindow','NSWindowCollectionBehavior','NSWindowStyleMask'],
                     'private_pointer_only_types':['NSView','NSScreen'],
                     'members':methods,

@@ -5,28 +5,30 @@ Host output controls are independent of Android SDK/device execution. Required
 Android target failures remain failures. Native runs require the integrator's
 serialized native slot; omit --native for source/interpreter/lint checks only.
 """
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_OUT = '4:Jai:payload\nsink-complete\nfresh-out\n6:tag:second\nsink-complete\n'
 EXPECTED_ERR = 'fresh-error\n'
 
 
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
 def source_identity():
     paths = [p for p in (ROOT / 'stdlib').rglob('*.jai') if 'Extensions' not in p.parts]
     paths += [ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-logger-output.jai',
               ROOT / 'stdlib/Bindings_Generator/tests/driven/sdk/android-helpers.jai', Path(__file__).resolve()]
-    return {str(p.relative_to(ROOT)): digest(p) for p in sorted(paths)}
+    return {str(p.relative_to(ROOT)): sha256_file(p) for p in sorted(paths)}
 
 
 def main():
@@ -53,7 +55,7 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(ROOT / 'stdlib'), TMPDIR=str(work))
     report = dict(scope='Actual shared Runtime/logger host controls; not Android SDK/device execution',
                   work=str(work), native_requested=args.native, checks=[],
-                  tools={str(p): digest(p) for p in (compiler, lint, formatter)},
+                  tools={str(p): sha256_file(p) for p in (compiler, lint, formatter)},
                   sources_before=before)
 
     def invoke(phase, command, **details):

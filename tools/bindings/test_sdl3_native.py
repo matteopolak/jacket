@@ -4,7 +4,6 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import hashlib
 import json
 from pathlib import Path
 from sdl_test_support import temporary_directory, remove_fixture_metadata
@@ -13,6 +12,7 @@ import unittest
 from unittest.mock import patch
 from bindings import sdl3_native as sdl
 from native import build_native_libs as pipeline
+from toolkit.hashing import sha256_file
 
 class BuildContract(unittest.TestCase):
     def test_six_platforms_are_explicit(self):
@@ -90,7 +90,7 @@ class InstalledSDK(unittest.TestCase):
             self.assertEqual(info['prefix'],'sdl3/sdk');self.assertEqual(info['cmake_dir'],'cmake')
             sdk=relocated/info['prefix']
             for name,digest in info['files'].items():
-                self.assertEqual(hashlib.sha256((sdk/name).read_bytes()).hexdigest(),digest)
+                self.assertEqual(sha256_file((sdk/name)),digest)
                 self.assertEqual((sdk/name).read_bytes(),(stage/name).read_bytes())
             self.assertEqual((sdk/'lib/SDL3-static.lib').read_bytes(),b'lib/SDL3-static.lib')
             self.assertEqual((sdk/'lib/SDL3.lib').read_bytes(),b'lib/SDL3.lib')

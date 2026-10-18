@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Execute Linux Clipboard from a relocated package on an authorized test display."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,12 +17,9 @@ import subprocess
 import sys
 
 from clipboard_linux_diagnostics import report_failure
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def require_runtime_verification(proof, prior):
@@ -42,10 +44,10 @@ def main():
     prior = json.loads(proof.read_text())
     require_runtime_verification(proof, prior)
     compiler = proof.parent / "tools/debug/jaic"
-    if digest(compiler) != prior["compiler_sha256"]:
+    if sha256_file(compiler) != prior["compiler_sha256"]:
         raise RuntimeError("verified compiler changed")
     for name, sha in prior["source_inputs"].items():
-        if digest(ROOT / name) != sha:
+        if sha256_file(ROOT / name) != sha:
             raise RuntimeError(f"verified source changed: {name}")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
@@ -75,7 +77,7 @@ def main():
         ("libportable_clipboard.a", "archive_sha256"),
         ("libportable_clipboard.so", "shared_sha256"),
     ]:
-        if digest(package / native_relative / name) != native_receipt[key]:
+        if sha256_file(package / native_relative / name) != native_receipt[key]:
             raise RuntimeError(f"native artifact changed: {name}")
     shutil.copy2(ROOT / "LICENSE", package / "LICENSE")
     shutil.copy2(

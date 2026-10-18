@@ -1,7 +1,12 @@
 """Source/input verification only; SDK execution requires the coordinator lease."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -9,6 +14,7 @@ import subprocess
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def source_inventory(library):
@@ -71,10 +77,10 @@ def main():
         inventory=source_inventory(snapshot / "stdlib"),
         font=dict(
             path=str(args.font.resolve()),
-            sha256=hashlib.sha256(args.font.read_bytes()).hexdigest(),
+            sha256=sha256_file(args.font),
         ),
         tools={
-            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p): sha256_file(p)
             for p in (args.compiler, args.jailint, args.formatter)
         },
         sdk_executions=0,
@@ -156,7 +162,7 @@ def main():
     )
     report["inputs_unchanged"] = unchanged(snapshot, identity)
     report["font_unchanged"] = (
-        hashlib.sha256(args.font.read_bytes()).hexdigest() == report["font"]["sha256"]
+        sha256_file(args.font) == report["font"]["sha256"]
     )
     report["qualification"] = [
         "Caller font bytes inspected, never passed to FreeType under held SDK lease.",

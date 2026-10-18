@@ -4,12 +4,18 @@
 No generated name here is a public Jai export. This fills native enum types
 reachable in public records/signatures but absent from the public inventory.
 """
-import hashlib
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import json
 from pathlib import Path
 import re
 import argparse
 from generate import format_source
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -44,7 +50,7 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((Path(__file__).with_name('dependencies.json')).read_text())
     header = ROOT/'.work/vendor/mojoshader/mojoshader.h'
-    digest = hashlib.sha256(header.read_bytes()).hexdigest()
+    digest = sha256_file(header)
     if digest != manifest['mojoshader']['files']['mojoshader.h']:
         raise SystemExit('Pinned MojoShader header hash does not match')
     target = ROOT/'stdlib/internal/bindings/vendor/mojoshader-context.jai'

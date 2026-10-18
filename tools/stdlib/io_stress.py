@@ -45,6 +45,7 @@ from pathlib import Path
 from native.http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
 from io_failure_observer import FailureGroup, source_identity
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_TESTS = [
@@ -90,7 +91,7 @@ def observed_run(program, directory, timeout, report):
     report.mkdir(parents=True, exist_ok=False)
     receipt = {
         "program": str(program),
-        "program_sha256": hashlib.sha256(program.read_bytes()).hexdigest(),
+        "program_sha256": sha256_file(program),
         "cwd": str(directory),
         "supervisor_timeout_seconds": timeout,
         "samples": [],

@@ -5,10 +5,16 @@ The symbol-only declaration is a public native method signature, with opaque
 scope/template declarations. It defines no SDK function and is never linked or
 executed. A full-header host AST validates its mangling against the real header.
 """
-import hashlib
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import json
 from pathlib import Path
 import subprocess
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -30,7 +36,7 @@ def symbol(tree):
 def main():
     pin = json.loads((ROOT/'tools/native_bindings/dependencies.json').read_text())['imgui']
     header = ROOT/'.work/vendor'/pin['archive']['root']/'imgui.h'
-    digest = hashlib.sha256(header.read_bytes()).hexdigest()
+    digest = sha256_file(header)
     if digest != pin['files']['imgui.h']:
         raise SystemExit('ImGui header hash mismatch')
     native = ast(header)

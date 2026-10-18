@@ -1,17 +1,23 @@
 """Capture current shared verification inputs; never overlay a producer clone."""
 
-import hashlib
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import json
 from pathlib import Path
 import shutil
 import tempfile
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def hashes(paths):
     return {
-        str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+        str(path): sha256_file(path)
         for path in sorted(paths)
     }
 
@@ -87,6 +93,6 @@ def capture(output_root, extra_paths=()):
 def unchanged(snapshot, receipt):
     return all(
         (snapshot / name).is_file()
-        and hashlib.sha256((snapshot / name).read_bytes()).hexdigest() == digest
+        and sha256_file((snapshot / name)) == digest
         for name, digest in receipt["files"].items()
     )

@@ -1,7 +1,12 @@
 """Exact Color promotion and ordinary Depth/Stencil fields; native needs lease."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,6 +15,7 @@ import sys
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -47,7 +53,7 @@ def main():
         native_requested=args.native,
         checks=[],
         tools={
-            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p): sha256_file(p)
             for p in (args.compiler, args.jailint, args.formatter)
         },
     )

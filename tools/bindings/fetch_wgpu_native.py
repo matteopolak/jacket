@@ -33,6 +33,7 @@ from pathlib import Path
 
 from native.build_native_libs import output_dir  # noqa: E402
 from repo_output import host_platform  # noqa: E402
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
@@ -63,7 +64,7 @@ def fetch_licenses(native: dict, out: Path) -> None:
     target = out / 'licenses' / 'wgpu-native'
     for name, digest in native['license'].items():
         path = target / name
-        if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == digest:
+        if path.exists() and sha256_file(path) == digest:
             continue
         data = download(f'https://raw.githubusercontent.com/{native["repository"]}/{native["tag"]}/{name}')
         if hashlib.sha256(data).hexdigest() != digest:

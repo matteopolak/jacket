@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Verify required rpmalloc diagnostic options using immutable current inputs."""
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import importlib
 import json
 import os
@@ -12,6 +17,7 @@ import sys
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 CONFIGURATION_FAILURES = (
     ('ENABLE_GLOBAL_CACHE=true, ENABLE_THREAD_CACHE=false', 'ENABLE_GLOBAL_CACHE requires ENABLE_THREAD_CACHE'),
@@ -23,10 +29,6 @@ CONFIGURATION_FAILURES = (
     ('DEFAULT_SPAN_MAP_COUNT=0', 'DEFAULT_SPAN_MAP_COUNT must be positive'),
     ('GLOBAL_CACHE_MULTIPLIER=0', 'GLOBAL_CACHE_MULTIPLIER must be positive'),
 )
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main():
@@ -51,7 +53,7 @@ def main():
         target = vendor/name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
-        if digest(target) != expected:
+        if sha256_file(target) != expected:
             raise ValueError('Pinned SDK input mismatch: '+name)
     # Builders loaded from the immutable capture resolve their ROOT to it.
     sys.path.insert(0, str(snapshot / 'tools'))
@@ -59,7 +61,7 @@ def main():
     build = importlib.import_module('native_bindings.build_rpmalloc').build
     profiles = importlib.import_module('native_bindings.rpmalloc_profiles').PROFILES
     prepared = prepare(vendor, work/'prepared')
-    native_inputs = {str(p.relative_to(work)): digest(p) for p in prepared.iterdir() if p.is_file()}
+    native_inputs = {str(p.relative_to(work)): sha256_file(p) for p in prepared.iterdir() if p.is_file()}
     for p in prepared.iterdir():
         if p.is_file():
             p.chmod(0o444)
@@ -67,7 +69,7 @@ def main():
                          p['global_cache'] and p['thread_cache']]
     selected = {p[kind] for p in selected_profiles for kind in ('sdk', 'callbacks')}
     report = dict(snapshot=str(snapshot), work=str(work), input_identity=identity,
-                  tools={str(p): digest(p) for p in tools.values()}, checks=[],
+                  tools={str(p): sha256_file(p) for p in tools.values()}, checks=[],
                   native_inputs=native_inputs, selected_native_domains=selected_profiles,
                   scope='Required assertion/validation options; no optional profile/performance matrix')
     env = dict(os.environ, JAIC_STDLIB=str(snapshot/'stdlib'), TMPDIR=str(work),
@@ -123,10 +125,10 @@ def main():
                                            snapshot/'stdlib/internal/bindings/rpmalloc-checked', fixture])
     invoke('production format check', [tools['formatter'], '--check', snapshot/'stdlib/rpmalloc',
                                       snapshot/'stdlib/internal/bindings/rpmalloc-checked', fixture])
-    native_unchanged = all(digest(work/name) == value for name, value in native_inputs.items())
+    native_unchanged = all(sha256_file(work/name) == value for name, value in native_inputs.items())
     report['checks'].append(dict(label='immutable source and SDK inputs',
                                  status='passed' if unchanged(snapshot, identity) and native_unchanged else 'failed'))
-    report['native_artifacts'] = {str(p.relative_to(work)): digest(p)
+    report['native_artifacts'] = {str(p.relative_to(work)): sha256_file(p)
                                   for folder in ('native', 'native-sanitized')
                                   for p in (work/folder).iterdir() if p.is_file()}
     (work/'verification.json').write_text(json.dumps(report, indent=2)+'\n')

@@ -17,6 +17,7 @@ import subprocess
 from bindings import sdl3_coverage as coverage
 from repo_output import output_dir
 from pathlib import Path
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = ROOT / 'stdlib/Extensions/SDL3'
@@ -385,7 +386,7 @@ def main():
     import hashlib, tarfile
     archive=a.source.parent/'SDL3-3.4.18.tar.gz'
     expected=json.loads((ROOT/'tools/native/native-libs.json').read_text())['sources']['sdl3']['archive']['sha256']
-    if hashlib.sha256(archive.read_bytes()).hexdigest()!=expected: raise ValueError('source archive hash mismatch')
+    if sha256_file(archive)!=expected: raise ValueError('source archive hash mismatch')
     with tarfile.open(archive) as t:
         for member in t.getmembers():
             if '/include/SDL3/' in member.name and member.isfile():

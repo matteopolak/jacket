@@ -1,7 +1,12 @@
 """Review-derived GL policy controls; procedure-table tests are not GPU evidence."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -9,6 +14,7 @@ import subprocess
 import tempfile
 
 from shared_snapshot import capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -44,7 +50,7 @@ def main():
         native_executions=0,
         checks=[],
         tools={
-            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p): sha256_file(p)
             for p in (args.compiler, args.jailint, args.formatter)
         },
     )
@@ -98,7 +104,7 @@ def main():
     )
     expanded.chmod(0o444)
     report["derived_source"] = dict(
-        path=str(expanded), sha256=hashlib.sha256(expanded.read_bytes()).hexdigest()
+        path=str(expanded), sha256=sha256_file(expanded)
     )
     report["inputs_before"] = unchanged(snapshot, identity)
     try:
@@ -189,7 +195,7 @@ def main():
     finally:
         report["inputs_after"] = unchanged(snapshot, identity)
         report["derived_input_unchanged"] = (
-            hashlib.sha256(expanded.read_bytes()).hexdigest()
+            sha256_file(expanded)
             == report["derived_source"]["sha256"]
         )
         report["lease_released"] = args.native

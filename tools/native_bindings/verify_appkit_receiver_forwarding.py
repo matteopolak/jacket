@@ -1,7 +1,12 @@
 """Guarded four-receiver correction: source/privacy and real non-GUI SDK calls."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,6 +15,7 @@ import sys
 import tempfile
 
 from shared_snapshot import ROOT, capture, unchanged
+from toolkit.hashing import sha256_file
 
 
 def main():
@@ -63,11 +69,11 @@ def main():
         native_requested=executing,
         sanitizer_only=args.native_sanitizer_only,
         asan_runtime=dict(
-            path=str(runtime), sha256=hashlib.sha256(runtime.read_bytes()).hexdigest()
+            path=str(runtime), sha256=sha256_file(runtime)
         ),
         sdk_programs=0,
         tools={
-            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p): sha256_file(p)
             for p in (args.compiler, args.jailint, args.formatter, args.cc)
         },
     )

@@ -12,7 +12,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import ctypes
-import hashlib
 import json
 import os
 import re
@@ -21,13 +20,14 @@ import subprocess
 from pathlib import Path
 from bindings.sdl3_native import ROOT, host
 from repo_output import output_dir
+from toolkit.hashing import sha256_file
 
 def audit(native,plat):
     native=native.resolve()
     meta=json.loads((native/'sdl3/build.json').read_text())
     assert meta['platform']==plat and meta['version']=='3.4.18'
     for name,digest in meta['artifacts'].items():
-        assert hashlib.sha256((native/name).read_bytes()).hexdigest()==digest,name
+        assert sha256_file((native/name))==digest,name
     sdk=meta['sdk'];prefix=(native/sdk['prefix']).resolve()
     if not prefix.is_relative_to(native):raise RuntimeError('SDL3 SDK prefix escapes native package')
     actual={p.relative_to(prefix).as_posix() for p in prefix.rglob('*') if p.is_file()}
@@ -35,7 +35,7 @@ def audit(native,plat):
     for name,digest in sdk['files'].items():
         path=(prefix/name).resolve()
         if not path.is_relative_to(prefix):raise RuntimeError(f'SDL3 SDK file escapes prefix: {name}')
-        assert hashlib.sha256(path.read_bytes()).hexdigest()==digest,name
+        assert sha256_file(path)==digest,name
     assert (prefix/sdk['cmake_dir']/'SDL3Config.cmake').is_file()
     assert (prefix/'include/SDL3/SDL.h').is_file()
     if plat.startswith('windows'):

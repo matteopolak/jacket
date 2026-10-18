@@ -30,6 +30,7 @@ import zipfile
 from pathlib import Path
 
 from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST = ROOT / 'tools' / 'native' / 'native-libs.json'
@@ -109,7 +110,7 @@ def fetch(source: dict, cache: Path) -> Path:
         return base
     for rel, digest in source['files'].items():
         path = base / rel
-        if path.exists() and hashlib.sha256(path.read_bytes()).hexdigest() == digest:
+        if path.exists() and sha256_file(path) == digest:
             continue
         url = f"https://raw.githubusercontent.com/{source['repository']}/{source['revision']}/{rel}"
         data = download(url, digest)

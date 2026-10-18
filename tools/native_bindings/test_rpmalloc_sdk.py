@@ -7,7 +7,6 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import sys
 from pathlib import Path
 import unittest
-import hashlib
 from contextlib import ExitStack
 import tempfile
 import json
@@ -19,6 +18,7 @@ from vendor_rpmalloc import native_type, record
 from verify import ROOT, place_private_unit
 from generate import condition_for
 from native_bindings.spec import Declaration
+from toolkit.hashing import sha256_file
 
 
 class NativeAllocatorTranslationTests(unittest.TestCase):
@@ -90,7 +90,7 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
                 dependency = stdlib/'rpmalloc/generated/rpmalloc-sdk-layout.jai'
                 original = ROOT/'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-sdk-layout.jai'
                 self.assertEqual(dependency.read_bytes(),original.read_bytes())
-                self.assertEqual(hashes[str(unit.relative_to(stdlib))],hashlib.sha256(source.read_bytes()).hexdigest())
+                self.assertEqual(hashes[str(unit.relative_to(stdlib))],sha256_file(source))
             self.assertFalse(unit.exists())
             self.assertFalse(dependency.exists())
             self.assertEqual(public.read_bytes(),b'// facade must remain untouched\n')

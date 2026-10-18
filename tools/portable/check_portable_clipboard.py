@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Guarded Clipboard source/SDK/core proof; Linux display execution is opt-in."""
 
+import sys as _sys
+from pathlib import Path as _Path
+
+# tools/, for folder-qualified imports
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,6 +17,7 @@ import sys
 import tempfile
 
 from clipboard_linux_diagnostics import failure_diagnostic, report_failure
+from toolkit.hashing import sha256_file
 
 ROOT = Path(__file__).resolve().parents[2]
 JAI = [
@@ -33,10 +39,6 @@ TEST_C = [
     "stdlib/Clipboard/tests/native/x11.c",
     "stdlib/Clipboard/tests/native/clock-failure.c",
 ]
-
-
-def digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def inputs():
@@ -64,7 +66,7 @@ def inputs():
             "docs/specs/stdlib/modules/clipboard.md",
         ]
     )
-    return {str(p.relative_to(ROOT)): digest(p) for p in sorted(paths)}
+    return {str(p.relative_to(ROOT)): sha256_file(p) for p in sorted(paths)}
 
 
 def main():
@@ -365,7 +367,7 @@ def main():
         source_inputs=source,
         commands=rows,
         source_drift=drift,
-        compiler_sha256=digest(compiler) if compiler.exists() else None,
+        compiler_sha256=sha256_file(compiler) if compiler.exists() else None,
         linux_runtime_executed=args.linux_runtime,
         passed=not drift and all(row["passed"] for row in rows),
     )
