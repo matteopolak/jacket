@@ -94,7 +94,17 @@ find_index_of_any_from_right :: (s: string, bytes: string) -> s64 #no_abc {
 
 find_index_from_left :: (s: string, substring: string, start_index := 0) -> s64 {
     if substring.count == 0 return -1;
-    for i: start_index..s.count - substring.count if slice(s, i, substring.count) == substring return i;
+
+    // Skipping to candidates by their first byte is several times faster than comparing at every offset.
+    first := substring.data[0];
+    last := s.count - substring.count;
+    i := max(start_index, 0);
+
+    while i <= last {
+        if s.data[i] == first && slice(s, i, substring.count) == substring return i;
+        i += 1;
+    }
+
     return -1;
 } @UseResult
 
@@ -228,7 +238,7 @@ split_from_left :: (s: string, byte: u8) -> (found: bool, left: string, right: s
 
 split_from_right :: (s: string, byte: u8) -> (found: bool, left: string, right: string) {
     i := find_index_from_right(s, byte);
-    if i < 0 return false, "", s;
+    if i < 0 return false, s, "";
     return true, slice(s, 0, i), slice(s, i + 1, s.count);
 }
 

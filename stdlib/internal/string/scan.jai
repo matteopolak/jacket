@@ -23,7 +23,7 @@ scan :: (format: string, text: string) -> bool, [] Any {
 
         if directive == 37 {
             if rest.count == 0 || rest[0] != 37 return false, values;
-            // The scan contract intentionally leaves this byte unconsumed.
+            advance(*rest);
             continue;
         }
 

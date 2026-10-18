@@ -42,6 +42,6 @@ main :: () {
     assert(!failed && partial.count == 1);
     percent, unused := scan("%%", "%");
 
-    assert(!percent && unused.count == 0);
+    assert(percent && unused.count == 0);
     print("ok\n");
 }
