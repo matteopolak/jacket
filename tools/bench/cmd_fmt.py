@@ -26,7 +26,7 @@ LARGE_FILE_LINES = 100_000
 # The paths CI formats (see docs/tools/jaifmt.md).
 REPOSITORY_PATHS = ['stdlib', 'tests', 'benchmarks', 'tools', 'jaifmt', 'examples']
 SAMPLE_LINES = 20_000
-CONFIG = ROOT / 'jaifmt.toml'
+CONFIG = ROOT / 'jacket.toml'
 LEADING_SPACE = re.compile(r'^[ \t]+', re.MULTILINE)
 SPACE_RUNS = re.compile(r'(?<=\S)[ \t]{2,}')
 

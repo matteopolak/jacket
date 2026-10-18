@@ -38,7 +38,7 @@ h.test('the lsp config is defined by the plugin and needs no setup', function()
   assert(cfg, 'vim.lsp.config.jailsp')
   assert(vim.deep_equal(cfg.filetypes, { 'jai' }))
   assert(type(cfg.cmd) == 'function')
-  assert(vim.tbl_contains(cfg.root_markers, 'jai.toml'))
+  assert(vim.tbl_contains(cfg.root_markers, 'jacket.toml'))
 end)
 
 h.test('nothing is found when nothing is installed', function()

@@ -24,7 +24,7 @@ def main():
     args = parser.parse_args()
     snapshot, identity = capture(args.output_root, ('stdlib/Bindings_Generator/tests/driven/sdk/gl-live-projection.jai',
         'tools/native_bindings', 'docs/specs/stdlib/modules/gl.md',
-        'jaifmt.toml', 'jailint.toml'))
+        'jacket.toml'))
     work = Path(tempfile.mkdtemp(prefix='gl-projection-', dir=args.output_root))
     report = dict(snapshot=str(snapshot), input_identity=identity, checks=[],
         tools={str(p.resolve()): sha256_file(p.resolve()) for p in
@@ -58,7 +58,7 @@ def main():
             for cpu in ('x64', 'arm64'):
                 invoke('required projection source '+name+' '+os_name+'-'+cpu,
                     [args.compiler, source, '-check', '-no_dce', '-os', os_name, '-cpu', cpu])
-        invoke('strict complete projection context '+name, [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
+        invoke('strict complete projection context '+name, [args.jailint, '-D', 'warnings', '--config', snapshot/'jacket.toml',
             '--context', source, snapshot/'stdlib/GL', source])
     invoke('production formatting', [args.formatter, '--check', snapshot/'stdlib/GL', fixture])
     report['privacy_inputs'] = []

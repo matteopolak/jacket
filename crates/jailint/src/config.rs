@@ -1,22 +1,23 @@
-//! `jailint.toml`: rule levels and excluded paths.
+//! The linter's settings: the `[lint]` section of `jacket.toml` (or a legacy `jailint.toml`,
+//! migrated on the fly by `jacket-config`).
 //!
 //! ```toml
+//! [lint]
 //! exclude = ["tests/corpus/**"]
+//! max_nesting = 6
 //!
-//! [rules]
+//! [lint.rules]
 //! float_equality = "warn"
 //! lossy_xx = "allow"
 //! ```
 //!
-//! Only this small subset of TOML is read: top-level `exclude` (an array of glob patterns,
-//! relative to the file's directory), `max_nesting` (an integer, for `excessive_nesting`) and a
-//! `[rules]` table of `name = "allow" | "warn" |
-//! "deny"`. Anything else is an error, so a typo does not silently keep a rule on.
-use jaic::project::{self, ProjectConfig};
+//! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
+//! keep a rule on.
+use jacket_config::{Disk, Files, Lint};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-pub const FILE_NAME: &str = jaic::project::LINT_TOML;
+pub const FILE_NAME: &str = jacket_config::FILE_NAME;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
@@ -58,6 +59,8 @@ pub struct Config {
     pub root: PathBuf,
     /// The file the settings came from, if any.
     pub source: Option<PathBuf>,
+    /// One-line notes about the configuration (a legacy file in use or ignored).
+    pub notes: Vec<String>,
 }
 
 /// The nesting depth `excessive_nesting` allows when nothing sets it.
@@ -79,29 +82,41 @@ impl Config {
         }
     }
 
-    /// Settings from the text of a `jailint.toml` in `root`.
-    pub fn parse(text: &str, root: &Path) -> Result<Config, String> {
-        let parsed = ProjectConfig::parse_lint(text, check_rule)?;
+    /// Settings from a `[lint]` section whose paths are relative to `root`.
+    pub fn from_lint(lint: &Lint, root: &Path) -> Result<Config, String> {
+        if let Some(key) = lint.extra.keys().next() {
+            return Err(format!(
+                "unknown setting `{key}` in [lint]\nhelp: the settings are `exclude = [\"pattern\", ...]`, `max_nesting = 6` and the `[lint.rules]` table"
+            ));
+        }
         let mut config = Config {
             root: root.to_path_buf(),
-            exclude: parsed.exclude,
-            max_nesting: parsed.max_nesting,
+            exclude: lint.exclude.clone(),
+            max_nesting: lint.max_nesting,
             ..Config::default()
         };
-        for (rule, level) in parsed.rules {
-            let level = Level::parse(&level).expect("`check_rule` returns a level");
-            config.levels.insert(rule, level);
+        for (rule, level) in &lint.rules {
+            check_rule(rule, level)?;
+            let level = Level::parse(level).expect("`check_rule` accepts a level");
+            config.levels.insert(rule.clone(), level);
         }
         Ok(config)
     }
 
-    /// The nearest `jailint.toml` in `start` or a directory above it.
-    pub fn find(start: &Path) -> Option<PathBuf> {
-        project::find_config_dir(start, FILE_NAME, Path::is_file).map(|d| d.join(FILE_NAME))
+    /// The settings of the nearest config directory above `start`; `Ok(None)` when there is
+    /// none. `files` is the disk, or an editor's buffers over it.
+    pub fn find(files: &dyn Files, start: &Path) -> Result<Option<Config>, String> {
+        match jacket_config::load(files, start) {
+            Ok(Some(loaded)) => Self::from_loaded(loaded).map(Some),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
     }
 
-    /// Settings of the file at `path`.
+    /// Settings of a `jacket.toml` or legacy `jailint.toml` at `path`.
     pub fn load(path: &Path) -> Result<Config, String> {
+        let dir = path.parent().unwrap_or(Path::new("."));
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let text = std::fs::read_to_string(path).map_err(|e| {
             format!(
                 "could not read config `{}`: {}",
@@ -109,11 +124,41 @@ impl Config {
                 jaic::io_reason(&e)
             )
         })?;
-        let root = path.parent().unwrap_or(Path::new("."));
-        let mut config =
-            Config::parse(&text, root).map_err(|e| format!("in `{}`, {e}", path.display()))?;
+        let mut config = if name == jacket_config::LEGACY_LINT {
+            // One legacy file, named: read it alone, as migration would.
+            let fs = One(path.to_path_buf(), text);
+            let loaded = jacket_config::load_at(
+                &fs,
+                jacket_config::Location {
+                    dir: dir.to_path_buf(),
+                    jacket: false,
+                    legacy: vec![jacket_config::LEGACY_LINT],
+                },
+            )
+            .map_err(|e| e.to_string())?;
+            Self::from_loaded(loaded)?
+        } else {
+            let parsed =
+                jacket_config::parse(&text).map_err(|e| format!("in `{}`, {e}", path.display()))?;
+            Self::from_lint(&parsed.lint, dir)
+                .map_err(|e| format!("in `{}`, {e}", path.display()))?
+        };
         config.source = Some(path.to_path_buf());
         Ok(config)
+    }
+
+    fn from_loaded(loaded: jacket_config::Loaded) -> Result<Config, String> {
+        let source = loaded.source_of("lint");
+        let mut config = Config::from_lint(&loaded.config.lint, loaded.dir())
+            .map_err(|e| format!("in `{}`, {e}", source.display()))?;
+        config.source = Some(source);
+        config.notes = loaded.notes;
+        Ok(config)
+    }
+
+    /// The nearest settings on disk above `start`.
+    pub fn find_on_disk(start: &Path) -> Result<Option<Config>, String> {
+        Self::find(&Disk, start)
     }
 
     /// Whether `path` matches an `exclude` pattern.
@@ -124,8 +169,8 @@ impl Config {
     }
 }
 
-/// Whether `rule` is a rule and `value` a level for it; the level it names.
-fn check_rule(rule: &str, value: &str, line: usize) -> Result<String, String> {
+/// Whether `rule` is a rule and `value` a level for it.
+fn check_rule(rule: &str, value: &str) -> Result<(), String> {
     if !crate::RULES.iter().any(|r| r.name == rule) {
         let help = match jaic::suggest::closest(rule, crate::RULES.iter().map(|r| r.name)) {
             Some(near) => {
@@ -133,15 +178,24 @@ fn check_rule(rule: &str, value: &str, line: usize) -> Result<String, String> {
             }
             None => "`jailint --list` lists the rules".to_string(),
         };
-        return Err(format!("line {line}: unknown rule `{rule}`\nhelp: {help}"));
+        return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
     }
-    project::toml_string(value)
-        .filter(|v| Level::parse(v).is_some())
-        .ok_or_else(|| {
-            format!(
-                "line {line}: unknown level {value} for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\""
-            )
-        })
+    Level::parse(value).map(drop).ok_or_else(|| {
+        format!("unknown level \"{value}\" for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\"")
+    })
+}
+
+/// One file in memory, for reading a named legacy config.
+struct One(PathBuf, String);
+
+impl Files for One {
+    fn is_file(&self, path: &Path) -> bool {
+        path == self.0
+    }
+
+    fn read(&self, path: &Path) -> Option<String> {
+        (path == self.0).then(|| self.1.clone())
+    }
 }
 
 /// Glob match: `*` is any run of characters but `/`, `**` any run including `/`, `?` one
@@ -182,10 +236,15 @@ pub fn glob(pattern: &str, path: &str) -> bool {
 mod tests {
     use super::*;
 
+    fn parse(text: &str) -> Result<Config, String> {
+        let parsed = jacket_config::parse(text)?;
+        Config::from_lint(&parsed.lint, Path::new("/r"))
+    }
+
     #[test]
     fn parses_rules_and_excludes() {
-        let text = "# settings\nexclude = [\n  \"tests/**\", # fixtures\n  \"a.jai\",\n]\n\n[rules]\nfloat_equality = \"deny\" # strict\n";
-        let config = Config::parse(text, Path::new("/r")).unwrap();
+        let text = "[lint]\n# settings\nexclude = [\n  \"tests/**\", # fixtures\n  \"a.jai\",\n]\n\n[lint.rules]\nfloat_equality = \"deny\" # strict\n";
+        let config = parse(text).unwrap();
         assert_eq!(config.exclude, ["tests/**", "a.jai"]);
         assert_eq!(config.level("float_equality", Level::Allow), Level::Deny);
         assert_eq!(config.level("lossy_xx", Level::Warn), Level::Warn);
@@ -193,9 +252,9 @@ mod tests {
 
     #[test]
     fn rejects_unknown_rules_and_levels() {
-        assert!(Config::parse("[rules]\nno_such_rule = \"warn\"", Path::new("/")).is_err());
-        assert!(Config::parse("[rules]\nlossy_xx = \"loud\"", Path::new("/")).is_err());
-        assert!(Config::parse("[lint]\n", Path::new("/")).is_err());
+        assert!(parse("[lint.rules]\nno_such_rule = \"warn\"").is_err());
+        assert!(parse("[lint.rules]\nlossy_xx = \"loud\"").is_err());
+        assert!(parse("[lint]\nverbose = true\n").is_err());
     }
 
     #[test]

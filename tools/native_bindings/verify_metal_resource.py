@@ -31,8 +31,8 @@ def main():
         "stdlib/Bindings_Generator/tests/driven/sdk/metal.jai",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/metal.md",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="metal-resource-", dir=args.output_root))
@@ -239,7 +239,7 @@ def main():
             args.formatter,
             "--check",
             "--config",
-            snapshot / "jaifmt.toml",
+            snapshot / "jacket.toml",
             snapshot / "stdlib/Metal/declarations.jai",
             fixture,
             controls,

@@ -1,5 +1,5 @@
 name: release
-# Builds jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
+# Builds jacket, jaic, jailsp, jailint and jaifmt for macOS (Apple silicon and Intel), Linux (x86-64 and arm64) and
 # Windows (x86-64 and arm64), optimized with PGO (except Windows arm64) and BOLT on Linux x86-64
 # (tools/dev/build_pgo.py, docs/tools/releases.md).
 # A `v*` tag push builds and publishes the matching compiler version. Manual runs from the default
@@ -282,11 +282,11 @@ jobs:
           # only, then the ad-hoc signature arm64 requires is made again. Windows: the
           # symbols are in the .pdb, which the archive does not ship.
           case "$RUNNER_OS" in
-            macOS) for t in jaic jailsp jailint; do strip -x "$out/$t"; codesign --force -s - "$out/$t"; done ;;
-            Linux) for t in jaic jailsp jailint; do strip --strip-unneeded "$out/$t"; done ;;
+            macOS) for t in jaic jailsp jailint jacket; do strip -x "$out/$t"; codesign --force -s - "$out/$t"; done ;;
+            Linux) for t in jaic jailsp jailint jacket; do strip --strip-unneeded "$out/$t"; done ;;
           esac
           ls -l "$out"
-          cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$dir/"
+          cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$dir/"
           # Bootstrap definitions are packaged with the standard library.
           cp -R stdlib "$dir/stdlib"
           cp README.md CHANGELOG.md "$dir/"

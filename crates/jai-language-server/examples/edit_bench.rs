@@ -112,7 +112,7 @@ fn main() {
             session.compile_counts().0 - before
         );
     }
-    // Every compile is over: the profile (`JAIC_PROFILE=1`) covers them all.
+    // Every compile is over: the profile (`jaic -profile`) covers them all.
     drop(session);
     if let Some(report) = jaic::interp::profile::report(30) {
         eprintln!("{report}");

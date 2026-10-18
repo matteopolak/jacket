@@ -33,8 +33,8 @@ def main():
         "stdlib/Bindings_Generator/tests/driven/sdk/appkit_backing_scale_probe.m",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/appkit.md",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="backing-scale-", dir=args.output_root))
@@ -203,7 +203,7 @@ def main():
     )
     run(
         "format regeneration",
-        [args.formatter, "--config", snapshot / "jaifmt.toml", generated, manual],
+        [args.formatter, "--config", snapshot / "jacket.toml", generated, manual],
     )
     same = all(
         (work / name).read_bytes()
@@ -219,7 +219,7 @@ def main():
             args.formatter,
             "--check",
             "--config",
-            snapshot / "jaifmt.toml",
+            snapshot / "jacket.toml",
             snapshot / "stdlib/Objective_C/AppKit/module.jai",
             fixture,
         ],

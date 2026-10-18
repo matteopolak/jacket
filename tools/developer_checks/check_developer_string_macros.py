@@ -36,7 +36,7 @@ def main():
             executable = ROOT / f"target/developer-tools-string-macros-emitter-o{mode}"
             run([jaic, source, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", *generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", *generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
                  ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-string-macros-native.c",
@@ -47,7 +47,7 @@ def main():
             run([executable], "ok\n")
     paths = [source, consumer, *generated, ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macros.jai",
              ROOT / "stdlib/Bindings_Generator/module.jai", ROOT / "stdlib/internal/developer-tools/binding-native-model.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
     print("Real byte-string/escaped/concatenated/alias/UTF8/empty macros passed both generator paths interpreter/native Mac O0/O2, configured C O0/O2, rejection preservation, formatting and strict lint")
 

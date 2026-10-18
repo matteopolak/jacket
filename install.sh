@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs Jacket, the Jai toolchain (jaic, jailsp, jailint, jaifmt) from a GitHub release of
+# Installs Jacket, the Jai toolchain (jacket, jaic, jailsp, jailint, jaifmt) from a GitHub release of
 # https://github.com/matteopolak/jacket, verified against the release's SHA256SUMS:
 #
 #   curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh
@@ -17,7 +17,7 @@
 set -eu
 
 REPO="matteopolak/jacket"
-TOOLS="jaic jailsp jailint jaifmt"
+TOOLS="jaic jailsp jailint jaifmt jacket"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -141,7 +141,7 @@ Install a later version, or build from source: https://github.com/$REPO#install"
     mv "$target.new" "$target"
     linked=""
     for tool in $TOOLS; do
-        if [ -x "$target/$tool" ]; then # older releases lack jaifmt
+        if [ -x "$target/$tool" ]; then # older releases lack jaifmt and jacket
             ln -sfn "$target/$tool" "$bin_dir/$tool"
             linked="$linked $tool"
         fi

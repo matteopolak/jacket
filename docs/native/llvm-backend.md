@@ -10,7 +10,7 @@
 
 1. Creates a target machine for the host or `Options::target` (e.g. `x86_64-pc-windows-gnu` for `-os windows`). The CPU is the oldest one the triple runs on (`baseline_cpu`: `x86-64`, `apple-m1` for arm64 macOS, else `generic`), never the build machine's, because release archives are built on one CI runner and run on others (an AVX-512 build once died with SIGILL elsewhere). `Build_Options.llvm_options.target_system_cpu` / `target_system_features` override it; `"native"` targets the build machine (`cpu_and_features`).
 2. `lower::lower_program` declares every lowered function, foreign symbol and global, fills in initialisers, then defines function bodies.
-3. Verifies the module (debug builds, or `JAIC_VERIFY_IR=1`), optionally runs the `default<On>` pipeline, and writes the object.
+3. Verifies the module (debug builds, or `-dev_verify_ir`), optionally runs the `default<On>` pipeline, and writes the object.
 
 At `-O0` the target machine uses FastISel (`use_fast_isel`): LLVM enables GlobalISel by default for unoptimised AArch64 and it was a third of codegen time. jaic sets no process-wide LLVM options. If an LLVM bug needs one, set it once before the first target machine (in `target_machine`), document the upstream issue, and remove it after moving past the fix (the LLVM 22 `-unroll-add-parallel-reductions=false` workaround was removed for LLVM 23; the corpus case `unrolled-sub-reduction` still guards it).
 
@@ -18,7 +18,7 @@ At `-O0` the target machine uses FastISel (`use_fast_isel`): LLVM enables Global
 
 `emit_objects` splits a large program into units, one LLVM context and module per thread.
 
-- Unit count: one for a sanitized build, else `JAIC_CODEGEN_UNITS` if set. Otherwise unoptimised builds get one per 5,000 IR instructions (`INSTS_PER_UNIT`) and optimised ones one per 20,000 (`OPT_INSTS_PER_UNIT`), capped at the core count (and 8 when optimised, `MAX_OPT_UNITS`). `-emit_ir`, sanitizers, `output_*` options and wasm always use one. `enable_split_modules = false` stops only the unoptimised split.
+- Unit count: one for a sanitized build, else `-codegen_units` if given. Otherwise unoptimised builds get one per 5,000 IR instructions (`INSTS_PER_UNIT`) and optimised ones one per 20,000 (`OPT_INSTS_PER_UNIT`), capped at the core count (and 8 when optimised, `MAX_OPT_UNITS`). `-emit_ir`, sanitizers, `output_*` options and wasm always use one. `enable_split_modules = false` stops only the unoptimised split.
 - Unoptimised: functions go largest first to the least loaded unit (`partition::flat`); unit 0 also defines the globals. Optimised: divided by call graph (below).
 - Each module defines its own functions and declares only what it uses (`lower::Shard`, `Backend::func/global/foreign`). A lookup by name (`libc_call`, `__multi3`, `llvm.*`) must first call `declare_named` or LLVM renames the later symbol (`write.1`) and the link fails. Internal symbols another unit refers to become hidden external (`name.index`); use `Backend::internal_linkage` for new ones.
 - Objects are `path`, `path.1.o`, `path.2.o`, ...; the CLI links them and deletes them (unoptimised macOS builds with debug info keep them, see [debug info](debug-info.md)). `-o x.o` stays one module.
@@ -70,13 +70,13 @@ To add an instruction set: add `Feature` variants in `features.rs` (`ALL`, `name
 - **New architecture**: an `Arch` variant and classification in `abi.rs`, plus inline-asm intrinsics in `lower.rs`.
 - **Debug info** is in `debuginfo.rs`; `lower.rs` only calls its hooks.
 - **Module-level things** (a global, a constructor list) are emitted once in unit 0 and declared elsewhere. A new way for lowered code to refer to another function or global (beyond `GlobalAddr`, `FuncAddr`, `ForeignAddr`, calls) must be added to `partition::references`.
-- **Testing units**: CI runs `JAIC_CODEGEN_UNITS=4 cargo test -p jaic-cli --test native --test optimized_split --test debug_info --test embedded_data`. With several units `-emit_ir` writes `x.n.ll` per unit; tests reading IR must read every unit (`read_ir_parts`) or pin `JAIC_CODEGEN_UNITS=1`. Force the post-optimizer split with `JAIC_SPLIT_UNITS=4`. A declaration made from a definition must lose its body, personality and `!dbg` (`strip_body`) or the verifier rejects it.
+- **Testing units**: CI runs `JACKET_TEST_CODEGEN_UNITS=4 cargo test -p jaic-cli --test native --test optimized_split --test debug_info --test embedded_data`. With several units `-emit_ir` writes `x.n.ll` per unit; tests reading IR must read every unit (`read_ir_parts`) or pin `-codegen_units 1`. Force the post-optimizer split with `-dev_split_units 4`. A declaration made from a definition must lose its body, personality and `!dbg` (`strip_body`) or the verifier rejects it.
 - **Windows** (`Arch::Win64`): `#program_export` is `dllexport`, `CompilerWrite` calls `_write` ([Windows](windows.md)). **WebAssembly** (`Arch::Wasm64`): foreign procedures become imports, `#program_export` gets `wasm-export-name`, a weak `__multi3` is emitted ([wasm target](wasm-target.md)).
 
 ## Configuration
 
-- `JAIC_VERIFY_IR=1` runs the verifier in a release jaic (`0` disables it in debug).
-- `JAIC_CODEGEN_UNITS=N` forces the unit count; `1` turns all splitting off for whole-program optimisation. `JAIC_SPLIT_UNITS=N` forces the post-optimizer count.
+- `-dev_verify_ir` runs the verifier in a release jaic.
+- `-codegen_units N` forces the unit count; `1` (`-no_split`) turns all splitting off for whole-program optimisation. `-dev_split_units N` forces the post-optimizer count. `[experimental] codegen_units` in `jacket.toml` sets the first for `jacket` builds.
 - Constants: `INSTS_PER_UNIT`, `OPT_INSTS_PER_UNIT`, `MAX_OPT_UNITS` (`lib.rs`); `INSTS_PER_UNIT`, `MAX_UNITS` (`split.rs`); `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `GLOBAL_IMPORT_MAX`, `INLINE_CAP`, `INLINE_SMALL` (`partition.rs`).
 - `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize, cpu, features }`, from `-O0..-O3`, `-emit_ir file.ll`, `-no_debug_info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`. Wasm always gets `+bulk-memory`; `+simd128` enables the swizzle.
 - Building needs `LLVM_SYS_231_PREFIX` pointing at LLVM 23 ([LLVM setup](../tools/llvm-setup.md)).

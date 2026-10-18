@@ -47,8 +47,8 @@ def main():
         "stdlib/Bindings_Generator/tests/driven/sdk/windows_context_alignment_sdk.c",
         "tools/native_bindings/verify_windows_context_alignment.py",
         "docs/specs/stdlib/modules/windows.md",
-        "jaifmt.toml",
-        "jailint.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extras)
     work = Path(tempfile.mkdtemp(prefix="windows-context-", dir=args.output_root))
@@ -122,7 +122,7 @@ def main():
             args.formatter,
             "--check",
             "--config",
-            snapshot / "jaifmt.toml",
+            snapshot / "jacket.toml",
             snapshot / "stdlib/Windows/declarations.jai",
             fixture,
         ],

@@ -63,7 +63,7 @@ def prepare():
     oracle.write_text("Entry :: struct {\n" + "\n".join(f"{field}: string;" for field in fields) +
                       "\n}\nsymbols :: Entry.[\n" + ",\n".join(".{ " + ", ".join(
                           f"{field} = {json.dumps(row[field])}" for field in fields) + " }" for row in rows) + "];\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", staged, debug_staged, oracle], expected="")
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", staged, debug_staged, oracle], expected="")
     return staged, oracle
 
 
@@ -110,7 +110,7 @@ def main():
             raise RuntimeError("Unsupported target must log once, skip parsing and return true")
     paths = [source, stats_source, skip_source, staged,
              ROOT / "target/developer-tools-check-debug-staged.jai", oracle]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths,
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths,
          ROOT / "stdlib/internal/developer-tools/check-bindings.jai"], expected="")
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths], expected="")
     run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64",

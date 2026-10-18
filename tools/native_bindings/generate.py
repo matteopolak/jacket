@@ -41,7 +41,7 @@ def format_source(code, formatter):
     if not formatter:
         return code
     result = subprocess.run([str(formatter.resolve()), '--stdin', '--config',
-                             str(ROOT/'jaifmt.toml')], input=code,
+                             str(ROOT/'jacket.toml')], input=code,
                             capture_output=True, text=True, check=True)
     return result.stdout
 MODULES = {

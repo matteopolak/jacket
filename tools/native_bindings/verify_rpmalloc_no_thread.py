@@ -29,7 +29,7 @@ def main():
         'stdlib/Bindings_Generator/tests/driven/sdk/generated', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-no-thread-cache.jai',
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-cache-exercise.jai', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c',
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-adaptive-cache.jai', 'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_adaptive_probe.c',
-        'docs/specs/stdlib/modules/rpmalloc.md', 'jailint.toml', 'jaifmt.toml'))
+        'docs/specs/stdlib/modules/rpmalloc.md', 'jacket.toml'))
     work = Path(tempfile.mkdtemp(prefix='no-thread-', dir=args.output_root))
     sys.path.insert(0, str(snapshot / 'tools'))
     prepare = importlib.import_module('native_bindings.prepare_rpmalloc').prepare
@@ -98,7 +98,7 @@ def main():
         for cpu in ('x64', 'arm64'):
             invoke('required source '+os_name+'-'+cpu,
                 [args.compiler, fixture, '-check', '-no_dce', '-os', os_name, '-cpu', cpu])
-    invoke('strict complete-context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
+    invoke('strict complete-context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jacket.toml',
         '--context', fixture, snapshot/'stdlib/rpmalloc', fixture])
     invoke('production formatting', [args.formatter, '--check', snapshot/'stdlib/rpmalloc', fixture])
     report['checks'].append(dict(label='complete input immutability', status='passed' if unchanged(snapshot, identity) else 'failed'))

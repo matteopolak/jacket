@@ -121,7 +121,7 @@ def main():
             execute_fixture("type-emission", mode, [scratch])
             execute_fixture("cpp-fragments", mode, [scratch])
             for generated in generated_sources:
-                run([formatter, "--config", ROOT / "jaifmt.toml", generated])
+                run([formatter, "--config", ROOT / "jacket.toml", generated])
             for optimization in [0, 2]:
                 flags = [
                     "-std=c++17",
@@ -201,7 +201,7 @@ def main():
             [
                 formatter,
                 "--config",
-                ROOT / "jaifmt.toml",
+                ROOT / "jacket.toml",
                 "--check",
                 *fixtures,
                 *generated_sources,

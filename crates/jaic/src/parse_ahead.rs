@@ -13,7 +13,8 @@
 //! giving the tree a serial parse at that point would have built. The crawl is only a guess at
 //! sema's order: a wrong guess costs a wasted parse, never a different result.
 //!
-//! `JAIC_SERIAL_PARSE=1` turns the crawl off.
+//! `-serial_parse` (`[experimental] serial_parse`) turns the crawl off and `-parse_threads N` sets the
+//! worker count (`crate::knobs`).
 pub use imp::{ParseAhead, Prepared, PreparedTree};
 
 #[cfg(target_arch = "wasm32")]
@@ -153,13 +154,13 @@ mod imp {
         /// Starts the workers on `roots` (the files the compile loads first), or `None` when the
         /// compile should parse serially.
         pub fn start(options: &Options, roots: Vec<PathBuf>) -> Option<ParseAhead> {
-            if std::env::var_os("JAIC_SERIAL_PARSE").is_some_and(|v| v != "0") {
+            let knobs = crate::knobs::get();
+            if knobs.serial_parse {
                 return None;
             }
             let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
-            let workers = std::env::var("JAIC_PARSE_THREADS")
-                .ok()
-                .and_then(|n| n.parse().ok())
+            let workers = knobs
+                .parse_threads
                 .unwrap_or_else(|| cores.saturating_sub(1).min(4));
             if workers == 0 {
                 return None;

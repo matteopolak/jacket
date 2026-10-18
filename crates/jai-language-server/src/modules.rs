@@ -15,7 +15,7 @@
 //!    not followed by this scan, but once the metaprogram has run (`semantic::BuildFacts`) its
 //!    recorded `import_path` replaces the scan for that entry, computed paths included.
 use crate::auto_import::{Index, Sources};
-use crate::project::{self, CONFIG_FILE};
+use crate::project;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -64,12 +64,13 @@ impl Sources<'_> {
             }
             dir = d.parent();
         }
-        // 2. `jai.toml`'s `import_path`.
+        // 2. `[project] import_path`.
         if let Some((folder, config)) = &config {
-            deps.push(folder.join(CONFIG_FILE));
+            deps.extend(project::CONFIG_NAMES.iter().map(|n| folder.join(n)));
             dirs.extend(
                 config
                     .import_path
+                    .0
                     .iter()
                     .map(|p| project::normalize(&folder.join(p))),
             );

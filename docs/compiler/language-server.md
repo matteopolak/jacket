@@ -26,7 +26,7 @@ Half-typed text is compiled as it stands: the editor lexer and parser recover at
 Compiles on demand and caches by source text:
 
 1. Open documents overlay the file system (`OverlayFs`; disk plus repo stdlib natively, the bundled `VirtualFs` in the browser).
-2. The root is the open document that `#load`s the requested one, else the project entry (`jai.toml` `build_files`, or an inferred `build.jai`/`first.jai`/`main.jai`/`src/main.jai`).
+2. The root is the open document that `#load`s the requested one, else the project entry (`jacket.toml` `[project] entry`, or an inferred `build.jai`/`first.jai`/`main.jai`/`src/main.jai`).
 3. `Compiler::ide` is set to `IdeFacts`. Sema records what each identifier names, scopes, expansions and calls. Every hook is a no-op when `ide` is `None`.
 4. `ide_check_all` lowers every non-polymorphic body, not only what `main` reaches, and keeps each declaration's error separately (so several errors per file show).
 5. `ide_sketch_polymorphs` checks each uninstantiated polymorphic procedure and unexpanded macro once with stand-in types so hover and completion work inside them. The sketch is then discarded; jailint ignores its facts.
@@ -61,7 +61,7 @@ A large program compile is hundreds of MiB, so `semantic::Cache` keeps `CACHED` 
 - **Hover**: built as `hover::Block`s and written as Markdown or plain text depending on the client's `contentFormat`. Shows types, overloads, macro expansions, `#run` values and output, `#if` results, format-string arguments, and memory layout (size, align, padding, field offsets from the compiler's own layout). Doc comments appear under signatures ([doc comments](doc-comments.md)).
 - **Definition/references/rename**: from recorded references. Struct fields and enum members are `(use span, declaration span)` pairs in `IdeFacts::member_uses`. Rename refuses declarations outside project files.
 - **Missing imports**: the compiler attaches module suggestions to the "undeclared identifier" diagnostic (`Diagnostic::fixes.imports`); `imports.rs` turns them into "Add `#import`" quick fixes. Ranking is in `sema/suggestions.rs`, placement in `imports::insertion`.
-- **Lints** (`lints.rs`): run on documents that parse, from real text. `jailint.toml` (nearest above, or an open copy sent via `didOpen`) sets levels. Quick fixes carry the rule in `data.rule`; `source.fixAll.jailint` applies all machine-applicable fixes.
+- **Lints** (`lints.rs`): run on documents that parse, from real text. The `[lint]` table of `jacket.toml` (nearest above, or an open copy sent via `didOpen`; legacy `jailint.toml` otherwise) sets levels. Quick fixes carry the rule in `data.rule`; `source.fixAll.jailint` applies all machine-applicable fixes.
 - **Unreachable code**: `Session::unreachable_diagnostics` publishes a `Hint` diagnostic (code `unreachable`, `DiagnosticTag.Unnecessary`, so editors fade it and draw no squiggle) for each range `Analysis::unreachable` returns. The facts come from the checker, see [unreachable code](sema.md#unreachable-code-reachabilityrs-intervalrs). Not in files the analysis does not record.
 - **Expansions**: `jai.showExpansion`, `jai/expansion` and `jai-expansion:` URIs show what an `#insert`, `#run` or macro produced; `jai/source` returns text for any URI the client has not opened.
 - **Signature help**: `open_call` scans back to the unmatched `(`; recorded call facts are used when present, else the callee is looked up in scope.
@@ -69,14 +69,15 @@ A large program compile is hundreds of MiB, so `semantic::Cache` keeps `CACHED` 
 
 ### Project settings
 
-`jai.toml` at the project root:
+`[project]` in the `jacket.toml` at the project root (a legacy `jai.toml` with `build_files` and `import_path` is read the same way; see [jacket](../tools/jacket.md)):
 
 ```toml
-build_files = ["first.jai", "src/main.jai"]   # entries (what jaic is given)
-import_path = ["vendor/modules"]              # extra module folders, like -import_dir
+[project]
+entry = ["first.jai", "src/main.jai"]   # entries (what jaic is given)
+import_path = ["vendor/modules"]        # extra module folders, like -import_dir
 ```
 
-Unknown keys make the file invalid (treated as empty, reported once with `window/showMessage`). Without it, entries are inferred from the workspace folder. Module search order: `modules/` next to the root file and each folder above it up to the project base, then `import_path`, then string literals in entry files that mention `import_path` (`modules.rs`; nothing is run), then the stdlib. A module file not reached by any `#load` is checked in the context of the entry that imports it (`Sources::closure_with_modules`).
+Configs are read through the open buffers over the disk and cached per directory by the hash of their text (`config.rs`). A config that does not parse is treated as empty and reported once with `window/showMessage`; a `jacket.toml` next to legacy files wins, with a one-time `window/logMessage`. A config with no `[project]` entries (a lint-only one) does not make its folder a project. Without it, entries are inferred from the workspace folder. Module search order: `modules/` next to the root file and each folder above it up to the project base, then `import_path`, then string literals in entry files that mention `import_path` (`modules.rs`; nothing is run), then the stdlib. A module file not reached by any `#load` is checked in the context of the entry that imports it (`Sources::closure_with_modules`).
 
 ### Protocol
 
@@ -107,7 +108,7 @@ node tools/browser/check_scripting_wasm.mjs target/wasm32-unknown-unknown/releas
 ```
 
 - `JAIC_STDLIB` overrides the native stdlib directory.
-- `jailint.toml`, `jai.toml`: nearest above the document.
+- `jacket.toml` (else the legacy `jailint.toml`, `jai.toml`): nearest above the document.
 - `initializationOptions` / `workspace/didChangeConfiguration` (`jai` section): `completion.autoImport` (default `true`), `trusted` (default `true`; `false` runs no compile-time code, see [workspace trust](../tools/workspace-trust.md)). `jailsp --untrusted` starts untrusted; the `jai/setTrusted` notification switches at runtime.
 - Constants: `semantic.rs` (`BLOCK_BUDGET`, `CACHED`, `ALTERNATES`, `PARSES_KEPT`), `auto_import.rs` (`MAX_ITEMS`, `MIN_PREFIX`, `MAX_PROJECT_FILES`), `ide_meta.rs` (`MAX_EXPANSIONS`, `MAX_CALLS`, `MAX_VARIANTS`, `MAX_TEXT`), `features.rs` (`HINT_CHARS`).
 - `Limits` are safety caps (512 documents, 32 MiB per document, 64 MiB per message); `Limits::browser()` is smaller. A document over a cap is not opened and the client gets a `window/showMessage`.

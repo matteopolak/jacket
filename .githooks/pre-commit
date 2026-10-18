@@ -33,7 +33,7 @@ printf '%s\n' "$jai_list" "$rs_list" | grep . | tr '\n' '\0' |
     warn "could not export the staged files; skipping the checks"
     exit 0
 }
-for cfg in jaifmt.toml rustfmt.toml rust-toolchain.toml; do
+for cfg in jacket.toml rustfmt.toml rust-toolchain.toml; do
     git cat-file -e ":$cfg" 2>/dev/null && git show ":$cfg" >"$tmp/$cfg"
 done
 

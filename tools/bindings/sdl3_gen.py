@@ -380,7 +380,7 @@ def main():
     p.add_argument('--source', type=Path, required=True, help='verified extracted SDL3-3.4.18 source')
     p.add_argument('--clang',default='clang')
     p.add_argument('--check',action='store_true')
-    p.add_argument('--jaifmt',type=Path,help='source-built repository jaifmt; normalize every generated Jai output using jaifmt.toml')
+    p.add_argument('--jaifmt',type=Path,help='source-built repository jaifmt; normalize every generated Jai output using jacket.toml')
     a=p.parse_args()
     # Accept only headers from the pinned archive, not an arbitrary system installation.
     import hashlib, tarfile
@@ -449,9 +449,9 @@ def main():
     files[OUT/'inventory.json']=json.dumps(inventory,indent=2,sort_keys=True)+'\n'
     for path,data in files.items():
         if a.jaifmt and path.suffix=='.jai':
-            result=subprocess.run([str(a.jaifmt.resolve()),'--stdin','--config',str(ROOT/'jaifmt.toml')],input=data,text=True,capture_output=True,check=True)
+            result=subprocess.run([str(a.jaifmt.resolve()),'--stdin','--config',str(ROOT/'jacket.toml')],input=data,text=True,capture_output=True,check=True)
             data=result.stdout
-            again=subprocess.run([str(a.jaifmt.resolve()),'--stdin','--config',str(ROOT/'jaifmt.toml')],input=data,text=True,capture_output=True,check=True)
+            again=subprocess.run([str(a.jaifmt.resolve()),'--stdin','--config',str(ROOT/'jacket.toml')],input=data,text=True,capture_output=True,check=True)
             if again.stdout!=data:raise ValueError(f'non-idempotent jaifmt: {path}')
         sync_generated_file(path,data,a.check)
 

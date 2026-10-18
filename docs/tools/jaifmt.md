@@ -22,7 +22,7 @@ Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Ar
 
 - `lexer.jai`: same token boundaries as `crates/jaic/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
 - `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
-- `config.jai`: `jaifmt.toml` parsing and ignore globs.
+- `config.jai`: `jacket.toml` `[format]` / `jaifmt.toml` parsing and ignore globs.
 
 Behaviour in short:
 
@@ -37,9 +37,10 @@ Behaviour in short:
 
 ## Configuration
 
-`jaifmt.toml` (small TOML subset: integers, quoted strings, one-line string arrays; unknown keys are errors). The nearest one up the tree applies per file; `--config` overrides.
+The `[format]` table of `jacket.toml` ([jacket](jacket.md)), or a legacy `jaifmt.toml` with the same keys at its top (small TOML subset: integers, quoted strings, string arrays that may span lines; unknown keys are errors). The nearest one up the tree applies per file, and a directory's `jacket.toml` beats its `jaifmt.toml`; other tables in `jacket.toml` are skipped. A legacy file is used with a hint on stderr to run `jacket config migrate`. `--config` overrides (a path to either kind of file, or inline text).
 
 ```toml
+[format]
 indent_width = 4          # 1-16
 case_indent = 4           # default indent_width
 case_body_indent = 4      # default indent_width

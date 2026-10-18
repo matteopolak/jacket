@@ -116,11 +116,11 @@ def main():
              ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-session-probe.jai",
              ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-canonical.jai"]
     for path in owned:
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", path])
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", path])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", path])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", path])
     checked = ROOT / "target/generator-platform-linted.txt"
     programs = [path for path in owned if path.parent.name == "driven"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", "jailint.toml", "--checked-files", checked,
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", "jacket.toml", "--checked-files", checked,
          *programs])
     linted = checked.read_text().splitlines()
     if any(str(path) not in linted for path in programs):
@@ -159,7 +159,7 @@ def main():
                                   "reviewed libclang copy/update/missing-source effects, including actual bundled SDK library bytes"]
     evidence["contextual_fixture_lint"] = "passed with warnings denied"
     try:
-        run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", ROOT / "jailint.toml", "--checked-files", checked,
+        run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", ROOT / "jacket.toml", "--checked-files", checked,
              ROOT / "stdlib/Bindings_Generator/module.jai", *owned])
     except RuntimeError as error:
         evidence["module_root_lint"] = "failed; independent #add_context-after-bootstrap driver ordering reduction reported"

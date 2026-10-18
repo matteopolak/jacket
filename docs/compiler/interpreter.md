@@ -14,11 +14,11 @@ The IR is shaped for LLVM (every local in a stack slot, every constant its own i
 
 Registers live on the interpreter stack after the slots, so a call allocates nothing. `promote.rs` turns scalar slots whose address is never taken into registers and forwards stores, then dead pure ops are removed. Registers are accessed unchecked: `build` computes `Code::regs` and `enter` reserves exactly that many words. The `Frame` is rebuilt when a procedure body is replaced.
 
-Three passes cut dispatches before ops are made or after they are laid out. `code/sink.rs` works on the IR: it drops stores into locals nothing reads and moves constant setup that only one side of a branch uses into that side (the `#expand` prelude of `assert` builds a default message and location that only a failure reads). `code/flow.rs` threads jumps and copies up to four cheap, non-failing ops into the blocks that jump to them, so a loop iteration ends in one branch (disabled under exact profiling, where every block entry is counted). `Memcpy`/`Memset` intrinsics and `Conv` become `MemCopy`/`MemSet` and `Ext`/`Mov` ops instead of `Ir` fallbacks, and `BranchTest` fuses `x & mask` with a branch. `JAIC_PROFILE=ops` counts the ops actually executed and the most common adjacent pairs, which is where to look for the next fusion.
+Three passes cut dispatches before ops are made or after they are laid out. `code/sink.rs` works on the IR: it drops stores into locals nothing reads and moves constant setup that only one side of a branch uses into that side (the `#expand` prelude of `assert` builds a default message and location that only a failure reads). `code/flow.rs` threads jumps and copies up to four cheap, non-failing ops into the blocks that jump to them, so a loop iteration ends in one branch (disabled under exact profiling, where every block entry is counted). `Memcpy`/`Memset` intrinsics and `Conv` become `MemCopy`/`MemSet` and `Ext`/`Mov` ops instead of `Ir` fallbacks, and `BranchTest` fuses `x & mask` with a branch. `-profile_ops` counts the ops actually executed and the most common adjacent pairs, which is where to look for the next fusion.
 
 Locations are positional: a `Loc` op sets the location of every op after it in layout order. A block with no `Loc` of its own (the out-of-line failure path of a `#no_debug` macro such as `assert` is one) starts with one inherited from the first block that branches to it (`entry_locs`), so a failed check reports its own line instead of whatever block is laid out before it. The synthetic one is dropped again when the block holds only ops that cannot fail.
 
-The program's last-error value (`GetLastError`, `errno`) is shared with the interpreter. Making a frame runs system calls of the interpreter's own (an environment lookup sets `ERROR_ENVVAR_NOT_FOUND`, 203, on Windows), so `make_frame` keeps it through `interp/last_error.rs`; anything else the interpreter does between two steps of the program that can run a system call needs the same guard. `JAIC_NO_SINK`, `JAIC_NO_FLOW` and `JAIC_DUMP_OPS` are read once.
+The program's last-error value (`GetLastError`, `errno`) is shared with the interpreter. Making a frame runs system calls of the interpreter's own (an environment lookup sets `ERROR_ENVVAR_NOT_FOUND`, 203, on Windows), so `make_frame` keeps it through `interp/last_error.rs`; anything else the interpreter does between two steps of the program that can run a system call needs the same guard. `-dev_no_sink`, `-dev_no_flow` and `-dev_dump_ops` are read once (`jaic::knobs`).
 
 ### Traps and limits
 
@@ -97,8 +97,8 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 ## Configuration
 
 - `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000 frames) in `interp/mod.rs`; thread constants `PREEMPT_TICKS`, `NATIVE_SLICE`, `DEADLOCK_GRACE`, `THREAD_STACK`, `NATIVE_STACK`; fiber sizes in `interp/fibers.rs`.
-- `JAIC_PROFILE=1` counts calls, blocks and instructions per procedure ([benchmarks](../tools/benchmarks.md)).
-- `JAIC_COVERAGE=FILE` records each procedure the first time it runs (`path:line name`) and appends the set to FILE at exit ([testing](../tools/testing.md)).
+- `-profile` counts calls, blocks and instructions per procedure ([benchmarks](../tools/benchmarks.md)).
+- `-coverage_file FILE` records each procedure the first time it runs (`path:line name`) and appends the set to FILE at exit ([testing](../tools/testing.md)).
 
 ## Dependencies
 

@@ -37,7 +37,7 @@ def main():
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-public-callbacks.jai',
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_callback_probe.c',
         'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc_sdk_config_probe.c',
-        'docs/specs/stdlib/modules/rpmalloc.md', 'jaifmt.toml', 'jailint.toml'))
+        'docs/specs/stdlib/modules/rpmalloc.md', 'jacket.toml'))
     work = Path(tempfile.mkdtemp(prefix='dimensions-', dir=args.output_root))
     sys.path.insert(0, str(snapshot / 'tools'))
     prepare = importlib.import_module('native_bindings.prepare_rpmalloc').prepare
@@ -142,12 +142,12 @@ def main():
                 invoke('required retention source '+os_name+'-'+cpu,
                     [args.compiler, snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retention-options.jai',
                      '-check', '-no_dce', '-os', os_name, '-cpu', cpu])
-    invoke('strict complete context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
+    invoke('strict complete context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jacket.toml',
         '--context', fixture, snapshot/'stdlib/rpmalloc', fixture])
     invoke('production formatting', [args.formatter, '--check', snapshot/'stdlib/rpmalloc', fixture])
     if args.retention:
         retention = snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-retention-options.jai'
-        invoke('strict retention context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jailint.toml',
+        invoke('strict retention context lint', [args.jailint, '-D', 'warnings', '--config', snapshot/'jacket.toml',
             '--context', retention, snapshot/'stdlib/rpmalloc', retention])
         invoke('production retention formatting', [args.formatter, '--check', retention,
             snapshot/'stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-effective-config.jai'])

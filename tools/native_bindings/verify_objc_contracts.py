@@ -35,7 +35,7 @@ def main():
     args = parser.parse_args()
     tools = {name: getattr(args, name).resolve(strict=True) for name in ('compiler', 'jailint', 'formatter')}
     extras = ['tools/native_bindings', 'docs/specs/stdlib/modules/objective-c.md',
-              'stdlib/Bindings_Generator/tests/driven/sdk/objc_runtime_probe.m', 'jailint.toml', 'jaifmt.toml']
+              'stdlib/Bindings_Generator/tests/driven/sdk/objc_runtime_probe.m', 'jacket.toml']
     extras += ['stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai' for name in POSITIVE]
     extras += ['stdlib/Bindings_Generator/tests/driven/sdk/negative/'+name+'.jai' for name in NEGATIVE]
     snapshot, identity = capture(args.output_root, extras)
@@ -97,7 +97,7 @@ def main():
              snapshot/'stdlib/internal/bindings/objc-registration', snapshot/'stdlib/internal/bindings/objc-stub']
     for name in POSITIVE:
         fixture = snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai')
-        invoke('strict complete-context lint', [tools['jailint'], '-D', 'warnings', '--config', snapshot/'jailint.toml',
+        invoke('strict complete-context lint', [tools['jailint'], '-D', 'warnings', '--config', snapshot/'jacket.toml',
                                                '--context', fixture, *roots, fixture], fixture=name)
     invoke('production formatter', [tools['formatter'], '--check', *roots,
                                     *[snapshot/('stdlib/Bindings_Generator/tests/driven/sdk/'+name+'.jai') for name in POSITIVE],

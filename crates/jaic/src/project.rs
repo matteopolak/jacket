@@ -1,12 +1,11 @@
 //! Project structure shared by the tools that read a Jai project without compiling all of it:
-//! the TOML subset of `jai.toml` and `jailint.toml`, where a project's settings and base folder
-//! are, which `#load`/`#import` directives a file writes, which files a program's `#load`s
+//! where a project's base folder is, which `#load`/`#import` directives a file writes, which files a program's `#load`s
 //! reach, and which root file a source file is compiled from.
 //!
-//! The language server and the linter both build on this; neither parses settings or walks
+//! The language server and the linter both build on this; neither walks
 //! `#load`s itself. See `docs/compiler/project.md`.
 //!
-//! - [`parse_toml`]: the one parser; [`ProjectConfig`] reads both settings files from it.
+//! - [`project_base`]: the folder a project is based in (settings are in the `jacket-config` crate).
 //! - [`scan_directives`] / [`directive_links`]: `#load` and `#import` found from tokens.
 //! - [`ProjectFs`]: the files a walk sees (the disk, or an editor's open buffers over it).
 //! - [`load_closure`]: every file a root reaches through `#load`.
@@ -19,257 +18,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-
-/// The project settings file the editor and compiler tools read.
-pub const JAI_TOML: &str = "jai.toml";
-
-/// The linter's settings file.
-pub const LINT_TOML: &str = "jailint.toml";
-
-/// Entry files tried, in order, when no `jai.toml` names them.
-pub const INFERRED_ENTRIES: &[&str] = &["build.jai", "first.jai", "main.jai", "src/main.jai"];
-
-// The TOML subset
-
-/// What [`parse_toml`] hands its visitor.
-#[derive(Debug)]
-pub enum TomlItem<'a> {
-    /// A `[name]` header.
-    Table(&'a str),
-    /// `key = value` in the current table (`""` before any header). `value` is the text after
-    /// the `=`, comment removed, an array continued over several lines joined by spaces.
-    Pair {
-        table: &'a str,
-        key: &'a str,
-        value: &'a str,
-    },
-}
-
-/// Reads the subset of TOML the settings files use: `key = value` lines, `[table]` headers,
-/// `#` comments, and arrays continued over several lines. `visit` is called for each header and
-/// pair with the 1-based line it started on, and may reject it with a message (the parser puts
-/// `line N:` in front of syntax errors it finds itself; `visit` writes its own).
-pub fn parse_toml(
-    text: &str,
-    mut visit: impl FnMut(TomlItem<'_>, usize) -> Result<(), String>,
-) -> Result<(), String> {
-    let mut table = String::new();
-    let mut pending: Option<(usize, String, String)> = None;
-    for (number, raw) in text.lines().enumerate() {
-        let line = strip_comment(raw).trim().to_string();
-        // An array continued over several lines.
-        if let Some((at, key, mut value)) = pending.take() {
-            value.push(' ');
-            value.push_str(&line);
-            if value.trim_end().ends_with(']') {
-                visit(
-                    TomlItem::Pair {
-                        table: &table,
-                        key: &key,
-                        value: &value,
-                    },
-                    at,
-                )?;
-            } else {
-                pending = Some((at, key, value));
-            }
-            continue;
-        }
-        if line.is_empty() {
-            continue;
-        }
-        if !line.contains('=')
-            && let Some(name) = line.strip_prefix('[').and_then(|l| l.strip_suffix(']'))
-        {
-            table = name.trim().to_string();
-            visit(TomlItem::Table(&table), number + 1)?;
-            continue;
-        }
-        let Some((key, value)) = line.split_once('=') else {
-            return Err(format!(
-                "line {}: expected `key = value`, found `{line}`",
-                number + 1
-            ));
-        };
-        let (key, value) = (key.trim().to_string(), value.trim().to_string());
-        if value.starts_with('[') && !value.ends_with(']') {
-            pending = Some((number + 1, key, value));
-            continue;
-        }
-        visit(
-            TomlItem::Pair {
-                table: &table,
-                key: &key,
-                value: &value,
-            },
-            number + 1,
-        )?;
-    }
-    if let Some((at, ..)) = pending {
-        return Err(format!(
-            "line {at}: this array is never closed\nhelp: end it with `]`"
-        ));
-    }
-    Ok(())
-}
-
-/// The line without a `#` comment (a `#` inside a string stays).
-fn strip_comment(line: &str) -> &str {
-    let mut quoted = false;
-    for (i, c) in line.char_indices() {
-        match c {
-            '"' => quoted = !quoted,
-            '#' if !quoted => return &line[..i],
-            _ => {}
-        }
-    }
-    line
-}
-
-/// The contents of a `"string"` value (no escapes: paths and levels need none).
-pub fn toml_string(text: &str) -> Option<String> {
-    let inner = text.trim().strip_prefix('"')?.strip_suffix('"')?;
-    (!inner.contains('"')).then(|| inner.to_string())
-}
-
-/// The strings of an `["a", "b"]` value; `Err` names the problem (`NotAnArray`, or a non-string
-/// item).
-pub fn toml_strings(value: &str) -> Result<Vec<String>, TomlArrayError> {
-    let inner = value
-        .strip_prefix('[')
-        .and_then(|v| v.strip_suffix(']'))
-        .ok_or(TomlArrayError::NotAnArray)?;
-    inner
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|item| toml_string(item).ok_or(TomlArrayError::NotAString))
-        .collect()
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TomlArrayError {
-    NotAnArray,
-    NotAString,
-}
-
-// Settings
-
-/// The settings of a `jai.toml` and a `jailint.toml`: the union of what the tools read. Each
-/// file only sets its own fields.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct ProjectConfig {
-    /// `jai.toml` `build_files = ["first.jai"]`: the files given to `jaic` (or
-    /// `add_build_file`).
-    pub build_files: Vec<String>,
-    /// `jai.toml` `import_path = ["vendor"]`: more module folders, as `-import_dir` (and
-    /// `Build_Options.import_path`) add.
-    pub import_path: Vec<String>,
-    /// `jailint.toml` `exclude = ["tests/**"]`: glob patterns of paths not to lint.
-    pub exclude: Vec<String>,
-    /// `jailint.toml` `max_nesting = 6`.
-    pub max_nesting: Option<usize>,
-    /// `jailint.toml` `[rules]`: rule name and the level text, in file order.
-    pub rules: Vec<(String, String)>,
-}
-
-impl ProjectConfig {
-    /// The settings in the text of a `jai.toml`, or why it is invalid (with its line).
-    pub fn parse_jai(text: &str) -> Result<ProjectConfig, String> {
-        let mut config = ProjectConfig::default();
-        parse_toml(text, |item, line| match item {
-            TomlItem::Table(_) => Err(format!(
-                "line {line}: `{JAI_TOML}` has no tables; its settings are `build_files` and `import_path`"
-            )),
-            TomlItem::Pair {
-                key,
-                value,
-                ..
-            } => {
-                let list = match key {
-                    "build_files" => &mut config.build_files,
-                    "import_path" => &mut config.import_path,
-                    other => {
-                        return Err(format!(
-                            "line {line}: unknown setting `{other}`; the settings are `build_files` and `import_path`"
-                        ));
-                    }
-                };
-                // A single string is a list of one.
-                if let Some(one) = toml_string(value) {
-                    list.push(one);
-                    return Ok(());
-                }
-                match toml_strings(value) {
-                    Ok(items) => list.extend(items),
-                    Err(TomlArrayError::NotAnArray) => {
-                        return Err(format!("line {line}: `{key}` takes an array of strings"));
-                    }
-                    Err(TomlArrayError::NotAString) => {
-                        return Err(format!("line {line}: expected a quoted string"));
-                    }
-                }
-                Ok(())
-            }
-        })?;
-        Ok(config)
-    }
-
-    /// The settings in the text of a `jailint.toml`. `rule` judges each `[rules]` entry (name,
-    /// the value as written, line): it returns the level text to keep, or the error message.
-    pub fn parse_lint(
-        text: &str,
-        mut rule: impl FnMut(&str, &str, usize) -> Result<String, String>,
-    ) -> Result<ProjectConfig, String> {
-        let mut config = ProjectConfig::default();
-        parse_toml(text, |item, line| match item {
-            TomlItem::Table(name) => {
-                if name != "rules" {
-                    return Err(format!(
-                        "line {line}: unknown table `[{name}]`\nhelp: the only table is `[rules]`"
-                    ));
-                }
-                Ok(())
-            }
-            TomlItem::Pair {
-                table,
-                key,
-                value,
-            } => match (table, key) {
-                ("", "exclude") => {
-                    let items = toml_strings(value).map_err(|e| match e {
-                        TomlArrayError::NotAnArray => {
-                            format!("line {line}: `exclude` takes an array of strings")
-                        }
-                        TomlArrayError::NotAString => {
-                            format!("line {line}: expected a quoted string")
-                        }
-                    })?;
-                    config.exclude.extend(items);
-                    Ok(())
-                }
-                ("", "max_nesting") => {
-                    config.max_nesting = Some(value.parse().map_err(|_| {
-                        format!(
-                            "line {line}: `max_nesting` takes a whole number, such as `max_nesting = 6`"
-                        )
-                    })?);
-                    Ok(())
-                }
-                ("", other) => Err(format!(
-                    "line {line}: unknown setting `{other}`\nhelp: the top-level settings are `exclude = [\"pattern\", ...]` and `max_nesting = 6`; rule levels go under `[rules]`"
-                )),
-                (_, name) => {
-                    let name = name.trim_matches('"');
-                    let level = rule(name, value, line)?;
-                    config.rules.push((name.to_string(), level));
-                    Ok(())
-                }
-            },
-        })?;
-        Ok(config)
-    }
-}
 
 /// The nearest folder at or above `start` (a folder) holding a file called `name`, by
 /// `is_file`. An editor passes a test that counts unsaved buffers.
@@ -298,32 +46,6 @@ pub fn project_base(
             .max_by_key(|f| f.as_os_str().len())
             .cloned()
     })
-}
-
-/// The entry files of the project based at `base`.
-pub struct EntryFiles {
-    pub paths: Vec<PathBuf>,
-    /// They are the `jai.toml`'s `build_files`; otherwise they are the [`INFERRED_ENTRIES`], of
-    /// which only those that exist are entries.
-    pub declared: bool,
-}
-
-/// `base`'s entry files: the `build_files` of its `jai.toml`, else the inferred ones.
-pub fn entry_files(base: &Path, config: Option<&ProjectConfig>) -> EntryFiles {
-    match config {
-        Some(config) if !config.build_files.is_empty() => EntryFiles {
-            paths: config
-                .build_files
-                .iter()
-                .map(|f| normalize(&base.join(f)))
-                .collect(),
-            declared: true,
-        },
-        _ => EntryFiles {
-            paths: INFERRED_ENTRIES.iter().map(|f| base.join(f)).collect(),
-            declared: false,
-        },
-    }
 }
 
 // Directives
@@ -941,50 +663,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_jai_toml() {
-        let config = ProjectConfig::parse_jai(
-            "# The editor's settings\nbuild_files = [\"first.jai\", # metaprogram\n  \"src/main.jai\"]\nimport_path = \"vendor\"\n",
-        )
-        .unwrap();
-        assert_eq!(config.build_files, ["first.jai", "src/main.jai"]);
-        assert_eq!(config.import_path, ["vendor"]);
-        assert!(
-            ProjectConfig::parse_jai("roots = [\"a.jai\"]")
-                .unwrap_err()
-                .contains("unknown setting `roots`")
-        );
-        assert!(ProjectConfig::parse_jai("[project]").is_err());
-        assert!(
-            ProjectConfig::parse_jai("build_files = [\"a\"")
-                .unwrap_err()
-                .contains("never closed")
-        );
-        assert!(ProjectConfig::parse_jai("build_files = 3").is_err());
-    }
-
-    #[test]
-    fn parses_jailint_toml() {
-        let text = "# settings\nexclude = [\n  \"tests/**\", # fixtures\n  \"a.jai\",\n]\nmax_nesting = 4\n\n[rules]\nfloat_equality = \"deny\" # strict\n";
-        let config = ProjectConfig::parse_lint(text, |name, value, _| {
-            assert_eq!(name, "float_equality");
-            toml_string(value).ok_or_else(|| "bad".to_string())
-        })
-        .unwrap();
-        assert_eq!(config.exclude, ["tests/**", "a.jai"]);
-        assert_eq!(config.max_nesting, Some(4));
-        assert_eq!(config.rules, [("float_equality".into(), "deny".into())]);
-        let reject = |_: &str, _: &str, line: usize| Err(format!("line {line}: no"));
-        assert_eq!(
-            ProjectConfig::parse_lint("[rules]\nx = 1", reject).unwrap_err(),
-            "line 2: no"
-        );
-        let err = ProjectConfig::parse_lint("[lint]\n", reject).unwrap_err();
-        assert!(err.contains("unknown table `[lint]`"));
-        assert!(ProjectConfig::parse_lint("max_nesting = x", reject).is_err());
-        assert!(ProjectConfig::parse_lint("exclude = \"a\"", reject).is_err());
-    }
-
-    #[test]
     fn base_and_entries() {
         let folders = [PathBuf::from("/w"), PathBuf::from("/w/inner")];
         assert_eq!(
@@ -996,16 +674,6 @@ mod tests {
             Some(PathBuf::from("/w/p"))
         );
         assert_eq!(project_base(None, &folders, Path::new("/x/a.jai")), None);
-        let config = ProjectConfig {
-            build_files: vec!["src/../first.jai".into()],
-            ..ProjectConfig::default()
-        };
-        let declared = entry_files(Path::new("/p"), Some(&config));
-        assert!(declared.declared);
-        assert_eq!(declared.paths, [PathBuf::from("/p/first.jai")]);
-        let inferred = entry_files(Path::new("/p"), None);
-        assert!(!inferred.declared);
-        assert_eq!(inferred.paths[0], Path::new("/p/build.jai"));
     }
 
     #[test]

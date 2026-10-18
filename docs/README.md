@@ -1,6 +1,6 @@
 # Documentation
 
-`jaic` is a compiler for the Jai language: lexer, parser, type checker, interpreter (`#run`, `-interp`), an LLVM backend for native code and WebAssembly, and a metaprogramming API. `jailsp` (language server), `jaifmt` (formatter, written in Jai) and `jailint` (linter) share its front end. The standard library in `stdlib/` is written in Jai.
+`jaic` is a compiler for the Jai language: lexer, parser, type checker, interpreter (`#run`, `-interp`), an LLVM backend for native code and WebAssembly, and a metaprogramming API. `jailsp` (language server), `jaifmt` (formatter, written in Jai) and `jailint` (linter) share its front end, and `jacket` runs them all and reads their shared `jacket.toml`. The standard library in `stdlib/` is written in Jai.
 
 Start with [features](features.md), [the command line](tools/cli.md) and [install channels](tools/releases.md). Contributors: [CONTRIBUTING.md](../CONTRIBUTING.md) and [development](tools/development.md).
 
@@ -18,7 +18,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Tools and editors
 
-[jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
+[jacket](tools/jacket.md), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
 
 ## Standard library
 

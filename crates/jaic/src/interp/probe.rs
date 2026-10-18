@@ -647,20 +647,31 @@ mod tests {
         }
     }
 
+    /// Runs the guarded transfers in a child process: they change a mapping's protection under
+    /// the cache, which must not take the test harness down with a failure.
     #[cfg(unix)]
     #[test]
     fn stale_mapping_cache_cannot_fault_compiler_memory_transfers() {
-        const CHILD: &str = "JAIC_PROBE_STALE_MAPPING_CHILD";
-        if std::env::var_os(CHILD).is_none() {
-            let status=std::process::Command::new(std::env::current_exe().unwrap())
-                .args(["--exact", "interp::probe::tests::stale_mapping_cache_cannot_fault_compiler_memory_transfers", "--nocapture"])
-                .env(CHILD,"1").status().unwrap();
-            assert!(
-                status.success(),
-                "guarded memory transfer child failed: {status}"
-            );
-            return;
-        }
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--ignored",
+                "--exact",
+                "interp::probe::tests::stale_mapping_child",
+                "--nocapture",
+            ])
+            .status()
+            .unwrap();
+        assert!(
+            status.success(),
+            "guarded memory transfer child failed: {status}"
+        );
+    }
+
+    /// The body of the test above; `--ignored` keeps it out of a normal run.
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "run by stale_mapping_cache_cannot_fault_compiler_memory_transfers"]
+    fn stale_mapping_child() {
         use std::ffi::{c_int, c_void};
         unsafe extern "C" {
             fn mmap(

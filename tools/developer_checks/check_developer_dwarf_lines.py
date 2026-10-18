@@ -65,7 +65,7 @@ def main():
     generated.append("}")
     path = ROOT / "target/developer-tools-dwarf-line-oracle.jai"
     path.write_text("\n".join(generated) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", path])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", path])
     evidence["clang_version"] = run([prefix / "bin/clang", "--version"])
     (ROOT / "target/developer-tools-dwarf-lines-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 

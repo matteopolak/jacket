@@ -130,12 +130,12 @@ def check_cpp_custom():
             run([JAIC, emitter, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
         for generated in generated_schemas:
-            run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
+            run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
             run(
                 [
                     ROOT / "target/jaifmt",
                     "--config",
-                    ROOT / "jaifmt.toml",
+                    ROOT / "jacket.toml",
                     "--check",
                     generated,
                 ]

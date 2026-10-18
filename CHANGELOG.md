@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Highlights
+
+- **`jacket`, one command for the toolchain.** `jacket build`, `check`, `run`, `lint`, `fmt` and `lsp` are drop-ins for `jaic`, `jailint`, `jaifmt` and `jailsp`: every argument, single-dash Jai flags included, reaches the tool exactly as typed. What `jacket` adds is the project: with no `.jai` file named it builds the configured or inferred entry file. `jacket new`, `init`, `config`, `clean` and `version` are its own. It ships in the release archives, the installers and the Homebrew formula. See `docs/tools/jacket.md`.
+- **One config file, `jacket.toml`.** Its `[project]`, `[toolchain]`, `[lint]`, `[format]` and `[experimental]` tables replace `jai.toml`, `jailint.toml` and `jaifmt.toml`, and `jaic`, `jacket`, `jailsp`, `jailint` and `jaifmt` read the same file. The old files still work; the first `jacket` command next to them writes `jacket.toml` (never under `CI`, never deleting anything), and `jacket config migrate [--dry-run]` does it on demand.
+- Entry files are inferred the same way everywhere: the configured entry, then `build.jai` / `first.jai`, then `main.jai` / `src/main.jai`, then `module.jai`.
+
 ### Added
 
 - `jailsp` fades code that can never run: statements after an exit, branches and loops a condition rules out (also by integer ranges and narrowing), `case`s a value cannot select, and `#if`/`ifx` arms that were not taken. They arrive as `unreachable` hints tagged `Unnecessary`, with no squiggle.
@@ -9,6 +15,21 @@
 ### Fixes
 
 - In `jailsp`, a statement missing only its `;` at the end of a line keeps working: goto-definition, hover and highlighting work on it, and the error is shown on its last token instead of covering the statement's first name.
+
+### Breaking changes
+
+| Before | Now |
+| --- | --- |
+| `jai.toml`, `jailint.toml`, `jaifmt.toml` | `jacket.toml` (the old files are still read, with a hint to migrate; a `jacket.toml` in the same directory wins) |
+| `jai.toml` `build_files` | `[project] entry` |
+| `JAIC_PARSE_THREADS=N`, `JAIC_SERIAL_PARSE=1` | `-parse_threads N`, `-serial_parse`; `[experimental]` for projects |
+| `JAIC_CODEGEN_UNITS=N` | `-codegen_units N` (`-no_split` for 1); `[experimental] codegen_units` |
+| `JAIC_PROFILE=1`, `JAIC_PROFILE=ops` | `-profile`, `-profile_ops` |
+| `JAIC_COVERAGE=FILE` | `-coverage_file FILE` |
+| `JAIC_VERIFY_IR`, `JAIC_SPLIT_UNITS`, `JAIC_NO_SINK`, `JAIC_NO_FLOW`, `JAIC_DUMP_OPS`, `JAIC_BODY_PROBE`, `JAIC_BODY_ORDER`, `JAIC_O0_PASSES` | `-dev_verify_ir`, `-dev_split_units`, `-dev_no_sink`, `-dev_no_flow`, `-dev_dump_ops`, `-dev_body_probe`, `-dev_body_fifo`, `-dev_o0_passes` (for working on the compiler; may change) |
+| `JAIC_CODEGEN_UNITS=4` for CI's native tests | `JACKET_TEST_CODEGEN_UNITS=4` (the test helpers pass `-codegen_units 4`) |
+
+Kept: `JAIC_STDLIB`, `JAIC_NATIVE_LIBS`, `JAIC_LINKER`, `JAIC_AR`, `JAIC_CACHE_DIR`, `JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_DSYM`, `JAIC_COVERAGE_DIR`/`JAIC_COVERAGE_FILE` (read by the instrumented program), `JAIC_SANITIZER_CC`, `JAIC_WASM_LD` and the installer variables. They locate things on the machine or are read where a flag cannot reach, rather than tuning one project.
 
 ## [0.19.1] - 2026-10-18
 

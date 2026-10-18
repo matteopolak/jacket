@@ -267,6 +267,8 @@ struct Cli {
     no_inline: bool,
     /// `-no_split`: generate code in one module instead of several.
     no_split: bool,
+    /// `-codegen_units`, `-parse_threads`, `-profile` and the `-dev_*` flags (`tuning.rs`).
+    tuning: tuning::Tuning,
     /// `-no_backtrace_on_crash`: no crash handler in the target program.
     no_backtrace_on_crash: bool,
     /// `-add` and `-run` strings.
@@ -546,8 +548,7 @@ impl CliOption {
 
     /// The option spelt `name`.
     fn find(name: &str) -> Option<&'static CliOption> {
-        OPTIONS
-            .iter()
+        tuning::all_options()
             .find(|option| option.names.contains(&name) || option.aliases.contains(&name))
     }
 
@@ -569,6 +570,8 @@ macro_rules! store {
         }
     };
 }
+
+mod tuning;
 
 const OPTIONS: &[CliOption] = {
     use Section::*;
@@ -868,7 +871,7 @@ fn store_sanitize(cli: &mut Cli, option: &str, list: String) -> Result<(), CliEr
 /// The `-help` lines of the options in `section`.
 fn option_help(section: Section) -> String {
     let mut lines = String::new();
-    for help in OPTIONS.iter().filter_map(|option| option.help) {
+    for help in tuning::all_options().filter_map(|option| option.help) {
         if help.section != section {
             continue;
         }
@@ -1048,9 +1051,7 @@ fn unknown_option(option: &str) -> CliError {
             .help("use -O0, -O1, -O2 or -O3");
     }
     let mut error = CliError::new(format!("unknown option `{option}`"));
-    let known = OPTIONS
-        .iter()
-        .flat_map(|option| option.names.iter().copied());
+    let known = tuning::all_options().flat_map(|option| option.names.iter().copied());
     if let Some(near) = jaic::suggest::closest(option, known) {
         error = error.help(format!("did you mean `{near}`?"));
     }
@@ -1235,12 +1236,10 @@ fn check_input(file: &str) -> Result<(), CliError> {
         Ok(meta) if meta.is_dir() => {
             let mut error = CliError::new(format!("`{file}` is a directory, not a .jai file"));
             let files = jai_files(path);
-            let entry = ["first.jai", "build.jai", "main.jai", "module.jai"]
-                .into_iter()
-                .find(|n| files.iter().any(|f| f == n));
+            let entry = jacket_config::project_entry(&jacket_config::Disk, path);
             match (entry, files.len()) {
                 (Some(entry), _) => {
-                    error = error.help(format!("did you mean `{}`?", path.join(entry).display()))
+                    error = error.help(format!("did you mean `{}`?", entry.display()))
                 }
                 (None, 0) => error = error.help("it holds no .jai files"),
                 (None, _) => {
@@ -1389,12 +1388,13 @@ fn has_directory(exe: &str) -> bool {
 }
 
 fn run(cli: Cli) -> ExitCode {
+    jaic::knobs::set(tuning::knobs(&cli));
     if cli.timings {
         timings::enable();
     }
     let code = timings::time("total", || compile_and_run(cli));
     timings::report();
-    // Interpreters flush their `JAIC_PROFILE` counts when dropped, which has happened by now.
+    // Interpreters flush their `-profile` counts when dropped, which has happened by now.
     if let Some(report) = jaic::interp::profile::report(40) {
         eprint!("{report}");
     }
@@ -1783,7 +1783,7 @@ impl<T> std::ops::DerefMut for LeakOnExit<T> {
 impl<T> Drop for LeakOnExit<T> {
     fn drop(&mut self) {
         if self.leak {
-            // Leaking skips the interpreter's `Drop`, which is what flushes `JAIC_PROFILE` counts.
+            // Leaking skips the interpreter's `Drop`, which is what flushes `-profile` counts.
             if let Some(value) = self.value.as_mut() {
                 (self.before_leak)(value);
             }
@@ -1866,6 +1866,7 @@ fn native_backend(cli: &Cli) -> LlvmBackend {
             .join(","),
         no_inline: cli.no_inline,
         no_split: cli.no_split,
+        switches: cli.tuning.switches(),
     }
 }
 
@@ -1905,6 +1906,7 @@ struct LlvmBackend {
     /// `-no_inline` and `-no_split`: they hold for every workspace this backend writes.
     no_inline: bool,
     no_split: bool,
+    switches: tuning::CodegenSwitches,
 }
 
 /// What one write of a workspace's output needs, worked out from its settings.
@@ -2061,6 +2063,7 @@ impl LlvmBackend {
                 ".unoptimized.bc",
             ),
             macos_version,
+            ..self.switches.codegen()
         };
         // `-emit_ir` wins over `output_llvm_ir_before_optimizations`.
         let emit_ir = self.emit_ir.clone().or_else(|| {

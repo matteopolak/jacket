@@ -1,0 +1,20 @@
+[package]
+name = "jacket"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "The jacket command: one front door to the Jai compiler, linter, formatter and language server."
+
+[[bin]]
+name = "jacket"
+path = "src/main.rs"
+
+[dependencies]
+jacket-config = { path = "../jacket-config" }
+clap = { version = "=4.6.4", features = ["derive"] }
+toml = "=1.1.2"
+toml_edit = "=0.25.13"
+
+[lints]
+workspace = true

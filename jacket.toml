@@ -1,3 +1,27 @@
+# Written by `jacket config migrate` from jailint.toml, jaifmt.toml.
+
+[lint]
+# jailint settings for this repository; see docs/tools/jailint.md.
+
+# Every Jai file the repository owns is linted, except:
+# - tests/corpus/negative: programs that must fail to compile.
+# - stdlib tests' negative/, probes/ and driven/ directories: programs that must fail to compile,
+#   known compiler gaps, and sources only a tool builds with its own flags.
+# - tests/lint: each rule's bad cases, which must trigger it.
+# - stdlib/Extensions/Jai_Format/tests/fixtures: formatter golden inputs, whose code is only there to be
+#   formatted.
+# - fuzz: fuzzer seeds and byte-exact regressions, many deliberately broken.
+exclude = [
+    "tests/corpus/negative/**",
+    "tests/lint/**",
+    "stdlib/**/tests/negative/**",
+    "stdlib/**/tests/probes/**",
+    "stdlib/**/tests/driven/**",
+    "stdlib/Extensions/Jai_Format/tests/fixtures/**",
+    "fuzz/**",
+]
+
+[format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
 indent_width = 4
 max_width = 100

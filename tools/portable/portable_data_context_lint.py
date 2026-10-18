@@ -128,7 +128,7 @@ def lint_owned(linter, stdlib, output, roots):
             "-D",
             "warnings",
             "--config",
-            str(ROOT / "jailint.toml"),
+            str(ROOT / "jacket.toml"),
             *flags,
         ]
         library, fixtures = profile_sources(owned, target_os)

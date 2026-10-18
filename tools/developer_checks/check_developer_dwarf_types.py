@@ -47,7 +47,7 @@ def main():
     generated.append("}")
     destination = ROOT / "target/developer-tools-dwarf-type-oracle.jai"
     destination.write_text("\n".join(generated) + "\n")
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", destination])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", destination])
     (ROOT / "target/developer-tools-dwarf-type-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
 
 

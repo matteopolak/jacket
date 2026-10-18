@@ -31,8 +31,10 @@ Format_Config :: struct {
     root: string; // directory of the config file; set by whoever read it
 }
 
-// The config file name the command-line tool looks for, upward from each file.
+// The config file names the command-line tool looks for, upward from each file: a jacket.toml
+// (its `[format]` section) in a directory wins over a jaifmt.toml in the same one.
 FORMAT_CONFIG_FILE_NAME :: "jaifmt.toml";
+JACKET_CONFIG_FILE_NAME :: "jacket.toml";
 
 // Formats Jai source. On success `result` is newly allocated (free it with `free`); on failure
 // it is empty and `error` (temporary storage) says why, with a `line:column:` prefix when it
@@ -43,11 +45,20 @@ format_source :: (text: string, config: Format_Config = .{}) -> result: string, 
     return formatted.output, true, "";
 }
 
-// Parses jaifmt.toml text (`key = value` lines, `#` comments; see the docs for the keys).
+// Parses jaifmt.toml text (`key = value` lines, `#` comments, arrays over several lines; see the
+// docs for the keys).
 // Unknown keys and bad values are errors, reported as `line N: ...`.
 parse_config :: (text: string) -> config: Format_Config, ok: bool, error: string {
     config: Format_Config;
     ok, error := parse_config_into(text, *config);
+    return config, ok, error;
+}
+
+// Parses the `[format]` section of jacket.toml text, with the same keys as jaifmt.toml. Other
+// tables are skipped; without a `[format]` section the result is the default config.
+parse_jacket_config :: (text: string) -> config: Format_Config, ok: bool, error: string {
+    config: Format_Config;
+    ok, error := parse_config_into(text, *config, jacket = true);
     return config, ok, error;
 }
 

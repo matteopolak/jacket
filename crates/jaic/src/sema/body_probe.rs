@@ -1,4 +1,4 @@
-//! `JAIC_BODY_PROBE=1`: which shared tables does each procedure body mutate while it is lowered?
+//! `-dev_body_probe`: which shared tables does each procedure body mutate while it is lowered?
 //!
 //! A study aid for `docs/compiler/parallel-sema.md`. Around every `lower_body` it snapshots the
 //! sizes of the compiler's shared tables, charges the growth to the body that caused it (growth
@@ -129,7 +129,7 @@ thread_local! {
 
 pub fn enabled() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("JAIC_BODY_PROBE").is_some())
+    *ON.get_or_init(|| crate::knobs::get().body_probe)
 }
 
 /// Count one lazy resolution (`C::EntResolve`, `C::SigResolve` or `C::Layout`).
@@ -305,11 +305,11 @@ pub fn report() {
     });
 }
 
-/// The next queued body: the last queued, or with `JAIC_BODY_ORDER=fifo` the first (a study of
+/// The next queued body: the last queued, or with `-dev_body_fifo` the first (a study of
 /// how much the numbering of ids and functions depends on the order bodies are lowered in).
 pub fn next_body(queue: &mut Vec<super::ProcId>) -> Option<super::ProcId> {
     static FIFO: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    if *FIFO.get_or_init(|| std::env::var("JAIC_BODY_ORDER").is_ok_and(|v| v == "fifo")) {
+    if *FIFO.get_or_init(|| crate::knobs::get().body_fifo) {
         (!queue.is_empty()).then(|| queue.remove(0))
     } else {
         queue.pop()

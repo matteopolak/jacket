@@ -141,6 +141,11 @@ impl Session {
     /// The client's workspace folders (absolute paths).
     /// Messages for the user the server has found since the last call (a settings file that
     /// does not parse), each to be sent once.
+    pub fn take_logs(&self) -> Vec<String> {
+        self.index.borrow_mut().take_logs()
+    }
+
+    /// Messages for the user (see `take_logs` for the log lines).
     pub fn take_messages(&self) -> Vec<String> {
         self.index.borrow_mut().take_messages()
     }

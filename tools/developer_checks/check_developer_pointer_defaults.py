@@ -25,7 +25,7 @@ def main():
             executable = ROOT / f"target/developer-tools-pointer-defaults-emitter-o{mode}"
             run([jaic, source, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
                  ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-pointer-defaults-native.c",
@@ -37,7 +37,7 @@ def main():
     paths = [source, consumer, generated, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/binding-expression-normalization.jai",
              ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
     print("Public zero/null normalization and real pointer-default calls passed interpreter/native Mac O0/O2, configured C O0/O2, formatting and strict lint")
 

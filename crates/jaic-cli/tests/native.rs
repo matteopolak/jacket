@@ -11,12 +11,23 @@ mod wasm_target;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
+/// A `jaic` command. `JACKET_TEST_CODEGEN_UNITS=N` (set by the CI sweep that divides every native
+/// build into parts, docs/native/llvm-backend.md) starts it with `-codegen_units N`; a test that
+/// pins its own count passes the flag again later, and the last one wins.
+fn jaic() -> Command {
+    let mut command = Command::new(JAIC);
+    if let Some(units) = std::env::var_os("JACKET_TEST_CODEGEN_UNITS") {
+        command.arg("-codegen_units").arg(units);
+    }
+    command
+}
+
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 /// The LLVM IR a build wrote to `path`, with the IR of the other codegen units appended. A build
-/// with several units (`JAIC_CODEGEN_UNITS`) writes unit `n` to `x.n.ll` next to `x.ll`, so a
+/// with several units (`-codegen_units`) writes unit `n` to `x.n.ll` next to `x.ll`, so a
 /// test that looks for a definition, or for the absence of one, reads all of them.
 fn read_ir_parts(path: &Path) -> String {
     let mut text = std::fs::read_to_string(path).unwrap();
@@ -81,7 +92,7 @@ fn exe_path(dir: &Path, name: &str) -> PathBuf {
 /// Build `source` natively into `dir` and run it.
 fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::Output, String> {
     let exe = exe_path(dir, name);
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(source)
         .arg("-exe")
         .arg(&exe)
@@ -104,7 +115,7 @@ fn corpus_runs_natively_like_the_interpreter() {
     let (mut checked, mut failures) = (0, Vec::new());
     for case in corpus_cases() {
         // Only cases the interpreter already passes are meaningful for the backend.
-        let interp = Command::new(JAIC)
+        let interp = jaic()
             .arg("-interp")
             .arg(&case.source)
             .current_dir(case.source.parent().unwrap())
@@ -171,7 +182,7 @@ fn unreferenced_code_is_not_compiled() {
     .unwrap();
     let ir = dir.join("unreferenced.ll");
     let exe = exe_path(&dir, "unreferenced");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .arg("-exe")
         .arg(&exe)
@@ -185,7 +196,7 @@ fn unreferenced_code_is_not_compiled() {
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
-    // Every part, when `JAIC_CODEGEN_UNITS` divides the program: nothing unreferenced is compiled
+    // Every part, when `-codegen_units` divides the program: nothing unreferenced is compiled
     // into any of them.
     let ir = read_ir_parts(&ir);
     assert!(ir.contains("used_helper_qz"));
@@ -222,7 +233,7 @@ fn quiet_procedures_push_no_stack_trace_node() {
     .unwrap();
     let ir = dir.join("quiet.ll");
     let exe = exe_path(&dir, "quiet");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .arg("-exe")
         .arg(&exe)
@@ -275,7 +286,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
     .unwrap();
     let ir = dir.join("small.ll");
     let exe = exe_path(&dir, "small");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .arg("-exe")
         .arg(&exe)
@@ -371,7 +382,7 @@ fn stdin_lines_are_read_natively() {
     std::fs::create_dir_all(&dir).unwrap();
     let source = repo_root().join("tests/compiler/native/stdin-lines/main.jai");
     let exe = exe_path(&dir, "stdin-lines");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .arg("-exe")
         .arg(&exe)
@@ -446,11 +457,7 @@ fn empty_workspaces_write_no_output() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
-    let interpreted = Command::new(JAIC)
-        .arg("-interp")
-        .arg(source)
-        .output()
-        .unwrap();
+    let interpreted = jaic().arg("-interp").arg(source).output().unwrap();
     assert!(
         interpreted.status.success(),
         "{}",
@@ -634,7 +641,7 @@ fn c_structs_by_value() {
     let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33} {11, 22}\n832\n8940414\n";
     let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n8940414\n";
     let run_interp = |name: &str| {
-        let output = Command::new(JAIC)
+        let output = jaic()
             .args(["-interp", &format!("{name}.jai")])
             .current_dir(&dir)
             .output()
@@ -738,7 +745,7 @@ fn c_call_procedures_stored_in_memory() {
         ])
     };
     let expected = "115 1006 -9\n21 -4 true true\n[9, 7, 5, 3, 1]\n133\n7 1018 8\n";
-    let output = Command::new(JAIC)
+    let output = jaic()
         .args(["-interp", "stored.jai"])
         .current_dir(&dir)
         .output()
@@ -806,7 +813,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
     let expected = "mutex: 42\ncondition: 42\njoin: 42\nsleep: 10\nnested: 61\n\
                     nested on a thread of C: 61\nnested on a Jai thread: 31\n\
                     progress while a thread waits in C: 5000050000 1\n";
-    let output = Command::new(JAIC)
+    let output = jaic()
         .args(["-interp", "blocking.jai"])
         .current_dir(&dir)
         .output()
@@ -832,7 +839,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
     let grace = jaic::interp::DEADLOCK_GRACE;
     let report = |args: &[&str]| {
         use std::io::{BufRead, BufReader, Read};
-        let mut child = Command::new(JAIC)
+        let mut child = jaic()
             .args(args)
             .current_dir(&dir)
             .stdout(std::process::Stdio::piped())
@@ -904,7 +911,7 @@ fn crash_in_native_code_is_reported_on_windows() {
     std::fs::create_dir_all(&dir).unwrap();
     let run = |name: &str, source: &str| {
         std::fs::write(dir.join(name), source).unwrap();
-        Command::new(JAIC)
+        jaic()
             .args(["-interp", name])
             .current_dir(&dir)
             .output()
@@ -963,7 +970,7 @@ fn sanitized_builds_report_memory_errors() {
     .unwrap();
     let build = |name: &str, sanitize: &str| {
         let exe = exe_path(&dir, name);
-        let output = Command::new(JAIC)
+        let output = jaic()
             .args(["errors.jai", "-sanitize", sanitize, "-exe"])
             .arg(&exe)
             .current_dir(&dir)
@@ -1006,7 +1013,7 @@ fn sanitized_builds_report_memory_errors() {
         "{report}"
     );
 
-    let cross = Command::new(JAIC)
+    let cross = jaic()
         .args(["errors.jai", "-sanitize", "address", "-os", "windows"])
         .current_dir(&dir)
         .output()
@@ -1072,7 +1079,7 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let interp = Command::new(JAIC)
+    let interp = jaic()
         .args(["-interp", "non_pod.jai"])
         .current_dir(&dir)
         .output()
@@ -1168,7 +1175,7 @@ fn cpp_non_pod_callback_results() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let interp = Command::new(JAIC)
+    let interp = jaic()
         .args(["-interp", "non_pod_callbacks.jai"])
         .current_dir(&dir)
         .output()
@@ -1243,11 +1250,7 @@ fn c_long_double() {
     let calls = "third 0.333333 wide true\nadd true mix 10.5\nto_double true\nbox 6 tagged 6 true pair true 1\nspill 46.25\nvsum true true\nvmix true 4\n";
     let callbacks = "apply 7.5 true\nbox_apply 4.5\n";
     let jaic = |args: &[&str]| {
-        let output = Command::new(JAIC)
-            .args(args)
-            .current_dir(&dir)
-            .output()
-            .unwrap();
+        let output = jaic().args(args).current_dir(&dir).output().unwrap();
         assert!(
             output.status.success(),
             "{args:?}: {}",
@@ -1429,11 +1432,7 @@ END
             ),
         )
         .unwrap();
-        let build = Command::new(JAIC)
-            .arg(&meta)
-            .current_dir(&dir)
-            .output()
-            .unwrap();
+        let build = jaic().arg(&meta).current_dir(&dir).output().unwrap();
         assert!(
             build.status.success(),
             "{name}: build failed: {}",
@@ -1570,11 +1569,7 @@ END
 "##,
     )
     .unwrap();
-    let build = Command::new(JAIC)
-        .arg(&meta)
-        .current_dir(&dir)
-        .output()
-        .unwrap();
+    let build = jaic().arg(&meta).current_dir(&dir).output().unwrap();
     assert!(
         build.status.success(),
         "nonfatal: build failed: {}",
@@ -1668,7 +1663,7 @@ fn null_checks_skipped_after_a_check_still_catch_changes() {
 fn simp_window_program_checks_on_desktop_oses() {
     let source = repo_root().join("stdlib/Simp/tests/window-program.jai");
     for os in ["linux", "windows", "macos"] {
-        let output = Command::new(JAIC)
+        let output = jaic()
             .arg("-check")
             .arg(&source)
             .args(["-os", os])
@@ -1695,7 +1690,7 @@ fn jaifmt_builds_and_formats() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src/skipped")).unwrap();
     let exe = exe_path(&dir, "jaifmt");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(repo_root().join("jaifmt/main.jai"))
         .args(["-O2", "-exe"])
         .arg(&exe)
@@ -1830,7 +1825,7 @@ fn jaifmt_build_metaprogram() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let exe = exe_path(&dir, "jaifmt");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(repo_root().join("jaifmt/build.jai"))
         .args(["-", "-o"])
         .arg(&exe)
@@ -1860,7 +1855,7 @@ fn jaifmt_build_metaprogram() {
         "f :: () {\n    x := 1;\n}\n"
     );
 
-    let bad = Command::new(JAIC)
+    let bad = jaic()
         .arg(repo_root().join("jaifmt/build.jai"))
         .args(["-", "bogus"])
         .output()
@@ -1884,7 +1879,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let exe = exe_path(&dir, "jaifmt");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(repo_root().join("jaifmt/main.jai"))
         .args(["-O2", "-exe"])
         .arg(&exe)
@@ -2016,7 +2011,7 @@ fn windows_runtime_program() {
     if cfg!(windows) {
         // Its threads run on the interpreter's scheduler through the Win32 calls, and its
         // arguments come back through GetCommandLineW as the program's, not jaic's.
-        let run = Command::new(JAIC)
+        let run = jaic()
             .arg("-interp")
             .arg(&source)
             .args(["--", "runtime-arg"])
@@ -2041,7 +2036,7 @@ fn windows_runtime_program() {
             continue;
         }
         let name = format!("cross-{cpu}");
-        let build = Command::new(JAIC)
+        let build = jaic()
             .arg(&source)
             .args(["-os", "windows", "-cpu", cpu, "-exe"])
             .arg(dir.join(&name))
@@ -2077,7 +2072,7 @@ fn interpreted_threads() {
         if !(name.starts_with("threads-") && name.ends_with(".jai")) {
             continue;
         }
-        let run = Command::new(JAIC)
+        let run = jaic()
             .arg("-interp")
             .arg(&path)
             .current_dir(&dir)
@@ -2157,7 +2152,7 @@ fn msvc_builds_write_a_pdb() {
         Err(_) => eprintln!("llvm-pdbutil not found: skipping the line information check"),
     }
     let _ = std::fs::remove_file(&pdb);
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .arg("-no_debug_info")
         .arg("-exe")
@@ -2182,7 +2177,7 @@ fn plug_builds_the_plugin_workspace() {
     let source = common::write_plugin_program(&dir);
     let exe = dir.join("uses_plugin_exe");
     let _ = std::fs::remove_file(&exe);
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .args(["-exe"])
         .arg(&exe)
@@ -2207,11 +2202,7 @@ fn plug_builds_the_plugin_workspace() {
         "uses_plugin"
     });
     let _ = std::fs::remove_file(&default_exe);
-    let build = Command::new(JAIC)
-        .arg(&source)
-        .arg("+Echo_Plugin")
-        .output()
-        .unwrap();
+    let build = jaic().arg(&source).arg("+Echo_Plugin").output().unwrap();
     assert!(
         build.status.success(),
         "{}",
@@ -2275,7 +2266,7 @@ fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
     std::fs::write(&source, "#import \"Basic\";\nlib :: #library \"small\";\nSmall :: struct { value: s32; }\nmake_small :: (value: s32) -> Small #foreign lib #cpp_return_type_is_non_pod;\nmain :: () { result := make_small(41); assert(result.value == 41); print(\"ok\\n\"); }\n").unwrap();
     for level in ["-O0", "-O2"] {
         let executable = exe_path(&dir, &format!("small{level}"));
-        let build = Command::new(JAIC)
+        let build = jaic()
             .arg(&source)
             .arg(level)
             .arg("-exe")
@@ -2333,7 +2324,7 @@ fn optimized_sub_recurrence_matches_the_interpreter() {
         .find(|c| c.id == "unrolled-sub-reduction")
         .unwrap();
     let exe = exe_path(&dir, "unrolled-sub-reduction");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&case.source)
         .args(["-O2", "-exe"])
         .arg(&exe)
@@ -2375,7 +2366,7 @@ fn backtrace_sees_compiled_callers() {
     .unwrap();
     for opt in ["-O0", "-O2"] {
         let exe = exe_path(&dir, &format!("backtrace{opt}"));
-        let build = Command::new(JAIC)
+        let build = jaic()
             .arg(&source)
             .args([opt, "-exe"])
             .arg(&exe)
@@ -2417,7 +2408,7 @@ fn run_writes_workspace_output() {
 "##,
     )
     .unwrap();
-    let output = Command::new(JAIC)
+    let output = jaic()
         .arg("-interp")
         .arg(&source)
         .current_dir(&dir)
@@ -2542,7 +2533,7 @@ fn custom_link_command() {
     );
 }
 
-/// Builds `CUSTOM_LINK` as `meta.jai` in its own directory. `units` pins `JAIC_CODEGEN_UNITS`
+/// Builds `CUSTOM_LINK` as `meta.jai` in its own directory. `units` pins `-codegen_units`
 /// for the build, so a test about the objects of one module does not depend on the environment.
 #[cfg(unix)]
 fn build_custom_link(
@@ -2558,16 +2549,16 @@ fn build_custom_link(
         .replace("@LINK@", link)
         .replace("@OPTIONS@", options);
     std::fs::write(dir.join("meta.jai"), source).unwrap();
-    let mut command = Command::new(JAIC);
+    let mut command = jaic();
     command.args(["meta.jai"]).current_dir(&dir);
     if let Some(units) = units {
-        command.env("JAIC_CODEGEN_UNITS", units);
+        command.args(["-codegen_units", units]);
     }
     let output = command.output().unwrap();
     (dir, output)
 }
 
-/// A program divided into several codegen units (`JAIC_CODEGEN_UNITS=3`) hands the metaprogram
+/// A program divided into several codegen units (`-codegen_units 3`) hands the metaprogram
 /// every object, which it links into a program that runs; the IR it asked for is written once per
 /// unit, each file defining its own part.
 // rules: bo.6 bo.7 bo.8
@@ -2624,7 +2615,7 @@ fn backtrace_on_crash_and_minimum_os_version() {
             .replace("@OPTIONS@", &options)
             .replace("@LINK@", "");
         std::fs::write(dir.join("meta.jai"), source).unwrap();
-        let output = Command::new(JAIC)
+        let output = jaic()
             .args(["meta.jai"])
             .current_dir(&dir)
             .output()
@@ -2684,7 +2675,7 @@ fn library_search_directory_added_by_a_metaprogram() {
         return;
     };
     assert!(built.status.success());
-    let output = Command::new(JAIC)
+    let output = jaic()
         .args(["-interp", "probe.jai"])
         .current_dir(&dir)
         .output()
@@ -2772,7 +2763,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
         );
     }
     let run_interp = |program: &str| {
-        let output = Command::new(JAIC)
+        let output = jaic()
             .args(["-interp", program])
             .current_dir(&dir)
             .output()
@@ -2851,7 +2842,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
         );
         for program in &programs {
             let name = program.trim_end_matches(".jai");
-            let built = Command::new(JAIC)
+            let built = jaic()
                 .args([program, "-target", "x86_64-apple-darwin", "-exe", name])
                 .current_dir(&dir)
                 .output()
@@ -2882,7 +2873,7 @@ fn fibers_switch_stacks_like_the_interpreter() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-switch");
     std::fs::create_dir_all(&dir).unwrap();
     let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
-    let interpreted = Command::new(JAIC)
+    let interpreted = jaic()
         .arg("-interp")
         .arg(&source)
         .current_dir(source.parent().unwrap())
@@ -2897,7 +2888,7 @@ fn fibers_switch_stacks_like_the_interpreter() {
     assert!(expected.ends_with("ok\n"), "{expected}");
     for (flag, name) in [("-O0", "switch-o0"), ("-O3", "switch-o3")] {
         let exe = exe_path(&dir, name);
-        let build = Command::new(JAIC)
+        let build = jaic()
             .arg(&source)
             .arg(flag)
             .arg("-exe")
@@ -2931,7 +2922,7 @@ fn fiber_stack_overflow_names_the_problem() {
         "{}",
         String::from_utf8_lossy(&native.stderr)
     );
-    let interpreted = Command::new(JAIC)
+    let interpreted = jaic()
         .arg("-interp")
         .arg(&source)
         .current_dir(source.parent().unwrap())
@@ -2951,7 +2942,7 @@ fn fibers_are_refused_for_wasm() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-wasm");
     std::fs::create_dir_all(&dir).unwrap();
     let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .args(["-os", "wasm", "-exe"])
         .arg(dir.join("switch.wasm"))
@@ -2992,7 +2983,7 @@ fn ordered_atomics_keep_their_memory_orders() {
          }\n",
     )
     .unwrap();
-    let interpreted = Command::new(JAIC)
+    let interpreted = jaic()
         .arg("-interp")
         .arg(&source)
         .current_dir(&dir)
@@ -3006,7 +2997,7 @@ fn ordered_atomics_keep_their_memory_orders() {
     assert_eq!(interpreted.stdout, b"1 1 3 true 7\n");
     let ir = dir.join("ordered.ll");
     let exe = exe_path(&dir, "ordered");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .arg("-O0")
         .arg("-exe")
@@ -3054,7 +3045,7 @@ fn exe_and_output_path_place_the_executable() {
     )
     .unwrap();
     let build = |extra: &[&str]| {
-        let output = Command::new(JAIC)
+        let output = jaic()
             .arg("src/prog.jai")
             .args(extra)
             .current_dir(&dir)
@@ -3116,7 +3107,7 @@ fn optimization_flavors_build_and_run() {
     ] {
         let name = format!("flavor{}", flags.join(""));
         let exe = exe_path(&dir, &name);
-        let build = Command::new(JAIC)
+        let build = jaic()
             .arg(&source)
             .args(flags)
             .arg("-exe")
@@ -3149,7 +3140,7 @@ fn add_and_run_strings_in_a_build() {
     )
     .unwrap();
     let exe = exe_path(&dir, "added");
-    let build = Command::new(JAIC)
+    let build = jaic()
         .arg(&source)
         .args(["-add", "added :: 41 + 1;", "-run", "print(\"compiled\\n\")"])
         .args(["-no_check_bindings", "-no_check", "-exe"])
@@ -3177,7 +3168,7 @@ fn compile_time_call_into_a_missing_library_names_it() {
         "missing :: #foreign_library \"jaic_no_such_library\";\nanswer :: () -> s32 #foreign missing;\n#run answer();\nmain :: () {}\n",
     )
     .unwrap();
-    let output = Command::new(JAIC)
+    let output = jaic()
         .arg(&source)
         .arg("-check")
         .env("JAIC_NATIVE_LIBS", &dir)

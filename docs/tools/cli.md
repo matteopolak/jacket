@@ -11,7 +11,7 @@ jaic main.jai -interp          # run main in the interpreter, no executable
 jaic main.jai -interp -- a b   # ...passing arguments to the program
 ```
 
-Options can go before or after the file. `jaic -help` prints the full list for the binary you have.
+Options can go before or after the file. `jaic -help` prints the full list for the binary you have. [`jacket`](jacket.md) runs it with exactly the arguments you give, adding the project's entry file and settings.
 
 The file you name is the only source file on the command line. Other files come in through `#load` and `#import`, as usual.
 
@@ -41,6 +41,8 @@ The file you name is the only source file on the command line. Other files come 
 | `-O0` to `-O3` | pick the LLVM level yourself. Don't combine these with the flavors above |
 
 A few switches turn off one thing each: `-no_inline`, `-no_split` (generate one code module instead of several), `-no_debug_info` and `-no_backtrace_on_crash`. `-sanitize address,undefined,fuzzer` builds with the sanitizers (`fuzzer` adds libFuzzer coverage instrumentation), and `-emit_ir out.ll` also writes the LLVM IR.
+
+`-codegen_units N` generates exactly N code modules (`-no_split` is `1`). `-parse_threads N` sets how many threads parse files ahead of the checker (`0` and `-serial_parse` parse on the checking thread). `-profile` and `-profile_ops` count what the interpreter runs per procedure; `-coverage_file FILE` appends the procedures that ran under `-interp` to FILE. The `-dev_*` flags (`-dev_verify_ir`, `-dev_split_units`, `-dev_no_sink`, `-dev_no_flow`, `-dev_dump_ops`, `-dev_body_probe`, `-dev_body_fifo`, `-dev_o0_passes`) study the compiler itself and may change at any time. None of these are environment variables; `jacket` can set the first three for a project ([jacket](jacket.md)).
 
 If your build metaprogram sets an optimization level, these options override it. `-no_inline` and `-no_split` apply to every workspace jaic writes.
 
@@ -114,7 +116,6 @@ An unknown option suggests the closest known one. The spellings from before 0.17
 | --- | --- |
 | `JAIC_MEMORY_LIMIT` | stop with status 120 once this much memory is allocated (`512M`, `2G`, ...) |
 | `JAIC_DIAGNOSTICS` | diagnostic layout: `plain`, `ascii` or `unicode` (default: chosen by terminal) |
-| `JAIC_CODEGEN_UNITS` | how many code modules to generate in parallel. `-no_split` is the same as `1` |
 | `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` | turn colour off or on |
 
 ## How to change it

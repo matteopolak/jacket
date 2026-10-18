@@ -188,7 +188,7 @@ def lint_owned(linter, env, output):
             "-D",
             "warnings",
             "--config",
-            str(ROOT / "jailint.toml"),
+            str(ROOT / "jacket.toml"),
             "--os",
             target_os,
             "--cpu",

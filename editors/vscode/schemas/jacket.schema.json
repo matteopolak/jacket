@@ -1,0 +1,485 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/matteopolak/jacket/editors/vscode/schemas/jacket.schema.json",
+  "title": "jacket.toml",
+  "description": "Project settings for jacket, jaic, jailsp, jailint and jaifmt. https://github.com/matteopolak/jacket/blob/main/docs/tools/jacket.md#jackettoml",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "What to build and where its modules are.",
+      "properties": {
+        "entry": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "The files you give `jaic`, relative to this file, such as `[\"main.jai\"]`. Default: the first of `build.jai`, `first.jai`, `main.jai`, `src/main.jai` and `module.jai` that exists."
+        },
+        "import_path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "More folders to import modules from, relative to this file (`-import_dir`)."
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "The toolchain the project is written for.",
+      "properties": {
+        "version": {
+          "type": "string",
+          "markdownDescription": "The `x.y.z` jaic release the project is written for; tools warn when theirs differs."
+        }
+      }
+    },
+    "lint": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "Settings for jailint and the lints jailsp reports.",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "Globs (relative to this file) of files and directories not to lint: `*`, `**`, `?`."
+        },
+        "rules": {
+          "type": "object",
+          "description": "Rule levels.",
+          "additionalProperties": false,
+          "properties": {
+            "absurd_comparison": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a comparison an unsigned value always passes or fails (`u >= 0`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#absurd_comparison)"
+            },
+            "almost_swapped": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`a = b; b = a;`, a swap that sets both to `b` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#almost_swapped)"
+            },
+            "bitwise_precedence": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a bitwise operator that binds differently than in C (`1 << n - 1`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#bitwise_precedence)"
+            },
+            "bool_comparison": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "comparing a bool with `true` or `false` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#bool_comparison)"
+            },
+            "broken_doc_link": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a link in a doc comment (`[name]`) that names no declaration (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#broken_doc_link)"
+            },
+            "defer_in_loop": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a `defer` in a loop body that cleans up something from outside the loop (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#defer_in_loop)"
+            },
+            "duplicate_condition": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an `else if` or `case` that repeats an earlier one (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#duplicate_condition)"
+            },
+            "erasing_op": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an operation that is always `0` (`x * 0`, `x & 0`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#erasing_op)"
+            },
+            "excessive_nesting": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "blocks nested deeper than `max_nesting` (default 6) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_nesting)"
+            },
+            "float_equality": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "`==` or `!=` between two computed floats (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#float_equality)"
+            },
+            "identical_branches": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an `if`/`else` or `ifx` whose branches are the same (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identical_branches)"
+            },
+            "identical_operands": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an operator with the same expression on both sides (`a == a`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identical_operands)"
+            },
+            "identity_op": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an operation that changes nothing (`x + 0`, `x * 1`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identity_op)"
+            },
+            "index_only_loop": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`for i: 0..xs.count-1` where `i` only indexes `xs` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#index_only_loop)"
+            },
+            "infinite_loop": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a `while` whose condition nothing in the loop changes (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#infinite_loop)"
+            },
+            "integer_division_in_float": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an integer division whose result is used as a float (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#integer_division_in_float)"
+            },
+            "lossy_xx": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "`xx` that narrows a number to a smaller type (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#lossy_xx)"
+            },
+            "manual_assign_op": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`a = a + b` instead of `a += b` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_assign_op)"
+            },
+            "manual_index_counter": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a counter incremented in a `for` loop that always equals `it_index` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#manual_index_counter)"
+            },
+            "min_max": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`min(0, max(100, x))`, a clamp that is always one bound (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#min_max)"
+            },
+            "needless_bool": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`ifx c then true else false` and `if c return true; else return false;` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#needless_bool)"
+            },
+            "no_effect": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a statement that computes a value and drops it (`x == 5;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#no_effect)"
+            },
+            "range_past_count": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`for i: 0..xs.count` indexing `xs[i]`, one past the end (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#range_past_count)"
+            },
+            "redundant_alias": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a local that only exists to be copied into another local or returned (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#redundant_alias)"
+            },
+            "redundant_cast": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a cast to the type the value already has (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#redundant_cast)"
+            },
+            "remove_in_for": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "removing from an array while a `for` walks it forward (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#remove_in_for)"
+            },
+            "reversed_range": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a range whose start is above its end, which never runs (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#reversed_range)"
+            },
+            "self_assignment": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a value assigned to itself (`x = x;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#self_assignment)"
+            },
+            "shadowed_it": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a nested `for` hides an `it` the enclosing loop uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#shadowed_it)"
+            },
+            "unused_import": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "an `#import` nothing in its scope uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_import)"
+            },
+            "unused_parameter": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a parameter the procedure never uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_parameter)"
+            },
+            "unused_result": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a call to a `@UseResult` procedure, as a statement (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_result)"
+            },
+            "unused_variable": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a local variable that is never used (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_variable)"
+            },
+            "wrapping_constant": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#wrapping_constant)"
+            }
+          }
+        },
+        "max_nesting": {
+          "type": "integer",
+          "minimum": 1,
+          "markdownDescription": "How many blocks deep code may nest before `excessive_nesting` fires."
+        }
+      }
+    },
+    "format": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "Settings for the jaifmt formatter.",
+      "properties": {
+        "indent_width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "default": 4,
+          "markdownDescription": "Spaces per indentation level."
+        },
+        "case_indent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16,
+          "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent_width`."
+        },
+        "case_body_indent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16,
+          "markdownDescription": "Indentation of the statements under a `case`. Default: `indent_width`."
+        },
+        "max_blank_lines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 2,
+          "markdownDescription": "Consecutive blank lines kept."
+        },
+        "max_width": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 10000,
+          "default": 100,
+          "markdownDescription": "Line width reported by `jaifmt --verbose`; lines are never wrapped."
+        },
+        "brace_style": {
+          "type": "string",
+          "enum": [
+            "same_line",
+            "preserve"
+          ],
+          "default": "same_line",
+          "markdownDescription": "`same_line` joins a `{` on its own line to its header; `preserve` leaves it."
+        },
+        "ignore": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "Globs (relative to this file) of files and directories not to format."
+        }
+      }
+    },
+    "experimental": {
+      "type": "object",
+      "additionalProperties": false,
+      "markdownDescription": "Performance knobs that may change between releases; each becomes a `jaic` flag.",
+      "properties": {
+        "parse_threads": {
+          "type": "integer",
+          "minimum": 1,
+          "markdownDescription": "Threads that parse files ahead of the compiler (`-parse_threads`)."
+        },
+        "serial_parse": {
+          "type": "boolean",
+          "markdownDescription": "Parse files one at a time (`-serial_parse`)."
+        },
+        "codegen_units": {
+          "type": "integer",
+          "minimum": 1,
+          "markdownDescription": "Split code generation into this many units (`-codegen_units`)."
+        }
+      }
+    }
+  }
+}

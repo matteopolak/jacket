@@ -108,8 +108,18 @@ pub struct Codegen {
     /// `enable_split_modules`: `Some(false)` keeps unoptimized codegen in one module.
     pub split_modules: Option<bool>,
     /// `-no_split`: one codegen unit at every optimization level, with machine code generation
-    /// unsplit as well (what `JAIC_CODEGEN_UNITS=1` does).
+    /// unsplit as well (what `-codegen_units 1` does).
     pub single_unit: bool,
+    /// `-codegen_units N` (`[experimental] codegen_units`): exactly this many code modules.
+    pub units: Option<usize>,
+    /// `-dev_split_units N`: split an optimized module into this many objects however small it
+    /// is (tests force a split of programs far below the threshold).
+    pub split_units: Option<usize>,
+    /// `-dev_verify_ir`: `Some(true)` runs the LLVM verifier on each module (a release jaic skips
+    /// it otherwise), `Some(false)` skips it even in a debug jaic.
+    pub verify_ir: Option<bool>,
+    /// `-dev_o0_passes <pipeline>`: an LLVM pass pipeline to run on unoptimized builds.
+    pub o0_passes: Option<String>,
     /// `enable_frame_pointers`: `Some(true)` keeps a frame record in every function,
     /// `Some(false)` in none (Apple targets keep their ABI's frame records regardless).
     pub frame_pointers: Option<bool>,
@@ -422,12 +432,9 @@ fn use_fast_isel(machine: &TargetMachine) {
 
 /// Whether to run the LLVM IR verifier on each module before code generation. It costs about
 /// 6% of an unoptimized build, so it runs in debug builds of jaic (and so under `cargo test`)
-/// and when `JAIC_VERIFY_IR` is set to anything but `0`; a release jaic skips it.
-fn verify_ir() -> bool {
-    match std::env::var_os("JAIC_VERIFY_IR") {
-        Some(v) => v != "0",
-        None => cfg!(debug_assertions),
-    }
+/// and with `-dev_verify_ir`; a release jaic skips it.
+fn verify_ir(options: &Options) -> bool {
+    options.codegen.verify_ir.unwrap_or(cfg!(debug_assertions))
 }
 
 /// Lower `program` (or one shard of it) to one LLVM module and write it as an object file.
@@ -503,7 +510,7 @@ fn emit_module(
             .print_to_file(unit_path(ir_path, unit))
             .map_err(|e| e.to_string())?;
     }
-    if verify_ir() {
+    if verify_ir(options) {
         module
             .verify()
             .map_err(|e| format!("invalid LLVM IR: {e}"))?;
@@ -532,9 +539,8 @@ fn emit_module(
     }
     let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
     passes.extend(options.sanitize.passes(options.opt_level));
-    let env_passes = std::env::var("JAIC_O0_PASSES").ok();
     if options.opt_level == OptLevel::O0
-        && let Some(p) = &env_passes
+        && let Some(p) = &options.codegen.o0_passes
     {
         passes.push(p);
     }
@@ -572,7 +578,7 @@ fn emit_module(
         return Err(format!("could not write `{}`", path.display()));
     }
     if split_after_opt && !options.sanitize.any() {
-        let units = split::units_for(&module);
+        let units = split::units_for(&module, options.codegen.split_units);
         if units > 1 {
             let make = || target_machine(options).map(|(machine, ..)| machine);
             return split::emit(&module, units, path, build_target.is_windows(), &make);
@@ -593,7 +599,7 @@ fn emit_module(
 
 /// Where codegen unit `unit` writes its copy of an IR or bitcode output: the path itself for the
 /// first unit, `x.1.ll`, `x.2.ll`... for the others. Units are normally one when IR is asked for;
-/// `JAIC_CODEGEN_UNITS` can force several, and each then keeps its own file instead of the units
+/// `-codegen_units` can force several, and each then keeps its own file instead of the units
 /// overwriting one another.
 fn unit_path(path: &Path, unit: u32) -> PathBuf {
     if unit == 0 {
@@ -739,20 +745,17 @@ const OPT_INSTS_PER_UNIT: usize = 20_000;
 /// Most modules an optimized build is divided into before the optimizer.
 const MAX_OPT_UNITS: usize = 8;
 
-/// How many modules to split codegen into: `JAIC_CODEGEN_UNITS` when set, otherwise one
+/// How many modules to split codegen into: `-codegen_units` when set, otherwise one
 /// per 5,000 IR instructions (at most one per core) for unoptimized builds and one per 20,000
 /// for optimized ones, which are divided by who calls whom and keep copies of small callees for
-/// inlining (`partition.rs`). Sanitized builds stay whole, even under `JAIC_CODEGEN_UNITS`: on
+/// inlining (`partition.rs`). Sanitized builds stay whole, even under `-codegen_units`: on
 /// Intel macOS the linker records only the first sanitized unit in the debug map, and the reports
 /// lose the other units' lines.
 fn codegen_units(program: &Program, options: &Options) -> usize {
     if options.sanitize.any() || options.codegen.single_unit {
         return 1;
     }
-    if let Some(n) = std::env::var("JAIC_CODEGEN_UNITS")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-    {
+    if let Some(n) = options.codegen.units {
         return n.max(1);
     }
     if options.emit_ir.is_some()
@@ -810,12 +813,12 @@ pub fn emit_objects(
     let cuts = inline_cuts(program, options);
     if units == 1 {
         // A program too small to divide before the optimizer is optimized whole and only
-        // machine code generation is split, unless `JAIC_CODEGEN_UNITS` asked for exactly one
+        // machine code generation is split, unless `-codegen_units` asked for exactly one
         // unit. The objects then differ from one module's only in how many there are.
         let split = options.opt_level != OptLevel::O0
             && options.emit_ir.is_none()
             && !options.codegen.single_unit
-            && std::env::var_os("JAIC_CODEGEN_UNITS").is_none();
+            && options.codegen.units.is_none();
         return emit_module(program, options, path, None, split, true, &cuts);
     }
     let plan = if options.opt_level == OptLevel::O0 {

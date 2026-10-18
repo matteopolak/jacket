@@ -185,6 +185,21 @@ check_config_parsing :: () {
         if accepted fail("bad config accepted: %", it);
     }
 
+    jacket, jacket_ok, jacket_message := parse_jacket_config("[project]\nentry = [\n  \"a.jai\", # the program\n]\n\n[format]\nindent_width = 2 # two\nignore = [\n  \"a/**\", # first\n  \"b.jai\",\n]\nbrace_style = \"preserve\"\n\n[lint.rules]\nindent_width = \"deny\"\n");
+    if !jacket_ok fail("jacket.toml rejected: %", jacket_message);
+
+    if jacket.indent_width != 2 || jacket.brace_style != .PRESERVE || jacket.ignore.count != 2 || jacket.ignore[1] != "b.jai" {
+        fail("jacket.toml [format] parsed wrong: %", jacket);
+    }
+
+    none, none_ok := parse_jacket_config("[lint]\nmax_nesting = 3\n");
+    if !none_ok || none.indent_width != 4 fail("a jacket.toml without [format] should give the defaults");
+
+    for string.["[format]\nindent_width = x\n", "[format]\nunknown = 1\n", "[format]\nignore = [\"a\"\n", "[format]\nindent_width\n"] {
+        _, accepted := parse_jacket_config(it);
+        if accepted fail("bad jacket.toml accepted: %", it);
+    }
+
     config.root = "/repo";
     if !format_is_ignored(config, "/repo/a/x/y.jai") fail("`a/**` should ignore /repo/a/x/y.jai");
     if !format_is_ignored(config, "/repo/b.jai") fail("`b.jai` should ignore /repo/b.jai");

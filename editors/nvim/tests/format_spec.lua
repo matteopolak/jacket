@@ -9,6 +9,12 @@ h.test('jaifmt.toml ignore globs are read', function()
   assert(vim.deep_equal(format.ignore_globs('indent_width = 4'), {}))
 end)
 
+h.test('jacket.toml ignore globs come from [format] only', function()
+  local toml = '[lint]\nignore = ["no"]\n[format]\nindent_width = 4\nignore = ["gen/**"]\n[experimental]\nignore = ["no"]\n'
+  assert(vim.deep_equal(format.ignore_globs(toml, '/proj/jacket.toml'), { 'gen/**' }))
+  assert(vim.deep_equal(format.ignore_globs('[lint]\nexclude = []\n', '/proj/jacket.toml'), {}))
+end)
+
 h.test('ignored files are those the globs cover, directories included', function()
   local cfg = '/proj/jaifmt.toml'
   local globs = { 'tests/corpus/**', 'vendor', './gen/*.jai' }

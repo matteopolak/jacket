@@ -37,8 +37,8 @@ def main():
         "tools/native_bindings/verify_posix_streams.py",
         "tools/native_bindings",
         "docs/specs/stdlib/modules/posix.md",
-        "jailint.toml",
-        "jaifmt.toml",
+        "jacket.toml",
+        "jacket.toml",
     ]
     snapshot, identity = capture(args.output_root, extra)
     work = Path(tempfile.mkdtemp(prefix="posix-streams-", dir=args.output_root))
@@ -195,7 +195,7 @@ def main():
         original = (snapshot / relative).read_text()
         row = run(
             "format " + relative,
-            [args.formatter, "--stdin", "--config", snapshot / "jaifmt.toml"],
+            [args.formatter, "--stdin", "--config", snapshot / "jacket.toml"],
             stdin=original,
         )
         row["passed"] = row["passed"] and row["stdout"] == original

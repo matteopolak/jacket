@@ -4,12 +4,12 @@
 //! `#load` or `#import` would bring in.
 //!
 //! Where it comes from, first match wins:
-//! 1. `jai.toml`, the nearest one at or above the document (an open one before the one on
-//!    disk): `build_files` are the entry files, `import_path` adds module folders; paths are
-//!    relative to its folder.
-//! 2. Otherwise the workspace folder holding the document, with the entry files inferred: the
-//!    first of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist (all of them
-//!    are tried as entries).
+//! 1. `jacket.toml`, the nearest config directory at or above the document (an open file before
+//!    the one on disk; a legacy `jai.toml` counts when no `jacket.toml` is there): `[project]
+//!    entry` names the entry files, `import_path` adds module folders; paths are relative to its
+//!    folder.
+//! 2. Otherwise the workspace folder holding the document, with the entry files inferred
+//!    (`jacket_config::INFERRED_ENTRIES`: all that exist are tried as entries).
 //! 3. A document no entry reaches belongs to the program of the file that `#load`s it, walking
 //!    up the loads among the files under the enclosing stdlib tree or the project folder
 //!    (`auto_import.rs` `loader_chain`); a file nothing loads is its own entry.
@@ -17,7 +17,25 @@ use std::path::{Component, Path};
 
 pub use jaic::project::*;
 
-pub const CONFIG_FILE: &str = jaic::project::JAI_TOML;
+pub use jacket_config::{EntryFiles, Project as ProjectConfig};
+
+/// Every file name whose edit changes a project's settings.
+pub const CONFIG_NAMES: [&str; 4] = [
+    jacket_config::FILE_NAME,
+    jacket_config::LEGACY_PROJECT,
+    jacket_config::LEGACY_LINT,
+    jacket_config::LEGACY_FORMAT,
+];
+
+/// `base`'s entry files: `[project] entry`, else the inferred ones; declared ones are
+/// normalised.
+pub fn entry_files(base: &Path, project: Option<&ProjectConfig>) -> EntryFiles {
+    let mut found = jacket_config::entry_files(base, project);
+    if found.declared {
+        found.paths = found.paths.iter().map(|p| normalize(p)).collect();
+    }
+    found
+}
 
 pub use jaic::paths::normalize;
 

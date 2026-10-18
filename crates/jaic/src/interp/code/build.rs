@@ -58,8 +58,8 @@ fn lower_locs(ops: &mut Vec<Op>, pool: &mut [u32], blocks: &mut [CodeBlock]) -> 
     (locs, marks)
 }
 
-/// The debugging switches in the environment, read once: looking one up costs a system call (and
-/// on Windows sets the thread's last error), which compiling each procedure should not repeat.
+/// The debugging switches (`-dev_no_sink`, `-dev_no_flow`, `-dev_dump_ops`), copied once so
+/// compiling each procedure does not look them up again.
 struct Switches {
     no_sink: bool,
     no_flow: bool,
@@ -69,9 +69,9 @@ struct Switches {
 fn switches() -> &'static Switches {
     static SWITCHES: std::sync::OnceLock<Switches> = std::sync::OnceLock::new();
     SWITCHES.get_or_init(|| Switches {
-        no_sink: std::env::var_os("JAIC_NO_SINK").is_some(),
-        no_flow: std::env::var_os("JAIC_NO_FLOW").is_some(),
-        dump_ops: std::env::var_os("JAIC_DUMP_OPS").map(|v| v.to_string_lossy().into_owned()),
+        no_sink: crate::knobs::get().no_sink,
+        no_flow: crate::knobs::get().no_flow,
+        dump_ops: crate::knobs::get().dump_ops.clone(),
     })
 }
 

@@ -139,8 +139,8 @@ def verify(cleanup):
     else:
         scopes += ['stdlib/Bindings_Generator/tests/driven/sdk/rpmalloc-raw-base-marshalling.jai',
                    'stdlib/Bindings_Generator/tests/driven/sdk/generated/rpmalloc-raw-base-heap-facade-layout.jai']
-    commands += [[formatter, '--check', '--config', 'jaifmt.toml', *scopes],
-                 [compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jailint.toml',
+    commands += [[formatter, '--check', '--config', 'jacket.toml', *scopes],
+                 [compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jacket.toml',
                   *facade_sources,
                   *[stdlib/'internal/bindings'/name for name in
                     ('rpmalloc-heaps', 'rpmalloc-sdk', 'rpmalloc-callbacks', 'rpmalloc-checked', 'rpmalloc-build')]],
@@ -155,7 +155,7 @@ def verify(cleanup):
                  ['python3', '-m', 'unittest', 'discover', '-s', 'tools/native_bindings', '-p', 'test_*.py']]
     # Staged private units are standalone programs, not newly imported modules.
     # Explicit roots preserve their context additions and check every body.
-    commands += [[compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jailint.toml',
+    commands += [[compiler.with_name('jailint'), '-D', 'warnings', '--config', 'jacket.toml',
                   '--context', program, program] for program in programs]
     for target_os in ('macos', 'linux', 'windows'):
         for cpu in ('x64', 'arm64'):

@@ -33,7 +33,7 @@ def main():
     oracle.write_text("\n".join(output) + "\n")
     shutil.copyfile(ROOT / "stdlib/internal/developer-tools/debug-formats/dwarf-line-wire.jai",
                     ROOT / "target/developer-tools-dwarf-line-wire.jai")
-    subprocess.run([str(ROOT / "target/jaifmt"), "--config", str(ROOT / "jaifmt.toml"), str(oracle)], cwd=ROOT, check=True)
+    subprocess.run([str(ROOT / "target/jaifmt"), "--config", str(ROOT / "jacket.toml"), str(oracle)], cwd=ROOT, check=True)
 
 
 if __name__ == "__main__":

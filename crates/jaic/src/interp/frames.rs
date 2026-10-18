@@ -188,7 +188,7 @@ impl Interp {
                     .get(f.0 as usize)
                     .is_none_or(|g| g.as_ref().is_none_or(|g| g.sig.conv == ir::Conv::C))
         };
-        // Straightened control flow skips some block entries, which `JAIC_PROFILE` counts.
+        // Straightened control flow skips some block entries, which `-profile` counts.
         let code = code::build(
             func,
             &offsets,

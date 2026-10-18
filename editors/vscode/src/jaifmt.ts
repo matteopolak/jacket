@@ -5,13 +5,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 export const CONFIG_FILE = "jaifmt.toml";
+export const JACKET_FILE = "jacket.toml";
 
-/** The nearest `jaifmt.toml` in `dir` or above it. */
+/** The nearest `jacket.toml` or `jaifmt.toml` in `dir` or above it; a directory's jacket.toml wins. */
 export function findConfig(dir: string, isFile: (file: string) => boolean = defaultIsFile): string | undefined {
   let current = path.resolve(dir);
   for (;;) {
-    const candidate = path.join(current, CONFIG_FILE);
-    if (isFile(candidate)) return candidate;
+    for (const name of [JACKET_FILE, CONFIG_FILE]) {
+      const candidate = path.join(current, name);
+      if (isFile(candidate)) return candidate;
+    }
     const parent = path.dirname(current);
     if (parent === current) return undefined;
     current = parent;
@@ -26,10 +29,20 @@ function defaultIsFile(file: string): boolean {
   }
 }
 
-/** The `ignore = [...]` globs of a `jaifmt.toml` (the one-line string array jaifmt accepts). */
-export function ignoreGlobs(toml: string): string[] {
+/**
+ * The `ignore = [...]` globs of a config file (the one-line string array jaifmt accepts). In a
+ * `jacket.toml` only the `[format]` table counts.
+ */
+export function ignoreGlobs(toml: string, file = CONFIG_FILE): string[] {
+  const jacket = path.basename(file) === JACKET_FILE;
+  let inFormat = !jacket;
   for (const raw of toml.split(/\r?\n/)) {
     const line = raw.replace(/^\s+/, "");
+    if (jacket && line.startsWith("[")) {
+      inFormat = /^\[\s*format\s*\]\s*(?:#.*)?$/.test(line);
+      continue;
+    }
+    if (!inFormat) continue;
     const match = /^ignore\s*=\s*\[(.*)\]\s*(?:#.*)?$/.exec(line);
     if (!match) continue;
     return [...match[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\(.)/g, "$1"));

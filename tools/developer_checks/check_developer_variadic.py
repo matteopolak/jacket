@@ -31,7 +31,7 @@ def main():
             executable = ROOT / f"target/developer-tools-variadic-emitter-o{mode}"
             run([jaic, emitter, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
-        run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", *generated])
+        run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", *generated])
         for optimization in [0, 2]:
             run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
                  *flags, driven("bindings-variadic-native.c"), "-o", ROOT / f"target/libdeveloper_tools_variadic.{suffix}"])
@@ -43,7 +43,7 @@ def main():
     paths = [emitter, consumer, *generated, ROOT / "stdlib/Bindings_Generator/module.jai",
              ROOT / "stdlib/internal/developer-tools/binding-native-model.jai",
              ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai"]
-    run([ROOT / "target/jaifmt", "--config", ROOT / "jaifmt.toml", "--check", *paths])
+    run([ROOT / "target/jaifmt", "--config", ROOT / "jacket.toml", "--check", *paths])
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
     for triple, os_tag, cpu in [("x86_64-pc-windows-msvc", "windows", "x64"),
                                 ("aarch64-unknown-linux-gnu", "linux", "arm64")]:
