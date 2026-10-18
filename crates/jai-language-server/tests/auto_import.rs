@@ -461,6 +461,110 @@ fn user_module_and_project_files() {
     assert!(list.items.iter().all(|i| i.label != "tool_only"));
 }
 
+/// A session whose stdlib is `stdlib`.
+fn session_with_stdlib(stdlib: PathBuf) -> Session {
+    Session::with_environment(
+        Limits::default(),
+        Environment {
+            fs: std::rc::Rc::new(jaic::sema::NativeFs),
+            options: Box::new(move |_| {
+                let mut options = jaic::sema::Options::host();
+                options.os = jaic::sema::TargetOs::Linux;
+                options.import_paths = vec![stdlib.clone()];
+                options.preload = Some(stdlib.join(jaic::PRELOAD_ENTRY));
+                options
+            }),
+        },
+    )
+}
+
+/// Auto-import items for `name`: (where from, the edit).
+fn sources_of(list: &CompletionList, name: &str) -> Vec<(String, String)> {
+    let mut found: Vec<_> = list
+        .items
+        .iter()
+        .filter(|i| i.label == name)
+        .map(|i| {
+            (
+                i.label_description.clone().unwrap_or_default(),
+                i.additional_edits
+                    .first()
+                    .map(|e| e.new_text.clone())
+                    .unwrap_or_default(),
+            )
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+#[test]
+fn a_workspace_holding_the_stdlib_offers_it_by_module() {
+    let dir = project(
+        "holds-stdlib",
+        &[
+            (
+                "stdlib/Basic/module.jai",
+                "#load \"scalar.jai\";\n#load \"part.jai\";\n#load \"../internal/basic/format.jai\";\n",
+            ),
+            ("stdlib/Basic/scalar.jai", "print_scalar :: () {}\n"),
+            ("stdlib/Basic/part.jai", ""),
+            ("stdlib/Basic/spare.jai", "print_spare :: () {}\n"),
+            ("stdlib/internal/basic/format.jai", "print :: () {}\n"),
+            ("tools/helpers.jai", "print_helper :: () {}\n"),
+        ],
+    );
+    let mut s = session_with_stdlib(dir.join("stdlib"));
+    s.set_workspace_folders(vec![dir.clone()]);
+    let text = "main :: () {\n    prin\n}\n";
+    // A loose file of the stdlib imports the module, and loads no stdlib file.
+    let list = complete_at(&mut s, &dir.join("stdlib/zz.jai"), text, "prin");
+    assert_eq!(
+        sources_of(&list, "print"),
+        [("Basic".into(), "#import \"Basic\";\n\n".into())]
+    );
+    assert_eq!(
+        sources_of(&list, "print_scalar"),
+        [("Basic".into(), "#import \"Basic\";\n\n".into())]
+    );
+    assert!(sources_of(&list, "print_spare").is_empty());
+    // A file of the module sees what the module loads without an edit, and its unloaded sibling
+    // by `#load`.
+    let list = complete_at(&mut s, &dir.join("stdlib/Basic/part.jai"), text, "prin");
+    assert_eq!(
+        sources_of(&list, "print_scalar"),
+        [("scalar.jai".into(), String::new())]
+    );
+    assert_eq!(
+        sources_of(&list, "print_spare"),
+        [("spare.jai".into(), "#load \"spare.jai\";\n\n".into())]
+    );
+    assert!(sources_of(&list, "print_helper").is_empty());
+    // Outside the stdlib, the workspace's files by `#load` and the stdlib by module.
+    let list = complete_at(&mut s, &dir.join("tools/main.jai"), text, "prin");
+    assert_eq!(
+        sources_of(&list, "print"),
+        [("Basic".into(), "#import \"Basic\";\n\n".into())]
+    );
+    assert_eq!(
+        sources_of(&list, "print_helper"),
+        [("helpers.jai".into(), "#load \"helpers.jai\";\n\n".into())]
+    );
+    // Outside the workspace, only the module.
+    let list = complete_at(
+        &mut s,
+        Path::new("/auto-import/outside/main.jai"),
+        text,
+        "prin",
+    );
+    assert_eq!(
+        sources_of(&list, "print"),
+        [("Basic".into(), "#import \"Basic\";\n\n".into())]
+    );
+    assert!(sources_of(&list, "print_helper").is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn names_of_files_the_program_already_loads_need_no_edit() {
     // `main.jai` is the inferred entry; it loads `a.jai` and `b.jai`. Editing `b.jai` alone, the

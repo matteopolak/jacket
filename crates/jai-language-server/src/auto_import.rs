@@ -668,6 +668,25 @@ fn builds_for(only_os: &Option<Vec<String>>, os: TargetOs) -> bool {
         .is_none_or(|targets| targets.iter().any(|t| t == name))
 }
 
+/// The name of the module of `dir` that `file` is part of: its folder (`Basic/x.jai`, and
+/// `Extensions/Name/x.jai` in the stdlib) or the file itself (`Name.jai`).
+fn module_of(file: &Path, dir: &Path) -> Option<String> {
+    let parts: Vec<String> = file
+        .strip_prefix(dir)
+        .ok()?
+        .iter()
+        .map(|c| c.to_string_lossy().into_owned())
+        .collect();
+    match parts.as_slice() {
+        [extensions, name, _, ..] if extensions == jaic::STDLIB_EXTENSIONS_DIR => {
+            Some(format!("{extensions}/{name}"))
+        }
+        [folder, _, ..] => Some(folder.clone()),
+        [file] => file.strip_suffix(".jai").map(str::to_string),
+        [] => None,
+    }
+}
+
 /// Ranks of stdlib modules: common ones (`Basic`, `String`, ...) first, `Extensions/` last.
 fn stdlib_rank(module: &str) -> u32 {
     match jaic::sema::COMMON_MODULES.iter().position(|m| *m == module) {
@@ -847,10 +866,20 @@ impl Session {
         // (rank, source, declaration)
         let mut found: Vec<(u32, Source, Decl)> = Vec::new();
         let matches = |d: &Decl| d.lower.starts_with(&lower) && !visible.contains(&d.name);
-        // The project's other files.
+        // The project's other files. A stdlib the workspace holds is offered through its modules
+        // below, not file by file; only a program inside one of its folders (a module's own
+        // files) sees the files there.
         let module_dirs = program.module_dirs.clone();
+        let stdlib = program
+            .stdlib
+            .as_deref()
+            .map(|s| sources.key(s))
+            .filter(|s| !program.dir.starts_with(s) || program.dir == *s);
         for f in sources.project_files(&mut index, &program.dir) {
-            if f == file || module_dirs.iter().any(|d| f.starts_with(d)) {
+            if f == file
+                || module_dirs.iter().any(|d| f.starts_with(d))
+                || stdlib.as_ref().is_some_and(|s| f.starts_with(s))
+            {
                 continue;
             }
             let scan = sources.scan(&mut index, &f);
@@ -883,8 +912,14 @@ impl Session {
                 }
             }
         }
-        // Modules: the project's, then the stdlib's (one the project has hides it).
-        let mut seen_modules = BTreeSet::new();
+        // Modules: the project's, then the stdlib's (one the project has hides it), never the
+        // module the document is part of.
+        let mut seen_modules: BTreeSet<String> = module_dirs
+            .iter()
+            .cloned()
+            .chain(program.stdlib.as_deref().map(|s| sources.key(s)))
+            .filter_map(|d| module_of(&file, &d))
+            .collect();
         let mut sets: Vec<(Rc<Vec<Module>>, bool)> = module_dirs
             .iter()
             .map(|d| (sources.user_modules(&mut index, d), true))
