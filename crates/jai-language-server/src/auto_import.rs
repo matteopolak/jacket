@@ -22,8 +22,6 @@ use crate::project::{self, CONFIG_FILE, INFERRED_ENTRIES, ProjectConfig};
 use crate::semantic::Environment;
 use crate::session::Session;
 use jaic::sema::TargetOs;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -172,13 +170,13 @@ pub(crate) struct Sources<'a> {
     pub(crate) env: &'a Environment,
     pub(crate) open: BTreeMap<PathBuf, &'a str>,
     /// `canonical_key` of the paths asked about, each a few file system calls.
-    keys: RefCell<HashMap<PathBuf, PathBuf>>,
+    keys: jaic::paths::CanonCache,
 }
 
 impl Session {
     /// The open documents and lint configurations over the file system of `env`.
     pub(crate) fn sources<'a>(&'a self, env: &'a Environment) -> Sources<'a> {
-        let keys = RefCell::new(HashMap::default());
+        let keys = jaic::paths::CanonCache::new();
         let open = self
             .documents
             .iter()
@@ -193,13 +191,8 @@ impl Session {
     }
 }
 
-fn memo_key(keys: &RefCell<HashMap<PathBuf, PathBuf>>, env: &Environment, path: &Path) -> PathBuf {
-    if let Some(key) = keys.borrow().get(path) {
-        return key.clone();
-    }
-    let key = canonical_key(env, path);
-    keys.borrow_mut().insert(path.to_path_buf(), key.clone());
-    key
+fn memo_key(keys: &jaic::paths::CanonCache, env: &Environment, path: &Path) -> PathBuf {
+    keys.get_or_insert_with(path, |path| canonical_key(env, path))
 }
 
 fn hash(text: &str) -> u64 {

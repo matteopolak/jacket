@@ -267,23 +267,12 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
 /// a lint. Only paths that resolved are kept.
 fn canonical(path: &Path) -> PathBuf {
     thread_local! {
-        static KNOWN: std::cell::RefCell<HashMap<PathBuf, PathBuf>> = std::cell::RefCell::default();
+        static KNOWN: jaic::paths::CanonCache = jaic::paths::CanonCache::new();
     }
     KNOWN.with(|known| {
-        if let Some(found) = known.borrow().get(path) {
-            return found.clone();
-        }
-        match path.canonicalize() {
-            Ok(found) => {
-                let mut known = known.borrow_mut();
-                if known.len() >= 20_000 {
-                    known.clear();
-                }
-                known.insert(path.to_path_buf(), found.clone());
-                found
-            }
-            Err(_) => path.to_path_buf(),
-        }
+        known
+            .canonicalize(path)
+            .unwrap_or_else(|_| path.to_path_buf())
     })
 }
 

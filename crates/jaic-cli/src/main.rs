@@ -76,10 +76,6 @@ mod timings {
     }
 }
 
-fn stdlib_dir() -> PathBuf {
-    jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
-}
-
 /// Where `tools/native/build_native_libs.py` (or a release package) puts third-party libraries for this
 /// host, or the `JAIC_NATIVE_LIBS` path list.
 fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
@@ -1389,7 +1385,7 @@ fn run(cli: Cli) -> ExitCode {
 }
 
 fn compile_and_run(mut cli: Cli) -> ExitCode {
-    let stdlib = stdlib_dir();
+    let stdlib = jaic::default_stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         print_error(&message);
         return ExitCode::from(1);

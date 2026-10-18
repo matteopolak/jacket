@@ -2,6 +2,7 @@
 //! declaration pass that enters top-level statements into scopes.
 use super::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind};
 use super::*;
+use crate::paths::normalize;
 use std::path::Path;
 
 /// Source access. Native builds read the filesystem; the browser supplies a
@@ -123,30 +124,6 @@ impl FileSystem for VirtualFs {
         }
         out.into_iter().collect()
     }
-}
-
-/// Lexically normalize `a/./b/../c` without touching the filesystem.
-pub fn normalize(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                // `/..` is `/`, as on a real filesystem; a relative path keeps leading `..`.
-                if out.has_root() && out.parent().is_none() {
-                } else if out
-                    .components()
-                    .next_back()
-                    .is_none_or(|c| c == std::path::Component::ParentDir)
-                    || !out.pop()
-                {
-                    out.push("..");
-                }
-            }
-            c => out.push(c.as_os_str()),
-        }
-    }
-    out
 }
 
 /// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.

@@ -6,7 +6,7 @@ Which file a path names is decided by one key, `FileSystem::canonical` (`crates/
 
 ## How it works
 
-`canonical` normalises lexically (`.`, `..`, duplicate separators), then, when the file exists, resolves it on disk (`jaic::canonicalize`: symlinks, on-disk case, Windows `\\?\` prefixes stripped). A file that is not on disk (an unsaved editor buffer, the browser's virtual file system) keeps its lexical form. The language server's overlay file system (`OverlayFs`) also folds Windows drive letters and separators (`document::path_key`), so open documents and disk files meet in the same key.
+`canonical` normalises lexically (`.`, `..`, duplicate separators), then, when the file exists, resolves it on disk (`jaic::paths::canonicalize`: symlinks, on-disk case, Windows `\\?\` prefixes stripped). A file that is not on disk (an unsaved editor buffer, the browser's virtual file system) keeps its lexical form. The language server's overlay file system (`OverlayFs`) also folds Windows drive letters and separators (`document::path_key`), so open documents and disk files meet in the same key.
 
 The key is used for:
 
@@ -18,6 +18,8 @@ Display keeps the spelling the user wrote (diagnostic text, `#filepath`).
 
 ## How to change it
 
+Path helpers live in `crates/jaic/src/paths.rs` and are shared by `jaic`, `jailsp` and `jailint`: `normalize` (lexical), `canonicalize` (no verbatim prefix), `CanonCache` (remembers resolved paths; use it instead of a hand-rolled `HashMap<PathBuf, PathBuf>`) and `default_stdlib_dir()` (`JAIC_STDLIB`, else `stdlib/` next to the executable or its symlink target, else the repository's). Add new path helpers there rather than in a tool.
+
 Compare paths through `canonical`, not with `==` or `starts_with` on strings. Do not add separator or prefix fixes at a comparison site; fix `canonical`. Virtual sources (`<input>`) have no path on disk and compare as written.
 
 ## Configuration
@@ -26,4 +28,4 @@ None.
 
 ## Dependencies
 
-`std::fs::canonicalize` through `jaic::canonicalize`; the language server's `OverlayFs`. Tests: `crates/jai-language-server/tests/build_file_entries.rs` (each spelling above, a symlinked project folder, a case variant, a build file in a subfolder).
+`std::fs::canonicalize` through `jaic::paths`; the language server's `OverlayFs`. Tests: `crates/jai-language-server/tests/build_file_entries.rs` (each spelling above, a symlinked project folder, a case variant, a build file in a subfolder).

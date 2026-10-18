@@ -13,7 +13,7 @@
 //! 3. A document no entry reaches belongs to the program of the file that `#load`s it, walking
 //!    up the loads among the files under the enclosing stdlib tree or the project folder
 //!    (`auto_import.rs` `loader_chain`); a file nothing loads is its own entry.
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path};
 
 pub const CONFIG_FILE: &str = "jai.toml";
 
@@ -122,20 +122,7 @@ fn string(text: &str) -> Option<String> {
     (!inner.contains('"')).then(|| inner.to_string())
 }
 
-/// `path` with `.` and `..` resolved without touching the disk.
-pub fn normalize(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => out.push(other),
-        }
-    }
-    out
-}
+pub use jaic::paths::normalize;
 
 /// `target` relative to the folder `from`, with `/` separators (`../util/strings.jai`).
 pub fn relative(from: &Path, target: &Path) -> String {

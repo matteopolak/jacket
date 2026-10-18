@@ -212,7 +212,7 @@ static ALLOCATOR: jai_language_server::large_alloc::LargeBlocksToOs =
 #[cfg(not(target_arch = "wasm32"))]
 fn native_environment() -> jai_language_server::Environment {
     use std::path::PathBuf;
-    let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
+    let stdlib = jaic::default_stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         eprintln!("warning: {message}");
     }

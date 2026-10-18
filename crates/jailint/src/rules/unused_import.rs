@@ -187,7 +187,7 @@ fn module_identifiers(
         let src = compiler.sources.get(f.id);
         let path = PathBuf::from(&src.path);
         // Every file of the module counts once, however it is reached.
-        seen.insert(std::fs::canonicalize(&path).unwrap_or(path.clone()));
+        seen.insert(jaic::canonicalize(&path).unwrap_or(path.clone()));
         if f.id == file {
             own = Some(path);
         } else {
@@ -224,7 +224,7 @@ fn count(
             Tok::Directive(d) if d.as_str() == "load" => {
                 if let Some(Tok::Str(s)) = tokens.get(i + 1).map(|t| &t.tok) {
                     let target = dir.join(String::from_utf8_lossy(s).as_ref());
-                    let key = std::fs::canonicalize(&target).unwrap_or(target.clone());
+                    let key = jaic::canonicalize(&target).unwrap_or(target.clone());
                     if seen.insert(key)
                         && let Ok(text) = std::fs::read_to_string(&target)
                     {

@@ -19,6 +19,7 @@ use crate::config::Config;
 use crate::{Lint, lint_files};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::interp::{SandboxHost, SharedHost};
+use jaic::paths::CanonCache;
 use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -98,28 +99,9 @@ impl Root {
 }
 
 fn canonical(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path)
+    jaic::canonicalize(path)
         .or_else(|_| std::path::absolute(path))
         .unwrap_or_else(|_| path.to_path_buf())
-}
-
-/// Canonical paths, remembered for one run: the file system does not change under it, and every
-/// root asks about the same few hundred stdlib paths.
-#[derive(Default)]
-struct Canon(Mutex<HashMap<PathBuf, PathBuf>>);
-
-impl Canon {
-    fn get(&self, path: &Path) -> PathBuf {
-        if let Some(found) = self.0.lock().expect("canon lock").get(path) {
-            return found.clone();
-        }
-        let resolved = canonical(path);
-        self.0
-            .lock()
-            .expect("canon lock")
-            .insert(path.to_path_buf(), resolved.clone());
-        resolved
-    }
 }
 
 /// Which root reports each file. A file several roots compile is reported from the first of
@@ -399,7 +381,7 @@ struct RootedFs {
     virtual_source: Option<(PathBuf, Vec<u8>)>,
     /// Paths that exist, resolved: the compiler asks about the same few hundred files for
     /// every access check and import.
-    resolved: RefCell<HashMap<PathBuf, PathBuf>>,
+    resolved: CanonCache,
 }
 
 impl RootedFs {
@@ -439,17 +421,10 @@ impl FileSystem for RootedFs {
 
     fn canonical(&self, path: &Path) -> PathBuf {
         let path = self.at(path);
-        if let Some(found) = self.resolved.borrow().get(&path) {
-            return found.clone();
-        }
-        match jaic::canonicalize(&path) {
-            Ok(real) => {
-                self.resolved.borrow_mut().insert(path, real.clone());
-                real
-            }
-            // Not there: the compiler's lexical form, asked for again next time.
-            Err(_) => NativeFs.canonical(&path),
-        }
+        // Not there: the compiler's lexical form, asked for again next time.
+        self.resolved
+            .canonicalize(&path)
+            .unwrap_or_else(|_| NativeFs.canonical(&path))
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
@@ -483,7 +458,7 @@ fn lint_root(
     index: usize,
     options: &Options,
     report: &BTreeSet<PathBuf>,
-    canon: &Canon,
+    canon: &CanonCache,
     claims: &Claims,
 ) -> RootResult {
     let _release = Release {
@@ -512,13 +487,13 @@ fn lint_root(
     // directories are invocation configuration, so anchor them before that rebasing.
     // Also anchor nonexistent roots: they must not accidentally find a source-local shadow.
     for path in &mut copts.import_paths {
-        *path = canon.get(path);
+        *path = canon.get_or_insert_with(path, canonical);
     }
     copts
         .preload
         .get_or_insert_with(|| options.stdlib.join(jaic::PRELOAD_ENTRY));
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
-        resolved: RefCell::default(),
+        resolved: CanonCache::new(),
         base: main_dir.clone(),
         virtual_source: match root {
             Root::Module {
@@ -599,7 +574,7 @@ fn lint_root(
                     module
                         .path
                         .as_ref()
-                        .is_some_and(|path| canon.get(path) == *entry)
+                        .is_some_and(|path| canon.get_or_insert_with(path, canonical) == *entry)
                 }) {
                     compiler
                         .add_source(&ProgramSource::File(dir.join(".jailint-module-root.jai")))?;
@@ -649,7 +624,8 @@ fn lint_root(
         let files = (0..compiler.sources.len() as u32)
             .map(jaic::source::FileId)
             .filter_map(|f| {
-                let path = canon.get(Path::new(&compiler.sources.get(f).path));
+                let path =
+                    canon.get_or_insert_with(Path::new(&compiler.sources.get(f).path), canonical);
                 report.contains(&path).then_some((f, path))
             })
             .collect();
@@ -698,7 +674,10 @@ fn lint_root(
         if !own.is_empty() {
             let mut found = lint_files(&mut compiler, &own, &options.config, complete);
             for l in &mut found {
-                l.path = canon.get(Path::new(&l.path)).to_string_lossy().into_owned();
+                l.path = canon
+                    .get_or_insert_with(Path::new(&l.path), canonical)
+                    .to_string_lossy()
+                    .into_owned();
             }
             lints.extend(found);
         }
@@ -727,7 +706,7 @@ pub fn run(options: &Options) -> Outcome {
     let mut results: Vec<Option<Sent>> = (0..roots.len()).map(|_| None).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected = std::sync::Mutex::new(Vec::new());
-    let canon = Canon::default();
+    let canon = CanonCache::new();
     let claims = Claims::new(roots.len());
     let wanted = if options.jobs == 0 {
         std::thread::available_parallelism().map_or(1, |n| n.get().min(MAX_AUTO_JOBS))

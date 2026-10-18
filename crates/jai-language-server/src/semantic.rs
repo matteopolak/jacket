@@ -8,7 +8,7 @@ use jaic::sema::ide::{IdeFacts, IdeLayout, IdeName};
 use jaic::sema::{Compiler, FileSystem, Options, TargetOs};
 use jaic::source::{FileId, ImportSuggestion};
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -119,7 +119,7 @@ struct OverlayFs {
     dir: PathBuf,
     files: BTreeMap<PathBuf, Rc<[u8]>>,
     /// `canonical` answers so far: a compile asks about the same paths over and over.
-    canonical: RefCell<HashMap<PathBuf, PathBuf>>,
+    canonical: jaic::paths::CanonCache,
 }
 
 impl OverlayFs {
@@ -132,14 +132,9 @@ impl OverlayFs {
     }
 
     fn canonical_of(&self, path: &Path) -> PathBuf {
-        if let Some(known) = self.canonical.borrow().get(path) {
-            return known.clone();
-        }
-        let found = crate::document::file_key(&*self.base, &self.at(path));
-        self.canonical
-            .borrow_mut()
-            .insert(path.to_path_buf(), found.clone());
-        found
+        self.canonical.get_or_insert_with(path, |path| {
+            crate::document::file_key(&*self.base, &self.at(path))
+        })
     }
 }
 
@@ -593,7 +588,7 @@ pub struct Cache {
     /// so the one compile kept for another target keeps answering.
     pub answered: BTreeMap<PathBuf, TargetOs>,
     /// Canonical forms of the paths compiled, so a request does not ask the file system again.
-    canonical: BTreeMap<PathBuf, PathBuf>,
+    canonical: jaic::paths::CanonCache,
     /// Programs compiled so far.
     compiles: usize,
     /// Parsed files compiles share: most files are the same from one compile to the next.
@@ -792,14 +787,9 @@ impl Cache {
         let files: BTreeMap<PathBuf, Rc<[u8]>> = files
             .iter()
             .map(|(p, t)| {
-                let canonical = match self.canonical.get(p) {
-                    Some(c) => c.clone(),
-                    None => {
-                        let c = crate::document::file_key(&*env.fs, p);
-                        self.canonical.insert(p.clone(), c.clone());
-                        c
-                    }
-                };
+                let canonical = self
+                    .canonical
+                    .get_or_insert_with(p, |p| crate::document::file_key(&*env.fs, p));
                 (canonical, t.clone())
             })
             .collect();
@@ -1012,7 +1002,7 @@ fn compile(
         base: env.fs.clone(),
         dir: dir.clone(),
         files,
-        canonical: RefCell::default(),
+        canonical: jaic::paths::CanonCache::new(),
     });
     let options = || {
         let mut options = (env.options)(root);

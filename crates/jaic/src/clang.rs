@@ -353,7 +353,7 @@ fn open_api(explicit: &str) -> Result<(Api, String), String> {
 /// A libclang that cannot place its resource directory (a Homebrew or conda LLVM loaded from another
 /// prefix) would otherwise stop on the first `#include <stdarg.h>`.
 fn builtin_include_dir(libclang: &str) -> Option<String> {
-    let lib = std::fs::canonicalize(libclang).ok()?;
+    let lib = crate::canonicalize(libclang).ok()?;
     let clang = lib.parent()?.join("clang");
     let mut found: Vec<_> = std::fs::read_dir(clang)
         .ok()?

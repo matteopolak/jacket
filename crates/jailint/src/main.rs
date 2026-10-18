@@ -231,7 +231,7 @@ fn run() -> Result<ExitCode, String> {
     let config_path = match &args.config {
         Some(p) => Some(p.clone()),
         None => {
-            let first = args.paths[0].canonicalize().unwrap_or(cwd.clone());
+            let first = jaic::canonicalize(&args.paths[0]).unwrap_or(cwd.clone());
             let start = if first.is_dir() {
                 first
             } else {
@@ -267,11 +267,11 @@ fn run() -> Result<ExitCode, String> {
             return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
         }
     }
-    let stdlib = jaic::stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"));
+    let stdlib = jaic::default_stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         return Err(message);
     }
-    let stdlib = stdlib.canonicalize().unwrap_or(stdlib);
+    let stdlib = jaic::canonicalize(&stdlib).unwrap_or(stdlib);
     let mut compiler_options = jaic::sema::Options::host();
     args.target.apply(&mut compiler_options)?;
     let options = jailint::driver::Options {
