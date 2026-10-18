@@ -129,6 +129,12 @@ pub struct ExportState {
     resolved_headers: HashMap<(ProcId, bool), i64>,
     /// Declarations made for `resolved_declaration` of names outside the exported tree.
     resolved_decls: HashMap<EntityId, i64>,
+    /// What each name resolved to in each scope, so an identifier used many times in a body is
+    /// looked up once. Dropped whenever an entity has been added since, as a new declaration
+    /// (from a metaprogram) can change what a name means.
+    name_lookups: HashMap<(ScopeId, Sym), Option<EntityId>>,
+    /// The entity count the cached lookups were made at.
+    name_lookups_at: usize,
     /// The polymorph instances made for each call (by the call's span), so a call's
     /// `resolved_procedure_expression` is the instance it called, not the generic procedure.
     pub call_instances: HashMap<Span, Vec<ProcId>>,
@@ -1155,7 +1161,21 @@ impl Exporter<'_> {
         }
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
-        let id = *c.lookup(scope, name).ok()?.first()?;
+        if c.export.name_lookups_at != c.entities.len() {
+            c.export.name_lookups.clear();
+            c.export.name_lookups_at = c.entities.len();
+        }
+        let id = match c.export.name_lookups.get(&(scope, name)) {
+            Some(&cached) => cached?,
+            None => {
+                let found = c
+                    .lookup(scope, name)
+                    .ok()
+                    .and_then(|ids| ids.first().copied());
+                c.export.name_lookups.insert((scope, name), found);
+                found?
+            }
+        };
         if let Some(&decl) = c.export.resolved_decls.get(&id) {
             return Some(decl);
         }
