@@ -34,8 +34,8 @@ from pathlib import Path
 from native.build_native_libs import output_dir  # noqa: E402
 from repo_output import host_platform  # noqa: E402
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
 
 # What each platform needs from the zip's lib/ folder: the static library first.

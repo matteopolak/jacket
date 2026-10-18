@@ -30,8 +30,8 @@ from pathlib import Path
 
 from stdlib.case_capabilities import user_deferred_reason
 from repo_output import host_platform
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 UPSTREAM = ROOT / "corpus/upstream"
 CHECKS = ROOT / "tools/corpus/upstream-smoke.json"
 WINDOWS = sys.platform == "win32"

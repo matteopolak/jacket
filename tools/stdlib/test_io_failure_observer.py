@@ -14,9 +14,9 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from toolkit.repo import ROOT
 
 sys.dont_write_bytecode = True
-ROOT = Path(__file__).resolve().parents[2]
 assigned_scratch = importlib.import_module("ci.ci_test_scratch").assigned_scratch
 
 spec = importlib.util.spec_from_file_location(

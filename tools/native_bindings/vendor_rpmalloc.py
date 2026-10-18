@@ -21,8 +21,8 @@ from rpmalloc_heap_facade import public_c_header, layout_probes
 from native_bindings.rpmalloc_profiles import PROFILES, parameters, select_blocks, heap_module, callbacks_module
 from native_bindings.prepare_rpmalloc import patch_provenance
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'stdlib/internal/bindings/rpmalloc-sdk'
 SCALARS = {'void': 'void', 'int': 's32', 'unsigned int': 'u32',
            'size_t': 'u64', 'char': 'u8'}

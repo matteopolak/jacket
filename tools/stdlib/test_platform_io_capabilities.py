@@ -15,8 +15,8 @@ from unittest.mock import Mock, patch
 
 from check_platform_io import CONTRACTS, main, run_wasm_contract, wasm_contract_reason
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 CASES = {c["id"]: c for c in validated_entries()}
 SOURCES = {name: CASES[name]["path"] for name in CONTRACTS}
 NATIVE_ONLY = [n for n in CONTRACTS if wasm_contract_reason(SOURCES[n])]

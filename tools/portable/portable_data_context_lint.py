@@ -12,8 +12,8 @@ import os
 from pathlib import Path
 import subprocess
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 PROFILES = tuple(
     (target_os, cpu)
     for target_os in ("macos", "linux", "windows")

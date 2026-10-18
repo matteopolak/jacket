@@ -14,8 +14,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 from pathlib import Path
 
 from generators.jai_codegen import emit_generated, generator_parser
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def main():

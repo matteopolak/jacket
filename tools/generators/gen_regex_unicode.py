@@ -15,11 +15,11 @@ import unicodedata
 import urllib.request
 import zipfile
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
 UCD_VERSION = "17.0.0"
 UCD_URL = f"https://www.unicode.org/Public/{UCD_VERSION}/ucd/UCD.zip"
 UCD_SHA256 = "2066d1909b2ea93916ce092da1c0ee4808ea3ef8407c94b4f14f5b7eb263d28e"
-ROOT = Path(__file__).resolve().parent.parent.parent
 OUTPUT = ROOT / "stdlib" / "Extensions" / "Regex" / "unicode_data.jai"
 MAX_CP = 0x10FFFF
 LINE_WIDTH = 110

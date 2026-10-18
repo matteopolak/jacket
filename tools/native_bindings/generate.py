@@ -24,8 +24,8 @@ from native_bindings.spec import Declaration, Shape
 from rpmalloc_context import render_context
 from conditions import possible
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 MANUAL_FACADE_SOURCES = {
     'rpmalloc': ('wrappers.jai', 'allocator.jai', 'statistics.jai'),
 }

@@ -33,8 +33,8 @@ from pathlib import Path
 
 from repo_output import shared_output_dir
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST = ROOT / 'tools' / 'bindings' / 'webgpu.json'
 OUT_JAI = ROOT / 'stdlib' / 'Extensions' / 'WebGPU' / 'generated.jai'
 OUT_JAI_WASM = ROOT / 'stdlib' / 'Extensions' / 'WebGPU' / 'generated_wasm.jai'

@@ -17,8 +17,7 @@ import subprocess
 import sys
 from repo_output import host_platform
 from toolkit.hashing import sha256_file
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def file_sha256(path):

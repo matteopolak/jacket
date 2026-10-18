@@ -30,8 +30,8 @@ from numerics.numerics_case_capabilities import (
     apply_numerics_capabilities,
     numerics_unavailable_reason,
 )
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 COMPILER_REGRESSIONS = "tests/compiler/regressions"
 
 ROW_KEYS = frozenset(

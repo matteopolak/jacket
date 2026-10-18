@@ -4,11 +4,12 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
+from toolkit.repo import ROOT
+
 import sys
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tools/native_bindings'))
 from vendor_records import record_shape, assertions
 from generate import generate_facade

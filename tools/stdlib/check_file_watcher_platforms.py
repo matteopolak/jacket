@@ -15,8 +15,8 @@ import platform
 import subprocess
 import tempfile
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 OWN = [
     "stdlib/File_Watcher/module.jai",
     "stdlib/internal/watching/portable-model.jai",

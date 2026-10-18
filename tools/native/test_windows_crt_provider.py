@@ -11,8 +11,8 @@ import re
 import unittest
 
 from native_bindings.config import LIBRARIES
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 SYMBOLS = {"_beginthreadex", "_endthreadex", "getenv", "_wgetenv"}
 
 

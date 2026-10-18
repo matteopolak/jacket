@@ -18,8 +18,7 @@ import sys
 
 from clipboard_linux_diagnostics import report_failure
 from toolkit.hashing import sha256_file
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def require_runtime_verification(proof, prior):

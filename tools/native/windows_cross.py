@@ -31,9 +31,9 @@ import subprocess
 import sys
 import tempfile
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 from stdlib import stdlib_runtime  # noqa: E402
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [

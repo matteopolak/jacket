@@ -18,8 +18,7 @@ import platform
 import subprocess
 from stdlib.stdlib_runtime import runtime_prefix
 from window_render_tests import WINDOW_RENDER_TESTS
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def main():

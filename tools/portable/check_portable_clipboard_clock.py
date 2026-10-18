@@ -14,8 +14,7 @@ import platform
 import subprocess
 import tempfile
 from toolkit.hashing import sha256_file
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def main():

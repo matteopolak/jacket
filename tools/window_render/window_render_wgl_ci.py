@@ -22,8 +22,8 @@ import subprocess
 from cleanroom_lint_contexts import canonical, checked_coverage
 from window_render_tests import WINDOW_RENDER_TESTS
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 CASES = (
     "windows-wgl-driver",
     "windows-render-events",
@@ -124,7 +124,6 @@ def probe_loaded_expected_driver(stdout, expected, alternatives=()):
         except OSError:
             continue
     return False
-
 
 
 def deploy_driver(driver, machine, directories):

@@ -35,8 +35,8 @@ from stdlib.stdlib_test_catalog import (
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from repo_output import host_platform
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 MODES = ["interp", "native", "wasm-interp", "wasm-native", "check"]
 COVERAGE_LOCK = threading.Lock()
 CLIPBOARD_LOCK = threading.Lock()

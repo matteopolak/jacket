@@ -11,8 +11,8 @@ from pathlib import Path
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "docs/specs/stdlib/modules"
 GROUPS = [
     ("Video scan and reconstruction", ["PICTURE_RATE", "ZIG_ZAG", "INTRA_QUANT_MATRIX",

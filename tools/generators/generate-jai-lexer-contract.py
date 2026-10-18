@@ -11,9 +11,7 @@ from pathlib import Path
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser
-
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def main():

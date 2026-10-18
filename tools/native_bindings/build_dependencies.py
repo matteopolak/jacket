@@ -30,8 +30,8 @@ from native_bindings.prepare_rpmalloc import prepare as prepare_rpmalloc
 from native_bindings.rpmalloc_profiles import PROFILES
 from native_bindings.build_rpmalloc import build as build_rpmalloc
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 INPUTS = {
     'lz4': {'lz4'}, 'xxhash070': {'xxhash'}, 'meshoptimizer': {'meshoptimizer'},

@@ -16,12 +16,12 @@ import shutil
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[2]
 from native_bindings.build_dependencies import prepare_source  # noqa: E402
 from native_bindings.prepare_rpmalloc import prepare  # noqa: E402
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
 TARGETS = {
     "windows-x64-mingw": ("x86_64-w64-mingw32", "IMAGE_FILE_MACHINE_AMD64"),

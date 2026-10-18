@@ -19,8 +19,7 @@ from unittest.mock import patch
 from ci.ci_test_scratch import assigned_scratch
 from stdlib import stdlib_runtime as runtime
 from stdlib.stdlib_test_catalog import validated_entries
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 class IoUringSourceOnly(unittest.TestCase):

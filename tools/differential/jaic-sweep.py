@@ -30,8 +30,8 @@ import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 UPSTREAM = ROOT / "corpus/upstream"
 # Upstream cases with `copy` run in a scratch copy of those project directories (`link` names
 # read-only siblings to symlink next to them), so a build that writes generated files never

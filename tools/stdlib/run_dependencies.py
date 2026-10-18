@@ -14,9 +14,7 @@ from pathlib import Path
 import subprocess
 import sys
 from repo_output import output_dir
-
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def main():

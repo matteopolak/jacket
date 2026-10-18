@@ -16,8 +16,8 @@ import unittest
 from unittest.mock import patch
 
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {
     "GetRect/tests/native-clipboard": {"macos"},
     "GetRect/tests/native-cursors": {"macos", "windows"},

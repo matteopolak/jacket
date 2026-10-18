@@ -19,8 +19,8 @@ import re
 import sys
 from pathlib import Path
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "packaging"
 REPOSITORY = "matteopolak/jacket"
 

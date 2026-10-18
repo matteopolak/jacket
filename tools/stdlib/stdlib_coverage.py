@@ -13,12 +13,13 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
+from toolkit.repo import ROOT
+
 import argparse
 import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 STDLIB = ROOT / "stdlib"
 from stdlib import stdlib_runtime  # noqa: E402
 

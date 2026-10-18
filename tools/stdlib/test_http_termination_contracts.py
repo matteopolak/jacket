@@ -11,8 +11,8 @@ import unittest
 
 from stdlib.stdlib_runtime import contract_result
 from stdlib.stdlib_test_catalog import case_for_mode, unavailable_reason, validated_entries
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 EXPECTED = {
     "Extensions/Http/tests/wasm-termination-status": (37, "before exit 37\n"),
     "Extensions/Http/tests/wasm-termination-failure": (

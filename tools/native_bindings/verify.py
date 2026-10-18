@@ -35,8 +35,8 @@ from verification_policy import (
     module_result,
 )
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 TARGET_CONFIGS = [
     (os_name, cpu)
     for os_name in ("linux", "macos", "windows")

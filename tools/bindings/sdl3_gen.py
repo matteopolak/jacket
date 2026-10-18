@@ -18,8 +18,8 @@ from bindings import sdl3_coverage as coverage
 from repo_output import output_dir
 from pathlib import Path
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = ROOT / 'stdlib/Extensions/SDL3'
 TARGETS = {'macos-x64': 'x86_64-apple-macos10.12', 'macos-arm64': 'arm64-apple-macos11',
            'linux-x64': 'x86_64-unknown-linux-gnu', 'linux-arm64': 'aarch64-unknown-linux-gnu',

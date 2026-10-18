@@ -19,8 +19,8 @@ import subprocess
 from repo_output import output_dir
 from cargo_build_paths import checked_directory, configured_target_directory, pinned_cargo_command
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 BUNDLED_GLUE = ("engine.mjs", "webgpu_host.mjs", "webgpu_bindings.generated.mjs", "README.md")
 
 

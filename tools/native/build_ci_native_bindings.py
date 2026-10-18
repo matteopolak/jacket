@@ -17,11 +17,11 @@ import shlex
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[2]
 from native_bindings.build_dependencies import INPUTS  # noqa: E402
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
 from native_bindings.build_rpmalloc import platform_c_flags  # noqa: E402
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
 
 def selected_libraries():

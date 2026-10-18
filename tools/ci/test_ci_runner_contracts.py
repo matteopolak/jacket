@@ -19,8 +19,8 @@ import unittest
 from stdlib import stdlib_runtime
 from stdlib import stdlib_coverage
 from stdlib.stdlib_test_catalog import validated_entries, unavailable_reason
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 SCRATCH = os.environ.get("RUNNER_TEMP") or os.environ.get("TMPDIR") or tempfile.gettempdir()
 
 

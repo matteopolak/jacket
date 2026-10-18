@@ -16,8 +16,7 @@ import re
 import argparse
 from generate import format_source
 from toolkit.hashing import sha256_file
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def c_enums(header):

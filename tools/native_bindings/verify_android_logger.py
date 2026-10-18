@@ -18,8 +18,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_OUT = '4:Jai:payload\nsink-complete\nfresh-out\n6:tag:second\nsink-complete\n'
 EXPECTED_ERR = 'fresh-error\n'
 

@@ -24,8 +24,8 @@ import sys
 import time
 
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 # The platform programs this driver builds for Windows and runs through the Wasm checks, as ids
 # of the stdlib test catalogue.

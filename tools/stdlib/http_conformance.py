@@ -46,8 +46,8 @@ import time
 from pathlib import Path
 from native.http_native import ensure_native_libraries
 from stdlib.stdlib_test_catalog import validated_entries
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
 
 # Reviewed Http test inventory. Exact IDs make a missing standalone test fail dispatch rather than

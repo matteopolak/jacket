@@ -25,8 +25,8 @@ import re
 
 from generators.jai_codegen import emit_generated, generator_parser
 from native_bindings.spec import parse_spec
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 OSES = ["macos", "linux", "android", "windows"]
 
 

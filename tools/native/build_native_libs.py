@@ -31,8 +31,8 @@ from pathlib import Path
 
 from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST = ROOT / 'tools' / 'native' / 'native-libs.json'
 
 # The Clang target of each Windows platform directory.

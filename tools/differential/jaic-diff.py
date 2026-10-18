@@ -31,8 +31,8 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import argparse, importlib.util, json, os, re, select, shutil, subprocess, sys, tempfile, threading, time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 _spec = importlib.util.spec_from_file_location("jaic_sweep", ROOT / "tools/differential/jaic-sweep.py")
 sweep = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sweep)

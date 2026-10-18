@@ -18,8 +18,8 @@ import tempfile
 
 from clipboard_linux_diagnostics import failure_diagnostic, report_failure
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 JAI = [
     "stdlib/Clipboard/module.jai",
     "stdlib/internal/clipboard/linux.jai",

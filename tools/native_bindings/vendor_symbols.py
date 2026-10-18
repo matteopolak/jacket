@@ -15,8 +15,7 @@ import json
 from pathlib import Path
 import subprocess
 from toolkit.hashing import sha256_file
-
-ROOT = Path(__file__).resolve().parents[2]
+from toolkit.repo import ROOT
 
 
 def ast(path, target=None):

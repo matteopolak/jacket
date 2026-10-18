@@ -46,8 +46,8 @@ from native.http_native import ensure_native_libraries
 from check_io_burst_diagnostics import observe_process
 from io_failure_observer import FailureGroup, source_identity
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_TESTS = [
     "stdlib/Extensions/Io/tests/backends.jai",
     "stdlib/Extensions/Io/tests/tcp.jai",

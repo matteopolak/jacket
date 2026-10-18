@@ -25,8 +25,8 @@ import urllib.request
 from native.fetch_url import fetch
 from repo_output import host_platform
 from toolkit.hashing import sha256_file
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 PLAN = json.loads((ROOT / "tools/native/audio_native_plan.json").read_text())
 
 
