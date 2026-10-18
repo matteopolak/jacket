@@ -106,9 +106,7 @@ jobs:
         run: |
           rustup toolchain install nightly-2026-08-29 --profile minimal --component rustfmt --component clippy
           rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/rust-cache
       - name: Validate dependency ages and public source inputs
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
         env:
@@ -1252,7 +1250,10 @@ jobs:
         run: test "$("$JAIC" tests/compiler/native/windows/variadic.jai -interp | tr -d '\r')" = ok
       - name: Install Mesa's software OpenGL
         if: ${{ !cancelled() }}
-        run: bash tools/install_ci_mesa_windows.sh "$CPU" "$MESA_DIR"
+        # Beside jaic.exe too, for the interpreter runs below.
+        run: |
+          bash tools/install_ci_mesa_windows.sh "$CPU" "$MESA_DIR"
+          cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"
       # The stdlib runtime tests run in `windows-stdlib`; the steps below link the third-party
       # libraries (FreeType, stb_*...) built here.
       - name: Build the native libraries

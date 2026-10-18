@@ -65,6 +65,4 @@ runs:
         # and the llvm-config front that llvm-sys needs (docs/tools/llvm-setup.md).
         bash tools/windows-llvm/prepare.sh "$llvm"
     # The dependencies' build output, restored everywhere and saved from main.
-    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      with:
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+    - uses: ./.github/actions/rust-cache

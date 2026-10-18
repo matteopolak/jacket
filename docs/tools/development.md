@@ -80,7 +80,7 @@ Workflows in `.github/workflows/`:
 | `release.yml` | tags ([releases](releases.md)) |
 | `compile-bench.yml`, `browser-release.yml` | manual only ([benchmarks](benchmarks.md), [browser releases](../browser/playground.md)) |
 
-Shared setup lives in composite actions: `.github/actions/setup-unix` (pinned nightly Rust, Python, LLVM 23, Linux native libraries), `setup-windows`, `windows-provider` and `native-libs-cache` (see [Caches and shards](#caches-and-shards)). `tools/ci_native_deps.sh {developer|clipboard|full}` builds the native helper libraries the jobs link.
+Shared setup lives in composite actions: `.github/actions/setup-unix` (pinned nightly Rust, Python, LLVM 23, Linux native libraries), `setup-windows`, `windows-provider`, `rust-cache` and `native-libs-cache` (see [Caches and shards](#caches-and-shards)). `tools/ci_native_deps.sh {developer|clipboard|full}` builds the native helper libraries the jobs link.
 
 `ci.yml` starts with a `changes` job that runs `tools/ci_changes.py`, which diffs the pushed range (or PR base; anything undiffable runs everything) and sets `<area>=true|false` outputs for the path-gated jobs: `sdl3`, `clipboard-linux`, `nix`, packaging (`shellcheck`, `install-sh`, `install-ps1`, `homebrew`) and the `windows-*` jobs, plus `code`, which is false when only prose changed (see [Caches and shards](#caches-and-shards)). To gate a job on more paths, add a pattern to `AREAS` in that script (tests: `tools/test_ci_changes.py`). Editing `ci.yml` or `.github/actions/` runs every area.
 
@@ -111,9 +111,11 @@ The time goes into running tests, not into building the tools: a job's own `carg
 
 | Cache | Where | Key | Saved |
 | --- | --- | --- | --- |
-| Cargo registry and dependency builds | `Swatinem/rust-cache` in `setup-unix`, `setup-windows` and `scripting-wasm` | job, OS, toolchain, `Cargo.lock`, Cargo env vars (rust-cache's own) | from `main` only |
+| Cargo registry and dependency builds | `.github/actions/rust-cache` (`Swatinem/rust-cache`), used by `setup-unix`, `setup-windows` and `scripting-wasm` | job, OS, toolchain, `Cargo.lock`, Cargo env vars (rust-cache's own) | from `main` only |
 | `target/native-libs` ([native libraries](native-libs.md)) | `.github/actions/native-libs-cache` | OS, CPU, `LLVM_VERSION`, and the hash of `tools/native-libs.json`, `tools/native/**` and the build scripts | from `main`, when the job succeeds |
 | The official LLVM archive (Windows CI, every `release.yml` platform but macOS x64) | `$RUNNER_TEMP/llvm-download` | the archive's file name | on a miss, from any ref |
+
+rust-cache saves all of `target/` and only trims cargo's profile directories, so the action then deletes every other entry under `target/`: the tools keep working state there (`target/cache/upstream`, `target/clipboard-linux`...) that would otherwise come back half-deleted and break the next run. Keep tool output out of `target/<profile>/`, which is cached.
 
 The native libraries are the cache that matters (SDL3 alone takes about three minutes to build). The jobs build them with `tools/build_native_libs.py --missing`, which builds only the libraries absent from `target/native-libs/<platform>`, so a restored directory costs nothing and a new key (any change to the manifest or the scripts) rebuilds from scratch. There are no `restore-keys` for that reason: an older set would be kept as it is. A build input outside the key (a new script the build imports) must be added to the `hashFiles` list in the action. Linux and macOS arm64 install LLVM from apt and Homebrew, which are fast and not cached; the `sdl3` job builds SDL3 itself on purpose and has no cache.
 

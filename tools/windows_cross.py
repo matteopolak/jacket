@@ -512,9 +512,9 @@ def use_cross_libs(args):
         [
             sys.executable,
             str(ROOT / "tools/build_native_libs.py"),
+            "--missing",
             "--platform",
             platform,
-            "--missing",
         ],
         check=True,
     )

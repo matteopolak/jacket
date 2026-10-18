@@ -1,0 +1,22 @@
+name: Cache the Rust dependencies
+description: >-
+  Restores cargo's registry and the dependencies' build output (Swatinem/rust-cache), saved from
+  main, then removes everything else the cache brought back under target/.
+runs:
+  using: composite
+  steps:
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+    # rust-cache saves all of target/ and only trims cargo's profile directories, so the tools'
+    # own working directories there (target/cache/upstream, target/clipboard-linux...) come back
+    # half-deleted. Keep the profile directories (they hold .fingerprint, directly or under a
+    # target triple) and drop the rest.
+    - shell: bash
+      run: |
+        shopt -s nullglob dotglob
+        for entry in target/*; do
+          case "$entry" in target/CACHEDIR.TAG | target/.rustc_info.json) continue ;; esac
+          nested=("$entry"/*/.fingerprint)
+          [ -d "$entry/.fingerprint" ] || [ ${#nested[@]} -gt 0 ] || rm -rf "$entry"
+        done
