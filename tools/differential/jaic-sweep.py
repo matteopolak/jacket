@@ -62,7 +62,7 @@ def upstream_root(c):
 def make_workdir(c):
     root = Path(tempfile.mkdtemp(prefix=f"jaic-sweep-{c['id']}-"))
     copy, link = c.get("copy", []), c.get("link", [])
-    if "copy" not in c and (c["mode"] == "build" or c.get("run_after")):
+    if "copy" not in c and (c["mode"] == "build" or c.get("run_after") or c.get("setup")):
         # A confined build writes only inside a scratch copy of its project; its siblings are links.
         copy = [c["path"].split("/")[0]]
         link = [p.name for p in UPSTREAM.iterdir() if p.name != copy[0]]
@@ -596,7 +596,7 @@ def main():
     if "upstream" in a.sets:
         for c in json.loads((ROOT / "tools/upstream-cases.json").read_text()):
             if a.filter in c["id"] and wanted(c["id"]):
-                if "copy" in c or (SANDBOX and (c["mode"] == "build" or c.get("run_after"))):
+                if "copy" in c or (SANDBOX and (c["mode"] == "build" or c.get("run_after") or c.get("setup"))):
                     WORKDIRS[c["id"]] = make_workdir(c)
                 for command in c.get("setup", []):
                     box = case_box(c["id"])

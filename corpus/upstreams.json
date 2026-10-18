@@ -10913,9 +10913,9 @@
     },
     {
       "repository": "DavidColson/Photon",
-      "revision": "411c40500451defac6d9717344694df9f351796f",
-      "latest_jai_change": "2026-10-05T20:37:02+01:00",
-      "source_of_truth": "https://github.com/DavidColson/Photon/tree/411c40500451defac6d9717344694df9f351796f",
+      "revision": "258b248ea2162e7fdf0fcc72e7559f3240f9d23f",
+      "latest_jai_change": "2026-10-16T21:40:03+01:00",
+      "source_of_truth": "https://github.com/DavidColson/Photon/tree/258b248ea2162e7fdf0fcc72e7559f3240f9d23f",
       "selection": "recent-source",
       "files": [
         {
@@ -10925,8 +10925,8 @@
         },
         {
           "path": "build.jai",
-          "bytes": 12143,
-          "sha256": "ec484cf3c13584f2448c2c34717d2387d434deb88c3a1998cb11856ce6e98820"
+          "bytes": 12818,
+          "sha256": "15f8a3dac4c385d9ba6144c7bed127af69b4a47a4773b14d6542a9df3f54ffe1"
         },
         {
           "path": "modules/Input/android.jai",
@@ -11320,28 +11320,23 @@
         },
         {
           "path": "source/command_palette.jai",
-          "bytes": 44877,
-          "sha256": "ac23b1fdf434dbea16faf632fd24b0a9cfcc0a1e382ddd06edc6d759198e2586"
+          "bytes": 44649,
+          "sha256": "a69c4200a30f22aba4f9907b32573c623391385969dd1b7b238ca8a86cbdf9b5"
         },
         {
           "path": "source/command_system.jai",
-          "bytes": 15814,
-          "sha256": "30d908c35cf5c6095f3439502365be268dcc15f4cda3f6ae1949a311e7efb4b2"
+          "bytes": 17969,
+          "sha256": "fb016bfc26997eb7259a3021f5ffdf916bfe012c59790d6e56f3f94d7d37400b"
         },
         {
           "path": "source/commands.jai",
-          "bytes": 66961,
-          "sha256": "a7f59b4b6e33e045d86a7dea50a0d7de33c9fa6fb6ee8433eec11b9c400c79af"
-        },
-        {
-          "path": "source/cvarexample.jai",
-          "bytes": 12559,
-          "sha256": "a0aa3acfbba7fe30c3bf3ecbd9918257b073a376e7ccc492c5b5e1c7397799d9"
+          "bytes": 76811,
+          "sha256": "5e0ef684247950b6fbb0d1511b42839af74be2cf70c74eb12e9139d0372ff310"
         },
         {
           "path": "source/document.jai",
-          "bytes": 84393,
-          "sha256": "4f3204bc00f5530d5d4181904fa7833fa7843ccace28bb229228e5ed4a7675f0"
+          "bytes": 84902,
+          "sha256": "0831681ca5bc2788e51ec242d9f5b093ca1712b9fba802c2422a971257f00ff4"
         },
         {
           "path": "source/font.jai",
@@ -11355,13 +11350,13 @@
         },
         {
           "path": "source/main.jai",
-          "bytes": 54775,
-          "sha256": "2f3b9348a7c5d6e20589ddac71085bc8589b5997aac907b71576c68827addd5e"
+          "bytes": 55319,
+          "sha256": "6dbe7bfeb4266aa1a1c3519b09ab289c22b66616dc6126b9c121d35dcd5ea4c7"
         },
         {
           "path": "source/panel.jai",
-          "bytes": 8023,
-          "sha256": "a2c2be2dd23a26838c79f3986ff88b5bbbc85869de00fc18103b330888f00956"
+          "bytes": 9216,
+          "sha256": "50005f824c2aeb2fe1ff4b357ad1262ba879215ce7b6ec1585bf684cd8b1d390"
         },
         {
           "path": "source/platform_windows.jai",
@@ -11397,9 +11392,9 @@
     },
     {
       "repository": "kujukuju/KodaJai",
-      "revision": "9541faaae638a9af585e331746547db8fa94b60a",
-      "latest_jai_change": "2026-10-03T13:36:08+09:00",
-      "source_of_truth": "https://github.com/kujukuju/KodaJai/tree/9541faaae638a9af585e331746547db8fa94b60a",
+      "revision": "7be4946936b2df75770e12efb08ddfa91f08a2dd",
+      "latest_jai_change": "2026-10-17T00:01:24+09:00",
+      "source_of_truth": "https://github.com/kujukuju/KodaJai/tree/7be4946936b2df75770e12efb08ddfa91f08a2dd",
       "selection": "recent-source",
       "files": [
         {
@@ -11564,8 +11559,8 @@
         },
         {
           "path": "src/2d/Font.jai",
-          "bytes": 12542,
-          "sha256": "74a9c1599c03297299bdcba13a33042d21085efb14c7b0d47b50810d72c1f4e4"
+          "bytes": 12634,
+          "sha256": "56b5c8243569014f6fd94dbd28e2d5dfe2f838fc5c0c539f5828aa34f3433f82"
         },
         {
           "path": "src/2d/FramedSprite.jai",
@@ -11794,8 +11789,8 @@
         },
         {
           "path": "src/Input.jai",
-          "bytes": 25398,
-          "sha256": "f1ececd00c3d739035c31c31404513f594bf07df2c7895dbc1331dad419111cd"
+          "bytes": 26665,
+          "sha256": "8a502deef12cefb1018cf5fbf05191e0377f085e53e37b3acb070bf5e7384490"
         },
         {
           "path": "src/Material.jai",
@@ -11899,8 +11894,8 @@
         },
         {
           "path": "src/Window.jai",
-          "bytes": 36855,
-          "sha256": "d267b5bec909338545e13369dfcff5226040126f0150e56b1d3f2fd03901fa87"
+          "bytes": 37684,
+          "sha256": "59f54cd06758d4038c7a0b84ba9f844507b086ea58602241190bd3401524671a"
         },
         {
           "path": "src/assets/TriplexSansBold.jai",
@@ -12174,8 +12169,8 @@
         },
         {
           "path": "tests/InputPollTests.jai",
-          "bytes": 17545,
-          "sha256": "5c00330d3538906babbe912fcd157d4e97babc8a84fbbb5dc950bb37e75f8872"
+          "bytes": 33125,
+          "sha256": "8688b4c7f960236a46fd2c2b192dabc49489785bf2c3ab3e975b0698b0b3aca6"
         },
         {
           "path": "tests/main.jai",
