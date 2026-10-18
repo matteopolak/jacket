@@ -221,6 +221,8 @@ impl Compiler {
             Value::String(_) => TypeId::STRING,
             Value::Type(_) => TypeId::TYPE,
             Value::Null => TypeId::NULL,
+            // A procedure whose signature does not resolve reports that where it is used; as a
+            // bare value it is only an address.
             Value::Proc(p) => self.proc_type(*p, Span::NONE).unwrap_or(TypeId::VOID_PTR),
             Value::Code(_) => TypeId::CODE,
             Value::Bytes(_) | Value::Void => TypeId::VOID,

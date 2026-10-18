@@ -43,7 +43,7 @@ impl Compiler {
     ) -> Result<ast::ScopeKind> {
         let target = self.target_scope(scope, file_scope, vis);
         let exported = vis == ast::ScopeKind::Export;
-        let file = self.scope(file_scope).file.unwrap_or_default();
+        let file = self.scope_file(file_scope);
         if matches!(self.scope(scope).kind, ScopeKind::Struct(_)) {
             // Struct bodies: only constants are entities; fields are laid out separately.
             match &stmt.kind {

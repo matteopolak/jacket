@@ -943,7 +943,10 @@ impl Session {
                 let before = &text[line_start..start];
                 let name = before.split("::").next().unwrap_or("").trim();
                 if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                    let at = line_start + before.find(name).unwrap_or(0);
+                    let at = line_start
+                        + before
+                            .find(name)
+                            .expect("invariant: `name` is a piece of `before`");
                     return self.location_in(&path, &text, at, at + name.len());
                 }
                 self.location_in(&path, &text, start, end.min(start + 1).max(start))

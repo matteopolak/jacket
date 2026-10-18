@@ -48,6 +48,25 @@ fn forward_overlay_field_types_keep_the_loaded_declaration_file_scope() {
     rejects(&mut c, "Local");
 }
 
+#[test]
+fn an_import_inside_a_body_is_found_next_to_the_file_that_writes_it() {
+    // The scope of a procedure body names no file of its own; the import's folder comes from
+    // the file around it, not from the first file the compiler loaded.
+    let files = [
+        (
+            "/lib/Views/module.jai",
+            "f :: () -> int { O :: #import,file \"other.jai\"; return O.g(); }",
+        ),
+        ("/lib/Views/other.jai", "g :: () -> int { return 7; }"),
+        (
+            "/app/main.jai",
+            "V :: #import \"Views\"; main :: () { x := V.f(); }",
+        ),
+    ];
+    let mut c = compiler(&files, false);
+    succeeds(&mut c);
+}
+
 fn rejects(c: &mut Compiler, name: &str) {
     let error = c
         .compile_program(Path::new("/app/main.jai"))

@@ -397,7 +397,7 @@ fn lint_root(
             dir,
             ..
         } => {
-            // Discover bootstrap imports before supplying a fallback root import:
+            // Discover bootstrap imports before adding the root import that loads the module:
             // their dependencies may carry required parameters. Do not execute
             // top-level code or finish an empty program first: either can freeze
             // Context before the requested module registers its extensions.

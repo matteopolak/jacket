@@ -954,7 +954,11 @@ impl<'a> Cx<'a> {
                 }
                 let indent = indent_at(self.text, name.span.start as usize);
                 if trailing {
-                    let comma = le + self.text[le..].find(',').unwrap_or(0) + 1;
+                    let comma = le
+                        + self.text[le..]
+                            .find(',')
+                            .expect("invariant: `trailing` was read from a comma after the value")
+                        + 1;
                     let lines: String = missing
                         .iter()
                         .map(|(n, v)| format!("{}{indent}{n} = {v},", self.nl))

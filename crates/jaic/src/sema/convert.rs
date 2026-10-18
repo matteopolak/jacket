@@ -639,6 +639,8 @@ impl Compiler {
             (TypeKind::Pointer(inner), TypeKind::Pointer(target))
                 if *target != TypeId::VOID && *inner != TypeId::VOID =>
             {
+                // Unrelated pointee types have no `#as` path between them: the cast keeps the
+                // address as it is.
                 let offset = self.as_offset(*inner, *target).unwrap_or(0);
                 let (_, v) = self.rvalue(f, op, span)?;
                 Ok(Operand::Value {

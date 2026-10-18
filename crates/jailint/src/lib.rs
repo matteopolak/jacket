@@ -1,7 +1,7 @@
 //! `jailint`: lints for Jai programs. Rules run on the program `jaic` has type-checked (see
-//! `jaic::sema::ide`), so they know each expression's type and what each name refers to, and
-//! fall back on the source text only to stay safe where the compiler did not look (code an
-//! `#if` left out, bodies that failed to check).
+//! `jaic::sema::ide`), so they know each expression's type and what each name refers to. Where
+//! the compiler did not look (code an `#if` left out, bodies that failed to check) a rule reads
+//! the source text instead, and stays conservative about what it reports.
 //!
 //! Callers compile with [`facts::enable`] set on the compiler, then call [`lint_files`]. The
 //! `jailint` binary does this for the files on its command line ([`driver`]); the language

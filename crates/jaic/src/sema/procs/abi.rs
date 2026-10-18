@@ -21,6 +21,7 @@ impl Compiler {
             c_abi.params.push(None);
         }
         for &t in &p.params {
+            // Aggregates have no scalar type: they are passed by address.
             params.push(self.ir_ty(t).unwrap_or(Ty::Ptr));
             c_abi.params.push(if p.c_call && self.is_memory_type(t) {
                 Some(self.agg_layout(t, span)?)

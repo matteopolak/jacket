@@ -297,6 +297,8 @@ impl Compiler {
             TypeKind::Struct(s)
                 if self.types.struct_info(*s).layout != crate::types::LayoutState::Done =>
             {
+                // A struct still being laid out (its own members ask for its type info): the
+                // size is not known yet, and `-1` marks it so until the layout is done.
                 self.size_of(ty, span).map(|s| s as i128).unwrap_or(-1)
             }
             _ => self.size_of(ty, span)? as i128,

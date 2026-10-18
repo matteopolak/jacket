@@ -687,6 +687,8 @@ impl Compiler {
             loop_scope,
         );
         let flags_value = (for_.by_pointer as i128) | ((for_.reverse as i128) << 1);
+        // A program without the bootstrap prelude has no `For_Flags`; its loop macros that
+        // take the flags take a plain byte.
         let flags_ty = self
             .preload_type(PreludeType::ForFlags, span)
             .unwrap_or(TypeId::U8);
