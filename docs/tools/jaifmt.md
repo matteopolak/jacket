@@ -51,7 +51,7 @@ blank_line_after_declarations = false   # plus the five other opt-in options abo
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file; `**` crosses directories
 ```
 
-The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/compiler/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`. Format-only commits go in `.git-blame-ignore-revs` (see [development](development.md)).
+The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/compiler/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`.
 
 ## Module API
 

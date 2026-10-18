@@ -44,7 +44,7 @@ Tested by `tools/test_pre_commit_hook.py` on a temporary repository with stand-i
 
 Rust uses the pinned nightly `rustfmt` and `rustfmt.toml` (edition 2024, `max_width = 100`, compact items expanded, at most two blank lines). `tools/check_rust_format.py` first checks that every manifest under `crates/` is a workspace member (an unregistered crate would escape formatting), then runs `cargo fmt --all -- --check` and `tools/rust_item_spacing.py --check` (rustfmt does not put blank lines between multi-line items; the script does). Jai uses [jaifmt](jaifmt.md) with `jaifmt.toml`; CI runs `jaifmt --check stdlib tests benchmarks tools jaifmt examples`. A new crate must be added to `members` in the root `Cargo.toml`. Change style options in `rustfmt.toml` and land the reformat as its own commit.
 
-**Format-only commits** (repo-wide `jaifmt` or `cargo fmt`, or a style option change) contain nothing else, use the message `style: format with jaifmt` (or `rustfmt`), and are listed in `.git-blame-ignore-revs`. The hash is only known after committing, so add it in a second commit, and only after the commit has landed on `main` (a rebase changes the hash). Locally opt in once with `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
+**Format-only commits** (repo-wide `jaifmt` or `cargo fmt`, or a style option change) contain nothing else and use the message `style: format with jaifmt` (or `rustfmt`).
 
 ## Output directory
 
