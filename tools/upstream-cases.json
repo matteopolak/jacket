@@ -214,7 +214,7 @@
   {"id": "ttwj-28-28.4-allocation-pinning", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.4_allocation_pinning.jai", "mode": "run", "expect": {"stdout_ordered": ["x * y = 9588 : 9532886391493626018"], "source": "The_Way_to_Jai `// =>` annotations: examples/28/28.4_allocation_pinning.jai lines 29"}},
   {"id": "ttwj-28-28.5-get-cpu-info-feature-flags", "only": ["macos-x64", "linux-x64", "windows-x64"], "only_reason": "the build program executes the x86 CPUID instruction", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.5_get_cpu_info_feature_flags.jai", "mode": "run"},
   {"id": "ttwj-28-28.6-simd", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.6_simd.jai", "mode": "run", "expect": {"stdout_ordered": ["1, 2, 3, 4", "2, 4, 6, 8", "1, 2, 3, 4, 5, 6, 7, 8", "2, 4, 6, 8, 10, 12, 14, 16"], "source": "The_Way_to_Jai `// =>` annotations: examples/28/28.6_simd.jai lines 6, 13, 17, 24"}},
-  {"id": "ttwj-28-28.7-asm-and-macros", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.7_asm_and_macros.jai", "mode": "run", "expect": {"stdout_ordered": ["c: 17"], "source": "The_Way_to_Jai `// =>` annotations: examples/28/28.7_asm_and_macros.jai lines 21"}},
+  {"id": "ttwj-28-28.7-asm-and-macros", "only": ["macos-x64", "linux-x64", "windows-x64"], "only_reason": "the example assembles x86-64 instructions with #asm", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.7_asm_and_macros.jai", "mode": "run", "expect": {"stdout_ordered": ["c: 17"], "source": "The_Way_to_Jai `// =>` annotations: examples/28/28.7_asm_and_macros.jai lines 21"}},
   {"id": "ttwj-28-28.8-compile-time-exec", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.8_compile_time_exec.jai", "mode": "run", "expect": {"stdout_ordered": ["A: 23"], "source": "The_Way_to_Jai `// =>` annotations: examples/28/28.8_compile_time_exec.jai lines 13"}},
   {"id": "ttwj-28-28.9-loading-memory", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.9_loading_memory.jai", "mode": "run"},
   {"id": "ttwj-28-28.9-other-examples", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/28/28.9_other_examples.jai", "mode": "run"},
@@ -242,7 +242,7 @@
   {"id": "ttwj-30-cpp-library-macos", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/cpp_library/macos.jai", "mode": "run"},
   {"id": "ttwj-30-cpp-library-main", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/cpp_library/main.jai", "mode": "run", "setup": [["clang++", "-g", "-shared", "-fpic", "-install_name", "@rpath/cpp_library.dylib", "-o", "cpp_library.dylib", "cpp_library.cpp"]]},
   {"id": "ttwj-30-dynlib", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/dynlib.jai", "mode": "run"},
-  {"id": "ttwj-30-jai-raylib-build", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/jai_raylib/build.jai", "mode": "run"},
+  {"id": "ttwj-30-jai-raylib-build", "only": ["macos-x64", "linux-x64", "windows-x64"], "only_reason": "build.jai selects the x64 backend (options.backend = .X64), which needs an x86-64 host", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/jai_raylib/build.jai", "mode": "run"},
   {"id": "ttwj-30-jai-raylib-local-modules-raylib-win64-module", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/jai_raylib/local_modules/raylib_win64/module.jai", "mode": "run"},
   {"id": "ttwj-30-main", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/main.jai", "mode": "run"},
   {"id": "ttwj-30-main2", "path": "Ivo-Balbaert--The_Way_to_Jai/examples/30/main2.jai", "mode": "run"},
@@ -398,5 +398,9 @@
   {"id": "jai-protobuf-04-memory-allocation", "path": "segcore--jai-protobuf/examples/04-memory-allocation.jai", "mode": "run", "copy": ["segcore--jai-protobuf"]},
   {"id": "jai-protobuf-protoc-check", "path": "segcore--jai-protobuf/tools/protoc-jai.jai", "mode": "check"},
   {"id": "jai-format-tests", "path": "OrangeLightning219--jai-format/first.jai", "mode": "run", "args": ["-", "test"], "copy": ["OrangeLightning219--jai-format"], "link": ["OrangeLightning219--jai_parser"]},
-  {"id": "jai-format-build", "path": "OrangeLightning219--jai-format/first.jai", "mode": "build", "copy": ["OrangeLightning219--jai-format"], "link": ["OrangeLightning219--jai_parser"]}
+  {"id": "jai-format-build", "path": "OrangeLightning219--jai-format/first.jai", "mode": "build", "copy": ["OrangeLightning219--jai-format"], "link": ["OrangeLightning219--jai_parser"]},
+  {"id": "kodajai-module", "disabled": "src/3d/CubeMap.jai calls the undefined create_cubemap (the procedure is create_cube_map), so the module does not compile", "path": "kujukuju--KodaJai/module.jai", "mode": "check", "args": ["-I", "../_modules"]},
+  {"id": "kodajai-tests-main", "path": "kujukuju--KodaJai/tests/main.jai", "mode": "check", "args": ["-I", "../../_modules"]},
+  {"id": "kodajai-tests-input-poll", "path": "kujukuju--KodaJai/input_poll_tests.jai", "mode": "check", "args": ["-I", "../_modules"]},
+  {"id": "kodajai-example-deferred", "disabled": "Deferred.jai passes bool values for the FrameBufferDepthType enum parameter of FramebufferPass, which the reference compiler rejects for true", "path": "kujukuju--KodaJai/examples/deferred/example.jai", "mode": "check", "args": ["-I", "../../../_modules"]}
 ]

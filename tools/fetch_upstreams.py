@@ -28,7 +28,12 @@ REPOSITORIES = (
 # Libraries the projects above import from git submodules: pinned like the
 # projects but exempt from the recency cutoff.
 DEPENDENCIES = ('SogoCZE/jai_parser', 'ostef/Linalg', 'ostef/Jolt-Jai', 'ostef/JoltC', 'wolfpld/tracy',
-                'OrangeLightning219/jai_parser')
+                'OrangeLightning219/jai_parser',
+                # Modules KodaJai imports by name (no submodules or manifest: the newest commits).
+                'kujukuju/JaiMath', 'kujukuju/JaiGLFW', 'kujukuju/KodaPhysics', 'kujukuju/KodaSerializer',
+                'kujukuju/JaiWasmGL', 'kujukuju/JaiParallel', 'kujukuju/JaiBoundingTree',
+                'kujukuju/FixedStringJai', 'kujukuju/ContiguousJsonJai', 'kujukuju/BlockAllocatorJai',
+                'kujukuju/lz4_static')
 # Metaprogramming libraries that exercise the Compiler module's node API (typed
 # compiler_get_nodes, compiler_get_code, TYPECHECKED bodies). Few change often, so they
 # are exempt from the recency cutoff too.
@@ -103,6 +108,19 @@ MODULE_LINKS = (
     ('_modules/hyperserve', 'rluba--hyperserve'),
     # uniform's build file loads its test runner from its own `modules/stubborn`.
     ('rluba--uniform/modules/stubborn', 'rluba--stubborn'),
+    # KodaJai imports its author's modules by name.
+    ('_modules/KodaJai', 'kujukuju--KodaJai'),
+    ('_modules/JaiMath', 'kujukuju--JaiMath'),
+    ('_modules/JaiGLFW', 'kujukuju--JaiGLFW'),
+    ('_modules/KodaPhysics', 'kujukuju--KodaPhysics'),
+    ('_modules/KodaSerializer', 'kujukuju--KodaSerializer'),
+    ('_modules/JaiWasmGL', 'kujukuju--JaiWasmGL'),
+    ('_modules/JaiParallel', 'kujukuju--JaiParallel'),
+    ('_modules/JaiBoundingTree', 'kujukuju--JaiBoundingTree'),
+    ('_modules/FixedStringJai', 'kujukuju--FixedStringJai'),
+    ('_modules/ContiguousJsonJai', 'kujukuju--ContiguousJsonJai'),
+    ('_modules/BlockAllocatorJai', 'kujukuju--BlockAllocatorJai'),
+    ('_modules/lz4_static', 'kujukuju--lz4_static'),
 )
 ROOT = Path(__file__).resolve().parents[1]
 
