@@ -21,7 +21,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `objc_alloc :: (class: Class) -> id #no_context`
 - `objc_copy :: (self: *$instancetype) -> *instancetype #no_context`
 - `autorelease :: (self: *$instancetype) -> id #no_context`
-- `release :: (self: *$instancetype) -> id #no_context`
+- `release :: (self: *$instancetype) -> id #no_context @Releases`
 - `retain :: (self: *$instancetype) -> *instancetype #no_context`
 - `class :: (self: id) -> Class #no_context`
 - `superclass :: (self: id) -> Class #no_context`

@@ -134,8 +134,9 @@ EOF
 $jai_list
 EOF
             [ -z "$partial" ] || warn "partially staged, linted as in the working tree:$partial"
+            # A platform's modules (Windows, Linux, X11, ...) cannot compile on another host, as in `just lint`.
             say "jailint -D warnings"
-            if ! with_list "$jailint" -D warnings <<EOF
+            if ! with_list "$jailint" -D warnings --allow-incomplete <<EOF
 $jai_list
 EOF
             then

@@ -40,18 +40,19 @@ libc :: #library,system "c";
 
 }
 
-#if OS == .LINUX && CPU == .X64 {
-    epoll_event :: struct {
-        events: u32;
-        data: epoll_data #align 4;
+#if OS == .LINUX {
+    #if CPU == .X64 {
+        epoll_event :: struct {
+            events: u32;
+            data: epoll_data #align 4;
+        }
     }
 
-}
-
-#if OS == .LINUX && CPU == .ARM64 {
-    epoll_event :: struct {
-        events: u32;
-        data: epoll_data;
+    #if CPU == .ARM64 {
+        epoll_event :: struct {
+            events: u32;
+            data: epoll_data;
+        }
     }
 
 }

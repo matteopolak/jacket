@@ -123,7 +123,7 @@ def render_record(name, rows):
 def render_context(spec):
     rewrite = rewrite_records(spec)
     raw = raw_records(spec, rewrite)
-    lines = ['// Generated from complete reviewed rpmalloc contextual record contracts.',
+    lines = ['// Generated from complete rpmalloc contextual record contracts.',
              '// Regenerate with tools/native_bindings/generate.py; do not hand-edit.',
              '// Private canonical types; never cast native SDK heap/span storage.',
              '#scope_module', '#if !USE_RAW {']

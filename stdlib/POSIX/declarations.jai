@@ -4719,8 +4719,6 @@ librt :: #library,system "librt";
 }
 
 #if OS == .LINUX && CPU == .ARM64 {
-    // The C header makes it another name for `struct sigcontext`; the declaration is its own
-    // type with the same fields, so the public name stays `mcontext_t`.
     mcontext_t :: struct {
         fault_address: u64;
         regs: [31] u64;
@@ -9228,7 +9226,6 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && CPU == .ARM64 {
     __O_DIRECT :: 0x10000;
-
 }
 
 #if OS == .LINUX && CPU == .X64 {
@@ -9237,7 +9234,6 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && CPU == .ARM64 {
     __O_DIRECTORY :: 0x4000;
-
 }
 
 #if OS == .LINUX {
@@ -9258,7 +9254,6 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && CPU == .ARM64 {
     __O_NOFOLLOW :: 0x8000;
-
 }
 
 #if OS == .LINUX {
@@ -10943,7 +10938,6 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && CPU == .ARM64 {
     blksize_t :: s32;
-
 }
 
 #if OS == .MACOS && CPU == .ARM64 {
@@ -19759,25 +19753,31 @@ OS_Error_Code :: #type,isa s32;
 }
 
 #if OS == .LINUX {
+    MREMAP_DONTUNMAP :: 4;
+}
+
+#if OS == .ANDROID && CPU == .ARM64 {
+    MREMAP_DONTUNMAP :: 4;
+}
+
+#if OS == .ANDROID && CPU == .X64 {
+    MREMAP_DONTUNMAP :: 4;
+}
+
+#if OS == .LINUX {
+    MREMAP_FIXED :: 2;
+}
+
+#if OS == .ANDROID && CPU == .ARM64 {
+    MREMAP_FIXED :: 2;
+}
+
+#if OS == .ANDROID && CPU == .X64 {
+    MREMAP_FIXED :: 2;
+}
+
+#if OS == .LINUX {
     MREMAP_MAYMOVE :: 1;
-    MREMAP_FIXED :: 2;
-    MREMAP_DONTUNMAP :: 4;
-}
-
-#if OS == .ANDROID && CPU == .ARM64 {
-    MREMAP_DONTUNMAP :: 4;
-}
-
-#if OS == .ANDROID && CPU == .X64 {
-    MREMAP_DONTUNMAP :: 4;
-}
-
-#if OS == .ANDROID && CPU == .ARM64 {
-    MREMAP_FIXED :: 2;
-}
-
-#if OS == .ANDROID && CPU == .X64 {
-    MREMAP_FIXED :: 2;
 }
 
 #if OS == .ANDROID && CPU == .ARM64 {
@@ -19930,7 +19930,6 @@ OS_Error_Code :: #type,isa s32;
 
 #if OS == .LINUX && CPU == .ARM64 {
     nlink_t :: u32;
-
 }
 
 #if OS == .MACOS && CPU == .ARM64 {

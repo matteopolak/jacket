@@ -148,7 +148,6 @@ winmm :: #library,system "winmm";
 
 #if OS == .WINDOWS {
     #if CPU == .ARM64 {
-        // The arm64 thread context (ARM64_NT_CONTEXT): 912 bytes.
         CONTEXT :: struct #type_info_none #align 16 {
             ContextFlags: u32;
             Cpsr: u32;
@@ -202,7 +201,9 @@ winmm :: #library,system "winmm";
             Wcr: [2] u32;
             Wvr: [2] u64;
         }
-    } else {
+    }
+
+    #if CPU == .X64 {
         CONTEXT :: struct #type_info_none #align 16 {
             P1Home: u64;
             P2Home: u64;

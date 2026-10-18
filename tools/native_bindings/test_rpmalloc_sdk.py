@@ -8,6 +8,8 @@ import json
 import re
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/native_bindings'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
+from repo_output import output_dir
 from vendor_rpmalloc import native_type, record
 from verify import ROOT, place_private_unit
 from generate import condition_for
@@ -66,7 +68,9 @@ class NativeAllocatorTranslationTests(unittest.TestCase):
         self.assertEqual({f['name'] for f in metadata['functions']} - calls,set())
 
     def test_private_unit_staging_preserves_source_and_dependency_bytes(self):
-        with tempfile.TemporaryDirectory(dir=ROOT/'.work/tmp') as directory:
+        scratch = output_dir('native-bindings', 'staging-tests')
+        scratch.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as directory:
             work = Path(directory)
             source = work/'unit.jai'
             source.write_bytes(b'// independent private unit\nmain :: () {}\n')

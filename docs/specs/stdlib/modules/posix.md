@@ -490,7 +490,8 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `_fpxreg :: struct`
 - [OS == .LINUX] `_xmmreg :: struct`
 - [OS == .LINUX] `_fpstate :: struct`
-- [OS == .LINUX] `sigcontext :: struct`
+- [OS == .LINUX && CPU == .X64] `sigcontext :: struct`
+- [OS == .LINUX && CPU == .ARM64] `sigcontext :: struct`
 - [OS == .LINUX] `sigreturn :: (__scp: *sigcontext) -> s32 #foreign libc`
 - [OS == .LINUX] `stack_t :: struct`
 - [OS == .LINUX] `greg_t :: s64`
@@ -500,8 +501,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `_libc_xmmreg :: struct`
 - [OS == .LINUX] `_libc_fpstate :: struct`
 - [OS == .LINUX] `fpregset_t :: *_libc_fpstate`
-- [OS == .LINUX] `mcontext_t :: struct`
-- [OS == .LINUX] `ucontext_t :: struct`
+- [OS == .LINUX && CPU == .X64] `mcontext_t :: struct`
+- [OS == .LINUX && CPU == .ARM64] `mcontext_t :: struct`
+- [OS == .LINUX && CPU == .X64] `ucontext_t :: struct`
+- [OS == .LINUX && CPU == .ARM64] `ucontext_t :: struct`
 - [OS == .LINUX] `siginterrupt :: (__sig: s32, __interrupt: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `sigaltstack :: (__ss: *stack_t, __oss: *stack_t) -> s32 #foreign libc`
 - [OS == .LINUX] `sighold :: (__sig: s32) -> s32 #foreign libc`
@@ -525,6 +528,9 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `mlockall :: (__flags: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `munlockall :: () -> s32 #foreign libc`
 - [OS == .LINUX] `mincore :: (__start: *void, __len: u64, __vec: *u8) -> s32 #foreign libc`
+- [OS == .LINUX] `MREMAP_MAYMOVE :: 1`
+- [OS == .LINUX] `MREMAP_FIXED :: 2`
+- [OS == .LINUX] `MREMAP_DONTUNMAP :: 4`
 - [OS == .LINUX] `mremap :: (__addr: *void, __old_len: u64, __new_len: u64, __flags: s32, __args: ..Any) -> *void #foreign libc`
 - [OS == .LINUX] `remap_file_pages :: (__start: *void, __size: u64, __prot: s32, __pgoff: u64, __flags: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `shm_open :: (__name: *u8, __oflag: s32, __mode: mode_t) -> s32 #foreign librt`
@@ -790,10 +796,13 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `O_SYNC :: 0x101000`
 - [OS == .LINUX] `O_FSYNC :: O_SYNC`
 - [OS == .LINUX] `O_ASYNC :: 0x2000`
-- [OS == .LINUX] `__O_DIRECTORY :: 0x10000`
-- [OS == .LINUX] `__O_NOFOLLOW :: 0x20000`
+- [OS == .LINUX && CPU == .X64] `__O_DIRECTORY :: 0x10000`
+- [OS == .LINUX && CPU == .ARM64] `__O_DIRECTORY :: 0x4000`
+- [OS == .LINUX && CPU == .X64] `__O_NOFOLLOW :: 0x20000`
+- [OS == .LINUX && CPU == .ARM64] `__O_NOFOLLOW :: 0x8000`
 - [OS == .LINUX] `__O_CLOEXEC :: 0x80000`
-- [OS == .LINUX] `__O_DIRECT :: 0x4000`
+- [OS == .LINUX && CPU == .X64] `__O_DIRECT :: 0x4000`
+- [OS == .LINUX && CPU == .ARM64] `__O_DIRECT :: 0x10000`
 - [OS == .LINUX] `__O_NOATIME :: 0x40000`
 - [OS == .LINUX] `__O_PATH :: 0x200000`
 - [OS == .LINUX] `__O_DSYNC :: 0x1000`
@@ -1238,8 +1247,10 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `open_by_handle_at :: (__mountdirfd: s32, __handle: *file_handle, __flags: s32) -> s32 #foreign libc`
 - [OS == .LINUX] `mode_t :: u32`
 - [OS == .LINUX] `pid_t :: s32`
-- [OS == .LINUX] `stat_t :: struct`
-- [OS == .LINUX] `stat64_t :: struct`
+- [OS == .LINUX && CPU == .X64] `stat_t :: struct`
+- [OS == .LINUX && CPU == .ARM64] `stat_t :: struct`
+- [OS == .LINUX && CPU == .X64] `stat64_t :: struct`
+- [OS == .LINUX && CPU == .ARM64] `stat64_t :: struct`
 - [OS == .LINUX] `fcntl :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc`
 - [OS == .LINUX] `fcntl64 :: (__fd: s32, __cmd: s32, __args: ..Any) -> s32 #foreign libc`
 - [OS == .LINUX] `open :: (__file: *u8, __oflag: s32, __args: ..Any) -> s32 #foreign libc`
@@ -1257,10 +1268,12 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `dev_t :: u64`
 - [OS == .LINUX] `gid_t :: u32`
 - [OS == .LINUX] `ino_t :: u64`
-- [OS == .LINUX] `nlink_t :: u64`
+- [OS == .LINUX && CPU == .X64] `nlink_t :: u64`
+- [OS == .LINUX && CPU == .ARM64] `nlink_t :: u32`
 - [OS == .LINUX] `uid_t :: u32`
 - [OS == .LINUX] `blkcnt_t :: s64`
-- [OS == .LINUX] `blksize_t :: s64`
+- [OS == .LINUX && CPU == .X64] `blksize_t :: s64`
+- [OS == .LINUX && CPU == .ARM64] `blksize_t :: s32`
 - [OS == .LINUX] `chmod :: (__file: *u8, __mode: u32) -> s32 #foreign libc`
 - [OS == .LINUX] `lchmod :: (__file: *u8, __mode: u32) -> s32 #foreign libc`
 - [OS == .LINUX] `fchmod :: (__fd: s32, __mode: u32) -> s32 #foreign libc`
@@ -1765,7 +1778,8 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .LINUX] `pthread_spinlock_t :: s32`
 - [OS == .LINUX] `pthread_barrier_t :: struct`
 - [OS == .LINUX] `pthread_barrierattr_t :: struct`
-- [OS == .LINUX] `__jmp_buf :: [8] s64`
+- [OS == .LINUX && CPU == .X64] `__jmp_buf :: [8] s64`
+- [OS == .LINUX && CPU == .ARM64] `__jmp_buf :: [22] s64`
 - [OS == .LINUX] `PTHREAD_CREATE :: enum u32`
 - [OS == .LINUX] `PTHREAD_MUTEX :: enum u32`
 - [OS == .LINUX] `PTHREAD_MUTEX_1 :: enum u32`
@@ -6672,8 +6686,8 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `POLL_PRI :: 5`
 - [OS == .ANDROID && CPU == .ARM64] `POLL_HUP :: 6`
 - [OS == .ANDROID && CPU == .ARM64] `NSIGPOLL :: 6`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_SECCOMP :: 1`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_USER_DISPATCH :: 2`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_SECCOMP :: 1`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_USER_DISPATCH :: 2`
 - [OS == .ANDROID && CPU == .ARM64] `NSIGSYS :: 2`
 - [OS == .ANDROID && CPU == .ARM64] `EMT_TAGOVF :: 1`
 - [OS == .ANDROID && CPU == .ARM64] `NSIGEMT :: 1`
@@ -6845,7 +6859,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `SHM_INFO :: 14`
 - [OS == .ANDROID && CPU == .ARM64] `SHM_STAT_ANY :: 15`
 - [OS == .ANDROID && CPU == .ARM64] `SHMLBA :: 4096`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_NMLN :: 65`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_NMLN :: 65`
 - [OS == .ANDROID && CPU == .ARM64] `WNOHANG :: 0x00000001`
 - [OS == .ANDROID && CPU == .ARM64] `WUNTRACED :: 0x00000002`
 - [OS == .ANDROID && CPU == .ARM64] `WSTOPPED :: WUNTRACED`
@@ -7610,314 +7624,314 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .ANDROID && CPU == .ARM64] `mkstemps :: (__template: *u8, __flags: s32) -> s32 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `realpath :: (__path: *u8, __resolved: *u8) -> *u8 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `system :: (__command: *u8) -> s32 #foreign libc`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_accept :: 202`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_accept4 :: 242`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_acct :: 89`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_add_key :: 217`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_adjtimex :: 171`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_arch_specific_syscall :: 244`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_bind :: 200`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_bpf :: 280`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_brk :: 214`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_capget :: 90`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_capset :: 91`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_chdir :: 49`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_chroot :: 51`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clock_adjtime :: 266`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clock_getres :: 114`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clock_gettime :: 113`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clock_nanosleep :: 115`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clock_settime :: 112`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clone :: 220`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_clone3 :: 435`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_close :: 57`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_close_range :: 436`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_connect :: 203`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_copy_file_range :: 285`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_delete_module :: 106`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_dup :: 23`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_dup3 :: 24`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_epoll_create1 :: 20`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_epoll_ctl :: 21`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_epoll_pwait :: 22`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_epoll_pwait2 :: 441`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_eventfd2 :: 19`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_execve :: 221`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_execveat :: 281`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_exit :: 93`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_exit_group :: 94`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_faccessat :: 48`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_faccessat2 :: 439`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fadvise64 :: 223`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fallocate :: 47`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fanotify_init :: 262`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fanotify_mark :: 263`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fchdir :: 50`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fchmod :: 52`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fchmodat :: 53`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fchown :: 55`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fchownat :: 54`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fcntl :: 25`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fdatasync :: 83`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fgetxattr :: 10`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_finit_module :: 273`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_flistxattr :: 13`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_flock :: 32`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fremovexattr :: 16`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fsconfig :: 431`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fsetxattr :: 7`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fsmount :: 432`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fsopen :: 430`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fspick :: 433`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fstat :: 80`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fstatfs :: 44`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_fsync :: 82`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_ftruncate :: 46`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_futex :: 98`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_futex_waitv :: 449`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_get_mempolicy :: 236`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_get_robust_list :: 100`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getcpu :: 168`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getcwd :: 17`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getdents64 :: 61`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getegid :: 177`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_geteuid :: 175`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getgid :: 176`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getgroups :: 158`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getitimer :: 102`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getpeername :: 205`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getpgid :: 155`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getpid :: 172`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getppid :: 173`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getpriority :: 141`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getrandom :: 278`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getresgid :: 150`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getresuid :: 148`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getrlimit :: 163`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getrusage :: 165`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getsid :: 156`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getsockname :: 204`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getsockopt :: 209`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_gettid :: 178`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_gettimeofday :: 169`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getuid :: 174`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_getxattr :: 8`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_init_module :: 105`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_inotify_add_watch :: 27`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_inotify_init1 :: 26`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_inotify_rm_watch :: 28`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_cancel :: 3`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_destroy :: 1`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_getevents :: 4`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_pgetevents :: 292`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_setup :: 0`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_submit :: 2`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_uring_enter :: 426`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_uring_register :: 427`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_io_uring_setup :: 425`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_ioctl :: 29`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_ioprio_get :: 31`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_ioprio_set :: 30`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_kcmp :: 272`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_kexec_file_load :: 294`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_kexec_load :: 104`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_keyctl :: 219`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_kill :: 129`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_landlock_add_rule :: 445`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_landlock_create_ruleset :: 444`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_landlock_restrict_self :: 446`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_lgetxattr :: 9`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_linkat :: 37`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_listen :: 201`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_listxattr :: 11`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_llistxattr :: 12`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_lookup_dcookie :: 18`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_lremovexattr :: 15`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_lseek :: 62`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_lsetxattr :: 6`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_madvise :: 233`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mbind :: 235`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_membarrier :: 283`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_memfd_create :: 279`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_memfd_secret :: 447`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_migrate_pages :: 238`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mincore :: 232`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mkdirat :: 34`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mknodat :: 33`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mlock :: 228`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mlock2 :: 284`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mlockall :: 230`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mmap :: 222`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mount :: 40`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mount_setattr :: 442`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_move_mount :: 429`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_move_pages :: 239`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mprotect :: 226`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mq_getsetattr :: 185`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mq_notify :: 184`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mq_open :: 180`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mq_timedreceive :: 183`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mq_timedsend :: 182`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mq_unlink :: 181`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_mremap :: 216`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_msgctl :: 187`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_msgget :: 186`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_msgrcv :: 188`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_msgsnd :: 189`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_msync :: 227`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_munlock :: 229`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_munlockall :: 231`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_munmap :: 215`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_name_to_handle_at :: 264`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_nanosleep :: 101`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_newfstatat :: 79`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_nfsservctl :: 42`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_open_by_handle_at :: 265`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_open_tree :: 428`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_openat :: 56`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_openat2 :: 437`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_perf_event_open :: 241`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_personality :: 92`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pidfd_getfd :: 438`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pidfd_open :: 434`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pidfd_send_signal :: 424`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pipe2 :: 59`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pivot_root :: 41`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pkey_alloc :: 289`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pkey_free :: 290`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pkey_mprotect :: 288`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_ppoll :: 73`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_prctl :: 167`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pread64 :: 67`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_preadv :: 69`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_preadv2 :: 286`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_prlimit64 :: 261`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_process_madvise :: 440`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_process_mrelease :: 448`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_process_vm_readv :: 270`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_process_vm_writev :: 271`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pselect6 :: 72`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_ptrace :: 117`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pwrite64 :: 68`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pwritev :: 70`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_pwritev2 :: 287`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_quotactl :: 60`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_quotactl_fd :: 443`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_read :: 63`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_readahead :: 213`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_readlinkat :: 78`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_readv :: 65`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_reboot :: 142`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_recvfrom :: 207`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_recvmmsg :: 243`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_recvmsg :: 212`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_remap_file_pages :: 234`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_removexattr :: 14`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_renameat :: 38`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_renameat2 :: 276`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_request_key :: 218`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_restart_syscall :: 128`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rseq :: 293`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigaction :: 134`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigpending :: 136`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigprocmask :: 135`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigqueueinfo :: 138`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigreturn :: 139`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigsuspend :: 133`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_sigtimedwait :: 137`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_rt_tgsigqueueinfo :: 240`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_get_priority_max :: 125`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_get_priority_min :: 126`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_getaffinity :: 123`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_getattr :: 275`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_getparam :: 121`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_getscheduler :: 120`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_rr_get_interval :: 127`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_setaffinity :: 122`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_setattr :: 274`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_setparam :: 118`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_setscheduler :: 119`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sched_yield :: 124`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_seccomp :: 277`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_semctl :: 191`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_semget :: 190`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_semop :: 193`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_semtimedop :: 192`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sendfile :: 71`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sendmmsg :: 269`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sendmsg :: 211`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sendto :: 206`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_set_mempolicy :: 237`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_set_mempolicy_home_node :: 450`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_set_robust_list :: 99`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_set_tid_address :: 96`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setdomainname :: 162`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setfsgid :: 152`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setfsuid :: 151`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setgid :: 144`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setgroups :: 159`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sethostname :: 161`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setitimer :: 103`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setns :: 268`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setpgid :: 154`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setpriority :: 140`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setregid :: 143`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setresgid :: 149`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setresuid :: 147`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setreuid :: 145`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setrlimit :: 164`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setsid :: 157`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setsockopt :: 208`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_settimeofday :: 170`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setuid :: 146`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_setxattr :: 5`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_shmat :: 196`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_shmctl :: 195`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_shmdt :: 197`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_shmget :: 194`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_shutdown :: 210`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sigaltstack :: 132`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_signalfd4 :: 74`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_socket :: 198`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_socketpair :: 199`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_splice :: 76`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_statfs :: 43`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_statx :: 291`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_swapoff :: 225`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_swapon :: 224`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_symlinkat :: 36`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sync :: 81`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sync_file_range :: 84`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_syncfs :: 267`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_syscalls :: 451`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_sysinfo :: 179`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_syslog :: 116`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_tee :: 77`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_tgkill :: 131`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timer_create :: 107`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timer_delete :: 111`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timer_getoverrun :: 109`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timer_gettime :: 108`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timer_settime :: 110`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timerfd_create :: 85`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timerfd_gettime :: 87`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_timerfd_settime :: 86`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_times :: 153`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_tkill :: 130`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_truncate :: 45`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_umask :: 166`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_umount2 :: 39`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_uname :: 160`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_unlinkat :: 35`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_unshare :: 97`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_userfaultfd :: 282`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_utimensat :: 88`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_vhangup :: 58`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_vmsplice :: 75`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_wait4 :: 260`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_waitid :: 95`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_write :: 64`
-- [OS == .ANDROID && CPU == .ARM64] `SYS_writev :: 66`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_accept :: 202`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_accept4 :: 242`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_acct :: 89`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_add_key :: 217`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_adjtimex :: 171`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_arch_specific_syscall :: 244`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_bind :: 200`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_bpf :: 280`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_brk :: 214`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_capget :: 90`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_capset :: 91`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_chdir :: 49`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_chroot :: 51`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clock_adjtime :: 266`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clock_getres :: 114`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clock_gettime :: 113`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clock_nanosleep :: 115`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clock_settime :: 112`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clone :: 220`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_clone3 :: 435`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_close :: 57`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_close_range :: 436`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_connect :: 203`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_copy_file_range :: 285`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_delete_module :: 106`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_dup :: 23`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_dup3 :: 24`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_epoll_create1 :: 20`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_epoll_ctl :: 21`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_epoll_pwait :: 22`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_epoll_pwait2 :: 441`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_eventfd2 :: 19`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_execve :: 221`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_execveat :: 281`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_exit :: 93`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_exit_group :: 94`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_faccessat :: 48`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_faccessat2 :: 439`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fadvise64 :: 223`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fallocate :: 47`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fanotify_init :: 262`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fanotify_mark :: 263`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fchdir :: 50`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fchmod :: 52`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fchmodat :: 53`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fchown :: 55`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fchownat :: 54`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fcntl :: 25`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fdatasync :: 83`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fgetxattr :: 10`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_finit_module :: 273`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_flistxattr :: 13`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_flock :: 32`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fremovexattr :: 16`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fsconfig :: 431`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fsetxattr :: 7`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fsmount :: 432`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fsopen :: 430`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fspick :: 433`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fstat :: 80`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fstatfs :: 44`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_fsync :: 82`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_ftruncate :: 46`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_futex :: 98`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_futex_waitv :: 449`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_get_mempolicy :: 236`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_get_robust_list :: 100`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getcpu :: 168`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getcwd :: 17`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getdents64 :: 61`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getegid :: 177`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_geteuid :: 175`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getgid :: 176`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getgroups :: 158`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getitimer :: 102`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getpeername :: 205`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getpgid :: 155`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getpid :: 172`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getppid :: 173`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getpriority :: 141`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getrandom :: 278`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getresgid :: 150`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getresuid :: 148`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getrlimit :: 163`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getrusage :: 165`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getsid :: 156`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getsockname :: 204`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getsockopt :: 209`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_gettid :: 178`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_gettimeofday :: 169`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getuid :: 174`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_getxattr :: 8`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_init_module :: 105`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_inotify_add_watch :: 27`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_inotify_init1 :: 26`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_inotify_rm_watch :: 28`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_cancel :: 3`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_destroy :: 1`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_getevents :: 4`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_pgetevents :: 292`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_setup :: 0`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_submit :: 2`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_uring_enter :: 426`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_uring_register :: 427`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_io_uring_setup :: 425`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_ioctl :: 29`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_ioprio_get :: 31`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_ioprio_set :: 30`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_kcmp :: 272`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_kexec_file_load :: 294`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_kexec_load :: 104`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_keyctl :: 219`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_kill :: 129`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_landlock_add_rule :: 445`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_landlock_create_ruleset :: 444`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_landlock_restrict_self :: 446`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_lgetxattr :: 9`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_linkat :: 37`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_listen :: 201`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_listxattr :: 11`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_llistxattr :: 12`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_lookup_dcookie :: 18`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_lremovexattr :: 15`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_lseek :: 62`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_lsetxattr :: 6`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_madvise :: 233`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mbind :: 235`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_membarrier :: 283`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_memfd_create :: 279`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_memfd_secret :: 447`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_migrate_pages :: 238`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mincore :: 232`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mkdirat :: 34`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mknodat :: 33`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mlock :: 228`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mlock2 :: 284`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mlockall :: 230`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mmap :: 222`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mount :: 40`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mount_setattr :: 442`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_move_mount :: 429`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_move_pages :: 239`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mprotect :: 226`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mq_getsetattr :: 185`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mq_notify :: 184`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mq_open :: 180`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mq_timedreceive :: 183`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mq_timedsend :: 182`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mq_unlink :: 181`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_mremap :: 216`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_msgctl :: 187`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_msgget :: 186`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_msgrcv :: 188`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_msgsnd :: 189`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_msync :: 227`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_munlock :: 229`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_munlockall :: 231`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_munmap :: 215`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_name_to_handle_at :: 264`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_nanosleep :: 101`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_newfstatat :: 79`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_nfsservctl :: 42`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_open_by_handle_at :: 265`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_open_tree :: 428`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_openat :: 56`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_openat2 :: 437`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_perf_event_open :: 241`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_personality :: 92`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pidfd_getfd :: 438`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pidfd_open :: 434`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pidfd_send_signal :: 424`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pipe2 :: 59`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pivot_root :: 41`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pkey_alloc :: 289`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pkey_free :: 290`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pkey_mprotect :: 288`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_ppoll :: 73`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_prctl :: 167`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pread64 :: 67`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_preadv :: 69`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_preadv2 :: 286`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_prlimit64 :: 261`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_process_madvise :: 440`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_process_mrelease :: 448`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_process_vm_readv :: 270`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_process_vm_writev :: 271`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pselect6 :: 72`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_ptrace :: 117`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pwrite64 :: 68`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pwritev :: 70`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_pwritev2 :: 287`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_quotactl :: 60`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_quotactl_fd :: 443`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_read :: 63`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_readahead :: 213`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_readlinkat :: 78`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_readv :: 65`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_reboot :: 142`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_recvfrom :: 207`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_recvmmsg :: 243`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_recvmsg :: 212`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_remap_file_pages :: 234`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_removexattr :: 14`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_renameat :: 38`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_renameat2 :: 276`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_request_key :: 218`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_restart_syscall :: 128`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rseq :: 293`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigaction :: 134`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigpending :: 136`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigprocmask :: 135`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigqueueinfo :: 138`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigreturn :: 139`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigsuspend :: 133`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_sigtimedwait :: 137`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_rt_tgsigqueueinfo :: 240`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_get_priority_max :: 125`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_get_priority_min :: 126`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_getaffinity :: 123`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_getattr :: 275`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_getparam :: 121`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_getscheduler :: 120`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_rr_get_interval :: 127`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_setaffinity :: 122`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_setattr :: 274`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_setparam :: 118`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_setscheduler :: 119`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sched_yield :: 124`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_seccomp :: 277`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_semctl :: 191`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_semget :: 190`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_semop :: 193`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_semtimedop :: 192`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sendfile :: 71`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sendmmsg :: 269`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sendmsg :: 211`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sendto :: 206`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_set_mempolicy :: 237`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_set_mempolicy_home_node :: 450`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_set_robust_list :: 99`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_set_tid_address :: 96`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setdomainname :: 162`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setfsgid :: 152`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setfsuid :: 151`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setgid :: 144`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setgroups :: 159`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sethostname :: 161`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setitimer :: 103`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setns :: 268`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setpgid :: 154`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setpriority :: 140`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setregid :: 143`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setresgid :: 149`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setresuid :: 147`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setreuid :: 145`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setrlimit :: 164`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setsid :: 157`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setsockopt :: 208`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_settimeofday :: 170`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setuid :: 146`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_setxattr :: 5`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_shmat :: 196`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_shmctl :: 195`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_shmdt :: 197`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_shmget :: 194`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_shutdown :: 210`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sigaltstack :: 132`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_signalfd4 :: 74`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_socket :: 198`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_socketpair :: 199`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_splice :: 76`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_statfs :: 43`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_statx :: 291`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_swapoff :: 225`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_swapon :: 224`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_symlinkat :: 36`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sync :: 81`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sync_file_range :: 84`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_syncfs :: 267`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_syscalls :: 451`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_sysinfo :: 179`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_syslog :: 116`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_tee :: 77`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_tgkill :: 131`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timer_create :: 107`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timer_delete :: 111`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timer_getoverrun :: 109`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timer_gettime :: 108`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timer_settime :: 110`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timerfd_create :: 85`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timerfd_gettime :: 87`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_timerfd_settime :: 86`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_times :: 153`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_tkill :: 130`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_truncate :: 45`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_umask :: 166`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_umount2 :: 39`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_uname :: 160`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_unlinkat :: 35`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_unshare :: 97`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_userfaultfd :: 282`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_utimensat :: 88`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_vhangup :: 58`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_vmsplice :: 75`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_wait4 :: 260`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_waitid :: 95`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_write :: 64`
+- [(OS == .ANDROID || OS == .LINUX) && CPU == .ARM64] `SYS_writev :: 66`
 - [OS == .ANDROID && CPU == .ARM64] `syscall :: (__number: s64, __args: ..Any) -> s64 #foreign libc`
 - [OS == .ANDROID && CPU == .ARM64] `CSIGNAL :: 0x000000ff`
 - [OS == .ANDROID && CPU == .ARM64] `CLONE_VM :: 0x00000100`
@@ -12861,17 +12875,21 @@ __pthread_internal_slist :: struct {
 
 ```jai
 __pthread_mutex_s :: struct {
-    __lock:    s32;
-    __count:   u32;
-    __owner:   s32;
+    __lock: s32;
+    __count: u32;
+    __owner: s32;
 
-    __nusers:  u32;
+    __nusers: u32;
 
-    __kind:    s32;
+    __kind: s32;
 
-    __spins:   s16;
-    __elision: s16;
-    __list:    __pthread_internal_list;
+    #if CPU == .ARM64 {
+        __spins: s32;
+    } else {
+        __spins: s16;
+        __elision: s16;
+    }
+    __list: __pthread_internal_list;
 }
 ```
 ### `__pthread_rwlock_arch_t`
@@ -14212,14 +14230,26 @@ log2phys :: struct {
 ```
 ### `mcontext_t`
 
-Variant 1 (Linux):
+Variant 1 (Linux, x64):
 
 ```jai
 mcontext_t :: struct {
-    gregs:       gregset_t;
+    gregs: gregset_t;
 
-    fpregs:      fpregset_t;
+    fpregs: fpregset_t;
     __reserved1: [8] u64;
+}
+```
+Variant 1 (Linux, ARM64):
+
+```jai
+mcontext_t :: struct {
+    fault_address: u64;
+    regs: [31] u64;
+    sp: u64;
+    pc: u64;
+    pstate: u64;
+    __reserved: [4096] u8 #align 16;
 }
 ```
 Variant 2 (Android, x64):
@@ -14349,7 +14379,11 @@ Variant 1 (Linux):
 
 ```jai
 pthread_attr_t :: struct {
-    __size: [56] u8;
+    #if CPU == .ARM64 {
+        __size: [64] u8;
+    } else {
+        __size: [56] u8;
+    }
 
     #overlay (__size) __align: s64;
 }
@@ -14390,7 +14424,11 @@ pthread_barrier_t :: struct {
 
 ```jai
 pthread_barrierattr_t :: struct {
-    __size: [4] u8;
+    #if CPU == .ARM64 {
+        __size: [8] u8;
+    } else {
+        __size: [4] u8;
+    }
 
     #overlay (__size) __align: s32;
 }
@@ -14418,7 +14456,11 @@ pthread_cond_t :: struct {
 
 ```jai
 pthread_condattr_t :: struct {
-    __size: [4] u8;
+    #if CPU == .ARM64 {
+        __size: [8] u8;
+    } else {
+        __size: [4] u8;
+    }
 
     #overlay (__size) __align: s32;
 }
@@ -14431,7 +14473,11 @@ Variant 1 (Linux):
 pthread_mutex_t :: struct {
     __data: __pthread_mutex_s;
 
-    #overlay (__data) __size:  [40] u8;
+    #if CPU == .ARM64 {
+        #overlay (__data) __size: [48] u8;
+    } else {
+        #overlay (__data) __size: [40] u8;
+    }
     #overlay (__data) __align: s64;
 }
 ```
@@ -14446,7 +14492,8 @@ pthread_mutex_t :: struct {
 
 ```jai
 pthread_mutexattr_t :: struct {
-    __size: [4] u8;
+    #if CPU == .ARM64 __size: [8] u8;
+    else __size: [4] u8;
 
     #overlay (__size) __align: s32;
 }
@@ -15091,36 +15138,36 @@ sigaltstack_t :: struct {
 ```
 ### `sigcontext`
 
-Variant 1 (Linux):
+Variant 1 (Linux, x64):
 
 ```jai
 sigcontext :: struct {
-    r8:          u64;
-    r9:          u64;
-    r10:         u64;
-    r11:         u64;
-    r12:         u64;
-    r13:         u64;
-    r14:         u64;
-    r15:         u64;
-    rdi:         u64;
-    rsi:         u64;
-    rbp:         u64;
-    rbx:         u64;
-    rdx:         u64;
-    rax:         u64;
-    rcx:         u64;
-    rsp:         u64;
-    rip:         u64;
-    eflags:      u64;
-    cs:          u16;
-    gs:          u16;
-    fs:          u16;
-    __pad0:      u16;
-    err:         u64;
-    trapno:      u64;
-    oldmask:     u64;
-    cr2:         u64;
+    r8: u64;
+    r9: u64;
+    r10: u64;
+    r11: u64;
+    r12: u64;
+    r13: u64;
+    r14: u64;
+    r15: u64;
+    rdi: u64;
+    rsi: u64;
+    rbp: u64;
+    rbx: u64;
+    rdx: u64;
+    rax: u64;
+    rcx: u64;
+    rsp: u64;
+    rip: u64;
+    eflags: u64;
+    cs: u16;
+    gs: u16;
+    fs: u16;
+    __pad0: u16;
+    err: u64;
+    trapno: u64;
+    oldmask: u64;
+    cr2: u64;
     struct {
         fpstate: *_fpstate;
 
@@ -15128,6 +15175,18 @@ sigcontext :: struct {
     }
 
     __reserved1: [8] u64;
+}
+```
+Variant 1 (Linux, ARM64):
+
+```jai
+sigcontext :: struct {
+    fault_address: u64;
+    regs: [31] u64;
+    sp: u64;
+    pc: u64;
+    pstate: u64;
+    __reserved: [4096] u8 #align 16;
 }
 ```
 Variant 2 (Android, ARM64):
@@ -15384,31 +15443,54 @@ stack_t :: struct {
 ```
 ### `stat64_t`
 
-Variant 1 (Linux):
+Variant 1 (Linux, x64):
 
 ```jai
 stat64_t :: struct {
-    st_dev:           u64;
+    st_dev: u64;
 
-    st_ino:           u64;
-    st_nlink:         u64;
-    st_mode:          u32;
+    st_ino: u64;
+    st_nlink: u64;
+    st_mode: u32;
 
-    st_uid:           u32;
-    st_gid:           u32;
+    st_uid: u32;
+    st_gid: u32;
 
-    __pad0:           s32;
-    st_rdev:          u64;
-    st_size:          s64;
+    __pad0: s32;
+    st_rdev: u64;
+    st_size: s64;
 
-    st_blksize:       s64;
-    st_blocks:        s64;
+    st_blksize: s64;
+    st_blocks: s64;
 
-    st_atime:         timespec;
-    st_mtime:         timespec;
-    st_ctime:         timespec;
+    st_atime: timespec;
+    st_mtime: timespec;
+    st_ctime: timespec;
 
     __glibc_reserved: [3] s64;
+}
+```
+Variant 1 (Linux, ARM64):
+
+```jai
+stat64_t :: struct {
+    st_dev: u64;
+    st_ino: u64;
+    st_mode: u32;
+    st_nlink: u32;
+    st_uid: u32;
+    st_gid: u32;
+    st_rdev: u64;
+    __pad1: u64;
+    st_size: s64;
+    st_blksize: s32;
+    __pad2: s32;
+    st_blocks: s64;
+    st_atime: timespec;
+    st_mtime: timespec;
+    st_ctime: timespec;
+    __unused4: u32;
+    __unused5: u32;
 }
 ```
 Variant 2 (macOS, x64):
@@ -15499,35 +15581,58 @@ stat64_t :: struct {
 ```
 ### `stat_t`
 
-Variant 1 (Linux):
+Variant 1 (Linux, x64):
 
 ```jai
 stat_t :: struct {
-    st_dev:           u64;
+    st_dev: u64;
 
-    st_ino:           u64;
+    st_ino: u64;
 
-    st_nlink:         u64;
-    st_mode:          u32;
+    st_nlink: u64;
+    st_mode: u32;
 
-    st_uid:           u32;
-    st_gid:           u32;
+    st_uid: u32;
+    st_gid: u32;
 
-    __pad0:           s32;
+    __pad0: s32;
 
-    st_rdev:          u64;
+    st_rdev: u64;
 
-    st_size:          s64;
+    st_size: s64;
 
-    st_blksize:       s64;
+    st_blksize: s64;
 
-    st_blocks:        s64;
+    st_blocks: s64;
 
-    st_atime:         timespec;
-    st_mtime:         timespec;
-    st_ctime:         timespec;
+    st_atime: timespec;
+    st_mtime: timespec;
+    st_ctime: timespec;
 
     __glibc_reserved: [3] s64;
+}
+```
+Variant 1 (Linux, ARM64):
+
+```jai
+stat_t :: struct {
+    st_dev: u64;
+    st_ino: u64;
+    st_mode: u32;
+    st_nlink: u32;
+    st_uid: u32;
+    st_gid: u32;
+    st_rdev: u64;
+    __pad1: u64;
+    st_size: s64;
+    st_blksize: s32;
+    __pad2: s32;
+    st_blocks: s64;
+    st_atime: timespec;
+    st_mtime: timespec;
+    st_ctime: timespec;
+    __unused4: u32;
+    __unused5: u32;
 }
 ```
 Variant 2 (macOS, ARM64):
@@ -15903,17 +16008,28 @@ ucontext :: struct {
 ```
 ### `ucontext_t`
 
-Variant 1 (Linux):
+Variant 1 (Linux, x64):
 
 ```jai
 ucontext_t :: struct {
-    uc_flags:     u64;
-    uc_link:      *ucontext_t;
-    uc_stack:     stack_t;
-    uc_mcontext:  mcontext_t;
-    uc_sigmask:   sigset_t;
+    uc_flags: u64;
+    uc_link: *ucontext_t;
+    uc_stack: stack_t;
+    uc_mcontext: mcontext_t;
+    uc_sigmask: sigset_t;
     __fpregs_mem: _libc_fpstate;
-    __ssp:        [4] u64;
+    __ssp: [4] u64;
+}
+```
+Variant 1 (Linux, ARM64):
+
+```jai
+ucontext_t :: struct {
+    uc_flags: u64;
+    uc_link: *ucontext_t;
+    uc_stack: stack_t;
+    uc_sigmask: sigset_t;
+    uc_mcontext: mcontext_t;
 }
 ```
 Variant 2 (macOS, ARM64):

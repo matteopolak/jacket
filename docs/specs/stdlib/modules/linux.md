@@ -10,24 +10,24 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `EPOLL_CTL_ADD :: cast(s32) Epoll_Ctl.ADD`
 - `EPOLL_CTL_DEL :: cast(s32) Epoll_Ctl.DEL`
 - `EPOLL_CTL_MOD :: cast(s32) Epoll_Ctl.MOD`
-- `EPOLLIN : u32`
-- `EPOLLPRI : u32`
-- `EPOLLOUT : u32`
-- `EPOLLERR : u32`
-- `EPOLLHUP : u32`
-- `EPOLLNVAL : u32`
-- `EPOLLRDNORM : u32`
-- `EPOLLRDBAND : u32`
-- `EPOLLWRNORM : u32`
-- `EPOLLWRBAND : u32`
-- `EPOLLMSG : u32`
-- `EPOLLRDHUP : u32`
-- `EPOLL_URING_WAKE : u32`
-- `EPOLLEXCLUSIVE : u32`
-- `EPOLLWAKEUP : u32`
-- `EPOLLONESHOT : u32`
-- `EPOLLET : u32`
-- `EPOLL_CLOEXEC : s32`
+- `EPOLLIN: u32 : 0x1`
+- `EPOLLPRI: u32 : 0x2`
+- `EPOLLOUT: u32 : 0x4`
+- `EPOLLERR: u32 : 0x8`
+- `EPOLLHUP: u32 : 0x10`
+- `EPOLLNVAL: u32 : 0x20`
+- `EPOLLRDNORM: u32 : 0x40`
+- `EPOLLRDBAND: u32 : 0x80`
+- `EPOLLWRNORM: u32 : 0x100`
+- `EPOLLWRBAND: u32 : 0x200`
+- `EPOLLMSG: u32 : 0x400`
+- `EPOLLRDHUP: u32 : 0x2000`
+- `EPOLL_URING_WAKE: u32 : 0x8000000`
+- `EPOLLEXCLUSIVE: u32 : 0x10000000`
+- `EPOLLWAKEUP: u32 : 0x20000000`
+- `EPOLLONESHOT: u32 : 0x40000000`
+- `EPOLLET: u32 : 0x80000000`
+- `EPOLL_CLOEXEC: s32 : 0x80000`
 - `epoll_data :: union`
 - `epoll_event :: struct`
 - `epoll_create :: (size: s32) -> s32 #foreign libc`
@@ -161,10 +161,17 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `_u32: u32`
 - `_u64: u64`
 
-#### `epoll_event` (struct)
+#### `epoll_event` [CPU == .X64] (struct)
 
 - `events: u32`
 - `data: epoll_data #align 4`
+
+#### `epoll_event` [CPU == .ARM64] (struct)
+
+The arm64 kernel does not pack the record, so `data` keeps its natural 8-byte alignment.
+
+- `events: u32`
+- `data: epoll_data`
 
 #### `statx_timestamp_t` (struct)
 
@@ -417,7 +424,7 @@ using IO_URING_RESTRICTION_OP :: enum {
 }
 ```
 
-`IORING_OP` implicit values are their ordinal positions (NOP is 0; `IORING_OP_LAST` follows `IORING_OP_URING_CMD`). The records and operation set are described as new and untested by their public declaration; no precise kernel release/UAPI revision is specified. The `inotify_event.name` field is the conventional one-byte flexible-tail placeholder; actual event names occupy `len` bytes after the fixed header, so callers must use `len` and the containing read buffer rather than treating the single declared byte as the full name.
+`IORING_OP` implicit values are their ordinal positions (NOP is 0; `IORING_OP_LAST` follows `IORING_OP_URING_CMD`). The records and operation set are described as new and untested by their public declaration; no precise kernel release/UAPI revision is specified. The `inotify_event.name` field is a zero-length flexible tail, so `size_of(inotify_event)` is the 16-byte fixed header; the event name occupies `len` bytes after it, so callers must use `len` and the containing read buffer.
 
 #### `io_uring_buf` (struct)
 
@@ -455,7 +462,7 @@ io_uring_buf_ring :: struct {
 - `mask: u32`
 - `cookie: u32`
 - `len: u32`
-- `name: [1] u8`
+- `name: [0] u8`
 
 #### `sys_info` (struct)
 

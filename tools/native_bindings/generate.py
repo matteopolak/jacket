@@ -24,6 +24,12 @@ MANUAL_FACADE_SOURCES = {
 }
 
 
+def split_notes(code):
+    """`proc :: () @A @B` -> (`proc :: ()`, ` @A @B`)."""
+    match = re.search(r'(?:\s+@\w+)+$', code)
+    return (code[:match.start()], match[0]) if match else (code, '')
+
+
 def format_source(code, formatter):
     if not formatter:
         return code
@@ -407,6 +413,8 @@ def generate_facade(module, spec):
             continue
         emitted.add(key)
         code = d.code.rstrip(';')
+        # Trailing declaration notes (`@Releases`) follow the body, not the signature.
+        code, notes = split_notes(code)
         if module == 'GL' and d.name == 'gl':
             # Reviewed public using-import projects this live table. A using
             # declaration preserves storage and assignment/loader updates;
@@ -529,7 +537,7 @@ def generate_facade(module, spec):
                 if body is None:
                     body = forwarding_body(module, d, spec.declarations, parts, procedure_parts)
                 if body is not None:
-                    code += ' { ' + body + ' }'
+                    code += ' { ' + body + ' }' + notes
                     record['status'] = 'implemented'
                 else:
                     record.update(status='unresolved', reason='Requires independently authored wrapper body')

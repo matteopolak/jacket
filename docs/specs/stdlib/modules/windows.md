@@ -1258,11 +1258,12 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `XSAVE_FORMAT :: struct`
 - [OS == .WINDOWS] `CONTEXT_i386 :: 0x00010000`
 - [OS == .WINDOWS] `CONTEXT_AMD64 :: 0x00100000`
-- [OS == .WINDOWS] `CONTEXT_CONTROL :: (CONTEXT_AMD64 | 0x00000001)`
-- [OS == .WINDOWS] `CONTEXT_INTEGER :: (CONTEXT_AMD64 | 0x00000002)`
+- [OS == .WINDOWS] `CONTEXT_ARM64 :: 0x00400000`
+- [OS == .WINDOWS] `CONTEXT_CONTROL :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000001) else (CONTEXT_AMD64 | 0x00000001)`
+- [OS == .WINDOWS] `CONTEXT_INTEGER :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000002) else (CONTEXT_AMD64 | 0x00000002)`
 - [OS == .WINDOWS] `CONTEXT_SEGMENTS :: (CONTEXT_AMD64 | 0x00000004)`
-- [OS == .WINDOWS] `CONTEXT_FLOATING_POINT :: (CONTEXT_AMD64 | 0x00000008)`
-- [OS == .WINDOWS] `CONTEXT_DEBUG_REGISTERS :: (CONTEXT_AMD64 | 0x00000010)`
+- [OS == .WINDOWS] `CONTEXT_FLOATING_POINT :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000004) else (CONTEXT_AMD64 | 0x00000008)`
+- [OS == .WINDOWS] `CONTEXT_DEBUG_REGISTERS :: #ifx CPU == .ARM64 then (CONTEXT_ARM64 | 0x00000008) else (CONTEXT_AMD64 | 0x00000010)`
 - [OS == .WINDOWS] `CONTEXT_FULL :: (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_FLOATING_POINT)`
 - [OS == .WINDOWS] `CONTEXT :: struct #type_info_none #align 16`
 - [OS == .WINDOWS] `IMAGEHLP_SYMBOL64 :: struct`
@@ -1541,7 +1542,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `vtable :: (obj: *IUnknown) -> *IUnknown_VTable`
 - [OS == .WINDOWS] `IUnknown_UUID :: "00000000-0000-0000-C000-000000000046"`
 - [OS == .WINDOWS] `IUnknown :: struct`
-- [OS == .WINDOWS] `safe_release :: (obj: *IUnknown)`
+- [OS == .WINDOWS] `safe_release :: (obj: *IUnknown) @Releases`
 - [OS == .WINDOWS] `safe_release_and_reset :: (b: **$T/interface IUnknown)`
 - [OS == .WINDOWS] `safe_release_and_reset :: (b: **IUnknown)`
 - [OS == .WINDOWS] `string_to_guid :: uid`
@@ -1692,7 +1693,67 @@ CONSOLE_SCREEN_BUFFER_INFO :: struct {
     dwMaximumWindowSize: COORD;
 }
 ```
-### `CONTEXT`
+### `CONTEXT` [CPU == .ARM64]
+
+The arm64 thread context (`ARM64_NT_CONTEXT`), 912 bytes.
+
+```jai
+CONTEXT :: struct #type_info_none #align 16 {
+    ContextFlags: u32;
+    Cpsr: u32;
+
+    union {
+        X: [31] u64;
+        struct {
+            X0: u64;
+            X1: u64;
+            X2: u64;
+            X3: u64;
+            X4: u64;
+            X5: u64;
+            X6: u64;
+            X7: u64;
+            X8: u64;
+            X9: u64;
+            X10: u64;
+            X11: u64;
+            X12: u64;
+            X13: u64;
+            X14: u64;
+            X15: u64;
+            X16: u64;
+            X17: u64;
+            X18: u64;
+            X19: u64;
+            X20: u64;
+            X21: u64;
+            X22: u64;
+            X23: u64;
+            X24: u64;
+            X25: u64;
+            X26: u64;
+            X27: u64;
+            X28: u64;
+            Fp: u64;
+            Lr: u64;
+        }
+    }
+
+    Sp: u64;
+    Pc: u64;
+
+    V: [32] M128A;
+    Fpcr: u32;
+    Fpsr: u32;
+
+    Bcr: [8] u32;
+    Bvr: [8] u64;
+    Wcr: [2] u32;
+    Wvr: [2] u64;
+}
+```
+
+### `CONTEXT` [CPU == .X64]
 
 ```jai
 CONTEXT :: struct #type_info_none #align 16 {
