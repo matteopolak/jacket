@@ -28,11 +28,69 @@ jai-language-server = { path = "crates/jai-language-server" }
 inkwell = { git = "https://github.com/TheDan64/inkwell", rev = "b7cbeed24af810e14cb36d703f057167b4c033a4", default-features = false, features = ["llvm23-1", "target-x86", "target-aarch64", "target-webassembly"] }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# Raw pointer and FFI code is confined to a few modules, each opting in with a scoped
+# `#[allow(unsafe_code)]`; `jaic-cli` and `jailint` carry `#![forbid(unsafe_code)]`.
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
-all = "warn"
+all = { level = "warn", priority = -1 }
 excessive_nesting = "warn"
+cognitive_complexity = "warn"
+too_many_lines = "warn"
+undocumented_unsafe_blocks = "warn"
+pedantic = { level = "warn", priority = -1 }
+# Allowed pedantic lints (each would be churn without a bug-finding payoff):
+# a name like `LowerCtx` inside `lower` is clearer at use sites than a bare `Ctx`.
+module_name_repetitions = "allow"
+# `#[must_use]` on every pure getter is noise; `unused_must_use` for real results stays on.
+must_use_candidate = "allow"
+# `# Errors` / `# Panics` sections on internal APIs would only restate the signature.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# The interpreter and backends mirror Jai's integer semantics, so narrowing, wrapping and
+# sign-changing `as` casts are deliberate everywhere; `as` widening is infallible by
+# construction. `try_from` or `from` at ~1000 sites would add noise and no checking.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+# Submodules of a split file share their parent's items via `use super::*`; spelling out every
+# name there is churn.
+wildcard_imports = "allow"
+# `lhs`/`rhs`, `a`/`b`, `ty`/`tx` pairs are idiomatic in compiler code.
+similar_names = "allow"
+many_single_char_names = "allow"
+# Opcode and AST dispatch keeps one arm per variant even when bodies coincide, so adding a
+# variant's behaviour later touches one place.
+match_same_arms = "allow"
+# Option structs mirroring command-line switches are naturally boolean-heavy.
+struct_excessive_bools = "allow"
+# The interpreter's register access, load/store and call path are hot enough that the inliner's
+# own choice measurably loses (benchmarks/); each `#[inline(always)]` there is deliberate.
+inline_always = "allow"
+# `Option<Option<T>>` is "not looked up yet" versus "looked up, absent" in the caches that use it.
+option_option = "allow"
+# `assert!(x.is_empty())` is the idiom; the lint's `assert_eq!` rewrite needs `Debug + PartialEq`
+# element types and does not compile for many of the values asserted on.
+assert_is_empty = "allow"
+# `s += &format!(..)` reads better than `write!(s, ..).unwrap()` plus an `fmt::Write` import,
+# and the extra allocation is off every hot path (diagnostics, codegen text, test output).
+format_push_string = "allow"
+format_collect = "allow"
+# Methods keep `&self` for a uniform interface (trait-shaped helpers, dispatch tables) even
+# when one implementation does not read it.
+unused_self = "allow"
+# Handlers take owned `Rc`/`Arc`/`String` handles by value to match their callers' ownership
+# and signatures; switching to references ripples through every call site.
+needless_pass_by_value = "allow"
+# Signatures that return `Option`/`Result` uniformly across a family of handlers or a callback
+# type must keep the wrapper even when one body never fails.
+unnecessary_wraps = "allow"
+# A helper `fn` declared beside its only use is clearer than one hoisted to the top of a body.
+items_after_statements = "allow"
+# Jai source files are `.jai` in lowercase; the compiler does not match other casings.
+case_sensitive_file_extension_comparisons = "allow"
 
 [profile.dev]
 debug = 0
